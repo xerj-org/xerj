@@ -239,7 +239,7 @@ live indices at http://localhost:9280:
   ax-docs                                           1 docs
   ax-exports                                      800 docs
   autoindex-catalog                                 9 docs</pre>
-  <p><code class="inline">--fresh</code> ignores the journal and restarts (ids stay idempotent).</p>
+  <p><code class="inline">--fresh</code> starts without resume state only when the selected state directory has no durable plan; it never removes stale destination records. For an independent rebuild, use a new <code class="inline">--state-dir</code>, new <code class="inline">--prefix</code>, and new <code class="inline">--brain</code> when graph detection is enabled (or add <code class="inline">--no-graph</code>). Validate before switching readers. The shared <code class="inline">autoindex-catalog</code> and old target require explicit, validated cleanup. Generated journals with <code class="inline">--no-graph</code> reconcile additions, changes, deletions, renames, and no-op reruns. Legacy journals and graph-enabled generations refuse membership changes before remote mutation.</p>
 
   <hr>
 

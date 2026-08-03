@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — fail-closed autoindex restart semantics
+
+- **`autoindex --fresh` no longer discards a durable resume plan.** A durable
+  plan contains the alias, path, graph, and stale-record knowledge needed for
+  safe reconciliation. `--fresh` is accepted only when the selected state
+  directory has no durable plan and never cleans the destination. An
+  independent rebuild must use a new state directory, new prefix, and new brain
+  namespace when graph detection is enabled (or disable graph writes), be
+  validated, and only then replace the old reader target. The shared catalog
+  and old target require explicit, validated cleanup. Generated journals with
+  `--no-graph` reconcile additions, changes, deletions, renames, and no-op
+  reruns. Legacy journals and graph-enabled generations refuse membership
+  changes before remote mutation.
+
 ## [1.0.0-rc.10] - 2026-08-03
 
 ### Security
@@ -82,7 +96,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reaching the HNSW graph. Each arrived with a standalone harness and honest
   caveats. They are tracked for the following release rather than rushed into
   this one.
-
 
 ### Changed — runtime-field types (can break existing mappings)
 

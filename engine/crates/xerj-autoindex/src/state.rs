@@ -12,9 +12,10 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
-static FILE_DONE_IO_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static FILE_DONE_IO_FAILPOINT: std::sync::Mutex<Option<(u8, PathBuf)>> =
+    std::sync::Mutex::new(None);
 #[cfg(test)]
-static SYNC_IO_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static SYNC_IO_FAILPOINT: std::sync::Mutex<Option<(u8, PathBuf)>> = std::sync::Mutex::new(None);
 #[cfg(test)]
 pub(crate) static FILE_DONE_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> =
     std::sync::Mutex::new(());
@@ -22,13 +23,13 @@ pub(crate) static FILE_DONE_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> =
 pub(crate) static SYNC_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(test)]
-pub(crate) fn fail_next_file_done_io(boundary: u8) {
-    FILE_DONE_IO_FAILPOINT.store(boundary, std::sync::atomic::Ordering::SeqCst);
+pub(crate) fn fail_next_file_done_io(boundary: u8, journal_path: &Path) {
+    *FILE_DONE_IO_FAILPOINT.lock().unwrap() = Some((boundary, journal_path.to_path_buf()));
 }
 
 #[cfg(test)]
-fn fail_next_sync_io(boundary: u8) {
-    SYNC_IO_FAILPOINT.store(boundary, std::sync::atomic::Ordering::SeqCst);
+fn fail_next_sync_io(boundary: u8, journal_path: &Path) {
+    *SYNC_IO_FAILPOINT.lock().unwrap() = Some((boundary, journal_path.to_path_buf()));
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -186,6 +187,8 @@ mod tests {
                 "{tail}"
             );
         }
+    }
+
     #[test]
     fn preflight_holds_the_same_exclusive_lock_through_authoritative_open() {
         let dir = tempfile::tempdir().unwrap();
@@ -330,7 +333,7 @@ fn apply_legacy_plan(
 }
 
 #[cfg(test)]
-fn consume_io_failpoint(what: &str, boundary: u8) -> bool {
+fn consume_io_failpoint(what: &str, boundary: u8, journal_path: &Path) -> bool {
     let failpoint = if what == "file_done" {
         &FILE_DONE_IO_FAILPOINT
     } else if what.starts_with("sync_") {
@@ -338,14 +341,18 @@ fn consume_io_failpoint(what: &str, boundary: u8) -> bool {
     } else {
         return false;
     };
-    failpoint
-        .compare_exchange(
-            boundary,
-            0,
-            std::sync::atomic::Ordering::SeqCst,
-            std::sync::atomic::Ordering::SeqCst,
-        )
-        .is_ok()
+    let mut armed = failpoint.lock().unwrap();
+    if armed
+        .as_ref()
+        .is_some_and(|(expected_boundary, expected_path)| {
+            *expected_boundary == boundary && expected_path == journal_path
+        })
+    {
+        *armed = None;
+        true
+    } else {
+        false
+    }
 }
 
 type PreflightReplay = (
@@ -441,10 +448,13 @@ fn read_plan_for_preflight(
             }
             Some(kind) if crate::sync::is_sync_record_kind(kind) => {
                 crate::sync::replay_record(&value, &mut committed_manifest, &mut pending_sync)?;
-                if kind == "sync_commit" {
+                if matches!(kind, "sync_bootstrap" | "sync_commit") {
                     plan = committed_manifest
                         .as_ref()
                         .map(|manifest| manifest.plan.clone());
+                }
+                if kind == "sync_bootstrap" {
+                    legacy_migration_reasons.clear();
                 }
             }
             Some(kind) if kind.starts_with("sync_") => {
@@ -686,10 +696,13 @@ impl Journal {
                                     &mut committed_manifest,
                                     &mut pending_sync,
                                 )?;
-                                if kind == "sync_commit" {
+                                if matches!(kind, "sync_bootstrap" | "sync_commit") {
                                     plan = committed_manifest
                                         .as_ref()
                                         .map(|manifest| manifest.plan.clone());
+                                }
+                                if kind == "sync_bootstrap" {
+                                    legacy_migration_reasons.clear();
                                 }
                             }
                             Some(kind) if kind.starts_with("sync_") => {
@@ -864,11 +877,11 @@ impl Journal {
         line.push('\n');
         let start = self.file.metadata()?.len();
         #[cfg(test)]
-        if consume_io_failpoint(what, 1) {
+        if consume_io_failpoint(what, 1, &self.path) {
             anyhow::bail!("injected {what} append failure before any bytes");
         }
         #[cfg(test)]
-        let partial_write = consume_io_failpoint(what, 3);
+        let partial_write = consume_io_failpoint(what, 3, &self.path);
         #[cfg(not(test))]
         let partial_write = false;
         let write_result = if partial_write {
@@ -887,7 +900,7 @@ impl Journal {
             return self.rollback_transaction(start, what, "append", error);
         }
         #[cfg(test)]
-        let injected_sync_failure = consume_io_failpoint(what, 2);
+        let injected_sync_failure = consume_io_failpoint(what, 2, &self.path);
         #[cfg(not(test))]
         let injected_sync_failure = false;
         let sync_result = if injected_sync_failure {
@@ -964,6 +977,32 @@ impl Journal {
         value["kind"] = Value::String("sync_begin".into());
         self.append_transaction(&value, "sync_begin")?;
         self.pending_sync = pending;
+        Ok(())
+    }
+
+    pub fn sync_bootstrap_genesis(&mut self) -> Result<()> {
+        anyhow::ensure!(
+            self.pending_sync.is_none()
+                && self.committed_manifest.is_none()
+                && self.plan.is_none()
+                && self.done.is_empty()
+                && self.pending_replacements.is_empty(),
+            "generation-zero bootstrap is only valid for an empty new journal"
+        );
+        let manifest = crate::sync::CommittedManifest::genesis()?;
+        let mut committed = None;
+        crate::sync::replay_record(
+            &serde_json::json!({"kind": "sync_bootstrap", "manifest": manifest}),
+            &mut committed,
+            &mut None,
+        )?;
+        self.append_transaction(
+            &serde_json::json!({"kind": "sync_bootstrap", "manifest": manifest}),
+            "sync_bootstrap",
+        )?;
+        self.plan = Some(Plan::default());
+        self.committed_manifest = committed;
+        self.legacy_migration_reasons.clear();
         Ok(())
     }
 
@@ -1131,14 +1170,28 @@ mod sync_journal_tests {
             sampled_records: 1,
             file_count: 0,
         });
-        journal.write_plan(&plan).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
         journal
     }
 
     fn pending(journal: &Journal) -> PendingSync {
         let base = journal.committed_manifest.as_ref().unwrap();
         let mut plan = base.plan.clone();
-        plan.datasets[0].file_count = 1;
+        if plan.datasets.is_empty() {
+            plan.datasets.push(PlanDataset {
+                slug: "reports".into(),
+                index: "prefix-reports".into(),
+                family: "pdf".into(),
+                group: None,
+                specs: Vec::new(),
+                time_field: None,
+                semantic_field: None,
+                sampled_records: 1,
+                file_count: 1,
+            });
+        } else {
+            plan.datasets[0].file_count = 1;
+        }
         plan.files.insert(
             "content-a".into(),
             FileAssignment {
@@ -1163,13 +1216,14 @@ mod sync_journal_tests {
                     prefix: "prefix".into(),
                     follow_symlinks: false,
                     chunker_identity: "chunker-v1".into(),
+                    embedding_identity_sha256: "a".repeat(64),
                     embedding_backend: "lexical".into(),
-                    embedding_model: "feature-hash".into(),
-                    embedding_tokenizer: "builtin".into(),
                     embedding_dimension: 384,
+                    embedding_semantic_contract: "semantic_text-derived-vector.v1".into(),
+                    embedding_resumable: true,
                     graph_enabled: false,
-                    brain: "none".into(),
-                    detector_identity: "detectors-v1".into(),
+                    brain: "disabled".into(),
+                    detector_identity: "disabled".into(),
                     schema_identity: "schema-v1".into(),
                     index_identity: "index-v1".into(),
                     source_policy: SourceExecutionPolicy::AbortOnSourceChange {
@@ -1219,6 +1273,29 @@ mod sync_journal_tests {
         assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
         assert!(!reopened.plan.as_ref().unwrap().alias_paths_indexed);
         assert_eq!(reopened.pending_sync.as_ref().unwrap().tx_id, "sync-1");
+    }
+
+    #[test]
+    fn new_journal_can_bootstrap_empty_generation_authority_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        let committed = journal.committed_manifest.as_ref().unwrap();
+        assert_eq!(committed.generation, 0);
+        assert!(committed.groups.is_empty());
+        assert_eq!(
+            serde_json::to_value(journal.plan.as_ref().unwrap()).unwrap(),
+            serde_json::to_value(Plan::default()).unwrap()
+        );
+        assert!(journal.sync_bootstrap_genesis().is_err());
+        drop(journal);
+
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert_eq!(reopened.committed_manifest.unwrap().generation, 0);
+        assert_eq!(
+            serde_json::to_value(reopened.plan.unwrap()).unwrap(),
+            serde_json::to_value(Plan::default()).unwrap()
+        );
     }
 
     #[test]
@@ -1445,7 +1522,7 @@ mod sync_journal_tests {
             let mut journal = journal_with_plan(dir.path());
             let desired = pending(&journal);
             let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
-            fail_next_sync_io(boundary);
+            fail_next_sync_io(boundary, journal.path());
             assert!(journal.sync_begin(&desired).is_err());
             assert!(journal.pending_sync.is_none());
             drop(journal);
@@ -1479,7 +1556,7 @@ mod sync_journal_tests {
                     journal.sync_validated().unwrap();
                 }
                 let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
-                fail_next_sync_io(boundary);
+                fail_next_sync_io(boundary, journal.path());
                 let result = match stage {
                     "operation" => {
                         journal.sync_operation_state("upsert:group-a", SyncOperationState::Started)
@@ -1716,7 +1793,7 @@ mod compatibility_tests {
             let mut journal =
                 Journal::open(dir.path(), "root", "http://engine", "ax", 300, false).unwrap();
             journal.file_replace_start("file-key", "new").unwrap();
-            fail_next_file_done_io(boundary);
+            fail_next_file_done_io(boundary, journal.path());
             let error = journal
                 .file_done(&FileDone {
                     file_key: "file-key".into(),
@@ -1753,7 +1830,7 @@ mod compatibility_tests {
         journal
             .file_replace_start("file-c", "generation-c")
             .unwrap();
-        fail_next_file_done_io(3);
+        fail_next_file_done_io(3, journal.path());
         let error = journal
             .file_done(&FileDone {
                 file_key: "file-c".into(),

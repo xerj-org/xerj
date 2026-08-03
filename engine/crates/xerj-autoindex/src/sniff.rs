@@ -85,15 +85,30 @@ fn read_prefix(path: &Path, gzip: bool, n: usize) -> Result<Vec<u8>> {
 }
 
 pub fn sniff(path: &Path) -> Result<Sniffed> {
-    let head = read_prefix(path, false, 8)?;
+    sniff_with_name(path, path)
+}
+
+/// Classify bytes from `content_path` while retaining the logical filename
+/// signals (currently source-code extensions) from `logical_path`.
+///
+/// Durable preparation uses this to classify an immutable snapshot blob
+/// without losing the original name merely because the blob itself is named
+/// by an ordinal.
+pub fn sniff_with_name(content_path: &Path, logical_path: &Path) -> Result<Sniffed> {
+    let head = read_prefix(content_path, false, 8)?;
     let gzip = head.len() >= 2 && head[0] == 0x1f && head[1] == 0x8b;
-    let prefix = read_prefix(path, gzip, 8192)?;
-    let mut s = sniff_bytes(&prefix, path, gzip)?;
+    let prefix = read_prefix(content_path, gzip, 8192)?;
+    let mut s = sniff_bytes(&prefix, content_path, logical_path, gzip)?;
     s.gzip = gzip;
     Ok(s)
 }
 
-fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
+fn sniff_bytes(
+    prefix: &[u8],
+    content_path: &Path,
+    logical_path: &Path,
+    gzip: bool,
+) -> Result<Sniffed> {
     let mk = |family: Family| Sniffed {
         family,
         gzip: false,
@@ -117,7 +132,7 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
     if prefix.starts_with(b"PK\x03\x04") {
         // zip container: DOCX iff it holds word/document.xml
         if !gzip {
-            if let Ok(f) = std::fs::File::open(path) {
+            if let Ok(f) = std::fs::File::open(content_path) {
                 if let Ok(mut z) = zip::ZipArchive::new(f) {
                     let is_docx = (0..z.len()).any(|i| {
                         z.by_index_raw(i)
@@ -172,7 +187,7 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
     // reach here after the binary guards above, so a text `.py`/`.rs`/`.go`/…
     // routes to the tree-sitter AST extractor (crate::extract::code). Extension
     // is the right signal — code vs prose is not reliably content-sniffable.
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    if let Some(ext) = logical_path.extension().and_then(|e| e.to_str()) {
         if crate::extract::code::is_code_ext(ext) {
             let mut s = mk(Family::Code);
             s.encoding = encoding;

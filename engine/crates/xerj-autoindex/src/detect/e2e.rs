@@ -261,6 +261,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         pdf_timeout_secs: 30,
         bulk_mb: 8,
         bulk_timeout_secs: 300,
+        snapshot_max_bytes: 64 << 30,
         prefix: "ax".into(),
         state_dir: Some(state_dir.to_owned()),
         fresh: false,

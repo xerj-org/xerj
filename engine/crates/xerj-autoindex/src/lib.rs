@@ -12,8 +12,12 @@ pub mod dataset;
 pub mod detect;
 pub mod esclient;
 pub mod extract;
+mod generation_catalog;
+#[cfg(test)]
+mod generation_catalog_http_tests;
 pub mod ids;
 pub mod infer;
+mod reconcile_plan;
 pub mod sniff;
 pub mod state;
 mod sync;
@@ -37,6 +41,267 @@ use detect::EdgeDetector as _;
 use esclient::Es;
 use sniff::{Family, Sniffed};
 use state::{FileAssignment, FileDone, JunkFile, Plan, PlanDataset};
+
+const PREPARED_RECORDS_IDENTITY: &str = "prepared-records-v1";
+const DOCUMENT_IDS_IDENTITY: &str = "document-ids-v1";
+const DETECTOR_DISABLED_IDENTITY: &str = "disabled";
+
+fn prepared_records_identity(cfg: &IndexCfg) -> Result<String> {
+    let value = json!({
+        "contract": PREPARED_RECORDS_IDENTITY,
+        "sample": cfg.sample,
+        "max_file_gb": cfg.max_file_gb,
+        "no_semantic": cfg.no_semantic,
+        // Worker counts are operational only. The timeout can change whether
+        // a PDF yields records, so it is part of the semantic contract.
+        "pdf_timeout_secs": cfg.pdf_timeout_secs,
+    });
+    Ok(format!(
+        "{}-{:032x}",
+        PREPARED_RECORDS_IDENTITY,
+        xxhash_rust::xxh3::xxh3_128(&serde_json::to_vec(&value)?)
+    ))
+}
+
+fn preparation_contract_digest(cfg: &IndexCfg, plan: &Plan) -> Result<String> {
+    let (schema_identity, index_identity) = generation_contract_identities(plan)?;
+    let encoded = serde_json::to_vec(&json!({
+        "prepared_records": prepared_records_identity(cfg)?,
+        "document_ids": DOCUMENT_IDS_IDENTITY,
+        "schema_identity": schema_identity,
+        "index_identity": index_identity,
+        "plan": plan,
+    }))?;
+    Ok(format!(
+        "axpc1-{:032x}",
+        xxhash_rust::xxh3::xxh3_128(&encoded)
+    ))
+}
+
+pub(crate) fn generation_contract_identities(plan: &Plan) -> Result<(String, String)> {
+    let mut datasets = plan.datasets.iter().collect::<Vec<_>>();
+    datasets.sort_by(|left, right| {
+        left.slug
+            .cmp(&right.slug)
+            .then_with(|| left.index.cmp(&right.index))
+    });
+    let schema = datasets
+        .iter()
+        .map(|dataset| {
+            json!({
+                "slug": dataset.slug,
+                "family": dataset.family,
+                "group": dataset.group,
+                "specs": dataset.specs,
+                "time_field": dataset.time_field,
+                "semantic_field": dataset.semantic_field,
+            })
+        })
+        .collect::<Vec<_>>();
+    let indices = datasets
+        .iter()
+        .map(|dataset| {
+            json!({
+                "index": dataset.index,
+                "mapping": build_mapping(&dataset.specs),
+            })
+        })
+        .collect::<Vec<_>>();
+    let digest = |label: &str, value: Value| -> Result<String> {
+        let bytes = serde_json::to_vec(&json!({"contract": label, "value": value}))?;
+        Ok(format!("{:032x}", xxhash_rust::xxh3::xxh3_128(&bytes)))
+    };
+    Ok((
+        digest(PREPARED_RECORDS_IDENTITY, Value::Array(schema))?,
+        digest(
+            DOCUMENT_IDS_IDENTITY,
+            json!({
+                "datasets": indices,
+                "catalog_index": catalog::CATALOG_INDEX,
+                "catalog_mapping": catalog::catalog_mapping(),
+                "document_ids": DOCUMENT_IDS_IDENTITY,
+            }),
+        )?,
+    ))
+}
+
+pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan) -> Result<()> {
+    for dataset in &plan.datasets {
+        let mut create_body = build_mapping(&dataset.specs);
+        create_body["mappings"]["properties"]["ax_paths"] = json!({"type": "keyword"});
+        let update_body = json!({
+            "properties": create_body["mappings"]["properties"].clone()
+        });
+        es.ensure_index(&dataset.index, &create_body)
+            .with_context(|| format!("create generation index {}", dataset.index))?;
+        es.update_mapping(&dataset.index, &update_body)
+            .with_context(|| format!("install generation mapping for {}", dataset.index))?;
+    }
+    let mut catalog_create_body = catalog::catalog_mapping();
+    catalog_create_body["mappings"]["properties"]["duplicate_of"] = json!({"type": "keyword"});
+    let catalog_update_body = json!({
+        "properties": catalog_create_body["mappings"]["properties"].clone()
+    });
+    es.ensure_index(catalog::CATALOG_INDEX, &catalog_create_body)?;
+    es.update_mapping(catalog::CATALOG_INDEX, &catalog_update_body)
+        .context("install generation catalog mapping")
+}
+
+fn begin_non_graph_generation(
+    es: &Es,
+    journal: &mut state::Journal,
+    state_dir: &Path,
+    cfg: &IndexCfg,
+    root_identity: &str,
+    inventory: &content::Inventory,
+    plan: Plan,
+) -> Result<()> {
+    anyhow::ensure!(
+        cfg.no_graph,
+        "non-graph generation cutover requires --no-graph"
+    );
+    anyhow::ensure!(
+        journal.pending_sync.is_none(),
+        "cannot prepare over an existing pending generation"
+    );
+    if journal.committed_manifest.is_none() {
+        journal.sync_bootstrap_genesis()?;
+    }
+    let base = journal
+        .committed_manifest
+        .as_ref()
+        .context("generation cutover has no committed base")?
+        .clone();
+    let tx_id = format!("{}-g{}", journal.run_id, base.generation + 1);
+    let preparation_contract = preparation_contract_digest(cfg, &plan)?;
+    let snapshot = sync_executor::create_prepared_snapshot(
+        state_dir,
+        &tx_id,
+        inventory,
+        &plan,
+        &preparation_contract,
+        cfg.snapshot_max_bytes,
+    )?;
+    let chunker_identity = prepared_records_identity(cfg)?;
+    let semantic = plan
+        .datasets
+        .iter()
+        .any(|dataset| dataset.semantic_field.is_some());
+    let identity = if semantic {
+        let identity = es
+            .embedding_execution_identity()
+            .context("generation cutover could not pin the server embedding execution identity")?;
+        anyhow::ensure!(
+            identity.resumable,
+            "generation cutover requires a resumable embedding execution identity: {}",
+            identity
+                .non_resumable_reason
+                .as_deref()
+                .unwrap_or("the server did not provide an immutable identity")
+        );
+        journal.pin_embedding_identity(
+            &identity.identity_sha256,
+            identity.resumable,
+            identity.non_resumable_reason.as_deref(),
+        )?;
+        identity
+    } else {
+        crate::esclient::EmbeddingExecutionIdentity {
+            version: 1,
+            backend: "disabled".into(),
+            identity_sha256: "0".repeat(64),
+            dimensions: 1,
+            semantic_contract: "disabled-no-semantic-fields-v1".into(),
+            resumable: true,
+            non_resumable_reason: None,
+        }
+    };
+
+    let aliases_by_content = plan.duplicate_files.iter().fold(
+        HashMap::<&str, Vec<sync::ManifestPath>>::new(),
+        |mut aliases, alias| {
+            aliases
+                .entry(alias.file_key.as_str())
+                .or_default()
+                .push(sync::ManifestPath {
+                    path_id: alias.path_id.clone(),
+                    rel: alias.rel.clone(),
+                    is_symlink: alias.is_symlink.unwrap_or(false),
+                });
+            aliases
+        },
+    );
+    let file_by_content = inventory
+        .keys
+        .iter()
+        .zip(&inventory.files)
+        .zip(&inventory.digests)
+        .map(|((key, file), digest)| (key.as_str(), (file, digest)))
+        .collect::<HashMap<_, _>>();
+    let mut candidates = Vec::with_capacity(plan.files.len());
+    for (content_id, assignment) in &plan.files {
+        let (file, digest) = file_by_content
+            .get(content_id.as_str())
+            .with_context(|| format!("planned content {content_id} is absent from inventory"))?;
+        let mut paths = vec![sync::ManifestPath {
+            path_id: assignment.path_id.clone(),
+            rel: assignment.rel.clone(),
+            is_symlink: assignment.is_symlink.unwrap_or(file.is_symlink),
+        }];
+        paths.extend(
+            aliases_by_content
+                .get(content_id.as_str())
+                .cloned()
+                .unwrap_or_default(),
+        );
+        candidates.push(sync::DesiredContentGroup {
+            content_id: content_id.clone(),
+            content_digest: (*digest).clone(),
+            content_size: file.size,
+            dataset_slugs: assignment
+                .assignments
+                .iter()
+                .map(|(_, slug)| slug.clone())
+                .collect(),
+            paths,
+            expected_records: 0,
+            expected_passages: 0,
+            expected_vectors: 0,
+        });
+    }
+    let mut groups = sync::reconcile_groups(&base.groups, candidates)?;
+    sync_executor::bind_prepared_counts(&mut groups, &snapshot, &inventory.keys)?;
+    let (schema_identity, index_identity) = generation_contract_identities(&plan)?;
+    let desired = sync::GenerationManifest {
+        generation: base.generation + 1,
+        execution: Some(sync::ExecutionIdentity {
+            version: sync::EXECUTION_IDENTITY_VERSION,
+            root_identity: root_identity.to_owned(),
+            url: cfg.url.clone(),
+            prefix: cfg.prefix.clone(),
+            follow_symlinks: cfg.follow_symlinks,
+            chunker_identity,
+            embedding_identity_sha256: identity.identity_sha256,
+            embedding_backend: identity.backend,
+            embedding_dimension: identity.dimensions,
+            embedding_semantic_contract: identity.semantic_contract,
+            embedding_resumable: identity.resumable,
+            graph_enabled: false,
+            brain: "disabled".into(),
+            detector_identity: DETECTOR_DISABLED_IDENTITY.into(),
+            schema_identity,
+            index_identity,
+            source_policy: sync::SourceExecutionPolicy::DurableSnapshot {
+                reference: format!("sync-snapshots/{tx_id}"),
+                snapshot_digest: snapshot.snapshot_digest,
+            },
+        }),
+        plan,
+        groups,
+    };
+    let pending = sync::PendingSync::new(tx_id, &base, desired)?;
+    journal.sync_begin(&pending)
+}
 
 #[derive(Debug, PartialEq, Eq)]
 struct CliErrorRoute {
@@ -632,6 +897,117 @@ pub fn derive_brain_name(root: &Path) -> String {
     }
 }
 
+fn pin_pending_embedding_identity(
+    es: &Es,
+    journal: &mut state::Journal,
+    pending: &sync::PendingSync,
+) -> Result<()> {
+    if !pending
+        .desired
+        .plan
+        .datasets
+        .iter()
+        .any(|dataset| dataset.semantic_field.is_some())
+    {
+        return Ok(());
+    }
+    let expected = pending
+        .desired
+        .execution
+        .as_ref()
+        .context("pending semantic generation has no execution identity")?;
+    let current = es.embedding_execution_identity().context(
+        "pending semantic generation cannot verify the server embedding execution identity",
+    )?;
+    anyhow::ensure!(
+        current.resumable,
+        "pending semantic generation cannot resume because the current embedding backend is not \
+         resumable: {}; restore the original backend or rebuild with --fresh and a new --prefix",
+        current
+            .non_resumable_reason
+            .as_deref()
+            .unwrap_or("the server did not provide a stable execution identity")
+    );
+    anyhow::ensure!(
+        current.identity_sha256 == expected.embedding_identity_sha256
+            && current.backend == expected.embedding_backend
+            && current.dimensions == expected.embedding_dimension
+            && current.semantic_contract == expected.embedding_semantic_contract
+            && current.resumable == expected.embedding_resumable,
+        "pending semantic generation was prepared for a different embedding execution identity; \
+         no remote mutation was attempted. Restore the original embedding backend, or discard the \
+         pending generation and rebuild with --fresh and a new --prefix"
+    );
+    journal.pin_embedding_identity(
+        &current.identity_sha256,
+        current.resumable,
+        current.non_resumable_reason.as_deref(),
+    )
+}
+
+fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -> Result<Value> {
+    let committed = journal
+        .committed_manifest
+        .as_ref()
+        .context("generated run finished without committed generation authority")?;
+    let execution = committed
+        .execution
+        .as_ref()
+        .context("generated run finished without execution identity")?;
+    let generation = committed.generation;
+    let dataset_count = committed.plan.datasets.len();
+    let sync::SourceExecutionPolicy::DurableSnapshot { reference, .. } = &execution.source_policy
+    else {
+        anyhow::bail!("generated run does not reference a durable snapshot");
+    };
+    let run_id = reference
+        .strip_prefix("sync-snapshots/")
+        .context("generated run snapshot reference is not state-relative")?
+        .to_owned();
+    let response = es.search(
+        catalog::CATALOG_INDEX,
+        &json!({
+            "size": 2,
+            "query": {"bool": {"filter": [
+                {"term": {"run_id": &run_id}},
+                {"term": {"doc_kind": "run"}}
+            ]}}
+        }),
+    )?;
+    let hits = response
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .context("generated run summary query has no hits")?;
+    anyhow::ensure!(
+        hits.len() == 1,
+        "generated run summary query returned {} documents; expected exactly one",
+        hits.len()
+    );
+    let summary = hits[0]
+        .get("_source")
+        .cloned()
+        .context("generated run summary hit has no _source")?;
+    anyhow::ensure!(
+        summary.get("generation").and_then(Value::as_u64) == Some(generation),
+        "generated run summary generation disagrees with committed authority"
+    );
+    journal.finish(&summary)?;
+    if cfg.json {
+        println!("{summary}");
+    } else if !cfg.quiet {
+        println!(
+            "generation {} committed — {} datasets, {} records live",
+            generation,
+            dataset_count,
+            summary
+                .get("records_total")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        );
+    }
+    Ok(summary)
+}
+
 fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
@@ -671,6 +1047,10 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // must never classify a path snapshot taken while another owner was
     // publishing or replacing the durable plan.
     let preflight = state::Journal::preflight(&state_dir, &root_str, &cfg.url, &cfg.prefix)?;
+    let genesis_recovery = preflight
+        .committed_manifest
+        .as_ref()
+        .is_some_and(|manifest| manifest.generation == 0 && manifest.groups.is_empty());
     // A durable sync_begin owns the desired generation. Never rediscover and
     // replan from a mutable source tree while that transaction is pending.
     // Operation handlers are deliberately not enabled by this foundation
@@ -685,6 +1065,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             cfg.bulk_timeout_secs,
             cfg.fresh,
         )?;
+        sync_executor::gc_snapshots(&state_dir, &journal)?;
+        let pending = journal
+            .pending_sync
+            .as_ref()
+            .context("preflight reported a pending generation but authoritative replay did not")?
+            .clone();
+        pin_pending_embedding_identity(&es, &mut journal, &pending)?;
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         if !cfg.quiet {
@@ -692,7 +1079,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 "autoindex: resumed and committed pending corpus generation from durable source"
             );
         }
-        return Ok((0, None));
+        let summary = finish_generated_run(&es, &mut journal, &cfg)?;
+        return Ok((0, Some(summary)));
     }
     let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
     if !cfg.quiet {
@@ -708,33 +1096,158 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         return Ok((0, None));
     }
     let mut inventory = content::resolve(discovered_files)?;
-    if let Some(prior_plan) = preflight.plan.as_ref() {
-        let comparison_keys = if cfg.fresh {
-            inventory.keys.clone()
-        } else {
-            // Ordinary resume preserves planned-key identity for supported
-            // same-path replacement and legacy plans.
-            select_resume_plan_keys(
-                &inventory.files,
-                &inventory.keys,
-                prior_plan,
-                &state_dir.join("journal.ndjson"),
-            )?
-            .into_iter()
-            .zip(inventory.keys.iter())
-            .map(|(planned, current)| planned.unwrap_or_else(|| current.clone()))
-            .collect()
-        };
-        let delta =
-            UnsupportedInventoryDelta::between(&inventory.files, &comparison_keys, prior_plan);
-        if cfg.fresh {
-            // Even an apparently unchanged content-key set can have alias,
-            // path, graph, catalog, or partial-publication history that only
-            // the old plan can reconcile. Route 1 cannot safely discard it.
-            return Err(delta.into_fresh_error());
+    if cfg.no_graph && preflight.committed_manifest.is_some() && !genesis_recovery {
+        let mut journal = state::Journal::open_after_preflight(
+            preflight,
+            &root_str,
+            &cfg.url,
+            &cfg.prefix,
+            cfg.bulk_timeout_secs,
+            cfg.fresh,
+        )?;
+        sync_executor::gc_snapshots(&state_dir, &journal)?;
+        let base = journal
+            .committed_manifest
+            .as_ref()
+            .context("generated journal lost its committed manifest")?
+            .clone();
+        let scans: Vec<FileScan> = inventory
+            .files
+            .par_iter()
+            .map(|file| scan_file(&file.path, file.size, cfg.sample, cfg.max_file_gb))
+            .collect();
+        let plan = reconcile_plan::reconcile_plan(&inventory, &base.plan, scans)?;
+        if serde_json::to_value(&plan)? == serde_json::to_value(&base.plan)? {
+            if let Some(expected) = &base.execution {
+                let (schema_identity, index_identity) = generation_contract_identities(&plan)?;
+                anyhow::ensure!(
+                    expected.root_identity == root_str
+                        && expected.url == cfg.url
+                        && expected.prefix == cfg.prefix
+                        && expected.follow_symlinks == cfg.follow_symlinks
+                        && expected.chunker_identity == prepared_records_identity(&cfg)?
+                        && !expected.graph_enabled
+                        && expected.brain == "disabled"
+                        && expected.detector_identity == DETECTOR_DISABLED_IDENTITY
+                        && expected.schema_identity == schema_identity
+                        && expected.index_identity == index_identity,
+                    "autoindex execution configuration changed since the committed generation; \
+                     rebuild with --fresh and a new --prefix"
+                );
+                if plan
+                    .datasets
+                    .iter()
+                    .any(|dataset| dataset.semantic_field.is_some())
+                {
+                    let current = es.embedding_execution_identity()?;
+                    anyhow::ensure!(
+                        current.resumable
+                            && current.identity_sha256 == expected.embedding_identity_sha256
+                            && current.backend == expected.embedding_backend
+                            && current.dimensions == expected.embedding_dimension
+                            && current.semantic_contract == expected.embedding_semantic_contract,
+                        "embedding execution identity changed since this autoindex journal was \
+                         created; refusing to mix vector spaces. No remote mutation was attempted. \
+                         Restore the original identity or rebuild with --fresh and a new --prefix"
+                    );
+                }
+            }
+            let summary = finish_generated_run(&es, &mut journal, &cfg)?;
+            return Ok((0, Some(summary)));
         }
-        if !delta.is_empty() {
-            return Err(delta.into_error());
+        begin_non_graph_generation(
+            &es,
+            &mut journal,
+            &state_dir,
+            &cfg,
+            &root_str,
+            &inventory,
+            plan,
+        )?;
+        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        let summary = finish_generated_run(&es, &mut journal, &cfg)?;
+        return Ok((0, Some(summary)));
+    }
+    if cfg.no_graph && preflight.plan.is_some() && !genesis_recovery {
+        let replacement_state = state_dir.with_extension("generation-v1");
+        let replacement_prefix = format!("{}-generation-v1", cfg.prefix);
+        let reasons = if preflight.legacy_migration_reasons.is_empty() {
+            "legacy journal has no complete generated-manifest authority".to_owned()
+        } else {
+            preflight.legacy_migration_reasons.join("; ")
+        };
+        let mut rebuild_argv = vec![
+            "xerj".to_owned(),
+            "autoindex".to_owned(),
+            cfg.root.to_string_lossy().into_owned(),
+            "--no-graph".to_owned(),
+            "--url".to_owned(),
+            cfg.url.clone(),
+            "--state-dir".to_owned(),
+            replacement_state.to_string_lossy().into_owned(),
+            "--prefix".to_owned(),
+            replacement_prefix,
+            "--workers".to_owned(),
+            cfg.workers.to_string(),
+            "--pdf-workers".to_owned(),
+            cfg.pdf_workers.to_string(),
+            "--pdf-timeout-secs".to_owned(),
+            cfg.pdf_timeout_secs.to_string(),
+            "--bulk-mb".to_owned(),
+            cfg.bulk_mb.to_string(),
+            "--bulk-timeout-secs".to_owned(),
+            cfg.bulk_timeout_secs.to_string(),
+            "--snapshot-max-gb".to_owned(),
+            (cfg.snapshot_max_bytes >> 30).to_string(),
+            "--max-file-gb".to_owned(),
+            cfg.max_file_gb.to_string(),
+            "--sample".to_owned(),
+            cfg.sample.to_string(),
+        ];
+        if cfg.no_semantic {
+            rebuild_argv.push("--no-semantic".to_owned());
+        }
+        if cfg.follow_symlinks {
+            rebuild_argv.push("--follow-symlinks".to_owned());
+        }
+        anyhow::bail!(
+            "this state directory contains a legacy nonempty plan that cannot become generation \
+             authority: {reasons}. Start an independent rebuild using this argv JSON (no shell \
+             quoting required): {:?}. Keep XERJ_API_KEY set when the endpoint requires \
+             authentication",
+            rebuild_argv
+        );
+    }
+    if !genesis_recovery {
+        if let Some(prior_plan) = preflight.plan.as_ref() {
+            let comparison_keys = if cfg.fresh {
+                inventory.keys.clone()
+            } else {
+                // Ordinary resume preserves planned-key identity for supported
+                // same-path replacement and legacy plans.
+                select_resume_plan_keys(
+                    &inventory.files,
+                    &inventory.keys,
+                    prior_plan,
+                    &state_dir.join("journal.ndjson"),
+                )?
+                .into_iter()
+                .zip(inventory.keys.iter())
+                .map(|(planned, current)| planned.unwrap_or_else(|| current.clone()))
+                .collect()
+            };
+            let delta =
+                UnsupportedInventoryDelta::between(&inventory.files, &comparison_keys, prior_plan);
+            if cfg.fresh {
+                // Even an apparently unchanged content-key set can have alias,
+                // path, graph, catalog, or partial-publication history that only
+                // the old plan can reconcile. Route 1 cannot safely discard it.
+                return Err(delta.into_fresh_error());
+            }
+            if !delta.is_empty() {
+                return Err(delta.into_error());
+            }
         }
     }
     let mut journal = state::Journal::open_after_preflight(
@@ -745,7 +1258,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         cfg.bulk_timeout_secs,
         cfg.fresh,
     )?;
-    let resumed_with_plan = journal.plan.is_some();
+    sync_executor::gc_snapshots(&state_dir, &journal)?;
+    let resumed_with_plan = journal.plan.is_some() && !genesis_recovery;
     if inventory.files.is_empty() && !resumed_with_plan {
         println!("no files found under {}", cfg.root.display());
         return Ok((0, None));
@@ -885,10 +1399,10 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         plan.duplicate_files = inventory.duplicates.clone();
     }
     alias_paths_to_replace.extend(inventory.duplicates.iter().map(|alias| alias.rel.clone()));
-    let files = inventory.files;
-    let keys = inventory.keys;
-    let digests = inventory.digests;
-    let duplicate_files = inventory.duplicates;
+    let files = inventory.files.clone();
+    let keys = inventory.keys.clone();
+    let digests = inventory.digests.clone();
+    let duplicate_files = inventory.duplicates.clone();
     let paths_discovered = files.len() + duplicate_files.len();
     if !duplicate_files.is_empty() && !cfg.quiet {
         eprintln!(
@@ -908,7 +1422,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
     // ── Phase A: inference (skipped when a frozen plan exists) ──────────
     let mut clusters_rt: Option<Vec<dataset::Cluster>> = None;
-    let plan: Plan = if let Some(p) = journal.plan.clone() {
+    let plan: Plan = if let Some(p) = journal.plan.clone().filter(|_| !genesis_recovery) {
         p
     } else {
         if !cfg.quiet {
@@ -1029,6 +1543,22 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         println!("{}", serde_json::to_string_pretty(&plan)?);
         eprintln!("(dry run — nothing indexed)");
         return Ok((0, None));
+    }
+
+    if cfg.no_graph && !resumed_with_plan {
+        begin_non_graph_generation(
+            &es,
+            &mut journal,
+            &state_dir,
+            &cfg,
+            &root_str,
+            &inventory,
+            plan,
+        )?;
+        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        let summary = finish_generated_run(&es, &mut journal, &cfg)?;
+        return Ok((0, Some(summary)));
     }
 
     if plan
@@ -2354,6 +2884,9 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
         let mut done = 0u64;
         let mut records = 0u64;
         let mut finished = false;
+        let mut generation: Option<u64> = None;
+        let mut generation_files: Option<u64> = None;
+        let mut generation_records: Option<u64> = None;
         let mut graph_line: Option<String> = None;
         if let Ok(f) = std::fs::File::open(&jp) {
             use std::io::BufRead;
@@ -2369,10 +2902,17 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
                         }
                         Some("finish") => {
                             finished = true;
+                            generation = v.pointer("/summary/generation").and_then(Value::as_u64);
+                            generation_files =
+                                v.pointer("/summary/files_indexed").and_then(Value::as_u64);
+                            generation_records =
+                                v.pointer("/summary/records_total").and_then(Value::as_u64);
                             // Latest finish wins — the summary embeds the run
                             // doc, whose `graph` block is the edge count of
                             // record for this journal.
-                            if let Some(g) = v.pointer("/summary/graph") {
+                            if let Some(g) =
+                                v.pointer("/summary/graph").filter(|graph| !graph.is_null())
+                            {
                                 graph_line = Some(format!(
                                     "graph: {} edges written to {} (brain {})",
                                     g.get("edges_written").and_then(Value::as_u64).unwrap_or(0),
@@ -2387,12 +2927,15 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
             }
         }
         println!(
-            "journal {} — root {} — {} files done, {} records, {}",
+            "journal {} — root {} — {} files done, {} records, {}{}",
             jp.display(),
             root,
-            done,
-            records,
-            if finished { "FINISHED" } else { "in progress" }
+            generation_files.unwrap_or(done),
+            generation_records.unwrap_or(records),
+            if finished { "FINISHED" } else { "in progress" },
+            generation
+                .map(|generation| format!(" (generation {generation})"))
+                .unwrap_or_default()
         );
         if let Some(line) = graph_line {
             println!("  {line}");
@@ -2801,4 +3344,56 @@ mod duplicate_integration_tests {
 }
 
 #[cfg(test)]
+mod generation_contract_identity_tests {
+    use super::*;
+
+    fn dataset(slug: &str, index: &str, family: &str) -> PlanDataset {
+        PlanDataset {
+            slug: slug.into(),
+            index: index.into(),
+            family: family.into(),
+            group: None,
+            specs: Vec::new(),
+            time_field: None,
+            semantic_field: None,
+            sampled_records: 0,
+            file_count: 0,
+        }
+    }
+
+    #[test]
+    fn contract_identities_are_order_independent_and_change_with_contracts() {
+        let mut first = Plan {
+            datasets: vec![
+                dataset("b", "prefix-b", "csv"),
+                dataset("a", "prefix-a", "json"),
+            ],
+            ..Plan::default()
+        };
+        let expected = generation_contract_identities(&first).unwrap();
+        first.datasets.reverse();
+        assert_eq!(generation_contract_identities(&first).unwrap(), expected);
+
+        first.datasets[0].family = "text".into();
+        let schema_changed = generation_contract_identities(&first).unwrap();
+        assert_ne!(schema_changed.0, expected.0);
+
+        first.datasets[0].family = "json".into();
+        first.datasets[0].index = "different-a".into();
+        let index_changed = generation_contract_identities(&first).unwrap();
+        assert_eq!(index_changed.0, expected.0);
+        assert_ne!(index_changed.1, expected.1);
+    }
+
+    #[test]
+    fn internal_contract_versions_are_explicit() {
+        assert_eq!(PREPARED_RECORDS_IDENTITY, "prepared-records-v1");
+        assert_eq!(DOCUMENT_IDS_IDENTITY, "document-ids-v1");
+        assert_eq!(DETECTOR_DISABLED_IDENTITY, "disabled");
+    }
+}
+
+#[cfg(test)]
 mod failure_resume_http_tests;
+#[cfg(test)]
+mod incremental_reconcile_http_tests;

@@ -13,19 +13,27 @@ use crate::sync::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
-const SNAPSHOT_VERSION: u32 = 1;
+const SNAPSHOT_VERSION: u32 = 2;
 
 #[cfg(test)]
 static SNAPSHOT_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 #[cfg(test)]
 static SNAPSHOT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(test)]
+static POST_SEAL_SOURCE_REPLACEMENT: std::sync::Mutex<Option<(std::path::PathBuf, Vec<u8>)>> =
+    std::sync::Mutex::new(None);
+#[cfg(test)]
 static REPLAY_FAIL_AFTER_APPLY: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+#[cfg(test)]
+pub(crate) static REPLAY_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+#[cfg(test)]
+static GC_FAIL_AFTER_RENAME: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -52,8 +60,88 @@ pub struct PreparedArtifact {
 pub struct SourceSnapshot {
     pub version: u32,
     pub tx_id: String,
+    /// Publication timestamp sealed once and reused by every replay.
+    pub started: String,
+    pub preparation_contract_digest: String,
+    pub footprint: SnapshotFootprint,
     pub files: Vec<SnapshotFile>,
     pub snapshot_digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SnapshotFootprint {
+    pub source_bytes: u64,
+    pub prepared_bytes: u64,
+    pub total_bytes: u64,
+    pub hard_budget_bytes: u64,
+}
+
+/// Logical payload accounting for source and prepared-record bytes.
+/// This is deliberately not a filesystem-allocation limit: directory,
+/// manifest, and block-allocation overhead are excluded.
+struct PayloadBudget {
+    used: u64,
+    limit: u64,
+}
+
+impl PayloadBudget {
+    fn charge(&mut self, bytes: usize) -> std::io::Result<()> {
+        let bytes = u64::try_from(bytes)
+            .map_err(|_| std::io::Error::other("snapshot payload write length overflow"))?;
+        let next = self
+            .used
+            .checked_add(bytes)
+            .ok_or_else(|| std::io::Error::other("snapshot payload byte count overflow"))?;
+        if next > self.limit {
+            return Err(std::io::Error::other(format!(
+                "snapshot logical payload write of {bytes} bytes would raise staged payload from \
+                 {} to {next} bytes, exceeding configured limit of {} bytes; no generation was \
+                 committed and the partial snapshot is removed automatically",
+                self.used, self.limit
+            )));
+        }
+        self.used = next;
+        Ok(())
+    }
+}
+
+struct BudgetWriter<'a, W> {
+    inner: W,
+    budget: &'a mut PayloadBudget,
+}
+
+impl<W: Write> Write for BudgetWriter<'_, W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.budget.charge(buf.len())?;
+        match self.inner.write(buf) {
+            Ok(written) if written == buf.len() => Ok(written),
+            Ok(written) => {
+                self.budget.used -= (buf.len() - written) as u64;
+                Ok(written)
+            }
+            Err(error) => {
+                self.budget.used -= buf.len() as u64;
+                Err(error)
+            }
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+struct StagingCleanup {
+    path: std::path::PathBuf,
+    armed: bool,
+}
+
+impl Drop for StagingCleanup {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
 }
 
 /// Remote mutations must be convergent: calling `apply` twice for one
@@ -61,6 +149,10 @@ pub struct SourceSnapshot {
 /// the same live state. `validate` is the final generation-wide barrier.
 #[cfg_attr(not(test), allow(dead_code))]
 pub trait SyncOperationBackend {
+    fn provision_generation(&mut self, _desired: &GenerationManifest) -> Result<()> {
+        Ok(())
+    }
+
     fn apply(
         &mut self,
         operation: &SyncOperation,
@@ -75,6 +167,17 @@ pub trait SyncOperationBackend {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()>;
+
+    /// Publish and exactly read back the complete agent-facing catalog for
+    /// this generation. This runs before the validation/authority barrier.
+    fn publish_generation_catalog(
+        &mut self,
+        _base: &CommittedManifest,
+        _desired: &GenerationManifest,
+        _snapshot: &SourceSnapshot,
+    ) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// Production ES-compatible operation backend for graph-disabled generations.
@@ -212,64 +315,162 @@ impl<'a> EsSyncBackend<'a> {
         Ok(total)
     }
 
-    fn reconcile_file_catalog(
-        &self,
-        old: Option<&ManifestGroup>,
-        new: Option<&ManifestGroup>,
-        desired: &GenerationManifest,
-    ) -> Result<()> {
-        for content_id in old
-            .into_iter()
-            .map(|group| group.content_id.as_str())
-            .chain(new.into_iter().map(|group| group.content_id.as_str()))
-        {
-            self.es.delete_by_query(
-                crate::catalog::CATALOG_INDEX,
-                &serde_json::json!({"term": {"file_key": content_id}}),
-            )?;
-        }
-        let Some(group) = new else {
-            return Ok(());
-        };
-        let assignment = desired
-            .plan
-            .files
-            .get(&group.content_id)
-            .context("catalog group has no desired file assignment")?;
-        let format = if assignment.gzip {
-            format!("{}(gzip)", assignment.family)
-        } else {
-            assignment.family.clone()
-        };
-        let (id, doc) = crate::catalog::file_doc(
-            &group.content_id,
-            &group.canonical.rel,
-            &format,
-            "indexed",
-            None,
-            group.expected_records,
-            0,
-            group.content_size,
-            &format!("generation-{}", desired.generation),
-        );
-        let mut body = Vec::new();
-        append_index_action(crate::catalog::CATALOG_INDEX, &id, &doc, &mut body)?;
-        for alias in &group.aliases {
-            let (id, doc) = crate::catalog::duplicate_file_doc(
-                &group.content_id,
-                &alias.rel,
-                &alias.path_id,
-                &group.canonical.rel,
-                group.content_size,
-                &format!("generation-{}", desired.generation),
+    fn catalog_generation(&self, run_id: &str) -> Result<BTreeMap<String, Value>> {
+        let mut documents = BTreeMap::new();
+        let mut search_after: Option<Value> = None;
+        loop {
+            let mut body = serde_json::json!({
+                "size": 1000,
+                "sort": [{"_id": "asc"}],
+                "query": {"term": {"run_id": run_id}}
+            });
+            if let Some(after) = &search_after {
+                body["search_after"] = after.clone();
+            }
+            let response = self.es.search(crate::catalog::CATALOG_INDEX, &body)?;
+            let hits = response
+                .pointer("/hits/hits")
+                .and_then(Value::as_array)
+                .context("catalog generation query has no hits")?;
+            for hit in hits {
+                let id = hit
+                    .get("_id")
+                    .and_then(Value::as_str)
+                    .context("catalog hit has no _id")?
+                    .to_owned();
+                let source = hit
+                    .get("_source")
+                    .cloned()
+                    .context("catalog hit has no _source")?;
+                anyhow::ensure!(
+                    documents.insert(id.clone(), source).is_none(),
+                    "catalog generation query returned duplicate ID {id}"
+                );
+            }
+            if hits.len() < 1000 {
+                break;
+            }
+            search_after = hits.last().and_then(|hit| hit.get("sort")).cloned();
+            anyhow::ensure!(
+                search_after.is_some(),
+                "full catalog generation page has no continuation sort key"
             );
-            append_index_action(crate::catalog::CATALOG_INDEX, &id, &doc, &mut body)?;
         }
-        checked_bulk(self.es, body)
+        Ok(documents)
+    }
+
+    fn exact_dataset_catalog_stats(
+        &self,
+        desired: &GenerationManifest,
+    ) -> Result<BTreeMap<String, crate::generation_catalog::DatasetCatalogStats>> {
+        let mut out = BTreeMap::new();
+        for dataset in &desired.plan.datasets {
+            let groups: Vec<&ManifestGroup> = desired
+                .groups
+                .iter()
+                .filter(|group| group.dataset_slugs.contains(&dataset.slug))
+                .collect();
+            let content_ids: Vec<&str> = groups
+                .iter()
+                .map(|group| group.content_id.as_str())
+                .collect();
+            let mut body = serde_json::json!({
+                "size": 0,
+                "track_total_hits": true,
+                "query": {"terms": {"ax_file": content_ids}}
+            });
+            if let Some(field) = &dataset.time_field {
+                body["aggs"] = serde_json::json!({
+                    "time_min": {"min": {"field": field}},
+                    "time_max": {"max": {"field": field}}
+                });
+            }
+            let response = self.es.search(&dataset.index, &body)?;
+            let record_count = response
+                .pointer("/hits/total/value")
+                .and_then(Value::as_u64)
+                .context("dataset exact read-back has no total")?;
+            let expected = groups.iter().try_fold(0u64, |sum, group| {
+                sum.checked_add(group.expected_records)
+                    .context("dataset expected record count overflow")
+            })?;
+            anyhow::ensure!(
+                record_count == expected,
+                "dataset {} exact read-back count {record_count} disagrees with sealed count \
+                 {expected}",
+                dataset.slug
+            );
+            let mut formats: Vec<String> = desired
+                .plan
+                .files
+                .values()
+                .filter(|assignment| {
+                    assignment
+                        .assignments
+                        .iter()
+                        .any(|(_, slug)| slug == &dataset.slug)
+                })
+                .map(|assignment| {
+                    if assignment.gzip {
+                        format!("{}(gzip)", assignment.family)
+                    } else {
+                        assignment.family.clone()
+                    }
+                })
+                .collect();
+            formats.sort();
+            formats.dedup();
+            let bytes = groups.iter().try_fold(0u64, |sum, group| {
+                sum.checked_add(group.content_size)
+                    .context("dataset source byte count overflow")
+            })?;
+            let time = |name: &str| {
+                response
+                    .pointer(&format!("/aggregations/{name}/value_as_string"))
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            };
+            out.insert(
+                dataset.slug.clone(),
+                crate::generation_catalog::DatasetCatalogStats {
+                    record_count,
+                    junk_records: 0,
+                    bytes,
+                    formats,
+                    time_min: time("time_min"),
+                    time_max: time("time_max"),
+                    sample_queries: crate::catalog::build_sample_queries(dataset, &[]),
+                    notes: dataset
+                        .group
+                        .iter()
+                        .map(|group| format!("source table: {group}"))
+                        .chain(dataset.specs.iter().flat_map(|spec| {
+                            spec.notes
+                                .iter()
+                                .map(move |note| format!("{}: {note}", spec.name))
+                        }))
+                        .collect(),
+                },
+            );
+        }
+        Ok(out)
     }
 }
 
 impl SyncOperationBackend for EsSyncBackend<'_> {
+    fn provision_generation(&mut self, desired: &GenerationManifest) -> Result<()> {
+        let execution = desired
+            .execution
+            .as_ref()
+            .context("desired generation has no execution identity")?;
+        let (_, index_identity) = crate::generation_contract_identities(&desired.plan)?;
+        anyhow::ensure!(
+            execution.index_identity == index_identity,
+            "desired generation index identity disagrees with its frozen mappings"
+        );
+        crate::ensure_generation_mappings(self.es, &desired.plan)
+    }
+
     fn apply(
         &mut self,
         operation: &SyncOperation,
@@ -313,7 +514,73 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
                 )?;
             }
         }
-        self.reconcile_file_catalog(old, new, desired)
+        Ok(())
+    }
+
+    fn publish_generation_catalog(
+        &mut self,
+        base: &CommittedManifest,
+        desired: &GenerationManifest,
+        snapshot: &SourceSnapshot,
+    ) -> Result<()> {
+        for index in desired
+            .plan
+            .datasets
+            .iter()
+            .map(|dataset| dataset.index.as_str())
+            .collect::<std::collections::BTreeSet<_>>()
+        {
+            self.es.refresh(index)?;
+        }
+        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        let prior_run_id =
+            base.execution
+                .as_ref()
+                .and_then(|execution| match &execution.source_policy {
+                    SourceExecutionPolicy::DurableSnapshot { reference, .. } => {
+                        reference.strip_prefix("sync-snapshots/")
+                    }
+                    SourceExecutionPolicy::AbortOnSourceChange { .. } => None,
+                });
+        let prior_documents = prior_run_id
+            .map(|run_id| self.catalog_generation(run_id))
+            .transpose()?
+            .unwrap_or_default();
+        let prior_ids = prior_documents.keys().cloned().collect();
+        let stats = self.exact_dataset_catalog_stats(desired)?;
+        let projection = crate::generation_catalog::project_generation(
+            base,
+            desired,
+            &crate::generation_catalog::GenerationCatalogMetadata {
+                generation_id: snapshot.tx_id.clone(),
+                started: snapshot.started.clone(),
+            },
+            &stats,
+            &BTreeMap::new(),
+            &prior_ids,
+        )?;
+        let mut body = Vec::new();
+        for id in &projection.stale_ids {
+            let action =
+                serde_json::json!({"delete": {"_index": crate::catalog::CATALOG_INDEX, "_id": id}});
+            body.extend_from_slice(serde_json::to_string(&action)?.as_bytes());
+            body.push(b'\n');
+        }
+        for (id, document) in &projection.documents {
+            append_index_action(crate::catalog::CATALOG_INDEX, id, document, &mut body)?;
+        }
+        checked_bulk(self.es, body)?;
+        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        projection.validate_observed(&self.catalog_generation(&snapshot.tx_id)?)?;
+        if let Some(prior_run_id) = prior_run_id {
+            let remaining = self.catalog_generation(prior_run_id)?;
+            anyhow::ensure!(
+                remaining.is_empty(),
+                "prior catalog generation {prior_run_id} still has {} managed documents",
+                remaining.len()
+            );
+        }
+        Ok(())
     }
 
     fn validate(
@@ -394,6 +661,7 @@ pub fn replay_pending_operations(
     pending.validate_against(&base)?;
     let snapshot = open_snapshot(state_dir, &pending.tx_id)?;
     verify_snapshot_binding(&pending, &snapshot)?;
+    backend.provision_generation(&pending.desired)?;
 
     for operation in &pending.operations {
         let state = journal
@@ -411,9 +679,110 @@ pub fn replay_pending_operations(
         replay_fail_after_apply()?;
         journal.sync_operation_state(&operation.operation_id, SyncOperationState::Committed)?;
     }
+    backend.publish_generation_catalog(&base, &pending.desired, &snapshot)?;
     backend.validate(&base, &pending.desired, &snapshot)?;
     journal.sync_validated()?;
-    journal.sync_commit()
+    journal.sync_commit()?;
+    gc_snapshots(state_dir, journal).context(
+        "generation committed durably, but snapshot cleanup failed; inspect the attached cause \
+         (remove a refused symlink or repair the reported filesystem permission/I/O problem), \
+         then retry the same command to continue bounded cleanup without republishing data",
+    )
+}
+
+const SNAPSHOT_GC_BATCH_SIZE: usize = 4096;
+
+fn protected_snapshot(
+    state_dir: &Path,
+    execution: &crate::sync::ExecutionIdentity,
+) -> Result<String> {
+    let SourceExecutionPolicy::DurableSnapshot {
+        reference,
+        snapshot_digest,
+    } = &execution.source_policy
+    else {
+        anyhow::bail!("generated authority does not reference a durable snapshot");
+    };
+    let tx_id = reference
+        .strip_prefix("sync-snapshots/")
+        .context("protected snapshot reference is not state-relative")?;
+    validate_tx_id(tx_id)?;
+    let snapshot = open_snapshot(state_dir, tx_id)?;
+    anyhow::ensure!(
+        snapshot.snapshot_digest == *snapshot_digest,
+        "protected snapshot digest disagrees with journal authority"
+    );
+    Ok(tx_id.to_owned())
+}
+
+/// Reclaim only snapshots proven unreferenced by replayed journal authority.
+/// The caller owns the journal lock for the complete validation/rename/fsync
+/// sequence.
+pub fn gc_snapshots(state_dir: &Path, journal: &Journal) -> Result<()> {
+    let root = state_dir.join("sync-snapshots");
+    let mut protected = std::collections::HashSet::new();
+    if let Some(execution) = journal
+        .committed_manifest
+        .as_ref()
+        .and_then(|manifest| manifest.execution.as_ref())
+    {
+        protected.insert(protected_snapshot(state_dir, execution)?);
+    }
+    if let Some(execution) = journal
+        .pending_sync
+        .as_ref()
+        .and_then(|pending| pending.desired.execution.as_ref())
+    {
+        protected.insert(protected_snapshot(state_dir, execution)?);
+    }
+    let entries = match std::fs::read_dir(&root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut entries = entries.collect::<std::io::Result<Vec<_>>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+    // Validate the complete directory before the first mutation. In
+    // particular, a late symlink must not be discovered after earlier
+    // snapshots have already been deleted.
+    for entry in &entries {
+        anyhow::ensure!(
+            !entry.file_type()?.is_symlink(),
+            "snapshot cleanup refuses symlink {}",
+            entry.path().display()
+        );
+    }
+    let directory = File::open(&root)?;
+    for entry in entries.into_iter().take(SNAPSHOT_GC_BATCH_SIZE) {
+        let metadata = entry.file_type()?;
+        if !metadata.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if protected.contains(&name) {
+            continue;
+        }
+        let tombstone = if name.ends_with(".gc") {
+            entry.path()
+        } else {
+            let tombstone = root.join(format!(".{name}.gc"));
+            anyhow::ensure!(
+                !tombstone.exists(),
+                "snapshot tombstone already exists: {}",
+                tombstone.display()
+            );
+            std::fs::rename(entry.path(), &tombstone)?;
+            directory.sync_all()?;
+            #[cfg(test)]
+            if GC_FAIL_AFTER_RENAME.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                anyhow::bail!("injected snapshot GC crash after durable tombstone rename");
+            }
+            tombstone
+        };
+        std::fs::remove_dir_all(&tombstone)?;
+        directory.sync_all()?;
+    }
+    Ok(())
 }
 
 /// Test helper proving a pending generation binds before mutable discovery.
@@ -742,7 +1111,14 @@ pub fn create_snapshot(
     tx_id: &str,
     inventory: &Inventory,
 ) -> Result<SourceSnapshot> {
-    create_snapshot_inner(state_dir, tx_id, inventory, None)
+    create_snapshot_inner(
+        state_dir,
+        tx_id,
+        inventory,
+        None,
+        "source-snapshot-v1",
+        u64::MAX,
+    )
 }
 
 /// Seal deterministic bulk actions together with source bytes. Extraction and
@@ -754,8 +1130,17 @@ pub fn create_prepared_snapshot(
     tx_id: &str,
     inventory: &Inventory,
     plan: &Plan,
+    preparation_contract_digest: &str,
+    hard_budget_bytes: u64,
 ) -> Result<SourceSnapshot> {
-    create_snapshot_inner(state_dir, tx_id, inventory, Some(plan))
+    create_snapshot_inner(
+        state_dir,
+        tx_id,
+        inventory,
+        Some(plan),
+        preparation_contract_digest,
+        hard_budget_bytes,
+    )
 }
 
 fn create_snapshot_inner(
@@ -763,6 +1148,8 @@ fn create_snapshot_inner(
     tx_id: &str,
     inventory: &Inventory,
     plan: Option<&Plan>,
+    preparation_contract_digest: &str,
+    hard_budget_bytes: u64,
 ) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     ensure_inventory_lengths(inventory)?;
@@ -770,19 +1157,69 @@ fn create_snapshot_inner(
     std::fs::create_dir_all(&root)?;
     let final_dir = root.join(tx_id);
     if final_dir.exists() {
-        return open_snapshot(state_dir, tx_id);
+        let existing = open_snapshot(state_dir, tx_id)?;
+        anyhow::ensure!(
+            existing.preparation_contract_digest == preparation_contract_digest,
+            "existing final snapshot was prepared under a different contract"
+        );
+        let requested = inventory
+            .keys
+            .iter()
+            .zip(&inventory.digests)
+            .zip(&inventory.files)
+            .map(|((content_id, digest), file)| (content_id.as_str(), digest.as_str(), file.size))
+            .collect::<Vec<_>>();
+        let sealed = existing
+            .files
+            .iter()
+            .map(|file| {
+                (
+                    file.content_id.as_str(),
+                    file.content_digest.as_str(),
+                    file.content_size,
+                )
+            })
+            .collect::<Vec<_>>();
+        anyhow::ensure!(
+            sealed == requested,
+            "existing final snapshot inventory differs from this preparation attempt"
+        );
+        anyhow::ensure!(
+            existing.footprint.total_bytes <= hard_budget_bytes,
+            "existing final snapshot exceeds the current logical payload limit"
+        );
+        return Ok(existing);
     }
     let staging = root.join(format!(".{tx_id}.partial"));
     if staging.exists() {
         std::fs::remove_dir_all(&staging)?;
     }
     std::fs::create_dir(&staging)?;
+    let mut cleanup = StagingCleanup {
+        path: staging.clone(),
+        armed: true,
+    };
     let blobs = staging.join("blobs");
     std::fs::create_dir(&blobs)?;
     let prepared_dir = staging.join("prepared");
     if plan.is_some() {
         std::fs::create_dir(&prepared_dir)?;
     }
+    let source_bytes = inventory.files.iter().try_fold(0u64, |total, file| {
+        total
+            .checked_add(file.size)
+            .context("snapshot source byte overflow")
+    })?;
+    if source_bytes > hard_budget_bytes {
+        anyhow::bail!(
+            "snapshot source footprint {source_bytes} bytes exceeds logical payload limit \
+             {hard_budget_bytes} bytes before preparation"
+        );
+    }
+    let mut budget = PayloadBudget {
+        used: 0,
+        limit: hard_budget_bytes,
+    };
     let mut files = Vec::with_capacity(inventory.files.len());
     for (ordinal, ((source, content_id), content_digest)) in inventory
         .files
@@ -794,10 +1231,23 @@ fn create_snapshot_inner(
         crate::content::verify(&source.path, source.size, content_digest)?;
         let relative_blob = format!("blobs/{ordinal:08}");
         let destination = staging.join(&relative_blob);
-        copy_synced(&source.path, &destination)?;
+        copy_synced(&source.path, &destination, &mut budget)?;
         crate::content::verify(&destination, source.size, content_digest)?;
+        #[cfg(test)]
+        apply_post_seal_source_replacement(&source.path)?;
         let prepared = plan
-            .map(|plan| prepare_artifact(&staging, ordinal, source, content_id, &destination, plan))
+            .map(|plan| {
+                prepare_artifact(
+                    &staging,
+                    ordinal,
+                    tx_id,
+                    source,
+                    content_id,
+                    &destination,
+                    plan,
+                    &mut budget,
+                )
+            })
             .transpose()?;
         files.push(SnapshotFile {
             content_id: content_id.clone(),
@@ -807,13 +1257,42 @@ fn create_snapshot_inner(
             prepared,
         });
     }
+    let prepared_bytes = files.iter().try_fold(0u64, |total, file| {
+        total
+            .checked_add(file.prepared.as_ref().map_or(0, |artifact| artifact.bytes))
+            .context("prepared snapshot byte overflow")
+    })?;
+    let total_bytes = source_bytes
+        .checked_add(prepared_bytes)
+        .context("total snapshot byte overflow")?;
+    anyhow::ensure!(
+        total_bytes == budget.used && total_bytes <= hard_budget_bytes,
+        "snapshot logical payload accounting mismatch"
+    );
+    let footprint = SnapshotFootprint {
+        source_bytes,
+        prepared_bytes,
+        total_bytes,
+        hard_budget_bytes,
+    };
     snapshot_failpoint(1)?;
     let snapshot = SourceSnapshot {
         version: SNAPSHOT_VERSION,
         tx_id: tx_id.to_string(),
-        snapshot_digest: snapshot_digest(tx_id, &files)?,
+        preparation_contract_digest: preparation_contract_digest.to_owned(),
+        footprint: footprint.clone(),
+        started: chrono::Utc::now().to_rfc3339(),
+        snapshot_digest: String::new(),
         files,
     };
+    let mut snapshot = snapshot;
+    snapshot.snapshot_digest = snapshot_digest(
+        tx_id,
+        &snapshot.started,
+        preparation_contract_digest,
+        &footprint,
+        &snapshot.files,
+    )?;
     write_synced_json(&staging.join("manifest.json"), &snapshot)?;
     sync_dir(&blobs)?;
     if plan.is_some() {
@@ -822,6 +1301,7 @@ fn create_snapshot_inner(
     sync_dir(&staging)?;
     snapshot_failpoint(2)?;
     std::fs::rename(&staging, &final_dir)?;
+    cleanup.armed = false;
     sync_dir(&root)?;
     snapshot_failpoint(3)?;
     open_snapshot(state_dir, tx_id)
@@ -836,8 +1316,33 @@ pub fn open_snapshot(state_dir: &Path, tx_id: &str) -> Result<SourceSnapshot> {
         snapshot.version == SNAPSHOT_VERSION && snapshot.tx_id == tx_id,
         "source snapshot identity mismatch"
     );
+    let source_bytes = snapshot.files.iter().try_fold(0u64, |sum, file| {
+        sum.checked_add(file.content_size)
+            .context("snapshot source footprint overflow")
+    })?;
+    let prepared_bytes = snapshot.files.iter().try_fold(0u64, |sum, file| {
+        sum.checked_add(file.prepared.as_ref().map_or(0, |artifact| artifact.bytes))
+            .context("snapshot prepared footprint overflow")
+    })?;
+    let total_bytes = source_bytes
+        .checked_add(prepared_bytes)
+        .context("snapshot total footprint overflow")?;
     anyhow::ensure!(
-        snapshot.snapshot_digest == snapshot_digest(tx_id, &snapshot.files)?,
+        snapshot.footprint.source_bytes == source_bytes
+            && snapshot.footprint.prepared_bytes == prepared_bytes
+            && snapshot.footprint.total_bytes == total_bytes
+            && total_bytes <= snapshot.footprint.hard_budget_bytes,
+        "source snapshot footprint does not match its sealed artifacts"
+    );
+    anyhow::ensure!(
+        snapshot.snapshot_digest
+            == snapshot_digest(
+                tx_id,
+                &snapshot.started,
+                &snapshot.preparation_contract_digest,
+                &snapshot.footprint,
+                &snapshot.files,
+            )?,
         "source snapshot manifest digest mismatch"
     );
     for file in &snapshot.files {
@@ -866,13 +1371,16 @@ pub fn open_snapshot(state_dir: &Path, tx_id: &str) -> Result<SourceSnapshot> {
     Ok(snapshot)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn prepare_artifact(
     staging: &Path,
     ordinal: usize,
+    generation_identity: &str,
     source: &crate::walk::FileEntry,
     content_id: &str,
     snapshot_blob: &Path,
     plan: &Plan,
+    budget: &mut PayloadBudget,
 ) -> Result<PreparedArtifact> {
     let assignment = plan
         .files
@@ -907,7 +1415,7 @@ fn prepare_artifact(
         .iter()
         .map(|(group, slug)| (group.clone(), slug.as_str()))
         .collect();
-    let sniffed = crate::sniff::sniff(&source.path)
+    let sniffed = crate::sniff::sniff_with_name(snapshot_blob, &source.path)
         .with_context(|| format!("sniff {} for durable preparation", source.rel))?;
     let relative_ndjson = format!("prepared/{ordinal:08}.ndjson");
     let path = staging.join(&relative_ndjson);
@@ -915,7 +1423,10 @@ fn prepare_artifact(
         .create_new(true)
         .write(true)
         .open(&path)?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = BudgetWriter {
+        inner: BufWriter::new(file),
+        budget,
+    };
     let mut records = 0u64;
     let mut passages = 0u64;
     let mut vectors = 0u64;
@@ -952,7 +1463,10 @@ fn prepare_artifact(
         fields.insert("ax_file".into(), Value::String(content_id.to_string()));
         fields.insert("ax_locator".into(), Value::String(record.locator.clone()));
         fields.insert("ax_dataset".into(), Value::String(slug.to_string()));
-        fields.insert("ax_run".into(), Value::String("generation-pending".into()));
+        fields.insert(
+            "ax_run".into(),
+            Value::String(generation_identity.to_owned()),
+        );
         fields.insert(
             "ax_format".into(),
             Value::String(source.path.extension().map_or_else(
@@ -962,11 +1476,10 @@ fn prepare_artifact(
         );
         let id = crate::ids::doc_id(slug, content_id, &record.locator);
         let action = serde_json::json!({"index": {"_index": dataset.index, "_id": id}});
-        if writeln!(writer, "{action}")
+        if let Err(error) = writeln!(writer, "{action}")
             .and_then(|_| writeln!(writer, "{}", Value::Object(fields.clone())))
-            .is_err()
         {
-            sink_error = Some(anyhow::anyhow!("write prepared NDJSON"));
+            sink_error = Some(anyhow::Error::new(error).context("write prepared NDJSON"));
             return false;
         }
         records += 1;
@@ -992,7 +1505,7 @@ fn prepare_artifact(
         return Err(error);
     }
     writer.flush()?;
-    writer.get_ref().sync_all()?;
+    writer.inner.get_ref().sync_all()?;
     drop(writer);
     let bytes = std::fs::metadata(&path)?.len();
     Ok(PreparedArtifact {
@@ -1036,14 +1549,27 @@ fn ensure_inventory_lengths(inventory: &Inventory) -> Result<()> {
     Ok(())
 }
 
-fn snapshot_digest(tx_id: &str, files: &[SnapshotFile]) -> Result<String> {
+fn snapshot_digest(
+    tx_id: &str,
+    started: &str,
+    preparation_contract_digest: &str,
+    footprint: &SnapshotFootprint,
+    files: &[SnapshotFile],
+) -> Result<String> {
     let mut files = files.to_vec();
     files.sort_by(|left, right| {
         left.content_id
             .cmp(&right.content_id)
             .then_with(|| left.relative_blob.cmp(&right.relative_blob))
     });
-    let encoded = serde_json::to_vec(&(SNAPSHOT_VERSION, tx_id, files))?;
+    let encoded = serde_json::to_vec(&(
+        SNAPSHOT_VERSION,
+        tx_id,
+        started,
+        preparation_contract_digest,
+        footprint,
+        files,
+    ))?;
     Ok(format!(
         "axs1-{:032x}",
         xxhash_rust::xxh3::xxh3_128(&encoded)
@@ -1062,14 +1588,18 @@ fn validate_tx_id(tx_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn copy_synced(source: &Path, destination: &Path) -> Result<()> {
+fn copy_synced(source: &Path, destination: &Path, budget: &mut PayloadBudget) -> Result<()> {
     let mut input = File::open(source)?;
-    let mut output = OpenOptions::new()
+    let output = OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(destination)?;
+    let mut output = BudgetWriter {
+        inner: output,
+        budget,
+    };
     std::io::copy(&mut input, &mut output)?;
-    output.sync_all()?;
+    output.inner.sync_all()?;
     Ok(())
 }
 
@@ -1083,6 +1613,29 @@ fn write_synced_json(path: &Path, value: &impl Serialize) -> Result<()> {
 
 fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(test)]
+fn arm_source_mutation_after_seal(path: &Path, replacement: &[u8]) {
+    *POST_SEAL_SOURCE_REPLACEMENT.lock().unwrap() =
+        Some((path.to_path_buf(), replacement.to_vec()));
+}
+
+#[cfg(test)]
+fn apply_post_seal_source_replacement(path: &Path) -> Result<()> {
+    let replacement = {
+        let mut armed = POST_SEAL_SOURCE_REPLACEMENT.lock().unwrap();
+        if armed.as_ref().is_some_and(|(expected, _)| expected == path) {
+            armed.take().map(|(_, bytes)| bytes)
+        } else {
+            None
+        }
+    };
+    if let Some(replacement) = replacement {
+        std::fs::write(path, replacement)
+            .with_context(|| format!("inject post-seal source replacement {}", path.display()))?;
+    }
     Ok(())
 }
 
@@ -1183,13 +1736,14 @@ mod tests {
             prefix: "ax".into(),
             follow_symlinks: false,
             chunker_identity: "chunker-v1".into(),
+            embedding_identity_sha256: "a".repeat(64),
             embedding_backend: "lexical".into(),
-            embedding_model: "feature-hash".into(),
-            embedding_tokenizer: "none".into(),
             embedding_dimension: 384,
+            embedding_semantic_contract: "semantic_text-derived-vector.v1".into(),
+            embedding_resumable: true,
             graph_enabled: false,
-            brain: "brain".into(),
-            detector_identity: "none".into(),
+            brain: "disabled".into(),
+            detector_identity: "disabled".into(),
             schema_identity: "schema-v1".into(),
             index_identity: "index-v1".into(),
             source_policy: SourceExecutionPolicy::DurableSnapshot {
@@ -1225,9 +1779,16 @@ mod tests {
     struct FakeBackend {
         live: BTreeMap<String, LiveGroup>,
         applications: Vec<String>,
+        provisions: usize,
+        validations: usize,
     }
 
     impl SyncOperationBackend for FakeBackend {
+        fn provision_generation(&mut self, _desired: &GenerationManifest) -> Result<()> {
+            self.provisions += 1;
+            Ok(())
+        }
+
         fn apply(
             &mut self,
             operation: &SyncOperation,
@@ -1269,6 +1830,7 @@ mod tests {
             desired: &GenerationManifest,
             _snapshot: &SourceSnapshot,
         ) -> Result<()> {
+            self.validations += 1;
             let expected: BTreeMap<String, LiveGroup> = desired
                 .groups
                 .iter()
@@ -1307,16 +1869,6 @@ mod tests {
         )
         .unwrap();
         journal.sync_begin(&pending).unwrap();
-    }
-
-    fn empty_base_for(plan: &Plan) -> Plan {
-        let mut base = plan.clone();
-        base.files.clear();
-        base.duplicate_files.clear();
-        for dataset in &mut base.datasets {
-            dataset.file_count = 0;
-        }
-        base
     }
 
     #[test]
@@ -1376,8 +1928,15 @@ mod tests {
         .unwrap();
         let inventory = inventory(corpus.path());
         let plan = plan_for(&inventory);
-        let snapshot =
-            create_prepared_snapshot(state.path(), "tx-prepared", &inventory, &plan).unwrap();
+        let snapshot = create_prepared_snapshot(
+            state.path(),
+            "tx-prepared",
+            &inventory,
+            &plan,
+            "test-preparation-v1",
+            u64::MAX,
+        )
+        .unwrap();
         let prepared = snapshot.files[0].prepared.as_ref().unwrap();
         assert_eq!(prepared.records, 2);
         assert!(prepared.bytes > 0);
@@ -1401,6 +1960,153 @@ mod tests {
             .join(&prepared.relative_ndjson);
         std::fs::write(artifact_path, "corrupt").unwrap();
         assert!(open_snapshot(state.path(), "tx-prepared").is_err());
+    }
+
+    #[test]
+    fn preparation_sniffs_and_extracts_only_the_sealed_blob_after_live_mutation() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        let source = corpus.path().join("records.jsonl");
+        let sealed = b"{\"message\":\"sealed alpha\"}\n{\"message\":\"sealed beta\"}\n";
+        let replacement = b"id,value\n9,live mutation\n";
+        std::fs::write(&source, sealed).unwrap();
+        let inventory = inventory(corpus.path());
+        let plan = plan_for(&inventory);
+        arm_source_mutation_after_seal(&source, replacement);
+
+        let snapshot = create_prepared_snapshot(
+            state.path(),
+            "tx-post-seal-mutation",
+            &inventory,
+            &plan,
+            "test-preparation-v1",
+            u64::MAX,
+        )
+        .unwrap();
+
+        assert_eq!(std::fs::read(&source).unwrap(), replacement);
+        let prepared = snapshot.files[0].prepared.as_ref().unwrap();
+        assert_eq!(prepared.records, 2);
+        let root = state.path().join("sync-snapshots/tx-post-seal-mutation");
+        let ndjson = std::fs::read_to_string(root.join(&prepared.relative_ndjson)).unwrap();
+        assert!(ndjson.contains("sealed alpha"), "{ndjson}");
+        assert!(ndjson.contains("sealed beta"), "{ndjson}");
+        assert!(!ndjson.contains("live mutation"), "{ndjson}");
+        for document in ndjson
+            .lines()
+            .skip(1)
+            .step_by(2)
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        {
+            assert_eq!(document["ax_format"], "jsonl");
+            assert!(document.get("message").is_some(), "{document}");
+            assert!(document.get("id").is_none(), "{document}");
+            assert!(document.get("value").is_none(), "{document}");
+        }
+        assert_eq!(
+            std::fs::read(root.join(&snapshot.files[0].relative_blob)).unwrap(),
+            sealed
+        );
+    }
+
+    #[test]
+    fn prepared_snapshot_budget_aborts_and_removes_staging() {
+        let corpus = tempfile::tempdir().unwrap();
+        std::fs::write(corpus.path().join("a.txt"), "budgeted source bytes").unwrap();
+        let inventory =
+            crate::content::resolve(crate::walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let plan = plan_for(&inventory);
+        let state = tempfile::tempdir().unwrap();
+        let error = create_prepared_snapshot(
+            state.path(),
+            "tx-budget",
+            &inventory,
+            &plan,
+            "test-preparation-v1",
+            inventory.files[0].size + 1,
+        )
+        .unwrap_err();
+        assert!(format!("{error:#}").contains("logical payload"));
+        assert!(!state
+            .path()
+            .join("sync-snapshots/.tx-budget.partial")
+            .exists());
+        assert!(!state.path().join("sync-snapshots/tx-budget").exists());
+    }
+
+    #[test]
+    fn payload_writer_refuses_bytes_before_they_reach_disk() {
+        let state = tempfile::tempdir().unwrap();
+        let path = state.path().join("payload");
+        let file = File::create(&path).unwrap();
+        let mut budget = PayloadBudget { used: 0, limit: 3 };
+        let mut writer = BudgetWriter {
+            inner: file,
+            budget: &mut budget,
+        };
+        writer.write_all(b"abc").unwrap();
+        assert!(writer.write_all(b"d").is_err());
+        writer.flush().unwrap();
+        drop(writer);
+        assert_eq!(std::fs::metadata(path).unwrap().len(), 3);
+        assert_eq!(budget.used, 3);
+    }
+
+    #[test]
+    fn gc_tombstone_crash_is_retryable_and_symlinks_are_refused() {
+        let state = tempfile::tempdir().unwrap();
+        let mut journal = Journal::open(state.path(), "root", "url", "prefix", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        let snapshots = state.path().join("sync-snapshots");
+        std::fs::create_dir_all(snapshots.join("orphan")).unwrap();
+        std::fs::write(snapshots.join("orphan/blob"), b"x").unwrap();
+        GC_FAIL_AFTER_RENAME.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(gc_snapshots(state.path(), &journal).is_err());
+        assert!(!snapshots.join("orphan").exists());
+        assert!(snapshots.join(".orphan.gc").exists());
+        gc_snapshots(state.path(), &journal).unwrap();
+        assert!(!snapshots.join(".orphan.gc").exists());
+
+        #[cfg(unix)]
+        {
+            std::fs::create_dir(snapshots.join("a-orphan")).unwrap();
+            std::os::unix::fs::symlink(state.path(), snapshots.join("hostile")).unwrap();
+            assert!(gc_snapshots(state.path(), &journal).is_err());
+            assert!(snapshots.join("a-orphan").exists());
+            assert!(snapshots.join("hostile").exists());
+        }
+    }
+
+    #[test]
+    fn gc_validates_every_protected_snapshot_before_deleting_orphans() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        std::fs::write(corpus.path().join("a.txt"), "protected bytes").unwrap();
+        let inventory =
+            crate::content::resolve(crate::walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let plan = plan_for(&inventory);
+        let state = tempfile::tempdir().unwrap();
+        let snapshot = create_snapshot(state.path(), "tx-protected", &inventory).unwrap();
+        let mut journal = Journal::open(state.path(), "root", "url", "prefix", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        let groups = groups_from_inventory(&inventory, &plan, &[]).unwrap();
+        begin(&mut journal, "tx-protected", &snapshot, plan, groups);
+        let orphan = state.path().join("sync-snapshots/orphan");
+        std::fs::create_dir(&orphan).unwrap();
+        std::fs::write(orphan.join("blob"), b"orphan").unwrap();
+        let protected_blob = state
+            .path()
+            .join("sync-snapshots/tx-protected")
+            .join(&snapshot.files[0].relative_blob);
+        std::fs::write(protected_blob, b"corrupt").unwrap();
+        assert!(gc_snapshots(state.path(), &journal).is_err());
+        assert!(orphan.exists(), "validation must precede every deletion");
+        assert!(state.path().join("sync-snapshots/tx-protected").exists());
     }
 
     #[test]
@@ -1490,13 +2196,14 @@ mod tests {
                     "prefix": "ax",
                     "follow_symlinks": false,
                     "chunker_identity": "chunker",
+                    "embedding_identity_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                     "embedding_backend": "lexical",
-                    "embedding_model": "feature-hash",
-                    "embedding_tokenizer": "none",
                     "embedding_dimension": 384,
+                    "embedding_semantic_contract": "semantic_text-derived-vector.v1",
+                    "embedding_resumable": true,
                     "graph_enabled": false,
-                    "brain": "brain",
-                    "detector_identity": "none",
+                    "brain": "disabled",
+                    "detector_identity": "disabled",
                     "schema_identity": "schema",
                     "index_identity": "index",
                     "source_policy": {
@@ -1545,7 +2252,7 @@ mod tests {
         let snapshot = create_snapshot(state.path(), "tx-add", &inventory).unwrap();
         let mut journal =
             Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
-        journal.write_plan(&empty_base_for(&plan)).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
         begin(&mut journal, "tx-add", &snapshot, plan, groups);
         let mut backend = FakeBackend::default();
 
@@ -1580,7 +2287,7 @@ mod tests {
         let first_snapshot = create_snapshot(state.path(), "tx-first", &first_inventory).unwrap();
         let mut journal =
             Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
-        journal.write_plan(&empty_base_for(&first_plan)).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
         begin(
             &mut journal,
             "tx-first",
@@ -1670,5 +2377,40 @@ mod tests {
             .unwrap()
             .groups
             .is_empty());
+    }
+
+    #[test]
+    fn serialized_graph_identity_with_zero_operations_fails_before_backend_or_commit() {
+        let state = tempfile::tempdir().unwrap();
+        let inventory = Inventory {
+            files: vec![],
+            keys: vec![],
+            digests: vec![],
+            duplicates: vec![],
+        };
+        let snapshot = create_snapshot(state.path(), "tx-hostile", &inventory).unwrap();
+        let mut journal =
+            Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        let base = journal.committed_manifest.as_ref().unwrap().clone();
+        let desired = desired(1, "tx-hostile", &snapshot, Plan::default(), vec![]);
+        let valid = PendingSync::new("tx-hostile".into(), &base, desired).unwrap();
+        assert!(valid.operations.is_empty());
+        journal.sync_begin(&valid).unwrap();
+
+        let mut encoded = serde_json::to_value(journal.pending_sync.as_ref().unwrap()).unwrap();
+        encoded["desired"]["execution"]["graph_enabled"] = Value::Bool(true);
+        encoded["desired"]["execution"]["brain"] = Value::String("hostile".into());
+        encoded["desired"]["execution"]["detector_identity"] =
+            Value::String("hostile-detectors".into());
+        journal.pending_sync = Some(serde_json::from_value(encoded).unwrap());
+
+        let mut backend = FakeBackend::default();
+        assert!(replay_pending_operations(state.path(), &mut journal, &mut backend).is_err());
+        assert_eq!(backend.provisions, 0);
+        assert!(backend.applications.is_empty());
+        assert_eq!(backend.validations, 0);
+        assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 0);
+        assert!(journal.pending_sync.is_some());
     }
 }

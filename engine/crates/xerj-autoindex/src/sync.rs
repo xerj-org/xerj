@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-pub const EXECUTION_IDENTITY_VERSION: u32 = 1;
+pub const EXECUTION_IDENTITY_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ManifestPath {
@@ -66,10 +66,13 @@ pub struct ExecutionIdentity {
     pub prefix: String,
     pub follow_symlinks: bool,
     pub chunker_identity: String,
+    /// Opaque, server-authenticated identity of the exact embedding execution
+    /// space. Autoindex must never synthesize model/tokenizer labels.
+    pub embedding_identity_sha256: String,
     pub embedding_backend: String,
-    pub embedding_model: String,
-    pub embedding_tokenizer: String,
     pub embedding_dimension: usize,
+    pub embedding_semantic_contract: String,
+    pub embedding_resumable: bool,
     pub graph_enabled: bool,
     pub brain: String,
     pub detector_identity: String,
@@ -105,6 +108,27 @@ pub enum LegacyBootstrap {
 }
 
 impl CommittedManifest {
+    pub fn genesis() -> Result<Self> {
+        match Self::bootstrap_legacy(Plan::default())? {
+            LegacyBootstrap::Ready(manifest) => Ok(*manifest),
+            LegacyBootstrap::MigrationRequired { .. } => {
+                anyhow::bail!("empty generation-zero manifest unexpectedly requires migration")
+            }
+        }
+    }
+
+    fn validate_genesis(&self) -> Result<()> {
+        anyhow::ensure!(
+            self.generation == 0
+                && self.manifest_digest == Self::genesis()?.manifest_digest
+                && serde_json::to_value(&self.plan)? == serde_json::to_value(Plan::default())?
+                && self.groups.is_empty()
+                && self.execution.is_none(),
+            "generation-zero bootstrap manifest is not exact genesis"
+        );
+        Ok(())
+    }
+
     pub fn bootstrap_legacy(plan: Plan) -> Result<LegacyBootstrap> {
         let mut reasons = Vec::new();
         for (file_key, file) in &plan.files {
@@ -355,6 +379,13 @@ fn validate_supported_manifest_delta(
     // the only configuration transition this vocabulary can represent. A
     // durable snapshot reference and digest are generation inputs, not engine
     // configuration, so they must advance with each desired generation.
+    if base.generation == 0 && base.execution.is_none() && base.groups.is_empty() {
+        anyhow::ensure!(
+            base.manifest_digest == CommittedManifest::genesis()?.manifest_digest,
+            "generation-one migration base is not exact genesis"
+        );
+        return Ok(());
+    }
     if base.generation > 0 || base.execution.is_some() {
         let same_execution_configuration = |left: &ExecutionIdentity, right: &ExecutionIdentity| {
             let mut left = left.clone();
@@ -385,11 +416,10 @@ fn validate_supported_manifest_delta(
         base.plan.alias_paths_indexed == desired.plan.alias_paths_indexed,
         "plan flags changed without a supported operation"
     );
-    anyhow::ensure!(
-        canonical_json_bytes(&base.plan.junk_files)?
-            == canonical_json_bytes(&desired.plan.junk_files)?,
-        "junk plan changed without a supported operation"
-    );
+    // Junk is a local inference result, not remotely published generation
+    // membership. Adding/removing an unsupported file may advance the
+    // manifest for truthful map/status output, but it intentionally derives
+    // no remote data or catalog operation.
     let normalize_datasets = |datasets: &[crate::state::PlanDataset]| {
         let mut datasets = datasets.to_vec();
         for dataset in &mut datasets {
@@ -632,16 +662,25 @@ fn validate_manifest(manifest: &GenerationManifest, legacy: bool) -> Result<()> 
             execution.version == EXECUTION_IDENTITY_VERSION,
             "unsupported execution identity version"
         );
+        anyhow::ensure!(
+            !execution.graph_enabled
+                && execution.brain == "disabled"
+                && execution.detector_identity == "disabled",
+            "incremental generation manifests require graph-disabled execution identity"
+        );
         for (name, value) in [
             ("root_identity", execution.root_identity.as_str()),
             ("url", execution.url.as_str()),
             ("prefix", execution.prefix.as_str()),
             ("chunker_identity", execution.chunker_identity.as_str()),
-            ("embedding_backend", execution.embedding_backend.as_str()),
-            ("embedding_model", execution.embedding_model.as_str()),
             (
-                "embedding_tokenizer",
-                execution.embedding_tokenizer.as_str(),
+                "embedding_identity_sha256",
+                execution.embedding_identity_sha256.as_str(),
+            ),
+            ("embedding_backend", execution.embedding_backend.as_str()),
+            (
+                "embedding_semantic_contract",
+                execution.embedding_semantic_contract.as_str(),
             ),
             ("detector_identity", execution.detector_identity.as_str()),
             ("schema_identity", execution.schema_identity.as_str()),
@@ -649,6 +688,22 @@ fn validate_manifest(manifest: &GenerationManifest, legacy: bool) -> Result<()> 
         ] {
             anyhow::ensure!(!value.is_empty(), "execution identity {name} is empty");
         }
+        anyhow::ensure!(
+            execution.embedding_identity_sha256.len() == 64
+                && execution
+                    .embedding_identity_sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()),
+            "embedding execution identity must be a lowercase SHA-256 digest"
+        );
+        anyhow::ensure!(
+            execution.embedding_dimension > 0,
+            "embedding execution dimension must be positive"
+        );
+        anyhow::ensure!(
+            execution.embedding_resumable,
+            "a durable generation requires a resumable embedding execution identity"
+        );
         match &execution.source_policy {
             SourceExecutionPolicy::DurableSnapshot {
                 reference,
@@ -901,7 +956,12 @@ pub fn apply_begin(
 pub fn is_sync_record_kind(kind: &str) -> bool {
     matches!(
         kind,
-        "sync_begin" | "sync_operation_state" | "sync_validated" | "sync_commit" | "sync_abort"
+        "sync_bootstrap"
+            | "sync_begin"
+            | "sync_operation_state"
+            | "sync_validated"
+            | "sync_commit"
+            | "sync_abort"
     )
 }
 
@@ -912,6 +972,26 @@ pub fn replay_record(
 ) -> Result<()> {
     let kind = record_str(record, "kind")?;
     match kind {
+        "sync_bootstrap" => {
+            anyhow::ensure!(
+                pending.is_none(),
+                "sync_bootstrap cannot replace pending sync"
+            );
+            anyhow::ensure!(
+                committed.is_none(),
+                "sync_bootstrap cannot replace committed authority"
+            );
+            let manifest: CommittedManifest = serde_json::from_value(
+                record
+                    .get("manifest")
+                    .cloned()
+                    .context("sync_bootstrap has no manifest")?,
+            )
+            .context("decode durable sync_bootstrap")?;
+            manifest.validate_genesis()?;
+            *committed = Some(manifest);
+            Ok(())
+        }
         "sync_begin" => {
             let begin: PendingSync =
                 serde_json::from_value(record.clone()).context("decode durable sync_begin")?;
@@ -1013,6 +1093,34 @@ mod tests {
             expected_passages: 1,
             expected_vectors: 1,
         }
+    }
+
+    #[test]
+    fn bootstrap_replay_accepts_only_exact_empty_genesis() {
+        let genesis = CommittedManifest::genesis().unwrap();
+        let record = serde_json::json!({
+            "kind": "sync_bootstrap",
+            "manifest": genesis,
+        });
+        let mut committed = None;
+        let mut pending = None;
+        replay_record(&record, &mut committed, &mut pending).unwrap();
+        assert_eq!(committed.unwrap().generation, 0);
+
+        let mut non_genesis = CommittedManifest::genesis().unwrap();
+        non_genesis.generation = 1;
+        let record = serde_json::json!({
+            "kind": "sync_bootstrap",
+            "manifest": non_genesis,
+        });
+        assert!(replay_record(&record, &mut None, &mut None).is_err());
+
+        let mut committed = Some(CommittedManifest::genesis().unwrap());
+        let record = serde_json::json!({
+            "kind": "sync_bootstrap",
+            "manifest": CommittedManifest::genesis().unwrap(),
+        });
+        assert!(replay_record(&record, &mut committed, &mut None).is_err());
     }
 
     #[test]
@@ -1154,13 +1262,14 @@ mod tests {
             prefix: "prefix".into(),
             follow_symlinks: false,
             chunker_identity: "chunker-v1".into(),
+            embedding_identity_sha256: "a".repeat(64),
             embedding_backend: "lexical".into(),
-            embedding_model: "feature-hash".into(),
-            embedding_tokenizer: "builtin".into(),
             embedding_dimension: 384,
+            embedding_semantic_contract: "semantic_text-derived-vector.v1".into(),
+            embedding_resumable: true,
             graph_enabled: false,
-            brain: "none".into(),
-            detector_identity: "detectors-v1".into(),
+            brain: "disabled".into(),
+            detector_identity: "disabled".into(),
             schema_identity: "schema-v1".into(),
             index_identity: "index-v1".into(),
             source_policy: SourceExecutionPolicy::AbortOnSourceChange {
@@ -1183,11 +1292,7 @@ mod tests {
             sampled_records: 0,
             file_count: 0,
         });
-        let LegacyBootstrap::Ready(legacy) =
-            CommittedManifest::bootstrap_legacy(legacy_plan.clone()).unwrap()
-        else {
-            panic!("empty legacy membership is migratable");
-        };
+        let legacy = CommittedManifest::genesis().unwrap();
         let first = GenerationManifest {
             generation: 1,
             execution: Some(identity("inventory-a")),
@@ -1204,10 +1309,21 @@ mod tests {
         assert!(
             PendingSync::new("changed-execution".into(), &committed, changed_execution).is_err()
         );
+        let mut changed_generated_flag = first.clone();
+        changed_generated_flag.generation = 2;
+        changed_generated_flag.plan.alias_paths_indexed =
+            !changed_generated_flag.plan.alias_paths_indexed;
+        assert!(PendingSync::new(
+            "changed-generated-flag".into(),
+            &committed,
+            changed_generated_flag
+        )
+        .is_err());
 
         let mut changed_plan = first;
+        changed_plan.generation = 2;
         changed_plan.plan.alias_paths_indexed = true;
-        assert!(PendingSync::new("changed-plan".into(), &legacy, changed_plan).is_err());
+        assert!(PendingSync::new("changed-plan".into(), &committed, changed_plan).is_err());
     }
 
     #[test]

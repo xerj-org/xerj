@@ -12,6 +12,7 @@ pub struct IndexCfg {
     pub pdf_timeout_secs: u64,
     pub bulk_mb: usize,
     pub bulk_timeout_secs: u64,
+    pub snapshot_max_bytes: u64,
     pub prefix: String,
     pub state_dir: Option<PathBuf>,
     pub fresh: bool,
@@ -56,6 +57,9 @@ pub enum Cmd {
 const FRESH_HELP: &str =
     "start without resume state only when the selected state directory has no \
 durable plan; an existing plan is refused and destination records are never reset";
+const RESUME_POLICY_HELP: &str =
+    "generated --no-graph journals reconcile add, change, delete, rename, and no-op runs; \
+legacy journals and graph-enabled generations refuse membership changes before remote mutation";
 
 pub fn print_help() {
     println!(
@@ -78,6 +82,8 @@ pub fn print_help() {
                                   valid range 1..=3600)\n\
              --prefix <P>         index prefix (default ax)\n\
              --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/)\n\
+             --snapshot-max-gb <N> logical payload cap for sealed source+prepared records\n\
+                                  bytes (default 64); excludes filesystem/manifest overhead\n\
              --fresh              {fresh_help}\n\
              --follow-symlinks    follow symlinks (loop-safe); off by default\n\
              --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
@@ -104,6 +110,14 @@ pub fn print_help() {
              phase-B indexing parses it again. A framed, early-stop protocol is planned;\n\
              use fewer --pdf-workers when parent memory is constrained.\n\
          \n\
+         INCREMENTAL RECONCILIATION:\n\
+             Generated journals with --no-graph reconcile added, removed, moved, and changed\n\
+             files. Legacy journals and graph-enabled generations remain fail-closed. Each\n\
+             changed generation currently copies and prepares the full corpus (O(N)); the\n\
+             latest full snapshot remains retained, and cleanup re-reads protected artifacts\n\
+             to verify them. --snapshot-max-gb limits logical staged payload bytes before each\n\
+             write; it is not a physical disk-space or peak-allocation guarantee.\n\
+         \n\
          EMBEDDINGS:\n\
              autoindex sends semantic_text to the running server; it does not choose the\n\
              server's embedding backend. The default is lexical (not neural). For the\n\
@@ -114,16 +128,17 @@ pub fn print_help() {
              confirm a semantic field before attributing an indexing result to embeddings.\n\
          \n\
          RESUME POLICY:\n\
-             A durable plan supports no-op resume and same-path content replacement.\n\
-             Added or removed content groups are refused before remote mutation.\n\
-             An independent rebuild needs a new --state-dir, new --prefix, and, when\n\
-             graph detection is enabled, new --brain (or --no-graph). Validate before\n\
-             switching readers; the shared autoindex-catalog and old target require\n\
-             explicit, validated cleanup.\n\
+             {resume_policy_help}.\n\
+             If a legacy or graph-enabled journal refuses a change, do not use --fresh as\n\
+             cleanup. Restore its original destination, or rebuild with a new --state-dir and\n\
+             new --prefix plus a new --brain when graph is enabled (or use --no-graph).\n\
+             Validate before switching readers; explicitly clean the shared\n\
+             autoindex-catalog and old target only after validation.\n\
          \n\
          EXIT CODES: 0 complete; 3 completed-with-junk (junk recorded, never fatal);\n\
                      2 usage; 1 endpoint/journal failure or unsupported corpus delta\n",
-        fresh_help = FRESH_HELP
+        fresh_help = FRESH_HELP,
+        resume_policy_help = RESUME_POLICY_HELP
     );
 }
 
@@ -145,6 +160,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut pdf_timeout_secs = 120u64;
     let mut bulk_mb = 8usize;
     let mut bulk_timeout_secs = 300u64;
+    let mut snapshot_max_bytes = 64u64 << 30;
     let mut bulk_timeout_explicit = false;
     let mut prefix = "ax".to_string();
     let mut state_dir: Option<PathBuf> = None;
@@ -200,6 +216,17 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 if !(1..=3_600).contains(&bulk_timeout_secs) {
                     return Err("--bulk-timeout-secs must be in the range 1..=3600 seconds".into());
                 }
+            }
+            "--snapshot-max-gb" => {
+                let gib: u64 = it
+                    .next()
+                    .ok_or("--snapshot-max-gb needs a positive integer")?
+                    .parse()
+                    .map_err(|_| "--snapshot-max-gb needs a positive integer")?;
+                snapshot_max_bytes = gib
+                    .checked_mul(1u64 << 30)
+                    .filter(|bytes| *bytes > 0)
+                    .ok_or("--snapshot-max-gb is too large")?;
             }
             "--in-flight" => {
                 let _ = it.next(); // reserved (bulks are worker-synchronous in v1)
@@ -279,6 +306,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             pdf_timeout_secs,
             bulk_mb: bulk_mb.clamp(1, 24),
             bulk_timeout_secs,
+            snapshot_max_bytes,
             prefix,
             state_dir,
             fresh,
@@ -313,10 +341,42 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_budget_defaults_and_accepts_gibibytes() {
+        assert_eq!(index(&["data"]).snapshot_max_bytes, 64u64 << 30);
+        assert_eq!(
+            index(&["data", "--snapshot-max-gb", "7"]).snapshot_max_bytes,
+            7u64 << 30
+        );
+        for value in ["0", "nope", "18446744073709551615"] {
+            assert!(super::parse(
+                ["data", "--snapshot-max-gb", value]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect()
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
     fn fresh_help_warns_that_it_is_not_destination_reconciliation() {
         assert!(super::FRESH_HELP.contains("no durable plan"));
         assert!(super::FRESH_HELP.contains("existing plan is refused"));
         assert!(super::FRESH_HELP.contains("destination records are never reset"));
+    }
+
+    #[test]
+    fn resume_policy_help_distinguishes_supported_and_refused_state() {
+        let help = super::RESUME_POLICY_HELP;
+        for claim in [
+            "generated --no-graph journals",
+            "add, change, delete, rename, and no-op",
+            "legacy journals",
+            "graph-enabled generations",
+            "before remote mutation",
+        ] {
+            assert!(help.contains(claim), "missing resume-policy claim: {claim}");
+        }
     }
 
     #[test]

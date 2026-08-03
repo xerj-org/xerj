@@ -19,6 +19,7 @@ static FAILPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct MockState {
     docs: HashMap<String, Value>,
+    catalog_docs: HashMap<String, Value>,
     requests: Vec<(String, String)>,
     data_bulk_number: usize,
     fail_data_bulk: usize,
@@ -49,7 +50,11 @@ impl MockEndpoint {
             match listener.accept() {
                 Ok((stream, _)) => handle(stream, &server_state),
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    if server_state.lock().unwrap().stop {
+                    if server_state
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner())
+                        .stop
+                    {
                         break;
                     }
                     thread::yield_now();
@@ -67,10 +72,13 @@ impl MockEndpoint {
 
 impl Drop for MockEndpoint {
     fn drop(&mut self) {
-        self.state.lock().unwrap().stop = true;
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .stop = true;
         // Wake the nonblocking listener even on heavily loaded test hosts.
         let _ = TcpStream::connect(self.url.trim_start_matches("http://"));
-        self.join.take().unwrap().join().unwrap();
+        let _ = self.join.take().unwrap().join();
     }
 }
 
@@ -125,6 +133,10 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
             .pointer("/query/term/ax_file")
             .and_then(Value::as_str)
             .map(str::to_owned);
+        let file_key = query
+            .pointer("/query/term/file_key")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
         let mut locked = state.lock().unwrap();
         locked.delete_calls += 1;
         if let Some(key) = ax_file {
@@ -132,11 +144,38 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 .docs
                 .retain(|_, doc| doc.get("ax_file").and_then(Value::as_str) != Some(key.as_str()));
         }
+        if let Some(key) = file_key {
+            locked
+                .catalog_docs
+                .retain(|_, doc| doc.get("file_key").and_then(Value::as_str) != Some(key.as_str()));
+        }
         json!({"deleted": 0, "failures": []})
     } else if method == "GET" && path.ends_with("/_count") {
         json!({"count": state.lock().unwrap().docs.len()})
     } else if method == "POST" && path.ends_with("/_search") {
-        json!({"hits":{"total":{"value":0},"hits":[]},"aggregations":{}})
+        let query: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        let ax_file = query
+            .pointer("/query/term/ax_file")
+            .or_else(|| query.pointer("/query/bool/must/0/term/ax_file"))
+            .and_then(Value::as_str);
+        let file_key = query
+            .pointer("/query/term/file_key")
+            .and_then(Value::as_str);
+        let locked = state.lock().unwrap();
+        let documents = if file_key.is_some() {
+            &locked.catalog_docs
+        } else {
+            &locked.docs
+        };
+        let count = documents
+            .values()
+            .filter(|doc| {
+                ax_file.is_none_or(|key| doc.get("ax_file").and_then(Value::as_str) == Some(key))
+                    && file_key
+                        .is_none_or(|key| doc.get("file_key").and_then(Value::as_str) == Some(key))
+            })
+            .count();
+        json!({"hits":{"total":{"value":count},"hits":[]},"aggregations":{}})
     } else {
         // ping, index creation/mapping, refresh, and catalog operations
         json!({"acknowledged": true})
@@ -162,11 +201,30 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
         .and_then(|action| action.pointer("/index/_index").cloned())
         .and_then(|index| index.as_str().map(str::to_owned))
         .is_some_and(|index| index != catalog::CATALOG_INDEX);
-    if !is_data {
+    let is_graph = lines
+        .first()
+        .and_then(|line| serde_json::from_slice::<Value>(line).ok())
+        .and_then(|action| action.pointer("/index/_index").cloned())
+        .and_then(|index| index.as_str().map(str::to_owned))
+        .is_some_and(|index| index.ends_with("-edges"));
+    let mut locked = state.lock().unwrap();
+    if !is_data || is_graph {
+        if is_graph {
+            return json!({"errors": false, "items": []});
+        }
+        for pair in lines.chunks_exact(2) {
+            let action: Value = serde_json::from_slice(pair[0]).unwrap();
+            let doc: Value = serde_json::from_slice(pair[1]).unwrap();
+            let id = action
+                .as_object()
+                .and_then(|action| action.values().next())
+                .and_then(|metadata| metadata.get("_id"))
+                .and_then(Value::as_str)
+                .unwrap();
+            locked.catalog_docs.insert(id.to_owned(), doc);
+        }
         return json!({"errors": false, "items": []});
     }
-
-    let mut locked = state.lock().unwrap();
     locked.data_bulk_number += 1;
     let fail = !locked.failed_once && locked.data_bulk_number == locked.fail_data_bulk;
     let pairs = lines.chunks_exact(2);
@@ -201,6 +259,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         pdf_timeout_secs: 30,
         bulk_mb: 64,
         bulk_timeout_secs: 3_600,
+        snapshot_max_bytes: 64 << 30,
         prefix: "failure-test".into(),
         state_dir: Some(state_dir.to_owned()),
         fresh: false,
@@ -208,11 +267,10 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         max_file_gb: 1,
         sample: 50,
         no_semantic: true,
-        // These tests count data bulks to place injected failures; graph
-        // edge bulks would shift that numbering, so keep detection off here
-        // (the graph pipeline has its own e2e suite in detect::e2e).
+        // This module preserves legacy graph-enabled failure behavior;
+        // incremental non-graph behavior has its own HTTP suite.
         brain: None,
-        no_graph: true,
+        no_graph: false,
         dry_run: false,
         json: false,
         quiet: true,
@@ -745,25 +803,44 @@ fn existing_completion_is_invalidated_and_partial_visibility_is_deleted_on_resum
         {
             let locked = endpoint.state.lock().unwrap();
             assert!(locked.failed_once);
-            assert!(locked.docs.len() < rows);
+            assert!(
+                locked
+                    .docs
+                    .values()
+                    .filter(|doc| doc.get("value").is_some())
+                    .count()
+                    < rows
+            );
         }
 
         assert_eq!(run_index(config).unwrap(), 0);
         assert_eq!(file_done_count(state_dir.path()), 2);
         let locked = endpoint.state.lock().unwrap();
-        assert_eq!(locked.docs.len(), rows);
+        assert_eq!(
+            locked
+                .docs
+                .values()
+                .filter(|doc| doc.get("value").is_some())
+                .count(),
+            rows
+        );
         assert_eq!(
             locked.delete_calls, 2,
             "fresh publication skips delete; replacement and repair each clean once"
         );
-        assert!(locked.docs.values().all(|doc| {
-            doc["value"]
-                .as_str()
-                .is_some_and(|value| value.starts_with("replacement-"))
-        }));
+        assert!(locked
+            .docs
+            .values()
+            .filter(|doc| doc.get("value").is_some())
+            .all(|doc| {
+                doc["value"]
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("replacement-"))
+            }));
         let mut locators: Vec<usize> = locked
             .docs
             .values()
+            .filter(|doc| doc.get("value").is_some())
             .map(|doc| {
                 doc["ax_locator"]
                     .as_str()
@@ -822,12 +899,24 @@ fn resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done() {
 
         assert_eq!(run_index(config).unwrap(), 0);
         let locked = endpoint.state.lock().unwrap();
-        assert_eq!(locked.docs.len(), rows, "boundary {boundary}");
-        assert!(locked.docs.values().all(|doc| {
-            doc["value"]
-                .as_str()
-                .is_some_and(|value| value.starts_with("new-"))
-        }));
+        assert_eq!(
+            locked
+                .docs
+                .values()
+                .filter(|doc| doc.get("value").is_some())
+                .count(),
+            rows,
+            "boundary {boundary}"
+        );
+        assert!(locked
+            .docs
+            .values()
+            .filter(|doc| doc.get("value").is_some())
+            .all(|doc| {
+                doc["value"]
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("new-"))
+            }));
     }
 }
 
@@ -845,7 +934,7 @@ fn file_done_append_and_fsync_failures_are_fatal_and_resume_repairs() {
         assert_eq!(run_index(config.clone()).unwrap(), 0);
         fs::write(&path, "id,value\n0,new\n1,new\n").unwrap();
 
-        state::fail_next_file_done_io(io_boundary);
+        state::fail_next_file_done_io(io_boundary, &state_dir.path().join("journal.ndjson"));
         let error = run_index(config.clone()).unwrap_err();
         let message = format!("{error:#}");
         assert!(
@@ -877,10 +966,18 @@ fn file_done_append_and_fsync_failures_are_fatal_and_resume_repairs() {
 
         assert_eq!(run_index(config).unwrap(), 0);
         let locked = endpoint.state.lock().unwrap();
-        assert_eq!(locked.docs.len(), 2);
+        assert_eq!(
+            locked
+                .docs
+                .values()
+                .filter(|doc| doc.get("value").is_some())
+                .count(),
+            2
+        );
         assert!(locked
             .docs
             .values()
+            .filter(|doc| doc.get("value").is_some())
             .all(|doc| doc["value"].as_str() == Some("new")));
     }
 }
@@ -948,10 +1045,18 @@ fn pending_generation_b_is_superseded_when_source_changes_to_c() {
     assert_eq!(starts.last().copied(), Some(committed_generation));
     drop(replay_c);
     let locked = endpoint.state.lock().unwrap();
-    assert_eq!(locked.docs.len(), 2);
+    assert_eq!(
+        locked
+            .docs
+            .values()
+            .filter(|doc| doc.get("value").is_some())
+            .count(),
+        2
+    );
     assert!(locked
         .docs
         .values()
+        .filter(|doc| doc.get("value").is_some())
         .all(|doc| doc["value"].as_str() == Some("generation-c")));
 }
 
@@ -984,9 +1089,12 @@ fn a_planned_key_never_gains_two_owners_when_old_content_moves_paths() {
     assert_unsupported_delta_without_remote_mutation(&endpoint, config.clone(), &["b.csv"], &[]);
     {
         let locked = endpoint.state.lock().unwrap();
-        assert_eq!(locked.docs.len(), 2);
+        assert_eq!(locked.docs.len(), 3);
         assert!(locked.docs.values().all(|doc| {
-            doc["ax_path"].as_str() == Some("a.csv") && doc["value"].as_str() == Some("original")
+            doc["ax_path"].as_str() == Some("a.csv")
+                && doc
+                    .get("value")
+                    .is_none_or(|value| value.as_str() == Some("original"))
         }));
     }
     let replay = state::Journal::open(
@@ -1010,11 +1118,10 @@ fn a_planned_key_never_gains_two_owners_when_old_content_moves_paths() {
     assert_unsupported_delta_without_remote_mutation(&endpoint, config, &["b.csv"], &[]);
     assert_eq!(event_count(state_dir.path(), "plan"), plans_before);
     let locked = endpoint.state.lock().unwrap();
-    assert_eq!(locked.docs.len(), 2);
-    assert!(locked
-        .docs
-        .values()
-        .all(|doc| doc["value"].as_str() == Some("original")));
+    assert_eq!(locked.docs.len(), 3);
+    assert!(locked.docs.values().all(|doc| doc
+        .get("value")
+        .is_none_or(|value| value.as_str() == Some("original"))));
 }
 
 #[test]
@@ -1080,7 +1187,7 @@ fn partial_file_done_is_rolled_back_before_another_worker_commits() {
 
     fs::write(corpus.path().join("a.csv"), "id,value\n0,a-new\n1,a-new\n").unwrap();
     fs::write(corpus.path().join("b.csv"), "id,value\n2,b-new\n3,b-new\n").unwrap();
-    state::fail_next_file_done_io(3);
+    state::fail_next_file_done_io(3, &state_dir.path().join("journal.ndjson"));
     let error = run_index(config.clone()).unwrap_err();
     assert!(format!("{error:#}").contains("partial file_done write"));
 
@@ -1102,10 +1209,21 @@ fn partial_file_done_is_rolled_back_before_another_worker_commits() {
 
     assert_eq!(run_index(config).unwrap(), 0);
     let locked = endpoint.state.lock().unwrap();
-    assert_eq!(locked.docs.len(), 4);
-    assert!(locked.docs.values().all(|doc| {
-        doc["value"]
-            .as_str()
-            .is_some_and(|value| value.ends_with("-new"))
-    }));
+    assert_eq!(
+        locked
+            .docs
+            .values()
+            .filter(|doc| doc.get("value").is_some())
+            .count(),
+        4
+    );
+    assert!(locked
+        .docs
+        .values()
+        .filter(|doc| doc.get("value").is_some())
+        .all(|doc| {
+            doc["value"]
+                .as_str()
+                .is_some_and(|value| value.ends_with("-new"))
+        }));
 }
