@@ -19,7 +19,7 @@ static SYNC_IO_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::Atomi
 pub(crate) static FILE_DONE_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> =
     std::sync::Mutex::new(());
 #[cfg(test)]
-static SYNC_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static SYNC_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(test)]
 pub(crate) fn fail_next_file_done_io(boundary: u8) {
@@ -208,6 +208,9 @@ pub struct FileAssignment {
     /// Reversible path identity used for deterministic resume matching.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub path_id: String,
+    /// Canonical path rank input. `None` identifies a legacy plan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_symlink: Option<bool>,
     pub family: String,
     pub gzip: bool,
     /// Full-content digest used to validate durable identity across resumes.
@@ -235,6 +238,10 @@ pub struct DuplicateFile {
     pub rel: String,
     #[serde(default)]
     pub path_id: String,
+    /// Whether this alias was reached through a followed symlink. `None`
+    /// identifies legacy plans which cannot prove canonical rank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_symlink: Option<bool>,
     /// Root-relative canonical path whose records represent this content.
     pub duplicate_of: String,
     pub bytes: u64,
@@ -1137,6 +1144,7 @@ mod sync_journal_tests {
             FileAssignment {
                 rel: "a.pdf".into(),
                 path_id: "unix:61".into(),
+                is_symlink: Some(false),
                 family: "pdf".into(),
                 gzip: false,
                 content_digest: Some("digest-a".into()),

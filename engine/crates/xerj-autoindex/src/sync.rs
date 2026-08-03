@@ -116,16 +116,27 @@ impl CommittedManifest {
                     "{file_key}: missing or lossy native canonical path identity"
                 ));
             }
-            // Legacy plans did not persist whether the canonical path was a
-            // followed symlink, so canonical rank cannot be reconstructed.
+            if file.is_symlink.is_none() {
+                reasons.push(format!(
+                    "{file_key}: legacy plan did not persist canonical symlink rank"
+                ));
+            }
+            // A Plan is not itself a generation manifest: it has no stable
+            // group ID, content byte length, or validated output counts.
             reasons.push(format!(
-                "{file_key}: legacy plan did not persist canonical symlink rank"
+                "{file_key}: legacy plan has no complete manifest group"
             ));
         }
         for alias in &plan.duplicate_files {
             if !native_path_id_supported(&alias.path_id) {
                 reasons.push(format!(
                     "{}: missing or lossy native alias path identity",
+                    alias.rel
+                ));
+            }
+            if alias.is_symlink.is_none() {
+                reasons.push(format!(
+                    "{}: legacy plan did not persist alias symlink rank",
                     alias.rel
                 ));
             }
@@ -341,11 +352,32 @@ fn validate_supported_manifest_delta(
     desired: &GenerationManifest,
 ) -> Result<()> {
     // Binding complete identity while migrating the legacy generation zero is
-    // the only identity transition this vocabulary can represent. Once bound,
-    // backend/model/source-policy changes require a future explicit operation.
+    // the only configuration transition this vocabulary can represent. A
+    // durable snapshot reference and digest are generation inputs, not engine
+    // configuration, so they must advance with each desired generation.
     if base.generation > 0 || base.execution.is_some() {
+        let same_execution_configuration = |left: &ExecutionIdentity, right: &ExecutionIdentity| {
+            let mut left = left.clone();
+            let mut right = right.clone();
+            if let (
+                SourceExecutionPolicy::DurableSnapshot { .. },
+                SourceExecutionPolicy::DurableSnapshot { .. },
+            ) = (&left.source_policy, &right.source_policy)
+            {
+                left.source_policy = SourceExecutionPolicy::DurableSnapshot {
+                    reference: String::new(),
+                    snapshot_digest: String::new(),
+                };
+                right.source_policy = left.source_policy.clone();
+            }
+            left == right
+        };
         anyhow::ensure!(
-            base.execution == desired.execution,
+            match (&base.execution, &desired.execution) {
+                (Some(left), Some(right)) => same_execution_configuration(left, right),
+                (None, None) => true,
+                _ => false,
+            },
             "execution identity or source policy changed without a supported operation"
         );
     }
@@ -718,6 +750,7 @@ fn validate_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()>
         anyhow::ensure!(
             assignment.rel == group.canonical.rel
                 && assignment.path_id == group.canonical.path_id
+                && assignment.is_symlink == Some(group.canonical.is_symlink)
                 && assignment.content_digest.as_deref() == Some(group.content_digest.as_str()),
             "plan canonical projection disagrees with manifest group"
         );
@@ -739,7 +772,7 @@ fn validate_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()>
             "group references absent dataset schema"
         );
     }
-    let expected_aliases: BTreeSet<(String, String, String, String)> = groups
+    let expected_aliases: BTreeSet<(String, String, String, bool, String)> = groups
         .iter()
         .flat_map(|group| {
             group.aliases.iter().map(|alias| {
@@ -747,23 +780,27 @@ fn validate_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()>
                     group.content_id.clone(),
                     alias.rel.clone(),
                     alias.path_id.clone(),
+                    alias.is_symlink,
                     group.canonical.rel.clone(),
                 )
             })
         })
         .collect();
-    let actual_aliases: BTreeSet<(String, String, String, String)> = plan
+    let actual_aliases: BTreeSet<(String, String, String, bool, String)> = plan
         .duplicate_files
         .iter()
-        .map(|alias: &DuplicateFile| {
-            (
+        .map(|alias: &DuplicateFile| -> Result<_> {
+            Ok((
                 alias.file_key.clone(),
                 alias.rel.clone(),
                 alias.path_id.clone(),
+                alias
+                    .is_symlink
+                    .context("plan alias has no persisted symlink rank")?,
                 alias.duplicate_of.clone(),
-            )
+            ))
         })
-        .collect();
+        .collect::<Result<_>>()?;
     anyhow::ensure!(
         actual_aliases == expected_aliases,
         "plan alias projection disagrees with manifest groups"
@@ -1059,6 +1096,7 @@ mod tests {
             FileAssignment {
                 rel: "a.pdf".into(),
                 path_id: "unix:61".into(),
+                is_symlink: None,
                 family: "pdf".into(),
                 gzip: false,
                 content_digest: Some("digest".into()),
@@ -1082,6 +1120,7 @@ mod tests {
                     FileAssignment {
                         rel: format!("{key}.pdf"),
                         path_id: format!("unix:{:02x}", key.as_bytes()[0]),
+                        is_symlink: Some(false),
                         family: "pdf".into(),
                         gzip: false,
                         content_digest: Some(format!("digest-{key}")),

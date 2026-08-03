@@ -61,6 +61,7 @@ fn resolve_with_digests(files: Vec<FileEntry>, digests: Vec<String>) -> Result<I
                     file_key: resolved_keys[canonical].clone(),
                     rel: files[index].rel.clone(),
                     path_id: files[index].rel_id.clone(),
+                    is_symlink: Some(files[index].is_symlink),
                     duplicate_of: files[canonical].rel.clone(),
                     bytes: files[index].size,
                 });
@@ -245,6 +246,7 @@ mod tests {
         let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.duplicates.len(), 1);
+        assert_eq!(inv.duplicates[0].is_symlink, Some(false));
     }
 
     #[cfg(unix)]
@@ -281,5 +283,6 @@ mod tests {
         let inv = resolve(crate::walk::walk(dir.path(), true).unwrap()).unwrap();
         assert_eq!(inv.files[0].rel, "z-real");
         assert_eq!(inv.duplicates[0].rel, "a-link");
+        assert_eq!(inv.duplicates[0].is_symlink, Some(true));
     }
 }

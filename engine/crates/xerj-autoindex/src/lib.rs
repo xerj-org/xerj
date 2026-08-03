@@ -17,6 +17,7 @@ pub mod infer;
 pub mod sniff;
 pub mod state;
 mod sync;
+mod sync_executor;
 pub mod walk;
 
 use anyhow::{Context, Result};
@@ -670,6 +671,29 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // must never classify a path snapshot taken while another owner was
     // publishing or replacing the durable plan.
     let preflight = state::Journal::preflight(&state_dir, &root_str, &cfg.url, &cfg.prefix)?;
+    // A durable sync_begin owns the desired generation. Never rediscover and
+    // replan from a mutable source tree while that transaction is pending.
+    // Operation handlers are deliberately not enabled by this foundation
+    // slice; fail with the exact durable transaction rather than accidentally
+    // executing a different folder snapshot.
+    if preflight.pending_sync.is_some() {
+        let mut journal = state::Journal::open_after_preflight(
+            preflight,
+            &root_str,
+            &cfg.url,
+            &cfg.prefix,
+            cfg.bulk_timeout_secs,
+            cfg.fresh,
+        )?;
+        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        if !cfg.quiet {
+            eprintln!(
+                "autoindex: resumed and committed pending corpus generation from durable source"
+            );
+        }
+        return Ok((0, None));
+    }
     let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
     if !cfg.quiet {
         eprintln!(
@@ -945,6 +969,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     .or_insert_with(|| FileAssignment {
                         rel: files[m].rel.clone(),
                         path_id: files[m].rel_id.clone(),
+                        is_symlink: Some(files[m].is_symlink),
                         family: c.family.as_str().to_string(),
                         gzip: sn.map(|s| s.gzip).unwrap_or(false),
                         content_digest: Some(digests[m].clone()),
@@ -2432,6 +2457,7 @@ mod inventory_delta_tests {
         FileAssignment {
             rel: path.to_owned(),
             path_id: format!("id:{path}"),
+            is_symlink: Some(false),
             family: "csv".into(),
             gzip: false,
             content_digest: Some(format!("digest:{path}")),
@@ -2532,6 +2558,7 @@ mod duplicate_integration_tests {
         FileAssignment {
             rel: rel.to_string(),
             path_id: String::new(),
+            is_symlink: None,
             family: "txt".to_string(),
             gzip: false,
             content_digest: None,
@@ -2620,6 +2647,7 @@ mod duplicate_integration_tests {
             file_key: file_key.to_string(),
             rel: rel.to_string(),
             path_id: format!("id:{rel}"),
+            is_symlink: Some(false),
             duplicate_of: format!("{file_key}.txt"),
             bytes: 10,
         };
