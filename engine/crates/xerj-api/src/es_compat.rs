@@ -1,6 +1,6 @@
 //! Elasticsearch-compatible REST API handlers (port 9200).
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::{
     async_trait,
@@ -14917,13 +14917,24 @@ pub async fn update_doc(
                 None
             }
         });
-        match idx
-            .transform_document_serialized(&id, upsert_body, move |mut current| {
-                apply_painless_update(&mut current, &src, &params)?;
-                Ok::<_, String>(current)
-            })
-            .await
-        {
+        // Same budget as `_update_by_query`: without a deadline in scope every
+        // statement in the script gets its own fresh slice, so a single
+        // document is still an unbounded amount of work.
+        let deadline = Instant::now() + Duration::from_millis(SCRIPTED_UPDATE_BUDGET_MS);
+        let (transformed, fault) = xerj_engine::painless::with_script_fault_capture(
+            xerj_engine::painless::with_script_deadline(
+                deadline,
+                idx.transform_document_serialized(&id, upsert_body, move |mut current| {
+                    apply_painless_update(&mut current, &src, &params)?;
+                    Ok::<_, String>(current)
+                }),
+            ),
+        )
+        .await;
+        if let Some(reason) = fault {
+            return script_limit_response(&reason);
+        }
+        match transformed {
             Ok(Ok(Some(outcome))) => {
                 state.metrics.record_doc_indexed(&index);
                 let resp = outcome.response;
@@ -20342,6 +20353,14 @@ pub async fn update_by_query(
     by_query_response(response)
 }
 
+/// Wall-clock ceiling for the Painless work one scripted-update request may
+/// do, mirroring the 30 s `_search` falls back to when a request names no
+/// timeout. It bounds the request as a whole — every statement, every
+/// document — rather than any single evaluation, which is the only bound that
+/// survives `_update_by_query`'s hit loop and its detached
+/// `wait_for_completion=false` form.
+const SCRIPTED_UPDATE_BUDGET_MS: u64 = 30_000;
+
 async fn run_update_by_query(
     idx: &xerj_engine::Index,
     search_req: &xerj_query::SearchRequest,
@@ -20360,57 +20379,95 @@ async fn run_update_by_query(
     }
 
     let total = results.hits.len() as u64;
-    let mut updated = 0u64;
-    let mut failures: Vec<Value> = Vec::new();
 
-    for hit in results.hits {
-        if hit.source.is_null() {
-            continue;
-        }
-        if let Some((src, params)) = script.as_ref() {
-            if src.is_empty() {
-                failures.push(json!({
-                    "id": hit.id,
-                    "cause": { "reason": "script source is required" },
-                }));
-                continue;
-            }
-            let result = idx
-                .transform_document_serialized(&hit.id, None, |mut current| {
-                    apply_painless_update(&mut current, src, params)?;
-                    Ok::<_, String>(current)
-                })
-                .await;
-            match result {
-                Ok(Ok(Some(_))) => updated += 1,
-                Ok(Ok(None)) => {}
-                Ok(Err(error)) => failures.push(json!({
-                    "id": hit.id,
-                    "cause": { "reason": error },
-                })),
-                Err(error) => failures.push(json!({
-                    "id": hit.id,
-                    "cause": { "reason": error.to_string() },
-                })),
-            }
-        } else {
-            // No script: preserve the historical re-index-in-place behavior.
-            match idx.index_document(Some(hit.id.clone()), hit.source).await {
-                Ok(_) => updated += 1,
-                Err(e) => {
-                    failures.push(json!({
-                        "id": hit.id,
-                        "cause": { "reason": e.to_string() },
-                    }));
+    // One budget for the whole request, the way `_search` already gets one.
+    // Every `;`-separated statement builds its own `PainlessCtx`, and with no
+    // deadline in scope each one falls back to its own ~500 ms slice — so a
+    // script's cost multiplied by its statement count and again by the hit
+    // count (up to 10k), with `wait_for_completion=false` detaching the whole
+    // thing onto the runtime. Publishing a single deadline bounds the request
+    // however it is spelled, and the fault sink turns a resource-limit trip
+    // into one honest error instead of the same failure recorded ten thousand
+    // times.
+    let deadline = Instant::now() + Duration::from_millis(SCRIPTED_UPDATE_BUDGET_MS);
+    let hits = results.hits;
+    let ((updated, failures, timed_out), fault) = xerj_engine::painless::with_script_fault_capture(
+        xerj_engine::painless::with_script_deadline(deadline, async move {
+            let mut updated = 0u64;
+            let mut failures: Vec<Value> = Vec::new();
+            let mut timed_out = false;
+
+            for hit in hits {
+                // The deadline bounds each evaluation, but not the loop: the
+                // per-evaluation slice is clamped to a floor even once the
+                // request deadline has passed — so an ordinary script is not
+                // cut off just because a slow search overran — and that floor
+                // times ten thousand hits is still ~1000 s of CPU from one
+                // request. The loop has to stop on its own, and say that it
+                // did rather than reporting `timed_out: false` over a run that
+                // was cut short.
+                if Instant::now() >= deadline {
+                    timed_out = true;
+                    break;
+                }
+                if hit.source.is_null() {
+                    continue;
+                }
+                if let Some((src, params)) = script.as_ref() {
+                    if src.is_empty() {
+                        failures.push(json!({
+                            "id": hit.id,
+                            "cause": { "reason": "script source is required" },
+                        }));
+                        continue;
+                    }
+                    let result = idx
+                        .transform_document_serialized(&hit.id, None, |mut current| {
+                            apply_painless_update(&mut current, src, params)?;
+                            Ok::<_, String>(current)
+                        })
+                        .await;
+                    match result {
+                        Ok(Ok(Some(_))) => updated += 1,
+                        Ok(Ok(None)) => {}
+                        Ok(Err(error)) => failures.push(json!({
+                            "id": hit.id,
+                            "cause": { "reason": error },
+                        })),
+                        Err(error) => failures.push(json!({
+                            "id": hit.id,
+                            "cause": { "reason": error.to_string() },
+                        })),
+                    }
+                } else {
+                    // No script: preserve the historical re-index-in-place behavior.
+                    match idx.index_document(Some(hit.id.clone()), hit.source).await {
+                        Ok(_) => updated += 1,
+                        Err(e) => {
+                            failures.push(json!({
+                                "id": hit.id,
+                                "cause": { "reason": e.to_string() },
+                            }));
+                        }
+                    }
                 }
             }
-        }
+
+            (updated, failures, timed_out)
+        }),
+    )
+    .await;
+    // A trip is a property of the request, not of the document that happened
+    // to be in flight: report it once and refuse the run rather than claiming
+    // a partial update succeeded.
+    if let Some(reason) = fault {
+        return script_limit_error_value(&reason);
     }
 
     let took = started.elapsed().as_millis() as u64;
     json!({
         "took": took,
-        "timed_out": false,
+        "timed_out": timed_out,
         "total": total,
         "updated": updated,
         "deleted": 0,
