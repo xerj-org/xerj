@@ -23168,7 +23168,7 @@ pub async fn create_snapshot(
     let indices: Option<Vec<String>> = requested.map(|specs| {
         let all = state.engine.index_name_list();
         let mut out: Vec<String> = Vec::new();
-        let mut push = |name: String, out: &mut Vec<String>| {
+        let push = |name: String, out: &mut Vec<String>| {
             if !out.contains(&name) {
                 out.push(name);
             }
