@@ -170,6 +170,74 @@ else
   bad "expected >=3 hits for 'zanzibarite' across the discovered datasets, got ${HITS:-0}"
 fi
 
+# ── 4. autoindex: a removed file is refused, and the refusal is reversible ─
+phase "4. autoindex rerun over a mutated folder"
+# Nothing above reruns autoindex over a folder that CHANGED, which is where the
+# silent-skip bug lived: a rerun used to exit 0 while the removed file's
+# documents stayed live with no source behind them. The refusal has unit and
+# in-process HTTP tests; this is the end-to-end gate — and it also proves the
+# cheapest recovery the message names (put the file back) actually works.
+AX_STATE="$AX_WORK/state"
+ax_run() { "$XERJ_BIN" autoindex "$CORPUS" --url "$AX_URL" --state-dir "$AX_STATE" \
+             --prefix ax-eval --brain eval "$@" 2>&1; }
+
+mv "$CORPUS/logs/app.log" "$AX_WORK/app.log.away"
+REMOVED="$(ax_run)"; REMOVED_RC=$?
+if [ "$REMOVED_RC" != 0 ] \
+   && grep -q "no longer exist in the folder" <<<"$REMOVED" \
+   && grep -q "app.log" <<<"$REMOVED"; then
+  ok "a rerun after a removal refuses (exit $REMOVED_RC) and names the removed file"
+else
+  bad "expected a nonzero refusal naming logs/app.log, got exit $REMOVED_RC"
+  echo "$REMOVED" | tail -20
+fi
+
+mv "$AX_WORK/app.log.away" "$CORPUS/logs/app.log"
+RESTORED="$(ax_run)"; RESTORED_RC=$?
+if [ "$RESTORED_RC" = 0 ] || [ "$RESTORED_RC" = 3 ]; then
+  ok "restoring the file — recovery (1) in the refusal — lets the rerun through again"
+else
+  bad "expected the restored folder to rerun cleanly, got exit $RESTORED_RC"
+  echo "$RESTORED" | tail -20
+fi
+
+# ── 5. brain: a wiped data dir refuses, and the --fresh it names recovers ──
+phase "5. brain resume safety (journal survives a wiped data dir)"
+# The resume journal lives outside the server's data directory (default
+# ~/.xerj/autoindex/<hash>), so wiping the data dir leaves a journal claiming
+# the vault is fully indexed while the server holds none of it. `xerj brain`
+# used to resolve that ambiguity by resetting on the operator's behalf; it must
+# now refuse, and the in-place rebuild it names has to actually work.
+BRAIN_DATA="$BRAIN_ROOT/data"
+BRAIN_URL="http://localhost:$BRAIN_PORT"
+brain_run() { "$XERJ_BIN" brain "$BRAIN_ROOT/vault" --brain vault --url "$BRAIN_URL" \
+                --data-dir "$BRAIN_DATA" --no-open "$@" 2>&1; }
+
+[ -s "$BRAIN_DATA/server.pid" ] && kill "$(cat "$BRAIN_DATA/server.pid")" 2>/dev/null
+for _ in $(seq 1 60); do
+  curl -s -o /dev/null -m 5 "$BRAIN_URL/health/ready" || break
+  sleep 1
+done
+rm -rf "$BRAIN_DATA"
+
+REFUSAL="$(brain_run)"; REFUSAL_RC=$?
+if [ "$REFUSAL_RC" != 0 ] \
+   && grep -q "resume journal and server disagree" <<<"$REFUSAL" \
+   && grep -q -- "--fresh" <<<"$REFUSAL"; then
+  ok "a journal/server disagreement refuses (exit $REFUSAL_RC) and names a recovery"
+else
+  bad "expected a nonzero refusal naming the disagreement, got exit $REFUSAL_RC"
+  echo "$REFUSAL" | tail -20
+fi
+
+RECOVERY="$(brain_run --fresh)"; RECOVERY_RC=$?
+if [ "$RECOVERY_RC" = 0 ] || [ "$RECOVERY_RC" = 3 ]; then
+  ok "the --fresh rebuild the refusal names recovers the brain (exit $RECOVERY_RC)"
+else
+  bad "the --fresh recovery named by the refusal failed with exit $RECOVERY_RC"
+  echo "$RECOVERY" | tail -20
+fi
+
 # ── summary ───────────────────────────────────────────────────────────────
 echo
 if [ "$FAILED" = 0 ]; then
