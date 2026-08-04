@@ -79,8 +79,9 @@ pub fn print_help() {
              --api-key <K>      API key for an already-running secured server\n\
                                 (or env XERJ_API_KEY; a server booted by this command\n\
                                 needs neither — its key is read from <data-dir>/admin.key)\n\
-             --fresh            start without resume state only when the selected\n\
-                                journal has no durable plan; never resets server data\n\
+             --fresh            ignore the resume journal and rebuild the plan in place,\n\
+                                re-walking everything (ids stay idempotent). It never\n\
+                                deletes documents for notes you removed\n\
              --no-open          print the links but do not open a browser\n\
              --help, -h         this help\n\
          \n\
@@ -386,15 +387,16 @@ fn live_node_docs(es: &Es, brain: &str) -> Result<Option<u64>> {
         return Ok(None);
     };
     // `Es::get_doc` returns the document `_source` itself.
+    // A meta doc without `nodes_index` predates the field (or was written by
+    // something other than autoindex). That is absence of evidence, not a
+    // failure: report it as unknown instead of hard-failing every brain that
+    // an older autoindex wrote.
     let Some(nodes_index) = meta
         .get("nodes_index")
         .and_then(Value::as_str)
         .filter(|s| !s.is_empty())
     else {
-        bail!(
-            "brain metadata {edges_index}/{} has no usable nodes_index",
-            detect::BRAIN_META_ID
-        );
+        return Ok(None);
     };
     let response = es.search(
         nodes_index,
@@ -415,13 +417,19 @@ fn journal_server_disagreement(cfg: &BrainCfg, brain: &str) -> String {
         "the resume journal and server disagree: journal {} says {} is already indexed, \
          but {} has no confirmed live node documents for prefix ax and brain {brain}. No reset \
          was attempted: an absent or zero node probe does not prove that data, catalog, and \
-         graph namespaces are empty. Restore the server data directory used by this journal. \
+         graph namespaces are empty. If this is the wrong server, restore or point at the data \
+         directory this journal was written against. If the data directory really was wiped, \
+         rerun with --fresh to rebuild the plan and republish every file in place (ids are \
+         idempotent):\n\
+         xerj brain {} --url {} --fresh\n\
          Otherwise, after validating or cleaning the old destination, run an isolated rebuild:\n\
          xerj autoindex {} --url {} --state-dir <new-state-dir> --prefix <new-prefix> \
          --brain <new-brain>\n\
          For a secured endpoint, set XERJ_API_KEY or add --api-key without placing its value in \
          logs. Validate the new target before switching readers",
         state_dir.display(),
+        root.display(),
+        cfg.url,
         root.display(),
         cfg.url,
         root.display(),
@@ -693,6 +701,8 @@ mod tests {
         assert!(message.contains("http://localhost:9200"));
         assert!(message.contains("prefix ax"));
         assert!(message.contains("brain team-notes"));
+        assert!(message.contains("xerj brain /corpus/notes"));
+        assert!(message.contains("--fresh"));
         assert!(message.contains("xerj autoindex /corpus/notes"));
         assert!(message.contains("--url http://localhost:9200"));
         assert!(message.contains("--state-dir <new-state-dir>"));

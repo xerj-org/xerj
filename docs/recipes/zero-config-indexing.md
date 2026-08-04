@@ -228,13 +228,17 @@ live indices at http://localhost:9280:
   autoindex-catalog                                 9 docs
 ```
 
-`--fresh` starts without resume state only when the selected state directory
-has no durable plan; it never removes stale destination records. For an
-independent rebuild, use a new `--state-dir`, new `--prefix`, and new
-`--brain` when graph detection is enabled (or add `--no-graph`). Validate
-before switching readers. The shared `autoindex-catalog` and old target require
-explicit, validated cleanup. Added or removed content groups are refused;
-same-path replacement remains supported.
+`--fresh` ignores the journal and rebuilds the plan in place (ids stay
+idempotent), which is how you pick up files added since the last run.
+
+A rerun that resumes an existing plan indexes changed files and reports added
+ones as skipped. Deleting a file is refused: nothing here removes the
+documents it already published, so the rerun stops before touching the
+destination and names what is gone. Restore the file and rerun, or rebuild —
+in place by deleting the named indices and the state directory, or isolated
+under a new `--state-dir`, `--prefix` and `--brain` (or `--no-graph`),
+validated before you switch readers. The shared `autoindex-catalog` and the
+old target require explicit cleanup.
 
 ## Reproduce it yourself
 

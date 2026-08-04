@@ -255,11 +255,15 @@ fn assert_unsupported_delta_without_remote_mutation(
     let message = format!("{error:#}");
     assert!(message.contains("made no remote mutations"), "{message}");
     assert!(
-        message.contains("existing destination may already be partial or stale"),
+        message.contains("no longer exist in the folder"),
         "{message}"
     );
     assert!(
-        message.contains("`--fresh` is not recovery or destination reconciliation"),
+        message.contains("restore the removed file(s) and rerun"),
+        "{message}"
+    );
+    assert!(
+        message.contains("rebuild in place by deleting the indices"),
         "{message}"
     );
     assert!(
@@ -281,19 +285,52 @@ fn assert_unsupported_delta_without_remote_mutation(
     }
 }
 
+/// The documented headline workflow: point autoindex at a folder, add a file,
+/// rerun. The rerun must not fail, must say plainly that the added file was
+/// not indexed, and `--fresh` must then absorb it in place.
 #[test]
-fn completed_plan_rejects_added_content_group_before_remote_mutation() {
+fn a_rerun_after_an_added_file_succeeds_and_fresh_absorbs_it() {
     let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
     let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
     let corpus = tempfile::tempdir().unwrap();
     let state_dir = tempfile::tempdir().unwrap();
     fs::write(corpus.path().join("first.csv"), "id,value\n1,first\n").unwrap();
     let endpoint = MockEndpoint::start(usize::MAX);
-    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
     assert_eq!(run_index(config.clone()).unwrap(), 0);
 
     fs::write(corpus.path().join("second.csv"), "id,value\n2,second\n").unwrap();
-    assert_unsupported_delta_without_remote_mutation(&endpoint, config, &["second.csv"], &[]);
+    // 3 = completed-with-junk: the added file is reported as skipped, not
+    // indexed, because the frozen plan cannot absorb it.
+    let (code, report) = run_index_report(config.clone()).unwrap();
+    assert_eq!(code, 3);
+    let report = report.unwrap();
+    assert_eq!(report["files_junk"], 1, "{report}");
+    assert_eq!(report["records_total"], 0, "{report}");
+    {
+        let locked = endpoint.state.lock().unwrap();
+        let live: Vec<&str> = locked
+            .docs
+            .values()
+            .filter_map(|doc| doc["ax_path"].as_str())
+            .collect();
+        assert!(
+            live.iter().all(|path| *path == "first.csv"),
+            "the added file must not be published by a plan that predates it: {live:?}"
+        );
+    }
+
+    // --fresh rebuilds the plan in place and picks the new file up.
+    config.fresh = true;
+    assert_eq!(run_index(config).unwrap(), 0);
+    let locked = endpoint.state.lock().unwrap();
+    let indexed: std::collections::HashSet<&str> = locked
+        .docs
+        .values()
+        .filter_map(|doc| doc["ax_path"].as_str())
+        .collect();
+    assert!(indexed.contains("first.csv"), "{indexed:?}");
+    assert!(indexed.contains("second.csv"), "{indexed:?}");
 }
 
 #[test]
@@ -359,7 +396,7 @@ fn completed_plan_rejects_mixed_membership_delta_in_stable_order() {
 }
 
 #[test]
-fn nonempty_fresh_cannot_erase_plan_and_bypass_membership_gate() {
+fn fresh_cannot_erase_the_plan_and_bypass_the_removal_gate() {
     let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
     let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
     let corpus = tempfile::tempdir().unwrap();
@@ -376,7 +413,7 @@ fn nonempty_fresh_cannot_erase_plan_and_bypass_membership_gate() {
 }
 
 #[test]
-fn fresh_rejects_same_content_canonical_promotion_even_when_group_key_matches() {
+fn deleting_one_path_of_a_duplicate_pair_is_not_a_removed_content_group() {
     let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
     let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
     let corpus = tempfile::tempdir().unwrap();
@@ -385,14 +422,24 @@ fn fresh_rejects_same_content_canonical_promotion_even_when_group_key_matches() 
     fs::write(corpus.path().join("a.csv"), bytes).unwrap();
     fs::write(corpus.path().join("b.csv"), bytes).unwrap();
     let endpoint = MockEndpoint::start(usize::MAX);
-    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
     assert_eq!(run_index(config.clone()).unwrap(), 0);
 
-    // b.csv becomes canonical with the same content key. A key-only delta is
-    // empty, but fresh would discard the alias/path cleanup knowledge.
+    // b.csv becomes canonical under the same content key: the group survives
+    // the deletion, so no document is stranded and the rerun is allowed.
     fs::remove_file(corpus.path().join("a.csv")).unwrap();
-    config.fresh = true;
-    assert_unsupported_delta_without_remote_mutation(&endpoint, config, &[], &[]);
+    let result = run_index(config);
+    assert!(
+        result.is_ok(),
+        "a surviving content group must not trip the removal gate: {result:?}"
+    );
+    let locked = endpoint.state.lock().unwrap();
+    let live: Vec<&str> = locked
+        .docs
+        .values()
+        .filter_map(|doc| doc["ax_path"].as_str())
+        .collect();
+    assert_eq!(live, ["b.csv"], "canonical path follows the surviving file");
 }
 
 #[test]
@@ -449,6 +496,7 @@ fn completed_plan_rejects_empty_current_folder_before_remote_mutation() {
     assert_eq!(run_index(config.clone()).unwrap(), 0);
 
     fs::remove_file(corpus.path().join("only.csv")).unwrap();
+    assert_unsupported_delta_without_remote_mutation(&endpoint, config.clone(), &[], &["only.csv"]);
     // Even `--fresh` must not erase the only durable inventory evidence and
     // then report success while the destination still contains the document.
     config.fresh = true;
@@ -940,12 +988,12 @@ fn a_planned_key_never_gains_two_owners_when_old_content_moves_paths() {
     )
     .unwrap();
     fs::write(corpus.path().join("b.csv"), original).unwrap();
-    assert_unsupported_delta_without_remote_mutation(&endpoint, config.clone(), &["b.csv"], &[]);
+    assert_eq!(run_index(config.clone()).unwrap(), 3);
     {
         let locked = endpoint.state.lock().unwrap();
         assert_eq!(locked.docs.len(), 2);
         assert!(locked.docs.values().all(|doc| {
-            doc["ax_path"].as_str() == Some("a.csv") && doc["value"].as_str() == Some("original")
+            doc["ax_path"].as_str() == Some("a.csv") && doc["value"].as_str() == Some("rewritten")
         }));
     }
     let replay = state::Journal::open(
@@ -960,20 +1008,24 @@ fn a_planned_key_never_gains_two_owners_when_old_content_moves_paths() {
     assert!(replay.pending_replacements.is_empty());
     assert_eq!(replay.done.len(), 1);
     let plan = replay.plan.clone().unwrap();
-    assert!(plan.junk_files.is_empty());
+    assert_eq!(plan.junk_files.len(), 1);
+    assert_eq!(plan.junk_files[0].rel, "b.csv");
+    assert!(plan.junk_files[0]
+        .reason
+        .contains("key ownership exclusive"));
     drop(replay);
 
-    // The refusal is deterministic: an identical rerun keeps the old owner,
-    // appends no new plan, and changes no documents.
+    // The divergence is durable and deterministic: an identical rerun keeps
+    // the same owner, appends no new plan, and changes no documents.
     let plans_before = event_count(state_dir.path(), "plan");
-    assert_unsupported_delta_without_remote_mutation(&endpoint, config, &["b.csv"], &[]);
+    assert_eq!(run_index(config).unwrap(), 3);
     assert_eq!(event_count(state_dir.path(), "plan"), plans_before);
     let locked = endpoint.state.lock().unwrap();
     assert_eq!(locked.docs.len(), 2);
     assert!(locked
         .docs
         .values()
-        .all(|doc| doc["value"].as_str() == Some("original")));
+        .all(|doc| doc["value"].as_str() == Some("rewritten")));
 }
 
 #[test]
@@ -994,9 +1046,11 @@ fn deleting_an_entire_duplicate_group_strands_no_pending_replacement() {
     assert_eq!(run_index(config.clone()).unwrap(), 0);
     let starts = event_count(state_dir.path(), "file_replace_start");
 
-    // The whole duplicate group disappears. There is no current file left to
-    // republish its key, so no replacement intent may be journaled — a
-    // stranded intent would be re-appended forever without ever committing.
+    // The whole duplicate group disappears: its documents stay live with no
+    // source file, so the rerun is refused. The original invariant still
+    // holds and is still checked — a key with no current file must never get
+    // a replacement intent journaled, which would be re-appended forever
+    // without ever committing.
     fs::remove_file(corpus.path().join("dup-a.csv")).unwrap();
     fs::remove_file(corpus.path().join("dup-b.csv")).unwrap();
     for _ in 0..2 {

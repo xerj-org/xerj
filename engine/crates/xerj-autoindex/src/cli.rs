@@ -53,9 +53,8 @@ pub enum Cmd {
     Help,
 }
 
-const FRESH_HELP: &str =
-    "start without resume state only when the selected state directory has no \
-durable plan; an existing plan is refused and destination records are never reset";
+const FRESH_HELP: &str = "ignore the existing journal and rebuild the plan in place\n\
+                                  (ids stay idempotent) — see RESUME POLICY";
 
 pub fn print_help() {
     println!(
@@ -115,14 +114,16 @@ pub fn print_help() {
          \n\
          RESUME POLICY:\n\
              A durable plan supports no-op resume and same-path content replacement.\n\
-             Added or removed content groups are refused before remote mutation.\n\
-             An independent rebuild needs a new --state-dir, new --prefix, and, when\n\
-             graph detection is enabled, new --brain (or --no-graph). Validate before\n\
-             switching readers; the shared autoindex-catalog and old target require\n\
-             explicit, validated cleanup.\n\
+             Files added after the plan was frozen are reported as skipped and are not\n\
+             indexed; --fresh rebuilds the plan in place and picks them up.\n\
+             Removing an indexed file is refused before any remote mutation: its\n\
+             documents are already live and nothing here deletes them. Restore the file\n\
+             and rerun, or rebuild — in place by deleting the published indices and the\n\
+             state directory, or isolated under a new --state-dir, --prefix and --brain\n\
+             (or --no-graph), validated before you switch readers.\n\
          \n\
          EXIT CODES: 0 complete; 3 completed-with-junk (junk recorded, never fatal);\n\
-                     2 usage; 1 endpoint/journal failure or unsupported corpus delta\n",
+                     2 usage; 1 endpoint/journal failure or a refused corpus removal\n",
         fresh_help = FRESH_HELP
     );
 }
@@ -313,10 +314,10 @@ mod tests {
     }
 
     #[test]
-    fn fresh_help_warns_that_it_is_not_destination_reconciliation() {
-        assert!(super::FRESH_HELP.contains("no durable plan"));
-        assert!(super::FRESH_HELP.contains("existing plan is refused"));
-        assert!(super::FRESH_HELP.contains("destination records are never reset"));
+    fn fresh_help_points_at_the_resume_policy_that_bounds_it() {
+        assert!(super::FRESH_HELP.contains("rebuild the plan in place"));
+        assert!(super::FRESH_HELP.contains("ids stay idempotent"));
+        assert!(super::FRESH_HELP.contains("RESUME POLICY"));
     }
 
     #[test]

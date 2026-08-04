@@ -223,10 +223,9 @@ fn read_plan_for_preflight(
                         "journal corruption at byte {record_start} in {}: malformed \
                          newline-terminated record. Refusing to discard later records. Restore \
                          the journal from a backup, or truncate it to exactly {record_start} \
-                         bytes to keep every completion recorded before the corruption. For an \
-                         isolated rebuild use a new --state-dir, new --prefix, and new --brain \
-                         when graph detection is enabled (or --no-graph); explicitly validate \
-                         and clean the shared catalog and old target",
+                         bytes to keep every completion recorded before the corruption. Deleting \
+                         the whole journal (or rerunning with --fresh) also recovers, but \
+                         re-extracts and re-embeds the entire corpus",
                         path.display()
                     )
                 })?;
@@ -382,10 +381,9 @@ impl Journal {
                                     anyhow::bail!(
                                 "journal at {} was created for root={jr} url={ju} prefix={jp}; \
                                  current run has root={root} url={url} prefix={prefix}. \
-                                 Refusing to discard history under the same destination. For an \
-                                 isolated rebuild use a new --state-dir, new --prefix, and new \
-                                 --brain when graph detection is enabled (or --no-graph); \
-                                 explicitly validate and clean the shared catalog and old target.",
+                                 Use --state-dir for separate state, or --fresh to rebuild the \
+                                 plan in place — note that --fresh never deletes documents \
+                                 already published under the other root, url or prefix.",
                                 jpath.display()
                             );
                                 }
@@ -451,10 +449,9 @@ impl Journal {
                              after corruption. Restore the journal from a backup, or truncate it \
                              to exactly {record_start} bytes to keep every completion recorded \
                              before the corruption (files journaled after that point are \
-                             re-verified, re-indexed and re-embedded on the next run). For an \
-                             isolated rebuild use a new --state-dir, new --prefix, and new --brain \
-                             when graph detection is enabled (or --no-graph); explicitly validate \
-                             and clean the shared catalog and old target",
+                             re-verified, re-indexed and re-embedded on the next run). Deleting \
+                             the whole journal (or rerunning with --fresh) also recovers, but \
+                             re-extracts and re-embeds the entire corpus",
                             jpath.display()
                         );
                     }
@@ -825,10 +822,9 @@ mod compatibility_tests {
         let message = format!("{error:#}");
         assert!(message.contains("journal corruption"));
         // Recovery guidance must stay scoped and honest: byte-exact truncation
-        // keeps prior completions; an exact rebuild needs isolated state and
-        // destination identities.
+        // keeps prior completions; discarding the journal re-embeds everything.
         assert!(message.contains("truncate it to exactly"));
-        assert!(message.contains("new --state-dir, new --prefix, and new --brain"));
+        assert!(message.contains("re-extracts and re-embeds the entire corpus"));
     }
 
     #[test]

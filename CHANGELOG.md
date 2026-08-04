@@ -7,22 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed — fail-closed autoindex restart semantics
+### Changed — autoindex refuses reruns that would strand documents
 
-- **`autoindex --fresh` no longer discards a durable resume plan.** A durable
-  plan contains the alias, path, graph, and stale-record knowledge needed for
-  safe reconciliation. `--fresh` is accepted only when the selected state
-  directory has no durable plan and never cleans the destination. An
-  independent rebuild must use a new state directory, new prefix, and new brain
-  namespace when graph detection is enabled (or disable graph writes), be
-  validated, and only then replace the old reader target. The shared catalog
-  and old target require explicit, validated cleanup. Membership additions and
-  removals are refused; same-path replacement remains supported.
+- **Deleting an indexed file and rerunning `xerj autoindex` now fails instead
+  of exiting 0.** Nothing in the pipeline removes the documents, aliases,
+  graph edges or catalog entries that the deleted file published, so a rerun
+  that ignored the deletion left them live and searchable with no source file
+  behind them. The rerun is now refused before any remote call other than the
+  endpoint-readiness ping: no mapping, delete-by-query, bulk, refresh, graph
+  or catalog write is attempted, and the journal is not appended to. The error
+  names every removed file and its content key and gives three recovery
+  routes — restore the files and rerun, rebuild in place by deleting the named
+  indices and the state directory, or rebuild under a new state directory,
+  prefix and brain. `--fresh` is refused for the same case, because it does
+  not delete those documents either. `--json` emits the same facts as
+  `xerj.autoindex.unsupported_sync_delta.v1` on stdout with exit 1.
+- **Files added after a plan was frozen are now called out on stderr.** They
+  are still not indexed by a rerun that resumes an existing plan — the plan is
+  a crash-resume boundary, not a folder-sync generation — but the run now
+  lists them, records them as skipped (exit 3, completed-with-junk) and points
+  at `--fresh`, which rebuilds the plan in place and picks them up. Adding or
+  changing files and rerunning keeps working; only removals are refused.
 - **`xerj brain` no longer turns an absent or zero node-count probe into an
   automatic reset.** Journal/server disagreement now fails with the journal,
-  URL, prefix, and brain identity plus recovery instructions. Probe transport
-  and malformed-response failures remain errors instead of being reported as
-  an empty destination.
+  URL, prefix, and brain identity plus recovery instructions, including the
+  explicit `--fresh` rerun for a genuinely wiped data directory. Probe
+  transport and malformed-response failures remain errors instead of being
+  reported as an empty destination.
 
 ## [1.0.0-rc.10] - 2026-08-03
 

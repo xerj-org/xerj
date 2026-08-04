@@ -2,9 +2,11 @@
 # End-to-end eval of `xerj autoindex` against a corpus folder.
 #
 # Boots a dedicated server on es_compat $PORT (rest PORT+100, grpc PORT+101),
-# runs autoindex over $CORPUS, proves same-state resume, then performs an
-# isolated data/graph rebuild under a new state directory, prefix, and brain.
-# The global autoindex-catalog remains shared and is excluded from comparison.
+# runs autoindex over $CORPUS, then re-runs twice to prove idempotency — the
+# resume path (all files done) and a full --fresh re-extract — and requires the
+# per-index doc counts to be byte-identical to run 1. Ends with the data map.
+# The shared autoindex-catalog is excluded from the comparison: every run
+# appends its own run record, so a growing catalog is the design, not drift.
 #
 # Nothing here is bound to one machine: every path is an env override with a
 # default under the repo or $TMPDIR, so the same script gates CI and drives a
@@ -33,20 +35,11 @@ CFG="$WORK/server-$PORT.toml"
 LOG="$WORK/server-$PORT.log"
 URL="http://localhost:$PORT"
 STATE="$WORK/state"
-REBUILD_STATE="$WORK/rebuild-state"
-PREFIX="ax-eval-a"
-REBUILD_PREFIX="ax-eval-b"
-BRAIN="eval-a"
-REBUILD_BRAIN="eval-b"
+PREFIX="ax-eval"
+BRAIN="eval"
 
 [ -x "$BIN" ] || { echo "xerj binary not found at $BIN"; exit 1; }
 [ -d "$CORPUS" ] || { echo "corpus folder not found at $CORPUS"; exit 1; }
-[ ! -e "$DATA" ] && [ ! -e "$STATE" ] && [ ! -e "$REBUILD_STATE" ] || {
-  echo "work directory already contains eval state: $WORK"
-  echo "choose a new XERJ_AUTOINDEX_WORK or explicitly remove the old isolated eval directory"
-  exit 1
-}
-
 mkdir -p "$WORK"
 cat >"$CFG" <<EOF
 [server]
@@ -85,10 +78,10 @@ if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
   FAIL=1
 fi
 
-# Name + doc count only. The _cat row also carries on-disk size, which an
-# isolated data/graph rebuild legitimately changes (segments are rewritten).
-# The shared global catalog is excluded because every run appends its own run
-# record — a growing catalog is the design, not drift. Columns of the _cat row:
+# Name + doc count only. The _cat row also carries on-disk size, which a
+# --fresh re-extract legitimately changes (segments are rewritten), and the
+# catalog is excluded outright because every run appends its own run record —
+# a growing catalog is the design, not drift. Columns of the _cat row:
 # green(1) open(2) name(3) uuid(4) pri(5) rep(6) docs(7).
 counts() { curl -s "$URL/_cat/indices" | awk -v prefix="$1-" '$3 ~ ("^" prefix) {sub("^" prefix, "", $3); print $3, $7}' | sort; }
 
@@ -104,16 +97,16 @@ if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
   FAIL=1
 fi
 
-echo "=== isolated data/graph rebuild reproducibility (new state, prefix, and brain; shared catalog excluded) ==="
-time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$REBUILD_STATE" --prefix "$REBUILD_PREFIX" --brain "$REBUILD_BRAIN"
+echo "=== idempotency: re-run with --fresh (full re-extract, idempotent ids) ==="
+time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --prefix "$PREFIX" --brain "$BRAIN" --fresh
 RC=$?
 if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
-  echo "isolated data/graph rebuild exited $RC (expected 0 or 3)"
+  echo "--fresh re-extract exited $RC (expected 0 or 3)"
   FAIL=1
 fi
 
-counts "$REBUILD_PREFIX" > "$WORK/counts-run3.txt"
-echo "=== normalized data-index count diff original vs isolated data/graph rebuild (shared catalog excluded; must be empty) ==="
+counts "$PREFIX" > "$WORK/counts-run3.txt"
+echo "=== doc-count diff run1 vs run3 (must be empty) ==="
 cat "$WORK/counts-run3.txt"
 if diff "$WORK/counts-run1.txt" "$WORK/counts-run3.txt"; then
   echo "IDENTICAL COUNTS ✓"
