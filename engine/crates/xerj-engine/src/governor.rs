@@ -651,6 +651,12 @@ fn effective_memory_limit(sys: u64, cgroup: Option<u64>) -> u64 {
 /// (`memory.max`, walking up to a parent when a leaf reads `max`) and falls
 /// back to cgroup v1 (`memory.limit_in_bytes`). Returns `None` when no
 /// finite limit applies.
+///
+/// A limit file that is missing, unreadable, malformed, `0`, or the v1/v2
+/// "no limit" sentinel (`max` / `9223372036854771712`) contributes nothing
+/// rather than failing: the caller then falls back to host RAM. Nothing on
+/// this path panics, so an unexpected cgroupfs layout degrades to the
+/// pre-cgroup behaviour instead of taking the process down at startup.
 #[cfg(target_os = "linux")]
 fn fold_cgroup_memory_limit(current: Option<u64>, raw: &str) -> Option<u64> {
     const UNLIMITED_V1: u64 = 9_223_372_036_854_771_712;
@@ -666,43 +672,97 @@ fn fold_cgroup_memory_limit(current: Option<u64>, raw: &str) -> Option<u64> {
     }
 }
 
+/// Walk from `rel` up to the root, folding the tightest finite limit found
+/// in `<root><rel>/<file>` at each level. cgroup memory limits are
+/// hierarchical in BOTH v1 and v2 — a finite child value does not override a
+/// smaller finite ancestor — so the effective limit is the minimum over the
+/// whole chain. Levels whose file is missing or unreadable are skipped, so a
+/// partially visible hierarchy still yields whatever it does expose.
+///
+/// `root` is a parameter rather than a constant so the hierarchy walk is
+/// testable against a temp-dir fixture without a real cgroupfs mount.
 #[cfg(target_os = "linux")]
-fn cgroup_memory_limit_bytes() -> Option<u64> {
-    // cgroup v2: /proc/self/cgroup has a single "0::<path>" line.
-    if let Ok(cg) = std::fs::read_to_string("/proc/self/cgroup") {
-        for line in cg.lines() {
-            if let Some(path) = line.strip_prefix("0::") {
-                // Walk from leaf to root and take the tightest finite limit.
-                // cgroup-v2 limits are hierarchical: a finite child value
-                // does not override a smaller finite ancestor.
-                let mut rel = path.trim().to_string();
-                let mut tightest = None;
-                loop {
-                    let full = format!("/sys/fs/cgroup{rel}/memory.max");
-                    if let Ok(s) = std::fs::read_to_string(&full) {
-                        tightest = fold_cgroup_memory_limit(tightest, &s);
-                    }
-                    if rel.is_empty() || rel == "/" {
-                        break;
-                    }
-                    match rel.rfind('/') {
-                        Some(0) => rel = String::new(), // step to root next iter
-                        Some(i) => rel.truncate(i),
-                        None => break,
-                    }
-                }
-                if tightest.is_some() {
-                    return tightest;
-                }
+fn tightest_limit_up_hierarchy(root: &str, rel: &str, file: &str) -> Option<u64> {
+    let mut rel = rel.trim().to_string();
+    let mut tightest = None;
+    loop {
+        let full = format!("{root}{rel}/{file}");
+        if let Ok(s) = std::fs::read_to_string(&full) {
+            tightest = fold_cgroup_memory_limit(tightest, &s);
+        }
+        if rel.is_empty() || rel == "/" {
+            break;
+        }
+        match rel.rfind('/') {
+            Some(0) => rel = String::new(), // step to root next iter
+            Some(i) => rel.truncate(i),
+            None => break,
+        }
+    }
+    tightest
+}
+
+/// The cgroup-relative path of the v1 `memory` controller from one
+/// `/proc/self/cgroup` line (`<hierarchy-id>:<controllers>:<path>`).
+/// Returns `None` for v2 lines (`0::<path>`, empty controller list) and for
+/// controller sets that do not include `memory`.
+#[cfg(target_os = "linux")]
+fn cgroup_v1_memory_path(line: &str) -> Option<&str> {
+    let mut parts = line.splitn(3, ':');
+    let _hierarchy_id = parts.next()?;
+    let controllers = parts.next()?;
+    let path = parts.next()?;
+    controllers
+        .split(',')
+        .any(|c| c == "memory")
+        .then_some(path.trim())
+}
+
+/// Resolve the memory limit from the contents of `/proc/self/cgroup`,
+/// against the v2 unified mount at `v2_root` and the v1 memory-controller
+/// mount at `v1_root`. Split out from [`cgroup_memory_limit_bytes`] so the
+/// whole resolution — v2 line, v1 line, and the mount-root fallback — is
+/// testable against a fixture instead of the host's real cgroupfs.
+#[cfg(target_os = "linux")]
+fn cgroup_memory_limit_from(self_cgroup: &str, v2_root: &str, v1_root: &str) -> Option<u64> {
+    // cgroup v2: /proc/self/cgroup has a single "0::<path>" line, and the
+    // limits live at <v2_root><path>/memory.max.
+    for line in self_cgroup.lines() {
+        if let Some(path) = line.strip_prefix("0::") {
+            let tightest = tightest_limit_up_hierarchy(v2_root, path.trim(), "memory.max");
+            if tightest.is_some() {
+                return tightest;
             }
         }
     }
 
-    // cgroup v1 fallback.
-    if let Ok(s) = std::fs::read_to_string("/sys/fs/cgroup/memory/memory.limit_in_bytes") {
-        return fold_cgroup_memory_limit(None, &s);
+    // cgroup v1: the memory controller is mounted separately and
+    // /proc/self/cgroup carries one "<id>:memory:<path>" line per hierarchy.
+    // Walk that path from leaf to root exactly as for v2. Under Docker the
+    // cgroupfs is bind-mounted at the container's own directory, so the leaf
+    // path from /proc/self/cgroup does not resolve and only the mount root
+    // reads — which is the container's real limit. Under a bare
+    // `systemd-run -p MemoryMax=` on a v1/hybrid host it is the other way
+    // round: the process sits in a leaf slice and the mount root reads
+    // unlimited. Folding the whole chain is correct in both cases.
+    for line in self_cgroup.lines() {
+        if let Some(path) = cgroup_v1_memory_path(line) {
+            let tightest = tightest_limit_up_hierarchy(v1_root, path, "memory.limit_in_bytes");
+            if tightest.is_some() {
+                return tightest;
+            }
+        }
     }
-    None
+
+    // Last resort: /proc/self/cgroup was unreadable or named no memory
+    // controller, so read the v1 mount root directly.
+    tightest_limit_up_hierarchy(v1_root, "", "memory.limit_in_bytes")
+}
+
+#[cfg(target_os = "linux")]
+fn cgroup_memory_limit_bytes() -> Option<u64> {
+    let self_cgroup = std::fs::read_to_string("/proc/self/cgroup").unwrap_or_default();
+    cgroup_memory_limit_from(&self_cgroup, "/sys/fs/cgroup", "/sys/fs/cgroup/memory")
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -835,7 +895,7 @@ mod tests {
     fn auto_memtable_budget_is_cgroup_proportional_and_bounded() {
         const GIB: u64 = 1024 * 1024 * 1024;
         let cases = [
-            (1 * GIB, 512 * 1024 * 1024),
+            (GIB, 512 * 1024 * 1024),
             (4 * GIB, 2 * GIB),
             (8 * GIB, 2 * GIB),
             (64 * GIB, 16 * GIB),
@@ -881,6 +941,169 @@ mod tests {
 
         assert_eq!(effective_memory_limit(2 * GIB, Some(4 * GIB)), 2 * GIB);
         assert_eq!(effective_memory_limit(8 * GIB, Some(4 * GIB)), 4 * GIB);
+    }
+
+    /// Regression test for the cgroup-v1 half of the limit lookup, and for
+    /// the v2 leaf that reads the literal string `max`.
+    ///
+    /// Before this, only the v2 `0::<path>` line of `/proc/self/cgroup` was
+    /// parsed and the v1 side blindly read the mount root
+    /// `/sys/fs/cgroup/memory/memory.limit_in_bytes`. That root read is the
+    /// container's own limit under Docker's v1 bind-mount, but on a v1 or
+    /// hybrid host under `systemd-run -p MemoryMax=` the process sits in a
+    /// leaf slice while the root reads unlimited — so no limit was found,
+    /// the effective limit fell back to host RAM, and every cgroup-aware
+    /// budget in `build()` (including the memtable circuit breaker) silently
+    /// ignored the cap.
+    ///
+    /// The walk is driven against a temp-dir fixture rather than a real
+    /// cgroupfs so it runs identically on any host, v1, v2 or neither.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn cgroup_hierarchy_walk_handles_v1_v2_max_and_missing_files() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        // The v1 "no limit" sentinel; v2 spells the same thing "max".
+        const UNLIMITED_V1: &str = "9223372036854771712";
+
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().to_str().unwrap().to_string();
+        let write = |rel: &str, file: &str, body: &str| {
+            let dir = format!("{root}{rel}");
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(format!("{dir}/{file}"), body).unwrap();
+        };
+
+        // ── cgroup v2: leaf reads the literal "max", a finite ancestor caps ──
+        // This is the shape `systemd-run --user --scope -p MemoryMax=1G`
+        // produces: the limit lands on the slice, not on the leaf scope.
+        write("", "memory.max", "max");
+        write("/user.slice", "memory.max", "1073741824");
+        write("/user.slice/app.scope", "memory.max", "max");
+        assert_eq!(
+            tightest_limit_up_hierarchy(&root, "/user.slice/app.scope", "memory.max"),
+            Some(GIB),
+            "a v2 leaf reading the literal \"max\" must inherit its ancestor's finite limit"
+        );
+
+        // A tighter leaf still wins over a looser ancestor, and vice versa.
+        write("/user.slice/tight.scope", "memory.max", "536870912");
+        assert_eq!(
+            tightest_limit_up_hierarchy(&root, "/user.slice/tight.scope", "memory.max"),
+            Some(GIB / 2)
+        );
+
+        // ── cgroup v1: same walk, different file name and mount root ──
+        write("/memory", "memory.limit_in_bytes", UNLIMITED_V1);
+        write(
+            "/memory/system.slice/xerj.service",
+            "memory.limit_in_bytes",
+            "2147483648",
+        );
+        let v1_root = format!("{root}/memory");
+        assert_eq!(
+            tightest_limit_up_hierarchy(
+                &v1_root,
+                "/system.slice/xerj.service",
+                "memory.limit_in_bytes"
+            ),
+            Some(2 * GIB),
+            "a v1 leaf slice limit must be found, not just the mount root"
+        );
+
+        // ── unlimited everywhere, and missing files, both mean "no limit" ──
+        // Not 0, and not a panic: `effective_memory_limit` then keeps host RAM.
+        write("/unlimited", "memory.max", "max");
+        assert_eq!(
+            tightest_limit_up_hierarchy(&root, "/unlimited", "memory.max"),
+            None
+        );
+        assert_eq!(
+            tightest_limit_up_hierarchy(&root, "/user.slice/no-such.scope", "memory.max"),
+            Some(GIB),
+            "a missing leaf is skipped, not fatal — ancestors still apply"
+        );
+        // Nothing readable anywhere on the chain: no limit, no panic, not 0.
+        assert_eq!(
+            tightest_limit_up_hierarchy(&root, "/does/not/exist", "memory.max"),
+            None
+        );
+        assert_eq!(
+            tightest_limit_up_hierarchy("/no/such/cgroupfs", "/a/b", "memory.max"),
+            None
+        );
+        let sys = 4 * GIB;
+        assert_eq!(effective_memory_limit(sys, None), sys);
+
+        // ── /proc/self/cgroup line parsing: v1 memory lines vs everything else ──
+        assert_eq!(
+            cgroup_v1_memory_path("5:memory:/system.slice/xerj.service"),
+            Some("/system.slice/xerj.service")
+        );
+        // Co-mounted controllers are comma-separated.
+        assert_eq!(
+            cgroup_v1_memory_path("4:cpu,cpuacct,memory:/foo"),
+            Some("/foo")
+        );
+        assert_eq!(cgroup_v1_memory_path("3:cpuset:/foo"), None);
+        // A v2 line has an empty controller list and must not match here.
+        assert_eq!(cgroup_v1_memory_path("0::/user.slice/app.scope"), None);
+        // Malformed lines are ignored rather than panicking.
+        assert_eq!(cgroup_v1_memory_path(""), None);
+        assert_eq!(cgroup_v1_memory_path("garbage"), None);
+
+        // ── full resolution, as `cgroup_memory_limit_bytes` runs it ──
+        // A pure-v2 host: the v2 line resolves and the v1 mount is absent.
+        assert_eq!(
+            cgroup_memory_limit_from("0::/user.slice/app.scope\n", &root, &v1_root),
+            Some(GIB),
+            "v2: leaf reads \"max\", the finite ancestor must win"
+        );
+        // A pure-v1 host under `systemd-run -p MemoryMax=`: there is no v2
+        // line to resolve, and the limit is on the leaf slice while the v1
+        // mount root reads unlimited. This is the case that was a no-op
+        // before: the v1 "<id>:memory:<path>" line was never parsed at all.
+        assert_eq!(
+            cgroup_memory_limit_from(
+                "7:memory:/system.slice/xerj.service\n5:cpuset:/\n",
+                "/no/such/cgroupfs",
+                &v1_root,
+            ),
+            Some(2 * GIB),
+            "v1: the leaf slice limit must be found, not just the mount root"
+        );
+        // A hybrid host: a v2 line exists but carries no memory limit, so
+        // resolution must fall through to the v1 memory controller.
+        assert_eq!(
+            cgroup_memory_limit_from(
+                "0::/unlimited\n7:memory:/system.slice/xerj.service\n",
+                &root,
+                &v1_root,
+            ),
+            Some(2 * GIB),
+            "hybrid: an unlimited v2 line must not shadow the v1 limit"
+        );
+        // Docker v1: the leaf path does not exist under the bind-mounted
+        // cgroupfs, so the mount root is the container's real limit.
+        write("/docker", "memory.limit_in_bytes", "3221225472");
+        assert_eq!(
+            cgroup_memory_limit_from(
+                "7:memory:/docker/deadbeef\n",
+                "/no/such/cgroupfs",
+                &format!("{root}/docker"),
+            ),
+            Some(3 * GIB),
+            "v1 bind-mount: an unresolvable leaf must fall back to the mount root"
+        );
+        // Unreadable /proc/self/cgroup, and no cgroupfs at all: no limit,
+        // no panic, no 0 — the caller keeps host RAM.
+        assert_eq!(
+            cgroup_memory_limit_from("", "/no/such/cgroupfs", "/no/such/cgroupfs/memory"),
+            None
+        );
+
+        // The real lookup must never panic or report 0 on this host,
+        // whatever its cgroup layout is.
+        assert!(cgroup_memory_limit_bytes().is_none_or(|limit| limit > 0));
     }
 
     #[test]
