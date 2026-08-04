@@ -797,3 +797,76 @@ fn same_second_runs_in_one_process_do_not_share_a_generation_identity() {
     };
     assert_ne!(run_id(first_state.path()), run_id(second_state.path()));
 }
+
+/// An upsert must clear the desired content identity as well as the committed
+/// one before it replays.
+///
+/// A byte-identical retry of the same prepared stream is idempotent on its own,
+/// because `ids::doc_id` is derived from dataset slug, content id and locator.
+/// The guard earns its keep when a prior aborted attempt left documents under
+/// the desired `ax_file` whose ids the current stream does not overwrite — an
+/// earlier generation of the same content under a different dataset
+/// assignment, or a partially rolled-back attempt. This test models that
+/// survivor directly, because the exact record validation at the commit
+/// barrier is what turns such a leftover into a hard, unrecoverable failure.
+#[test]
+fn upsert_clears_a_survivor_under_the_desired_content_identity() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap();
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("a.csv");
+    let original = "id,value\n1,alpha\n";
+    fs::write(&source, original).unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+
+    let (index, content_id) = {
+        let locked = endpoint.state.lock().unwrap();
+        let ((index, _), doc) = locked
+            .docs
+            .iter()
+            .find(|((index, _), _)| index != catalog::CATALOG_INDEX)
+            .expect("the first generation published a data document");
+        (
+            index.clone(),
+            doc.get("ax_file")
+                .and_then(Value::as_str)
+                .expect("data documents carry ax_file")
+                .to_owned(),
+        )
+    };
+
+    // Replace the content, then restore it, so the third generation upserts the
+    // original content identity again.
+    fs::write(&source, "id,value\n2,bravo\n").unwrap();
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    fs::write(&source, original).unwrap();
+
+    // A document from an aborted earlier attempt at exactly this content, under
+    // an id the prepared stream will not overwrite.
+    endpoint.state.lock().unwrap().docs.insert(
+        (index.clone(), "aborted-attempt-survivor".to_owned()),
+        json!({
+            "id": 1,
+            "value": "alpha",
+            "ax_file": content_id,
+            "ax_path": "a.csv",
+            "ax_locator": "aborted-attempt-survivor"
+        }),
+    );
+
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert!(
+        !endpoint
+            .state
+            .lock()
+            .unwrap()
+            .docs
+            .contains_key(&(index, "aborted-attempt-survivor".to_owned())),
+        "the upsert must delete the desired content identity before replaying it"
+    );
+    assert_eq!(paths(&endpoint.data_docs()), ["a.csv"]);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 3);
+}
