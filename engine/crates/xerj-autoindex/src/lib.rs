@@ -704,7 +704,7 @@ struct InventoryDeltaEntry {
     path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 struct UnsupportedInventoryDelta {
     added_content_groups: Vec<InventoryDeltaEntry>,
     vanished_content_groups: Vec<InventoryDeltaEntry>,
@@ -1051,6 +1051,21 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         .committed_manifest
         .as_ref()
         .is_some_and(|manifest| manifest.generation == 0 && manifest.groups.is_empty());
+    // `--fresh` must be refused before the journal is opened. `open_after_
+    // preflight` deletes journal.ndjson whenever `fresh` is set, and the
+    // `gc_snapshots` call that follows every open then sees an empty protected
+    // set and removes every sealed snapshot directory. The legacy plan gate
+    // further down cannot save a generated corpus: both generated branches are
+    // evaluated before it, so the committed manifest and any pending replay
+    // evidence would already be gone. Fail here, before anything is touched, so
+    // that `--fresh` really is "accepted only when the selected state directory
+    // has no durable plan" as the CLI help and docs state.
+    if cfg.fresh
+        && (preflight.pending_sync.is_some()
+            || (preflight.committed_manifest.is_some() && !genesis_recovery))
+    {
+        return Err(UnsupportedInventoryDelta::default().into_fresh_error());
+    }
     // A durable sync_begin owns the desired generation. Never rediscover and
     // replan from a mutable source tree while that transaction is pending.
     // Operation handlers are deliberately not enabled by this foundation

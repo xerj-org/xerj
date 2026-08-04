@@ -399,6 +399,23 @@ fn paths(docs: &[Value]) -> Vec<String> {
     paths
 }
 
+fn snapshot_names(state_dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = fs::read_dir(state_dir.join("sync-snapshots"))
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    entry.file_type().is_ok_and(|kind| kind.is_dir())
+                        && !entry.file_name().to_string_lossy().starts_with('.')
+                })
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+}
+
 fn final_snapshot_count(state_dir: &Path) -> usize {
     fs::read_dir(state_dir.join("sync-snapshots"))
         .map(|entries| {
@@ -609,4 +626,127 @@ fn pending_semantic_identity_drift_rejects_before_any_further_bulk() {
         "identity drift must be rejected before another data bulk"
     );
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+/// `--fresh` must be refused before it can destroy generation authority.
+///
+/// `Journal::open_after_preflight` deletes `journal.ndjson` whenever `fresh` is
+/// set, and `gc_snapshots` then sees an empty protected set and removes every
+/// sealed snapshot. Both run inside the generated branches, ahead of the legacy
+/// plan gate, so without the preflight refusal a single `--fresh` erases the
+/// committed manifest and every sealed source the next run needs.
+#[test]
+fn fresh_cannot_destroy_a_committed_generation() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap();
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(corpus.path().join("b.csv"), "id,value\n2,bravo\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let committed_docs = endpoint.data_docs();
+    assert_eq!(paths(&committed_docs), ["a.csv", "b.csv"]);
+
+    let journal_path = state_dir.path().join("journal.ndjson");
+    let journal_before = fs::read(&journal_path).unwrap();
+    let snapshots_before = snapshot_names(state_dir.path());
+    assert_eq!(snapshots_before.len(), 1, "{snapshots_before:?}");
+    let requests_before = endpoint.state.lock().unwrap().requests.len();
+
+    // The folder also changed, which is exactly when a user reaches for
+    // --fresh.
+    fs::remove_file(corpus.path().join("b.csv")).unwrap();
+    config.fresh = true;
+    let error = run_index(config.clone()).unwrap_err();
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("`--fresh` cannot discard an existing plan under the same destination"),
+        "{message}"
+    );
+
+    assert_eq!(
+        fs::read(&journal_path).unwrap(),
+        journal_before,
+        "a refused --fresh must not rewrite the journal"
+    );
+    assert_eq!(
+        snapshot_names(state_dir.path()),
+        snapshots_before,
+        "a refused --fresh must not garbage-collect sealed snapshots"
+    );
+    let attempted = endpoint.state.lock().unwrap().requests[requests_before..].to_vec();
+    assert_eq!(
+        attempted,
+        [("GET".to_owned(), "/".to_owned())],
+        "a refused --fresh may perform only the endpoint-readiness GET"
+    );
+
+    // The surviving authority still reconciles the real folder change.
+    config.fresh = false;
+    let (code, summary) = run_index_report(config).unwrap();
+    assert_eq!(code, 0);
+    assert_eq!(summary.unwrap()["generation"], 2);
+    assert_eq!(paths(&endpoint.data_docs()), ["a.csv"]);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+}
+
+/// The same refusal on a crashed generation, where the journal additionally
+/// holds the only record of the pending transaction and its sealed source.
+#[test]
+fn fresh_cannot_destroy_a_pending_generation() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap();
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("a.csv");
+    fs::write(&source, "id,value\n1,committed\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+
+    fs::write(&source, "id,value\n1,sealed-pending\n2,sealed-second\n").unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = true;
+    assert!(run_index(config.clone()).is_err());
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 2);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    let journal_path = state_dir.path().join("journal.ndjson");
+    let journal_before = fs::read(&journal_path).unwrap();
+    let snapshots_before = snapshot_names(state_dir.path());
+    assert_eq!(snapshots_before.len(), 2, "{snapshots_before:?}");
+    let requests_before = endpoint.state.lock().unwrap().requests.len();
+
+    config.fresh = true;
+    let error = run_index(config.clone()).unwrap_err();
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("`--fresh` cannot discard an existing plan under the same destination"),
+        "{message}"
+    );
+    assert_eq!(
+        fs::read(&journal_path).unwrap(),
+        journal_before,
+        "a refused --fresh must not rewrite a pending journal"
+    );
+    assert_eq!(
+        snapshot_names(state_dir.path()),
+        snapshots_before,
+        "a refused --fresh must not delete the pending sealed source"
+    );
+    let attempted = endpoint.state.lock().unwrap().requests[requests_before..].to_vec();
+    assert_eq!(
+        attempted,
+        [("GET".to_owned(), "/".to_owned())],
+        "a refused --fresh may perform only the endpoint-readiness GET"
+    );
+
+    // The pending transaction is still resumable from its sealed source.
+    config.fresh = false;
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+    let rendered = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(rendered.contains("sealed-pending"), "{rendered}");
+    assert!(rendered.contains("sealed-second"), "{rendered}");
 }
