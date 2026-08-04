@@ -692,6 +692,51 @@ fn fresh_cannot_destroy_a_committed_generation() {
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
 }
 
+/// Every refusal on the generated path now sends the operator to an isolated
+/// rebuild, so that recipe has to work. `--fresh` is no longer a rebuild-in-
+/// place escape hatch, and a new `--prefix` alone is not enough when the state
+/// directory was named explicitly: `preflight` refuses a journal recorded for a
+/// different prefix before the run reaches anything else.
+#[test]
+fn the_isolated_rebuild_the_refusals_recommend_is_followable() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap();
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let committed_state = tempfile::tempdir().unwrap();
+    let rebuild_state = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), committed_state.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+
+    // A new --prefix on its own cannot rebuild: the recorded journal owns it.
+    let mut prefix_only = config.clone();
+    prefix_only.prefix = "incremental-http-rebuild".into();
+    let message = format!("{:#}", run_index(prefix_only).unwrap_err());
+    assert!(message.contains("was created for root="), "{message}");
+
+    // A new --state-dir and a new --prefix together do rebuild, and leave the
+    // original generation and its sealed snapshot untouched.
+    let journal_before = fs::read(committed_state.path().join("journal.ndjson")).unwrap();
+    let snapshots_before = snapshot_names(committed_state.path());
+    let mut rebuild = cfg(corpus.path(), rebuild_state.path(), &endpoint.url, false);
+    rebuild.prefix = "incremental-http-rebuild".into();
+    let (code, summary) = run_index_report(rebuild).unwrap();
+    assert_eq!(code, 0);
+    assert_eq!(summary.unwrap()["generation"], 1);
+    assert_eq!(journal_events(rebuild_state.path(), "sync_commit"), 1);
+    assert_eq!(
+        fs::read(committed_state.path().join("journal.ndjson")).unwrap(),
+        journal_before,
+        "an isolated rebuild must not touch the original journal"
+    );
+    assert_eq!(
+        snapshot_names(committed_state.path()),
+        snapshots_before,
+        "an isolated rebuild must not touch the original sealed snapshots"
+    );
+}
+
 /// The same refusal on a crashed generation, where the journal additionally
 /// holds the only record of the pending transaction and its sealed source.
 #[test]

@@ -922,7 +922,8 @@ fn pin_pending_embedding_identity(
     anyhow::ensure!(
         current.resumable,
         "pending semantic generation cannot resume because the current embedding backend is not \
-         resumable: {}; restore the original backend or rebuild with --fresh and a new --prefix",
+         resumable: {}; restore the original backend, or rebuild with a new --state-dir and a new \
+         --prefix",
         current
             .non_resumable_reason
             .as_deref()
@@ -935,8 +936,8 @@ fn pin_pending_embedding_identity(
             && current.semantic_contract == expected.embedding_semantic_contract
             && current.resumable == expected.embedding_resumable,
         "pending semantic generation was prepared for a different embedding execution identity; \
-         no remote mutation was attempted. Restore the original embedding backend, or discard the \
-         pending generation and rebuild with --fresh and a new --prefix"
+         no remote mutation was attempted. Restore the original embedding backend, or rebuild with \
+         a new --state-dir and a new --prefix. --fresh cannot discard this pending generation"
     );
     journal.pin_embedding_identity(
         &current.identity_sha256,
@@ -1147,7 +1148,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                         && expected.schema_identity == schema_identity
                         && expected.index_identity == index_identity,
                     "autoindex execution configuration changed since the committed generation; \
-                     rebuild with --fresh and a new --prefix"
+                     rebuild with a new --state-dir and a new --prefix"
                 );
                 if plan
                     .datasets
@@ -1163,7 +1164,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             && current.semantic_contract == expected.embedding_semantic_contract,
                         "embedding execution identity changed since this autoindex journal was \
                          created; refusing to mix vector spaces. No remote mutation was attempted. \
-                         Restore the original identity or rebuild with --fresh and a new --prefix"
+                         Restore the original identity, or rebuild with a new --state-dir and a \
+                         new --prefix"
                     );
                 }
             }
