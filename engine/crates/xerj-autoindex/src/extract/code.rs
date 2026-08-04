@@ -3,7 +3,8 @@
 //! Source files used to fall through to the plain-text extractor, so a repo was
 //! searchable only as prose. This parses each file with the matching tree-sitter
 //! grammar and captures its DEFINITIONS (functions, classes, methods, structs,
-//! traits, interfaces, modules, …). Each file becomes one document carrying:
+//! traits, interfaces, modules, constants, …). Each file becomes one document
+//! carrying:
 //! - `language`  the detected language
 //! - `symbols`   a structured array of {name, kind, line}
 //! - `defs`      "kind name" per symbol, newline-joined so BM25 matches a query
@@ -242,6 +243,19 @@ const TS_Q: &str = r#"
 (variable_declarator name: (identifier) @function value: (arrow_function))
 "#;
 
+// `const_item` / `static_item` are captured because a file whose whole content
+// is a lookup table (`pub const BYTE_FREQUENCIES: [u8; 256] = [...]`) otherwise
+// extracts ZERO symbols and becomes unreachable by symbol search — see #170.
+// Those files matter disproportionately: their contents are empirical, so they
+// are exactly what cannot be recalled and must be retrieved.
+//
+// Deliberately NOT anchored to `source_file`. Measured over the 331-file
+// memchr/regex/aho-corasick corpus, the 959 const/static declarations sit at:
+// file-scope 720, impl-block associated consts 75, trait 4, function-local 160.
+// Anchoring would throw away the 79 associated consts — `impl Foo { const N }`
+// is idiomatic Rust — to suppress function-local ones, and a function-local
+// `const` in Rust is still a deliberately named constant (Rust `let` bindings
+// are a different node and are never captured), so it is signal, not noise.
 const RUST_Q: &str = r#"
 (function_item name: (identifier) @function)
 (struct_item name: (type_identifier) @struct)
@@ -250,14 +264,38 @@ const RUST_Q: &str = r#"
 (mod_item name: (identifier) @module)
 (macro_definition name: (identifier) @macro)
 (type_item name: (type_identifier) @type)
+(const_item name: (identifier) @const)
+(static_item name: (identifier) @static)
 "#;
 
+// Go's package-level `const`/`var` are anchored to `source_file` on purpose:
+// unanchored, `var_declaration` also matches every function-local `var`, which
+// fills `defs` with locals (verified — unanchoring makes `go_const_and_var`
+// fail on a captured `local`). Note the grammar is asymmetric: a grouped
+// `const ( A = 1 )` keeps `const_spec` as a direct child of `const_declaration`
+// (there is no `const_spec_list` node — a query naming one fails to compile),
+// but a grouped `var ( T = 1 )` wraps its specs in `var_spec_list`, so that
+// form needs its own pattern or package-level tables in `var (…)` are missed.
 const GO_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (method_declaration name: (field_identifier) @method)
 (type_declaration (type_spec name: (type_identifier) @type))
+(source_file (const_declaration (const_spec name: (identifier) @const)))
+(source_file (var_declaration (var_spec name: (identifier) @static)))
+(source_file (var_declaration (var_spec_list (var_spec name: (identifier) @static))))
 "#;
 
+// No constant capture here, deliberately. #170 is about files that extract zero
+// symbols and so become unreachable; Java barely has that failure mode, because
+// every file must declare a type. Measured: 7 of 1043 Java files in one corpus
+// and 1 of 72 in another extract zero symbols under this query (0.7%), against
+// 20 of 331 for Rust and 186 of 400 for C headers. A clean query does exist if
+// the recall is wanted later — `(field_declaration (modifiers "static")
+// declarator: (variable_declarator name: (identifier) @const))` captured 372
+// constants with 0 method-local false positives, where capturing all fields
+// would have pulled in 1311 including private instance state — but it is a
+// recall improvement, not this bug, and no Java corpus is wired into the
+// end-to-end check that proves it, so it is not shipped unverified.
 const JAVA_Q: &str = r#"
 (class_declaration name: (identifier) @class)
 (interface_declaration name: (identifier) @interface)
@@ -266,11 +304,36 @@ const JAVA_Q: &str = r#"
 (constructor_declaration name: (identifier) @method)
 "#;
 
+// C has #170's failure mode worse than anywhere else: 186 of 400 sampled headers
+// and 39 of 400 sampled .c files extracted zero symbols before this.
+//
+// `preproc_def` is the lever that matters — it rescued 148 of those 186 headers
+// and 13 of those 39 .c files, because a header of nothing but `#define`s is the
+// canonical C constant table. It needs no anchoring: only 319 of 7356 captures
+// (4%) sat inside a function body, and include-guard-shaped names were 298 of
+// 4192 in headers (7%). Function-like `#define F(x)` is a different node
+// (`preproc_function_def`) and is not captured.
+//
+// The object declarations ARE anchored to `translation_unit`. A bare
+// `(declaration ...)` is exactly the noisy query to avoid: measured over the
+// same 400 .c files it captured 11806 names of which 11320 (96%) were function
+// locals. Anchored, it captured 274 with zero function locals.
+//
+// Known limit of that anchoring, measured not assumed: an include guard parses
+// as `translation_unit > preproc_ifdef > declaration`, so guarded headers put
+// their declarations one level too deep and only `preproc_def` sees them. That
+// is why the anchored patterns rescued just 6 headers. Widening the anchor per
+// preprocessor form (`preproc_ifdef`, `preproc_if`, nesting) is unbounded and
+// each extra level re-admits in-function declarations, so it is left alone:
+// missing a symbol is recoverable, filling `defs` with locals is not.
 const C_Q: &str = r#"
 (function_definition declarator: (function_declarator declarator: (identifier) @function))
 (struct_specifier name: (type_identifier) @struct)
 (enum_specifier name: (type_identifier) @enum)
 (type_definition declarator: (type_identifier) @type)
+(preproc_def name: (identifier) @const)
+(translation_unit (declaration declarator: (init_declarator declarator: (identifier) @static)))
+(translation_unit (declaration declarator: (init_declarator declarator: (array_declarator declarator: (identifier) @static))))
 "#;
 
 const CPP_Q: &str = r#"
@@ -297,6 +360,11 @@ const PHP_Q: &str = r#"
 (trait_declaration name: (name) @trait)
 "#;
 
+// Also no constant capture, for a blunter reason than Java: there were 4 C#
+// files on the machine this was measured on, so there is no corpus to measure a
+// candidate query's precision against. Shipping one would be a guess, and the
+// C numbers above show how wrong that guess can be (96% locals from a node type
+// that looks perfectly reasonable on paper).
 const CSHARP_Q: &str = r#"
 (class_declaration name: (identifier) @class)
 (interface_declaration name: (identifier) @interface)
@@ -373,6 +441,57 @@ mod tests {
         assert!(has(&s, "T", "trait"));
         assert!(has(&s, "m", "module"));
     }
+    /// A file that is nothing but a lookup table must still yield symbols.
+    /// Without `const_item`/`static_item` in RUST_Q this extracts zero, and the
+    /// file becomes unreachable by symbol search (#170) — which is exactly the
+    /// content that cannot be recalled and therefore most needs retrieving.
+    #[test]
+    fn rust_const_and_static() {
+        let s = syms(
+            "rust",
+            "pub const BYTE_FREQUENCIES: [u8; 256] = [1, 2];\nstatic TABLE: [u8; 2] = [3, 4];\n",
+        );
+        assert!(has(&s, "BYTE_FREQUENCIES", "const"), "got {s:?}");
+        assert!(has(&s, "TABLE", "static"), "got {s:?}");
+    }
+    /// Associated consts are why RUST_Q is not anchored to `source_file`; if a
+    /// future edit anchors it to suppress function-local consts, this fails.
+    #[test]
+    fn rust_associated_const() {
+        let s = syms(
+            "rust",
+            "struct S;\nimpl S { pub const LANES: usize = 8; }\ntrait T { const NAME: &'static str; }\n",
+        );
+        assert!(has(&s, "LANES", "const"), "got {s:?}");
+        assert!(has(&s, "NAME", "const"), "got {s:?}");
+    }
+    #[test]
+    fn go_const_and_var() {
+        let s = syms(
+            "go",
+            "package p\nconst Limit = 10\nvar Table = []byte{1}\nfunc F(){ var local = 1; _ = local }\n",
+        );
+        assert!(has(&s, "Limit", "const"), "got {s:?}");
+        assert!(has(&s, "Table", "static"), "got {s:?}");
+        // Function-local `var` must NOT be captured, or defs fills with locals.
+        assert!(!has(&s, "local", "static"), "captured a local: {s:?}");
+    }
+    /// Grouped `const (…)` / `var (…)` are how Go actually writes lookup tables.
+    /// They parse differently from each other — grouped `var` interposes a
+    /// `var_spec_list` node, grouped `const` does not — so the anchored form
+    /// silently misses `var (…)` unless that case is matched explicitly.
+    #[test]
+    fn go_grouped_const_and_var() {
+        let s = syms(
+            "go",
+            "package p\nconst (\n Alpha = 1\n Beta = 2\n)\nvar (\n Grouped = []byte{1}\n)\nfunc F(){ var loc = 1; const lc = 2; _ = loc; _ = lc }\n",
+        );
+        assert!(has(&s, "Alpha", "const"), "got {s:?}");
+        assert!(has(&s, "Beta", "const"), "got {s:?}");
+        assert!(has(&s, "Grouped", "static"), "got {s:?}");
+        assert!(!has(&s, "loc", "static"), "captured a local: {s:?}");
+        assert!(!has(&s, "lc", "const"), "captured a local const: {s:?}");
+    }
     #[test]
     fn go() {
         let s = syms(
@@ -399,6 +518,28 @@ mod tests {
         assert!(has(&s, "f", "function"));
         assert!(has(&s, "S", "struct"));
         assert!(has(&s, "E", "enum"));
+    }
+    /// C's table file: `#define`s plus file-scope arrays, and NOT the locals
+    /// inside a function — an unanchored `(declaration …)` captured 96% locals
+    /// on a real 400-file sample, so the anchoring is the whole point.
+    #[test]
+    fn c_const_and_file_scope() {
+        let s = syms(
+            "c",
+            "#define MAX_LEN 256\nstatic const unsigned char BYTE_FREQUENCIES[256] = {1,2};\nint g_count = 7;\nvoid f(void){ int local = 1; const int lc = 2; (void)local; (void)lc; }\n",
+        );
+        assert!(has(&s, "MAX_LEN", "const"), "got {s:?}");
+        assert!(has(&s, "BYTE_FREQUENCIES", "static"), "got {s:?}");
+        assert!(has(&s, "g_count", "static"), "got {s:?}");
+        assert!(!has(&s, "local", "static"), "captured a local: {s:?}");
+        assert!(!has(&s, "lc", "static"), "captured a local: {s:?}");
+    }
+    /// Function-like macros are a different node and must stay out of `defs`.
+    #[test]
+    fn c_function_macro_not_captured() {
+        let s = syms("c", "#define MIN(a,b) ((a)<(b)?(a):(b))\n#define LIMIT 4\n");
+        assert!(has(&s, "LIMIT", "const"), "got {s:?}");
+        assert!(!has(&s, "MIN", "const"), "captured a function macro: {s:?}");
     }
     #[test]
     fn cpp() {
