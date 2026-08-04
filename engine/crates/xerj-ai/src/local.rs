@@ -122,6 +122,69 @@ mod tests {
         assert_eq!(a, b, "embedding must be deterministic");
     }
 
+    /// Deliberately independent of [`fnv1a64`] so that changing the embedder's
+    /// hash cannot silently move the checksum with it.
+    fn djb2_over_bits(v: &[f32]) -> u64 {
+        let mut h: u64 = 5381;
+        for x in v {
+            for byte in x.to_le_bytes() {
+                h = h.wrapping_mul(33) ^ byte as u64;
+            }
+        }
+        h
+    }
+
+    /// GOLDEN VECTOR — do not "fix" this by re-recording the constants.
+    ///
+    /// `lexical` is the default backend and the one most deployments run, and
+    /// `GET /v1/embedding/identity` reports it as `resumable: true`, which
+    /// tells `xerj autoindex` it may resume an existing semantic run straight
+    /// across a restart. That identity is derived from the literal string
+    /// `lexical-feature-hash.v1;dimensions=384`, so nothing in it is computed
+    /// from this function: changing the tokenizer, the trigram padding, the
+    /// feature weights, the hash seed, or the normalisation would move every
+    /// vector into a new space while `identity_sha256` stayed byte-identical,
+    /// and autoindex would resume across the change and mix the two spaces —
+    /// exactly the failure the identity endpoint exists to prevent.
+    ///
+    /// If this test fails, the lexical vector space changed. The fix is to
+    /// bump `lexical-feature-hash.v1` to `.v2` in
+    /// `xerj-engine/src/index.rs::embedding_execution_identity` (which changes
+    /// `identity_sha256` and so makes resumes across the change fail closed),
+    /// and only then re-record the constants below.
+    #[test]
+    fn lexical_vector_space_is_frozen() {
+        let v = local_embed(
+            "quarterly revenue increased in the london office",
+            DEFAULT_DIMS,
+        );
+        assert_eq!(v.len(), DEFAULT_DIMS);
+
+        // Whole-vector fingerprint: catches any change to any bucket.
+        assert_eq!(
+            djb2_over_bits(&v),
+            14262738046721457820,
+            "the lexical vector space changed; see this test's doc comment"
+        );
+
+        // A few exact buckets, so a failure says *what* moved rather than just
+        // that a checksum differs. Bit-exact: these are IEEE-754 f32 results
+        // of a fixed sequence of adds and one divide, so they are reproducible
+        // across platforms.
+        for (index, expected) in [
+            (0usize, 0.09425097f32),
+            (43, 0.09425097),
+            (120, -0.09425097),
+            (123, 0.26928848),
+        ] {
+            assert_eq!(
+                v[index], expected,
+                "bucket {index} moved: {} != {expected}",
+                v[index]
+            );
+        }
+    }
+
     #[test]
     fn l2_normalised() {
         let v = local_embed("hello world of vectors", DEFAULT_DIMS);
