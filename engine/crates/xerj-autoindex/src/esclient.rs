@@ -318,12 +318,16 @@ impl Es {
     /// locator set alongside the replacement. The server executes ONE bounded
     /// search-and-delete pass per call (size-capped at 10k docs), so a single
     /// response is not complete removal: repeat until a pass deletes nothing.
-    pub fn delete_by_query(&self, index: &str, query: &Value) -> Result<()> {
+    /// Returns the total number of documents removed across the passes.
+    pub fn delete_by_query(&self, index: &str, query: &Value) -> Result<u64> {
         const MAX_PASSES: usize = 1_000;
+        let mut removed = 0u64;
         for _ in 0..MAX_PASSES {
-            if self.delete_by_query_pass(index, query)? == 0 {
-                return Ok(());
+            let pass = self.delete_by_query_pass(index, query)?;
+            if pass == 0 {
+                return Ok(removed);
             }
+            removed += pass;
         }
         Err(anyhow!(
             "POST /{index}/_delete_by_query still reported deletions after {MAX_PASSES} passes; \

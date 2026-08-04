@@ -297,6 +297,87 @@ fn build_mapping(specs: &[infer::FieldSpec]) -> Value {
     json!({"mappings": {"properties": props}})
 }
 
+/// Live indices under `{prefix}-` — the ones a run could inherit records from.
+fn indices_under_prefix(es: &Es, prefix: &str) -> Result<Vec<String>> {
+    let pattern = format!("{prefix}-");
+    Ok(es
+        .cat_indices()
+        .context("list the live indices under this prefix")?
+        .into_iter()
+        .map(|(name, _)| name)
+        .filter(|name| name.starts_with(&pattern))
+        .collect())
+}
+
+/// One `ax_file` key set per `_delete_by_query`. The sweep issues
+/// `inherited indices × ceil(keys / this)` requests, so a bigger batch is
+/// cheaper, but the terms list travels in the request body and the server holds
+/// it while it scans, so it is not free to make unbounded.
+const SWEEP_KEY_BATCH: usize = 512;
+
+/// Enforce one invariant: no index under this prefix may hold records of a file
+/// that this plan assigns to a DIFFERENT index. Returns how many documents that
+/// removed.
+///
+/// `ids::doc_id` mixes the dataset slug in, so when a file lands in a different
+/// inferred schema group than it did last run — exactly what happens when an
+/// extractor upgrade gives it a field it did not have before — its records are
+/// written under a NEW `_id` in a NEW index, and nothing overwrites the copy in
+/// the old one. Phase B's delete-before-replace cannot reach it either: it
+/// clears only the indices in the file's CURRENT assignment, and a `--fresh`
+/// run begins with an empty journal so it does not treat the file as a
+/// replacement at all.
+///
+/// The discriminator is the plan's own assignment, not the `ax_run` stamp:
+/// run ids are `run-{UTC second}-{pid}`, so two runs from one process inside
+/// one second share an id and a stamp comparison would silently keep the stale
+/// copy (observed — it is what the first cut of this sweep did).
+///
+/// Scoping to this corpus's own file keys is load-bearing, not caution: the
+/// default prefix is `ax`, so unrelated corpora routinely share one prefix, and
+/// a sweep phrased as "delete anything that is not mine" would destroy them.
+fn sweep_migrated_records(es: &Es, plan: &Plan, inherited_indices: &[String]) -> Result<u64> {
+    if inherited_indices.is_empty() {
+        return Ok(0);
+    }
+    let index_by_slug: HashMap<&str, &str> = plan
+        .datasets
+        .iter()
+        .map(|d| (d.slug.as_str(), d.index.as_str()))
+        .collect();
+    let mut homes: Vec<(&str, Vec<&str>)> = plan
+        .files
+        .iter()
+        .map(|(key, assignment)| {
+            let mut indices: Vec<&str> = assignment
+                .assignments
+                .iter()
+                .filter_map(|(_, slug)| index_by_slug.get(slug.as_str()).copied())
+                .collect();
+            indices.sort_unstable();
+            indices.dedup();
+            (key.as_str(), indices)
+        })
+        .collect();
+    homes.sort_unstable();
+    let mut removed = 0u64;
+    for index in inherited_indices {
+        let strangers: Vec<&str> = homes
+            .iter()
+            .filter(|(_, assigned)| !assigned.iter().any(|home| home == index))
+            .map(|(key, _)| *key)
+            .collect();
+        for batch in strangers.chunks(SWEEP_KEY_BATCH) {
+            removed += es
+                .delete_by_query(index, &json!({"terms": {"ax_file": batch}}))
+                .with_context(|| {
+                    format!("remove records that moved out of {index} into another dataset")
+                })?;
+        }
+    }
+    Ok(removed)
+}
+
 // ─── the main run ────────────────────────────────────────────────────────
 
 fn select_resume_plan_keys(
@@ -778,6 +859,36 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             identity.resumable,
             identity.non_resumable_reason.as_deref(),
         )?;
+    }
+
+    // Which indices this run INHERITED, sampled before it creates any of its
+    // own. An index this run created cannot hold a record this run did not
+    // write, so a first publication into an empty prefix sweeps nothing and
+    // pays nothing.
+    let inherited_indices = indices_under_prefix(&es, &cfg.prefix).unwrap_or_else(|error| {
+        eprintln!(
+            "warning: could not list the existing indices under {}-*: {error:#}. Records left in \
+             a dataset that this run's files have moved out of cannot be cleaned up; a file \
+             indexed under an earlier schema may stay searchable twice.",
+            cfg.prefix
+        );
+        Vec::new()
+    });
+    if cfg.fresh && !inherited_indices.is_empty() && !cfg.quiet {
+        // Not fixed here, and not caused by the dataset sweep below: `ax_file`
+        // is derived from CONTENT, so `--fresh` — which throws the journal away
+        // and recomputes every key from scratch — gives an edited file a new
+        // key, and its pre-edit records are no longer anything this corpus
+        // claims. Measured on a 284-file corpus with one file edited between
+        // two --fresh runs: 518 -> 519 live records, the same on the unpatched
+        // build. Resuming (no --fresh) has no such gap: the resume plan carries
+        // the old key forward and the edited file replaces itself in place.
+        eprintln!(
+            "note: --fresh re-keys every file by content, so any file EDITED since the last run \
+             of this prefix leaves its pre-edit records live. Only its dataset moves are cleaned \
+             up. Delete the {}-* indices first for a guaranteed-clean rebuild.",
+            cfg.prefix
+        );
     }
 
     // ── create indices with explicit mappings ────────────────────────────
@@ -1558,6 +1669,33 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         es.refresh(&gr.edges_index).ok();
     }
 
+    // Records left behind in a dataset a file has moved out of are removed only
+    // here, after every file has been published and every bulk confirmed.
+    // Doing it earlier would let a run that dies mid-way delete records it has
+    // not written the replacement for yet, turning a duplicate — which a rerun
+    // repairs — into a hole.
+    let superseded_removed =
+        sweep_migrated_records(&es, &plan, &inherited_indices).unwrap_or_else(|error| {
+            // A failed sweep leaves the duplicates that were there before this
+            // fix, so it must not fail a run whose records are all live. It
+            // must not be silent either.
+            eprintln!(
+                "warning: could not remove records that moved between datasets: {error:#}. \
+                 Files whose inferred dataset changed since the last run are indexed twice; \
+                 rerun autoindex to retry the cleanup."
+            );
+            0
+        });
+    if superseded_removed > 0 {
+        if !cfg.quiet {
+            eprintln!(
+                "removed {superseded_removed} superseded record(s): their files moved to a \
+                 different inferred dataset since the last run of this prefix"
+            );
+        }
+        es.refresh(&format!("{}-*", cfg.prefix)).ok();
+    }
+
     // live per-dataset counts + time ranges (every claim traces to a run)
     let mut ds_counts: HashMap<String, u64> = HashMap::new();
     let mut ds_timerange: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
@@ -1845,6 +1983,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "files_junk": all_junk.len(),
         "records_total": total_records,
         "junk_records_total": junk_records_by_run,
+        "superseded_records_removed": superseded_removed,
         "wall_seconds": (wall * 10.0).round() / 10.0,
         "workers": cfg.workers,
         "semantic": !cfg.no_semantic,
@@ -2423,3 +2562,6 @@ mod duplicate_integration_tests {
 
 #[cfg(test)]
 mod failure_resume_http_tests;
+
+#[cfg(test)]
+mod reindex_migration_tests;
