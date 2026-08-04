@@ -78,6 +78,59 @@ jobs:
         working-directory: engine
         run: cargo test --release --workspace -- --test-threads=2
 
+  # `onnx-experimental` is off by default, so the workspace-wide lint and test
+  # jobs above compile none of it — the embedder's ONNX session registry, the
+  # engine's asset snapshot and identity derivation, and their tests were all
+  # invisible to a green check. This job is the only thing that compiles that
+  # code, and it deliberately runs the tests too: the byte-identity guarantees
+  # (same-path/same-size/restored-mtime replacement, distinct bytes never
+  # sharing a session) are only meaningful if they are executed. The tests that
+  # need a real MiniLM model are `#[ignore]`d and stay that way here — nothing
+  # in this job downloads a model. `ort`'s prebuilt runtime is fetched by the
+  # build itself.
+  onnx-experimental:
+    name: ONNX experimental feature (lint + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: ci-onnx-cargo-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: ci-onnx-cargo-
+
+      - name: clippy (deny warnings, onnx-experimental)
+        working-directory: engine
+        run: >
+          cargo clippy --all-targets
+          -p xerj-ai -p xerj-engine -p xerj-api
+          --features xerj-ai/onnx-experimental,xerj-engine/onnx-experimental,xerj-api/onnx-experimental
+          -- -D warnings
+
+      # `--lib` on purpose: every feature-gated test lives in a lib unit-test
+      # module (`xerj-ai/src/{embedder,onnx}.rs`, `xerj-engine/src/index.rs`,
+      # `xerj-api/src/router.rs`), and the integration targets are already run
+      # by the Build + Test job. The clippy step above still type-checks them
+      # with `--all-targets`.
+      - name: Lib tests (onnx-experimental)
+        working-directory: engine
+        run: >
+          cargo test --lib
+          -p xerj-ai -p xerj-engine -p xerj-api
+          --features xerj-ai/onnx-experimental,xerj-engine/onnx-experimental,xerj-api/onnx-experimental
+          -- --test-threads=2
+
   api-checks:
     name: API smoke + liveness + benchmark
     runs-on: ubuntu-latest
