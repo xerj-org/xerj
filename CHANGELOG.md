@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`xerj autoindex` no longer duplicates an index when an extractor improves**
+  (#178). Datasets were inferred by comparing each file's whole field-name set,
+  including names the extractor invents rather than reads from the file
+  (`defs`, `symbols`, `symbol_count`, `title`, `page`, …). A better parser makes
+  those names appear, which moved the file into a different dataset — and the
+  dataset slug is an ingredient of every document `_id`, so the file was
+  re-indexed under a new id in a new index while its previous document stayed
+  behind, unreferenced. Measured on a 846-file Rust corpus, re-planning with an
+  improved symbol extractor grew the index from 53,873 to 53,902 documents with
+  29 stale leftovers and exit code 0; on a 2,328-file C corpus, 7,923 to 8,023.
+  Clustering now uses only the field names that came from the file, so gaining
+  or losing extractor fields can no longer re-home a document: both re-plans
+  hold at 53,873 and 7,923.
+
+  Nothing is deleted, so the first *re-plan* after upgrading (`--fresh`, a new
+  `--state-dir`, or a lost journal) re-homes the files whose datasets merge and
+  leaves their previous documents in place — 53,873 → 58,855 on that Rust
+  corpus, a one-time cost paid once instead of once per extractor change. An
+  ordinary re-run reuses the journal's frozen plan and is unaffected. Datasets
+  inferred from real schemas are untouched: that corpus went from 9 datasets to
+  7 (the two symbol-presence variants of one code dataset merged, likewise two
+  section-presence variants of one prose dataset), and the C corpus from 407 to
+  405, with every document accounted for in both.
+
 ## [1.0.0-rc.11] - 2026-08-04
 
 ### Added

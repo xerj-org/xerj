@@ -6,7 +6,7 @@
 //! `key=value` pairs embedded in the message (logfmt convention) are lifted
 //! into fields — names come from the DATA, not from this code.
 
-use super::{sanitize_field_name, ExtractStats, RawRecord, Sink};
+use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -266,6 +266,7 @@ pub fn extract(
                     fields,
                     locator: format!("b{start}"),
                     group: None,
+                    origin: FieldOrigin::Data,
                 });
             }
             None => {

@@ -2,6 +2,16 @@
 //! datasets by schema fingerprint (Jaccard on field-name sets ≥ 0.7) within
 //! the same format family. Path family is a NAMING hint only — no hardcoded
 //! directory semantics.
+//!
+//! Only the DATA-derived field names take part (`Sketch::key_fields`, fed from
+//! `extract::FieldOrigin`). A name the extractor invented — `defs`, `symbols`,
+//! `title`, `page` — is not evidence about the file, and letting one decide
+//! membership made every extractor improvement re-home files: the dataset slug
+//! is an ingredient of `ids::doc_id`, so a moved file is re-indexed under a new
+//! `_id` in a new index while its old document survives, unreferenced, in the
+//! old one (issue #178). Files whose names are all extractor-invented (source
+//! code, prose documents) therefore cluster by format family and group alone,
+//! which is what their sniffed shape actually says about them.
 
 use crate::infer::FieldAcc;
 use crate::sniff::Family;
@@ -13,6 +23,9 @@ pub struct Sketch {
     pub group: Option<String>,
     pub family: Family,
     pub fields: HashMap<String, FieldAcc>,
+    /// The subset of `fields` whose NAMES were read out of the file. This, not
+    /// `fields`, is the clustering key.
+    pub key_fields: HashSet<String>,
     pub records: u64,
 }
 
@@ -22,6 +35,8 @@ pub struct Cluster {
     pub group: Option<String>,
     pub members: Vec<usize>, // file indices
     pub fields: HashMap<String, FieldAcc>,
+    /// Union of the members' `key_fields` — what new sketches are compared to.
+    pub key_fields: HashSet<String>,
     pub records: u64,
     pub slug: String,
 }
@@ -38,13 +53,13 @@ fn jaccard(a: &HashSet<&str>, b: &HashSet<&str>) -> f64 {
 pub fn cluster(sketches: Vec<Sketch>, rels: &[String]) -> Vec<Cluster> {
     let mut clusters: Vec<Cluster> = Vec::new();
     for sk in sketches {
-        let names: HashSet<&str> = sk.fields.keys().map(|s| s.as_str()).collect();
+        let names: HashSet<&str> = sk.key_fields.iter().map(|s| s.as_str()).collect();
         let mut best: Option<(usize, f64)> = None;
         for (ci, c) in clusters.iter().enumerate() {
             if c.family != sk.family || c.group != sk.group {
                 continue;
             }
-            let cnames: HashSet<&str> = c.fields.keys().map(|s| s.as_str()).collect();
+            let cnames: HashSet<&str> = c.key_fields.iter().map(|s| s.as_str()).collect();
             let j = jaccard(&names, &cnames);
             let threshold = if sk.group.is_some() { 0.5 } else { 0.7 };
             if j >= threshold && best.map(|(_, bj)| j > bj).unwrap_or(true) {
@@ -56,6 +71,7 @@ pub fn cluster(sketches: Vec<Sketch>, rels: &[String]) -> Vec<Cluster> {
                 let c = &mut clusters[ci];
                 c.members.push(sk.file_idx);
                 c.records += sk.records;
+                c.key_fields.extend(sk.key_fields);
                 for (k, acc) in sk.fields {
                     match c.fields.get_mut(&k) {
                         Some(existing) => existing.merge(&acc),
@@ -70,6 +86,7 @@ pub fn cluster(sketches: Vec<Sketch>, rels: &[String]) -> Vec<Cluster> {
                 group: sk.group,
                 members: vec![sk.file_idx],
                 fields: sk.fields,
+                key_fields: sk.key_fields,
                 records: sk.records,
                 slug: String::new(),
             }),
@@ -218,5 +235,156 @@ fn assign_slugs(clusters: &mut [Cluster], rels: &[String]) {
             k += 1;
         }
         clusters[i].slug = slug;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ids;
+
+    fn acc(value: &str) -> FieldAcc {
+        let mut a = FieldAcc::default();
+        a.add(&serde_json::Value::String(value.to_string()));
+        a
+    }
+
+    /// A source file: every name comes from the extractor, so the clustering
+    /// key is empty whether or not the parser found symbols.
+    fn code_sketch(file_idx: usize, symbols: bool) -> Sketch {
+        let mut fields = HashMap::new();
+        fields.insert("title".to_string(), acc("f.rs"));
+        fields.insert("language".to_string(), acc("rust"));
+        fields.insert("body".to_string(), acc("fn main() {}"));
+        if symbols {
+            fields.insert("defs".to_string(), acc("function main"));
+            fields.insert("symbols".to_string(), acc("main"));
+            fields.insert("symbol_count".to_string(), acc("1"));
+        }
+        Sketch {
+            file_idx,
+            group: None,
+            family: Family::Code,
+            fields,
+            key_fields: HashSet::new(),
+            records: 1,
+        }
+    }
+
+    /// A data file: the names are the file's own, so they are the key.
+    fn data_sketch(file_idx: usize, family: Family, names: &[&str]) -> Sketch {
+        let mut fields = HashMap::new();
+        let mut key_fields = HashSet::new();
+        for n in names {
+            fields.insert((*n).to_string(), acc("v"));
+            key_fields.insert((*n).to_string());
+        }
+        Sketch {
+            file_idx,
+            group: None,
+            family,
+            fields,
+            key_fields,
+            records: 1,
+        }
+    }
+
+    fn doc_ids(clusters: &[Cluster], rels: &[String]) -> Vec<String> {
+        let mut out = Vec::new();
+        for c in clusters {
+            for &m in &c.members {
+                // `rel` stands in for the content key: this test changes the
+                // extractor, never the files.
+                out.push(ids::doc_id(&c.slug, &rels[m], "code"));
+            }
+        }
+        out.sort();
+        out
+    }
+
+    /// Regression for #178. Re-index the same corpus with an extractor that
+    /// now finds symbols in files that produced none before: the documents
+    /// must land on exactly the same `_id`s, so the re-index overwrites in
+    /// place instead of writing a second copy beside the first.
+    #[test]
+    fn a_better_extractor_does_not_re_home_a_single_file() {
+        let rels: Vec<String> = (0..6).map(|i| format!("src/mod{i}/f.rs")).collect();
+
+        // Before: files 4 and 5 parsed to zero symbols.
+        let before = cluster(
+            (0..6).map(|i| code_sketch(i, i < 4)).collect::<Vec<_>>(),
+            &rels,
+        );
+        // The whole point: one dataset, not one per symbol-presence variant.
+        assert_eq!(before.len(), 1, "{before:#?}");
+        assert_eq!(before[0].members.len(), 6);
+
+        // After: the improved grammar finds symbols in all six.
+        let after = cluster(
+            (0..6).map(|i| code_sketch(i, true)).collect::<Vec<_>>(),
+            &rels,
+        );
+
+        let (b, a) = (doc_ids(&before, &rels), doc_ids(&after, &rels));
+        assert_eq!(a.len(), b.len(), "document count grew: {b:?} -> {a:?}");
+        assert_eq!(a, b, "documents moved to new _ids: {b:?} -> {a:?}");
+    }
+
+    /// The same must hold when only SOME files change and the corpus also
+    /// holds data files — the data datasets must not be disturbed either.
+    #[test]
+    fn a_partial_extractor_change_leaves_the_data_datasets_alone() {
+        let rels: Vec<String> = vec![
+            "src/a.rs".into(),
+            "src/b.rs".into(),
+            "data/events.csv".into(),
+            "data/users.csv".into(),
+        ];
+        let mixed = |symbols_in_b: bool| {
+            vec![
+                code_sketch(0, true),
+                code_sketch(1, symbols_in_b),
+                data_sketch(2, Family::Csv, &["ts", "level", "msg"]),
+                data_sketch(3, Family::Csv, &["id", "email", "name"]),
+            ]
+        };
+        let before = cluster(mixed(false), &rels);
+        let after = cluster(mixed(true), &rels);
+        let slugs = |cs: &[Cluster]| {
+            let mut v: Vec<(usize, String)> = cs
+                .iter()
+                .flat_map(|c| c.members.iter().map(|&m| (m, c.slug.clone())))
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(slugs(&before), slugs(&after));
+        // 1 code dataset + 2 unrelated CSV schemas.
+        assert_eq!(before.len(), 3, "{before:#?}");
+    }
+
+    /// The fix must not blunt clustering: unrelated schemas stay apart, near
+    /// -identical ones still merge, and formats never mix.
+    #[test]
+    fn genuinely_different_content_still_separates() {
+        let rels: Vec<String> = (0..5).map(|i| format!("d/f{i}")).collect();
+        let clusters = cluster(
+            vec![
+                data_sketch(0, Family::Csv, &["ts", "level", "msg"]),
+                // one extra column out of four — still the same schema
+                data_sketch(1, Family::Csv, &["ts", "level", "msg", "host"]),
+                data_sketch(2, Family::Csv, &["id", "email", "name"]),
+                // same names, different format family
+                data_sketch(3, Family::Jsonl, &["ts", "level", "msg"]),
+                code_sketch(4, true),
+            ],
+            &rels,
+        );
+        assert_eq!(clusters.len(), 4, "{clusters:#?}");
+        let members: Vec<Vec<usize>> = clusters.iter().map(|c| c.members.clone()).collect();
+        assert!(members.contains(&vec![0, 1]), "{members:?}");
+        assert!(members.contains(&vec![2]), "{members:?}");
+        assert!(members.contains(&vec![3]), "{members:?}");
+        assert!(members.contains(&vec![4]), "{members:?}");
     }
 }

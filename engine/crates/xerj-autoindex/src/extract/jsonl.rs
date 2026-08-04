@@ -1,6 +1,6 @@
 //! JSONL (newline-delimited JSON) — streaming, byte-offset locators.
 
-use super::{flatten_object, ExtractStats, RawRecord, Sink, MAX_LINE};
+use super::{flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_LINE};
 use anyhow::Result;
 use serde_json::Value;
 use std::path::Path;
@@ -38,6 +38,7 @@ pub fn extract(
                     fields: flatten_object(m),
                     locator: format!("b{start}"),
                     group: None,
+                    origin: FieldOrigin::Data,
                 }) {
                     break;
                 }

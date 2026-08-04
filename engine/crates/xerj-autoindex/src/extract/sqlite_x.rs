@@ -1,7 +1,7 @@
 //! SQLite databases — read-only immutable open (WAL/journal never touched);
 //! one dataset (group) per table; locator = rowid where available.
 
-use super::{sanitize_field_name, ExtractStats, RawRecord, Sink};
+use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::{Context, Result};
 use rusqlite::types::ValueRef;
 use rusqlite::{Connection, OpenFlags};
@@ -101,6 +101,7 @@ pub fn extract(path: &Path, per_table_limit: Option<u64>, sink: Sink) -> Result<
                 fields,
                 locator: loc,
                 group: Some(table.clone()),
+                origin: FieldOrigin::Data,
             }) {
                 break 'tables;
             }

@@ -4,7 +4,7 @@
 //!   element, remaining top-level scalars merged in as shared fields
 //! - anything else → a single record
 
-use super::{flatten_object, ExtractStats, RawRecord, Sink, MAX_WHOLE_FILE};
+use super::{flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_WHOLE_FILE};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -60,6 +60,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                                 fields,
                                 locator: format!("{key}:e{i}"),
                                 group: None,
+                                origin: FieldOrigin::Data,
                             }) {
                                 break;
                             }
@@ -94,6 +95,7 @@ fn emit(v: Value, locator: &str, sink: Sink, stats: &mut ExtractStats) -> bool {
         fields,
         locator: locator.to_string(),
         group: None,
+        origin: FieldOrigin::Data,
     })
 }
 

@@ -7,7 +7,7 @@
 //! also gets a process group and an address-space limit. This is crash/resource
 //! isolation, not a security sandbox: the worker retains the user's authority.
 
-use super::{split_sections, ExtractStats, RawRecord, Sink};
+use super::{split_sections, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::{anyhow, Context, Result};
 use pdf_oxide::PdfDocument;
 use serde::{Deserialize, Serialize};
@@ -383,6 +383,10 @@ fn extract_in_process(path: &Path) -> Result<Vec<RawRecord>> {
                 fields,
                 locator: format!("p{}-s{}", page_index + 1, section),
                 group: None,
+                // title/page/section/body plus the pdf_* counters are this
+                // extractor's vocabulary; `section` and `pdf_ocr_warning`
+                // appear only sometimes.
+                origin: FieldOrigin::Extractor,
             });
         }
     }

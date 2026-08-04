@@ -23,6 +23,29 @@ use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
+/// Where a record's FIELD NAMES came from — the input to dataset clustering.
+///
+/// Clustering groups files by their field names (`dataset::cluster`), and the
+/// dataset slug is an ingredient of every `_id` (`ids::doc_id`). So a name that
+/// can appear or disappear because the EXTRACTOR changed — not because the file
+/// changed — silently moves that file's documents to a different index and
+/// orphans the ones already written under the old slug (issue #178).
+///
+/// `Data` names are read out of the file (JSON keys, CSV header, SQL columns,
+/// HTML table headers, parsed log keys): two files that share them really do
+/// share a schema, and the names change only when the file changes.
+/// `Extractor` names are the extractor's own vocabulary (`title`/`body`,
+/// `defs`/`symbols`/`symbol_count`, `page`/`section`) — they describe the tool,
+/// not the data, so they are excluded from the clustering key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldOrigin {
+    /// Field names read out of the file itself.
+    Data,
+    /// Field names invented by the extractor.
+    Extractor,
+}
+
 /// One extracted record before coercion.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawRecord {
@@ -32,6 +55,10 @@ pub struct RawRecord {
     pub locator: String,
     /// Sub-dataset group within a file (table name for sql/sqlite).
     pub group: Option<String>,
+    /// Whether `fields`' NAMES came from the file or from this extractor.
+    /// Set it at every emit site: it decides whether those names are allowed
+    /// to move the file between datasets.
+    pub origin: FieldOrigin,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -283,6 +310,9 @@ pub fn emit_document(
             fields,
             locator: format!("s{i}"),
             group: None,
+            // title/headings/section/body are this function's vocabulary, and
+            // `headings`/`section` come and go — never a clustering key.
+            origin: FieldOrigin::Extractor,
         }) {
             return false;
         }

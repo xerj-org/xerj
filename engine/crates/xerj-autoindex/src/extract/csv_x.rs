@@ -1,6 +1,6 @@
 //! CSV with sniffed dialect (delimiter / header / decimal-comma), streaming.
 
-use super::{sanitize_field_name, ExtractStats, RawRecord, Sink};
+use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
 use crate::sniff::Sniffed;
 use anyhow::Result;
 use serde_json::{Map, Value};
@@ -73,6 +73,7 @@ pub fn extract(
             fields,
             locator: format!("r{i}"),
             group: None,
+            origin: FieldOrigin::Data,
         }) {
             break;
         }

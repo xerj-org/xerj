@@ -14,7 +14,7 @@
 //! so adding a language is a grammar dep + one registry row. If a grammar fails
 //! to parse a file, it is indexed as plain text rather than dropped.
 
-use super::{ExtractStats, RawRecord, Sink};
+use super::{ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -213,6 +213,10 @@ fn emit_code_doc(
         fields,
         locator: "code".into(),
         group: None,
+        // `defs`/`symbols`/`symbol_count` appear only when this extractor finds
+        // something, so a better grammar would otherwise move the file to a
+        // different dataset and orphan its old document (#178).
+        origin: FieldOrigin::Extractor,
     })
 }
 

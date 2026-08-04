@@ -22,7 +22,7 @@
 //! caller can jump straight to the source — the old per-line record only
 //! carried an opaque byte locator.
 
-use super::{emit_document, ExtractStats, RawRecord, Sink};
+use super::{emit_document, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -127,6 +127,8 @@ pub fn extract_lines(
             fields,
             locator: format!("b{start_byte}"),
             group: None,
+            // text/start_line/end_line describe this chunker, not the file.
+            origin: FieldOrigin::Extractor,
         });
         if drain {
             window.clear();

@@ -4,7 +4,9 @@
 //! one record per row with header-derived field names; otherwise one
 //! document record {title, headings, body}.
 
-use super::{emit_document, sanitize_field_name, ExtractStats, RawRecord, Sink, MAX_WHOLE_FILE};
+use super::{
+    emit_document, sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_WHOLE_FILE,
+};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -73,6 +75,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                 fields,
                 locator: format!("row{i}"),
                 group: None,
+                origin: FieldOrigin::Data,
             }) {
                 return Ok(stats);
             }

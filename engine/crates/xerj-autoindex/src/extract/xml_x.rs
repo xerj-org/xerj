@@ -4,7 +4,9 @@
 //! children), ties going to the outermost then the lowest-named tag. No
 //! repeating structured tag → the whole document is one record.
 
-use super::{sanitize_field_name, ExtractStats, RawRecord, Sink, MAX_FIELDS_PER_RECORD};
+use super::{
+    sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_FIELDS_PER_RECORD,
+};
 use anyhow::Result;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
@@ -54,6 +56,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                             fields,
                             locator: loc,
                             group: None,
+                            origin: FieldOrigin::Data,
                         }) {
                             return Ok(stats);
                         }
@@ -74,6 +77,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                                 fields,
                                 locator: loc,
                                 group: None,
+                                origin: FieldOrigin::Data,
                             }) {
                                 return Ok(stats);
                             }
@@ -113,6 +117,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
             fields: st.root_fields,
             locator: "doc".into(),
             group: None,
+            origin: FieldOrigin::Data,
         });
     }
     Ok(stats)

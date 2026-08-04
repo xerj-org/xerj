@@ -1,7 +1,7 @@
 //! YAML — multi-document streams; each doc becomes a record (a top-level
 //! sequence of mappings becomes per-element records). 16MB file cap.
 
-use super::{flatten_object, ExtractStats, RawRecord, Sink};
+use super::{flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -42,6 +42,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                             fields: flatten_object(m),
                             locator: format!("d{d}e{i}"),
                             group: None,
+                            origin: FieldOrigin::Data,
                         }) {
                             return Ok(stats);
                         }
@@ -54,6 +55,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                     fields: flatten_object(m),
                     locator: format!("d{d}"),
                     group: None,
+                    origin: FieldOrigin::Data,
                 }) {
                     return Ok(stats);
                 }
@@ -66,6 +68,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                     fields: m,
                     locator: format!("d{d}"),
                     group: None,
+                    origin: FieldOrigin::Data,
                 }) {
                     return Ok(stats);
                 }

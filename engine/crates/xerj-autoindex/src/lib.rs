@@ -177,9 +177,18 @@ fn section_label(locator: &str) -> Option<String> {
 
 struct FileScan {
     sniffed: Option<Sniffed>,
-    /// group → (field accs, sampled record count)
-    sketches: Vec<(Option<String>, HashMap<String, infer::FieldAcc>, u64)>,
+    sketches: Vec<GroupSketch>,
     junk: Option<(String, String)>, // (status, reason)
+}
+
+/// One sampled group within a file: every field it produced, plus the names
+/// that came from the file rather than from the extractor (`FieldOrigin`).
+/// Only the latter may decide which dataset the file joins — see `dataset`.
+struct GroupSketch {
+    group: Option<String>,
+    fields: HashMap<String, infer::FieldAcc>,
+    key_fields: std::collections::HashSet<String>,
+    records: u64,
 }
 
 fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileScan {
@@ -228,14 +237,25 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
         Family::Sqlite => Some(1), // signals per-table row cap inside the extractor
         _ => None,                 // whole-file extractors cap themselves
     };
-    let mut groups: HashMap<Option<String>, (HashMap<String, infer::FieldAcc>, u64)> =
-        HashMap::new();
+    type GroupAcc = (
+        HashMap<String, infer::FieldAcc>,
+        u64,
+        std::collections::HashSet<String>,
+    );
+    let mut groups: HashMap<Option<String>, GroupAcc> = HashMap::new();
     let grouped_family = matches!(sn.family, Family::SqlDump | Family::Sqlite);
     let mut sink = |rec: extract::RawRecord| -> bool {
         let entry = groups.entry(rec.group.clone()).or_default();
         if (entry.1 as usize) < sample {
+            // Every field feeds type inference; only the ones the FILE named
+            // feed the clustering key, so an extractor that starts emitting a
+            // new field cannot re-home the file (#178).
+            let from_file = rec.origin == extract::FieldOrigin::Data;
             for (k, v) in &rec.fields {
                 entry.0.entry(k.clone()).or_default().add(v);
+                if from_file {
+                    entry.2.insert(k.clone());
+                }
             }
         }
         entry.1 += 1;
@@ -264,10 +284,96 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
             }
         }
     }
-    out.sketches = groups.into_iter().map(|(g, (f, n))| (g, f, n)).collect();
-    out.sketches.sort_by(|a, b| a.0.cmp(&b.0));
+    out.sketches = groups
+        .into_iter()
+        .map(|(group, (fields, records, key_fields))| GroupSketch {
+            group,
+            fields,
+            key_fields,
+            records,
+        })
+        .collect();
+    out.sketches.sort_by(|a, b| a.group.cmp(&b.group));
     out.sniffed = Some(sn);
     out
+}
+
+#[cfg(test)]
+mod clustering_key_tests {
+    use super::*;
+
+    fn scan(dir: &Path, name: &str, body: &str) -> FileScan {
+        let path = dir.join(name);
+        std::fs::write(&path, body).unwrap();
+        let size = std::fs::metadata(&path).unwrap().len();
+        scan_file(&path, size, 500, 2)
+    }
+
+    /// The #178 mechanism, from the extractor to the clustering key: a source
+    /// file that yields symbols and one that yields none produce the SAME
+    /// (empty) key, so no extractor improvement can move a file between
+    /// datasets. `defs` still reaches the mapping — it is indexed, just not
+    /// used to decide identity.
+    #[test]
+    fn symbols_never_enter_the_clustering_key() {
+        let dir = std::env::temp_dir().join("xerj-ax-178-key");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // `const` is invisible to the shipped Rust query, so this file parses
+        // to zero symbols — exactly the case #170 improves.
+        let table = scan(
+            &dir,
+            "table.rs",
+            "const BYTE_FREQUENCIES: [u8; 2] = [1, 2];\n",
+        );
+        let code = scan(&dir, "code.rs", "fn main() {}\nstruct S;\n");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        for s in [&table, &code] {
+            assert_eq!(s.sketches.len(), 1, "one code record per file");
+            assert!(
+                s.sketches[0].key_fields.is_empty(),
+                "extractor-invented names leaked into the clustering key: {:?}",
+                s.sketches[0].key_fields
+            );
+        }
+        assert!(!table.sketches[0].fields.contains_key("defs"));
+        assert!(code.sketches[0].fields.contains_key("defs"));
+
+        // …so the two land in one dataset instead of one dataset each.
+        let rels = vec!["table.rs".to_string(), "code.rs".to_string()];
+        let sketches: Vec<dataset::Sketch> = [&table, &code]
+            .iter()
+            .enumerate()
+            .map(|(i, s)| dataset::Sketch {
+                file_idx: i,
+                group: s.sketches[0].group.clone(),
+                family: s.sniffed.as_ref().unwrap().family,
+                fields: s.sketches[0].fields.clone(),
+                key_fields: s.sketches[0].key_fields.clone(),
+                records: s.sketches[0].records,
+            })
+            .collect();
+        let clusters = dataset::cluster(sketches, &rels);
+        assert_eq!(clusters.len(), 1, "{clusters:#?}");
+    }
+
+    /// The other half: a data file's own column names ARE the key, so real
+    /// schemas still drive clustering.
+    #[test]
+    fn data_field_names_are_the_clustering_key() {
+        let dir = std::env::temp_dir().join("xerj-ax-178-data");
+        std::fs::create_dir_all(&dir).unwrap();
+        let csv = scan(&dir, "t.csv", "id,email\n1,a@b.c\n2,d@e.f\n");
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut names: Vec<&str> = csv.sketches[0]
+            .key_fields
+            .iter()
+            .map(String::as_str)
+            .collect();
+        names.sort();
+        assert_eq!(names, ["email", "id"]);
+    }
 }
 
 // ─── mapping builder ─────────────────────────────────────────────────────
@@ -688,13 +794,14 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 });
                 continue;
             }
-            for (group, fields, n) in sc.sketches {
+            for gs in sc.sketches {
                 sketches.push(dataset::Sketch {
                     file_idx: i,
-                    group,
+                    group: gs.group,
                     family,
-                    fields,
-                    records: n,
+                    fields: gs.fields,
+                    key_fields: gs.key_fields,
+                    records: gs.records,
                 });
             }
         }

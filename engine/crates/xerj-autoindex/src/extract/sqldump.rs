@@ -5,7 +5,7 @@
 //! records with `''`/backslash escapes, NULL, numbers, hex literals.
 //! One dataset (group) per table.
 
-use super::{sanitize_field_name, ExtractStats, RawRecord, Sink};
+use super::{sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -333,6 +333,7 @@ fn emit_tuple(
         fields,
         locator: loc,
         group: Some(table.to_string()),
+        origin: FieldOrigin::Data,
     })
 }
 
