@@ -750,3 +750,50 @@ fn fresh_cannot_destroy_a_pending_generation() {
     assert!(rendered.contains("sealed-pending"), "{rendered}");
     assert!(rendered.contains("sealed-second"), "{rendered}");
 }
+
+/// Two runs started in the same process and the same UTC second must not share
+/// a `run_id`.
+///
+/// The generation catalog keys its managed documents on `run_id`, so a
+/// collision makes the second run read the first run's documents back as its
+/// own generation. `xerj brain` calls `run_index_report` more than once per
+/// process, so this is reachable without any concurrency.
+#[test]
+fn same_second_runs_in_one_process_do_not_share_a_generation_identity() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap();
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let first_state = tempfile::tempdir().unwrap();
+    let second_state = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+
+    assert_eq!(
+        run_index(cfg(corpus.path(), first_state.path(), &endpoint.url, false)).unwrap(),
+        0
+    );
+    let second = run_index_report(cfg(
+        corpus.path(),
+        second_state.path(),
+        &endpoint.url,
+        false,
+    ));
+    let (code, summary) = second.expect("a second run in the same second must commit");
+    assert_eq!(code, 0);
+    assert_eq!(summary.unwrap()["generation"], 1);
+
+    let run_id = |state_dir: &Path| -> String {
+        fs::read_to_string(state_dir.join("journal.ndjson"))
+            .unwrap()
+            .lines()
+            .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+            .find_map(|event| {
+                event
+                    .get("run_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .expect("journal records a run_id")
+    };
+    assert_ne!(run_id(first_state.path()), run_id(second_state.path()));
+}

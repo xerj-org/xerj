@@ -50,7 +50,7 @@ pub struct PlanDataset {
 
 #[cfg(test)]
 mod tests {
-    use super::Journal;
+    use super::{run_id_in_second, Journal};
 
     #[test]
     fn legacy_journal_can_resume_with_a_custom_operational_timeout() {
@@ -69,6 +69,19 @@ mod tests {
         let text = std::fs::read_to_string(dir.path().join("journal.ndjson")).unwrap();
         assert!(text.contains("\"kind\":\"resume\""));
         assert!(text.contains("\"bulk_timeout_secs\":3600"));
+    }
+
+    /// Run identity must stay unique inside one process even when the
+    /// one-second timestamp component cannot distinguish two runs. The
+    /// generation catalog keys managed documents on `run_id`, so a duplicate
+    /// makes a run read another run's documents back as its own generation.
+    #[test]
+    fn run_ids_minted_in_the_same_second_and_process_are_distinct() {
+        let second = "20260804T000000Z";
+        let first = run_id_in_second(second);
+        let next = run_id_in_second(second);
+        assert_ne!(first, next);
+        assert!(first.starts_with(&format!("run-{second}-")), "{first}");
     }
 
     #[test]
@@ -298,6 +311,32 @@ pub struct Journal {
     pub committed_manifest: Option<crate::sync::CommittedManifest>,
     pub pending_sync: Option<crate::sync::PendingSync>,
     pub legacy_migration_reasons: Vec<String>,
+}
+
+/// Per-process monotonic suffix for [`new_run_id`].
+///
+/// The timestamp component only has one-second resolution, so two runs started
+/// in the same second by the same process used to produce the same `run_id`.
+/// That is reachable from library consumers — `xerj brain` calls
+/// `run_index_report` more than once in one process — and a collision is not
+/// benign: the generation catalog keys managed documents on `run_id`, so the
+/// second run inherits the first run's documents as its own generation.
+static RUN_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Identity for a brand-new run: UTC second, process id, and a monotonic
+/// per-process sequence number that makes same-second runs distinct.
+fn new_run_id() -> String {
+    run_id_in_second(&chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string())
+}
+
+/// Split out of [`new_run_id`] so the same-second case is testable without
+/// depending on where a test happens to land inside a wall-clock second.
+fn run_id_in_second(second: &str) -> String {
+    format!(
+        "run-{second}-{:04x}-{:04x}",
+        std::process::id() & 0xffff,
+        RUN_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) & 0xffff
+    )
 }
 
 pub fn default_state_dir(root: &str, url: &str, prefix: &str) -> PathBuf {
@@ -770,13 +809,7 @@ impl Journal {
             }
         }
         let is_new = run_id.is_none();
-        let run_id = run_id.unwrap_or_else(|| {
-            format!(
-                "run-{}-{:04x}",
-                chrono::Utc::now().format("%Y%m%dT%H%M%SZ"),
-                std::process::id() & 0xffff
-            )
-        });
+        let run_id = run_id.unwrap_or_else(new_run_id);
         let file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
