@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`xerj autoindex` pins the server's embedding execution identity** (#160).
+  Vectors produced by two different embedding backends — or by two different
+  models, tokenizers, or vector widths within one backend — are not comparable,
+  so mixing them in one index silently degrades every similarity result rather
+  than failing. A semantic autoindex run now fetches
+  `GET /v1/embedding/identity`, records the returned opaque digest in its
+  journal before the index is created, and requires the same digest on every
+  resume; a mismatch aborts before the next index-create or `_bulk`. There is
+  no new command or setup step — `xerj autoindex ./reports` calls the endpoint
+  itself over the already-configured `--url`, and plans with no semantic fields
+  skip it entirely.
+
+  The endpoint is authenticated (cluster-read) and deliberately opaque: it
+  returns a version, the *effective* backend, a digest, the semantic contract,
+  whether that backend is resumable, and a sanitized reason when it is not. It
+  never returns credentials, provider URLs, model names, or local paths.
+  `dimensions` is reported only for the backends whose width the server
+  actually pins (`lexical`, and `onnx-experimental` at 384); it is omitted for
+  `neural`, whose width comes from the loaded model's `hidden_size`, and for
+  `proxy`, whose width is whatever the remote returns.
+
+  `lexical` and `onnx-experimental` are resumable. `neural` and `proxy` are
+  not: neither attests immutable model bytes, so a fresh semantic run is
+  allowed but a resume is refused.
+
+### Changed
+
+- **BREAKING: an existing semantic `autoindex` state directory cannot be
+  resumed** (#160). A journal written before this change carries no pinned
+  identity, so there is no way to prove the server still produces the same
+  vector space; rather than assume it, the resume fails closed with *"this
+  semantic autoindex journal predates embedding identity pinning and cannot be
+  resumed safely"*. The same path fires when a previous `--no-semantic` run is
+  followed by a semantic run over the same state directory. Recover by
+  rebuilding with `--fresh` and a new `--prefix`; before reusing the old
+  prefix, delete and recreate its prior autoindex indices. Non-semantic runs
+  and brand-new state directories are unaffected.
+
+- `EmbeddingProxy::new` now rejects an endpoint that is not `http(s)` at
+  construction time instead of at first request, so an invalid
+  `embedding.default_endpoint` falls back to lexical at startup and
+  `/v1/embedding/identity` reports `lexical` — the backend the server will
+  really use — rather than `proxy`.
+
 ## [1.0.0-rc.10] - 2026-08-03
 
 ### Security
