@@ -30,7 +30,10 @@ pub struct EmbeddingExecutionIdentity {
     pub version: u32,
     pub backend: String,
     pub identity_sha256: String,
-    pub dimensions: usize,
+    /// Absent for backends whose vector width the server does not pin
+    /// (`neural`, `proxy`). An absent width must not be read as 384.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dimensions: Option<usize>,
     pub semantic_contract: String,
     pub resumable: bool,
     #[serde(default)]
@@ -147,7 +150,7 @@ impl Es {
                 .identity_sha256
                 .bytes()
                 .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-            || identity.dimensions == 0
+            || identity.dimensions == Some(0)
             || identity.semantic_contract != "semantic_text-derived-vector.v1"
             || !matches!(
                 identity.backend.as_str(),
@@ -560,8 +563,41 @@ mod tests {
         let identity = es.embedding_execution_identity().unwrap();
         assert_eq!(identity.backend, "lexical");
         assert!(identity.resumable);
-        assert_eq!(identity.dimensions, 384);
+        assert_eq!(identity.dimensions, Some(384));
         server.join().unwrap();
+    }
+
+    /// `neural` and `proxy` omit the width entirely, so the client must accept
+    /// a response without a `dimensions` key rather than failing to parse it.
+    /// It still rejects an explicit zero, which no backend should ever send.
+    #[test]
+    fn embedding_identity_accepts_an_omitted_width_and_rejects_a_zero_one() {
+        for (body, expect_ok) in [
+            (
+                br#"{"data":{"version":1,"backend":"proxy","identity_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","semantic_contract":"semantic_text-derived-vector.v1","resumable":false,"non_resumable_reason":"remote"},"took_ms":0,"request_id":"test"}"#.to_vec(),
+                true,
+            ),
+            (
+                br#"{"data":{"version":1,"backend":"lexical","identity_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","dimensions":0,"semantic_contract":"semantic_text-derived-vector.v1","resumable":true},"took_ms":0,"request_id":"test"}"#.to_vec(),
+                false,
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let _ = read_request(&mut stream);
+                respond_json(&mut stream, &body);
+            });
+            let es = Es::new(&format!("http://{address}"), None).unwrap();
+            let result = es.embedding_execution_identity();
+            assert_eq!(result.is_ok(), expect_ok, "{result:?}");
+            if let Ok(identity) = result {
+                assert_eq!(identity.dimensions, None);
+                assert!(!identity.resumable);
+            }
+            server.join().unwrap();
+        }
     }
 
     #[test]

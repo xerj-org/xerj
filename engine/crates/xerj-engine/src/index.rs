@@ -23466,11 +23466,19 @@ pub(crate) fn embedding_execution_identity(
     if backend == "proxy" && !proxy_initializes(cfg) {
         backend = "lexical";
     }
-    let (material, resumable, reason) = match backend {
+    // Only report a width for the backends whose width this server actually
+    // pins. `neural` reads it from the loaded model's `hidden_size` and
+    // `proxy` gets whatever the remote returns, so both are omitted rather
+    // than reported as 384.
+    let (material, resumable, reason, dimensions) = match backend {
         "lexical" => (
-            "lexical-feature-hash.v1;dimensions=384".to_string(),
+            format!(
+                "lexical-feature-hash.v1;dimensions={}",
+                xerj_ai::local::DEFAULT_DIMS
+            ),
             true,
             None,
+            Some(xerj_ai::local::DEFAULT_DIMS),
         ),
         "onnx-experimental" => {
             let identity = configured_onnx_identity(cfg)?.ok_or_else(|| {
@@ -23478,6 +23486,7 @@ pub(crate) fn embedding_execution_identity(
                     "ONNX embedding identity is unavailable",
                 ))
             })?;
+            let onnx_dimensions = identity.dimensions;
             (
                 format!(
                     "onnx-experimental.v1;model={};tokenizer={};dimensions={};pooling={};max_tokens={}",
@@ -23489,6 +23498,7 @@ pub(crate) fn embedding_execution_identity(
                 ),
                 true,
                 None,
+                Some(onnx_dimensions),
             )
         }
         "neural" => (
@@ -23498,6 +23508,7 @@ pub(crate) fn embedding_execution_identity(
                 "the neural model is not content-addressed; use a fresh autoindex state after changing it"
                     .to_string(),
             ),
+            None,
         ),
         "proxy" => (
             format!("proxy-unpinned.v1;configured-model={}", cfg.default_model),
@@ -23506,6 +23517,7 @@ pub(crate) fn embedding_execution_identity(
                 "the remote provider does not attest immutable model assets; semantic resume is unsafe"
                     .to_string(),
             ),
+            None,
         ),
         _ => unreachable!(),
     };
@@ -23514,7 +23526,7 @@ pub(crate) fn embedding_execution_identity(
         version: 1,
         backend: backend.to_string(),
         identity_sha256: format!("{:x}", Sha256::digest(canonical.as_bytes())),
-        dimensions: xerj_ai::local::DEFAULT_DIMS,
+        dimensions,
         semantic_contract: CONTRACT.to_string(),
         resumable,
         non_resumable_reason: reason,
@@ -23668,6 +23680,9 @@ mod embedding_identity_tests {
         let identity = embedding_execution_identity(&cfg).unwrap();
         assert_eq!(identity.backend, "lexical");
         assert!(identity.resumable);
+        // `Embedder::Lexical` always embeds at DEFAULT_DIMS, so this width is
+        // the one the server will really produce.
+        assert_eq!(identity.dimensions, Some(xerj_ai::local::DEFAULT_DIMS));
         assert_eq!(
             identity.identity_sha256,
             "177b14d1bdff634335a99d558343ce506f39d758942f24a6455830e5a36ddda6"
@@ -23688,11 +23703,21 @@ mod embedding_identity_tests {
         {
             assert_eq!(neural_identity.backend, "neural");
             assert!(!neural_identity.resumable);
+            // The neural width is the loaded model's `hidden_size`, which is
+            // not known until the model loads — reporting 384 here would be a
+            // false statement for any encoder that is not 384-wide.
+            assert_eq!(neural_identity.dimensions, None);
+            let encoded = serde_json::to_string(&neural_identity).unwrap();
+            assert!(!encoded.contains("dimensions"), "{encoded}");
         }
         #[cfg(not(feature = "neural"))]
         {
             assert_eq!(neural_identity.backend, "lexical");
             assert!(neural_identity.resumable);
+            assert_eq!(
+                neural_identity.dimensions,
+                Some(xerj_ai::local::DEFAULT_DIMS)
+            );
         }
         let proxy = xerj_common::config::EmbeddingConfig {
             mode: "proxy".into(),
@@ -23703,9 +23728,13 @@ mod embedding_identity_tests {
         let identity = embedding_execution_identity(&proxy).unwrap();
         assert_eq!(identity.backend, "proxy");
         assert!(!identity.resumable);
+        // A remote provider returns whatever width its model has; this server
+        // never sees it, so it is omitted rather than asserted.
+        assert_eq!(identity.dimensions, None);
         let encoded = serde_json::to_string(&identity).unwrap();
         assert!(!encoded.contains("secret.example"));
         assert!(!encoded.contains("private-alias"));
+        assert!(!encoded.contains("dimensions"), "{encoded}");
 
         for endpoint in ["", "not a url", "file:///private/model"] {
             let fallback = xerj_common::config::EmbeddingConfig {
@@ -23716,6 +23745,13 @@ mod embedding_identity_tests {
             let identity = embedding_execution_identity(&fallback).unwrap();
             assert_eq!(identity.backend, "lexical", "{endpoint}");
             assert!(identity.resumable, "{endpoint}");
+            // The fallback really did become lexical, so the pinned lexical
+            // width is the truthful answer here.
+            assert_eq!(
+                identity.dimensions,
+                Some(xerj_ai::local::DEFAULT_DIMS),
+                "{endpoint}"
+            );
         }
     }
 
@@ -23726,6 +23762,9 @@ mod embedding_identity_tests {
         let first = embedding_execution_identity(&onnx_config(dir.path(), "a")).unwrap();
         let second = embedding_execution_identity(&onnx_config(dir.path(), "b")).unwrap();
         assert!(first.resumable);
+        // ONNX is the one non-lexical backend whose width the server does pin:
+        // `validate_onnx_dimensions` refuses any mapping that is not 384.
+        assert_eq!(first.dimensions, Some(384));
         assert_ne!(first.identity_sha256, second.identity_sha256);
     }
 
@@ -23909,7 +23948,7 @@ mod embedding_identity_tests {
         let identity = identity.await.unwrap();
         assert_eq!(identity.backend, "onnx-experimental");
         assert_eq!(vectors.len(), 1);
-        assert_eq!(vectors[0].len(), identity.dimensions);
+        assert_eq!(Some(vectors[0].len()), identity.dimensions);
         let snapshot = configured_onnx_assets(&cfg).unwrap();
         assert_eq!(
             identity.identity_sha256,

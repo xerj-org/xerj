@@ -23,7 +23,15 @@ pub struct EmbeddingExecutionIdentity {
     pub version: u32,
     pub backend: String,
     pub identity_sha256: String,
-    pub dimensions: usize,
+    /// Vector width, but only for the backends where the server actually
+    /// pins it: `lexical` always emits [`xerj_ai::local::DEFAULT_DIMS`], and
+    /// `onnx-experimental` is constrained to 384 by `validate_onnx_dimensions`.
+    /// `neural` takes its width from the loaded model's `hidden_size` and
+    /// `proxy` from whatever the remote returns, so neither is known here and
+    /// the field is omitted rather than guessed — a reader must not treat an
+    /// absent width as 384.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dimensions: Option<usize>,
     pub semantic_contract: String,
     pub resumable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
