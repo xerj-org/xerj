@@ -719,22 +719,22 @@ fn parse_iso8601_us(v: &str) -> Option<i64> {
     if v.len() < 19 {
         return None;
     }
-    let year: i64 = v[0..4].parse().ok()?;
-    let month: i64 = v[5..7].parse().ok()?;
-    let day: i64 = v[8..10].parse().ok()?;
-    let hour: i64 = v[11..13].parse().ok()?;
-    let min: i64 = v[14..16].parse().ok()?;
-    let sec: i64 = v[17..19].parse().ok()?;
+    let year: i64 = v.get(0..4)?.parse().ok()?;
+    let month: i64 = v.get(5..7)?.parse().ok()?;
+    let day: i64 = v.get(8..10)?.parse().ok()?;
+    let hour: i64 = v.get(11..13)?.parse().ok()?;
+    let min: i64 = v.get(14..16)?.parse().ok()?;
+    let sec: i64 = v.get(17..19)?.parse().ok()?;
 
     // Timezone offset
     let tz_offset_secs: i64 = if v.len() > 19 {
-        let tz = &v[19..];
+        let tz = v.get(19..)?;
         if tz.starts_with('Z') || tz.starts_with('z') {
             0
         } else if (tz.starts_with('+') || tz.starts_with('-')) && tz.len() >= 6 {
             let sign: i64 = if tz.starts_with('-') { -1 } else { 1 };
-            let th: i64 = tz[1..3].parse().ok()?;
-            let tm: i64 = tz[4..6].parse().ok()?;
+            let th: i64 = tz.get(1..3)?.parse().ok()?;
+            let tm: i64 = tz.get(4..6)?.parse().ok()?;
             sign * (th * 3600 + tm * 60)
         } else {
             0
@@ -756,20 +756,20 @@ fn parse_apache_us(v: &str) -> Option<i64> {
     if v.len() < 26 {
         return None;
     }
-    let day: i64 = v[0..2].parse().ok()?;
-    let month_str = &v[3..6];
+    let day: i64 = v.get(0..2)?.parse().ok()?;
+    let month_str = v.get(3..6)?;
     let month = month_from_abbr(month_str)?;
-    let year: i64 = v[7..11].parse().ok()?;
-    let hour: i64 = v[12..14].parse().ok()?;
-    let min: i64 = v[15..17].parse().ok()?;
-    let sec: i64 = v[18..20].parse().ok()?;
+    let year: i64 = v.get(7..11)?.parse().ok()?;
+    let hour: i64 = v.get(12..14)?.parse().ok()?;
+    let min: i64 = v.get(15..17)?.parse().ok()?;
+    let sec: i64 = v.get(18..20)?.parse().ok()?;
 
     let tz_offset_secs: i64 = if v.len() >= 26 {
-        let tz = v[21..].trim();
+        let tz = v.get(21..)?.trim();
         if tz.len() >= 5 {
             let sign: i64 = if tz.starts_with('-') { -1 } else { 1 };
-            let th: i64 = tz[1..3].parse().ok()?;
-            let tm: i64 = tz[3..5].parse().ok()?;
+            let th: i64 = tz.get(1..3)?.parse().ok()?;
+            let tm: i64 = tz.get(3..5)?.parse().ok()?;
             sign * (th * 3600 + tm * 60)
         } else {
             0
@@ -788,12 +788,12 @@ fn parse_nginx_us(v: &str) -> Option<i64> {
     if v.len() < 19 {
         return None;
     }
-    let year: i64 = v[0..4].parse().ok()?;
-    let month: i64 = v[5..7].parse().ok()?;
-    let day: i64 = v[8..10].parse().ok()?;
-    let hour: i64 = v[11..13].parse().ok()?;
-    let min: i64 = v[14..16].parse().ok()?;
-    let sec: i64 = v[17..19].parse().ok()?;
+    let year: i64 = v.get(0..4)?.parse().ok()?;
+    let month: i64 = v.get(5..7)?.parse().ok()?;
+    let day: i64 = v.get(8..10)?.parse().ok()?;
+    let hour: i64 = v.get(11..13)?.parse().ok()?;
+    let min: i64 = v.get(14..16)?.parse().ok()?;
+    let sec: i64 = v.get(17..19)?.parse().ok()?;
 
     let days = days_since_epoch(year, month, day)?;
     let secs = days * 86400 + hour * 3600 + min * 60 + sec;
@@ -1107,6 +1107,65 @@ mod tests {
 
     #[test]
     fn test_nginx_parse() {
+        let us = parse_nginx_us("2024/01/10 12:34:56").unwrap();
+        assert!(us > 0);
+    }
+
+    // ── Multibyte UTF-8 must not panic on byte-index slicing ─────────────
+    // Regression: the parsers guarded on v.len() (bytes) then sliced with
+    // fixed byte offsets (v[0..4], v[19..], …). A multibyte char straddling
+    // an offset ("café …") made the slice land mid-codepoint and panicked
+    // ("byte index N is not a char boundary"), taking the server thread down
+    // mid-index. Checked v.get(a..b)? must now yield None instead.
+
+    #[test]
+    fn test_iso8601_multibyte_no_panic() {
+        // 'é' (2 bytes) at bytes 3..4 makes the v[0..4] slice end mid-codepoint
+        // — this is the exact input that panicked pre-fix.
+        assert_eq!(parse_iso8601_us("café is not a timestamp at all!!"), None);
+        // 'é' placed so the tz slice (byte 17..19 / 19..) lands mid-codepoint.
+        assert_eq!(parse_iso8601_us("2024-01-15T12:34:5é+00:00"), None);
+        // Accented text throughout the leading numeric fields.
+        assert_eq!(parse_iso8601_us("éééééééééééééééééééééé"), None);
+    }
+
+    #[test]
+    fn test_apache_multibyte_no_panic() {
+        // 'é' at bytes 1..2 makes v[0..2] end mid-codepoint (panicked pre-fix).
+        assert_eq!(parse_apache_us("1é/Jan/2024:12:34:56 +0000"), None);
+        // Accented text after bracket strip.
+        assert_eq!(parse_apache_us("[café is not a timestamp here!!!!]"), None);
+        // 'é' straddling the tz slice region (byte 21+ / tz[1..3]).
+        assert_eq!(parse_apache_us("10/Jan/2024:12:34:56 é0000"), None);
+    }
+
+    #[test]
+    fn test_nginx_multibyte_no_panic() {
+        // 'é' at bytes 3..4 makes v[0..4] end mid-codepoint (panicked pre-fix).
+        assert_eq!(parse_nginx_us("202é/01/15 12:34:56"), None);
+        // 'é' straddling the seconds slice offset (byte 17..19).
+        assert_eq!(parse_nginx_us("2024/01/15 12:34:é9"), None);
+        assert_eq!(parse_nginx_us("éééééééééééééééééééééé"), None);
+    }
+
+    #[test]
+    fn test_iso8601_happy_path_unchanged() {
+        let us = parse_iso8601_us("2024-01-15T12:34:56Z").unwrap();
+        assert!(us > 1_700_000_000 * 1_000_000);
+        // Timezone offset still applied.
+        let z = parse_iso8601_us("2024-01-15T12:34:56Z").unwrap();
+        let plus = parse_iso8601_us("2024-01-15T12:34:56+01:00").unwrap();
+        assert_eq!(plus, z - 3600 * 1_000_000);
+    }
+
+    #[test]
+    fn test_apache_happy_path_unchanged() {
+        let us = parse_apache_us("[10/Jan/2024:12:34:56 +0000]").unwrap();
+        assert!(us > 0);
+    }
+
+    #[test]
+    fn test_nginx_happy_path_unchanged() {
         let us = parse_nginx_us("2024/01/10 12:34:56").unwrap();
         assert!(us > 0);
     }
