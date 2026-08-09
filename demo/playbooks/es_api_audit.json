@@ -806,7 +806,7 @@
   "handler": "put_ilm_policy",
   "http_status": 200,
   "verdict": "REAL",
-  "evidence": "Persists policy to the ilm store; live PUT then GET /_ilm/policy/p -> 200 reflecting it.",
+  "evidence": "Validated against the actions xerj executes (delete, readonly), persisted to <data_dir>/ilm_state.json, and run by the background ILM executor; a policy naming rollover/forcemerge/etc is 400-rejected rather than stored and ignored (issue #199).",
   "group": "lifecycle"
  },
  {

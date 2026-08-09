@@ -279,8 +279,18 @@ pub struct Engine {
     pub closed_indices: Arc<DashMap<String, bool>>,
     /// data stream name → DataStream
     pub data_streams: Arc<DashMap<String, DataStream>>,
-    /// ILM policy name → policy JSON
+    /// ILM policy name → policy JSON (envelope-stripped: `{"phases": …}`).
+    ///
+    /// Validated on write by [`crate::ilm::validate_policy`] and actually
+    /// executed by [`Engine::run_ilm_once`] — before issue #199 this map was
+    /// write-only decoration and every retention policy silently did nothing.
     pub ilm_policies: Arc<DashMap<String, Value>>,
+    /// index name → ILM bookkeeping (attached policy + observed creation
+    /// time). Only ILM-managed indices get an entry, so a node with thousands
+    /// of unmanaged indices pays nothing. Persisted in `ilm_state.json`.
+    pub ilm_index_state: Arc<DashMap<String, crate::ilm::IlmIndexState>>,
+    /// Counters + operator kill switch behind `GET /_ilm/status`.
+    pub ilm_stats: Arc<crate::ilm::IlmStats>,
     /// component template name → template JSON
     pub component_templates: Arc<DashMap<String, Value>>,
     /// snapshot repository name → repo config JSON
@@ -437,6 +447,8 @@ impl Engine {
             closed_indices: Arc::new(DashMap::new()),
             data_streams: Arc::new(DashMap::new()),
             ilm_policies: Arc::new(DashMap::new()),
+            ilm_index_state: Arc::new(DashMap::new()),
+            ilm_stats: Arc::new(crate::ilm::IlmStats::new()),
             component_templates: Arc::new(DashMap::new()),
             snapshot_repos: Arc::new(DashMap::new()),
             snapshots: Arc::new(DashMap::new()),
@@ -535,6 +547,12 @@ impl Engine {
         // restart, mistaking a missing-alias 404 for a still-in-progress
         // migration by another instance).
         engine.load_persisted_aliases();
+
+        // Restore ILM policies and per-index lifecycle attachments (issue
+        // #199). Retention that forgets its own policy across a restart is
+        // retention that silently stops — the same failure the issue is
+        // about, one restart later.
+        engine.load_persisted_ilm_state();
 
         // Spawn the PIT sweeper. Pre-v0.6.2 PITs accumulated forever;
         // every open without close was a memory leak. The sweeper
@@ -831,6 +849,10 @@ impl Engine {
             ));
         }
 
+        // Read the ILM attachment out of the create-time settings before the
+        // blob is moved into the index.
+        let lifecycle_policy = crate::ilm::lifecycle_name_from_settings(&settings);
+
         // Apply matching template (highest priority wins) on every create path.
         let effective_schema = self.apply_index_template(name, schema);
         let idx = Index::create_with_settings(
@@ -841,8 +863,34 @@ impl Engine {
             &self.data_dir,
         )?;
         self.indices.insert(name.to_string(), idx);
+        // Record the ILM attachment at birth (issue #199): the creation time
+        // recorded here is what `min_age` is measured from, and it must be
+        // captured now — reconstructing it later from a directory timestamp
+        // is an estimate, not a fact.
+        if let Some(policy) = lifecycle_policy.or_else(|| self.template_lifecycle_name(name)) {
+            self.set_index_lifecycle_policy(name, Some(&policy));
+        }
         info!(name, "index created with custom settings");
         Ok(())
+    }
+
+    /// `index.lifecycle.name` from the highest-priority index template
+    /// matching `name`, if any.
+    ///
+    /// Index templates in this engine apply their *mappings* to a new index
+    /// but not their settings, so this is a deliberate read of the template
+    /// rather than a claim that template settings are applied: attaching ILM
+    /// through a template is the standard ES migration shape, and ignoring it
+    /// would leave the common case silently unmanaged.
+    ///
+    /// Called **only from the create path**, which is where ES applies a
+    /// template's settings. `Engine::ilm_policy_for_index` deliberately does
+    /// not re-read templates at evaluation time: doing so would let a template
+    /// written today retroactively manage — and delete — indices that already
+    /// existed yesterday.
+    pub(crate) fn template_lifecycle_name(&self, name: &str) -> Option<String> {
+        let tmpl = self.best_matching_template(name)?;
+        crate::ilm::lifecycle_name_from_settings(&tmpl.settings)
     }
 
     /// Register the raw ES mapping blob for `name` and persist it into the
@@ -1216,6 +1264,9 @@ impl Engine {
         self.index_settings.remove(name);
         self.index_mappings.remove(name);
         self.index_alias_metadata.remove(name);
+        // Drop the ILM attachment too, or a later index of the same name
+        // inherits a policy (and an age) it never asked for.
+        self.forget_ilm_index(name);
 
         info!(name, "index deleted");
         Ok(())
@@ -1566,6 +1617,25 @@ impl Engine {
     /// coupling to the full engine internals.
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// The node's data directory. `pub(crate)` so sibling modules (the ILM
+    /// executor) can locate per-index directories without the field going
+    /// public.
+    pub(crate) fn data_dir_path(&self) -> &std::path::Path {
+        &self.data_dir
+    }
+
+    /// Every open index name visible to the caller.
+    ///
+    /// Cheaper than [`Engine::list_indices`], which awaits per-index stats —
+    /// the ILM pass only needs names, and runs over every index on the node.
+    pub fn list_index_names(&self) -> Vec<String> {
+        self.indices
+            .iter()
+            .map(|e| e.key().clone())
+            .filter(|name| crate::index_guard::visible(name))
+            .collect()
     }
 
     /// Return the effective embedding identity without exposing configuration

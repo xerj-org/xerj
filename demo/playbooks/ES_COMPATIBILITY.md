@@ -174,7 +174,9 @@ Core retrieval is genuinely implemented and live-confirmed. The body parses into
 - **TLS is NOT terminated in-process** — listener is plain TCP regardless of config; terminate at a reverse proxy.
 - **Security is a single shared API key** on `:9200` — `_security/_authenticate` always returns `xerj/superuser`; minted API keys are not re-authenticatable; no ES-port user/role/RBAC/DLS/FLS (a real role store exists only on the native `:8080` port). No encryption-at-rest.
 
-**Accept-and-store shells** (config round-trips on GET but no background job runs): **ILM** (no lifecycle engine), **SLM**, **watcher** (stored; trigger firing not evidenced), **transform/rollup** (`_start` runs one-shot only — no continuous/checkpointed runs), **CCR auto-follow**, **freeze/unfreeze** (flag only), **`_cache/clear`** (no-op).
+**Accept-and-store shells** (config round-trips on GET but no background job runs): **SLM**, **watcher** (stored; trigger firing not evidenced), **transform/rollup** (`_start` runs one-shot only — no continuous/checkpointed runs), **CCR auto-follow**, **freeze/unfreeze** (flag only), **`_cache/clear`** (no-op).
+
+**ILM** left that list in v1.0.0-rc.13 (issue #199). A background executor now ages every index carrying `index.lifecycle.name` and applies the two actions xerj can genuinely perform — `delete` (drops the index) and `readonly` (sets the write block) — with `GET /<index>/_ilm/explain`, `GET /_ilm/status` and `POST /_ilm/start|stop` to inspect and control it. Everything else ES's ILM offers (`rollover`, `forcemerge`, `shrink`, `searchable_snapshot`, `allocate`, `migrate`, `set_priority`, `downsample`) is **rejected at `PUT /_ilm/policy` with a 400 naming the action** rather than stored and ignored.
 
 **Data-loss risk:** `_shrink`/`_split`/`_clone` all reuse one path that copies only the first **10,000 docs** via `match_all size:10000` — larger indices are **silently truncated**, and `_split` does not increase shard count.
 

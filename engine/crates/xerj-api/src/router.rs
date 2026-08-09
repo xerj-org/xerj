@@ -451,12 +451,21 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route("/:name/_rollover", post(es_compat::rollover_data_stream))
         // ── ILM ────────────────────────────────────────────────────────────
+        // Policies here are executed, not just stored (issue #199): the
+        // engine's ILM pass ages every managed index and applies the phases
+        // it can genuinely perform, `_ilm/explain` shows its decisions, and
+        // `_ilm/start` / `_ilm/stop` are the operator's kill switch.
         .route(
             "/_ilm/policy/:name",
             put(es_compat::put_ilm_policy)
                 .get(es_compat::get_ilm_policy)
                 .delete(es_compat::delete_ilm_policy),
         )
+        .route("/_ilm/policy", get(es_compat::get_all_ilm_policies))
+        .route("/_ilm/status", get(es_compat::get_ilm_status))
+        .route("/_ilm/start", post(es_compat::start_ilm))
+        .route("/_ilm/stop", post(es_compat::stop_ilm))
+        .route("/:index/_ilm/explain", get(es_compat::explain_ilm))
         // ── Component templates ────────────────────────────────────────────
         .route(
             "/_component_template/:name",

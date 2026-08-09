@@ -22,6 +22,7 @@ pub mod bulk;
 mod collection_publication;
 pub mod engine;
 pub mod governor;
+pub mod ilm;
 pub mod index;
 pub mod index_guard;
 pub mod ingest_memory;

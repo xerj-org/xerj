@@ -1862,6 +1862,35 @@ async fn async_main() -> Result<()> {
     //      a 429 circuit_breaking_exception before the kernel OOM-kills us.
     state.engine.spawn_resource_sampler();
 
+    // 12b-i. The *other* half of issue #199, from its second comment: the
+    //        native `[logs] retention_days` knob is documented as "how long to
+    //        retain log data before automatic deletion" and is read by nothing
+    //        at all. An operator who avoided ES policy syntax and reached for
+    //        XERJ's own setting instead got the same silent nothing. It cannot
+    //        simply be deleted — `LogsConfig` is `deny_unknown_fields`, so
+    //        removing it turns every existing `xerj.toml` that sets it into a
+    //        node that refuses to boot — so it is called out loudly instead,
+    //        naming the surface that does work. Wiring or removing it is
+    //        tracked in the accepted-and-ignored class issue #204.
+    if state.config.logs.retention_days != xerj_common::config::LogsConfig::default().retention_days
+    {
+        warn!(
+            configured_retention_days = state.config.logs.retention_days,
+            "[logs] retention_days is NOT implemented — nothing reads it and no data is deleted \
+             because of it (issue #199). For retention that actually runs, PUT an ILM policy with \
+             a delete phase and attach it with index.lifecycle.name; GET /_ilm/status and \
+             GET /<index>/_ilm/explain show what it is doing."
+        );
+    }
+
+    // 12c. ILM executor (issue #199): ages every index placed under an ILM
+    //      policy and applies the phases XERJ can actually perform. Before
+    //      this, `PUT /_ilm/policy` stored a retention policy, echoed it back
+    //      on GET, and never ran it — the index grew forever while the API
+    //      reported success. Spawned here (not in `Engine::new`) so the task
+    //      holds a `Weak` and cannot keep the data-dir node lock alive.
+    state.engine.spawn_ilm_executor();
+
     let _ingest_memory_trace = ingest_memory_trace::spawn(&state.engine);
     // 13. Start servers concurrently
     let rest_tls = tls_config.clone();

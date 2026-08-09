@@ -17069,6 +17069,17 @@ impl Index {
         Ok(())
     }
 
+    /// A clone of the index's persisted settings blob (`settings.json`).
+    ///
+    /// The ES-compat layer keeps its own round-trip copy of what the user
+    /// wrote in `Engine::index_settings`, but that map is in-memory only; this
+    /// is the copy that survives a restart, which is what the ILM executor
+    /// needs when it reads `index.lifecycle.name` or `index.creation_date`
+    /// after a reboot.
+    pub async fn settings_snapshot(&self) -> Value {
+        self.settings.read().await.clone()
+    }
+
     /// Every block name the `_block` API and `index.blocks.*` settings accept.
     pub const BLOCK_NAMES: [&'static str; 5] = [
         "read_only",

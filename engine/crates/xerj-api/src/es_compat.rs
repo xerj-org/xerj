@@ -21373,6 +21373,30 @@ pub async fn put_settings(
         sync_display_blocks(&state, name).await;
     }
 
+    // `index.lifecycle.name` is the one setting here with behaviour attached
+    // (issue #199): it decides whether the ILM executor manages the index at
+    // all. The settings map above is in-memory only, so the attachment is
+    // recorded separately and persisted — otherwise a restart would silently
+    // un-manage the index and retention would stop with no signal. An
+    // explicit `null` detaches, as in ES.
+    if let Some(inner_obj) = inner.as_object() {
+        // Both spellings ES accepts reach here: nested (`{"index":{"lifecycle":
+        // {"name":…}}}`, normalized into `inner` above) and flat
+        // (`{"index.lifecycle.name":…}`).
+        let mentions_lifecycle = inner_obj
+            .keys()
+            .any(|k| k == "lifecycle" || k.contains("lifecycle."));
+        if mentions_lifecycle {
+            let policy = xerj_engine::ilm::lifecycle_name_from_settings(&inner)
+                .or_else(|| xerj_engine::ilm::lifecycle_name_from_settings(&body));
+            for idx in &targets {
+                state
+                    .engine
+                    .set_index_lifecycle_policy(idx, policy.as_deref());
+            }
+        }
+    }
+
     Json(json!({ "acknowledged": true })).into_response()
 }
 
@@ -23180,14 +23204,55 @@ pub async fn rollover_data_stream(
 // DELETE /_ilm/policy/{name}
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 400 `illegal_argument_exception` with an explicit reason, in ES's shape.
+fn ilm_bad_request(reason: String) -> axum::response::Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{
+                    "type": "illegal_argument_exception",
+                    "reason": reason,
+                }],
+                "type": "illegal_argument_exception",
+                "reason": reason,
+            },
+            "status": 400,
+        })),
+    )
+        .into_response()
+}
+
+/// Wrap a stored (envelope-free) policy in ES's GET shape.
+fn ilm_policy_response(policy: &Value) -> Value {
+    json!({
+        "version": 1,
+        "modified_date": "1970-01-01T00:00:00.000Z",
+        "policy": policy.clone(),
+    })
+}
+
+/// `PUT /_ilm/policy/{name}` — store a policy the executor will actually run.
+///
+/// Issue #199: this used to accept **any** body, store it, echo it back on
+/// GET, and never run a single phase — so a migrating user configured 30-day
+/// retention, saw 200 OK, and got an index that grew forever. The policy is
+/// now validated against the actions XERJ genuinely executes
+/// ([`xerj_engine::ilm::EXECUTABLE_ACTIONS`]) and **rejected with the offending
+/// action named** if it asks for anything else. Accepting a retention policy
+/// we will not honour is the failure mode this endpoint had; a 400 is the fix.
 pub async fn put_ilm_policy(
     State(state): State<AppState>,
     Path(name): Path<String>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
-    // Persist the policy in the real ILM store; `get_ilm_policy` reads it back
-    // out of this same DashMap, so PUT then GET round-trips faithfully.
-    state.engine.ilm_policies.insert(name, body);
+    let policy = xerj_engine::ilm::unwrap_policy_envelope(&body);
+    if let Err(reason) = xerj_engine::ilm::validate_policy(&policy) {
+        return ilm_bad_request(format!("invalid ILM policy [{name}]: {reason}"));
+    }
+    // Stored envelope-free and persisted, so a restart does not silently
+    // un-configure retention.
+    state.engine.put_ilm_policy(&name, policy);
     Json(json!({ "acknowledged": true })).into_response()
 }
 
@@ -23196,16 +23261,11 @@ pub async fn get_ilm_policy(
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     if name == "*" || name == "_all" {
-        let mut result = serde_json::Map::new();
-        for entry in state.engine.ilm_policies.iter() {
-            result.insert(entry.key().clone(), entry.value().clone());
-        }
-        return Json(Value::Object(result)).into_response();
+        return get_all_ilm_policies(State(state)).await.into_response();
     }
     match state.engine.ilm_policies.get(&name) {
         Some(policy) => {
-            let result = json!({ name.clone(): { "policy": policy.clone() } });
-            Json(result).into_response()
+            Json(json!({ name.clone(): ilm_policy_response(policy.value()) })).into_response()
         }
         None => {
             let e = xerj_common::XerjError::index_not_found(format!("policy [{name}] not found"));
@@ -23214,16 +23274,95 @@ pub async fn get_ilm_policy(
     }
 }
 
+/// `GET /_ilm/policy` — every policy on the node.
+pub async fn get_all_ilm_policies(State(state): State<AppState>) -> impl IntoResponse {
+    let mut result = serde_json::Map::new();
+    for entry in state.engine.ilm_policies.iter() {
+        result.insert(entry.key().clone(), ilm_policy_response(entry.value()));
+    }
+    Json(Value::Object(result)).into_response()
+}
+
+/// `DELETE /_ilm/policy/{name}`.
+///
+/// Refuses while an index still points at the policy: deleting it would leave
+/// those indices managed-by-nothing, which is exactly the silent "retention
+/// stopped and nobody told you" state this work exists to remove.
 pub async fn delete_ilm_policy(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    if state.engine.ilm_policies.remove(&name).is_some() {
+    let mut in_use: Vec<String> = state
+        .engine
+        .ilm_index_state
+        .iter()
+        .filter(|e| e.value().policy.as_deref() == Some(name.as_str()))
+        .map(|e| e.key().clone())
+        .collect();
+    if !in_use.is_empty() {
+        in_use.sort();
+        let sample: Vec<String> = in_use.iter().take(10).cloned().collect();
+        return ilm_bad_request(format!(
+            "Cannot delete policy [{name}]. It is in use by {} index(es): {}. \
+             Detach it first (PUT /<index>/_settings {{\"index.lifecycle.name\": null}}).",
+            in_use.len(),
+            sample.join(", "),
+        ));
+    }
+    if state.engine.remove_ilm_policy(&name) {
         Json(json!({ "acknowledged": true })).into_response()
     } else {
         let e = xerj_common::XerjError::index_not_found(format!("policy [{name}] not found"));
         ApiError::new(e).into_response()
     }
+}
+
+/// `GET /{index}/_ilm/explain` — what ILM knows about an index and what it
+/// will do next.
+///
+/// The observability half of issue #199: with an executor but no way to see
+/// its decisions, "is my retention actually running?" is still unanswerable.
+pub async fn explain_ilm(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+) -> impl IntoResponse {
+    let targets = resolve_index_selector(&state, &index).await;
+    if targets.is_empty() {
+        let e = xerj_common::XerjError::index_not_found(&index);
+        return ApiError::new(e).into_response();
+    }
+    let now = xerj_engine::ilm::now_ms();
+    let mut indices = serde_json::Map::new();
+    for name in targets {
+        let explained = state.engine.ilm_explain(&name, now).await;
+        indices.insert(name, explained);
+    }
+    Json(json!({ "indices": Value::Object(indices) })).into_response()
+}
+
+/// `GET /_ilm/status` — `RUNNING`/`STOPPED` plus XERJ's own counters.
+pub async fn get_ilm_status(State(state): State<AppState>) -> impl IntoResponse {
+    Json(state.engine.ilm_status()).into_response()
+}
+
+/// `POST /_ilm/start` and `POST /_ilm/stop` — the operator's kill switch.
+///
+/// `stop` is honoured immediately (the next pass returns without touching
+/// anything). `start` cannot override `ilm.enabled = false` in the node
+/// config, and `GET /_ilm/status` keeps reporting `STOPPED` in that case
+/// rather than claiming to run.
+pub async fn start_ilm(State(state): State<AppState>) -> impl IntoResponse {
+    state.engine.set_ilm_running(true);
+    Json(json!({
+        "acknowledged": true,
+        "operation_mode": if state.engine.ilm_running() { "RUNNING" } else { "STOPPED" },
+    }))
+    .into_response()
+}
+
+pub async fn stop_ilm(State(state): State<AppState>) -> impl IntoResponse {
+    state.engine.set_ilm_running(false);
+    Json(json!({ "acknowledged": true, "operation_mode": "STOPPED" })).into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

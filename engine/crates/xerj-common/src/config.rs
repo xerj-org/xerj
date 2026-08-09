@@ -80,6 +80,8 @@ pub struct Config {
     pub pit: PitConfig,
     /// Scroll + async-search context TTLs and open-context caps — 7 settings.
     pub search_context: SearchContextConfig,
+    /// Index lifecycle management (retention) executor — 2 settings.
+    pub ilm: IlmConfig,
     /// Structured logging + access log — 2 settings.
     pub logging: LoggingConfig,
     /// Elasticsearch/OpenSearch wire-compatibility identity — 2 settings.
@@ -862,7 +864,24 @@ pub enum VectorQuantization {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LogsConfig {
-    /// How long to retain log data before automatic deletion (default: `90` days).
+    /// **Not implemented — nothing reads this value.** (Issue #199, second
+    /// comment.)
+    ///
+    /// It was documented as "how long to retain log data before automatic
+    /// deletion (default: 90 days)", and no code path in any crate has ever
+    /// read it: `grep -rn retention_days engine/crates` finds this
+    /// declaration and `xerj-logs`'s unrelated `RetentionPolicy::retention_days`,
+    /// which the server never constructs from here. An operator who set it got
+    /// the same silent nothing the ES-compat ILM API used to give.
+    ///
+    /// Retention that actually runs is ILM: put a policy with a `delete` phase
+    /// and attach it with `index.lifecycle.name` (see `xerj_engine::ilm`). The
+    /// server warns at boot when this knob is set away from its default, so the
+    /// setting can no longer be silently believed. Wiring it into the executor
+    /// (or deleting it) is tracked in the accepted-and-ignored class issue #204
+    /// — it is left in place here rather than removed because
+    /// `deny_unknown_fields` would turn removal into a node that refuses to
+    /// boot on an existing `xerj.toml`.
     pub retention_days: u32,
     /// Time-based partition granularity (default: `"1h"`).
     ///
@@ -1423,6 +1442,49 @@ impl Default for SearchContextConfig {
             async_max_keep_alive_secs: 86_400,
             max_open_async_searches: 500,
             sweep_interval_secs: 30,
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Index-lifecycle-management (ILM) executor settings — issue #199.
+///
+/// **2 settings.**
+///
+/// Before v1.0.0-rc.13 `PUT /_ilm/policy/{name}` stored a policy and nothing
+/// ever ran it: a retention policy was accepted, echoed back on GET, and
+/// ignored, so the index grew forever while the API reported success. These
+/// settings drive the executor that now applies the phases XERJ can actually
+/// perform (see `xerj_engine::ilm`), and give an operator a way to slow it
+/// down or turn it off entirely.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct IlmConfig {
+    /// Master switch for the background executor (default: `true`).
+    ///
+    /// When `false` no phase is ever applied. Policies are still validated
+    /// and stored, `GET /_ilm/explain` still reports what *would* happen,
+    /// and `GET /_ilm/status` reports `STOPPED` — the executor never
+    /// silently pretends to run.
+    pub enabled: bool,
+    /// How often the executor evaluates every managed index
+    /// (default: `600` seconds = 10 minutes, matching ES's
+    /// `indices.lifecycle.poll_interval`).
+    ///
+    /// Retention is a coarse, long-horizon operation — quickwit's janitor
+    /// runs its retention pass hourly
+    /// (`quickwit-janitor/src/actors/retention_policy_executor.rs:35`) — so
+    /// there is nothing to gain from a tight loop, and a tight loop on a
+    /// node with thousands of indices is pure overhead.
+    pub poll_interval_secs: u64,
+}
+
+impl Default for IlmConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            poll_interval_secs: 600,
         }
     }
 }
