@@ -233,7 +233,9 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
     }
     let limit = match sn.family {
         Family::SqlDump => Some(SQLDUMP_SAMPLE_LIMIT),
-        Family::Jsonl | Family::Logs | Family::Csv | Family::TxtLines => Some(SAMPLE_LIMIT_BYTES),
+        Family::Jsonl | Family::Logs | Family::Csv | Family::TxtLines | Family::UnityYaml => {
+            Some(SAMPLE_LIMIT_BYTES)
+        }
         Family::Sqlite => Some(1), // signals per-table row cap inside the extractor
         _ => None,                 // whole-file extractors cap themselves
     };
@@ -243,7 +245,14 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
         std::collections::HashSet<String>,
     );
     let mut groups: HashMap<Option<String>, GroupAcc> = HashMap::new();
-    let grouped_family = matches!(sn.family, Family::SqlDump | Family::Sqlite);
+    // Grouped families keep reading past the per-group sample size: their
+    // groups (SQL tables, Unity classes) appear all through the file, and
+    // stopping at the first N records would leave later groups unsampled and
+    // untyped.
+    let grouped_family = matches!(
+        sn.family,
+        Family::SqlDump | Family::Sqlite | Family::UnityYaml
+    );
     let mut sink = |rec: extract::RawRecord| -> bool {
         let entry = groups.entry(rec.group.clone()).or_default();
         if (entry.1 as usize) < sample {
@@ -391,6 +400,97 @@ pub const PROVENANCE_FIELDS: &[&str] = &[
     "ax_run",
     "ax_format",
 ];
+
+/// Spec for a field the PIPELINE derives at index time (Unity script-link
+/// enrichment): typed keyword in the explicit mapping, zeroed sampling stats
+/// because phase-A inference never observes it.
+fn pipeline_keyword_spec(name: &str) -> infer::FieldSpec {
+    infer::FieldSpec {
+        name: name.into(),
+        es_type: "keyword".into(),
+        date_enc: None,
+        semantic: None,
+        cardinality_est: 0,
+        cardinality_overflow: false,
+        null_ratio: 0.0,
+        avg_len: 0.0,
+        coverage: 0.0,
+        examples: Vec::new(),
+        notes: vec!["pipeline-derived: resolved from the .meta guid map at index time".into()],
+        date_min: None,
+        date_max: None,
+        date_evidence: Vec::new(),
+    }
+}
+
+/// Unity script-link map: `.meta` guid → root-relative asset path. Metas are
+/// tiny (one small YAML doc), so re-extracting them here costs milliseconds
+/// and works identically on fresh and resumed runs — the map never has to be
+/// journaled.
+fn build_unity_guid_map(
+    files: &[walk::FileEntry],
+    plan: &Plan,
+) -> std::collections::HashMap<String, String> {
+    let by_rel: HashMap<&str, &Path> = files
+        .iter()
+        .map(|f| (f.rel.as_str(), f.path.as_path()))
+        .collect();
+    let mut map = std::collections::HashMap::new();
+    for fa in plan.files.values() {
+        if fa.family != "unity-meta" {
+            continue;
+        }
+        let Some(asset_rel) = fa.rel.strip_suffix(".meta") else {
+            continue;
+        };
+        let Some(path) = by_rel.get(fa.rel.as_str()) else {
+            continue;
+        };
+        let mut guid: Option<String> = None;
+        let _ = extract::unity::extract_meta(path, fa.gzip, &mut |rec| {
+            guid = rec
+                .fields
+                .get("guid")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            false
+        });
+        if let Some(g) = guid {
+            map.insert(g, asset_rel.to_string());
+        }
+    }
+    map
+}
+
+/// Stamp pipeline-derived Unity fields onto a record. MonoBehaviour records
+/// gain `script_path`/`script_class` when their `script_guid` resolves; meta
+/// records gain the root-relative `asset_path` their guid names. Denormalized
+/// for one-query answers — `script_guid` remains the authoritative join.
+fn enrich_unity_fields(
+    family: Family,
+    fields: &mut Map<String, Value>,
+    guid_map: &std::collections::HashMap<String, String>,
+    rel: &str,
+) {
+    match family {
+        Family::UnityYaml => {
+            let Some(g) = fields.get("script_guid").and_then(Value::as_str) else {
+                return;
+            };
+            let Some(p) = guid_map.get(g) else { return };
+            fields.insert("script_path".into(), Value::String(p.clone()));
+            if let Some(stem) = Path::new(p).file_stem().and_then(|s| s.to_str()) {
+                fields.insert("script_class".into(), Value::String(stem.to_string()));
+            }
+        }
+        Family::UnityMeta => {
+            if let Some(asset_rel) = rel.strip_suffix(".meta") {
+                fields.insert("asset_path".into(), Value::String(asset_rel.to_string()));
+            }
+        }
+        _ => {}
+    }
+}
 
 fn build_mapping(specs: &[infer::FieldSpec]) -> Value {
     let mut props = Map::new();
@@ -575,7 +675,18 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?;
     es.ping()?;
 
-    let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
+    let (discovered_files, skipped_dirs) =
+        walk::walk(&cfg.root, cfg.follow_symlinks, !cfg.no_default_excludes)?;
+    if !skipped_dirs.is_empty() && !cfg.quiet {
+        let names: Vec<&str> = skipped_dirs.iter().map(|s| s.rel.as_str()).collect();
+        eprintln!(
+            "skipping {} generated director{} ({}): {} — pass --no-default-excludes to include",
+            skipped_dirs.len(),
+            if skipped_dirs.len() == 1 { "y" } else { "ies" },
+            skipped_dirs[0].reason,
+            names.join(", ")
+        );
+    }
     if discovered_files.is_empty() {
         println!("no files found under {}", cfg.root.display());
         return Ok((0, None));
@@ -781,6 +892,16 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         let rels: Vec<String> = files.iter().map(|f| f.rel.clone()).collect();
         let mut sketches = Vec::new();
         let mut junk_files = Vec::new();
+        for sd in &skipped_dirs {
+            junk_files.push(JunkFile {
+                file_key: format!("dir:{}", sd.rel),
+                rel: sd.rel.clone(),
+                format: "dir".into(),
+                status: "skipped".into(),
+                reason: format!("{}; --no-default-excludes to include", sd.reason),
+                bytes: 0,
+            });
+        }
         for (i, sc) in scans.into_iter().enumerate() {
             let family = sc
                 .sniffed
@@ -841,7 +962,17 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
         let mut datasets = Vec::new();
         for c in &clusters {
-            let specs = infer::infer_fields(&c.fields, c.records, cfg.no_semantic);
+            let mut specs = infer::infer_fields(&c.fields, c.records, cfg.no_semantic);
+            // Unity script-link enrichment fields are stamped by the phase-B
+            // pipeline (not the extractor), so inference never sees them —
+            // register them here or they would be dynamic-mapped coarsely.
+            if c.family == Family::UnityYaml && c.fields.contains_key("script_guid") {
+                specs.push(pipeline_keyword_spec("script_path"));
+                specs.push(pipeline_keyword_spec("script_class"));
+            }
+            if c.family == Family::UnityMeta {
+                specs.push(pipeline_keyword_spec("asset_path"));
+            }
             let time_field = infer::elect_time_field(&specs);
             let semantic_field = specs
                 .iter()
@@ -952,6 +1083,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         journal.write_plan(&plan)?;
     }
     replacement_failpoint(1).context("after durable replacement plan")?;
+
+    let unity_guid_map = build_unity_guid_map(&files, &plan);
 
     // ── Phase B: full-stream extraction + bulk indexing ─────────────────
     struct DsRt {
@@ -1339,6 +1472,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             if dropped > 0 {
                                 rt.dropped.fetch_add(dropped as u64, Ordering::Relaxed);
                             }
+                            enrich_unity_fields(sn.family, &mut fields, &unity_guid_map, &f.rel);
                             fields.insert("ax_path".into(), Value::String(f.rel.clone()));
                             fields.insert(
                                 "ax_paths".into(),
@@ -2363,7 +2497,7 @@ mod duplicate_integration_tests {
         b[65_536] = b'b';
         fs::write(corpus.path().join("a.txt"), a).unwrap();
         fs::write(corpus.path().join("b.txt"), b).unwrap();
-        let files = walk::walk(corpus.path(), false).unwrap();
+        let files = walk::walk(corpus.path(), false, true).unwrap().0;
         let inventory = content::resolve(files.clone()).unwrap();
         let legacy = ids::file_key(&files[0].path, files[0].size).unwrap();
         assert_eq!(
@@ -2400,7 +2534,7 @@ mod duplicate_integration_tests {
         // with — so b.txt's content key IS the planned key a.txt claims by rel.
         fs::write(corpus.path().join("a.txt"), b"rewritten content\n").unwrap();
         fs::write(corpus.path().join("b.txt"), b"original planned content\n").unwrap();
-        let inventory = content::resolve(walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let inventory = content::resolve(walk::walk(corpus.path(), false, true).unwrap().0).unwrap();
         let planned_key = inventory.keys[1].clone();
         let mut plan = Plan::default();
         plan.files
@@ -2470,7 +2604,7 @@ mod duplicate_integration_tests {
         fs::write(corpus.path().join("report-original.txt"), body).unwrap();
         fs::write(corpus.path().join("report-copy.txt"), body).unwrap();
 
-        let discovered = walk::walk(corpus.path(), false).unwrap();
+        let discovered = walk::walk(corpus.path(), false, true).unwrap().0;
         let inventory = content::resolve(discovered).unwrap();
         assert_eq!(inventory.files.len(), 1);
         assert_eq!(inventory.duplicates.len(), 1);
@@ -2543,7 +2677,7 @@ mod duplicate_integration_tests {
         }
         fs::write(&path, csv).unwrap();
 
-        let inventory = content::resolve(walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let inventory = content::resolve(walk::walk(corpus.path(), false, true).unwrap().0).unwrap();
         let expected_size = inventory.files[0].size;
         let expected_digest = inventory.digests[0].clone();
         let sniffed = sniff::sniff(&path).unwrap();

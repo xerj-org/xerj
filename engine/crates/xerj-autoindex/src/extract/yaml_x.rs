@@ -1,7 +1,7 @@
 //! YAML — multi-document streams; each doc becomes a record (a top-level
 //! sequence of mappings becomes per-element records). 16MB file cap.
 
-use super::{flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink};
+use super::{flatten_object, yaml_to_json, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -82,43 +82,6 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
 }
 
 use serde::Deserialize;
-
-fn yaml_to_json(v: serde_yaml::Value) -> Value {
-    match v {
-        serde_yaml::Value::Null => Value::Null,
-        serde_yaml::Value::Bool(b) => Value::Bool(b),
-        serde_yaml::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                Value::Number(i.into())
-            } else if let Some(u) = n.as_u64() {
-                Value::Number(u.into())
-            } else {
-                serde_json::Number::from_f64(n.as_f64().unwrap_or(0.0))
-                    .map(Value::Number)
-                    .unwrap_or(Value::Null)
-            }
-        }
-        serde_yaml::Value::String(s) => Value::String(s),
-        serde_yaml::Value::Sequence(seq) => {
-            Value::Array(seq.into_iter().map(yaml_to_json).collect())
-        }
-        serde_yaml::Value::Mapping(m) => {
-            let mut out = Map::new();
-            for (k, vv) in m {
-                let key = match k {
-                    serde_yaml::Value::String(s) => s,
-                    other => serde_yaml::to_string(&other)
-                        .unwrap_or_else(|_| "key".into())
-                        .trim()
-                        .to_string(),
-                };
-                out.insert(key, yaml_to_json(vv));
-            }
-            Value::Object(out)
-        }
-        serde_yaml::Value::Tagged(t) => yaml_to_json(t.value),
-    }
-}
 
 #[cfg(test)]
 mod tests {

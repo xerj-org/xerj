@@ -46,7 +46,12 @@ impl MockEndpoint {
         let server_state = Arc::clone(&state);
         let join = thread::spawn(move || loop {
             match listener.accept() {
-                Ok((stream, _)) => handle(stream, &server_state),
+                Ok((stream, _)) => {
+                    // BSD/macOS: accepted sockets inherit the listener's
+                    // O_NONBLOCK; the handler does blocking reads.
+                    stream.set_nonblocking(false).unwrap();
+                    handle(stream, &server_state)
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     if server_state.lock().unwrap().stop {
                         break;
@@ -199,6 +204,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         state_dir: Some(state_dir.to_owned()),
         fresh: false,
         follow_symlinks: false,
+        no_default_excludes: false,
         max_file_gb: 1,
         sample: 50,
         no_semantic: true,

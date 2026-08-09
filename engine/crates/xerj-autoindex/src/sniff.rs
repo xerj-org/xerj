@@ -24,6 +24,12 @@ pub enum Family {
     SqlDump,
     /// Source code — AST-parsed by the matching tree-sitter grammar.
     Code,
+    /// Unity text-serialized asset (scene/prefab/.asset/.mat/.anim/…):
+    /// a `%YAML` + `%TAG !u! tag:unity3d.com` multi-document stream.
+    UnityYaml,
+    /// Unity `.meta` sidecar: plain YAML opening with `fileFormatVersion:`
+    /// and carrying the asset `guid` — the join key for everything Unity.
+    UnityMeta,
     Binary,
 }
 
@@ -44,6 +50,8 @@ impl Family {
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
             Family::Code => "code",
+            Family::UnityYaml => "unity",
+            Family::UnityMeta => "unity-meta",
             Family::Binary => "binary",
         }
     }
@@ -134,6 +142,11 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
         s.binary_kind = Some("zip".into());
         return Ok(s);
     }
+    // Compressed image/audio/model payloads routinely pass the NUL and
+    // control-char heuristics below (windows-1252 decodes almost every byte
+    // to something printable), and a multi-MB PSD misread as prose costs
+    // ~100x its size in RAM through sectioning. Magic bytes are the reliable
+    // signal.
     for (magic, kind) in [
         (&b"\x89PNG"[..], "png"),
         (&b"GIF8"[..], "gif"),
@@ -141,6 +154,15 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
         (&b"\x7fELF"[..], "elf"),
         (&b"BM"[..], "bmp"),
         (&b"\x00\x00\x01\x00"[..], "ico"),
+        (&b"8BPS"[..], "psd"),
+        (&b"II*\x00"[..], "tiff"),
+        (&b"MM\x00*"[..], "tiff"),
+        (&b"RIFF"[..], "riff"),
+        (&b"OggS"[..], "ogg"),
+        (&b"fLaC"[..], "flac"),
+        (&b"ID3"[..], "mp3"),
+        (&b"Kaydara FBX Binary"[..], "fbx"),
+        (&b"\x76\x2f\x31\x01"[..], "exr"),
     ] {
         if prefix.starts_with(magic) {
             let mut s = mk(Family::Binary);
@@ -167,8 +189,44 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
         s.binary_kind = Some("unknown".into());
         return Ok(s);
     }
+    // A prefix that only decoded via LOSSY windows-1252 and is majority
+    // high-byte is pixel/float soup, not prose in a legacy encoding: real
+    // windows-1252 text (accented European prose) runs well under 30%
+    // non-ASCII, while raw image channels run ~50%. Without this, a large
+    // TGA classified as txt-prose is amplified ~100x in RAM by sectioning.
+    if encoding != "utf-8" {
+        let total = text.chars().count().max(1);
+        let non_ascii = text.chars().filter(|c| !c.is_ascii()).count();
+        if non_ascii * 10 > total * 3 {
+            let mut s = mk(Family::Binary);
+            s.binary_kind = Some("unknown".into());
+            return Ok(s);
+        }
+    }
 
-    // 2b. Source code: a known code extension whose content is text. We only
+    // 2b. Unity text serialization, detected by content (never extension):
+    // scenes/prefabs/assets open with `%YAML` and declare the Unity tag
+    // namespace; `.meta` sidecars open with `fileFormatVersion:` and carry a
+    // `guid:`. Binary-serialized Unity assets fail both checks and fall
+    // through to the binary/text heuristics as before.
+    {
+        let body = text.trim_start_matches('\u{feff}');
+        if body.starts_with("%YAML") && body.contains("%TAG !u! tag:unity3d.com") {
+            let mut s = mk(Family::UnityYaml);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+        let first_line = body.lines().next().unwrap_or("");
+        if first_line.starts_with("fileFormatVersion:")
+            && body.lines().any(|l| l.starts_with("guid:"))
+        {
+            let mut s = mk(Family::UnityMeta);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+    }
+
+    // 2c. Source code: a known code extension whose content is text. We only
     // reach here after the binary guards above, so a text `.py`/`.rs`/`.go`/…
     // routes to the tree-sitter AST extractor (crate::extract::code). Extension
     // is the right signal — code vs prose is not reliably content-sniffable.
@@ -342,6 +400,26 @@ fn txt_kind(nonblank: &[&str]) -> Family {
     if nonblank.is_empty() {
         return Family::TxtLines;
     }
+    // Raw pixel/float payloads without a container magic (TGA, bare .bytes
+    // dumps) decode via lossy windows-1252 into printable soup; every
+    // structured family above has already declined by the time control gets
+    // here, and treating the soup as prose costs ~100x the file size in RAM
+    // through sectioning. The discriminator is whitespace density:
+    // natural-language text runs ~15% whitespace and random bytes ~2%
+    // (0x09/0x0A/0x0D/0x20/0xA0 all decode to whitespace), so 5% cleanly
+    // separates them. Gated to large prefixes so short legitimate files keep
+    // their text families; dense CSVs are safe because the CSV sniffer
+    // claims them before this fallback.
+    let total_chars: usize = nonblank.iter().map(|l| l.chars().count()).sum();
+    if total_chars >= 4096 {
+        let ws: usize = nonblank
+            .iter()
+            .map(|l| l.chars().filter(|c| c.is_whitespace()).count())
+            .sum();
+        if ws * 20 < total_chars {
+            return Family::Binary;
+        }
+    }
     let avg_len = nonblank.iter().map(|l| l.len()).sum::<usize>() as f64 / nonblank.len() as f64;
     if avg_len > 60.0 {
         return Family::TxtProse;
@@ -501,6 +579,102 @@ fn sniff_csv_dialect(nonblank: &[&str]) -> Option<CsvDialect> {
         has_header,
         decimal_comma,
     })
+}
+
+#[cfg(test)]
+mod unity_sniff_tests {
+    use super::*;
+    use std::path::Path;
+
+    fn sniff_str(s: &str, name: &str) -> Family {
+        sniff_bytes(s.as_bytes(), Path::new(name), false)
+            .unwrap()
+            .family
+    }
+
+    #[test]
+    fn unity_tagged_yaml_is_detected_by_header_not_extension() {
+        let scene = "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!1 &123\nGameObject:\n  m_Name: X\n";
+        assert_eq!(sniff_str(scene, "Main.unity"), Family::UnityYaml);
+        assert_eq!(
+            sniff_str(scene, "renamed.txt"),
+            Family::UnityYaml,
+            "content decides, never the extension"
+        );
+    }
+
+    #[test]
+    fn a_bom_before_the_yaml_directive_is_tolerated() {
+        let scene =
+            "\u{feff}%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!1 &1\nGameObject:\n  m_Name: X\n";
+        assert_eq!(sniff_str(scene, "Main.unity"), Family::UnityYaml);
+    }
+
+    #[test]
+    fn meta_needs_the_first_line_rule_and_a_guid() {
+        let meta = "fileFormatVersion: 2\nguid: 9f1c4d0ab2e34f6\nMonoImporter:\n  serializedVersion: 2\n";
+        assert_eq!(sniff_str(meta, "Player.cs.meta"), Family::UnityMeta);
+        let stray = "config: true\nfileFormatVersion: 2\nguid: abc\n";
+        assert_ne!(
+            sniff_str(stray, "some.yaml"),
+            Family::UnityMeta,
+            "guid keys inside ordinary YAML must not reclassify it"
+        );
+        let no_guid = "fileFormatVersion: 2\nsettings:\n  a: 1\n";
+        assert_ne!(sniff_str(no_guid, "x.meta"), Family::UnityMeta);
+    }
+
+    #[test]
+    fn plain_yaml_without_the_unity_tag_stays_yaml() {
+        let plain = "%YAML 1.2\n---\nkey: value\nother: 1\nnested:\n  a: 2\n";
+        assert_ne!(sniff_str(plain, "doc.yaml"), Family::UnityYaml);
+    }
+
+    /// Regression: PSD image data decoded via lossy windows-1252 passed the
+    /// NUL/control-char heuristics and classified as txt-prose, turning a
+    /// multi-MB texture into ~100x its size of prose sections. Media magic
+    /// bytes must win before any text heuristic runs.
+    #[test]
+    fn media_containers_are_binary_by_magic_not_heuristics() {
+        for (name, head) in [
+            ("t.psd", &b"8BPS\x00\x01"[..]),
+            ("t.tif", &b"II*\x00\x08\x00"[..]),
+            ("t.tif2", &b"MM\x00*\x00\x08"[..]),
+            ("t.wav", &b"RIFF\x24\x08\x00\x00WAVE"[..]),
+            ("t.ogg", &b"OggS\x00\x02"[..]),
+            ("t.fbx", &b"Kaydara FBX Binary  \x00"[..]),
+        ] {
+            let mut bytes = head.to_vec();
+            // A printable tail that WOULD pass the prose heuristics.
+            bytes.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20));
+            let sn = sniff_bytes(&bytes, Path::new(name), false).unwrap();
+            assert_eq!(sn.family, Family::Binary, "{name} must be binary");
+        }
+    }
+
+    /// Regression: an uncompressed TGA (no magic bytes exist for TGA) decoded
+    /// via lossy windows-1252 into printable soup with near-zero whitespace
+    /// and classified txt-prose. Whitespace ratio is the discriminator.
+    #[test]
+    fn whitespace_free_printable_soup_is_binary_not_prose() {
+        let soup: String = (0..8192u32)
+            .map(|i| char::from_u32(0x21 + (i * 7) % 0x5d).unwrap())
+            .collect();
+        let sn = sniff_bytes(soup.as_bytes(), Path::new("texture.tga"), false).unwrap();
+        assert_eq!(sn.family, Family::Binary);
+        // Real prose of the same size keeps its family.
+        let prose = "The quick brown fox jumps over the lazy dog. ".repeat(200);
+        let sn = sniff_bytes(prose.as_bytes(), Path::new("note.txt"), false).unwrap();
+        assert_ne!(sn.family, Family::Binary, "real prose must stay text");
+    }
+
+    #[test]
+    fn binary_serialized_unity_assets_stay_binary() {
+        let mut bytes = b"UnityFS\x00\x00\x00\x00\x08".to_vec();
+        bytes.extend(std::iter::repeat(0u8).take(64));
+        let sn = sniff_bytes(&bytes, Path::new("scene.unity"), false).unwrap();
+        assert_eq!(sn.family, Family::Binary);
+    }
 }
 
 #[cfg(test)]

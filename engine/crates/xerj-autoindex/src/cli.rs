@@ -16,6 +16,8 @@ pub struct IndexCfg {
     pub state_dir: Option<PathBuf>,
     pub fresh: bool,
     pub follow_symlinks: bool,
+    /// Disable the marker-gated generated-dir prune (e.g. Unity `Library/`).
+    pub no_default_excludes: bool,
     pub max_file_gb: u64,
     pub sample: usize,
     pub no_semantic: bool,
@@ -76,6 +78,14 @@ pub fn print_help() {
              --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/)\n\
              --fresh              ignore existing journal, restart (ids stay idempotent)\n\
              --follow-symlinks    follow symlinks (loop-safe); off by default\n\
+             --no-default-excludes\n\
+                                  walk generated/cache dirs too. By default,\n\
+                                  well-known generated dirs are skipped (and\n\
+                                  recorded) when a sibling marker proves them, at\n\
+                                  any depth: Unity Library/Temp/obj/Logs/\n\
+                                  UserSettings next to ProjectSettings/\n\
+                                  ProjectVersion.txt, node_modules next to\n\
+                                  package.json, target next to Cargo.toml\n\
              --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
              --sample <N>         records sampled per file for inference (default 500)\n\
              --no-semantic        skip semantic_text on body fields (pure BM25+keyword)\n\
@@ -137,6 +147,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut state_dir: Option<PathBuf> = None;
     let mut fresh = false;
     let mut follow_symlinks = false;
+    let mut no_default_excludes = false;
     let mut max_file_gb = 2u64;
     let mut sample = 500usize;
     let mut no_semantic = false;
@@ -195,6 +206,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--state-dir" => state_dir = it.next().map(PathBuf::from),
             "--fresh" => fresh = true,
             "--follow-symlinks" => follow_symlinks = true,
+            "--no-default-excludes" => no_default_excludes = true,
             "--max-file-gb" => {
                 max_file_gb = it
                     .next()
@@ -270,6 +282,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             state_dir,
             fresh,
             follow_symlinks,
+            no_default_excludes,
             max_file_gb,
             sample: sample.max(50),
             no_semantic,

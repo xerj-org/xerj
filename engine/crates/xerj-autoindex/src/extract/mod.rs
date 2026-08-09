@@ -13,6 +13,7 @@ pub mod pdf;
 pub mod sqldump;
 pub mod sqlite_x;
 pub mod txt;
+pub mod unity;
 pub mod xml_x;
 pub mod yaml_x;
 
@@ -139,6 +140,8 @@ pub fn extract(
         Family::Sqlite => sqlite_x::extract(path, limit_bytes.map(|_| 500), sink),
         Family::SqlDump => sqldump::extract(path, sn.gzip, limit_bytes, sink),
         Family::Code => code::extract(path, sink),
+        Family::UnityYaml => unity::extract_unity(path, sn.gzip, limit_bytes, sink),
+        Family::UnityMeta => unity::extract_meta(path, sn.gzip, sink),
         Family::Binary => Ok(ExtractStats::default()),
     }
 }
@@ -202,6 +205,46 @@ fn flatten_into(key: &str, v: Value, depth: usize, out: &mut Map<String, Value>)
         other => {
             out.insert(key.to_string(), other);
         }
+    }
+}
+
+/// Convert a parsed YAML value into JSON (shared by the YAML and Unity
+/// extractors). Tagged values unwrap to their inner value; non-string mapping
+/// keys are stringified.
+pub(crate) fn yaml_to_json(v: serde_yaml::Value) -> Value {
+    match v {
+        serde_yaml::Value::Null => Value::Null,
+        serde_yaml::Value::Bool(b) => Value::Bool(b),
+        serde_yaml::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                Value::Number(i.into())
+            } else if let Some(u) = n.as_u64() {
+                Value::Number(u.into())
+            } else {
+                serde_json::Number::from_f64(n.as_f64().unwrap_or(0.0))
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null)
+            }
+        }
+        serde_yaml::Value::String(s) => Value::String(s),
+        serde_yaml::Value::Sequence(seq) => {
+            Value::Array(seq.into_iter().map(yaml_to_json).collect())
+        }
+        serde_yaml::Value::Mapping(m) => {
+            let mut out = Map::new();
+            for (k, vv) in m {
+                let key = match k {
+                    serde_yaml::Value::String(s) => s,
+                    other => serde_yaml::to_string(&other)
+                        .unwrap_or_else(|_| "key".into())
+                        .trim()
+                        .to_string(),
+                };
+                out.insert(key, yaml_to_json(vv));
+            }
+            Value::Object(out)
+        }
+        serde_yaml::Value::Tagged(t) => yaml_to_json(t.value),
     }
 }
 
