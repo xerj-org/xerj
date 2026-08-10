@@ -675,15 +675,26 @@ impl Engine {
     /// recording the creation time the executor will age it from.
     ///
     /// Called from every path that can carry `index.lifecycle.name`: index
-    /// creation and `PUT /{index}/_settings`. Attachment is persisted here
-    /// rather than relying on the index-settings map, which is in-memory only
-    /// — otherwise a restart would silently un-manage the index.
+    /// creation, `PUT /{index}/_settings`, and `POST /{index}/_ilm/remove`.
+    /// Attachment is persisted here rather than relying on the index-settings
+    /// map, which is in-memory only — otherwise a restart would silently
+    /// un-manage the index.
+    ///
+    /// # Callers must have checked that `index` exists
+    ///
+    /// This method records state keyed by name and does not itself know
+    /// whether the name is an index. Both HTTP callers 404 a literal name
+    /// that is neither an index nor an alias *before* reaching here
+    /// (`put_settings` and `remove_ilm_policy_from_index`, both via
+    /// `resolve_existing_index_targets`), because a tombstone written for a
+    /// name that was never an index is permanent, unreachable state that
+    /// `flush_ilm_state` rewrites in full on every subsequent call.
     ///
     /// # A detach writes a tombstone, it does not erase the entry
     ///
-    /// `PUT /{index}/_settings {"index.lifecycle.name": null}` is ES's
-    /// documented way to stop managing an index, and it is the only way this
-    /// engine offers (`POST /{index}/_ilm/remove` is not implemented). The
+    /// `PUT /{index}/_settings {"index.lifecycle.name": null}` and
+    /// `POST /{index}/_ilm/remove` are ES's two documented ways to stop
+    /// managing an index; both are implemented and both land here. The
     /// first cut of this method implemented it as
     /// `self.ilm_index_state.remove(index)` — and that was a **data-loss
     /// defect of exactly the class this module exists to remove**. The index's
@@ -1169,8 +1180,30 @@ impl Engine {
         out
     }
 
+    /// How many *existing* indices the executor would act on, decided by
+    /// [`Engine::ilm_policy_for_index`] — the same resolver `run_ilm_once`
+    /// uses.
+    ///
+    /// Counting `ilm_index_state` entries instead (what `ilm_status` first
+    /// did) under-reports the upgrade case exactly the way scanning that map
+    /// broke `DELETE /_ilm/policy`: an index attached before `ilm_state.json`
+    /// existed is managed through its persisted `settings.json` and has no
+    /// entry, so it was genuinely being deleted on a timer while the status
+    /// endpoint reported nothing was managed. It also over-reported the
+    /// opposite way, since an entry can outlive the index it names.
+    pub async fn ilm_managed_indices(&self) -> usize {
+        let mut n = 0;
+        for name in self.list_index_names() {
+            if self.ilm_policy_for_index(&name).await.is_some() {
+                n += 1;
+            }
+        }
+        n
+    }
+
     /// `GET /_ilm/status`, with XERJ's honest extras.
-    pub fn ilm_status(&self) -> Value {
+    pub async fn ilm_status(&self) -> Value {
+        let managed = self.ilm_managed_indices().await;
         let s = &self.ilm_stats;
         json!({
             "operation_mode": if self.ilm_running() { "RUNNING" } else { "STOPPED" },
@@ -1183,14 +1216,12 @@ impl Engine {
                 "indices_set_read_only": s.read_only.load(Ordering::Relaxed),
                 "indices_skipped": s.skipped.load(Ordering::Relaxed),
                 "last_run_millis": s.last_run_ms.load(Ordering::Relaxed),
-                // Attachments only — a detach tombstone (`policy: None`) is a
-                // record that we are *not* managing the index, and counting it
-                // here would report retention on an index nothing retains.
-                "managed_indices": self
-                    .ilm_index_state
-                    .iter()
-                    .filter(|e| e.value().policy.is_some())
-                    .count(),
+                // Existing indices the executor's own resolver says are
+                // managed — attachments recorded here *and* upgrade-case
+                // indices attached only through their persisted settings.
+                // A detach tombstone (`policy: None`) is a record that we are
+                // *not* managing the index, so it does not count.
+                "managed_indices": managed,
                 "policies": self.ilm_policies.len(),
             }
         })

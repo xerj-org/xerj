@@ -166,7 +166,7 @@ async fn stopping_ilm_stops_deletion() {
     let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
     assert!(report.deleted.is_empty(), "stopped ILM deletes nothing");
     assert!(engine.get_index("logs-000002").is_ok());
-    assert_eq!(engine.ilm_status()["operation_mode"], "STOPPED");
+    assert_eq!(engine.ilm_status().await["operation_mode"], "STOPPED");
 
     engine.set_ilm_running(true);
     let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
@@ -497,7 +497,7 @@ async fn a_detached_index_does_not_block_deleting_its_former_policy() {
         "and not in use once detached"
     );
     assert_eq!(
-        engine.ilm_status()["xerj"]["managed_indices"],
+        engine.ilm_status().await["xerj"]["managed_indices"],
         0,
         "a tombstone is not a managed index"
     );
@@ -620,12 +620,12 @@ async fn deleting_a_data_stream_forgets_its_ilm_bookkeeping() {
         },
     );
     engine.create_data_stream("applogs").expect("create stream");
-    assert_eq!(engine.ilm_status()["xerj"]["managed_indices"], 1);
+    assert_eq!(engine.ilm_status().await["xerj"]["managed_indices"], 1);
 
     engine.delete_data_stream("applogs").await.expect("delete");
 
     assert_eq!(
-        engine.ilm_status()["xerj"]["managed_indices"],
+        engine.ilm_status().await["xerj"]["managed_indices"],
         0,
         "no ILM state survives an index that no longer exists"
     );

@@ -16590,6 +16590,36 @@ pub async fn get_aliases(State(state): State<AppState>) -> impl IntoResponse {
 // DELETE /{index}/_alias/{alias}
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// [`resolve_index_selector`], but every resolved name is guaranteed to be an
+/// index that actually exists.
+///
+/// `resolve_index_selector` documents its own fallback: a literal name that is
+/// neither an index nor an alias comes back as itself, "include whether or not
+/// it exists; the caller decides". That is right for read endpoints, which go
+/// on to look the name up and fail. It is wrong for the endpoints that *write
+/// state keyed by index name* — they write it for a name that will never be an
+/// index and answer 200, which is #204's accept-and-ignore class with a
+/// persistent side effect. `POST /ghost/_ilm/remove` did exactly this: 200
+/// `has_failures:false` plus a permanent detach tombstone in `ilm_state.json`,
+/// one entry per distinct name, on the public ES port.
+///
+/// So: a literal name (or a member of a comma list) that resolves to nothing
+/// is `Err(index_not_found)`, matching ES's `ignore_unavailable=false`
+/// default. A wildcard/`_all` that matches nothing returns an empty vector and
+/// is *not* an error, matching ES's `allow_no_indices=true` default — the
+/// caller decides what an empty match means for its endpoint.
+async fn resolve_existing_index_targets(
+    state: &AppState,
+    spec: &str,
+) -> Result<Vec<String>, xerj_common::XerjError> {
+    let targets = resolve_index_selector(state, spec).await;
+    let existing = state.engine.list_index_names();
+    if let Some(missing) = targets.iter().find(|n| !existing.contains(n)) {
+        return Err(xerj_common::XerjError::index_not_found(missing));
+    }
+    Ok(targets)
+}
+
 /// Resolve an index spec (single name, comma list, wildcard, `_all`, `*`)
 /// into the concrete set of existing index names, in stable order.
 async fn resolve_index_selector(state: &AppState, spec: &str) -> Vec<String> {
@@ -21361,7 +21391,16 @@ pub async fn put_settings(
     Path(index): Path<String>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
-    let targets = resolve_index_selector(&state, &index).await;
+    // Existence-checked, not just resolved. This handler writes two persistent
+    // stores keyed by index name — the settings map and, since #199, the ILM
+    // attachment/detach record — and `resolve_index_selector` hands back a
+    // literal name whether or not it names an index. `PUT /ghost/_settings
+    // {"index.lifecycle.name": null}` therefore answered 200 and left an ILM
+    // tombstone for a name that will never be an index. ES 404s here; so do we.
+    let targets = match resolve_existing_index_targets(&state, &index).await {
+        Ok(t) => t,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
     if targets.is_empty() {
         let e = xerj_common::XerjError::index_not_found(&index);
         return ApiError::new(e).into_response();
@@ -23380,17 +23419,34 @@ pub async fn delete_ilm_policy(
 /// executor cannot disagree with the operator about which it honoured.
 ///
 /// Answers in ES's shape: `has_failures` plus the indices that could not be
-/// detached. An index with no policy is not a failure — ES treats the call as
-/// idempotent, and so does this.
+/// detached.
+///
+/// # What is and is not idempotent here
+///
+/// Detaching an index that **exists but is unmanaged** is a success, and
+/// repeating it is a no-op: there is nothing to fail at, and ES answers the
+/// same way. Detaching a name that **is not an index at all** is a 404
+/// `index_not_found_exception`, again as ES does — the two cases are not the
+/// same thing, and the first cut of this handler conflated them. It resolved
+/// through [`resolve_index_selector`], whose documented fallback returns a
+/// literal name whether or not it exists, so its own `targets.is_empty()`
+/// guard was dead for exactly the case it was written for: `POST
+/// /ghost/_ilm/remove` answered 200 `has_failures:false` and wrote a permanent
+/// detach tombstone for a name that was never an index. That is unbounded
+/// persisted state (`flush_ilm_state` rewrites the whole file per call) driven
+/// from the public ES port, and it is the accept-and-ignore class (#204) this
+/// PR exists to remove. [`resolve_existing_index_targets`] is the fix.
+///
+/// A wildcard that matches nothing is still a 200 with an empty result, which
+/// is ES's `allow_no_indices=true` default and writes no state.
 pub async fn remove_ilm_policy_from_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
 ) -> impl IntoResponse {
-    let targets = resolve_index_selector(&state, &index).await;
-    if targets.is_empty() {
-        let e = xerj_common::XerjError::index_not_found(&index);
-        return ApiError::new(e).into_response();
-    }
+    let targets = match resolve_existing_index_targets(&state, &index).await {
+        Ok(t) => t,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
     for name in &targets {
         state.engine.set_index_lifecycle_policy(name, None);
         // Keep the display copy of the settings honest too: ES drops
@@ -23427,7 +23483,7 @@ pub async fn explain_ilm(
 
 /// `GET /_ilm/status` — `RUNNING`/`STOPPED` plus XERJ's own counters.
 pub async fn get_ilm_status(State(state): State<AppState>) -> impl IntoResponse {
-    Json(state.engine.ilm_status()).into_response()
+    Json(state.engine.ilm_status().await).into_response()
 }
 
 /// `POST /_ilm/start` and `POST /_ilm/stop` — the operator's kill switch.

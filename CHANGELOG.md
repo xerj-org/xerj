@@ -9,6 +9,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **ILM retention policies are executed instead of accepted and ignored**
+  ([#199](https://github.com/xerj-org/xerj/issues/199)). `PUT
+  /_ilm/policy/{name}` stored the policy, `GET` echoed it back, and nothing in
+  the engine ever read it: an index under a "delete after 30 days" policy grew
+  forever while the API kept reporting success. A background executor now ages
+  every index carrying `index.lifecycle.name` and applies the two actions xerj
+  can genuinely perform — `delete` (drops the index) and `readonly` (sets the
+  write block). Everything else ES's ILM offers (`rollover`, `forcemerge`,
+  `shrink`, `searchable_snapshot`, `allocate`, `migrate`, `set_priority`,
+  `downsample`) is now **rejected at `PUT` time with a 400 naming the action**
+  rather than stored and silently skipped, and an unparsable `min_age` is
+  rejected rather than treated as zero. `GET /{index}/_ilm/explain`, `GET
+  /_ilm/status` and `POST /_ilm/start|stop` make the executor's decisions
+  visible and stoppable; policies and attachments persist in
+  `<data_dir>/ilm_state.json`.
+
+  **Read this before upgrading — this node now deletes indices on a timer.**
+
+  - **Policies did not survive the upgrade.** They were in-memory only before
+    this change, so nothing can be deleted until an operator re-`PUT`s a
+    policy. That re-`PUT` is the explicit act that re-affirms intent; once it
+    lands, an index older than the delete phase's `min_age` is deleted on the
+    next pass (default every 600s, `[ilm] poll_interval_secs`). Set `[ilm]
+    enabled = false`, or `POST /_ilm/stop`, to keep the executor off.
+  - **Detaching is authoritative.** `POST /{index}/_ilm/remove` and `PUT
+    /{index}/_settings {"index.lifecycle.name": null}` both record a persisted
+    tombstone the executor honours ahead of the index's own `settings.json`,
+    so an acknowledged "stop deleting my data" genuinely stops retention.
+  - **Never deletes** an index whose age cannot be established (it is skipped
+    with the reason in `_ilm/explain`), a dot-prefixed internal index, or a
+    data stream's current write index.
+  - **Known gaps, stated plainly.** `rollover` is refused, so a data stream
+    that is never rolled over by its caller has only its write index and
+    therefore never deletes anything. Templates are read at index *creation*,
+    never re-read at evaluation time, so adding a `logs-*` template today does
+    not retroactively manage — or delete — `logs-*` indices that already
+    exist (this matches ES, and the opposite would destroy pre-existing data).
+    XERJ's own `logs.retention_days` config key is still **not implemented**;
+    it is now documented as such and the server logs a WARN at boot when it is
+    set away from its default, naming the surface that does work. Wiring or
+    removing it stays tracked in
+    [#204](https://github.com/xerj-org/xerj/issues/204).
+
+- **`PUT /{index}/_settings` and `POST /{index}/_ilm/remove` no longer accept
+  an index name that is not an index.** Both resolved the path segment through
+  a helper that returns a literal name whether or not it exists, then wrote
+  state keyed by that name and answered `200`. `POST /ghost/_ilm/remove`
+  returned `has_failures: false` and left a permanent ILM detach record for a
+  name that will never be an index — unbounded persisted state reachable from
+  the public ES port, and the accept-and-ignore class
+  ([#204](https://github.com/xerj-org/xerj/issues/204)) again. Both now return
+  `404 index_not_found_exception`, as ES does. A wildcard that matches nothing
+  is still an empty success on `_ilm/remove` (ES's `allow_no_indices`
+  default), and detaching an index that exists but is unmanaged is still a
+  success — only a name that is not an index is an error.
+
 - **`autoindex` no longer leaves immortal catalog entries for skipped files**
   ([#238](https://github.com/xerj-org/xerj/issues/238)). A file added after the
   resume plan was frozen is skipped and reported in the catalog — but that

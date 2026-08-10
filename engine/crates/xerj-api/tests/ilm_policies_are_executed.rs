@@ -452,3 +452,127 @@ async fn ilm_remove_detaches_the_index_for_real() {
     let (status, _) = send(&app, "DELETE", "/_ilm/policy/logs-30d", "").await;
     assert_eq!(status, StatusCode::OK);
 }
+
+/// The repair that added `POST /{index}/_ilm/remove` shipped the very defect
+/// this PR exists to remove: the endpoint accepted an index name that was not
+/// an index, answered `200 has_failures:false`, and wrote a permanent detach
+/// tombstone for it.
+///
+/// `resolve_index_selector` returns a literal name whether or not it exists
+/// ("include whether or not it exists; the caller decides"), so the handler's
+/// own `targets.is_empty()` 404 guard was dead for exactly the case it was
+/// written for. Measured before the fix: 200 calls to distinct names left 200
+/// entries and a 4129-byte `ilm_state.json`, each call rewriting the whole
+/// file — unbounded, unreachable persisted state driven from the public ES
+/// port. ES answers 404 `index_not_found_exception`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ilm_remove_on_a_name_that_is_not_an_index_is_404_and_writes_nothing() {
+    let (app, state, dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+
+    let (status, body) = send(&app, "POST", "/ghost-0/_ilm/remove", "").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "detaching a name that is not an index is not a success: {body}"
+    );
+
+    // The settings route is the same handler's twin and had the same hole.
+    let (status, body) = send(
+        &app,
+        "PUT",
+        "/ghost-1/_settings",
+        r#"{"index":{"lifecycle":{"name":null}}}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    // Neither call left anything behind, in memory or on disk.
+    assert!(
+        state.engine.ilm_index_state.is_empty(),
+        "no tombstone for a phantom index: {:?}",
+        state
+            .engine
+            .ilm_index_state
+            .iter()
+            .map(|e| e.key().clone())
+            .collect::<Vec<_>>()
+    );
+    let persisted = std::fs::read_to_string(dir.path().join("ilm_state.json")).unwrap_or_default();
+    assert!(
+        !persisted.contains("ghost-0") && !persisted.contains("ghost-1"),
+        "ilm_state.json grew a phantom entry: {persisted}"
+    );
+}
+
+/// The distinction the previous fix's doc comment glossed over: "the index
+/// exists but nothing manages it" really is idempotent, and must stay a 200.
+/// Only "this name is not an index" is the 404.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ilm_remove_on_an_existing_unmanaged_index_is_still_a_success() {
+    let (app, state, _dir) = app();
+    let (status, _) = send(&app, "PUT", "/plain-000001", "{}").await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = send(&app, "POST", "/plain-000001/_ilm/remove", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["has_failures"], false, "{body}");
+    assert_eq!(body["failed_indexes"], json!([]), "{body}");
+
+    // And a wildcard that matches nothing is ES's `allow_no_indices=true`: an
+    // empty success, not a 404, and still no state written.
+    let (status, body) = send(&app, "POST", "/nomatch-*/_ilm/remove", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["has_failures"], false, "{body}");
+    assert!(
+        !state.engine.ilm_index_state.contains_key("nomatch-*"),
+        "a pattern is never an index name"
+    );
+}
+
+/// `GET /_ilm/status`'s `managed_indices` counted `ilm_index_state` entries
+/// rather than asking the executor's resolver, so it reported `0` for the one
+/// population that resolver exists to catch: an index upgraded from before
+/// `ilm_state.json`, managed through its persisted `settings.json` alone.
+/// A retention feature that deletes an index while its status endpoint says
+/// nothing is managed is not observable.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn status_counts_the_upgraded_index_the_executor_would_actually_delete() {
+    let (app, state, _dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    send(
+        &app,
+        "PUT",
+        "/logs-upgraded",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+
+    // Simulate the upgrade: the recorded entry did not exist before this
+    // release, only the index's own settings.
+    state.engine.ilm_index_state.remove("logs-upgraded");
+
+    let (status, body) = send(&app, "GET", "/_ilm/status", "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["xerj"]["managed_indices"], 1,
+        "the resolver says this index is managed, so status must too: {body}"
+    );
+
+    // And the executor agrees — which is the point of asking one resolver.
+    let report = state
+        .engine
+        .run_ilm_once(xerj_engine::ilm::now_ms() + 31 * DAY_MS)
+        .await;
+    assert_eq!(
+        report.deleted,
+        vec!["logs-upgraded".to_string()],
+        "{report:?}"
+    );
+
+    let (_, body) = send(&app, "GET", "/_ilm/status", "").await;
+    assert_eq!(
+        body["xerj"]["managed_indices"], 0,
+        "and a deleted index stops being counted: {body}"
+    );
+}

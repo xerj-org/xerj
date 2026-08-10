@@ -1452,7 +1452,7 @@ impl Default for SearchContextConfig {
 ///
 /// **2 settings.**
 ///
-/// Before v1.0.0-rc.13 `PUT /_ilm/policy/{name}` stored a policy and nothing
+/// Until issue #199's fix `PUT /_ilm/policy/{name}` stored a policy and nothing
 /// ever ran it: a retention policy was accepted, echoed back on GET, and
 /// ignored, so the index grew forever while the API reported success. These
 /// settings drive the executor that now applies the phases XERJ can actually
