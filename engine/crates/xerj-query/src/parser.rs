@@ -137,6 +137,86 @@ fn unknown_type<T>(name: impl Into<String>) -> Result<T> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Capability manifest — the single source of truth for "what queries exist"
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Issue #211: hand-maintained lists of supported query types drifted from the
+// dispatch table in `parse_query`, in both directions — docs advertised
+// `has_child`/`has_parent`, which are rejected with a 400, and omitted a dozen
+// types that do run. Every such list now derives from these two constants, and
+// `dispatch_table_matches_capability_manifest` (below) fails the build if a
+// `parse_query` arm is added or removed without updating them. Docs are checked
+// against the same constants by `xerj-engine/tests/docs_capability_lists.rs`.
+
+/// Every query-type name [`parse_query`] dispatches to a real implementation.
+///
+/// **Acceptance, not fidelity.** A name here means the parser builds a
+/// [`QueryNode`] the planner and executor will run; it is not a claim that the
+/// semantics match Elasticsearch in every corner. Per-type gaps are tracked in
+/// `ROADMAP.md`.
+pub const SUPPORTED_QUERY_TYPES: &[&str] = &[
+    "bool",
+    "boosting",
+    "combined_fields",
+    "constant_score",
+    "dis_max",
+    "distance_feature",
+    "exists",
+    "function_score",
+    "fuzzy",
+    "geo_bounding_box",
+    "geo_distance",
+    "geo_polygon",
+    "geo_shape",
+    "hybrid",
+    "ids",
+    "intervals",
+    "knn",
+    "match",
+    "match_all",
+    "match_bool_prefix",
+    "match_none",
+    "match_phrase",
+    "match_phrase_prefix",
+    "more_like_this",
+    "multi_match",
+    "nested",
+    "percolate",
+    "pinned",
+    "prefix",
+    "query_string",
+    "range",
+    "rank_feature",
+    "regexp",
+    "script",
+    "script_score",
+    "semantic",
+    "simple_query_string",
+    "span_containing",
+    "span_first",
+    "span_near",
+    "span_not",
+    "span_or",
+    "span_term",
+    "span_within",
+    "term",
+    "terms",
+    "terms_set",
+    "type",
+    "wildcard",
+    "wrapper",
+];
+
+/// Query-type names [`parse_query`] recognises and **deliberately rejects**
+/// with a 400.
+///
+/// These are listed separately rather than dropped so the rejection is a
+/// documented contract: an ES client sending `has_child` gets a specific
+/// "not supported, denormalize the relationship" message instead of the
+/// generic unknown-query-type error — and never gets silently wrong hits.
+pub const REJECTED_QUERY_TYPES: &[&str] = &["has_child", "has_parent"];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Public entry points
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -536,7 +616,7 @@ fn parse_match_phrase(params: &Value) -> Result<QueryNode> {
         .get("query")
         .and_then(scalar_to_string)
         .ok_or_else(|| qerr("`match_phrase.query` must be a non-empty scalar"))?;
-    let slop = vobj.get("slop").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let slop = parse_phrase_slop(vobj.get("slop"), "match_phrase")?;
     let analyzer = vobj
         .get("analyzer")
         .and_then(|v| v.as_str())
@@ -556,6 +636,100 @@ fn parse_match_phrase(params: &Value) -> Result<QueryNode> {
     };
     Ok(maybe_named(node, name))
 }
+
+/// Coerce a JSON scalar to an integer the way ES's `XContentParser.intValue()`
+/// does under its default number policy (`DEFAULT_NUMBER_COERCE_POLICY = true`):
+/// an integer is taken as written, a **float is truncated** toward zero, and a
+/// numeric **string** is read as a double and then narrowed
+/// (`libs/x-content/src/main/java/org/elasticsearch/xcontent/support/AbstractXContentParser.java`:
+/// `:70` — "the 3rd party parsers we rely on are known to silently truncate
+/// fractions", guarding `ensureNumberConversion` at `:74`, which only raises
+/// when `coerce == false`; `:171` `intValue(coerce)`, whose `VALUE_STRING`
+/// arm calls `:162` `parseInt`, itself a `Double.parseDouble` narrowed with
+/// `(int)`; AGPL, read for semantics only, nothing copied).
+///
+/// Why it exists: JSON encoders that carry every number as a double emit
+/// `"slop": 2.0`, and ES answers that query with slop 2. Reading it with
+/// `as_i64()` alone leaves two bad options — a 400 on a request ES answers, or
+/// a silent fall back to the default, which is the accept-and-ignore (#204)
+/// this parser exists to remove.
+///
+/// The `as i64` cast saturates on an out-of-range float, so an absurd value
+/// lands on the bound and the caller's range check turns it into a 400 rather
+/// than a wrapped, silently honoured small number.
+fn coerce_es_int(v: &Value) -> Option<i64> {
+    if let Some(n) = v.as_i64() {
+        return Some(n);
+    }
+    let d = match v {
+        Value::Number(_) => v.as_f64()?,
+        Value::String(s) => s.trim().parse::<f64>().ok()?,
+        _ => return None,
+    };
+    d.is_finite().then(|| d.trunc() as i64)
+}
+
+/// Parse the `slop` parameter of a phrase-shaped query, identically at each of
+/// the three entry points that accept one and lower it to a phrase:
+/// `match_phrase`, `match_phrase_prefix`, `multi_match`.  Sharing it is the
+/// point: the same JSON value must produce the same answer whichever of those
+/// three wraps it, or a client gets a 400 from one spelling and a silently
+/// different answer from the semantically identical other.
+///
+/// Deliberately **not** covered: `span_near`, which also takes a `slop` and
+/// keeps its own `as_u64().unwrap_or(0)` read (see `parse_span_near`).  ES
+/// applies no validation there either — `SpanNearQueryBuilder` stores the int
+/// unchecked (`.../index/query/SpanNearQueryBuilder.java:62`), so a negative
+/// `span_near` slop is a query ES *answers*, and routing it through here would
+/// turn a 200 into a 400.  XERJ still coerces it to 0 instead of honouring it,
+/// which is a real (pre-existing) gap — recorded in `parse_span_near`, not
+/// papered over here.
+///
+/// ES rejects a negative slop from all three phrase builders
+/// (`MatchPhraseQueryBuilder.slop` / `MatchPhrasePrefixQueryBuilder.slop:103`
+/// / `MultiMatchQueryBuilder.slop:350` all throw "No negative slop allowed";
+/// AGPL, read for semantics only).  `u32::try_from` rather than `as u32`
+/// because a wrapping cast turns an out-of-range slop into a small honoured
+/// one — a silently wrong answer, which is worse than a 400.
+fn parse_phrase_slop(v: Option<&Value>, ctx: &str) -> Result<u32> {
+    match v {
+        None | Some(Value::Null) => Ok(0),
+        Some(v) => match coerce_es_int(v) {
+            Some(n) if n < 0 => invalid(format!("`{ctx}.slop` must not be negative")),
+            Some(n) => u32::try_from(n).map_err(|_| qerr(format!("`{ctx}.slop` is out of range"))),
+            None => invalid(format!("`{ctx}.slop` must be a number")),
+        },
+    }
+}
+
+/// Parse `max_expansions`, with the same refusal-to-ignore as
+/// [`parse_phrase_slop`]: a value XERJ cannot read is a 400, never a silent
+/// fall back to the default of 50.
+///
+/// The floor differs between the two entry points, and that asymmetry is ES's
+/// rather than an oversight here: `MultiMatchQueryBuilder.maxExpansions`
+/// throws on `<= 0` (`.../index/query/MultiMatchQueryBuilder.java:389`) while
+/// `MatchPhrasePrefixQueryBuilder.maxExpansions` throws only on `< 0`
+/// (`.../index/query/MatchPhrasePrefixQueryBuilder.java:118`, "No negative
+/// maxExpansions allowed").  So `0` is a 400 on `multi_match` and an accepted
+/// (expand-nothing) value on `match_phrase_prefix`; `allow_zero` carries that
+/// distinction instead of us inventing one ES does not have.
+fn parse_max_expansions(v: Option<&Value>, ctx: &str, allow_zero: bool) -> Result<u32> {
+    match v {
+        None | Some(Value::Null) => Ok(DEFAULT_MAX_EXPANSIONS),
+        Some(v) => match coerce_es_int(v) {
+            Some(n) if n < 0 => invalid(format!("`{ctx}.max_expansions` must not be negative")),
+            Some(0) if !allow_zero => invalid(format!("`{ctx}.max_expansions` must be positive")),
+            Some(n) => u32::try_from(n)
+                .map_err(|_| qerr(format!("`{ctx}.max_expansions` is out of range"))),
+            None => invalid(format!("`{ctx}.max_expansions` must be a number")),
+        },
+    }
+}
+
+/// ES's `FuzzyQuery.defaultMaxExpansions`, which both phrase-prefix builders
+/// default to.
+const DEFAULT_MAX_EXPANSIONS: u32 = 50;
 
 /// ES `combined_fields` query — introduced in 7.13, treats N text fields as a
 /// single virtual field for term-frequency scoring. Our approximation routes
@@ -601,6 +775,45 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         .get("type")
         .and_then(|v| v.as_str())
         .unwrap_or("best_fields");
+
+    // `slop` / `max_expansions` are the phrase parameters of `multi_match`.
+    // They used to be dropped here, so `{"type":"phrase","slop":2}` was
+    // accepted and silently evaluated as slop 0 (issue #230) — parse them
+    // and reject the values ES rejects instead of quietly mis-answering.
+    // ES: negative slop and non-positive max_expansions are 400s, and
+    // `slop` is not allowed with `type: bool_prefix`.
+    let slop: u32 = parse_phrase_slop(obj.get("slop"), "multi_match")?;
+    let max_expansions: u32 =
+        parse_max_expansions(obj.get("max_expansions"), "multi_match", false)?;
+    if slop != 0 && type_str == "bool_prefix" {
+        // ES's own wording — `310_match_bool_prefix.yml` catches this exact
+        // regex. The suite's runner only checks that the call is allowed to
+        // fail, so this arm passed while XERJ silently ignored `slop`.
+        return invalid("[slop] not allowed for type [bool_prefix]");
+    }
+    // `slop` with `type: phrase_prefix` is ACCEPTED and HONOURED, because ES
+    // honours it: `MultiMatchQueryBuilder` rejects slop only for
+    // `bool_prefix` (…/index/query/MultiMatchQueryBuilder.java:673) and
+    // `TextFieldMapper.createPhrasePrefixQuery` calls
+    // `MultiPhrasePrefixQuery.setSlop(slop)` (…/index/mapper/
+    // TextFieldMapper.java:2019, `setSlop` at :2028, reached from the
+    // `phrasePrefixQuery` entry at :1269 — AGPL, read for semantics only).
+    // Both XERJ
+    // evaluators now carry it: `PhrasePrefixQuery.slop` on the segment side
+    // and the sloppy prefix walk in the stored-doc scan. Refusing it here
+    // would have been a wire-compat break on a query ES answers, and would
+    // have left the semantically identical single-field
+    // `{"match_phrase_prefix": {"f": {"query": …, "slop": N}}}` — which
+    // `parse_match_phrase_prefix` accepts — answering a different query.
+    //
+    // `slop` on the FIELD-CENTRIC types (best_fields / most_fields /
+    // cross_fields) is accepted and unused, which is also what ES does:
+    // those types lower to a BOOLEAN match query, and only the PHRASE and
+    // PHRASE_PREFIX types lower to a phrase query that reads slop
+    // (`MultiMatchQueryBuilder.Type`, elasticsearch/server/src/main/java/
+    // org/elasticsearch/index/query/MultiMatchQueryBuilder.java:91 — AGPL,
+    // read for semantics only). Same answer as ES, so there is nothing to
+    // fail loudly about.
 
     // bool_prefix: rewrite to a Bool::should over per-field match_bool_prefix
     // clauses. Tokens except the last become Match queries, the last becomes
@@ -767,6 +980,8 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         operator,
         analyzer,
         boost,
+        slop,
+        max_expansions,
     })
 }
 
@@ -1173,10 +1388,28 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
             MAX_QUERY_STRING_LEN
         )));
     }
-    let default_field = obj
+    let mut default_field = obj
         .get("default_field")
         .and_then(|v| v.as_str())
         .map(str::to_string);
+    // `fields` was accepted and ignored: the key never reached this parser, so
+    // `query_string {"query":"x","fields":["title"]}` searched every field —
+    // and, once `index: false` became a real rejection, disagreed with
+    // `{"default_field":"title"}`, which is the same request written the other
+    // way. It is now read and used, the way `simple_query_string` already used
+    // its own `fields` list: an unqualified clause is searched over exactly
+    // these fields (a `^boost` suffix is honoured), while a `field:value`
+    // clause inside the string keeps naming its own field, as in ES.
+    let fields: Vec<String> = obj
+        .get("fields")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
     let default_operator = parse_bool_operator(obj.get("default_operator")).ok();
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
@@ -1185,9 +1418,14 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
     // QueryString node if lowering isn't possible (the FTS path still
     // tokenizes it) — but malformed range syntax is a hard parse error,
     // never a silent term-match fallback.
-    if let Some(lowered) =
-        try_lower_query_string(&query, default_field.as_deref(), default_operator)?
-    {
+    if let Some(lowered) = try_lower_query_string(
+        &query,
+        QsFields {
+            default_field: default_field.as_deref(),
+            fields: &fields,
+        },
+        default_operator,
+    )? {
         return Ok(match boost {
             Some(b) if b != 1.0 => QueryNode::Boosted {
                 boost: b,
@@ -1195,6 +1433,16 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
             },
             _ => lowered,
         });
+    }
+
+    // Lowering declined (a string this tokenizer cannot handle, e.g. an
+    // unterminated quote): the opaque node hands the whole string to the FTS
+    // path. A one-element `fields` list means exactly what `default_field`
+    // means, so it is carried across rather than dropped. A multi-element list
+    // has no representation on this node — that residue is stated as a known
+    // gap in the CHANGELOG rather than papered over.
+    if default_field.is_none() && fields.len() == 1 {
+        default_field = Some(qs_split_boost(&fields[0]).0);
     }
 
     Ok(QueryNode::QueryString {
@@ -1205,11 +1453,89 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
     })
 }
 
+/// Split a `fields` entry into its field name and optional `^boost`.
+///
+/// `"title^3"` → `("title", Some(3.0))`, `"title"` → `("title", None)`. A
+/// malformed suffix (`"title^x"`) keeps the whole spec as the name, which is
+/// what ES's field-spec parser does with an unparseable boost.
+fn qs_split_boost(spec: &str) -> (String, Option<f32>) {
+    match spec.rsplit_once('^') {
+        Some((name, b)) if !name.is_empty() => match b.parse::<f32>() {
+            Ok(b) if b.is_finite() => (name.to_string(), Some(b)),
+            _ => (spec.to_string(), None),
+        },
+        _ => (spec.to_string(), None),
+    }
+}
+
+/// Where a clause that named no field of its own is searched.
+///
+/// `query_string` has two ways to say this and ES treats them as the same
+/// thing: `default_field` (one field) and `fields` (a list, `^boost` allowed).
+/// An empty `fields` with no `default_field` keeps the historical `"*"`
+/// placeholder, which downstream means the field-less scan.
+#[derive(Clone, Copy)]
+struct QsFields<'a> {
+    default_field: Option<&'a str>,
+    fields: &'a [String],
+}
+
+impl QsFields<'_> {
+    /// The (field, boost) targets for an unqualified clause.
+    fn targets(&self) -> Vec<(String, Option<f32>)> {
+        if self.fields.is_empty() {
+            return vec![(self.default_field.unwrap_or("*").to_string(), None)];
+        }
+        self.fields.iter().map(|s| qs_split_boost(s)).collect()
+    }
+
+    /// Whether an unqualified *range* has a concrete field to land on. A
+    /// range needs one real field name; `"*"` is not one.
+    fn has_concrete_target(&self) -> bool {
+        if self.fields.is_empty() {
+            return matches!(self.default_field, Some(df) if !df.is_empty() && df != "*");
+        }
+        self.fields
+            .iter()
+            .any(|s| !s.is_empty() && !qs_split_boost(s).0.contains('*'))
+    }
+}
+
+/// The (field, boost) targets one query-string clause resolves to.
+///
+/// `explicit` is the `field:` prefix the clause carried, if any: ES keeps an
+/// explicitly named field whatever `fields` / `default_field` say, and only an
+/// unqualified clause fans out over them.
+fn qs_targets(explicit: &str, ctx: QsFields<'_>) -> Vec<(String, Option<f32>)> {
+    if explicit.is_empty() {
+        ctx.targets()
+    } else {
+        vec![(explicit.to_string(), None)]
+    }
+}
+
+/// Combine the per-field copies of one unqualified clause.
+///
+/// One target stays a bare leaf (the shape every existing query_string test
+/// pins); several become a `dis_max`, which is how ES combines a
+/// `query_string` over multiple fields — best field wins, no tie-breaker.
+fn qs_combine(mut nodes: Vec<QueryNode>) -> Option<QueryNode> {
+    match nodes.len() {
+        0 => None,
+        1 => nodes.pop(),
+        _ => Some(QueryNode::DisMax {
+            queries: nodes,
+            tie_breaker: 0.0,
+        }),
+    }
+}
+
 /// Lower a Lucene-style query string into a QueryNode::Bool tree.
 ///
 /// Supports:
 ///  - `field:value` → Match on that field
-///  - `value` → Match on default_field (if provided) else MultiMatch on all
+///  - `value` → Match on `default_field` / each entry of `fields` (a `dis_max`
+///    when there is more than one), else the `"*"` field-less placeholder
 ///  - `A OR B` → Bool.should
 ///  - `A AND B` → Bool.must
 ///  - `+A` must, `-A` must_not
@@ -1224,7 +1550,7 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
 /// ranges must never silently degrade to a term match.
 fn try_lower_query_string(
     q: &str,
-    default_field: Option<&str>,
+    ctx: QsFields<'_>,
     default_op: Option<BoolOperator>,
 ) -> Result<Option<QueryNode>> {
     let Some(tokens) = tokenize_query_string(q)? else {
@@ -1234,14 +1560,13 @@ fn try_lower_query_string(
         return Ok(None);
     }
     // Range clauses must target a concrete field: resolve unqualified
-    // ranges against default_field up-front so `>10` with no usable
-    // default errors instead of degrading to a term match.
+    // ranges against default_field / fields up-front so `>10` with no usable
+    // target errors instead of degrading to a term match.
     let mut has_range = false;
     for t in &tokens {
         if let QsTok::Range { field, .. } = t {
             has_range = true;
-            if field.is_empty() && !matches!(default_field, Some(df) if !df.is_empty() && df != "*")
-            {
+            if field.is_empty() && !ctx.has_concrete_target() {
                 return Err(qerr(
                     "query_string range requires an explicit field (e.g. `price:>10`) or a non-wildcard default_field",
                 ));
@@ -1249,7 +1574,7 @@ fn try_lower_query_string(
         }
     }
     let mut pos = 0;
-    let parsed = parse_qs_or(&tokens, &mut pos, default_field, default_op);
+    let parsed = parse_qs_or(&tokens, &mut pos, ctx, default_op);
     match parsed {
         Some(node) if pos == tokens.len() => Ok(Some(node)),
         _ if has_range => Err(qerr(format!(
@@ -1584,14 +1909,14 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
 fn parse_qs_or(
     toks: &[QsTok],
     pos: &mut usize,
-    default_field: Option<&str>,
+    ctx: QsFields<'_>,
     default_op: Option<BoolOperator>,
 ) -> Option<QueryNode> {
-    let mut left = parse_qs_and(toks, pos, default_field, default_op)?;
+    let mut left = parse_qs_and(toks, pos, ctx, default_op)?;
     // `A OR B` — explicit OR operator.
     while *pos < toks.len() && matches!(toks[*pos], QsTok::Or) {
         *pos += 1;
-        let right = parse_qs_and(toks, pos, default_field, default_op)?;
+        let right = parse_qs_and(toks, pos, ctx, default_op)?;
         left = QueryNode::Bool {
             must: vec![],
             must_not: vec![],
@@ -1607,7 +1932,7 @@ fn parse_qs_or(
     let implicit_or = matches!(default_op, None | Some(BoolOperator::Or));
     if implicit_or {
         while *pos < toks.len() && !matches!(toks[*pos], QsTok::RParen | QsTok::Or | QsTok::And) {
-            let right = parse_qs_and(toks, pos, default_field, default_op)?;
+            let right = parse_qs_and(toks, pos, ctx, default_op)?;
             left = QueryNode::Bool {
                 must: vec![],
                 must_not: vec![],
@@ -1623,7 +1948,7 @@ fn parse_qs_or(
 fn parse_qs_and(
     toks: &[QsTok],
     pos: &mut usize,
-    default_field: Option<&str>,
+    ctx: QsFields<'_>,
     default_op: Option<BoolOperator>,
 ) -> Option<QueryNode> {
     let mut clauses: Vec<QueryNode> = Vec::new();
@@ -1644,7 +1969,7 @@ fn parse_qs_and(
                 _ => break,
             }
         }
-        let node = parse_qs_unary(toks, pos, default_field)?;
+        let node = parse_qs_unary(toks, pos, ctx)?;
         if force_not {
             not_clauses.push(node);
         } else {
@@ -1694,11 +2019,7 @@ fn parse_qs_and(
     Some(node)
 }
 
-fn parse_qs_unary(
-    toks: &[QsTok],
-    pos: &mut usize,
-    default_field: Option<&str>,
-) -> Option<QueryNode> {
+fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<QueryNode> {
     if *pos >= toks.len() {
         return None;
     }
@@ -1716,7 +2037,7 @@ fn parse_qs_unary(
             // opaque `QueryNode::QueryString` path (iterative tokenizer, no
             // recursion). The guard decrements on drop when this arm returns.
             let _depth_guard = DepthGuard::enter().ok()?;
-            let n = parse_qs_or(toks, pos, default_field, None)?;
+            let n = parse_qs_or(toks, pos, ctx, None)?;
             if *pos >= toks.len() || !matches!(toks[*pos], QsTok::RParen) {
                 return None;
             }
@@ -1725,11 +2046,10 @@ fn parse_qs_unary(
         }
         QsTok::Term(field, value) => {
             *pos += 1;
-            let f = if field.is_empty() {
-                default_field.unwrap_or("*").to_string()
-            } else {
-                field
-            };
+            // A clause that named its own field keeps it; one that did not is
+            // searched over every target `default_field` / `fields` supplies,
+            // combined by `qs_combine`.
+            let targets = qs_targets(&field, ctx);
             // A bare term containing `*` or `?` is a Lucene wildcard —
             // emit a Wildcard query so `q=shor*` / `q=te?t` match text
             // tokens with the expected substitution semantics.
@@ -1750,36 +2070,47 @@ fn parse_qs_unary(
                 // `model:claude-* AND status:ok` → 1.0 + BM25(status:ok).
                 // `constant_score: true` also admits the keyword shape to
                 // the columnar Filtered plan (seq-ascending → ES tie order).
-                return Some(QueryNode::Wildcard {
-                    field: f,
-                    value: value.to_lowercase(),
-                    boost: None,
-                    constant_score: true,
-                });
+                let lowered = value.to_lowercase();
+                return qs_combine(
+                    targets
+                        .into_iter()
+                        .map(|(f, boost)| QueryNode::Wildcard {
+                            field: f,
+                            value: lowered.clone(),
+                            boost,
+                            constant_score: true,
+                        })
+                        .collect(),
+                );
             }
-            Some(QueryNode::Match {
-                field: f,
-                query: value,
-                operator: BoolOperator::Or,
-                analyzer: None,
-                boost: None,
-                minimum_should_match: None,
-            })
+            qs_combine(
+                targets
+                    .into_iter()
+                    .map(|(f, boost)| QueryNode::Match {
+                        field: f,
+                        query: value.clone(),
+                        operator: BoolOperator::Or,
+                        analyzer: None,
+                        boost,
+                        minimum_should_match: None,
+                    })
+                    .collect(),
+            )
         }
         QsTok::Phrase(field, value) => {
             *pos += 1;
-            let f = if field.is_empty() {
-                default_field.unwrap_or("*").to_string()
-            } else {
-                field
-            };
-            Some(QueryNode::MatchPhrase {
-                field: f,
-                query: value,
-                slop: 0,
-                analyzer: None,
-                boost: None,
-            })
+            qs_combine(
+                qs_targets(&field, ctx)
+                    .into_iter()
+                    .map(|(f, boost)| QueryNode::MatchPhrase {
+                        field: f,
+                        query: value.clone(),
+                        slop: 0,
+                        analyzer: None,
+                        boost,
+                    })
+                    .collect(),
+            )
         }
         QsTok::Range {
             field,
@@ -1789,21 +2120,27 @@ fn parse_qs_unary(
             lte,
         } => {
             *pos += 1;
-            // Unqualified ranges with no usable default_field were already
-            // rejected in try_lower_query_string.
-            let f = if field.is_empty() {
-                default_field.unwrap_or("*").to_string()
-            } else {
-                field
-            };
-            Some(QueryNode::Range {
-                field: f,
-                gte,
-                gt,
-                lte,
-                lt,
-                boost: None,
-            })
+            // Unqualified ranges with no usable target were already rejected
+            // in try_lower_query_string. A pattern entry in `fields` has no
+            // meaning for a range, so those targets are dropped here rather
+            // than turned into a `Range` on the literal field name `"*"`.
+            let targets: Vec<(String, Option<f32>)> = qs_targets(&field, ctx)
+                .into_iter()
+                .filter(|(f, _)| !field.is_empty() || !f.contains('*'))
+                .collect();
+            qs_combine(
+                targets
+                    .into_iter()
+                    .map(|(f, boost)| QueryNode::Range {
+                        field: f,
+                        gte: gte.clone(),
+                        gt: gt.clone(),
+                        lte: lte.clone(),
+                        lt: lt.clone(),
+                        boost,
+                    })
+                    .collect(),
+            )
         }
         _ => None,
     }
@@ -1914,6 +2251,7 @@ fn parse_match_phrase_prefix(params: &Value) -> Result<QueryNode> {
             field,
             query,
             max_expansions: 50,
+            slop: 0,
         });
     }
 
@@ -1929,15 +2267,32 @@ fn parse_match_phrase_prefix(params: &Value) -> Result<QueryNode> {
         .get("query")
         .and_then(scalar_to_string)
         .ok_or_else(|| qerr("`match_phrase_prefix.query` must be a non-empty scalar"))?;
-    let max_expansions = inner
-        .get("max_expansions")
-        .and_then(Value::as_u64)
-        .unwrap_or(50) as u32;
+    // `max_expansions` used to be read with `as_u64().unwrap_or(50)`, so
+    // `-1`, `"7"` and `7.0` all silently became 50 — the same accept-and-ignore
+    // (#204) as the dropped `slop` below, one line apart. It is now the shared
+    // parse: a value we cannot read is a 400, and `0` stays accepted because
+    // ES accepts it *here* (it rejects it on `multi_match`; the asymmetry is
+    // ES's own, see `parse_max_expansions`).
+    let max_expansions = parse_max_expansions(
+        inner.get("max_expansions"),
+        "match_phrase_prefix",
+        /* allow_zero */ true,
+    )?;
+    // `slop` used to be read nowhere here, so
+    // `{"match_phrase_prefix": {"f": {"query": …, "slop": 2}}}` was accepted
+    // and answered as slop 0 — accept-and-ignore (#204 class), and a silent
+    // disagreement with the `multi_match` form of the same query. ES parses
+    // and honours it (`MatchPhrasePrefixQueryBuilder.fromXContent` →
+    // `MatchQueryParser.setPhraseSlop`), and both XERJ evaluators now carry
+    // it: `PhrasePrefixQuery.slop` on segments, the sloppy prefix walk in
+    // the stored-doc scan.
+    let slop = parse_phrase_slop(inner.get("slop"), "match_phrase_prefix")?;
 
     Ok(QueryNode::MatchPhrasePrefix {
         field,
         query,
         max_expansions,
+        slop,
     })
 }
 
@@ -2063,6 +2418,8 @@ fn make_simple_query_node(term: &str, fields: &[String]) -> QueryNode {
             operator: None,
             analyzer: None,
             boost: None,
+            slop: 0,
+            max_expansions: 50,
         }
     }
 }
@@ -3376,6 +3733,20 @@ fn parse_span_near(params: &Value) -> Result<QueryNode> {
         return Ok(QueryNode::MatchNone);
     }
 
+    // KNOWN GAP (pre-existing, deliberately not changed by #230): this read
+    // accepts anything and silently substitutes 0 — `slop: -1`, `slop: 2.0`
+    // and `slop: "2"` all answer as slop 0. It is NOT routed through
+    // `parse_phrase_slop`, and the phrase work in #230 does not cover it.
+    //
+    // It is left alone rather than "fixed" because ES applies no validation
+    // here either: `SpanNearQueryBuilder` takes the int unchecked
+    // (`.../index/query/SpanNearQueryBuilder.java:62`, no negative test)
+    // while every phrase builder throws on a negative slop. So a negative
+    // `span_near` slop is a query ES answers, and rejecting it would be a
+    // wire-compat break on a request that works today. Closing it properly
+    // means honouring the value (float coercion via `coerce_es_int`, and a
+    // decision about what a negative span slop should match), which is a
+    // span-query change, not a phrase one.
     let slop = obj.get("slop").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     let in_order = obj
         .get("in_order")
@@ -4349,6 +4720,161 @@ mod tests {
         ));
     }
 
+    /// #230 — `slop` and `max_expansions` are phrase parameters of
+    /// `multi_match`. They used to be dropped here, so `{"type":"phrase",
+    /// "slop":2}` was accepted and silently answered as an exact phrase.
+    #[test]
+    fn test_multi_match_phrase_params_are_parsed() {
+        let node = q(json!({
+            "multi_match": {
+                "query": "quick fox", "fields": ["body"],
+                "type": "phrase", "slop": 3
+            }
+        }));
+        assert!(matches!(
+            node,
+            QueryNode::MultiMatch {
+                match_type: MultiMatchType::Phrase,
+                slop: 3,
+                max_expansions: 50,
+                ..
+            }
+        ));
+
+        let node = q(json!({
+            "multi_match": {
+                "query": "quick fo", "fields": ["body"],
+                "type": "phrase_prefix", "max_expansions": 7
+            }
+        }));
+        assert!(matches!(
+            node,
+            QueryNode::MultiMatch {
+                match_type: MultiMatchType::PhrasePrefix,
+                slop: 0,
+                max_expansions: 7,
+                ..
+            }
+        ));
+    }
+
+    /// Values ES rejects must be rejected here too, not silently coerced.
+    #[test]
+    fn test_multi_match_phrase_params_are_validated() {
+        for bad in [
+            json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                   "type": "phrase", "slop": -1}}),
+            json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                   "type": "phrase", "slop": 4294967296i64}}),
+            json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                   "type": "phrase_prefix", "max_expansions": 0}}),
+            // ES rejects slop for bool_prefix ONLY
+            // (MultiMatchQueryBuilder.java:673).
+            json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                   "type": "bool_prefix", "slop": 2}}),
+            // The same values are rejected on the single-field phrase
+            // entry points — one JSON value, one answer, whichever query
+            // wraps it.
+            json!({"match_phrase": {"body": {"query": "a b", "slop": -1}}}),
+            json!({"match_phrase_prefix": {"body": {"query": "a b", "slop": -1}}}),
+            json!({"match_phrase_prefix": {"body": {"query": "a b", "slop": 4294967296i64}}}),
+            // `max_expansions` used to be read here as
+            // `as_u64().unwrap_or(50)`, so both of these were accepted and
+            // silently answered with 50 (#204 class).  ES throws "No negative
+            // maxExpansions allowed" (MatchPhrasePrefixQueryBuilder.java:118).
+            json!({"match_phrase_prefix": {"body": {"query": "a b", "max_expansions": -1}}}),
+            json!({"match_phrase_prefix": {"body": {"query": "a b", "max_expansions": "many"}}}),
+            json!({"match_phrase": {"body": {"query": "a b", "slop": "two"}}}),
+        ] {
+            assert!(
+                parse_query(&bad).is_err(),
+                "expected a parse error for {bad}"
+            );
+        }
+    }
+
+    /// Values ES *accepts by coercing* must be accepted here too. ES reads
+    /// `slop` and `max_expansions` with `XContentParser.intValue()` under the
+    /// default coercing policy, which truncates a float token and narrows a
+    /// numeric string (`AbstractXContentParser.java:171` `intValue(coerce)`,
+    /// `:162` `parseInt`, `:70`), so
+    /// `{"slop": 2.0}` is a request ES answers with slop 2. Refusing it would
+    /// be a new 400 on a query that works today, and reading it as 0 would be
+    /// the accept-and-ignore this parser exists to remove — both are wrong.
+    #[test]
+    fn test_phrase_params_are_coerced_like_es() {
+        for (v, want) in [(json!(2.0), 2u32), (json!(2.9), 2), (json!("2"), 2)] {
+            let node = q(json!({"match_phrase": {"body": {"query": "a b", "slop": v}}}));
+            assert!(
+                matches!(node, QueryNode::MatchPhrase { slop, .. } if slop == want),
+                "slop {v} must coerce to {want}, parsed to {node:?}"
+            );
+            let node = q(json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                                "type": "phrase", "slop": v}}));
+            assert!(
+                matches!(node, QueryNode::MultiMatch { slop, .. } if slop == want),
+                "multi_match slop {v} must coerce to {want}, parsed to {node:?}"
+            );
+        }
+
+        // `max_expansions: 0` is a 400 on `multi_match`
+        // (MultiMatchQueryBuilder.java:389 rejects `<= 0`) and ACCEPTED on
+        // `match_phrase_prefix` (MatchPhrasePrefixQueryBuilder.java:118
+        // rejects only `< 0`). The asymmetry is ES's; XERJ mirrors it rather
+        // than inventing a rule ES does not have.
+        let node = q(json!({"match_phrase_prefix": {"body": {"query": "a b",
+                                                             "max_expansions": 0}}}));
+        assert!(
+            matches!(node, QueryNode::MatchPhrasePrefix { max_expansions, .. }
+                     if max_expansions == 0),
+            "ES accepts max_expansions 0 on match_phrase_prefix, parsed to {node:?}"
+        );
+        assert!(
+            parse_query(&json!({"multi_match": {"query": "a b", "fields": ["body"],
+                                                "type": "phrase_prefix",
+                                                "max_expansions": 0}}))
+            .is_err(),
+            "ES rejects max_expansions 0 on multi_match"
+        );
+    }
+
+    /// `slop` + `type: phrase_prefix` is ACCEPTED and carried, at BOTH
+    /// entry points. ES honours it (`MultiMatchQueryBuilder` rejects slop
+    /// only for `bool_prefix`; `TextFieldMapper.createPhrasePrefixQuery`
+    /// calls `MultiPhrasePrefixQuery.setSlop`), so refusing it would be a
+    /// wire-compat break — and dropping it, as `parse_match_phrase_prefix`
+    /// used to, is the accept-and-ignore defect class of #204.
+    #[test]
+    fn test_phrase_prefix_slop_is_carried_at_both_entry_points() {
+        let node = q(json!({
+            "multi_match": {"query": "quick fo", "fields": ["body"],
+                            "type": "phrase_prefix", "slop": 2}
+        }));
+        assert!(
+            matches!(
+                node,
+                QueryNode::MultiMatch {
+                    match_type: MultiMatchType::PhrasePrefix,
+                    slop: 2,
+                    ..
+                }
+            ),
+            "multi_match phrase_prefix must carry slop, got {node:?}"
+        );
+
+        let node = q(json!({
+            "match_phrase_prefix": {"body": {"query": "quick fo", "slop": 2}}
+        }));
+        assert!(
+            matches!(node, QueryNode::MatchPhrasePrefix { slop: 2, .. }),
+            "match_phrase_prefix must carry slop, got {node:?}"
+        );
+
+        // Absent slop is 0 at both entry points.
+        let node = q(json!({"match_phrase_prefix": {"body": "quick fo"}}));
+        assert!(matches!(node, QueryNode::MatchPhrasePrefix { slop: 0, .. }));
+    }
+
     // ── term ──────────────────────────────────────────────────────────────────
 
     #[test]
@@ -4729,6 +5255,70 @@ mod tests {
         let (field, _, _, _, lte) = expect_range(qs("n:<=5"));
         assert_eq!(field, "n");
         assert_eq!(lte, Some(json!(5)));
+    }
+
+    /// `query_string`'s `fields` was accepted and ignored — the key never
+    /// reached this parser, so the query ran over every field regardless. It
+    /// now selects the targets for an unqualified clause, the same way
+    /// `simple_query_string`'s `fields` already did.
+    #[test]
+    fn test_query_string_fields_select_the_unqualified_targets() {
+        // One field is exactly `default_field`.
+        match q(json!({"query_string": {"query": "hello", "fields": ["title"]}})) {
+            QueryNode::Match { field, query, .. } => {
+                assert_eq!(field, "title");
+                assert_eq!(query, "hello");
+            }
+            other => panic!("expected Match on title, got {other:?}"),
+        }
+
+        // Several become a dis_max over one leaf per field, and `^boost` on a
+        // spec lands on that leaf.
+        match q(json!({"query_string": {"query": "hello", "fields": ["title^3", "body"]}})) {
+            QueryNode::DisMax { queries, .. } => {
+                assert_eq!(queries.len(), 2);
+                match &queries[0] {
+                    QueryNode::Match { field, boost, .. } => {
+                        assert_eq!(field, "title");
+                        assert_eq!(*boost, Some(3.0));
+                    }
+                    other => panic!("expected boosted Match on title, got {other:?}"),
+                }
+                match &queries[1] {
+                    QueryNode::Match { field, boost, .. } => {
+                        assert_eq!(field, "body");
+                        assert_eq!(*boost, None);
+                    }
+                    other => panic!("expected Match on body, got {other:?}"),
+                }
+            }
+            other => panic!("expected DisMax, got {other:?}"),
+        }
+
+        // A clause that names its own field keeps it: `fields` only supplies
+        // the target for clauses that named none, as in ES.
+        match q(json!({"query_string": {"query": "body:hello", "fields": ["title"]}})) {
+            QueryNode::Match { field, .. } => assert_eq!(field, "body"),
+            other => panic!("expected Match on body, got {other:?}"),
+        }
+
+        // With no `fields` and no `default_field` nothing changes: the
+        // field-less `"*"` placeholder is still what an unqualified clause
+        // resolves to.
+        match qs("hello") {
+            QueryNode::Match { field, .. } => assert_eq!(field, "*"),
+            other => panic!("expected Match on *, got {other:?}"),
+        }
+
+        // An unqualified range now resolves against `fields` too, instead of
+        // erroring for want of a `default_field`.
+        match q(json!({"query_string": {"query": ">10", "fields": ["n"]}})) {
+            QueryNode::Range { field, gt, .. } => {
+                assert_eq!(field, "n");
+                assert_eq!(gt, Some(json!(10)));
+            }
+            other => panic!("expected Range on n, got {other:?}"),
+        }
     }
 
     #[test]
@@ -5456,6 +6046,161 @@ mod tests {
         ] {
             let err = parse_query(&query).expect_err("an over-wide clause list must be refused");
             assert!(err.to_string().contains("too_many_clauses"), "got {err}");
+        }
+    }
+
+    // ── Capability manifest (issue #211) ─────────────────────────────────────
+
+    /// Names in `parse_query`'s dispatch table, read out of this file's own
+    /// source at compile time.
+    ///
+    /// A pattern line is one whose text before `=>` is nothing but quoted
+    /// string literals, `|` and whitespace — which is true of every match arm
+    /// head and of no arm body, so no marker comments are needed and nothing
+    /// has to be kept in sync by hand. The scan is bounded by the `match` head
+    /// and the catch-all arm that closes it.
+    fn dispatch_table_names() -> Vec<String> {
+        const SRC: &str = include_str!("parser.rs");
+        const START: &str = "match query_type.as_str() {";
+        const END: &str = "unknown => unknown_type(unknown),";
+
+        let start = SRC.find(START).expect("parse_query dispatch head moved") + START.len();
+        let end = SRC[start..]
+            .find(END)
+            .expect("parse_query catch-all arm moved")
+            + start;
+
+        let mut names = Vec::new();
+        for line in SRC[start..end].lines() {
+            let code = line.split("//").next().unwrap_or("");
+            let head = code.split("=>").next().unwrap_or("");
+            if !head.contains('"') {
+                continue;
+            }
+            // Everything that is not a string literal must be `|`/whitespace,
+            // otherwise this is an arm body that merely mentions a literal.
+            let mut literals = Vec::new();
+            let mut rest = String::new();
+            let mut in_str = false;
+            let mut current = String::new();
+            for ch in head.chars() {
+                match (ch, in_str) {
+                    ('"', false) => in_str = true,
+                    ('"', true) => {
+                        in_str = false;
+                        literals.push(std::mem::take(&mut current));
+                    }
+                    (c, true) => current.push(c),
+                    (c, false) => rest.push(c),
+                }
+            }
+            if in_str || rest.chars().any(|c| c != '|' && !c.is_whitespace()) {
+                continue;
+            }
+            names.extend(literals);
+        }
+        names
+    }
+
+    /// The drift guard. `SUPPORTED_QUERY_TYPES` + `REJECTED_QUERY_TYPES` must
+    /// be exactly the dispatch table — no more, no less.
+    ///
+    /// Without this, adding a `parse_query` arm leaves every published list
+    /// silently short (the pipeline-aggregation half of issue #211) and
+    /// deleting one leaves them advertising a query that 400s.
+    #[test]
+    fn dispatch_table_matches_capability_manifest() {
+        use std::collections::BTreeSet;
+
+        let dispatched: BTreeSet<String> = dispatch_table_names().into_iter().collect();
+        assert!(
+            dispatched.len() > 40,
+            "scraper found only {} arms — the dispatch table shape changed and the \
+             scan is silently under-reading it",
+            dispatched.len()
+        );
+
+        let supported: BTreeSet<String> = SUPPORTED_QUERY_TYPES
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let rejected: BTreeSet<String> =
+            REJECTED_QUERY_TYPES.iter().map(|s| s.to_string()).collect();
+        assert_eq!(
+            supported.len(),
+            SUPPORTED_QUERY_TYPES.len(),
+            "SUPPORTED_QUERY_TYPES contains duplicates"
+        );
+        assert!(
+            supported.is_disjoint(&rejected),
+            "a query type cannot be both supported and rejected: {:?}",
+            supported.intersection(&rejected).collect::<Vec<_>>()
+        );
+
+        let manifest: BTreeSet<String> = supported.union(&rejected).cloned().collect();
+        let missing: Vec<_> = dispatched.difference(&manifest).collect();
+        let extra: Vec<_> = manifest.difference(&dispatched).collect();
+        assert!(
+            missing.is_empty() && extra.is_empty(),
+            "capability manifest has drifted from parse_query's dispatch table.\n  \
+             dispatched but not in the manifest: {missing:?}\n  \
+             in the manifest but not dispatched: {extra:?}\n  \
+             Fix SUPPORTED_QUERY_TYPES / REJECTED_QUERY_TYPES in this file; the \
+             docs are checked against them by xerj-engine/tests/docs_capability_lists.rs."
+        );
+    }
+
+    /// Behavioural half: the manifest's two halves must actually behave the
+    /// way they are labelled — in **both** directions. A supported type must
+    /// neither answer `unknown query type` nor refuse with a `not supported`
+    /// message, and a rejected type must refuse with exactly that message.
+    /// Checking only the first of those let a recognised-and-refused type be
+    /// relabelled supported with the whole manifest suite green.
+    #[test]
+    fn manifest_labels_match_observed_behaviour() {
+        // `{ "<type>": {} }` — the minimal body that reaches the dispatch arm.
+        // Most arms then reject it for missing parameters; what matters here is
+        // only whether the *type* was recognised.
+        fn bare(name: &str) -> Value {
+            let mut obj = serde_json::Map::new();
+            obj.insert(name.to_string(), json!({}));
+            Value::Object(obj)
+        }
+
+        for name in SUPPORTED_QUERY_TYPES {
+            let err = parse_query(&bare(name)).err();
+            if let Some(QueryError::Parse(ParseError::UnknownQueryType(t))) = &err {
+                panic!(
+                    "`{name}` is listed as supported but parse_query rejects it as unknown: {t}"
+                );
+            }
+            // The unknown-query-type check alone does not prove the *supported*
+            // label: a type that is recognised and then refused with a 400 —
+            // exactly what `has_child` does — never produces
+            // `UnknownQueryType`, so moving it into SUPPORTED_QUERY_TYPES used
+            // to pass here and then oblige the docs guard to publish it as a
+            // capability. That is the #211 defect in the direction this test
+            // exists to catch, so the refusal wording is checked too: the
+            // phrase REJECTED_QUERY_TYPES is required to carry is the phrase
+            // SUPPORTED_QUERY_TYPES is forbidden to carry.
+            if let Some(e) = &err {
+                let msg = e.to_string();
+                assert!(
+                    !msg.contains("not supported"),
+                    "`{name}` is listed as supported but refuses with a not-supported \
+                     message: {msg}\n  A recognised-and-refused type belongs in \
+                     REJECTED_QUERY_TYPES, or the docs will advertise a query that 400s."
+                );
+            }
+        }
+        for name in REJECTED_QUERY_TYPES {
+            let err = parse_query(&bare(name))
+                .err()
+                .unwrap_or_else(|| panic!("`{name}` is listed as rejected but parsed cleanly"));
+            assert!(
+                err.to_string().contains("not supported"),
+                "`{name}` must refuse with an explanatory message, got: {err}"
+            );
         }
     }
 }

@@ -62,21 +62,29 @@ pub struct Hit {
     /// Names of named queries that matched this document (only present when `_name` was used).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub matched_queries: Vec<String>,
-    /// Winning semantic passage, populated only when the caller explicitly
-    /// requests the `_passage` pseudo-field.
+    /// Winning passage, populated only when the caller explicitly requests
+    /// the `_passage` pseudo-field.
     ///
-    /// This is derived from compact ingest-time byte offsets. It is not
-    /// persisted as a second text copy and is absent from ordinary responses.
+    /// Semantic/kNN hits derive it from compact ingest-time byte offsets;
+    /// lexical hits compute the query-term-densest line-snapped window over
+    /// the returned page at query time. Either way it is not persisted as a
+    /// second text copy and is absent from ordinary responses.
     #[serde(rename = "_passage", skip_serializing_if = "Option::is_none", default)]
     pub passage: Option<PassageMatch>,
 }
 
-/// Provenance for the passage that supplied a semantic hit's max score.
+/// Provenance for the passage that made a hit relevant: the chunk that
+/// supplied a semantic hit's max score, or the query-term-densest window of
+/// a lexical hit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PassageMatch {
     /// Original `semantic_text` field, rather than its derived vector field.
+    /// For lexical passages: the queried text field the window came from.
     pub field: String,
-    /// Zero-based ordinal in the deterministic ingest-time chunk sequence.
+    /// Semantic hits: zero-based ordinal in the deterministic ingest-time
+    /// chunk sequence. Lexical hits have no chunk sequence; here this is the
+    /// zero-based LINE index where the passage starts — the "which line of
+    /// the file" a caller slicing a large document needs.
     pub ordinal: u32,
     /// UTF-8 byte offsets into `field`.
     pub start_offset: u64,

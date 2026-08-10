@@ -5,6 +5,8 @@
 # runs autoindex over $CORPUS, then re-runs twice to prove idempotency — the
 # resume path (all files done) and a full --fresh re-extract — and requires the
 # per-index doc counts to be byte-identical to run 1. Ends with the data map.
+# The shared autoindex-catalog is excluded from the comparison: every run
+# appends its own run record, so a growing catalog is the design, not drift.
 #
 # Nothing here is bound to one machine: every path is an env override with a
 # default under the repo or $TMPDIR, so the same script gates CI and drives a
@@ -33,10 +35,11 @@ CFG="$WORK/server-$PORT.toml"
 LOG="$WORK/server-$PORT.log"
 URL="http://localhost:$PORT"
 STATE="$WORK/state"
+PREFIX="ax-eval"
+BRAIN="eval"
 
 [ -x "$BIN" ] || { echo "xerj binary not found at $BIN"; exit 1; }
 [ -d "$CORPUS" ] || { echo "corpus folder not found at $CORPUS"; exit 1; }
-
 mkdir -p "$WORK"
 cat >"$CFG" <<EOF
 [server]
@@ -66,7 +69,7 @@ curl -sf "$URL/" >/dev/null || { echo "server failed to boot"; tail -20 "$LOG"; 
 FAIL=0
 
 echo "=== autoindex run ($CORPUS) ==="
-time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --fresh
+time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --prefix "$PREFIX" --brain "$BRAIN"
 RC=$?
 echo "exit code: $RC"
 # 0 complete, 3 completed-with-junk (unreadable files recorded, never fatal).
@@ -80,19 +83,29 @@ fi
 # catalog is excluded outright because every run appends its own run record —
 # a growing catalog is the design, not drift. Columns of the _cat row:
 # green(1) open(2) name(3) uuid(4) pri(5) rep(6) docs(7).
-counts() { curl -s "$URL/_cat/indices" | awk '$3 ~ /^ax-/ {print $3, $7}' | sort; }
+counts() { curl -s "$URL/_cat/indices" | awk -v prefix="$1-" '$3 ~ ("^" prefix) {sub("^" prefix, "", $3); print $3, $7}' | sort; }
 
 echo "=== per-index counts (run 1) ==="
 curl -s "$URL/_cat/indices" | grep -E 'ax-|autoindex-catalog' | sort
-counts > "$WORK/counts-run1.txt"
+counts "$PREFIX" > "$WORK/counts-run1.txt"
 
 echo "=== idempotency: re-run (resume path — all files done) ==="
-time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE"
+time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --prefix "$PREFIX" --brain "$BRAIN"
+RC=$?
+if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
+  echo "resume run exited $RC (expected 0 or 3)"
+  FAIL=1
+fi
 
 echo "=== idempotency: re-run with --fresh (full re-extract, idempotent ids) ==="
-time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --fresh
+time "$BIN" autoindex "$CORPUS" --url "$URL" --state-dir "$STATE" --prefix "$PREFIX" --brain "$BRAIN" --fresh
+RC=$?
+if [ "$RC" != "0" ] && [ "$RC" != "3" ]; then
+  echo "--fresh re-extract exited $RC (expected 0 or 3)"
+  FAIL=1
+fi
 
-counts > "$WORK/counts-run3.txt"
+counts "$PREFIX" > "$WORK/counts-run3.txt"
 echo "=== doc-count diff run1 vs run3 (must be empty) ==="
 cat "$WORK/counts-run3.txt"
 if diff "$WORK/counts-run1.txt" "$WORK/counts-run3.txt"; then

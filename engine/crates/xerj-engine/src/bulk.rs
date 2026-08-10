@@ -154,6 +154,19 @@ fn malformed_document_reason(
     )
 }
 
+/// The one place a bulk item's per-item `status` is derived from an engine
+/// error. Every `Err` arm in this module routes through here.
+///
+/// It defers to `XerjError::http_status()` (409 version conflict, 404 not
+/// found, 403 index blocked, 400 bad mapping/query, 429 exhausted …) and only
+/// overrides one case: the disk flood-stage block reports itself as
+/// `read_only_allow_delete`, which ES answers **429**, not the 403 the other
+/// blocks get (`IndexMetadata.INDEX_READ_ONLY_ALLOW_DELETE_BLOCK` carries
+/// `RestStatus.TOO_MANY_REQUESTS`; approach only, no ES code reproduced).
+///
+/// Three call sites used to inline their own `match` instead, and each listed
+/// only the errors its author had in mind — so a genuine write block fell
+/// through `_ => 500` and a blocked bulk looked like a server fault.
 fn engine_error_http_status(error: &EngineError) -> u16 {
     match error {
         EngineError::Common(xerj_common::XerjError::IndexBlocked { block_type, .. })
@@ -1453,15 +1466,7 @@ pub async fn process_bulk_with_opts(
             Err(e) => {
                 // Whole-batch failure (e.g. ResourceExhausted → 429):
                 // mark every item in the batch with the same status.
-                let status = match &e {
-                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. })
-                    | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => 429,
-                    EngineError::Common(xerj_common::XerjError::IndexBlocked {
-                        block_type,
-                        ..
-                    }) if block_type.contains("read_only_allow_delete") => 429,
-                    _ => 500,
-                };
+                let status = engine_error_http_status(&e);
                 for item_idx in item_indices {
                     items[item_idx] = Some(BulkItemResult {
                         action: "index".into(),
@@ -1549,22 +1554,7 @@ pub async fn process_bulk_with_opts(
                     });
                 }
                 Err(e) => {
-                    let status = match &e {
-                        EngineError::Common(xerj_common::XerjError::ResourceExhausted {
-                            ..
-                        })
-                        | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
-                            429
-                        }
-                        EngineError::Common(xerj_common::XerjError::IndexBlocked {
-                            block_type,
-                            ..
-                        }) if block_type.contains("read_only_allow_delete") => 429,
-                        // Default-format date rejection ("failed to parse
-                        // field [..] of type [date]") — ES answers 400.
-                        EngineError::Common(xerj_common::XerjError::InvalidMapping { .. }) => 400,
-                        _ => 500,
-                    };
+                    let status = engine_error_http_status(&e);
                     items[item_idx] = Some(BulkItemResult {
                         action: "index".into(),
                         index: index_name.clone(),
@@ -2004,19 +1994,7 @@ pub async fn process_bulk_with_opts(
                 // Map engine-level errors to the correct HTTP status so
                 // per-item error objects carry the status ES clients key
                 // off of. VersionConflict → 409, NotFound → 404.
-                let status = match &e {
-                    EngineError::Common(xerj_common::XerjError::VersionConflict { .. }) => 409,
-                    EngineError::Common(xerj_common::XerjError::DocumentNotFound { .. }) => 404,
-                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. })
-                    | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => 429,
-                    EngineError::Common(xerj_common::XerjError::IndexBlocked {
-                        block_type,
-                        ..
-                    }) if block_type.contains("read_only_allow_delete") => 429,
-                    // Default-format date rejection — ES answers 400.
-                    EngineError::Common(xerj_common::XerjError::InvalidMapping { .. }) => 400,
-                    _ => 500,
-                };
+                let status = engine_error_http_status(&e);
                 items[item_idx] = Some(BulkItemResult {
                     action: action_type,
                     index: target_index,

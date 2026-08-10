@@ -33,7 +33,20 @@
 
 # The one-line installer: curl -fsSL https://xerj.org/get | sh
 # Serve as plain text so browsers display it (auditable) and curl gets
-# a clean script. Short cache so a fixed installer propagates quickly.
+# a clean script.
+#
+# NOTE (2026-08-08): /get and /get.ps1 are now answered by the Pages
+# Function functions/get.js, which counts the request before serving the
+# script body straight out of these same static files (env.ASSETS). The
+# Function sets its own Content-Type / Cache-Control / nosniff, because
+# _headers rules are not guaranteed to apply to Function responses. The
+# two blocks below therefore describe the FALLBACK path — what a client
+# gets if the Function is not invoked (Functions disabled, or the route
+# dropped from landing/_routes.json). Keep them in sync with the headers
+# in functions/get.js.
+#
+# The Function serves no-store rather than max-age=300: a cached response
+# never reaches the origin, so a cache hit is an uncounted install.
 /get
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300

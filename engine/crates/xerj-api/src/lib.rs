@@ -63,6 +63,7 @@ pub mod error;
 pub mod es_compat;
 pub mod extract;
 pub mod graph_api;
+pub mod ism_api;
 pub mod memory_api;
 pub mod native;
 pub mod responses;

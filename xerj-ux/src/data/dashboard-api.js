@@ -10,10 +10,13 @@
 // Every method returns the parsed Dashboard doc (or the list envelope).
 // Optimistic concurrency: PUT/PATCH send `If-Match: W/"<version>"` built
 // from the doc's own `version` field (the primary concurrency source);
-// the ETag response header is captured too as a convenience.
+// the ETag response header is captured too as a convenience. The backend
+// REQUIRES the header on writes (issue #210): a missing If-Match is 428
+// Precondition Required, a stale one is 409 Conflict — both recoverable
+// by re-GET + retry with the fresh version.
 //
-// Errors bubble up as Error objects carrying `.status` (409/403/404/…)
-// so the store can branch on a stale-etag 409 and re-GET.
+// Errors bubble up as Error objects carrying `.status` (409/428/403/…)
+// so the store can branch on a stale/missing-etag error and re-GET.
 // ============================================================
 
 import { apiRaw } from '../xerj-console-auth.js';

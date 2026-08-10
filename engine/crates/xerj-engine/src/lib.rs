@@ -25,9 +25,12 @@ pub mod governor;
 pub mod index;
 pub mod index_guard;
 pub mod ingest_memory;
+pub mod lifecycle;
 pub mod memtable;
 pub mod painless;
+pub mod pools;
 pub mod rbac;
+pub mod secret_hash;
 pub mod segment_cache_budget;
 pub mod segment_cache_estimates;
 pub mod slow_query;
@@ -95,15 +98,13 @@ pub fn engine_metrics() -> Option<&'static std::sync::Arc<xerj_common::metrics::
 /// search/agg fan-out, so neither side can starve the other's queue (the
 /// OS scheduler time-slices the two pools fairly).
 ///
-/// Sized to all available cores: ingest throughput is unchanged when no
-/// searches run, and under mixed load the kernel — not the rayon job
-/// queue — arbitrates.
+/// Sized to all available cores (`crate::pools`, `Workload::Latency`): ingest
+/// throughput is unchanged when no searches run, and under mixed load the
+/// kernel — not the rayon job queue — arbitrates.
 pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
-        let n = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(8);
+        let n = crate::pools::sizing().ingest;
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-ingest-{i}"))
@@ -118,13 +119,15 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
             // slice of that for read-tail stability).  Flush side-cars
             // are nice(10) (`background_pool`), merges nice(15)
             // (`merge_pool`) — the maintenance ladder stays below both.
+            //
+            // The ladder is platform-specific: `nice()` is per-thread on Linux
+            // but per-PROCESS on Darwin, where calling it from a start handler
+            // would deprioritize the whole server, search included (#240 §5).
+            // `resource::deprioritize_current_thread` owns that decision.
             .start_handler(|_| {
-                // Unix-only: Windows has no nice(2); threads run at normal
-                // priority there and the pool separation still applies.
-                #[cfg(unix)]
-                unsafe {
-                    let _ = libc::nice(5);
-                }
+                xerj_common::resource::deprioritize_current_thread(
+                    xerj_common::resource::Deprioritize::Ingest,
+                );
             })
             .build()
             .expect("failed to build ingest rayon pool")
@@ -145,17 +148,14 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
 pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
-        let n = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(8);
+        let n = crate::pools::sizing().background;
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-bg-{i}"))
             .start_handler(|_| {
-                #[cfg(unix)]
-                unsafe {
-                    let _ = libc::nice(10);
-                }
+                xerj_common::resource::deprioritize_current_thread(
+                    xerj_common::resource::Deprioritize::Background,
+                );
             })
             .build()
             .expect("failed to build background rayon pool")
@@ -185,17 +185,14 @@ pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
 pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
-        let n = std::thread::available_parallelism()
-            .map(|n| (n.get() / 8).max(2))
-            .unwrap_or(2);
+        let n = crate::pools::sizing().merge;
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-merge-{i}"))
             .start_handler(|_| {
-                #[cfg(unix)]
-                unsafe {
-                    let _ = libc::nice(15);
-                }
+                xerj_common::resource::deprioritize_current_thread(
+                    xerj_common::resource::Deprioritize::Maintenance,
+                );
             })
             .build()
             .expect("failed to build merge rayon pool")
@@ -223,22 +220,12 @@ pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
 /// (+9%, peak 377k) with all five mixed read p99s neutral-to-better.
 /// Total flush CPU is unchanged; the win is scheduling, not less work.
 ///
-/// N defaults to `ncores/8` (=4 on the 32-core bench, matching the
-/// measured optimum); `XERJ_FIN_CONC` overrides for tuning.
+/// N comes from `engine.flush_workers`, which defaults to the maintenance
+/// share of the machine, `max(2, ncores/8)` (=4 on the 32-core bench, matching
+/// the measured optimum); `XERJ_FIN_CONC` still overrides it for one run.
 pub(crate) fn flush_finalize_gate() -> &'static tokio::sync::Semaphore {
     static GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
-    GATE.get_or_init(|| {
-        let n = std::env::var("XERJ_FIN_CONC")
-            .ok()
-            .and_then(|v| v.parse::<usize>().ok())
-            .filter(|&n| n > 0)
-            .unwrap_or_else(|| {
-                std::thread::available_parallelism()
-                    .map(|c| (c.get() / 8).max(2))
-                    .unwrap_or(4)
-            });
-        tokio::sync::Semaphore::new(n)
-    })
+    GATE.get_or_init(|| tokio::sync::Semaphore::new(crate::pools::sizing().flush_finalize))
 }
 
 // ── Analyzer helpers ──────────────────────────────────────────────────────────
@@ -331,6 +318,20 @@ pub enum EngineError {
 
     #[error("serialization error: {0}")]
     Serde(#[from] serde_json::Error),
+
+    /// An index metadata sidecar (`schema.json`, `settings.json`,
+    /// `es_mapping.json`) is present on disk but could not be read or parsed.
+    ///
+    /// This is deliberately distinct from the file being **absent**, which is a
+    /// legitimate state (indices created before create-time schema persistence
+    /// have no `schema.json`; an index created without settings has no
+    /// `settings.json`) and still opens with a dynamic mapping. Unparseable
+    /// means the recorded mapping is *lost*, and defaulting there silently
+    /// re-infers every field type from whatever documents arrive next — so the
+    /// open is refused instead, the same way `xerj-storage` refuses a segment
+    /// whose header does not match (`StorageError::UnsupportedVersion`).
+    #[error("corrupt index metadata: {file} exists but could not be loaded ({reason}); refusing to open the index rather than fall back to a default mapping — restore the file or restore the index from a snapshot")]
+    CorruptIndexMetadata { file: String, reason: String },
 }
 
 /// Engine-level result alias.
@@ -345,6 +346,12 @@ impl From<EngineError> for xerj_common::XerjError {
             EngineError::Fts(f) => xerj_common::XerjError::internal(f.to_string()),
             EngineError::Io(io) => xerj_common::XerjError::storage_io("IO error", io),
             EngineError::Serde(s) => xerj_common::XerjError::serialization(s.to_string()),
+            // `store_exception` (500) is the ES type for "this shard's on-disk
+            // state is unusable" — the closest honest mapping for a corrupt
+            // sidecar, and it keeps the reason string intact for the client.
+            corrupt @ EngineError::CorruptIndexMetadata { .. } => {
+                xerj_common::XerjError::storage(corrupt.to_string())
+            }
         }
     }
 }

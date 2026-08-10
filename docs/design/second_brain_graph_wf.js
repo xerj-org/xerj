@@ -99,7 +99,8 @@ heterogeneous content (code + PDFs + docs), and captured as a screencast.
   automaticPresenceSimulation:true})\`, then claim via the setup magic-link the server prints
   at first boot. A working reference script is ${REPO}/sb_capture.mjs.
 - \`xerj brain\` gotcha: a stale resume journal in \`~/.xerj/autoindex\` makes re-runs skip
-  detection. Use \`--fresh\` (or clear it) for clean runs.
+  detection. Use \`--fresh\` (or clear it) for clean runs; note that \`--fresh\` rebuilds
+  the plan in place and never removes documents for notes you deleted.
 - Commits authored \`xerj-org <git@xerj.org>\`, NO Claude co-author trailer, never mention
   ctrl-frk. Do NOT push. Commit on \`feat/second-brain\`.
 

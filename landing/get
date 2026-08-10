@@ -10,6 +10,11 @@
 #   XERJ_VERSION=v0.1.0     install a specific tag (default: latest release)
 #   XERJ_INSTALL_DIR=/path  install location (default: ~/.local/bin, else ./ )
 #   XERJ_REPO=owner/name    source repo (default: xerj-org/xerj)
+#   XERJ_LIBC=gnu|musl      Linux C library (default: musl — see below)
+#   XERJ_INSECURE_SKIP_CHECKSUM=1
+#                           install without verifying SHA-256. Only useful on a
+#                           box with no hashing tool at all; you are choosing to
+#                           run an unverified binary.
 # =============================================================================
 set -eu
 
@@ -46,8 +51,20 @@ fi
 #   Windows x64 / ARM64 (via Git Bash / MSYS here; native PowerShell:
 #     powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex")
 os=$(uname -s); arch=$(uname -m)
+# Linux defaults to the fully-static musl build. That is a deliberate choice,
+# not a fallback:
+#   * it runs on any distro including Alpine, with no glibc-version floor —
+#     a gnu binary linked against a newer glibc dies at exec on an older host
+#     ("GLIBC_2.xx not found"), which is an install failure we cannot see;
+#   * the usual objection to musl, its slow malloc, does not apply: xerj links
+#     jemalloc as the global allocator on every non-MSVC target
+#     (engine/crates/xerj-server/Cargo.toml).
+# The gnu artifacts are still published and still supported — ask for them
+# with XERJ_LIBC=gnu. (Before 2026-08-08 an unconditional override below made
+# gnu unreachable from this script while the case arm still claimed gnu; the
+# comment and the behaviour now agree.)
 case "$os" in
-  Linux)  plat="unknown-linux-gnu";  ext="tar.gz"; bin="xerj" ;;
+  Linux)  plat="unknown-linux-musl"; ext="tar.gz"; bin="xerj" ;;
   Darwin) plat="apple-darwin";       ext="tar.gz"; bin="xerj" ;;
   MINGW*|MSYS*|CYGWIN*) plat="pc-windows-msvc"; ext="zip"; bin="xerj.exe" ;;
   *) die "unsupported OS: $os (xerj ships Linux, macOS and Windows builds)" ;;
@@ -57,8 +74,15 @@ case "$arch" in
   aarch64|arm64)       cpu="aarch64" ;;
   *) die "unsupported CPU: $arch (xerj ships x86_64/amd64 and aarch64/arm64 builds for Linux, macOS and Windows)" ;;
 esac
-# Linux: prefer the fully-static musl build (runs on any distro, incl. Alpine).
-if [ "$os" = "Linux" ]; then plat="unknown-linux-musl"; fi
+if [ "$os" = "Linux" ]; then
+  case "${XERJ_LIBC:-musl}" in
+    musl) ;;                              # the default set above
+    gnu)  plat="unknown-linux-gnu" ;;
+    *) die "XERJ_LIBC must be 'gnu' or 'musl' (got '${XERJ_LIBC}')" ;;
+  esac
+elif [ -n "${XERJ_LIBC:-}" ]; then
+  say "${YEL}note:${RST} XERJ_LIBC only applies to Linux — ignoring it on ${os}"
+fi
 target="${cpu}-${plat}"
 
 # --- resolve version --------------------------------------------------------
@@ -89,16 +113,52 @@ DL "${base}/${asset}" "${tmp}/${asset}" \
   || die "download failed for ${target}. Available assets: https://github.com/${REPO}/releases/tag/${tag}"
 
 # --- verify checksum (fail closed — every release publishes the .sha256) ----
+#
+# DO NOT REORDER THE NEXT LINE BELOW THE TOOL SEARCH. The checksum is fetched
+# unconditionally, before we look for a hashing tool, so every installer run
+# downloads exactly one binary and exactly one matching .sha256. That 1:1
+# pairing is the ONLY fingerprint that lets GitHub's per-asset download counts
+# be read as installer runs (see metrics/README.md); checking for the tool
+# first would skip the fetch on some machines and silently destroy the only
+# install metric this project has.
 DL "${base}/${asset}.sha256" "${tmp}/${asset}.sha256" 2>/dev/null \
   || die "could not download checksum ${asset}.sha256 — refusing to install an unverified binary"
-want=$(awk '{print $1}' "${tmp}/${asset}.sha256")
-if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "${tmp}/${asset}" | awk '{print $1}')
-elif command -v shasum >/dev/null 2>&1;   then got=$(shasum -a 256 "${tmp}/${asset}" | awk '{print $1}')
-else got=""; fi
-if [ -n "$got" ]; then
-  [ "$got" = "$want" ] && ok "sha256 verified" || die "sha256 mismatch (want $want, got $got)"
+want=$(awk '{print $1}' "${tmp}/${asset}.sha256" | tr 'A-F' 'a-f')
+[ "${#want}" -eq 64 ] || die "malformed ${asset}.sha256 (expected 64 hex chars) — refusing to install an unverified binary"
+case "$want" in *[!0-9a-f]*) die "malformed ${asset}.sha256 (not hex) — refusing to install an unverified binary" ;; esac
+
+# Try hard to find a SHA-256 implementation before giving up: coreutils,
+# perl-shasum, openssl, busybox, and the BSD/macOS spellings.
+got=''
+if command -v sha256sum >/dev/null 2>&1;   then got=$(sha256sum "${tmp}/${asset}" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1;    then got=$(shasum -a 256 "${tmp}/${asset}" | awk '{print $1}')
+elif command -v openssl >/dev/null 2>&1;   then got=$(openssl dgst -sha256 "${tmp}/${asset}" | awk '{print $NF}')
+elif command -v sha256 >/dev/null 2>&1;    then got=$(sha256 -q "${tmp}/${asset}" | awk '{print $NF}')
+elif command -v busybox >/dev/null 2>&1;   then got=$(busybox sha256sum "${tmp}/${asset}" | awk '{print $1}')
+elif command -v cksum >/dev/null 2>&1;     then got=$(cksum -a sha256 "${tmp}/${asset}" 2>/dev/null | awk '{print $NF}')
+fi
+got=$(printf '%s' "$got" | tr 'A-F' 'a-f')
+
+# Fail CLOSED. Until 2026-08-08 this branch printed a warning and installed
+# anyway, which is not what "refusing to install an unverified binary" three
+# lines up promises. If a machine genuinely has no hashing tool, the user can
+# still opt in explicitly — but it has to be their decision, not ours.
+if [ -z "$got" ]; then
+  if [ "${XERJ_INSECURE_SKIP_CHECKSUM:-}" = "1" ]; then
+    say "${YEL}warning:${RST} no SHA-256 tool found and XERJ_INSECURE_SKIP_CHECKSUM=1 —"
+    say "${YEL}        ${RST} installing an ${BOLD}unverified${RST} binary at your request (expected ${want})"
+  else
+    die "no SHA-256 tool found (tried sha256sum, shasum, openssl, sha256, busybox, cksum)
+       — refusing to install an unverified binary.
+       Install coreutils or openssl and re-run, or verify by hand:
+         expected sha256: ${want}
+         source:          ${base}/${asset}
+       To install anyway (not recommended): XERJ_INSECURE_SKIP_CHECKSUM=1"
+  fi
+elif [ "$got" = "$want" ]; then
+  ok "sha256 verified"
 else
-  say "${YEL}warning:${RST} sha256sum/shasum not found — skipping checksum verification"
+  die "sha256 mismatch (want $want, got $got)"
 fi
 
 # --- extract ----------------------------------------------------------------

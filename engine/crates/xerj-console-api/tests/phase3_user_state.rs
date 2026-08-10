@@ -255,6 +255,96 @@ async fn dashboards_create_get_list_patch_delete() {
     assert_eq!(r.status(), 404);
 }
 
+/// Issue #210 — a write WITHOUT If-Match must be rejected with 428
+/// Precondition Required, not silently accepted. Before the fix,
+/// `enforce_etag` returned Ok on a missing header, so two writers that
+/// never sent it both succeeded and the second clobbered the first
+/// (lost update with no error).
+#[tokio::test]
+async fn dashboard_write_without_if_match_is_428() {
+    let app = boot_with_session().await;
+
+    // CREATE (no If-Match needed — there is no prior version to guard).
+    let r = app
+        .router
+        .clone()
+        .oneshot(req(
+            "POST",
+            "/_xerj-console/api/v1/dashboards",
+            &app.cookie,
+            Some(json!({ "name": "Original", "visibility": "private" })),
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 201, "create: {body}");
+    let dash_id = body["data"]["id"].as_str().unwrap().to_string();
+
+    // PATCH without If-Match → 428 Precondition Required.
+    let r = app
+        .router
+        .clone()
+        .oneshot(req(
+            "PATCH",
+            &format!("/_xerj-console/api/v1/dashboards/{dash_id}"),
+            &app.cookie,
+            Some(json!({ "name": "Writer B clobber" })),
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 428, "PATCH without If-Match must 428: {body}");
+    assert_eq!(body["error"]["code"], "precondition_required", "{body}");
+
+    // PUT without If-Match → 428 as well.
+    let r = app
+        .router
+        .clone()
+        .oneshot(req(
+            "PUT",
+            &format!("/_xerj-console/api/v1/dashboards/{dash_id}"),
+            &app.cookie,
+            Some(json!({ "name": "Writer B clobber", "visibility": "private" })),
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 428, "PUT without If-Match must 428: {body}");
+
+    // Neither headerless write took effect.
+    let r = app
+        .router
+        .clone()
+        .oneshot(req(
+            "GET",
+            &format!("/_xerj-console/api/v1/dashboards/{dash_id}"),
+            &app.cookie,
+            None,
+        ))
+        .await
+        .unwrap();
+    let (_, body) = body_json(r).await;
+    assert_eq!(
+        body["data"]["name"], "Original",
+        "rejected write must not land"
+    );
+    assert_eq!(body["data"]["version"], 1);
+
+    // The same PATCH with a correct If-Match still succeeds.
+    let ok = Request::builder()
+        .method("PATCH")
+        .uri(format!("/_xerj-console/api/v1/dashboards/{dash_id}"))
+        .header("cookie", &app.cookie)
+        .header("content-type", "application/json")
+        .header("if-match", "W/\"1\"")
+        .body(Body::from(json!({ "name": "Legit edit" }).to_string()))
+        .unwrap();
+    let r = app.router.clone().oneshot(ok).await.unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 200, "write WITH If-Match must pass: {body}");
+    assert_eq!(body["data"]["version"], 2);
+}
+
 #[tokio::test]
 async fn dashboards_unauth_returns_401() {
     let app = boot_with_session().await;

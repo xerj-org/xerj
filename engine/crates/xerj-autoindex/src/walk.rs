@@ -1,16 +1,13 @@
 //! Inventory: recursive walk of the target folder.
-//!
-//! Built on the `ignore` crate (ripgrep's walker), which gives three skip
-//! layers, all evidence-based:
-//!   1. hidden files/dirs — always (security: `.env`, `.git`, `.ssh`, …);
-//!   2. `.gitignore` rules — the corpus OWNER's own declaration of generated
-//!      noise; honored only inside a real git repo (`.git` present), and
-//!      disabled with `--no-gitignore`;
-//!   3. marker-gated generated dirs (`GENERATED_DIR_RULES`) — for corpora
-//!      that are not git repos or whose ignore files are incomplete.
-//! Symlinks are NOT followed by default; with --follow-symlinks the walker's
+//! Symlinks are NOT followed by default; with --follow-symlinks walkdir's
 //! ancestor-loop detection keeps the traversal loop-safe.
+//!
+//! Ignore rules (`.gitignore`, `.xerjignore`, built-in build-output defaults)
+//! are applied *during* the walk, not after it: an ignored directory is never
+//! descended, so its contents cost nothing — no stat, no hash, no bulk body.
+//! The matching itself lives in [`crate::ignore_rules`].
 
+use crate::ignore_rules::{IgnoreOptions, IgnoreReport, IgnoreStack};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
@@ -26,136 +23,148 @@ pub struct FileEntry {
     pub size: u64,
 }
 
-/// A directory pruned whole by the generated-dir hygiene rule, recorded so
-/// the run can surface it (junk report / map) instead of skipping silently.
-#[derive(Debug, Clone)]
-pub struct SkippedDir {
-    pub rel: String,
-    pub reason: String,
-}
-
-/// Well-known generated/cache directories, pruned at ANY depth but ONLY when
-/// a sibling marker file proves the parent directory is that kind of project
-/// (a monorepo may nest e.g. `apps/game/Library`, `apps/web/node_modules`).
-/// Marker-gated like the dotfile rule (hygiene, evidence-based) — never
-/// extension guessing, never a per-corpus code path.
-/// `--no-default-excludes` disables the rule.
+/// Generated/cache directories whose NAMES are too common for the blunt
+/// [`crate::ignore_rules::DEFAULT_IGNORE_PATTERNS`] (a folder named `Logs/`
+/// or `Library/` is often real data), pruned at any depth ONLY when a sibling
+/// marker file proves the parent directory is that kind of project. Part of
+/// the built-in defaults: `--no-ignore` / `--no-default-ignores` disable it,
+/// and any ignore file in the tree can re-include (`!Library/`) as usual —
+/// these run after the ignore files have had their say.
 ///
-/// (dir name, marker path relative to the dir's PARENT, reason)
-const GENERATED_DIR_RULES: &[(&str, &str, &str)] = &[
+/// (dir name, marker path relative to the dir's PARENT, report label)
+const MARKER_GENERATED_DIRS: &[(&str, &str, &str)] = &[
     (
         "Library",
         "ProjectSettings/ProjectVersion.txt",
-        "Unity generated/cache directory (marker: sibling ProjectSettings/ProjectVersion.txt)",
+        "default:unity-generated",
     ),
     (
         "Temp",
         "ProjectSettings/ProjectVersion.txt",
-        "Unity generated/cache directory (marker: sibling ProjectSettings/ProjectVersion.txt)",
+        "default:unity-generated",
     ),
     (
         "obj",
         "ProjectSettings/ProjectVersion.txt",
-        "Unity generated/cache directory (marker: sibling ProjectSettings/ProjectVersion.txt)",
+        "default:unity-generated",
     ),
     (
         "Logs",
         "ProjectSettings/ProjectVersion.txt",
-        "Unity generated/cache directory (marker: sibling ProjectSettings/ProjectVersion.txt)",
+        "default:unity-generated",
     ),
     (
         "UserSettings",
         "ProjectSettings/ProjectVersion.txt",
-        "Unity generated/cache directory (marker: sibling ProjectSettings/ProjectVersion.txt)",
-    ),
-    (
-        "node_modules",
-        "package.json",
-        "installed npm/yarn dependency tree (marker: sibling package.json)",
-    ),
-    (
-        "target",
-        "Cargo.toml",
-        "Cargo build directory (marker: sibling Cargo.toml)",
+        "default:unity-generated",
     ),
 ];
 
-pub fn walk(
+/// The marker-gated verdict for one directory entry.
+fn marker_generated_dir(path: &Path) -> Option<&'static str> {
+    let name = path.file_name()?;
+    for (dir, marker, label) in MARKER_GENERATED_DIRS {
+        if name == *dir && path.parent().is_some_and(|p| p.join(marker).is_file()) {
+            return Some(label);
+        }
+    }
+    None
+}
+
+/// Walk with the default ignore rules on and the report discarded.
+pub fn walk(root: &Path, follow_symlinks: bool) -> Result<Vec<FileEntry>> {
+    walk_reporting(root, follow_symlinks, IgnoreOptions::default()).map(|(files, _)| files)
+}
+
+/// Walk, and say what was left out and why.
+///
+/// The returned [`IgnoreReport`] is the answer to "my files vanished" — it
+/// names every rule that discarded something and how much. It is reported on
+/// every run and, under `--dry-run`, also counts what was inside each pruned
+/// directory.
+pub fn walk_reporting(
     root: &Path,
     follow_symlinks: bool,
-    default_excludes: bool,
-    gitignore: bool,
-) -> Result<(Vec<FileEntry>, Vec<SkippedDir>)> {
+    ignore: IgnoreOptions,
+) -> Result<(Vec<FileEntry>, IgnoreReport)> {
     let root_canon = root
         .canonicalize()
         .with_context(|| format!("resolve root folder {}", root.display()))?;
     if !root_canon.is_dir() {
         anyhow::bail!("{} is not a directory", root_canon.display());
     }
-    // Arc<Mutex>: the `ignore` walker's filter must be Send+Sync even for the
-    // sequential build() we use.
-    let skipped: std::sync::Arc<std::sync::Mutex<Vec<SkippedDir>>> = Default::default();
     let mut out = Vec::new();
-    // SECURITY / hygiene: never index hidden files or descend into hidden
-    // directories (`hidden(true)`). Without this the walker happily indexed
-    // `.env` (secrets, API tokens), `.git`, `.ssh`, `.aws`, and other dotfiles
-    // into a queryable brain with no per-brain authorization — a real exposure
-    // for the "point it at my project folder" use case. The root itself is
-    // exempt (the walk origin is always yielded) so a brain over a dot-named
-    // folder still works.
-    //
-    // `.gitignore` handling stays deterministic and corpus-local: tree
-    // `.gitignore`s + `.git/info/exclude` only, never the user's global
-    // gitignore config; `require_git` keeps the semantics evidence-based (a
-    // stray .gitignore outside a repo is not an owner declaration).
-    let sk = std::sync::Arc::clone(&skipped);
-    let filter_root = root_canon.clone();
-    let mut builder = ignore::WalkBuilder::new(&root_canon);
-    builder
+    let marker_defaults = ignore.enabled && ignore.defaults;
+    let mut stack = IgnoreStack::new(&root_canon, ignore);
+    // Manual iteration rather than `filter_entry`, because the ignore stack has
+    // to load a directory's ignore files *after* that directory is admitted and
+    // *before* its children are judged. `skip_current_dir` on a just-yielded
+    // directory prunes its contents — walkdir's own documented pattern, and the
+    // same effect `filter_entry` had.
+    let mut it = walkdir::WalkDir::new(&root_canon)
         .follow_links(follow_symlinks)
-        .hidden(true)
-        .ignore(false)
-        .parents(gitignore)
-        .git_ignore(gitignore)
-        .git_exclude(gitignore)
-        .git_global(false)
-        .require_git(true)
-        .filter_entry(move |e| {
-            if e.depth() == 0 {
-                return true;
-            }
-            if default_excludes && e.file_type().is_some_and(|t| t.is_dir()) {
-                for (name, marker, reason) in GENERATED_DIR_RULES {
-                    if e.file_name() == *name
-                        && e.path()
-                            .parent()
-                            .is_some_and(|p| p.join(marker).is_file())
-                    {
-                        let rel = e
-                            .path()
-                            .strip_prefix(&filter_root)
-                            .unwrap_or(e.path())
-                            .to_string_lossy()
-                            .replace('\\', "/");
-                        sk.lock().expect("skip list lock").push(SkippedDir {
-                            rel,
-                            reason: (*reason).to_string(),
-                        });
-                        return false;
-                    }
-                }
-            }
-            true
-        });
-    for entry in builder.build() {
-        let entry = match entry {
+        .into_iter();
+    while let Some(next) = it.next() {
+        let entry = match next {
             Ok(e) => e,
             Err(e) => {
                 eprintln!("walk: skipping unreadable entry: {e}");
                 continue;
             }
         };
-        if !entry.file_type().is_some_and(|t| t.is_file()) {
+        let is_dir = entry.file_type().is_dir();
+        // Retire the layers of directories this entry is no longer inside; see
+        // `IgnoreStack::truncate_to` for why every entry needs it, not just
+        // directories.
+        stack.truncate_to(entry.depth());
+        // SECURITY / hygiene: never index hidden files or descend into hidden
+        // directories. Without this the walker happily indexed `.env` (secrets,
+        // API tokens), `.git`, `.ssh`, `.aws`, and other dotfiles into a
+        // queryable brain with no per-brain authorization — a real exposure for
+        // the "point it at my project folder" use case. A hidden directory is
+        // pruned before descending, so `.git/` is skipped whole. The root
+        // itself (depth 0) is exempt so a brain over a dot-named folder still
+        // works. `--no-ignore` does NOT turn this off: it is not one of the
+        // ignore rules, it is the reason secrets stay out.
+        if entry.depth() > 0
+            && entry
+                .file_name()
+                .to_str()
+                .is_some_and(|n| n.starts_with('.'))
+        {
+            stack.record_hidden(entry.path(), is_dir);
+            if is_dir {
+                it.skip_current_dir();
+            }
+            continue;
+        }
+        if is_dir {
+            // The root is never judged by the rules below it: pointing
+            // autoindex at a folder is an explicit instruction, and the note
+            // explaining that it *would* have been ignored is on the report.
+            if entry.depth() > 0 && stack.skip_dir(entry.path()).is_some() {
+                it.skip_current_dir();
+                continue;
+            }
+            // Marker-gated generated dirs (part of the built-in defaults, so
+            // `--no-ignore` / `--no-default-ignores` disable it): names like
+            // Unity's `Library/` or `Logs/` are too common for the blunt
+            // DEFAULT_IGNORE_PATTERNS, so they are pruned only when a sibling
+            // marker file proves the parent is that kind of project.
+            if entry.depth() > 0 && marker_defaults {
+                if let Some(label) = marker_generated_dir(entry.path()) {
+                    stack.record_marker_dir(entry.path(), label);
+                    it.skip_current_dir();
+                    continue;
+                }
+            }
+            stack.enter_dir(entry.path(), entry.depth());
+            continue;
+        }
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if stack.skip_file(entry.path()).is_some() {
             continue;
         }
         let md = match entry.metadata() {
@@ -173,16 +182,16 @@ pub fn walk(
             path: p,
             rel,
             rel_id,
-            is_symlink: entry.path_is_symlink(),
+            is_symlink: entry
+                .path()
+                .symlink_metadata()
+                .is_ok_and(|m| m.file_type().is_symlink()),
             size: md.len(),
         });
     }
     // Deterministic order for clustering / naming.
     out.sort_by(|a, b| a.rel.cmp(&b.rel));
-    // The builder keeps its own clone of the filter closure (and thus of the
-    // Arc), so drain under the lock instead of unwrapping ownership.
-    let skipped = std::mem::take(&mut *skipped.lock().expect("skip list lock"));
-    Ok((out, skipped))
+    Ok((out, stack.report))
 }
 
 #[cfg(unix)]
@@ -229,9 +238,8 @@ mod hidden_skip_tests {
         fs::write(root.join("src").join("main.rs"), "fn main() {}").unwrap();
         fs::write(root.join("src").join(".secret"), "nope").unwrap();
 
-        let rels: Vec<String> = walk(root, false, true, true)
+        let rels: Vec<String> = walk(root, false)
             .unwrap()
-            .0
             .into_iter()
             .map(|e| e.rel)
             .collect();
@@ -249,15 +257,57 @@ mod hidden_skip_tests {
         );
     }
 
+    /// #276: the walk itself must drop gitignored junk, not a later stage —
+    /// an ignored directory is never descended, so it never reaches hashing.
+    #[test]
+    fn the_walk_honours_gitignore_and_the_built_in_defaults() {
+        use super::walk_reporting;
+        use crate::ignore_rules::IgnoreOptions;
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        fs::write(root.join(".gitignore"), "*.tmp\ndocs/private/\n").unwrap();
+        fs::write(root.join("README.md"), "hello").unwrap();
+        fs::write(root.join("scratch.tmp"), "junk").unwrap();
+        fs::create_dir_all(root.join("docs/private")).unwrap();
+        fs::write(root.join("docs/private/salary.md"), "secret").unwrap();
+        fs::create_dir_all(root.join("target/debug")).unwrap();
+        fs::write(root.join("target/debug/huge.rlib"), "bytes").unwrap();
+
+        let (files, report) = walk_reporting(root, false, IgnoreOptions::default()).unwrap();
+        let rels: Vec<String> = files.into_iter().map(|e| e.rel).collect();
+        assert_eq!(rels, vec!["README.md".to_string()], "{rels:?}");
+        // 2 = scratch.tmp, plus `.gitignore` itself under the (separate,
+        // non-optional) hidden-file rule.
+        assert_eq!(report.files_skipped, 2, "{report:?}");
+        assert_eq!(report.dirs_pruned, 2, "{report:?}");
+        assert_eq!(report.ignore_files_read, 1, "{report:?}");
+
+        // --no-ignore brings all of it back, except the dotfiles.
+        let (all, off) = walk_reporting(root, false, IgnoreOptions::off()).unwrap();
+        let mut rels: Vec<String> = all.into_iter().map(|e| e.rel).collect();
+        rels.sort();
+        assert_eq!(
+            rels,
+            vec![
+                "README.md".to_string(),
+                "docs/private/salary.md".to_string(),
+                "scratch.tmp".to_string(),
+                "target/debug/huge.rlib".to_string(),
+            ],
+            "{rels:?}"
+        );
+        assert_eq!(off.dirs_pruned, 0, "{off:?}");
+    }
+
     #[test]
     fn a_brain_over_a_dot_named_root_still_works() {
         let dir = tempfile::TempDir::new().unwrap();
         let root = dir.path().join(".notes");
         fs::create_dir(&root).unwrap();
         fs::write(root.join("a.md"), "x").unwrap();
-        let rels: Vec<String> = walk(&root, false, true, true)
+        let rels: Vec<String> = walk(&root, false)
             .unwrap()
-            .0
             .into_iter()
             .map(|e| e.rel)
             .collect();
@@ -270,18 +320,19 @@ mod hidden_skip_tests {
 }
 
 #[cfg(test)]
-mod generated_dir_tests {
-    use super::walk;
+mod marker_generated_dir_tests {
+    use super::{walk, walk_reporting};
+    use crate::ignore_rules::IgnoreOptions;
     use std::fs;
     use std::path::Path;
 
-    fn make_unity_root(root: &Path, with_marker: bool) {
+    fn make_unity_project(root: &Path, with_marker: bool) {
         fs::create_dir_all(root.join("Assets")).unwrap();
         fs::write(root.join("Assets/Player.cs"), "class Player {}").unwrap();
         fs::create_dir_all(root.join("Library/Artifacts")).unwrap();
         fs::write(root.join("Library/Artifacts/blob.bin"), b"\x00\x01").unwrap();
-        fs::create_dir_all(root.join("Temp")).unwrap();
-        fs::write(root.join("Temp/scratch"), "x").unwrap();
+        fs::create_dir_all(root.join("Logs")).unwrap();
+        fs::write(root.join("Logs/editor.log"), "x").unwrap();
         if with_marker {
             fs::create_dir_all(root.join("ProjectSettings")).unwrap();
             fs::write(
@@ -292,185 +343,71 @@ mod generated_dir_tests {
         }
     }
 
+    /// Monorepo case: the Unity project is a SUBFOLDER of the walk root; the
+    /// sibling marker decides at any depth.
     #[test]
-    fn unity_marker_prunes_generated_dirs_and_records_them() {
+    fn a_nested_unity_project_is_pruned_and_reported() {
         let dir = tempfile::TempDir::new().unwrap();
-        make_unity_root(dir.path(), true);
-        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
+        let unity = dir.path().join("platform/unity");
+        fs::create_dir_all(&unity).unwrap();
+        make_unity_project(&unity, true);
+        let (files, report) =
+            walk_reporting(dir.path(), false, IgnoreOptions::default()).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"Assets/Player.cs"));
+        assert!(rels.contains(&"platform/unity/Assets/Player.cs"));
         assert!(
-            !rels.iter().any(|r| r.starts_with("Library/")),
+            !rels.iter().any(|r| r.contains("/Library/")),
             "Library/ must be pruned whole: {rels:?}"
         );
-        assert!(!rels.iter().any(|r| r.starts_with("Temp/")));
-        let mut skipped_rels: Vec<&str> = skipped.iter().map(|s| s.rel.as_str()).collect();
-        skipped_rels.sort();
-        assert_eq!(skipped_rels, ["Library", "Temp"], "each pruned dir is recorded");
+        assert!(
+            report
+                .by_rule
+                .keys()
+                .any(|k| k == "default:unity-generated"),
+            "the prune must be named on the report: {report:?}"
+        );
     }
 
+    /// Without the marker, a folder merely NAMED Library or Logs is data.
     #[test]
     fn without_the_marker_nothing_is_pruned() {
         let dir = tempfile::TempDir::new().unwrap();
-        make_unity_root(dir.path(), false);
-        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
+        make_unity_project(dir.path(), false);
+        let files = walk(dir.path(), false).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(
-            rels.iter().any(|r| r.starts_with("Library/")),
-            "a folder merely NAMED Library is not evidence: {rels:?}"
-        );
-        assert!(skipped.is_empty());
+        assert!(rels.contains(&"Library/Artifacts/blob.bin"), "{rels:?}");
+        assert!(rels.contains(&"Logs/editor.log"), "{rels:?}");
     }
 
+    /// The marker rule is one of the built-in defaults, so both switches
+    /// disable it.
     #[test]
-    fn no_default_excludes_walks_everything() {
+    fn no_ignore_and_no_default_ignores_both_disable_the_marker_rule() {
         let dir = tempfile::TempDir::new().unwrap();
-        make_unity_root(dir.path(), true);
-        let (files, skipped) = walk(dir.path(), false, false, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.iter().any(|r| r.starts_with("Library/")));
-        assert!(skipped.is_empty());
+        make_unity_project(dir.path(), true);
+        let no_defaults = IgnoreOptions {
+            defaults: false,
+            ..IgnoreOptions::default()
+        };
+        for opts in [IgnoreOptions::off(), no_defaults] {
+            let (files, _) = walk_reporting(dir.path(), false, opts).unwrap();
+            let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
+            assert!(
+                rels.contains(&"Library/Artifacts/blob.bin"),
+                "opts {opts:?} must walk generated dirs: {rels:?}"
+            );
+        }
     }
 
     #[test]
     fn a_file_named_like_a_generated_dir_is_not_pruned() {
         let dir = tempfile::TempDir::new().unwrap();
-        make_unity_root(dir.path(), true);
+        make_unity_project(dir.path(), true);
         fs::write(dir.path().join("obj"), "a FILE named obj").unwrap();
-        let (files, _) = walk(dir.path(), false, true, true).unwrap();
+        let files = walk(dir.path(), false).unwrap();
         assert!(
             files.iter().any(|e| e.rel == "obj"),
             "the prune applies to directories only"
         );
-    }
-
-    /// Monorepo case: the Unity project is a SUBFOLDER of the walk root. The
-    /// marker is checked against each candidate's parent, so nesting depth is
-    /// irrelevant.
-    #[test]
-    fn a_nested_unity_project_is_pruned_by_its_sibling_marker() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let unity = dir.path().join("apps/game");
-        fs::create_dir_all(&unity).unwrap();
-        make_unity_root(&unity, true);
-        fs::write(dir.path().join("README.md"), "monorepo").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"apps/game/Assets/Player.cs"));
-        assert!(!rels.iter().any(|r| r.contains("game/Library/")));
-        assert!(skipped.iter().any(|s| s.rel == "apps/game/Library"));
-    }
-
-    #[test]
-    fn node_modules_is_pruned_only_next_to_a_package_json() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let app = dir.path().join("web");
-        fs::create_dir_all(app.join("node_modules/lodash")).unwrap();
-        fs::write(app.join("node_modules/lodash/index.js"), "x").unwrap();
-        fs::write(app.join("package.json"), "{}").unwrap();
-        fs::write(app.join("index.js"), "x").unwrap();
-        let bare = dir.path().join("data/node_modules");
-        fs::create_dir_all(&bare).unwrap();
-        fs::write(bare.join("notes.txt"), "not an npm tree").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"web/index.js"));
-        assert!(!rels.iter().any(|r| r.starts_with("web/node_modules")));
-        assert!(
-            rels.contains(&"data/node_modules/notes.txt"),
-            "without the package.json marker there is no evidence: {rels:?}"
-        );
-        assert_eq!(skipped.len(), 1);
-        assert_eq!(skipped[0].rel, "web/node_modules");
-    }
-
-    #[test]
-    fn gitignored_files_are_skipped_only_inside_a_git_repo() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let root = dir.path();
-        fs::create_dir(root.join(".git")).unwrap();
-        fs::write(root.join(".gitignore"), "build/\n*.log\n").unwrap();
-        fs::create_dir_all(root.join("build/intermediates")).unwrap();
-        fs::write(root.join("build/intermediates/R.txt"), "generated").unwrap();
-        fs::write(root.join("debug.log"), "noise").unwrap();
-        fs::write(root.join("main.rs"), "fn main() {}").unwrap();
-        fs::create_dir(root.join("src")).unwrap();
-        fs::write(root.join("src/app.log"), "noise").unwrap();
-        fs::write(root.join("src/lib.rs"), "pub fn f() {}").unwrap();
-
-        let (files, _) = walk(root, false, true, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"main.rs"));
-        assert!(rels.contains(&"src/lib.rs"));
-        assert!(
-            !rels.iter().any(|r| r.starts_with("build/")),
-            "gitignored dir must be pruned: {rels:?}"
-        );
-        assert!(
-            !rels.iter().any(|r| r.ends_with(".log")),
-            "gitignored glob applies at every depth: {rels:?}"
-        );
-
-        // --no-gitignore restores the full walk.
-        let (files, _) = walk(root, false, true, false).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"build/intermediates/R.txt"));
-        assert!(rels.contains(&"debug.log"));
-    }
-
-    /// A `.gitignore` OUTSIDE a git repository is not an owner declaration —
-    /// require_git keeps the rule evidence-based.
-    #[test]
-    fn a_gitignore_without_a_git_repo_is_inert() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let root = dir.path();
-        fs::write(root.join(".gitignore"), "*.log\n").unwrap();
-        fs::write(root.join("debug.log"), "kept").unwrap();
-        let (files, _) = walk(root, false, true, true).unwrap();
-        assert!(
-            files.iter().any(|e| e.rel == "debug.log"),
-            "no .git dir, so gitignore semantics must not apply"
-        );
-    }
-
-    /// Nested .gitignore files scope to their own subtree, like git itself.
-    #[test]
-    fn nested_gitignore_files_scope_to_their_subtree() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let root = dir.path();
-        fs::create_dir(root.join(".git")).unwrap();
-        fs::create_dir(root.join("web")).unwrap();
-        fs::write(root.join("web/.gitignore"), "dist/\n").unwrap();
-        fs::create_dir_all(root.join("web/dist")).unwrap();
-        fs::write(root.join("web/dist/bundle.js"), "x").unwrap();
-        fs::create_dir_all(root.join("docs/dist")).unwrap();
-        fs::write(root.join("docs/dist/manual.md"), "kept").unwrap();
-        let (files, _) = walk(root, false, true, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(!rels.iter().any(|r| r.starts_with("web/dist/")));
-        assert!(rels.contains(&"docs/dist/manual.md"));
-    }
-
-    #[test]
-    fn cargo_target_is_pruned_only_next_to_a_cargo_toml() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let crate_dir = dir.path().join("mycrate");
-        fs::create_dir_all(crate_dir.join("target/debug")).unwrap();
-        fs::write(crate_dir.join("target/debug/build.log"), "x").unwrap();
-        fs::write(crate_dir.join("Cargo.toml"), "[package]").unwrap();
-        fs::write(crate_dir.join("main.rs"), "fn main() {}").unwrap();
-        let plain = dir.path().join("shooting/target");
-        fs::create_dir_all(&plain).unwrap();
-        fs::write(plain.join("scores.csv"), "a,b\n1,2\n").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
-        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
-        assert!(rels.contains(&"mycrate/main.rs"));
-        assert!(!rels.iter().any(|r| r.starts_with("mycrate/target")));
-        assert!(
-            rels.contains(&"shooting/target/scores.csv"),
-            "a folder merely NAMED target is data, not a build dir: {rels:?}"
-        );
-        assert_eq!(skipped.len(), 1);
-        assert_eq!(skipped[0].rel, "mycrate/target");
     }
 }

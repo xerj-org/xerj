@@ -3381,6 +3381,131 @@ async fn test_index_read_block() {
     );
 }
 
+/// `write_block_reason` names the block, and the name is what the HTTP layer
+/// turns into a status. `read_only_allow_delete` is the one that answers 429
+/// instead of 403, so mislabelling it silently changes the wire contract.
+#[tokio::test]
+async fn write_block_reason_names_the_block_that_denied_the_write() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("reasons", Schema::empty()).unwrap();
+    let idx = engine.get_index("reasons").unwrap();
+
+    assert_eq!(idx.write_block_reason().await, None);
+
+    for name in ["write", "read_only", "read_only_allow_delete"] {
+        idx.set_block(name).await.unwrap();
+        assert_eq!(
+            idx.write_block_reason().await,
+            Some(name),
+            "{name} must both deny writes and identify itself"
+        );
+        idx.clear_block(name).await.unwrap();
+        assert_eq!(
+            idx.write_block_reason().await,
+            None,
+            "clearing {name} must lift the denial"
+        );
+    }
+}
+
+/// ES collapses a multi-block rejection to a single status by letting a
+/// non-retryable block outrank a retryable one, so an index carrying both an
+/// explicit `write` block (403) and the flood-stage block (429) reports 403.
+#[tokio::test]
+async fn an_explicit_block_outranks_the_flood_stage_block() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("precedence", Schema::empty()).unwrap();
+    let idx = engine.get_index("precedence").unwrap();
+
+    idx.set_block("read_only_allow_delete").await.unwrap();
+    idx.set_block("write").await.unwrap();
+    assert_eq!(
+        idx.write_block_reason().await,
+        Some("write"),
+        "the 403 block must win while it is set"
+    );
+
+    idx.clear_block("write").await.unwrap();
+    assert_eq!(
+        idx.write_block_reason().await,
+        Some("read_only_allow_delete"),
+        "and the 429 block must still be in force underneath it"
+    );
+}
+
+/// A settings body reaches us in whichever of ES's spellings the client library
+/// chose, and index settings survive a round trip as strings. All of them have
+/// to move the block, or "clear the block" silently no-ops for some clients.
+#[tokio::test]
+async fn apply_block_settings_accepts_every_settings_spelling() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("shapes", Schema::empty()).unwrap();
+    let idx = engine.get_index("shapes").unwrap();
+
+    let set_forms = [
+        json!({ "index": { "blocks": { "write": true } } }),
+        json!({ "index.blocks.write": true }),
+        json!({ "index": { "blocks.write": true } }),
+        json!({ "blocks": { "write": true } }),
+        json!({ "index": { "blocks": { "write": "true" } } }),
+    ];
+    let clear_forms = [
+        json!({ "index": { "blocks": { "write": false } } }),
+        json!({ "index.blocks.write": false }),
+        json!({ "index": { "blocks.write": false } }),
+        json!({ "blocks": { "write": false } }),
+        json!({ "index": { "blocks": { "write": "false" } } }),
+    ];
+
+    for (set, clear) in set_forms.iter().zip(clear_forms.iter()) {
+        let applied = idx.apply_block_settings(set).await.unwrap();
+        assert_eq!(applied, vec!["write".to_string()], "setting via {set}");
+        assert!(idx.is_write_blocked().await, "setting via {set}");
+
+        let applied = idx.apply_block_settings(clear).await.unwrap();
+        assert_eq!(applied, vec!["write".to_string()], "clearing via {clear}");
+        assert!(!idx.is_write_blocked().await, "clearing via {clear}");
+    }
+
+    // Unrelated settings keys must not be mistaken for blocks.
+    let applied = idx
+        .apply_block_settings(&json!({ "index": { "number_of_replicas": 0 } }))
+        .await
+        .unwrap();
+    assert!(
+        applied.is_empty(),
+        "non-block settings must not touch blocks"
+    );
+}
+
+/// The blocks live in the index's own `settings.json`, so they have to survive
+/// a reopen — a block you can only clear by restarting is the defect; a block
+/// that *clears itself* on restart is the same defect wearing the other face.
+#[tokio::test]
+async fn blocks_survive_a_reopen_and_stay_clearable() {
+    let dir = TempDir::new().unwrap();
+    {
+        let engine = make_engine(&dir);
+        engine.create_index("persisted", Schema::empty()).unwrap();
+        let idx = engine.get_index("persisted").unwrap();
+        idx.set_block("read_only_allow_delete").await.unwrap();
+    }
+
+    let engine = make_engine(&dir);
+    let idx = engine.get_index("persisted").unwrap();
+    assert_eq!(
+        idx.write_block_reason().await,
+        Some("read_only_allow_delete"),
+        "the block must be reloaded from settings.json"
+    );
+
+    idx.clear_block("read_only_allow_delete").await.unwrap();
+    assert_eq!(idx.write_block_reason().await, None);
+}
+
 // ── New feature tests ─────────────────────────────────────────────────────────
 
 // ── SQL query test ────────────────────────────────────────────────────────────

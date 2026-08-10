@@ -314,7 +314,8 @@ impl FuzzyQuery {
 /// LAST element is treated as a **prefix** that expands against the field's
 /// analyzed term dictionary (bounded by `max_expansions`, in FST/lexicographic
 /// order — the same order ES takes its first `max_expansions` terms).  A doc
-/// matches when the head phrase is immediately followed by any expansion term.
+/// matches when any expansion term follows a head-phrase occurrence within
+/// `slop` intervening positions (`slop == 0`, the default, means immediately).
 /// `terms` are already analyzed by the caller (standard analyzer → lowercased),
 /// so the prefix expansion is a plain case-sensitive `starts_with` against the
 /// (lowercased) term dictionary — byte-identical to ES, whose analyzer
@@ -325,6 +326,17 @@ pub struct PhrasePrefixQuery {
     pub terms: Vec<String>,
     #[serde(default = "default_max_expansions")]
     pub max_expansions: usize,
+    /// Allowed number of intervening positions across the WHOLE phrase,
+    /// including the expanded trailing prefix term.  ES honours `slop` on
+    /// `match_phrase_prefix`: `TextFieldMapper.createPhrasePrefixQuery` builds
+    /// a `MultiPhrasePrefixQuery` and calls `setSlop(slop)` alongside
+    /// `setMaxExpansions` (elasticsearch/server/src/main/java/org/
+    /// elasticsearch/index/mapper/TextFieldMapper.java:2019, the two setters
+    /// at :2028-:2029, reached from `phrasePrefixQuery` at :1269 — AGPL, read
+    /// for semantics only, no code copied).  Defaults to 0 (adjacency), which is
+    /// the pre-existing behaviour for every caller that does not set it.
+    #[serde(default)]
+    pub slop: u32,
     #[serde(default = "default_boost")]
     pub boost: f32,
 }
@@ -814,7 +826,11 @@ impl FtsSearcher {
             let pq = PhraseQuery {
                 field: ppq.field.clone(),
                 terms,
-                slop: 0,
+                // `slop` spans the whole phrase INCLUDING the expanded
+                // trailing term — ES's `MultiPhrasePrefixQuery.setSlop`
+                // applies to the multi-term position too, so the union of
+                // per-expansion sloppy phrase queries is the same hit set.
+                slop: ppq.slop,
                 boost: ppq.boost,
             };
             for hit in self.execute_phrase(&pq, explain)? {

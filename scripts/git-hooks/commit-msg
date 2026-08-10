@@ -1,0 +1,17 @@
+#!/bin/sh
+# XERJ identity guard — commit-msg hook.
+#
+# FOR xerj-org AGENT-FLEET MACHINES ONLY.
+#
+# Enforces the standing repository directive (2026-07-22): commit
+# messages must not carry Claude / AI co-author trailers. The history is
+# authored as xerj-org, full stop.
+#
+# $1 is the path to the commit message file.
+
+if grep -qiE '^[[:space:]]*Co-Authored-By:.*(claude|anthropic|noreply@anthropic\.com)' "$1"; then
+    echo "identity-guard: refusing commit — Co-Authored-By Claude/Anthropic trailer found." >&2
+    echo "identity-guard: this repository never carries AI co-author trailers (directive 2026-07-22)." >&2
+    exit 1
+fi
+exit 0

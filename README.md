@@ -4,22 +4,6 @@ XERJ is a search engine for AI agents. Point it at a folder and one command make
 your code, docs, logs and PDFs queryable, so an agent asks questions instead of
 reading files into its context window.
 
-It speaks the Elasticsearch API, so existing clients, dashboards and tooling work
-against it unchanged.
-
-[![CI](https://github.com/xerj-org/xerj/actions/workflows/ci.yml/badge.svg)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
-[![Release](https://img.shields.io/github/v/release/xerj-org/xerj?include_prereleases&sort=semver)](https://github.com/xerj-org/xerj/releases)
-[![ES conformance](https://img.shields.io/badge/ES%20conformance-1365%2F1368-brightgreen.svg)](https://xerj.org/benchmarks)
-
-<video src="https://xerj.org/xerj-biz-demo.mp4" poster="docs/media/demo-poster.png" controls muted playsinline width="840">
-  <a href="https://xerj.org/aise-demo.html"><img src="docs/media/demo-poster.png" width="840" alt="Watch the XERJ demo: boot, ingest, search, vectors, dashboards"></a>
-</video>
-
-<sub>Boot, bulk ingest, search, vector kNN, live dashboards, no cuts.
-<a href="https://xerj.org/aise-demo.html">Watch it on xerj.org</a> or
-<a href="https://xerj.org/playground/">try the live playground</a>.</sub>
-
 ## Install
 
 ```sh
@@ -33,7 +17,51 @@ irm https://xerj.org/get.ps1 | iex
 ```
 
 One static binary, no JVM, no dependencies. Prebuilt for Linux, macOS and Windows
-on x86-64 and arm64. You can also [build from source](#build-from-source).
+on x86-64 and arm64. You can also [build from source](#build-from-source). It
+speaks the Elasticsearch API, so existing clients, dashboards and tooling work
+against it unchanged.
+
+First commands after install (the installer prints where `xerj` landed — add it to
+your PATH if needed): `xerj --insecure --data-dir ./data &`, wait until
+`http://localhost:9200` responds, then `xerj autoindex ~/my-project` — see
+[Index a folder](#index-a-folder).
+
+### Or paste this to your AI agent
+
+```text
+Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up
+reference coding: clone and index the open-source repos closest to what we're building,
+and search how they solved a problem before writing code.
+```
+
+One prompt is enough — [llms.txt](https://xerj.org/llms.txt) gives your agent the
+ordered steps: install, start the server, `xerj autoindex .`, query with any
+Elasticsearch client, and the reference-coding loop (clone similar OSS, index it,
+retrieve the mechanism before writing, cite what you use, respect licenses).
+
+More prompts that work on a fresh install:
+
+- *"Read https://xerj.org/llms.txt, set XERJ up as your search backend, index `./docs`,
+  and show me one example query per index it created."*
+- *"Run `xerj autoindex map` and tell me what is in this data — types, counts and the
+  gotchas it recorded — then answer my questions with search instead of reading files."*
+- *"Use XERJ's `/_memory/notes` API as your long-term memory for this project: store what
+  you learn as you work, and recall it by meaning next session."*
+
+Worked, validated examples for each capability: [xerj.org/recipes](https://xerj.org/recipes).
+
+[![CI](https://github.com/xerj-org/xerj/actions/workflows/ci.yml/badge.svg)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/xerj-org/xerj?include_prereleases&sort=semver)](https://github.com/xerj-org/xerj/releases)
+[![ES conformance](https://img.shields.io/badge/ES%20conformance-1365%2F1368-brightgreen.svg)](https://xerj.org/benchmarks)
+
+<video src="https://xerj.org/xerj-biz-demo.mp4" poster="docs/media/demo-poster.png" controls muted playsinline width="840">
+  <a href="https://xerj.org/aise-demo.html"><img src="docs/media/demo-poster.png" width="840" alt="Watch the XERJ demo: boot, ingest, search, vectors, dashboards"></a>
+</video>
+
+<sub>Boot, bulk ingest, search, vector kNN, live dashboards, no cuts.
+<a href="https://xerj.org/aise-demo.html">Watch it on xerj.org</a> or
+<a href="https://xerj.org/playground/">try the live playground</a>.</sub>
 
 ## Index a folder
 

@@ -9,6 +9,15 @@
 //! The listener speaks plaintext HTTP/2 (h2c). TLS termination stays with the
 //! REST/ES listeners (axum-server + ring); tonic is built without its `tls`
 //! feature so no second crypto backend is dragged in.
+//!
+//! That is a real gap, not a footnote (issue #229): `tls.enabled = true`
+//! encrypts the other two listeners and leaves this one in the clear, and
+//! nothing a working gRPC client sees would tell the operator. Startup
+//! therefore refuses the combination "TLS on + non-loopback bind" unless
+//! `tls.allow_insecure_grpc_h2c` declares it intended — see
+//! `Config::grpc_h2c_exposed_off_loopback` and step 5b of `main.rs`. Wiring
+//! tonic's own `tls` feature (a second crypto backend beside axum-server's
+//! ring) is the open follow-up; documented in `docs/SECURITY_MODEL.md`.
 
 use std::net::SocketAddr;
 
@@ -329,7 +338,8 @@ impl XerjSearch for GrpcService {
 /// shared [`xerj_api::auth::is_authorized`] decision. Without it the gRPC
 /// listener was fully unauthenticated even with `auth.enabled = true`: any
 /// client on the network could read, write, and delete documents (the listener
-/// binds `server.bind_address`, default `0.0.0.0`).
+/// binds `server.bind_address`, which since issue #228 defaults to loopback —
+/// but is `0.0.0.0` in every deployment that exposes the node at all).
 ///
 /// The credential is read from the `authorization` request metadata
 /// (`ApiKey <key>` or `Bearer <key>`), mirroring the HTTP `Authorization`
@@ -374,6 +384,11 @@ impl tonic::service::Interceptor for GrpcAuth {
 ///
 /// Every RPC is guarded by [`GrpcAuth`], which enforces the same API-key auth
 /// as the REST / ES-compat listeners.
+///
+/// The transport is cleartext h2c — see the module docs. Whether that is
+/// acceptable for `addr` is decided before this is called (`main.rs` step 5b);
+/// this function does not re-check, so do not call it on a new code path
+/// without carrying that decision with you.
 pub async fn serve_grpc<F>(addr: SocketAddr, state: AppState, shutdown: F) -> anyhow::Result<()>
 where
     F: std::future::Future<Output = ()> + Send + 'static,
@@ -685,14 +700,7 @@ mod tests {
     fn mint_key(state: &AppState, id: &str, roles: Vec<xerj_engine::rbac::Role>) -> String {
         state.engine.persist_api_key(
             id.to_string(),
-            xerj_engine::engine::ApiKeyRecord {
-                name: id.to_string(),
-                secret: "s3cret".into(),
-                creation_ms: 0,
-                expiration_ms: None,
-                invalidated: false,
-                roles,
-            },
+            xerj_engine::engine::ApiKeyRecord::new(id, "s3cret", 0, None, roles),
         );
         format!("ApiKey {}", b64(&format!("{id}:s3cret")))
     }

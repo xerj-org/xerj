@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=ic7">
+<link rel="stylesheet" href="/style.css?v=if1">
 </head>
 <body>
 
@@ -49,6 +49,28 @@
     </div>
 
     <h1 class="hero"><span class="accent">XERJ.</span><br>ONE ENGINE.<br>ZERO STACK.</h1>
+
+    <div class="hero-install">
+      <div class="hero-install-label">INSTALL · ONE COMMAND · SHA-256 CHECKSUMS</div>
+      <div class="hero-install-cmd">
+        <code>curl -fsSL https://xerj.org/get | sh</code>
+        <button type="button" class="hero-install-copy" data-copy="curl -fsSL https://xerj.org/get | sh">COPY</button>
+      </div>
+      <div class="hero-install-alt">
+        <span class="mono">WINDOWS · <code>irm https://xerj.org/get.ps1 | iex</code></span>
+        <button type="button" class="hero-install-copy" data-copy="irm https://xerj.org/get.ps1 | iex">COPY</button>
+      </div>
+      <div class="hero-install-agent">
+        <span class="hero-install-label">OR PASTE THIS TO YOUR AI AGENT</span>
+        <div class="hero-install-cmd">
+          <code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code>
+          <button type="button" class="hero-install-copy" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">COPY</button>
+        </div>
+        <p class="hero-install-agent-line">One prompt is enough — llms.txt gives your agent
+          the ordered steps: install, start the server, <code>xerj autoindex .</code>,
+          query with any Elasticsearch client, and the reference-coding loop.</p>
+      </div>
+    </div>
 
     <p class="lead">
       The unified search engine for AI — connect it, run
@@ -402,6 +424,29 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
         root.setAttribute('data-theme', t);
         for (const b of document.querySelectorAll('[data-theme]')) {
           b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+    for (const btn of document.querySelectorAll('[data-copy]')) {
+      btn.addEventListener('click', () => {
+        const text = btn.getAttribute('data-copy');
+        const done = () => {
+          btn.textContent = 'COPIED';
+          setTimeout(() => { btn.textContent = 'COPY'; }, 1400);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, done);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'absolute';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); } catch (_) {}
+          document.body.removeChild(ta);
+          done();
         }
       });
     }

@@ -201,8 +201,9 @@ Accepted credential forms (`authenticate`, `auth.rs:214`):
   key's `id:secret` (`basic_principal`, `auth.rs:257`). Kibana's basic-realm
   login sends this shape.
 
-All secret comparisons are constant-time after a length check
-(`constant_time_eq`, `auth.rs:364`), on both the admin-key and minted-key paths.
+All secret comparisons are constant-time after a length check: the admin key
+against the configured value (`constant_time_eq`, `auth.rs`), a minted key
+against its stored hash (`secret_hash::verify_secret`).
 
 Two paths are exempt from authentication: `/health/live` and `/health/ready`
 (`AUTH_EXEMPT_PATHS`, `auth.rs:41`), so a hardened deployment's probes do not
@@ -262,6 +263,84 @@ Not honoured, and each one fails closed by granting nothing
 
 A key also carries expiry and invalidation, both checked on every request before
 the secret comparison (`auth.rs:338-349`).
+
+### Key secrets at rest
+
+Minted secrets are stored as a **salted SHA-256 hash**, never in the clear
+(`secret_hash.rs`, issue #201). `<data_dir>/api_keys.json` holds
+`$ssha256$<salt>$<digest>` per key; authentication re-hashes the presented
+secret under that record's salt and compares digests in constant time
+(`ApiKeyRecord::verify_secret`). A store written before this lands is migrated
+on boot — hashed, and the file rewritten without the plaintext — before the
+server accepts a request.
+
+Exactly two on-disk shapes are credentials: a `secret_hash` that decodes (the
+post-#201 form, and the winner whenever both are present), and a non-empty
+`secret` with no `secret_hash` at all (the pre-#201 form, which is what
+migration is for). Every other record is **dropped on load with an error** —
+including one whose `secret_hash` carries the `$ssha256$` tag but does not
+decode, from a hand edit or an encoding a later build wrote. Nothing could ever
+authenticate as such a record, so restoring it and listing it through
+`GET /_security/api_key` would be a lie about which credentials exist. The
+discriminator is `secret_hash::is_usable_hash`, a full decode rather than a tag
+check, and both the load path and `verify_secret` use that one function so they
+cannot disagree about what counts as a credential. The drop is in memory: the
+file is only rewritten when something migrated, so a dropped record normally
+stays on disk for inspection.
+
+The hash is deliberately *fast*, not a password hash. The secret is two v4
+UUIDs of CSPRNG output (244 bits), never chosen or reused by a human, so an
+offline guessing attack is not the threat; a per-request Argon2/scrypt would
+buy nothing against it and would hand an attacker a CPU-exhaustion DoS. This is
+the same choice Elasticsearch makes for API keys (its default
+`xpack.security.authc.api_key.hashing.algorithm` is `SSHA256`).
+
+What this does **not** protect against: an attacker who can read the process's
+memory, or who intercepts the one response that carries the plaintext. The file
+stays 0600, because a hash plus a key id is still an offline target and still
+enumerates which credentials exist.
+
+### Introspecting your own credential
+
+`GET /_security/_authenticate` reports the principal that made the call
+(`security_authenticate`, issue #201): `authentication_type: "api_key"` in the
+`_es_api_key` realm, with an `api_key: {id, name}` block and the
+`role_descriptors` names the key was minted with, for a minted key;
+`authentication_type: "realm"` with `roles: ["superuser"]` for the admin key or
+open mode. A key minted without usable `role_descriptors` reports
+`roles: ["unscoped"]` — it holds no grant in the reserved namespace but keeps
+its historical reach over ordinary indices, so neither `["superuser"]` nor `[]`
+would be true. Before #201 this endpoint answered `superuser` for every caller.
+
+One deliberate divergence from ES: ES reports `roles: []` for an API-key call
+and expects the client to read `GET /_security/api_key` for the descriptors.
+xerj reports the names instead, because it has no named-role store to point at.
+
+Because those names are caller-chosen free text, `superuser` and `unscoped` —
+the two labels xerj assigns on its own authority — are **not mintable from a
+`role_descriptors` key**. A descriptor named `superuser` is reported as
+`api_key_role:superuser` (`es_compat.rs`, `reported_role_label`), so a key
+confined to `logs-*` by that descriptor cannot be handed back a `roles` array
+that reads as the superuser. Without that guard the divergence would re-open
+the exact drift this endpoint was fixed for: one `POST /_security/api_key` with
+the right descriptor name and `_authenticate` says `{"roles":["superuser"]}`
+for a read-only key. With it, the divergence is additive and no key is
+described as holding more than it holds. The guarantee is specifically that no
+caller-chosen name yields `superuser` or `unscoped`; the qualified form is not
+itself reserved, so a descriptor literally named `api_key_role:superuser` comes
+back verbatim — that collides with another caller's name, not with a label xerj
+assigns.
+
+`POST /_security/user/_has_privileges` is **not** fixed: it still answers `true`
+to every privilege named in the request, which is wrong for a scoped key. Treat
+it as a stub, not as an authorization oracle.
+
+Neither are the Kibana user-profile routes (`POST /_security/profile/_activate`,
+`GET /_security/profile/{uid}`): they return one fixed built-in profile whose
+`user.roles` is `["superuser"]` for every caller, because xerj has a single
+owner identity and these exist to get Kibana's bootstrap past a 404. They
+describe that owner, not the credential that called them. `_authenticate` is
+the endpoint that answers "who am I".
 
 ### Privileges that exist but are not decided
 
@@ -352,6 +431,137 @@ startup rather than silently widening or narrowing trust
 Note that `ClientIp` is also used for audit fields on endpoints that are not
 rate limited, for example passkey enrolment (`auth/passkey.rs:168`). Only the
 three endpoints listed above charge a bucket.
+
+## Reach: what a fresh node exposes (issue #228)
+
+`server.bind_address` defaults to **`127.0.0.1`**. A node you start without
+configuring anything is reachable from the machine it runs on and from nowhere
+else.
+
+That default is chosen against the one that used to ship, `0.0.0.0`. Auth is on
+by default and the admin key is generated 0600 on first start, which is the
+part that is genuinely good — but TLS is *off* by default, so binding every
+interface meant the admin API key travelled in an `Authorization` header over
+plain HTTP to anything that could route to the host. Nothing about the
+experience said so: `curl` worked, the health endpoint answered, and the key
+was accepted. `user-feedback/09-security/insecure-defaults.md` collects the
+field reports this is aimed at — a list of eight-and-nine-figure record
+exposures whose common factor is a search node reachable from the internet in
+whatever state it shipped in. A shipped default is the configuration most
+installs will ever run.
+
+### Exposing the node is a two-part statement
+
+Set `server.bind_address` (or `--bind` / `XERJ_BIND_ADDRESS`) to `0.0.0.0` or a
+specific address. With `tls.enabled = false`, startup then **refuses** unless
+`server.allow_insecure_network_bind = true` (env:
+`XERJ_ALLOW_INSECURE_NETWORK_BIND`).
+
+`Config::cleartext_exposed_off_loopback` (`config.rs`) is true when TLS is off
+**and** the bind address is not loopback **and** the opt-out is unset; `main.rs`
+step 3c aborts non-zero before the data directory is created, before a first-run
+admin key is minted and printed, and before any listener exists.
+
+```
+Error: server.bind_address = "0.0.0.0" is not loopback and tls.enabled = false,
+so every listener (8080, 9200, 8081) would serve plain HTTP on a
+network-reachable interface — the API key in every Authorization header, and
+every document body, would cross the network in cleartext. Refusing to start.
+…declare it: server.allow_insecure_network_bind = true (env:
+XERJ_ALLOW_INSECURE_NETWORK_BIND=true).
+```
+
+Scope of the refusal, all pinned by tests:
+
+- **`0.0.0.0` and `::` count as exposed**, not as "unset" — they bind every
+  interface the host has.
+- **Link-local counts as exposed too** — still reachable by every other host on
+  the link.
+- **Loopback binds are untouched**, so local development, the quickstarts and
+  the ES-YAML conformance harness keep working with TLS off.
+- **`--insecure` does not evade it.** It clears `tls.enabled`, so it trips the
+  check like any other cleartext configuration — and it drops auth as well, so
+  the configuration it would otherwise produce is an unauthenticated node on
+  every interface.
+- **The opt-out relaxes only this check.** With TLS on it is not consulted at
+  all; the residual gRPC h2c exposure stays governed by
+  `tls.allow_insecure_grpc_h2c` (#229).
+- **The bind address must be an IP literal.** Host names are not resolved, and
+  a node given one is refused at `main.rs` step 3a — *before* either exposure
+  check runs, so neither can describe an address it could not parse. Without
+  that ordering, `bind_address = "localhost"` was refused by 3c with a message
+  claiming localhost "is not loopback", and the opt-out that message names
+  merely deferred the same failure past the data directory and a printed
+  first-run admin key. Resolution is deliberately not attempted: a name maps to
+  different addresses on different hosts and at different times, so "which
+  interfaces did this node just publish itself on?" would stop having a fixed
+  answer.
+
+```
+Error: server.bind_address = "localhost" is not an IP address — it must be an
+IPv4 or IPv6 literal such as "127.0.0.1" (the default), "0.0.0.0" or "::1".
+Host names are not resolved.
+```
+
+The escape hatch does not make anything safe. It records that you know, and it
+is what you set when a reverse proxy, sidecar, mesh or ingress terminates TLS in
+front of the node — or when the boundary is a container's network namespace,
+which is why the shipped Docker image and Helm chart set it. The startup banner
+then names the exposure on every boot, and every listener line carries the bind
+address so a loopback node and a world-facing one no longer look identical.
+
+## Transport encryption, listener by listener
+
+`tls.enabled` does not mean "the node is encrypted". It covers two of the three
+data-plane listeners, and the third is cleartext by construction.
+
+| listener | default port | with `tls.enabled = true` |
+|---|---|---|
+| Native REST | 8080 | TLS (in-process rustls) |
+| ES-compat | 9200 | TLS (in-process rustls) |
+| gRPC `XerjSearch` | 8081 | **cleartext h2c — never TLS** |
+| Cluster control | 9300 | cleartext, authenticated only (see below) |
+
+REST and ES-compat are wrapped by `axum_server::bind_rustls`, which handshakes
+every accepted connection (`main.rs:788-810`). The gRPC listener is served by
+`tonic::transport::Server` with no TLS configuration at all
+(`grpc.rs:377-392`): tonic is deliberately built without its `tls` feature, so
+that a second crypto backend is not pulled in beside axum-server's `ring`. The
+consequence is that `tls.enabled` has no effect whatsoever on `:8081`.
+
+Auth is not the gap here — every RPC goes through the same API-key check as the
+HTTP surfaces (`GrpcAuth`, `grpc.rs:340-367`), so the port is not an open door.
+Confidentiality is the gap: the credential itself, and every document body,
+cross the wire in the clear.
+
+### The startup check (issue #229)
+
+Left alone, this is a silent mismatch. gRPC clients keep working whether or not
+TLS is on, so an operator who enabled TLS and expected three encrypted
+listeners gets no error, no failed connection, and no symptom of any kind.
+
+So startup refuses the dangerous combination. `Config::grpc_h2c_exposed_off_loopback`
+(`config.rs`) is true when TLS is enabled **and** `server.bind_address` is not
+loopback **and** `tls.allow_insecure_grpc_h2c` is unset; `main.rs` step 5b then
+aborts non-zero before binding anything or writing a certificate. Loopback
+binds are unaffected, and `--insecure` clears `tls.enabled` so it never trips.
+
+`0.0.0.0` and `::` count as exposed, not as "unset" — they bind every interface
+the host has. (They were also the shipped default until #228 made it loopback;
+either way this check fires on what the config says, not on what it omits.)
+Link-local addresses count as exposed too; they are reachable by every other
+host on the link. Both
+choices are pinned by tests in `xerj-common/src/config.rs`, and the refusal
+itself by `xerj-server/tests/grpc_h2c_fail_closed.rs`.
+
+The escape hatch, `tls.allow_insecure_grpc_h2c = true`, does not make anything
+safe — it records that you know, and it is what you set when a sidecar, mesh
+or reverse proxy terminates TLS for `:8081` on your behalf. The startup banner
+keeps naming the uncovered listener on every boot.
+
+Wiring tonic's own `tls` feature would close this properly. It is not done: it
+means a second TLS stack in the binary beside `axum-server` + `ring`, and that
+trade has not been made. Until it is, treat `:8081` as a plaintext port.
 
 ## Cluster control-frame authentication
 
@@ -504,8 +714,16 @@ it is on a schedule this document can promise.
 - **The audit endpoints are not privilege-gated.** `/_audit/_search` and
   `/_audit/_verify` (`router.rs:124-125`) are cluster-classified reads, so any
   authenticated principal that reaches the router passes; `AuditRead` is not
-  consulted. The startup banner also states plainly that auditing today is
-  request tracing, not a tamper-evident log (`main.rs:317`).
+  consulted.
+- **The audit log covers very little.** It is a hash-chained, restart-surviving
+  log (`audit.rs`, issue #201) of the last 4096 entries in
+  `<data_dir>/audit.jsonl` — but the only callers are `_search` and the three
+  `_security/api_key` operations. Indexing and deletion are **not** audited, so
+  a missing entry is not evidence that a write did not happen. The file is not
+  `fsync`ed per entry (a search would pay the barrier); it survives a process
+  restart, not a power cut. Anyone who can write the file can rewrite the whole
+  chain, seed line included — tamper-*evidence* requires pinning a known-good
+  head externally.
 - **`names: ["*"]` reaches the reserved namespace.** This is intended and pinned
   by a test, but it means one careless grant hands over every brain
   (`rbac.rs:72-98`).
@@ -520,9 +738,19 @@ it is on a schedule this document can promise.
 - **Cluster traffic is unencrypted and membership-authenticated only.** No
   confidentiality, no per-node identity, no mTLS (`auth.rs:21-29`).
 - **TLS is off by default.** `TlsConfig` derives `Default`, so `tls.enabled` is
-  `false` (`config.rs:492-501`), and `--insecure` disables both TLS and auth
-  (`main.rs:345-349`). The startup banner prints the posture on every start
-  (`main.rs:302-319`).
+  `false`, and `--insecure` disables both TLS and auth. The startup banner
+  prints the posture on every start. The mitigation is reach, not encryption:
+  the default bind is loopback and exposing the node in cleartext has to be
+  declared — see [Reach](#reach-what-a-fresh-node-exposes-issue-228).
+- **A declared cleartext exposure is still cleartext.** Nothing about
+  `server.allow_insecure_network_bind = true` encrypts anything; it only means
+  the operator said so. Every deployment that publishes a port — including the
+  shipped Docker image and Helm chart — needs TLS terminated in front of it.
+- **The gRPC listener is never TLS.** `tls.enabled` covers REST and ES-compat
+  only; `:8081` is cleartext h2c in every configuration (`grpc.rs:377-392`).
+  Startup refuses the combination "TLS on + non-loopback bind" rather than let
+  that pass unnoticed — see
+  [Transport encryption](#transport-encryption-listener-by-listener).
 - **No encryption at rest at the engine level.** The startup banner says to use
   OS full-disk encryption or bucket-side encryption instead (`main.rs:318`).
 - **Rate limiting covers three Console auth endpoints only.** There is no

@@ -301,6 +301,12 @@ pub struct FieldOptions {
     /// Null value to substitute when the field is missing from a document.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub null_value: Option<serde_json::Value>,
+    /// Maximum string length advertised for keyword indexing (ES
+    /// `ignore_above`). Recorded on the auto-created `keyword` sub-field of
+    /// dynamically mapped string fields so the ES-compat mapping renders the
+    /// exact default shape ES emits (`ignore_above: 256`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ignore_above: Option<u32>,
     /// Allow the field to appear more than once in a document (always `true` for arrays).
     #[serde(default = "bool_true")]
     pub multi_value: bool,
@@ -329,6 +335,7 @@ impl Default for FieldOptions {
             similarity: None,
             quantization: None,
             null_value: None,
+            ignore_above: None,
             multi_value: true,
             boost: 1.0,
         }
@@ -370,7 +377,12 @@ pub struct FieldConfig {
     /// Optional embedding pipeline configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embedding: Option<EmbeddingConfig>,
-    /// Sub-fields (for `Object` and `Nested` fields).
+    /// Sub-fields. Two distinct meanings, keyed off this field's own type:
+    /// on `Object`/`Nested` these are real child *properties*; on a leaf type
+    /// they are ES *multi-fields* — the same value indexed a second way, e.g.
+    /// the `keyword` sub-field auto-created on dynamically mapped strings
+    /// (#209). The ES-compat mapping renderer picks `properties` vs `fields`
+    /// on exactly that distinction.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<FieldConfig>,
 }

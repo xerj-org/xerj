@@ -1363,6 +1363,28 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
 
         // Security — API keys
         "security.create_api_key" => ("POST".into(), "/_security/api_key".into(), body),
+        "security.get_api_key" => {
+            let mut qs = Vec::new();
+            for k in [
+                "id",
+                "name",
+                "username",
+                "realm_name",
+                "owner",
+                "active_only",
+            ] {
+                if let Some(v) = get_param_str(params, k) {
+                    qs.push(format!("{}={}", k, v));
+                }
+            }
+            let path = if qs.is_empty() {
+                "/_security/api_key".to_string()
+            } else {
+                format!("/_security/api_key?{}", qs.join("&"))
+            };
+            ("GET".into(), path, None)
+        }
+        "security.invalidate_api_key" => ("DELETE".into(), "/_security/api_key".into(), body),
 
         // ML — anomaly detectors, datafeeds, results
         "ml.put_job" => {

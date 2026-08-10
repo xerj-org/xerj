@@ -264,6 +264,7 @@ impl IntoResponse for ApiError {
 /// |---|---|---|
 /// | `IndexNotFound` | `index_not_found_exception` | 404 |
 /// | `IndexAlreadyExists` | `resource_already_exists_exception` | 409 |
+/// | `IndexUnavailable` | `no_shard_available_action_exception` | 503 |
 /// | `DocumentNotFound` | `document_missing_exception` | 404 |
 /// | `InvalidMapping` | `mapper_parsing_exception` | 400 |
 /// | `InvalidQuery` | `search_phase_execution_exception` | 400 |
@@ -284,6 +285,10 @@ fn xerj_error_type(e: &XerjError) -> String {
         // ── Index lifecycle ───────────────────────────────────────────────
         XerjError::IndexNotFound { .. } => "index_not_found_exception",
         XerjError::IndexAlreadyExists { .. } => "resource_already_exists_exception",
+        // The index exists; its only copy cannot be opened. ES reports an
+        // existing-but-unallocated index this way, so dashboards that already
+        // understand a red shard understand this too.
+        XerjError::IndexUnavailable { .. } => "no_shard_available_action_exception",
         // ── Document operations ───────────────────────────────────────────
         XerjError::DocumentNotFound { .. } => "document_missing_exception",
         // ── Mapping / schema ──────────────────────────────────────────────
@@ -328,7 +333,9 @@ fn extract_index_name(e: &XerjError) -> Option<String> {
             Some(name.clone())
         }
         XerjError::DocumentNotFound { index, .. } => Some(index.clone()),
-        XerjError::IndexBlocked { index, .. } => Some(index.clone()),
+        XerjError::IndexBlocked { index, .. } | XerjError::IndexUnavailable { index, .. } => {
+            Some(index.clone())
+        }
         _ => None,
     }
 }

@@ -21,7 +21,7 @@ Two file-disjoint branches, both forked from `66bd53a` (just before the smoke co
 
 The smoke playbook + baseline screenshots survived both 3-way merges (neither branch ever contained them). Full scoped rebuild: `cargo build --release -j 16 -p xerj-server` (exit 0). The new frontend modules are confirmed bundled in the binary (`dashboard-api.js`, `panel-query.js`, `panel-render.js` all served `200`; unique tokens `renderUserPanelChrome` / `data-builder-save` / `panelResult` present in the binary).
 
-**What wires the fix:** `index.html` boot now runs, before app.js first paint: `GET /me` → `sync.pullAll()` → **`dashboard-store.hydrate()` (GET /dashboards)**. `dashboard-store.js` is an async facade over the new `dashboard-api.js` CRUD client; `createUserDashboard()` **POSTs** a real doc and every panel mutation **PATCHes** it. The backend seeds 13 built-in dashboards as durable `default`/`managed` rows on first launch (`.xerj_dashboards` had 14 docs on a fresh boot before any user action).
+**What wires the fix:** `index.html` boot now runs, before app.js first paint: `GET /me` → `sync.pullAll()` → **`dashboard-store.hydrate()` (GET /dashboards)**. `dashboard-store.js` is an async facade over the new `dashboard-api.js` CRUD client; `createUserDashboard()` **POSTs** a real doc and every panel mutation **PATCHes** it. The backend seeds 14 built-in dashboards as durable `default`/`managed` rows on first launch (`.xerj_dashboards` holds 14 docs on a fresh boot before any user action). The count lives in one place, `xerj_console_api::seed::BUILTIN_DASHBOARD_COUNT`, and is pinned to the registry list by `seed::tests::seeds_every_registry_dashboard` — this sentence used to say 13 and 14 in the same breath (issue #211).
 
 ---
 

@@ -30,6 +30,12 @@ Create `xerj.toml`:
 [server]
 es_compat_port = 9200          # Elasticsearch-wire clients point here
 data_dir       = "/var/lib/xerj"
+
+# The default is "127.0.0.1" — loopback only, so a node you have not thought
+# about cannot be reached from the network. Exposing it is deliberate. With
+# tls.enabled = false a non-loopback bind refuses to start unless you also set
+# server.allow_insecure_network_bind = true; the TLS block below is what makes
+# it unnecessary here.
 bind_address   = "0.0.0.0"
 
 [auth]
@@ -40,6 +46,11 @@ enabled = true                 # this is already the default
 enabled   = true
 cert_path = "/var/lib/xerj/xerj.crt"
 key_path  = "/var/lib/xerj/xerj.key"
+
+# TLS covers REST and ES-compat only — :8081 stays cleartext h2c. On a
+# non-loopback bind that combination refuses to start unless you say the
+# exposure is intended. See "gRPC posture" below before keeping this line.
+allow_insecure_grpc_h2c = true
 ```
 
 Boot it:
@@ -68,11 +79,14 @@ listener lines shown, the Data-dir/Console lines between them elided with `…`)
 ```
  Native REST  :8080 [TLS ]
  ES-compat    :9200 [TLS ]
- gRPC         :8081 [h2c]
+ gRPC         :8081 [h2c — plaintext, no TLS]
  …
  ┌─ Deployment posture (see PATH_TO_100_PCT_v0.6.0_to_v1.0.md) ──
  │ ✓  TLS:    in-process rustls termination active (REST + ES-compat)
  │           (self-signed by default — supply a CA cert for production)
+ │ ⚠  gRPC:   :8081 is NOT covered by TLS — cleartext h2c on a non-loopback
+ │           bind, allowed by tls.allow_insecure_grpc_h2c (issue #229).
+ │           Terminate TLS for it at your proxy/mesh, or bind loopback.
  │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)
  │ ⚠  Audit:  request tracing only — tamper-evident WORM audit log v0.9
  │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now
@@ -175,6 +189,71 @@ container. If you enable in-process TLS, change the probe to
 your container is marked unhealthy forever. Same for a Kubernetes probe: set
 `scheme: HTTPS` on the `httpGet`.
 
+### What readiness actually means
+
+`/health/ready` answers **"can this node serve?"**, not "is every index
+perfect". A node with 200 healthy indices and one that will not open stays
+`200` and keeps taking traffic, with the degradation named in the body:
+
+```text
+ready (degraded): 200 of 201 indices serving, 1 failed to open; see GET /_cluster/indices/failed
+```
+
+The body carries counts only — this path is exempt from authentication, so it
+must not enumerate index names to anything that can reach the port. The names
+and reasons live behind auth on `GET /_cluster/indices/failed`.
+
+It returns `503` only when there is genuinely nothing to serve — every index
+the node holds failed to open. This is deliberate: readiness used to hard-fail
+on any red status, so one bad index directory removed the whole pod from
+service permanently and took the 200 working indices down with it. The red
+status itself is untouched — `/v1/health`, `/v1/cluster/health`,
+`_cluster/health` and `_cat/health` all still report `red`, so alert on those,
+not on the probe.
+
+### Recovering an index that will not open
+
+An index directory that fails to open at boot is quarantined rather than
+silently dropped, and it is a state you can act on without stopping the
+server. All four moves work on a live node:
+
+```bash
+# 1. What failed, and why — the verbatim open error, not just a name
+curl -s localhost:9200/_cluster/indices/failed | jq .
+
+# 2. It is visible in the surfaces you already watch
+curl -s localhost:9200/_cat/indices          # → red open broken <uuid> 1 0 0 0 0b 0b 0b
+curl -s "localhost:9200/_cluster/health?level=indices" | jq '.indices.broken'
+
+# 3. Fix the cause the error names (e.g. restore snapshot.json from a
+#    backup or from an interrupted-write `.tmp.*` sibling), then retry
+curl -s -XPOST localhost:9200/_cluster/indices/failed/broken/_retry
+
+# 4. Or give up on it and remove it
+curl -s -XDELETE localhost:9200/broken
+```
+
+A retry that does not work returns `503` with the *current* reason, not the
+one recorded at boot. While an index is in this state, searches and writes to
+it return `503 no_shard_available_action_exception` naming the open error —
+**not** `404 index_not_found`, which would be a lie: the name is taken and the
+data is still on disk. Creating an index over that name is refused for the
+same reason.
+
+Existence is answered separately from data, the way ES answers it: `GET
+/broken`, `HEAD /broken` (the `indices.exists()` your client library calls),
+`GET /broken/_mapping` and `GET /broken/_settings` all return `200` and report
+the index as existing, because those read metadata and never touch a shard. So
+a client that probes before writing gets one consistent answer — the name is
+taken — instead of a `404` from `HEAD` followed by a `503` from the `PUT`.
+
+Watch for the failure on the health surfaces, not the existence probes:
+`_cat/health` and `_cluster/health` both report `red` with
+`unassigned_primary_shards: 1`, and the two conditions that gate on it are
+honoured — `wait_for_status=green` and `wait_for_active_shards=all` answer
+`408` with `"timed_out": true` rather than reporting success on a red node, so
+a startup gate written against real ES behaves the same here.
+
 ### gRPC posture
 
 The gRPC `XerjSearch` service (default `:8081`) always speaks **plaintext
@@ -189,6 +268,82 @@ Because the gRPC port carries cleartext frames, **terminate TLS in front of
 `:8081` at a reverse proxy** (or keep it on a trusted network / mesh) if
 clients reach it over an untrusted link. If you don't use gRPC, don't expose
 the port.
+
+**XERJ refuses to start rather than let that gap pass unnoticed.** With
+`tls.enabled = true` and a `server.bind_address` that is not loopback, startup
+aborts non-zero before binding anything:
+
+```
+Error: tls.enabled = true but the gRPC listener on 0.0.0.0:8081 speaks
+cleartext h2c — TLS covers the REST and ES-compat listeners only, and
+server.bind_address = "0.0.0.0" is not loopback, so gRPC traffic (including
+API keys) would cross the network unencrypted while the node reports itself
+as TLS-enabled. Refusing to start. Fix by binding to loopback
+(server.bind_address = "127.0.0.1"), or terminate TLS for the gRPC port at a
+proxy, sidecar or service mesh and declare it:
+tls.allow_insecure_grpc_h2c = true.
+```
+
+Three ways out, in the order you should prefer them:
+
+1. **Bind loopback** (`server.bind_address = "127.0.0.1"`) and let a proxy on
+   the same host own every public port. No opt-out needed.
+2. **Terminate TLS for `:8081`** at your proxy, sidecar or mesh, then set
+   `tls.allow_insecure_grpc_h2c = true` to record that you did. This is what
+   the quickstart config in
+   [section 1](#1-secure-quickstart--tls--auth-in-one-config-file) does,
+   because it binds `0.0.0.0`.
+3. **Accept plaintext gRPC on a trusted network** — same setting, and the
+   startup banner will keep saying `:8081` is uncovered on every boot.
+
+`--insecure` never trips *this* check: it clears `tls.enabled`, so nothing is
+claiming the port is encrypted in the first place. This one only fires when TLS
+is on, which is exactly when the mismatch is invisible.
+
+It trips the other one instead. See
+[cleartext exposure](#cleartext-exposure-issue-228) below: with TLS off, a
+non-loopback bind refuses to start for a broader reason — not one uncovered
+listener but all of them.
+
+### Cleartext exposure (issue #228)
+
+`server.bind_address` defaults to `127.0.0.1`. A node started without a config
+file is reachable only from its own host, because TLS is off by default and a
+world-facing cleartext node would publish its admin API key to every interface.
+
+Exposing the node is therefore two statements, not one:
+
+```toml
+[server]
+bind_address = "0.0.0.0"
+# Required whenever bind_address is not loopback AND tls.enabled = false.
+# Unnecessary in the section-1 config above, which enables TLS.
+allow_insecure_network_bind = true
+```
+
+Without the second line, startup aborts non-zero before creating the data
+directory or minting a first-run admin key:
+
+```
+Error: server.bind_address = "0.0.0.0" is not loopback and tls.enabled = false,
+so every listener (8080, 9200, 8081) would serve plain HTTP on a
+network-reachable interface — the API key in every Authorization header, and
+every document body, would cross the network in cleartext. Refusing to start.
+```
+
+Three ways out, in the order you should prefer them:
+
+1. **Enable TLS** (section 1). Then this check is not consulted at all.
+2. **Bind loopback** and let a proxy on the same host own the public ports.
+3. **Declare the exposure** with `allow_insecure_network_bind = true` when
+   something in front of the node already terminates TLS — ingress, sidecar,
+   mesh — or when the boundary is a container network namespace. The startup
+   banner keeps naming it on every boot.
+
+Two conveniences exist because the default is loopback: `--bind 0.0.0.0` /
+`XERJ_BIND_ADDRESS`, and `XERJ_ALLOW_INSECURE_NETWORK_BIND`, so a container can
+express both without shipping a TOML file. The Docker image and the Helm chart
+set exactly these.
 
 ### Behind a reverse proxy: `server.trusted_proxies`
 

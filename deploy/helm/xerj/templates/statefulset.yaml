@@ -64,6 +64,12 @@ spec:
           env:
             - name: XERJ_LOG
               value: "info"
+            # Engine issue #228: the default bind is loopback, which a pod
+            # cannot use — probes and the Service arrive on the pod IP.
+            - name: XERJ_BIND_ADDRESS
+              value: {{ .Values.network.bindAddress | quote }}
+            - name: XERJ_ALLOW_INSECURE_NETWORK_BIND
+              value: {{ .Values.network.allowInsecureNetworkBind | quote }}
           volumeMounts:
             - name: data
               mountPath: /data

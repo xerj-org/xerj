@@ -28,7 +28,8 @@ use uuid::Uuid;
 use xerj_common::config::CorsConfig;
 
 use crate::{
-    auth::auth_middleware, authz, es_compat, graph_api, memory_api, native, state::AppState,
+    auth::auth_middleware, authz, es_compat, graph_api, ism_api, memory_api, native,
+    state::AppState,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,8 +52,10 @@ use crate::{
 /// POST   /v1/indices/:name/search           search
 /// POST   /v1/indices/:name/_flush           flush_index
 /// GET    /v1/health                         health
-/// GET    /v1/health/ready                   readiness probe (200 unless red)
+/// GET    /v1/health/ready                   readiness probe (200 unless nothing can be served)
 /// GET    /v1/cluster/health                 cluster_health
+/// GET    /_cluster/indices/failed           failed_indices (name + open error)
+/// POST   /_cluster/indices/failed/:name/_retry  retry_failed_index
 /// POST   /v1/admin/flush                    admin_flush (flush all indices)
 /// POST   /v1/admin/backup                   admin_backup (snapshot to disk)
 /// GET    /v1/metrics                        metrics (Prometheus text)
@@ -104,6 +107,15 @@ pub fn build_native_router(state: AppState) -> Router {
         .route("/v1/health", get(native::health))
         .route("/v1/health/ready", get(native::readiness))
         .route("/v1/cluster/health", get(native::cluster_health))
+        // Failed-index recovery (issue #206) — inspect / retry. Delete goes
+        // through the ordinary `DELETE /{index}`. Mounted on both routers
+        // under the same path so an operator does not have to know which
+        // listener they reached.
+        .route("/_cluster/indices/failed", get(native::failed_indices))
+        .route(
+            "/_cluster/indices/failed/:name/_retry",
+            post(native::retry_failed_index),
+        )
         .route(
             "/v1/embedding/identity",
             get(native::embedding_execution_identity),
@@ -290,7 +302,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::get_settings).put(es_compat::put_settings),
         )
         // ── Index blocks ───────────────────────────────────────────────────
-        .route("/:index/_block/:block", put(es_compat::put_index_block))
+        .route(
+            "/:index/_block/:block",
+            put(es_compat::put_index_block).delete(es_compat::delete_index_block),
+        )
         // ── Explain ────────────────────────────────────────────────────────
         .route(
             "/:index/_explain/:id",
@@ -373,6 +388,18 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             "/_search/scroll",
             post(es_compat::next_scroll).delete(es_compat::clear_scroll),
         )
+        // Legacy path-parameter form of scroll continuation — a real,
+        // documented ES/OpenSearch REST variant, not a client mistake.
+        // Found missing while investigating why OpenSearch Dashboards
+        // 3.7.0's saved-objects migration crashes: it continues its scroll
+        // this way, hits a bare 404 (no route matched at all), and treats
+        // that as fatal.
+        .route(
+            "/_search/scroll/:scroll_id",
+            get(es_compat::next_scroll_path)
+                .post(es_compat::next_scroll_path)
+                .delete(es_compat::clear_scroll_path),
+        )
         // ── Reindex ────────────────────────────────────────────────────────
         .route("/_reindex", post(es_compat::reindex))
         // ── Field Capabilities ─────────────────────────────────────────────
@@ -448,18 +475,52 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route("/:name/_rollover", post(es_compat::rollover_data_stream))
         // ── ILM ────────────────────────────────────────────────────────────
+        .route("/_ilm/policy", get(es_compat::list_ilm_policies))
         .route(
             "/_ilm/policy/:name",
             put(es_compat::put_ilm_policy)
                 .get(es_compat::get_ilm_policy)
                 .delete(es_compat::delete_ilm_policy),
         )
+        .route("/:index/_ilm/explain", get(es_compat::ilm_explain))
+        // ── ISM (OpenSearch Index State Management) ─────────────────────────
+        // Same execution engine as ILM above — see `xerj_engine::lifecycle`.
+        .route(
+            "/_plugins/_ism/policies/:policy_id",
+            put(ism_api::put_ism_policy)
+                .get(ism_api::get_ism_policy)
+                .delete(ism_api::delete_ism_policy),
+        )
+        .route("/_plugins/_ism/policies", get(ism_api::list_ism_policies))
+        .route("/_plugins/_ism/add/:index", post(ism_api::add_ism_policy))
+        .route(
+            "/_plugins/_ism/remove/:index",
+            post(ism_api::remove_ism_policy),
+        )
+        .route(
+            "/_plugins/_ism/change_policy/:index",
+            post(ism_api::change_ism_policy),
+        )
+        .route(
+            "/_plugins/_ism/retry/:index",
+            post(ism_api::retry_ism_index),
+        )
+        .route(
+            "/_plugins/_ism/explain/:index",
+            get(ism_api::explain_ism_index),
+        )
+        .route("/_plugins/_ism/explain", get(ism_api::list_managed_indices))
         // ── Component templates ────────────────────────────────────────────
         .route(
             "/_component_template/:name",
             put(es_compat::put_component_template)
                 .get(es_compat::get_component_template)
                 .delete(es_compat::delete_component_template),
+        )
+        // ── Query Workbench data connections (honest empty list) ────────────
+        .route(
+            "/_plugins/_query/_datasources",
+            get(es_compat::query_workbench_datasources),
         )
         // ── Cluster state ──────────────────────────────────────────────────
         .route("/_cluster/state", get(es_compat::cluster_state))
@@ -512,6 +573,17 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::get_cluster_settings).put(es_compat::put_cluster_settings),
         )
         .route("/_cluster/reroute", post(es_compat::cluster_reroute))
+        // ── Failed-index recovery (issue #206) ─────────────────────────────
+        // XERJ extension: no ES equivalent (ES recovers a red index through
+        // shard reallocation, which a single-binary node has no analogue for),
+        // so it cannot collide with the parity surface. Mounted on the
+        // ES-compat port because that is the port an operator already has open
+        // when they discover the red index there.
+        .route("/_cluster/indices/failed", get(native::failed_indices))
+        .route(
+            "/_cluster/indices/failed/:name/_retry",
+            post(native::retry_failed_index),
+        )
         .route(
             "/_cluster/pending_tasks",
             get(es_compat::cluster_pending_tasks),
@@ -612,7 +684,9 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route(
             "/_security/api_key",
-            post(es_compat::security_create_api_key),
+            post(es_compat::security_create_api_key)
+                .get(es_compat::security_get_api_keys)
+                .delete(es_compat::security_invalidate_api_key),
         )
         .route(
             "/_security/privilege",

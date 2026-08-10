@@ -1,0 +1,53 @@
+#!/bin/sh
+# XERJ identity guard — pre-commit hook.
+#
+# FOR xerj-org AGENT-FLEET MACHINES ONLY. Do not install on a personal
+# contributor checkout; it enforces the xerj-org committer identity.
+#
+# Why this exists: many concurrent agent sessions share one repository
+# (one .git, many worktrees, one shared repo-local config). Twice on
+# 2026-08-08 a session's transient identity override (env var or a
+# momentary `git config user.email` edit of the shared config) leaked a
+# personal e-mail address into commits that reached the public repo
+# (PR #219 commit c16320bb, PR #231 commit 15082748), and on 2026-08-04
+# the same mechanism leaked a third-party address into main. Config
+# audits cannot stop a transient override; refusing the commit can.
+#
+# What it checks: the exact author and committer ident git is about to
+# use (`git var` resolves env vars AND config, in the same order commit
+# does). Anything but the sanctioned xerj-org identities is refused.
+#
+# Coverage note (honest): pre-commit runs on `git commit` (including
+# --amend) but NOT on rebase/cherry-pick continuation commits, and
+# `git commit --no-verify` bypasses it. It is a guard rail, not a
+# security boundary.
+
+allowed_1='xerj-org <git@xerj.org>'
+allowed_2='xerj-org <xerj-org@users.noreply.github.com>'
+
+# `git var GIT_AUTHOR_IDENT` -> "Name <email> epoch tz"; strip the date.
+author=$(git var GIT_AUTHOR_IDENT | sed 's/ [0-9][0-9]* [+-][0-9][0-9]*$//')
+committer=$(git var GIT_COMMITTER_IDENT | sed 's/ [0-9][0-9]* [+-][0-9][0-9]*$//')
+
+fail=0
+case "$author" in
+    "$allowed_1"|"$allowed_2") ;;
+    *) echo "identity-guard: refusing commit — author is '$author'" >&2; fail=1 ;;
+esac
+case "$committer" in
+    "$allowed_1"|"$allowed_2") ;;
+    *) echo "identity-guard: refusing commit — committer is '$committer'" >&2; fail=1 ;;
+esac
+
+if [ "$fail" -ne 0 ]; then
+    cat >&2 <<'EOF'
+identity-guard: commits in this repository must be authored as
+identity-guard:   xerj-org <git@xerj.org>
+identity-guard: fix with:
+identity-guard:   git config user.name xerj-org
+identity-guard:   git config user.email git@xerj.org
+identity-guard: and unset any GIT_AUTHOR_* / GIT_COMMITTER_* overrides.
+EOF
+    exit 1
+fi
+exit 0

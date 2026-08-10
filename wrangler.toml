@@ -1,5 +1,17 @@
 # Cloudflare Pages project config for the xerj marketing site + Functions.
-# Binds the R2 bucket that /functions/lead.js writes captured emails to.
+#
+# Bindings:
+#   LEADS    — functions/lead.js writes captured emails here.
+#   INSTALLS — functions/get.js writes one record per /get, /get.ps1 request.
+#              No IP, no cookie, no identifier: see the privacy header in
+#              functions/get.js. The bucket must be created once in the
+#              Cloudflare dashboard (R2 → Create bucket → `xerj-installs`);
+#              until it exists the function serves the installer normally and
+#              simply does not count. Fail-open is deliberate.
+#
+# Routing: landing/_routes.json pins Function invocation to /get, /get.ps1 and
+# /lead. A NEW FUNCTION ADDED UNDER functions/ WILL NOT BE ROUTED until its
+# path is added to that include list.
 name = "xerj"
 pages_build_output_dir = "landing"
 compatibility_date = "2024-09-01"
@@ -7,3 +19,7 @@ compatibility_date = "2024-09-01"
 [[r2_buckets]]
 binding = "LEADS"
 bucket_name = "xerj-leads"
+
+[[r2_buckets]]
+binding = "INSTALLS"
+bucket_name = "xerj-installs"

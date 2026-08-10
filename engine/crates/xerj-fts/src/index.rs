@@ -1011,8 +1011,11 @@ impl FtsIndexReader {
     ///  * the norms table — a whole-file `fs::read` plus decode, O(docs).
     ///
     /// That makes the per-segment `field_stats` + `term_doc_freq` pre-pass
-    /// the index-wide scorer needs (#188) cost one mmap and one small read
-    /// per field, instead of re-paying the full open a second time.
+    /// the index-wide scorer needs (#188) cost, per field, one mmap plus one
+    /// `.meta` read-and-decode — for the current ZFM4 format that decode is
+    /// a zstd decompress of the `num_terms × 24`-byte records section, i.e.
+    /// O(field vocabulary), cheap but not free (#193) — instead of re-paying
+    /// the full open a second time.
     ///
     /// The returned reader can answer [`Self::field_stats`],
     /// [`Self::term_doc_freq`] and [`Self::lookup_term`]; [`Self::postings_data`]

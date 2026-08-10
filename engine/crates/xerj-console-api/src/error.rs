@@ -19,6 +19,12 @@ pub enum ConsoleApiError {
     #[error("conflict: {0}")]
     Conflict(String),
 
+    /// RFC 6585 §3 — the request must carry a precondition header
+    /// (`If-Match`) and did not. Distinct from [`Self::Conflict`], which
+    /// means the precondition was sent but did not match.
+    #[error("precondition required: {0}")]
+    PreconditionRequired(String),
+
     #[error("forbidden: {0}")]
     Forbidden(String),
 
@@ -48,6 +54,7 @@ impl ConsoleApiError {
         match self {
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::PreconditionRequired(_) => StatusCode::PRECONDITION_REQUIRED,
             Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
@@ -61,6 +68,7 @@ impl ConsoleApiError {
         match self {
             Self::NotFound(_) => "not_found",
             Self::Conflict(_) => "conflict",
+            Self::PreconditionRequired(_) => "precondition_required",
             Self::Forbidden(_) => "forbidden",
             Self::Unauthorized(_) => "unauthorized",
             Self::BadRequest(_) => "bad_request",

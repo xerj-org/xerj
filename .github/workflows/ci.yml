@@ -20,6 +20,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  cla-config:
+    name: CLA gate config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # cla-bot reads .contributors straight off this repo; malformed JSON or a
+      # missing bot exemption breaks the gate silently (it just flags everyone).
+      # Regression test for the dependabot[bot] exemption (PR #194 comment).
+      - name: Validate .contributors (valid JSON, bot exemptions present)
+        run: |
+          jq -e 'type == "array" and all(.[]; type == "string")' .contributors
+          jq -e 'index("dependabot[bot]") != null' .contributors
+
   lint:
     name: Format + Clippy
     runs-on: ubuntu-latest
@@ -222,8 +236,10 @@ jobs:
           done
           echo "xerj failed to become healthy"; cat "$DATA/server.log"; exit 1
 
-      # The runner exits non-zero if any case fails. The 3 skipped cases do not
-      # count as failures, so a clean run gates the PR at 1326 passing / 0 failing.
+      # The runner exits non-zero if any case fails. Skipped cases do not count
+      # as failures, so the gate is 0 failures — not an exact pass total, which
+      # grows as cases are added (1365 passed / 3 skipped at the last measured
+      # run, per #189; this comment previously said 1326 and had drifted).
       - name: Run ES-compat YAML suite (0 failures required)
         working-directory: engine
         run: cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml
@@ -260,7 +276,9 @@ jobs:
   # them was manual until this job, so a regression in any was caught by
   # nothing. The installer lint rides along: landing/get{,.ps1} had no
   # verification of any kind and needs no toolchain, so it gates first and
-  # cheaply.
+  # cheaply. The /get counter test rides along for the same reason — it is the
+  # only gate on the promise that the install counter stores no IP and never
+  # breaks an install, and it needs nothing but Node.
   usecase-smoke:
     name: Use-case harnesses (brain + MCP + autoindex)
     runs-on: ubuntu-latest
@@ -269,6 +287,13 @@ jobs:
 
       - name: Installer script lint (landing/get, landing/get.ps1)
         run: bash .github/scripts/installer-lint.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install counter behaviour + privacy (functions/get.js)
+        run: node .github/scripts/functions-get-test.mjs
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable

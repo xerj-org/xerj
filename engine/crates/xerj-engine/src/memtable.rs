@@ -23,6 +23,33 @@ use xerj_fts::bm25::Bm25Scorer;
 pub struct MemtableHit {
     pub doc_id: String,
     pub score: f32,
+    /// WAL `seq_no` of the buffered document (`u64::MAX` when it can't be
+    /// resolved).  #191 — the memtable's bounded FTS materialisation has to
+    /// truncate under the SAME total order the final page sort uses
+    /// (`score DESC, seq_no ASC, _id ASC`); score alone leaves the survivors
+    /// of a tie decided by shard-walk order, which is not arrival order.
+    pub seq_no: u64,
+}
+
+/// Order `hits` by the page key XERJ's final sort uses: `score DESC`, then
+/// `seq_no ASC` (arrival order — the `_doc` analogue), then `_id ASC`
+/// (`index.rs:16222-16228`).
+///
+/// #191 — any bounded materialisation must truncate under the SAME total order
+/// the page is finally sorted by, otherwise the documents that survive a tie
+/// are decided by whatever order the walk happened to visit them in.  Lucene
+/// makes the same comparator total for the same reason
+/// (`HitQueue.lessThan` breaks an equal score by the smaller doc id,
+/// `lucene/core/src/java/org/apache/lucene/search/HitQueue.java:76-82`);
+/// approach only, no code taken.
+fn sort_hits_by_page_key(hits: &mut [MemtableHit]) {
+    hits.sort_unstable_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.seq_no.cmp(&b.seq_no))
+            .then_with(|| a.doc_id.cmp(&b.doc_id))
+    });
 }
 
 #[cfg(test)]
@@ -829,17 +856,49 @@ impl ShardedFtsMemtable {
     /// on every request — ~1 s per query at a 300 k-doc memtable under
     /// sustained bulk load (the `mem_admit` phase of the read-under-write
     /// breakdown).
+    /// #191 — reduce per-shard bounded candidates to the globally best `limit`
+    /// under the order the final page sort uses.
+    ///
+    /// Every hit these paths produce carries the SAME score (`1.0` for the
+    /// id-only and doc-values collectors; a top-level `constant_score` rewrites
+    /// them all to the wrapper's boost), so the page order reduces to
+    /// `(seq_no ASC, _id ASC)` — the tail of `(score DESC, seq_no ASC, _id ASC)`
+    /// at `index.rs:16222-16228`.
+    ///
+    /// Returns the surviving cap-th `seq_no` as the next shard's cutoff, so the
+    /// walk can stop cloning ids that can no longer reach the page.
+    fn narrow_to_page<T>(cands: &mut Vec<(u64, String, T)>, limit: usize) -> u64 {
+        if cands.len() <= limit {
+            return u64::MAX;
+        }
+        cands.sort_unstable_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        cands.truncate(limit);
+        cands.last().map_or(u64::MAX, |c| c.0)
+    }
+
     pub fn doc_ids_bounded(&self, limit: usize) -> (Vec<String>, u64) {
-        let mut out: Vec<String> = Vec::with_capacity(limit.min(4096));
+        // #191 — this used to fill greedily from shard 0 (`limit - out.len()`
+        // of room for each later shard), so an index whose memtable held more
+        // than `limit` documents returned "shard 0's first `limit` ids", not
+        // "the `limit` earliest-arriving ids".  Shard assignment is by doc-id
+        // hash (and by BATCH for bulk), so that set is neither arrival order
+        // nor stable, and `size:5` stopped being a prefix of `size:1000` on an
+        // all-tied corpus.  Bound each shard independently and keep the global
+        // best `limit` by `(seq_no, _id)` instead.
+        let mut cands: Vec<(u64, String, ())> = Vec::with_capacity(limit.min(4096));
         let mut total: u64 = 0;
+        let mut cutoff = u64::MAX;
         for s in &self.shards {
             let g = s.read();
             total += g.doc_count() as u64;
-            if out.len() < limit {
-                out.extend(g.doc_ids_up_to(limit - out.len()));
-            }
+            cands.extend(
+                g.ranked_ids_up_to(limit, cutoff)
+                    .into_iter()
+                    .map(|(q, id)| (q, id, ())),
+            );
+            cutoff = Self::narrow_to_page(&mut cands, limit);
         }
-        (out, total)
+        (cands.into_iter().map(|(_, id, ())| id).collect(), total)
     }
 
     /// Return every (doc_id, source) pair.  Aggregates across all
@@ -859,6 +918,22 @@ impl ShardedFtsMemtable {
         let mut out = Vec::new();
         for s in &self.shards {
             out.extend(s.read().all_docs_with_sources_arc());
+        }
+        out
+    }
+
+    /// `(seq_no, doc_id, source_arc)` for every buffered document.
+    ///
+    /// #191 — the brute per-doc scan's bounded collector has to decide whether
+    /// a document it reaches AFTER filling the cap still belongs on the page.
+    /// Shards are concatenated in index order, which is not arrival order, so
+    /// that decision needs the document's arrival `seq_no`.  Carrying it in the
+    /// snapshot costs 8 bytes per entry and saves a `VersionMap` hash lookup
+    /// per match on the hottest memtable read path.
+    pub fn all_docs_with_seq_arc(&self) -> Vec<(u64, String, Arc<Value>)> {
+        let mut out = Vec::new();
+        for s in &self.shards {
+            out.extend(s.read().all_docs_with_seq_arc());
         }
         out
     }
@@ -1218,8 +1293,27 @@ impl ShardedFtsMemtable {
         //
         // Delete-aware in both modes (Lucene/ES parity): the scoring `N`
         // counts live docs AND tombstoned/superseded versions not yet merged
-        // away.  This is *only* the BM25 IDF `N` — hits.total and pagination
-        // still use the live `doc_count()`.
+        // away — tantivy's scalar N is likewise physical, Σ `max_doc()` over
+        // segments (`Bm25StatisticsProvider for Searcher::total_num_docs`,
+        // tantivy/src/query/bm25.rs:38-45, MIT).  This is *only* the BM25
+        // IDF `N` — hits.total and pagination still use the live
+        // `doc_count()`.
+        //
+        // The ghost-inclusive scalar is computed ONCE here because BOTH
+        // modes need the same value (#193): the external mode falls back to
+        // it for any scored field the supplied union does not carry (or
+        // carries with `total_docs == 0`), and using the live-only count
+        // there silently raised IDF on indices holding tombstoned or
+        // superseded versions — an unintended divergence from the `None`
+        // path that the previous comment ("scalar N is unused in this
+        // mode") wrongly waved off.
+        let ghost_inclusive_n: u64 = {
+            let mut n: u64 = self.doc_count() as u64;
+            for shard in &self.shards {
+                n += shard.read().ghost_docs;
+            }
+            n
+        };
         let mut global_field_doc_count: std::collections::HashMap<String, u64> =
             std::collections::HashMap::new();
         let global_doc_count: u64;
@@ -1227,9 +1321,11 @@ impl ShardedFtsMemtable {
         let term_global_df: std::collections::HashMap<(String, String), u64>;
         match external {
             Some(cs) => {
-                // Scalar N is unused in this mode (every scored field is in
-                // the per-field map), but keep it a sane non-zero fallback.
-                global_doc_count = self.doc_count() as u64;
+                // Scalar N backs the per-field fallback (field absent from
+                // the union) — keep it ghost-inclusive, exactly like the
+                // `None` branch, so the two modes agree on IDF wherever
+                // the fallback engages.
+                global_doc_count = ghost_inclusive_n;
                 let mut avg = std::collections::HashMap::new();
                 for (fname, fs) in cs.field_iter() {
                     avg.insert(fname.clone(), fs.avg_field_length());
@@ -1250,11 +1346,7 @@ impl ShardedFtsMemtable {
                 term_global_df = df;
             }
             None => {
-                let mut n: u64 = self.doc_count() as u64;
-                for shard in &self.shards {
-                    n += shard.read().ghost_docs;
-                }
-                global_doc_count = n;
+                global_doc_count = ghost_inclusive_n;
                 let (field_total_len, df) = self.aggregate_shard_stats(&q_tokens, fields);
                 global_avg_field_len = field_total_len
                     .into_iter()
@@ -1277,11 +1369,12 @@ impl ShardedFtsMemtable {
                 field_boosts,
             ));
         }
-        all.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        // #191 — the cross-shard merge sorts by the FULL page key, not by score
+        // alone.  Score alone leaves ties in shard-concatenation order, so
+        // `truncate(limit)` kept "the tied documents that happen to live in the
+        // lowest-numbered shards" rather than the earliest-arriving ones, and a
+        // `size:5` page stopped being a prefix of a `size:1000` one.
+        sort_hits_by_page_key(&mut all);
         // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
         // its pre-truncation length IS the exact global match count when
         // `shard_limit == usize::MAX` (a lower bound otherwise).
@@ -1465,19 +1558,28 @@ impl ShardedFtsMemtable {
         if preds.is_empty() {
             return None;
         }
-        let mut out: Vec<(String, usize)> = Vec::new();
+        // #191 — bound each shard independently and keep the global best
+        // `limit` by `(seq_no, _id)`; `limit - out.len()` starved every shard
+        // after the first, so the page was "shard 0's first `limit` matches".
+        let mut cands: Vec<(u64, String, usize)> = Vec::new();
         let mut total: u64 = 0;
         for s in &self.shards {
             let g = s.read();
             if g.doc_count() == 0 {
                 continue;
             }
-            let room = limit.saturating_sub(out.len());
-            let (mut hits, t) = g.doc_values_bool_hits(preds, room)?;
-            out.append(&mut hits);
+            let (hits, t) = g.doc_values_bool_hits(preds, limit)?;
+            cands.extend(
+                hits.into_iter()
+                    .map(|(id, pos)| (g.seq_no_at(pos), id, pos)),
+            );
             total += t;
+            Self::narrow_to_page(&mut cands, limit);
         }
-        Some((out, total))
+        Some((
+            cands.into_iter().map(|(_, id, pos)| (id, pos)).collect(),
+            total,
+        ))
     }
 
     /// Columnar per-value counts for one field across all shards, for the
@@ -1580,23 +1682,30 @@ impl ShardedFtsMemtable {
         value: &str,
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
-        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut cands: Vec<(u64, String, usize)> = Vec::new();
         let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            // Step 1: bound the id clone to the remaining global window;
-            // the total is still exact per shard.  Mirrors
-            // `doc_values_bool_query`.
-            let room = limit.saturating_sub(out.len());
-            if let Some((mut hits, t)) = g.doc_values_term_query(field, value, room) {
+            // Step 1: bound the id clone per shard; the total is still exact
+            // per shard.  Mirrors `doc_values_bool_query`.  #191 — the bound
+            // used to be the REMAINING global window, which handed the whole
+            // page to shard 0.
+            if let Some((hits, t)) = g.doc_values_term_query(field, value, limit) {
                 any_hit = true;
-                out.append(&mut hits);
+                cands.extend(
+                    hits.into_iter()
+                        .map(|(id, pos)| (g.seq_no_at(pos), id, pos)),
+                );
                 total += t;
+                Self::narrow_to_page(&mut cands, limit);
             }
         }
         if any_hit {
-            Some((out, total))
+            Some((
+                cands.into_iter().map(|(_, id, pos)| (id, pos)).collect(),
+                total,
+            ))
         } else {
             None
         }
@@ -1608,20 +1717,28 @@ impl ShardedFtsMemtable {
         values: &[String],
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
-        let mut out: Vec<(String, usize)> = Vec::new();
+        // #191 — per-shard bound + global `(seq_no, _id)` narrowing, as in
+        // `doc_values_term_query`.
+        let mut cands: Vec<(u64, String, usize)> = Vec::new();
         let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            let room = limit.saturating_sub(out.len());
-            if let Some((mut hits, t)) = g.doc_values_terms_query(field, values, room) {
+            if let Some((hits, t)) = g.doc_values_terms_query(field, values, limit) {
                 any_hit = true;
-                out.append(&mut hits);
+                cands.extend(
+                    hits.into_iter()
+                        .map(|(id, pos)| (g.seq_no_at(pos), id, pos)),
+                );
                 total += t;
+                Self::narrow_to_page(&mut cands, limit);
             }
         }
         if any_hit {
-            Some((out, total))
+            Some((
+                cands.into_iter().map(|(_, id, pos)| (id, pos)).collect(),
+                total,
+            ))
         } else {
             None
         }
@@ -1692,20 +1809,28 @@ impl ShardedFtsMemtable {
         lt: Option<f64>,
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
-        let mut out: Vec<(String, usize)> = Vec::new();
+        // #191 — per-shard bound + global `(seq_no, _id)` narrowing, as in
+        // `doc_values_term_query`.
+        let mut cands: Vec<(u64, String, usize)> = Vec::new();
         let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            let room = limit.saturating_sub(out.len());
-            if let Some((mut hits, t)) = g.doc_values_range_query(field, gte, gt, lte, lt, room) {
+            if let Some((hits, t)) = g.doc_values_range_query(field, gte, gt, lte, lt, limit) {
                 any_hit = true;
-                out.append(&mut hits);
+                cands.extend(
+                    hits.into_iter()
+                        .map(|(id, pos)| (g.seq_no_at(pos), id, pos)),
+                );
                 total += t;
+                Self::narrow_to_page(&mut cands, limit);
             }
         }
         if any_hit {
-            Some((out, total))
+            Some((
+                cands.into_iter().map(|(_, id, pos)| (id, pos)).collect(),
+                total,
+            ))
         } else {
             None
         }
@@ -2606,18 +2731,27 @@ impl FtsMemtable {
 
         let mut hits: Vec<MemtableHit> = scores
             .into_iter()
-            .map(|(doc_id, score)| MemtableHit {
-                doc_id: doc_id.to_string(),
-                score,
+            .map(|(doc_id, score)| {
+                // #191 — carry the arrival order with the hit.  `scores` is a
+                // HashMap, so without it the pre-truncation order of an
+                // all-tied hit set is the hash iteration order: the surviving
+                // documents changed from run to run.
+                let seq_no = self
+                    .doc_id_index
+                    .get(&doc_id)
+                    .map_or(u64::MAX, |&pos| self.seq_no_at(pos));
+                MemtableHit {
+                    doc_id: doc_id.to_string(),
+                    score,
+                    seq_no,
+                }
             })
             .collect();
 
-        // Sort by score descending.
-        hits.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        // Sort by the FULL page key (score DESC, seq_no ASC, `_id` ASC) — the
+        // comparator `index.rs:16222-16228` applies to the final page — so a
+        // truncation at `limit` keeps exactly the documents that page would.
+        sort_hits_by_page_key(&mut hits);
         hits.truncate(limit);
         hits
     }
@@ -2645,6 +2779,37 @@ impl FtsMemtable {
     /// `ShardedFtsMemtable::doc_ids_bounded`.
     pub fn doc_ids_up_to(&self, n: usize) -> Vec<String> {
         self.docs.iter().take(n).map(|e| e.doc_id.clone()).collect()
+    }
+
+    /// The WAL `seq_no` of the document at shard-local position `pos`
+    /// (`u64::MAX` when the position is out of range).
+    ///
+    /// #191 — the bounded memtable paths must rank candidates ACROSS shards
+    /// by the same key the final page sort uses, and `seq_no` is that key's
+    /// tie-break.  Positions are only comparable within a shard; `seq_no` is
+    /// global.
+    pub fn seq_no_at(&self, pos: usize) -> u64 {
+        self.docs.get(pos).map_or(u64::MAX, |e| e.seq_no)
+    }
+
+    /// `(seq_no, doc_id)` for the first `n` buffered documents, stopping early
+    /// once an entry's `seq_no` exceeds `cutoff`.
+    ///
+    /// #191 — `docs` is append-ordered and `remove` preserves that order, so a
+    /// shard's entries ascend by `seq_no`: once one entry is past the caller's
+    /// running cap-th key, so is every entry after it, and neither needs its
+    /// `doc_id` cloned.  That early break is what keeps the per-shard bound
+    /// (which replaced a greedy "fill from shard 0" walk) from multiplying the
+    /// id clones by the shard count.
+    pub fn ranked_ids_up_to(&self, n: usize, cutoff: u64) -> Vec<(u64, String)> {
+        let mut out = Vec::new();
+        for e in self.docs.iter().take(n) {
+            if e.seq_no > cutoff {
+                break;
+            }
+            out.push((e.seq_no, e.doc_id.clone()));
+        }
+        out
     }
 
     /// Resolve a MemEntry's source Value — if `source` is Null but
@@ -2689,6 +2854,14 @@ impl FtsMemtable {
         self.docs
             .iter()
             .map(|e| (e.doc_id.clone(), Self::resolve_source_arc(e)))
+            .collect()
+    }
+
+    /// `seq_no`-carrying twin of [`Self::all_docs_with_sources_arc`] (#191).
+    pub fn all_docs_with_seq_arc(&self) -> Vec<(u64, String, Arc<Value>)> {
+        self.docs
+            .iter()
+            .map(|e| (e.seq_no, e.doc_id.clone(), Self::resolve_source_arc(e)))
             .collect()
     }
 
@@ -3559,7 +3732,7 @@ pub fn analyze_doc(
     schema: &Schema,
     analyzer: &AnalyzerPipeline,
 ) -> Vec<(String, Vec<Token>)> {
-    let excluded = semantic_derived_vector_fields(schema);
+    let excluded = fts_excluded_fields(schema);
     analyze_doc_excluding(source, schema, analyzer, &excluded)
 }
 
@@ -3573,6 +3746,14 @@ pub fn analyze_doc_excluding(
 
     // Index fields that are defined as Text in the schema.
     for field_cfg in &schema.fields {
+        // `excluded` is authoritative for schema fields too, not only for the
+        // dynamic-path sweep below. Before `index: false` was honoured the only
+        // members were semantic-derived vector fields, which are never
+        // `FieldType::Text`, so this loop could skip the check; a declared
+        // `"index": false` Text field is exactly the case that needs it.
+        if excluded.contains(&field_cfg.name) {
+            continue;
+        }
         if matches!(field_cfg.field_type, FieldType::Text) {
             if let Some(val) = source.get(&field_cfg.name) {
                 let text = extract_text_value(val);
@@ -3619,6 +3800,61 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
             xerj_query::executor::PASSAGE_METADATA_PREFIX,
             target
         ));
+    }
+    excluded
+}
+
+/// Every field that must be kept OUT of the full-text inverted index.
+///
+/// Two disjoint reasons, unioned into one set so flush, merge, the memtable
+/// analyser and `build_fts_field_configs` cannot disagree:
+///
+///  * semantic-derived vector fields (see above) — engine-internal payloads
+///    that were never user text;
+///  * fields whose mapping declares `"index": false` — #204's last open
+///    accepted-and-ignored instance. The option was echoed by `GET _mapping`
+///    and then ignored, so the field kept a full inverted index and stayed
+///    searchable.
+///
+/// Derived from the SCHEMA rather than from the documents, exactly like
+/// `doc_values_skip_set` — a merge must not resurrect postings that flush
+/// correctly skipped. Dynamic (unmapped) fields are absent from the schema
+/// and are unaffected: there is no declared `index: false` to honour.
+///
+/// ## Why `index: false` alone is not enough to drop the postings
+///
+/// Dropping a field's postings does not make it unmatchable here: the
+/// per-segment `fts_has_field` gate routes the query onto the stored-doc
+/// scan instead. That fallback is only usable where it is *equivalent* —
+/// #204's second rule, "degrade loudly or not at all", applies to us as much
+/// as to anyone.
+///
+///  * A **Text** field's scan comparison is analysed, which is exactly what
+///    the postings did. Equivalent → the postings go.
+///  * An **exact-typed** field (keyword / ip / date / numeric / boolean) is
+///    FTS-indexed with the `keyword` analyzer: one whole-value token. The
+///    scan's `match` arm splits on non-alphanumerics, so `192.168.0.1` would
+///    start matching `192.168.0.2`. Measured, not theorised — it is the one
+///    case `search/390_doc_values_search.yml` fails on. Weaker → the postings
+///    stay, and they are what answers ES 8.1's "doc values search" exactly.
+///    Nothing observable changes for those fields; the footprint saving is
+///    knowingly forgone rather than bought with wrong answers.
+///  * A field with **no doc values either** is unsearchable in ES's sense
+///    (`MappedFieldType.isSearchable()` = has terms OR has doc values), and
+///    `unsearchable_query_field` in `index.rs` rejects every query naming it
+///    before execution — so no fallback of any strength ever runs, and the
+///    postings are pure waste whatever the type.
+pub fn fts_excluded_fields(schema: &Schema) -> std::collections::HashSet<String> {
+    let mut excluded = semantic_derived_vector_fields(schema);
+    for field in &schema.fields {
+        if field.options.indexed {
+            continue;
+        }
+        let fallback_is_equivalent =
+            matches!(field.field_type, FieldType::Text) || !field.options.doc_values;
+        if fallback_is_equivalent {
+            excluded.insert(field.name.clone());
+        }
     }
     excluded
 }
@@ -3695,6 +3931,95 @@ mod semantic_derived_vector_exclusion_tests {
         for derived in &excluded {
             assert!(!fields.contains_key(derived));
         }
+    }
+}
+
+#[cfg(test)]
+mod index_false_exclusion_tests {
+    //! `"index": false` must remove the field from the full-text index —
+    //! the storage half of #204's last accepted-and-ignored instance. Before
+    //! the fix `FieldOptions::indexed` was never read here, so a field the
+    //! mapping declared non-indexed got a full set of postings anyway.
+    use super::*;
+    use serde_json::json;
+    use xerj_common::types::{FieldConfig, FieldType};
+
+    fn schema_with_a_non_indexed_field() -> Schema {
+        let mut schema = Schema::empty();
+        let mut note = FieldConfig::new("note", FieldType::Text);
+        note.options.indexed = false;
+        note.options.doc_values = false;
+        schema.add_field(note).unwrap();
+        let mut code = FieldConfig::new("code", FieldType::Keyword);
+        code.options.indexed = false; // keeps doc values — still queryable
+        schema.add_field(code).unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+    }
+
+    #[test]
+    fn non_indexed_fields_join_the_fts_exclusion_set() {
+        let schema = schema_with_a_non_indexed_field();
+        let excluded = fts_excluded_fields(&schema);
+        assert!(
+            excluded.contains("note"),
+            "a non-indexed Text field: the stored-doc scan analyses it the \
+             same way the postings did, so dropping them is equivalent: \
+             {excluded:?}"
+        );
+        assert!(
+            !excluded.contains("code"),
+            "a non-indexed KEYWORD that kept its doc values is still \
+             searchable in ES's sense, and the scan fallback is weaker than \
+             its whole-value postings (it would split `192.168.0.1` into \
+             tokens) — the postings stay: {excluded:?}"
+        );
+        assert!(!excluded.contains("body"), "{excluded:?}");
+
+        // …but with no doc values either, nothing can answer it, the query is
+        // rejected outright, and the postings are pure waste whatever the type.
+        let mut schema = Schema::empty();
+        let mut opaque = FieldConfig::new("opaque", FieldType::Keyword);
+        opaque.options.indexed = false;
+        opaque.options.doc_values = false;
+        schema.add_field(opaque).unwrap();
+        assert!(fts_excluded_fields(&schema).contains("opaque"));
+    }
+
+    #[test]
+    fn a_non_indexed_schema_text_field_is_never_analysed() {
+        // The schema-Text loop in `analyze_doc_excluding` used to ignore the
+        // exclusion set entirely (its only members were semantic-derived
+        // vector fields, which are never Text). A declared `index: false`
+        // Text field is exactly the case that made the omission visible.
+        let schema = schema_with_a_non_indexed_field();
+        let source = json!({ "note": "zzquagga", "code": "AB-1234", "body": "ordinary text" });
+        let analyzer = xerj_fts::analyzer::AnalyzerPipeline::new(
+            vec![],
+            std::sync::Arc::new(xerj_fts::analyzer::StandardTokenizer),
+            vec![std::sync::Arc::new(xerj_fts::analyzer::LowercaseFilter)
+                as std::sync::Arc<dyn xerj_fts::analyzer::TokenFilter>],
+        );
+        let analysed: std::collections::HashMap<String, Vec<Token>> =
+            analyze_doc(&source, &schema, &analyzer)
+                .into_iter()
+                .collect();
+        let names: Vec<&str> = analysed.keys().map(String::as_str).collect();
+        assert!(
+            !analysed.contains_key("note"),
+            "a non-indexed Text field must contribute no tokens: {names:?}"
+        );
+        assert!(
+            analysed.contains_key("code"),
+            "`code` kept its doc values, so it kept its whole-value postings \
+             too — see `fts_excluded_fields`: {names:?}"
+        );
+        assert!(
+            analysed.contains_key("body"),
+            "the indexed control field must still be analysed: {names:?}"
+        );
     }
 }
 
@@ -3966,5 +4291,87 @@ mod filtered_docs_arc_tests {
             mem.filtered_docs_arc(&preds).is_none(),
             "array-valued predicate field must force the full-corpus fallback"
         );
+    }
+}
+
+#[cfg(test)]
+mod external_scalar_n_ghost_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #193 item 2 — the external-mode (`Some(cs)`) scalar `N` must be
+    /// ghost-inclusive, exactly like the historical `None` branch.
+    ///
+    /// The scalar only engages as the per-field fallback: a scored field the
+    /// supplied union does not carry.  This test pins the seam directly with
+    /// ONE shard, so the local per-shard fallbacks for `df` and `avgdl`
+    /// coincide with the `None` branch's cross-shard aggregation by
+    /// construction, and the ghost carries NO occurrence of the queried
+    /// field — leaving the scalar `N` as the ONLY quantity the two modes
+    /// could disagree on.  Before the fix the external branch used the
+    /// live-only `doc_count()` (2) where the `None` branch used
+    /// live + ghosts (3), so the same query on the same memtable scored
+    /// differently depending on which mode the engine happened to take.
+    #[test]
+    fn external_mode_scalar_n_matches_none_mode_under_ghosts() {
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mem = ShardedFtsMemtable::with_registry_and_shards(registry, 1);
+        let schema = Schema::empty();
+
+        // Two live docs carrying the queried term in `body`, one doomed doc
+        // that never mentions `body` at all.
+        mem.insert("a".into(), &json!({"body": "quicklist alpha"}), &schema, 1);
+        mem.insert(
+            "b".into(),
+            &json!({"body": "quicklist beta gamma delta"}),
+            &schema,
+            2,
+        );
+        mem.insert(
+            "ghost".into(),
+            &json!({"other": "unrelated text"}),
+            &schema,
+            3,
+        );
+        mem.remove("ghost");
+
+        // Union that does NOT carry `body` — the scored field falls back to
+        // the scalar N (plus local df/avgdl, identical across modes here).
+        let mut cs = xerj_fts::CollectionStats::new();
+        cs.add_field(
+            "other",
+            &xerj_fts::FieldStats {
+                total_docs: 1,
+                total_field_length: 2,
+            },
+        );
+
+        let boosts = std::collections::HashMap::new();
+        let (none_hits, none_total) =
+            mem.search_text_boosted_with_total("quicklist", &["body"], 10, &boosts);
+        let (ext_hits, ext_total) = mem.search_text_boosted_with_total_using(
+            "quicklist",
+            &["body"],
+            10,
+            &boosts,
+            Some(&cs),
+        );
+
+        assert_eq!(none_total, 2, "sanity: two live matches");
+        assert_eq!(ext_total, none_total, "totals must agree between modes");
+        assert_eq!(none_hits.len(), 2);
+        assert_eq!(ext_hits.len(), 2);
+        for (n, e) in none_hits.iter().zip(ext_hits.iter()) {
+            assert_eq!(n.doc_id, e.doc_id, "hit order diverged between modes");
+            assert_eq!(
+                n.score.to_bits(),
+                e.score.to_bits(),
+                "{}: external-mode fallback scored {} vs None-mode {} — the \
+                 scalar N dropped the ghost from IDF",
+                n.doc_id,
+                e.score,
+                n.score
+            );
+        }
     }
 }

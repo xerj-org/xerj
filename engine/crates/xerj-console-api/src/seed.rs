@@ -4,7 +4,8 @@
 //! (`xerj-ux/src/dashboards/*.js` + `registry.js`).  That made them a fixed,
 //! un-editable set: a layout tweak or a rename never survived a reload, and
 //! there was no server object to attach a per-panel query to.  This module
-//! materialises those same 14 dashboards as rows in `.xerj_dashboards` on
+//! materialises those same dashboards ([`BUILTIN_DASHBOARD_COUNT`] of them) as
+//! rows in `.xerj_dashboards` on
 //! first launch, so from that point on they are *data* the operator can edit
 //! (title, layout, panel geometry, per-panel query/viz) and that persists
 //! through the CRUD surface in [`crate::dashboards`].
@@ -125,9 +126,18 @@ fn pd(
     }
 }
 
-/// The 14 built-in dashboards, in registry order.  Titles are the panel
-/// `eyebrow` strings from the `.js` sources; dynamic eyebrows are captured as
-/// a stable static string.
+/// How many dashboards ship built in.
+///
+/// The one place this number is written down. Issue #211: it was also written
+/// into two module doc comments, which disagreed with each other (13 vs 14) and
+/// with [`seed_specs`], so a reader had to guess which prose was current. Prose
+/// elsewhere links here instead of repeating the figure, and
+/// [`tests::seeds_every_registry_dashboard`] pins it to the actual list.
+pub const BUILTIN_DASHBOARD_COUNT: usize = 14;
+
+/// The built-in dashboards ([`BUILTIN_DASHBOARD_COUNT`] of them), in registry
+/// order.  Titles are the panel `eyebrow` strings from the `.js` sources;
+/// dynamic eyebrows are captured as a stable static string.
 fn seed_specs() -> Vec<DashboardSpec> {
     vec![
         // ── AI group ────────────────────────────────────────────────────────
@@ -783,13 +793,127 @@ pub async fn seed_default_dashboards(engine: &Engine) -> ConsoleResult<()> {
 mod tests {
     use super::*;
 
+    /// The dashboard ids the UI registry actually exports, read out of
+    /// `xerj-ux/src/dashboards/registry.js` and the modules it pulls into its
+    /// `all` array.
+    ///
+    /// Issue #211 named three sources for this one number that disagreed
+    /// (13 / 14 / 15). Two of them are Rust and are now one constant; the third
+    /// is this JavaScript registry, which is the *actual* definition of "a
+    /// built-in dashboard" — `seed.rs` exists to materialise one row per entry.
+    /// Comparing against the constant alone would have left the cross-language
+    /// half of the drift unchecked, which is how it got to three numbers.
+    fn registry_dashboard_ids() -> Vec<String> {
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(3)
+            .expect("crate manifest dir must be <repo>/engine/crates/xerj-console-api")
+            .to_path_buf();
+        let dir = repo.join("xerj-ux/src/dashboards");
+        let registry = std::fs::read_to_string(dir.join("registry.js")).unwrap_or_else(|e| {
+            panic!(
+                "cannot read {}: {e} — this test pins the seeded dashboards to the UI \
+                 registry; if the registry moved, update this path rather than dropping \
+                 the check",
+                dir.join("registry.js").display()
+            )
+        });
+
+        // `const all = [ … ];` is the exported dashboard set; everything else in
+        // the file (SECTIONS, DASHBOARD_GROUPS, DEFAULT_GROUP) is taxonomy.
+        let start = registry
+            .find("const all = [")
+            .expect("registry.js no longer declares `const all = [` — update this test");
+        let end = registry[start..]
+            .find("];")
+            .expect("registry.js `const all = [` is never closed")
+            + start;
+        let symbols: Vec<&str> = registry[start..end]
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .skip(1) // the `const all = [` line itself
+            .flat_map(|l| l.split(','))
+            .map(str::trim)
+            .filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric()))
+            .collect();
+
+        // Each symbol is imported from a sibling module that declares its own id.
+        let mut ids = Vec::new();
+        for sym in &symbols {
+            let import = registry
+                .lines()
+                .find(|l| {
+                    l.trim_start().starts_with("import")
+                        && l.contains(&format!("{{ {sym} }}"))
+                        && l.contains("./")
+                })
+                .unwrap_or_else(|| {
+                    panic!("registry.js lists `{sym}` in `all` but never imports it")
+                });
+            let rel = import
+                .split("'")
+                .nth(1)
+                .unwrap_or_else(|| panic!("cannot read the import path for `{sym}`"));
+            let module = dir.join(rel.trim_start_matches("./"));
+            let src = std::fs::read_to_string(&module)
+                .unwrap_or_else(|e| panic!("cannot read {}: {e}", module.display()));
+            // Scan from the export, so a nested panel `id:` can never be
+            // mistaken for the dashboard's own registry id.
+            let export = format!("export const {sym} ");
+            let body = src
+                .find(&export)
+                .map(|i| &src[i..])
+                .unwrap_or_else(|| panic!("{} does not export `{sym}`", module.display()));
+            let id = body
+                .lines()
+                .skip(1)
+                .find_map(|l| {
+                    l.trim()
+                        .strip_prefix("id:")?
+                        .trim()
+                        .strip_prefix('\'')?
+                        .split('\'')
+                        .next()
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| panic!("{} declares no `id: '…'`", module.display()));
+            ids.push(id);
+        }
+        ids
+    }
+
     #[test]
-    fn seeds_the_fourteen_dashboards() {
+    fn seeds_every_registry_dashboard() {
         let specs = seed_specs();
         assert_eq!(
             specs.len(),
-            14,
-            "must seed exactly the 14 registry dashboards"
+            BUILTIN_DASHBOARD_COUNT,
+            "seed_specs() and BUILTIN_DASHBOARD_COUNT disagree — update the \
+             constant in this file, which is what the docs quote"
+        );
+
+        // …and both must equal what the UI registry exports.
+        let registry: std::collections::BTreeSet<String> =
+            registry_dashboard_ids().into_iter().collect();
+        let seeded: std::collections::BTreeSet<String> = specs
+            .iter()
+            .map(|s| s.registry_id.to_string())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert!(
+            registry.len() > 5,
+            "only {} ids parsed out of registry.js — the registry layout changed and \
+             this check is reading nothing",
+            registry.len()
+        );
+        let unseeded: Vec<_> = registry.difference(&seeded).collect();
+        let phantom: Vec<_> = seeded.difference(&registry).collect();
+        assert!(
+            unseeded.is_empty() && phantom.is_empty(),
+            "seed_specs() has drifted from xerj-ux/src/dashboards/registry.js.\n  \
+             in the registry but never seeded: {unseeded:?}\n  \
+             seeded but not in the registry: {phantom:?}\n  \
+             Every registry entry gets one durable `default` row on first launch; \
+             also bump BUILTIN_DASHBOARD_COUNT."
         );
         // Deterministic ids, all `default-` prefixed and unique.
         let mut ids: Vec<String> = specs

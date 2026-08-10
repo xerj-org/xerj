@@ -15,6 +15,13 @@ pub const DISTINCT_CAP: usize = 8192;
 pub const RAW_CAP: usize = 8192;
 pub const MAX_FIELDS_PER_DATASET: usize = 512;
 
+/// The extractor-owned fields that carry a document's text. Every document
+/// extractor puts its retrievable content in exactly one of these
+/// (`extract::emit_document`, `extract::code`, `extract::txt`), which is what
+/// lets a document dataset elect them ALL as `semantic_text` without ever
+/// embedding one record twice.
+pub const DOC_BODY_FIELDS: &[&str] = &["body", "text"];
+
 /// 256-slot byte histogram with a `Default` impl (`[u32; 256]` has none).
 #[derive(Debug, Clone)]
 pub struct ByteHist(pub [u32; 256]);
@@ -388,6 +395,34 @@ pub fn infer_fields(
     records: u64,
     no_semantic: bool,
 ) -> Vec<FieldSpec> {
+    infer_fields_with_policy(fields, records, no_semantic, false)
+}
+
+/// `infer_fields` with the semantic election policy explicit.
+///
+/// `semantic_all = false` (data datasets): elect at most ONE semantic body —
+/// the longest qualifying field. A data record usually carries several long
+/// text columns holding the SAME entity, and embedding every one multiplies
+/// cost (the built-in neural backend measures ~3 docs/s) for no retrieval
+/// gain.
+///
+/// `semantic_all = true` (document datasets): elect every qualifying BODY
+/// CARRIER (`DOC_BODY_FIELDS` — extractor-owned names, so this is a contract
+/// of this crate, not a heuristic). A document dataset merges several
+/// extractor vocabularies (`body` from code/prose/pdf/html, `text` from
+/// line-oriented chunks) and each record populates exactly one carrier, so
+/// electing all of them costs the same embedding work as electing one —
+/// while electing one silently cuts entire format families out of the
+/// vector arm (#173: 98.8% of the corpus had no `semantic_text` at all).
+/// Non-carrier text fields (`defs` symbol lists) stay lexical: they ride on
+/// the same record as a carrier, so electing them would embed every code
+/// record twice.
+pub fn infer_fields_with_policy(
+    fields: &HashMap<String, FieldAcc>,
+    records: u64,
+    no_semantic: bool,
+    semantic_all: bool,
+) -> Vec<FieldSpec> {
     let mut specs: Vec<FieldSpec> = Vec::new();
     let mut date_ranges: Vec<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> =
         Vec::new();
@@ -548,7 +583,7 @@ pub fn infer_fields(
     // source code.  The length floor is kept but relaxed, because the
     // language test now does the discriminating.
     if !no_semantic {
-        let best = specs
+        let qualifying: Vec<usize> = specs
             .iter()
             .enumerate()
             .filter(|(_i, s)| {
@@ -559,8 +594,21 @@ pub fn infer_fields(
                         .map(|a| a.looks_natural_language())
                         .unwrap_or(false)
             })
-            .max_by(|a, b| a.1.avg_len.partial_cmp(&b.1.avg_len).unwrap());
-        if let Some((i, _)) = best {
+            .map(|(i, _)| i)
+            .collect();
+        let elected: Vec<usize> = if semantic_all {
+            qualifying
+                .into_iter()
+                .filter(|&i| DOC_BODY_FIELDS.contains(&specs[i].name.as_str()))
+                .collect()
+        } else {
+            qualifying
+                .into_iter()
+                .max_by(|&a, &b| specs[a].avg_len.partial_cmp(&specs[b].avg_len).unwrap())
+                .into_iter()
+                .collect()
+        };
+        for i in elected {
             let a = fields.get(&specs[i].name);
             specs[i].es_type = "semantic_text".into();
             specs[i].notes.push(format!(
@@ -718,6 +766,45 @@ mod tests {
 
             assert_eq!(elect_entity(&HashMap::new()), None);
         }
+    }
+
+    /// #173: a document dataset merges extractor vocabularies whose records
+    /// each populate exactly one body carrier (`body` for code/prose, `text`
+    /// for line chunks). The docs policy must elect EVERY qualifying carrier
+    /// — electing only the longest silently cut whole format families out of
+    /// the vector arm — while a non-carrier text field (`defs`) stays
+    /// lexical, because it rides on the same record as a carrier and electing
+    /// it would embed every code record twice.
+    #[test]
+    fn a_document_dataset_elects_every_body_carrier_and_only_the_carriers() {
+        let prose = "The connection pool retries every failed handshake with backoff. \
+                     Each worker owns one socket and never shares it across threads.";
+        let mut fields = HashMap::new();
+        for name in ["body", "text", "defs"] {
+            let mut acc = FieldAcc::default();
+            for _ in 0..20 {
+                acc.add(&Value::String(prose.to_string()));
+            }
+            fields.insert(name.to_string(), acc);
+        }
+
+        // Data policy (semantic_all = false): at most one semantic field.
+        let single = infer_fields_with_policy(&fields, 60, false, false);
+        assert_eq!(
+            single
+                .iter()
+                .filter(|s| s.es_type == "semantic_text")
+                .count(),
+            1,
+            "{single:#?}"
+        );
+
+        // Docs policy: both carriers elected, the non-carrier stays text.
+        let docs = infer_fields_with_policy(&fields, 60, false, true);
+        let by_name = |n: &str| docs.iter().find(|s| s.name == n).unwrap();
+        assert_eq!(by_name("body").es_type, "semantic_text", "{docs:#?}");
+        assert_eq!(by_name("text").es_type, "semantic_text", "{docs:#?}");
+        assert_eq!(by_name("defs").es_type, "text", "{docs:#?}");
     }
 
     /// Pins the reason the entity tie is latent rather than live: the ≥90%

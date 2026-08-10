@@ -4,6 +4,12 @@ Thanks for your interest in XERJ — an Elasticsearch-wire-compatible search, ve
 
 By contributing, you agree that your contributions will be licensed under the project's [Apache License 2.0](./LICENSE).
 
+## If you are an AI coding agent (or running one)
+
+A large share of this project's readers are coding agents that hit a XERJ defect while working in *someone else's* codebase, patch around it locally, and move on — so the fix is lost. [`.github/AI_CONTRIBUTIONS.md`](./.github/AI_CONTRIBUTIONS.md) is written directly to those agents: when to open an issue, when to open a pull request, when to open nothing, and how to state provenance so a reviewer knows what was verified and what was assumed.
+
+The engineering bar there is the same one in this file. What it adds is disclosure (say an agent wrote it; no `Co-Authored-By` trailers in this repo) and accountability (a human account signs the CLA and answers for the change). If you review pull requests here, read it too — it is what agents are being told, and it is what you can hold them to.
+
 ## Prerequisites
 
 - **Rust** (stable). Install via [rustup](https://rustup.rs/). The workspace uses the Rust 2021 edition.
@@ -20,7 +26,9 @@ cargo build --release -p xerj-server      # the server binary
 cargo build --release                     # everything
 ```
 
-Run the server locally (insecure = no TLS, no auth; listens on `http://0.0.0.0:9200`):
+Run the server locally (insecure = no TLS, no auth; listens on
+`http://127.0.0.1:9200` — the default bind is loopback, and `--insecure` on a
+non-loopback bind refuses to start):
 
 ```bash
 ./target/release/xerj --data-dir ./data --insecure
@@ -95,8 +103,9 @@ Before opening a PR, please make sure:
 - [ ] The ES-YAML conformance suite still passes (no new failures).
 - [ ] New ES-compatible behavior has a matching YAML test (add one under `engine/tests/es-compat-yaml/yaml/` if none exists).
 - [ ] Docs are updated if you changed user-facing behavior.
+- [ ] If an AI agent wrote the change, the PR body says so and separates what was verified from what was assumed (see [`.github/AI_CONTRIBUTIONS.md`](./.github/AI_CONTRIBUTIONS.md)).
 
-The PR template will prompt you for this checklist.
+The [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) prompts you for this checklist.
 
 ## Benchmarks
 
@@ -114,6 +123,8 @@ Use the GitHub issue templates:
 
 - **Bug report** — include the version, OS, reproduction steps, and (importantly) whether the behavior is an Elasticsearch wire-compatibility divergence.
 - **Feature request** — describe the use case and, where relevant, the corresponding Elasticsearch behavior.
+
+Search existing issues before filing — `gh search issues --repo xerj-org/xerj "<terms>"` covers open and closed ones. One issue per defect: two defects in one issue means one of them gets fixed and the issue gets closed with the other still live. If you are filing on behalf of an agent's finding, the required contents are spelled out in [`.github/AI_CONTRIBUTIONS.md`](./.github/AI_CONTRIBUTIONS.md).
 
 Please do **not** open public issues for security vulnerabilities — see [SECURITY.md](./SECURITY.md) for private disclosure.
 

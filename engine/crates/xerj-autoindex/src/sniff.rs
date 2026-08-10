@@ -104,15 +104,30 @@ fn read_prefix(path: &Path, gzip: bool, n: usize) -> Result<Vec<u8>> {
 }
 
 pub fn sniff(path: &Path) -> Result<Sniffed> {
-    let head = read_prefix(path, false, 8)?;
+    sniff_with_name(path, path)
+}
+
+/// Classify bytes from `content_path` while retaining the logical filename
+/// signals (currently source-code extensions) from `logical_path`.
+///
+/// Durable preparation uses this to classify an immutable snapshot blob
+/// without losing the original name merely because the blob itself is named
+/// by an ordinal.
+pub fn sniff_with_name(content_path: &Path, logical_path: &Path) -> Result<Sniffed> {
+    let head = read_prefix(content_path, false, 8)?;
     let gzip = head.len() >= 2 && head[0] == 0x1f && head[1] == 0x8b;
-    let prefix = read_prefix(path, gzip, 8192)?;
-    let mut s = sniff_bytes(&prefix, path, gzip)?;
+    let prefix = read_prefix(content_path, gzip, 8192)?;
+    let mut s = sniff_bytes(&prefix, content_path, logical_path, gzip)?;
     s.gzip = gzip;
     Ok(s)
 }
 
-fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
+fn sniff_bytes(
+    prefix: &[u8],
+    content_path: &Path,
+    logical_path: &Path,
+    gzip: bool,
+) -> Result<Sniffed> {
     let mk = |family: Family| Sniffed {
         family,
         gzip: false,
@@ -136,7 +151,7 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
     if prefix.starts_with(b"PK\x03\x04") {
         // zip container: DOCX iff it holds word/document.xml
         if !gzip {
-            if let Ok(f) = std::fs::File::open(path) {
+            if let Ok(f) = std::fs::File::open(content_path) {
                 if let Ok(mut z) = zip::ZipArchive::new(f) {
                     let is_docx = (0..z.len()).any(|i| {
                         z.by_index_raw(i)
@@ -254,7 +269,7 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
     // reach here after the binary guards above, so a text `.py`/`.rs`/`.go`/…
     // routes to the tree-sitter AST extractor (crate::extract::code). Extension
     // is the right signal — code vs prose is not reliably content-sniffable.
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    if let Some(ext) = logical_path.extension().and_then(|e| e.to_str()) {
         if crate::extract::code::is_code_ext(ext) {
             let mut s = mk(Family::Code);
             s.encoding = encoding;
@@ -611,7 +626,7 @@ mod unity_sniff_tests {
     use std::path::Path;
 
     fn sniff_str(s: &str, name: &str) -> Family {
-        sniff_bytes(s.as_bytes(), Path::new(name), false)
+        sniff_bytes(s.as_bytes(), Path::new(name), Path::new(name), false)
             .unwrap()
             .family
     }
@@ -684,7 +699,7 @@ mod unity_sniff_tests {
             let mut bytes = head.to_vec();
             // A printable tail that WOULD pass the prose heuristics.
             bytes.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20));
-            let sn = sniff_bytes(&bytes, Path::new(name), false).unwrap();
+            let sn = sniff_bytes(&bytes, Path::new(name), Path::new(name), false).unwrap();
             assert_eq!(sn.family, Family::Binary, "{name} must be binary");
         }
     }
@@ -697,11 +712,11 @@ mod unity_sniff_tests {
         let soup: String = (0..8192u32)
             .map(|i| char::from_u32(0x21 + (i * 7) % 0x5d).unwrap())
             .collect();
-        let sn = sniff_bytes(soup.as_bytes(), Path::new("texture.tga"), false).unwrap();
+        let sn = sniff_bytes(soup.as_bytes(), Path::new("texture.tga"), Path::new("texture.tga"), false).unwrap();
         assert_eq!(sn.family, Family::Binary);
         // Real prose of the same size keeps its family.
         let prose = "The quick brown fox jumps over the lazy dog. ".repeat(200);
-        let sn = sniff_bytes(prose.as_bytes(), Path::new("note.txt"), false).unwrap();
+        let sn = sniff_bytes(prose.as_bytes(), Path::new("note.txt"), Path::new("note.txt"), false).unwrap();
         assert_ne!(sn.family, Family::Binary, "real prose must stay text");
     }
 
@@ -709,7 +724,7 @@ mod unity_sniff_tests {
     fn binary_serialized_unity_assets_stay_binary() {
         let mut bytes = b"UnityFS\x00\x00\x00\x00\x08".to_vec();
         bytes.extend(std::iter::repeat(0u8).take(64));
-        let sn = sniff_bytes(&bytes, Path::new("scene.unity"), false).unwrap();
+        let sn = sniff_bytes(&bytes, Path::new("scene.unity"), Path::new("scene.unity"), false).unwrap();
         assert_eq!(sn.family, Family::Binary);
     }
 }

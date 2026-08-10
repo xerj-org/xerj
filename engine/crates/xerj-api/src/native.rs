@@ -708,12 +708,22 @@ pub async fn embedding_execution_identity(State(state): State<AppState>) -> impl
 //   be a no-op — checking the engine here would create a feedback loop
 //   where a slow engine flapping flush causes constant pod restarts.
 //
-// - **readiness**: returns 200 only when the engine reports a non-`red`
-//   cluster status (i.e. at least one index is queryable).  kubelet uses
-//   this to decide whether to send traffic.  Until ready, the Service
-//   removes the pod from rotation but doesn't restart it — appropriate
-//   for "still replaying WAL" or "still loading 50 K segments" startup
-//   states that are transient but visible.
+// - **readiness**: returns 200 when the node can serve.  kubelet uses this
+//   to decide whether to send traffic.  Until ready, the Service removes the
+//   pod from rotation but doesn't restart it — appropriate for "still
+//   replaying WAL" or "still loading 50 K segments" startup states that are
+//   transient but visible.
+//
+//   Readiness is deliberately NOT "cluster status != red" (issue #206). One
+//   index that will not open turns the engine red forever, and a pod with 200
+//   healthy indices and one broken one was therefore pulled out of service
+//   permanently and never came back — a single-index problem escalated into a
+//   total outage, with the 199 working indices unreachable. A node is ready
+//   when it has at least one index it can serve, or nothing to serve at all;
+//   it is unready only when every index it holds is broken. The red status
+//   itself is untouched and still reported by `/v1/health`,
+//   `/v1/cluster/health`, `_cluster/health` and `_cat/health`, and the
+//   degraded state is named in this body so a probe log says which it is.
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn liveness() -> impl IntoResponse {
@@ -722,14 +732,95 @@ pub async fn liveness() -> impl IntoResponse {
 
 pub async fn readiness(State(state): State<AppState>) -> impl IntoResponse {
     let h = state.engine.health().await;
-    if h.status == "red" {
-        (
+    // Read the node's own state, not a principal's filtered view: this path is
+    // exempt from authentication so a kubelet can probe a hardened node, and
+    // the probe has to answer for the whole node. For the same reason the body
+    // carries COUNTS ONLY — naming the failed indices here would hand every
+    // index name on the node to anyone who can reach the port. The names live
+    // behind auth on `GET /_cluster/indices/failed`.
+    let failed = state.engine.failed_indices.len();
+    if failed == 0 {
+        return (axum::http::StatusCode::OK, "ready").into_response();
+    }
+    if h.index_count == 0 {
+        // Nothing on this node can be served: every index it holds failed to
+        // open. Removing it from rotation is correct here.
+        return (
             axum::http::StatusCode::SERVICE_UNAVAILABLE,
-            format!("not ready: cluster status = {}", h.status),
+            format!(
+                "not ready: no index could be opened ({failed} failed); \
+                 see GET /_cluster/indices/failed"
+            ),
         )
-            .into_response()
-    } else {
-        (axum::http::StatusCode::OK, "ready").into_response()
+            .into_response();
+    }
+    (
+        axum::http::StatusCode::OK,
+        format!(
+            "ready (degraded): {} of {} indices serving, {failed} failed to open; \
+             see GET /_cluster/indices/failed",
+            h.index_count,
+            h.index_count + failed
+        ),
+    )
+        .into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handler: GET  /_cluster/indices/failed              — list failed indices
+// Handler: POST /_cluster/indices/failed/{name}/_retry — retry one open
+//
+// Issue #206: an index whose directory refused to open had no operator
+// surface at all. These two, plus `DELETE /{index}` (which now accepts a
+// failed index), are the three moves the issue asks for: inspect with the
+// real reason, retry after fixing the cause, delete.
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub async fn failed_indices(State(state): State<AppState>) -> impl IntoResponse {
+    let started = Instant::now();
+    let request_id = Uuid::new_v4().to_string();
+    let failed = state.engine.list_failed_indices();
+    let items: Vec<serde_json::Value> = failed
+        .iter()
+        .map(|f| {
+            serde_json::json!({
+                "index": f.name,
+                "reason": f.reason,
+                "failed_at_millis": f.failed_at_ms,
+                "retries": f.retries,
+                "retry": format!("POST /_cluster/indices/failed/{}/_retry", f.name),
+                "delete": format!("DELETE /{}", f.name),
+            })
+        })
+        .collect();
+    let resp = NativeResponse::new(
+        serde_json::json!({ "count": items.len(), "failed_indices": items }),
+        started.elapsed().as_millis() as u64,
+        &request_id,
+    );
+    Json(resp).into_response()
+}
+
+pub async fn retry_failed_index(
+    State(state): State<AppState>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let started = Instant::now();
+    let request_id = Uuid::new_v4().to_string();
+    match state.engine.retry_failed_index(&name) {
+        Ok(()) => {
+            let resp = NativeResponse::new(
+                serde_json::json!({ "index": name, "reopened": true }),
+                started.elapsed().as_millis() as u64,
+                &request_id,
+            );
+            Json(resp).into_response()
+        }
+        // The retry did not work. Answering 200 with `reopened: false` would
+        // be exactly the accepted-and-ignored shape this repo is trying to
+        // stop shipping — the caller gets the live failure instead (503 for a
+        // still-broken index, 404 for a name that is not a failed index).
+        Err(e) => crate::error::ApiError::new(e.into()).into_response(),
     }
 }
 
@@ -2395,8 +2486,13 @@ pub async fn put_pipeline(
     let started = Instant::now();
     let request_id = Uuid::new_v4().to_string();
 
-    match state.engine.create_pipeline(&name, body) {
-        Ok(()) => {
+    // `None` — this surface rejects a definition it cannot compile, so
+    // nothing is stored on a compile error. On success the pipeline is
+    // written to `<data_dir>/cluster_state.json` before we acknowledge it
+    // (issue #203): it used to live only in memory and vanish on restart,
+    // exactly like the ES-compat one.
+    match state.engine.put_pipeline(&name, body, None) {
+        Ok(None) => {
             let took_ms = started.elapsed().as_millis() as u64;
             let resp = NativeResponse::new(
                 serde_json::json!({ "pipeline": name, "acknowledged": true }),
@@ -2404,6 +2500,13 @@ pub async fn put_pipeline(
                 &request_id,
             );
             (StatusCode::OK, Json(resp)).into_response()
+        }
+        // The definition does not compile — same 500 this surface has always
+        // returned, and nothing was stored.
+        Ok(Some(compile_err)) => {
+            let ze = xerj_common::XerjError::internal(compile_err.to_string());
+            native_error(ze, Some(&request_id), started.elapsed().as_millis() as u64)
+                .into_response()
         }
         Err(e) => {
             let ze = xerj_common::XerjError::internal(e.to_string());

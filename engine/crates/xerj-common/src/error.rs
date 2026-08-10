@@ -22,6 +22,20 @@ pub enum XerjError {
     #[error("index already exists: {name}")]
     IndexAlreadyExists { name: String },
 
+    /// The index directory exists but could not be opened, so the index
+    /// cannot serve. Deliberately distinct from [`XerjError::IndexNotFound`]:
+    /// the name is real, the data is still on disk, and the operator's move is
+    /// to fix the cause and retry — or to delete it. Reporting these as 404
+    /// "not found" is what made a failed index un-inspectable and
+    /// un-deletable (issue #206).
+    #[error(
+        "index [{index}] failed to open and is unavailable: {reason}. \
+         Inspect it with GET /_cluster/indices/failed, retry it with \
+         POST /_cluster/indices/failed/{index}/_retry once the cause is fixed, \
+         or remove it with DELETE /{index}"
+    )]
+    IndexUnavailable { index: String, reason: String },
+
     // ── Document operations ────────────────────────────────────────────────
     /// A document with the given ID was not found in the index.
     #[error("document not found: id={id} in index={index}")]
@@ -135,6 +149,13 @@ impl XerjError {
 
     pub fn index_already_exists(name: impl Into<String>) -> Self {
         Self::IndexAlreadyExists { name: name.into() }
+    }
+
+    pub fn index_unavailable(index: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::IndexUnavailable {
+            index: index.into(),
+            reason: reason.into(),
+        }
     }
 
     pub fn document_not_found(id: impl Into<String>, index: impl Into<String>) -> Self {
@@ -266,6 +287,9 @@ impl XerjError {
             | Self::ConfigError { .. }
             | Self::ResultWindowTooLarge { .. } => 400,
             Self::IndexBlocked { .. } => 403,
+            // The index exists but has no serving copy — ES answers the same
+            // shape (no_shard_available_action_exception) with 503.
+            Self::IndexUnavailable { .. } => 503,
             Self::AuthError { .. } => 401,
             Self::ResourceExhausted { .. } | Self::CircuitBreaking { .. } => 429,
             Self::StorageError { .. }

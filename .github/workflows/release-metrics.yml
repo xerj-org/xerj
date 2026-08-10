@@ -1,0 +1,66 @@
+name: Release download snapshot
+
+# GitHub reports release asset `download_count` as a running total and keeps no
+# history, so the only uninflated adoption number this project has was a
+# point-in-time reading that could never show a trend. This appends one line a
+# day to metrics/release-downloads.jsonl. No new infrastructure, no service, no
+# secret: it reads public repo metadata with the built-in GITHUB_TOKEN.
+#
+# It also snapshots the 14-day traffic windows (clones/views), which GitHub
+# expires day by day — a day that is not captured is gone permanently. Those
+# fields land as null if the token lacks push scope, which is honest and fine.
+#
+# Privacy: nothing here reads or stores anything about a person. GitHub exposes
+# no IP, user agent or identity per download.
+
+on:
+  schedule:
+    # 06:17 UTC daily — off the hour, because the top of the hour is the most
+    # congested slot on GitHub's scheduler and delays runs by 10-30 minutes.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-metrics
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Snapshot release download counts
+    runs-on: ubuntu-latest
+    # Scheduled workflows run on forks too; a fork has nothing to snapshot.
+    if: github.repository == 'xerj-org/xerj'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/snapshot-release-downloads.sh
+
+      - name: Commit if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- metrics/; then
+            echo "no change — nothing to commit"
+            exit 0
+          fi
+          # Commits in this repo are authored as xerj-org.
+          git config user.name  "xerj-org"
+          git config user.email "xerj-org@users.noreply.github.com"
+          total=$(tail -n1 metrics/release-downloads.jsonl | jq -r '.totals.all')
+          bins=$(tail -n1 metrics/release-downloads.jsonl | jq -r '.totals.binary')
+          git add metrics/
+          # [skip ci] is belt-and-braces. A push made with the default
+          # GITHUB_TOKEN already triggers no workflow runs (GitHub blocks that
+          # to prevent recursion), so this commit does NOT kick off the CI or
+          # the 8-target cross-compile in release.yml. The marker keeps that
+          # true if someone ever swaps in a PAT.
+          git commit -m "chore(metrics): release downloads $(date -u +%F) — ${total} assets, ${bins} binaries [skip ci]" \
+                     -m "Automated daily snapshot (.github/workflows/release-metrics.yml). GitHub keeps no history for download_count; this line is the history."
+          # Rebase rather than fail if a human pushed while we were collecting.
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

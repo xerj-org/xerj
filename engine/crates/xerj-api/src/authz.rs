@@ -1471,7 +1471,18 @@ async fn prune_response(
     // other structural key would be dropped for a scoped principal, which
     // would corrupt the very responses this is protecting. Read outside the
     // request's visibility scope on purpose: this needs the unfiltered truth.
-    let known: HashSet<String> = state.engine.index_name_list().into_iter().collect();
+    // Failed indices count as real names here (issue #206). They are now
+    // listed by `_cat/indices`, `_cat/shards` and `_cluster/state`, and a
+    // name that is not in this set is never a pruning candidate — so leaving
+    // them out would hand a scoped principal the name of a brain that
+    // happened to fail to open. The engine-side guard already filters them at
+    // the handler; this is the same second pass the open indices get.
+    let known: HashSet<String> = state
+        .engine
+        .index_name_list()
+        .into_iter()
+        .chain(state.engine.failed_indices.iter().map(|e| e.key().clone()))
+        .collect();
 
     let pruned: Vec<u8> = if is_json {
         match serde_json::from_slice::<Value>(&bytes) {

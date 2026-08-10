@@ -396,6 +396,78 @@ section.hero-split .lead { margin-bottom: 0; }
   .hero-demo-play { width: 54px; height: 54px; top: 50%; left: 16px; }
   .hero-demo-play svg { width: 20px; height: 20px; }
 }
+
+/* Hero install block — the one-liner is the first action on the page.
+   Same language as pre.code: 1px accent rule on the left, mono text,
+   no fills. The copy affordance is text, per the no-icons rule. */
+.hero-install {
+  margin: 0 0 var(--sp-6);
+  padding: var(--sp-3) 0 var(--sp-3) var(--sp-6);
+  border-left: 1px solid var(--z-accent);
+}
+.hero-install-label {
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  margin-bottom: var(--sp-2);
+}
+.hero-install-cmd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.hero-install-cmd code {
+  font-family: var(--font-mono);
+  font-size: clamp(var(--fs-16), 1.5vw, 22px);
+  font-weight: 500;
+  color: var(--z-ink);
+  user-select: all;
+}
+.hero-install-alt {
+  margin-top: var(--sp-2);
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  color: var(--z-mute);
+}
+.hero-install-alt code { font-family: var(--font-mono); color: var(--z-mute); }
+.hero-install-copy {
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  color: var(--z-mute);
+  background: none;
+  border: 1px solid var(--z-line);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.hero-install-copy:hover,
+.hero-install-copy:focus-visible {
+  color: var(--z-accent);
+  border-color: var(--z-accent);
+}
+.hero-install-agent { margin-top: var(--sp-4); }
+.hero-install-agent-line {
+  font-family: var(--font-prose);
+  font-size: var(--fs-13);
+  line-height: 1.6;
+  color: var(--z-mute);
+  max-width: 720px;
+  margin: 0;
+}
+.hero-install-agent-line code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  color: var(--z-ink);
+}
+.hero-install-agent-line .hero-install-copy { margin-left: var(--sp-2); }
+
 section.section-split .scene { margin-bottom: var(--sp-4); }
 section.section-split p.wide { max-width: none; }
 

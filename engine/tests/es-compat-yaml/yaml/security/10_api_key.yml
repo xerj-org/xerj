@@ -12,3 +12,53 @@
   - is_true: id
   - is_true: api_key
   - is_true: encoded
+
+---
+"api keys can be listed and invalidated (issue #208)":
+  - do:
+      security.create_api_key:
+        body:
+          name: revoke-me
+  - is_true: id
+  - set: { id: key_id }
+
+  # GET lists the key — WITHOUT the secret.
+  - do:
+      security.get_api_key:
+        id: $key_id
+  - match: { api_keys.0.id: $key_id }
+  - match: { api_keys.0.name: revoke-me }
+  - match: { api_keys.0.type: rest }
+  - match: { api_keys.0.invalidated: false }
+  - is_false: api_keys.0.api_key
+  - is_false: api_keys.0.encoded
+
+  # DELETE invalidates it.
+  - do:
+      security.invalidate_api_key:
+        body:
+          ids: [ "$key_id" ]
+  - match: { invalidated_api_keys.0: $key_id }
+  - length: { previously_invalidated_api_keys: 0 }
+  - match: { error_count: 0 }
+
+  # Invalidating again reports it as previously invalidated.
+  - do:
+      security.invalidate_api_key:
+        body:
+          ids: [ "$key_id" ]
+  - length: { invalidated_api_keys: 0 }
+  - match: { previously_invalidated_api_keys.0: $key_id }
+  - match: { error_count: 0 }
+
+  # The listing reflects the revocation; active_only hides it.
+  - do:
+      security.get_api_key:
+        id: $key_id
+  - match: { api_keys.0.invalidated: true }
+  - is_true: api_keys.0.invalidation
+  - do:
+      security.get_api_key:
+        name: revoke-me
+        active_only: true
+  - length: { api_keys: 0 }

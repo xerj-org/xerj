@@ -428,6 +428,16 @@ pub enum QueryNode {
         analyzer: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// Phrase slop — the number of intervening positions tolerated
+        /// between adjacent phrase terms. Applies to `match_type: Phrase`
+        /// only (ES: `slop` is a phrase parameter; the field-centric and
+        /// term-centric types ignore it). Default 0 = exact adjacency.
+        #[serde(default)]
+        slop: u32,
+        /// Prefix-expansion cap for `match_type: PhrasePrefix` — how many
+        /// terms the trailing prefix may expand to (ES default 50).
+        #[serde(default = "default_max_expansions")]
+        max_expansions: u32,
     },
 
     /// Lucene query-string syntax (e.g. `"title:(foo AND bar) OR body:baz"`).
@@ -548,6 +558,13 @@ pub enum QueryNode {
         query: String,
         #[serde(default = "default_max_expansions")]
         max_expansions: u32,
+        /// Allowed intervening positions across the whole phrase, trailing
+        /// prefix term included.  ES accepts and honours `slop` here
+        /// (`MatchPhrasePrefixQueryBuilder` parses it and passes it to
+        /// `MatchQueryParser.setPhraseSlop`), so dropping it would be
+        /// accept-and-ignore (#204 class).
+        #[serde(default)]
+        slop: u32,
     },
 
     /// Simple query string — splits on `+`/`|`/`-` operators, converted to a Bool query.

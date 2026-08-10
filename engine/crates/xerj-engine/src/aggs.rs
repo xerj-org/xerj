@@ -16,23 +16,99 @@
 //!
 //! ## Supported aggregation types
 //!
-//! | Type             | ES key            | Output shape                        |
-//! |------------------|-------------------|-------------------------------------|
-//! | Terms            | `terms`           | bucket agg with `key`/`doc_count`   |
-//! | Value count      | `value_count`     | metric — `{"value": N}`             |
-//! | Avg              | `avg`             | metric — `{"value": f64}`           |
-//! | Sum              | `sum`             | metric — `{"value": f64}`           |
-//! | Min              | `min`             | metric — `{"value": f64}`           |
-//! | Max              | `max`             | metric — `{"value": f64}`           |
-//! | Stats            | `stats`           | metric — combined count/min/max/...  |
-//! | Cardinality      | `cardinality`     | metric — exact distinct count        |
-//! | Date histogram   | `date_histogram`  | bucket agg keyed by time interval   |
+//! The complete list is [`SUPPORTED_AGG_TYPES`] — it is checked against the
+//! dispatch table in `execute_agg_with_all_cached` by a test in this file, and
+//! the published docs are checked against it by
+//! `tests/docs_capability_lists.rs`. A hand-written table here would be a
+//! fourth place to forget to update, which is exactly what issue #211 is
+//! about: this module doc used to list nine types out of the sixty-plus that
+//! run, and the pipeline family (`bucket_script` and friends) appeared in none
+//! of the lists at all.
 //!
 //! Bucket aggregations support nested sub-aggregations (`aggs` key inside).
 
 use std::collections::{HashMap, HashSet};
 
 use serde_json::{json, Map, Value};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Capability manifest — the single source of truth for "what aggregations exist"
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Every aggregation-type name the agg dispatcher routes to a real
+/// implementation.
+///
+/// **Acceptance, not fidelity.** A name here means the aggregation runs and
+/// produces output of the ES shape; it is not a claim that every parameter of
+/// every type is honoured. Per-type gaps are tracked in
+/// `demo/playbooks/STUB_AUDIT.md`.
+///
+/// Kept in step with the dispatch table by
+/// `tests::dispatch_table_matches_capability_manifest` in this file.
+pub const SUPPORTED_AGG_TYPES: &[&str] = &[
+    "adjacency_matrix",
+    "auto_date_histogram",
+    "avg",
+    "avg_bucket",
+    "boxplot",
+    "bucket_script",
+    "bucket_selector",
+    "bucket_sort",
+    "cardinality",
+    "composite",
+    "cumulative_sum",
+    "date_histogram",
+    "date_range",
+    "derivative",
+    "diversified_sampler",
+    "extended_stats",
+    "extended_stats_bucket",
+    "filter",
+    "filters",
+    "geo_bounds",
+    "geo_centroid",
+    "geo_distance",
+    "geohash_grid",
+    "geotile_grid",
+    "global",
+    "histogram",
+    "ip_prefix",
+    "ip_range",
+    "matrix_stats",
+    "max",
+    "max_bucket",
+    "median_absolute_deviation",
+    "min",
+    "min_bucket",
+    "missing",
+    "moving_avg",
+    "moving_fn",
+    "multi_terms",
+    "nested",
+    "percentile_ranks",
+    "percentiles",
+    "percentiles_bucket",
+    "random_sampler",
+    "range",
+    "rare_terms",
+    "reverse_nested",
+    "sampler",
+    "scripted_metric",
+    "serial_diff",
+    "significant_terms",
+    "significant_text",
+    "stats",
+    "stats_bucket",
+    "string_stats",
+    "sum",
+    "sum_bucket",
+    "terms",
+    "time_series",
+    "top_hits",
+    "top_metrics",
+    "value_count",
+    "variable_width_histogram",
+];
 
 // ── Field value cache ─────────────────────────────────────────────────────────
 
@@ -5675,7 +5751,17 @@ pub(crate) fn parse_time_zone_offset(tz: &str) -> Option<chrono::FixedOffset> {
                 rest[..idx].parse::<i32>().ok()?,
                 rest[idx + 1..].parse::<i32>().ok()?,
             )
-        } else if rest.len() == 4 {
+        } else if rest.len() == 4 && rest.bytes().all(|b| b.is_ascii_digit()) {
+            // The digit check makes the byte offset 2 a true char boundary
+            // by construction, rather than assuming `rest` is ASCII and
+            // slicing blind — `rest.len()` counts bytes, so a two-character
+            // zone like "+中a" is also 4 bytes long, and slicing at byte 2
+            // would land inside the multi-byte '中' and panic (the release
+            // profile's `panic = "abort"` turns that into a process crash,
+            // reachable from an unauthenticated `_search` body). Every input
+            // that used to reach `parse::<i32>()` and succeed is still
+            // all-ASCII-digits, so this rejects nothing that previously
+            // parsed into a valid offset.
             (
                 rest[..2].parse::<i32>().ok()?,
                 rest[2..].parse::<i32>().ok()?,
@@ -5689,6 +5775,51 @@ pub(crate) fn parse_time_zone_offset(tz: &str) -> Option<chrono::FixedOffset> {
         return chrono::FixedOffset::east_opt(total);
     }
     None
+}
+
+#[cfg(test)]
+mod parse_time_zone_offset_char_boundary_tests {
+    //! Regression coverage for #272: `rest.len() == 4` counts BYTES, not
+    //! characters, so a two-character zone like "+中a" is also 4 bytes and
+    //! `rest[..2]` used to slice inside the multi-byte '中' — a byte-index
+    //! panic that the release profile's `panic = "abort"` turns into a
+    //! process crash, reachable from an unauthenticated `_search` body via
+    //! `date_histogram.time_zone`.
+    use super::*;
+
+    #[test]
+    fn multi_byte_offset_does_not_panic_and_is_rejected() {
+        assert_eq!(parse_time_zone_offset("+中a"), None);
+        assert_eq!(parse_time_zone_offset("-中a"), None);
+    }
+
+    #[test]
+    fn run_aggs_with_a_multi_byte_time_zone_does_not_abort() {
+        // The exact reproduction from #272, through the public entry point
+        // an unauthenticated `_search` body reaches.
+        let aggs_def = json!({
+            "h": {
+                "date_histogram": {
+                    "field": "ts",
+                    "fixed_interval": "1d",
+                    "time_zone": "+中a",
+                }
+            }
+        });
+        let docs = [json!({"ts": "2025-01-24T07:31:52.102Z"})];
+        // Must return, not panic — the assertion is that this line is
+        // reached at all.
+        let _ = run_aggs(&aggs_def, &docs);
+    }
+
+    #[test]
+    fn valid_four_digit_offsets_still_parse_the_same_as_before() {
+        // The digit guard must not reject anything that used to succeed.
+        let plus = parse_time_zone_offset("+0530").expect("valid offset must still parse");
+        assert_eq!(plus.local_minus_utc(), 5 * 3600 + 30 * 60);
+        let minus = parse_time_zone_offset("-0800").expect("valid offset must still parse");
+        assert_eq!(minus.local_minus_utc(), -8 * 3600);
+    }
 }
 
 /// Given an IANA zone name and an instant, return the offset at that instant,
@@ -14727,5 +14858,98 @@ mod date_range_filter_tests {
         let f = json!({"range": {"status": {"gte": 500}}});
         assert!(doc_matches_filter(&json!({"status": 503}), &f));
         assert!(!doc_matches_filter(&json!({"status": 200}), &f));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Capability-manifest drift guard (issue #211)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod capability_manifest_tests {
+    use super::SUPPORTED_AGG_TYPES;
+    use std::collections::BTreeSet;
+
+    /// Names in the agg dispatch table, read out of this file's own source at
+    /// compile time.
+    ///
+    /// A pattern line is one whose text before `=>` is nothing but quoted
+    /// string literals, `|` and whitespace — true of every match-arm head and
+    /// of no arm body, so nothing has to be marked up by hand. The scan is
+    /// bounded by the `match` head and the catch-all arm that closes it.
+    fn dispatch_table_names() -> Vec<String> {
+        const SRC: &str = include_str!("aggs.rs");
+        const START: &str = "let mut result = match agg_type {";
+        const END: &str =
+            "other => json!({\"error\": format!(\"unsupported aggregation type '{}'\", other)}),";
+
+        let start = SRC.find(START).expect("agg dispatch head moved") + START.len();
+        let end = SRC[start..].find(END).expect("agg catch-all arm moved") + start;
+
+        let mut names = Vec::new();
+        for line in SRC[start..end].lines() {
+            let code = line.split("//").next().unwrap_or("");
+            let head = code.split("=>").next().unwrap_or("");
+            if !head.contains('"') {
+                continue;
+            }
+            let mut literals = Vec::new();
+            let mut rest = String::new();
+            let mut current = String::new();
+            let mut in_str = false;
+            for ch in head.chars() {
+                match (ch, in_str) {
+                    ('"', false) => in_str = true,
+                    ('"', true) => {
+                        in_str = false;
+                        literals.push(std::mem::take(&mut current));
+                    }
+                    (c, true) => current.push(c),
+                    (c, false) => rest.push(c),
+                }
+            }
+            if in_str || rest.chars().any(|c| c != '|' && !c.is_whitespace()) {
+                continue;
+            }
+            names.extend(literals);
+        }
+        names
+    }
+
+    /// The drift guard: [`SUPPORTED_AGG_TYPES`] must be exactly the dispatch
+    /// table.
+    ///
+    /// Issue #211: the pipeline family (`bucket_script`, `derivative`,
+    /// `cumulative_sum`, …) shipped and was absent from every published list,
+    /// and a reviewer trusting those lists nearly opened a roadmap item to
+    /// build it a second time.
+    #[test]
+    fn dispatch_table_matches_capability_manifest() {
+        let dispatched: BTreeSet<String> = dispatch_table_names().into_iter().collect();
+        assert!(
+            dispatched.len() > 50,
+            "scraper found only {} arms — the dispatch table shape changed and the \
+             scan is silently under-reading it",
+            dispatched.len()
+        );
+
+        let manifest: BTreeSet<String> =
+            SUPPORTED_AGG_TYPES.iter().map(|s| s.to_string()).collect();
+        assert_eq!(
+            manifest.len(),
+            SUPPORTED_AGG_TYPES.len(),
+            "SUPPORTED_AGG_TYPES contains duplicates"
+        );
+
+        let missing: Vec<_> = dispatched.difference(&manifest).collect();
+        let extra: Vec<_> = manifest.difference(&dispatched).collect();
+        assert!(
+            missing.is_empty() && extra.is_empty(),
+            "capability manifest has drifted from the agg dispatch table.\n  \
+             dispatched but not in the manifest: {missing:?}\n  \
+             in the manifest but not dispatched: {extra:?}\n  \
+             Fix SUPPORTED_AGG_TYPES in this file; the docs are checked against \
+             it by tests/docs_capability_lists.rs."
+        );
     }
 }

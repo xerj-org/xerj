@@ -203,8 +203,23 @@ done in 0.1s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped f
 just polite re-runs: in the robustness evaluation, a `kill -9` at 18 s into a
 200 MB file followed by a re-run converged to **byte-identical counts across
 all 9 datasets** — no duplicates. `xerj autoindex status` shows the journal
-and live index counts; `--fresh` ignores the journal and restarts (ids stay
-idempotent).
+and live index counts. `--fresh` ignores the resume journal and restarts (ids stay idempotent), which on a
+graph-enabled or pre-generation state directory is how a rerun picks up files added
+since the last one. It never removes stale records from the destination, and it is
+refused once the state directory holds a durable corpus generation — re-run without it
+and the generated `--no-graph` path reconciles additions, changes, deletions, renames
+and no-op reruns incrementally.
+
+On a graph-enabled or pre-generation journal, a rerun that resumes an existing plan
+indexes changed files and reports added ones as skipped. Deleting a file is refused
+there: nothing on that path removes the documents it already published, so the rerun
+stops before touching the destination and names what is gone — the first ten, then an
+`… and N more` tail, with `--json` carrying every entry. Restore the file and rerun, or
+rebuild — in place by deleting the named indices and the state directory, or isolated
+under a new `--state-dir`, `--prefix` and `--brain` (or `--no-graph`), validated before
+you switch readers. The shared `autoindex-catalog` and the old target require explicit
+cleanup. A `--no-graph` state directory written before the generation format cannot be
+adopted in place and must be rebuilt the same way.
 
 ## Reproduce it yourself
 
@@ -222,10 +237,19 @@ curl localhost:9200/ax-*/_search -H 'Content-Type: application/json' \
 ```
 
 Useful knobs (all optional): `--url` for a remote endpoint, `--workers N`
-(default min(cores, 8)), `--prefix` to namespace the indices (default `ax`),
+(the *default* is every core, reduced when the memory safe zone cannot pay for
+that many in-flight bulk buffers; a value you pass is honoured as typed and the
+disagreement is printed, not applied; bounds both the scan and the indexing
+phase), `--prefix` to namespace the indices (default `ax`),
 `--no-semantic` for pure BM25+keyword without vector fields, `--dry-run` to
 print the inferred plan without indexing anything, `--follow-symlinks`
 (loop-safe), `--sample N` records per file for inference (default 500).
+
+`--workers` is a ceiling, not a promise: when the server answers `429 Too Many
+Requests` the run halves its own bulk concurrency on the spot and probes back
+up one worker at a time only after a clean streak, so a busy server is not
+handed the same load six times over. The run's summary records where it ended
+up (`bulk_concurrency_final`, `bulk_congestion_events`).
 
 Your dataset names, field types, and counts will reflect *your* folder — that
 is the point. The behaviors shown here (decimal-comma → `double`, date

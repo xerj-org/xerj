@@ -274,6 +274,7 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
             fields,
             query,
             match_type,
+            slop,
             ..
         } => {
             // Expand to a Bool(should=[ Match(field, query) for field in fields ])
@@ -286,6 +287,9 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
             );
             let cost = 5.0 * fields.len() as f64 * n as f64;
 
+            // `slop` only means anything for a phrase (issue #230); the
+            // field-centric types ignore it, as ES does.
+            let plan_slop = if phrase { slop } else { 0 };
             let sub_plans: Vec<ExecutionPlan> = fields
                 .into_iter()
                 .map(|field| ExecutionPlan::FtsSearch {
@@ -293,7 +297,7 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
                     tokens: tokens.clone(),
                     require_all: false,
                     phrase,
-                    slop: 0,
+                    slop: plan_slop,
                     cost: 5.0 * n as f64,
                 })
                 .collect();
@@ -502,14 +506,16 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         QueryNode::Intervals { field, .. } => ExecutionPlan::ExistsScan { field },
 
         // MatchPhrasePrefix: treat as a phrase search on the given field.
-        QueryNode::MatchPhrasePrefix { field, query, .. } => {
+        QueryNode::MatchPhrasePrefix {
+            field, query, slop, ..
+        } => {
             let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
             ExecutionPlan::FtsSearch {
                 field,
                 tokens,
                 require_all: true,
                 phrase: true,
-                slop: 0,
+                slop,
                 cost: 10.0,
             }
         }

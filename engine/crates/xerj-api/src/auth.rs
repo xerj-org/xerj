@@ -344,7 +344,12 @@ fn check_minted_key(state: &AppState, id: &str, secret: &str) -> Principal {
             return Principal::Denied;
         }
     }
-    if !constant_time_eq(record.secret.as_bytes(), secret.as_bytes()) {
+    // Issue #201: the stored form is a salted SHA-256 digest, not the
+    // credential. `verify_secret` hashes the presented secret under the
+    // record's salt and compares digests in constant time, and answers `false`
+    // for any record it cannot make sense of — an unmigrated or mangled record
+    // denies rather than falling back to a plaintext compare.
+    if !record.verify_secret(secret) {
         return Principal::Denied;
     }
     if record.roles.is_empty() {
@@ -456,7 +461,9 @@ mod tests {
         Router::new()
             .route(
                 "/_security/api_key",
-                post(crate::es_compat::security_create_api_key),
+                post(crate::es_compat::security_create_api_key)
+                    .get(crate::es_compat::security_get_api_keys)
+                    .delete(crate::es_compat::security_invalidate_api_key),
             )
             .route(
                 "/_security/_authenticate",
@@ -564,6 +571,255 @@ mod tests {
             status,
             StatusCode::UNAUTHORIZED,
             "invalidated key should 401"
+        );
+    }
+
+    /// Issue #208 — the full revocation lifecycle. Create a key, use it,
+    /// revoke it via `DELETE /_security/api_key`, and prove the same
+    /// credential is rejected afterwards. Also pins the ES wire shapes:
+    /// the GET listing never carries the secret, a second invalidate lands
+    /// in `previously_invalidated_api_keys`, a selector-less DELETE is a
+    /// 400 validation error, and both new endpoints leave audit entries.
+    #[tokio::test]
+    async fn api_key_revocation_lifecycle() {
+        let admin = "admin-secret-key";
+        let state = test_state(admin);
+        let app = app(state.clone());
+        let admin_hdr = format!("ApiKey {admin}");
+
+        // Mint a key.
+        let (status, body) = send(
+            &app,
+            "POST",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            r#"{"name":"rotate-me"}"#,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "create returned {status}");
+        let id = body["id"].as_str().expect("id").to_string();
+        let key_hdr = format!("ApiKey {}", body["encoded"].as_str().expect("encoded"));
+
+        // The key works.
+        let (status, _) = send(&app, "GET", "/_security/_authenticate", Some(&key_hdr), "").await;
+        assert_eq!(status, StatusCode::OK, "fresh key must authenticate");
+
+        // It lists, live, and the listing exposes no secret material.
+        let (status, body) = send(&app, "GET", "/_security/api_key", Some(&admin_hdr), "").await;
+        assert_eq!(status, StatusCode::OK);
+        let keys = body["api_keys"].as_array().expect("api_keys array");
+        let item = keys
+            .iter()
+            .find(|k| k["id"] == id.as_str())
+            .expect("minted key listed");
+        assert_eq!(item["name"], "rotate-me");
+        assert_eq!(item["invalidated"], false);
+        assert_eq!(item["type"], "rest");
+        assert!(item.get("api_key").is_none(), "secret must never be listed");
+        assert!(item.get("encoded").is_none(), "secret must never be listed");
+        assert!(item.get("secret").is_none(), "secret must never be listed");
+        assert!(
+            item.get("invalidation").is_none(),
+            "no invalidation time while live"
+        );
+
+        // Revoke it.
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            &format!(r#"{{"ids":["{id}"]}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "invalidate returned {status}");
+        assert_eq!(body["invalidated_api_keys"], serde_json::json!([id]));
+        assert_eq!(
+            body["previously_invalidated_api_keys"],
+            serde_json::json!([])
+        );
+        assert_eq!(body["error_count"], 0);
+
+        // THE issue-208 proof: the same credential is now rejected.
+        let (status, _) = send(&app, "GET", "/_security/_authenticate", Some(&key_hdr), "").await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "revoked key must be rejected"
+        );
+
+        // Revoking again reports it as previously invalidated.
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            &format!(r#"{{"ids":["{id}"]}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["invalidated_api_keys"], serde_json::json!([]));
+        assert_eq!(
+            body["previously_invalidated_api_keys"],
+            serde_json::json!([id])
+        );
+
+        // The listing now shows it invalidated, with an invalidation time,
+        // and active_only=true hides it.
+        let (status, body) = send(&app, "GET", "/_security/api_key", Some(&admin_hdr), "").await;
+        assert_eq!(status, StatusCode::OK);
+        let item = body["api_keys"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|k| k["id"] == id.as_str())
+            .expect("still listed")
+            .clone();
+        assert_eq!(item["invalidated"], true);
+        assert!(item["invalidation"].is_u64(), "invalidation time recorded");
+        let (status, body) = send(
+            &app,
+            "GET",
+            "/_security/api_key?active_only=true",
+            Some(&admin_hdr),
+            "",
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            body["api_keys"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|k| k["id"] != id.as_str()),
+            "active_only must hide the revoked key"
+        );
+
+        // An unknown id on GET is a 404 (with the empty body still attached);
+        // on DELETE it matches nothing and errors nothing.
+        let (status, body) = send(
+            &app,
+            "GET",
+            "/_security/api_key?id=no-such-key",
+            Some(&admin_hdr),
+            "",
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["api_keys"], serde_json::json!([]));
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            r#"{"ids":["no-such-key"]}"#,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["invalidated_api_keys"], serde_json::json!([]));
+        assert_eq!(body["error_count"], 0);
+
+        // A selector-less DELETE is a 400 validation error (ES:
+        // InvalidateApiKeyRequest#validate).
+        let (status, body) =
+            send(&app, "DELETE", "/_security/api_key", Some(&admin_hdr), "{}").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["error"]["type"], "action_request_validation_exception");
+
+        // Both new endpoints audited what happened.
+        let ops: Vec<String> = state
+            .engine
+            .audit
+            .snapshot()
+            .iter()
+            .map(|e| e.op.clone())
+            .collect();
+        assert!(
+            ops.iter().any(|o| o == "security.api_key.invalidate"),
+            "invalidate must be audited, got {ops:?}"
+        );
+        assert!(
+            ops.iter().any(|o| o == "security.api_key.get"),
+            "get must be audited, got {ops:?}"
+        );
+        assert!(
+            ops.iter().any(|o| o == "security.api_key.create"),
+            "create must be audited, got {ops:?}"
+        );
+    }
+
+    /// Issue #208, authorization half: a *scoped* key may neither list nor
+    /// revoke keys — same 403 the create gate already gives it — while an
+    /// unscoped minted key (the historical operator credential) may.
+    #[tokio::test]
+    async fn scoped_key_cannot_list_or_revoke_keys() {
+        let admin = "admin-secret-key";
+        let state = test_state(admin);
+        let app = app(state.clone());
+        let admin_hdr = format!("ApiKey {admin}");
+
+        // Superuser mints a scoped key and an unscoped key.
+        let (status, body) = send(
+            &app,
+            "POST",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            r#"{"name":"scoped","role_descriptors":{"r":{"indices":[{"names":["logs-*"],"privileges":["read"]}]}}}"#,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let scoped_hdr = format!("ApiKey {}", body["encoded"].as_str().unwrap());
+        let (status, body) = send(
+            &app,
+            "POST",
+            "/_security/api_key",
+            Some(&admin_hdr),
+            r#"{"name":"unscoped"}"#,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let unscoped_hdr = format!("ApiKey {}", body["encoded"].as_str().unwrap());
+        let unscoped_id = body["id"].as_str().unwrap().to_string();
+
+        // Scoped: 403 on both GET and DELETE.
+        let (status, _) = send(&app, "GET", "/_security/api_key", Some(&scoped_hdr), "").await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "scoped key must not list");
+        let (status, _) = send(
+            &app,
+            "DELETE",
+            "/_security/api_key",
+            Some(&scoped_hdr),
+            &format!(r#"{{"ids":["{unscoped_id}"]}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "scoped key must not revoke");
+
+        // Unscoped: allowed (revokes itself — rotation by an operator key).
+        let (status, body) = send(
+            &app,
+            "DELETE",
+            "/_security/api_key",
+            Some(&unscoped_hdr),
+            &format!(r#"{{"ids":["{unscoped_id}"]}}"#),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body["invalidated_api_keys"],
+            serde_json::json!([unscoped_id])
+        );
+        let (status, _) = send(
+            &app,
+            "GET",
+            "/_security/_authenticate",
+            Some(&unscoped_hdr),
+            "",
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "self-revoked key must stop working"
         );
     }
 

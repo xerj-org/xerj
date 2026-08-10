@@ -529,6 +529,19 @@ fn build(config: &Config) -> ResourceGovernor {
         ((memory_limit_bytes as u128 * pct as u128) / 100) as u64
     };
 
+    // A configured watermark that cannot be enforced is an accepted-and-ignored
+    // setting (#204): say so, rather than letting an operator believe the
+    // parent circuit breaker is armed when this platform has no RSS probe.
+    if memory_watermark_bytes > 0 && xerj_common::resource::current_rss_bytes().is_none() {
+        tracing::warn!(
+            "limits.memory_watermark_percent={} is configured, but this build cannot read \
+             process RSS on {} — the RSS admission watermark is DISABLED (memtable budget and \
+             disk flood stage still apply)",
+            limits.memory_watermark_percent,
+            std::env::consts::OS
+        );
+    }
+
     let max_query_memory_bytes = limits.max_query_memory_mb.saturating_mul(1024 * 1024);
 
     let max_concurrent_searches = (limits.max_concurrent_searches.max(1)) as usize;
@@ -580,57 +593,34 @@ fn build(config: &Config) -> ResourceGovernor {
 // System probes (Linux; best-effort with safe fallbacks elsewhere)
 // ─────────────────────────────────────────────────────────────────────────
 
-/// Current resident set size of this process, in bytes. Reads
-/// `/proc/self/statm` (field 2 = resident pages). Returns 0 if unreadable
-/// (the RSS watermark then never trips — safe).
+/// Current resident set size of this process, in bytes, via
+/// [`xerj_common::resource::current_rss_bytes`] (`/proc/self/statm` on Linux,
+/// `proc_pidinfo(PROC_PIDTASKINFO)` on macOS). Returns 0 where the platform
+/// exposes no probe — the RSS watermark then never trips, which is safe but
+/// means no admission control, so [`build`] says so out loud at startup.
+///
+/// Until #240 this returned a hardcoded 0 on *every* non-Linux platform, so
+/// the watermark was dead on macOS however much memory the process took.
 pub fn current_rss_bytes() -> u64 {
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(s) = std::fs::read_to_string("/proc/self/statm") {
-            if let Some(res) = s.split_whitespace().nth(1) {
-                if let Ok(pages) = res.parse::<u64>() {
-                    return pages.saturating_mul(page_size_bytes());
-                }
-            }
-        }
-        0
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        0
-    }
+    xerj_common::resource::current_rss_bytes().unwrap_or(0)
 }
 
-#[cfg(target_os = "linux")]
-fn page_size_bytes() -> u64 {
-    // SAFETY: sysconf is a pure read of a system constant.
-    let p = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
-    if p > 0 {
-        p as u64
-    } else {
-        4096
-    }
-}
-
-/// Total system RAM in bytes (from `/proc/meminfo`). Falls back to 8 GiB if
-/// unreadable so budgets stay sane on exotic platforms.
+/// Total system RAM in bytes. Falls back to [`ASSUMED_TOTAL_BYTES`] on a
+/// platform with no probe.
+///
+/// Until #240 the fallback applied to every non-Linux platform, so a 64 GB Mac
+/// derived its memtable budget, RSS watermark and hydration cache from a
+/// fictional 8 GiB — eight times too small, with no way to tell from the logs.
 fn system_total_bytes() -> u64 {
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(s) = std::fs::read_to_string("/proc/meminfo") {
-            for line in s.lines() {
-                if let Some(rest) = line.strip_prefix("MemTotal:") {
-                    if let Some(kb) = rest.split_whitespace().next() {
-                        if let Ok(kb) = kb.parse::<u64>() {
-                            return kb.saturating_mul(1024);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    8 * 1024 * 1024 * 1024
+    xerj_common::resource::total_memory_bytes().unwrap_or(ASSUMED_TOTAL_BYTES)
 }
+
+/// What to assume when the machine's RAM cannot be read at all. Deliberately
+/// unchanged from the pre-#240 constant: shrinking it would quietly re-tune
+/// every derived budget on platforms nobody has measured. The assumption is
+/// now announced (see [`xerj_common::resource::total_memory_bytes`]) instead of
+/// being silently indistinguishable from a real 8 GiB machine.
+const ASSUMED_TOTAL_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 
 /// Effective process memory limit: the cgroup memory limit when one is set
 /// (container / `systemd-run -p MemoryMax=`), otherwise total system RAM.

@@ -2,9 +2,11 @@
 //!
 //! Replaces `localStorage["xerj.dashboards"]` and
 //! `localStorage["xerj.layout.<id>"]` with engine-backed durable state.
-//! Every shared dashboard write expects an `If-Match: W/"<version>"`
-//! etag for optimistic concurrency; private dashboards skip that check
-//! since only the owner ever writes them.
+//! Every dashboard write (PUT / PATCH) **requires** an
+//! `If-Match: W/"<version>"` etag for optimistic concurrency: a missing
+//! header is rejected with 428 Precondition Required, a stale one with
+//! 409 Conflict. This applies to private dashboards too — one owner
+//! with two tabs open is still two writers.
 //!
 //! Real-time push (SSE `/_stream`) is NOT implemented in this release:
 //! there is no `/_stream` endpoint on dashboards or views, and none is
@@ -572,10 +574,19 @@ fn require_active(sess: &AuthSession) -> ConsoleResult<()> {
 }
 
 fn enforce_etag(headers: &HeaderMap, current_version: u64) -> ConsoleResult<()> {
-    // If-Match optional but recommended; if present, must match the current
-    // version (in either weak `W/"7"` or unweak `"7"` form).
+    // If-Match is REQUIRED on every dashboard write (issue #210). It used to
+    // be "optional but recommended", which made the 409 lost-update
+    // protection opt-in: two writers that never sent the header both
+    // succeeded and the second silently clobbered the first. A missing
+    // header is now 428 Precondition Required; a present-but-stale header
+    // stays 409 Conflict (the value must match the current version, in
+    // either weak `W/"7"` or unweak `"7"` form).
     let Some(if_match) = headers.get("if-match").and_then(|v| v.to_str().ok()) else {
-        return Ok(());
+        return Err(ConsoleApiError::PreconditionRequired(format!(
+            "dashboard writes require an If-Match header; \
+             GET the dashboard and retry with If-Match: W/\"<version>\" \
+             (current = W/\"{current_version}\")"
+        )));
     };
     let trimmed = if_match.trim();
     let unwrapped = trimmed.trim_start_matches("W/").trim_matches('"');

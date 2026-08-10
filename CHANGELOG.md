@@ -7,6 +7,743 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`autoindex` parses each PDF once per fresh run instead of twice.** Phase A
+  already paid a *complete* parse for every PDF — `extract::extract` routes
+  `Family::Pdf` straight to the isolated worker and drops the sampling limit,
+  so only delivery ever stopped early — and phase B then spawned the worker
+  again for the same bytes. Phase A now retains each validated worker response
+  in an anonymous temporary file under `--state-dir` and phase B replays it.
+  Reuse is an optional accelerator, never correctness-critical state: it is
+  bounded to 384 MiB of retained-plus-in-flight bytes and to an artifact-handle
+  cap derived from live `RLIMIT_NOFILE` and open-descriptor counts, both
+  re-probed at every admission; a 4 GiB-or-half-free filesystem floor is
+  reserved for the journal and phase-B staging first; and every artifact is
+  verified (physical length, content digest, JSON decode, worker-protocol
+  identity) before a single record is published. Anything that cannot be
+  measured conservatively declines and reparses — which is why the optimization
+  is **Linux-only** today: other platforms have no live descriptor evidence.
+  A restart has a frozen plan but no trusted handle, so it parses again; the
+  spool is deliberately not journal state. `--json` gains a
+  `pdf_extraction_reuse` block so the behaviour is observable rather than
+  inferred from timing. Original work by Leonid Bugaev (@buger).
+
+### Changed — autoindex refuses reruns that would strand documents
+
+- **Deleting an indexed file and rerunning `xerj autoindex` now fails instead
+  of exiting 0.** Nothing in the pipeline removes the documents, aliases,
+  graph edges or catalog entries that the deleted file published, so a rerun
+  that ignored the deletion left them live and searchable with no source file
+  behind them. The rerun is now refused before any remote call other than the
+  endpoint-readiness ping: no mapping, delete-by-query, bulk, refresh, graph
+  or catalog write is attempted, and the journal is not appended to. The error
+  names the removed files and their content keys — the first ten, then an
+  `… and N more` tail, since a whole unmounted subtree can vanish at once —
+  and gives three recovery routes: restore the files and rerun, rebuild in
+  place by deleting the named indices and the state directory, or rebuild
+  under a new state directory, prefix and brain. `--fresh` is refused for the
+  same case, because it does not delete those documents either. `--json` emits
+  the same facts — every removed entry, uncapped — as
+  `xerj.autoindex.unsupported_sync_delta.v1` on stdout with exit 1. Deleting a
+  file that was only ever *skipped* is not refused: a junk file publishes no
+  documents, and the stale junk-catalog sweep removes its one catalog row, so
+  nothing is stranded.
+- **Files added after a plan was frozen are now called out on stderr.** They
+  are still not indexed by a rerun that resumes an existing plan — the plan is
+  a crash-resume boundary, not a folder-sync generation — but the run now
+  lists them, records them as skipped (exit 3, completed-with-junk) and points
+  at `--fresh`, which rebuilds the plan in place and picks them up. Adding or
+  changing files and rerunning keeps working; only removals are refused.
+- **`xerj brain` no longer turns an absent or zero node-count probe into an
+  automatic reset.** Journal/server disagreement now fails with the journal,
+  URL, prefix, and brain identity plus recovery instructions, including the
+  explicit `--fresh` rerun for a genuinely wiped data directory. Probe
+  transport and malformed-response failures remain errors instead of being
+  reported as an empty destination. A nodes index that was deleted out from
+  under a surviving brain meta doc reads as absence and reaches that recovery
+  text, rather than surfacing as a raw HTTP 404.
+- **`--fresh` still recovers a state directory whose journal cannot be
+  parsed.** The rerun gate reads the durable plan before the run starts, and a
+  plan that is malformed, or recorded for a different root/URL/prefix, is fatal
+  to a resume — but not to `--fresh`, which deletes that journal unread. The
+  preflight is now no more fatal than the open it precedes: under `--fresh` the
+  unreadable plan is reported on stderr and rebuilt from the current folder.
+  Without `--fresh` the refusal is unchanged. Because the removal gate has no
+  comparison basis in that case, the warning says so: documents already
+  published for files that are now gone cannot be identified from an unreadable
+  plan and are not deleted.
+- **Refusal and skip listings are capped at ten entries plus an "and N more"
+  tail.** Unmounting a bind mount under an indexed root vanishes every content
+  group at once, so the uncapped listing was one rendered entry per journalled
+  file. `--json` still carries every entry.
+
+### Fixed
+
+- **An index whose metadata will not parse is refused instead of silently
+  reopened with an empty mapping**
+  ([#202](https://github.com/xerj-org/xerj/issues/202)). `Index::open` treated
+  "this file is not there" and "this file does not parse" as the same thing:
+  `load_schema`/`load_settings` mapped ENOENT, EACCES, EIO and malformed JSON
+  alike to one anonymous error, and the caller answered all of them with a
+  fresh dynamic mapping. Measured on a field deliberately mapped `keyword`:
+  after `schema.json` was truncated to half its bytes the index still opened
+  `Ok` with `field_count = 0`, the field came back `None`, and one further
+  document re-inferred it as `long` — a mapping silently replaced by a
+  different one, with nothing in any response saying so. Absent stays absent
+  (indices predating create-time schema persistence legitimately have no
+  `schema.json`); present-but-unparseable now fails the open with an error
+  naming the file. `es_mapping.json` — the full-fidelity mapping behind
+  `GET /_mapping` — was logged-and-ignored on a parse failure and now fails the
+  index too, on the boot scan, on snapshot restore and on a retry.
+
+  **Visible on upgrade:** a node whose data dir already holds a corrupt sidecar
+  now boots **red** with that index unserved, where it previously came up green
+  with an empty mapping. It joins the failed set
+  [#206](https://github.com/xerj-org/xerj/issues/206) introduced, so every
+  surface that set feeds already reports it — measured on a node holding two
+  user indices, `victim` with a truncated `schema.json`:
+
+  ```
+  GET  /_cluster/health          -> red, unassigned_primary_shards: 1
+  GET  /_cluster/health?level=indices
+                                 -> victim red, unassigned_info.details = the
+                                    absolute path of schema.json and the parse error
+  GET  /_cat/indices             -> "red open victim <uuid> 1 0 0 0 0b 0b 0b"
+  GET  /_cluster/indices/failed  -> the reason, plus the retry and delete calls
+  PUT  /victim, POST /victim/_doc, POST /victim/_search
+                                 -> 503 no_shard_available_action_exception
+                                    carrying that same reason
+  GET  /health/ready             -> 200 "ready (degraded): 1 of 2 indices
+                                    serving, 1 failed to open; see GET
+                                    /_cluster/indices/failed"
+  POST /healthy/_search          -> 200
+  ```
+
+  The readiness counts above are the two-index test router's. A running node
+  also holds its internal `.xerj_*` indices, so the same condition on the shipped
+  binary reads `ready (degraded): 15 of 16 indices serving, 1 failed to open` —
+  the 200 and its meaning are unchanged, only the totals move with what else the
+  node holds.
+
+  Recovery is the three doors #206 added. Two were measured end to end on the
+  shipped binary: repair the file and
+  `POST /_cluster/indices/failed/{index}/_retry` (503 while it is still torn,
+  `200 {"reopened": true}` once it is not, health back to green), and
+  `DELETE /{index}` (200, directory removed, health back to green). The third —
+  restore the index from a snapshot — is the path this change touches (a
+  successful restore now clears the recorded failure, which it has to or health
+  would stay red after the repair worked); it is covered by an engine-level
+  test rather than measured over HTTP. The node stays in kubelet rotation as
+  long as any index is still serving.
+
+- **Concurrent sidecar writes can no longer manufacture the torn file the reader
+  now refuses.** `write_file_atomic` staged every write in
+  `path.with_extension("tmp")` — one shared name for all writers of that file —
+  so two concurrent writers of one sidecar (`PUT /{index}/_settings` racing
+  another settings update, two API-key mints for `api_keys.json`) both opened it
+  `O_TRUNC`, interleaved their bytes, and each renamed it into place. The rename
+  is atomic; the content being renamed was not one writer's. Measured with the
+  old shared name, 4 threads × two different-length settings bodies × 200
+  rounds, over four runs: **86–294 of 800 writes failed with ENOENT** (the loser
+  renaming a file the winner had already moved) and, with those errors swallowed
+  as the callers did, **1–16 of 200 rounds left an unparseable `settings.json`**.
+  The counts are race-dependent and vary with machine load; what does not vary is
+  that both are non-zero on every run with the shared name and **0 and 0** on
+  every run with a unique staging name. Each write now stages
+  in its own sibling file (`<file>.tmp.<pid>.<seq>`) in the target's directory
+  and removes its own debris on failure — which for `api_keys.json` is key
+  material. `update_settings` also writes `settings.json` through
+  `write_file_atomic` rather than a plain `fs::write`; it was the last
+  non-atomic sidecar writer left.
+
+- **`index` on the mapping is now honoured instead of silently ignored**
+  ([#204](https://github.com/xerj-org/xerj/issues/204)). `"index": false` was
+  accepted by `PUT /{index}`, echoed back verbatim by `GET /{index}/_mapping`,
+  and then had no effect at all: the field kept a full inverted index and
+  `match`, `term`, `match_phrase`, `prefix` and `wildcard` against it all
+  returned the document, where Elasticsearch answers 400. It is the sibling of
+  the `doc_values` fix in rc.12 and follows its shape.
+
+  The line is drawn where ES draws it. Since 8.1, `"index": false` on a
+  keyword / numeric / date / boolean / ip field keeps the doc-values column and
+  stays queryable — `MappedFieldType.isSearchable()` is "has postings **or** has
+  doc values" — so those queries keep working here, unchanged. Only a field with
+  neither (a `text` field, or anything with an explicit `"doc_values": false`)
+  is unsearchable, and a query naming one is now rejected with ES's own
+  sentence, `Cannot search on field [f] since it is not indexed nor has doc
+  values.`, as a 400 `search_phase_execution_exception` /
+  `query_shard_exception`. The check lives in one place — `search_inner` — and
+  these surfaces were each measured reporting the rejection rather than
+  absorbing it, including the three that were swallowing it: `_search`,
+  `_count` on all four selectors (single index, `logs-*`, a comma list and the
+  cluster-wide `POST /_count`), `_msearch`, `_msearch/template`, `_explain`,
+  `_delete_by_query` and `_rank_eval`. `_explain` answers the 400 instead of a
+  confident `"matched": false` for a query it never ran; `_msearch` and
+  `_msearch/template` render it as a per-response 400 envelope with `type` and
+  `root_cause`, leaving the sibling sub-requests in the batch untouched; and
+  `_rank_eval` records the refused request under `failures` instead of dropping
+  it from `details` *and* `failures`. It still publishes a `metric_score`, and
+  that number is still the mean over the requests that actually ran — which is
+  ES's behaviour too — but the batch no longer shrinks silently underneath it:
+  a two-request batch in which one is refused now answers `details: {good}`,
+  `failures: {bad}`, `metric_score: 1.0` (measured), so a relevance gate reading
+  a clean score can see what did not contribute to it.
+
+  A multi-index `_count` follows ES's broadcast rule rather than failing
+  outright: the failure status is returned only when **no** index answered
+  (`RestStatus.status`, semantics only), so `/t/_count` and a `logs-*` whose
+  indices all carry the offending mapping both 400 exactly as `_search` does,
+  while a mixed selector returns 200 with the partial count and the refusal
+  visible as `_shards.failed: 1` plus a `_shards.failures` entry carrying the
+  `query_shard_exception`. What it will not do any more is what it did before:
+  report `count: 0` with `"successful": 2, "failed": 0`.
+
+  `exists` is unaffected and still returns zero hits rather than an error, which
+  is also what ES does.
+
+  The multi-field query types follow ES's own split rather than a blanket rule.
+  An explicitly *named* field is rejected like any other named field —
+  `multi_match` / `simple_query_string` / `query_string` with
+  `"fields": ["note"]`, and `query_string` with `"default_field": "note"` —
+  while a *wildcard* spec such as `"fields": ["*"]` is never an error, because
+  ES expands a pattern over the searchable fields and silently drops the rest
+  (`QueryParserHelper.resolveMappingField`). Before this, the same user intent
+  got two different answers: the `simple_query_string` form was rejected (the
+  parser lowers it to a `match`) while the `multi_match` form returned the
+  document through the unsearchable field.
+
+  Reaching the `query_string` half of that meant fixing a second
+  accepted-and-ignored key in the same family: **`query_string`'s `fields`
+  array was never read by the parser**, so `{"query":"x","fields":["title"]}`
+  searched every field, and — once `index: false` became a real rejection —
+  disagreed with `{"default_field":"title"}`, which is the same request written
+  the other way. `fields` now selects the targets for a clause that named no
+  field of its own (a `dis_max` over one leaf per field when there is more than
+  one, `^boost` honoured) — the same job `simple_query_string`'s `fields` list
+  was already doing. A clause that does name its own field keeps it, as in ES.
+
+  The field is dropped from the full-text index at flush and merge only where
+  the stored-doc fallback is *equivalent* — a non-indexed `text` field. An
+  exact-typed field that kept its doc values keeps its whole-value postings,
+  because the fallback scan splits on non-alphanumerics and would start matching
+  `192.168.0.1` against `192.168.0.2`. So no byte-saving claim is made for this
+  change: for those types the footprint the option implies is knowingly forgone
+  rather than bought with wrong answers.
+
+  Known gaps, measured and left open rather than claimed shut. **Aggregations
+  and sort do not inherit the check**: only the `query` clause is walked, so
+  `{"size":0,"aggs":{"a":{"terms":{"field":"note"}}}}` still answers 200 with a
+  bucket built from `_source`, and `{"sort":[{"note":"asc"}]}` still answers 200.
+  ES rejects those too, but for an unrelated reason and with an unrelated
+  sentence — `Fielddata is disabled on [f] in [i]…`, which it raises for *any*
+  `text` field whether or not `index: false` was declared — so reusing this
+  error there would misreport a wider divergence as this one. **The field-less
+  arms of the stored-document scan are schema-free**, walking every `_source`
+  key, so a token living only in an unsearchable field can still match when
+  **no** field is named: `query_string {"query":"…"}` and `more_like_this` with
+  no `fields` both still return the document. (Their *named* forms are
+  rejected — `more_like_this` with `fields` lowers to a `bool.should` of
+  `match` at parse time and inherits the check.) **A wildcard `fields` spec
+  reaches that same field-less arm**: `simple_query_string` / `query_string`
+  with `"fields": ["*"]` lowers to the `"*"` placeholder and is answered by the
+  schema-free scan, so it can still match through an unsearchable field. It is
+  never an *error*, which is ES's rule and deliberate — but it is not "answered
+  over the searchable fields" either, and that is a pre-existing property of
+  wildcard expansion, identical on `main`. (`multi_match` with a pattern is
+  different: it is answered by the FTS projection, which does apply
+  `isSearchable()`, and finds nothing in an unsearchable field.) **The opaque
+  `query_string` fallback still ignores a multi-field `fields` list**: a query
+  string the parser declines to lower keeps the whole string for the FTS path,
+  where a one-element `fields` is carried across as `default_field` and a
+  longer list has nowhere to go. And **`_validate/query` never opens the
+  index** — it answers from the parse alone, so it reports `{"valid": true}`
+  for a body `_search` refuses. That too is unchanged from `main`, but it now
+  disagrees with `_search`, so it is written down rather than left to be
+  discovered. Every one of these gaps is pinned by an assertion in
+  `index_false_is_honoured::documented_gaps_are_still_open_and_still_documented`,
+  so closing one fails the test that says it is open.
+
+### Added — incremental `--no-graph` corpus reconciliation
+
+- **`xerj autoindex --no-graph` now reconciles a changed folder instead of
+  re-deriving it.** A `--no-graph` run commits a durable *corpus generation*: a
+  manifest of content groups (stable group identity, content digest and byte
+  length, canonical path plus aliases, dataset assignment, validated output
+  counts) plus a sealed source snapshot of the prepared records. A later run
+  projects the current inventory onto the committed manifest and publishes only
+  the difference — additions, content changes, deletions, renames, junk
+  transitions and duplicate-alias moves all converge, and a no-op re-run issues
+  no data bulk and appends no new generation. A run interrupted mid-generation
+  replays from its own sealed snapshot, so the result never depends on whether
+  the source tree changed after the crash. Dataset and mapping identity is
+  frozen at generation 1: a file that would need a *new* dataset or a mapping
+  change is refused before any remote mutation rather than silently widening
+  the schema.
+
+  Scope, plainly: only `--no-graph`. Graph-enabled runs are unchanged, and each
+  changed generation still copies and prepares the full corpus (O(N) staging) —
+  the win is in what gets published and verified, not yet in what gets read.
+  `--snapshot-max-gb` (default 64) caps the logical staged payload; it is a
+  payload budget, not a disk-space or peak-memory guarantee.
+
+  Original work by Leonid Bugaev (@buger).
+
+- **Junk keeps the contract it always had on the generated path: recorded,
+  never fatal.** A file that cannot be read or recognised (`plan.junk_files`)
+  and a record that no dataset assignment accepts (`stats.junk`) both used to
+  abort a `--no-graph` run outright — the first with
+  `plan has no assignment for <file>`, the second with
+  `durable preparation of <file> produced N junk records`. A single zero-byte
+  file was enough to make a whole folder unindexable. Both are now counted
+  instead: the sealed prepared artifact carries its junk-record count, the
+  manifest group carries it into the generation, and the catalog's per-file
+  `junk` and run-level `junk_records_total` report it instead of a hardcoded
+  zero. Such a run exits **3** ("completed with junk"), the same signal the
+  legacy path publishes — the generated path previously returned a flat `0`
+  and lost it.
+
+- **`--dry-run` is honoured on an already-generated state directory.** It was
+  evaluated only after the pending-replay and reconcile branches had already
+  published and committed, so on any state directory past generation 1 the flag
+  was accepted, silently ignored, and the destination mutated. It is now decided
+  before either branch: it prints the plan a real run would act on — the
+  projected reconcile plan, or the sealed plan of a pending generation — and
+  returns without opening the journal for write, without snapshot GC, and
+  without a single bulk request.
+
+### Changed — `autoindex --fresh` is refused on a durable generation
+
+- **`--fresh` no longer silently destroys a committed corpus generation.**
+  `--fresh` deletes the resume journal, and the snapshot GC that follows every
+  journal open then sees an empty protected set and removes every sealed
+  snapshot — so on a generated state directory `--fresh` would discard the
+  committed manifest, the pending replay evidence, and the alias/path/
+  stale-record knowledge, while cleaning nothing at the destination. It is now
+  refused up front, naming the generation that blocks it, and pointing at the
+  plain re-run (which reconciles the change) or at an isolated rebuild with a
+  new `--state-dir` and `--prefix`.
+
+  **Unchanged for everyone else.** On a legacy (non-generated) journal —
+  including every graph-enabled corpus and anything `xerj brain` writes —
+  `--fresh` behaves exactly as before: it ignores the journal and restarts,
+  which is what `xerj brain`'s documented self-heal for a wiped data directory
+  depends on.
+
+### Migration — pre-generation `--no-graph` state directories must be rebuilt
+
+- **A `--no-graph` state directory written before this release cannot be
+  adopted as generation zero, and the first `--no-graph` run against it will
+  refuse with a followable rebuild command.** This is a deliberate, versioned
+  format boundary (`sync::GENERATION_FORMAT_VERSION = 1`), not a validation
+  failure: a pre-generation resume plan records no stable group identity, no
+  content byte length and no validated per-group output counts, so no amount of
+  evidence in it could reconstruct a manifest group. The refusal prints the
+  exact `xerj autoindex` argv for an isolated rebuild into a new `--state-dir`
+  and `--prefix`; the old target and the shared `autoindex-catalog` are left
+  alone and require explicit, validated cleanup once the new target is
+  verified. Nothing is migrated in place and no destination data is touched by
+  the refusal. Graph-enabled state directories are not affected.
+
+## [1.0.0-rc.14] - 2026-08-10
+
+### Changed
+
+- **One documented core and memory policy, and the worker knobs are live**
+  ([#240](https://github.com/xerj-org/xerj/issues/240)). XERJ had no single
+  answer to "how much of this machine may I take?", and the scattered answers it
+  did have disagreed with each other — and, on Darwin, with the OS.
+  `engine.flush_workers`, `engine.merge_workers` and `engine.search_workers`
+  were documented but inert; they now drive real pool widths, and a value of `0`
+  refuses startup instead of being silently reinterpreted. `--bulk-mb` above 24
+  and `--workers 0` are likewise refused rather than clamped, so a request the
+  engine will not honour fails loudly. Only hand-written configs are affected:
+  the shipped `xerj.default.toml` has no `[engine]` section.
+
+- **One 16 MiB file no longer costs 65 GB of RSS**
+  ([#239](https://github.com/xerj-org/xerj/issues/239)). `split_sections` was
+  quadratic in both time and memory: a 16 MiB text file with no blank line
+  needed **65.6 GB of peak RSS and 16.3 s** to produce 16.8 MB of sections.
+  Now linear — the same input takes **8.3 ms and 35 MB**.
+
+- **BREAKING — `server.bind_address` now defaults to `127.0.0.1`, and a
+  cleartext node refuses to publish itself to the network**
+  ([#228](https://github.com/xerj-org/xerj/issues/228)). The old default was
+  `0.0.0.0` while TLS is off by default, so an out-of-the-box node accepted its
+  admin API key over plain HTTP on every interface the host had — verified on a
+  stock boot, where `curl -H "Authorization: ApiKey …" http://<lan-ip>:9200/…`
+  answered `200` and the same URL over `https` had no listener to hand shake
+  with. Auth being on did not help: the credential *is* the thing on the wire.
+
+  A fresh node is now reachable from its own host and nowhere else. Exposing it
+  is two statements, not zero: set `server.bind_address` (or `--bind` /
+  `XERJ_BIND_ADDRESS`), and — while `tls.enabled = false` — also set
+  `server.allow_insecure_network_bind = true` (env
+  `XERJ_ALLOW_INSECURE_NETWORK_BIND`). Without the second, startup exits
+  non-zero before the data directory is created or a first-run admin key is
+  minted. `--insecure` does not evade it; it clears `tls.enabled`, which is
+  exactly what the check keys on. Same fail-closed shape as
+  [#229](https://github.com/xerj-org/xerj/issues/229), whose TLS-on gRPC check
+  is untouched and cannot be relaxed by this opt-out.
+
+  **Upgrading:** a deployment that relied on the old default becomes
+  unreachable from other hosts until it sets both; one that already wrote
+  `bind_address = "0.0.0.0"` without TLS now fails to start with a message
+  naming the setting that unblocks it. The shipped Docker image, compose file
+  and Helm chart set both, because a container's network namespace is the
+  boundary and its published port is where TLS belongs.
+
+  Two documentation claims that were false as written are now true: the CLI and
+  security pages both said `--insecure` "refuses to run with a non-loopback
+  bind", and it did not — a `--insecure` node on `0.0.0.0` accepted an
+  unauthenticated `PUT /leak/_doc/1` from the LAN (`201`). The startup banner
+  also prints the bind address on every listener line, so a loopback node and a
+  world-facing one no longer look identical.
+
+  A `bind_address` that is not an IP literal is rejected first, ahead of both
+  exposure checks, with the fault it actually has. Host names have never been
+  resolved — the pre-#228 code parsed `"{bind}:{port}"` as a socket address and
+  failed on them too — but the exposure predicates fail closed on anything they
+  cannot parse, so without that ordering `bind_address = "localhost"` was
+  refused with a message asserting that localhost "is not loopback" and would
+  "serve plain HTTP on a network-reachable interface", and pointed at an opt-out
+  that fixed nothing: setting it let the boot run on to the bind and fail there
+  instead, after the data directory, the `.xerj_*` system indices, the master
+  key and a printed first-run `admin.key` already existed.
+
+### Security
+
+- **API key secrets are no longer stored in the clear**
+  ([#201](https://github.com/xerj-org/xerj/issues/201)). `api_keys.json` held
+  the secret verbatim. 0600 plus atomic rename is right for a secret a *process*
+  owns, but a file has more readers than a process: a backup, a snapshot, a
+  container layer, a support bundle, a decommissioned disk. Secrets are now
+  stored as a salted SHA-256 (`$ssha256$<salt>$<digest>`) and compared in
+  constant time, with existing plaintext records migrated on load. The fast hash
+  is deliberate: the secret is two v4 UUIDs — 244 bits of CSPRNG output, never
+  human-chosen — so offline guessing is out of reach whatever the hash costs,
+  while this comparison runs on *every authenticated request*, where an Argon2id
+  would add tens of milliseconds per request and hand out a free CPU-exhaustion
+  DoS. The same release makes `_security/_authenticate` report the key's real
+  identity instead of a hardcoded `superuser`, and gives the audit chain durable
+  storage.
+
+- **The node refuses to start when TLS is on but gRPC would answer in cleartext
+  off-loopback** ([#229](https://github.com/xerj-org/xerj/issues/229)).
+  `tls.enabled = true` encrypted two of the three data-plane listeners; the
+  third never participated, because the gRPC server is built without tonic's
+  `tls` feature. Nothing surfaced it — gRPC clients connected and worked
+  identically either way — so an operator who enabled TLS and bound a network
+  interface got no error, no failed handshake and no symptom, while API keys and
+  document bodies crossed the network in the clear. Auth was never the gap;
+  confidentiality was. Boot now fails closed unless
+  `tls.allow_insecure_grpc_h2c` says otherwise.
+
+### Fixed
+
+- **`multi_match` returns the same hit set before and after `_flush`**
+  ([#218](https://github.com/xerj-org/xerj/issues/218)). The memtable and
+  segment paths disagreed on multi-token semantics, so flushing an index could
+  change which documents a query matched — verified live on a one-document
+  index where an OR query returned 0 hits before `_flush` and 1 after, with ES
+  returning 1 throughout.
+
+- **Dynamic string fields get Elasticsearch's default `.keyword` multi-field**
+  ([#209](https://github.com/xerj-org/xerj/issues/209)). Dynamic mapping
+  inferred every string as bare `text`, so `GET _mapping` never showed a
+  `.keyword` sub-field and `_field_caps` never listed one. Anyone arriving from
+  Elasticsearch — or any tool that reads `_field_caps` for field discovery,
+  Kibana included — could not see that `category.keyword` existed.
+
+- **`min_score` is honoured at `size:0`, and an external scalar N keeps its
+  ghosts** ([#193](https://github.com/xerj-org/xerj/issues/193)). A
+  `size:0 + min_score` body never materialised a hit, so the threshold had
+  nothing to filter and `hits.total` reported the raw match count — measured at
+  **65** where the same query at `size:100` counted **5**. The tie-break
+  comparator item from that issue is deliberately not included here; it belongs
+  with [#191](https://github.com/xerj-org/xerj/issues/191).
+
+- **Index blocks can be removed, `read_only_allow_delete` means what its name
+  says, and a blocked write answers 403 rather than 500.** Three compounding
+  defects: `PUT /_settings` wrote only the display-side map while enforcement
+  read the per-index `settings.json`, so a block was acknowledged, invisible to
+  `GET /_settings`, and — with `_block` registered PUT-only — removable only by
+  restarting with a hand-edited file. The one block that fires automatically did
+  the inverse of its name, and clients hitting any of it were told the server
+  had faulted.
+
+- **`llms.txt` no longer tells agents six things the binary does not do.** The
+  "Running an index for a human" section is executed, not just read: an agent
+  follows it literally and then reports the result to its user. Corrected: the
+  job-size line is not the first line printed; `--dry-run` does not write
+  *nothing* (it creates and locks the state dir and appends a journal record);
+  a dry run reuses a frozen plan instead of re-costing the job, so it is not a
+  floor for the real run; exit `1` is the catch-all for every error, not
+  "endpoint unreachable"; `status` needs the same explicit `--state-dir` the run
+  used; and `--workers`/`--pdf-workers` bound the client-side extractor, not the
+  server (with `--pdf-workers` capped to 1–4).
+
+- **A failed index can now be inspected, deleted and retried without stopping
+  the server** ([#206](https://github.com/xerj-org/xerj/issues/206)). An index
+  directory that refused to open at boot was recorded in a map that only
+  `Engine::health` ever read. Live-reproduced with a corrupt `snapshot.json`:
+  it was absent from `_cat/indices` and `_cluster/state`, `DELETE /{index}`
+  answered `404 index_not_found` and left the bytes on disk, and the only
+  recovery was to stop the server and edit the data directory by hand. A
+  failed index is now a real state: listed as `red` in `_cat/indices`, present
+  in `_cluster/state` as an `UNASSIGNED` primary with `ALLOCATION_FAILED` and
+  the verbatim open error, enumerated with its reason by
+  `GET /_cluster/indices/failed`, reopenable via
+  `POST /_cluster/indices/failed/{name}/_retry` once the cause is fixed, and
+  deletable through the ordinary `DELETE /{index}`. Searches, writes and
+  creates against it return `503 no_shard_available_action_exception` carrying
+  the reason instead of a `404` that claimed it did not exist, while the
+  metadata surfaces — `GET /{index}`, `HEAD /{index}` (the `indices.exists()`
+  every ES client calls), `_mapping`, `_settings`, `_cat/indices` — report it
+  as an index that exists, the way ES answers those from cluster metadata
+  rather than from a shard. Before this, `HEAD` said the name was free and the
+  following `PUT` said it was unavailable.
+
+  Two related defects in the same report are fixed with it. **Readiness no
+  longer hard-fails on a partly degraded node** — `/health/ready` returned
+  `503` for any red status, so one broken index pulled a pod holding 200
+  healthy ones out of service permanently; it now reports `200 ready
+  (degraded)` while the node can still serve something and `503` only when
+  every index it holds failed to open. And **`_cat/health` no longer prints a
+  hardcoded `green`** — the one health surface an existing ES dashboard points
+  at was the one that could not report a broken node; it and `_cluster/health`
+  now count an unopenable index as an unassigned primary, agreeing with
+  `/v1/health` and `/v1/cluster/health`.
+
+  Because `red` is now reachable on `_cluster/health` for the first time, the
+  two conditions that gate on it are consulted rather than assumed:
+  `wait_for_active_shards=all` and `wait_for_status=green|yellow` both answer
+  `408` with `timed_out: true` on a red node instead of `200 timed_out: false`.
+  `GET /_cluster/health?wait_for_status=green&timeout=30s` is the bootstrap gate
+  every docker healthcheck, CI wait loop and Kibana startup uses; a red node
+  used to sail straight through it. A green or yellow cluster is unaffected.
+
+- **A `DELETE /{index}` that could not remove the bytes no longer strands the
+  index.** The open-index path pulled the handle out of the engine before
+  `remove_dir_all`, so a removal that failed (read-only mount, `EACCES`) freed
+  the name while the directory survived: no handle, no failed-index entry,
+  nothing on `_cat/indices`, and the next `DELETE` answered `404` — the same
+  dead end as [#206](https://github.com/xerj-org/xerj/issues/206), reached from
+  the other side. The handle is now restored on failure, so the index stays in
+  service and addressable and the operator can retry the delete once the cause
+  is fixed.
+
+- **Index templates, ingest pipelines, data streams and ILM policies survive a
+  restart** ([#203](https://github.com/xerj-org/xerj/issues/203)). Index
+  templates, legacy (v1) templates, component templates, ingest pipelines, data
+  streams and ILM policies lived only in memory: `PUT /_index_template/logs`
+  answered `{"acknowledged": true}` and `GET` answered 404 after the next
+  restart, and the next index that should have matched the template was created
+  without it — with no error anywhere. All six are now persisted together in
+  `<data_dir>/cluster_state.json`, written atomically (tmp → fsync → rename →
+  fsync the parent directory) so the write is committed at the request, not in
+  a shutdown hook, and restored in `Engine::new` before the listeners come up.
+  A write that fails is rolled back in memory and answered with a 500 instead
+  of `acknowledged`. Restored pipelines are recompiled, not just re-read —
+  storing the definition alone would have left `?pipeline=x` accepted and
+  silently inert after a restart.
+
+  Four defects found while verifying it, each reproduced first:
+
+  - Concurrent management writes corrupted each other (all flushes staged
+    through one fixed `.tmp` path — 32 parallel template PUTs returned
+    `store_exception`). Snapshot-and-write is now serialized.
+  - A rollover interrupted between "backing index created" and "generation
+    persisted" wedged the data stream forever: every later rollover recomputed
+    the same name and got `409 resource_already_exists_exception`. Boot now
+    adopts the highest generation actually present on disk, warns, and persists
+    the repair once.
+  - A `cluster_state.json` that could not be **read** (EACCES after a uid
+    change on a container volume, a backup tool's chmod, EIO) came up as empty
+    maps, and the next management write renamed a snapshot of those empty maps
+    over a file whose bytes were perfectly good. The load failure now latches:
+    every management mutation is refused with a 500 naming the file, and the
+    file is not touched, until a boot loads it cleanly. The corrupt-parse arm
+    refuses too, and still keeps a `cluster_state.corrupt.json` copy.
+  - `DELETE /_data_stream/<name>` recorded the removal before destroying the
+    backing indices, so a crash in that window stranded `.ds-<name>-00000N`
+    directories that no data-stream API could reach — GET and DELETE answered
+    404 while `PUT /_data_stream/<name>` answered
+    `409 resource_already_exists_exception` permanently. The order is reversed:
+    the removal is recorded only once every backing index is gone, and a
+    backing index that cannot be deleted now aborts the DELETE with a 500
+    (it was previously swallowed and answered `acknowledged`) so the operator
+    can retry. Read that 500 as "did not finish", not as "nothing happened":
+    a multi-generation stream still loses every backing index that *could* be
+    destroyed, the stream itself stays addressable, and the retry after the
+    cause is fixed completes the delete.
+
+  **Known gaps, deliberately not closed here.** `.ds-*` indices that no data
+  stream claims — left by a data dir written before this change, or by a
+  DELETE interrupted by an older build — are **not** cleaned up or adopted
+  automatically; boot now names them in a warning and the recovery is
+  `DELETE /<backing-index>` per index, because an orphan may hold the only copy
+  of real data. And `aliases.json` still has both swallow shapes that were
+  fixed here for `cluster_state.json`: an unreadable aliases file is swallowed
+  at boot and overwritten by the next alias write, and a *failed* alias write
+  is only logged, so an alias can survive on disk after the stream it named was
+  deleted with a 200. Both are pre-existing behaviour, not introduced here or
+  made worse here, and are tracked separately.
+
+- **`autoindex` no longer leaves immortal catalog entries for skipped files**
+  ([#238](https://github.com/xerj-org/xerj/issues/238)). A file added after the
+  resume plan was frozen is skipped and reported in the catalog — but that
+  report was written from a per-run `Vec` that nothing durable remembered, so
+  once the file left the corpus no run could ever remove its `file:{key}`
+  document. The catalog is the data map every `map`, `status` and agent query
+  reads, and it kept advertising files that were gone. Skipped files are now
+  recorded in the durable plan and swept from the catalog when they leave the
+  corpus. The sweep is safe to do completely because a skipped file is never
+  indexed and never enters the graph corpus — that one catalog document is its
+  entire live footprint. Ordering is deliberate: the plan entry is added only
+  after the document is written and dropped only after the delete has landed,
+  so a failed catalog bulk is retried by the next run instead of stranding the
+  document. This does **not** implement add/change/delete reconciliation for
+  *indexed* files, which remains open.
+
+- **Repeated `autoindex` scans keep agent-facing map metadata durable.**
+  Dataset source bytes, parser-junk counts and coercion-drop notes now derive
+  from committed per-file journal records instead of invocation-local worker
+  counters, so an unchanged resume does not overwrite them with zero. Run
+  timestamps now distinguish invocation start (`started`) from summary
+  generation (`summary_generated_at`), and `junk_records_total` on the run
+  document is the same durable sum the per-dataset `junk_records` reports
+  rather than an invocation-local counter that read `0` after a no-op resume.
+  Existing catalogs whose historical `started` field was dynamically mapped
+  as text remain usable: the additive mapping upgrade no longer attempts an
+  incompatible text-to-date type change. Concretely, this is catalogs written
+  by **v1.0.0-rc.4** — the one release that had `autoindex` but not yet
+  dynamic ISO-date inference (added in rc.5). Measured against a live engine,
+  adding `started` as `date` to such a catalog is refused 400
+  `mapper_parsing_exception` (*"field [started] already exists as [text],
+  cannot add [date]"*), which aborts the invocation before any document work.
+  Catalogs written by rc.5 or later already inferred `started` as `date` and
+  were never affected.
+
+  Three consequences worth knowing before you upgrade:
+
+  - **`bytes` is redefined.** It used to be the bytes the latest invocation
+    processed, credited to the first dataset a file was assigned to. It is now
+    the complete canonical source size, counted once in **every** distinct
+    dataset that source is assigned to. Per-dataset values therefore get
+    larger, and summing `bytes` across datasets can exceed the corpus size
+    when one source feeds several datasets — exactly as one source already
+    contributed to several dataset-local file counts. It is a dataset-local
+    source footprint, not a partition of physical storage.
+  - **Journals written before this release carry no per-dataset coercion
+    record**, because the new `dropped_by_dataset` field defaults to empty
+    when an older journal is replayed. Byte and junk counts reconstruct fine
+    (their journal fields already existed), but a dataset whose files are all
+    unchanged loses its `N field values dropped by coercion` note on the first
+    resume after upgrading, and only regains it once one of its files is
+    reprocessed. Re-run with `--fresh` if the note matters more than the
+    rescan.
+  - **`junk_records_total` is narrower than the number it replaces**, and one
+    class of failure has left it. It used to be an invocation counter that
+    also folded in records the *backend* refused per bulk item; it is now
+    parser junk only, so `xerj autoindex map`'s header counts exactly what the
+    per-dataset `junk_records` values count. No signal is lost in practice: a
+    single per-item rejection already aborts the run with
+    `autoindex stopped with bulk/backend failures`, before any run document or
+    map is written, so the folded-in number was never observable in a map.
+    That abort message now also states how many records were refused, which
+    the first-five error sample could not convey.
+
+- **The installer is now fail-closed on checksum *verification*, not just on
+  checksum *download*.** `landing/get` printed
+  `warning: sha256sum/shasum not found — skipping checksum verification` and
+  installed anyway — which is not what "refusing to install an unverified
+  binary", three lines above it, implies. It now searches `sha256sum`,
+  `shasum`, `openssl`, `sha256`, `busybox` and `cksum`, and stops if none is
+  present. A machine with no hashing tool at all can still proceed, but only by
+  setting `XERJ_INSECURE_SKIP_CHECKSUM=1` — an explicit choice, made by the
+  user, not a silent default. The downloaded checksum is also validated as 64
+  hex characters before use.
+
+- **`XERJ_LIBC=gnu` makes the glibc Linux builds reachable from the one-line
+  installer again.** `landing/get:61` unconditionally overrode the target with
+  `unknown-linux-musl` after the `case` arm had set `unknown-linux-gnu`, so the
+  script could never request a linux-gnu asset — while the code read as though
+  it could. musl remains the deliberate default (static, no glibc-version
+  floor, and xerj links jemalloc so musl's allocator is not in the path), and
+  the comment now says so; `XERJ_LIBC=gnu` opts into the glibc build.
+
+### Added
+
+- **`autoindex` reports real progress, an honest percent and an ETA — no run is
+  silent** ([#241](https://github.com/xerj-org/xerj/issues/241)). Between 47%
+  and 64% of a typical run produced no output at all, which is the worst
+  possible behaviour for the two audiences that matter: a person watching a
+  laptop they cannot use, and an AI agent that has gone quiet on that person's
+  behalf. Progress now covers phase, items done and total, rate and ETA, in both
+  modes — a terminal gets a live redrawn line, a pipe gets periodic structured
+  `xerj-progress` lines an agent can parse, and every run ends with a single
+  `xerj-done` summary. The percent is bytes-based so a large file cannot make it
+  stall at 99%, the first ETA is withheld for five seconds and labelled `rough`
+  until there is enough evidence for it, and the line names the file currently
+  being waited on. `--quiet` still produces exactly nothing on either stream,
+  and `--progress none` is honoured everywhere — the resource policy's own
+  startup notes were moved onto the same surface so they cannot leak into
+  `--progress json`'s single parseable stream.
+
+- **`/get` and `/get.ps1` are counted.** `functions/get.js` (a Cloudflare Pages
+  Function) serves the installer straight out of `landing/get`, unchanged, and
+  records the request. The install path had never had a counter of any kind —
+  `curl` runs no JavaScript, so no page beacon could ever observe it, and the
+  number of installs was simply unknown. It records timestamp, country,
+  User-Agent and a coarse OS guess; it records **no IP address, no cookie and
+  no identifier of any kind**, so two installs by one person cannot be
+  distinguished from two installs by two people. It is fail-open: if the
+  storage binding is missing or the write throws, the installer is still
+  served. **No telemetry was added to the xerj binary, and none is planned.**
+
+- **`metrics/release-downloads.jsonl` + a daily GitHub Action.** GitHub reports
+  release `download_count` as a running total and keeps no history, so the one
+  uninflated adoption number this project has could be read but never trended.
+  One committed line per day turns it into a series. `scripts/adoption-snapshot.sh`
+  prints the funnel on demand, including which repo-level numbers are
+  contaminated and why.
+
+## [1.0.0-rc.13] - 2026-08-08
+
+### Security
+
+- **All 13 open Dependabot advisories against `engine/Cargo.lock` closed**
+  (#220). Twelve by lockfile-only version bumps — openssl 0.10.81 /
+  openssl-sys 0.9.117 (8 advisories: GHSA-8c75-8mhr-p7r9, GHSA-ghm9-cr32-g9qj,
+  GHSA-hppc-g8h3-xhp3, GHSA-pqf5-4pqq-29f5, GHSA-xp3w-r5p5-63rr,
+  GHSA-phqj-4mhp-q6mq, GHSA-xv59-967r-8726, GHSA-xmgf-hq76-4vx2),
+  rustls-webpki 0.103.13 (GHSA-82j2-j2ch-gfr8), quinn-proto 0.11.16
+  (GHSA-4w2j-m93h-cj5j), rand 0.8.7 (GHSA-cq8v-f236-94qc), webauthn-rs 0.5.5
+  (GHSA-22w3-693w-x895) — and one by removal: `protobuf` is gone from the
+  dependency graph entirely (GHSA-2gh3-rmm4-6rq5; `prometheus` now builds
+  without its protobuf feature — XERJ only ever served the Prometheus text
+  exposition format, and two new tests pin that format). A reachability
+  analysis found none of the 13 exploitable in a default deployment; closed
+  anyway.
+- npm developer-tooling bumps (#194): basic-ftp 5.3.1, ip-address 10.4.0,
+  js-yaml 4.3.1, ws 8.21.3 — transitive from puppeteer, never part of a
+  release artifact.
+
+### Changed
+
+- **The Helm chart now defaults to secure mode** (#213). It shipped
+  `insecure: true` — TLS and auth off — while the `/get` installer shipped
+  auth on. The default is now secure, and a new `NOTES.txt` states at install
+  time exactly what insecure mode turns off.
+
+### Documentation
+
+- Roadmap to 1.0.0 GA from a source review against the user-feedback corpus
+  (#212).
+- Install one-liner moved first on README, xerj.org hero and llms.txt, plus a
+  paste-to-your-agent install prompt (#219).
+
 ## [1.0.0-rc.12] - 2026-08-07
 
 ### Changed

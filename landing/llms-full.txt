@@ -137,11 +137,45 @@ destabilize the server.
                           [--bulk-mb N] [--prefix ax] [--state-dir P] [--fresh]
                           [--follow-symlinks] [--max-file-gb N] [--sample N]
                           [--no-semantic] [--dry-run] [--json] [--quiet]
+                          [--no-ignore] [--no-default-ignores]
   xerj autoindex map      [--url U] [--json] [--dataset SLUG]
   xerj autoindex status   [--url U] [--state-dir P]
 
+--fresh ignores the resume journal and restarts (ids stay idempotent); on a
+graph-enabled or pre-generation state directory that is how you pick up files
+added since the last run. It never removes stale destination records, and it is
+refused once the state directory holds a durable corpus generation — re-run
+without it and the generated --no-graph path reconciles additions, changes,
+deletions, renames and no-op reruns incrementally.
+
+On a graph-enabled or pre-generation journal, a rerun that resumes an existing
+plan indexes changed files and reports added ones as skipped. Deleting an
+indexed file is refused there before any destination change, because nothing on
+that path removes the documents it already published: restore the file and
+rerun, or rebuild — in place by deleting the named indices and the state
+directory, or isolated under a new --state-dir, --prefix and --brain (or
+--no-graph), validated before switching readers. The refusal names the first ten
+removed files with an "… and N more" tail; --json carries every entry. The
+shared autoindex-catalog and the old target require explicit cleanup. A
+--no-graph state directory written before the generation format cannot be
+adopted in place and must be rebuilt the same way.
+
+Ignore rules: the walk honours .xerjignore, .gitignore (nested files and
+!negation included) and .git/info/exclude, plus a built-in build-output list
+(node_modules/ vendor/ target/ dist/ build/ .venv/ __pycache__/), in that order
+of precedence. An excluded directory is never descended, so nothing inside it
+is stat-ed, hashed or sent. Hidden files (.env, .git/, .ssh) are skipped by a
+separate rule that no flag turns off. Every run prints `ignore rules: ...` on
+stderr naming each rule and what it dropped; --dry-run also counts the files
+inside each pruned directory. --no-ignore turns the rules off entirely;
+--no-default-ignores keeps your ignore files and drops only the built-in list.
+Your global gitignore (core.excludesFile) is deliberately not read. The folder
+you point at is never excluded: if it is itself ignored, it is indexed anyway
+and the run says which rule it would have matched.
+
 Exit codes: 0 complete · 3 completed-with-junk (junk recorded, never fatal) ·
-2 usage · 1 endpoint unreachable / journal-config mismatch.
+2 usage · 1 endpoint/journal error, a refused corpus removal, or a refused
+unsafe corpus-state transition.
 
 Pipeline: walk → sniff → sample → infer → map → extract → bulk → correlate →
 catalog → verify.
@@ -434,24 +468,83 @@ Supported mapping field types (ES type string → internal):
 6. SEARCH DSL — supported query types
 =====================================================================
 
-Full-text / term-level:
-  match, match_all, match_none, match_phrase, match_phrase_prefix, multi_match,
-  term, terms, range, prefix, wildcard, exists, ids, fuzzy, regexp, query_string,
-  simple_query_string, constant_score, boosting, dis_max.
+Both lists below are complete and machine-checked: they are generated from
+`SUPPORTED_QUERY_TYPES` (xerj-query/src/parser.rs) and `SUPPORTED_AGG_TYPES`
+(xerj-engine/src/aggs.rs), each pinned to its dispatch table by a unit test,
+and this file is compared against them by
+engine/crates/xerj-engine/tests/docs_capability_lists.rs. A type cannot ship
+without appearing here.
 
-Vector / semantic / hybrid:
-  knn (HNSW-served unfiltered / exact filtered; also top-level knn form),
-  semantic (over semantic_text), hybrid (rrf|linear).
+Acceptance is not a fidelity claim: a listed type parses, plans and executes,
+which is not a promise that every parameter matches Elasticsearch. The ES-YAML
+conformance suite is the measured answer; per-type gaps live in ROADMAP.md.
 
-Compound / geo:
-  bool (must / should / must_not / filter), function_score, geo_distance.
+<!-- generated:query-types -->
+Full-text        `match`, `match_phrase`, `match_phrase_prefix`,
+                 `match_bool_prefix`, `multi_match`, `combined_fields`,
+                 `query_string`, `simple_query_string`, `intervals`,
+                 `more_like_this`
+Term-level       `term`, `terms`, `terms_set`, `range`, `prefix`, `wildcard`,
+                 `regexp`, `fuzzy`, `exists`, `ids`, `script`
+Universal        `match_all`, `match_none`
+Compound/score   `bool`, `boosting`, `constant_score`, `dis_max`,
+                 `function_score`, `script_score`, `distance_feature`,
+                 `rank_feature`, `pinned`
+Vector/semantic  `knn`, `semantic`, `hybrid`
+Geo              `geo_distance`, `geo_bounding_box`, `geo_polygon`, `geo_shape`
+Span             `span_term`, `span_near`, `span_or`, `span_not`, `span_first`,
+                 `span_containing`, `span_within`
+Structure        `nested`
+Other            `percolate`, `type`, `wrapper`
+<!-- /generated:query-types -->
+
+Notes on the vector family: knn is HNSW-served for unfiltered queries on
+full-precision fields and exact-scanned for filtered / nested / SQ8 / small
+shapes (also available as the top-level `knn` request form); semantic queries
+run over semantic_text fields; hybrid fuses BM25 and vector scores (rrf|linear).
+
+Recognised and DELIBERATELY REJECTED with a 400 — XERJ never materialises a
+parent/child join, so running these would return silently wrong hits:
+
+<!-- generated:rejected-query-types -->
+`has_child`, `has_parent`
+<!-- /generated:rejected-query-types -->
+
+Any other query type answers `unknown query type`.
 
 Search body options: from, size, sort, _source (include/exclude), highlight, aggs,
 track_total_hits, and (via dedicated endpoints) scroll and point-in-time.
 
-Aggregations:
-  terms, stats, avg, sum, min, max, value_count, cardinality, range, histogram,
-  date_histogram, percentiles, filter, missing, composite.
+Aggregations (complete; no probabilistic sketch in the metric path — cardinality
+is a true distinct count, not an HLL estimate, and terms doc_count is precise).
+Two deliberate exceptions. (1) The Sampling family below: sampler and
+random_sampler keep only the top `shard_size` matched docs by _score (default
+200) and diversified_sampler additionally caps docs per field value, so
+sub-aggregations under any of the three run over that sample, not the whole
+match set — and random_sampler shares the sampler implementation and ignores
+ES's `probability`. (2) percentiles with the `hdr` option returns
+HdrHistogram-quantized values, deliberately, to reproduce ES's own outputs; the
+default `tdigest` path sorts every value and interpolates instead:
+
+<!-- generated:agg-types -->
+Metric     `avg`, `sum`, `min`, `max`, `stats`, `extended_stats`, `value_count`,
+           `cardinality`, `percentiles`, `percentile_ranks`,
+           `median_absolute_deviation`, `matrix_stats`, `string_stats`,
+           `boxplot`, `top_metrics`, `top_hits`, `scripted_metric`
+Bucket     `terms`, `multi_terms`, `rare_terms`, `significant_terms`,
+           `significant_text`, `range`, `date_range`, `ip_range`, `ip_prefix`,
+           `histogram`, `variable_width_histogram`, `date_histogram`,
+           `auto_date_histogram`, `filter`, `filters`, `missing`, `composite`,
+           `adjacency_matrix`, `time_series`, `global`
+Sampling   `sampler`, `random_sampler`, `diversified_sampler`
+Scope      `nested`, `reverse_nested`
+Geo        `geo_bounds`, `geo_centroid`, `geo_distance`, `geohash_grid`,
+           `geotile_grid`
+Pipeline   `avg_bucket`, `sum_bucket`, `min_bucket`, `max_bucket`,
+           `stats_bucket`, `extended_stats_bucket`, `percentiles_bucket`,
+           `derivative`, `cumulative_sum`, `serial_diff`, `moving_avg`,
+           `moving_fn`, `bucket_script`, `bucket_selector`, `bucket_sort`
+<!-- /generated:agg-types -->
 
 =====================================================================
 7. ENDPOINT CATALOGUE (Elasticsearch-compatible surface, :9200)

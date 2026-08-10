@@ -118,6 +118,31 @@ pub fn read_whole(path: &Path, gzip: bool, cap: u64) -> Result<Option<Vec<u8>>> 
     Ok(Some(buf))
 }
 
+/// Render a file as a DOCUMENT (title = file stem, body = decoded text,
+/// section-split), regardless of its format family. This is how demoted
+/// one-off config files (`dataset` module docs, #173) are indexed: their
+/// key sets are configuration, not a schema, so their retrievable value is
+/// the text itself. Emits the same `title`/`body`/`section` vocabulary as
+/// every other document extractor (`FieldOrigin::Extractor`).
+pub fn extract_as_document(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
+    let mut stats = ExtractStats::default();
+    let Some(bytes) = read_whole(path, gzip, MAX_WHOLE_FILE)? else {
+        stats.junk += 1;
+        return Ok(stats);
+    };
+    let (text, _) = crate::sniff::decode_text(&bytes);
+    if text.trim().is_empty() {
+        stats.junk += 1;
+        return Ok(stats);
+    }
+    let title = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "untitled".into());
+    emit_document(&title, &[], text.trim(), sink, &mut stats);
+    Ok(stats)
+}
+
 /// Dispatch to the family extractor. `limit_bytes` bounds SAMPLING reads;
 /// `None` = full stream.
 pub fn extract(
@@ -293,34 +318,95 @@ pub fn sanitize_field_name(name: &str) -> String {
     }
 }
 
-/// Split long document text into retrieval-sized sections at paragraph
-/// boundaries, repeating `SECTION_OVERLAP` characters across each boundary.
-pub fn split_sections(text: &str) -> Vec<String> {
-    if text.len() <= SECTION_CHARS {
-        return vec![text.to_string()];
+/// Last `n` bytes of `s`, snapped back to a char boundary.
+fn tail(s: &str, n: usize) -> String {
+    if s.len() <= n {
+        return s.to_string();
     }
-    let mut out: Vec<String> = Vec::new();
-    let mut cur = String::new();
+    let start = s
+        .char_indices()
+        .rev()
+        .take_while(|(i, _)| s.len() - *i <= n)
+        .last()
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    s[start..].to_string()
+}
 
-    fn tail(s: &str, n: usize) -> String {
-        if s.len() <= n {
-            return s.to_string();
-        }
-        let start = s
-            .char_indices()
-            .rev()
-            .take_while(|(i, _)| s.len() - *i <= n)
-            .last()
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-        s[start..].to_string()
+/// Smallest char boundary of `s` that is `>= i` (`s.len()` if `i` is past the
+/// end). Used for the hard-split cut so a multi-byte char is never severed.
+fn ceil_boundary(s: &str, i: usize) -> usize {
+    if i >= s.len() {
+        return s.len();
     }
+    let mut i = i;
+    while i < s.len() && !s.is_char_boundary(i) {
+        i += 1;
+    }
+    i
+}
+
+/// Largest char boundary of `s` that is `<= i` (`s.len()` if `i` is past the
+/// end).
+fn floor_boundary(s: &str, i: usize) -> usize {
+    if i >= s.len() {
+        return s.len();
+    }
+    let mut i = i;
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
+}
+
+/// Top up `cur` from the front of `rest` until it holds `want` bytes, moving
+/// whole chars only. Guarantees progress: if `want - cur.len()` lands inside
+/// the next char, that whole char moves anyway.
+fn fill_window(cur: &mut String, rest: &mut &str, want: usize) {
+    if rest.is_empty() || cur.len() >= want {
+        return;
+    }
+    let need = want - cur.len();
+    let mut take = floor_boundary(rest, need.min(rest.len()));
+    if take == 0 {
+        take = rest
+            .chars()
+            .next()
+            .map(|c| c.len_utf8())
+            .unwrap_or(rest.len());
+    }
+    cur.push_str(&rest[..take]);
+    *rest = &rest[take..];
+}
+
+/// Stream `text` as retrieval-sized sections, split at paragraph boundaries and
+/// repeating `SECTION_OVERLAP` characters across each boundary. `emit` returns
+/// false to stop; `for_each_section` then returns false without doing the rest
+/// of the work.
+///
+/// Linear in `text.len()` in both time and allocation. The predecessor built a
+/// `Vec` with `String::split_off` per section, which re-copied the whole
+/// remaining paragraph each time *and* left every emitted section carrying the
+/// capacity of that paragraph: a 16 MiB paragraph with no blank line cost
+/// 16.3 s and 65.6 GB peak RSS (issue #239). Sections are cut out of a window
+/// that never exceeds `2 * SECTION_CHARS + 4` bytes, and the paragraph itself
+/// stays borrowed from `text`.
+pub fn for_each_section(text: &str, emit: &mut dyn FnMut(String) -> bool) -> bool {
+    if text.len() <= SECTION_CHARS {
+        return emit(text.to_string());
+    }
+    // One byte past the largest section the loop below will ever hold, so a
+    // full window always trips the hard-split condition.
+    let window = 2 * SECTION_CHARS + 1;
+    let mut cur = String::new();
 
     for para in text.split("\n\n") {
         if !cur.is_empty() && cur.len() + para.len() > SECTION_CHARS {
             let done = std::mem::take(&mut cur);
             let carry = tail(&done, SECTION_OVERLAP);
-            out.push(done);
+            if !emit(done) {
+                return false;
+            }
             if !carry.is_empty() {
                 cur.push_str(&carry);
             }
@@ -328,25 +414,74 @@ pub fn split_sections(text: &str) -> Vec<String> {
         if !cur.is_empty() {
             cur.push_str("\n\n");
         }
-        cur.push_str(para);
-        while cur.len() > 2 * SECTION_CHARS {
-            let cut = cur
-                .char_indices()
-                .take_while(|(i, _)| *i < SECTION_CHARS)
-                .last()
-                .map(|(i, c)| i + c.len_utf8())
-                .unwrap_or(cur.len());
-            let rest = cur.split_off(cut);
-            out.push(std::mem::replace(&mut cur, rest));
+        // `rest` is the not-yet-buffered remainder of this paragraph, borrowed
+        // from `text` — it is never copied wholesale into `cur`.
+        let mut rest = para;
+        loop {
+            fill_window(&mut cur, &mut rest, window);
+            // Identical test to the old `while cur.len() > 2 * SECTION_CHARS`,
+            // where `cur` was the whole `cur ++ rest` concatenation.
+            if cur.len() + rest.len() <= 2 * SECTION_CHARS {
+                break;
+            }
+            let cut = ceil_boundary(&cur, SECTION_CHARS);
+            let section = cur[..cut].to_string();
+            cur.drain(..cut);
+            if !emit(section) {
+                return false;
+            }
         }
     }
     if !cur.trim().is_empty() {
-        out.push(cur);
+        return emit(cur);
     }
+    true
+}
+
+/// Collecting wrapper over [`for_each_section`], for callers that need every
+/// section at once. Prefer the streaming form for whole-file bodies.
+pub fn split_sections(text: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for_each_section(text, &mut |s| {
+        out.push(s);
+        true
+    });
     out
 }
 
+fn section_record(
+    title: &str,
+    headings: &[String],
+    i: usize,
+    multi: bool,
+    section: String,
+) -> RawRecord {
+    let mut fields = Map::new();
+    fields.insert("title".into(), Value::String(title.to_string()));
+    if !headings.is_empty() {
+        fields.insert(
+            "headings".into(),
+            Value::Array(headings.iter().map(|h| Value::String(h.clone())).collect()),
+        );
+    }
+    if multi {
+        fields.insert("section".into(), Value::Number((i as u64).into()));
+    }
+    fields.insert("body".into(), Value::String(section));
+    RawRecord {
+        fields,
+        locator: format!("s{i}"),
+        group: None,
+        // title/headings/section/body are this function's vocabulary, and
+        // `headings`/`section` come and go — never a clustering key.
+        origin: FieldOrigin::Extractor,
+    }
+}
+
 /// Emit a document (title/body/headings) as one or more section records.
+///
+/// Streams: sections are cut one at a time, so a sink that stops early (phase-A
+/// `--sample`) stops the split too instead of paying for the whole body first.
 pub fn emit_document(
     title: &str,
     headings: &[String],
@@ -354,34 +489,31 @@ pub fn emit_document(
     sink: Sink,
     stats: &mut ExtractStats,
 ) -> bool {
-    let sections = split_sections(body);
-    let multi = sections.len() > 1;
-    for (i, sec) in sections.into_iter().enumerate() {
-        let mut fields = Map::new();
-        fields.insert("title".into(), Value::String(title.to_string()));
-        if !headings.is_empty() {
-            fields.insert(
-                "headings".into(),
-                Value::Array(headings.iter().map(|h| Value::String(h.clone())).collect()),
-            );
-        }
-        if multi {
-            fields.insert("section".into(), Value::Number((i as u64).into()));
-        }
-        fields.insert("body".into(), Value::String(sec));
+    // One section of lookahead: the `section` field is only present when the
+    // document actually splits, which is not known until a second one arrives.
+    let mut pending: Option<String> = None;
+    let mut next: usize = 0;
+    let mut alive = true;
+    for_each_section(body, &mut |sec| {
+        let Some(prev) = pending.replace(sec) else {
+            return true;
+        };
+        let i = next;
+        next += 1;
         stats.records += 1;
-        if !sink(RawRecord {
-            fields,
-            locator: format!("s{i}"),
-            group: None,
-            // title/headings/section/body are this function's vocabulary, and
-            // `headings`/`section` come and go — never a clustering key.
-            origin: FieldOrigin::Extractor,
-        }) {
-            return false;
-        }
+        alive = sink(section_record(title, headings, i, true, prev));
+        alive
+    });
+    if !alive {
+        return false;
     }
-    true
+    match pending {
+        Some(last) => {
+            stats.records += 1;
+            sink(section_record(title, headings, next, next > 0, last))
+        }
+        None => true,
+    }
 }
 
 #[cfg(test)]
@@ -468,5 +600,191 @@ mod section_tests {
         for s in &secs {
             assert!(s.len() <= 2 * SECTION_CHARS);
         }
+    }
+
+    /// The pre-#239 implementation, kept verbatim as an oracle. It is quadratic
+    /// — only ever call it on inputs of a few hundred KB.
+    fn legacy_split_sections(text: &str) -> Vec<String> {
+        if text.len() <= SECTION_CHARS {
+            return vec![text.to_string()];
+        }
+        let mut out: Vec<String> = Vec::new();
+        let mut cur = String::new();
+        for para in text.split("\n\n") {
+            if !cur.is_empty() && cur.len() + para.len() > SECTION_CHARS {
+                let done = std::mem::take(&mut cur);
+                let carry = tail(&done, SECTION_OVERLAP);
+                out.push(done);
+                if !carry.is_empty() {
+                    cur.push_str(&carry);
+                }
+            }
+            if !cur.is_empty() {
+                cur.push_str("\n\n");
+            }
+            cur.push_str(para);
+            while cur.len() > 2 * SECTION_CHARS {
+                let cut = cur
+                    .char_indices()
+                    .take_while(|(i, _)| *i < SECTION_CHARS)
+                    .last()
+                    .map(|(i, c)| i + c.len_utf8())
+                    .unwrap_or(cur.len());
+                let rest = cur.split_off(cut);
+                out.push(std::mem::replace(&mut cur, rest));
+            }
+        }
+        if !cur.trim().is_empty() {
+            out.push(cur);
+        }
+        out
+    }
+
+    /// #239 rewrote the splitter for cost, not for behaviour: every input must
+    /// still produce byte-identical sections. Multi-byte cases are the ones a
+    /// hand-rolled boundary walk gets wrong, so they are all in here.
+    #[test]
+    fn matches_the_pre_fix_implementation_byte_for_byte() {
+        let mut cases: Vec<String> = vec![
+            String::new(),
+            "one paragraph only".into(),
+            "\n\n\n\n".into(),
+            "   \n\n   ".into(),
+            "z".repeat(SECTION_CHARS),
+            "z".repeat(SECTION_CHARS + 1),
+            "z".repeat(2 * SECTION_CHARS),
+            "z".repeat(2 * SECTION_CHARS + 1),
+            "z".repeat(10 * SECTION_CHARS),
+            doc(200, 400),
+            doc(60, 300),
+            doc(3, 9000),
+            // Multi-byte, with the cut landing inside a char: 3-byte and 4-byte
+            // sequences do not divide SECTION_CHARS evenly.
+            "é".repeat(4 * SECTION_CHARS),
+            "设".repeat(4 * SECTION_CHARS),
+            "🦀".repeat(4 * SECTION_CHARS),
+            format!("{}{}", "a", "😀".repeat(3 * SECTION_CHARS)),
+            format!("{}{}", "ab", "ا".repeat(3 * SECTION_CHARS)),
+            // Mixed: paragraph path and hard-split path interleaved.
+            format!(
+                "{}\n\n{}\n\n{}",
+                "x".repeat(300),
+                "設定".repeat(2 * SECTION_CHARS),
+                doc(5, 500)
+            ),
+        ];
+        // Every offset around a section boundary, so an off-by-one in the cut
+        // shows up.
+        for d in 0..8usize {
+            cases.push("q".repeat(2 * SECTION_CHARS + d));
+            cases.push(format!(
+                "{}{}",
+                "w".repeat(d),
+                "é".repeat(2 * SECTION_CHARS)
+            ));
+        }
+        for t in &cases {
+            assert_eq!(
+                split_sections(t),
+                legacy_split_sections(t),
+                "section output diverged for a {}-byte input",
+                t.len()
+            );
+        }
+    }
+
+    /// The #239 memory bug in one assertion. `String::split_off` left every
+    /// emitted section holding the capacity of the whole remaining paragraph:
+    /// this input measured 269 MB of capacity for 1 MB of content before the
+    /// fix (and 65.6 GB peak RSS at 16 MB).
+    #[test]
+    fn section_capacity_tracks_content_not_input_size() {
+        // ~1 MB as a single paragraph — no blank line anywhere.
+        let text = "lorem ipsum dolor sit amet ".repeat((1 << 20) / 27 + 1);
+        assert!(text.len() >= 1 << 20, "test input too small");
+        assert!(!text.contains("\n\n"));
+        let secs = split_sections(&text);
+        let len: usize = secs.iter().map(String::len).sum();
+        let cap: usize = secs.iter().map(String::capacity).sum();
+        assert_eq!(len, text.len(), "content lost or duplicated");
+        assert!(
+            cap <= 2 * text.len(),
+            "sections hold {cap} bytes of capacity for {len} bytes of content"
+        );
+
+        // …and the same input run through the pre-fix implementation blows the
+        // bound, so the guard above genuinely catches a revert rather than
+        // passing for both. (A quarter GB, once, on 1 MB of input.)
+        let legacy: usize = legacy_split_sections(&text)
+            .iter()
+            .map(String::capacity)
+            .sum();
+        assert!(
+            legacy > 8 * text.len(),
+            "guard cannot discriminate: pre-fix capacity was only {legacy}"
+        );
+    }
+
+    /// Streaming contract: a sink that stops must stop the split too. Before
+    /// #239 the whole `Vec` was built first, so phase-A `--sample` paid for
+    /// every section of every file it only wanted three records from.
+    #[test]
+    fn emit_stops_the_split_early() {
+        let text = "z".repeat(400 * SECTION_CHARS);
+        let mut seen = 0usize;
+        let done = for_each_section(&text, &mut |_| {
+            seen += 1;
+            seen < 3
+        });
+        assert!(!done, "for_each_section reported completion after a stop");
+        assert_eq!(seen, 3, "split kept going after the sink said stop");
+    }
+
+    /// `emit_document` needs one section of lookahead to know whether to stamp
+    /// a `section` field; both arms must stay right.
+    #[test]
+    fn emit_document_labels_sections() {
+        fn run(body: &str) -> Vec<(String, bool)> {
+            let mut got = Vec::new();
+            let mut stats = ExtractStats::default();
+            let mut sink = |r: RawRecord| {
+                got.push((r.locator.clone(), r.fields.contains_key("section")));
+                true
+            };
+            assert!(emit_document("t", &[], body, &mut sink, &mut stats));
+            assert_eq!(stats.records as usize, got.len());
+            got
+        }
+        assert_eq!(run("short body"), vec![("s0".to_string(), false)]);
+        let many = run(&doc(60, 300));
+        assert!(many.len() > 1);
+        for (i, (loc, has_section)) in many.iter().enumerate() {
+            assert_eq!(loc, &format!("s{i}"));
+            assert!(
+                has_section,
+                "multi-section record {i} lost its section field"
+            );
+        }
+    }
+
+    /// Sampling sinks must see records in order and stop the run, with `stats`
+    /// counting exactly what was handed over.
+    #[test]
+    fn emit_document_honours_an_early_stop() {
+        let mut got = Vec::new();
+        let mut stats = ExtractStats::default();
+        let mut sink = |r: RawRecord| {
+            got.push(r.locator.clone());
+            got.len() < 2
+        };
+        assert!(!emit_document(
+            "t",
+            &[],
+            &doc(60, 300),
+            &mut sink,
+            &mut stats
+        ));
+        assert_eq!(got, vec!["s0".to_string(), "s1".to_string()]);
+        assert_eq!(stats.records, 2);
     }
 }

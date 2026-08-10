@@ -19,15 +19,60 @@ pub struct Inventory {
     pub duplicates: Vec<DuplicateFile>,
 }
 
+/// Test-only witness: which pool the digest phase actually ran on. Phase A is
+/// where `--workers` was silently disconnected (#240), and the pool a task
+/// lands on is only observable from inside the task.
+#[cfg(test)]
+pub(crate) static OBSERVED_DIGEST_POOL_THREADS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+/// Set when any digest ran on a thread that is not one of the scan pool's.
+#[cfg(test)]
+pub(crate) static DIGEST_RAN_OFF_THE_SCAN_POOL: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 /// Hash each file once, group equal digests, then byte-verify only digest peers.
 ///
 /// This is linear in corpus bytes for adversarial common-prefix inputs rather
 /// than pairwise O(n² × file_size).
-pub fn resolve(files: Vec<FileEntry>) -> Result<Inventory> {
-    let digests: Vec<Result<String>> = files
-        .par_iter()
-        .map(|file| full_digest(&file.path, file.size))
-        .collect();
+///
+/// `hashed` is called with each file's byte count as it completes.
+/// Hashing reads the whole corpus, so on a large tree this is minutes of work
+/// that reported nothing before #241. The callback runs on the scan pool's
+/// workers and must therefore be `Sync`; it does no I/O of its own — it only
+/// bumps the progress counters that the ticker thread reads.
+pub fn resolve_reporting(
+    files: Vec<FileEntry>,
+    hashed: &(dyn Fn(u64) + Sync),
+) -> Result<Inventory> {
+    // Phase A belongs to the run's scan pool, not to rayon's global pool:
+    // `--workers` has to bound the CPU-bound phase to mean anything (#240 §2).
+    // The progress callback therefore fires from scan-pool threads — the ones
+    // actually doing the hashing — rather than from rayon's global pool (#241).
+    let digests: Vec<Result<String>> = crate::pool::install(|| {
+        files
+            .par_iter()
+            .map(|file| {
+                #[cfg(test)]
+                {
+                    OBSERVED_DIGEST_POOL_THREADS.fetch_max(
+                        rayon::current_num_threads(),
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    let on_scan_pool = std::thread::current()
+                        .name()
+                        .is_some_and(|n| n.starts_with("xerj-scan-"));
+                    if !on_scan_pool {
+                        DIGEST_RAN_OFF_THE_SCAN_POOL
+                            .store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+                let digest = full_digest(&file.path, file.size);
+                hashed(file.size);
+                digest
+            })
+            .collect()
+    });
     let digests: Vec<String> = digests.into_iter().collect::<Result<_>>()?;
     resolve_with_digests(files, digests)
 }
@@ -61,6 +106,7 @@ fn resolve_with_digests(files: Vec<FileEntry>, digests: Vec<String>) -> Result<I
                     file_key: resolved_keys[canonical].clone(),
                     rel: files[index].rel.clone(),
                     path_id: files[index].rel_id.clone(),
+                    is_symlink: Some(files[index].is_symlink),
                     duplicate_of: files[canonical].rel.clone(),
                     bytes: files[index].size,
                 });
@@ -182,12 +228,65 @@ mod tests {
     use super::*;
     use std::fs;
 
+    /// These tests are about identity resolution, not progress reporting.
+    fn resolve(files: Vec<FileEntry>) -> Result<Inventory> {
+        resolve_reporting(files, &|_| {})
+    }
+
+    /// #240 §2: the digest phase ran on rayon's default global pool — every
+    /// core on the machine — so `--workers` never bounded it. It must run on
+    /// the run's own scan pool, whose width the CLI sets.
+    ///
+    /// #241 rides on the same closure: moving phase A into a private pool must
+    /// not cost the progress stream a single completion, or the percent the
+    /// ticker prints would stall below 100 for the rest of the phase.
+    #[test]
+    fn the_digest_phase_runs_on_the_runs_scan_pool_and_still_reports_every_file() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..32 {
+            fs::write(dir.path().join(format!("f{i}.txt")), format!("body {i}\n")).unwrap();
+        }
+        OBSERVED_DIGEST_POOL_THREADS.store(0, std::sync::atomic::Ordering::Relaxed);
+        DIGEST_RAN_OFF_THE_SCAN_POOL.store(false, std::sync::atomic::Ordering::Relaxed);
+
+        let files = crate::walk::walk(dir.path(), false).unwrap();
+        let expected_files = files.len() as u64;
+        let expected_bytes: u64 = files.iter().map(|f| f.size).sum();
+        let reported_files = std::sync::atomic::AtomicU64::new(0);
+        let reported_bytes = std::sync::atomic::AtomicU64::new(0);
+        resolve_reporting(files, &|bytes| {
+            reported_files.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            reported_bytes.fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
+        })
+        .unwrap();
+
+        assert!(
+            !DIGEST_RAN_OFF_THE_SCAN_POOL.load(std::sync::atomic::Ordering::Relaxed),
+            "phase A must not run on rayon's global pool"
+        );
+        assert_eq!(
+            OBSERVED_DIGEST_POOL_THREADS.load(std::sync::atomic::Ordering::Relaxed),
+            crate::pool::scan_pool().current_num_threads(),
+            "the digest phase must see exactly the scan pool the run configured"
+        );
+        assert_eq!(
+            reported_files.load(std::sync::atomic::Ordering::Relaxed),
+            expected_files,
+            "every hashed file must still be credited to the progress stream"
+        );
+        assert_eq!(
+            reported_bytes.load(std::sync::atomic::Ordering::Relaxed),
+            expected_bytes,
+            "the bytes-based percent must see the whole corpus"
+        );
+    }
+
     #[test]
     fn identical_paths_become_one_content_file_and_an_alias() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), b"same records\n").unwrap();
         fs::write(dir.path().join("b.txt"), b"same records\n").unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.files[0].rel, "a.txt");
         assert_eq!(inv.duplicates.len(), 1);
@@ -204,7 +303,7 @@ mod tests {
         second[65_536] = b'b';
         fs::write(dir.path().join("a.txt"), first).unwrap();
         fs::write(dir.path().join("b.txt"), second).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         assert_eq!(inv.files.len(), 2);
         assert!(inv.duplicates.is_empty());
         assert_ne!(inv.keys[0], inv.keys[1]);
@@ -215,7 +314,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("a.txt");
         fs::write(&path, b"content-a").unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         fs::write(&path, b"content-b").unwrap();
         assert!(verify(&path, 9, &inv.digests[0]).is_err());
     }
@@ -225,7 +324,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), b"unequal-a").unwrap();
         fs::write(dir.path().join("b.txt"), b"unequal-b").unwrap();
-        let files = crate::walk::walk(dir.path(), false, true, true).unwrap().0;
+        let files = crate::walk::walk(dir.path(), false).unwrap();
         let forced = vec!["axf2-forced-9".to_string(); 2];
         let inv = resolve_with_digests(files, forced).unwrap();
         assert_eq!(inv.files.len(), 2);
@@ -242,9 +341,10 @@ mod tests {
         let b = dir.path().join("b.txt");
         fs::write(&a, b"hardlinked").unwrap();
         fs::hard_link(&a, &b).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.duplicates.len(), 1);
+        assert_eq!(inv.duplicates[0].is_symlink, Some(false));
     }
 
     #[cfg(unix)]
@@ -264,7 +364,7 @@ mod tests {
             b"same",
         )
         .unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.duplicates.len(), 2);
         assert_ne!(inv.duplicates[0].path_id, inv.duplicates[1].path_id);
@@ -278,8 +378,9 @@ mod tests {
         let real = dir.path().join("z-real");
         fs::write(&real, b"same").unwrap();
         symlink(&real, dir.path().join("a-link")).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), true, true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), true).unwrap()).unwrap();
         assert_eq!(inv.files[0].rel, "z-real");
         assert_eq!(inv.duplicates[0].rel, "a-link");
+        assert_eq!(inv.duplicates[0].is_symlink, Some(true));
     }
 }

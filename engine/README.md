@@ -63,8 +63,12 @@ to close — sharded flush thresholds + doc-values borrow refactor).
 
 ## Features
 
-- **100% ES API compatible** — drop-in replacement, existing clients work unchanged
-- **BM25 full-text search** with highlighting, aggregations, and all ES query types
+- **Broad ES 8.x wire compatibility** — point an existing client at port 9200 and
+  most of it just works. Wide, not total: the measured coverage and the gaps are
+  in [demo/playbooks/ES_COMPATIBILITY.md](../demo/playbooks/ES_COMPATIBILITY.md)
+- **BM25 full-text search** with highlighting, aggregations, and every query type
+  in [Query Types Supported](#query-types-supported) below — plus two more that
+  are recognised and deliberately refused with a 400 rather than answered wrongly
 - **Vector search** with HNSW, filtered ANN, and inline embedding
 - **SQL API** — query with SQL syntax
 - **WAL persistence** — crash recovery, data survives restarts
@@ -146,48 +150,102 @@ xerj --config /etc/xerj/xerj.toml
 
 ## Query Types Supported
 
-| Query Type | Notes |
-|---|---|
-| `match_all` / `match_none` | Universal matchers |
-| `match` | Full-text BM25 search |
-| `match_phrase` | Ordered phrase search |
-| `match_phrase_prefix` | Autocomplete-style |
-| `multi_match` | Search across multiple fields |
-| `term` / `terms` | Exact keyword match |
-| `range` | Numeric, date, keyword ranges |
-| `prefix` | Prefix match on keyword fields |
-| `wildcard` | `*` and `?` glob patterns |
-| `regexp` | Full regex on keyword fields |
-| `fuzzy` | Edit-distance fuzzy match |
-| `exists` | Field presence check |
-| `ids` | Match by document ID list |
-| `bool` | `must`, `should`, `must_not`, `filter` |
-| `query_string` | Lucene query syntax |
-| `simple_query_string` | Simplified query syntax |
-| `constant_score` | Wrap any query with a fixed score |
-| `boosting` | Positive/negative boosting |
-| `dis_max` | Disjunction max across queries |
-| `geo_distance` | Filter by radius from a geo point |
-| `knn` | k-Nearest neighbour vector search |
-| `semantic` | Semantic search via embedding proxy |
-| `hybrid` | Combine BM25 + vector scores |
+Complete and machine-checked. The list is generated from
+`xerj_query::parser::SUPPORTED_QUERY_TYPES`, that constant is pinned to
+`parse_query`'s dispatch table by a unit test, and this file is compared
+against it by `crates/xerj-engine/tests/docs_capability_lists.rs` — so a query
+type cannot be added or removed without the build failing until the docs
+follow.
+
+**Acceptance is not a fidelity claim.** A type listed here parses, plans and
+executes; it is not a promise that every parameter matches Elasticsearch in
+every corner. Per-type gaps are tracked in [ROADMAP.md](../ROADMAP.md), and the
+ES-YAML conformance suite is the measured answer.
+
+<!-- generated:query-types -->
+Full-text — `match`, `match_phrase`, `match_phrase_prefix`, `match_bool_prefix`,
+`multi_match`, `combined_fields`, `query_string`, `simple_query_string`,
+`intervals`, `more_like_this`
+
+Term-level — `term`, `terms`, `terms_set`, `range`, `prefix`, `wildcard`,
+`regexp`, `fuzzy`, `exists`, `ids`, `script`
+
+Universal — `match_all`, `match_none`
+
+Compound and scoring — `bool`, `boosting`, `constant_score`, `dis_max`,
+`function_score`, `script_score`, `distance_feature`, `rank_feature`, `pinned`
+
+Vector, semantic and hybrid — `knn`, `semantic`, `hybrid`
+
+Geo — `geo_distance`, `geo_bounding_box`, `geo_polygon`, `geo_shape`
+
+Span — `span_term`, `span_near`, `span_or`, `span_not`, `span_first`,
+`span_containing`, `span_within`
+
+Document structure — `nested`
+
+Other — `percolate`, `type`, `wrapper`
+<!-- /generated:query-types -->
+
+Recognised and **deliberately rejected with a 400**:
+
+<!-- generated:rejected-query-types -->
+`has_child`, `has_parent`
+<!-- /generated:rejected-query-types -->
+
+XERJ never materialises a parent/child join, so a `has_child` that ran would
+match against flat documents and return silently wrong hits. It refuses at
+parse time instead, with a message that names the alternative (denormalize the
+relationship). Any other query type answers `unknown query type`.
 
 ## Aggregation Types Supported
 
-| Aggregation | Type |
-|---|---|
-| `terms` | Bucket — group by field value |
-| `range` | Bucket — group by numeric/date ranges |
-| `histogram` | Bucket — fixed-width numeric intervals |
-| `date_histogram` | Bucket — calendar-aware time buckets |
-| `filter` | Bucket — apply a query as a filter |
-| `missing` | Bucket — documents missing a field |
-| `composite` | Bucket — paginate across combinations |
-| `avg` / `sum` / `min` / `max` | Metric — basic statistics |
-| `stats` | Metric — all basic statistics in one pass |
-| `value_count` | Metric — count of non-null values |
-| `cardinality` | Metric — approximate distinct count |
-| `percentiles` | Metric — p50, p95, p99, etc. |
+Complete and machine-checked the same way, from
+`xerj_engine::aggs::SUPPORTED_AGG_TYPES`. No probabilistic sketch sits in the
+metric path — `cardinality` is a true distinct count, not an HLL estimate, and
+`terms` `doc_count` is precise.
+
+There are two deliberate exceptions. The first is the **sampling family**,
+which is a sample by definition: `run_sampler` sorts the matched documents by
+`_score` and keeps the first `shard_size` (default 200), so every
+sub-aggregation under `sampler` or `random_sampler` is computed over that slice
+rather than the whole match set. `diversified_sampler` truncates the same way
+and additionally caps how many documents may share a `field` value
+(`max_docs_per_value`, default 1). `random_sampler` shares the `sampler`
+implementation and does not read ES's `probability`.
+
+The second is `percentiles` with the **`hdr`** option, which returns
+HdrHistogram-quantized values on purpose, so that ES's own outputs reproduce.
+The default `tdigest` path is not a t-digest at all: it sorts every matched
+value and interpolates linearly between the neighbours, reading the whole value
+set (O(N) memory) instead of a sketch.
+
+<!-- generated:agg-types -->
+Metric — `avg`, `sum`, `min`, `max`, `stats`, `extended_stats`, `value_count`,
+`cardinality`, `percentiles`, `percentile_ranks`, `median_absolute_deviation`,
+`matrix_stats`, `string_stats`, `boxplot`, `top_metrics`, `top_hits`,
+`scripted_metric`
+
+Bucket — `terms`, `multi_terms`, `rare_terms`, `significant_terms`,
+`significant_text`, `range`, `date_range`, `ip_range`, `ip_prefix`,
+`histogram`, `variable_width_histogram`, `date_histogram`,
+`auto_date_histogram`, `filter`, `filters`, `missing`, `composite`,
+`adjacency_matrix`, `time_series`, `global`
+
+Sampling — `sampler`, `random_sampler`, `diversified_sampler`
+
+Scope — `nested`, `reverse_nested`
+
+Geo — `geo_bounds`, `geo_centroid`, `geo_distance`, `geohash_grid`,
+`geotile_grid`
+
+Pipeline — `avg_bucket`, `sum_bucket`, `min_bucket`, `max_bucket`,
+`stats_bucket`, `extended_stats_bucket`, `percentiles_bucket`, `derivative`,
+`cumulative_sum`, `serial_diff`, `moving_avg`, `moving_fn`, `bucket_script`,
+`bucket_selector`, `bucket_sort`
+<!-- /generated:agg-types -->
+
+Bucket aggregations take nested sub-aggregations via an inner `aggs` key.
 
 ## Architecture Overview
 
@@ -220,6 +278,16 @@ HTTP Request
 | `xerj-compress` | Block compression codecs (LZ4, Zstd) |
 | `xerj-logs` | Columnar log ingestion and time-based retention |
 | `xerj-ai` | Text chunking, embedding proxy, memory store |
+| `xerj-autoindex` | `xerj autoindex` — zero-config folder onboarding; a pure ES-compat HTTP client, it does not link the engine |
+| `xerj-console-api` | Console backend at `/_xerj-console/api/v1` — auth, prefs, dashboards, saved views, data sources |
+| `xerj-cluster` | Embedded Raft consensus for cluster metadata, written from scratch |
+| `xerj-mcp` | MCP stdio server exposing XERJ's REST surface to agent hosts as tools |
+| `xerj-wasm` | Pluggable ingest-time document transform pipeline |
+
+Every crate under `crates/` appears in this table — `crates/xerj-engine/tests/docs_capability_lists.rs`
+fails if one is missing or if the table names a crate that no longer exists. Five of them
+(`xerj-autoindex`, `xerj-console-api`, `xerj-cluster`, `xerj-mcp`, `xerj-wasm`) were absent until
+issue #211. The conformance runner lives outside `crates/`, at `tests/es-compat-yaml`.
 
 ### Storage Model
 

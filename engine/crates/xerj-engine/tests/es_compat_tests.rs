@@ -865,8 +865,8 @@ async fn test_es_bulk_per_item_pipeline() {
     engine.create_index("bulk_pipe", Schema::empty()).unwrap();
 
     // Register a pipeline that stamps `ingested = "yes"` on every doc.
-    engine
-        .create_pipeline(
+    let compile_err = engine
+        .put_pipeline(
             "set_pipe",
             json!({
                 "description": "stamp ingested marker",
@@ -874,8 +874,13 @@ async fn test_es_bulk_per_item_pipeline() {
                     { "type": "set", "config": { "field": "ingested", "value": "yes", "override": true } }
                 ]
             }),
+            None,
         )
-        .expect("create_pipeline");
+        .expect("put_pipeline");
+    assert!(
+        compile_err.is_none(),
+        "pipeline must compile: {compile_err:?}"
+    );
 
     let ndjson = concat!(
         // Item 0: no pipeline → stored verbatim.

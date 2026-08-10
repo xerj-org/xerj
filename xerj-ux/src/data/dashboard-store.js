@@ -94,7 +94,9 @@ function enqueue(id, fn) {
 }
 
 /** PATCH a doc, adopting the returned (version-bumped) server doc. On a
- *  409 (stale etag) re-GET and retry once with the fresh version. */
+ *  409 (stale etag) or 428 (missing If-Match — the backend requires the
+ *  header on writes, issue #210) re-GET and retry once with the fresh
+ *  version. */
 async function pushPatch(id, partial) {
   const doc = DOCS[id];
   if (!doc || doc.__local) return;                 // offline-only doc: nothing to push
@@ -102,7 +104,7 @@ async function pushPatch(id, partial) {
     const { doc: fresh } = await api.patch(id, partial, doc.version);
     DOCS[id] = fresh; mirror();
   } catch (e) {
-    if (e && e.status === 409) {
+    if (e && (e.status === 409 || e.status === 428)) {
       try {
         const { doc: server } = await api.get(id);
         // Re-apply our field(s) on top of the server's fresh version.

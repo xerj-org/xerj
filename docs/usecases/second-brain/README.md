@@ -205,8 +205,13 @@ other note tools. No such numbers are claimed.
   root-caused.
 - **YAML-frontmatter markdown can sniff as YAML:** one `SKILL.md` with
   frontmatter landed in junk/skipped instead of being indexed.
-- **Stale resume journals can pollute links** after a wiped data dir;
-  `--fresh` re-walks everything and is the mitigation.
+- **Stale resume journals can pollute links** after a wiped data dir. `xerj
+  brain` no longer guesses: it reports the disagreement between the journal
+  and the server instead of resetting on its own. If the data directory really
+  was wiped, rerun with `--fresh` to rebuild the plan and republish every note
+  in place; if it was not, point at the data directory the journal was written
+  against, or rebuild under a new state directory, prefix and brain and
+  validate before switching readers.
 - **Wikilink detection was not exercised on this corpus** (real docs use
   markdown links); it is covered by the demo-corpus run (30 wikilinks) and
   the autoindex test suite.
