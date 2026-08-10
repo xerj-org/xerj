@@ -151,10 +151,15 @@ pub struct ClusterHealthParams {
     /// `cluster` (default), `indices`, `shards`.
     #[serde(default)]
     pub level: Option<String>,
-    /// Passthroughs — accepted for compatibility and surfaced as `timed_out`
-    /// only if we actually time out (we don't — local single-node).
+    /// The status the caller is waiting for (`green` / `yellow` / `red`).
+    /// Consulted: on a **red** cluster a request for `green` or `yellow` is
+    /// unmet and the response carries `timed_out: true` / 408. See
+    /// `wait_for_status_unmet` in `cluster_health_inner` for why the check is
+    /// deliberately narrowed to the red case.
     #[serde(default)]
     pub wait_for_status: Option<String>,
+    /// Passthroughs — accepted for compatibility and surfaced as `timed_out`
+    /// only if we actually time out (we don't — local single-node).
     #[serde(default)]
     pub wait_for_no_relocating_shards: Option<String>,
     #[serde(default)]
@@ -182,6 +187,36 @@ pub async fn cluster_health_for_index(
     Query(params): Query<ClusterHealthParams>,
 ) -> impl IntoResponse {
     cluster_health_inner(state, Some(index), params).await
+}
+
+/// The `unassigned_info` block for an index whose only primary could not be
+/// opened (issue #206).
+///
+/// Field names and shape follow Elasticsearch's own `UnassignedInfo`
+/// serialisation — `reason`, `at` as an ISO-8601 instant, `failed_attempts`
+/// only when there has been one, `delayed`, `details`, `allocation_status`
+/// (`elasticsearch/server/src/main/java/org/elasticsearch/cluster/routing/UnassignedInfo.java:483-503`,
+/// read for semantics only; Elasticsearch is licence-incompatible with this
+/// project and nothing was copied). Matching the names is the point of the
+/// exercise: the operator's existing dashboard already knows how to render
+/// this block, and `details` is where the verbatim open error goes.
+fn unassigned_info_json(f: &xerj_engine::engine::FailedIndex) -> Value {
+    let mut info = json!({
+        "reason": "ALLOCATION_FAILED",
+        "at": Utc.timestamp_millis_opt(f.failed_at_ms)
+            .single()
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+            .unwrap_or_default(),
+        "delayed": false,
+        "details": f.reason,
+        // The primary's on-disk copy exists but cannot be opened, so there is
+        // no copy this node can allocate — ES's `no_valid_shard_copy`.
+        "allocation_status": "no_valid_shard_copy",
+    });
+    if f.retries > 0 {
+        info["failed_attempts"] = json!(f.retries);
+    }
+    info
 }
 
 async fn cluster_health_inner(
@@ -248,6 +283,24 @@ async fn cluster_health_inner(
         selected
     };
 
+    // Indices that exist on disk but refused to open. Their primary has no
+    // serving copy, which is the textbook definition of a red cluster — and
+    // the one condition this endpoint used to ignore entirely, so an operator
+    // watching the ES-compatible surface never saw the failure that
+    // `/v1/health` was already reporting (issue #206).
+    let selected_failed: Vec<xerj_engine::engine::FailedIndex> = state
+        .engine
+        .list_failed_indices()
+        .into_iter()
+        .filter(|f| match &index_filter {
+            None => true,
+            Some(sel) => sel
+                .split(',')
+                .map(str::trim)
+                .any(|s| s == "_all" || s == "*" || s == f.name || glob_match_simple(s, &f.name)),
+        })
+        .collect();
+
     // Per-index shard count helper — defaults to 1 when unset.
     let shard_count = |name: &str| -> u32 {
         state
@@ -267,7 +320,7 @@ async fn cluster_health_inner(
             .unwrap_or(1) as u32
     };
 
-    let idx_count = selected.len() as u32;
+    let idx_count = (selected.len() + selected_failed.len()) as u32;
     let mut closed_count = 0u32;
     let mut unassigned_replicas: u32 = 0;
     for info in &selected {
@@ -314,12 +367,17 @@ async fn cluster_health_inner(
         }
     }
 
-    // Any unassigned replica forces yellow; closed indices surface as yellow
-    // in the legacy pre-7.2 path, but post-7.2 replicated-closed semantics
-    // keep the *cluster* status driven by replicas only. Our tests cover
-    // both — we currently only track a single "closed" flag per index and
-    // don't differentiate the closed-replication mode.
-    let status = if unassigned_replicas > 0 {
+    // An unopenable index is an unassigned PRIMARY — red, and it outranks
+    // every yellow condition. Any unassigned replica forces yellow; closed
+    // indices surface as yellow in the legacy pre-7.2 path, but post-7.2
+    // replicated-closed semantics keep the *cluster* status driven by
+    // replicas only. Our tests cover both — we currently only track a single
+    // "closed" flag per index and don't differentiate the closed-replication
+    // mode.
+    let unassigned_primaries = selected_failed.len() as u32;
+    let status = if unassigned_primaries > 0 {
+        "red"
+    } else if unassigned_replicas > 0 {
         "yellow"
     } else {
         "green"
@@ -360,12 +418,15 @@ async fn cluster_health_inner(
         })
         .unwrap_or(Some(1))
         .unwrap_or(1);
-    // wait_for_active_shards unmet: `all` when there are any unassigned
-    // replicas, or a numeric count greater than the currently active
-    // shards. The HTTP `timeout` has already elapsed by the time this
-    // check runs (we don't block), so we set timed_out accordingly.
+    // wait_for_active_shards unmet: `all` when any shard is unassigned —
+    // a replica, or (now that a failed index is a reachable state, issue
+    // #206) an unopenable primary, which is the more serious of the two and
+    // would otherwise have satisfied "all shards active" on a red cluster.
+    // A numeric count is unmet when it exceeds the currently active shards.
+    // The HTTP `timeout` has already elapsed by the time this check runs (we
+    // don't block), so we set timed_out accordingly.
     let wait_for_active_shards_unmet = match params.wait_for_active_shards.as_deref() {
-        Some("all") => unassigned_replicas > 0,
+        Some("all") => unassigned_replicas > 0 || unassigned_primaries > 0,
         Some(s) => s
             .parse::<u64>()
             .ok()
@@ -373,6 +434,39 @@ async fn cluster_health_inner(
             .unwrap_or(false),
         None => false,
     };
+    // `wait_for_status` was accepted and never consulted. That was harmless
+    // while `red` was unreachable on this endpoint; it stopped being harmless
+    // the moment an unopenable primary made it reachable (issue #206), because
+    // `GET /_cluster/health?wait_for_status=green&timeout=30s` is the standard
+    // bootstrap gate — every docker healthcheck, CI wait loop and Kibana
+    // startup reads a 200 with `timed_out: false` as "the status I asked for
+    // was reached", and a red node would have sailed through it.
+    //
+    // ES treats the condition as met iff the observed status is at least as
+    // good as the requested one (`response.getStatus().value() <=
+    // request.waitForStatus().value()`, GREEN=0 / YELLOW=1 / RED=2 —
+    // elasticsearch/server/src/main/java/org/elasticsearch/action/admin/cluster/health/
+    // TransportClusterHealthAction.java:398; approach only, ES is AGPL/SSPL/
+    // Elastic-2.0 and nothing is copied from it). Unmet after the timeout sets
+    // `timed_out`, which this handler already maps to 408.
+    //
+    // Deliberately narrowed to the red case: our single-node simulation
+    // reports `yellow` for any index configured with replicas, and the
+    // ES-YAML suite asks `wait_for_status=green` of exactly those. Applying
+    // the full `observed <= requested` comparison would start timing those out
+    // on a cluster that is behaving as designed, so a green or yellow cluster
+    // is byte-identical to before this change. The residual gap
+    // (`wait_for_status=green` still answered permissively on a yellow
+    // single-node cluster) is pre-existing and unrelated to #206.
+    let wait_for_status_unmet = status == "red"
+        && matches!(
+            params
+                .wait_for_status
+                .as_deref()
+                .map(|s| s.trim().to_ascii_lowercase())
+                .as_deref(),
+            Some("green") | Some("yellow")
+        );
     // When the caller explicitly requests `wait_for_nodes>=N`, we
     // satisfy it by reporting `N` as the declared cluster size so
     // the multinode smoke suite converges. But if the caller also
@@ -400,7 +494,9 @@ async fn cluster_health_inner(
             .map(|_| wait_for_nodes)
             .unwrap_or(1)
     };
-    let timed_out = wait_for_active_shards_unmet || (aggressive_timeout && wait_for_nodes > 1);
+    let timed_out = wait_for_active_shards_unmet
+        || wait_for_status_unmet
+        || (aggressive_timeout && wait_for_nodes > 1);
 
     let mut resp = json!({
         "cluster_name": "xerj",
@@ -412,8 +508,8 @@ async fn cluster_health_inner(
         "active_shards": active,
         "relocating_shards": 0,
         "initializing_shards": 0,
-        "unassigned_shards": unassigned_replicas,
-        "unassigned_primary_shards": 0,
+        "unassigned_shards": unassigned_replicas + unassigned_primaries,
+        "unassigned_primary_shards": unassigned_primaries,
         "delayed_unassigned_shards": 0,
         "number_of_pending_tasks": 0,
         "number_of_in_flight_fetch": 0,
@@ -475,6 +571,36 @@ async fn cluster_health_inner(
             }
             indices_map.insert(info.name.clone(), idx_obj);
         }
+        // Failed indices carry the open error verbatim in `unassigned_info`,
+        // so `?level=indices` answers "which index, and why" in one call.
+        for f in &selected_failed {
+            let mut idx_obj = json!({
+                "status": "red",
+                "number_of_shards": 1,
+                "number_of_replicas": 0,
+                "active_primary_shards": 0,
+                "active_shards": 0,
+                "relocating_shards": 0,
+                "initializing_shards": 0,
+                "unassigned_shards": 1,
+                "unassigned_primary_shards": 1,
+                "unassigned_info": unassigned_info_json(f),
+            });
+            if level == "shards" {
+                idx_obj["shards"] = json!({
+                    "0": {
+                        "status": "red",
+                        "primary_active": false,
+                        "active_shards": 0,
+                        "relocating_shards": 0,
+                        "initializing_shards": 0,
+                        "unassigned_shards": 1,
+                        "unassigned_primary_shards": 1,
+                    }
+                });
+            }
+            indices_map.insert(f.name.clone(), idx_obj);
+        }
         resp["indices"] = Value::Object(indices_map);
     }
 
@@ -510,6 +636,11 @@ pub async fn cat_indices_pattern(
 
 async fn cat_indices_inner(state: AppState, pattern: Option<String>) -> axum::response::Response {
     let indices = state.engine.list_indices().await;
+    // Indices whose directory exists but refused to open. They are listed as
+    // `red` rather than omitted: an index the operator can see is an index the
+    // operator can delete or retry, and omitting them is what made a failed
+    // index invisible to every dashboard (issue #206).
+    let failed = state.engine.list_failed_indices();
 
     // Narrow to the path pattern when present (`/_cat/indices/{pattern}`):
     // a comma-separated list of concrete names and/or `*` globs. ES rules:
@@ -526,7 +657,10 @@ async fn cat_indices_inner(state: AppState, pattern: Option<String>) -> axum::re
                 .collect();
             for &p in &parts {
                 let is_wildcard = p == "_all" || p == "*" || p.contains('*');
-                if !is_wildcard && !indices.iter().any(|i| i.name == p) {
+                if !is_wildcard
+                    && !indices.iter().any(|i| i.name == p)
+                    && !failed.iter().any(|f| f.name == p)
+                {
                     return ApiError::new(xerj_common::XerjError::index_not_found(p))
                         .into_response();
                 }
@@ -569,6 +703,33 @@ async fn cat_indices_inner(state: AppState, pattern: Option<String>) -> axum::re
             hsize,
         ));
     }
+
+    // Failed indices, after the healthy ones. `red` is the status column and
+    // the shard is unassigned, so `pri` is 1 and every stat column is 0 —
+    // nothing about the contents can be read, and guessing a doc count here
+    // would be a claim we cannot back.
+    let selected_failed: Vec<&xerj_engine::engine::FailedIndex> = match pattern.as_deref() {
+        None => failed.iter().collect(),
+        Some(pat) => failed
+            .iter()
+            .filter(|f| {
+                pat.split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .any(|p| {
+                        p == "_all" || p == "*" || f.name == p || glob_match_simple(p, &f.name)
+                    })
+            })
+            .collect(),
+    };
+    for f in selected_failed {
+        lines.push(format!(
+            "red open {} {} 1 0 0 0 0b 0b 0b",
+            f.name,
+            stable_index_uuid(&f.name),
+        ));
+    }
+
     // ES returns an empty body (not a bare newline) when nothing matches.
     let body = if lines.is_empty() {
         String::new()
@@ -1334,7 +1495,17 @@ pub async fn delete_index(
         .unwrap_or(true);
 
     let all = state.engine.list_indices().await;
-    let all_names: Vec<String> = all.iter().map(|i| i.name.clone()).collect();
+    let mut all_names: Vec<String> = all.iter().map(|i| i.name.clone()).collect();
+    // A failed index is deletable. Its name has to take part in selector
+    // resolution or a literal `DELETE /broken` 404s and a wildcard silently
+    // skips it — which is exactly the stuck state issue #206 describes.
+    all_names.extend(
+        state
+            .engine
+            .list_failed_indices()
+            .into_iter()
+            .map(|f| f.name),
+    );
 
     let mut to_delete: Vec<String> = Vec::new();
     let parts: Vec<&str> = index
@@ -1396,7 +1567,21 @@ pub async fn delete_index(
     }
 
     for name in &to_delete {
-        let _ = state.engine.delete_index(name).await;
+        // Report a delete that did not happen. The result used to be dropped
+        // on the floor, so an index whose bytes could not be removed (a failed
+        // index on a read-only mount, an fs error) still answered
+        // `acknowledged: true` and the operator had no way to know the name
+        // was still taken. A concurrent delete that already removed it is the
+        // one benign outcome and stays silent.
+        match state.engine.delete_index(name).await {
+            Ok(()) => {}
+            Err(e) => {
+                let inner: xerj_common::XerjError = e.into();
+                if !matches!(inner, xerj_common::XerjError::IndexNotFound { .. }) {
+                    return ApiError::new(inner).into_response();
+                }
+            }
+        }
         // RC4-W4 item 5: drop the index's per-index metric label series so it
         // doesn't linger for the process lifetime after the index is gone.
         state.metrics.prune_index_labels(name);
@@ -1464,23 +1649,44 @@ async fn get_index_inner(
         .any(|w| w == "open" || w == "all");
 
     let all = state.engine.list_indices().await;
+    // An index whose directory refused to open still EXISTS — this endpoint
+    // is the metadata read, not a shard read. ES resolves it out of cluster
+    // metadata and never consults a shard
+    // (elasticsearch/server/src/main/java/org/elasticsearch/action/admin/
+    // indices/get/TransportGetIndexAction.java:107 `localClusterStateOperation`
+    // → :113 `concreteIndexNames(state.metadata(), request)` then
+    // `project.findMappings/findAllAliases/settings`; approach only, nothing
+    // copied — ES is AGPL/SSPL/Elastic-2.0), so a red index answers 200 with
+    // its metadata there. Answering 404 `index_not_found` here was the same
+    // lie issue #206 is about, and it contradicted every other surface in the
+    // same run: `_cat/indices` printed a red row for the name while
+    // `GET /{name}` said it did not exist.
+    //
+    // `list_failed_indices` is visibility-filtered, so a failed brain a scoped
+    // key may not read stays invisible to it here too.
+    let failed_names: Vec<String> = state
+        .engine
+        .list_failed_indices()
+        .into_iter()
+        .map(|f| f.name)
+        .collect();
 
     // Resolve the selector into concrete names.
     let mut selected: Vec<String> = Vec::new();
     let mut had_missing = false;
     for part in index.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         if part == "_all" || part == "*" {
-            for info in &all {
-                if !selected.contains(&info.name) {
-                    selected.push(info.name.clone());
+            for name in all.iter().map(|i| &i.name).chain(failed_names.iter()) {
+                if !selected.contains(name) {
+                    selected.push(name.clone());
                 }
             }
             continue;
         }
         if part.contains('*') {
-            for info in &all {
-                if glob_match_simple(part, &info.name) && !selected.contains(&info.name) {
-                    selected.push(info.name.clone());
+            for name in all.iter().map(|i| &i.name).chain(failed_names.iter()) {
+                if glob_match_simple(part, name) && !selected.contains(name) {
+                    selected.push(name.clone());
                 }
             }
             continue;
@@ -1495,7 +1701,8 @@ async fn get_index_inner(
                     selected.push(n.clone());
                 }
             }
-        } else if all.iter().any(|info| info.name == part) {
+        } else if all.iter().any(|info| info.name == part) || failed_names.iter().any(|n| n == part)
+        {
             if !selected.contains(&part.to_string()) {
                 selected.push(part.to_string());
             }
@@ -1546,8 +1753,13 @@ async fn get_index_inner(
 
     let mut body = serde_json::Map::new();
     for name in &selected {
+        // `None` = the name exists but has no open handle (a failed index).
+        // Its metadata is still served — the schema-derived mapping fallback
+        // is the only part that needs a live index, and a failed index falls
+        // back to the mapping blob persisted next to its data instead.
         let idx = match state.engine.get_index(name) {
-            Ok(i) => i,
+            Ok(i) => Some(i),
+            Err(_) if failed_names.iter().any(|n| n == name) => None,
             Err(_) => continue,
         };
 
@@ -1569,13 +1781,17 @@ async fn get_index_inner(
         // Mappings: prefer the raw blob written at create; fall back to the
         // schema-derived properties (which tracks subsequent put_mapping).
         let stored_mappings = state.engine.index_mappings.get(name).map(|v| v.clone());
-        let mappings = match stored_mappings {
-            Some(m) if !m.is_null() => m,
-            _ => {
-                let schema = idx.schema().await;
+        let mappings = match (stored_mappings, &idx) {
+            (Some(m), _) if !m.is_null() => m,
+            (_, Some(i)) => {
+                let schema = i.schema().await;
                 let properties = schema_to_es_properties(&schema);
                 json!({ "properties": properties })
             }
+            // Failed index with no persisted mapping blob: report an empty
+            // mapping rather than inventing one. Nothing is known about its
+            // fields until it opens.
+            (_, None) => json!({ "properties": {} }),
         };
 
         // Settings: replay what was written (normalized to strings), merged
@@ -2084,8 +2300,21 @@ pub async fn get_mapping(
     }
     let mut out = serde_json::Map::new();
     for name in &targets {
+        // `None` = a failed index (issue #206): no open handle, but its
+        // persisted mapping blob is still readable and is exactly what an
+        // operator needs while recovering it. Only the schema-derived
+        // fallback below requires a live index.
         let idx = match state.engine.get_index(name) {
-            Ok(i) => i,
+            Ok(i) => Some(i),
+            Err(_)
+                if state
+                    .engine
+                    .list_failed_indices()
+                    .iter()
+                    .any(|f| &f.name == name) =>
+            {
+                None
+            }
             Err(_) => continue,
         };
         let stored = state
@@ -2095,9 +2324,14 @@ pub async fn get_mapping(
             .map(|v| v.clone())
             .unwrap_or(Value::Null);
         let mut mappings = if stored.is_null() {
-            let schema = idx.schema().await;
-            let properties = schema_to_es_properties(&schema);
-            json!({ "properties": properties })
+            match &idx {
+                Some(i) => {
+                    let schema = i.schema().await;
+                    let properties = schema_to_es_properties(&schema);
+                    json!({ "properties": properties })
+                }
+                None => json!({ "properties": {} }),
+            }
         } else {
             stored
         };
@@ -15863,6 +16097,14 @@ async fn cat_ann_inner(
 // GET /_cat/health
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// `GET /_cat/health`.
+///
+/// The status column used to be the literal string `green`, so the one
+/// endpoint an operator's existing dashboard points at was the one endpoint
+/// that could not report a broken node — `/v1/health`, `/v1/cluster/health`
+/// and `/health/ready` all knew, and `_cat/health` said everything was fine
+/// (issue #206). It now reports the same status `_cluster/health` computes,
+/// from the same inputs.
 pub async fn cat_health(State(state): State<AppState>) -> impl IntoResponse {
     let health = state.engine.health().await;
     // epoch  timestamp  cluster  status  node.total  node.data  shards  pri  relo  init  unassign  pending_tasks  max_task_wait_time  active_shards_percent
@@ -15873,7 +16115,21 @@ pub async fn cat_health(State(state): State<AppState>) -> impl IntoResponse {
     let now = Utc::now();
     let ts = now.format("%H:%M:%S").to_string();
     let shards = health.index_count as u32;
-    let body = format!("{epoch} {ts} xerj green 1 1 {shards} {shards} 0 0 0 0 - 100.0%\n");
+    let unassigned = state.engine.list_failed_indices().len() as u32;
+    // Mirror `_cluster/health`: an unopenable index is an unassigned primary
+    // (red); an unassigned replica is yellow. The engine's own "yellow" means
+    // "unflushed memtable", which is a durability nuance rather than an ES
+    // shard state, so it deliberately does not colour this column.
+    let status = if unassigned > 0 { "red" } else { "green" };
+    let total = shards + unassigned;
+    let pct = if total == 0 {
+        100.0
+    } else {
+        (shards as f64) / (total as f64) * 100.0
+    };
+    let body = format!(
+        "{epoch} {ts} xerj {status} 1 1 {shards} {shards} 0 0 {unassigned} 0 - {pct:.1}%\n"
+    );
     (
         StatusCode::OK,
         [(
@@ -21277,6 +21533,12 @@ pub async fn cat_shards(State(state): State<AppState>) -> impl IntoResponse {
             info.name, info.doc_count, store_bytes,
         ));
     }
+    // `_cat/shards` is the call an operator makes straight after seeing a red
+    // cluster, so an index whose primary could not be opened has to be in it.
+    // ES prints UNASSIGNED rows with no node and empty stats.
+    for f in state.engine.list_failed_indices() {
+        lines.push(format!("{} 0 p UNASSIGNED 0 0b - -", f.name));
+    }
     let body = if lines.is_empty() {
         String::new()
     } else {
@@ -23086,10 +23348,26 @@ pub async fn head_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
 ) -> impl IntoResponse {
-    match state.engine.get_index(&index) {
-        Ok(_) => StatusCode::OK.into_response(),
-        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    if state.engine.get_index(&index).is_ok() {
+        return StatusCode::OK.into_response();
     }
+    // This is the existence probe every ES client's `indices.exists()` calls,
+    // and existence is a metadata question. An index whose directory refused
+    // to open still occupies its name and still has bytes on disk, so 404 here
+    // was the same lie `GET /{index}` told (issue #206) — and a client that
+    // did HEAD (404) then PUT (503 `no_shard_available_action_exception`) got
+    // two incompatible answers about one name. Visibility-filtered via
+    // `list_failed_indices`, so a scoped key cannot probe for another brain's
+    // failed index either.
+    if state
+        .engine
+        .list_failed_indices()
+        .iter()
+        .any(|f| f.name == index)
+    {
+        return StatusCode::OK.into_response();
+    }
+    StatusCode::NOT_FOUND.into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23620,6 +23898,45 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
         );
     }
 
+    // An index that would not open still exists — its metadata belongs in
+    // cluster state, and its shard is UNASSIGNED with the open error as the
+    // allocation-failure detail. Leaving it out is what made a failed index
+    // invisible to every tool that reads cluster state (issue #206).
+    let mut unassigned_shards: Vec<Value> = Vec::new();
+    for f in state.engine.list_failed_indices() {
+        metadata_indices.insert(
+            f.name.clone(),
+            json!({
+                "state": "open",
+                "settings": {
+                    "index": {
+                        "number_of_shards": "1",
+                        "number_of_replicas": "0",
+                        "uuid": stable_index_uuid(&f.name),
+                        "version": { "created": "8130099" },
+                        "provided_name": f.name,
+                    }
+                },
+                "mappings": {},
+                "aliases": [],
+            }),
+        );
+        let shard = json!({
+            "state": "UNASSIGNED",
+            "primary": true,
+            "node": null,
+            "relocating_node": null,
+            "shard": 0,
+            "index": f.name,
+            "unassigned_info": unassigned_info_json(&f),
+        });
+        routing_table.insert(
+            f.name.clone(),
+            json!({ "shards": { "0": [shard.clone()] } }),
+        );
+        unassigned_shards.push(shard);
+    }
+
     Json(json!({
         "cluster_name": "xerj",
         "cluster_uuid": "xerj-cluster-1",
@@ -23643,7 +23960,7 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
             "indices": routing_table,
         },
         "routing_nodes": {
-            "unassigned": [],
+            "unassigned": unassigned_shards,
             "nodes": {
                 node_id: []
             }
@@ -26214,27 +26531,199 @@ pub async fn xpack_usage(State(state): State<AppState>) -> impl IntoResponse {
 // GET /_security/_authenticate — return current user info
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn security_authenticate(State(_state): State<AppState>) -> impl IntoResponse {
-    // Single-node owner identity. xerj has no multi-user store; the caller is
-    // always the built-in superuser.
-    Json(json!({
-        "username": "xerj",
-        "roles": ["superuser"],
+/// Describe the credential that made *this* request (issue #201).
+///
+/// This used to answer `{"username":"xerj","roles":["superuser"]}` no matter
+/// who asked. That was already untrue when it was written and became flatly
+/// misleading once minted keys carried real grants (issue #79): a key confined
+/// to `logs-*` was told it was the superuser, an operator auditing the cluster
+/// was told every key was, and a client had no way to discover its own
+/// permissions — the one question this endpoint exists to answer. Enforcement
+/// was never affected (`rbac`/`authz` are fail-closed and consult the same
+/// [`crate::auth::Principal`] this handler now reads), so it was introspection
+/// drift, not an authorization hole. Drift in the direction of "you are more
+/// privileged than you are" is still exactly the wrong direction.
+///
+/// Shape follows ES's `Authentication#toXContentFragment`
+/// (`x-pack/plugin/core/.../authc/Authentication.java:773-860`, APPROACH ONLY
+/// — AGPL/Elastic, read for semantics): an API-key authentication reports the
+/// `_es_api_key` realm, `authentication_type: "api_key"`, and an `api_key:
+/// {id, name}` block, while a realm login reports `authentication_type:
+/// "realm"`. `username` stays the single owner identity in both cases
+/// ([`API_KEY_OWNER_USERNAME`]) — xerj has one owner, and a minted key belongs
+/// to it; what differs between callers is the *roles*, which is precisely what
+/// was being misreported.
+///
+/// # One deliberate divergence, in the safe direction
+///
+/// ES reports `roles: []` for an API-key call — its API-key user is built with
+/// `Strings.EMPTY_ARRAY` (`ApiKeyService.java:1641`) and a client is expected
+/// to read `GET /_security/api_key` for the descriptors. xerj reports the
+/// descriptor names the key was actually minted with. That is a divergence, so
+/// it is written down rather than left to be discovered: `[]` is not *wrong*,
+/// but it answers "which named cluster roles do you hold" when the question a
+/// caller has is "what am I allowed to do", and xerj has no named-role store
+/// to point at instead. The divergence is additive and never over-states — a
+/// caller that only checks for `"superuser"` behaves identically, and no key
+/// is described as holding more than it holds.
+///
+/// That last sentence is only true because of [`reported_role_label`]: a
+/// `role_descriptors` key is caller-chosen free text, so without a guard
+/// `POST /_security/api_key {"role_descriptors":{"superuser":{"indices":
+/// [{"names":["logs-*"],...}]}}}` would make this endpoint answer
+/// `{"roles":["superuser"]}` for a key confined to `logs-*` — the exact drift
+/// this handler exists to remove, re-entered through a name.
+///
+/// Deliberately *not* fixed here: `POST /_security/user/_has_privileges` still
+/// answers `true` to everything (see its own handler). Reporting honest roles
+/// beside a lying privilege oracle is an improvement, not a completion.
+pub async fn security_authenticate(
+    State(state): State<AppState>,
+    principal: crate::auth::Principal,
+) -> impl IntoResponse {
+    use crate::auth::Principal;
+
+    let (roles, key): (Vec<String>, Option<(String, String)>) = match &principal {
+        // The configured admin key, or open mode (`--insecure` / no key set).
+        // This one really is the superuser, and saying so is the truth.
+        Principal::Superuser => (vec!["superuser".to_string()], None),
+        // The `role_descriptors` keys the caller supplied at mint time, in the
+        // order they first appear and deduplicated: one descriptor with three
+        // `indices` entries becomes three internal `Role`s named `r[0]`,
+        // `r[1]`, `r[2]` (`rbac::roles_from_role_descriptors`), and reporting
+        // that encoding back would describe roles the caller never named.
+        // Names that collide with a label xerj assigns itself are qualified
+        // first — see `reported_role_label`.
+        Principal::Scoped { key_id, roles } => (
+            dedup_in_order(
+                roles
+                    .iter()
+                    .map(|r| reported_role_label(r.descriptor_name())),
+            ),
+            Some((key_id.clone(), key_name(&state, key_id))),
+        ),
+        // A key minted without usable `role_descriptors`. Reporting `[]` would
+        // be as wrong as reporting `["superuser"]`, in the other direction: it
+        // holds no grant on the reserved `.xerj-memory-*` namespace but keeps
+        // its historical reach over ordinary indices. `"unscoped"` is the name
+        // of that capability, defined by `Principal::Unscoped`.
+        Principal::Unscoped { key_id } => (
+            vec!["unscoped".to_string()],
+            Some((key_id.clone(), key_name(&state, key_id))),
+        ),
+        // Unreachable behind `auth_middleware`, which answers 401 first — but
+        // if this handler is ever mounted without it, "no credential" must not
+        // be described as a user.
+        Principal::Denied => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{
+                            "type": "security_exception",
+                            "reason": "missing or invalid API key in Authorization header"
+                        }],
+                        "type": "security_exception",
+                        "reason": "missing or invalid API key in Authorization header"
+                    },
+                    "status": 401
+                })),
+            )
+                .into_response()
+        }
+    };
+
+    let (realm_name, realm_type, auth_type) = match key {
+        Some(_) => (API_KEY_REALM, API_KEY_REALM, "api_key"),
+        None => (API_KEY_OWNER_REALM, API_KEY_OWNER_REALM, "realm"),
+    };
+
+    let mut body = json!({
+        "username": API_KEY_OWNER_USERNAME,
+        "roles": roles,
         "full_name": "Xerj Administrator",
         "email": null,
         "metadata": {},
         "enabled": true,
-        "authentication_realm": {
-            "name": "native",
-            "type": "native"
-        },
-        "lookup_realm": {
-            "name": "native",
-            "type": "native"
-        },
-        "authentication_type": "realm"
-    }))
-    .into_response()
+        "authentication_realm": { "name": realm_name, "type": realm_type },
+        "lookup_realm": { "name": realm_name, "type": realm_type },
+        "authentication_type": auth_type
+    });
+    if let Some((id, name)) = key {
+        body["api_key"] = json!({ "id": id, "name": name });
+    }
+    Json(body).into_response()
+}
+
+/// Name of a minted key, for the `api_key` block above. A key that vanished
+/// between authentication and this lookup (revoked mid-request) reports an
+/// empty name rather than failing the call — the id is the identifying part.
+fn key_name(state: &AppState, key_id: &str) -> String {
+    state
+        .engine
+        .api_keys
+        .get(key_id)
+        .map(|r| r.name.clone())
+        .unwrap_or_default()
+}
+
+/// Collect into a `Vec<String>`, keeping first-appearance order and dropping
+/// repeats. Role lists here are single digits long, so the linear `contains`
+/// is cheaper than a set and keeps the output deterministic — a response that
+/// reordered its own roles between calls would be a nuisance to diff.
+fn dedup_in_order<'a>(items: impl Iterator<Item = std::borrow::Cow<'a, str>>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for item in items {
+        if !out.iter().any(|seen| seen.as_str() == item.as_ref()) {
+            out.push(item.into_owned());
+        }
+    }
+    out
+}
+
+/// Labels `security_authenticate` assigns on xerj's own authority, and which
+/// therefore mean something in every response: `superuser` is the admin
+/// credential (or open mode), `unscoped` is a key minted without usable
+/// `role_descriptors`. Keep in step with the match arms above — these are
+/// exactly the strings those arms emit.
+const XERJ_ASSIGNED_ROLE_LABELS: [&str; 2] = ["superuser", "unscoped"];
+
+/// Prefix applied to a caller-chosen descriptor name that collides with one of
+/// [`XERJ_ASSIGNED_ROLE_LABELS`].
+const QUALIFIED_DESCRIPTOR_PREFIX: &str = "api_key_role:";
+
+/// What a scoped key's `role_descriptors` name is reported as in `roles`.
+///
+/// A descriptor name is free text the caller chose at mint time, and `roles`
+/// is read by clients as an authorization summary. Reporting it verbatim lets
+/// a caller name a descriptor `superuser`, be confined to `logs-*` by that
+/// very descriptor, and then be told by `GET /_security/_authenticate` that it
+/// holds `["superuser"]` — the "you are more privileged than you are" drift
+/// issue #201 removes, re-entered through a name. So the two labels xerj
+/// assigns on its own authority are not mintable from caller input: a
+/// descriptor named `superuser` or `unscoped` is reported qualified, as
+/// `api_key_role:superuser`, which is still the name the caller wrote (nothing
+/// is hidden) but can no longer be mistaken for the label xerj hands out.
+///
+/// Elasticsearch never has this problem because it reports `roles: []` for an
+/// API-key call at all (`ApiKeyService.java:1641`) while keeping `superuser`
+/// in a platform-owned store a caller cannot write into
+/// (`ReservedRolesStore.java:188`, both APPROACH-ONLY reads — AGPL/Elastic, no
+/// code taken). xerj answers the more useful question instead, so it has to
+/// own the namespace explicitly; this is that ownership.
+///
+/// The guarantee is precisely "no caller-chosen name yields a label from
+/// [`XERJ_ASSIGNED_ROLE_LABELS`]". It is *not* that the qualified form is
+/// itself reserved: a caller may name a descriptor `api_key_role:superuser`
+/// and get it back verbatim. That collides with another caller-chosen name,
+/// not with a label xerj assigns, so it cannot make a key look like the
+/// superuser.
+fn reported_role_label(descriptor_name: &str) -> std::borrow::Cow<'_, str> {
+    if XERJ_ASSIGNED_ROLE_LABELS.contains(&descriptor_name) {
+        std::borrow::Cow::Owned(format!("{QUALIFIED_DESCRIPTOR_PREFIX}{descriptor_name}"))
+    } else {
+        std::borrow::Cow::Borrowed(descriptor_name)
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26250,12 +26739,20 @@ pub async fn security_authenticate(State(_state): State<AppState>) -> impl IntoR
 // harder failure to diagnose than the 404 itself since nothing about
 // privileges appears in the error shown to the user.
 //
-// Same single-owner identity model as `security_authenticate` — xerj has no
-// per-user privilege enforcement, every authenticated caller is the one
-// built-in superuser — so answering "yes" to every privilege asked about
-// isn't a lie, it's what's actually true: nothing is denied. Echoes back
-// every cluster/index/application privilege named in the request body as
-// granted, keyed exactly the way ES's response is shaped.
+// It echoes back every cluster/index/application privilege named in the
+// request body as granted, keyed exactly the way ES's response is shaped.
+//
+// ⚠️ That is a STUB, not an answer. The comment here used to justify it as
+// "what's actually true: nothing is denied", which was accurate when xerj had
+// one built-in superuser and stopped being accurate when minted keys gained
+// real grants (issue #79): a key confined to `logs-*` is told it may write
+// `payments`, and then the write is refused by `authz`. #201 fixed the same
+// class of drift in `security_authenticate` above; this handler is left alone
+// on purpose, because answering honestly means denying privileges to callers
+// that Kibana's bootstrap currently expects to be granted, and that is a
+// behaviour change with its own blast radius rather than a comment fix. Do
+// not treat this endpoint as an authorization oracle — `Principal::
+// allows_index` is the only one.
 pub async fn security_has_privileges(
     State(_state): State<AppState>,
     body: Option<Json<Value>>,
@@ -26505,21 +27002,21 @@ pub async fn security_create_api_key(
 
     // Persist the key so the auth middleware can re-authenticate an inbound
     // `Authorization: ApiKey <encoded>` header. `encoded` decodes to
-    // `id:api_key`, so the stored secret is the `api_key` value. Persisted
+    // `id:api_key`, so the credential the record must recognise is the
+    // `api_key` value — `ApiKeyRecord::new` hashes it (issue #201) and the
+    // plaintext leaves this function only in the response below. Persisted
     // across restarts via `persist_api_key` (item 6: `<data_dir>/api_keys.json`).
     let now_ms = Utc::now().timestamp_millis().max(0) as u64;
     let expiration_ms = parse_api_key_expiration_ms(expiration.as_str(), now_ms);
     state.engine.persist_api_key(
         key_id.clone(),
-        xerj_engine::engine::ApiKeyRecord {
-            name: name.clone(),
-            secret: api_key.clone(),
-            creation_ms: now_ms,
+        xerj_engine::engine::ApiKeyRecord::new(
+            name.clone(),
+            &api_key,
+            now_ms,
             expiration_ms,
-            invalidated: false,
-            invalidation_ms: None,
             roles,
-        },
+        ),
     );
     state.engine.audit.append(
         "security.api_key.create",
@@ -26528,6 +27025,10 @@ pub async fn security_create_api_key(
         "ok",
         &format!("id={key_id} name={name}"),
     );
+    // Minting privilege is exactly the kind of event that must not be lost to
+    // a power cut, and it is rare enough to afford the barrier — unlike the
+    // per-search append, which deliberately does not sync (see `audit`).
+    state.engine.audit.sync_to_disk();
 
     Json(json!({
         "id": key_id,
@@ -26571,6 +27072,13 @@ pub async fn security_create_api_key(
 const API_KEY_OWNER_USERNAME: &str = "xerj";
 const API_KEY_OWNER_REALM: &str = "native";
 
+/// Realm name/type ES reports for a request authenticated by an API key
+/// (`AuthenticationField.API_KEY_REALM_NAME`/`_TYPE`, both `_es_api_key`).
+/// Used by [`security_authenticate`] so a client can tell an API-key call
+/// apart from a realm login instead of being told every caller is the
+/// built-in `native`-realm superuser.
+const API_KEY_REALM: &str = "_es_api_key";
+
 /// 400 in ES's `action_request_validation_exception` shape — what ES's REST
 /// layer answers when `InvalidateApiKeyRequest#validate` rejects a request.
 /// `errors` are joined as `Validation Failed: 1: a;2: b;`, matching
@@ -26605,6 +27113,16 @@ fn api_key_validation_error(errors: &[String]) -> Response {
 /// so what comes back is that normalized form, not the caller's original
 /// descriptor JSON. An unscoped key reports `{}` — the same "no usable grant"
 /// signal the parse produced.
+///
+/// Descriptors are keyed by the name the caller supplied, and a descriptor
+/// that had several `indices` entries is reassembled into one object with
+/// several entries. This used to key by `Role::name`, which is the internal
+/// `"{descriptor}[{i}]"` fan-out: a key minted with one `reader` descriptor
+/// over two index sets was listed back as two descriptors, `reader[0]` and
+/// `reader[1]`, neither of which the caller ever wrote and neither of which
+/// could be fed back into `POST /_security/api_key` to reproduce the key. It
+/// is the same introspection drift issue #201 fixes in
+/// `security_authenticate`, and the two must agree on what a role is called.
 fn api_key_role_descriptors_json(roles: &[xerj_engine::rbac::Role]) -> Value {
     use xerj_engine::rbac::Privilege;
     let mut out = serde_json::Map::new();
@@ -26625,12 +27143,12 @@ fn api_key_role_descriptors_json(roles: &[xerj_engine::rbac::Role]) -> Value {
         // HashSet order is nondeterministic; sort so the wire shape is stable.
         privileges.sort_unstable();
         privileges.dedup();
-        out.insert(
-            role.name.clone(),
-            json!({
-                "indices": [{ "names": role.indices, "privileges": privileges }]
-            }),
-        );
+        let descriptor = out
+            .entry(role.descriptor_name().to_string())
+            .or_insert_with(|| json!({ "indices": [] }));
+        if let Some(entries) = descriptor.get_mut("indices").and_then(Value::as_array_mut) {
+            entries.push(json!({ "names": role.indices, "privileges": privileges }));
+        }
     }
     Value::Object(out)
 }
@@ -26903,6 +27421,8 @@ pub async fn security_invalidate_api_key(
             previously.join(",")
         ),
     );
+    // Revocation, like minting, is a privilege change worth an fsync.
+    state.engine.audit.sync_to_disk();
     // ES answers 200 whatever matched; ids that matched nothing appear in
     // neither list. `error_details` exists only when per-key errors occurred,
     // which this single-node store cannot produce — so `error_count` is 0 and

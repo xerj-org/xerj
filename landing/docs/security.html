@@ -141,7 +141,8 @@ key_path  = "/etc/xerj/certs/xerj.key"</pre>
 <pre class="code">$ sudo systemctl reload xerj</pre>
 
   <h2>Network</h2>
-  <p>Use <code class="inline">bind_address</code> to restrict the listener to a private interface. Never bind <code class="inline">0.0.0.0</code> without TLS and auth on in production. The <code class="inline">--insecure</code> flag is dev-only and refuses to run with a non-loopback bind.</p>
+  <p><code class="inline">bind_address</code> defaults to <code class="inline">127.0.0.1</code>: a node you have not configured is reachable from its own host and nowhere else. Set it (or pass <code class="inline">--bind</code> / <code class="inline">XERJ_BIND_ADDRESS</code>) to expose the node.</p>
+  <p>With <code class="inline">tls.enabled = false</code>, a non-loopback bind <strong>refuses to start</strong> — every listener would serve plain HTTP, putting the API key in every <code class="inline">Authorization</code> header on the wire. Either enable TLS, or declare the exposure with <code class="inline">server.allow_insecure_network_bind = true</code> when something in front of the node already terminates TLS. <code class="inline">--insecure</code> does not evade this: it clears <code class="inline">tls.enabled</code>, so it trips the same check.</p>
 
   <p class="source-note">Source · engine/crates/common/src/config.rs · api/src/middleware/auth.rs</p>
   

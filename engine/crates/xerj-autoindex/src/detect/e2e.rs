@@ -257,7 +257,9 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         url: url.to_owned(),
         api_key: None,
         workers: 1,
+        scan_workers: 1,
         pdf_workers: 1,
+        resource_notes: Vec::new(),
         pdf_timeout_secs: 30,
         bulk_mb: 8,
         bulk_timeout_secs: 300,
@@ -273,6 +275,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         dry_run: false,
         json: false,
         quiet: true,
+        progress: crate::progress::ProgressMode::None,
+        progress_interval: None,
     }
 }
 

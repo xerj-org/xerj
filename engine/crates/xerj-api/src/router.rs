@@ -51,8 +51,10 @@ use crate::{
 /// POST   /v1/indices/:name/search           search
 /// POST   /v1/indices/:name/_flush           flush_index
 /// GET    /v1/health                         health
-/// GET    /v1/health/ready                   readiness probe (200 unless red)
+/// GET    /v1/health/ready                   readiness probe (200 unless nothing can be served)
 /// GET    /v1/cluster/health                 cluster_health
+/// GET    /_cluster/indices/failed           failed_indices (name + open error)
+/// POST   /_cluster/indices/failed/:name/_retry  retry_failed_index
 /// POST   /v1/admin/flush                    admin_flush (flush all indices)
 /// POST   /v1/admin/backup                   admin_backup (snapshot to disk)
 /// GET    /v1/metrics                        metrics (Prometheus text)
@@ -104,6 +106,15 @@ pub fn build_native_router(state: AppState) -> Router {
         .route("/v1/health", get(native::health))
         .route("/v1/health/ready", get(native::readiness))
         .route("/v1/cluster/health", get(native::cluster_health))
+        // Failed-index recovery (issue #206) — inspect / retry. Delete goes
+        // through the ordinary `DELETE /{index}`. Mounted on both routers
+        // under the same path so an operator does not have to know which
+        // listener they reached.
+        .route("/_cluster/indices/failed", get(native::failed_indices))
+        .route(
+            "/_cluster/indices/failed/:name/_retry",
+            post(native::retry_failed_index),
+        )
         .route(
             "/v1/embedding/identity",
             get(native::embedding_execution_identity),
@@ -531,6 +542,17 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::get_cluster_settings).put(es_compat::put_cluster_settings),
         )
         .route("/_cluster/reroute", post(es_compat::cluster_reroute))
+        // ── Failed-index recovery (issue #206) ─────────────────────────────
+        // XERJ extension: no ES equivalent (ES recovers a red index through
+        // shard reallocation, which a single-binary node has no analogue for),
+        // so it cannot collide with the parity surface. Mounted on the
+        // ES-compat port because that is the port an operator already has open
+        // when they discover the red index there.
+        .route("/_cluster/indices/failed", get(native::failed_indices))
+        .route(
+            "/_cluster/indices/failed/:name/_retry",
+            post(native::retry_failed_index),
+        )
         .route(
             "/_cluster/pending_tasks",
             get(es_compat::cluster_pending_tasks),

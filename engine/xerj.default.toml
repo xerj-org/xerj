@@ -11,7 +11,7 @@
 # every default below.
 # ============================================================
 
-# ── Network & Data Directory (6 settings) ─────────────────────────────────────
+# ── Network & Data Directory (7 settings) ─────────────────────────────────────
 
 [server]
 
@@ -31,9 +31,36 @@ es_compat_port = 9200
 # Ensure this path has sufficient disk space and fast I/O.
 data_dir = "./data"
 
-# IP address to bind all listeners to.
-# "0.0.0.0" listens on all interfaces; use "127.0.0.1" for localhost only.
-bind_address = "0.0.0.0"
+# IP address to bind all listeners to. An IPv4 or IPv6 literal — "127.0.0.1",
+# "0.0.0.0", "::1". Host names are NOT resolved; a name is refused at startup
+# before anything is created, rather than resolving to a different interface on
+# every host.
+#
+# Defaults to loopback: a fresh node is reachable from the machine it runs on
+# and nowhere else. TLS is off by default, so a node that bound every interface
+# out of the box would put its admin API key and every document body on the
+# network in cleartext, and a working curl would give no hint of it.
+#
+# Set "0.0.0.0" (every interface) or a specific private address to expose the
+# node. With tls.enabled = false that also requires
+# allow_insecure_network_bind = true below — xerj refuses to start otherwise.
+# Overridable without this file: --bind 0.0.0.0 or XERJ_BIND_ADDRESS=0.0.0.0.
+bind_address = "127.0.0.1"
+
+# Allow a network-reachable bind_address while TLS is off. Default false,
+# which REFUSES TO START in that combination: every listener would serve plain
+# HTTP, so the Authorization: ApiKey header of every request crosses the
+# network in the clear.
+#
+# Set true only when something in front of this node terminates TLS — reverse
+# proxy, sidecar, service mesh, ingress controller — or when the link itself
+# is trusted. Container images set it because the container's own network
+# namespace is the boundary; the published port is where you add TLS.
+#
+# Binding loopback needs no opt-out, and this is ignored when tls.enabled =
+# true (there the residual gRPC exposure is allow_insecure_grpc_h2c's job).
+# Env: XERJ_ALLOW_INSECURE_NETWORK_BIND=true
+allow_insecure_network_bind = false
 
 # Reverse proxies whose X-Forwarded-For / X-Real-IP headers may be believed.
 #

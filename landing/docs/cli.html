@@ -128,6 +128,8 @@ OPTIONS:
   -c, --config &lt;PATH&gt;     Path to the TOML config file
                           [default: ./xerj.toml]
   -d, --data-dir &lt;PATH&gt;   Override [server] data_dir
+  -b, --bind &lt;ADDR&gt;       Override [server] bind_address
+                          [default: 127.0.0.1 — loopback only]
   -k, --insecure          Disable TLS and API-key auth (dev only)
   -h, --help              Print help
   -V, --version           Print version and build commit</pre>
@@ -138,8 +140,11 @@ OPTIONS:
   <h2 id="data-dir-flag">--data-dir / -d</h2>
   <p>Convenience override for <code class="inline">[server] data_dir</code>. Useful for ephemeral dev runs and for pointing XERJ at a tmpfs when you just want to burn something down after.</p>
 
+  <h2 id="bind-flag">--bind / -b</h2>
+  <p>Interface to bind every listener to; overrides <code class="inline">[server] bind_address</code>. Env: <code class="inline">XERJ_BIND_ADDRESS</code>. The default is <code class="inline">127.0.0.1</code> — loopback only. Pass <code class="inline">0.0.0.0</code> (or a specific address) to expose the node; with TLS off that also needs <code class="inline">server.allow_insecure_network_bind = true</code> (env <code class="inline">XERJ_ALLOW_INSECURE_NETWORK_BIND</code>), because every request, API key included, would cross the network in cleartext. The value must be an IPv4 or IPv6 literal; host names are not resolved, and one is refused at startup before the data directory is created.</p>
+
   <h2 id="insecure-flag">--insecure / -k</h2>
-  <p>Disables TLS and API-key auth. <strong>Dev only.</strong> Fails loudly in production by refusing to start if <code class="inline">bind_address</code> is anything other than <code class="inline">127.0.0.1</code> unless the binary is built with the <code class="inline">--release-mode dev</code> flag.</p>
+  <p>Disables TLS and API-key auth. <strong>Dev only.</strong> It does not unlock a network bind: clearing <code class="inline">tls.enabled</code> is exactly what makes a non-loopback <code class="inline">bind_address</code> refuse to start, so <code class="inline">--insecure</code> on <code class="inline">0.0.0.0</code> exits non-zero unless the exposure is declared.</p>
 
   <h2>--help / -h</h2>
   <p>Prints the synopsis above and exits.</p>

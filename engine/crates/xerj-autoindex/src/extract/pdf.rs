@@ -478,10 +478,9 @@ fn worker_gate() -> &'static WorkerGate {
     GATE.get_or_init(|| WorkerGate {
         state: Mutex::new((
             0,
-            std::thread::available_parallelism()
-                .map(|n| n.get())
-                .unwrap_or(4)
-                .min(4),
+            // Default only: `configure_workers` overwrites this with the run's
+            // plan (`crate::resources::plan`) before any extraction starts.
+            xerj_common::resource::cores().min(crate::resources::MAX_PDF_WORKERS),
         )),
         ready: Condvar::new(),
     })

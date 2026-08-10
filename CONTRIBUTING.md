@@ -26,7 +26,9 @@ cargo build --release -p xerj-server      # the server binary
 cargo build --release                     # everything
 ```
 
-Run the server locally (insecure = no TLS, no auth; listens on `http://0.0.0.0:9200`):
+Run the server locally (insecure = no TLS, no auth; listens on
+`http://127.0.0.1:9200` — the default bind is loopback, and `--insecure` on a
+non-loopback bind refuses to start):
 
 ```bash
 ./target/release/xerj --data-dir ./data --insecure

@@ -61,6 +61,22 @@ probes:
 # default is the configuration most users will ever run.
 insecure: false
 
+# Network exposure (engine issue #228).
+#
+# xerj binds 127.0.0.1 by default so a bare install cannot publish an API key
+# in cleartext to every interface. A pod must bind 0.0.0.0 or nothing works:
+# kubelet's liveness/readiness probes and the Service both reach it on the pod
+# IP, not on loopback. The pod network is the boundary, and the chart says so
+# explicitly rather than letting the engine default it away.
+#
+# What that means for you: traffic between a client and this pod is plain HTTP
+# unless you terminate TLS in front of it (Ingress, gateway, or a service mesh
+# with mTLS). Set tls.enabled below to terminate it in-process instead — then
+# allowInsecureNetworkBind is ignored.
+network:
+  bindAddress: "0.0.0.0"
+  allowInsecureNetworkBind: true
+
 tls:
   enabled: false
   certPath: /etc/xerj/tls.crt

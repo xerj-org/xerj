@@ -416,17 +416,20 @@ fn live_node_docs(es: &Es, brain: &str) -> u64 {
 }
 
 fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
-    let cores = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(8);
+    // Same resource policy as `xerj autoindex` itself — `xerj brain` composes
+    // autoindex, so it must not invent its own worker counts (#240).
+    const BULK_MB: usize = 8;
+    let plan = xerj_autoindex::resources::plan(None, None, BULK_MB);
     IndexCfg {
         root: cfg.root.clone(),
         url: cfg.url.clone(),
         api_key,
-        workers: cores.min(8),
-        pdf_workers: cores.min(4),
+        workers: plan.index_workers,
+        scan_workers: plan.scan_threads,
+        pdf_workers: plan.pdf_workers,
+        resource_notes: plan.notes,
         pdf_timeout_secs: 120,
-        bulk_mb: 8,
+        bulk_mb: BULK_MB,
         bulk_timeout_secs: 300,
         prefix: "ax".into(),
         state_dir: None,
@@ -440,6 +443,10 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         dry_run: false,
         json: false,
         quiet: false,
+        // `xerj brain` is a foreground command a human watches; it gets the
+        // same auto-resolved progress surface as `xerj autoindex` (#241).
+        progress: xerj_autoindex::progress::ProgressMode::Auto,
+        progress_interval: None,
     }
 }
 

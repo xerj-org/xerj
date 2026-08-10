@@ -1,10 +1,14 @@
 //! Thin blocking ES-compat client (reqwest). Retries with exponential
-//! backoff on 429/5xx/transport errors; parses per-item bulk errors.
+//! backoff on 429/5xx/transport errors; parses per-item bulk errors; and
+//! lets a 429 shrink how much load the run offers, not just when it offers
+//! it ([`BulkAdmission`]).
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct Es {
@@ -14,6 +18,195 @@ pub struct Es {
     bulk_timeout: Duration,
     retry_initial_delay: Duration,
     retry_max_delay: Duration,
+    /// Shared by every clone of this client on purpose: congestion is a
+    /// property of the server, so all of a run's workers must see the same
+    /// admission limit.
+    admission: Arc<BulkAdmission>,
+}
+
+/// How many bulk requests a run may have in flight, and how a 429 changes
+/// that number (#240 §8).
+///
+/// Before this, backpressure handling was transport-only: a 429 slept
+/// 250 ms..8 s and then re-offered exactly the same load from exactly as
+/// many workers, six times, before failing the file. The sleep is the right
+/// *first* move and is kept; what was missing is the feedback edge — the
+/// signal never reached the thing generating the load.
+///
+/// The rule is AIMD, the same shape TCP uses and for the same reason:
+/// congestion is expensive and must be answered immediately, while probing
+/// for recovered capacity must be slow enough not to re-cause it.
+///
+/// * **Multiplicative decrease** — a 429 halves the limit at once, floor 1.
+///   Further 429s inside [`SHRINK_COOLDOWN`] are the same congestion event
+///   seen by other workers, so they do not compound: without that damping,
+///   8 workers × 6 retries would collapse the limit to 1 on a single
+///   momentary stall.
+/// * **Additive increase** — after [`RECOVER_AFTER`] consecutive clean bulks
+///   the limit rises by one, never above the ceiling the operator asked for
+///   with `--workers`. Recovery is a probe, not a reset: a run that meets
+///   sustained pressure stays small for the rest of the run.
+///
+/// Honest scope: no peer engine does this. quickwit's rest client sleeps
+/// 500 ms and retries the same batch
+/// (`quickwit-rest-client/src/rest_client.rs:371-380`), meilisearch's REST
+/// embedder classifies 429 as retry-later
+/// (`crates/milli/src/vector/embedder/rest.rs:550`), and its S3 path treats
+/// it as a transient backoff (`.../enterprise_edition/s3.rs:447`). All three
+/// are the transport half XERJ already had. The AIMD shape is adapted from
+/// congestion control, not copied from a search engine.
+pub struct BulkAdmission {
+    inner: Mutex<AdmissionState>,
+    space: Condvar,
+    /// Upper bound on the limit — what the operator asked for. `0` means the
+    /// gate is off entirely (probes and one-shot clients).
+    ceiling: usize,
+    congestion_events: AtomicU64,
+    /// Whether limit changes are announced on stderr. Off for `--quiet` and
+    /// for clients that are not a user-visible run.
+    announce: bool,
+}
+
+/// One congestion event may be reported by every worker that was in flight
+/// when the server pushed back; they must count once.
+const SHRINK_COOLDOWN: Duration = Duration::from_secs(1);
+/// Clean bulks required before the limit is probed upward by one.
+const RECOVER_AFTER: usize = 8;
+
+struct AdmissionState {
+    limit: usize,
+    in_flight: usize,
+    ok_streak: usize,
+    last_shrink: Option<Instant>,
+}
+
+/// A slot in the bulk admission window, returned to the pool on drop —
+/// including on the error and panic paths, which is why it is a guard and
+/// not a pair of calls.
+pub struct BulkPermit<'a> {
+    admission: Option<&'a BulkAdmission>,
+}
+
+impl Drop for BulkPermit<'_> {
+    fn drop(&mut self) {
+        if let Some(admission) = self.admission {
+            let mut state = admission.inner.lock().unwrap();
+            state.in_flight = state.in_flight.saturating_sub(1);
+            drop(state);
+            admission.space.notify_one();
+        }
+    }
+}
+
+impl BulkAdmission {
+    /// A gate that never blocks and never shrinks — the behaviour of every
+    /// client that is not a bulk-loading run.
+    pub fn off() -> Self {
+        Self::new(0, false)
+    }
+
+    /// `ceiling` is the operator's concurrency (`--workers`); `0` disables.
+    pub fn new(ceiling: usize, announce: bool) -> Self {
+        Self {
+            inner: Mutex::new(AdmissionState {
+                limit: ceiling,
+                in_flight: 0,
+                ok_streak: 0,
+                last_shrink: None,
+            }),
+            space: Condvar::new(),
+            ceiling,
+            congestion_events: AtomicU64::new(0),
+            announce,
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        self.ceiling > 0
+    }
+
+    /// Current admission limit; equals the ceiling until the server pushes
+    /// back. `0` when the gate is off.
+    pub fn limit(&self) -> usize {
+        if !self.enabled() {
+            return 0;
+        }
+        self.inner.lock().unwrap().limit
+    }
+
+    /// How many distinct congestion events this run has answered.
+    pub fn congestion_events(&self) -> u64 {
+        self.congestion_events.load(Ordering::Relaxed)
+    }
+
+    /// Block until a bulk slot is free. Cheap and non-blocking when off.
+    fn acquire(&self) -> BulkPermit<'_> {
+        if !self.enabled() {
+            return BulkPermit { admission: None };
+        }
+        let mut state = self.inner.lock().unwrap();
+        while state.in_flight >= state.limit {
+            state = self.space.wait(state).unwrap();
+        }
+        state.in_flight += 1;
+        BulkPermit {
+            admission: Some(self),
+        }
+    }
+
+    /// The server said 429. Halve the offered load, once per event.
+    fn on_congestion(&self) {
+        if !self.enabled() {
+            return;
+        }
+        let mut state = self.inner.lock().unwrap();
+        let now = Instant::now();
+        if state
+            .last_shrink
+            .is_some_and(|last| now.duration_since(last) < SHRINK_COOLDOWN)
+        {
+            return;
+        }
+        state.last_shrink = Some(now);
+        state.ok_streak = 0;
+        self.congestion_events.fetch_add(1, Ordering::Relaxed);
+        let previous = state.limit;
+        state.limit = (previous / 2).max(1);
+        if state.limit != previous && self.announce {
+            eprintln!(
+                "autoindex: server pushed back (HTTP 429); lowering bulk concurrency \
+                 {previous} → {} for this run",
+                state.limit
+            );
+        }
+    }
+
+    /// A bulk was accepted. Probe upward once a clean streak says the
+    /// server has room again.
+    fn on_success(&self) {
+        if !self.enabled() {
+            return;
+        }
+        let mut state = self.inner.lock().unwrap();
+        if state.limit >= self.ceiling {
+            return;
+        }
+        state.ok_streak += 1;
+        if state.ok_streak < RECOVER_AFTER {
+            return;
+        }
+        state.ok_streak = 0;
+        let previous = state.limit;
+        state.limit = (previous + 1).min(self.ceiling);
+        if self.announce {
+            eprintln!(
+                "autoindex: server healthy again; raising bulk concurrency {previous} → {}",
+                state.limit
+            );
+        }
+        drop(state);
+        self.space.notify_one();
+    }
 }
 
 pub struct BulkOutcome {
@@ -141,7 +334,29 @@ impl Es {
             bulk_timeout,
             retry_initial_delay,
             retry_max_delay,
+            admission: Arc::new(BulkAdmission::off()),
         })
+    }
+
+    /// Give this client a bulk admission window `workers` wide, so a 429 can
+    /// shrink the load the run offers instead of only delaying it (#240 §8).
+    ///
+    /// Off by default: a probe or a one-shot client has nothing to throttle.
+    /// A run enables it once, before its workers start, and every clone made
+    /// afterwards shares the same window.
+    pub fn with_bulk_concurrency(mut self, workers: usize, announce: bool) -> Self {
+        self.admission = Arc::new(BulkAdmission::new(workers.max(1), announce));
+        self
+    }
+
+    /// The current bulk admission limit (`0` when the gate is off).
+    pub fn bulk_concurrency_limit(&self) -> usize {
+        self.admission.limit()
+    }
+
+    /// How many distinct 429 congestion events this client answered.
+    pub fn bulk_congestion_events(&self) -> u64 {
+        self.admission.congestion_events()
     }
 
     fn req(&self, method: reqwest::Method, path: &str) -> reqwest::blocking::RequestBuilder {
@@ -222,6 +437,10 @@ impl Es {
     }
 
     /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s, 6 attempts.
+    ///
+    /// A 429 is also reported to the bulk admission window: sleeping is how
+    /// this request survives congestion, shrinking is how the *run* stops
+    /// causing it (#240 §8). 5xx is not congestion and does not shrink.
     fn with_retry<T>(
         &self,
         what: &str,
@@ -236,6 +455,9 @@ impl Es {
                 Ok(resp) => {
                     let status = resp.status();
                     if status.as_u16() == 429 || status.is_server_error() {
+                        if status.as_u16() == 429 {
+                            self.admission.on_congestion();
+                        }
                         last_err = Some(anyhow!("{what}: HTTP {status}"));
                     } else {
                         return parse(resp);
@@ -287,8 +509,18 @@ impl Es {
         Err(anyhow!("PUT /{index}/_mapping failed: {status} {text}"))
     }
 
+    /// Send one bulk request, holding a slot in the admission window for as
+    /// long as the attempt (including its retries) is outstanding — that is
+    /// what makes a shrunken limit actually reduce offered load rather than
+    /// only rename it.
     pub fn bulk(&self, body: Vec<u8>) -> Result<BulkOutcome> {
-        self.with_retry(
+        let _permit = self.admission.acquire();
+        // A bulk can also be throttled *per item*: HTTP 200 with individual
+        // documents rejected `status: 429`. That is the same congestion
+        // signal wearing a different hat, and it must not be read as a
+        // clean bulk that earns concurrency back.
+        let item_throttled = std::cell::Cell::new(false);
+        let outcome = self.with_retry(
             "_bulk",
             || self.send_bulk(body.clone()),
             |resp| {
@@ -313,6 +545,9 @@ impl Es {
                                     item_errors += 1;
                                     let item_status =
                                         op.get("status").and_then(Value::as_u64).unwrap_or(500);
+                                    if item_status == 429 {
+                                        item_throttled.set(true);
+                                    }
                                     if item_status == 429
                                         || item_status >= 500
                                         || is_index_block_error(&op["error"])
@@ -341,7 +576,15 @@ impl Es {
                     first_server_error,
                 })
             },
-        )
+        );
+        match (&outcome, item_throttled.get()) {
+            (Ok(_), false) => self.admission.on_success(),
+            (Ok(_), true) => self.admission.on_congestion(),
+            // A failed bulk earns nothing back. If it failed *because* of a
+            // 429, `with_retry` has already shrunk the window.
+            (Err(_), _) => {}
+        }
+        outcome
     }
 
     fn send_bulk(&self, body: Vec<u8>) -> Result<reqwest::blocking::Response> {
@@ -895,5 +1138,161 @@ mod tests {
             let offset = request.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
             assert_eq!(&request[offset..], body.as_slice());
         }
+    }
+
+    // ── #240 §8: backpressure must reach the thing generating the load ──
+
+    fn throttled(stream: &mut std::net::TcpStream) {
+        let body = br#"{"error":{"type":"es_rejected_execution_exception"},"status":429}"#;
+        write!(
+            stream,
+            "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        )
+        .unwrap();
+        stream.write_all(body).unwrap();
+    }
+
+    /// Serve `plan` responses, one per connection, in order.
+    fn serve(listener: TcpListener, plan: Vec<bool>) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            for ok in plan {
+                let (mut stream, _) = listener.accept().unwrap();
+                let _ = read_request(&mut stream);
+                if ok {
+                    success(&mut stream);
+                } else {
+                    throttled(&mut stream);
+                }
+            }
+        })
+    }
+
+    fn client(address: std::net::SocketAddr, workers: usize) -> Es {
+        Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_secs(5),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap()
+        .with_bulk_concurrency(workers, false)
+    }
+
+    const BULK: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"a\"}}\n{\"v\":1}\n";
+
+    /// A 429 must shrink the window the run offers load through, and a clean
+    /// streak must probe it back up — never past what the operator asked for.
+    ///
+    /// Before this, the client slept and re-offered exactly the same load
+    /// from exactly as many workers: `bulk_concurrency_limit()` stayed at 8
+    /// no matter how hard the server pushed back.
+    #[test]
+    fn a_429_shrinks_the_bulk_window_and_a_clean_streak_probes_it_back() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        // one throttled attempt, then its retry, then RECOVER_AFTER clean bulks
+        let mut plan = vec![false, true];
+        plan.extend(std::iter::repeat_n(true, super::RECOVER_AFTER));
+        let server = serve(listener, plan);
+
+        let es = client(address, 8);
+        assert_eq!(es.bulk_concurrency_limit(), 8, "starts at --workers");
+
+        es.bulk(BULK.to_vec()).unwrap();
+        assert_eq!(
+            es.bulk_concurrency_limit(),
+            4,
+            "a 429 must halve the offered concurrency"
+        );
+        assert_eq!(es.bulk_congestion_events(), 1);
+
+        for _ in 0..super::RECOVER_AFTER {
+            es.bulk(BULK.to_vec()).unwrap();
+        }
+        assert_eq!(
+            es.bulk_concurrency_limit(),
+            5,
+            "recovery is additive: one worker back per clean streak, not a reset"
+        );
+        assert_eq!(es.bulk_congestion_events(), 1);
+        server.join().unwrap();
+    }
+
+    /// HTTP 200 whose *items* were rejected 429 is the same congestion
+    /// signal, and must not be counted as a clean bulk.
+    #[test]
+    fn per_item_429_counts_as_congestion_not_as_a_clean_bulk() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = read_request(&mut stream);
+            respond_json(
+                &mut stream,
+                br#"{"errors":true,"items":[{"index":{"status":429,"error":{"type":"es_rejected_execution_exception","reason":"rejected"}}}]}"#,
+            );
+        });
+        let es = client(address, 4);
+        let outcome = es.bulk(BULK.to_vec()).unwrap();
+        assert_eq!(outcome.server_errors, 1);
+        assert_eq!(
+            es.bulk_concurrency_limit(),
+            2,
+            "an item-level 429 must shrink the window too"
+        );
+        server.join().unwrap();
+    }
+
+    /// The window is a real gate, not a counter: once it is full, the next
+    /// bulk waits for a slot instead of being sent anyway.
+    #[test]
+    fn a_full_window_blocks_the_next_bulk_until_a_slot_frees() {
+        let admission = Arc::new(super::BulkAdmission::new(2, false));
+        let first = admission.acquire();
+        let _second = admission.acquire();
+
+        let (tx, rx) = mpsc::channel();
+        let waiter = {
+            let admission = Arc::clone(&admission);
+            std::thread::spawn(move || {
+                let _permit = admission.acquire();
+                tx.send(()).unwrap();
+            })
+        };
+        assert!(
+            rx.recv_timeout(Duration::from_millis(300)).is_err(),
+            "a third bulk must not be admitted into a 2-wide window"
+        );
+        drop(first);
+        rx.recv_timeout(Duration::from_secs(5))
+            .expect("freeing a slot must admit the waiting bulk");
+        waiter.join().unwrap();
+    }
+
+    /// Every worker in flight sees the same congestion; they must count it
+    /// once, or a momentary stall collapses the window to 1.
+    #[test]
+    fn concurrent_reports_of_one_stall_shrink_the_window_once() {
+        let admission = super::BulkAdmission::new(16, false);
+        for _ in 0..8 {
+            admission.on_congestion();
+        }
+        assert_eq!(admission.limit(), 8);
+        assert_eq!(admission.congestion_events(), 1);
+    }
+
+    /// A client that was never given a window has no gate at all: probes and
+    /// one-shot callers must not serialise behind an admission limit.
+    #[test]
+    fn the_window_is_off_unless_a_run_asks_for_one() {
+        let admission = super::BulkAdmission::off();
+        assert_eq!(admission.limit(), 0);
+        let _a = admission.acquire();
+        let _b = admission.acquire();
+        admission.on_congestion();
+        assert_eq!(admission.congestion_events(), 0);
     }
 }

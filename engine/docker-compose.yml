@@ -13,6 +13,14 @@ services:
       - xerj-data:/data
     environment:
       XERJ_LOG: info
+      # The image already sets both (see Dockerfile): xerj defaults to a
+      # loopback bind, which inside a container means nothing published on
+      # `ports:` above would ever answer. Repeated here so the exposure is
+      # visible in the file you actually edit — the published ports are
+      # cleartext HTTP, so put TLS in front of them before this leaves a
+      # trusted network.
+      XERJ_BIND_ADDRESS: "0.0.0.0"
+      XERJ_ALLOW_INSECURE_NETWORK_BIND: "true"
     command: ["--data-dir", "/data"]
 
 volumes:

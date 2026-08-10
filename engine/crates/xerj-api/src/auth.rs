@@ -344,7 +344,12 @@ fn check_minted_key(state: &AppState, id: &str, secret: &str) -> Principal {
             return Principal::Denied;
         }
     }
-    if !constant_time_eq(record.secret.as_bytes(), secret.as_bytes()) {
+    // Issue #201: the stored form is a salted SHA-256 digest, not the
+    // credential. `verify_secret` hashes the presented secret under the
+    // record's salt and compares digests in constant time, and answers `false`
+    // for any record it cannot make sense of — an unmigrated or mangled record
+    // denies rather than falling back to a plaintext compare.
+    if !record.verify_secret(secret) {
         return Principal::Denied;
     }
     if record.roles.is_empty() {

@@ -65,6 +65,195 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default), and detaching an index that exists but is unmanaged is still a
   success — only a name that is not an index is an error.
 
+
+## [1.0.0-rc.14] - 2026-08-10
+
+### Changed
+
+- **One documented core and memory policy, and the worker knobs are live**
+  ([#240](https://github.com/xerj-org/xerj/issues/240)). XERJ had no single
+  answer to "how much of this machine may I take?", and the scattered answers it
+  did have disagreed with each other — and, on Darwin, with the OS.
+  `engine.flush_workers`, `engine.merge_workers` and `engine.search_workers`
+  were documented but inert; they now drive real pool widths, and a value of `0`
+  refuses startup instead of being silently reinterpreted. `--bulk-mb` above 24
+  and `--workers 0` are likewise refused rather than clamped, so a request the
+  engine will not honour fails loudly. Only hand-written configs are affected:
+  the shipped `xerj.default.toml` has no `[engine]` section.
+
+- **One 16 MiB file no longer costs 65 GB of RSS**
+  ([#239](https://github.com/xerj-org/xerj/issues/239)). `split_sections` was
+  quadratic in both time and memory: a 16 MiB text file with no blank line
+  needed **65.6 GB of peak RSS and 16.3 s** to produce 16.8 MB of sections.
+  Now linear — the same input takes **8.3 ms and 35 MB**.
+
+- **BREAKING — `server.bind_address` now defaults to `127.0.0.1`, and a
+  cleartext node refuses to publish itself to the network**
+  ([#228](https://github.com/xerj-org/xerj/issues/228)). The old default was
+  `0.0.0.0` while TLS is off by default, so an out-of-the-box node accepted its
+  admin API key over plain HTTP on every interface the host had — verified on a
+  stock boot, where `curl -H "Authorization: ApiKey …" http://<lan-ip>:9200/…`
+  answered `200` and the same URL over `https` had no listener to hand shake
+  with. Auth being on did not help: the credential *is* the thing on the wire.
+
+  A fresh node is now reachable from its own host and nowhere else. Exposing it
+  is two statements, not zero: set `server.bind_address` (or `--bind` /
+  `XERJ_BIND_ADDRESS`), and — while `tls.enabled = false` — also set
+  `server.allow_insecure_network_bind = true` (env
+  `XERJ_ALLOW_INSECURE_NETWORK_BIND`). Without the second, startup exits
+  non-zero before the data directory is created or a first-run admin key is
+  minted. `--insecure` does not evade it; it clears `tls.enabled`, which is
+  exactly what the check keys on. Same fail-closed shape as
+  [#229](https://github.com/xerj-org/xerj/issues/229), whose TLS-on gRPC check
+  is untouched and cannot be relaxed by this opt-out.
+
+  **Upgrading:** a deployment that relied on the old default becomes
+  unreachable from other hosts until it sets both; one that already wrote
+  `bind_address = "0.0.0.0"` without TLS now fails to start with a message
+  naming the setting that unblocks it. The shipped Docker image, compose file
+  and Helm chart set both, because a container's network namespace is the
+  boundary and its published port is where TLS belongs.
+
+  Two documentation claims that were false as written are now true: the CLI and
+  security pages both said `--insecure` "refuses to run with a non-loopback
+  bind", and it did not — a `--insecure` node on `0.0.0.0` accepted an
+  unauthenticated `PUT /leak/_doc/1` from the LAN (`201`). The startup banner
+  also prints the bind address on every listener line, so a loopback node and a
+  world-facing one no longer look identical.
+
+  A `bind_address` that is not an IP literal is rejected first, ahead of both
+  exposure checks, with the fault it actually has. Host names have never been
+  resolved — the pre-#228 code parsed `"{bind}:{port}"` as a socket address and
+  failed on them too — but the exposure predicates fail closed on anything they
+  cannot parse, so without that ordering `bind_address = "localhost"` was
+  refused with a message asserting that localhost "is not loopback" and would
+  "serve plain HTTP on a network-reachable interface", and pointed at an opt-out
+  that fixed nothing: setting it let the boot run on to the bind and fail there
+  instead, after the data directory, the `.xerj_*` system indices, the master
+  key and a printed first-run `admin.key` already existed.
+
+### Security
+
+- **API key secrets are no longer stored in the clear**
+  ([#201](https://github.com/xerj-org/xerj/issues/201)). `api_keys.json` held
+  the secret verbatim. 0600 plus atomic rename is right for a secret a *process*
+  owns, but a file has more readers than a process: a backup, a snapshot, a
+  container layer, a support bundle, a decommissioned disk. Secrets are now
+  stored as a salted SHA-256 (`$ssha256$<salt>$<digest>`) and compared in
+  constant time, with existing plaintext records migrated on load. The fast hash
+  is deliberate: the secret is two v4 UUIDs — 244 bits of CSPRNG output, never
+  human-chosen — so offline guessing is out of reach whatever the hash costs,
+  while this comparison runs on *every authenticated request*, where an Argon2id
+  would add tens of milliseconds per request and hand out a free CPU-exhaustion
+  DoS. The same release makes `_security/_authenticate` report the key's real
+  identity instead of a hardcoded `superuser`, and gives the audit chain durable
+  storage.
+
+- **The node refuses to start when TLS is on but gRPC would answer in cleartext
+  off-loopback** ([#229](https://github.com/xerj-org/xerj/issues/229)).
+  `tls.enabled = true` encrypted two of the three data-plane listeners; the
+  third never participated, because the gRPC server is built without tonic's
+  `tls` feature. Nothing surfaced it — gRPC clients connected and worked
+  identically either way — so an operator who enabled TLS and bound a network
+  interface got no error, no failed handshake and no symptom, while API keys and
+  document bodies crossed the network in the clear. Auth was never the gap;
+  confidentiality was. Boot now fails closed unless
+  `tls.allow_insecure_grpc_h2c` says otherwise.
+
+### Fixed
+
+- **`multi_match` returns the same hit set before and after `_flush`**
+  ([#218](https://github.com/xerj-org/xerj/issues/218)). The memtable and
+  segment paths disagreed on multi-token semantics, so flushing an index could
+  change which documents a query matched — verified live on a one-document
+  index where an OR query returned 0 hits before `_flush` and 1 after, with ES
+  returning 1 throughout.
+
+- **Dynamic string fields get Elasticsearch's default `.keyword` multi-field**
+  ([#209](https://github.com/xerj-org/xerj/issues/209)). Dynamic mapping
+  inferred every string as bare `text`, so `GET _mapping` never showed a
+  `.keyword` sub-field and `_field_caps` never listed one. Anyone arriving from
+  Elasticsearch — or any tool that reads `_field_caps` for field discovery,
+  Kibana included — could not see that `category.keyword` existed.
+
+- **`min_score` is honoured at `size:0`, and an external scalar N keeps its
+  ghosts** ([#193](https://github.com/xerj-org/xerj/issues/193)). A
+  `size:0 + min_score` body never materialised a hit, so the threshold had
+  nothing to filter and `hits.total` reported the raw match count — measured at
+  **65** where the same query at `size:100` counted **5**. The tie-break
+  comparator item from that issue is deliberately not included here; it belongs
+  with [#191](https://github.com/xerj-org/xerj/issues/191).
+
+- **Index blocks can be removed, `read_only_allow_delete` means what its name
+  says, and a blocked write answers 403 rather than 500.** Three compounding
+  defects: `PUT /_settings` wrote only the display-side map while enforcement
+  read the per-index `settings.json`, so a block was acknowledged, invisible to
+  `GET /_settings`, and — with `_block` registered PUT-only — removable only by
+  restarting with a hand-edited file. The one block that fires automatically did
+  the inverse of its name, and clients hitting any of it were told the server
+  had faulted.
+
+- **`llms.txt` no longer tells agents six things the binary does not do.** The
+  "Running an index for a human" section is executed, not just read: an agent
+  follows it literally and then reports the result to its user. Corrected: the
+  job-size line is not the first line printed; `--dry-run` does not write
+  *nothing* (it creates and locks the state dir and appends a journal record);
+  a dry run reuses a frozen plan instead of re-costing the job, so it is not a
+  floor for the real run; exit `1` is the catch-all for every error, not
+  "endpoint unreachable"; `status` needs the same explicit `--state-dir` the run
+  used; and `--workers`/`--pdf-workers` bound the client-side extractor, not the
+  server (with `--pdf-workers` capped to 1–4).
+
+- **A failed index can now be inspected, deleted and retried without stopping
+  the server** ([#206](https://github.com/xerj-org/xerj/issues/206)). An index
+  directory that refused to open at boot was recorded in a map that only
+  `Engine::health` ever read. Live-reproduced with a corrupt `snapshot.json`:
+  it was absent from `_cat/indices` and `_cluster/state`, `DELETE /{index}`
+  answered `404 index_not_found` and left the bytes on disk, and the only
+  recovery was to stop the server and edit the data directory by hand. A
+  failed index is now a real state: listed as `red` in `_cat/indices`, present
+  in `_cluster/state` as an `UNASSIGNED` primary with `ALLOCATION_FAILED` and
+  the verbatim open error, enumerated with its reason by
+  `GET /_cluster/indices/failed`, reopenable via
+  `POST /_cluster/indices/failed/{name}/_retry` once the cause is fixed, and
+  deletable through the ordinary `DELETE /{index}`. Searches, writes and
+  creates against it return `503 no_shard_available_action_exception` carrying
+  the reason instead of a `404` that claimed it did not exist, while the
+  metadata surfaces — `GET /{index}`, `HEAD /{index}` (the `indices.exists()`
+  every ES client calls), `_mapping`, `_settings`, `_cat/indices` — report it
+  as an index that exists, the way ES answers those from cluster metadata
+  rather than from a shard. Before this, `HEAD` said the name was free and the
+  following `PUT` said it was unavailable.
+
+  Two related defects in the same report are fixed with it. **Readiness no
+  longer hard-fails on a partly degraded node** — `/health/ready` returned
+  `503` for any red status, so one broken index pulled a pod holding 200
+  healthy ones out of service permanently; it now reports `200 ready
+  (degraded)` while the node can still serve something and `503` only when
+  every index it holds failed to open. And **`_cat/health` no longer prints a
+  hardcoded `green`** — the one health surface an existing ES dashboard points
+  at was the one that could not report a broken node; it and `_cluster/health`
+  now count an unopenable index as an unassigned primary, agreeing with
+  `/v1/health` and `/v1/cluster/health`.
+
+  Because `red` is now reachable on `_cluster/health` for the first time, the
+  two conditions that gate on it are consulted rather than assumed:
+  `wait_for_active_shards=all` and `wait_for_status=green|yellow` both answer
+  `408` with `timed_out: true` on a red node instead of `200 timed_out: false`.
+  `GET /_cluster/health?wait_for_status=green&timeout=30s` is the bootstrap gate
+  every docker healthcheck, CI wait loop and Kibana startup uses; a red node
+  used to sail straight through it. A green or yellow cluster is unaffected.
+
+- **A `DELETE /{index}` that could not remove the bytes no longer strands the
+  index.** The open-index path pulled the handle out of the engine before
+  `remove_dir_all`, so a removal that failed (read-only mount, `EACCES`) freed
+  the name while the directory survived: no handle, no failed-index entry,
+  nothing on `_cat/indices`, and the next `DELETE` answered `404` — the same
+  dead end as [#206](https://github.com/xerj-org/xerj/issues/206), reached from
+  the other side. The handle is now restored on failure, so the index stays in
+  service and addressable and the operator can retry the delete once the cause
+  is fixed.
+
 - **`autoindex` no longer leaves immortal catalog entries for skipped files**
   ([#238](https://github.com/xerj-org/xerj/issues/238)). A file added after the
   resume plan was frozen is skipped and reported in the catalog — but that
@@ -101,6 +290,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the comment now says so; `XERJ_LIBC=gnu` opts into the glibc build.
 
 ### Added
+
+- **`autoindex` reports real progress, an honest percent and an ETA — no run is
+  silent** ([#241](https://github.com/xerj-org/xerj/issues/241)). Between 47%
+  and 64% of a typical run produced no output at all, which is the worst
+  possible behaviour for the two audiences that matter: a person watching a
+  laptop they cannot use, and an AI agent that has gone quiet on that person's
+  behalf. Progress now covers phase, items done and total, rate and ETA, in both
+  modes — a terminal gets a live redrawn line, a pipe gets periodic structured
+  `xerj-progress` lines an agent can parse, and every run ends with a single
+  `xerj-done` summary. The percent is bytes-based so a large file cannot make it
+  stall at 99%, the first ETA is withheld for five seconds and labelled `rough`
+  until there is enough evidence for it, and the line names the file currently
+  being waited on. `--quiet` still produces exactly nothing on either stream,
+  and `--progress none` is honoured everywhere — the resource policy's own
+  startup notes were moved onto the same surface so they cannot leak into
+  `--progress json`'s single parseable stream.
 
 - **`/get` and `/get.ps1` are counted.** `functions/get.js` (a Cloudflare Pages
   Function) serves the installer straight out of `landing/get`, unchanged, and

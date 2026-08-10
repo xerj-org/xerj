@@ -19,12 +19,14 @@
 //! - [`schema`]  — Index schema management and mapping evolution
 //! - [`metrics`] — Prometheus counters, histograms, and gauges
 //! - [`net`]     — Network trust primitives (trusted-proxy CIDR matching)
+//! - [`resource`] — The machine-resource policy: cores, memory budget, thread priority
 
 pub mod config;
 pub mod error;
 pub mod fsio;
 pub mod metrics;
 pub mod net;
+pub mod resource;
 pub mod schema;
 pub mod types;
 

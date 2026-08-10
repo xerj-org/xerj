@@ -69,6 +69,36 @@ impl Role {
         }
     }
 
+    /// The `role_descriptors` key this role came from, with the per-entry
+    /// index [`roles_from_role_descriptors`] appends stripped off.
+    ///
+    /// That function fans one descriptor out into one [`Role`] per `indices`
+    /// entry and names them `"{descriptor}[{i}]"`, because the privileges and
+    /// patterns differ per entry and the names have to stay distinct. `name`
+    /// is therefore an internal identifier, not something a caller ever wrote.
+    /// This is its inverse, and it lives here — beside the encoder — so the
+    /// two cannot drift apart.
+    ///
+    /// Used by `GET /_security/_authenticate` to report the names the caller
+    /// actually supplied (`reader`), not the encoding (`reader[0]`).
+    ///
+    /// Strips only a trailing `[<digits>]`, so a descriptor legitimately named
+    /// `weird[x]` or `weird[]` comes back unchanged rather than mangled. A
+    /// role built by any other means (the seeded [`RoleStore`] entries, a test)
+    /// has no suffix and is returned as-is.
+    pub fn descriptor_name(&self) -> &str {
+        let Some(open) = self.name.rfind('[') else {
+            return &self.name;
+        };
+        let Some(digits) = self.name[open + 1..].strip_suffix(']') else {
+            return &self.name;
+        };
+        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return &self.name;
+        }
+        &self.name[..open]
+    }
+
     /// Does this role apply to the named index?  Glob: "*" matches
     /// everything; literal names must match exactly; suffix-`*` (e.g.
     /// `logs-*`) matches by prefix.
@@ -349,6 +379,53 @@ mod tests {
         assert!(!roles
             .iter()
             .any(|r| r.allows("anything", Privilege::ReadIndex)));
+    }
+
+    /// `descriptor_name` must be the exact inverse of the `"{name}[{i}]"`
+    /// encoding `roles_from_role_descriptors` applies — that is what
+    /// `GET /_security/_authenticate` reports, so a mismatch shows a caller a
+    /// role name it never wrote.
+    #[test]
+    fn descriptor_name_inverts_the_per_entry_suffix() {
+        let roles = roles_from_role_descriptors(&serde_json::json!({
+            "alice-brain": {
+                "indices": [
+                    { "names": [".xerj-memory-alice-edges"], "privileges": ["read"] },
+                    { "names": [".xerj-memory-alice"], "privileges": ["read"] }
+                ]
+            }
+        }));
+        assert_eq!(roles.len(), 2);
+        assert_eq!(roles[0].name, "alice-brain[0]");
+        assert_eq!(roles[1].name, "alice-brain[1]");
+        // Both entries came from the one descriptor the caller named.
+        for r in &roles {
+            assert_eq!(r.descriptor_name(), "alice-brain");
+        }
+
+        // Only a trailing `[<digits>]` is a suffix we produced. Anything else
+        // is part of the name the caller chose and must survive untouched —
+        // stripping it would rename someone's role behind their back.
+        for name in [
+            "plain",
+            "weird[x]",
+            "weird[]",
+            "trailing[",
+            "]leading",
+            "nested[0][a]",
+        ] {
+            let r = Role::new(name, HashSet::new(), vec![]);
+            assert_eq!(r.descriptor_name(), name, "{name} must not be rewritten");
+        }
+        // …and ones that genuinely are our encoding, on awkward base names.
+        let r = Role::new("has[brackets][2]", HashSet::new(), vec![]);
+        assert_eq!(r.descriptor_name(), "has[brackets]");
+        // JSON permits `"role_descriptors": {"": {...}}`, which encodes to
+        // `"[0]"`. Inverting it to the empty name is faithful — that is what
+        // the caller wrote — and is why this is an inverse rather than a
+        // prettifier.
+        let r = Role::new("[0]", HashSet::new(), vec![]);
+        assert_eq!(r.descriptor_name(), "");
     }
 
     #[test]

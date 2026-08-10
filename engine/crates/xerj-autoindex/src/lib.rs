@@ -14,6 +14,9 @@ pub mod esclient;
 pub mod extract;
 pub mod ids;
 pub mod infer;
+pub mod pool;
+pub mod progress;
+pub mod resources;
 pub mod sniff;
 pub mod state;
 pub mod walk;
@@ -32,6 +35,7 @@ use cli::{Cmd, IndexCfg, MapCfg, StatusCfg};
 // `Box<dyn EdgeDetector>` like the registry entries).
 use detect::EdgeDetector as _;
 use esclient::Es;
+use progress::Progress;
 use sniff::{Family, Sniffed};
 use state::{DuplicateFile, FileAssignment, FileDone, JunkFile, Plan, PlanDataset};
 
@@ -391,7 +395,9 @@ mod phase_a_grouping_tests {
             url: "http://unused.invalid".into(),
             api_key: None,
             workers: 1,
+            scan_workers: 1,
             pdf_workers: 1,
+            resource_notes: Vec::new(),
             pdf_timeout_secs: 10,
             bulk_mb: 1,
             bulk_timeout_secs: 10,
@@ -407,6 +413,8 @@ mod phase_a_grouping_tests {
             dry_run: true,
             json: false,
             quiet: true,
+            progress: crate::progress::ProgressMode::None,
+            progress_interval: None,
         }
     }
 
@@ -417,7 +425,15 @@ mod phase_a_grouping_tests {
             .map(|f| ids::file_key(&f.path, f.size).unwrap())
             .collect();
         let digests: Vec<String> = (0..files.len()).map(|i| format!("d{i}")).collect();
-        let (plan, _) = build_phase_a(root, &files, &keys, &digests, Vec::new(), &cfg_for(root));
+        let (plan, _) = build_phase_a(
+            root,
+            &files,
+            &keys,
+            &digests,
+            Vec::new(),
+            &cfg_for(root),
+            &Progress::silent(),
+        );
         plan
     }
 
@@ -589,12 +605,22 @@ fn build_phase_a(
     digests: &[String],
     duplicate_files: Vec<DuplicateFile>,
     cfg: &IndexCfg,
+    pr: &Progress,
 ) -> (Plan, Vec<dataset::Cluster>) {
     use rayon::prelude::*;
-    let scans: Vec<FileScan> = files
-        .par_iter()
-        .map(|f| scan_file(&f.path, f.size, cfg.sample, cfg.max_file_gb))
-        .collect();
+    // Same pool as the digest phase: sniffing and sampling are the other half
+    // of the CPU-bound phase `--workers` has to bound (#240 §2). Progress is
+    // reported from inside that pool, so the straggler the ticker names is the
+    // file a scan-pool thread is genuinely sitting on (#241).
+    let scans: Vec<FileScan> = crate::pool::install(|| {
+        files
+            .par_iter()
+            .map(|f| {
+                let _in_flight = pr.file(&f.rel, f.size);
+                scan_file(&f.path, f.size, cfg.sample, cfg.max_file_gb)
+            })
+            .collect()
+    });
 
     let rels: Vec<String> = files.iter().map(|f| f.rel.clone()).collect();
     let scopes = compute_scopes(root, &rels);
@@ -828,7 +854,8 @@ fn select_resume_plan_keys(
                 // replacement transaction on one ax_file key and delete each
                 // other's freshly published documents. Divert this file to a
                 // deterministic path-derived key, the same discriminator scheme
-                // content::resolve uses for byte-proven digest collisions.
+                // content::resolve_reporting uses for byte-proven digest
+                // collisions.
                 Some(format!(
                     "{content_key}-claimed-{:032x}",
                     xxhash_rust::xxh3::xxh3_128(file.rel_id.as_bytes())
@@ -905,37 +932,80 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
 /// `None` when the run ended before a plan produced one (empty folder,
 /// `--dry-run`).
 pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
+    // Fix the phase-A pool width BEFORE anything parallel starts: hashing and
+    // sniffing are the CPU-bound phase, and they used to take every core no
+    // matter what the caller asked for (#240 §2).
+    pool::configure(cfg.scan_workers);
+    // What phase A is *actually* running on. `pool::configure` is first-call-wins
+    // (rayon pools cannot be resized), so in a process that already indexed once
+    // — `xerj-server`'s brain endpoint does exactly that — the installed width
+    // can differ from what this run's plan asked for. Progress must state the
+    // number the policy got, not the one it requested (#240 + #241).
+    let scan_threads = pool::scan_pool().current_num_threads();
     extract::pdf::configure_workers(cfg.pdf_workers);
     extract::pdf::configure_timeout(cfg.pdf_timeout_secs);
     let t0 = Instant::now();
-    if !cfg.quiet {
-        eprintln!(
-            "autoindex: bulk HTTP request timeout: {}s",
-            cfg.bulk_timeout_secs
-        );
+    // The progress surface and its ticker are the FIRST things built: every
+    // later phase reports through them, and the ticker guarantees the stream
+    // closes with a terminal line even if this function bails (#241). The
+    // resource plan is announced through the same surface rather than through a
+    // bare `eprintln!`, so `--quiet` / `--progress none` still means silent and
+    // `--progress json` still means one machine-readable stream (#240 + #241).
+    let surface = progress::detect(cfg.progress);
+    let pr = Progress::new(
+        surface,
+        cfg.progress_interval
+            .unwrap_or_else(|| progress::default_interval(surface)),
+    );
+    let ticker = pr.spawn_ticker();
+    // What this run decided to take from the machine, before it takes it.
+    pr.note(&format!(
+        "autoindex: {} scan threads, {} index workers, {} pdf workers, --bulk-mb {} [{}]",
+        scan_threads,
+        cfg.workers,
+        cfg.pdf_workers,
+        cfg.bulk_mb,
+        xerj_common::resource::describe(),
+    ));
+    for note in &cfg.resource_notes {
+        pr.note(&format!("autoindex: {note}"));
     }
-    let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?;
+    pr.note(&format!(
+        "autoindex: bulk HTTP request timeout: {}s",
+        cfg.bulk_timeout_secs
+    ));
+    // The run's bulk load is admitted through one window `--workers` wide, so
+    // a 429 can shrink what the run offers instead of only delaying it
+    // (#240 §8). Enabled here and nowhere else: probes have nothing to
+    // throttle. Its shrink/recover announcements go to stderr, which the
+    // progress surface owns — so they are emitted exactly when that surface is
+    // enabled, not merely when `--quiet` is absent.
+    let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?
+        .with_bulk_concurrency(cfg.workers, pr.enabled());
     es.ping()?;
 
+    // Totals are unknown until the walk returns, so this phase honestly
+    // reports `pct=unknown` and proves liveness with the clock alone.
+    pr.phase("walk", 0, 0);
     let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
     if discovered_files.is_empty() {
         println!("no files found under {}", cfg.root.display());
+        pr.finish(true, 0, "no-files", &[]);
         return Ok((0, None));
     }
+    let discovered_bytes: u64 = discovered_files.iter().map(|f| f.size).sum();
     let root_str = cfg
         .root
         .canonicalize()
         .unwrap_or_else(|_| cfg.root.clone())
         .to_string_lossy()
         .to_string();
-    if !cfg.quiet {
-        eprintln!(
-            "autoindex: {} files ({} MB) under {}",
-            discovered_files.len(),
-            discovered_files.iter().map(|f| f.size).sum::<u64>() / (1 << 20),
-            root_str
-        );
-    }
+    pr.note(&format!(
+        "autoindex: {} files ({} MB) under {}",
+        discovered_files.len(),
+        discovered_bytes / (1 << 20),
+        root_str
+    ));
 
     let state_dir = cfg
         .state_dir
@@ -951,18 +1021,21 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     )?;
     let resumed_with_plan = journal.plan.is_some();
     let run_id = journal.run_id.clone();
-    if journal.resumed && !cfg.quiet {
-        eprintln!(
+    if journal.resumed {
+        pr.note(&format!(
             "resuming from journal {} ({} files already done)",
             journal.path().display(),
             journal.done.len()
-        );
+        ));
     }
     // Full hashing on every run is deliberate: size/mtime/inode fingerprints
     // cannot prove byte identity across all supported local and network
     // filesystems. A metadata-only shortcut could leave stale live documents
     // forever after a same-size rewrite with restored or stale timestamps.
-    let mut inventory = content::resolve(discovered_files)?;
+    // Hashing reads every byte of the corpus. On a large tree it is minutes of
+    // real work, and before #241 it was minutes with no output at all.
+    pr.phase("hash", discovered_files.len() as u64, discovered_bytes);
+    let mut inventory = content::resolve_reporting(discovered_files, &|bytes| pr.item_done(bytes))?;
     let journal_path = journal.path().to_path_buf();
     let mut content_changed = std::collections::HashSet::new();
     let mut stale_alias_ids = Vec::new();
@@ -1091,19 +1164,20 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let digests = inventory.digests;
     let duplicate_files = inventory.duplicates;
     let paths_discovered = files.len() + duplicate_files.len();
-    if !duplicate_files.is_empty() && !cfg.quiet {
-        eprintln!(
+    let planned_bytes: u64 = files.iter().map(|f| f.size).sum();
+    if !duplicate_files.is_empty() {
+        pr.note(&format!(
             "autoindex: {} byte-identical duplicate path(s) will reuse canonical content",
             duplicate_files.len()
-        );
+        ));
         for duplicate in duplicate_files.iter().take(10) {
-            eprintln!(
+            pr.note(&format!(
                 "  duplicate: {} → {}",
                 duplicate.rel, duplicate.duplicate_of
-            );
+            ));
         }
         if duplicate_files.len() > 10 {
-            eprintln!("  … and {} more", duplicate_files.len() - 10);
+            pr.note(&format!("  … and {} more", duplicate_files.len() - 10));
         }
     }
 
@@ -1112,9 +1186,14 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let mut plan: Plan = if let Some(p) = journal.plan.clone() {
         p
     } else {
-        if !cfg.quiet {
-            eprintln!("phase A: sniffing + sampling {} files…", files.len());
-        }
+        pr.phase("scan", files.len() as u64, planned_bytes);
+        // Named with the width phase A is really running at: `--workers` only
+        // started governing this phase in #240, so "how wide is it right now"
+        // is exactly the question the reader has.
+        pr.note(&format!(
+            "phase A: sniffing + sampling {} files with {scan_threads} threads…",
+            files.len()
+        ));
         let (plan, clusters) = build_phase_a(
             &cfg.root,
             &files,
@@ -1122,14 +1201,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &digests,
             duplicate_files.clone(),
             &cfg,
+            &pr,
         );
-        if !cfg.quiet {
-            eprintln!(
-                "phase A: {} datasets inferred, {} junk/skipped files",
-                plan.datasets.len(),
-                plan.junk_files.len()
-            );
-        }
+        pr.note(&format!(
+            "phase A: {} datasets inferred, {} junk/skipped files",
+            plan.datasets.len(),
+            plan.junk_files.len()
+        ));
         clusters_rt = Some(clusters);
         plan
     };
@@ -1167,7 +1245,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
     if cfg.dry_run {
         println!("{}", serde_json::to_string_pretty(&plan)?);
-        eprintln!("(dry run — nothing indexed)");
+        pr.note("(dry run — nothing indexed)");
+        pr.finish(true, 0, "dry-run", &[("files", files.len() as u64)]);
         return Ok((0, None));
     }
 
@@ -1187,6 +1266,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     }
 
     // ── create indices with explicit mappings ────────────────────────────
+    // Two round trips per dataset; a 135-dataset plan is a real wait.
+    pr.phase("prepare", plan.datasets.len() as u64, 0);
     for d in &plan.datasets {
         es.ensure_index(&d.index, &build_mapping(&d.specs))
             .with_context(|| format!("create index {}", d.index))?;
@@ -1195,6 +1276,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &json!({"properties": {"ax_paths": {"type": "keyword"}}}),
         )
         .with_context(|| format!("upgrade alias-path mapping for {}", d.index))?;
+        pr.item_done(0);
     }
     es.ensure_index(catalog::CATALOG_INDEX, &catalog::catalog_mapping())?;
     es.update_mapping(
@@ -1335,6 +1417,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let graph: Option<GraphRt> = if cfg.no_graph {
         None
     } else {
+        pr.phase("graph", files.len() as u64, 0);
         let brain = match &cfg.brain {
             Some(b) => b.clone(),
             None => derive_brain_name(&cfg.root),
@@ -1374,6 +1457,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             corpus_files.push(detect::corpus_file(
                 &f.rel, key, &slug, &fa.family, mtime_ms,
             ));
+            pr.item_done(0);
         }
         let corpus = detect::CorpusIndex::build(corpus_files);
         let detectors = detect::default_detectors();
@@ -1446,15 +1530,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 anyhow::bail!("write structural graph edges to {edges_index}: {e}");
             }
         }
-        if !cfg.quiet {
-            eprintln!(
-                "graph: brain '{brain}' → {edges_index}; {} structural edges, {} prior edges \
-                 invalidated ({} detectors live)",
-                assembled.edges.len(),
-                invalidated,
-                detectors.len()
-            );
-        }
+        pr.note(&format!(
+            "graph: brain '{brain}' → {edges_index}; {} structural edges, {} prior edges \
+             invalidated ({} detectors live)",
+            assembled.edges.len(),
+            invalidated,
+            detectors.len()
+        ));
         Some(GraphRt {
             corpus,
             detectors,
@@ -1472,12 +1554,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // start first and can't serialize the end of the run.
     todo.sort_by_key(|&i| files[i].size);
     let n_todo = todo.len();
-    if !cfg.quiet {
-        eprintln!(
-            "phase B: indexing {} files with {} workers → {}",
-            n_todo, cfg.workers, cfg.url
-        );
-    }
+    // Percent and ETA are bytes-based, never file-count-based. The queue is
+    // biggest-first, so a files-done percent races to ~100% and then sits
+    // there for minutes on the one big file still in flight (#241 §5/§6).
+    let todo_bytes: u64 = todo.iter().map(|&i| files[i].size).sum();
+    pr.phase("index", n_todo as u64, todo_bytes);
+    pr.note(&format!(
+        "phase B: indexing {} files with {} workers → {}",
+        n_todo, cfg.workers, cfg.url
+    ));
 
     let queue = Mutex::new(todo);
     let mut paths_by_key: HashMap<String, Vec<String>> = files
@@ -1509,6 +1594,11 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                         None => break,
                     };
                     let f = &files[i];
+                    // Counts this file done on EVERY exit path below, junk
+                    // included: progress measures work drained from the queue,
+                    // and a `continue` that skipped the count would park the
+                    // bar short of 100% forever.
+                    let _in_flight = pr.file(&f.rel, f.size);
                     let key = &keys[i];
                     let expected_digest = &digests[i];
                     let fa = plan.files.get(key).unwrap();
@@ -1945,10 +2035,10 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             continue;
                         }
                     }
-                    let dn = files_done.fetch_add(1, Ordering::Relaxed) + 1;
-                    if !cfg.quiet && (dn.is_multiple_of(200) || f.size > 5 * (1 << 20)) {
-                        eprintln!("  [{dn}/{n_todo}] {} ({} records)", f.rel, file_records);
-                    }
+                    // Workers no longer print. A worker can block for minutes
+                    // inside one file, so a worker-driven heartbeat cannot
+                    // bound silence; the ticker thread can, and does.
+                    files_done.fetch_add(1, Ordering::Relaxed);
                 }
             });
         }
@@ -1963,9 +2053,11 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // and edges over a half-read corpus would be edges over a lie.
     if let Some(gr) = &graph {
         if bulk_errors.lock().unwrap().is_empty() {
+            pr.phase("graph-corpus", gr.detectors.len() as u64, 0);
             let mut drafts = Vec::new();
             for det in &gr.detectors {
                 det.detect_corpus(&gr.corpus, &mut drafts);
+                pr.item_done(0);
             }
             if !drafts.is_empty() {
                 let out = detect::assemble(&drafts, &gr.edges_index, gr.created_at_ms);
@@ -2017,16 +2109,27 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     }
 
     // ── finalize: refresh, verify, correlate, catalog ────────────────────
+    //
+    // This block was 47-64% of every measured run and emitted NOTHING between
+    // the last phase-B line and the final summary (#241 §1). Its work is fully
+    // countable before each loop starts, so it is reported like any other
+    // phase — split into named sub-phases because the mix of one-shot refreshes
+    // and per-dataset round trips has no single honest denominator.
+    pr.phase("finalize-refresh", 1 + graph.is_some() as u64, 0);
     es.refresh(&format!("{}-*", cfg.prefix)).ok();
+    pr.item_done(0);
     // The dot-prefixed edges index is outside the {prefix}-* pattern.
     if let Some(gr) = &graph {
         es.refresh(&gr.edges_index).ok();
+        pr.item_done(0);
     }
 
     // live per-dataset counts + time ranges (every claim traces to a run)
+    pr.phase("finalize-count", plan.datasets.len() as u64, 0);
     let mut ds_counts: HashMap<String, u64> = HashMap::new();
     let mut ds_timerange: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
     for d in &plan.datasets {
+        let _counted = pr.file(&d.index, 0);
         let cnt = es.count(&d.index).unwrap_or(0);
         ds_counts.insert(d.slug.clone(), cnt);
         if let Some(t) = &d.time_field {
@@ -2110,18 +2213,33 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             }
         }
         key_corrs = correlate::key_overlaps(&cands);
+        // One live query per candidate overlap, and the bound is known before
+        // the loop starts — `phase=finalize-correlate items=37/135` needs no
+        // new bookkeeping at all (#241 §8).
+        pr.phase("finalize-correlate", key_corrs.len() as u64, 0);
         for c in key_corrs.iter_mut() {
+            let _query = pr.file(
+                &format!("{}.{} ~ {}.{}", c.a_slug, c.a_field, c.b_slug, c.b_field),
+                0,
+            );
             correlate::confirm(&es, c, 20).ok();
         }
         // keep only live-confirmed overlaps in the report
         key_corrs.retain(|c| c.confirmed.map(|(n, _)| n > 0).unwrap_or(false));
-    } else if !cfg.quiet {
-        eprintln!("(resumed run: key-overlap correlations kept from the original run's catalog)");
+    } else {
+        pr.note("(resumed run: key-overlap correlations kept from the original run's catalog)");
     }
 
+    let timed: Vec<&PlanDataset> = plan
+        .datasets
+        .iter()
+        .filter(|d| d.time_field.is_some())
+        .collect();
+    pr.phase("finalize-histogram", timed.len() as u64, 0);
     let mut series = Vec::new();
-    for d in &plan.datasets {
+    for d in timed {
         if let Some(t) = &d.time_field {
+            let _query = pr.file(&d.index, 0);
             if let Ok(Some(s)) = correlate::fetch_histogram(&es, &d.slug, &d.index, t) {
                 series.push(s);
             }
@@ -2133,7 +2251,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // Alias IDs changed as identity evolved. Remove by logical path first so
     // catalogs created by any previous identity scheme cannot survive beside
     // the one current alias document.
+    pr.phase(
+        "finalize-catalog",
+        alias_paths_to_replace.len() as u64 + 1,
+        0,
+    );
     for path in &alias_paths_to_replace {
+        let _delete = pr.file(path, 0);
         es.delete_by_query(
             catalog::CATALOG_INDEX,
             &json!({
@@ -2373,6 +2497,27 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "records_submitted_this_run": records_total.load(Ordering::Relaxed),
         "wall_seconds": (wall * 10.0).round() / 10.0,
         "workers": cfg.workers,
+        // The whole resource decision, so a run can be explained after the
+        // fact from its own summary rather than from the machine it ran on.
+        // `scan_workers` is the width phase A actually ran at — see the
+        // first-call-wins note at the top of this function; a requested width
+        // that lost that race would make the summary a record of an intention
+        // rather than of a run.
+        "scan_workers": scan_threads,
+        "pdf_workers": cfg.pdf_workers,
+        "bulk_mb": cfg.bulk_mb,
+        "cores_available": xerj_common::resource::cores(),
+        // `null` on a platform with no RAM probe — the summary reports what the
+        // run actually knew, never a stand-in number (#240).
+        "memory_safe_zone_mb": xerj_common::resource::memory_safe_zone_bytes()
+            .map(|b| b / (1024 * 1024)),
+        // What the server's backpressure did to the offered load. A final
+        // limit below `workers` means this run met real congestion and
+        // answered it, which is the difference between a slow run and a run
+        // that was making the machine worse (#240 §8).
+        "bulk_concurrency_final": es.bulk_concurrency_limit(),
+        "bulk_congestion_events": es.bulk_congestion_events(),
+        "resource_notes": cfg.resource_notes,
         "semantic": !cfg.no_semantic,
     });
     if let Some(g) = &graph_summary {
@@ -2398,6 +2543,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         }
     }
     es.refresh(catalog::CATALOG_INDEX).ok();
+    pr.item_done(0);
     // ── durable junk record, written last (#238) ─────────────────────────
     //
     // Only now is the plan allowed to claim what the catalog holds: the
@@ -2476,6 +2622,26 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     } else {
         0
     };
+    // Terminal line, in every progress mode but `none` (which `--quiet`
+    // selects, and which prints nothing by definition). Exit 3 means
+    // "completed, some files were unparseable" — success — and an agent reading
+    // a bare `3` off a silent stream reads failure (#241 §9). Say it in words.
+    pr.finish(
+        true,
+        code,
+        if code == 3 {
+            "completed-with-junk"
+        } else {
+            "completed"
+        },
+        &[
+            ("files", files_done.load(Ordering::Relaxed)),
+            ("records", total_records),
+            ("datasets", plan.datasets.len() as u64),
+            ("junk_files", junk_file_count as u64),
+        ],
+    );
+    drop(ticker);
     Ok((code, Some(run_doc)))
 }
 
@@ -2773,7 +2939,7 @@ mod duplicate_integration_tests {
         fs::write(corpus.path().join("a.txt"), a).unwrap();
         fs::write(corpus.path().join("b.txt"), b).unwrap();
         let files = walk::walk(corpus.path(), false).unwrap();
-        let inventory = content::resolve(files.clone()).unwrap();
+        let inventory = content::resolve_reporting(files.clone(), &|_| {}).unwrap();
         let legacy = ids::file_key(&files[0].path, files[0].size).unwrap();
         assert_eq!(
             legacy,
@@ -2809,7 +2975,8 @@ mod duplicate_integration_tests {
         // with — so b.txt's content key IS the planned key a.txt claims by rel.
         fs::write(corpus.path().join("a.txt"), b"rewritten content\n").unwrap();
         fs::write(corpus.path().join("b.txt"), b"original planned content\n").unwrap();
-        let inventory = content::resolve(walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let inventory =
+            content::resolve_reporting(walk::walk(corpus.path(), false).unwrap(), &|_| {}).unwrap();
         let planned_key = inventory.keys[1].clone();
         let mut plan = Plan::default();
         plan.files
@@ -2880,7 +3047,7 @@ mod duplicate_integration_tests {
         fs::write(corpus.path().join("report-copy.txt"), body).unwrap();
 
         let discovered = walk::walk(corpus.path(), false).unwrap();
-        let inventory = content::resolve(discovered).unwrap();
+        let inventory = content::resolve_reporting(discovered, &|_| {}).unwrap();
         assert_eq!(inventory.files.len(), 1);
         assert_eq!(inventory.duplicates.len(), 1);
 
@@ -2952,7 +3119,8 @@ mod duplicate_integration_tests {
         }
         fs::write(&path, csv).unwrap();
 
-        let inventory = content::resolve(walk::walk(corpus.path(), false).unwrap()).unwrap();
+        let inventory =
+            content::resolve_reporting(walk::walk(corpus.path(), false).unwrap(), &|_| {}).unwrap();
         let expected_size = inventory.files[0].size;
         let expected_digest = inventory.digests[0].clone();
         let sniffed = sniff::sniff(&path).unwrap();

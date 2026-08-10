@@ -156,7 +156,10 @@ $ xerj --version</pre>
 <pre class="code"># /etc/xerj/xerj.toml
 [server]
 rest_port    = 8080
+# Default is "127.0.0.1" (loopback only). Exposing the node while TLS is off
+# needs the second line too, or startup refuses.
 bind_address = "0.0.0.0"
+allow_insecure_network_bind = true
 data_dir     = "/var/lib/xerj"
 
 [auth]

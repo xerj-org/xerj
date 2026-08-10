@@ -246,10 +246,19 @@ curl localhost:9200/ax-*/_search -H 'Content-Type: application/json' \
 ```
 
 Useful knobs (all optional): `--url` for a non-default endpoint, `--workers N`
-(default min(cores, 8)), `--prefix` to namespace the indices (default `ax`),
+(the *default* is every core, reduced when the memory safe zone cannot pay for
+that many in-flight bulk buffers; a value you pass is honoured as typed and the
+disagreement is printed, not applied; bounds both the scan and the indexing
+phase), `--prefix` to namespace the indices (default `ax`),
 `--no-semantic` for pure BM25+keyword without vector fields, `--dry-run` to
 print the inferred plan without indexing anything, `--follow-symlinks`
 (loop-safe), `--sample N` records per file for inference (default 500).
+
+`--workers` is a ceiling, not a promise: when the server answers `429 Too Many
+Requests` the run halves its own bulk concurrency on the spot and probes back
+up one worker at a time only after a clean streak, so a busy server is not
+handed the same load six times over. The run's summary records where it ended
+up (`bulk_concurrency_final`, `bulk_congestion_events`).
 
 Your dataset names, field types, and counts will reflect *your* folder — that
 is the point. The behaviors shown here (decimal-comma → `double`, date

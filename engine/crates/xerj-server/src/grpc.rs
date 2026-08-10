@@ -338,7 +338,8 @@ impl XerjSearch for GrpcService {
 /// shared [`xerj_api::auth::is_authorized`] decision. Without it the gRPC
 /// listener was fully unauthenticated even with `auth.enabled = true`: any
 /// client on the network could read, write, and delete documents (the listener
-/// binds `server.bind_address`, default `0.0.0.0`).
+/// binds `server.bind_address`, which since issue #228 defaults to loopback —
+/// but is `0.0.0.0` in every deployment that exposes the node at all).
 ///
 /// The credential is read from the `authorization` request metadata
 /// (`ApiKey <key>` or `Bearer <key>`), mirroring the HTTP `Authorization`
@@ -699,15 +700,7 @@ mod tests {
     fn mint_key(state: &AppState, id: &str, roles: Vec<xerj_engine::rbac::Role>) -> String {
         state.engine.persist_api_key(
             id.to_string(),
-            xerj_engine::engine::ApiKeyRecord {
-                name: id.to_string(),
-                secret: "s3cret".into(),
-                creation_ms: 0,
-                expiration_ms: None,
-                invalidated: false,
-                invalidation_ms: None,
-                roles,
-            },
+            xerj_engine::engine::ApiKeyRecord::new(id, "s3cret", 0, None, roles),
         );
         format!("ApiKey {}", b64(&format!("{id}:s3cret")))
     }

@@ -23,6 +23,9 @@ tracing.workspace = true
 bytes.workspace = true
 byteorder.workspace = true
 prometheus.workspace = true
+# Machine probes for `resource`: sysconf/sysctl/setpriority. No abstraction
+# layer buys anything here — the calls differ per platform by design.
+libc = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true

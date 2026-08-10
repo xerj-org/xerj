@@ -272,21 +272,54 @@ impl Config {
         )
     }
 
+    /// `server.bind_address` as an [`IpAddr`](std::net::IpAddr), or `None` if
+    /// it is not an IP literal.
+    ///
+    /// The single place the setting is interpreted, so every caller agrees on
+    /// what it means. Surrounding brackets are accepted and stripped: a v6
+    /// address is conventionally written `[::1]` next to a port, and an
+    /// operator who copies that form into the config should not get a
+    /// different answer than one who writes `::1`.
+    ///
+    /// Listeners must be composed with [`std::net::SocketAddr::new`] from this
+    /// rather than by formatting `"{bind}:{port}"` — `"::1:9200"` is not a
+    /// parseable socket address, which is how a `bind_address = "::1"` node
+    /// used to fail at bind time with `invalid socket address syntax` after
+    /// it had already created its data directory and printed a first-run link.
+    pub fn bind_ip(&self) -> Option<std::net::IpAddr> {
+        let raw = self.server.bind_address.trim();
+        let raw = raw
+            .strip_prefix('[')
+            .and_then(|r| r.strip_suffix(']'))
+            .unwrap_or(raw);
+        raw.parse::<std::net::IpAddr>().ok()
+    }
+
+    /// `server.bind_address` and `port` as a bindable socket address.
+    pub fn socket_addr(&self, port: u16) -> Option<std::net::SocketAddr> {
+        self.bind_ip().map(|ip| std::net::SocketAddr::new(ip, port))
+    }
+
     /// Is `server.bind_address` confined to the local host?
     ///
     /// Only a loopback literal counts. `0.0.0.0` and `::` are *unspecified*,
     /// not loopback — they bind every interface the host has, which is the
-    /// exposure this predicate exists to detect, and they are also the
-    /// shipped default. An address that does not parse is reported as not
-    /// confined: it fails closed here, and the `SocketAddr` parse at bind
-    /// time rejects it a moment later anyway.
+    /// exposure this predicate exists to detect. An address that does not
+    /// parse is reported as not confined — it fails closed here, because a
+    /// predicate that guards an exposure must never answer "safe" about a
+    /// value it does not understand.
+    ///
+    /// That fail-closed answer is correct and is *not* a message: on its own
+    /// it would have the startup refusals tell an operator who wrote
+    /// `bind_address = "localhost"` that localhost "is not loopback", which is
+    /// false, and prescribe an opt-out that only defers the failure. So
+    /// `xerj-server/src/main.rs` rejects a non-IP `bind_address` at step 3a
+    /// with [`Config::bind_ip`], before either exposure check runs; by the
+    /// time this predicate is consulted there, the address is known to parse.
     pub fn bind_address_is_loopback(&self) -> bool {
-        self.server
-            .bind_address
-            .trim()
-            .parse::<std::net::IpAddr>()
+        self.bind_ip()
             .map(crate::net::canonical_ip)
-            .is_ok_and(|ip| ip.is_loopback())
+            .is_some_and(|ip| ip.is_loopback())
     }
 
     /// Would starting now put a cleartext gRPC listener on a network-reachable
@@ -307,6 +340,36 @@ impl Config {
     pub fn grpc_h2c_exposed_off_loopback(&self) -> bool {
         self.tls.enabled && !self.tls.allow_insecure_grpc_h2c && !self.bind_address_is_loopback()
     }
+
+    /// Would starting now publish *every* listener in cleartext on a
+    /// network-reachable interface? (issue #228)
+    ///
+    /// True when all three hold: TLS is off, the bind address is not confined
+    /// to loopback, and the operator has not declared the exposure intentional
+    /// via `server.allow_insecure_network_bind`. The caller's job is to refuse
+    /// to start — see `xerj-server/src/main.rs`.
+    ///
+    /// This is the TLS-off half of the pair whose TLS-on half is
+    /// [`Config::grpc_h2c_exposed_off_loopback`] (#229), and the two are
+    /// mutually exclusive by construction: exactly one of them can fire for a
+    /// given `tls.enabled`. The exposure here is strictly larger — with TLS
+    /// off it is not one uncovered listener but all of them, carrying the
+    /// `Authorization: ApiKey` header of every request.
+    ///
+    /// Same shape as ES's bootstrap checks (approach only, no code — AGPL):
+    /// `BootstrapChecks.java:50-53` enforces "once a node has the transport
+    /// protocol bound to a non-loopback interface … we assume the node is
+    /// running in production", with one explicit override
+    /// (`es.enforce.bootstrap.checks`, `:59`). Departures: the override lives
+    /// in the config file beside the setting it relaxes rather than in a
+    /// system property, and link-local counts as exposed here (ES's
+    /// `enforceLimits`, `:194-197`, tests only `isLoopbackAddress`, but a
+    /// link-local address is still reachable by every other host on the link).
+    pub fn cleartext_exposed_off_loopback(&self) -> bool {
+        !self.tls.enabled
+            && !self.server.allow_insecure_network_bind
+            && !self.bind_address_is_loopback()
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -315,7 +378,7 @@ impl Config {
 
 /// Network and data-directory settings.
 ///
-/// **6 settings.**
+/// **7 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
@@ -327,8 +390,38 @@ pub struct ServerConfig {
     pub es_compat_port: u16,
     /// Directory where index data is persisted (default: `"./data"`).
     pub data_dir: String,
-    /// Address to bind all listeners (default: `"0.0.0.0"`).
+    /// Address to bind all listeners (default: `"127.0.0.1"` — **loopback
+    /// only**; issue #228).
+    ///
+    /// A fresh node is reachable from the machine it runs on and nowhere
+    /// else. That is deliberate: TLS is off by default, so an out-of-the-box
+    /// node that bound every interface would put its admin API key and every
+    /// document body on the network in cleartext, and nothing about a working
+    /// `curl` would say so.
+    ///
+    /// Set this to expose the node — `"0.0.0.0"` for every interface, or a
+    /// specific private address. Doing so while `tls.enabled = false` refuses
+    /// to start unless [`ServerConfig::allow_insecure_network_bind`] says the
+    /// cleartext exposure is intended; see
+    /// [`Config::cleartext_exposed_off_loopback`].
     pub bind_address: String,
+    /// Permit a network-reachable `bind_address` while TLS is off
+    /// (default: `false` — refuse; issue #228).
+    ///
+    /// Binding off-loopback with `tls.enabled = false` means every request —
+    /// including the `Authorization: ApiKey` header — crosses the network in
+    /// the clear. That is a legitimate configuration when something in front
+    /// of the node terminates TLS (reverse proxy, sidecar, service mesh,
+    /// ingress controller) or when the link itself is trusted, and it is what
+    /// a container image has to do because the container's network namespace
+    /// is the boundary. It is *not* something to arrive at by accident, so it
+    /// has to be stated rather than defaulted into.
+    ///
+    /// Irrelevant when `bind_address` is loopback (nothing off-host can reach
+    /// the listeners) or when `tls.enabled = true` (REST and ES-compat are
+    /// encrypted; the separate gRPC h2c exposure is governed by
+    /// [`TlsConfig::allow_insecure_grpc_h2c`], issue #229).
+    pub allow_insecure_network_bind: bool,
     /// Reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers may be
     /// believed (default: `[]` — **believe nobody**).
     ///
@@ -356,7 +449,11 @@ impl Default for ServerConfig {
             grpc_port: 8081,
             es_compat_port: 9200,
             data_dir: "./data".into(),
-            bind_address: "0.0.0.0".into(),
+            // Loopback, not `0.0.0.0` (issue #228). TLS is off by default, so
+            // the shipped default must not be one that publishes an API key
+            // in cleartext to every interface the host happens to have.
+            bind_address: "127.0.0.1".into(),
+            allow_insecure_network_bind: false,
             trusted_proxies: Vec::new(),
         }
     }
@@ -1001,9 +1098,7 @@ impl Default for EmbeddingConfig {
             onnx_model_path: String::new(),
             onnx_tokenizer_path: String::new(),
             onnx_scheduling_window: 64,
-            onnx_intra_threads: std::thread::available_parallelism()
-                .map(|n| n.get())
-                .unwrap_or(1),
+            onnx_intra_threads: crate::resource::threads_for(crate::resource::Workload::Latency),
             onnx_session_pool_size: 1,
             onnx_max_pending: 4096,
             onnx_max_batch: 64,
@@ -1190,29 +1285,41 @@ pub struct EngineConfig {
     /// Doubling shards roughly doubles sustained ingest throughput (linear
     /// scaling) until memory bandwidth is saturated.
     pub ingest_shards: usize,
-    /// Maximum concurrent flush tasks across all shards (default: `max(1, num_cpus / 4)`).
+    /// Maximum concurrent shard flush finalizations (default: the maintenance
+    /// share of the machine, `max(2, num_cpus / 8)` — see
+    /// [`crate::resource::threads_for`]).  `XERJ_FIN_CONC` overrides it for
+    /// one run.
     pub flush_workers: usize,
-    /// Background merge threads (default: `2`).
+    /// Threads in the background merge pool (default: the maintenance share of
+    /// the machine, `max(2, num_cpus / 8)`).  Merges are the one pool that is
+    /// deliberately kept narrow: nobody waits on a merge, and an all-core merge
+    /// pass was measured stalling ingest for 17.5 s.
     pub merge_workers: usize,
-    /// Parallel segment scan threads for search (default: `max(1, num_cpus / 4)`).
+    /// Threads available to search segment fan-out — rayon's global pool
+    /// (default: every core).  Search is the path a user waits on, so it gets
+    /// the whole machine unless you deliberately hold cores back.
     pub search_workers: usize,
 }
 
 impl Default for EngineConfig {
     fn default() -> Self {
-        let cpus = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4);
+        use crate::resource::{threads_for, Workload};
+        let cpus = crate::resource::cores();
         Self {
             ingest_shards: (cpus / 2).max(1).next_power_of_two(),
-            flush_workers: (cpus / 4).max(1),
-            merge_workers: 2,
-            search_workers: (cpus / 4).max(1),
+            flush_workers: threads_for(Workload::Maintenance),
+            merge_workers: threads_for(Workload::Maintenance),
+            search_workers: threads_for(Workload::Latency),
         }
     }
 }
 
 impl EngineConfig {
+    /// Upper bound on any of the worker knobs. Threads are not free: past this
+    /// the request is far more likely to be a typo than an intention, and a
+    /// silently clamped typo is the bug class in #204.
+    pub const MAX_WORKERS: usize = 4096;
+
     pub fn validate(&self) -> Result<(), crate::XerjError> {
         if self.ingest_shards == 0 || !self.ingest_shards.is_power_of_two() {
             return Err(crate::XerjError::config(format!(
@@ -1226,10 +1333,20 @@ impl EngineConfig {
                 self.ingest_shards
             )));
         }
-        if self.flush_workers == 0 {
-            return Err(crate::XerjError::config(
-                "engine.flush_workers must be >= 1",
-            ));
+        // Every worker knob is validated, because every worker knob is now
+        // wired to a pool: an out-of-range value must be refused at startup
+        // rather than accepted and quietly replaced with something else.
+        for (name, value) in [
+            ("engine.flush_workers", self.flush_workers),
+            ("engine.merge_workers", self.merge_workers),
+            ("engine.search_workers", self.search_workers),
+        ] {
+            if value == 0 || value > Self::MAX_WORKERS {
+                return Err(crate::XerjError::config(format!(
+                    "{name} must be in the range 1..={}, got {value}",
+                    Self::MAX_WORKERS
+                )));
+            }
         }
         Ok(())
     }
@@ -1711,8 +1828,9 @@ mod tests {
     #[test]
     fn count_user_facing_settings() {
         // 50 user-facing settings:
-        //   server: 6      (rest_port, grpc_port, es_compat_port, data_dir,
-        //                   bind_address, trusted_proxies)
+        //   server: 7      (rest_port, grpc_port, es_compat_port, data_dir,
+        //                   bind_address, allow_insecure_network_bind,  ← #228
+        //                   trusted_proxies)
         //   auth:   3      (enabled, admin_api_key, metrics_token)   ← RC4-W4 item 4
         //   tls:    4      (enabled, cert_path, key_path,
         //                   allow_insecure_grpc_h2c)             ← issue #229
@@ -1732,23 +1850,28 @@ mod tests {
         //   indexing: 3    (turbo_batch_size, turbo_parallel, turbo_fast_analyzer)
         //   logging: 2     (format, access_log)                      ← RC4-W4 item 6
         //   ─────────
-        //   total: 61 fields, minus 1 auto-generated (admin_api_key) = 60 meaningful user settings
-        let total: usize = 6 + 3 + 4 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 12 + 3 + 2;
-        assert_eq!(total, 61);
+        //   total: 62 fields, minus 1 auto-generated (admin_api_key) = 61 meaningful user settings
+        let total: usize = 7 + 3 + 4 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 12 + 3 + 2;
+        assert_eq!(total, 62);
     }
 
     // ── gRPC h2c exposure: fail closed (issue #229) ──────────────────────────
 
-    /// The reported default in `xerj.toml`-less deployments. `0.0.0.0` binds
-    /// every interface, so "TLS on, defaults otherwise" is exactly the case
-    /// that must be caught — this is the assertion that fails without the fix.
+    /// `0.0.0.0` binds every interface, so "TLS on, bound to the world" is
+    /// exactly the case that must be caught — this is the assertion that
+    /// fails without the #229 fix.
+    ///
+    /// It used to reach `0.0.0.0` by saying nothing, because that was the
+    /// shipped default; #228 made the default loopback, so the exposure is
+    /// now written out. That is the point of the change, not an accident of
+    /// it: this configuration has to be typed to happen.
     #[test]
-    fn tls_on_with_default_bind_flags_grpc_h2c_exposure() {
+    fn tls_on_with_exposed_bind_flags_grpc_h2c_exposure() {
         let cfg = Config::from_toml_str(
-            "[tls]\nenabled = true\ncert_path = \"/c.pem\"\nkey_path = \"/k.pem\"\n",
+            "[server]\nbind_address = \"0.0.0.0\"\n\
+             [tls]\nenabled = true\ncert_path = \"/c.pem\"\nkey_path = \"/k.pem\"\n",
         )
         .unwrap();
-        assert_eq!(cfg.server.bind_address, "0.0.0.0");
         assert!(!cfg.bind_address_is_loopback(), "0.0.0.0 is not loopback");
         assert!(cfg.grpc_h2c_exposed_off_loopback());
     }
@@ -1796,6 +1919,148 @@ mod tests {
             .unwrap();
             assert!(cfg.grpc_h2c_exposed_off_loopback(), "{bind} must trip");
         }
+    }
+
+    // ── Cleartext network exposure: fail closed (issue #228) ─────────────────
+
+    /// The whole point of #228: an operator who configures nothing gets a node
+    /// only their own machine can reach. Before the fix this default was
+    /// `0.0.0.0`, so a first `xerj` run published its admin API key in
+    /// cleartext to every interface the host had.
+    #[test]
+    fn default_bind_is_loopback() {
+        let cfg = Config::default();
+        assert_eq!(cfg.server.bind_address, "127.0.0.1");
+        assert!(cfg.bind_address_is_loopback());
+        assert!(
+            !cfg.tls.enabled,
+            "TLS is off by default — that is the point"
+        );
+        assert!(
+            !cfg.cleartext_exposed_off_loopback(),
+            "a zero-config node must boot, not fail closed"
+        );
+        // An empty config file resolves to the same posture as no file.
+        let from_toml = Config::from_toml_str("").unwrap();
+        assert_eq!(from_toml.server.bind_address, "127.0.0.1");
+    }
+
+    /// Exposing every listener in cleartext must be stated, not stumbled into.
+    /// `0.0.0.0` and `::` bind every interface; a link-local address is still
+    /// reachable by every other host on the link; an unparseable address fails
+    /// closed here and is rejected by the `SocketAddr` parse a moment later.
+    #[test]
+    fn cleartext_bind_off_loopback_trips_the_check() {
+        for bind in [
+            "0.0.0.0",
+            "::",
+            "10.0.0.7",
+            "192.168.1.5",
+            "fe80::1",
+            "nope",
+        ] {
+            let cfg =
+                Config::from_toml_str(&format!("[server]\nbind_address = \"{bind}\"\n")).unwrap();
+            assert!(!cfg.tls.enabled);
+            assert!(
+                cfg.cleartext_exposed_off_loopback(),
+                "{bind} with TLS off must trip"
+            );
+        }
+    }
+
+    /// Loopback binds are untouched — local development, the ES-YAML
+    /// conformance harness and every `curl 127.0.0.1` quickstart keep working
+    /// with TLS off. A fail-closed check that fires on the common case gets
+    /// disabled wholesale.
+    #[test]
+    fn cleartext_bind_on_loopback_is_fine() {
+        for bind in ["127.0.0.1", "127.0.0.5", "::1", "::ffff:127.0.0.1"] {
+            let cfg =
+                Config::from_toml_str(&format!("[server]\nbind_address = \"{bind}\"\n")).unwrap();
+            assert!(
+                !cfg.cleartext_exposed_off_loopback(),
+                "{bind} must not trip"
+            );
+        }
+    }
+
+    /// Every loopback spelling must produce a *bindable* address, not merely
+    /// pass the loopback predicate. `format!("{bind}:{port}")` cannot express
+    /// an IPv6 literal — `"::1:9200"` does not parse — so a `::1` node used to
+    /// pass every check here and then die at bind time with `invalid socket
+    /// address syntax`, after creating its data directory and printing a
+    /// first-run console link. Making loopback the default (#228) makes `::1`
+    /// a spelling people will now actually reach for.
+    #[test]
+    fn loopback_spellings_produce_bindable_addresses() {
+        for bind in ["127.0.0.1", "::1", "[::1]", " ::1 "] {
+            let cfg =
+                Config::from_toml_str(&format!("[server]\nbind_address = \"{bind}\"\n")).unwrap();
+            assert!(cfg.bind_address_is_loopback(), "{bind} should be loopback");
+            let addr = cfg
+                .socket_addr(9200)
+                .unwrap_or_else(|| panic!("{bind} must yield a socket address"));
+            assert!(addr.ip().is_loopback());
+            assert_eq!(addr.port(), 9200);
+        }
+        assert_eq!(
+            Config::from_toml_str("[server]\nbind_address = \"::1\"\n")
+                .unwrap()
+                .socket_addr(9200)
+                .unwrap()
+                .to_string(),
+            "[::1]:9200"
+        );
+    }
+
+    /// A bind address that is not an IP has no socket address to offer, and
+    /// says so rather than producing something that fails later.
+    #[test]
+    fn non_ip_bind_has_no_socket_addr() {
+        let cfg = Config::from_toml_str("[server]\nbind_address = \"example.com\"\n").unwrap();
+        assert!(cfg.bind_ip().is_none());
+        assert!(cfg.socket_addr(9200).is_none());
+        assert!(!cfg.bind_address_is_loopback(), "must fail closed");
+    }
+
+    /// The escape hatch for proxy/sidecar/mesh TLS termination and for
+    /// container images, whose network namespace is the boundary.
+    #[test]
+    fn declared_insecure_bind_permits_the_exposure() {
+        let cfg = Config::from_toml_str(
+            "[server]\nbind_address = \"0.0.0.0\"\nallow_insecure_network_bind = true\n",
+        )
+        .unwrap();
+        assert!(!cfg.cleartext_exposed_off_loopback());
+    }
+
+    /// With TLS on, REST and ES-compat are encrypted and this check has
+    /// nothing to say — the residual gRPC h2c exposure is #229's job. The two
+    /// predicates partition on `tls.enabled`, so they can never both fire.
+    #[test]
+    fn tls_on_is_the_other_checks_business() {
+        let cfg = Config::from_toml_str(
+            "[server]\nbind_address = \"0.0.0.0\"\n\
+             [tls]\nenabled = true\ncert_path = \"/c.pem\"\nkey_path = \"/k.pem\"\n",
+        )
+        .unwrap();
+        assert!(!cfg.cleartext_exposed_off_loopback());
+        assert!(cfg.grpc_h2c_exposed_off_loopback());
+        assert!(!(cfg.cleartext_exposed_off_loopback() && cfg.grpc_h2c_exposed_off_loopback()));
+    }
+
+    /// `allow_insecure_network_bind` relaxes only the cleartext check. It must
+    /// not become a way to smuggle past #229's gRPC refusal as well, or one
+    /// opt-out silently buys two exposures.
+    #[test]
+    fn insecure_bind_opt_out_does_not_relax_the_grpc_check() {
+        let cfg = Config::from_toml_str(
+            "[server]\nbind_address = \"0.0.0.0\"\nallow_insecure_network_bind = true\n\
+             [tls]\nenabled = true\ncert_path = \"/c.pem\"\nkey_path = \"/k.pem\"\n",
+        )
+        .unwrap();
+        assert!(cfg.grpc_h2c_exposed_off_loopback());
     }
 
     // ── Cluster auth: fail closed (issue #75) ────────────────────────────────

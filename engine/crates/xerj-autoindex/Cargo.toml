@@ -7,6 +7,9 @@ authors.workspace = true
 description = "xerj autoindex — point it at any folder and make the contents AI-searchable with zero configuration"
 
 [dependencies]
+# The machine-resource policy (cores, memory safe zone, thread priority) is
+# shared with the server: one policy, one place (#240).
+xerj-common = { path = "../xerj-common" }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -255,7 +255,9 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         url: url.to_owned(),
         api_key: None,
         workers: 1,
+        scan_workers: 1,
         pdf_workers: 1,
+        resource_notes: Vec::new(),
         pdf_timeout_secs: 30,
         bulk_mb: 64,
         bulk_timeout_secs: 3_600,
@@ -274,6 +276,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         dry_run: false,
         json: false,
         quiet: true,
+        progress: crate::progress::ProgressMode::None,
+        progress_interval: None,
     }
 }
 
@@ -1097,4 +1101,197 @@ fn zero_live_documents_after_journaled_records_fails_the_run() {
     assert!(error.contains("verification failed"), "{error}");
     assert!(error.contains("0 documents are live"), "{error}");
     assert!(error.contains("--fresh"), "{error}");
+}
+
+/// #241 regression: a run must never be silent.
+///
+/// Before this fix `autoindex` printed a handful of phase banners, one line
+/// per 200 completed files, and then nothing at all through the entire
+/// `finalize` block — measured at 47-64% of wall in the issue and at 45% (100
+/// of 222 s) on the corpus used to reproduce it here. An agent watching the
+/// stream could not tell a running index from a hung one.
+///
+/// This asserts the three properties that make the stream readable, through
+/// the REAL progress surface a production run uses:
+///   1. phase B reports as it goes, with a percent and an ETA field;
+///   2. the previously-silent finalize block reports at all;
+///   3. every run on a surface that prints at all ends with a terminal line
+///      stating the outcome in words, because exit 3 is a success an agent
+///      otherwise reads as failure. (`--progress none` prints nothing —
+///      asserted by `quiet_runs_emit_no_progress_stream_at_all` below.)
+#[test]
+fn a_run_reports_progress_through_every_phase_and_closes_the_stream() {
+    let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
+    let _sink_guard = crate::progress::SINK_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    // Distinct bytes per file: byte-identical files collapse into one
+    // canonical file plus aliases, which would make `files=8` a lie.
+    for n in 0..8 {
+        fs::write(
+            corpus.path().join(format!("rows-{n}.csv")),
+            format!("id,value\n{n}0,alpha\n{n}1,beta\n{n}2,gamma\n"),
+        )
+        .unwrap();
+    }
+
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+    config.progress_interval = Some(std::time::Duration::from_secs(1));
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, _report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+
+    let progress_lines: Vec<&str> = stream
+        .lines()
+        .filter(|line| line.starts_with("xerj-progress "))
+        .collect();
+    assert!(
+        progress_lines.len() >= 5,
+        "a run must narrate its phases, got {} line(s):\n{stream}",
+        progress_lines.len()
+    );
+    assert!(
+        progress_lines
+            .iter()
+            .any(|line| line.contains("phase=index")),
+        "phase B must report:\n{stream}"
+    );
+    assert!(
+        progress_lines
+            .iter()
+            .any(|line| line.contains("phase=finalize")),
+        "the finalize block was the longest silence in the tool; it must report now:\n{stream}"
+    );
+    assert!(
+        progress_lines
+            .iter()
+            .all(|line| line.contains(" pct=") && line.contains(" eta_s=")),
+        "every progress line carries a percent and an ETA field (possibly `unknown`):\n{stream}"
+    );
+
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("a run must close its own stream:\n{stream}"));
+    assert!(
+        done.contains("ok=true") && done.contains(&format!("exit={code}")),
+        "{done}"
+    );
+    assert!(done.contains("reason=completed"), "{done}");
+    assert!(done.contains("files=8"), "{done}");
+}
+
+/// The other half of the contract: `--quiet` still means silence, so nothing
+/// here can spam a caller that asked for none.
+#[test]
+fn quiet_runs_emit_no_progress_stream_at_all() {
+    let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
+    let _sink_guard = crate::progress::SINK_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("rows.csv"), "id,value\n0,alpha\n").unwrap();
+
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert_eq!(config.progress, crate::progress::ProgressMode::None);
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap();
+    }
+    assert!(
+        buffer.lock().unwrap().is_empty(),
+        "--quiet asked for nothing: {}",
+        String::from_utf8_lossy(&buffer.lock().unwrap())
+    );
+}
+
+/// Where #240 (the resource policy) and #241 (the progress stream) meet.
+///
+/// Two rules have to hold at once, and each is easy to break while honouring
+/// the other:
+///
+///  * The resource decision is **announced on the progress surface**, not on a
+///    bare `eprintln!` gated on `!quiet`. A raw write would survive
+///    `--progress none` — which promises silence — and would inject a
+///    non-JSON line into the middle of `--progress json`, which promises one
+///    parseable stream. (`quiet_runs_emit_no_progress_stream_at_all` above is
+///    the other side of this assertion: it fails if any of these lines escape
+///    the surface.)
+///  * The numbers announced are the ones the run **got**, not the ones it
+///    asked for. `pool::configure` is first-call-wins, because rayon pools
+///    cannot be resized, so a process that already indexed once — `xerj
+///    brain` does exactly that — keeps its original phase-A width. Reporting
+///    the request there would make the stream and the run summary a record of
+///    an intention rather than of a run.
+///
+/// The second rule is made observable by asking for a width this process
+/// provably cannot grant: the pool is built before the run, then one more
+/// thread than it has is requested.
+#[test]
+fn the_resource_plan_is_announced_on_the_progress_surface_with_the_width_it_got() {
+    let _guard = FAILPOINT_TEST_LOCK.lock().unwrap();
+    let _sink_guard = crate::progress::SINK_TEST_LOCK.lock().unwrap();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("rows.csv"),
+        "id,value\n0,alpha\n1,beta\n",
+    )
+    .unwrap();
+
+    // Build the process-global scan pool first, so the width below is one this
+    // run cannot possibly be granted.
+    let installed = crate::pool::scan_pool().current_num_threads();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+    config.progress_interval = Some(std::time::Duration::from_secs(1));
+    config.scan_workers = installed + 1;
+    config.workers = 3;
+    config.resource_notes = vec!["memory safe zone 256 MiB allows 3 index workers".to_string()];
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (_code, report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+
+    assert!(
+        stream.contains(&format!("{installed} scan threads")),
+        "the run must announce the phase-A width it actually got, not {}: {stream}",
+        installed + 1
+    );
+    assert!(
+        !stream.contains(&format!("{} scan threads", installed + 1)),
+        "a width the pool refused must never be reported as fact: {stream}"
+    );
+    assert!(
+        stream.contains("3 index workers"),
+        "phase B must name the count the policy chose: {stream}"
+    );
+    assert!(
+        stream.contains("memory safe zone 256 MiB allows 3 index workers"),
+        "what the machine forced on the run belongs in the same stream: {stream}"
+    );
+    assert!(
+        stream.contains(&format!("with {installed} threads")),
+        "the phase-A banner must carry the real width too: {stream}"
+    );
+
+    // The summary is read after the fact by agents and by `xerj brain`; it has
+    // to agree with the stream rather than repeat the request.
+    let report = report.expect("a completed run produces a summary");
+    assert_eq!(report["scan_workers"], serde_json::json!(installed));
+    assert_eq!(report["workers"], serde_json::json!(3));
 }
