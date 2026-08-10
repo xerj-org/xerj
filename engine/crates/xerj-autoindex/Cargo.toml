@@ -12,7 +12,9 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 regex = "1"
-walkdir = "2"
+# Directory walker with .gitignore semantics (ripgrep's). Replaces walkdir:
+# same recursive traversal, plus owner-declared ignore rules.
+ignore = "0.4"
 encoding_rs = "0.8"
 xxhash-rust.workspace = true
 memchr.workspace = true

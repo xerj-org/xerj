@@ -30,6 +30,15 @@ pub enum Family {
     /// Unity `.meta` sidecar: plain YAML opening with `fileFormatVersion:`
     /// and carrying the asset `guid` — the join key for everything Unity.
     UnityMeta,
+    /// Biovision motion capture: a skeleton HIERARCHY header followed by a
+    /// large numeric MOTION block. Indexed as ONE metadata record per file
+    /// (joints, frame count, duration) — the motion numbers are never read.
+    Bvh,
+    /// User-designated existence-only file (`--stub <glob>`): ONE name-card
+    /// record, contents never opened. For corpus-specific data blobs the
+    /// owner wants referenceable but not parsed — never assigned by
+    /// sniffing, only by the CLI flag.
+    Stub,
     Binary,
 }
 
@@ -52,6 +61,8 @@ impl Family {
             Family::Code => "code",
             Family::UnityYaml => "unity",
             Family::UnityMeta => "unity-meta",
+            Family::Bvh => "bvh",
+            Family::Stub => "stub",
             Family::Binary => "binary",
         }
     }
@@ -221,6 +232,19 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
             && body.lines().any(|l| l.starts_with("guid:"))
         {
             let mut s = mk(Family::UnityMeta);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+        // BVH motion capture: `HIERARCHY` opener with a `ROOT <name>` next.
+        // Without this the numeric MOTION block classified as txt-lines and
+        // indexed millions of meaningless number rows.
+        if first_line.trim() == "HIERARCHY"
+            && body
+                .lines()
+                .nth(1)
+                .is_some_and(|l| l.trim_start().starts_with("ROOT "))
+        {
+            let mut s = mk(Family::Bvh);
             s.encoding = encoding;
             return Ok(s);
         }
@@ -622,6 +646,19 @@ mod unity_sniff_tests {
         );
         let no_guid = "fileFormatVersion: 2\nsettings:\n  a: 1\n";
         assert_ne!(sniff_str(no_guid, "x.meta"), Family::UnityMeta);
+    }
+
+    #[test]
+    fn bvh_is_detected_by_hierarchy_root_header() {
+        let bvh = "HIERARCHY\nROOT Hips\n{\n  OFFSET 0 90 0\n  CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation\n}\nMOTION\nFrames: 2\nFrame Time: 0.033\n1 2 3\n4 5 6\n";
+        assert_eq!(sniff_str(bvh, "clip.bvh"), Family::Bvh);
+        assert_eq!(
+            sniff_str(bvh, "clip.txt"),
+            Family::Bvh,
+            "content decides, never the extension"
+        );
+        let not_bvh = "HIERARCHY\nof needs (Maslow):\n- physiological\n- safety\n";
+        assert_ne!(sniff_str(not_bvh, "notes.txt"), Family::Bvh);
     }
 
     #[test]

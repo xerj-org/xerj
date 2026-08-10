@@ -205,6 +205,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         fresh: false,
         follow_symlinks: false,
         no_default_excludes: false,
+        stub_globs: Vec::new(),
+        no_gitignore: false,
         max_file_gb: 1,
         sample: 50,
         no_semantic: true,

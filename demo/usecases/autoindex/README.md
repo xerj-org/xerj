@@ -115,7 +115,12 @@ walk → sniff → sample → infer → map → extract → bulk → correlate �
    `obj/`, `Logs/`, `UserSettings/` next to
    `ProjectSettings/ProjectVersion.txt`, `node_modules/` next to
    `package.json`, `target/` next to `Cargo.toml`; `--no-default-excludes`
-   walks them), plain text, gzip-compressed variants of the above.
+   walks them; additionally, when the root is inside a git repository the
+   tree's `.gitignore` rules are honored — the owner's own declaration of
+   generated noise — with `--no-gitignore` to opt out, and the user's global
+   gitignore is never consulted), BVH motion capture (one metadata record per clip — skeleton
+   joint names, frame count, duration; the numeric MOTION block is never
+   read), plain text, gzip-compressed variants of the above.
 3. **Sample** — bounded per-file sampling (default 500 records,
    `--sample N`); inference cost does not grow with file size.
 4. **Infer** — field types (long/double/boolean/date/keyword/text), date

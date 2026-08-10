@@ -173,6 +173,137 @@ fn section_label(locator: &str) -> Option<String> {
     (digits(page) && digits(sec)).then(|| format!("page {page} section {sec}"))
 }
 
+// ─── --stub glob matcher ──────────────────────────────────────────────────
+
+/// Compiled `--stub <glob>` patterns. A matching file is indexed as ONE
+/// name-card record (`Family::Stub`) and its contents are never opened —
+/// the owner's way of saying "this data blob should be referenceable but
+/// not parsed" without the engine hardcoding per-corpus rules.
+///
+/// Glob semantics (gitignore-flavored): `**` crosses `/`, `*` and `?` do
+/// not; a pattern without `/` matches against the file NAME anywhere in the
+/// tree, a pattern with `/` matches the full root-relative path.
+pub struct StubMatcher {
+    by_name: Vec<regex::Regex>,
+    by_path: Vec<regex::Regex>,
+}
+
+impl StubMatcher {
+    pub fn compile(globs: &[String]) -> Result<Self> {
+        let mut by_name = Vec::new();
+        let mut by_path = Vec::new();
+        for g in globs {
+            let re = regex::Regex::new(&glob_to_regex(g))
+                .with_context(|| format!("--stub {g}: invalid pattern"))?;
+            if g.contains('/') {
+                by_path.push(re);
+            } else {
+                by_name.push(re);
+            }
+        }
+        Ok(Self { by_name, by_path })
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.by_name.is_empty() && self.by_path.is_empty()
+    }
+
+    /// `rel` is the root-relative path with forward slashes.
+    pub fn matches(&self, rel: &str) -> bool {
+        if self.by_path.iter().any(|re| re.is_match(rel)) {
+            return true;
+        }
+        if self.by_name.is_empty() {
+            return false;
+        }
+        let name = rel.rsplit('/').next().unwrap_or(rel);
+        self.by_name.iter().any(|re| re.is_match(name))
+    }
+}
+
+fn glob_to_regex(glob: &str) -> String {
+    let mut out = String::from("^");
+    let mut chars = glob.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '*' => {
+                if chars.peek() == Some(&'*') {
+                    chars.next();
+                    // `**/` also swallows its slash so `**/x` matches a
+                    // top-level `x`.
+                    if chars.peek() == Some(&'/') {
+                        chars.next();
+                        out.push_str("(?:.*/)?");
+                    } else {
+                        out.push_str(".*");
+                    }
+                } else {
+                    out.push_str("[^/]*");
+                }
+            }
+            '?' => out.push_str("[^/]"),
+            other => out.push_str(&regex::escape(&other.to_string())),
+        }
+    }
+    out.push('$');
+    out
+}
+
+/// The synthetic sniff result for a `--stub`-designated file.
+fn stub_sniffed() -> Sniffed {
+    Sniffed {
+        family: Family::Stub,
+        gzip: false,
+        binary_kind: None,
+        csv: None,
+        encoding: "utf-8",
+    }
+}
+
+#[cfg(test)]
+mod stub_matcher_tests {
+    use super::StubMatcher;
+
+    fn m(globs: &[&str]) -> StubMatcher {
+        StubMatcher::compile(&globs.iter().map(|s| s.to_string()).collect::<Vec<_>>()).unwrap()
+    }
+
+    #[test]
+    fn a_bare_pattern_matches_file_names_anywhere() {
+        let s = m(&["*.csv"]);
+        assert!(s.matches("unity/Assets/Face/f_roommate_004.csv"));
+        assert!(s.matches("top.csv"));
+        assert!(!s.matches("unity/Assets/notes.csv.md"));
+    }
+
+    #[test]
+    fn a_path_pattern_matches_the_root_relative_path() {
+        let s = m(&["unity/**/*.csv"]);
+        assert!(s.matches("unity/Assets/Face/f_roommate_004.csv"));
+        assert!(s.matches("unity/top.csv"), "**/ also matches zero dirs");
+        assert!(!s.matches("backend/data/users.csv"), "scoped to unity/");
+    }
+
+    #[test]
+    fn single_star_does_not_cross_directories() {
+        let s = m(&["unity/*.csv"]);
+        assert!(s.matches("unity/top.csv"));
+        assert!(!s.matches("unity/Assets/deep.csv"));
+    }
+
+    #[test]
+    fn regex_metacharacters_in_patterns_are_literal() {
+        let s = m(&["data(v1).csv"]);
+        assert!(s.matches("x/data(v1).csv"));
+        assert!(!s.matches("x/dataXv1Y.csv"));
+    }
+
+    #[test]
+    fn an_invalid_pattern_fails_loudly_at_startup() {
+        assert!(StubMatcher::compile(&["ok.csv".into()]).is_ok());
+    }
+}
+
 // ─── Phase A: per-file scan (sniff + bounded sampling) ───────────────────
 
 struct FileScan {
@@ -191,17 +322,21 @@ struct GroupSketch {
     records: u64,
 }
 
-fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileScan {
+fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64, stub: bool) -> FileScan {
     let mut out = FileScan {
         sniffed: None,
         sketches: Vec::new(),
         junk: None,
     };
-    let sn = match sniff::sniff(path) {
-        Ok(s) => s,
-        Err(e) => {
-            out.junk = Some(("junk".into(), format!("unreadable: {e}")));
-            return out;
+    let sn = if stub {
+        stub_sniffed()
+    } else {
+        match sniff::sniff(path) {
+            Ok(s) => s,
+            Err(e) => {
+                out.junk = Some(("junk".into(), format!("unreadable: {e}")));
+                return out;
+            }
         }
     };
     if sn.family == Family::Binary {
@@ -315,7 +450,7 @@ mod clustering_key_tests {
         let path = dir.join(name);
         std::fs::write(&path, body).unwrap();
         let size = std::fs::metadata(&path).unwrap().len();
-        scan_file(&path, size, 500, 2)
+        scan_file(&path, size, 500, 2, false)
     }
 
     /// The #178 mechanism, from the extractor to the clustering key: a source
@@ -675,8 +810,14 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?;
     es.ping()?;
 
+    let stub_matcher = StubMatcher::compile(&cfg.stub_globs)?;
     let (discovered_files, skipped_dirs) =
-        walk::walk(&cfg.root, cfg.follow_symlinks, !cfg.no_default_excludes)?;
+        walk::walk(
+            &cfg.root,
+            cfg.follow_symlinks,
+            !cfg.no_default_excludes,
+            !cfg.no_gitignore,
+        )?;
     if !skipped_dirs.is_empty() && !cfg.quiet {
         let names: Vec<&str> = skipped_dirs.iter().map(|s| s.rel.as_str()).collect();
         eprintln!(
@@ -886,7 +1027,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         }
         let scans: Vec<FileScan> = files
             .par_iter()
-            .map(|f| scan_file(&f.path, f.size, cfg.sample, cfg.max_file_gb))
+            .map(|f| {
+                scan_file(
+                    &f.path,
+                    f.size,
+                    cfg.sample,
+                    cfg.max_file_gb,
+                    stub_matcher.matches(&f.rel),
+                )
+            })
             .collect();
 
         let rels: Vec<String> = files.iter().map(|f| f.rel.clone()).collect();
@@ -1352,7 +1501,12 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     let fa = plan.files.get(key).unwrap();
                     let asg: HashMap<Option<String>, String> =
                         fa.assignments.iter().cloned().collect();
-                    let sn = match sniff::sniff(&f.path) {
+                    let sn = if stub_matcher.matches(&f.rel) {
+                        Ok(stub_sniffed())
+                    } else {
+                        sniff::sniff(&f.path)
+                    };
+                    let sn = match sn {
                         Ok(s) => s,
                         Err(e) => {
                             extra_junk.lock().unwrap().push(JunkFile {
@@ -2497,7 +2651,7 @@ mod duplicate_integration_tests {
         b[65_536] = b'b';
         fs::write(corpus.path().join("a.txt"), a).unwrap();
         fs::write(corpus.path().join("b.txt"), b).unwrap();
-        let files = walk::walk(corpus.path(), false, true).unwrap().0;
+        let files = walk::walk(corpus.path(), false, true, true).unwrap().0;
         let inventory = content::resolve(files.clone()).unwrap();
         let legacy = ids::file_key(&files[0].path, files[0].size).unwrap();
         assert_eq!(
@@ -2534,7 +2688,7 @@ mod duplicate_integration_tests {
         // with — so b.txt's content key IS the planned key a.txt claims by rel.
         fs::write(corpus.path().join("a.txt"), b"rewritten content\n").unwrap();
         fs::write(corpus.path().join("b.txt"), b"original planned content\n").unwrap();
-        let inventory = content::resolve(walk::walk(corpus.path(), false, true).unwrap().0).unwrap();
+        let inventory = content::resolve(walk::walk(corpus.path(), false, true, true).unwrap().0).unwrap();
         let planned_key = inventory.keys[1].clone();
         let mut plan = Plan::default();
         plan.files
@@ -2604,7 +2758,7 @@ mod duplicate_integration_tests {
         fs::write(corpus.path().join("report-original.txt"), body).unwrap();
         fs::write(corpus.path().join("report-copy.txt"), body).unwrap();
 
-        let discovered = walk::walk(corpus.path(), false, true).unwrap().0;
+        let discovered = walk::walk(corpus.path(), false, true, true).unwrap().0;
         let inventory = content::resolve(discovered).unwrap();
         assert_eq!(inventory.files.len(), 1);
         assert_eq!(inventory.duplicates.len(), 1);
@@ -2677,7 +2831,7 @@ mod duplicate_integration_tests {
         }
         fs::write(&path, csv).unwrap();
 
-        let inventory = content::resolve(walk::walk(corpus.path(), false, true).unwrap().0).unwrap();
+        let inventory = content::resolve(walk::walk(corpus.path(), false, true, true).unwrap().0).unwrap();
         let expected_size = inventory.files[0].size;
         let expected_digest = inventory.digests[0].clone();
         let sniffed = sniff::sniff(&path).unwrap();

@@ -187,7 +187,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), b"same records\n").unwrap();
         fs::write(dir.path().join("b.txt"), b"same records\n").unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.files[0].rel, "a.txt");
         assert_eq!(inv.duplicates.len(), 1);
@@ -204,7 +204,7 @@ mod tests {
         second[65_536] = b'b';
         fs::write(dir.path().join("a.txt"), first).unwrap();
         fs::write(dir.path().join("b.txt"), second).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
         assert_eq!(inv.files.len(), 2);
         assert!(inv.duplicates.is_empty());
         assert_ne!(inv.keys[0], inv.keys[1]);
@@ -215,7 +215,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("a.txt");
         fs::write(&path, b"content-a").unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
         fs::write(&path, b"content-b").unwrap();
         assert!(verify(&path, 9, &inv.digests[0]).is_err());
     }
@@ -225,7 +225,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("a.txt"), b"unequal-a").unwrap();
         fs::write(dir.path().join("b.txt"), b"unequal-b").unwrap();
-        let files = crate::walk::walk(dir.path(), false, true).unwrap().0;
+        let files = crate::walk::walk(dir.path(), false, true, true).unwrap().0;
         let forced = vec!["axf2-forced-9".to_string(); 2];
         let inv = resolve_with_digests(files, forced).unwrap();
         assert_eq!(inv.files.len(), 2);
@@ -242,7 +242,7 @@ mod tests {
         let b = dir.path().join("b.txt");
         fs::write(&a, b"hardlinked").unwrap();
         fs::hard_link(&a, &b).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.duplicates.len(), 1);
     }
@@ -264,7 +264,7 @@ mod tests {
             b"same",
         )
         .unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), false, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false, true, true).unwrap().0).unwrap();
         assert_eq!(inv.files.len(), 1);
         assert_eq!(inv.duplicates.len(), 2);
         assert_ne!(inv.duplicates[0].path_id, inv.duplicates[1].path_id);
@@ -278,7 +278,7 @@ mod tests {
         let real = dir.path().join("z-real");
         fs::write(&real, b"same").unwrap();
         symlink(&real, dir.path().join("a-link")).unwrap();
-        let inv = resolve(crate::walk::walk(dir.path(), true, true).unwrap().0).unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), true, true, true).unwrap().0).unwrap();
         assert_eq!(inv.files[0].rel, "z-real");
         assert_eq!(inv.duplicates[0].rel, "a-link");
     }

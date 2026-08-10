@@ -1,5 +1,14 @@
 //! Inventory: recursive walk of the target folder.
-//! Symlinks are NOT followed by default; with --follow-symlinks walkdir's
+//!
+//! Built on the `ignore` crate (ripgrep's walker), which gives three skip
+//! layers, all evidence-based:
+//!   1. hidden files/dirs — always (security: `.env`, `.git`, `.ssh`, …);
+//!   2. `.gitignore` rules — the corpus OWNER's own declaration of generated
+//!      noise; honored only inside a real git repo (`.git` present), and
+//!      disabled with `--no-gitignore`;
+//!   3. marker-gated generated dirs (`GENERATED_DIR_RULES`) — for corpora
+//!      that are not git repos or whose ignore files are incomplete.
+//! Symlinks are NOT followed by default; with --follow-symlinks the walker's
 //! ancestor-loop detection keeps the traversal loop-safe.
 
 use anyhow::{Context, Result};
@@ -75,6 +84,7 @@ pub fn walk(
     root: &Path,
     follow_symlinks: bool,
     default_excludes: bool,
+    gitignore: bool,
 ) -> Result<(Vec<FileEntry>, Vec<SkippedDir>)> {
     let root_canon = root
         .canonicalize()
@@ -82,28 +92,39 @@ pub fn walk(
     if !root_canon.is_dir() {
         anyhow::bail!("{} is not a directory", root_canon.display());
     }
-    let skipped: std::rc::Rc<std::cell::RefCell<Vec<SkippedDir>>> = Default::default();
+    // Arc<Mutex>: the `ignore` walker's filter must be Send+Sync even for the
+    // sequential build() we use.
+    let skipped: std::sync::Arc<std::sync::Mutex<Vec<SkippedDir>>> = Default::default();
     let mut out = Vec::new();
     // SECURITY / hygiene: never index hidden files or descend into hidden
-    // directories. Without this the walker happily indexed `.env` (secrets,
-    // API tokens), `.git`, `.ssh`, `.aws`, and other dotfiles into a queryable
-    // brain with no per-brain authorization — a real exposure for the
-    // "point it at my project folder" use case. `filter_entry` prunes a hidden
-    // directory before descending, so `.git/` is skipped whole. The root itself
-    // (depth 0) is exempt so a brain over a dot-named folder still works.
-    let sk = std::rc::Rc::clone(&skipped);
+    // directories (`hidden(true)`). Without this the walker happily indexed
+    // `.env` (secrets, API tokens), `.git`, `.ssh`, `.aws`, and other dotfiles
+    // into a queryable brain with no per-brain authorization — a real exposure
+    // for the "point it at my project folder" use case. The root itself is
+    // exempt (the walk origin is always yielded) so a brain over a dot-named
+    // folder still works.
+    //
+    // `.gitignore` handling stays deterministic and corpus-local: tree
+    // `.gitignore`s + `.git/info/exclude` only, never the user's global
+    // gitignore config; `require_git` keeps the semantics evidence-based (a
+    // stray .gitignore outside a repo is not an owner declaration).
+    let sk = std::sync::Arc::clone(&skipped);
     let filter_root = root_canon.clone();
-    let walker = walkdir::WalkDir::new(&root_canon)
+    let mut builder = ignore::WalkBuilder::new(&root_canon);
+    builder
         .follow_links(follow_symlinks)
-        .into_iter()
+        .hidden(true)
+        .ignore(false)
+        .parents(gitignore)
+        .git_ignore(gitignore)
+        .git_exclude(gitignore)
+        .git_global(false)
+        .require_git(true)
         .filter_entry(move |e| {
             if e.depth() == 0 {
                 return true;
             }
-            if e.file_name().to_str().is_some_and(|n| n.starts_with('.')) {
-                return false;
-            }
-            if default_excludes && e.file_type().is_dir() {
+            if default_excludes && e.file_type().is_some_and(|t| t.is_dir()) {
                 for (name, marker, reason) in GENERATED_DIR_RULES {
                     if e.file_name() == *name
                         && e.path()
@@ -116,7 +137,7 @@ pub fn walk(
                             .unwrap_or(e.path())
                             .to_string_lossy()
                             .replace('\\', "/");
-                        sk.borrow_mut().push(SkippedDir {
+                        sk.lock().expect("skip list lock").push(SkippedDir {
                             rel,
                             reason: (*reason).to_string(),
                         });
@@ -126,7 +147,7 @@ pub fn walk(
             }
             true
         });
-    for entry in walker {
+    for entry in builder.build() {
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
@@ -134,7 +155,7 @@ pub fn walk(
                 continue;
             }
         };
-        if !entry.file_type().is_file() {
+        if !entry.file_type().is_some_and(|t| t.is_file()) {
             continue;
         }
         let md = match entry.metadata() {
@@ -152,18 +173,15 @@ pub fn walk(
             path: p,
             rel,
             rel_id,
-            is_symlink: entry
-                .path()
-                .symlink_metadata()
-                .is_ok_and(|m| m.file_type().is_symlink()),
+            is_symlink: entry.path_is_symlink(),
             size: md.len(),
         });
     }
     // Deterministic order for clustering / naming.
     out.sort_by(|a, b| a.rel.cmp(&b.rel));
-    let skipped = std::rc::Rc::try_unwrap(skipped)
-        .expect("walker iterator consumed; sole owner remains")
-        .into_inner();
+    // The builder keeps its own clone of the filter closure (and thus of the
+    // Arc), so drain under the lock instead of unwrapping ownership.
+    let skipped = std::mem::take(&mut *skipped.lock().expect("skip list lock"));
     Ok((out, skipped))
 }
 
@@ -211,7 +229,7 @@ mod hidden_skip_tests {
         fs::write(root.join("src").join("main.rs"), "fn main() {}").unwrap();
         fs::write(root.join("src").join(".secret"), "nope").unwrap();
 
-        let rels: Vec<String> = walk(root, false, true)
+        let rels: Vec<String> = walk(root, false, true, true)
             .unwrap()
             .0
             .into_iter()
@@ -237,7 +255,7 @@ mod hidden_skip_tests {
         let root = dir.path().join(".notes");
         fs::create_dir(&root).unwrap();
         fs::write(root.join("a.md"), "x").unwrap();
-        let rels: Vec<String> = walk(&root, false, true)
+        let rels: Vec<String> = walk(&root, false, true, true)
             .unwrap()
             .0
             .into_iter()
@@ -278,7 +296,7 @@ mod generated_dir_tests {
     fn unity_marker_prunes_generated_dirs_and_records_them() {
         let dir = tempfile::TempDir::new().unwrap();
         make_unity_root(dir.path(), true);
-        let (files, skipped) = walk(dir.path(), false, true).unwrap();
+        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(rels.contains(&"Assets/Player.cs"));
         assert!(
@@ -295,7 +313,7 @@ mod generated_dir_tests {
     fn without_the_marker_nothing_is_pruned() {
         let dir = tempfile::TempDir::new().unwrap();
         make_unity_root(dir.path(), false);
-        let (files, skipped) = walk(dir.path(), false, true).unwrap();
+        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(
             rels.iter().any(|r| r.starts_with("Library/")),
@@ -308,7 +326,7 @@ mod generated_dir_tests {
     fn no_default_excludes_walks_everything() {
         let dir = tempfile::TempDir::new().unwrap();
         make_unity_root(dir.path(), true);
-        let (files, skipped) = walk(dir.path(), false, false).unwrap();
+        let (files, skipped) = walk(dir.path(), false, false, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(rels.iter().any(|r| r.starts_with("Library/")));
         assert!(skipped.is_empty());
@@ -319,7 +337,7 @@ mod generated_dir_tests {
         let dir = tempfile::TempDir::new().unwrap();
         make_unity_root(dir.path(), true);
         fs::write(dir.path().join("obj"), "a FILE named obj").unwrap();
-        let (files, _) = walk(dir.path(), false, true).unwrap();
+        let (files, _) = walk(dir.path(), false, true, true).unwrap();
         assert!(
             files.iter().any(|e| e.rel == "obj"),
             "the prune applies to directories only"
@@ -336,7 +354,7 @@ mod generated_dir_tests {
         fs::create_dir_all(&unity).unwrap();
         make_unity_root(&unity, true);
         fs::write(dir.path().join("README.md"), "monorepo").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true).unwrap();
+        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(rels.contains(&"apps/game/Assets/Player.cs"));
         assert!(!rels.iter().any(|r| r.contains("game/Library/")));
@@ -354,7 +372,7 @@ mod generated_dir_tests {
         let bare = dir.path().join("data/node_modules");
         fs::create_dir_all(&bare).unwrap();
         fs::write(bare.join("notes.txt"), "not an npm tree").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true).unwrap();
+        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(rels.contains(&"web/index.js"));
         assert!(!rels.iter().any(|r| r.starts_with("web/node_modules")));
@@ -364,6 +382,73 @@ mod generated_dir_tests {
         );
         assert_eq!(skipped.len(), 1);
         assert_eq!(skipped[0].rel, "web/node_modules");
+    }
+
+    #[test]
+    fn gitignored_files_are_skipped_only_inside_a_git_repo() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        fs::create_dir(root.join(".git")).unwrap();
+        fs::write(root.join(".gitignore"), "build/\n*.log\n").unwrap();
+        fs::create_dir_all(root.join("build/intermediates")).unwrap();
+        fs::write(root.join("build/intermediates/R.txt"), "generated").unwrap();
+        fs::write(root.join("debug.log"), "noise").unwrap();
+        fs::write(root.join("main.rs"), "fn main() {}").unwrap();
+        fs::create_dir(root.join("src")).unwrap();
+        fs::write(root.join("src/app.log"), "noise").unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn f() {}").unwrap();
+
+        let (files, _) = walk(root, false, true, true).unwrap();
+        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
+        assert!(rels.contains(&"main.rs"));
+        assert!(rels.contains(&"src/lib.rs"));
+        assert!(
+            !rels.iter().any(|r| r.starts_with("build/")),
+            "gitignored dir must be pruned: {rels:?}"
+        );
+        assert!(
+            !rels.iter().any(|r| r.ends_with(".log")),
+            "gitignored glob applies at every depth: {rels:?}"
+        );
+
+        // --no-gitignore restores the full walk.
+        let (files, _) = walk(root, false, true, false).unwrap();
+        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
+        assert!(rels.contains(&"build/intermediates/R.txt"));
+        assert!(rels.contains(&"debug.log"));
+    }
+
+    /// A `.gitignore` OUTSIDE a git repository is not an owner declaration —
+    /// require_git keeps the rule evidence-based.
+    #[test]
+    fn a_gitignore_without_a_git_repo_is_inert() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        fs::write(root.join(".gitignore"), "*.log\n").unwrap();
+        fs::write(root.join("debug.log"), "kept").unwrap();
+        let (files, _) = walk(root, false, true, true).unwrap();
+        assert!(
+            files.iter().any(|e| e.rel == "debug.log"),
+            "no .git dir, so gitignore semantics must not apply"
+        );
+    }
+
+    /// Nested .gitignore files scope to their own subtree, like git itself.
+    #[test]
+    fn nested_gitignore_files_scope_to_their_subtree() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        fs::create_dir(root.join(".git")).unwrap();
+        fs::create_dir(root.join("web")).unwrap();
+        fs::write(root.join("web/.gitignore"), "dist/\n").unwrap();
+        fs::create_dir_all(root.join("web/dist")).unwrap();
+        fs::write(root.join("web/dist/bundle.js"), "x").unwrap();
+        fs::create_dir_all(root.join("docs/dist")).unwrap();
+        fs::write(root.join("docs/dist/manual.md"), "kept").unwrap();
+        let (files, _) = walk(root, false, true, true).unwrap();
+        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
+        assert!(!rels.iter().any(|r| r.starts_with("web/dist/")));
+        assert!(rels.contains(&"docs/dist/manual.md"));
     }
 
     #[test]
@@ -377,7 +462,7 @@ mod generated_dir_tests {
         let plain = dir.path().join("shooting/target");
         fs::create_dir_all(&plain).unwrap();
         fs::write(plain.join("scores.csv"), "a,b\n1,2\n").unwrap();
-        let (files, skipped) = walk(dir.path(), false, true).unwrap();
+        let (files, skipped) = walk(dir.path(), false, true, true).unwrap();
         let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
         assert!(rels.contains(&"mycrate/main.rs"));
         assert!(!rels.iter().any(|r| r.starts_with("mycrate/target")));

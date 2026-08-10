@@ -2,6 +2,7 @@
 //! Every extractor is bounded-memory and never fatal: parse failures
 //! downgrade (family → txt → junk-with-metadata) and are counted.
 
+pub mod bvh;
 pub mod code;
 pub mod csv_x;
 pub mod docx;
@@ -142,6 +143,26 @@ pub fn extract(
         Family::Code => code::extract(path, sink),
         Family::UnityYaml => unity::extract_unity(path, sn.gzip, limit_bytes, sink),
         Family::UnityMeta => unity::extract_meta(path, sn.gzip, sink),
+        Family::Bvh => bvh::extract(path, sn.gzip, sink),
+        // `--stub`-designated file: one name card, the file is never opened.
+        Family::Stub => {
+            let mut stats = ExtractStats::default();
+            let mut fields = Map::new();
+            let title = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("file")
+                .to_string();
+            fields.insert("title".into(), Value::String(title));
+            stats.records += 1;
+            sink(RawRecord {
+                fields,
+                locator: "stub".into(),
+                group: None,
+                origin: FieldOrigin::Extractor,
+            });
+            Ok(stats)
+        }
         Family::Binary => Ok(ExtractStats::default()),
     }
 }

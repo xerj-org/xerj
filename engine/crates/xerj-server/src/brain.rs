@@ -177,7 +177,7 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     if !cfg.root.exists() {
         bail!("{} does not exist", cfg.root.display());
     }
-    let (files, _skipped_dirs) = walk::walk(&cfg.root, false, true)?;
+    let (files, _skipped_dirs) = walk::walk(&cfg.root, false, true, true)?;
     if files.is_empty() {
         eprintln!(
             "xerj brain: no files under {} — nothing to build a brain from.\n\
@@ -433,6 +433,8 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         fresh: cfg.fresh,
         follow_symlinks: false,
         no_default_excludes: false,
+        stub_globs: Vec::new(),
+        no_gitignore: false,
         max_file_gb: 2,
         sample: 500,
         no_semantic: false,

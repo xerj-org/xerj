@@ -18,6 +18,12 @@ pub struct IndexCfg {
     pub follow_symlinks: bool,
     /// Disable the marker-gated generated-dir prune (e.g. Unity `Library/`).
     pub no_default_excludes: bool,
+    /// `--stub <glob>` patterns: matching files are indexed as one
+    /// existence-only name card, contents never opened.
+    pub stub_globs: Vec<String>,
+    /// Walk `.gitignore`d files too (by default they are skipped when the
+    /// root is inside a git repository).
+    pub no_gitignore: bool,
     pub max_file_gb: u64,
     pub sample: usize,
     pub no_semantic: bool,
@@ -86,6 +92,17 @@ pub fn print_help() {
                                   UserSettings next to ProjectSettings/\n\
                                   ProjectVersion.txt, node_modules next to\n\
                                   package.json, target next to Cargo.toml\n\
+             --no-gitignore       index .gitignore'd files too. By default, when the\n\
+                                  root is inside a git repository, files matched by\n\
+                                  the tree's .gitignore rules are skipped (the\n\
+                                  owner's own declaration of generated noise);\n\
+                                  the user's global gitignore is never consulted\n\
+             --stub <GLOB>        index matching files as ONE existence-only name\n\
+                                  card (title + provenance); contents are never\n\
+                                  opened. Repeatable. A pattern without '/'\n\
+                                  matches file names anywhere ('*.bvh'); with '/'\n\
+                                  it matches the root-relative path\n\
+                                  ('unity/**/*.csv'). '**' crosses directories\n\
              --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
              --sample <N>         records sampled per file for inference (default 500)\n\
              --no-semantic        skip semantic_text on body fields (pure BM25+keyword)\n\
@@ -148,6 +165,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut fresh = false;
     let mut follow_symlinks = false;
     let mut no_default_excludes = false;
+    let mut stub_globs: Vec<String> = Vec::new();
+    let mut no_gitignore = false;
     let mut max_file_gb = 2u64;
     let mut sample = 500usize;
     let mut no_semantic = false;
@@ -207,6 +226,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--fresh" => fresh = true,
             "--follow-symlinks" => follow_symlinks = true,
             "--no-default-excludes" => no_default_excludes = true,
+            "--stub" => stub_globs.push(it.next().ok_or("--stub needs a glob pattern")?),
+            "--no-gitignore" => no_gitignore = true,
             "--max-file-gb" => {
                 max_file_gb = it
                     .next()
@@ -283,6 +304,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             fresh,
             follow_symlinks,
             no_default_excludes,
+            stub_globs,
+            no_gitignore,
             max_file_gb,
             sample: sample.max(50),
             no_semantic,
