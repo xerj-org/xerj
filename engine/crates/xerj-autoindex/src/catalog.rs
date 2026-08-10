@@ -8,8 +8,48 @@ use serde_json::{json, Value};
 
 pub const CATALOG_INDEX: &str = "autoindex-catalog";
 
+/// Explicit mapping for a **freshly created** catalog index.
+///
+/// Tripwire — `started` is bimodal across installs, on purpose. This function
+/// declares it `date`; the additive upgrade in `run_index_report` deliberately
+/// omits it. No release before this one declared `started` at all, so every
+/// existing catalog got it from dynamic inference, and which type that produced
+/// depends on which release wrote the catalog:
+///
+/// - **v1.0.0-rc.4** — the only release with `autoindex` (0f3ef60d, 2026-07-09)
+///   but without dynamic ISO-date inference (a0f872ac, 2026-07-25, first in
+///   rc.5). Its catalogs inferred `started` as **`text`**. Adding `started` as
+///   `date` to those is refused **400 `mapper_parsing_exception`** — *"field
+///   [started] already exists as [text], cannot add [date]"* — from the
+///   `idx.schema()` guard in `xerj-api/src/es_compat.rs` (the
+///   `XerjError::invalid_mapping` arm; `InvalidMapping` maps to
+///   `mapper_parsing_exception` in `xerj-api/src/error.rs`). `es.update_mapping`
+///   surfaces that as an `Err`, which aborts the invocation before any document
+///   work.
+/// - **v1.0.0-rc.5 and later** — inference already produced `date`, so the same
+///   upgrade would simply be acknowledged 200.
+///
+/// It is specifically NOT the `illegal_argument_exception` *"mapper [started]
+/// cannot be changed from type [text] to [date]"* guard earlier in the same
+/// handler. That one reads `state.engine.index_mappings`, which holds only
+/// *declared* mappings, and `started` was never declared — so for a legacy
+/// catalog it cannot fire. (Measured against a live engine, v1.0.0-rc.13: text
+/// inferred → `mapper_parsing_exception`; text declared →
+/// `illegal_argument_exception`; date inferred → 200 acknowledged.)
+///
+/// So a catalog created from here sorts `started` server-side, an rc.4 catalog
+/// does not, and nothing may rely on `started` being a `date`: `run_map` sorts
+/// runs client-side, which is what keeps the split benign. Any future
+/// server-side range query, `sort`, or date aggregation on `started` must first
+/// migrate legacy catalogs by reindexing them — not by adding `started` to the
+/// additive upgrade, which is exactly the abort above.
 pub fn catalog_mapping() -> Value {
-    json!({
+    // The trailing run-metadata fields are inserted after the literal rather
+    // than written inside it: `serde_json::json!` recurses once per key, and at
+    // 40 properties the macro exceeds the default `recursion_limit = 128` and
+    // fails to compile. Adding another field here must use this same tail, not
+    // the literal.
+    let mut mapping = json!({
         "mappings": {"properties": {
             "doc_kind": {"type": "keyword"},
             "slug": {"type": "keyword"},
@@ -49,7 +89,26 @@ pub fn catalog_mapping() -> Value {
             "pearson_r": {"type": "double"},
             "activity_correlated": {"type": "boolean"},
         }}
-    })
+    });
+    let properties = mapping
+        .pointer_mut("/mappings/properties")
+        .and_then(Value::as_object_mut)
+        .expect("catalog mapping properties");
+    // See the tripwire on this function before touching `started`.
+    properties.insert(
+        "started".into(),
+        json!({"type": "date", "format": "strict_date_optional_time||epoch_millis"}),
+    );
+    properties.insert(
+        "summary_generated_at".into(),
+        json!({"type": "date", "format": "strict_date_optional_time||epoch_millis"}),
+    );
+    properties.insert(
+        "invocation_telemetry_scope".into(),
+        json!({"type": "keyword"}),
+    );
+    properties.insert("junk_records_this_run".into(), json!({"type": "long"}));
+    mapping
 }
 
 pub const GOTCHAS: &[&str] = &[
@@ -67,6 +126,11 @@ pub struct DatasetDocInput<'a> {
     pub pd: &'a PlanDataset,
     pub record_count: u64,
     pub junk_records: u64,
+    /// Canonical source bytes backing this dataset's durably live records.
+    ///
+    /// This is not a scan-time filesystem total: a removed path stays
+    /// represented until autoindex also removes its live records, and one
+    /// source feeding several datasets contributes its bytes to each.
     pub bytes: u64,
     pub file_count: usize,
     pub formats: Vec<String>,

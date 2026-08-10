@@ -93,10 +93,23 @@ fn replacement_failpoint(_boundary: u8) -> Result<()> {
     Ok(())
 }
 
+/// Send one bulk body and fold its per-item rejections into
+/// `rejected_records`.
+///
+/// This counter is deliberately NOT the parser-junk counter. A record the
+/// *backend* refused and a record the *parser* could not read are different
+/// failures with different lifetimes: parser junk is durable (journaled per
+/// file and replayed on every resume), a backend rejection is not (no
+/// `FileDone` records a document that was never accepted). Adding both to one
+/// number is what let `junk_records_total` mean two things at once.
+///
+/// Note where this number can and cannot surface. Any non-zero value here also
+/// puts an entry in `bulk_errors`, which aborts the run before the run
+/// document exists — so it is reported in the abort message and nowhere else.
 fn record_bulk_outcome(
     es: &Es,
     body: Vec<u8>,
-    junk_records: &AtomicU64,
+    rejected_records: &AtomicU64,
     bulk_errors: &Mutex<Vec<String>>,
     send_err: &mut Option<String>,
 ) -> bool {
@@ -115,7 +128,7 @@ fn record_bulk_outcome(
                 return true;
             }
             if outcome.item_errors > 0 {
-                junk_records.fetch_add(outcome.item_errors, Ordering::Relaxed);
+                rejected_records.fetch_add(outcome.item_errors, Ordering::Relaxed);
                 if let Some(error) = outcome.first_error {
                     let mut errors = bulk_errors.lock().unwrap();
                     if errors.len() < 5 {
@@ -183,6 +196,10 @@ struct FileScan {
     sniffed: Option<Sniffed>,
     sketches: Vec<GroupSketch>,
     junk: Option<(String, String)>, // (status, reason)
+    /// Run-local PDF extraction produced during sampling. This is consumed by
+    /// Phase B only when it is bound to the same full-content generation.
+    pdf_spool: Option<extract::pdf::ExtractionSpool>,
+    pdf_spool_fallbacks: Vec<extract::pdf::SpoolFallback>,
 }
 
 /// One sampled group within a file: every field it produced, plus the names
@@ -195,11 +212,53 @@ struct GroupSketch {
     records: u64,
 }
 
-fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileScan {
+fn take_pdf_spool_if_indexable<T>(
+    spool: &mut Option<T>,
+    is_junk: bool,
+    budget: &extract::pdf::ExtractionSpoolBudget,
+) -> Option<T> {
+    if is_junk {
+        if spool.is_some() {
+            budget.record_discarded_before_replay();
+        }
+        spool.take();
+        None
+    } else {
+        spool.take()
+    }
+}
+
+/// Everything phase A needs beyond the file list and the run config: where a
+/// run-local PDF artifact may live, the shared admission budget, the one-line
+/// capacity explanation reported when files fall back — and the progress
+/// surface those lines go out through, because phase A now reports every file
+/// it touches (#241) as well as every artifact it could not keep.
+///
+/// Grouped so `scan_file` and `build_phase_a` each take one parameter instead
+/// of four.
+struct PhaseAContext<'a> {
+    state_dir: &'a Path,
+    budget: &'a std::sync::Arc<extract::pdf::ExtractionSpoolBudget>,
+    capacity_warning: Option<&'a str>,
+    progress: &'a Progress,
+}
+
+fn scan_file(
+    path: &Path,
+    size: u64,
+    digest: &str,
+    ctx: &PhaseAContext<'_>,
+    sample: usize,
+    max_file_gb: u64,
+) -> FileScan {
+    let state_dir = ctx.state_dir;
+    let pdf_spool_budget = ctx.budget;
     let mut out = FileScan {
         sniffed: None,
         sketches: Vec::new(),
         junk: None,
+        pdf_spool: None,
+        pdf_spool_fallbacks: Vec::new(),
     };
     let sn = match sniff::sniff(path) {
         Ok(s) => s,
@@ -269,7 +328,53 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
             (entry.1 as usize) < sample
         }
     };
-    match extract::extract(path, &sn, limit, &mut sink) {
+    let extraction = if sn.family == Family::Pdf {
+        match extract::pdf::extract_and_spool(
+            path,
+            state_dir,
+            size,
+            digest,
+            pdf_spool_budget,
+            &mut sink,
+        ) {
+            Ok((stats, spool, fallback)) => {
+                // The inventory digest was computed before Phase A. Only hand
+                // bytes to Phase B when the source still matches that exact
+                // generation after the parser has finished reading it.
+                // If no reusable artifact exists, avoid a second full-file
+                // read: Phase B performs the authoritative generation check
+                // immediately before its ordinary reparse.
+                if spool.is_none() {
+                    out.pdf_spool_fallbacks.extend(fallback);
+                } else {
+                    match content::verify(path, size, digest) {
+                        Ok(()) => {
+                            out.pdf_spool = spool;
+                            out.pdf_spool_fallbacks.extend(fallback);
+                        }
+                        Err(error) => {
+                            if spool.is_some() {
+                                pdf_spool_budget.record_discarded_before_replay();
+                            }
+                            pdf_spool_budget.record_source_generation_changed();
+                            out.pdf_spool_fallbacks.extend(fallback);
+                            out.pdf_spool_fallbacks.push(extract::pdf::SpoolFallback {
+                                category: "source_generation_changed",
+                                message: format!(
+                                    "source generation changed after extraction: {error:#}"
+                                ),
+                            });
+                        }
+                    }
+                }
+                Ok(stats)
+            }
+            Err(error) => Err(error),
+        }
+    } else {
+        extract::extract(path, &sn, limit, &mut sink)
+    };
+    match extraction {
         Ok(stats) => {
             if groups.is_empty() {
                 out.junk = Some((
@@ -310,7 +415,17 @@ mod clustering_key_tests {
         let path = dir.join(name);
         std::fs::write(&path, body).unwrap();
         let size = std::fs::metadata(&path).unwrap().len();
-        scan_file(&path, size, 500, 2)
+        // Clustering keys are decided by extraction, not by PDF artifact
+        // reuse: a zero budget keeps these cases on the plain parse path.
+        let budget = extract::pdf::ExtractionSpoolBudget::new(0, 0);
+        let progress = Progress::silent();
+        let ctx = PhaseAContext {
+            state_dir: dir,
+            budget: &budget,
+            capacity_warning: None,
+            progress: &progress,
+        };
+        scan_file(&path, size, "d0", &ctx, 500, 2)
     }
 
     /// The #178 mechanism, from the extractor to the clustering key: a source
@@ -425,16 +540,26 @@ mod phase_a_grouping_tests {
             .map(|f| ids::file_key(&f.path, f.size).unwrap())
             .collect();
         let digests: Vec<String> = (0..files.len()).map(|i| format!("d{i}")).collect();
-        let (plan, _) = build_phase_a(
+        // Planning is what these cases assert on; a zero budget keeps every
+        // file on the plain parse path so no artifact is ever retained.
+        let budget = extract::pdf::ExtractionSpoolBudget::new(0, 0);
+        let progress = Progress::silent();
+        let ctx = PhaseAContext {
+            state_dir: root,
+            budget: &budget,
+            capacity_warning: None,
+            progress: &progress,
+        };
+        build_phase_a(
             root,
             &files,
             &keys,
             &digests,
             Vec::new(),
+            &ctx,
             &cfg_for(root),
-            &Progress::silent(),
-        );
-        plan
+        )
+        .plan
     }
 
     const CODE: &str = "// The event loop dispatches every ready connection to a worker.\n\
@@ -595,6 +720,77 @@ fn compute_scopes(root: &Path, rels: &[String]) -> Vec<String> {
         .collect()
 }
 
+/// What phase A produces: the frozen plan, the clusters phase B needs, and
+/// the run-local PDF artifacts (index-aligned with `files`) that phase B may
+/// replay instead of parsing again. A spool is always optional — every entry
+/// may legitimately be `None`.
+struct PhaseA {
+    plan: Plan,
+    clusters: Vec<dataset::Cluster>,
+    pdf_spools: Vec<Option<extract::pdf::ExtractionSpool>>,
+}
+
+/// Record and report why individual PDFs could not retain a run-local
+/// artifact. Reuse is an accelerator, so this is purely informational: every
+/// listed file is parsed again by the normal phase B path. Recording is kept
+/// even when the budget is globally disabled — the stored examples are the
+/// only place the `--json` report explains *why* nothing was reused, and they
+/// are already capped at three.
+///
+/// Reporting goes out through the progress surface, never a bare `eprintln!`:
+/// stderr belongs to that surface, so `--progress none` stays silent and
+/// `--progress json` stays a single parseable stream (#241).
+fn report_pdf_spool_fallbacks(
+    files: &[walk::FileEntry],
+    scans: &[FileScan],
+    ctx: &PhaseAContext<'_>,
+) {
+    let pdf_spool_budget = ctx.budget;
+    let pr = ctx.progress;
+    let reasons: Vec<(&str, &extract::pdf::SpoolFallback)> = scans
+        .iter()
+        .enumerate()
+        .flat_map(|(index, scan)| {
+            scan.pdf_spool_fallbacks
+                .iter()
+                .map(move |fallback| (files[index].rel.as_str(), fallback))
+        })
+        .collect();
+    for (path, fallback) in &reasons {
+        pdf_spool_budget.record_fallback_example(path, fallback.category, &fallback.message);
+    }
+    if reasons.is_empty() {
+        return;
+    }
+    if pdf_spool_budget.platform_reuse_is_unavailable() {
+        pr.note(
+            "phase A: run-local PDF extraction reuse is unavailable on this platform; \
+             phase B will use the normal parser",
+        );
+        return;
+    }
+    pr.note(&format!(
+        "phase A: {} PDF extraction(s) could not retain a bounded run-local artifact; \
+         phase B will parse them again safely",
+        reasons.len()
+    ));
+    if let Some(warning) = ctx.capacity_warning {
+        pr.note(&format!("  PDF reuse capacity: {warning}"));
+    }
+    for (path, fallback) in reasons.iter().take(3) {
+        pr.note(&format!(
+            "  PDF reuse fallback for {path}: {}",
+            fallback.message
+        ));
+    }
+    if reasons.len() > 3 {
+        pr.note(&format!(
+            "  … and {} more PDF reuse fallback(s)",
+            reasons.len() - 3
+        ));
+    }
+}
+
 /// Sniff + sample every file, cluster into datasets, and assemble the plan.
 /// Pure planning: reads the tree, never the server — which is what makes the
 /// #173/#196 grouping behaviour testable end-to-end without a cluster.
@@ -604,23 +800,30 @@ fn build_phase_a(
     keys: &[String],
     digests: &[String],
     duplicate_files: Vec<DuplicateFile>,
+    ctx: &PhaseAContext<'_>,
     cfg: &IndexCfg,
-    pr: &Progress,
-) -> (Plan, Vec<dataset::Cluster>) {
+) -> PhaseA {
     use rayon::prelude::*;
+    let pdf_spool_budget = ctx.budget;
+    let pr = ctx.progress;
     // Same pool as the digest phase: sniffing and sampling are the other half
     // of the CPU-bound phase `--workers` has to bound (#240 §2). Progress is
     // reported from inside that pool, so the straggler the ticker names is the
-    // file a scan-pool thread is genuinely sitting on (#241).
+    // file a scan-pool thread is genuinely sitting on (#241). Retaining a PDF
+    // artifact happens inside that same guard, so a file whose extraction is
+    // spooled is counted exactly like a plainly parsed one.
     let scans: Vec<FileScan> = crate::pool::install(|| {
         files
             .par_iter()
-            .map(|f| {
+            .zip(digests.par_iter())
+            .map(|(f, digest)| {
                 let _in_flight = pr.file(&f.rel, f.size);
-                scan_file(&f.path, f.size, cfg.sample, cfg.max_file_gb)
+                scan_file(&f.path, f.size, digest, ctx, cfg.sample, cfg.max_file_gb)
             })
             .collect()
     });
+
+    report_pdf_spool_fallbacks(files, &scans, ctx);
 
     let rels: Vec<String> = files.iter().map(|f| f.rel.clone()).collect();
     let scopes = compute_scopes(root, &rels);
@@ -632,12 +835,18 @@ fn build_phase_a(
         .collect();
     let mut sketches = Vec::new();
     let mut junk_files = Vec::new();
-    for (i, sc) in scans.into_iter().enumerate() {
+    let mut pdf_spools: Vec<Option<extract::pdf::ExtractionSpool>> =
+        (0..files.len()).map(|_| None).collect();
+    for (i, mut sc) in scans.into_iter().enumerate() {
         let family = sc
             .sniffed
             .as_ref()
             .map(|s| s.family)
             .unwrap_or(Family::Binary);
+        // A file that phase A junks is never indexed, so its artifact is
+        // refunded here rather than held to the phase A→B boundary.
+        pdf_spools[i] =
+            take_pdf_spool_if_indexable(&mut sc.pdf_spool, sc.junk.is_some(), pdf_spool_budget);
         if let Some((status, reason)) = sc.junk {
             junk_files.push(JunkFile {
                 file_key: keys[i].clone(),
@@ -746,7 +955,11 @@ fn build_phase_a(
         duplicate_files,
         alias_paths_indexed: true,
     };
-    (plan, clusters)
+    PhaseA {
+        plan,
+        clusters,
+        pdf_spools,
+    }
 }
 
 // ─── mapping builder ─────────────────────────────────────────────────────
@@ -920,6 +1133,66 @@ pub fn derive_brain_name(root: &Path) -> String {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct DurableDatasetStats {
+    bytes: u64,
+    junk: u64,
+    dropped: u64,
+}
+
+/// Source metadata durably represented by each dataset.
+///
+/// `FileDone` is the commit record for a successfully published canonical
+/// source. A source can feed more than one inferred dataset (for example, a
+/// workbook or database with multiple tables), so each distinct assigned
+/// dataset reports the complete source bytes it depends on. Repeated groups
+/// within the same dataset count the source only once. Parser-level junk has
+/// no group after extraction rejects it, so it retains the historical
+/// attribution to the file's first assigned dataset. Coercion drops retain
+/// their exact dataset captured in the completion record.
+fn durable_dataset_stats(
+    plan: &Plan,
+    done: &HashMap<String, FileDone>,
+) -> HashMap<String, DurableDatasetStats> {
+    let mut stats_by_dataset: HashMap<String, DurableDatasetStats> = HashMap::new();
+    for (file_key, completed) in done {
+        let Some(assignment) = plan.files.get(file_key) else {
+            continue;
+        };
+        let assigned_datasets: std::collections::HashSet<&str> = assignment
+            .assignments
+            .iter()
+            .map(|(_, slug)| slug.as_str())
+            .collect();
+        for slug in assigned_datasets {
+            let stats = stats_by_dataset.entry(slug.to_string()).or_default();
+            stats.bytes = stats.bytes.saturating_add(completed.bytes);
+        }
+        if let Some((_, slug)) = assignment.assignments.first() {
+            let stats = stats_by_dataset.entry(slug.clone()).or_default();
+            stats.junk = stats.junk.saturating_add(completed.junk);
+        }
+        for (slug, dropped) in &completed.dropped_by_dataset {
+            if assignment
+                .assignments
+                .iter()
+                .any(|(_, assigned)| assigned == slug)
+            {
+                let stats = stats_by_dataset.entry(slug.clone()).or_default();
+                stats.dropped = stats.dropped.saturating_add(*dropped);
+            }
+        }
+    }
+    stats_by_dataset
+}
+
+fn invocation_report_timestamps(
+    started: chrono::DateTime<chrono::Utc>,
+    summary_generated_at: chrono::DateTime<chrono::Utc>,
+) -> (String, String) {
+    (started.to_rfc3339(), summary_generated_at.to_rfc3339())
+}
+
 fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
@@ -932,6 +1205,9 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
 /// `None` when the run ended before a plan produced one (empty folder,
 /// `--dry-run`).
 pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
+    // The very first statement of the function, deliberately: `started` must
+    // be when this invocation began, not when its summary was built.
+    let invocation_started = chrono::Utc::now();
     // Fix the phase-A pool width BEFORE anything parallel starts: hashing and
     // sniffing are the CPU-bound phase, and they used to take every core no
     // matter what the caller asked for (#240 §2).
@@ -1183,6 +1459,27 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
     // ── Phase A: inference (skipped when a frozen plan exists) ──────────
     let mut clusters_rt: Option<Vec<dataset::Cluster>> = None;
+    let mut pdf_spools: Vec<Option<extract::pdf::ExtractionSpool>> =
+        (0..files.len()).map(|_| None).collect();
+    // Both worker widths come from the one resource policy (#240), and since
+    // that policy may set them apart, the spool's headroom is sized for the
+    // wider phase: phase-A scan threads are what hold artifact descriptors
+    // open, phase-B workers are what hold bulk buffers. Reserving for the
+    // larger of the two can only make this optional accelerator hand capacity
+    // back — never take headroom the run still needs.
+    let (pdf_spool_budget, pdf_spool_capacity_warning) =
+        extract::pdf::ExtractionSpoolBudget::for_state_dir(
+            &state_dir,
+            cfg.workers.max(scan_threads),
+            cfg.pdf_workers,
+            cfg.bulk_mb,
+        );
+    let phase_a_context = PhaseAContext {
+        state_dir: &state_dir,
+        budget: &pdf_spool_budget,
+        capacity_warning: pdf_spool_capacity_warning.as_deref(),
+        progress: &pr,
+    };
     let mut plan: Plan = if let Some(p) = journal.plan.clone() {
         p
     } else {
@@ -1194,15 +1491,20 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             "phase A: sniffing + sampling {} files with {scan_threads} threads…",
             files.len()
         ));
-        let (plan, clusters) = build_phase_a(
+        let PhaseA {
+            plan,
+            clusters,
+            pdf_spools: spools,
+        } = build_phase_a(
             &cfg.root,
             &files,
             &keys,
             &digests,
             duplicate_files.clone(),
+            &phase_a_context,
             &cfg,
-            &pr,
         );
+        pdf_spools = spools;
         pr.note(&format!(
             "phase A: {} datasets inferred, {} junk/skipped files",
             plan.datasets.len(),
@@ -1281,9 +1583,24 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     es.ensure_index(catalog::CATALOG_INDEX, &catalog::catalog_mapping())?;
     es.update_mapping(
         catalog::CATALOG_INDEX,
-        &json!({"properties": {"duplicate_of": {"type": "keyword"}}}),
+        &json!({"properties": {
+            "duplicate_of": {"type": "keyword"},
+            // `started` intentionally stays out of this additive upgrade. A
+            // catalog written by v1.0.0-rc.4 has a dynamically inferred TEXT
+            // `started`, and asking the engine to add it as `date` is refused
+            // 400 — which `es.update_mapping` turns into an `Err`, aborting
+            // the run before any document work. `catalog::catalog_mapping`
+            // declares it `date` for a fresh catalog, so the field is
+            // permanently bimodal across installs; its doc comment carries the
+            // full tripwire and the measured refusal.
+            "summary_generated_at": {"type": "date", "format": "strict_date_optional_time||epoch_millis"},
+            "invocation_telemetry_scope": {"type": "keyword"},
+            // Safe to add here, unlike `started`: no release ever wrote this
+            // field, so no existing catalog has a conflicting inferred type.
+            "junk_records_this_run": {"type": "long"}
+        }}),
     )
-    .context("upgrade autoindex catalog mapping for duplicate aliases")?;
+    .context("upgrade autoindex catalog mapping")?;
     // A replacement transaction starts before the effective new plan is
     // persisted and before live visibility changes. If the process dies at
     // any later boundary, journal replay removes the older file_done and
@@ -1335,9 +1652,6 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         index: String,
         plan: HashMap<String, coerce::Coerce>,
         records: AtomicU64,
-        junk: AtomicU64,
-        dropped: AtomicU64,
-        bytes: AtomicU64,
     }
     let mut ds_rt: HashMap<String, DsRt> = HashMap::new();
     for d in &plan.datasets {
@@ -1347,9 +1661,6 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 index: d.index.clone(),
                 plan: coerce::plan_from_specs(&d.specs),
                 records: AtomicU64::new(0),
-                junk: AtomicU64::new(0),
-                dropped: AtomicU64::new(0),
-                bytes: AtomicU64::new(0),
             },
         );
     }
@@ -1389,6 +1700,18 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         // genuinely fresh and skip the delete round trip.
         cleanup_required.extend(todo.iter().map(|&i| keys[i].clone()));
     }
+    let todo_set: std::collections::HashSet<usize> = todo.iter().copied().collect();
+    for (index, spool) in pdf_spools.iter_mut().enumerate() {
+        if spool.is_none() {
+            continue;
+        }
+        if todo_set.contains(&index) {
+            pdf_spool_budget.record_phase_b_eligible();
+        } else {
+            pdf_spool_budget.record_discarded_before_replay();
+            spool.take();
+        }
+    }
     // Every publication, including a fresh one, receives durable intent
     // before its first bulk. A failed fresh publication therefore skips the
     // unnecessary delete now but is recognized as pending and cleaned on the
@@ -1412,7 +1735,12 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // replacement invalidation can only ever see prior-generation edges —
     // running it later would invalidate this run's own fresh edges.
     let bulk_cut = cfg.bulk_mb << 20;
+    // Parser junk this invocation read out of source files (durable: it is
+    // journaled per file and replayed on resume).
     let junk_records = AtomicU64::new(0);
+    // Records the backend refused in a bulk response (invocation-local: no
+    // journal record exists for a document that was never accepted).
+    let rejected_records = AtomicU64::new(0);
     let bulk_errors = Mutex::new(Vec::<String>::new());
     let graph: Option<GraphRt> = if cfg.no_graph {
         None
@@ -1515,7 +1843,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     && record_bulk_outcome(
                         &es,
                         std::mem::take(&mut buf),
-                        &junk_records,
+                        &rejected_records,
                         &bulk_errors,
                         &mut send_err,
                     )
@@ -1524,7 +1852,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 }
             }
             if send_err.is_none() && !buf.is_empty() {
-                record_bulk_outcome(&es, buf, &junk_records, &bulk_errors, &mut send_err);
+                record_bulk_outcome(&es, buf, &rejected_records, &bulk_errors, &mut send_err);
             }
             if let Some(e) = send_err {
                 anyhow::bail!("write structural graph edges to {edges_index}: {e}");
@@ -1557,14 +1885,35 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // Percent and ETA are bytes-based, never file-count-based. The queue is
     // biggest-first, so a files-done percent races to ~100% and then sits
     // there for minutes on the one big file still in flight (#241 §5/§6).
+    // A replayed PDF still costs its own bytes to stage and send, so a spooled
+    // file counts toward the same denominator as a parsed one.
     let todo_bytes: u64 = todo.iter().map(|&i| files[i].size).sum();
+    let n_pdf_spools = todo
+        .iter()
+        .filter(|&&index| pdf_spools[index].is_some())
+        .count();
     pr.phase("index", n_todo as u64, todo_bytes);
     pr.note(&format!(
         "phase B: indexing {} files with {} workers → {}",
         n_todo, cfg.workers, cfg.url
     ));
+    if n_pdf_spools > 0 {
+        pr.note(&format!(
+            "phase B: reusing {n_pdf_spools} run-local PDF extraction(s); these PDFs will not be \
+             parsed a second time"
+        ));
+    }
 
-    let queue = Mutex::new(todo);
+    // Move each optional artifact into its sole Phase-B job. A replay cannot
+    // be retried or retained accidentally after staging begins.
+    let queue = Mutex::new(
+        todo.into_iter()
+            .map(|index| {
+                let spool = pdf_spools[index].take();
+                (index, spool)
+            })
+            .collect::<Vec<_>>(),
+    );
     let mut paths_by_key: HashMap<String, Vec<String>> = files
         .iter()
         .zip(keys.iter())
@@ -1589,8 +1938,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         for _ in 0..cfg.workers.min(n_todo.max(1)) {
             scope.spawn(|| {
                 loop {
-                    let i = match queue.lock().unwrap().pop() {
-                        Some(i) => i,
+                    let (i, pdf_spool) = match queue.lock().unwrap().pop() {
+                        Some(job) => job,
                         None => break,
                     };
                     let f = &files[i];
@@ -1620,6 +1969,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     };
                     let mut file_records = 0u64;
                     let mut file_junk = 0u64;
+                    let mut file_dropped_by_dataset: HashMap<String, u64> = HashMap::new();
                     let mut send_err: Option<String> = None;
                     // Edges this file teaches — buffered apart from the node
                     // staging file (different target index) and sent only
@@ -1722,7 +2072,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             let mut fields = rec.fields;
                             let dropped = coerce::coerce_record(&mut fields, &rt.plan);
                             if dropped > 0 {
-                                rt.dropped.fetch_add(dropped as u64, Ordering::Relaxed);
+                                let durable =
+                                    file_dropped_by_dataset.entry(slug.clone()).or_default();
+                                *durable = durable.saturating_add(dropped as u64);
                             }
                             fields.insert("ax_path".into(), Value::String(f.rel.clone()));
                             fields.insert(
@@ -1789,8 +2141,53 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                         // Demoted one-off config files (#173) index as
                         // documents — their key sets are configuration, not a
                         // schema (see `dataset` module docs).
+                        //
+                        // `as_document` deliberately outranks artifact replay.
+                        // It decides the record *shape*: phase A built this
+                        // dataset's mapping by re-sampling the file through
+                        // `extract_as_document`, whereas an artifact replays
+                        // PDF-parser page records. Replaying here would publish
+                        // records the frozen plan does not describe. Today no
+                        // PDF can reach this branch (`demotable_family` is
+                        // JSON/YAML/XML only), so this is a guard that keeps
+                        // the precedence right if that set ever widens — the
+                        // artifact is refunded rather than replayed.
                         let res = if fa.as_document {
+                            if pdf_spool.is_some() {
+                                pdf_spool_budget.record_discarded_before_replay();
+                            }
+                            drop(pdf_spool);
                             extract::extract_as_document(&f.path, sn.gzip, &mut sink)
+                        } else if sn.family == Family::Pdf {
+                            match pdf_spool {
+                                Some(spool) => {
+                                    match spool.replay(f.size, expected_digest, &mut sink) {
+                                        Ok(stats) => Ok(stats),
+                                        Err(replay_error) => {
+                                            // Replay verifies the complete
+                                            // artifact before `deliver`
+                                            // invokes the sink, so falling
+                                            // back here cannot duplicate a
+                                            // partially staged record stream.
+                                            pdf_spool_budget
+                                                .record_replay_fallback(&f.rel, &replay_error);
+                                            pdf_spool_budget.record_reparse();
+                                            extract::extract(&f.path, &sn, None, &mut sink)
+                                                .with_context(|| {
+                                                    format!(
+                                                        "reparse {} after run-local PDF artifact \
+                                                         verification failed: {replay_error:#}",
+                                                        f.rel
+                                                    )
+                                                })
+                                        }
+                                    }
+                                }
+                                None => {
+                                    pdf_spool_budget.record_reparse();
+                                    extract::extract(&f.path, &sn, None, &mut sink)
+                                }
+                            }
                         } else {
                             extract::extract(&f.path, &sn, None, &mut sink)
                         };
@@ -1915,7 +2312,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                                 && record_bulk_outcome(
                                     &es,
                                     std::mem::take(&mut buf),
-                                    &junk_records,
+                                    &rejected_records,
                                     &bulk_errors,
                                     &mut send_err,
                                 )
@@ -1931,7 +2328,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             record_bulk_outcome(
                                 &es,
                                 buf,
-                                &junk_records,
+                                &rejected_records,
                                 &bulk_errors,
                                 &mut send_err,
                             );
@@ -1956,7 +2353,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                                     && record_bulk_outcome(
                                         &es,
                                         std::mem::take(&mut ebuf),
-                                        &junk_records,
+                                        &rejected_records,
                                         &bulk_errors,
                                         &mut send_err,
                                     )
@@ -1968,7 +2365,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                                 record_bulk_outcome(
                                     &es,
                                     ebuf,
-                                    &junk_records,
+                                    &rejected_records,
                                     &bulk_errors,
                                     &mut send_err,
                                 );
@@ -1998,15 +2395,6 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     }
                     records_total.fetch_add(file_records, Ordering::Relaxed);
                     junk_records.fetch_add(file_junk, Ordering::Relaxed);
-                    if let Some(rt) = fa.assignments.first().and_then(|(_, slug)| ds_rt.get(slug)) {
-                        rt.bytes.fetch_add(
-                            f.size / fa.assignments.len().max(1) as u64,
-                            Ordering::Relaxed,
-                        );
-                        if file_junk > 0 {
-                            rt.junk.fetch_add(file_junk, Ordering::Relaxed);
-                        }
-                    }
                     let (commit_result, journal_path) = {
                         let mut journal = journal_mx.lock().unwrap();
                         let path = journal.path().display().to_string();
@@ -2016,6 +2404,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             records: file_records,
                             junk: file_junk,
                             bytes: f.size,
+                            dropped_by_dataset: file_dropped_by_dataset,
                             generation: Some(expected_digest.clone()),
                         });
                         (result, path)
@@ -2071,7 +2460,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                         && record_bulk_outcome(
                             &es,
                             std::mem::take(&mut buf),
-                            &junk_records,
+                            &rejected_records,
                             &bulk_errors,
                             &mut send_err,
                         )
@@ -2080,7 +2469,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                     }
                 }
                 if send_err.is_none() && !buf.is_empty() {
-                    record_bulk_outcome(&es, buf, &junk_records, &bulk_errors, &mut send_err);
+                    record_bulk_outcome(&es, buf, &rejected_records, &bulk_errors, &mut send_err);
                 }
                 match send_err {
                     Some(e) => bulk_errors
@@ -2100,11 +2489,24 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
     let bulk_errs = bulk_errors.into_inner().unwrap();
     if !bulk_errs.is_empty() {
+        // `bulk_errors` keeps only the first five distinct errors, so without
+        // the counter the operator cannot tell one refused document from ten
+        // thousand. That is the whole reason backend rejections are counted
+        // apart from parser junk: this is the only place the number is ever
+        // reported, because a run that gets here writes no run document and
+        // no map.
+        let rejected = rejected_records.load(Ordering::Relaxed);
+        let scale = if rejected > 0 {
+            format!(" The backend refused {rejected} record(s).")
+        } else {
+            String::new()
+        };
         anyhow::bail!(
-            "autoindex stopped with bulk/backend failures: {}. Failed source files were not \
+            "autoindex stopped with bulk/backend failures: {}.{} Failed source files were not \
              journaled complete; fix the reported server or embedding configuration and rerun \
              the same command to resume safely",
-            bulk_errs.join(" | ")
+            bulk_errs.join(" | "),
+            scale
         );
     }
 
@@ -2301,11 +2703,25 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 
     // dataset docs
     let mut junk_records_by_run: u64 = junk_records.load(Ordering::Relaxed);
+    let (dataset_stats, durable_junk_records) = {
+        let journal = journal_mx.lock().unwrap();
+        let stats = durable_dataset_stats(&plan, &journal.done);
+        // One definition of "junk records" per map. The dataset docs below
+        // report the durable per-file commits, so the run doc must too:
+        // reporting the invocation-local counter there made a no-op resume
+        // publish `junk_records_total: 0` next to dataset docs that showed
+        // the real number, in the same `xerj autoindex map` output. The
+        // per-dataset values are this same total attributed to each file's
+        // first assigned dataset, so they sum back to it for every file the
+        // frozen plan still describes.
+        let durable_junk: u64 = journal.done.values().map(|done| done.junk).sum();
+        (stats, durable_junk)
+    };
     for d in &plan.datasets {
-        let rt = &ds_rt[&d.slug];
         let sample_queries = catalog::build_sample_queries(d, &key_corrs);
         let mut notes = Vec::new();
-        let dropped = rt.dropped.load(Ordering::Relaxed);
+        let durable = dataset_stats.get(&d.slug).copied().unwrap_or_default();
+        let dropped = durable.dropped;
         if dropped > 0 {
             notes.push(format!(
                 "{dropped} field values could not be coerced to the inferred types and were dropped (records still indexed)"
@@ -2338,8 +2754,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
             pd: d,
             record_count: *ds_counts.get(&d.slug).unwrap_or(&0),
-            junk_records: rt.junk.load(Ordering::Relaxed),
-            bytes: rt.bytes.load(Ordering::Relaxed),
+            junk_records: durable.junk,
+            bytes: durable.bytes,
             file_count: d.file_count,
             formats,
             time_min: tmin,
@@ -2443,6 +2859,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     }
 
     let wall = t0.elapsed().as_secs_f64();
+    let (started, summary_generated_at) =
+        invocation_report_timestamps(invocation_started, chrono::Utc::now());
     let total_records: u64 = ds_counts.values().sum();
     // Run-summary honesty (§6.6.4): what the detectors wrote AND what they
     // could not resolve — a dangling [[link]] is a fact about the corpus, not
@@ -2475,20 +2893,46 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             "edges_invalidated": gr.invalidated,
         })
     });
+    // A resume intentionally reuses and upserts the durable run id. Timing
+    // and detector counters therefore describe this latest invocation,
+    // while corpus descriptors describe the durable live run state.
     let mut run_doc = json!({
         "doc_kind": "run",
         "run_id": run_id,
         "root": root_str,
         "url": cfg.url,
         "prefix": cfg.prefix,
-        "started": chrono::Utc::now().to_rfc3339(),
+        "started": started,
+        "summary_generated_at": summary_generated_at,
+        "invocation_telemetry_scope": "latest_invocation_of_durable_run",
         "files_total": paths_discovered,
         "unique_content_files": files.len(),
         "files_indexed": journal_mx.lock().unwrap().done.len(),
         "duplicate_files": plan.duplicate_files.len(),
         "files_junk": junk_file_count,
         "records_total": total_records,
-        "junk_records_total": junk_records_by_run,
+        // Two numbers, one definition each, neither of them overlapping.
+        //
+        // `junk_records_total` is the durable corpus descriptor: the same
+        // definition as every dataset doc's `junk_records`, summed over every
+        // `FileDone` in the journal. It survives a no-op resume.
+        //
+        // `junk_records_this_run` is the same *kind* of failure narrowed to
+        // the files this invocation actually parsed. It is the NARROWER of the
+        // two, not the wider: every file counted here also committed a
+        // `FileDone` that the total sums. On an unchanged resume it reads 0
+        // while the total stays non-zero — which is the whole defect this
+        // change exists to fix, seen from the other side.
+        //
+        // Backend rejections are deliberately absent. They are a different
+        // failure, and they can never be reported here anyway: a per-item
+        // rejection populates `bulk_errors`, which aborts the run above,
+        // before this document exists. Publishing a
+        // `records_rejected_by_backend` field would ship a number that is
+        // provably always 0 — see `record_bulk_outcome` and
+        // `backend_rejected_records_abort_the_run_before_any_map_is_written`.
+        "junk_records_total": durable_junk_records,
+        "junk_records_this_run": junk_records_by_run,
         // This-run submission accounting (#195): what THIS invocation sent
         // and had accepted, vs `records_total` above which is the live
         // server-side count. A healthy run keeps these consistent; a
@@ -2519,6 +2963,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "bulk_congestion_events": es.bulk_congestion_events(),
         "resource_notes": cfg.resource_notes,
         "semantic": !cfg.no_semantic,
+        "pdf_extraction_reuse": pdf_spool_budget.report(),
     });
     if let Some(g) = &graph_summary {
         run_doc["graph"] = g.clone();
@@ -2617,6 +3062,11 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             cfg.url, cfg.prefix
         );
     }
+    // Exit 3 means "completed, some input was unusable". Backend rejections
+    // are not consulted and must not be: a rejected item aborts the run with
+    // an error long before this line, so `rejected_records` is provably 0
+    // here. Splitting them out of `junk_total_records` therefore changes no
+    // exit code.
     let code = if junk_total_records > 0 || junk_file_count > 0 {
         3
     } else {
@@ -3083,6 +3533,7 @@ mod duplicate_integration_tests {
                 records,
                 junk: 0,
                 bytes: inventory.files[0].size,
+                dropped_by_dataset: HashMap::new(),
                 generation: Some(inventory.digests[0].clone()),
             })
             .unwrap();
@@ -3161,6 +3612,145 @@ mod duplicate_integration_tests {
         })
         .unwrap();
         assert_eq!(live, HashSet::from(["r0".into(), "r1".into()]));
+    }
+}
+
+#[cfg(test)]
+mod map_metadata_tests {
+    use super::*;
+
+    fn assignment(slugs: &[&str]) -> FileAssignment {
+        FileAssignment {
+            rel: "report.dat".into(),
+            path_id: "path:report.dat".into(),
+            family: "json".into(),
+            gzip: false,
+            content_digest: Some("digest".into()),
+            assignments: slugs
+                .iter()
+                .enumerate()
+                .map(|(group, slug)| (Some(format!("group-{group}")), (*slug).to_string()))
+                .collect(),
+            as_document: false,
+        }
+    }
+
+    #[test]
+    fn unchanged_resume_keeps_durable_assignment_aware_dataset_bytes() {
+        let _guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        let plan = Plan {
+            files: HashMap::from([
+                (
+                    "shared".into(),
+                    assignment(&["quarterly", "quarterly", "annual"]),
+                ),
+                ("quarterly-only".into(), assignment(&["quarterly"])),
+            ]),
+            ..Plan::default()
+        };
+        let mut initial = state::Journal::open(
+            state_dir.path(),
+            "corpus",
+            "http://engine",
+            "ax",
+            300,
+            false,
+        )
+        .unwrap();
+        initial.write_plan(&plan).unwrap();
+        initial
+            .file_done(&FileDone {
+                file_key: "shared".into(),
+                path: "report.dat".into(),
+                records: 10,
+                junk: 5,
+                bytes: 100,
+                dropped_by_dataset: HashMap::from([("quarterly".into(), 7), ("annual".into(), 3)]),
+                generation: Some("digest".into()),
+            })
+            .unwrap();
+        initial
+            .file_done(&FileDone {
+                file_key: "quarterly-only".into(),
+                path: "quarterly.json".into(),
+                records: 2,
+                junk: 2,
+                bytes: 23,
+                dropped_by_dataset: HashMap::from([("quarterly".into(), 11)]),
+                generation: Some("digest-2".into()),
+            })
+            .unwrap();
+        let before_resume = durable_dataset_stats(&plan, &initial.done);
+        drop(initial);
+
+        // Opening the same durable run appends only an invocation-level
+        // resume record. No source is processed and no FileDone is appended.
+        let resumed = state::Journal::open(
+            state_dir.path(),
+            "corpus",
+            "http://engine",
+            "ax",
+            300,
+            false,
+        )
+        .unwrap();
+        let after_unchanged_resume =
+            durable_dataset_stats(resumed.plan.as_ref().unwrap(), &resumed.done);
+
+        assert_eq!(before_resume, after_unchanged_resume);
+        assert_eq!(after_unchanged_resume["quarterly"].bytes, 123);
+        assert_eq!(after_unchanged_resume["annual"].bytes, 100);
+        assert_eq!(after_unchanged_resume["quarterly"].junk, 7);
+        assert_eq!(after_unchanged_resume["annual"].junk, 0);
+        assert_eq!(after_unchanged_resume["quarterly"].dropped, 18);
+        assert_eq!(after_unchanged_resume["annual"].dropped, 3);
+    }
+
+    #[test]
+    fn invocation_started_is_not_derived_from_summary_generation() {
+        let started = chrono::DateTime::parse_from_rfc3339("2026-08-04T00:29:05.673023686Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let summary_generated_at =
+            chrono::DateTime::parse_from_rfc3339("2026-08-04T00:31:37.937589283Z")
+                .unwrap()
+                .with_timezone(&chrono::Utc);
+
+        let (reported_started, reported_summary_generated_at) =
+            invocation_report_timestamps(started, summary_generated_at);
+
+        assert_eq!(reported_started, "2026-08-04T00:29:05.673023686+00:00");
+        assert_eq!(
+            reported_summary_generated_at,
+            "2026-08-04T00:31:37.937589283+00:00"
+        );
+        assert_ne!(reported_started, reported_summary_generated_at);
+    }
+
+    #[test]
+    fn catalog_mapping_declares_latest_invocation_telemetry_fields() {
+        let mapping = catalog::catalog_mapping();
+        assert_eq!(
+            mapping.pointer("/mappings/properties/started/type"),
+            Some(&json!("date"))
+        );
+        assert_eq!(
+            mapping.pointer("/mappings/properties/summary_generated_at/type"),
+            Some(&json!("date"))
+        );
+        assert_eq!(
+            mapping.pointer("/mappings/properties/invocation_telemetry_scope/type"),
+            Some(&json!("keyword"))
+        );
+        assert_eq!(
+            mapping.pointer("/mappings/properties/started/format"),
+            Some(&json!("strict_date_optional_time||epoch_millis"))
+        );
+        assert_eq!(
+            mapping.pointer("/mappings/properties/summary_generated_at/format"),
+            Some(&json!("strict_date_optional_time||epoch_millis"))
+        );
     }
 }
 

@@ -130,9 +130,14 @@ pub fn print_help() {
              Image-only pages need OCR. Page parse failures reject the whole PDF instead\n\
              of silently creating a partial index. XERJ_PDF_WORKER_BIN is a trusted,\n\
              developer-only executable override.\n\
-             Current cost: phase-A sampling parses/materializes each complete PDF, and\n\
-             phase-B indexing parses it again. A framed, early-stop protocol is planned;\n\
-             use fewer --pdf-workers when parent memory is constrained.\n\
+             On Linux, fresh runs attempt to retain each validated PDF extraction in\n\
+             bounded anonymous storage under --state-dir. Live admission-time checks\n\
+             attempt to preserve disk and descriptor headroom; refused artifacts are\n\
+             parsed again in phase B and reported under pdf_extraction_reuse. Other\n\
+             platforms currently disable this optimization. Frozen-plan resumes skip\n\
+             phase A and parse unfinished PDFs once.\n\
+             --pdf-workers bounds both phase-A parser processes and phase-B replay\n\
+             materialization; --workers does not widen that PDF memory gate.\n\
          \n\
          EMBEDDINGS:\n\
              autoindex sends semantic_text to the running server; it does not choose the\n\
