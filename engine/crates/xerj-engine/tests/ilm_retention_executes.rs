@@ -325,3 +325,315 @@ async fn explain_reports_the_next_phase_before_it_fires() {
     let unmanaged = engine.ilm_explain("nope", created).await;
     assert_eq!(unmanaged["managed"], false);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repairs found by adversarial review of the first cut of this change.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_detached_index_is_never_deleted() {
+    // The defect this test exists for: `PUT /{index}/_settings
+    // {"index.lifecycle.name": null}` — ES's documented way to stop managing
+    // an index, and the only one this engine offers — was acknowledged and
+    // then ignored. Detach cleared the in-memory `ilm_index_state` entry, but
+    // the resolver fell back to the index's persisted `settings.json`, which
+    // still carried the create-time `index.lifecycle.name`. `_ilm/explain`
+    // kept reporting `managed: true`, and the next pass deleted the index.
+    //
+    // An acknowledged "stop deleting my data" that deletes the data anyway is
+    // the exact failure class this whole module exists to remove.
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.put_ilm_policy("logs-30d", thirty_day_delete_policy());
+    engine
+        .create_index_with_settings(
+            "logs-000009",
+            Schema::empty(),
+            json!({ "index.lifecycle.name": "logs-30d" }),
+        )
+        .expect("create index");
+    let created = now_ms();
+    assert_eq!(
+        engine.ilm_policy_for_index("logs-000009").await.as_deref(),
+        Some("logs-30d"),
+        "managed before the detach"
+    );
+
+    engine.set_index_lifecycle_policy("logs-000009", None);
+
+    assert_eq!(
+        engine.ilm_policy_for_index("logs-000009").await,
+        None,
+        "the detach is authoritative — settings.json must not resurrect the policy"
+    );
+    assert_eq!(
+        engine.ilm_explain("logs-000009", created).await["managed"],
+        false,
+        "and _ilm/explain agrees, so the operator is not told a comforting lie"
+    );
+
+    let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
+    assert_eq!(report.evaluated, 0, "a detached index is not evaluated");
+    assert!(
+        report.deleted.is_empty(),
+        "a detached index is never deleted: {report:?}"
+    );
+    assert!(
+        engine.get_index("logs-000009").is_ok(),
+        "the index is still here 31 days later"
+    );
+    assert!(
+        dir.path().join("logs-000009").exists(),
+        "and so is its data on disk"
+    );
+
+    // Re-attaching still works, and ages from the original creation time
+    // rather than from the moment of re-attach.
+    engine.set_index_lifecycle_policy("logs-000009", Some("logs-30d"));
+    let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
+    assert_eq!(
+        report.deleted,
+        vec!["logs-000009".to_string()],
+        "{report:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn detaching_an_index_with_no_recorded_state_is_honoured() {
+    // The upgrade shape, and the second half of the same defect: an index
+    // whose only record of its policy is the persisted `settings.json` (no
+    // `ilm_state.json` entry, because it predates this feature). Detaching it
+    // used to be a *completely silent no-op* — there was no entry to remove,
+    // so nothing was written, the settings fallback still resolved the policy,
+    // and the next pass deleted it.
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.put_ilm_policy("logs-30d", thirty_day_delete_policy());
+    engine
+        .create_index_with_settings(
+            "legacy-logs",
+            Schema::empty(),
+            json!({ "index.lifecycle.name": "logs-30d" }),
+        )
+        .expect("create index");
+    let created = now_ms();
+    // Simulate the pre-#199 node: settings.json says logs-30d, nothing else does.
+    engine.ilm_index_state.remove("legacy-logs");
+    assert_eq!(
+        engine.ilm_policy_for_index("legacy-logs").await.as_deref(),
+        Some("logs-30d"),
+        "the settings fallback is what makes an upgraded index managed at all"
+    );
+
+    engine.set_index_lifecycle_policy("legacy-logs", None);
+
+    assert_eq!(
+        engine.ilm_policy_for_index("legacy-logs").await,
+        None,
+        "the detach records a tombstone even with nothing to remove"
+    );
+    let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
+    assert!(report.deleted.is_empty(), "{report:?}");
+    assert!(engine.get_index("legacy-logs").is_ok());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_detach_survives_a_restart() {
+    // A tombstone that evaporates on reboot is not a detach, it is a delay.
+    let dir = TempDir::new().unwrap();
+    let created;
+    {
+        let engine = make_engine(&dir);
+        engine.put_ilm_policy("logs-30d", thirty_day_delete_policy());
+        engine
+            .create_index_with_settings(
+                "logs-000010",
+                Schema::empty(),
+                json!({ "index.lifecycle.name": "logs-30d" }),
+            )
+            .expect("create index");
+        created = now_ms();
+        engine.set_index_lifecycle_policy("logs-000010", None);
+        engine.flush_index("logs-000010").await.expect("flush");
+    } // engine dropped → node lock released
+
+    let engine = make_engine(&dir);
+    assert_eq!(
+        engine.ilm_policy_for_index("logs-000010").await,
+        None,
+        "the detach came back from ilm_state.json"
+    );
+    let report = engine.run_ilm_once(created + 31 * DAY_MS).await;
+    assert!(
+        report.deleted.is_empty(),
+        "still detached after a restart: {report:?}"
+    );
+    assert!(engine.get_index("logs-000010").is_ok());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_detached_index_does_not_block_deleting_its_former_policy() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.put_ilm_policy("logs-30d", thirty_day_delete_policy());
+    engine
+        .create_index_with_settings(
+            "logs-000011",
+            Schema::empty(),
+            json!({ "index.lifecycle.name": "logs-30d" }),
+        )
+        .expect("create index");
+
+    assert_eq!(
+        engine.ilm_indices_using_policy("logs-30d").await,
+        vec!["logs-000011".to_string()],
+        "in use while attached"
+    );
+    engine.set_index_lifecycle_policy("logs-000011", None);
+    assert!(
+        engine.ilm_indices_using_policy("logs-30d").await.is_empty(),
+        "and not in use once detached"
+    );
+    assert_eq!(
+        engine.ilm_status()["xerj"]["managed_indices"],
+        0,
+        "a tombstone is not a managed index"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_upgraded_index_still_counts_as_using_its_policy() {
+    // The in-use check must ask the same resolver the executor asks. An index
+    // that points at the policy only through its persisted settings is
+    // genuinely managed, so deleting the policy out from under it would leave
+    // the executor skipping it every pass with "policy not found" — retention
+    // silently stopped, which is the state this work exists to remove.
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.put_ilm_policy("logs-30d", thirty_day_delete_policy());
+    engine
+        .create_index_with_settings(
+            "legacy-logs-2",
+            Schema::empty(),
+            json!({ "index.lifecycle.name": "logs-30d" }),
+        )
+        .expect("create index");
+    engine.ilm_index_state.remove("legacy-logs-2");
+
+    assert_eq!(
+        engine.ilm_indices_using_policy("logs-30d").await,
+        vec!["legacy-logs-2".to_string()],
+        "resolved through settings, exactly as the executor resolves it"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_data_stream_created_under_an_ilm_template_is_actually_managed() {
+    // Backing indices are named `.ds-<stream>-NNNNNN`, so matching templates
+    // against the literal backing-index name never matches the `applogs*`
+    // pattern the user wrote. The stream came out silently unmanaged:
+    // `evaluated: 0`, no error, no warning, retention simply never happened —
+    // in the shape ES users reach ILM through most often.
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.put_ilm_policy(
+        "stream-7d",
+        json!({ "phases": { "delete": { "min_age": "7d", "actions": { "delete": {} } } } }),
+    );
+    engine.templates.insert(
+        "applogs".to_string(),
+        IndexTemplate {
+            index_patterns: vec!["applogs*".to_string()],
+            settings: json!({ "index.lifecycle.name": "stream-7d" }),
+            mappings: json!({}),
+            priority: 100,
+        },
+    );
+
+    engine.create_data_stream("applogs").expect("create stream");
+    let created = now_ms();
+    assert_eq!(
+        engine
+            .ilm_policy_for_index(".ds-applogs-000001")
+            .await
+            .as_deref(),
+        Some("stream-7d"),
+        "the template is resolved from the stream name, not the backing name"
+    );
+
+    // The sole backing index is the stream's *write* index, so the safety rail
+    // keeps it — retention must not delete the index documents land in.
+    let report = engine.run_ilm_once(created + 30 * DAY_MS).await;
+    assert_eq!(report.evaluated, 1, "it is evaluated now: {report:?}");
+    assert!(report.deleted.is_empty(), "{report:?}");
+    assert!(
+        report
+            .skipped
+            .iter()
+            .any(|(i, r)| i == ".ds-applogs-000001" && r.contains("write index")),
+        "and the refusal names the reason: {report:?}"
+    );
+
+    // After a rollover the old generation is no longer the write index, so it
+    // ages out — which is the entire point of ILM on a data stream.
+    engine.rollover_data_stream("applogs").expect("rollover");
+    assert_eq!(
+        engine
+            .ilm_policy_for_index(".ds-applogs-000002")
+            .await
+            .as_deref(),
+        Some("stream-7d"),
+        "the new generation is managed too"
+    );
+    let report = engine.run_ilm_once(created + 30 * DAY_MS).await;
+    assert_eq!(
+        report.deleted,
+        vec![".ds-applogs-000001".to_string()],
+        "the rolled-over generation is deleted, the write index is not: {report:?}"
+    );
+    assert!(engine.get_index(".ds-applogs-000002").is_ok());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn deleting_a_data_stream_forgets_its_ilm_bookkeeping() {
+    // `delete_data_stream` bypasses `delete_index`, so it has to drop the ILM
+    // state itself. It did not, and the state outlived the index: status kept
+    // reporting a managed index that no longer existed, and the policy became
+    // permanently undeletable, refused in the name of a phantom.
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.put_ilm_policy(
+        "stream-7d",
+        json!({ "phases": { "delete": { "min_age": "7d", "actions": { "delete": {} } } } }),
+    );
+    engine.templates.insert(
+        "applogs".to_string(),
+        IndexTemplate {
+            index_patterns: vec!["applogs*".to_string()],
+            settings: json!({ "index.lifecycle.name": "stream-7d" }),
+            mappings: json!({}),
+            priority: 100,
+        },
+    );
+    engine.create_data_stream("applogs").expect("create stream");
+    assert_eq!(engine.ilm_status()["xerj"]["managed_indices"], 1);
+
+    engine.delete_data_stream("applogs").await.expect("delete");
+
+    assert_eq!(
+        engine.ilm_status()["xerj"]["managed_indices"],
+        0,
+        "no ILM state survives an index that no longer exists"
+    );
+    assert!(
+        engine
+            .ilm_indices_using_policy("stream-7d")
+            .await
+            .is_empty(),
+        "so the policy is deletable again rather than pinned by a phantom"
+    );
+}

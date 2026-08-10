@@ -466,6 +466,13 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/_ilm/start", post(es_compat::start_ilm))
         .route("/_ilm/stop", post(es_compat::stop_ilm))
         .route("/:index/_ilm/explain", get(es_compat::explain_ilm))
+        // Detaching has to be a first-class verb, not a settings side effect:
+        // it is how an operator says "stop deleting my data", and it is
+        // honoured ahead of whatever the index's own settings still say.
+        .route(
+            "/:index/_ilm/remove",
+            post(es_compat::remove_ilm_policy_from_index),
+        )
         // ── Component templates ────────────────────────────────────────────
         .route(
             "/_component_template/:name",

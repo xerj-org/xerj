@@ -1540,6 +1540,7 @@ impl Engine {
         }
         let backing_name = format!(".ds-{}-000001", name);
         self.create_index(&backing_name, Schema::empty())?;
+        self.attach_data_stream_backing_index_to_ilm(name, &backing_name);
         // Alias: writing to the stream name → first backing index.
         self.add_alias(name, &backing_name);
         let ds = DataStream {
@@ -1551,6 +1552,38 @@ impl Engine {
         self.data_streams.insert(name.to_string(), ds);
         info!(name, "data stream created");
         Ok(())
+    }
+
+    /// Resolve the ILM policy for a data stream's *backing* index from the
+    /// template that matches the **stream name**, and record the attachment.
+    ///
+    /// Backing indices are named `.ds-<stream>-NNNNNN`, so the create-path
+    /// lookup in [`Engine::create_index_with_settings`] — which matches
+    /// templates against the literal index name — can never match the
+    /// `logs-*` / `applogs*` pattern the user wrote their template for. Before
+    /// this, a data stream created under an ILM-carrying template came out
+    /// silently unmanaged: `ilm_policy_for_index(".ds-applogs-000001")` was
+    /// `None`, the pass reported `evaluated: 0`, and retention just never
+    /// happened with no error and no warning — issue #204's accept-and-ignore
+    /// class, in the shape ES users reach ILM through most often.
+    ///
+    /// ES resolves a data stream's template from the stream name and applies
+    /// it to every backing index; its own
+    /// `DataStreamIT.testComposableTemplateOnlyMatchingWithDataStreamName`
+    /// (`modules/data-streams/src/internalClusterTest/.../DataStreamIT.java:454`)
+    /// pins exactly that, using a wildcard-free pattern *so that the backing
+    /// indices cannot match by name*. Approach only — Elasticsearch is
+    /// AGPL/SSPL/Elastic-2.0 and no code of it is copied here.
+    ///
+    /// Resolution happens **at backing-index creation**, never at evaluation
+    /// time, for the reason [`Engine::ilm_policy_for_index`] spells out: a
+    /// template written today must not retroactively delete indices that
+    /// already existed. Called after `create_index`, so a stream-name match
+    /// wins over an incidental `.ds-*` template match.
+    fn attach_data_stream_backing_index_to_ilm(&self, stream: &str, backing: &str) {
+        if let Some(policy) = self.template_lifecycle_name(stream) {
+            self.set_index_lifecycle_policy(backing, Some(&policy));
+        }
     }
 
     /// Roll over a data stream: create the next backing index and update the alias.
@@ -1565,6 +1598,7 @@ impl Engine {
         drop(ds); // release borrow before calling create_index
 
         self.create_index(&new_backing, Schema::empty())?;
+        self.attach_data_stream_backing_index_to_ilm(name, &new_backing);
         // Update alias to point at the new (write) backing index.
         // Keep old backing indices accessible for reads via the alias list.
         if let Some(mut entry) = self.aliases.get_mut(name) {
@@ -1606,6 +1640,12 @@ impl Engine {
             if let Ok(idx) = self.indices.remove(backing).map(|(_, v)| v).ok_or(()) {
                 let _ = idx.delete_all_data().await;
             }
+            // This path bypasses `delete_index`, so it must drop the ILM
+            // bookkeeping itself. Without it the state outlives the index:
+            // `GET /_ilm/status` kept reporting a managed index that no longer
+            // existed, and `DELETE /_ilm/policy/{name}` refused forever,
+            // naming a phantom.
+            self.forget_ilm_index(backing);
         }
         info!(name, "data stream deleted");
         Ok(())

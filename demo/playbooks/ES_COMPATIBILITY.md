@@ -178,6 +178,14 @@ Core retrieval is genuinely implemented and live-confirmed. The body parses into
 
 **ILM** left that list in v1.0.0-rc.13 (issue #199). A background executor now ages every index carrying `index.lifecycle.name` and applies the two actions xerj can genuinely perform — `delete` (drops the index) and `readonly` (sets the write block) — with `GET /<index>/_ilm/explain`, `GET /_ilm/status` and `POST /_ilm/start|stop` to inspect and control it. Everything else ES's ILM offers (`rollover`, `forcemerge`, `shrink`, `searchable_snapshot`, `allocate`, `migrate`, `set_priority`, `downsample`) is **rejected at `PUT /_ilm/policy` with a 400 naming the action** rather than stored and ignored.
 
+What that does and does not cover, precisely:
+
+- **Detach is authoritative.** `POST /<index>/_ilm/remove` and `PUT /<index>/_settings {"index.lifecycle.name": null}` both record a persisted tombstone that the executor honours ahead of the index's own settings, so an acknowledged detach genuinely stops retention — including on an index upgraded from before ILM state existed, whose `settings.json` still names the policy.
+- **Data streams are managed**, resolved from the template matching the *stream* name at backing-index creation (backing indices are `.ds-<stream>-NNNNNN`, which no `logs-*` template pattern matches by name). A stream's **current write index is never deleted**; older generations age out normally.
+- **`rollover` is still refused**, so on a data stream the generations only advance when the caller rolls over (`POST /<stream>/_rollover`). A delete-only policy on a stream that is never rolled over will therefore never delete anything — the write index is the only generation there is.
+- **Templates are read at index creation, never at evaluation time.** Adding a `logs-*` template today does not retroactively manage — or delete — `logs-*` indices that already existed, matching ES.
+- **Dot-prefixed internal indices are never ILM-deleted** (`.xerj-memory-*` brains, `.kibana*`), so a wildcard policy cannot eat one. `.ds-*` is the one exempt family.
+
 **Data-loss risk:** `_shrink`/`_split`/`_clone` all reuse one path that copies only the first **10,000 docs** via `match_all size:10000` — larger indices are **silently truncated**, and `_split` does not increase shard count.
 
 ---

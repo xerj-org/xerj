@@ -67,6 +67,7 @@
 //! | `es_compat::search_impl`'s search task | owns one already-authorized `Index`; `terms`/`lookup` targets are resolved earlier, on the request's task |
 //! | `es_compat::delete_by_query` / `update_by_query` (`wait_for_completion=false`) | same: one already-authorized `Index` handle, no `Engine` |
 //! | `Engine::spawn_pit_sweeper`, `spawn_search_context_sweeper` | started by `Engine::new`, capture only the PIT/scroll maps, touch no index |
+//! | `Engine::spawn_ilm_executor` (`ilm.rs`) | **does** reach `get_index`/`delete_index`, and deliberately carries no guard — started at boot, no request and no principal behind a retention tick, so it runs on the node's own authority. Scoping it to whoever booted the node would make retention apply to that principal's indices only. Bounded instead by the delete rail (`ilm_delete_block_reason`): never a dot-prefixed index, never a data stream's write index |
 //! | `Index`'s flush/merge/warm tasks (`index.rs`, `write_publication.rs`) | methods **on** an already-resolved `Index`; the name has already been through the funnel |
 //! | `xerj-server::main`'s listeners, metrics loop, autoindex/brain CLIs | startup, outside any request; unrestricted by design (see `visible`) |
 //! | `xerj-cluster` transport/replication/coordinator | peer-to-peer, authorized by `xerj_cluster::auth`, not by a caller's principal |

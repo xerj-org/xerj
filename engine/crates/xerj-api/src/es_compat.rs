@@ -21317,6 +21317,45 @@ async fn sync_display_blocks(state: &AppState, name: &str) {
         .insert(name.to_string(), display);
 }
 
+/// Strip `index.lifecycle.name` from a stored settings blob, in every spelling
+/// the settings map can hold it: nested (`{"index":{"lifecycle":{"name":…}}}`),
+/// half-flat (`{"index":{"lifecycle.name":…}}`) and fully flat
+/// (`{"index.lifecycle.name":…}`).
+///
+/// A detach must leave no trace of the setting behind, or `GET
+/// /{index}/_settings` reports `"lifecycle":{"name":null}` where ES reports
+/// nothing at all — and an operator reading it back cannot tell a detached
+/// index from a broken one.
+fn remove_lifecycle_name(settings: &mut Value) {
+    let Some(obj) = settings.as_object_mut() else {
+        return;
+    };
+    obj.remove("index.lifecycle.name");
+    obj.remove("lifecycle.name");
+    if let Some(Value::Object(lifecycle)) = obj.get_mut("lifecycle") {
+        lifecycle.remove("name");
+        if lifecycle.is_empty() {
+            obj.remove("lifecycle");
+        }
+    }
+    if let Some(inner) = obj.get_mut("index") {
+        // One level only: the map stores `{"index": {…}}`, never deeper.
+        if let Some(inner_obj) = inner.as_object_mut() {
+            inner_obj.remove("lifecycle.name");
+            // `PUT /{index} {"settings":{"index.lifecycle.name":…}}` stores the
+            // body verbatim, so the fully-dotted key can also sit *inside* the
+            // `index` block once `put_settings` has re-wrapped it.
+            inner_obj.remove("index.lifecycle.name");
+            if let Some(Value::Object(lifecycle)) = inner_obj.get_mut("lifecycle") {
+                lifecycle.remove("name");
+                if lifecycle.is_empty() {
+                    inner_obj.remove("lifecycle");
+                }
+            }
+        }
+    }
+}
+
 pub async fn put_settings(
     State(state): State<AppState>,
     Path(index): Path<String>,
@@ -21378,21 +21417,34 @@ pub async fn put_settings(
     // all. The settings map above is in-memory only, so the attachment is
     // recorded separately and persisted — otherwise a restart would silently
     // un-manage the index and retention would stop with no signal. An
-    // explicit `null` detaches, as in ES.
-    if let Some(inner_obj) = inner.as_object() {
-        // Both spellings ES accepts reach here: nested (`{"index":{"lifecycle":
-        // {"name":…}}}`, normalized into `inner` above) and flat
-        // (`{"index.lifecycle.name":…}`).
-        let mentions_lifecycle = inner_obj
-            .keys()
-            .any(|k| k == "lifecycle" || k.contains("lifecycle."));
-        if mentions_lifecycle {
-            let policy = xerj_engine::ilm::lifecycle_name_from_settings(&inner)
-                .or_else(|| xerj_engine::ilm::lifecycle_name_from_settings(&body));
+    // explicit `null` detaches, as in ES, and the engine records that detach
+    // as a tombstone the executor honours ahead of the index's own settings.
+    //
+    // Three-valued on purpose. The first cut asked only "does this body
+    // mention lifecycle?" and then read the name, so a body setting
+    // `index.lifecycle.origination_date` — which mentions lifecycle but says
+    // nothing about the policy — detached the index.
+    //
+    // Both spellings ES accepts reach here: nested (`{"index":{"lifecycle":
+    // {"name":…}}}`, normalized into `inner` above) and flat
+    // (`{"index.lifecycle.name":…}`).
+    if let Some(directive) = xerj_engine::ilm::lifecycle_directive_from_settings(&inner)
+        .or_else(|| xerj_engine::ilm::lifecycle_directive_from_settings(&body))
+    {
+        for idx in &targets {
+            state
+                .engine
+                .set_index_lifecycle_policy(idx, directive.as_deref());
+        }
+        if directive.is_none() {
+            // ES drops the setting on a null rather than reporting it as null,
+            // so `GET /{index}/_settings` after a detach must not still show
+            // `index.lifecycle.name`. The merge above wrote the literal null
+            // into the display copy; take it back out.
             for idx in &targets {
-                state
-                    .engine
-                    .set_index_lifecycle_policy(idx, policy.as_deref());
+                if let Some(mut stored) = state.engine.index_settings.get_mut(idx) {
+                    remove_lifecycle_name(stored.value_mut());
+                }
             }
         }
     }
@@ -23288,23 +23340,25 @@ pub async fn get_all_ilm_policies(State(state): State<AppState>) -> impl IntoRes
 /// Refuses while an index still points at the policy: deleting it would leave
 /// those indices managed-by-nothing, which is exactly the silent "retention
 /// stopped and nobody told you" state this work exists to remove.
+///
+/// The in-use set comes from `Engine::ilm_indices_using_policy`, i.e. from the
+/// *same resolver the executor uses*. Deciding it by scanning
+/// `engine.ilm_index_state` directly — as the first cut did — asked a
+/// different question than "will the executor act on this?", and the two
+/// answers diverged in both directions: an upgraded index that points at the
+/// policy only through its persisted settings was not counted (so the DELETE
+/// succeeded while the executor still managed it), and a detach tombstone was
+/// counted (so the DELETE was refused for an index nothing manages).
 pub async fn delete_ilm_policy(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    let mut in_use: Vec<String> = state
-        .engine
-        .ilm_index_state
-        .iter()
-        .filter(|e| e.value().policy.as_deref() == Some(name.as_str()))
-        .map(|e| e.key().clone())
-        .collect();
+    let in_use = state.engine.ilm_indices_using_policy(&name).await;
     if !in_use.is_empty() {
-        in_use.sort();
         let sample: Vec<String> = in_use.iter().take(10).cloned().collect();
         return ilm_bad_request(format!(
             "Cannot delete policy [{name}]. It is in use by {} index(es): {}. \
-             Detach it first (PUT /<index>/_settings {{\"index.lifecycle.name\": null}}).",
+             Detach them first (POST /<index>/_ilm/remove).",
             in_use.len(),
             sample.join(", "),
         ));
@@ -23315,6 +23369,37 @@ pub async fn delete_ilm_policy(
         let e = xerj_common::XerjError::index_not_found(format!("policy [{name}] not found"));
         ApiError::new(e).into_response()
     }
+}
+
+/// `POST /{index}/_ilm/remove` — stop managing these indices.
+///
+/// ES's own verb for detaching, and until now the one this engine did not
+/// implement, which left `PUT /{index}/_settings {"index.lifecycle.name":
+/// null}` as the only route. Both work, and both go through
+/// `Engine::set_index_lifecycle_policy`, so a detach is recorded once and the
+/// executor cannot disagree with the operator about which it honoured.
+///
+/// Answers in ES's shape: `has_failures` plus the indices that could not be
+/// detached. An index with no policy is not a failure — ES treats the call as
+/// idempotent, and so does this.
+pub async fn remove_ilm_policy_from_index(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+) -> impl IntoResponse {
+    let targets = resolve_index_selector(&state, &index).await;
+    if targets.is_empty() {
+        let e = xerj_common::XerjError::index_not_found(&index);
+        return ApiError::new(e).into_response();
+    }
+    for name in &targets {
+        state.engine.set_index_lifecycle_policy(name, None);
+        // Keep the display copy of the settings honest too: ES drops
+        // `index.lifecycle.name` on removal rather than reporting it as null.
+        if let Some(mut stored) = state.engine.index_settings.get_mut(name) {
+            remove_lifecycle_name(stored.value_mut());
+        }
+    }
+    Json(json!({ "has_failures": false, "failed_indexes": [] })).into_response()
 }
 
 /// `GET /{index}/_ilm/explain` — what ILM knows about an index and what it

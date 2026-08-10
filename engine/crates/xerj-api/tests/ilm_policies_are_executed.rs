@@ -257,3 +257,198 @@ async fn attaching_a_policy_by_put_settings_puts_the_index_under_management() {
         "{report:?}"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repairs found by adversarial review of the first cut of this change.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Detaching over HTTP must actually stop retention, in both spellings ES
+/// accepts.
+///
+/// The first cut returned `{"acknowledged":true}` and then ignored it: the
+/// detach cleared the in-memory attachment while the resolver fell back to the
+/// index's persisted `settings.json`, which still carried the create-time
+/// `index.lifecycle.name`. `_ilm/explain` still said `managed: true`, and the
+/// next pass **deleted the index** — an acknowledged "stop deleting my data"
+/// that deleted the data anyway. `deleting_a_policy_still_in_use_is_refused`
+/// above performs this exact detach and asserted only the 200, which is how it
+/// got through.
+async fn detach_stops_retention(body: &str) {
+    let (app, state, _dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/logs-000009",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, ack) = send(&app, "PUT", "/logs-000009/_settings", body).await;
+    assert_eq!(status, StatusCode::OK, "{ack}");
+    assert_eq!(ack["acknowledged"], true, "{ack}");
+
+    let (_, explained) = send(&app, "GET", "/logs-000009/_ilm/explain", "").await;
+    assert_eq!(
+        explained["indices"]["logs-000009"]["managed"], false,
+        "an acknowledged detach must be visible in _ilm/explain: {explained}"
+    );
+
+    // `GET /_settings` must not still advertise the policy either — ES drops
+    // the setting on a null rather than reporting it as null.
+    let (_, settings) = send(&app, "GET", "/logs-000009/_settings", "").await;
+    assert!(
+        !settings.to_string().contains("lifecycle"),
+        "detached index still reports a lifecycle setting, in some spelling: {settings}"
+    );
+
+    let now = xerj_engine::ilm::now_ms();
+    let report = state.engine.run_ilm_once(now + 31 * DAY_MS).await;
+    assert!(
+        report.deleted.is_empty(),
+        "a detached index must never be deleted: {report:?}"
+    );
+
+    let (status, _) = send(&app, "GET", "/logs-000009", "").await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the index is still there over the wire, 31 days later"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_nested_detach_actually_stops_retention() {
+    detach_stops_retention(r#"{"index":{"lifecycle":{"name":null}}}"#).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_flat_detach_actually_stops_retention() {
+    detach_stops_retention(r#"{"index.lifecycle.name":null}"#).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_settings_put_that_does_not_mention_the_policy_does_not_detach() {
+    // `index.lifecycle.origination_date` mentions `lifecycle` but says nothing
+    // about the policy. Reading "does this body mention lifecycle?" and then
+    // taking the absent name as a detach silently un-manages the index — the
+    // same accepted-and-ignored failure from the other direction.
+    let (app, state, _dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    send(
+        &app,
+        "PUT",
+        "/logs-000010",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+
+    let origination = xerj_engine::ilm::now_ms() - 40 * DAY_MS;
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/logs-000010/_settings",
+        &format!(r#"{{"index":{{"lifecycle":{{"origination_date":{origination}}}}}}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, explained) = send(&app, "GET", "/logs-000010/_ilm/explain", "").await;
+    assert_eq!(
+        explained["indices"]["logs-000010"]["managed"], true,
+        "still managed — that body never asked to detach: {explained}"
+    );
+    let report = state.engine.run_ilm_once(xerj_engine::ilm::now_ms()).await;
+    assert_eq!(
+        report.deleted,
+        vec!["logs-000010".to_string()],
+        "and the origination_date it *did* set is honoured: {report:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn deleting_a_policy_an_upgraded_index_still_points_at_is_refused() {
+    // The in-use check has to ask the same resolver the executor asks. Scanning
+    // the attachment map alone missed an index that points at the policy only
+    // through its persisted settings — so the DELETE returned 200 while the
+    // executor was still managing that index, and the next pass skipped it
+    // with "policy not found": retention silently stopped.
+    let (app, state, _dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    send(
+        &app,
+        "PUT",
+        "/legacy-logs",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+    // A node upgraded from before ilm_state.json existed: settings.json is the
+    // only record that this index was ever attached.
+    state.engine.ilm_index_state.remove("legacy-logs");
+
+    let (status, err) = send(&app, "DELETE", "/_ilm/policy/logs-30d", "").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{err}");
+    assert!(
+        err["error"]["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("legacy-logs"),
+        "and it names the index the executor would still act on: {err}"
+    );
+
+    // Detaching is what makes it deletable — and the detach is real.
+    send(
+        &app,
+        "PUT",
+        "/legacy-logs/_settings",
+        r#"{"index.lifecycle.name":null}"#,
+    )
+    .await;
+    let (status, _) = send(&app, "DELETE", "/_ilm/policy/logs-30d", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let report = state
+        .engine
+        .run_ilm_once(xerj_engine::ilm::now_ms() + 31 * DAY_MS)
+        .await;
+    assert!(report.deleted.is_empty(), "{report:?}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ilm_remove_detaches_the_index_for_real() {
+    // ES's own detach verb, which this engine did not implement at all — so
+    // the only way to stop retention was the settings PUT that was being
+    // ignored. Both routes now record the same tombstone.
+    let (app, state, _dir) = app();
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    send(
+        &app,
+        "PUT",
+        "/logs-000011",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+
+    let (status, body) = send(&app, "POST", "/logs-000011/_ilm/remove", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["has_failures"], false, "{body}");
+
+    let (_, explained) = send(&app, "GET", "/logs-000011/_ilm/explain", "").await;
+    assert_eq!(
+        explained["indices"]["logs-000011"]["managed"], false,
+        "{explained}"
+    );
+    let report = state
+        .engine
+        .run_ilm_once(xerj_engine::ilm::now_ms() + 31 * DAY_MS)
+        .await;
+    assert!(report.deleted.is_empty(), "{report:?}");
+    let (status, _) = send(&app, "GET", "/logs-000011", "").await;
+    assert_eq!(status, StatusCode::OK, "the index survives");
+
+    // Idempotent: removing again is not an error, and the policy is now free.
+    let (status, _) = send(&app, "POST", "/logs-000011/_ilm/remove", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = send(&app, "DELETE", "/_ilm/policy/logs-30d", "").await;
+    assert_eq!(status, StatusCode::OK);
+}

@@ -346,15 +346,25 @@ pub fn plan_policy(policy: &Value) -> Result<PolicyPlan, String> {
 
 /// What this node remembers about one ILM-managed index.
 ///
-/// Only indices actually placed under a policy get an entry, so the file
-/// stays small on a node with thousands of indices (and index creation does
-/// not pay an O(indices) rewrite per create).
+/// Only indices ILM has been told about get an entry, so the file stays small
+/// on a node with thousands of indices (and index creation does not pay an
+/// O(indices) rewrite per create).
+///
+/// The presence of an entry is itself the signal: it means *this node decided*
+/// something about the index, and [`Engine::ilm_policy_for_index`] therefore
+/// answers from it without consulting the index's settings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IlmIndexState {
     /// Epoch-ms creation time as observed by this node.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub created_ms: Option<i64>,
     /// The policy attached via `index.lifecycle.name`.
+    ///
+    /// `None` on a *present* entry is the **detach tombstone**: an operator
+    /// ran `PUT /{index}/_settings {"index.lifecycle.name": null}` and this
+    /// index must not be managed, whatever its `settings.json` still says.
+    /// Absence of the whole entry means "never heard of it", which is a
+    /// different thing and falls back to the settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub policy: Option<String>,
 }
@@ -484,6 +494,35 @@ pub fn lifecycle_name_from_settings(settings: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
+}
+
+/// What a settings *body* asks ILM to do about the index's attachment.
+///
+/// Three-valued on purpose, because `Option<String>` cannot tell "the caller
+/// said nothing about `index.lifecycle.name`" apart from "the caller said
+/// `null`", and those two mean opposite things:
+///
+///  * `None` — the body does not mention `index.lifecycle.name`. Leave the
+///    attachment exactly as it is. A body that sets, say,
+///    `index.lifecycle.origination_date` must not silently detach the index.
+///  * `Some(None)` — explicit `null` (or an empty string): **detach**, ES's
+///    documented way to stop managing an index.
+///  * `Some(Some(policy))` — attach to `policy`.
+pub fn lifecycle_directive_from_settings(settings: &Value) -> Option<Option<String>> {
+    match setting(settings, "lifecycle.name")? {
+        Value::Null => Some(None),
+        Value::String(s) => {
+            let t = s.trim();
+            if t.is_empty() {
+                Some(None)
+            } else {
+                Some(Some(t.to_string()))
+            }
+        }
+        // Any other JSON type is not a policy name. Treat it as "said
+        // nothing" rather than guessing a detach out of a malformed body.
+        _ => None,
+    }
 }
 
 /// An explicit epoch-ms origin from settings, accepting the string form ES
@@ -639,37 +678,55 @@ impl Engine {
     /// creation and `PUT /{index}/_settings`. Attachment is persisted here
     /// rather than relying on the index-settings map, which is in-memory only
     /// — otherwise a restart would silently un-manage the index.
+    ///
+    /// # A detach writes a tombstone, it does not erase the entry
+    ///
+    /// `PUT /{index}/_settings {"index.lifecycle.name": null}` is ES's
+    /// documented way to stop managing an index, and it is the only way this
+    /// engine offers (`POST /{index}/_ilm/remove` is not implemented). The
+    /// first cut of this method implemented it as
+    /// `self.ilm_index_state.remove(index)` — and that was a **data-loss
+    /// defect of exactly the class this module exists to remove**. The index's
+    /// persisted `settings.json` still carried the create-time
+    /// `index.lifecycle.name`, [`Engine::ilm_policy_for_index`] fell back to
+    /// it, and the detach the operator was told had been acknowledged was
+    /// ignored: the next pass deleted the index anyway. It was also a silent
+    /// no-op whenever no in-memory entry existed at all.
+    ///
+    /// So a detach now *records* itself: `IlmIndexState { policy: None }` is a
+    /// persisted tombstone meaning "this node was explicitly told to stop
+    /// managing this index", and the resolver honours it ahead of any settings
+    /// fallback. One source of truth, and the one the operator can write.
     pub fn set_index_lifecycle_policy(&self, index: &str, policy: Option<&str>) {
-        match policy {
-            Some(p) => {
-                let created = self
-                    .ilm_index_state
-                    .get(index)
-                    .and_then(|s| s.created_ms)
-                    .or_else(|| self.index_dir_creation_ms(index))
-                    .unwrap_or_else(now_ms);
-                let state = IlmIndexState {
-                    created_ms: Some(created),
-                    policy: Some(p.to_string()),
-                };
-                let changed = self
-                    .ilm_index_state
-                    .get(index)
-                    .map(|prev| *prev.value() != state)
-                    .unwrap_or(true);
-                if !changed {
-                    return;
-                }
-                self.ilm_index_state.insert(index.to_string(), state);
-                info!(index, policy = p, "index placed under ILM policy");
-            }
-            None => {
-                if self.ilm_index_state.remove(index).is_none() {
-                    return;
-                }
-                info!(index, "index detached from ILM");
-            }
+        // Preserved across a detach/re-attach so the re-attached index is aged
+        // from its real creation time rather than from the moment of re-attach.
+        let recorded_created = self.ilm_index_state.get(index).and_then(|s| s.created_ms);
+        let state = match policy {
+            Some(p) => IlmIndexState {
+                created_ms: Some(
+                    recorded_created
+                        .or_else(|| self.index_dir_creation_ms(index))
+                        .unwrap_or_else(now_ms),
+                ),
+                policy: Some(p.to_string()),
+            },
+            None => IlmIndexState {
+                created_ms: recorded_created,
+                policy: None,
+            },
+        };
+        let unchanged = self
+            .ilm_index_state
+            .get(index)
+            .is_some_and(|prev| *prev.value() == state);
+        if unchanged {
+            return;
         }
+        match policy {
+            Some(p) => info!(index, policy = p, "index placed under ILM policy"),
+            None => info!(index, "index detached from ILM"),
+        }
+        self.ilm_index_state.insert(index.to_string(), state);
         self.flush_ilm_state();
     }
 
@@ -720,8 +777,22 @@ impl Engine {
 
     /// Which policy manages `index`, if any.
     ///
-    /// Resolution order: the attachment recorded when the index was created or
-    /// last had its settings changed, then the index's own settings.
+    /// **The recorded state is authoritative and total.** If this node has an
+    /// [`IlmIndexState`] entry for the index, that entry is the answer — a
+    /// `policy: Some(p)` attachment *or* a `policy: None` detach tombstone
+    /// (see [`Engine::set_index_lifecycle_policy`]). The index's own settings
+    /// are consulted only when there is no entry at all, which is the
+    /// upgrade case: an index created before `ilm_state.json` existed, whose
+    /// `settings.json` is the only record that it was ever attached.
+    ///
+    /// Reading the settings *after* the recorded state instead of only in its
+    /// absence is what made an acknowledged detach a lie: the create-time
+    /// `index.lifecycle.name` in `settings.json` outlived the entry the
+    /// operator could clear, so the executor kept deleting a detached index.
+    ///
+    /// Every "is this index managed?" question must come through here —
+    /// `run_ilm_once`, `_ilm/explain`, and the `DELETE /_ilm/policy` in-use
+    /// check all do, so they cannot disagree.
     ///
     /// **Index templates are deliberately not consulted here.** A template that
     /// carries `index.lifecycle.name` is read at *creation* time
@@ -735,12 +806,33 @@ impl Engine {
     /// is to destroy pre-existing data is not one anybody should ship.
     pub async fn ilm_policy_for_index(&self, index: &str) -> Option<String> {
         if let Some(state) = self.ilm_index_state.get(index) {
-            if let Some(p) = state.policy.clone() {
-                return Some(p);
-            }
+            // `None` here is the explicit detach tombstone, not "unknown".
+            return state.policy.clone();
         }
         let settings = self.ilm_settings_for(index).await;
         lifecycle_name_from_settings(&settings)
+    }
+
+    /// Every *existing* index that [`Engine::ilm_policy_for_index`] resolves to
+    /// `policy`, sorted.
+    ///
+    /// `DELETE /_ilm/policy/{name}` refuses while this is non-empty. It has to
+    /// ask the same resolver the executor asks, or the two disagree in both
+    /// directions: scanning `ilm_index_state` alone let the DELETE succeed for
+    /// a policy that an upgraded index still points at through its settings,
+    /// and counted detach tombstones as live users.
+    ///
+    /// Restricted to indices that currently exist, so stale bookkeeping can
+    /// never make a policy permanently undeletable by naming a phantom index.
+    pub async fn ilm_indices_using_policy(&self, policy: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        for name in self.list_index_names() {
+            if self.ilm_policy_for_index(&name).await.as_deref() == Some(policy) {
+                out.push(name);
+            }
+        }
+        out.sort();
+        out
     }
 
     /// Epoch-ms the index's age is measured from, and where that came from.
@@ -1091,7 +1183,14 @@ impl Engine {
                 "indices_set_read_only": s.read_only.load(Ordering::Relaxed),
                 "indices_skipped": s.skipped.load(Ordering::Relaxed),
                 "last_run_millis": s.last_run_ms.load(Ordering::Relaxed),
-                "managed_indices": self.ilm_index_state.len(),
+                // Attachments only — a detach tombstone (`policy: None`) is a
+                // record that we are *not* managing the index, and counting it
+                // here would report retention on an index nothing retains.
+                "managed_indices": self
+                    .ilm_index_state
+                    .iter()
+                    .filter(|e| e.value().policy.is_some())
+                    .count(),
                 "policies": self.ilm_policies.len(),
             }
         })
@@ -1104,6 +1203,21 @@ impl Engine {
     /// a long-lived task holding a strong clone would keep that lock alive
     /// after the last user-visible engine was dropped and wedge the next open
     /// of the same directory.
+    ///
+    /// # Index-guard contract
+    ///
+    /// This spawn reaches [`Engine::get_index`] and [`Engine::delete_index`],
+    /// so [`crate::index_guard`]'s rule applies: carry the request guard with
+    /// `index_guard::current`/`scoped`, or say at the spawn site why it
+    /// cannot. It cannot, and deliberately: there is no request and no
+    /// principal behind a retention tick — it is started by `Engine::new`'s
+    /// caller at boot and runs on the node's own authority, like
+    /// `spawn_pit_sweeper`. Running it under any caller's guard would be
+    /// *wrong*, not merely unnecessary: retention would then apply only to
+    /// whichever principal happened to boot the node. The safety boundary here
+    /// is the delete rail in [`Engine::ilm_delete_block_reason`] (no
+    /// dot-prefixed index, no data-stream write index), not visibility. The
+    /// audit table in `index_guard`'s module docs carries the matching row.
     pub fn spawn_ilm_executor(self: &Arc<Self>) {
         if !self.config().ilm.enabled {
             info!("ILM executor disabled by config (ilm.enabled = false)");
