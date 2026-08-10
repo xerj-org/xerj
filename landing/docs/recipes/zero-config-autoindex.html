@@ -239,7 +239,8 @@ live indices at http://localhost:9280:
   ax-docs                                           1 docs
   ax-exports                                      800 docs
   autoindex-catalog                                 9 docs</pre>
-  <p><code class="inline">--fresh</code> ignores the journal and restarts (ids stay idempotent).</p>
+  <p><code class="inline">--fresh</code> ignores the journal and rebuilds the plan in place (ids stay idempotent), which is how you pick up files added since the last run.</p>
+  <p>A rerun that resumes an existing plan indexes changed files and reports added ones as skipped. Deleting a file is refused: nothing here removes the documents it already published, so the rerun stops before touching the destination and names what is gone. Restore the file and rerun, or rebuild — in place by deleting the named indices and the state directory, or isolated under a new <code class="inline">--state-dir</code>, <code class="inline">--prefix</code> and <code class="inline">--brain</code> (or <code class="inline">--no-graph</code>), validated before you switch readers. The shared <code class="inline">autoindex-catalog</code> and the old target require explicit cleanup.</p>
 
   <hr>
 

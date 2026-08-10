@@ -178,6 +178,87 @@ mod tests {
             );
         }
     }
+
+    /// The preflight must never be more fatal than the open it precedes.
+    /// `open_after_preflight` deletes the journal unread when `--fresh` is set,
+    /// so a preflight that hard-errors while parsing that journal would make
+    /// `--fresh` unreachable in exactly the states whose error text recommends
+    /// it — a state directory no supported flag can recover.
+    #[test]
+    fn fresh_recovers_journals_that_the_preflight_refuses_to_resume() {
+        for (label, journal, refusal_marker) in [
+            (
+                "malformed record",
+                concat!(
+                    "{\"v\":1,\"kind\":\"run\",\"root\":\"root\",\"url\":\"url\",",
+                    "\"prefix\":\"prefix\",\"run_id\":\"legacy\"}\n",
+                    "{not json at all\n"
+                ),
+                "--fresh",
+            ),
+            (
+                "root/url/prefix mismatch",
+                concat!(
+                    "{\"v\":1,\"kind\":\"run\",\"root\":\"elsewhere\",\"url\":\"url\",",
+                    "\"prefix\":\"prefix\",\"run_id\":\"legacy\"}\n"
+                ),
+                "was created for root=",
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("journal.ndjson");
+            std::fs::write(&path, journal).unwrap();
+
+            let refused = Journal::preflight(dir.path(), "root", "url", "prefix", false)
+                .err()
+                .unwrap_or_else(|| panic!("{label}: a resume must still refuse this journal"));
+            let refused = format!("{refused:#}");
+            assert!(refused.contains(refusal_marker), "{label}: {refused}");
+
+            let preflight = Journal::preflight(dir.path(), "root", "url", "prefix", true)
+                .unwrap_or_else(|e| panic!("{label}: --fresh must pass the preflight: {e:#}"));
+            assert!(preflight.plan.is_none(), "{label}");
+            let reason = preflight
+                .unreadable_plan
+                .clone()
+                .unwrap_or_else(|| panic!("{label}: the discarded plan must be reported"));
+            assert!(!reason.is_empty(), "{label}");
+
+            let journal =
+                Journal::open_after_preflight(preflight, "root", "url", "prefix", 300, true)
+                    .unwrap_or_else(|e| panic!("{label}: --fresh must open: {e:#}"));
+            drop(journal);
+            // And the rebuilt state directory is resumable again without --fresh.
+            Journal::open(dir.path(), "root", "url", "prefix", 300, false)
+                .unwrap_or_else(|e| panic!("{label}: the rebuilt journal must resume: {e:#}"));
+        }
+    }
+
+    /// A readable journal must not be reported as unreadable just because the
+    /// run asked for `--fresh`; the note is a discarded-state warning, not a
+    /// `--fresh` banner.
+    #[test]
+    fn fresh_over_a_readable_journal_reports_nothing_unreadable() {
+        let dir = tempfile::tempdir().unwrap();
+        drop(Journal::open(dir.path(), "root", "url", "prefix", 300, true).unwrap());
+        let preflight = Journal::preflight(dir.path(), "root", "url", "prefix", true).unwrap();
+        assert!(preflight.unreadable_plan.is_none());
+    }
+
+    #[test]
+    fn preflight_holds_the_same_exclusive_lock_through_authoritative_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let preflight = Journal::preflight(dir.path(), "root", "url", "prefix", false).unwrap();
+        let error = Journal::open(dir.path(), "root", "url", "prefix", 300, false)
+            .err()
+            .expect("a second opener must not pass the held preflight lock");
+        assert!(format!("{error:#}").contains("already in use"));
+
+        let journal =
+            Journal::open_after_preflight(preflight, "root", "url", "prefix", 300, false).unwrap();
+        drop(journal);
+        assert!(Journal::open(dir.path(), "root", "url", "prefix", 300, false).is_ok());
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -280,15 +361,107 @@ pub fn default_state_dir(root: &str, url: &str, prefix: &str) -> PathBuf {
         .join(crate::ids::state_key(root, url, prefix))
 }
 
+/// Read the last durable plan without locking, repairing, truncating or
+/// appending to the journal. This is a preflight hint only: `Journal::open`
+/// remains the authority after the caller passes its fail-closed inventory
+/// gate and acquires the state lock.
+fn read_plan_for_preflight(
+    path: &Path,
+    root: &str,
+    url: &str,
+    prefix: &str,
+) -> Result<Option<Plan>> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    let mut reader = std::io::BufReader::new(file);
+    let mut plan = None;
+    let mut offset = 0u64;
+    loop {
+        let record_start = offset;
+        let mut bytes = Vec::new();
+        let read = reader.read_until(b'\n', &mut bytes)?;
+        if read == 0 {
+            break;
+        }
+        offset += read as u64;
+        if bytes.last() != Some(&b'\n') {
+            // `Journal::open` will repair this torn final record after the
+            // preflight accepts. It cannot be treated as durable here.
+            break;
+        }
+        let value: Value =
+            serde_json::from_slice(bytes.strip_suffix(b"\n").unwrap_or(bytes.as_slice()))
+                .with_context(|| {
+                    format!(
+                        "journal corruption at byte {record_start} in {}: malformed \
+                         newline-terminated record. Refusing to discard later records. Restore \
+                         the journal from a backup, or truncate it to exactly {record_start} \
+                         bytes to keep every completion recorded before the corruption. Deleting \
+                         the whole journal (or rerunning with --fresh) also recovers, but \
+                         re-extracts and re-embeds the entire corpus",
+                        path.display()
+                    )
+                })?;
+        match value.get("kind").and_then(Value::as_str) {
+            Some("run") => {
+                let recorded_root = value.get("root").and_then(Value::as_str).unwrap_or("");
+                let recorded_url = value.get("url").and_then(Value::as_str).unwrap_or("");
+                let recorded_prefix = value.get("prefix").and_then(Value::as_str).unwrap_or("");
+                anyhow::ensure!(
+                    recorded_root == root && recorded_url == url && recorded_prefix == prefix,
+                    "journal at {} was created for root={} url={} prefix={}; current run has \
+                     root={} url={} prefix={}",
+                    path.display(),
+                    recorded_root,
+                    recorded_url,
+                    recorded_prefix,
+                    root,
+                    url,
+                    prefix
+                );
+            }
+            Some("plan") => {
+                if let Some(encoded) = value.get("plan") {
+                    plan =
+                        Some(serde_json::from_value(encoded.clone()).with_context(|| {
+                            format!("decode durable plan in {}", path.display())
+                        })?);
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(plan)
+}
+
+pub struct JournalPreflight {
+    state_dir: PathBuf,
+    state_lock: std::fs::File,
+    pub plan: Option<Plan>,
+    pub journal_exists: bool,
+    /// Set only under `--fresh`, when the durable plan could not be read and
+    /// the run is about to discard the journal anyway. The caller owns the
+    /// decision to print it (autoindex honours `--quiet`).
+    pub unreadable_plan: Option<String>,
+}
+
 impl Journal {
-    pub fn open(
+    /// `fresh` is not a formality here. `open_after_preflight` removes the
+    /// journal before replaying it when `--fresh` is set, so nothing inside a
+    /// journal can be fatal to that path — and a preflight that hard-errors on
+    /// a corrupt record or a root/url/prefix mismatch would make `--fresh`
+    /// unreachable in exactly the cases whose error text recommends it. The
+    /// preflight must therefore never be more fatal than the open it precedes.
+    pub fn preflight(
         state_dir: &Path,
         root: &str,
         url: &str,
         prefix: &str,
-        bulk_timeout_secs: u64,
         fresh: bool,
-    ) -> Result<Journal> {
+    ) -> Result<JournalPreflight> {
         std::fs::create_dir_all(state_dir)
             .with_context(|| format!("create state dir {}", state_dir.display()))?;
         let lock_path = state_dir.join(".autoindex.lock");
@@ -305,10 +478,56 @@ impl Journal {
                 state_dir.display()
             )
         })?;
+        let journal_path = state_dir.join("journal.ndjson");
+        let journal_exists = journal_path.exists();
+        let (plan, unreadable_plan) =
+            match read_plan_for_preflight(&journal_path, root, url, prefix) {
+                Ok(plan) => (plan, None),
+                // The journal is about to be deleted unread. Losing the plan here
+                // costs the removed-file gate its comparison basis, which is
+                // exactly what a full in-place rebuild accepts; the alternative is
+                // a state directory that no supported flag can recover.
+                Err(error) if fresh => (None, Some(format!("{error:#}"))),
+                Err(error) => return Err(error),
+            };
+        Ok(JournalPreflight {
+            state_dir: state_dir.to_owned(),
+            state_lock,
+            plan,
+            journal_exists,
+            unreadable_plan,
+        })
+    }
+
+    pub fn open(
+        state_dir: &Path,
+        root: &str,
+        url: &str,
+        prefix: &str,
+        bulk_timeout_secs: u64,
+        fresh: bool,
+    ) -> Result<Journal> {
+        let preflight = Self::preflight(state_dir, root, url, prefix, fresh)?;
+        Self::open_after_preflight(preflight, root, url, prefix, bulk_timeout_secs, fresh)
+    }
+
+    pub fn open_after_preflight(
+        preflight: JournalPreflight,
+        root: &str,
+        url: &str,
+        prefix: &str,
+        bulk_timeout_secs: u64,
+        fresh: bool,
+    ) -> Result<Journal> {
+        let JournalPreflight {
+            state_dir,
+            state_lock,
+            ..
+        } = preflight;
         // Hard kills cannot run NamedTempFile::drop. Stages are owned by this
         // journal directory and use a reserved prefix, so removing only
         // regular files with that prefix is deterministic and scope-safe.
-        for entry in std::fs::read_dir(state_dir)? {
+        for entry in std::fs::read_dir(&state_dir)? {
             let entry = entry?;
             if entry
                 .file_name()
@@ -361,7 +580,9 @@ impl Journal {
                                     anyhow::bail!(
                                 "journal at {} was created for root={jr} url={ju} prefix={jp}; \
                                  current run has root={root} url={url} prefix={prefix}. \
-                                 Use --fresh to discard it or --state-dir for a separate state.",
+                                 Use --state-dir for separate state, or --fresh to rebuild the \
+                                 plan in place — note that --fresh never deletes documents \
+                                 already published under the other root, url or prefix.",
                                 jpath.display()
                             );
                                 }

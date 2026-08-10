@@ -665,7 +665,7 @@ impl Es {
         )
     }
 
-    pub fn search(&self, index: &str, body: &Value) -> Result<Value> {
+    fn search_raw(&self, index: &str, body: &Value) -> Result<(reqwest::StatusCode, Value)> {
         self.with_retry(
             "search",
             || {
@@ -677,12 +677,36 @@ impl Es {
             |resp| {
                 let status = resp.status();
                 let v: Value = resp.json().unwrap_or(Value::Null);
-                if !status.is_success() {
-                    return Err(anyhow!("search /{index} HTTP {status}: {v}"));
-                }
-                Ok(v)
+                Ok((status, v))
             },
         )
+    }
+
+    pub fn search(&self, index: &str, body: &Value) -> Result<Value> {
+        let (status, v) = self.search_raw(index, body)?;
+        if !status.is_success() {
+            return Err(anyhow!("search /{index} HTTP {status}: {v}"));
+        }
+        Ok(v)
+    }
+
+    /// `search`, but a missing index is an answer rather than a failure.
+    ///
+    /// A probe whose whole job is to decide "does the server still hold what
+    /// the journal says it holds?" must be able to tell *the index is gone*
+    /// apart from *the server refused* — only the first has a recovery worth
+    /// printing, and propagating its 404 replaces that recovery text with a raw
+    /// HTTP error. Every other status keeps `search`'s behaviour, so this never
+    /// launders a real failure into an absence.
+    pub fn search_present(&self, index: &str, body: &Value) -> Result<Option<Value>> {
+        let (status, v) = self.search_raw(index, body)?;
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            return Err(anyhow!("search /{index} HTTP {status}: {v}"));
+        }
+        Ok(Some(v))
     }
 
     pub fn count(&self, index: &str) -> Result<u64> {
@@ -822,13 +846,70 @@ mod tests {
     }
 
     fn respond_json(stream: &mut std::net::TcpStream, body: &[u8]) {
+        respond_status(stream, "200 OK", body);
+    }
+
+    fn respond_status(stream: &mut std::net::TcpStream, status: &str, body: &[u8]) {
         write!(
             stream,
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         )
         .unwrap();
         stream.write_all(body).unwrap();
+    }
+
+    /// A deleted index is an answer for the probes that ask whether the server
+    /// still holds what a journal claims it holds — `search` propagating that
+    /// 404 replaces `xerj brain`'s recovery text with a raw HTTP error. Every
+    /// other refusal must still propagate, so absence is never laundered out of
+    /// a real failure.
+    #[test]
+    fn search_present_reports_a_missing_index_as_absence_and_nothing_else() {
+        for (status, body, expect_absent) in [
+            (
+                "404 Not Found",
+                &br#"{"error":{"type":"index_not_found_exception"},"status":404}"#[..],
+                true,
+            ),
+            (
+                "403 Forbidden",
+                &br#"{"error":{"type":"security_exception"},"status":403}"#[..],
+                false,
+            ),
+            (
+                "200 OK",
+                &br#"{"hits":{"total":{"value":7,"relation":"eq"}}}"#[..],
+                false,
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let owned = body.to_vec();
+            let status_line = status.to_owned();
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let request = read_request(&mut stream);
+                assert!(
+                    String::from_utf8_lossy(&request).starts_with("POST /nodes/_search HTTP/1.1"),
+                    "{}",
+                    String::from_utf8_lossy(&request)
+                );
+                respond_status(&mut stream, &status_line, &owned);
+            });
+            let es = Es::new(&format!("http://{address}"), None).unwrap();
+            let result = es.search_present("nodes", &serde_json::json!({"size": 0}));
+            if expect_absent {
+                assert!(result.unwrap().is_none(), "{status}");
+            } else if status.starts_with("200") {
+                let value = result.unwrap().expect("a served index is present");
+                assert_eq!(value.pointer("/hits/total/value").unwrap(), 7);
+            } else {
+                let error = result.unwrap_err();
+                assert!(format!("{error:#}").contains("403"), "{error:#}");
+            }
+            server.join().unwrap();
+        }
     }
 
     #[test]

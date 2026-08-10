@@ -29,6 +29,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pdf_extraction_reuse` block so the behaviour is observable rather than
   inferred from timing. Original work by Leonid Bugaev (@buger).
 
+### Changed — autoindex refuses reruns that would strand documents
+
+- **Deleting an indexed file and rerunning `xerj autoindex` now fails instead
+  of exiting 0.** Nothing in the pipeline removes the documents, aliases,
+  graph edges or catalog entries that the deleted file published, so a rerun
+  that ignored the deletion left them live and searchable with no source file
+  behind them. The rerun is now refused before any remote call other than the
+  endpoint-readiness ping: no mapping, delete-by-query, bulk, refresh, graph
+  or catalog write is attempted, and the journal is not appended to. The error
+  names the removed files and their content keys — the first ten, then an
+  `… and N more` tail, since a whole unmounted subtree can vanish at once —
+  and gives three recovery routes: restore the files and rerun, rebuild in
+  place by deleting the named indices and the state directory, or rebuild
+  under a new state directory, prefix and brain. `--fresh` is refused for the
+  same case, because it does not delete those documents either. `--json` emits
+  the same facts — every removed entry, uncapped — as
+  `xerj.autoindex.unsupported_sync_delta.v1` on stdout with exit 1. Deleting a
+  file that was only ever *skipped* is not refused: a junk file publishes no
+  documents, and the stale junk-catalog sweep removes its one catalog row, so
+  nothing is stranded.
+- **Files added after a plan was frozen are now called out on stderr.** They
+  are still not indexed by a rerun that resumes an existing plan — the plan is
+  a crash-resume boundary, not a folder-sync generation — but the run now
+  lists them, records them as skipped (exit 3, completed-with-junk) and points
+  at `--fresh`, which rebuilds the plan in place and picks them up. Adding or
+  changing files and rerunning keeps working; only removals are refused.
+- **`xerj brain` no longer turns an absent or zero node-count probe into an
+  automatic reset.** Journal/server disagreement now fails with the journal,
+  URL, prefix, and brain identity plus recovery instructions, including the
+  explicit `--fresh` rerun for a genuinely wiped data directory. Probe
+  transport and malformed-response failures remain errors instead of being
+  reported as an empty destination. A nodes index that was deleted out from
+  under a surviving brain meta doc reads as absence and reaches that recovery
+  text, rather than surfacing as a raw HTTP 404.
+- **`--fresh` still recovers a state directory whose journal cannot be
+  parsed.** The rerun gate reads the durable plan before the run starts, and a
+  plan that is malformed, or recorded for a different root/URL/prefix, is fatal
+  to a resume — but not to `--fresh`, which deletes that journal unread. The
+  preflight is now no more fatal than the open it precedes: under `--fresh` the
+  unreadable plan is reported on stderr and rebuilt from the current folder.
+  Without `--fresh` the refusal is unchanged. Because the removal gate has no
+  comparison basis in that case, the warning says so: documents already
+  published for files that are now gone cannot be identified from an unreadable
+  plan and are not deleted.
+- **Refusal and skip listings are capped at ten entries plus an "and N more"
+  tail.** Unmounting a bind mount under an indexed root vanishes every content
+  group at once, so the uncapped listing was one rendered entry per journalled
+  file. `--json` still carries every entry.
+
 ### Fixed
 
 - **ILM retention policies are executed instead of accepted and ignored**

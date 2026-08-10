@@ -203,8 +203,11 @@ done in 0.1s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped f
 just polite re-runs: in the robustness evaluation, a `kill -9` at 18 s into a
 200 MB file followed by a re-run converged to **byte-identical counts across
 all 9 datasets** — no duplicates. `xerj autoindex status` shows the journal
-and live index counts; `--fresh` ignores the journal and restarts (ids stay
-idempotent).
+and live index counts; `--fresh` ignores the journal and rebuilds the plan in
+place (ids stay idempotent), which is how a rerun picks up files added since
+the last one. Deleting an indexed file is refused before any destination
+change — nothing here removes the documents it already published — and the
+error names what is gone plus the recovery routes.
 
 ## Reproduce it yourself
 

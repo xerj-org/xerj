@@ -72,6 +72,9 @@ pub enum Cmd {
     Help,
 }
 
+const FRESH_HELP: &str = "ignore the existing journal and rebuild the plan in place\n\
+                                  (ids stay idempotent) — see RESUME POLICY";
+
 pub fn print_help() {
     println!(
         "xerj autoindex — point it at any folder and make the contents AI-searchable, zero config\n\
@@ -99,7 +102,7 @@ pub fn print_help() {
                                   valid range 1..=3600)\n\
              --prefix <P>         index prefix (default ax)\n\
              --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/)\n\
-             --fresh              ignore existing journal, restart (ids stay idempotent)\n\
+             --fresh              {fresh_help}\n\
              --follow-symlinks    follow symlinks (loop-safe); off by default\n\
              --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
              --sample <N>         records sampled per file for inference (default 500)\n\
@@ -165,8 +168,19 @@ pub fn print_help() {
              `pct`/`eta_s` are the literal word `unknown` (JSON null) whenever they\n\
              cannot be computed honestly, never a filler number.\n\
          \n\
+         RESUME POLICY:\n\
+             A durable plan supports no-op resume and same-path content replacement.\n\
+             Files added after the plan was frozen are reported as skipped and are not\n\
+             indexed; --fresh rebuilds the plan in place and picks them up.\n\
+             Removing an indexed file is refused before any remote mutation: its\n\
+             documents are already live and nothing here deletes them. Restore the file\n\
+             and rerun, or rebuild — in place by deleting the published indices and the\n\
+             state directory, or isolated under a new --state-dir, --prefix and --brain\n\
+             (or --no-graph), validated before you switch readers.\n\
+         \n\
          EXIT CODES: 0 complete; 3 completed-with-junk (junk recorded, never fatal);\n\
-                     2 usage; 1 endpoint unreachable / journal-config mismatch\n"
+                     2 usage; 1 endpoint/journal failure or a refused corpus removal\n",
+        fresh_help = FRESH_HELP
     );
 }
 
@@ -460,6 +474,13 @@ mod tests {
     #[test]
     fn bulk_timeout_defaults_to_300_seconds() {
         assert_eq!(index(&["data"]).bulk_timeout_secs, 300);
+    }
+
+    #[test]
+    fn fresh_help_points_at_the_resume_policy_that_bounds_it() {
+        assert!(super::FRESH_HELP.contains("rebuild the plan in place"));
+        assert!(super::FRESH_HELP.contains("ids stay idempotent"));
+        assert!(super::FRESH_HELP.contains("RESUME POLICY"));
     }
 
     #[test]

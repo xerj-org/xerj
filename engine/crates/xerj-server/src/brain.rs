@@ -79,8 +79,9 @@ pub fn print_help() {
              --api-key <K>      API key for an already-running secured server\n\
                                 (or env XERJ_API_KEY; a server booted by this command\n\
                                 needs neither — its key is read from <data-dir>/admin.key)\n\
-             --fresh            ignore the resume journal, re-walk everything\n\
-                                (ids stay idempotent; converges to the same brain)\n\
+             --fresh            ignore the resume journal and rebuild the plan in place,\n\
+                                re-walking everything (ids stay idempotent). It never\n\
+                                deletes documents for notes you removed\n\
              --no-open          print the links but do not open a browser\n\
              --help, -h         this help\n\
          \n\
@@ -267,8 +268,30 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     }
 
     // ── index: the autoindex pipeline, graph detection on ────────────────
-    let (mut code, mut run_doc) =
-        xerj_autoindex::run_index_report(index_cfg(&cfg, &brain, api_key.clone()))?;
+    let (code, run_doc) =
+        match xerj_autoindex::run_index_report(index_cfg(&cfg, &brain, api_key.clone())) {
+            Ok(report) => report,
+            // #195's zero-live verification fires INSIDE `run_index_report`,
+            // before the probe below ever runs. A resume journal that outlived
+            // a wiped data directory reaches it first — the run resumes, skips
+            // every already-done file, and finds nothing live — so propagating
+            // it unchanged hands the operator raw verification prose for
+            // exactly the case `journal_server_disagreement()` was written to
+            // explain, with no `xerj brain --fresh` recovery in it. Classify it
+            // here instead. Every other failure keeps its own message, and so
+            // does this one when the probe fails or contradicts it: a probe
+            // that cannot answer is not evidence of a wiped destination.
+            Err(error) => {
+                if error.is::<xerj_autoindex::ZeroLiveVerificationError>() {
+                    if let Ok(live_nodes) = live_node_docs(&es, &brain) {
+                        if zero_live_is_journal_server_disagreement(&error, live_nodes, cfg.fresh) {
+                            bail!("{}", journal_server_disagreement(&cfg, &brain));
+                        }
+                    }
+                }
+                return Err(error);
+            }
+        };
 
     let run_u64 = |doc: &Option<Value>, key: &str| {
         doc.as_ref()
@@ -278,31 +301,17 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     };
     // `records_total` is run-scoped: a resumed re-run over an already-indexed
     // folder legitimately reports 0. Server truth decides what that means.
-    if run_u64(&run_doc, "records_total") == 0 {
-        let live_nodes = live_node_docs(&es, &brain);
-        if live_nodes == 0 && run_u64(&run_doc, "files_indexed") > 0 && !cfg.fresh {
-            // The resume journal says this folder is done, but the server has
-            // none of it (wiped data dir, or a different --url than the run
-            // that wrote the journal). Trusting the journal here would leave a
-            // silent, permanently-empty brain — with only structural edges,
-            // since text detectors ride the per-file indexing pass. Re-index
-            // from scratch once; ids are idempotent, so this converges.
-            eprintln!(
-                "\nresume journal says {} is already indexed, but the server at {} has none \
-                 of it — re-indexing from scratch",
-                cfg.root.display(),
-                cfg.url
-            );
-            let mut fresh_cfg = index_cfg(&cfg, &brain, api_key);
-            fresh_cfg.fresh = true;
-            (code, run_doc) = xerj_autoindex::run_index_report(fresh_cfg)?;
+    if needs_live_node_probe(run_u64(&run_doc, "records_total")) {
+        let live_nodes = live_node_docs(&es, &brain)?;
+        if journal_server_disagrees(run_u64(&run_doc, "files_indexed"), live_nodes, cfg.fresh) {
+            bail!("{}", journal_server_disagreement(&cfg, &brain));
         }
     }
 
     // Server truth for every surface below: run-scoped counters read 0 on a
     // converged re-run, but the brain is live on the server all the same.
     let records_live = match run_u64(&run_doc, "records_total") {
-        0 => live_node_docs(&es, &brain),
+        0 => live_node_docs(&es, &brain)?.unwrap_or(0),
         n => n,
     };
     if records_live == 0 {
@@ -391,28 +400,98 @@ fn run(cfg: BrainCfg) -> Result<i32> {
 
 /// Count the node documents live on the server behind `brain`, via the brain
 /// meta doc's `nodes_index` (SECOND_BRAIN_SPEC §2.5 — autoindex writes the
-/// comma-list of its dataset indices there). 0 on any miss: an unreadable
-/// meta doc and an empty brain call for the same honest answer.
-fn live_node_docs(es: &Es, brain: &str) -> u64 {
+/// comma-list of its dataset indices there). Absence is distinct from an
+/// authoritative zero, and probe failures are never converted into reset
+/// authorization.
+fn live_node_docs(es: &Es, brain: &str) -> Result<Option<u64>> {
     let edges_index = detect::edges_index_name(brain);
-    let Ok(Some(meta)) = es.get_doc(&edges_index, detect::BRAIN_META_ID) else {
-        return 0;
+    let Some(meta) = es.get_doc(&edges_index, detect::BRAIN_META_ID)? else {
+        return Ok(None);
     };
     // `Es::get_doc` returns the document `_source` itself.
+    // A meta doc without `nodes_index` predates the field (or was written by
+    // something other than autoindex). That is absence of evidence, not a
+    // failure: report it as unknown instead of hard-failing every brain that
+    // an older autoindex wrote.
     let Some(nodes_index) = meta
         .get("nodes_index")
         .and_then(Value::as_str)
         .filter(|s| !s.is_empty())
     else {
-        return 0;
+        return Ok(None);
     };
-    es.search(
+    // A meta doc that outlived its nodes index is precisely the wiped-data-dir
+    // case this probe exists to catch, so the index being gone must reach
+    // `journal_server_disagreement()` as absence. Propagating the 404 would
+    // short-circuit the caller and print a raw HTTP error instead of the
+    // recovery text. Any other failure still propagates: a probe failure is
+    // never converted into reset authorization.
+    let Some(response) = es.search_present(
         nodes_index,
         &json!({"size": 0, "track_total_hits": true, "query": {"match_all": {}}}),
+    )?
+    else {
+        return Ok(None);
+    };
+    response
+        .pointer("/hits/total/value")
+        .and_then(Value::as_u64)
+        .map(Some)
+        .context("node-count response has no numeric hits.total.value")
+}
+
+fn journal_server_disagreement(cfg: &BrainCfg, brain: &str) -> String {
+    let root = std::fs::canonicalize(&cfg.root).unwrap_or_else(|_| cfg.root.clone());
+    let state_dir =
+        xerj_autoindex::state::default_state_dir(&root.to_string_lossy(), &cfg.url, "ax");
+    format!(
+        "the resume journal and server disagree: journal {} says {} is already indexed, \
+         but {} has no confirmed live node documents for prefix ax and brain {brain}. No reset \
+         was attempted: an absent or zero node probe does not prove that data, catalog, and \
+         graph namespaces are empty. If this is the wrong server, restore or point at the data \
+         directory this journal was written against. If the data directory really was wiped, \
+         rerun with --fresh to rebuild the plan and republish every file in place (ids are \
+         idempotent):\n\
+         xerj brain {} --url {} --fresh\n\
+         Otherwise, after validating or cleaning the old destination, run an isolated rebuild:\n\
+         xerj autoindex {} --url {} --state-dir <new-state-dir> --prefix <new-prefix> \
+         --brain <new-brain>\n\
+         For a secured endpoint, set XERJ_API_KEY or add --api-key without placing its value in \
+         logs. Validate the new target before switching readers",
+        state_dir.display(),
+        root.display(),
+        cfg.url,
+        root.display(),
+        cfg.url,
+        root.display(),
+        cfg.url,
     )
-    .ok()
-    .and_then(|v| v.pointer("/hits/total/value").and_then(Value::as_u64))
-    .unwrap_or(0)
+}
+
+fn journal_server_disagrees(files_indexed: u64, live_nodes: Option<u64>, fresh: bool) -> bool {
+    files_indexed > 0 && matches!(live_nodes, None | Some(0)) && !fresh
+}
+
+/// A failed indexing run is the wiped-destination case only when the failure
+/// is autoindex's own zero-live verification (#195) *and* the live-node probe
+/// agrees that nothing is there. The journal's completed-file count is the
+/// claim being contradicted, so it is what the disagreement test reads —
+/// the run summary that would normally carry `files_indexed` is never
+/// produced when the pipeline fails.
+fn zero_live_is_journal_server_disagreement(
+    error: &anyhow::Error,
+    live_nodes: Option<u64>,
+    fresh: bool,
+) -> bool {
+    error
+        .downcast_ref::<xerj_autoindex::ZeroLiveVerificationError>()
+        .is_some_and(|zero_live| {
+            journal_server_disagrees(zero_live.files_done_journaled as u64, live_nodes, fresh)
+        })
+}
+
+fn needs_live_node_probe(records_total: u64) -> bool {
+    records_total == 0
 }
 
 fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
@@ -663,6 +742,106 @@ mod tests {
         assert!(cfg.no_open);
         assert_eq!(cfg.brain.as_deref(), Some("kb"));
         assert_eq!(cfg.url, "http://localhost:9200");
+    }
+
+    #[test]
+    fn journal_server_disagreement_refuses_reset_with_executable_recovery() {
+        let cfg = BrainCfg {
+            root: PathBuf::from("/corpus/notes"),
+            brain: Some("team-notes".into()),
+            url: "http://localhost:9200".into(),
+            data_dir: None,
+            api_key: None,
+            fresh: false,
+            no_open: true,
+        };
+        let message = journal_server_disagreement(&cfg, "team-notes");
+        assert!(message.contains("resume journal and server disagree"));
+        assert!(message.contains("No reset was attempted"));
+        assert!(message.contains("http://localhost:9200"));
+        assert!(message.contains("prefix ax"));
+        assert!(message.contains("brain team-notes"));
+        assert!(message.contains("xerj brain /corpus/notes"));
+        assert!(message.contains("--fresh"));
+        assert!(message.contains("xerj autoindex /corpus/notes"));
+        assert!(message.contains("--url http://localhost:9200"));
+        assert!(message.contains("--state-dir <new-state-dir>"));
+        assert!(message.contains("--prefix <new-prefix>"));
+        assert!(message.contains("--brain <new-brain>"));
+        assert!(message.contains("XERJ_API_KEY"));
+    }
+
+    #[test]
+    fn disagreement_decision_refuses_absent_and_zero_but_not_positive_server_truth() {
+        assert!(
+            !needs_live_node_probe(1),
+            "a run that indexed a new note must not enter resume probing"
+        );
+        assert!(needs_live_node_probe(0));
+        assert!(journal_server_disagrees(1, None, false));
+        assert!(journal_server_disagrees(1, Some(0), false));
+        assert!(!journal_server_disagrees(1, Some(7), false));
+        assert!(!journal_server_disagrees(0, Some(0), false));
+        assert!(!journal_server_disagrees(1, Some(0), true));
+    }
+
+    /// The wiped-data-dir case never reaches the probe above on its own: the
+    /// pipeline's own zero-live verification fails first. Unless that failure
+    /// is classified, the operator reads verification prose instead of the
+    /// recovery, which is what CI's use-case smoke phase 5 caught.
+    #[test]
+    fn a_zero_live_verification_failure_is_read_as_the_wiped_destination() {
+        let zero_live: anyhow::Error = xerj_autoindex::ZeroLiveVerificationError {
+            journal_records: 42,
+            files_done_journaled: 7,
+            dataset_indices: 2,
+        }
+        .into();
+        assert!(zero_live_is_journal_server_disagreement(
+            &zero_live, None, false
+        ));
+        assert!(zero_live_is_journal_server_disagreement(
+            &zero_live,
+            Some(0),
+            false
+        ));
+        // Server truth contradicts the verification: keep the original error.
+        assert!(!zero_live_is_journal_server_disagreement(
+            &zero_live,
+            Some(9),
+            false
+        ));
+        // `--fresh` republishes in place, so a zero-live failure under it is
+        // a real write problem, not a stale journal.
+        assert!(!zero_live_is_journal_server_disagreement(
+            &zero_live, None, true
+        ));
+        // Every other failure keeps its own message.
+        assert!(!zero_live_is_journal_server_disagreement(
+            &anyhow::anyhow!("server at http://localhost:9200 stopped answering"),
+            None,
+            false
+        ));
+    }
+
+    /// The classified message must still be the recovery text, not the
+    /// verification text — the two are distinguishable by their first clause.
+    #[test]
+    fn zero_live_verification_prose_is_not_the_recovery_prose() {
+        let verification = xerj_autoindex::ZeroLiveVerificationError {
+            journal_records: 3,
+            files_done_journaled: 1,
+            dataset_indices: 1,
+        }
+        .to_string();
+        assert!(
+            verification.contains("0 documents are live"),
+            "{verification}"
+        );
+        assert!(
+            !verification.contains("resume journal and server disagree"),
+            "{verification}"
+        );
     }
 
     #[test]

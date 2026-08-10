@@ -24584,7 +24584,9 @@ fn validate_embedding_identity(
                     "embedding identity mismatch for index {}: persisted backend={} \
                      model={} tokenizer={}, configured backend={} model={} tokenizer={}. \
                      Refusing to mix incompatible vector spaces. Restore the original assets \
-                     or re-run autoindex with --fresh and a new index prefix.",
+                     or rebuild with a new autoindex state directory, new index prefix, and new \
+                     brain when graph detection is enabled (or --no-graph); validate before \
+                     switching readers and explicitly clean the shared catalog and old target.",
                     index_dir.display(),
                     persisted.backend,
                     persisted.model_sha256,
@@ -24598,7 +24600,9 @@ fn validate_embedding_identity(
                 format!(
                     "index {} contains ONNX vectors but the server is configured for \
                      embedding.mode={:?}. Restart with onnx-experimental and the original \
-                     assets, or reindex under a new prefix.",
+                     assets, or rebuild with a new autoindex state directory, new prefix, and new \
+                     brain when graph detection is enabled (or --no-graph); validate before \
+                     switching readers and explicitly clean the shared catalog and old target.",
                     index_dir.display(),
                     cfg.mode
                 ),
@@ -24613,8 +24617,9 @@ fn validate_embedding_identity(
             format!(
                 "existing semantic index {} has no embedding identity marker. It may contain \
                  vectors from another backend, so ONNX cannot be enabled safely in place. \
-                 Re-run autoindex with --fresh and a new --prefix, or rebuild the index from \
-                 source.",
+                 Rebuild from source with a new autoindex state directory, new --prefix, and new \
+                 --brain when graph detection is enabled (or --no-graph); validate before \
+                 switching readers and explicitly clean the shared catalog and old target.",
                 index_dir.display()
             ),
         )));
@@ -25010,6 +25015,9 @@ mod embedding_identity_tests {
                 .to_string();
         assert!(error.contains("identity mismatch"), "{error}");
         assert!(error.contains("new index prefix"), "{error}");
+        assert!(error.contains("new brain"), "{error}");
+        assert!(error.contains("--no-graph"), "{error}");
+        assert!(error.contains("shared catalog"), "{error}");
     }
 
     #[test]
@@ -25028,6 +25036,9 @@ mod embedding_identity_tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("no embedding identity marker"), "{error}");
+        assert!(error.contains("new --brain"), "{error}");
+        assert!(error.contains("--no-graph"), "{error}");
+        assert!(error.contains("shared catalog"), "{error}");
     }
 
     #[cfg(feature = "onnx-experimental")]
