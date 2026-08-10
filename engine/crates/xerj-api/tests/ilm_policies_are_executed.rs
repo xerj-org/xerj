@@ -576,3 +576,50 @@ async fn status_counts_the_upgraded_index_the_executor_would_actually_delete() {
         "and a deleted index stops being counted: {body}"
     );
 }
+
+/// `_ilm/explain` had the two target cases exactly inverted — a mistyped index
+/// name answered `200 {"managed": false}` and a wildcard matching nothing
+/// answered `404`, the opposite of both ES and of the detach routes next to it.
+///
+/// The 200 is the one that matters. This endpoint is the only place an operator
+/// can ask "is retention running on this index?", and answering "nothing is
+/// managing it" about a name that is not an index reads as reassurance while
+/// the index they actually meant is being deleted on a timer.
+///
+/// ES: `IndicesOptions.strictExpandOpen()`
+/// (`RestExplainLifecycleAction.java:42`) = `ERROR_WHEN_UNAVAILABLE_TARGETS`
+/// plus `allowEmptyExpressions(true)` (`IndicesOptions.java:561-563`).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn explain_404s_a_name_that_is_not_an_index_and_200s_an_empty_wildcard() {
+    let (app, _state, _dir) = app();
+
+    // A literal name that is not an index is an error, not a reassuring
+    // "managed: false".
+    let (status, body) = send(&app, "GET", "/typo-idx/_ilm/explain", "").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "explaining a name that is not an index must not answer 'unmanaged': {body}"
+    );
+
+    // A wildcard resolving to nothing is an empty success.
+    let (status, body) = send(&app, "GET", "/nomatch-*/_ilm/explain", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["indices"], json!({}), "{body}");
+
+    // And a real index still explains, so the guard did not just break the
+    // endpoint.
+    send(&app, "PUT", "/_ilm/policy/logs-30d", DELETE_POLICY).await;
+    let (status, _) = send(
+        &app,
+        "PUT",
+        "/real-idx",
+        r#"{"settings":{"index.lifecycle.name":"logs-30d"}}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = send(&app, "GET", "/real-idx/_ilm/explain", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["indices"]["real-idx"]["managed"], true, "{body}");
+    assert_eq!(body["indices"]["real-idx"]["policy"], "logs-30d", "{body}");
+}

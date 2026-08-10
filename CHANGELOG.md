@@ -74,18 +74,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     removing it stays tracked in
     [#204](https://github.com/xerj-org/xerj/issues/204).
 
-- **`PUT /{index}/_settings` and `POST /{index}/_ilm/remove` no longer accept
-  an index name that is not an index.** Both resolved the path segment through
-  a helper that returns a literal name whether or not it exists, then wrote
-  state keyed by that name and answered `200`. `POST /ghost/_ilm/remove`
-  returned `has_failures: false` and left a permanent ILM detach record for a
-  name that will never be an index — unbounded persisted state reachable from
-  the public ES port, and the accept-and-ignore class
-  ([#204](https://github.com/xerj-org/xerj/issues/204)) again. Both now return
-  `404 index_not_found_exception`, as ES does. A wildcard that matches nothing
-  is still an empty success on `_ilm/remove` (ES's `allow_no_indices`
-  default), and detaching an index that exists but is unmanaged is still a
-  success — only a name that is not an index is an error.
+- **`PUT /{index}/_settings`, `POST /{index}/_ilm/remove` and `GET
+  /{index}/_ilm/explain` no longer accept an index name that is not an
+  index.** All three resolved the path segment through a helper that returns a
+  literal name whether or not it exists. The two write routes then wrote state
+  keyed by that name and answered `200`: `POST /ghost/_ilm/remove` returned
+  `has_failures: false` and left a permanent ILM detach record for a name that
+  will never be an index — unbounded persisted state reachable from the public
+  ES port, and the accept-and-ignore class
+  ([#204](https://github.com/xerj-org/xerj/issues/204)) again. `_ilm/explain`
+  had both target cases *inverted*: `GET /typo-idx/_ilm/explain` answered `200
+  {"managed": false}` — a confident "nothing is managing this" about a name
+  that is not an index, on the one endpoint an operator uses to check whether
+  retention is running — while `GET /nomatch-*/_ilm/explain` answered `404`.
+  All three now return `404 index_not_found_exception` for a name that is
+  neither an index nor an alias, as ES does. A wildcard that matches nothing
+  stays an empty success on `_ilm/remove` and `_ilm/explain` (ES's
+  `allow_no_indices` default), and detaching an index that exists but is
+  unmanaged stays a success — only a name that is not an index is an error.
 
 
 ## [1.0.0-rc.14] - 2026-08-10

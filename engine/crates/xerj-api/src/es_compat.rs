@@ -23741,15 +23741,37 @@ pub async fn remove_ilm_policy_from_index(
 ///
 /// The observability half of issue #199: with an executor but no way to see
 /// its decisions, "is my retention actually running?" is still unanswerable.
+///
+/// # Which target is an error, and which is an empty answer
+///
+/// The same distinction the detach routes make, and for the same reason. This
+/// endpoint resolved through [`resolve_index_selector`], whose documented
+/// fallback returns a literal name whether or not it exists, so it had both
+/// cases *inverted*: `GET /typo-idx/_ilm/explain` answered `200 {"managed":
+/// false}` about a name that is not an index, and `GET /nomatch-*/_ilm/explain`
+/// answered 404. Measured on a release binary before this fix, both ways round.
+///
+/// `managed: false` for a mistyped index name is a confident wrong answer on
+/// the one surface an operator uses to ask "is retention running on this?" —
+/// it reads as "nothing is managing it", while the index they meant is being
+/// deleted on a timer. That is worth a 404 even though nothing is written here.
+///
+/// ES uses `IndicesOptions.strictExpandOpen()` for this endpoint
+/// (`RestExplainLifecycleAction.java:42`), which is
+/// `ERROR_WHEN_UNAVAILABLE_TARGETS` plus `allowEmptyExpressions(true)`
+/// (`IndicesOptions.java:561-563`): every *named* index must exist, and a
+/// wildcard resolving to nothing is not an error. So a literal name that is
+/// neither an index nor an alias is `404 index_not_found_exception`, and a
+/// wildcard matching nothing is `200 {"indices": {}}`. Approach only —
+/// Elasticsearch is AGPL/SSPL/Elastic-2.0 and no code of it is copied here.
 pub async fn explain_ilm(
     State(state): State<AppState>,
     Path(index): Path<String>,
 ) -> impl IntoResponse {
-    let targets = resolve_index_selector(&state, &index).await;
-    if targets.is_empty() {
-        let e = xerj_common::XerjError::index_not_found(&index);
-        return ApiError::new(e).into_response();
-    }
+    let targets = match resolve_existing_index_targets(&state, &index).await {
+        Ok(t) => t,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
     let now = xerj_engine::ilm::now_ms();
     let mut indices = serde_json::Map::new();
     for name in targets {
