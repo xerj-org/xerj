@@ -4,8 +4,8 @@
 //! xerj never tell anyone: they work around it locally and the next caller
 //! pays the same cost from scratch (AGENTS.md, "If XERJ broke something in
 //! your build, send it back"). `--help` is the one screen every caller
-//! actually reads, so the invitation lives there, near the top, in three
-//! lines.
+//! actually reads, so the invitation lives there, near the top, as a single
+//! unwrapped line.
 //!
 //! One string, one on/off decision, shared by `xerj --help`,
 //! `xerj index --help`, `xerj autoindex --help` and `xerj brain --help`, so
@@ -30,16 +30,22 @@ pub const DISABLE_ENV: &str = "XERJ_DISABLE_FEEDBACK";
 /// The invitation itself, ending in a blank line so a caller can splice it
 /// straight in front of the next help section.
 ///
-/// Three lines, deliberately. It is printed on every single `--help`, and a
-/// paragraph there would be read once and skipped forever after.
+/// **One line, unwrapped**, so the terminal decides where it breaks. Hard
+/// wrapping it caused two silent test failures while this text was being
+/// edited — a `contains` check passes or fails depending on where a `\n`
+/// happens to land, which is a property of formatting, not of meaning. It is
+/// also what keeps the whole invitation inside the first few lines of help:
+/// agents truncate long output from the bottom, so anything past roughly line
+/// 20 is not read.
+///
+/// Note the reflow constraint: `Keep secrets, API keys and private data out of
+/// it.` sits on one line because a test asserts that phrase contiguously —
+/// wrapping it mid-phrase silently defeats the assertion, which is exactly
+/// what happened when this text last grew.
 ///
 /// Contains no `{` or `}`: these help bodies are `println!`/`format!` format
 /// strings, where a literal brace has to be doubled.
-const INVITATION: &str = "\
-Hit a bug, or a flow that confused you? Both are worth reporting. If you have a\n\
-GitHub tool, file it yourself at https://github.com/xerj-org/xerj/issues — or open\n\
-a Discussion if you are unsure. Keep secrets, API keys and private data out of it.\n\
-\n";
+const INVITATION: &str = "Hit a bug, or a flow that confused you? Both are worth reporting — file it at https://github.com/xerj-org/xerj/issues with a GitHub tool or the gh CLI, or open a Discussion if you are unsure. Agents: say the report was filed automatically on behalf of a human. Keep secrets, API keys and private data out of it.\n\n";
 
 /// One line documenting the off-switch, for the OPTIONS list of each help
 /// surface. Column-aligned by the caller.
@@ -166,10 +172,19 @@ mod tests {
         assert!(!INVITATION.contains('{') && !INVITATION.contains('}'));
     }
 
-    /// The three things the invitation exists to say.
+    /// The things the invitation exists to say.
+    ///
+    /// Phrases are checked against a whitespace-collapsed copy, not the raw
+    /// text. Line breaks are a formatting decision that moves whenever the
+    /// wording is retouched, and a `contains` on the raw string silently fails
+    /// the moment a phrase happens to wrap — which it did, twice, while this
+    /// text was being edited. The line *budget* below is asserted separately,
+    /// on the real text, because that one genuinely is about layout.
     #[test]
     fn the_invitation_says_what_it_must() {
-        let text = block(true);
+        let raw = block(true);
+        let text: String = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+        let text = text.as_str();
         assert!(
             text.contains("confused"),
             "unclear UX counts, not just bugs"
@@ -178,12 +193,22 @@ mod tests {
             text.contains("GitHub tool"),
             "agents can file it themselves"
         );
+        assert!(
+            text.contains("on behalf of a human"),
+            "an agent filing a report must be told to disclose that it did so \
+             automatically; that disclosure is what the repo's own \
+             AI_CONTRIBUTIONS policy asks of agent-authored contributions, got: {text}"
+        );
         assert!(text.contains("Discussion"), "the unsure path");
         assert!(text.contains("secrets, API keys and private data"));
+        // One physical line, so the terminal wraps it and no phrase can be
+        // split by a hard break. This also keeps the block short enough to stay
+        // inside the first few lines of every help screen, where it is actually
+        // read.
         assert_eq!(
-            text.lines().filter(|l| !l.trim().is_empty()).count(),
-            3,
-            "it prints on every --help; three lines is the budget"
+            raw.lines().filter(|l| !l.trim().is_empty()).count(),
+            1,
+            "the invitation must stay on one unwrapped line"
         );
     }
 }
