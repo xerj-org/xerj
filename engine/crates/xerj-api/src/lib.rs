@@ -56,6 +56,7 @@
 //! ports via `Router::merge`. Engine API and Xerj Console API are decoupled —
 //! xerj-api itself does not depend on xerj-console-api.
 
+pub mod audit_mw;
 pub mod auth;
 pub mod authz;
 pub mod binary_protocol;

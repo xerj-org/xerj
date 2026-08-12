@@ -6656,9 +6656,17 @@ pub struct EsSearchQueryParams {
 pub async fn search_all(
     State(state): State<AppState>,
     Query(params): Query<EsSearchQueryParams>,
+    principal: crate::auth::Principal,
     body: EsSearchJson,
 ) -> impl IntoResponse {
-    search(State(state), Path("*".to_string()), Query(params), body).await
+    search(
+        State(state),
+        Path("*".to_string()),
+        Query(params),
+        principal,
+        body,
+    )
+    .await
 }
 
 /// Bounded top-level query-type label for the `query_latency_by_type`
@@ -6920,6 +6928,11 @@ pub async fn search(
     State(state): State<AppState>,
     Path(index): Path<String>,
     Query(params): Query<EsSearchQueryParams>,
+    // Issue #329: the audit entry this handler writes used to record the string
+    // literal `"anonymous"` for every search, authenticated or not, so the one
+    // audited data-path operation was unattributable. The principal is threaded
+    // through to `search_impl` for that entry and nothing else.
+    principal: crate::auth::Principal,
     body: EsSearchJson,
 ) -> Response {
     // `Box::pin` is load-bearing, not style. `search_impl`'s future is
@@ -6928,7 +6941,7 @@ pub async fn search(
     // `memory_api`'s recall test, which calls this handler directly, overflows
     // its stack on the extra copy. Boxing keeps the wrapper pointer-sized.
     let (response, fault) = xerj_engine::painless::with_script_fault_capture(Box::pin(
-        search_impl(state, index, params, body),
+        search_impl(state, index, params, principal, body),
     ))
     .await;
     match fault {
@@ -6941,6 +6954,7 @@ async fn search_impl(
     state: AppState,
     index: String,
     params: EsSearchQueryParams,
+    principal: crate::auth::Principal,
     body: EsSearchJson,
 ) -> Response {
     let started = Instant::now();
@@ -9720,11 +9734,13 @@ async fn search_impl(
             .map(|q| q.to_string())
             .unwrap_or_default(),
     );
-    // v0.9 9-P4: append to the audit log (subject is "anonymous" until
-    // RBAC middleware wires through the authenticated user in v0.9-beta).
+    // v0.9 9-P4: append to the audit log. The subject was the literal
+    // "anonymous" until issue #329 — the API-key operations had been passing a
+    // real `principal.label()` since #201, so the plumbing existed and this one
+    // site simply did not use it.
     state.engine.audit.append(
         "search",
-        "anonymous",
+        principal.label(),
         index.as_str(),
         "ok",
         &format!("took={}ms hits={}", took_ms, merged_hits.len()),
@@ -13534,6 +13550,27 @@ fn bulk_opts_from_query(
     }
 }
 
+/// Render the indices a bulk touched for its audit note, bounded.
+///
+/// An audit entry is evidence, not a report: it says which indices the request
+/// wrote to, and says plainly when there were more than it lists rather than
+/// silently truncating. The bound exists because the entry shares a fixed-size
+/// ring with every other event on the node.
+fn render_index_list(names: &std::collections::BTreeSet<String>) -> String {
+    const SHOWN: usize = 8;
+    let listed = names
+        .iter()
+        .take(SHOWN)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(",");
+    if names.len() > SHOWN {
+        format!("{listed},+{} more", names.len() - SHOWN)
+    } else {
+        listed
+    }
+}
+
 async fn process_bulk_body(
     state: &AppState,
     default_index: Option<&str>,
@@ -13627,8 +13664,16 @@ async fn process_bulk_body(
     // concrete resolved index, so the label set stays bounded.
     let mut docs_indexed_tally: std::collections::HashMap<String, u64> =
         std::collections::HashMap::new();
+    // Issue #329: the audit entry for this request reports what it covered.
+    let mut failed_items = 0u64;
+    let mut audited_index_names: std::collections::BTreeSet<String> =
+        std::collections::BTreeSet::new();
     let mut items: Vec<EsBulkItem> = Vec::with_capacity(result.items.len());
     for item in result.items {
+        if item.error.is_some() || !(200..300).contains(&item.status) {
+            failed_items += 1;
+        }
+        audited_index_names.insert(item.index.clone());
         if item.error.is_none()
             && (200..300).contains(&item.status)
             && matches!(item.action.as_str(), "index" | "create" | "update")
@@ -13716,6 +13761,17 @@ async fn process_bulk_body(
         state.metrics.record_docs_indexed(idx_name, *n);
     }
 
+    // Issue #329: hand the audit layer the one thing it cannot see from the
+    // request — how much this bulk actually did. `audit_mw` records ONE entry
+    // per bulk (per document would let a single ingest evict the whole ring),
+    // so the counts have to travel on the entry instead of in it.
+    let audit_note = crate::audit_mw::AuditNote(format!(
+        "items={} failed={} indices=[{}] took={took_ms}ms",
+        items.len(),
+        failed_items,
+        render_index_list(&audited_index_names),
+    ));
+
     let resp = EsBulkResponse {
         took: took_ms,
         errors,
@@ -13749,6 +13805,7 @@ async fn process_bulk_body(
     });
     if !seq_disabled_anywhere {
         let mut r = Json(&resp).into_response();
+        r.extensions_mut().insert(audit_note);
         if all_backpressure {
             *r.status_mut() = axum::http::StatusCode::TOO_MANY_REQUESTS;
             r.headers_mut().insert(
@@ -13813,17 +13870,16 @@ async fn process_bulk_body(
             }
         }
     }
+    let mut r = Json(resp_val).into_response();
+    r.extensions_mut().insert(audit_note);
     if all_backpressure {
-        let mut r = Json(resp_val).into_response();
         *r.status_mut() = axum::http::StatusCode::TOO_MANY_REQUESTS;
         r.headers_mut().insert(
             axum::http::header::RETRY_AFTER,
             axum::http::HeaderValue::from_static("1"),
         );
-        r
-    } else {
-        Json(resp_val).into_response()
     }
+    r
 }
 
 #[cfg(test)]

@@ -869,6 +869,7 @@ pub async fn ego(
             State(state.clone()),
             Path(index.clone()),
             Query(EsSearchQueryParams::default()),
+            principal.clone(),
             EsSearchJson(Some(search_body)),
         )
         .await
@@ -917,6 +918,7 @@ pub async fn ego(
             State(state.clone()),
             Path(nodes_index.clone()),
             Query(EsSearchQueryParams::default()),
+            principal.clone(),
             EsSearchJson(Some(search_body)),
         )
         .await
@@ -1096,12 +1098,14 @@ pub struct OverviewParams {
 async fn overview_search(
     state: &AppState,
     index: &str,
+    principal: &Principal,
     body: EsSearchBody,
 ) -> Result<Value, Response> {
     let resp = es_compat::search(
         State(state.clone()),
         Path(index.to_string()),
         Query(EsSearchQueryParams::default()),
+        principal.clone(),
         EsSearchJson(Some(body)),
     )
     .await
@@ -1215,7 +1219,7 @@ pub async fn overview(
         track_total_hits: Some(json!(true)),
         ..Default::default()
     };
-    let totals = match overview_search(&state, &index, totals).await {
+    let totals = match overview_search(&state, &index, &principal, totals).await {
         Ok(v) => v,
         Err(r) => return r,
     };
@@ -1247,7 +1251,7 @@ pub async fn overview(
         })),
         ..Default::default()
     };
-    let live_resp = match overview_search(&state, &index, live_body).await {
+    let live_resp = match overview_search(&state, &index, &principal, live_body).await {
         Ok(v) => v,
         Err(r) => return r,
     };
@@ -1276,7 +1280,7 @@ pub async fn overview(
         })),
         ..Default::default()
     };
-    let timeline = match overview_search(&state, &index, timeline_body).await {
+    let timeline = match overview_search(&state, &index, &principal, timeline_body).await {
         Ok(v) => v,
         Err(r) => return r,
     };
@@ -1315,7 +1319,7 @@ pub async fn overview(
             track_total_hits: Some(json!(true)),
             ..Default::default()
         };
-        match overview_search(&state, &nodes_index, count_body).await {
+        match overview_search(&state, &nodes_index, &principal, count_body).await {
             Ok(v) => v
                 .pointer("/hits/total/value")
                 .and_then(Value::as_u64)

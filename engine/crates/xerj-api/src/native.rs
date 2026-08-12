@@ -993,7 +993,20 @@ pub async fn admin_slow_queries_set_threshold(
 // v0.9 9-P4 — Audit log admin
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn audit_search(State(state): State<AppState>) -> impl IntoResponse {
+/// Both handlers require [`xerj_engine::rbac::Privilege::AuditRead`]
+/// (issue #329).
+///
+/// They took `State` and nothing else, so every authenticated credential that
+/// reached the router read the whole log: a key scoped to one index — refused
+/// on every other index — could read every entry on the node, security events
+/// included. The privilege existed and was never consulted.
+pub async fn audit_search(
+    State(state): State<AppState>,
+    principal: crate::auth::Principal,
+) -> impl IntoResponse {
+    if let Err(denied) = crate::authz::authorize_audit_read(&principal) {
+        return denied;
+    }
     let snap = state.engine.audit.snapshot();
     let body = serde_json::json!({
         "next_seq": state.engine.audit.next_seq(),
@@ -1002,7 +1015,13 @@ pub async fn audit_search(State(state): State<AppState>) -> impl IntoResponse {
     Json(body).into_response()
 }
 
-pub async fn audit_verify(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn audit_verify(
+    State(state): State<AppState>,
+    principal: crate::auth::Principal,
+) -> impl IntoResponse {
+    if let Err(denied) = crate::authz::authorize_audit_read(&principal) {
+        return denied;
+    }
     match state.engine.audit.verify() {
         Ok(()) => Json(serde_json::json!({ "ok": true })).into_response(),
         Err((seq, expected, actual)) => {

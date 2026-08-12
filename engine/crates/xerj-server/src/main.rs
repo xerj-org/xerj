@@ -396,15 +396,18 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
             " │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)"
         );
     }
-    // Issue #201 made the hash chain durable, so "request tracing only" is no
-    // longer the honest line — but the coverage is still narrow (searches and
-    // the `_security/api_key` operations, not every write) and the endpoints
-    // are still not privilege-gated. Say exactly that.
+    // Issue #201 made the hash chain durable; issue #329 gave it write
+    // coverage, real subjects and a privilege gate. What is left to warn about
+    // is the window: it is a bounded ring, so "no entry" past the window is not
+    // evidence of no write. Say exactly that, and no more than that.
     println!(
-        " │ ⚠  Audit:  hash-chained log of searches + API-key ops, kept in \
+        " │ ✓  Audit:  hash-chained log of writes + searches + API-key ops, kept in \
          <data_dir>/audit.jsonl"
     );
-    println!(" │           (last 4096 entries; /_audit/* is not privilege-gated)");
+    println!(
+        " │           (last {} entries, one per request; /_audit/* requires read_audit)",
+        xerj_engine::audit::DEFAULT_AUDIT_CAPACITY
+    );
     println!(" │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now");
     println!(" └────────────────────────────────────────────────────────────────");
     println!();

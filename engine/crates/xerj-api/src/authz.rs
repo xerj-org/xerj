@@ -216,6 +216,46 @@ pub fn authorize_index(
     }
 }
 
+/// Does this principal hold [`Privilege::AuditRead`] (issue #329)?
+///
+/// Deliberately **not** routed through [`Principal::allows_index`]: audit read
+/// is not index-scoped, and that predicate answers `true` for an `Unscoped` key
+/// on any non-reserved name — which is exactly the hole this closes. The audit
+/// log is one object covering the whole node, holding every tenant's activity
+/// and every security event, so "reach over ordinary indices" is not a reason
+/// to be handed it.
+///
+/// Two principals hold it: the superuser, and a key minted with
+/// `cluster: ["read_audit"]` (see
+/// [`xerj_engine::rbac::roles_from_role_descriptors`]). An `Unscoped` key —
+/// one minted with no `role_descriptors` — does not, and neither does a key
+/// scoped to indices, however broad the grant: `names: ["*"]` is an *index*
+/// grant and says nothing about the audit log.
+pub fn holds_audit_read(principal: &Principal) -> bool {
+    match principal {
+        Principal::Superuser => true,
+        Principal::Scoped { roles, .. } => roles
+            .iter()
+            .any(|r| r.privileges.contains(&Privilege::AuditRead)),
+        Principal::Unscoped { .. } | Principal::Denied => false,
+    }
+}
+
+/// Gate `/_audit/_search` and `/_audit/_verify` on [`Privilege::AuditRead`].
+///
+/// Enforced in the handlers rather than in [`authz_middleware`] for the reason
+/// the [`Principal`] extractor re-derives instead of reading an extension: a
+/// handler that authorizes must be safe on any router it is mounted on. The
+/// middleware also short-circuits the superuser before it classifies anything,
+/// so a cluster-level check does not belong there.
+pub fn authorize_audit_read(principal: &Principal) -> Result<(), Response> {
+    if holds_audit_read(principal) {
+        Ok(())
+    } else {
+        Err(forbidden(principal, "_audit", Privilege::AuditRead))
+    }
+}
+
 /// Authorize `principal` for `privilege` on brain `brain` — i.e. on its edges
 /// index. Every `/_graph/{brain}/*` handler calls this before it does anything
 /// else that could reveal whether the brain exists.

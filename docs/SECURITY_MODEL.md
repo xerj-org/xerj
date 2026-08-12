@@ -344,12 +344,17 @@ the endpoint that answers "who am I".
 
 ### Privileges that exist but are not decided
 
-`Privilege` (`rbac.rs:34-49`) has seven variants. Only three of them are ever
-demanded of a principal: `ReadIndex`, `WriteIndex`, and `AdminIndex`.
-`SnapshotCreate`, `SnapshotRestore`, `SecurityAdmin`, and `AuditRead` appear
-only as labels in a `403` message and in a sort key
-(`authz.rs:242-251`, `authz.rs:972-982`, `es_compat.rs:25522`). Nothing checks
-whether a principal holds them, because `role_descriptors` cannot grant them.
+`Privilege` (`rbac.rs:34-49`) has seven variants. Four of them are demanded of a
+principal: `ReadIndex`, `WriteIndex`, `AdminIndex`, and — since issue #329 —
+`AuditRead`, which gates `/_audit/_search` and `/_audit/_verify`
+(`authz::authorize_audit_read`, `native.rs::audit_search`). It is the one
+cluster-level privilege that is both grantable and checked: a key minted with
+`cluster: ["read_audit"]` holds it and holds no index privilege with it, so an
+auditor credential reads the log and no data (`rbac::es_cluster_privilege`).
+`SnapshotCreate`, `SnapshotRestore` and `SecurityAdmin` still appear only as
+labels in a `403` message and in a sort key (`authz.rs:242-251`,
+`authz.rs:972-982`, `es_compat.rs:25522`); nothing checks whether a principal
+holds them, because `role_descriptors` cannot grant them.
 
 ### The named role store is data only
 
@@ -708,22 +713,23 @@ it is on a schedule this document can promise.
   `/_security/role*` and `/_security/privilege*` store data and gate nothing;
   the role responses say so with `"enforced": false`
   (`native.rs:900-949`, `es_compat.rs:25628-25631`).
-- **Four of the seven privileges are never checked.** `SnapshotCreate`,
-  `SnapshotRestore`, `SecurityAdmin` and `AuditRead` exist only as error labels
-  (`authz.rs:242-251`).
-- **The audit endpoints are not privilege-gated.** `/_audit/_search` and
-  `/_audit/_verify` (`router.rs:124-125`) are cluster-classified reads, so any
-  authenticated principal that reaches the router passes; `AuditRead` is not
-  consulted.
-- **The audit log covers very little.** It is a hash-chained, restart-surviving
-  log (`audit.rs`, issue #201) of the last 4096 entries in
-  `<data_dir>/audit.jsonl` — but the only callers are `_search` and the three
-  `_security/api_key` operations. Indexing and deletion are **not** audited, so
-  a missing entry is not evidence that a write did not happen. The file is not
-  `fsync`ed per entry (a search would pay the barrier); it survives a process
-  restart, not a power cut. Anyone who can write the file can rewrite the whole
-  chain, seed line included — tamper-*evidence* requires pinning a known-good
-  head externally.
+- **Three of the seven privileges are never checked.** `SnapshotCreate`,
+  `SnapshotRestore` and `SecurityAdmin` exist only as error labels
+  (`authz.rs:242-251`). `AuditRead` is now enforced (issue #329).
+- **The audit log is a bounded window, and covers writes but not reads.**
+  It is a hash-chained, restart-surviving log (`audit.rs`, issues #201 and
+  #329) of the last 4096 entries in `<data_dir>/audit.jsonl`, gated on
+  `AuditRead`. Every mutating request that passes authentication leaves one
+  entry naming the caller — a bulk is one entry with its item counts, not one
+  per document — and a refused write is recorded as `denied`. What is **not**
+  in it: reads other than `_search` (`_mget`, `_count`, `GET _doc`, `_cat`),
+  unauthenticated attempts (recorded nowhere but the access log — auditing them
+  would let anyone who can reach the port evict the ring), and anything older
+  than the last 4096 entries. Long-term retention means shipping entries off
+  the node, which is not built. The file is not `fsync`ed per entry (every
+  write would pay the barrier); it survives a process restart, not a power cut.
+  Anyone who can write the file can rewrite the whole chain, seed line included
+  — tamper-*evidence* requires pinning a known-good head externally.
 - **`names: ["*"]` reaches the reserved namespace.** This is intended and pinned
   by a test, but it means one careless grant hands over every brain
   (`rbac.rs:72-98`).

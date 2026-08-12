@@ -4,11 +4,28 @@
 //! that's queryable via `GET /_audit/_search`. Each entry includes a hash
 //! chain over the previous entry so any tampering is detectable on verify.
 //!
-//! **Coverage, stated honestly:** the callers today are `_search` and the
-//! three `_security/api_key` operations (create / get / invalidate). The
-//! original module doc claimed "every search / index / delete / admin op",
-//! which was never true — indexing and deletion are not audited. Do not read
-//! an absent entry as evidence that a write did not happen.
+//! **Coverage, stated honestly (issue #329).** Every *mutating* request that
+//! gets past authentication leaves an entry — index, create, update, delete,
+//! bulk, delete/update-by-query, index creation and deletion, mapping and
+//! settings changes, on both the ES-compat and the native router — plus
+//! `_search` and the three `_security/api_key` operations. The write entries
+//! are appended by `xerj_api::audit_mw`, one per *request*, not one per
+//! document: a bulk is a single entry carrying its item counts, because a ring
+//! of [`DEFAULT_AUDIT_CAPACITY`] entries fed per-document would let one ingest
+//! evict every other event on the node.
+//!
+//! What is still **not** in here, so an absent entry is not read as more than
+//! it is:
+//!
+//! * **Reads other than `_search`.** `_mget`, `_count`, `GET _doc` and the
+//!   `_cat`/`_cluster` surface leave nothing. This is a bounded ring shared by
+//!   the whole node; filling it with health probes would evict the writes.
+//! * **Unauthenticated attempts.** The middleware runs inside authentication,
+//!   so a 401 is not recorded — otherwise anyone who can reach the port could
+//!   flush the evidence out of the ring one request at a time.
+//! * **Anything older than the window.** The ring keeps the last
+//!   [`DEFAULT_AUDIT_CAPACITY`] entries and the file converges to it. Long-term
+//!   retention means shipping entries off the node; that is not built.
 //!
 //! WORM semantics:
 //! - Append-only (no API to mutate or remove past entries).

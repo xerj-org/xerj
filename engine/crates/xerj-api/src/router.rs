@@ -28,7 +28,7 @@ use uuid::Uuid;
 use xerj_common::config::CorsConfig;
 
 use crate::{
-    auth::auth_middleware, authz, es_compat, graph_api, ism_api, memory_api, native,
+    audit_mw, auth::auth_middleware, authz, es_compat, graph_api, ism_api, memory_api, native,
     state::AppState,
 };
 
@@ -176,6 +176,13 @@ pub fn build_native_router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             authz::authz_middleware,
+        ))
+        // Between authn and authz, deliberately: outside authorization so a
+        // refused write is recorded as `denied`, inside authentication so an
+        // unauthenticated flood cannot evict a bounded ring (issue #329).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            audit_mw::audit_middleware,
         ))
         .layer(middleware::from_fn_with_state(state, auth_middleware))
         .layer(middleware::from_fn(request_id_middleware))
@@ -889,6 +896,13 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(
             state.clone(),
             authz::authz_middleware,
+        ))
+        // Between authn and authz, deliberately: outside authorization so a
+        // refused write is recorded as `denied`, inside authentication so an
+        // unauthenticated flood cannot evict a bounded ring (issue #329).
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            audit_mw::audit_middleware,
         ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
