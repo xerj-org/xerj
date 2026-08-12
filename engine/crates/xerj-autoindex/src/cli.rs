@@ -109,9 +109,16 @@ pub fn print_help() {
 /// The help text as a value, so tests can assert that a documented flag is
 /// still documented instead of trusting a `println!`.
 pub fn help_text() -> String {
+    help_text_with(xerj_common::feedback::enabled())
+}
+
+/// [`help_text`] with the feedback invitation forced on or off, so a test does
+/// not have to mutate the process environment to see both shapes.
+pub fn help_text_with(feedback: bool) -> String {
     format!(
         "xerj autoindex — point it at any folder and make the contents AI-searchable, zero config\n\
          \n\
+         {feedback_block}\
          USAGE:\n\
              xerj autoindex <folder> [OPTIONS]     discover + index a folder\n\
              xerj autoindex map [OPTIONS]          print the discovered data map\n\
@@ -178,6 +185,9 @@ pub fn help_text() -> String {
                                   exactly like an agent-driven run. See ESTIMATE + DECISION\n\
                                   GATE.\n\
              --dataset <SLUG>     (map) show a single dataset\n\
+             --disable-feedback   do not print the feedback invitation above; honoured in\n\
+                                  any position, including after --help (env\n\
+                                  XERJ_DISABLE_FEEDBACK=true)\n\
              --help, -h           this help\n\
          \n\
          IGNORE RULES:\n\
@@ -334,6 +344,7 @@ pub fn help_text() -> String {
                        nothing was indexed; a JSON decision request is on stdout;\n\
                      2 usage; 1 endpoint/journal failure, a refused corpus removal, or a\n\
                      refused unsafe state transition\n",
+        feedback_block = xerj_common::feedback::block(feedback),
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
         defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" ")
@@ -552,6 +563,9 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             }
             "--quiet" => quiet = true,
             "--dataset" => dataset = it.next(),
+            // Read out of band by `xerj_common::feedback`, which scans the
+            // whole argument list; accepted here so it is not "unknown".
+            xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => return Ok(Cmd::Help),
             "map" if sub.is_none() && folder.is_none() => sub = Some("map".into()),
             "status" if sub.is_none() && folder.is_none() => sub = Some("status".into()),
@@ -1152,6 +1166,60 @@ mod tests {
             "prompt_not_offered_because",
         ] {
             assert!(help.contains(expected), "help is missing {expected:?}");
+        }
+    }
+
+    /// The invitation is on by default and near the top — at the bottom of a
+    /// 200-line help body it would never be read. Position is the requirement,
+    /// so position is what is asserted.
+    #[test]
+    fn the_help_invites_a_bug_report_near_the_top_by_default() {
+        let help = super::help_text_with(true);
+        let line = help
+            .lines()
+            .position(|l| l.contains("Hit a bug, or a flow that confused you?"))
+            .expect("no invitation in the help");
+        assert!(line < 10, "invitation sits on line {}", line + 1);
+        for expected in [
+            "https://github.com/xerj-org/xerj/issues",
+            "GitHub tool",
+            "Discussion",
+            "secrets, API keys and private data",
+            // The off-switch belongs on the same screen as the thing it turns
+            // off.
+            "--disable-feedback",
+        ] {
+            assert!(help.contains(expected), "help is missing {expected:?}");
+        }
+    }
+
+    #[test]
+    fn the_invitation_is_gone_when_it_is_turned_off() {
+        let help = super::help_text_with(false);
+        assert!(!help.contains("Hit a bug"), "invitation was not silenced");
+        assert!(
+            !help.contains("\n\n\n"),
+            "silencing it left a blank gap:\n{help}"
+        );
+        // Silencing the invitation must not silence the rest of the help.
+        assert!(help.contains("USAGE:") && help.contains("--disable-feedback"));
+    }
+
+    /// `--disable-feedback` is consumed wherever it appears, on every
+    /// subcommand — it must never be an "unknown argument".
+    #[test]
+    fn disable_feedback_is_accepted_in_any_position() {
+        for args in [
+            vec!["data", "--disable-feedback"],
+            vec!["--disable-feedback", "data"],
+            vec!["map", "--disable-feedback"],
+            vec!["--disable-feedback", "map"],
+            vec!["status", "--disable-feedback"],
+            vec!["--disable-feedback", "--help"],
+            vec!["--help", "--disable-feedback"],
+        ] {
+            parse(args.iter().map(|s| s.to_string()).collect())
+                .unwrap_or_else(|e| panic!("{args:?} was rejected: {e}"));
         }
     }
 

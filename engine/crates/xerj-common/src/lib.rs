@@ -14,6 +14,7 @@
 //! ## Modules
 //!
 //! - [`config`]  — TOML-based configuration (105 settings)
+//! - [`feedback`] — the bug/UX-report invitation shared by every `--help`
 //! - [`error`]   — Unified error type ([`XerjError`])
 //! - [`types`]   — Core domain types (documents, fields, IDs)
 //! - [`schema`]  — Index schema management and mapping evolution
@@ -23,6 +24,7 @@
 
 pub mod config;
 pub mod error;
+pub mod feedback;
 pub mod fsio;
 pub mod metrics;
 pub mod net;

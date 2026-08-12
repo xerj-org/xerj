@@ -148,6 +148,10 @@ fn parse_args() -> CliArgs {
             "--onnx-tokenizer" => onnx_tokenizer = args.next(),
             "--compat-distribution" => compat_distribution = args.next(),
             "--compat-version" => compat_version = args.next(),
+            // Read out of band by `xerj_common::feedback` (which scans the
+            // whole argument list, so its position never matters); accepted
+            // here only so it is not an "unknown argument".
+            xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -177,16 +181,18 @@ fn parse_args() -> CliArgs {
 }
 
 fn print_help() {
-    println!("{}", help_text());
+    println!("{}", help_text(xerj_common::feedback::enabled()));
 }
 
 /// The help text as a value, so tests can assert that a documented behaviour is
-/// still documented instead of trusting a `println!`. Same house style as
+/// still documented — and that the feedback invitation lands *where* it is
+/// supposed to — instead of trusting a `println!`. Same house style as
 /// `xerj_autoindex::cli::help_text`.
-fn help_text() -> String {
+fn help_text(feedback: bool) -> String {
     format!(
         "xerj v{} — the unified search engine for AI (Elasticsearch wire-compatible)\n\
          \n\
+         {}\
          USAGE:\n\
              xerj [OPTIONS]\n\
          \n\
@@ -238,6 +244,9 @@ fn help_text() -> String {
                                       client library versions aren't a reliable stand-in for a\n\
                                       compatible server version, confirmed against a real OSD\n\
                                       container). Example: --compat-version 2.11.0\n\
+             --disable-feedback     Do not print the feedback invitation above. Honoured in any\n\
+                                      position, including after --help. Env:\n\
+                                      XERJ_DISABLE_FEEDBACK=true\n\
              --help,     -h         Show this help\n\
              --version,  -V         Print version and exit\n\
          \n\
@@ -254,6 +263,8 @@ fn help_text() -> String {
          \n\
          ENVIRONMENT:\n\
              XERJ_LOG         Log level filter (default: info)\n\
+             XERJ_DISABLE_FEEDBACK  true/false — same as --disable-feedback, for callers that\n\
+                                      cannot change the command line (CI, containers, agents)\n\
              XERJ_CONFIG      Config file path\n\
              XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto|onnx-experimental)\n\
              XERJ_ONNX_MODEL  FP32 ONNX model path\n\
@@ -286,7 +297,8 @@ fn help_text() -> String {
                   xerj -d ./data --compat-distribution opensearch\n\
                 (or set only XERJ_COMPAT_VERSION and leave distribution to auto-detect — the two\n\
                 settings are resolved independently, mix and match as needed.)\n",
-        env!("CARGO_PKG_VERSION")
+        env!("CARGO_PKG_VERSION"),
+        xerj_common::feedback::block(feedback),
     )
 }
 
@@ -1044,6 +1056,7 @@ fn parse_index_args() -> IndexCmdArgs {
             }
             "--config" | "-c" => config = args.next().map(PathBuf::from),
             "--data-dir" | "-d" => data_dir = args.next(),
+            xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => {
                 print_index_help();
                 std::process::exit(0);
@@ -1076,9 +1089,14 @@ fn parse_index_args() -> IndexCmdArgs {
 }
 
 fn print_index_help() {
-    println!(
+    println!("{}", index_help_text(xerj_common::feedback::enabled()));
+}
+
+fn index_help_text(feedback: bool) -> String {
+    format!(
         "xerj index — ingest an NDJSON file directly into the engine\n\
          \n\
+         {}\
          USAGE:\n\
              xerj index --index <name> --file <ndjson> [OPTIONS]\n\
          \n\
@@ -1090,13 +1108,16 @@ fn print_index_help() {
              --limit,    -l <N>     Ingest only the first N lines (default: all)\n\
              --config,   -c <PATH>  Path to TOML config file\n\
              --data-dir, -d <PATH>  Override data directory\n\
+             --disable-feedback     Do not print the feedback invitation above\n\
+                                      (env XERJ_DISABLE_FEEDBACK=true)\n\
              --help,     -h         Show this help\n\
          \n\
          Bypasses HTTP/axum entirely. Bytes are pushed straight into\n\
          index_batch_turbo_raw via rayon workers. Use this for maximum\n\
          single-node ingest throughput — it's the xerj equivalent of\n\
-         Lucene's IndexWriter fed from a file."
-    );
+         Lucene's IndexWriter fed from a file.",
+        xerj_common::feedback::block(feedback),
+    )
 }
 
 /// Run the `xerj index` subcommand — direct NDJSON → engine ingest.
@@ -1691,7 +1712,10 @@ mod help_text_tests {
     /// describe both halves of what the flag does.
     #[test]
     fn insecure_help_documents_auth_not_just_tls() {
-        let help = help_text();
+        // Rendered with the feedback invitation on — the shipped default — so
+        // this also proves the invitation does not displace or reflow the
+        // `--insecure` paragraph it sits above.
+        let help = help_text(true);
         let line = help
             .lines()
             .position(|l| l.contains("--insecure"))

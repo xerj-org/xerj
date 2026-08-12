@@ -59,7 +59,13 @@ pub fn run_cli() -> i32 {
 }
 
 pub fn print_help() {
-    println!(
+    println!("{}", help_text(xerj_common::feedback::enabled()));
+}
+
+/// The help text as a value, so tests can assert on it — presence *and*
+/// position of the feedback invitation — instead of trusting a `println!`.
+pub fn help_text(feedback: bool) -> String {
+    format!(
         "xerj brain — turn a folder into a running, browsable second brain, in one command\n\
          \n\
          Point it at a folder. xerj starts its local server (or attaches to a running\n\
@@ -67,6 +73,7 @@ pub fn print_help() {
          relative links, section order, shared folders), and opens your knowledge in\n\
          the browser. Safe to re-run any time — re-runs converge, nothing duplicates.\n\
          \n\
+         {}\
          USAGE:\n\
              xerj brain <folder> [OPTIONS]\n\
          \n\
@@ -83,11 +90,15 @@ pub fn print_help() {
                                 re-walking everything (ids stay idempotent). It never\n\
                                 deletes documents for notes you removed\n\
              --no-open          print the links but do not open a browser\n\
+             --disable-feedback do not print the feedback invitation above; honoured in\n\
+                                any position, including after --help (env\n\
+                                XERJ_DISABLE_FEEDBACK=true)\n\
              --help, -h         this help\n\
          \n\
          EXIT CODES: 0 ready; 3 ready-with-junk (unreadable files recorded, never\n\
-                     fatal); 1 nothing indexable / server failure; 2 usage\n"
-    );
+                     fatal); 1 nothing indexable / server failure; 2 usage\n",
+        xerj_common::feedback::block(feedback),
+    )
 }
 
 pub struct BrainCfg {
@@ -125,6 +136,9 @@ fn parse(args: Vec<String>) -> Result<Option<BrainCfg>, String> {
             "--api-key" => api_key = Some(it.next().ok_or("--api-key needs a value")?),
             "--fresh" => fresh = true,
             "--no-open" => no_open = true,
+            // Read out of band by `xerj_common::feedback`, which scans the
+            // whole argument list; accepted here so it is not "unknown".
+            xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => return Ok(None),
             other if !other.starts_with('-') && root.is_none() => root = Some(PathBuf::from(other)),
             other => return Err(format!("unknown argument: {other}")),
