@@ -1512,7 +1512,7 @@ mod tests {
     use super::*;
     use crate::{
         analyzer::AnalyzerRegistry,
-        index::{FieldIndexConfig, FtsIndexReader, FtsIndexWriter},
+        index::{FieldIndexConfig, FieldValues, FtsIndexReader, FtsIndexWriter},
     };
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -1538,9 +1538,10 @@ mod tests {
         ];
 
         for (i, text) in docs.iter().enumerate() {
-            let fields: HashMap<String, String> = [("body".to_owned(), text.to_string())]
-                .into_iter()
-                .collect();
+            let fields: HashMap<String, FieldValues> =
+                [("body".to_owned(), FieldValues::from(text.to_string()))]
+                    .into_iter()
+                    .collect();
             writer.add_document(i as u32, &fields);
         }
         writer.finish().unwrap();
@@ -1706,9 +1707,9 @@ mod tests {
             ("morning news", "golf scores from sunday"),
         ];
         for (i, (title, body)) in docs.iter().enumerate() {
-            let fields: HashMap<String, String> = [
-                ("title".to_owned(), title.to_string()),
-                ("body".to_owned(), body.to_string()),
+            let fields: HashMap<String, FieldValues> = [
+                ("title".to_owned(), FieldValues::from(title.to_string())),
+                ("body".to_owned(), FieldValues::from(body.to_string())),
             ]
             .into_iter()
             .collect();
@@ -1892,7 +1893,7 @@ mod tests {
         writer.configure_field("body", cfg);
         writer.add_document(
             0,
-            &[("body".to_owned(), "Rust Systems".to_owned())]
+            &[("body".to_owned(), FieldValues::from("Rust Systems"))]
                 .into_iter()
                 .collect(),
         );
@@ -1968,7 +1969,12 @@ mod tests {
             .map(|i| format!("term{i:05}"))
             .collect::<Vec<_>>()
             .join(" ");
-        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect(),
+        );
         writer.finish().unwrap();
         let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
 
@@ -2016,7 +2022,12 @@ mod tests {
             .map(|i| format!("term{i:05}"))
             .collect::<Vec<_>>()
             .join(" ");
-        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect(),
+        );
         writer.finish().unwrap();
         let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
 
@@ -2101,7 +2112,12 @@ mod tests {
         for i in 0..DICTIONARY_TERMS {
             text.push_str(&format!(" term{i:06}"));
         }
-        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect(),
+        );
         writer.finish().unwrap();
         let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
 

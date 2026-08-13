@@ -8747,7 +8747,11 @@ impl Index {
                     // for the doc-values pass.  Drops `dv_sources` entirely.
                     // Halves merge working memory and frees the Arc<Value>
                     // immediately after both passes complete.
-                    let mut fts_input: Vec<(String, HashMap<String, String>, Value)> = Vec::new();
+                    let mut fts_input: Vec<(
+                        String,
+                        HashMap<String, xerj_fts::index::FieldValues>,
+                        Value,
+                    )> = Vec::new();
                     // (seq_no, doc_id) for every surviving doc — kept exactly
                     // aligned with the stored-section byte copy (pushed right
                     // after `live_doc_count += 1`, BEFORE the per-doc Value
@@ -19103,42 +19107,20 @@ fn build_fts_field_configs(schema: &Schema) -> HashMap<String, xerj_fts::index::
     out
 }
 
-/// Mirror of `FtsMemtable::extract_text_value` — converts any JSON value
-/// into a flattened string suitable for tokenization, so the merge path
-/// indexes fields the same way the memtable does.  Kept as a free function
-/// here because the memtable's helper is private.
-fn extract_field_text(val: &Value) -> String {
-    match val {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        Value::Array(arr) => arr
-            .iter()
-            .map(extract_field_text)
-            .collect::<Vec<_>>()
-            .join(" "),
-        Value::Object(_) => serde_json::to_string(val).unwrap_or_default(),
-        Value::Null => String::new(),
-    }
-}
-
+/// FTS input extraction for the MERGE path.
+///
+/// Delegates to the flush path's own walker
+/// (`crate::memtable::extract_field_values_excluding`) rather than mirroring
+/// it. Until #332 this file carried a private copy (`extract_field_text` +
+/// `extract_fts_fields_excluding`) that had to be kept in sync by hand with
+/// `memtable::extract_text_value`; both copies flattened a JSON array with
+/// `join(" ")`, and a merged segment reproduced the bug even after a flushed
+/// one stopped having it. One walker, one behaviour.
 fn extract_fts_fields_excluding(
     source: &Value,
     excluded: &std::collections::HashSet<String>,
-) -> HashMap<String, String> {
-    let mut fields = HashMap::new();
-    if let Some(obj) = source.as_object() {
-        for (key, val) in obj {
-            if excluded.contains(key) {
-                continue;
-            }
-            let text = extract_field_text(val);
-            if !text.is_empty() {
-                fields.insert(key.clone(), text);
-            }
-        }
-    }
-    fields
+) -> HashMap<String, xerj_fts::index::FieldValues> {
+    crate::memtable::extract_field_values_excluding(source, excluded)
 }
 
 // ── Short-circuit count helper ───────────────────────────────────────────────
@@ -24137,7 +24119,7 @@ async fn do_flush_shard(
     let drained_opt: Option<(
         Vec<(
             String,
-            std::collections::HashMap<String, String>,
+            std::collections::HashMap<String, xerj_fts::index::FieldValues>,
             std::sync::Arc<serde_json::Value>,
         )>,
         xerj_storage::index_store::DrainedMemtable,
@@ -24200,7 +24182,7 @@ async fn do_flush_shard(
                         } else {
                             std::sync::Arc::new(serde_json::Value::Null)
                         };
-                        let fields = crate::memtable::extract_text_fields_from_excluding(
+                        let fields = crate::memtable::extract_field_values_excluding(
                             &val,
                             &excluded_fts_fields,
                         );
@@ -24212,7 +24194,7 @@ async fn do_flush_shard(
             // doesn't queue ahead of concurrent search/agg par_iters.
             let drained_fts: Vec<(
                 String,
-                std::collections::HashMap<String, String>,
+                std::collections::HashMap<String, xerj_fts::index::FieldValues>,
                 std::sync::Arc<serde_json::Value>,
             )> = if prep_offload {
                 crate::background_pool().install(build_drained_fts)
@@ -31674,18 +31656,19 @@ fn phrase_prefix_positions_in_tokens(
 /// ones, so a split query and an analyzed segment clause ask different
 /// questions and the hit set changes at `_flush`.
 ///
-/// `field_text_lc` is the field's text as the rest of the `multi_match` arms
-/// see it — an array-valued field arrives already joined with a space.
-/// That means a phrase CAN span two array elements, which ES prevents with a
-/// `position_increment_gap`. XERJ has no such gap anywhere: the indexing
-/// path flattens an array to one space-joined string before the FTS layer
-/// ever sees it (`extract_field_text`), so the segment's positions have no
-/// gap either. Evaluating per element here would therefore FIX the memtable
-/// and leave the segment as it is — reintroducing the flush-variant hit set
-/// this fix exists to remove. The gap belongs in the indexing path; it is
-/// deliberately not attempted here.
+/// `field_values_lc` is the field's values, ONE ENTRY PER ARRAY ELEMENT, and
+/// the phrase must be satisfied inside a single element — never across two.
+///
+/// This used to take one already-space-joined string, so a phrase COULD span
+/// two array elements. That was deliberate at the time: the indexing path
+/// flattened an array to one space-joined string before the FTS layer saw it,
+/// so the segment's positions had no gap either, and evaluating per element
+/// here would have fixed only the memtable and left the hit set flush-variant.
+/// #332 put the gap where it belongs — `xerj_fts::index::POSITION_INCREMENT_GAP`
+/// now separates array elements in the segment postings, matching Lucene — so
+/// per-element evaluation here is what KEEPS the two sides equal.
 fn multi_match_phrase_hit(
-    field_text_lc: &str,
+    field_values_lc: &[String],
     query_tokens: &[String],
     is_prefix: bool,
     slop: u32,
@@ -31693,11 +31676,42 @@ fn multi_match_phrase_hit(
     if query_tokens.is_empty() {
         return true;
     }
-    let field_tokens = phrase_tokens(field_text_lc);
-    if is_prefix {
-        phrase_prefix_positions_in_tokens(&field_tokens, query_tokens, slop)
-    } else {
-        phrase_positions_in_tokens(&field_tokens, query_tokens, slop)
+    field_values_lc.iter().any(|value| {
+        let field_tokens = phrase_tokens(value);
+        if is_prefix {
+            phrase_prefix_positions_in_tokens(&field_tokens, query_tokens, slop)
+        } else {
+            phrase_positions_in_tokens(&field_tokens, query_tokens, slop)
+        }
+    })
+}
+
+/// Per-element lowercased values of `field` in one stored source document, as
+/// the `multi_match` arms need them.
+///
+/// An array yields one entry per element (#332); a scalar yields a single
+/// entry. The non-phrase arms join the result back with a space, which is
+/// byte-identical to what they extracted before; the phrase arms consume the
+/// elements separately so a phrase cannot straddle the boundary.
+fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String>> {
+    match get_field_value(source, field) {
+        Some(Value::String(s)) => Some(vec![s.to_lowercase()]),
+        Some(Value::Array(arr)) => {
+            let values: Vec<String> = arr
+                .iter()
+                .map(|v| match v {
+                    Value::String(s) => s.to_lowercase(),
+                    other => other.to_string(),
+                })
+                .collect();
+            if values.is_empty() {
+                None
+            } else {
+                Some(values)
+            }
+        }
+        Some(other) => Some(vec![other.to_string().to_lowercase()]),
+        None => None,
     }
 }
 
@@ -32261,30 +32275,21 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             } else {
                 Vec::new()
             };
-            let field_texts: Vec<String> = fields
+            // Per-field values, one entry per array element (#332). The
+            // non-phrase arms below join them back with a space — byte-
+            // identical to the extraction they had before — while the phrase
+            // arm evaluates each element on its own, matching the
+            // `POSITION_INCREMENT_GAP` the segment postings now carry.
+            let field_value_lists: Vec<Vec<String>> = fields
                 .iter()
                 .filter_map(|field_spec| {
                     let (field, _) = parse_field_boost(field_spec);
-                    match get_field_value(source, field) {
-                        Some(Value::String(s)) => Some(s.to_lowercase()),
-                        Some(Value::Array(arr)) => {
-                            let joined: Vec<String> = arr
-                                .iter()
-                                .map(|v| match v {
-                                    Value::String(s) => s.to_lowercase(),
-                                    other => other.to_string(),
-                                })
-                                .collect();
-                            if joined.is_empty() {
-                                None
-                            } else {
-                                Some(joined.join(" "))
-                            }
-                        }
-                        Some(other) => Some(other.to_string().to_lowercase()),
-                        None => None,
-                    }
+                    multi_match_field_values_lc(source, field)
                 })
+                .collect();
+            let field_texts: Vec<String> = field_value_lists
+                .iter()
+                .map(|values| values.join(" "))
                 .collect();
             if is_phrase && !phrase_q_tokens.is_empty() {
                 // phrase / phrase_prefix: POSITIONAL, per field (issue
@@ -32312,9 +32317,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 // consults it), and pre-fix `{"type":"phrase","operator":
                 // "and"}` fell into the token-AND branch below and silently
                 // stopped being a phrase at all.
-                field_texts
-                    .iter()
-                    .any(|ft| multi_match_phrase_hit(ft, &phrase_q_tokens, is_phrase_prefix, *slop))
+                field_value_lists.iter().any(|values| {
+                    multi_match_phrase_hit(values, &phrase_q_tokens, is_phrase_prefix, *slop)
+                })
             } else if is_cross && is_and && !tokens.is_empty() {
                 // cross_fields + operator AND: every token must appear in
                 // at least one listed field (combined perspective).
@@ -34024,15 +34029,16 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             } else {
                 Vec::new()
             };
-            let field_hit = |text_lc: &str| -> bool {
+            let field_hit = |values_lc: &[String]| -> bool {
                 if is_phrase && !phrase_q_tokens.is_empty() {
                     return multi_match_phrase_hit(
-                        text_lc,
+                        values_lc,
                         &phrase_q_tokens,
                         is_phrase_prefix,
                         *slop,
                     );
                 }
+                let text_lc = &values_lc.join(" ");
                 if q_tokens.is_empty() {
                     return text_lc.contains(&q_lower);
                 }
@@ -34051,30 +34057,13 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             let mut matched = false;
             for field_spec in fields {
                 let (field, field_boost) = parse_field_boost(field_spec);
-                // Same per-field text extraction as `doc_matches_query`:
-                // strings, arrays (joined), and other scalars — an array-
-                // valued field admitted by membership must not score 0.0.
-                let text_lc: Option<String> = match get_field_value(source, field) {
-                    Some(Value::String(s)) => Some(s.to_lowercase()),
-                    Some(Value::Array(arr)) => {
-                        let joined: Vec<String> = arr
-                            .iter()
-                            .map(|v| match v {
-                                Value::String(s) => s.to_lowercase(),
-                                other => other.to_string(),
-                            })
-                            .collect();
-                        if joined.is_empty() {
-                            None
-                        } else {
-                            Some(joined.join(" "))
-                        }
-                    }
-                    Some(other) => Some(other.to_string().to_lowercase()),
-                    None => None,
-                };
-                if let Some(text) = text_lc {
-                    if field_hit(&text) {
+                // Same per-field value extraction as `doc_matches_query`:
+                // strings, arrays (one entry per element, #332), and other
+                // scalars — an array-valued field admitted by membership must
+                // not score 0.0.
+                let values_lc: Option<Vec<String>> = multi_match_field_values_lc(source, field);
+                if let Some(values) = values_lc {
+                    if field_hit(&values) {
                         sum_score += field_boost;
                         if field_boost > max_score {
                             max_score = field_boost;

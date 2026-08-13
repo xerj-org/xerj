@@ -32,7 +32,7 @@
 //! use std::sync::Arc;
 //! use xerj_fts::{
 //!     analyzer::AnalyzerRegistry,
-//!     index::{FtsIndexWriter, FtsIndexReader},
+//!     index::{FieldValues, FtsIndexWriter, FtsIndexReader},
 //!     search::{FtsSearcher, Query, TermQuery},
 //! };
 //!
@@ -42,7 +42,7 @@
 //! let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
 //!
 //! let mut doc = HashMap::new();
-//! doc.insert("body".to_owned(), "the quick brown fox".to_owned());
+//! doc.insert("body".to_owned(), FieldValues::from("the quick brown fox"));
 //! writer.add_document(0, &doc);
 //! writer.finish().unwrap();
 //!
@@ -75,7 +75,9 @@ pub use bm25::{
     DEFAULT_K1,
 };
 
-pub use index::{FieldIndexConfig, FtsIndexReader, FtsIndexWriter};
+pub use index::{
+    FieldIndexConfig, FieldValues, FtsIndexReader, FtsIndexWriter, POSITION_INCREMENT_GAP,
+};
 
 pub use postings::{
     DecodedPosting, PostingsReader, PostingsWriter, TermPostings, BLOCK_SIZE, SKIP_INTERVAL,

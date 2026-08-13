@@ -540,6 +540,143 @@ fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
     })
 }
 
+// ── Multi-valued field input ──────────────────────────────────────────────────
+
+/// Position gap inserted between two values of the same multi-valued field.
+///
+/// Mirrors Lucene/Elasticsearch's default `position_increment_gap` of 100.
+/// Without it, `["alpha bravo", "charlie"]` would put `bravo` at position 1 and
+/// `charlie` at position 2, so `match_phrase: "bravo charlie"` would match a
+/// phrase that exists in NEITHER value.  100 is large enough that no realistic
+/// `slop` bridges the boundary, and small enough to stay in the VByte fast path.
+pub const POSITION_INCREMENT_GAP: u32 = 100;
+
+/// The values a single document supplies for a single field.
+///
+/// A JSON document field is either a scalar or an array, and Elasticsearch
+/// treats the array as N independent values of the field — not as one
+/// concatenated value.  That distinction is invisible for an analyzed `text`
+/// field only by accident (the standard tokenizer re-splits on the joining
+/// space); for a `keyword` field, which is indexed with the whole input as one
+/// token, joining `["red","blue"]` into `"red blue"` produces a term that
+/// matches neither `red` nor `blue`.  See issue #332.
+///
+/// `One` exists so the overwhelmingly common single-valued case costs no extra
+/// allocation on the flush/merge path — the `String` is moved in as-is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FieldValues {
+    /// Exactly one value (a JSON scalar, or a one-element array).
+    One(String),
+    /// Two or more values (a JSON array). Never constructed with < 2 elements
+    /// by [`FieldValues::from_values`], but tolerated if built directly.
+    Many(Vec<String>),
+}
+
+impl FieldValues {
+    /// Build from an iterator, collapsing the single-value case to `One`.
+    pub fn from_values<I: IntoIterator<Item = String>>(values: I) -> Self {
+        let mut v: Vec<String> = values.into_iter().collect();
+        if v.len() == 1 {
+            FieldValues::One(v.pop().unwrap())
+        } else {
+            FieldValues::Many(v)
+        }
+    }
+
+    /// Iterate every value in document order.
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        match self {
+            FieldValues::One(s) => std::slice::from_ref(s).iter(),
+            FieldValues::Many(v) => v.iter(),
+        }
+        .map(|s| s.as_str())
+    }
+
+    /// Number of values.
+    pub fn len(&self) -> usize {
+        match self {
+            FieldValues::One(_) => 1,
+            FieldValues::Many(v) => v.len(),
+        }
+    }
+
+    /// True when the field carries no value at all (only reachable via a
+    /// directly-constructed `Many(vec![])`).
+    pub fn is_empty(&self) -> bool {
+        match self {
+            FieldValues::One(s) => s.is_empty(),
+            FieldValues::Many(v) => v.iter().all(|s| s.is_empty()),
+        }
+    }
+}
+
+impl From<String> for FieldValues {
+    fn from(s: String) -> Self {
+        FieldValues::One(s)
+    }
+}
+
+impl From<&str> for FieldValues {
+    fn from(s: &str) -> Self {
+        FieldValues::One(s.to_owned())
+    }
+}
+
+impl From<Vec<String>> for FieldValues {
+    fn from(v: Vec<String>) -> Self {
+        FieldValues::from_values(v)
+    }
+}
+
+/// Analyze every value of one field for one document and fold the tokens into
+/// `field_data`.
+///
+/// Shared by [`FtsIndexWriter::add_document`] and
+/// [`FtsIndexWriter::add_documents_parallel`] so the serial and parallel paths
+/// cannot drift — the two used to hold independent copies of this loop.
+///
+/// Semantics per value:
+/// * positions restart from `base`, which advances past the previous value's
+///   last position plus [`POSITION_INCREMENT_GAP`];
+/// * the norm (field length) is the SUM of every value's token count, matching
+///   Lucene, so BM25 length-normalisation sees the whole field;
+/// * exactly one norm entry and one `total_docs` increment per (doc, field),
+///   however many values the field has.
+fn index_field_values<'a>(
+    field_data: &mut FieldData,
+    analyzer: &crate::analyzer::AnalyzerPipeline,
+    doc_ord: u32,
+    values: impl Iterator<Item = &'a str>,
+) {
+    let mut field_len: u64 = 0;
+    let mut base: u32 = 0;
+    let mut first = true;
+    for value in values {
+        if !first {
+            base = base.saturating_add(POSITION_INCREMENT_GAP);
+        }
+        first = false;
+        let tokens = analyzer.analyze(value);
+        let mut max_position = 0u32;
+        for token in &tokens {
+            field_data
+                .postings
+                .add_occurrence(&token.text, doc_ord, base.saturating_add(token.position));
+            max_position = max_position.max(token.position);
+        }
+        if !tokens.is_empty() {
+            base = base.saturating_add(max_position).saturating_add(1);
+        }
+        field_len += tokens.len() as u64;
+    }
+
+    field_data
+        .norms
+        .push((doc_ord, field_len.min(u16::MAX as u64) as u16));
+    field_data.stats.total_docs += 1;
+    field_data.stats.total_field_length += field_len;
+}
+
 // ── FtsIndexWriter ────────────────────────────────────────────────────────────
 
 /// Builds the FTS inverted index for one segment.
@@ -686,11 +823,15 @@ impl FtsIndexWriter {
 
     /// Index all text fields of one document.
     ///
-    /// `fields` is a map of field name → field text value.
+    /// `fields` is a map of field name → that field's [`FieldValues`].  Each
+    /// value is analyzed independently and separated from the next by
+    /// [`POSITION_INCREMENT_GAP`] — a JSON array is N values of the field, not
+    /// one joined value (issue #332).
+    ///
     /// Fields not previously registered via `configure_field` are indexed
     /// with the default configuration (standard analyzer, positions on).
-    pub fn add_document(&mut self, doc_id: u32, fields: &HashMap<String, String>) {
-        for (field_name, text) in fields {
+    pub fn add_document(&mut self, doc_id: u32, fields: &HashMap<String, FieldValues>) {
+        for (field_name, values) in fields {
             let registry = Arc::clone(&self.registry);
 
             // Ensure field entry exists
@@ -715,30 +856,13 @@ impl FtsIndexWriter {
                 .or_else(|| registry.get_analyzer("standard"))
                 .unwrap();
 
-            let tokens = analyzer.analyze(text);
-            let field_len = tokens.len() as u64;
-
-            // Record norms (capped at u16::MAX)
-            field_data
-                .norms
-                .push((doc_id, field_len.min(u16::MAX as u64) as u16));
-
-            // Update field stats
-            field_data.stats.total_docs += 1;
-            field_data.stats.total_field_length += field_len;
-
-            // Accumulate postings
-            for token in &tokens {
-                field_data
-                    .postings
-                    .add_occurrence(&token.text, doc_id, token.position);
-            }
+            index_field_values(field_data, &analyzer, doc_id, values.iter());
         }
     }
 
     /// V4 M4 — **parallel batch** add for flush time.
     ///
-    /// Reshapes `(doc_id, field, text)` from row-major (per-doc) into
+    /// Reshapes `(doc_id, field, values)` from row-major (per-doc) into
     /// column-major (per-field) then tokenises + builds per-field
     /// postings in parallel via rayon.  The underlying PostingsWriter
     /// state is still single-threaded per field, but fields run in
@@ -758,24 +882,24 @@ impl FtsIndexWriter {
     /// `Arc<serde_json::Value>`, …): this method never reads it.
     pub fn add_documents_parallel<S: Sync>(
         &mut self,
-        docs: &[(String, HashMap<String, String>, S)],
+        docs: &[(String, HashMap<String, FieldValues>, S)],
     ) {
         use rayon::prelude::*;
         use std::collections::HashMap as StdHashMap;
 
-        // Column-major reshape: field_name → Vec<(doc_ordinal, text)>.
+        // Column-major reshape: field_name → Vec<(doc_ordinal, values)>.
         // Lookup-first so the common case (field already seen) skips the
         // per-doc-field `field_name.clone()` the `entry()` API forced.
-        let mut per_field: StdHashMap<String, Vec<(u32, &str)>> = StdHashMap::new();
+        let mut per_field: StdHashMap<String, Vec<(u32, &FieldValues)>> = StdHashMap::new();
         for (ord, (_id, fields, _src)) in docs.iter().enumerate() {
-            for (field_name, text) in fields {
+            for (field_name, values) in fields {
                 if let Some(v) = per_field.get_mut(field_name) {
-                    v.push((ord as u32, text.as_str()));
+                    v.push((ord as u32, values));
                 } else {
                     per_field
                         .entry(field_name.clone())
                         .or_default()
-                        .push((ord as u32, text.as_str()));
+                        .push((ord as u32, values));
                 }
             }
         }
@@ -806,7 +930,7 @@ impl FtsIndexWriter {
             .map(|(k, v)| (k.clone(), v.config.clone()))
             .collect();
 
-        let per_field_vec: Vec<(String, Vec<(u32, &str)>)> = per_field.into_iter().collect();
+        let per_field_vec: Vec<(String, Vec<(u32, &FieldValues)>)> = per_field.into_iter().collect();
 
         let built: Vec<(String, FieldData)> = per_field_vec
             .into_par_iter()
@@ -829,17 +953,8 @@ impl FtsIndexWriter {
                     norms: Vec::with_capacity(entries.len()),
                 };
 
-                for (doc_ord, text) in entries {
-                    let tokens = analyzer.analyze(text);
-                    let field_len = tokens.len() as u64;
-                    fd.norms
-                        .push((doc_ord, field_len.min(u16::MAX as u64) as u16));
-                    fd.stats.total_docs += 1;
-                    fd.stats.total_field_length += field_len;
-                    for token in &tokens {
-                        fd.postings
-                            .add_occurrence(&token.text, doc_ord, token.position);
-                    }
+                for (doc_ord, values) in entries {
+                    index_field_values(&mut fd, &analyzer, doc_ord, values.iter());
                 }
                 (field_name, fd)
             })
@@ -1741,14 +1856,14 @@ mod tests {
 
         let mut writer = FtsIndexWriter::new(dir.path(), "seg0", registry);
 
-        let docs: Vec<HashMap<String, String>> = vec![
-            [("body".to_owned(), "the quick brown fox".to_owned())]
+        let docs: Vec<HashMap<String, FieldValues>> = vec![
+            [("body".to_owned(), FieldValues::from("the quick brown fox"))]
                 .into_iter()
                 .collect(),
-            [("body".to_owned(), "the lazy dog".to_owned())]
+            [("body".to_owned(), FieldValues::from("the lazy dog"))]
                 .into_iter()
                 .collect(),
-            [("body".to_owned(), "quick fox lazy dog".to_owned())]
+            [("body".to_owned(), FieldValues::from("quick fox lazy dog"))]
                 .into_iter()
                 .collect(),
         ];
@@ -1804,10 +1919,10 @@ mod tests {
         writer.configure_field("title", cfg);
 
         let docs = [
-            [("title".to_owned(), "hello world".to_owned())]
+            [("title".to_owned(), FieldValues::from("hello world"))]
                 .into_iter()
                 .collect(),
-            [("title".to_owned(), "hello rust".to_owned())]
+            [("title".to_owned(), FieldValues::from("hello rust"))]
                 .into_iter()
                 .collect(),
         ];
@@ -1842,10 +1957,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let mut writer = FtsIndexWriter::new(dir.path(), "seg-safe", make_registry());
         let fields = ["title.body-2", "@timestamp", "space field", "配置.名字"];
-        let document: HashMap<String, String> = fields
+        let document: HashMap<String, FieldValues> = fields
             .into_iter()
             .enumerate()
-            .map(|(index, field)| (field.to_owned(), format!("needle{index}")))
+            .map(|(index, field)| (field.to_owned(), FieldValues::One(format!("needle{index}"))))
             .collect();
         writer.add_document(0, &document);
         writer.finish().unwrap();
@@ -1864,7 +1979,7 @@ mod tests {
     fn write_legacy_raw_field_fixture(segment_dir: &Path, segment_id: &str, legacy_field: &str) {
         let source_field = "legacy_fixture_source";
         let mut writer = FtsIndexWriter::new(segment_dir, segment_id, make_registry());
-        let document = [(source_field.to_owned(), "legacyneedle".to_owned())]
+        let document = [(source_field.to_owned(), FieldValues::from("legacyneedle"))]
             .into_iter()
             .collect();
         writer.add_document(0, &document);
@@ -1926,9 +2041,9 @@ mod tests {
         let (unsafe_name, legacy_alias) = collision_fields();
         let source_fields = ["source_unsafe", "source_alias"];
         let mut writer = FtsIndexWriter::new(segment_dir, segment_id, make_registry());
-        let document = [
-            (source_fields[0].to_owned(), "unsafeneedle".to_owned()),
-            (source_fields[1].to_owned(), "aliasneedle".to_owned()),
+        let document: HashMap<String, FieldValues> = [
+            (source_fields[0].to_owned(), FieldValues::from("unsafeneedle")),
+            (source_fields[1].to_owned(), FieldValues::from("aliasneedle")),
         ]
         .into_iter()
         .collect();
@@ -1994,9 +2109,9 @@ mod tests {
         let segment_id = "v2-collision";
         let (unsafe_name, legacy_alias) = collision_fields();
         let mut writer = FtsIndexWriter::new(&segment_dir, segment_id, make_registry());
-        let document = [
-            (unsafe_name.clone(), "unsafeneedle".to_owned()),
-            (legacy_alias.clone(), "aliasneedle".to_owned()),
+        let document: HashMap<String, FieldValues> = [
+            (unsafe_name.clone(), FieldValues::from("unsafeneedle")),
+            (legacy_alias.clone(), FieldValues::from("aliasneedle")),
         ]
         .into_iter()
         .collect();
@@ -2066,7 +2181,7 @@ mod tests {
         let mut writer = FtsIndexWriter::new(&segment_dir, segment_id, make_registry());
         writer.add_document(
             0,
-            &[(field.to_owned(), "encodedneedle".to_owned())]
+            &[(field.to_owned(), FieldValues::from("encodedneedle"))]
                 .into_iter()
                 .collect(),
         );
@@ -2204,10 +2319,12 @@ mod tests {
             assert!(legacy_field_sidecar_path(&segment_dir, "seg-unsafe", field, "fst").is_none());
         }
         let mut writer = FtsIndexWriter::new(&segment_dir, "seg-unsafe", make_registry());
-        let document: HashMap<String, String> = fields
+        let document: HashMap<String, FieldValues> = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| ((*field).to_owned(), format!("needle{index}")))
+            .map(|(index, field)| {
+                ((*field).to_owned(), FieldValues::One(format!("needle{index}")))
+            })
             .collect();
         writer.add_document(0, &document);
         writer.publish_encoded_filename_layout().unwrap();

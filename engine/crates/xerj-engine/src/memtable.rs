@@ -183,8 +183,9 @@ struct MemEntry {
 
 /// Reconstruct the (field_name → flattened text) map that pre-M4.9
 /// `MemEntry` used to cache eagerly at ingest time.  Called only by
-/// flush (`drain_with_sources`, `drain`) and by the rare
-/// `get_source` query path — neither is on the hot ingest loop.
+/// the legacy `drain_with_sources` / `drain` / `get_source` paths, which
+/// are NOT the segment-FTS input path — use
+/// [`extract_field_values_excluding`] for anything that will be indexed.
 pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
     extract_text_fields_from_excluding(source, &std::collections::HashSet::new())
 }
@@ -193,19 +194,90 @@ pub fn extract_text_fields_from_excluding(
     source: &Value,
     excluded: &std::collections::HashSet<String>,
 ) -> HashMap<String, String> {
+    extract_field_values_excluding(source, excluded)
+        .into_iter()
+        .map(|(k, v)| (k, v.iter().collect::<Vec<_>>().join(" ")))
+        .collect()
+}
+
+/// Extract the top-level source fields as the segment-FTS writer wants them:
+/// one [`FieldValues`] per field, with a JSON **array preserved as N separate
+/// values** rather than joined into one string.
+///
+/// This is the single walker feeding both segment-build paths — the flush path
+/// (`do_flush_shard` → `add_documents_parallel`) and the merge path
+/// (`run_merge_once`).  Before #332 each path had its own copy
+/// (`memtable::extract_text_value` and `index::extract_field_text`), and both
+/// copies did `arr.join(" ")`, so `{"tags":["red","blue"]}` was indexed by the
+/// keyword analyzer as the single term `"red blue"` — matching neither `red`
+/// nor `blue`.
+pub fn extract_field_values_excluding(
+    source: &Value,
+    excluded: &std::collections::HashSet<String>,
+) -> HashMap<String, xerj_fts::index::FieldValues> {
     let mut out = HashMap::new();
     if let Some(obj) = source.as_object() {
         for (key, val) in obj {
             if excluded.contains(key) {
                 continue;
             }
-            let text = extract_text_value(val);
-            if !text.is_empty() {
-                out.insert(key.clone(), text);
+            if let Some(values) = extract_field_values(val) {
+                out.insert(key.clone(), values);
             }
         }
     }
     out
+}
+
+/// Convert one JSON value into the values the FTS writer should index for it.
+///
+/// * scalars → `One`
+/// * arrays → one entry per element, recursively flattened (a nested array is
+///   itself multi-valued in ES; an object element is JSON-encoded as before)
+/// * objects → `One(json)`, unchanged: the root-level JSON blob that
+///   flattened-style whole-object queries rely on
+/// * `null` / empty → `None`, i.e. the field is not indexed for this doc
+///
+/// Empty strings are dropped INSIDE an array too — the pre-#332 code produced
+/// them only as a by-product of `join(" ")` on `[null, "x"]`, and an empty
+/// keyword token would otherwise become a real, matchable term.
+fn extract_field_values(val: &Value) -> Option<xerj_fts::index::FieldValues> {
+    use xerj_fts::index::FieldValues;
+    match val {
+        Value::Array(arr) => {
+            let mut values: Vec<String> = Vec::with_capacity(arr.len());
+            collect_array_values(arr, &mut values);
+            if values.is_empty() {
+                None
+            } else {
+                Some(FieldValues::from_values(values))
+            }
+        }
+        _ => {
+            let text = extract_text_value(val);
+            if text.is_empty() {
+                None
+            } else {
+                Some(FieldValues::One(text))
+            }
+        }
+    }
+}
+
+fn collect_array_values(arr: &[Value], out: &mut Vec<String>) {
+    for element in arr {
+        match element {
+            // A nested array contributes its own elements as separate values —
+            // ES flattens arrays of arrays for indexing purposes.
+            Value::Array(inner) => collect_array_values(inner, out),
+            _ => {
+                let text = extract_text_value(element);
+                if !text.is_empty() {
+                    out.push(text);
+                }
+            }
+        }
+    }
 }
 
 /// Interned document identifier.
@@ -1422,7 +1494,12 @@ impl ShardedFtsMemtable {
     /// path. Newer writes must be filtered by the caller before restoration.
     pub(crate) fn restore_failed_flush(
         &self,
-        entries: Vec<(u64, String, HashMap<String, String>, Arc<Value>)>,
+        entries: Vec<(
+            u64,
+            String,
+            HashMap<String, xerj_fts::index::FieldValues>,
+            Arc<Value>,
+        )>,
         version_map: &xerj_storage::version_map::VersionMap,
     ) {
         for (seq_no, doc_id, fields, source) in entries {
@@ -1446,9 +1523,20 @@ impl ShardedFtsMemtable {
                 .get_analyzer("default")
                 .or_else(|| shard.registry.get_analyzer("standard"))
                 .expect("standard analyzer always present");
+            // Each value of a multi-valued field is analyzed on its own and the
+            // token streams concatenated (#332). The memtable's postings carry
+            // term frequencies only — no positions — so no position gap is
+            // needed here; the gap lives in the segment writer, which is where
+            // positions exist.
             let analyzed: Vec<(String, Vec<Token>)> = fields
                 .into_iter()
-                .map(|(field, text)| (field, analyzer.analyze(&text)))
+                .map(|(field, values)| {
+                    let tokens = values
+                        .iter()
+                        .flat_map(|value| analyzer.analyze(value))
+                        .collect();
+                    (field, tokens)
+                })
                 .collect();
             let size = (source.to_string().len() + doc_id.len()) * 3 + 64;
             shard.insert_analyzed(seq_no, doc_id, source, &analyzed, size);
