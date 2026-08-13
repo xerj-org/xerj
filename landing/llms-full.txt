@@ -72,10 +72,13 @@ authority whenever your binary disagrees):
       xerj --insecure --data-dir ~/xerj-data > ~/xerj-node.log 2>&1 &
       until curl -sf localhost:9200/_cluster/health >/dev/null; do sleep 1; done
   - On a released binary (v1.0.0-rc.16 and earlier) there is NO `--port` flag —
-    ports are TOML settings passed with `--config`. A `--port <PORT>` flag, which
-    also claims PORT+1 for the native REST API and PORT+2 for gRPC, is on main and
-    ships in the next release:
+    ports are TOML settings passed with `--config`:
       [server] rest_port = 8080 · grpc_port = 8081 · es_compat_port = 9200
+    A `--port <PORT>` flag, which sets es_compat_port and DERIVES the other two
+    (PORT+1 for the native REST API, PORT+2 for gRPC), is on main and ships in the
+    next release; `xerj --help` tells you which binary you have. The TOML route
+    stays the answer on every released binary, and whenever the three ports must be
+    set independently.
     All three must be distinct. If a port is taken (e.g. a real Elasticsearch on
     :9200) the node does not fall back — it exits with
     `bind 127.0.0.1:9200: Address already in use (os error 98)`; give it its own
@@ -885,10 +888,12 @@ autoindex, which is CLI-only):
   Anthropic ............... https://xerj.org/docs/agents/schemas/anthropic-tools.json
 The OpenAI and Anthropic files carry the six HTTP operations above; the MCP file
 carries ten (those six plus xerj_brain_ego / _link / _unlink / _overview) and is
-generated from a real tools/list of the server that serves them. If you can run a
-process, `xerj mcp` is that stdio server, inside the same binary since
-v1.0.0-rc.16; it does not start a node — point it at one you already started with
---url or XERJ_URL.
+generated from a real tools/list of the server that serves them. The three are
+therefore NOT interchangeable — count the array rather than assuming they match.
+If you can run a process, `xerj mcp` is that stdio server, inside the same binary
+since v1.0.0-rc.16, speaking newline-delimited JSON-RPC 2.0 on stdin/stdout; it
+does not start a node — point it at one you already started with --url or
+XERJ_URL.
 =====================================================================
 10. RUNNING AN INDEX FOR A HUMAN  (full protocol — the short version
     lives in /llms.txt)
