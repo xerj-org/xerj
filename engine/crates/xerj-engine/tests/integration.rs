@@ -127,6 +127,211 @@ async fn test_semantic_vectors_stay_stored_but_not_fts_indexed_after_merge_and_r
     assert_queries(&idx).await;
 }
 
+/// #328 — a USER-MAPPED `dense_vector` must contribute no lexical artifacts.
+///
+/// The `#12` fix above covers the vectors XERJ *generates* from a semantic
+/// mapping. A field the user maps as `dense_vector` took a different route:
+/// it is `indexed == true` (kNN needs the HNSW graph), so the `index: false`
+/// arm of `memtable::fts_excluded_fields` never fired and the field's 128
+/// floats were flattened to decimal strings and tokenised into a term
+/// dictionary that no query path reads.
+///
+/// This pins all three halves of the fix:
+///   * no `<seg>.emb.{fst,post,norms}` is written, at flush or after merge;
+///   * kNN, `exists` and the lexical fields keep answering exactly as before;
+///   * a string `term` / `match` / `*`-expansion on the vector field still
+///     finds nothing — the postings going away must not hand the query to the
+///     stored-doc scan, whose `Term` arm matches any ELEMENT of a JSON array
+///     and whose `match` arm splits on non-alphanumerics, which would
+///     otherwise start returning hits for a bare float component.
+#[tokio::test]
+async fn user_mapped_dense_vector_builds_no_fts_term_dictionary() {
+    fn segment_files(dir: &std::path::Path) -> Vec<(String, u64)> {
+        fn walk(dir: &std::path::Path, out: &mut Vec<(String, u64)>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let entry = entry.unwrap();
+                if entry.file_type().unwrap().is_dir() {
+                    walk(&entry.path(), out);
+                } else {
+                    out.push((
+                        entry.file_name().to_string_lossy().into_owned(),
+                        entry.metadata().unwrap().len(),
+                    ));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(dir, &mut out);
+        out
+    }
+
+    const DIMS: usize = 128;
+    const DOCS: usize = 300;
+
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("body", FieldType::Text));
+    schema
+        .fields
+        .push(FieldConfig::new("cat", FieldType::Keyword));
+    schema.fields.push(FieldConfig::new("n", FieldType::Long));
+    let mut emb = FieldConfig::new("emb", FieldType::Vector);
+    emb.options.dimensions = Some(DIMS);
+    emb.options.similarity = Some("cosine".to_string());
+    schema.fields.push(emb);
+
+    let engine = make_engine(&dir);
+    engine.create_index("duprobe", schema).unwrap();
+    let idx = engine.get_index("duprobe").unwrap();
+
+    // Deterministic pseudo-random components with enough decimal digits that
+    // each one is a distinct term — the shape that made the FST large.
+    let component = |doc: usize, dim: usize| -> f64 {
+        let h = (doc as u64)
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(dim as u64 * 1_442_695_040_888_963_407);
+        ((h >> 11) as f64 / (1u64 << 53) as f64 * 2.0) - 1.0
+    };
+    let mut first_vector = Vec::new();
+    for d in 0..DOCS {
+        let v: Vec<f64> = (0..DIMS).map(|dim| component(d, dim)).collect();
+        if d == 0 {
+            first_vector = v.clone();
+        }
+        idx.index_document(
+            Some(format!("d{d}")),
+            json!({
+                "body": format!("quarterly liquidity evidence document number {d}"),
+                "cat": if d % 2 == 0 { "even" } else { "odd" },
+                "n": d,
+                "emb": v,
+            }),
+        )
+        .await
+        .unwrap();
+    }
+    idx.refresh().await.unwrap();
+    idx.force_merge(1).await.unwrap();
+
+    let files = segment_files(dir.path());
+    let bytes_of = |suffix: &str| -> u64 {
+        files
+            .iter()
+            .filter(|(name, _)| name.ends_with(suffix))
+            .map(|(_, len)| *len)
+            .sum()
+    };
+    // Reported so the saving is a measured number in the log, not a claim.
+    eprintln!(
+        "#328 lexical bytes: emb.fst={} emb.post={} emb.norms={} | body.fst={} body.post={} \
+         cat.fst={} n.fst={} | total-index={}",
+        bytes_of(".emb.fst"),
+        bytes_of(".emb.post"),
+        bytes_of(".emb.norms"),
+        bytes_of(".body.fst"),
+        bytes_of(".body.post"),
+        bytes_of(".cat.fst"),
+        bytes_of(".n.fst"),
+        files.iter().map(|(_, len)| *len).sum::<u64>(),
+    );
+
+    for suffix in [".emb.fst", ".emb.post", ".emb.norms"] {
+        assert!(
+            !files.iter().any(|(name, _)| name.ends_with(suffix)),
+            "a dense_vector field must contribute no `{suffix}` artifact; got {:?}",
+            files
+                .iter()
+                .filter(|(name, _)| name.contains(".emb."))
+                .collect::<Vec<_>>()
+        );
+    }
+    // The lexical fields are untouched — this is a per-type exclusion, not a
+    // blanket one.
+    for suffix in [".body.fst", ".cat.fst", ".n.fst"] {
+        assert!(
+            files.iter().any(|(name, _)| name.ends_with(suffix)),
+            "lexical fields must keep their term dictionaries; missing {suffix}"
+        );
+    }
+
+    // (a) kNN still answers from the HNSW graph.
+    let knn = idx
+        .search(
+            &parse_request(&json!({
+                "query": {"knn": {"field": "emb", "query_vector": first_vector, "k": 3}},
+                "size": 10
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(knn.hits.len(), 3, "kNN must still retrieve neighbours");
+    assert_eq!(knn.hits[0].id, "d0", "nearest neighbour must be the probe doc");
+
+    // (b) `exists` is answered from `_source` / doc values, never the postings.
+    let exists = idx
+        .search(&make_search(json!({"exists": {"field": "emb"}})))
+        .await
+        .unwrap();
+    assert_eq!(exists.total.value, DOCS as u64);
+
+    // (c) the lexical fields still match.
+    let lexical = idx
+        .search(&make_search(json!({"match": {"body": "liquidity"}})))
+        .await
+        .unwrap();
+    assert_eq!(lexical.total.value, DOCS as u64);
+    let kw = idx
+        .search(&make_search(json!({"term": {"cat": "even"}})))
+        .await
+        .unwrap();
+    assert_eq!(kw.total.value, (DOCS / 2) as u64);
+
+    // (d) a lexical query on the vector field still finds nothing — the same
+    // answer `main` gives, and the reason the exclusion had to reach the
+    // searchable-field sets and not only the writer. Numeric `term`/`terms`/
+    // `range` are deliberately absent here: they never came from the term
+    // dictionary (they are resolved from `_source` / doc values) and this
+    // change does not touch them.
+    // A POSITIVE component: a leading `-` is `query_string`'s NOT operator,
+    // which would make the probe measure the parser rather than the field.
+    let probe = format!(
+        "{}",
+        first_vector
+            .iter()
+            .copied()
+            .find(|v| *v > 0.0)
+            .expect("fixture vector has a positive component")
+    );
+    for q in [
+        json!({"term": {"emb": probe}}),
+        json!({"match": {"emb": probe}}),
+        json!({"match": {"emb": "0.5"}}),
+        json!({"query_string": {"query": probe}}),
+        json!({"multi_match": {"query": probe, "fields": ["*"]}}),
+    ] {
+        let hits = idx.search(&make_search(q.clone())).await.unwrap();
+        assert_eq!(
+            hits.total.value, 0,
+            "a lexical query on a dense_vector must match nothing, got {} for {q}",
+            hits.total.value
+        );
+    }
+
+    // (e) an existing index built BEFORE the fix still opens and searches: the
+    // exclusion is a write-side rule, and a reader never requires the sidecar.
+    drop(idx);
+    let reopened = make_engine(&dir);
+    let idx = reopened.get_index("duprobe").unwrap();
+    let after = idx
+        .search(&make_search(json!({"match": {"body": "liquidity"}})))
+        .await
+        .unwrap();
+    assert_eq!(after.total.value, DOCS as u64);
+}
+
 #[tokio::test]
 async fn semantic_passage_provenance_survives_update_merge_restart_and_source_filter() {
     let dir = TempDir::new().unwrap();

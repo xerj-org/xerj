@@ -14039,6 +14039,18 @@ impl Index {
                 if !f.options.indexed && !f.options.doc_values {
                     continue;
                 }
+                // #328 — a `dense_vector` has no lexical representation at
+                // all, so it is not a field a `*` expansion may project onto.
+                // ES agrees for its own reason: `QueryParserHelper` keeps only
+                // fields whose `getTextSearchInfo() != NONE`, and
+                // `DenseVectorFieldType` has none. Leaving it in would push a
+                // clause onto a field whose term dictionary this release stops
+                // building (`memtable::fts_excluded_fields`), and the
+                // per-segment `fts_has_field` gate would then hand the whole
+                // query to the stored-doc scan.
+                if matches!(f.field_type, FieldType::Vector) {
+                    continue;
+                }
                 if matches!(f.field_type, FieldType::Text) {
                     tf.push(f.name.clone());
                 } else {

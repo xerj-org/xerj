@@ -3806,11 +3806,13 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
 
 /// Every field that must be kept OUT of the full-text inverted index.
 ///
-/// Two disjoint reasons, unioned into one set so flush, merge, the memtable
+/// Three disjoint reasons, unioned into one set so flush, merge, the memtable
 /// analyser and `build_fts_field_configs` cannot disagree:
 ///
 ///  * semantic-derived vector fields (see above) — engine-internal payloads
 ///    that were never user text;
+///  * fields the user MAPPED as `dense_vector` (`FieldType::Vector`) — #328.
+///    See "Why a declared vector has no lexical form" below;
 ///  * fields whose mapping declares `"index": false` — #204's last open
 ///    accepted-and-ignored instance. The option was echoed by `GET _mapping`
 ///    and then ignored, so the field kept a full inverted index and stayed
@@ -3844,8 +3846,57 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
 ///    `unsearchable_query_field` in `index.rs` rejects every query naming it
 ///    before execution — so no fallback of any strength ever runs, and the
 ///    postings are pure waste whatever the type.
+///
+/// ## Why a declared vector has no lexical form (#328)
+///
+/// `#12` removed the term dictionary for the vectors XERJ *generates* from a
+/// semantic mapping. A field the user maps as `dense_vector` took a different
+/// route through the same code and kept its own: kNN needs the HNSW graph, so
+/// the field is `"index": true`, so the `index: false` arm above never fires.
+/// The field then flowed through `extract_fts_fields_excluding` into
+/// `extract_field_text`, whose `Value::Array` arm joins the elements with
+/// spaces — turning a 128-dim vector into one enormous decimal-string term per
+/// document. Measured on a 300-doc × 128-dim fixture (the regression test
+/// `user_mapped_dense_vector_builds_no_fts_term_dictionary`): 796,274 B of
+/// `<seg>.emb.fst` in a 2,015,317 B index, 39.6% of it, for a structure no
+/// query path reads. kNN is served by `hnsw/graph.bin`; `exists` is resolved
+/// from `_source` / doc values; `_field_caps` and highlighting never open the
+/// field's FST.
+///
+/// The exclusion is *by declared type*, not by value shape: an unmapped
+/// numeric array stays lexical exactly as before (the same line HNSW draws in
+/// `load_hnsw_artifacts_sync`, which refuses a graph pinned to a
+/// non-`dense_vector` field). `FieldType::Chunk` is deliberately NOT excluded:
+/// its declared payload is chunk *text* plus a vector, and only the vector
+/// half is droppable — that needs a value-shape-aware rule, not a type rule.
+///
+/// Removing the postings is only half of it. Every other member of this set is
+/// protected from the stored-doc scan by `unsearchable_query_field`, which
+/// rejects the query before execution; a `dense_vector` is not, because it IS
+/// indexed. So the query side drops vector fields from the searchable-field
+/// sets too (`text_fields` / `exact_fields` in `search_inner`) — otherwise a
+/// `*` expansion keeps projecting a clause onto a field this release no longer
+/// gives a term dictionary, and the per-segment `fts_has_field` gate hands the
+/// whole query to the stored-doc scan, whose `Term` arm matches ANY ELEMENT of
+/// a JSON array (`json_values_equal`) and whose `match` arm splits on
+/// non-alphanumerics.
+///
+/// With both halves in place the measured answers are unchanged. Probe matrix
+/// over ten lexical shapes on a `dense_vector`, before vs after, memtable and
+/// post-force-merge (run 2026-08-13): every POST-FLUSH answer is identical,
+/// and two memtable answers move onto the flushed one —
+/// `{"match":{"emb":"0.5"}}` went 5 → 0 pre-flush, which is what the same
+/// query already returned once the index had been flushed. Numeric
+/// `term` / `terms` / `range` and `exists` on a vector field are untouched:
+/// they never came from the term dictionary, they are resolved from `_source`
+/// / doc values, and they answer exactly as before.
+///
+/// Not claimed and not changed: ES rejects `term`/`match`/`range` on a
+/// `dense_vector` outright (`DenseVectorFieldType` has no term query), where
+/// XERJ answers 200. This patch removes bytes, it does not add that rejection.
 pub fn fts_excluded_fields(schema: &Schema) -> std::collections::HashSet<String> {
     let mut excluded = semantic_derived_vector_fields(schema);
+    excluded.extend(lexically_typeless_fields(schema));
     for field in &schema.fields {
         if field.options.indexed {
             continue;
@@ -3857,6 +3908,36 @@ pub fn fts_excluded_fields(schema: &Schema) -> std::collections::HashSet<String>
         }
     }
     excluded
+}
+
+/// Fields whose DECLARED type has no lexical representation at all — #328.
+///
+/// Today that is exactly `FieldType::Vector` (`dense_vector`). Walks object
+/// sub-mappings and yields dotted paths, because that is the key shape the
+/// `_source` sweep in `collect_text_fields` produces and therefore the shape
+/// the exclusion set has to match.
+pub fn lexically_typeless_fields(schema: &Schema) -> std::collections::HashSet<String> {
+    fn walk(
+        fields: &[xerj_common::types::FieldConfig],
+        prefix: &str,
+        out: &mut std::collections::HashSet<String>,
+    ) {
+        for field in fields {
+            let path = if prefix.is_empty() {
+                field.name.clone()
+            } else {
+                format!("{prefix}.{}", field.name)
+            };
+            if matches!(field.field_type, FieldType::Vector) {
+                out.insert(path);
+            } else if !field.fields.is_empty() {
+                walk(&field.fields, &path, out);
+            }
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    walk(&schema.fields, "", &mut out);
+    out
 }
 
 #[cfg(test)]
