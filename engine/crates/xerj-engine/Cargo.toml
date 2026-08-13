@@ -51,7 +51,7 @@ rustc-hash = { workspace = true }
 # (`xerj-autoindex/src/extract/code.rs`) — this module re-parses at RESPONSE
 # time rather than depending on that crate (autoindex depends on the engine,
 # not the other way around; a reverse dependency would be circular). ---
-tree-sitter = "0.25"
+tree-sitter = "0.26"
 tree-sitter-python = "0.23"
 tree-sitter-c = "0.23"
 tree-sitter-rust = "0.23"
