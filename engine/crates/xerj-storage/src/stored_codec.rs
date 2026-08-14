@@ -49,6 +49,11 @@
 //!   by `i64::MIN` in `mode_values` (sentinel).
 //! * 4 — `CONSTANT`: a single repeated value.  Payload = zstd(json_of_value).
 //!
+//! Column names beginning with `__` are reserved by the format: `__id` and
+//! `__seq_no` carry the top-level document fields, and `__nulls`
+//! ([`V2_EXPLICIT_NULLS_COLUMN`]) carries per-document field *presence* — see
+//! that constant for why a columnar block cannot derive it from the values.
+//!
 //! Decoder always returns the canonical v1 JSON-array shape so the rest of
 //! the engine is oblivious to which codec was used.
 
@@ -126,6 +131,58 @@ pub const STORED_V2_MAGIC: &[u8; 4] = b"ZBS2";
 /// Minimum document count to bother with the columnar path.  Below this,
 /// the per-column header overhead dominates and flat LZ4 wins.
 const V2_MIN_DOCS: usize = 128;
+
+/// Reserved column carrying, per document, the `_source` keys that were
+/// stored as an explicit JSON `null`.
+///
+/// A column cell holds `NULL` both when the document omitted the field and
+/// when it stored `null` there, so the value alone cannot say which — and the
+/// decoder used to resolve that ambiguity by dropping every null, silently
+/// rewriting `{"reason": null}` to `{}` on any segment of ≥ `V2_MIN_DOCS`
+/// docs.  Neither reference implementation infers presence from the value:
+/// Lucene's stored-fields reader replays exactly the field ids that were
+/// written (`Lucene90CompressingStoredFieldsReader.document`,
+/// lucene/core/src/java/org/apache/lucene/codecs/lucene90/compressing/Lucene90CompressingStoredFieldsReader.java:662),
+/// and its sparse doc-values keep "which documents have a value" in a
+/// dedicated structure beside the values (`IndexedDISI`,
+/// lucene/core/src/java/org/apache/lucene/codecs/lucene90/IndexedDISI.java:96).
+/// This column is that structure, in the shape this codec can carry.
+///
+/// Written only when at least one document in the block stores an explicit
+/// null, so segments without any pay nothing and stay byte-identical to what
+/// earlier XERJ releases produced.  Absent on every pre-fix segment, which
+/// decodes exactly as before.
+pub const V2_EXPLICIT_NULLS_COLUMN: &str = "__nulls";
+
+/// Column names the format owns.  A `_source` field using one of these names
+/// gets no column of its own — `__id` and `__seq_no` were already dropped this
+/// way (they are hydrated from the top-level document), and
+/// [`V2_EXPLICIT_NULLS_COLUMN`] joins them so the synthetic column's name is
+/// never ambiguous.
+pub(crate) fn is_reserved_column(name: &str) -> bool {
+    matches!(name, "__id" | "__seq_no" | V2_EXPLICIT_NULLS_COLUMN)
+}
+
+/// The `_source` keys `source` stores as an explicit JSON `null`, in source
+/// order.
+///
+/// `Value::Null` when there are none — the overwhelmingly common case, which
+/// dict-encodes the whole column to one reserved id per row.
+fn explicit_null_names(source: Option<&serde_json::Value>) -> serde_json::Value {
+    let Some(obj) = source.and_then(|s| s.as_object()) else {
+        return serde_json::Value::Null;
+    };
+    let names: Vec<serde_json::Value> = obj
+        .iter()
+        .filter(|(key, value)| value.is_null() && !is_reserved_column(key))
+        .map(|(key, _)| serde_json::Value::String(key.clone()))
+        .collect();
+    if names.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::Array(names)
+    }
+}
 
 /// Determinism threshold for `CROSS_DEP` — a numeric column is stored as
 /// cross-dependent on a keyword column iff at least this fraction of rows
@@ -243,6 +300,9 @@ pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8>
     for doc in &docs {
         if let Some(src) = doc.get("_source").and_then(|s| s.as_object()) {
             for key in src.keys() {
+                if is_reserved_column(key) {
+                    continue;
+                }
                 if !col_seen.contains_key(key) {
                     col_seen.insert(key.clone(), col_order.len());
                     col_order.push(key.clone());
@@ -270,6 +330,12 @@ pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8>
         }
     }
 
+    let explicit_nulls: Vec<serde_json::Value> = docs
+        .iter()
+        .map(|doc| explicit_null_names(doc.get("_source")))
+        .collect();
+    push_explicit_nulls_column(&mut col_order, &mut columns, &explicit_nulls);
+
     encode_v2_columns(
         num_docs,
         &col_order,
@@ -277,6 +343,21 @@ pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8>
         Some(stored_docs_json),
         level,
     )
+}
+
+/// Append [`V2_EXPLICIT_NULLS_COLUMN`] iff any document in the block stores an
+/// explicit null.  Appended last so the column order of every block without one
+/// is exactly what it was before this column existed.
+fn push_explicit_nulls_column<'a>(
+    col_order: &mut Vec<String>,
+    columns: &mut Vec<Vec<&'a serde_json::Value>>,
+    explicit_nulls: &'a [serde_json::Value],
+) {
+    if explicit_nulls.iter().all(serde_json::Value::is_null) {
+        return;
+    }
+    col_order.push(V2_EXPLICIT_NULLS_COLUMN.to_string());
+    columns.push(explicit_nulls.iter().collect());
 }
 
 /// P2.2 — columnar V2 encoder fed directly from already-parsed values.
@@ -378,10 +459,13 @@ fn encode_stored_v2_from_values_inner(
         columns[1].push(&seqs[i]);
         if let Some(obj) = src.as_object() {
             for (key, val) in obj {
+                // A source field named like a reserved column must NOT route
+                // into the synthetic columns (the legacy fill loop skipped
+                // `__id` / `__seq_no` too).
+                if is_reserved_column(key) {
+                    continue;
+                }
                 let cix = match col_seen.get(key.as_str()) {
-                    // A source field literally named `__id` / `__seq_no`
-                    // must NOT route into the synthetic columns (the
-                    // legacy fill loop skipped them too).
                     Some(&cix) if cix < 2 => continue,
                     Some(&cix) => cix,
                     None => {
@@ -411,6 +495,12 @@ fn encode_stored_v2_from_values_inner(
     for col in columns.iter_mut() {
         col.resize(num_docs, &NULL);
     }
+
+    let explicit_nulls: Vec<serde_json::Value> = docs
+        .iter()
+        .map(|(_, _, src)| explicit_null_names(Some(src)))
+        .collect();
+    push_explicit_nulls_column(&mut col_order, &mut columns, &explicit_nulls);
 
     if prof {
         eprintln!(
@@ -1793,6 +1883,10 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
     // Re-assemble the JSON-array payload.  col_data[0] = __id, col_data[1] = __seq_no.
     let id_col_ix = col_name_to_ix.get("__id").copied().unwrap_or(0);
     let seq_col_ix = col_name_to_ix.get("__seq_no").copied().unwrap_or(1);
+    // Absent on every segment written before this column existed, and on every
+    // block whose documents store no explicit null — both decode exactly as
+    // they did before.
+    let nulls_col_ix = col_name_to_ix.get(V2_EXPLICIT_NULLS_COLUMN).copied();
 
     let mut out_docs: Vec<serde_json::Value> = Vec::new();
     out_docs.try_reserve_exact(num_docs).map_err(|error| {
@@ -1802,8 +1896,11 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
     })?;
     for d in 0..num_docs {
         let mut source_map = serde_json::Map::new();
+        let stored_null = nulls_col_ix
+            .and_then(|cix| col_data[cix].get(d))
+            .and_then(serde_json::Value::as_array);
         for (cix, name) in col_names.iter().enumerate() {
-            if cix == id_col_ix || cix == seq_col_ix {
+            if cix == id_col_ix || cix == seq_col_ix || Some(cix) == nulls_col_ix {
                 continue;
             }
             let v = col_data[cix]
@@ -1812,6 +1909,11 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
                 .unwrap_or(serde_json::Value::Null);
             if !v.is_null() {
                 source_map.insert(name.clone(), v);
+            } else if column_stored_null(stored_null, name) {
+                // Present in the document and `null` — not absent.  Restored
+                // in column order so the key lands where a non-null value of
+                // the same field would have.
+                source_map.insert(name.clone(), serde_json::Value::Null);
             }
         }
         let mut doc = serde_json::Map::new();
@@ -1835,6 +1937,16 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
 
     serde_json::to_vec(&out_docs)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 reassemble: {e}")))
+}
+
+/// Did this row store `name` as an explicit `null`?
+///
+/// Defensive about the payload shape: a legacy segment carrying a *user* field
+/// called `__nulls` decodes to whatever it held, and anything that is not an
+/// array of strings restores nothing — i.e. it degrades to the pre-fix
+/// behaviour rather than inventing keys.
+pub(crate) fn column_stored_null(stored_null: Option<&Vec<serde_json::Value>>, name: &str) -> bool {
+    stored_null.is_some_and(|names| names.iter().any(|stored| stored.as_str() == Some(name)))
 }
 
 // ── Column-level helpers ─────────────────────────────────────────────────
@@ -2558,6 +2670,135 @@ mod tests {
         let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
         assert_eq!(&encoded[..4], STORED_V2_MAGIC);
         (docs, encoded)
+    }
+
+    /// #367: a `_source` carrying an explicit `null` (plus the other "empty"
+    /// shapes that are easy to confuse with absence) must come back exactly as
+    /// it went in.
+    ///
+    /// Pre-fix this failed on the first assertion: the columnar path fills a
+    /// cell with `NULL` both for an absent field and for a stored `null`, and
+    /// the decoder dropped every null — so `{"reason": null}` came back as
+    /// `{}` on any segment of ≥ `V2_MIN_DOCS` docs. Below that threshold the
+    /// v1 LZ4 fallback keeps the bytes verbatim, which is exactly why the
+    /// corruption stayed invisible on small corpora: a 209-file autoindex run
+    /// flushes shard segments under 128 docs and round-trips, a 6 000-file one
+    /// does not.
+    fn explicit_null_fixture(docs: usize) -> Vec<serde_json::Value> {
+        (0..docs)
+            .map(|i| {
+                json!({
+                    "_id": format!("file:{i}"),
+                    "_seq_no": i,
+                    "_source": {
+                        "doc_kind": "file",
+                        "path": format!("p/{i}.java"),
+                        "reason": serde_json::Value::Null,
+                        "records": i,
+                        "empty_array": [],
+                        "empty_object": {},
+                        "empty_string": "",
+                        "zero": 0,
+                        "untrue": false,
+                    }
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn v2_round_trips_explicit_null_and_empty_values() {
+        for docs in [V2_MIN_DOCS - 1, V2_MIN_DOCS, 2001] {
+            let fixture = explicit_null_fixture(docs);
+            let json = serde_json::to_vec(&fixture).unwrap();
+            let decoded: Vec<serde_json::Value> =
+                serde_json::from_slice(&decode_stored(&encode_stored_v2(&json)).unwrap()).unwrap();
+            assert_eq!(decoded, fixture, "{docs}-doc block must round-trip");
+
+            // The flush path encodes from parsed values and must agree.
+            let sources: Vec<(&str, u64, &serde_json::Value)> = fixture
+                .iter()
+                .map(|doc| {
+                    (
+                        doc["_id"].as_str().unwrap(),
+                        doc["_seq_no"].as_u64().unwrap(),
+                        &doc["_source"],
+                    )
+                })
+                .collect();
+            let from_values = encode_stored_v2_from_values(&json, &sources);
+            assert_eq!(
+                from_values,
+                encode_stored_v2(&json),
+                "{docs}-doc from-values encode must stay byte-identical"
+            );
+            let decoded: Vec<serde_json::Value> =
+                serde_json::from_slice(&decode_stored(&from_values).unwrap()).unwrap();
+            assert_eq!(decoded, fixture);
+            let decoded: Vec<serde_json::Value> = serde_json::from_slice(
+                &decode_stored(&encode_stored_v2_from_values_nojson(&sources)).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(decoded, fixture);
+        }
+    }
+
+    /// A stored `null` and an absent field are different documents, and the
+    /// decoder has to keep telling them apart per document — not per column.
+    #[test]
+    fn v2_distinguishes_a_stored_null_from_an_absent_field() {
+        let docs: Vec<_> = (0..V2_MIN_DOCS * 2)
+            .map(|i| {
+                let mut source = serde_json::Map::new();
+                source.insert("always".into(), json!(i));
+                match i % 3 {
+                    0 => {
+                        source.insert("sometimes".into(), serde_json::Value::Null);
+                    }
+                    1 => {
+                        source.insert("sometimes".into(), json!(i));
+                    }
+                    _ => {}
+                }
+                json!({"_id": format!("d{i}"), "_seq_no": i, "_source": source})
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        assert_eq!(&encoded[..4], STORED_V2_MAGIC);
+        let decoded: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        assert_eq!(decoded, docs);
+        for (i, doc) in decoded.iter().enumerate() {
+            let source = doc["_source"].as_object().unwrap();
+            match i % 3 {
+                0 => assert!(
+                    source
+                        .get("sometimes")
+                        .is_some_and(serde_json::Value::is_null),
+                    "doc {i} stored null and must read back as null: {source:?}"
+                ),
+                1 => assert_eq!(source["sometimes"], json!(i)),
+                _ => assert!(
+                    !source.contains_key("sometimes"),
+                    "doc {i} never had the field and must not gain one: {source:?}"
+                ),
+            }
+        }
+    }
+
+    /// A block with no explicit nulls must not grow a column, so segments that
+    /// were byte-identical before this fix still are.
+    #[test]
+    fn v2_adds_no_column_when_no_document_stores_a_null() {
+        let (_, encoded) = projection_fixture();
+        let directory = parse_v2_directory(&encoded[4..]).unwrap();
+        assert!(
+            !directory
+                .columns
+                .iter()
+                .any(|column| column.name == V2_EXPLICIT_NULLS_COLUMN),
+            "null-free blocks must carry no explicit-null column"
+        );
     }
 
     fn handcrafted_v2(num_docs: u32, columns: &[(&str, u8, Vec<u8>)]) -> Vec<u8> {

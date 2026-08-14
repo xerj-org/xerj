@@ -7,7 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **`_source` silently lost every `null`-valued field once a segment reached
+  128 documents.** The columnar stored codec (`ZBS2`) fills a column cell with
+  `NULL` both when a document omits the field and when it stores `null` there,
+  and the decoder resolved that ambiguity by dropping every null — so
+  `{"reason": null}` came back as `{}`. Below the codec's 128-document floor the
+  v1 LZ4 fallback keeps the bytes verbatim, which is why the corruption was
+  invisible on small inputs and why a `_forcemerge` could corrupt documents that
+  had read back correctly a moment earlier: merge re-encodes segments that were
+  small enough to escape the columnar path. Presence now travels beside the
+  values in a reserved `__nulls` column, written **only** when some document in
+  the block stores an explicit null — blocks without one are byte-identical to
+  what earlier releases produced, and every pre-existing segment decodes exactly
+  as before. Affected any client of the engine, not only autoindex (#367).
+
+- **`--embed-mode neural` could not complete a single semantic autoindex run.**
+  `/v1/embedding/identity` hashed the *configured model name*, so a brand-new
+  node and a long-running one reported the same `identity_sha256`, the identity
+  was correctly marked non-resumable, and the generation cutover aborted every
+  run with "generation cutover requires a resumable embedding execution
+  identity". The suggested remedy could not work — the gate never reads journal
+  state, so `--fresh` failed identically. The Candle backend is now
+  content-addressed like the ONNX one: sha256 of `model.safetensors`,
+  `tokenizer.json` and `config.json` plus the model's own `hidden_size`,
+  memoised per configuration. Assets that cannot be hashed still fail closed,
+  but name the file instead of blaming a configuration change (#367).
+
+- **Catalog read-back failures now say what differs.** "catalog read-back for
+  ds:docs disagrees with the sealed generation projection" named the first key
+  of a `BTreeMap` and nothing else. It now reports the missing, unexpected and
+  changed keys with both values (#367).
 
 ## [1.0.0-rc.16] - 2026-08-13
 

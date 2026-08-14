@@ -2276,6 +2276,77 @@ mod merge_publication_transaction_tests {
         }
     }
 
+    /// #367 — a `_source` field stored as an explicit `null` must still be
+    /// there after the segment it lives in is flushed and merged.
+    ///
+    /// The reported symptom was an autoindex abort ("catalog read-back for
+    /// ds:docs disagrees with the sealed generation projection") on a large
+    /// corpus only. The size dependence was the columnar stored codec's
+    /// `V2_MIN_DOCS` floor, not the corpus: below it the v1 LZ4 fallback keeps
+    /// the bytes verbatim, at or above it the block went columnar and every
+    /// null-valued key was silently dropped from `_source` — for every user of
+    /// the engine, not just autoindex. Merge then applied the same codec to
+    /// segments that had been small enough to escape it, which is why a
+    /// forcemerge could corrupt documents that read back correctly a moment
+    /// earlier.
+    #[tokio::test]
+    async fn stored_nulls_survive_flush_and_merge() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = config(&dir);
+        // One ingest shard so each flush publishes exactly one segment that is
+        // comfortably over the codec's columnar floor; with the default 16 the
+        // per-shard segments are tiny and take the v1 fallback.
+        cfg.engine.ingest_shards = 1;
+        let engine = Engine::new(cfg).unwrap();
+        engine.create_index("nulls", Schema::empty()).unwrap();
+        let index = engine.get_index("nulls").unwrap();
+        index.abort_background_tasks();
+
+        // Shaped like the catalog documents that triggered the report: an
+        // indexed file carries `reason: null`, a junk one carries a string.
+        let doc = |i: usize| {
+            serde_json::json!({
+                "doc_kind": "file",
+                "path": format!("p/{i}.java"),
+                "status": "indexed",
+                "reason": serde_json::Value::Null,
+                "records": i,
+            })
+        };
+        for (half, range) in [(0usize, 0..300usize), (1, 300..600)] {
+            for i in range {
+                index
+                    .index_document(Some(format!("file:{i}")), doc(i))
+                    .await
+                    .unwrap();
+            }
+            index.flush().await.unwrap();
+            assert_eq!(index.store.snapshot().segments.len(), half + 1);
+        }
+
+        let stored = |id: String| {
+            let index = Arc::clone(&index);
+            async move { index.get_document(&id).await.unwrap().unwrap() }
+        };
+        for i in [0usize, 299, 300, 599] {
+            assert_eq!(
+                stored(format!("file:{i}")).await,
+                doc(i),
+                "flushed document {i} must keep its stored null"
+            );
+        }
+
+        assert_eq!(index.run_merge_once().await.unwrap(), 1);
+        assert_eq!(index.store.snapshot().segments.len(), 1);
+        for i in [0usize, 299, 300, 599] {
+            assert_eq!(
+                stored(format!("file:{i}")).await,
+                doc(i),
+                "merged document {i} must keep its stored null"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn merging_v1_raw_unsafe_fields_advances_marker_before_encoded_output() {
         let dir = TempDir::new().unwrap();

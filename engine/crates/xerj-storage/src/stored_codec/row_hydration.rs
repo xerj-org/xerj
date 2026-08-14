@@ -702,6 +702,10 @@ where
             },
         ));
     }
+    let nulls_index = directory
+        .columns
+        .iter()
+        .position(|column| column.name == V2_EXPLICIT_NULLS_COLUMN);
     let mut stats = StoredV2RowHydrationStats::default();
     let requested: Option<HashSet<&str>> =
         source_fields.map(|fields| fields.iter().copied().collect());
@@ -710,8 +714,12 @@ where
     let mut dict_ids = HashMap::new();
     for index in 0..directory.columns.len() {
         let column = &directory.columns[index];
+        // The explicit-null column is decoded like `__id` / `__seq_no` — a
+        // projection never names it, and without it a projected field that the
+        // document stored as `null` would come back absent.
         let wanted = index == id_index
             || index == seq_index
+            || Some(index) == nulls_index
             || requested
                 .as_ref()
                 .is_none_or(|fields| fields.contains(column.name));
@@ -749,8 +757,14 @@ where
     let mut rows = Vec::with_capacity(selected.len());
     for (selected_index, ordinal) in selected.into_iter().enumerate() {
         let mut source = serde_json::Map::new();
+        let stored_null = nulls_index
+            .and_then(|index| columns[index].as_ref())
+            .and_then(|values| values[selected_index].as_array());
         for (column_index, column) in directory.columns.iter().enumerate() {
-            if column_index == id_index || column_index == seq_index {
+            if column_index == id_index
+                || column_index == seq_index
+                || Some(column_index) == nulls_index
+            {
                 continue;
             }
             let Some(values) = columns[column_index].as_ref() else {
@@ -759,6 +773,9 @@ where
             let value = values[selected_index].clone();
             if !value.is_null() {
                 source.insert(column.name.to_string(), value);
+                stats.output_values_cloned += 1;
+            } else if column_stored_null(stored_null, column.name) {
+                source.insert(column.name.to_string(), serde_json::Value::Null);
                 stats.output_values_cloned += 1;
             }
         }
@@ -1344,5 +1361,57 @@ mod tests {
             panic!("expected identity-only hydration")
         };
         assert!(rows[0].source.is_empty());
+    }
+
+    /// #367: selective hydration reassembles `_source` from column cells too,
+    /// so it needs the explicit-null column even though no projection ever
+    /// names it — otherwise a projected field the document stored as `null`
+    /// comes back absent while the full decode returns it.
+    #[test]
+    fn row_hydration_restores_stored_nulls_for_full_and_projected_reads() {
+        let count = 128usize;
+        let docs: Vec<_> = (0..count)
+            .map(|row| {
+                json!({
+                    "_id": format!("id-{row}"),
+                    "_seq_no": row,
+                    "_source": {
+                        "kept": format!("value-{row}"),
+                        "reason": serde_json::Value::Null,
+                    }
+                })
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        let selected = [0usize, 63, 127];
+
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } =
+            decode_stored_v2_rows(&encoded, &selected).unwrap()
+        else {
+            panic!("expected full hydration")
+        };
+        for (row, ordinal) in rows.iter().zip(selected) {
+            assert_eq!(
+                serde_json::Value::Object(row.source.clone()),
+                docs[ordinal]["_source"],
+                "row {ordinal} must hydrate the stored null"
+            );
+        }
+
+        let StoredV2RowHydrationResult::Hydrated { rows, .. } =
+            decode_stored_v2_rows_projected(&encoded, &selected, &["reason"]).unwrap()
+        else {
+            panic!("expected projected hydration")
+        };
+        for row in &rows {
+            assert!(
+                row.source
+                    .get("reason")
+                    .is_some_and(serde_json::Value::is_null),
+                "a projected stored null must survive: {:?}",
+                row.source
+            );
+            assert!(!row.source.contains_key("kept"));
+        }
     }
 }
