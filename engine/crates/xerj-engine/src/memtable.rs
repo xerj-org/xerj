@@ -1699,6 +1699,19 @@ impl ShardedFtsMemtable {
                 );
                 total += t;
                 Self::narrow_to_page(&mut cands, limit);
+            } else if g.column_cannot_answer_term(field) {
+                // A per-shard `None` means two different things and this fold
+                // read both as "no hits from this shard": the benign one (no
+                // column for `field` here, so genuinely no match) and the
+                // load-bearing one (the column exists but is LOSSY — an array,
+                // first element only, or analyzed text). Docs are hash-routed,
+                // so a memtable holding both `tags: ["red","blue"]` and
+                // `tags: "red"` puts them in different shards: the array
+                // shard's bail was silently dropped and `term tags=red`
+                // answered from the scalar shards alone (#332). Decline for
+                // the WHOLE memtable so the caller runs the array-aware source
+                // scan; `doc_values_bool_query` already gets this from its `?`.
+                return None;
             }
         }
         if any_hit {
@@ -1732,6 +1745,10 @@ impl ShardedFtsMemtable {
                 );
                 total += t;
                 Self::narrow_to_page(&mut cands, limit);
+            } else if g.column_cannot_answer_term(field) {
+                // Same lossy-column-versus-absent-column conflation as
+                // `doc_values_term_query` above — see the note there.
+                return None;
             }
         }
         if any_hit {
@@ -3169,7 +3186,7 @@ impl FtsMemtable {
     ///
     /// Column resolution and per-predicate match semantics mirror the
     /// standalone `doc_values_term_query` (keyword column, case-sensitive
-    /// whole value, analyzed-text whitespace bailout) and
+    /// whole value, array bailout, analyzed-text whitespace bailout) and
     /// `doc_values_range_query` (numeric column, gte/gt/lte/lt) exactly, so
     /// a bool of term+range predicates matches the same doc set the
     /// per-child queries would intersect to — without intermediate
@@ -3194,6 +3211,15 @@ impl FtsMemtable {
         for p in preds {
             match p {
                 MemBoolPred::Term { field, value } => {
+                    // Array-valued field: the column is lossy (first element
+                    // only) → bail so a later matching element can't be dropped.
+                    // Verbatim the guard `doc_values_term_query` and
+                    // `filtered_docs_arc_into` already carry; this walk was
+                    // never updated with them, so a fused bool over an array
+                    // field matched ONLY its first element (#332).
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
                     if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
                         // Step 2: analyzed-text bailout via the insert-time
                         // cached flag instead of an O(N) per-query column
@@ -3221,6 +3247,9 @@ impl FtsMemtable {
                     lte,
                     lt,
                 } => {
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
                     let col = self.doc_values.numeric.get(field.as_str())?;
                     cols.push(Col::Num(col, *gte, *gt, *lte, *lt));
                 }
@@ -3372,6 +3401,18 @@ impl FtsMemtable {
             out.push((e.doc_id.clone(), Self::resolve_source_arc(e)));
         }
         Some(())
+    }
+
+    /// True when this shard HAS a doc-values column for `field` but the column
+    /// cannot decide an exact-value predicate: it holds an array (the column
+    /// keeps only the first element, see `push_field`) or analyzed text.
+    ///
+    /// The exact-value walks return `None` for this AND for "no column here at
+    /// all"; only the first case obliges the caller to abandon to the
+    /// array-aware source scan, so the sharded folds need them apart.
+    pub fn column_cannot_answer_term(&self, field: &str) -> bool {
+        self.doc_values.array_fields.contains(field)
+            || self.doc_values.keyword_has_whitespace.contains(field)
     }
 
     /// Fast term query using the keyword column — O(N * string_compare).
@@ -4291,6 +4332,147 @@ mod filtered_docs_arc_tests {
             mem.filtered_docs_arc(&preds).is_none(),
             "array-valued predicate field must force the full-corpus fallback"
         );
+    }
+}
+
+#[cfg(test)]
+mod array_bailout_tests {
+    //! #332, pre-flush half — every columnar exact-value walk must decline an
+    //! array-valued field, and the sharded folds on top of them must not read
+    //! that decline as "no hits".
+    //!
+    //! The fused bool walk (`doc_values_bool_hits`) was missing the bail its
+    //! two siblings `doc_values_term_query` and `filtered_docs_arc_into`
+    //! already carry, so it compared the predicate against the single-valued
+    //! column, which keeps only the FIRST array element (see `push_field`): on
+    //! a `{"tags": ["red","blue"]}` document `term tags=red` hit and
+    //! `term tags=blue` silently missed.
+    //!
+    //! The sharded `doc_values_term_query` / `doc_values_terms_query` folds
+    //! then had the mirror-image defect: they conflated "this shard declines"
+    //! with "this shard has no hits", so in a memtable holding an array doc
+    //! and a scalar doc — hash-routed to different shards — the array shard's
+    //! decline was dropped and the answer came from the scalar shards alone.
+    use super::*;
+    use serde_json::json;
+
+    /// 64 docs, every one carrying the SAME two-element `tags` array — so
+    /// whichever shards the router picks, each non-empty shard has `tags`
+    /// in its `array_fields`.
+    fn mem_with_tag_arrays() -> ShardedFtsMemtable {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..64usize {
+            mem.insert(
+                format!("d{i}"),
+                &json!({ "tags": ["red", "blue"], "n": i as i64 }),
+                &schema,
+                i as u64,
+            );
+        }
+        mem
+    }
+
+    #[test]
+    fn fused_bool_term_bails_on_array_field() {
+        let mem = mem_with_tag_arrays();
+        for needle in ["red", "blue"] {
+            let preds = vec![MemBoolPred::Term {
+                field: "tags".to_string(),
+                value: needle.to_string(),
+            }];
+            assert!(
+                mem.doc_values_bool_query(&preds, 10).is_none(),
+                "term tags={needle} on an array field must force the source scan"
+            );
+        }
+    }
+
+    /// The Range arm shares the same lossy column and needs the same guard.
+    #[test]
+    fn fused_bool_range_bails_on_array_field() {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..64usize {
+            mem.insert(
+                format!("d{i}"),
+                &json!({ "n": [i as i64, (i as i64) + 1000] }),
+                &schema,
+                i as u64,
+            );
+        }
+        let preds = vec![MemBoolPred::Range {
+            field: "n".to_string(),
+            gte: Some(1000.0),
+            gt: None,
+            lte: None,
+            lt: None,
+        }];
+        assert!(
+            mem.doc_values_bool_query(&preds, 10).is_none(),
+            "range on an array field must force the source scan"
+        );
+    }
+
+    /// MIXED memtable: some docs carry `tags` as an array, others as a scalar.
+    /// Hash routing puts them in different shards, so the array shards decline
+    /// and the scalar shards answer. The sharded fold must decline for the
+    /// WHOLE memtable — answering from the scalar shards alone drops every
+    /// array document from the result and the caller never runs the
+    /// array-aware source scan that would have found them.
+    fn mem_with_mixed_tags() -> ShardedFtsMemtable {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..64usize {
+            let tags = if i % 2 == 0 {
+                json!(["red", "blue"])
+            } else {
+                json!("red")
+            };
+            mem.insert(format!("d{i}"), &json!({ "tags": tags }), &schema, i as u64);
+        }
+        mem
+    }
+
+    #[test]
+    fn sharded_term_query_declines_when_any_shard_is_array_valued() {
+        let mem = mem_with_mixed_tags();
+        assert!(
+            mem.doc_values_term_query("tags", "red", 100).is_none(),
+            "a lossy column in ANY shard must force the source scan"
+        );
+    }
+
+    #[test]
+    fn sharded_terms_query_declines_when_any_shard_is_array_valued() {
+        let mem = mem_with_mixed_tags();
+        let values = vec!["red".to_string(), "blue".to_string()];
+        assert!(
+            mem.doc_values_terms_query("tags", &values, 100).is_none(),
+            "a lossy column in ANY shard must force the source scan"
+        );
+    }
+
+    /// The guard must stay narrow: a field that is simply ABSENT from some
+    /// shards is not lossy, and forcing a scan for it would cost every sparse
+    /// field the columnar fast path.
+    #[test]
+    fn sharded_term_query_still_serves_a_sparse_scalar_field() {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..64usize {
+            // Only a quarter of the docs carry `status` at all.
+            let doc = if i % 4 == 0 {
+                json!({ "status": "ok" })
+            } else {
+                json!({ "other": i as i64 })
+            };
+            mem.insert(format!("d{i}"), &doc, &schema, i as u64);
+        }
+        let (_hits, total) = mem
+            .doc_values_term_query("status", "ok", 100)
+            .expect("a sparse but scalar field keeps the columnar path");
+        assert_eq!(total, 16);
     }
 }
 
