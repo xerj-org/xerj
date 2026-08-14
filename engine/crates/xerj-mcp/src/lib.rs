@@ -384,7 +384,10 @@ pub fn tool_specs() -> Value {
                 "Full-text / keyword / structured search over a XERJ index using \
                  the Elasticsearch query DSL. Proxies POST /{index}/_search. \
                  Provide `query` as an ES query object (e.g. {\"match\":{\"body\":\"rust\"}}, \
-                 {\"term\":{\"status\":\"open\"}}, or a bool clause). Omit `query` for match_all.",
+                 {\"term\":{\"status\":\"open\"}}, or a bool clause). Omit `query` for match_all. \
+                 This is LEXICAL only: `match` on a `semantic_text` field runs BM25 over its \
+                 inverted index and never touches the embeddings — use xerj_semantic_search \
+                 for meaning-based retrieval, or a `hybrid` query for both.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -407,7 +410,9 @@ pub fn tool_specs() -> Value {
                 "Meaning-based search over a `semantic_text` field. The query text is \
                  embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external \
                  API key), then matched by vector similarity. Proxies POST /{index}/_search \
-                 with {\"query\":{\"semantic\":{...}}}.",
+                 with {\"query\":{\"semantic\":{...}}}. This is the ONLY tool that uses a \
+                 semantic_text field's embeddings — xerj_search's `match` on the same field \
+                 silently returns BM25 results instead.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

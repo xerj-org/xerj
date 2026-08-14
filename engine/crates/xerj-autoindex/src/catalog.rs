@@ -114,6 +114,7 @@ pub fn catalog_mapping() -> Value {
 pub const GOTCHAS: &[&str] = &[
     "hybrid search: use {\"query\":{\"hybrid\":{\"queries\":[…]}}} ONLY — retriever.rrf is a silent stub and rank.rrf is ignored on this engine",
     "semantic_text fields are embedded server-side: the DEFAULT is the built-in LEXICAL feature-hash embedder (384-dim hybrid lexical+vector, NOT neural) — start the server with `--embed-mode neural` (built-in Candle BERT), `--embed-mode proxy`, or an ONNX-enabled build with `--embed-mode onnx-experimental --onnx-model … --onnx-tokenizer …` for neural semantics; ONNX runs only when this map shows a semantic_field, and its first real inference is confirmed by the server activation log",
+    "match/multi_match/query_string on a semantic_text field is BM25 over its lexical index, NOT vector search — only {\"semantic\":{…}} uses the embeddings (or {\"hybrid\":{…}} for both); the response carries an `_xerj.hints` entry coded lexical_on_semantic_text when you hit this",
     "semantic queries ignore _source filtering and return the ~8KB *_vector field in _source — strip client-side",
     "exact filters use TOP-LEVEL keyword fields (term on .keyword subfields returns 0 hits on this engine)",
     "all dates are normalized to RFC3339 UTC millis; mappings use strict_date_optional_time||epoch_millis",

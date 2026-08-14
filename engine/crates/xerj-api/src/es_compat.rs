@@ -7162,6 +7162,197 @@ fn unknown_field_hint(
     }))
 }
 
+/// Field names a full-text, BM25-scored clause searches.
+///
+/// Deliberately narrower than [`referenced_query_fields`]: only the analysed
+/// clause kinds, the ones whose whole point is "find me the text I mean". A
+/// `term`/`range`/`exists` against a `semantic_text` field is an ordinary
+/// filter and nobody expects embeddings out of it, so reporting those would
+/// be exactly the noise that gets a hint channel ignored wholesale.
+fn lexical_text_query_fields(q: &Value, out: &mut Vec<String>) {
+    /// `{"match": {"<field>": ...}}` — the field is the inner key.
+    const FIELD_KEYED: &[&str] = &[
+        "match",
+        "match_phrase",
+        "match_phrase_prefix",
+        "match_bool_prefix",
+    ];
+    /// `{"multi_match": {"fields": [...]}}` — the fields are listed inside.
+    const FIELD_LISTED: &[&str] = &[
+        "multi_match",
+        "combined_fields",
+        "query_string",
+        "simple_query_string",
+    ];
+    match q {
+        Value::Object(o) => {
+            for (k, v) in o {
+                if FIELD_KEYED.contains(&k.as_str()) {
+                    if let Value::Object(inner) = v {
+                        for f in inner.keys() {
+                            out.push(f.clone());
+                        }
+                    }
+                } else if FIELD_LISTED.contains(&k.as_str()) {
+                    if let Some(Value::Array(fs)) = v.get("fields") {
+                        for f in fs.iter().filter_map(Value::as_str) {
+                            // `body^3` — the boost is not part of the name.
+                            out.push(f.split('^').next().unwrap_or(f).to_string());
+                        }
+                    }
+                    if let Some(f) = v.get("default_field").and_then(Value::as_str) {
+                        out.push(f.split('^').next().unwrap_or(f).to_string());
+                    }
+                } else {
+                    lexical_text_query_fields(v, out);
+                }
+            }
+        }
+        Value::Array(a) => a.iter().for_each(|v| lexical_text_query_fields(v, out)),
+        _ => {}
+    }
+}
+
+/// Fields the caller is already searching by vector, in either spelling: the
+/// `semantic` query (which names the `semantic_text` field itself) and `knn`
+/// (which names the companion vector field). Collected from anywhere in the
+/// tree, because a `bool.should` or a `hybrid` sub-query is where the honest
+/// both-signals shapes actually put them.
+fn vector_searched_fields(q: &Value, out: &mut Vec<String>) {
+    match q {
+        Value::Object(o) => {
+            for (k, v) in o {
+                if k == "semantic" || k == "knn" {
+                    if let Some(f) = v.get("field").and_then(Value::as_str) {
+                        out.push(f.to_string());
+                    }
+                }
+                vector_searched_fields(v, out);
+            }
+        }
+        Value::Array(a) => a.iter().for_each(|v| vector_searched_fields(v, out)),
+        _ => {}
+    }
+}
+
+/// Hint for a full-text query against a `semantic_text` field.
+///
+/// A `semantic_text` field is indexed BOTH ways here: the text goes into the
+/// ordinary inverted index AND into a companion vector field. That is
+/// deliberate and tested (it is what `hybrid` fuses), so unlike the Lucene
+/// precedent this is not a type mismatch and must not throw — the lexical
+/// answer the caller got is a real answer. It is just not the answer they
+/// almost certainly meant: `match` never consults the embeddings, so a
+/// paraphrase sharing no words with the target is not found, after paying
+/// roughly 12x the indexing cost to make it findable (#363).
+///
+/// Adapted from Lucene's uniform "say what was indexed, say what the query
+/// assumed, name the remedy" shape — `DocValues.checkField`
+/// (lucene/core/src/java/org/apache/lucene/index/DocValues.java:206) even ends
+/// with "Re-index with correct docvalues type."; see also
+/// `FloatVectorValues.checkField` (…/index/FloatVectorValues.java:53) and
+/// `RangeFieldQuery.checkFieldInfo` (…/document/RangeFieldQuery.java:371).
+/// Lucene has no non-fatal advisory channel at all — every analogue throws —
+/// so only the message shape is borrowed; the delivery is this codebase's own
+/// `_xerj.hints`.
+///
+/// Fires regardless of hit count, for the same reason [`unknown_field_hint`]
+/// does: the failure mode here is a plausible wrong answer, not zero hits.
+fn semantic_text_lexical_hint(
+    index: &str,
+    body: &EsSearchBody,
+    schema: &xerj_common::types::Schema,
+) -> Option<Value> {
+    let query = body.query.as_ref()?;
+
+    // Most indexes have no `semantic_text` field at all, and this runs on every
+    // `_search`. One pass over the field list is cheaper than two walks of the
+    // query tree, so answer the common case before doing any work.
+    if !schema.fields.iter().any(|f| f.embedding.is_some()) {
+        return None;
+    }
+
+    // `hybrid` is the documented way to ask for both signals at once, and its
+    // lexical leg is supposed to be lexical. Nagging there would train callers
+    // to ignore the channel — taking the other hints down with it.
+    if query.get("hybrid").is_some() {
+        return None;
+    }
+
+    let mut referenced = Vec::new();
+    lexical_text_query_fields(query, &mut referenced);
+    if referenced.is_empty() {
+        return None;
+    }
+
+    // Everything the caller is already reaching for by vector. `knn` names the
+    // companion vector field rather than the `semantic_text` field, so both
+    // spellings have to be checked below.
+    let mut covered = Vec::new();
+    vector_searched_fields(query, &mut covered);
+    // Top-level ES 8.x `knn`, which sits beside `query` rather than inside it —
+    // `{"query": {"match": …}, "knn": {"field": "body_vector", …}}` is ordinary
+    // hybrid retrieval and must stay quiet. Accepts the single-object and the
+    // array-of-specs shapes ES takes.
+    if let Some(knn) = body.knn.as_ref() {
+        let specs: &[Value] = match knn {
+            Value::Array(a) => a,
+            other => std::slice::from_ref(other),
+        };
+        for f in specs
+            .iter()
+            .filter_map(|s| s.get("field").and_then(Value::as_str))
+        {
+            covered.push(f.to_string());
+        }
+    }
+
+    let semantic: Vec<String> = referenced
+        .iter()
+        .filter(|f| {
+            let Some(emb) = schema.field(f).and_then(|fc| fc.embedding.as_ref()) else {
+                return false;
+            };
+            // Same target derivation the executor uses when it resolves a
+            // `semantic` query onto the companion vector field.
+            let target = emb
+                .target_field
+                .clone()
+                .unwrap_or_else(|| format!("{f}_vector"));
+            !covered.iter().any(|c| c == *f || *c == target)
+        })
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let first = semantic.first()?;
+
+    let names = semantic
+        .iter()
+        .map(|f| format!("`{f}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(json!({
+        "hints": [{
+            "code": "lexical_on_semantic_text",
+            "reason": format!(
+                "{names} {} `semantic_text` in `{index}`, and this query scored {} with BM25 \
+                 over the lexical index — the embeddings were not used, so a paraphrase that \
+                 shares no words with the target will not be found. Use the `semantic` query \
+                 for vector search, or `hybrid` to fuse both signals in one request.",
+                if semantic.len() == 1 { "is" } else { "are" },
+                if semantic.len() == 1 { "it" } else { "them" },
+            ),
+            "try": {
+                "request": format!("POST /{index}/_search"),
+                "body": {
+                    "query": {"semantic": {"field": first.clone(), "query": "<your text>", "k": 10}},
+                },
+            },
+        }],
+    }))
+}
+
 /// `term`/`terms` clauses in a query, as (field, value) pairs.
 ///
 /// Only exact-match clauses: a `match` against text is analysed and a zero
@@ -7653,6 +7844,173 @@ mod search_response_hint_tests {
             .expect("hints array present");
         assert_eq!(hints[0]["candidates"], json!([]));
         assert!(hints[0]["reason"].as_str().unwrap().contains("ax-*"));
+    }
+
+    // ── `lexical_on_semantic_text` (#363) ────────────────────────────────────
+    //
+    // The trap: `match` on a `semantic_text` field runs BM25 and returns
+    // plausible lexical hits, giving none of the semantics the caller paid ~12x
+    // the indexing time for. The lexical index is deliberate (it is what
+    // `hybrid` fuses), so the fix is the loud message, not a behaviour change —
+    // which puts the whole burden on the suppression cases below.
+
+    /// `ctx` mapped `semantic_text` (text + an `EmbeddingConfig`, exactly what
+    /// `es_type == "semantic_text"` builds), `title` plain text.
+    fn semantic_text_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("ctx", FieldType::Text).with_embedding(
+                xerj_common::types::EmbeddingConfig {
+                    endpoint: None,
+                    model: None,
+                    target_field: Some("ctx_vector".to_string()),
+                },
+            ));
+        schema
+            .fields
+            .push(FieldConfig::new("title", FieldType::Text));
+        schema
+    }
+
+    fn hint_for(body: Value) -> Option<Value> {
+        let body: EsSearchBody = serde_json::from_value(body).expect("valid search body");
+        semantic_text_lexical_hint("sem", &body, &semantic_text_schema())
+    }
+
+    #[test]
+    fn match_on_a_semantic_text_field_is_reported() {
+        let hint = hint_for(json!({"query": {"match": {"ctx": "prune redundant edges"}}}))
+            .expect("hint for match on semantic_text");
+        let h = &hint["hints"][0];
+        assert_eq!(h["code"], "lexical_on_semantic_text");
+        let reason = h["reason"].as_str().unwrap();
+        assert!(reason.contains("`ctx`"), "must name the field: {reason}");
+        assert!(reason.contains("BM25"), "must name what ran: {reason}");
+        // The remedy, not just the diagnosis — Lucene's DocValues.checkField
+        // ends with "Re-index with correct docvalues type." for the same reason.
+        assert!(
+            reason.contains("semantic"),
+            "must name the remedy: {reason}"
+        );
+        assert!(reason.contains("hybrid"), "must name hybrid too: {reason}");
+        assert_eq!(h["try"]["body"]["query"]["semantic"]["field"], "ctx");
+    }
+
+    /// `multi_match`, `query_string` and `match_phrase` are the shapes #363
+    /// flagged as untested but expected to share the trap. They do.
+    #[test]
+    fn other_full_text_clause_shapes_are_reported_too() {
+        for body in [
+            json!({"query": {"match_phrase": {"ctx": "prune edges"}}}),
+            json!({"query": {"multi_match": {"query": "x", "fields": ["title", "ctx^2"]}}}),
+            json!({"query": {"query_string": {"query": "x", "default_field": "ctx"}}}),
+            json!({"query": {"bool": {"must": [{"match": {"ctx": "x"}}]}}}),
+        ] {
+            assert!(
+                hint_for(body.clone()).is_some(),
+                "expected a hint for {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn match_on_a_plain_text_field_is_not_reported() {
+        assert!(hint_for(json!({"query": {"match": {"title": "x"}}})).is_none());
+    }
+
+    /// A filter is not a full-text query: nobody expects embeddings out of
+    /// `exists`/`term`/`range`, and hinting there is pure noise.
+    #[test]
+    fn filter_clauses_on_a_semantic_text_field_are_not_reported() {
+        for body in [
+            json!({"query": {"exists": {"field": "ctx"}}}),
+            json!({"query": {"term": {"ctx": "x"}}}),
+        ] {
+            assert!(hint_for(body.clone()).is_none(), "unexpected hint: {body}");
+        }
+    }
+
+    #[test]
+    fn a_semantic_query_is_not_reported() {
+        assert!(
+            hint_for(json!({"query": {"semantic": {"field": "ctx", "query": "x", "k": 10}}}))
+                .is_none()
+        );
+    }
+
+    /// The shape most likely to nag on correct usage: an ES-style hybrid, where
+    /// the lexical leg sits in `bool.should` and the vector leg is the
+    /// top-level `knn` naming the COMPANION field (`ctx_vector`), not `ctx`.
+    #[test]
+    fn match_alongside_a_top_level_knn_on_the_same_field_is_not_reported() {
+        assert!(hint_for(json!({
+            "query": {"bool": {"should": [{"match": {"ctx": "x"}}]}},
+            "knn": {"field": "ctx_vector", "query_vector": [0.1, 0.2], "k": 10},
+        }))
+        .is_none());
+        // Array-of-specs spelling of the same thing.
+        assert!(hint_for(json!({
+            "query": {"bool": {"should": [{"match": {"ctx": "x"}}]}},
+            "knn": [{"field": "ctx_vector", "query_vector": [0.1, 0.2], "k": 10}],
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn a_hybrid_wrapper_is_not_reported() {
+        assert!(hint_for(json!({
+            "query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": "x"}}},
+                {"query": {"semantic": {"field": "ctx", "query": "x"}}},
+            ]}}
+        }))
+        .is_none());
+    }
+
+    /// End to end over the wire, and — the load-bearing half — the hits are
+    /// untouched. This fix must be observably behaviour-preserving.
+    #[tokio::test]
+    async fn semantic_text_hint_rides_along_without_changing_the_hits() {
+        let state = test_state();
+        state
+            .engine
+            .create_index("sem-hint", semantic_text_schema())
+            .unwrap();
+        let idx = state.engine.get_index("sem-hint").unwrap();
+        idx.index_document(
+            Some("1".into()),
+            json!({"ctx": "quick brown fox", "title": "a"}),
+        )
+        .await
+        .unwrap();
+        idx.index_document(Some("2".into()), json!({"ctx": "lazy dog", "title": "b"}))
+            .await
+            .unwrap();
+        idx.refresh().await.unwrap();
+        let router = crate::router::build_es_compat_router(state);
+
+        let (json, _) = run_search(
+            &router,
+            "sem-hint",
+            json!({"query": {"match": {"ctx": "fox"}}}),
+        )
+        .await;
+        assert_eq!(
+            json["hits"]["hits"].as_array().map(Vec::len),
+            Some(1),
+            "lexical hits must be unchanged: {json}"
+        );
+        assert_eq!(json["hits"]["hits"][0]["_id"], "1");
+        let hints = json["_xerj"]["hints"]
+            .as_array()
+            .expect("hints array present");
+        assert!(
+            hints
+                .iter()
+                .any(|h| h["code"] == "lexical_on_semantic_text"),
+            "expected the semantic_text hint: {json}"
+        );
     }
 }
 
@@ -12930,6 +13288,16 @@ async fn search_impl(
         if let Ok(idx) = state.engine.get_index(first) {
             let schema = idx.schema().await;
             if let Some(h) = unknown_field_hint(&index, &body, &schema) {
+                if let Some(Value::Array(items)) = h.get("hints") {
+                    all_hints.extend(items.iter().cloned());
+                }
+            }
+            // Same shape of silence, one level subtler: the field exists, the
+            // query works, and the answer is lexical when the caller paid the
+            // embedding cost expecting semantics. Also hit-count independent —
+            // BM25 on a semantic_text field returns plenty of plausible-looking
+            // results, which is exactly what makes it undebuggable (#363).
+            if let Some(h) = semantic_text_lexical_hint(&index, &body, &schema) {
                 if let Some(Value::Array(items)) = h.get("hints") {
                     all_hints.extend(items.iter().cloned());
                 }
