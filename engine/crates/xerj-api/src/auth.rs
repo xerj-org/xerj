@@ -176,11 +176,85 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok());
 
-    if is_authorized(&state, auth_header) {
-        next.run(req).await
-    } else {
-        unauthorized_response(&state.config.server.data_dir)
+    // Resolve the identity rather than a bool (issue #329): the audit log has
+    // to name a subject, and this is the one layer every request passes
+    // through with a principal in hand. `authz_middleware` is not — it returns
+    // early for `Target::Exempt` and for superusers, so a superuser write
+    // would go unattributed and unaudited if the hook lived there.
+    let principal = authenticate(&state, auth_header);
+    if matches!(principal, Principal::Denied) {
+        return unauthorized_response(&state.config.server.data_dir);
     }
+    audited(&state, &principal, req, next).await
+}
+
+/// Run the request with its subject attached, and leave one audit entry.
+///
+/// **One entry per request, never per document**, and that is the whole reason
+/// the hook is here rather than at the dozen write handlers. Lucene's
+/// write-path event listener makes the same call: its events are per
+/// merge-on-full-flush, not per document
+/// (`IndexWriterEventListener.java:40`, `:48`), it is installed once from
+/// config with a no-op default so the disabled path costs nothing
+/// (`IndexWriterConfig.java:573`, `IndexWriterEventListener.java:24`), and the
+/// sibling `InfoStream` convention is a cheap `isEnabled` check before any
+/// string is built (`InfoStream.java:42`, `:51`, called that way at
+/// `MergeScheduler.java:93` and `MergePolicy.java:810`). A per-document append
+/// would serialise a 10 000-doc bulk behind 10 000 lock-held `write(2)` pairs
+/// and overrun the 4096-entry ring 2.5× inside that single request, replacing
+/// the history the log exists for with a few-seconds rolling window.
+///
+/// What is recorded:
+/// - every request that changes data, with `ok` or `error` from its status;
+/// - every request authorization *refused*, read or write, as `denied` — the
+///   half that answers "who tried and was told no";
+/// - nothing else. A successful read leaves no entry: `_search` audits itself
+///   from the handler, where the indices it actually resolved are known, and
+///   auditing `GET /_audit/_search` would let reading the log evict it.
+///
+/// A 401 never gets here, deliberately. An entry for an unauthenticated caller
+/// would name no subject and would hand anyone who can reach the port a way to
+/// push real evidence out of the ring.
+async fn audited(state: &AppState, principal: &Principal, req: Request, next: Next) -> Response {
+    let cfg = &state.config.audit;
+    // The `isEnabled` gate: ask before allocating anything.
+    let op = if cfg.record_writes || cfg.record_denials {
+        crate::authz::request_op(req.method(), req.uri().path())
+    } else {
+        None
+    };
+    let subject = principal.label().to_string();
+    let (response, detail) = xerj_engine::audit::attributed(subject.clone(), next.run(req)).await;
+
+    let Some(op) = op else { return response };
+    let status = response.status();
+    let denied = status == StatusCode::FORBIDDEN;
+    let record = if denied {
+        cfg.record_denials
+    } else {
+        op.mutates && cfg.record_writes
+    };
+    if !record {
+        return response;
+    }
+    let outcome = if denied {
+        "denied"
+    } else if status.is_success() {
+        "ok"
+    } else {
+        "error"
+    };
+    // `detail` is whatever the handler knew and the path did not — a bulk's
+    // item count and the indices its action lines actually named.
+    let note = match detail {
+        Some(detail) => format!("status={} {detail}", status.as_u16()),
+        None => format!("status={}", status.as_u16()),
+    };
+    state
+        .engine
+        .audit
+        .append(&op.op, &subject, &op.resource, outcome, &note);
+    response
 }
 
 /// The shared authorization decision, enforced identically by the HTTP

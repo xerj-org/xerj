@@ -150,6 +150,25 @@ impl Role {
 /// Unknown names map to **nothing** — an unrecognized privilege grants no
 /// access rather than being waved through, so a typo (or an ES privilege xerj
 /// has not implemented) fails closed.
+///
+/// # `read_audit` is not an ES index privilege
+///
+/// It is accepted here anyway, and that is a deliberate shortcut worth naming
+/// (issue #329). Gating `/_audit/*` on [`Privilege::AuditRead`] is worth
+/// nothing if no key can ever hold it, and this parser is the **only** path
+/// from a wire request to a `Privilege`: the `cluster` block of a
+/// `role_descriptors` entry is ignored (see
+/// [`roles_from_role_descriptors`]), and the named [`RoleStore`] gates
+/// nothing. Shipping the gate without this arm would have made `/_audit`
+/// admin-key-only and left the seeded `auditor` role decorative.
+///
+/// The honest cost: ES spells this as a *cluster* privilege, so a
+/// `role_descriptors` entry written for ES will not carry it and one written
+/// for xerj puts it where ES would not. The index patterns still apply —
+/// `/_audit` authorizes against the resource name `_audit`, so a grant needs
+/// `"names": ["*"]` or `["_audit"]` to reach it. Parsing minimal
+/// `cluster: ["read_audit"]` is the correct fix and is deferred with the rest
+/// of cluster-privilege enforcement.
 fn es_index_privilege(name: &str) -> &'static [Privilege] {
     use Privilege::*;
     match name {
@@ -159,6 +178,10 @@ fn es_index_privilege(name: &str) -> &'static [Privilege] {
         "manage" | "create_index" | "delete_index" | "manage_ilm" | "manage_follow_index" => {
             &[AdminIndex]
         }
+        // Round-trips: `api_key_role_descriptors_json` already spells
+        // `AuditRead` back out as `read_audit`, so a key minted with it lists
+        // itself unchanged.
+        "read_audit" => &[AuditRead],
         _ => &[],
     }
 }

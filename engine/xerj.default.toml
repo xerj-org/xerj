@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 54 of XERJ's 105 user-facing settings to their
+# This file sets 58 of XERJ's 109 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -120,6 +120,41 @@ admin_api_key = ""
 # endpoint — without the admin key. Hand this to Prometheus so the scraper has
 # a low-privilege credential that can read metrics but not index data.
 metrics_token = ""
+
+# ── Audit log (4 settings) ────────────────────────────────────────────────────
+
+[audit]
+
+# Entries kept in the hash-chained audit log at <data_dir>/audit.jsonl.
+# This is a ROLLING WINDOW, NOT AN ARCHIVE: entry 4097 drops entry 1, in
+# memory and on disk. At ~256 B/entry the default costs ~1 MB. A node doing
+# single-document writes fills the default window in seconds — if you must
+# keep audit history, raise this AND ship the file off the node.
+# Read it with `GET /_audit/_search`; check the chain with `GET /_audit/_verify`.
+# Both need the `read_audit` privilege (or the admin key).
+capacity = 4096
+
+# Record data-changing requests: index / update / delete / bulk, index create /
+# delete / mapping, _delete_by_query, _update_by_query, and the /_memory and
+# /_graph writes.
+# ONE ENTRY PER REQUEST, never per document — a 10,000-document bulk is one
+# entry whose note carries the item count and the indices it touched.
+# The cost is one lock-held write(2) per write request. Turn it off on an
+# ingest-dominated node that only wants the security events.
+record_writes = true
+
+# Record requests that authorization refused, with outcome = "denied".
+# This is what answers "who tried and was told no". Only authenticated callers
+# are recorded: a request rejected at authentication (401) never reaches the
+# router and leaves no entry, so nobody who can merely reach the port can push
+# real evidence out of the ring.
+record_denials = true
+
+# fsync the audit log every N entries; 0 (default) never does.
+# The log has always traded the per-entry barrier for latency: it survives a
+# process restart, including kill -9, but a machine power cut can lose the
+# unflushed tail. Set this when that tail is evidence you cannot lose.
+sync_every = 0
 
 # ── TLS (4 settings) ──────────────────────────────────────────────────────────
 

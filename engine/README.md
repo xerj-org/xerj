@@ -53,7 +53,7 @@ HTTP wire payloads, single-node, tmpfs data dir, both freshly started
 | Per-batch (5K) bulk p99 | **34.8 ms** | 80.3 ms | ES 2.3× |
 | Data loss on restart | 0% | 0% | tied |
 | GC pauses | 20–40 ms (JVM) | **0** (no GC) | **xerj** |
-| Config surface | 3,000+ knobs | **105**, all optional | **xerj** |
+| Config surface | 3,000+ knobs | **109**, all optional | **xerj** |
 
 xerj wins on every operational and read-path metric. ES still wins
 bulk-ingest throughput on warm Lucene `IndexWriter` (perf-backlog item
@@ -86,7 +86,7 @@ The resulting binary is at `target/release/xerj`.
 ## Configuration
 
 See [`xerj.default.toml`](xerj.default.toml) for the commonly-tuned settings, and
-[`crates/xerj-common/src/config.rs`](crates/xerj-common/src/config.rs) for all 105
+[`crates/xerj-common/src/config.rs`](crates/xerj-common/src/config.rs) for all 109
 — every one of them optional.
 
 The minimal config to get started:

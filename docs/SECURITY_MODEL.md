@@ -708,22 +708,42 @@ it is on a schedule this document can promise.
   `/_security/role*` and `/_security/privilege*` store data and gate nothing;
   the role responses say so with `"enforced": false`
   (`native.rs:900-949`, `es_compat.rs:25628-25631`).
-- **Four of the seven privileges are never checked.** `SnapshotCreate`,
-  `SnapshotRestore`, `SecurityAdmin` and `AuditRead` exist only as error labels
-  (`authz.rs:242-251`).
-- **The audit endpoints are not privilege-gated.** `/_audit/_search` and
-  `/_audit/_verify` (`router.rs:124-125`) are cluster-classified reads, so any
-  authenticated principal that reaches the router passes; `AuditRead` is not
-  consulted.
-- **The audit log covers very little.** It is a hash-chained, restart-surviving
-  log (`audit.rs`, issue #201) of the last 4096 entries in
-  `<data_dir>/audit.jsonl` — but the only callers are `_search` and the three
-  `_security/api_key` operations. Indexing and deletion are **not** audited, so
-  a missing entry is not evidence that a write did not happen. The file is not
-  `fsync`ed per entry (a search would pay the barrier); it survives a process
-  restart, not a power cut. Anyone who can write the file can rewrite the whole
-  chain, seed line included — tamper-*evidence* requires pinning a known-good
-  head externally.
+- **Three of the seven privileges are never checked.** `SnapshotCreate`,
+  `SnapshotRestore` and `SecurityAdmin` exist only as error labels
+  (`authz.rs:242-251`). `AuditRead` is enforced on `/_audit/*` as of #329.
+- **`read_audit` is granted as an index privilege, not a cluster one.** ES
+  spells it `cluster: ["read_audit"]`; xerj parses it out of an `indices` entry
+  (`rbac.rs::es_index_privilege`), because that parser is the only path from a
+  wire request to a `Privilege` — the `cluster` block is still ignored. A grant
+  therefore needs `"names": ["*"]` or `["_audit"]` to reach the endpoint.
+- **`/_audit/*` is readable by any `Unscoped` key.** The gate is
+  `Principal::allows_index("_audit", AuditRead)`, and `Unscoped` answers `true`
+  for every non-reserved name (`authz.rs:94-101`) — the same
+  superuser-equivalent reach it keeps everywhere else, kept here so an operator
+  dashboard scraping `/_audit` with a minted key does not break. A `Scoped` key
+  needs a grant that carries `read_audit`.
+- **The audit log is a rolling window, not an archive.** It is a hash-chained,
+  restart-surviving log (`audit.rs`, issues #201 and #329) of the last
+  `audit.capacity` entries (4096 by default) in `<data_dir>/audit.jsonl`.
+  Coverage is now every data-changing request, every refused request, searches,
+  and the three `_security/api_key` operations — but at **one entry per
+  request**, so a bulk of 10 000 documents is one entry naming the batch size
+  and the indices touched, not 10 000 entries. A node ingesting single-document
+  writes fills 4096 entries in seconds; a deployment that must keep audit
+  history raises `audit.capacity` and ships the file off the node. Requests
+  refused at *authentication* (401) leave no entry, deliberately — otherwise
+  anyone who can reach the port could push real evidence out of the ring. The
+  file is not `fsync`ed per entry unless `audit.sync_every` is set; by default
+  it survives a process restart, not a power cut. Anyone who can write the file
+  can rewrite the whole chain, seed line included — tamper-*evidence* requires
+  pinning a known-good head externally.
+- **Only the two HTTP routers are audited.** The write hook lives in
+  `auth::auth_middleware`, so anything that reaches the engine without passing
+  through it leaves no entry: the gRPC listener (`grpc.rs`, which shares
+  `is_authorized` but not the hook), the Console API peer router (which keeps
+  its own separate `.xerj_audit` login trail), `xerj index` and any embedder
+  using `Engine` directly. An absent entry is still not proof a write did not
+  happen — it is proof no *audited HTTP request* made it.
 - **`names: ["*"]` reaches the reserved namespace.** This is intended and pinned
   by a test, but it means one careless grant hands over every brain
   (`rbac.rs:72-98`).

@@ -16,7 +16,7 @@ use uuid::Uuid;
 use xerj_common::types::{FieldConfig, IndexName, Schema};
 use xerj_query::parse_request;
 
-use xerj_engine::{EnrichTable, FieldEncodingInfo};
+use xerj_engine::{rbac::Privilege, EnrichTable, FieldEncodingInfo};
 
 use crate::{
     error::{native_error, ApiError},
@@ -1000,7 +1000,56 @@ pub async fn admin_slow_queries_set_threshold(
 // v0.9 9-P4 — Audit log admin
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn audit_search(State(state): State<AppState>) -> impl IntoResponse {
+/// The resource name `/_audit/*` authorizes against. Not an index; it is the
+/// name an operator writes in a `role_descriptors` grant to hand out
+/// `read_audit`.
+const AUDIT_RESOURCE: &str = "_audit";
+
+/// Gate `/_audit/*` on [`Privilege::AuditRead`] (issue #329).
+///
+/// Before this, both handlers took `State` and nothing else: a key scoped to
+/// `read` on one index got HTTP 200 on `/_audit/_search` and read every entry
+/// in the log, security events included. `AuditRead` existed and was never
+/// consulted anywhere.
+///
+/// Who passes is a decision, not a discovery, so it is written down here:
+/// [`Principal::allows_index`] is the single authorization predicate and it
+/// answers `true` for `Superuser` and for `Unscoped` on any non-reserved name.
+/// That is intended. An `Unscoped` key — one minted without `role_descriptors`
+/// — keeps superuser-equivalent reach over the general surface by design
+/// (`authz.rs`, `Principal::Unscoped`), and it is exactly the credential an
+/// operator dashboard scraping `/_audit` holds; demoting it here would break
+/// those with no migration note and no error that explains itself. Narrowing
+/// `Unscoped` is a change to `Unscoped`, not something to smuggle in through
+/// one endpoint. A `Scoped` key passes only on a grant that carries
+/// `read_audit` — the seeded `auditor` role, or
+/// `{"names":["*"],"privileges":["read_audit"]}` on a minted key.
+// Same shape and same reason as every decision function in `crate::authz`
+// (see its module-level allow): the `Err` **is** the ready-to-send 403, and
+// boxing it would add an allocation on the deny path to satisfy a lint aimed
+// at hot `Ok` paths.
+#[allow(clippy::result_large_err)]
+fn authorize_audit_read(
+    principal: &crate::auth::Principal,
+) -> Result<(), axum::response::Response> {
+    if principal.allows_index(AUDIT_RESOURCE, Privilege::AuditRead) {
+        Ok(())
+    } else {
+        Err(crate::authz::forbidden(
+            principal,
+            AUDIT_RESOURCE,
+            Privilege::AuditRead,
+        ))
+    }
+}
+
+pub async fn audit_search(
+    State(state): State<AppState>,
+    principal: crate::auth::Principal,
+) -> impl IntoResponse {
+    if let Err(denied) = authorize_audit_read(&principal) {
+        return denied;
+    }
     let snap = state.engine.audit.snapshot();
     let body = serde_json::json!({
         "next_seq": state.engine.audit.next_seq(),
@@ -1009,7 +1058,13 @@ pub async fn audit_search(State(state): State<AppState>) -> impl IntoResponse {
     Json(body).into_response()
 }
 
-pub async fn audit_verify(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn audit_verify(
+    State(state): State<AppState>,
+    principal: crate::auth::Principal,
+) -> impl IntoResponse {
+    if let Err(denied) = authorize_audit_read(&principal) {
+        return denied;
+    }
     match state.engine.audit.verify() {
         Ok(()) => Json(serde_json::json!({ "ok": true })).into_response(),
         Err((seq, expected, actual)) => {

@@ -452,15 +452,27 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
             " │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)"
         );
     }
-    // Issue #201 made the hash chain durable, so "request tracing only" is no
-    // longer the honest line — but the coverage is still narrow (searches and
-    // the `_security/api_key` operations, not every write) and the endpoints
-    // are still not privilege-gated. Say exactly that.
+    // Issue #201 made the hash chain durable and #329 gave it writes, a
+    // subject and a gate — so the two ⚠ lines this printed are no longer the
+    // honest ones. What is still worth an operator's attention is retention:
+    // the ring is a rolling window, and auditing writes shortens it.
+    if cfg.audit.record_writes {
+        println!(
+            " │ ✓  Audit:  hash-chained log of writes, searches, denials + API-key ops in \
+             <data_dir>/audit.jsonl"
+        );
+    } else {
+        println!(
+            " │ ⚠  Audit:  hash-chained log of searches, denials + API-key ops in \
+             <data_dir>/audit.jsonl"
+        );
+        println!(" │           (writes are NOT audited — audit.record_writes = false)");
+    }
     println!(
-        " │ ⚠  Audit:  hash-chained log of searches + API-key ops, kept in \
-         <data_dir>/audit.jsonl"
+        " │           (last {} entries — a rolling window, not an archive; \
+         /_audit/* needs read_audit)",
+        cfg.audit.capacity
     );
-    println!(" │           (last 4096 entries; /_audit/* is not privilege-gated)");
     println!(" │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now");
     println!(" └────────────────────────────────────────────────────────────────");
     println!();

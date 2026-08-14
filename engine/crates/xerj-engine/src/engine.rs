@@ -709,6 +709,14 @@ impl Engine {
         // rather than left to assume it took effect (#240 §4).
         crate::pools::init(&config.engine);
 
+        // Issue #329: read the audit knobs out before `config` is moved into
+        // the struct below. The ring size stopped being a constant when writes
+        // started being audited — 4096 entries is a few seconds of an ingest
+        // node, and calling that "retention" would be a lie the operator could
+        // not fix. `Config::validate` refuses a capacity of 0.
+        let audit_capacity = config.audit.capacity;
+        let audit_sync_every = config.audit.sync_every;
+
         let engine = Self {
             config: Arc::new(config),
             indices: Arc::new(DashMap::new()),
@@ -762,12 +770,9 @@ impl Engine {
             // rewrites audit.jsonl from its ring during construction, so keep
             // even that non-index store memory-only until a supported restart.
             audit: if storage_available {
-                crate::audit::AuditLog::open(
-                    crate::audit::DEFAULT_AUDIT_CAPACITY,
-                    data_dir.join("audit.jsonl"),
-                )
+                crate::audit::AuditLog::open(audit_capacity, data_dir.join("audit.jsonl"))
             } else {
-                crate::audit::AuditLog::new(crate::audit::DEFAULT_AUDIT_CAPACITY)
+                crate::audit::AuditLog::new(audit_capacity)
             },
             roles: crate::rbac::RoleStore::new(),
             // Single-node default: 1 shard, "local" owner. Writes never
@@ -781,6 +786,7 @@ impl Engine {
             cluster_state_write: Arc::new(parking_lot::Mutex::new(())),
             cluster_state_boot: Arc::new(cluster_state_status),
         };
+        engine.audit.set_sync_every(audit_sync_every);
 
         // A rejected cluster-state document means this binary cannot know the
         // storage topology that document describes. Do not open *any* index in

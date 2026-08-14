@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **105 settings** versus
+//! Configuration is intentionally minimal: **109 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -56,6 +56,8 @@ pub struct Config {
     pub server: ServerConfig,
     /// Authentication — 3 settings.
     pub auth: AuthConfig,
+    /// Audit log retention, coverage and durability — 4 settings.
+    pub audit: AuditConfig,
     /// CORS (cross-origin browser access) — 2 settings. Default restrictive.
     pub cors: CorsConfig,
     /// TLS — 4 settings.
@@ -94,7 +96,7 @@ pub struct Config {
     pub lifecycle: LifecycleConfig,
 }
 
-// 20 sub-configs, 105 leaf settings in total. Do not maintain that sum by hand
+// 21 sub-configs, 109 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -272,6 +274,17 @@ impl Config {
             ));
         }
 
+        // Audit: a zero-capacity ring is a disabled audit log wearing an
+        // enabled one's name — every append would be dropped on the floor
+        // while `/_audit/_verify` still answered `{"ok": true}` over nothing.
+        // Refuse it and make the operator write the disable they meant.
+        if self.audit.capacity == 0 {
+            return Err(XerjError::config(
+                "audit.capacity must be > 0 (set audit.record_writes = false to stop \
+                 auditing writes; there is no supported way to disable the log entirely)",
+            ));
+        }
+
         self.engine.validate()?;
 
         // Cluster: fail closed rather than expose an unauthenticated Raft
@@ -408,7 +421,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (105 user-facing settings total; counted by
+// Sub-configs  (109 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -569,6 +582,62 @@ impl Default for AuthConfig {
             enabled: true,
             admin_api_key: String::new(),
             metrics_token: String::new(),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Audit-log settings (issue #329).
+///
+/// **4 settings.**
+///
+/// The log is a hash-chained ring in `<data_dir>/audit.jsonl`. It is a
+/// **rolling window, not an archive**: nothing here retains an entry the ring
+/// has dropped, so a deployment that must keep audit history ships the file
+/// off the node. These knobs exist because auditing writes made the window's
+/// size and the append's cost operator-visible decisions rather than
+/// constants.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AuditConfig {
+    /// Entries retained in the ring, in memory and on disk (default: `4096`).
+    ///
+    /// At ~256 B/entry the default is ~1 MB. Rejected at `0` — a zero-capacity
+    /// audit log is a silently disabled one.
+    pub capacity: usize,
+    /// Record data-changing requests: index / update / delete / bulk, index
+    /// create / delete / mapping, `_delete_by_query`, `_update_by_query`, and
+    /// the `/_memory` + `/_graph` writes (default: `true`).
+    ///
+    /// One entry per **request**, never per document — a bulk of 10 000 docs
+    /// is one entry whose note carries the item count and the indices touched.
+    /// Turn it off on an ingest-dominated node that only wants the security
+    /// events: the cost is one lock-held `write(2)` per write request.
+    pub record_writes: bool,
+    /// Record requests that authorization refused, with `outcome = "denied"`
+    /// (default: `true`).
+    ///
+    /// This is the half that answers "who tried and was refused". Only
+    /// *authenticated* callers are recorded: a request rejected at
+    /// authentication (401) never reaches the router and leaves no entry, on
+    /// purpose — otherwise anyone who can reach the port could evict the ring.
+    pub record_denials: bool,
+    /// `fsync` the log every N entries; `0` (default) never does.
+    ///
+    /// The log has always traded the per-entry barrier for latency: it
+    /// survives a process restart, including `kill -9`, but a machine power
+    /// cut can lose the unflushed tail. Set this when the tail is evidence.
+    pub sync_every: u64,
+}
+
+impl Default for AuditConfig {
+    fn default() -> Self {
+        Self {
+            capacity: 4096,
+            record_writes: true,
+            record_denials: true,
+            sync_every: 0,
         }
     }
 }
@@ -2427,6 +2496,7 @@ mod tests {
     const SETTINGS_BY_SECTION: &[(&str, usize)] = &[
         ("server", 7),
         ("auth", 3),
+        ("audit", 4),
         ("cors", 2),
         ("tls", 4),
         ("storage", 10),
@@ -2487,7 +2557,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 105,
+            total, 109,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

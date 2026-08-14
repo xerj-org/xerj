@@ -4,11 +4,27 @@
 //! that's queryable via `GET /_audit/_search`. Each entry includes a hash
 //! chain over the previous entry so any tampering is detectable on verify.
 //!
-//! **Coverage, stated honestly:** the callers today are `_search` and the
-//! three `_security/api_key` operations (create / get / invalidate). The
-//! original module doc claimed "every search / index / delete / admin op",
-//! which was never true — indexing and deletion are not audited. Do not read
-//! an absent entry as evidence that a write did not happen.
+//! **Coverage, stated honestly (issue #329):** searches and the three
+//! `_security/api_key` operations audit themselves from their handlers. Every
+//! other data-changing request — index, update, delete, bulk, index create /
+//! delete / mapping, `_delete_by_query`, `_update_by_query`, and the
+//! `/_memory` and `/_graph` writes — is audited by
+//! `xerj_api::auth::auth_middleware`, at **one entry per request, never per
+//! document**, and refused requests are recorded with `outcome = "denied"`.
+//! Three things this still does not claim: a request that never reached the
+//! router (a 401) leaves no entry, deliberately — an unauthenticated caller
+//! must not be able to evict evidence by flooding the ring; the ring is a
+//! rolling window, not an archive (see [`DEFAULT_AUDIT_CAPACITY`]); and only
+//! the two HTTP routers carry the hook, so the gRPC listener, the Console peer
+//! router, `xerj index` and any direct [`crate::Engine`] embedder write without
+//! one. An absent entry is proof that no audited HTTP request happened, not
+//! that no write did.
+//!
+//! **Attribution.** Entries carry the authenticated subject, taken from the
+//! per-request scope [`attributed`] installs. Before #329 the one audited
+//! data-path op passed the literal `"anonymous"`, which said the opposite of
+//! the truth on a key-protected node; an append with no request scope now says
+//! [`UNATTRIBUTED`], which means "not made by a request", not "unauthenticated".
 //!
 //! WORM semantics:
 //! - Append-only (no API to mutate or remove past entries).
@@ -66,6 +82,12 @@ use tracing::warn;
 
 /// Default ring buffer capacity.  Each entry is < 256 bytes so the
 /// total footprint at capacity is ~ 1 MB.
+///
+/// This is a **rolling window, not an archive**, and once writes are audited
+/// (issue #329) the window is short on a busy node: 4096 single-document PUTs
+/// fill it. Operators who need more history raise `audit.capacity` and ship
+/// `<data_dir>/audit.jsonl` off the node; nothing here retains an entry the
+/// ring has dropped.
 pub const DEFAULT_AUDIT_CAPACITY: usize = 4096;
 
 /// Rewrite the on-disk log once it passes this size. Sized so the rewrite is
@@ -78,6 +100,80 @@ fn genesis() -> String {
     "0".repeat(64)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-request scope (issue #329)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The subject recorded by an [`AuditLog::append`] made outside a request.
+///
+/// Deliberately **not** `"anonymous"`. The literal `"anonymous"` was what the
+/// search path passed before #329, and on an auth-enforced node it was simply
+/// false: every entry claimed the caller was unauthenticated while the request
+/// had in fact presented the admin key. An append with no scope installed is
+/// engine-internal work, a test, or an embedder with no principal at all —
+/// which is a different statement, and this is it.
+pub const UNATTRIBUTED: &str = "unattributed";
+
+/// Everything the audit log needs to know about the request in flight.
+///
+/// Same shape [`crate::index_guard`] already uses for the request's visibility
+/// rule: a task-local, so the value reaches code that never took a principal
+/// as an argument. That is what makes attribution possible without changing
+/// `es_compat::search`'s signature, which six engine-internal callers share.
+struct RequestScope {
+    /// `Principal::label()` — a key id or `superuser`, never key material.
+    subject: String,
+    /// Context only the handler can supply (a bulk's item count and the
+    /// indices it actually touched). `Mutex` because the task-local hands out
+    /// `&RequestScope`, and it is uncontended by construction — one request,
+    /// one task.
+    detail: Mutex<Option<String>>,
+}
+
+tokio::task_local! {
+    static REQUEST: RequestScope;
+}
+
+/// The authenticated subject behind the current request, or [`UNATTRIBUTED`].
+pub fn subject() -> String {
+    REQUEST
+        .try_with(|r| r.subject.clone())
+        .unwrap_or_else(|_| UNATTRIBUTED.to_string())
+}
+
+/// Attach handler-side context to this request's audit entry.
+///
+/// For facts the middleware cannot see because they are in the body: a bulk
+/// names its indices per action line, so the only place that knows which
+/// indices a `POST /_bulk` touched is the code that just wrote them. A no-op
+/// outside a request scope, and the last writer wins — one entry per request
+/// means one detail per request.
+pub fn record_detail(detail: impl Into<String>) {
+    let _ = REQUEST.try_with(|r| *r.detail.lock() = Some(detail.into()));
+}
+
+/// Run `fut` attributed to `subject`.
+///
+/// Returns the future's output **and** whatever [`record_detail`] recorded,
+/// because the scope is gone by the time the caller resumes: the detail has to
+/// come back out with the value or it cannot come back out at all.
+pub async fn attributed<F>(subject: impl Into<String>, fut: F) -> (F::Output, Option<String>)
+where
+    F: std::future::Future,
+{
+    let scope = RequestScope {
+        subject: subject.into(),
+        detail: Mutex::new(None),
+    };
+    REQUEST
+        .scope(scope, async move {
+            let out = fut.await;
+            let detail = REQUEST.with(|r| r.detail.lock().take());
+            (out, detail)
+        })
+        .await
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuditEntry {
     /// Sequential entry number (starts at 1).
@@ -86,7 +182,8 @@ pub struct AuditEntry {
     pub at_ms: u64,
     /// Operation tag (e.g. "search", "index", "delete", "admin.role.put").
     pub op: String,
-    /// Subject (user / api key / OIDC sub).  "anonymous" if unauth.
+    /// Subject: `Principal::label()` — `superuser`, or a minted key's id.
+    /// [`UNATTRIBUTED`] when the append was not made by a request.
     pub subject: String,
     /// Resource (index name, role name, etc.).
     pub resource: String,
@@ -128,6 +225,10 @@ pub struct AuditLog {
     head_prev_hash: RwLock<String>,
     capacity: usize,
     next_seq: AtomicU64,
+    /// Force the barrier every N appends; `0` disables it (the default, and
+    /// the behaviour before issue #329 added the knob). See
+    /// [`AuditLog::set_sync_every`].
+    sync_every: AtomicU64,
     /// `None` for an in-memory-only log ([`AuditLog::new`]) — the shape the
     /// unit tests and any embedder without a data directory use.
     sink: Option<Mutex<Sink>>,
@@ -142,6 +243,7 @@ impl AuditLog {
             head_prev_hash: RwLock::new(genesis()),
             capacity,
             next_seq: AtomicU64::new(1),
+            sync_every: AtomicU64::new(0),
             sink: None,
         })
     }
@@ -163,6 +265,7 @@ impl AuditLog {
             head_prev_hash: RwLock::new(seed),
             capacity,
             next_seq: AtomicU64::new(next_seq),
+            sync_every: AtomicU64::new(0),
             sink: Some(Mutex::new(Sink {
                 path: path.clone(),
                 file: None,
@@ -226,6 +329,16 @@ impl AuditLog {
             let seed = self.head_prev_hash.read().clone();
             rewrite_file(&mut sink, buf.iter(), &seed);
         }
+        // Opt-in durability barrier (`audit.sync_every`). Off by default, so
+        // the shipped cost of an append is still one `write(2)`; an operator
+        // who now audits writes and wants the tail to survive a power cut can
+        // buy that back at a chosen amortisation.
+        let every = self.sync_every.load(Ordering::Relaxed);
+        if every > 0 && seq.is_multiple_of(every) {
+            if let Some(f) = sink.file.as_ref() {
+                let _ = f.sync_data();
+            }
+        }
     }
 
     pub fn snapshot(&self) -> Vec<AuditEntry> {
@@ -267,6 +380,16 @@ impl AuditLog {
                 let _ = f.sync_data();
             }
         }
+    }
+
+    /// Force the barrier every `n` appends; `0` (the default) never does.
+    ///
+    /// Wired to `audit.sync_every`. Deliberately a setter rather than a
+    /// constructor argument: every existing caller of [`AuditLog::new`] and
+    /// [`AuditLog::open`] means "the shipped default", and only the one that
+    /// has read a config says otherwise.
+    pub fn set_sync_every(&self, n: u64) {
+        self.sync_every.store(n, Ordering::Relaxed);
     }
 
     /// Rewrite the persisted log so it contains exactly the current ring,

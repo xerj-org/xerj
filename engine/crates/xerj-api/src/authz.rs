@@ -566,6 +566,138 @@ fn reserved_api_privilege(method: &Method, segs: &[String]) -> Privilege {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Audit classification (issue #329)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// What the audit log records about a request, before its outcome is known.
+pub struct RequestOp {
+    /// Operation tag, in the vocabulary `AuditEntry::op` already uses:
+    /// `search`, `index`, `delete`, `bulk`, `index.create`, `index.mapping`.
+    pub op: String,
+    /// The resource the request names — the index expression, the backing
+    /// index of a brain or memory namespace, or the path for the cluster
+    /// endpoints that name no index at all.
+    pub resource: String,
+    /// Does this request change data? Reads are audited only when they are
+    /// *refused*, so this is what decides whether a 200 leaves an entry.
+    pub mutates: bool,
+}
+
+/// Classify a request for the audit log, through the same classifier the
+/// enforcement path uses.
+///
+/// One classifier, deliberately. An audit entry that described a request
+/// differently from the decision that allowed or refused it would be evidence
+/// of nothing, and two tables drift the moment one of them gains a route.
+///
+/// `None` is [`Target::Exempt`] — health probes, the version banner,
+/// `/v1/metrics`, `/_security/_authenticate`. Nothing there touches data, and
+/// a probe every second would be the only thing left in the ring.
+pub fn request_op(method: &Method, path: &str) -> Option<RequestOp> {
+    let segs = segments(path);
+    match classify(path) {
+        Target::Exempt => None,
+        // The reserved APIs spell their ops without a leading underscore and
+        // put a document id where an index route puts its op segment, so the
+        // tag comes from the privilege alone rather than from a path segment
+        // that may be user data.
+        Target::Brain(brain) => {
+            let privilege = reserved_api_privilege(method, &segs);
+            Some(RequestOp {
+                op: reserved_op_tag(method, privilege),
+                resource: brain_edges_index(&brain),
+                mutates: privilege != Privilege::ReadIndex,
+            })
+        }
+        Target::Memory(ns) => {
+            let privilege = reserved_api_privilege(method, &segs);
+            Some(RequestOp {
+                op: reserved_op_tag(method, privilege),
+                resource: memory_namespace_index(&ns),
+                mutates: privilege != Privilege::ReadIndex,
+            })
+        }
+        Target::Indices(expressions, op_start) => {
+            let privilege = required_privilege(method, &segs, op_start);
+            Some(RequestOp {
+                op: index_op_tag(method, privilege, segs.get(op_start).map(String::as_str)),
+                resource: expressions.join(","),
+                mutates: privilege != Privilege::ReadIndex,
+            })
+        }
+        Target::Cluster => {
+            let read = cluster_is_read(method, &segs);
+            Some(RequestOp {
+                op: cluster_op_tag(&segs, read),
+                // The path *is* the resource here: `_snapshot/repo/snap`,
+                // `_index_template/logs`. There is no index to name.
+                resource: segs.join("/"),
+                mutates: !read,
+            })
+        }
+    }
+}
+
+/// Drop the leading `_` an ES op segment carries (`_bulk` → `bulk`).
+fn trim_op(op: &str) -> &str {
+    op.trim_start_matches('_')
+}
+
+/// The op tag for an index-scoped route.
+///
+/// Derived from the op segment rather than enumerated per handler, so a route
+/// this module has never heard of still produces a truthful tag instead of
+/// silently going unaudited.
+fn index_op_tag(method: &Method, privilege: Privilege, op: Option<&str>) -> String {
+    // The spellings that address a document rather than an operation on one:
+    // ES's `_doc`/`_create`/`_source`, the native router's `docs`, and "no op
+    // segment at all" (which is the index itself).
+    let document = matches!(
+        op,
+        None | Some("_doc") | Some("_create") | Some("_source") | Some("docs")
+    );
+    match privilege {
+        // Only reached for a refused read, where the op the caller *attempted*
+        // is the interesting half.
+        Privilege::ReadIndex => op.map(trim_op).unwrap_or("read").to_string(),
+        Privilege::WriteIndex if document && method == Method::DELETE => "delete".to_string(),
+        Privilege::WriteIndex if document => "index".to_string(),
+        Privilege::WriteIndex => trim_op(op.unwrap_or("write")).to_string(),
+        // Lifecycle: `PUT /logs` creates, `DELETE /logs` destroys, and
+        // everything else names the facet it reshapes (`index.mapping`).
+        _ => match op {
+            None if method == Method::DELETE => "index.delete".to_string(),
+            None => "index.create".to_string(),
+            Some(o) => format!("index.{}", trim_op(o)),
+        },
+    }
+}
+
+/// The op tag for `/_graph/{brain}/…` and `/_memory/{ns}[/…]`.
+fn reserved_op_tag(method: &Method, privilege: Privilege) -> String {
+    match privilege {
+        Privilege::ReadIndex => "read".to_string(),
+        Privilege::WriteIndex if method == Method::DELETE => "delete".to_string(),
+        Privilege::WriteIndex => "index".to_string(),
+        _ if method == Method::DELETE => "index.delete".to_string(),
+        _ => "index.create".to_string(),
+    }
+}
+
+/// The op tag for a cluster endpoint.
+///
+/// `POST /_bulk` is spelled `bulk`, not `cluster.bulk`: it is the same
+/// operation as `POST /{index}/_bulk` and an auditor filtering on `op` must
+/// find both.
+fn cluster_op_tag(segs: &[String], read: bool) -> String {
+    let first = segs.first().map(|s| trim_op(s)).unwrap_or("cluster");
+    if read || first == "bulk" {
+        return first.to_string();
+    }
+    format!("cluster.{first}")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Body-named targets
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -10529,11 +10529,16 @@ async fn search_impl(
             .map(|q| q.to_string())
             .unwrap_or_default(),
     );
-    // v0.9 9-P4: append to the audit log (subject is "anonymous" until
-    // RBAC middleware wires through the authenticated user in v0.9-beta).
+    // v0.9 9-P4: append to the audit log. The subject comes from the
+    // per-request scope `auth_middleware` installs (issue #329) — this used to
+    // pass the literal "anonymous", so on an auth-enforced node every recorded
+    // search claimed the caller was unauthenticated while it had in fact
+    // presented the admin key. The signature stays principal-free on purpose:
+    // six engine-internal callers (`memory_api`, `graph_api`) reach this
+    // function with no principal to thread.
     state.engine.audit.append(
         "search",
-        "anonymous",
+        &xerj_engine::audit::subject(),
         index.as_str(),
         "ok",
         &format!("took={}ms hits={}", took_ms, merged_hits.len()),
@@ -14565,8 +14570,19 @@ async fn process_bulk_body(
     // concrete resolved index, so the label set stays bounded.
     let mut docs_indexed_tally: std::collections::HashMap<String, u64> =
         std::collections::HashMap::new();
+    // Issue #329: the audit entry for this request is appended by
+    // `auth_middleware`, which only sees the URL — and a bulk names its
+    // indices per action line, so `POST /_bulk` names none there. Collect the
+    // distinct set here, the one place that knows. `contains` first so only a
+    // genuinely new name allocates: a 10 k-item batch into one index does one
+    // `String` clone, not ten thousand.
+    let audit_item_count = result.items.len();
+    let mut audit_indices: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut items: Vec<EsBulkItem> = Vec::with_capacity(result.items.len());
     for item in result.items {
+        if !audit_indices.contains(item.index.as_str()) {
+            audit_indices.insert(item.index.clone());
+        }
         if item.error.is_none()
             && (200..300).contains(&item.status)
             && matches!(item.action.as_str(), "index" | "create" | "update")
@@ -14653,6 +14669,15 @@ async fn process_bulk_body(
     for (idx_name, n) in &docs_indexed_tally {
         state.metrics.record_docs_indexed(idx_name, *n);
     }
+
+    // Issue #329: hand the middleware what only this function knows. One entry
+    // per request means one line of context per request, so it carries the
+    // batch size and the indices actually touched rather than a per-document
+    // trail that would overrun the ring inside this single call.
+    xerj_engine::audit::record_detail(format!(
+        "items={audit_item_count} indices=[{}]",
+        audit_indices.into_iter().collect::<Vec<_>>().join(",")
+    ));
 
     let resp = EsBulkResponse {
         took: took_ms,
