@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **105 settings** versus
+//! Configuration is intentionally minimal: **106 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -72,7 +72,7 @@ pub struct Config {
     pub vector: VectorConfig,
     /// Log (time-series) retention — 2 settings.
     pub logs: LogsConfig,
-    /// External embedding service — 19 settings.
+    /// External embedding service — 20 settings.
     pub embedding: EmbeddingConfig,
     /// Resource limits — 13 settings.
     pub limits: LimitsConfig,
@@ -94,7 +94,7 @@ pub struct Config {
     pub lifecycle: LifecycleConfig,
 }
 
-// 20 sub-configs, 105 leaf settings in total. Do not maintain that sum by hand
+// 20 sub-configs, 106 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -208,9 +208,14 @@ impl Config {
             return Err(XerjError::config("vector.max_dimensions must be > 0"));
         }
 
-        if !(1..=4096).contains(&self.embedding.onnx_scheduling_window) {
+        if !(1..=4096).contains(&self.embedding.scheduling_window) {
             return Err(XerjError::config(
-                "embedding.onnx_scheduling_window must be in 1..=4096",
+                "embedding.scheduling_window must be in 1..=4096",
+            ));
+        }
+        if !(0..=64).contains(&self.embedding.inference_concurrency) {
+            return Err(XerjError::config(
+                "embedding.inference_concurrency must be in 0..=64 (0 = per-backend default)",
             ));
         }
         if !(1..=2).contains(&self.embedding.onnx_session_pool_size) {
@@ -408,7 +413,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (105 user-facing settings total; counted by
+// Sub-configs  (106 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -1219,7 +1224,7 @@ impl Default for LogsConfig {
 ///   * `"auto"` (default) — use the proxy when [`default_endpoint`] is set,
 ///     otherwise lexical. This preserves the historical behavior exactly.
 ///
-/// **19 settings.**
+/// **20 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EmbeddingConfig {
@@ -1234,6 +1239,28 @@ pub struct EmbeddingConfig {
     pub batch_size: usize,
     /// HTTP timeout for embedding requests in ms (default: `5000`).
     pub timeout_ms: u64,
+    /// Maximum passages collected before one embedding call (default: `64`,
+    /// range: `1..=4096`).
+    ///
+    /// This is the caller-side cross-document batching window and it applies
+    /// to *every* active backend, not just ONNX — it was named
+    /// `onnx_scheduling_window` and documented as ONNX-only while the ingest
+    /// path applied it everywhere (#366). The old name is still accepted.
+    /// Independent of the ONNX backend's internal `onnx_max_batch` microbatch
+    /// cap.
+    #[serde(alias = "onnx_scheduling_window")]
+    pub scheduling_window: usize,
+    /// How many embedding windows of one request may be in flight at once
+    /// (default: `0` = per-backend, range: `0..=64`).
+    ///
+    /// `0` defers to the backend, because the safe answer differs by an order
+    /// of magnitude: in-process neural inference is CPU-bound and thread-safe,
+    /// so it fans out to `min(cores, 8)` and stops leaving the box idle
+    /// (#366), while an external proxy stays at `1` because k concurrent
+    /// `/v1/embeddings` requests per bulk is a rate-limit storm. Set it
+    /// explicitly to override either default; the pinned two-session ONNX
+    /// scheduler is governed by [`onnx_session_pool_size`] instead.
+    pub inference_concurrency: usize,
     /// Neural backend: HuggingFace model id to load (default
     /// `sentence-transformers/all-MiniLM-L6-v2`, a 384-dim sentence encoder).
     pub neural_model: String,
@@ -1250,10 +1277,6 @@ pub struct EmbeddingConfig {
     pub onnx_model_path: String,
     /// Experimental ONNX backend: tokenizer.json from the same model/export.
     pub onnx_tokenizer_path: String,
-    /// Maximum passages collected before one ONNX scheduling call
-    /// (default: `64`, range: `1..=4096`). This is independent of the
-    /// backend's internal `onnx_max_batch` microbatch cap.
-    pub onnx_scheduling_window: usize,
     /// Experimental ONNX Runtime intra-op threads (default: available CPUs).
     pub onnx_intra_threads: usize,
     /// Number of independent ONNX Runtime sessions (default: `1`, range:
@@ -1296,12 +1319,13 @@ impl Default for EmbeddingConfig {
             default_model: String::new(),
             batch_size: 64,
             timeout_ms: 5000,
+            scheduling_window: 64,
+            inference_concurrency: 0, // 0 = per-backend (see the field doc)
             neural_model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             model_cache_dir: String::new(),
             local_model_dir: String::new(),
             onnx_model_path: String::new(),
             onnx_tokenizer_path: String::new(),
-            onnx_scheduling_window: 64,
             onnx_intra_threads: crate::resource::threads_for(crate::resource::Workload::Latency),
             onnx_session_pool_size: 1,
             onnx_max_pending: 4096,
@@ -1992,7 +2016,7 @@ mod tests {
             drift.join("\n  ")
         );
 
-        // …and the file's own header quotes how many of the 105 it sets. That
+        // …and the file's own header quotes how many of the 106 it sets. That
         // number was 38, then 56, and never once the truth (#207), so count the
         // assignments instead of trusting the sentence.
         let set_here = toml_src
@@ -2346,16 +2370,21 @@ mod tests {
     }
 
     #[test]
-    fn onnx_throughput_controls_preserve_single_session_defaults() {
+    fn embedding_throughput_controls_preserve_single_session_defaults() {
         let cfg = Config::from_toml_str("[embedding]\n").unwrap();
-        assert_eq!(cfg.embedding.onnx_scheduling_window, 64);
+        assert_eq!(cfg.embedding.scheduling_window, 64);
         assert_eq!(cfg.embedding.onnx_session_pool_size, 1);
+        assert_eq!(
+            cfg.embedding.inference_concurrency, 0,
+            "0 defers to the backend; see Embedder::default_inference_concurrency"
+        );
     }
 
     #[test]
-    fn onnx_throughput_controls_accept_only_bounded_values() {
+    fn embedding_throughput_controls_accept_only_bounded_values() {
         for (key, valid) in [
-            ("onnx_scheduling_window", [1, 64, 4096].as_slice()),
+            ("scheduling_window", [1, 64, 4096].as_slice()),
+            ("inference_concurrency", [0, 1, 8, 64].as_slice()),
             ("onnx_session_pool_size", [1, 2].as_slice()),
         ] {
             for value in valid {
@@ -2364,7 +2393,8 @@ mod tests {
             }
         }
         for (key, invalid) in [
-            ("onnx_scheduling_window", [0, 4097].as_slice()),
+            ("scheduling_window", [0, 4097].as_slice()),
+            ("inference_concurrency", [65, 4096].as_slice()),
             ("onnx_session_pool_size", [0, 3].as_slice()),
         ] {
             for value in invalid {
@@ -2372,6 +2402,19 @@ mod tests {
                     .expect_err(&format!("{key}={value} must be rejected"));
             }
         }
+    }
+
+    /// The knob was named `onnx_scheduling_window` but the ingest path applied
+    /// it to every backend (#366). Renaming it must not break a deployment
+    /// that already set the old name — `deny_unknown_fields` would otherwise
+    /// refuse to start.
+    #[test]
+    fn the_old_onnx_scheduling_window_name_still_configures_the_window() {
+        let cfg = Config::from_toml_str("[embedding]\nonnx_scheduling_window = 128\n").unwrap();
+        assert_eq!(cfg.embedding.scheduling_window, 128);
+        // And it is validated as the same setting under either name.
+        Config::from_toml_str("[embedding]\nonnx_scheduling_window = 4097\n")
+            .expect_err("the alias must be range-checked like the new name");
     }
 
     /// The safe default: no proxy is trusted, so `X-Forwarded-For` carries no
@@ -2435,7 +2478,7 @@ mod tests {
         ("fts", 1),
         ("vector", 6),
         ("logs", 2),
-        ("embedding", 19),
+        ("embedding", 20),
         ("limits", 13),
         ("indexing", 3),
         ("engine", 4),
@@ -2487,7 +2530,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 105,
+            total, 106,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

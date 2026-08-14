@@ -4733,6 +4733,25 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "files_submitted_this_run": files_done.load(Ordering::Relaxed),
         "records_submitted_this_run": records_total.load(Ordering::Relaxed),
         "wall_seconds": (wall * 10.0).round() / 10.0,
+        // The one number a run is actually judged by, and the one nobody could
+        // compute from the summary without knowing which of the two record
+        // counts above to divide (#366). It is
+        // `records_submitted_this_run / wall_seconds`: the durable
+        // `records_total` counts a resumed corpus this invocation never
+        // touched, so dividing it by this invocation's wall time would report
+        // a throughput no run ever achieved. `null` on a run too short to
+        // time, never a division by zero dressed up as infinity.
+        //
+        // Read it together with `"semantic"` directly below: with semantic on
+        // this IS the embedding-bound rate, and the same corpus with
+        // `--no-semantic` gives the lexical control to compare it against. A
+        // separate `embed_docs_per_second` would be the same number under a
+        // second name — the client never sees the server's embedding time, so
+        // it cannot honestly report an embed-only rate.
+        "docs_per_second": (wall > 0.0).then(|| {
+            let rate = records_total.load(Ordering::Relaxed) as f64 / wall;
+            (rate * 10.0).round() / 10.0
+        }),
         "workers": cfg.workers,
         // The whole resource decision, so a run can be explained after the
         // fact from its own summary rather than from the machine it ran on.

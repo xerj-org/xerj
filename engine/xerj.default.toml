@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 54 of XERJ's 105 user-facing settings to their
+# This file sets 56 of XERJ's 106 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -395,6 +395,20 @@ batch_size = 64
 # If the embedding service does not respond within this window, the ingest
 # request fails with a timeout error.
 timeout_ms = 5000
+
+# Passages collected before one embedding call, across documents. This is the
+# cross-document batching window and it applies to every active backend.
+# (It was called `onnx_scheduling_window`; that name is still accepted.)
+# Range: 1 – 4096.
+scheduling_window = 64
+
+# How many embedding windows of one request may run at once.
+# 0 (default) means "ask the backend": the built-in neural encoder runs
+# min(cores, 8) forwards in parallel — one at a time left a 20-core box using
+# two cores — while an external proxy stays at 1, because k concurrent
+# /v1/embeddings requests per bulk is how you find a provider's rate limiter.
+# Set a number to override both. Range: 0 – 64.
+inference_concurrency = 0
 
 # ── Resource Limits (6 of 13 settings) ────────────────────────────────────────
 

@@ -7,6 +7,8 @@
 //!   experimental ONNX) used by the engine
 //! - [`embed`]   — Embedding proxy: async HTTP client for OpenAI-compatible embedding APIs
 //! - [`local`]   — Built-in zero-config deterministic text embedder (feature hashing)
+//! - [`microbatch`] — Length-aware inference microbatching shared by the
+//!   in-process backends (bounds one forward's activations, #366)
 //! - [`neural`]  — Built-in neural BERT sentence embedder via candle (feature `neural`)
 //! - `onnx`      — Experimental MiniLM-compatible FP32 ONNX backend
 //!   (feature `onnx-experimental`; server feature + explicit runtime selection required)
@@ -22,6 +24,7 @@ pub mod chunker;
 pub mod embed;
 pub mod embedder;
 pub mod local;
+pub mod microbatch;
 #[cfg(feature = "neural")]
 pub mod neural;
 #[cfg(feature = "onnx-experimental")]
@@ -31,5 +34,6 @@ pub use chunker::{Chunk, TextChunker};
 pub use embed::{EmbeddingProxy, EmbeddingProxyConfig};
 pub use embedder::Embedder;
 pub use local::{local_embed, DEFAULT_DIMS};
+pub use microbatch::{plan_microbatches, MicrobatchConfig};
 
 pub use xerj_common::Result;

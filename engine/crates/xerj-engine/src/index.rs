@@ -11528,9 +11528,13 @@ impl Index {
         let embedder = self.embedder.read().await;
         if embedder.is_active() {
             // Bound caller-side windows as well as backend-internal batches.
-            // This avoids an arbitrarily large proxy payload and gives ONNX a
-            // useful cross-document scheduling window without giant padding.
-            let max_passages_per_window = self.embedding_config.onnx_scheduling_window;
+            // This avoids an arbitrarily large proxy payload and gives every
+            // in-process backend a useful cross-document scheduling window
+            // without giant padding. The knob was called
+            // `onnx_scheduling_window` and documented as ONNX-only while this
+            // line applied it to all of them (#366); it is now
+            // `embedding.scheduling_window`, old name still accepted.
+            let max_passages_per_window = self.embedding_config.scheduling_window;
             let passage_counts = jobs.iter().map(|job| job.texts.len()).collect::<Vec<_>>();
             // Window boundaries only — do NOT materialize passage texts here.
             // Pre-building (and cloning) every window's texts up front held
@@ -11554,36 +11558,38 @@ impl Index {
                     .collect()
             };
 
-            // Two sessions are an explicit opt-in. Launch at most two complete
-            // windows together, drain both, then consume results in input
-            // order. This bounds native work and keeps retry/publication
-            // behavior deterministic when one sibling fails.
-            let mut window_results = Vec::with_capacity(windows.len());
-            if dual_session_scheduler_enabled(
+            // Windows used to run strictly one after another for every backend
+            // except a pinned two-session ONNX pool. That left the box idle:
+            // a semantic ingest ran 2 of 20 cores busy, and eight concurrent
+            // bulks lifted it from 53 to 333 docs/s at identical total CPU —
+            // the shared model is thread-safe and the headroom was simply
+            // unused (#366). Launch a bounded group of windows together
+            // instead, sized per backend, and drain each group as a unit so
+            // the width checks and the per-job retry path below still see
+            // results in input order.
+            //
+            // This does relax #71 above: `k` windows' texts are now resident
+            // together rather than one. That is still a bound the request
+            // cannot move — it is set by the fan-out width and the scheduling
+            // window, not by how many documents were submitted — which is the
+            // property #71 was about.
+            let inference_concurrency = semantic_inference_concurrency(
+                self.embedding_config.inference_concurrency,
+                &embedder,
                 onnx_pinned,
                 self.embedding_config.onnx_session_pool_size,
-            ) {
-                let results = collect_ordinal_buffered_two(windows.len(), |ordinal| {
+            );
+            let results =
+                collect_ordinal_buffered(windows.len(), inference_concurrency, |ordinal| {
                     let (start, end, _passages) = windows[ordinal];
                     embedder.embed_batch(window_texts(start, end))
                 })
                 .await;
-                window_results.extend(
-                    windows
-                        .iter()
-                        .zip(results)
-                        .map(|(window, result)| (window.0, window.1, window.2, result)),
-                );
-            } else {
-                for &(start, end, passages) in &windows {
-                    window_results.push((
-                        start,
-                        end,
-                        passages,
-                        embedder.embed_batch(window_texts(start, end)).await,
-                    ));
-                }
-            }
+            let window_results = windows
+                .iter()
+                .zip(results)
+                .map(|(window, result)| (window.0, window.1, window.2, result))
+                .collect::<Vec<_>>();
 
             for (start, end, passages, batch_result) in window_results {
                 match batch_result {
@@ -27926,7 +27932,7 @@ fn make_onnx_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj
     info!(
         model_sha256 = %onnx_cfg.model_sha256,
         tokenizer_sha256 = %onnx_cfg.tokenizer_sha256,
-        scheduling_window = cfg.onnx_scheduling_window,
+        scheduling_window = cfg.scheduling_window,
         session_pool_size = onnx_cfg.session_pool_size,
         "embedding backend: experimental ONNX Runtime (loads on first use)"
     );
@@ -38480,37 +38486,105 @@ fn semantic_embedding_window_end(
     (end, passages)
 }
 
-/// Run no more than two futures concurrently and return every result in input
-/// order. `join!` waits for both siblings even when one fails.
-async fn collect_ordinal_buffered_two<T, F, Fut>(count: usize, launch: F) -> Vec<T>
+/// Run no more than `width` futures concurrently and return every result in
+/// input order. A group is drained as a unit, so a failing sibling never
+/// changes which results the caller sees or in what order.
+///
+/// Shaped after Lucene's `TaskExecutor#invokeAll`
+/// (lucene/core/src/java/org/apache/lucene/search/TaskExecutor.java:81-117),
+/// which runs a bounded group and collects results in input order rather than
+/// as they finish. Lucene forks `count - 1` tasks and keeps one on the calling
+/// thread "to minimize needless forking and blocking of the current thread";
+/// here the calling task drives *every* future, because the expensive part is
+/// already off the executor inside `spawn_blocking` and the futures themselves
+/// are just the handles.
+async fn collect_ordinal_buffered<T, F, Fut>(count: usize, width: usize, launch: F) -> Vec<T>
 where
     F: Fn(usize) -> Fut,
     Fut: std::future::Future<Output = T>,
 {
+    let width = width.max(1);
     let mut results = Vec::with_capacity(count);
     let mut ordinal = 0;
     while ordinal < count {
-        if ordinal + 1 < count {
-            let (first, second) = tokio::join!(launch(ordinal), launch(ordinal + 1));
-            results.push(first);
-            results.push(second);
-            ordinal += 2;
-        } else {
+        let group = width.min(count - ordinal);
+        if group == 1 {
             results.push(launch(ordinal).await);
-            ordinal += 1;
+        } else {
+            results.extend(join_all_ordered((ordinal..ordinal + group).map(&launch)).await);
         }
+        ordinal += group;
     }
     results
+}
+
+/// `join!` for a group whose size is only known at run time: poll every future
+/// on the current task until all have completed, then return their outputs in
+/// input order.
+async fn join_all_ordered<T, Fut>(futures: impl Iterator<Item = Fut>) -> Vec<T>
+where
+    Fut: std::future::Future<Output = T>,
+{
+    let mut pending = futures
+        .map(|future| (Box::pin(future), None))
+        .collect::<Vec<_>>();
+    std::future::poll_fn(|cx| {
+        let mut all_ready = true;
+        for (future, slot) in pending.iter_mut() {
+            if slot.is_some() {
+                // Completed futures must never be polled again.
+                continue;
+            }
+            match future.as_mut().poll(cx) {
+                std::task::Poll::Ready(value) => *slot = Some(value),
+                std::task::Poll::Pending => all_ready = false,
+            }
+        }
+        if all_ready {
+            std::task::Poll::Ready(())
+        } else {
+            std::task::Poll::Pending
+        }
+    })
+    .await;
+    pending
+        .into_iter()
+        .map(|(_, slot)| slot.expect("every future ran to completion"))
+        .collect()
 }
 
 fn dual_session_scheduler_enabled(onnx_pinned: bool, pool_size: usize) -> bool {
     onnx_pinned && pool_size == 2
 }
 
+/// Width of the caller-side embedding fan-out.
+///
+/// `embedding.inference_concurrency` wins when an operator set it; `0` (the
+/// default) defers to the backend, because the right answer differs by an
+/// order of magnitude between in-process inference and an external provider
+/// (see `Embedder::default_inference_concurrency`). The pinned two-session
+/// ONNX scheduler keeps its own width: that is what the pool size *means*, and
+/// a third concurrent window would only queue on the session mutex.
+fn semantic_inference_concurrency(
+    configured: usize,
+    embedder: &xerj_ai::Embedder,
+    onnx_pinned: bool,
+    onnx_session_pool_size: usize,
+) -> usize {
+    if dual_session_scheduler_enabled(onnx_pinned, onnx_session_pool_size) {
+        return 2;
+    }
+    match configured {
+        0 => embedder.default_inference_concurrency(),
+        explicit => explicit,
+    }
+}
+
 #[cfg(test)]
 mod semantic_embedding_window_tests {
     use super::{
-        collect_ordinal_buffered_two, dual_session_scheduler_enabled, semantic_embedding_window_end,
+        collect_ordinal_buffered, dual_session_scheduler_enabled, semantic_embedding_window_end,
+        semantic_inference_concurrency,
     };
 
     fn windows(counts: &[usize], limit: usize) -> Vec<(std::ops::Range<usize>, usize)> {
@@ -38548,7 +38622,7 @@ mod semantic_embedding_window_tests {
         use std::sync::Arc;
         let completed = Arc::new(AtomicUsize::new(0));
         let second_finished = Arc::new(tokio::sync::Notify::new());
-        let results = collect_ordinal_buffered_two(3, |ordinal| {
+        let results = collect_ordinal_buffered(3, 2, |ordinal| {
             let completed = Arc::clone(&completed);
             let second_finished = Arc::clone(&second_finished);
             async move {
@@ -38568,6 +38642,62 @@ mod semantic_embedding_window_tests {
         .await;
         assert_eq!(completed.load(Ordering::SeqCst), 3);
         assert_eq!(results, vec![Err("first failed"), Ok(1), Ok(2)]);
+    }
+
+    /// #366: the embedding windows of one request now run in a bounded group
+    /// instead of strictly one after another. Both halves of that have to
+    /// hold, and neither is visible from the vectors themselves — an unbounded
+    /// fan-out is only found by an OOM, and results consumed out of order
+    /// attach a vector to the wrong passage while still looking well-formed.
+    ///
+    /// So: never more than `width` in flight, and results in input order even
+    /// when completion order is exactly reversed.
+    #[tokio::test]
+    async fn buffered_fanout_bounds_concurrency_and_preserves_input_order() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let results = collect_ordinal_buffered(17, 4, |ordinal| {
+            let in_flight = Arc::clone(&in_flight);
+            let peak = Arc::clone(&peak);
+            async move {
+                let now = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(now, Ordering::SeqCst);
+                // Later ordinals finish first, so a fan-out that returned
+                // results in completion order would scramble them here.
+                for _ in 0..(17 - ordinal) {
+                    tokio::task::yield_now().await;
+                }
+                in_flight.fetch_sub(1, Ordering::SeqCst);
+                ordinal
+            }
+        })
+        .await;
+
+        assert_eq!(results, (0..17).collect::<Vec<_>>());
+        assert_eq!(
+            peak.load(Ordering::SeqCst),
+            4,
+            "the fan-out must saturate its width and never exceed it"
+        );
+    }
+
+    #[test]
+    fn inference_concurrency_defers_to_the_backend_until_an_operator_sets_it() {
+        let lexical = xerj_ai::Embedder::lexical();
+        // 0 = auto: the lexical/proxy default is 1, so an unconfigured deploy
+        // behaves exactly as it did before.
+        assert_eq!(semantic_inference_concurrency(0, &lexical, false, 1), 1);
+        // An explicit value wins for every backend...
+        assert_eq!(semantic_inference_concurrency(6, &lexical, false, 1), 6);
+        // ...except the pinned two-session ONNX scheduler, which is what the
+        // pool size already means.
+        assert_eq!(semantic_inference_concurrency(6, &lexical, true, 2), 2);
+        assert_eq!(semantic_inference_concurrency(0, &lexical, true, 2), 2);
+        // A single ONNX session is not the dual-session case.
+        assert_eq!(semantic_inference_concurrency(0, &lexical, true, 1), 1);
     }
 }
 

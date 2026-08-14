@@ -266,6 +266,34 @@ impl Embedder {
         }
     }
 
+    /// How many `embed_batch` calls the engine may keep in flight against this
+    /// backend when it has several windows of one request ready to go.
+    ///
+    /// This is backend policy, not a global number, because the two active
+    /// backends fail in opposite directions. In-process inference is CPU-bound
+    /// and thread-safe behind `&self`, and running one window at a time left
+    /// 2 of 20 cores busy on a semantic ingest (#366) — both reference engines
+    /// make expensive per-item ingest work concurrent *by default*
+    /// (Lucene's `HnswConcurrentMergeBuilder` spawns a worker per thread and
+    /// they "pick the work in batches"; usearch's `executor_stl_t` defaults to
+    /// `std::thread::hardware_concurrency()`). An external provider is the
+    /// opposite case: k concurrent `/v1/embeddings` requests per bulk turns a
+    /// slow ingest into a 429 storm, so the proxy stays at 1 until an operator
+    /// says otherwise. The experimental ONNX backend has its own session pool
+    /// and admission control and is scheduled by `onnx_session_pool_size`.
+    ///
+    /// Lucene bounds the same way — a limited pool for intra-operation work
+    /// (`ConcurrentMergeScheduler.CachedExecutor`), never a thread per unit.
+    pub fn default_inference_concurrency(&self) -> usize {
+        match self {
+            Embedder::Lexical | Embedder::Proxy(_) => 1,
+            #[cfg(feature = "neural")]
+            Embedder::Neural(_) => xerj_common::resource::cores().clamp(1, 8),
+            #[cfg(feature = "onnx-experimental")]
+            Embedder::Onnx(_) => 1,
+        }
+    }
+
     /// Embed a batch of texts into vectors. Order matches the input.
     pub async fn embed_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
         match self {
@@ -851,10 +879,36 @@ impl NeuralHandle {
 
     async fn embed_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
         let model = self.get().await?;
-        tokio::task::spawn_blocking(move || model.embed_blocking(&texts))
+        let permit = neural_inflight_forwards()
+            .acquire()
             .await
-            .map_err(|e| anyhow!("neural embed task panicked: {e}"))?
+            .map_err(|e| anyhow!("neural inference slots closed: {e}"))?;
+        tokio::task::spawn_blocking(move || {
+            // Hold the slot until the native forward returns, even if the
+            // awaiting task is cancelled — the CPU and the activations are
+            // committed either way.
+            let _permit = permit;
+            model.embed_blocking(&texts)
+        })
+        .await
+        .map_err(|e| anyhow!("neural embed task panicked: {e}"))?
     }
+}
+
+/// Process-wide cap on concurrent in-process neural forwards.
+///
+/// The engine fans several embedding windows out per request and several
+/// requests can be in flight at once; multiplied together that is an unbounded
+/// number of concurrent BERT forwards, each holding its own activations. Past
+/// one forward per core there is no throughput left to win, only resident
+/// memory to lose — so bound it here, once, rather than hoping every caller
+/// picks a safe width. Lucene bounds intra-operation parallelism the same way
+/// (`ConcurrentMergeScheduler.CachedExecutor`: "a limited number of threads to
+/// execute merge tasks") instead of forking per unit of work.
+#[cfg(feature = "neural")]
+fn neural_inflight_forwards() -> &'static tokio::sync::Semaphore {
+    static INFLIGHT: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
+    INFLIGHT.get_or_init(|| tokio::sync::Semaphore::new(xerj_common::resource::cores().max(1)))
 }
 
 #[cfg(all(test, feature = "neural"))]

@@ -753,7 +753,7 @@ fn count_settings(value: &serde_json::Value) -> usize {
 
 /// Settings in a default `Config`, measured by `count_settings`. Quoted in
 /// `xerj-common/src/config.rs`; keep the two in step.
-const EXPECTED_SETTINGS: usize = 105;
+const EXPECTED_SETTINGS: usize = 106;
 
 #[tokio::test]
 async fn journey_zero_config() {
