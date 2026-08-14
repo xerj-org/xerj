@@ -164,8 +164,7 @@
         "_score": 0.6625697,
         "_source": {
           "title": "Rotating an API key",
-          "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately.",
-          "body_vector": [ 0.0, 0.0, 0.0, ... ]
+          "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately."
         }
       }
     ]
@@ -175,7 +174,10 @@
   <p><code class="inline">field</code> is the <code class="inline">semantic_text</code> field, <code class="inline">query</code> is the natural-language question, <code class="inline">k</code> is how many nearest passages to pull from the vector index. Add a <code class="inline">filter</code> (any XERJ query) to constrain candidates, or a <code class="inline">boost</code> to weight it inside a <code class="inline">bool</code>.</p>
 
   <blockquote>
-    <p><strong><code class="inline">_source</code> note.</strong> The companion <code class="inline">body_vector</code> rides along in <code class="inline">_source</code> on semantic hits (source filtering is applied on the lexical path but the vector field is re-attached on the retrieval path). It's just noise for RAG — read the fields you want (<code class="inline">title</code>, <code class="inline">body</code>) and ignore it when you build the LLM prompt.</p>
+    <p><strong><code class="inline">_source</code> note.</strong> Notice what is <em>not</em> in that <code class="inline">_source</code>: the generated <code class="inline">body_vector</code>. Since rc.16 a search with no <code class="inline">_source</code> clause returns your own fields and leaves the engine's embedding companions behind — which is what you want for RAG, where the vector is pure noise in an LLM prompt and dominates the response size. It is still stored, and still what the <code class="inline">semantic</code> query above searched.</p>
+    <p>If you do need the raw vector back, either route works and neither of them changes anything else about the response:</p>
+<pre class="code">{ "fields": ["body_vector"] }   // returned under `fields`, not `_source`
+{ "_source": true }             // returned in `_source`, along with everything else</pre>
   </blockquote>
 
   <h2>4. The RAG context bundle</h2>

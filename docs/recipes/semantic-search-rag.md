@@ -75,8 +75,7 @@ Real response (trimmed):
         "_score": 0.6625697,
         "_source": {
           "title": "Rotating an API key",
-          "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately.",
-          "body_vector": [ 0.0, 0.0, 0.0, ... ]
+          "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately."
         }
       }
     ]
@@ -89,10 +88,20 @@ Real response (trimmed):
 (any XERJ query) to constrain candidates, or a `boost` to weight it inside a
 `bool`.
 
-> **`_source` note.** The companion `body_vector` rides along in `_source` on
-> semantic hits (source filtering is applied on the lexical path but the vector
-> field is re-attached on the retrieval path). It's just noise for RAG — read the
-> fields you want (`title`, `body`) and ignore it when you build the LLM prompt.
+> **`_source` note.** Notice what is *not* in that `_source`: the generated
+> `body_vector`. Since rc.16 a search with no `_source` clause returns your own
+> fields and leaves the engine's embedding companions behind — which is what you
+> want for RAG, where the vector is pure noise in an LLM prompt and dominates the
+> response size. It is still stored, and still what the `semantic` query above
+> searched.
+>
+> If you do need the raw vector back, either route works and neither of them
+> changes anything else about the response:
+>
+> ```json
+> { "fields": ["body_vector"] }   // returned under `fields`, not `_source`
+> { "_source": true }             // returned in `_source`, along with everything else
+> ```
 
 ## 4. The RAG context bundle
 

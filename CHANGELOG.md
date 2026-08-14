@@ -7,7 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **A `fields` request naming an embedding companion came back empty under the
+  default `_source`** ([#310](https://github.com/xerj-org/xerj/issues/310), a
+  review residual disclosed with [#309](https://github.com/xerj-org/xerj/pull/309)).
+  `fields` and `docvalue_fields` resolve their values out of the same
+  `hit.source` the engine had already narrowed, so `{"fields": ["body_vector"]}`
+  with no `_source` clause returned nothing — silently, since an unresolvable
+  `fields` entry is legally omitted — while the identical clause under
+  `"_source": false` returned every float. Two spellings of "do not send me the
+  document", opposite answers. An explicitly named companion now pierces the
+  default: the engine hands back the intact source, `fields` resolves against
+  it, and `_source` is narrowed to the default projection at emission. **The
+  wire `_source` is unchanged** — the companion is returned under `fields`,
+  where it was asked for, and nowhere else. Three emission sites can carry a
+  `_source` for one response and all three re-narrow: the top-level hit (which
+  the new regression test pins, positively *and* negatively), the collapse
+  `inner_hits` members, and the scroll snapshot — a leak in any one of them
+  would have made the fix a silent regression of #309.
+
+  Two things fixed alongside it, both found while fixing the above:
+  - `docvalue_fields` emitted `{"body_vector": []}` rather than omitting the
+    key. An empty array is a positive claim that the document has no values for
+    that field; omission is what ES does and what is true. Any
+    `docvalue_fields` entry that resolves to nothing is now omitted.
+  - Collapse `inner_hits` members carried the companions even under the
+    default, because `apply_collapse_with_inner` stashes each member's source
+    *before* the projection runs. The top-level `_source` honoured #309 while
+    the `inner_hits` block underneath it shipped the vectors.
+
+  Cost, disclosed rather than discovered in production: on the pierce path the
+  complete source — vectors included — is materialised for every hit before
+  being narrowed. A caller writing `fields: ["body_vector"]` with `size: 10000`
+  allocates what #309 was written to avoid. Only that shape is affected; a
+  request that names no companion never pierces and is byte- and
+  allocation-identical to before.
+
+- **A dotted `embedding.target_field` silently deleted unrelated empty-object
+  fields from every hit** ([#310](https://github.com/xerj-org/xerj/issues/310)).
+  The default projection routed the companion set through the nested `_source`
+  filter whenever a companion name contained a `.`, on the assumption that a dot
+  means a nested path. It does not — a dotted `target_field` is validated as a
+  literal top-level property key and written back as one — and the nested filter
+  prunes every empty non-root object on its way through. On such an index a
+  document carrying `{"meta": {}}` came back without `meta`, on every default
+  search, with nothing in the request to explain it. The same mis-assumption
+  stripped a *user-written* nested `{"semantic": {"embedding": […]}}`, which the
+  engine never generated. Both are now left alone.
 
 ## [1.0.0-rc.16] - 2026-08-13
 
@@ -536,7 +583,9 @@ reach into nested checkouts) are fixed in this release — see Fixed below.
   vectors. Two residuals disclosed from review: a `fields` request naming a
   companion resolves against the already-filtered source and comes back
   empty under the new default — name it in `_source` instead
-  ([#310](https://github.com/xerj-org/xerj/issues/310)) — and the new
+  ([#310](https://github.com/xerj-org/xerj/issues/310); **fixed after this
+  release, see Unreleased — `fields` now pierces the default and the
+  `_source` workaround is no longer needed**) — and the new
   default arm copies each hit's source even on indices with no embedding
   fields, a constant-factor read-path cost filed as
   [#311](https://github.com/xerj-org/xerj/issues/311).

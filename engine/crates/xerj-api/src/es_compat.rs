@@ -7656,6 +7656,47 @@ mod search_response_hint_tests {
     }
 }
 
+/// Every field name this request pulls a VALUE out of the stored document for
+/// by a route other than `_source` — the `fields` clause and `docvalue_fields`.
+///
+/// Used once per request, before the engine runs, to decide whether the default
+/// `_source` projection has to be pierced (#310). It deliberately re-parses the
+/// two clauses instead of reusing the response-time `field_specs` /
+/// `docvalue_fields` lists built later in `search_impl`: the decision has to be
+/// taken BEFORE the search, and the URL-param forms (`?fields=`,
+/// `?docvalue_fields=`) have already been promoted into `body` by then, so this
+/// sees exactly what the response layer will.
+fn value_bearing_field_names(body: &EsSearchBody, fields: &[String]) -> Vec<String> {
+    fn push_names(v: Option<&Value>, out: &mut Vec<String>) {
+        match v {
+            Some(Value::Array(arr)) => {
+                for entry in arr {
+                    match entry {
+                        Value::String(s) => out.push(s.clone()),
+                        Value::Object(o) => {
+                            if let Some(name) = o.get("field").and_then(Value::as_str) {
+                                out.push(name.to_string());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Some(Value::String(s)) => out.push(s.clone()),
+            _ => {}
+        }
+    }
+    let mut names = Vec::new();
+    match &body.fields {
+        Some(v @ (Value::Array(_) | Value::String(_))) => push_names(Some(v), &mut names),
+        // Same fallback `field_specs` takes: anything else (absent, or a shape
+        // the body parser does not recognise) leaves the typed request's list.
+        _ => names.extend(fields.iter().cloned()),
+    }
+    push_names(body.docvalue_fields.as_ref(), &mut names);
+    names
+}
+
 /// `POST /{index}/_search`.
 ///
 /// Thin wrapper over [`search_impl`] that installs the Painless fault sink for
@@ -9724,7 +9765,7 @@ async fn search_impl(
         .filter(|n| !value_type_failed_indices.contains(*n))
         .collect();
 
-    let search_req = match build_search_request(&body, aggs_value) {
+    let mut search_req = match build_search_request(&body, aggs_value) {
         Ok(mut r) => {
             // ES 7.16 leaf ordering for the implicit auto-@timestamp hint
             // (see the injection block above) — internal field, never on
@@ -9737,6 +9778,79 @@ async fn search_impl(
         }
         Err(e) => return ApiError::new(e).into_response(),
     };
+
+    // ── The default `_source` projection, and who has to see past it (#310) ──
+    //
+    // Since #309 a request with no `_source` clause gets `SourceFilter::Default`
+    // and the engine drops the generated embedding companions before the
+    // response layer ever sees a hit. But `_source` is not the only consumer of
+    // the stored document: `fields` and `docvalue_fields` resolve their values
+    // out of that same `hit.source`, AFTER the projection has narrowed it. So
+    // `{"fields": ["body_vector"]}` came back with nothing — silently, because
+    // an unresolvable `fields` entry is legally omitted — while the very same
+    // clause under `"_source": false` returned the whole vector, since
+    // `Enabled(false)` deliberately keeps the raw source for exactly this
+    // resolution. Two spellings of "I do not want `_source`", opposite answers.
+    //
+    // Lucene has no such asymmetry, and the reason is instructive: a projection
+    // there is one YES/NO decision per field taken against the COMPLETE stored
+    // document, once, at read time (`DocumentStoredFieldVisitor.needsField`,
+    // DocumentStoredFieldVisitor.java:98-108, the only subset-loading entry
+    // point being StoredFields.java:77-82) — nothing downstream ever reads a
+    // narrowed copy. Where a genuine second consumer does exist, Lucene unions
+    // everyone's needs BEFORE fetching rather than letting the late arrival pick
+    // through leftovers: `MatchHighlighter.appendFieldHighlighter` accumulates
+    // `fieldsAlwaysReturned` from every registered highlighter
+    // (MatchHighlighter.java:127-133), `FieldValueHighlighter.or` unions two
+    // highlighters into one `fieldUnion` (MatchHighlighter.java:87-96), and the
+    // union is handed to `MatchRegionRetriever` as
+    // `fieldsToLoadUnconditionally` (MatchHighlighter.java:203-253).
+    //
+    // Same discipline here, at the only layer that can apply it: the `fields`
+    // clause lives in the API, not the engine, so the API decides. If a caller
+    // named a companion in `fields`/`docvalue_fields` and wrote no `_source`
+    // clause, ask the engine for the intact source and narrow it back to the
+    // default at the single emission site below. Wire bytes are unchanged; the
+    // caller gets the value they explicitly asked for.
+    //
+    // Deciding it here rather than in the engine is deliberate.
+    // `SourceFilter::Default` is `#[default]`, so teaching the engine to treat
+    // it as `Enabled(true)` would put companions back into every internal
+    // `SearchRequest::default()` — update-by-query, terms lookup, suggesters,
+    // memory_api. And subtracting the named companion from the engine's
+    // companion set would put it back into `_source` too, which is the payload
+    // #309 exists to keep off the wire.
+    let default_source_projection = body.source.is_none();
+    let value_bearing_names = if default_source_projection {
+        value_bearing_field_names(&body, &search_req.fields)
+    } else {
+        Vec::new()
+    };
+    // One schema read-lock per participating index, and only for a request that
+    // could actually consume the answer — never on the bare `{"query": …}` path
+    // that #311 cleared of per-hit work.
+    let mut companions_by_index: HashMap<String, HashSet<String>> = HashMap::new();
+    if default_source_projection && (!value_bearing_names.is_empty() || body.collapse.is_some()) {
+        for idx_name in &index_names {
+            let Ok(idx) = state.engine.get_index(idx_name) else {
+                continue;
+            };
+            let companions = idx.embedding_companion_fields().await;
+            if !companions.is_empty() {
+                companions_by_index.insert((*idx_name).to_string(), companions);
+            }
+        }
+    }
+    // The pierce, and the obligation it creates: everything that emits a
+    // `_source` for this response must undo it. Audited sites are the top-level
+    // hit, the collapse `inner_hits` members, and the scroll snapshot.
+    let pierce_default_source = value_bearing_names
+        .iter()
+        .any(|f| companions_by_index.values().any(|c| c.contains(f)));
+    if pierce_default_source {
+        search_req.source = xerj_query::ast::SourceFilter::Enabled(true);
+    }
+    let search_req = search_req;
 
     // Execute search on each index and merge results.
     let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new(); // (index_name, hit)
@@ -10601,7 +10715,29 @@ async fn search_impl(
     // merged_hits to build `hits`. We'll register the context after the
     // response_body is built.
     let scroll_snapshot: Option<Vec<xerj_query::executor::Hit>> = if is_scroll_request {
-        Some(merged_hits.iter().map(|(_, h)| h.clone()).collect())
+        Some(
+            merged_hits
+                .iter()
+                .map(|(idx_name, h)| {
+                    let mut h = h.clone();
+                    // #310 emission site 3: the snapshot outlives this response
+                    // and every later page is rendered by
+                    // `scroll_page_response`, which carries no `fields` clause
+                    // of its own and so has no reason to hold companions. Undo
+                    // the pierce before the context is stored — otherwise page 1
+                    // honours #309 and pages 2..n do not.
+                    if pierce_default_source {
+                        if let (Some(companions), Some(obj)) = (
+                            companions_by_index.get(idx_name.as_str()),
+                            h.source.as_object_mut(),
+                        ) {
+                            obj.retain(|name, _| !companions.contains(name));
+                        }
+                    }
+                    h
+                })
+                .collect(),
+        )
     } else {
         None
     };
@@ -10826,6 +10962,22 @@ async fn search_impl(
                     obj.remove("__xy_copy_to_only__");
                     obj.remove("__xy_copy_to_pristine__");
                     obj.remove("__xy_pre_rescore_score__");
+                }
+                // #310 emission site 1: this request pierced the default
+                // `_source` projection so the `fields` builder below could
+                // resolve an embedding companion the caller explicitly named.
+                // The pierce ends HERE — `fields` reads `h.source`, which is
+                // untouched, while the wire `_source` carries exactly what the
+                // default would have carried. Miss this and #309's headline
+                // guarantee turns into a multi-hundred-kilobyte response for
+                // anyone who happened to name a companion in `fields`.
+                if pierce_default_source {
+                    if let (Some(companions), Some(obj)) = (
+                        companions_by_index.get(idx_name.as_str()),
+                        s.as_object_mut(),
+                    ) {
+                        obj.retain(|name, _| !companions.contains(name));
+                    }
                 }
                 // Synthetic source mode: ES reconstructs _source from
                 // doc-values and applies specific normalizations. For
@@ -12531,6 +12683,24 @@ async fn search_impl(
                             if let Some(src) = m.get_mut("_source").and_then(Value::as_object_mut) {
                                 src.remove("__xy_collapse_group__");
                                 src.remove("__xy_collapse_spec__");
+                                // #310 emission site 2. `apply_collapse_with_inner`
+                                // stashes each group member's source BEFORE the
+                                // engine's `_source` projection runs, so these
+                                // members carry the companions whether or not
+                                // this request pierced the default — page-1
+                                // `_source` honoured #309 while the inner_hits
+                                // block underneath it shipped the vectors. The
+                                // guard is the caller's `_source` clause, not
+                                // the pierce flag: no clause means the #309
+                                // default, and the default omits companions
+                                // wherever a `_source` appears.
+                                if default_source_projection {
+                                    if let Some(companions) =
+                                        companions_by_index.get(idx_name.as_str())
+                                    {
+                                        src.retain(|name, _| !companions.contains(name));
+                                    }
+                                }
                             }
                             let mut hit_obj = serde_json::Map::new();
                             hit_obj.insert("_index".to_string(), Value::String(idx_name.clone()));
@@ -31550,9 +31720,17 @@ pub(crate) fn build_docvalue_fields(
             let base = field_name.strip_suffix(".keyword")?;
             get_source_value_by_path(source, base)
         });
+        // A field that resolved to nothing is OMITTED, never emitted as an
+        // empty array. ES does the same, and the difference is not cosmetic:
+        // `{"body_vector": []}` is a positive claim that the document has no
+        // values for that field, which a caller can only read as "the vector
+        // is gone". Omission says "not returned here", which is true. Found
+        // while fixing #310 — under the default `_source` projection this path
+        // produced exactly that wrong empty array for every named embedding
+        // companion.
         let arr: Vec<Value> = match raw {
             Some(Value::Array(a)) => a,
-            Some(Value::Null) | None => vec![],
+            Some(Value::Null) | None => continue,
             Some(v) => vec![v],
         };
         // Apply ES `format` to each value when set. For dates this
