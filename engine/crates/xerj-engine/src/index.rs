@@ -25058,12 +25058,13 @@ fn default_projection_len(
     if generated_companion_fields.is_empty() {
         return json_len(source, mode);
     }
-    // A dotted or globbed companion strips a nested key, which the key-wise
-    // walk below cannot express; fall back to building the projection.
-    if generated_companion_fields
-        .iter()
-        .any(|f| f.contains('.') || f.contains('*'))
-    {
+    // A globbed companion strips a family of keys, which the key-wise walk
+    // below cannot express; fall back to building the projection. A DOTTED
+    // companion does not qualify — see the matching note on the `Default` arm
+    // in `apply_source_filter_measured` — and this predicate must stay in
+    // lockstep with it or the baseline stops describing the projection it is
+    // the baseline for.
+    if generated_companion_fields.iter().any(|f| f.contains('*')) {
         let excludes: Vec<String> = generated_companion_fields.iter().cloned().collect();
         return json_len(&filter_object(source, &[], &excludes), mode);
     }
@@ -25152,10 +25153,17 @@ fn apply_source_filter_measured(
             if generated_companion_fields.is_empty() {
                 return (hits, None);
             }
-            if generated_companion_fields
-                .iter()
-                .any(|f| f.contains('.') || f.contains('*'))
-            {
+            // Only a GLOBBED companion needs the projection builder. A dotted
+            // `target_field` is not a nested path: it is validated as a
+            // literal top-level property key (es_compat.rs
+            // `validate_semantic_companion_targets`) and written back with a
+            // literal `obj.insert(target, …)` at embed time, so the exact-key
+            // `retain` below removes it. Routing it through `filter_object`
+            // instead put the whole default response on that function's
+            // dotted branch, whose `collect_and_filter` prunes every empty
+            // non-root object — so one dotted target made `{"meta": {}}`
+            // vanish from every hit of every default search (issue #310).
+            if generated_companion_fields.iter().any(|f| f.contains('*')) {
                 let excludes: Vec<String> = generated_companion_fields.iter().cloned().collect();
                 return (
                     hits.into_iter()
@@ -25602,6 +25610,72 @@ mod source_filter_tests {
         assert!(companions.is_empty());
 
         let original = json!({"body_vector": "user-owned value"});
+        let filtered = apply_source_filter(
+            vec![hit("doc", 0.9, original.clone())],
+            &SourceFilter::Default,
+            &companions,
+        );
+
+        assert_eq!(filtered[0].source, original);
+    }
+
+    fn dotted_target_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(
+                FieldConfig::new("body", FieldType::Text).with_embedding(EmbeddingConfig {
+                    endpoint: None,
+                    model: None,
+                    target_field: Some("semantic.embedding".to_string()),
+                }),
+            )
+            .unwrap();
+        schema
+    }
+
+    // Issue #310 claim 2: a dotted `target_field` used to flip the default arm
+    // into `filter_object`'s dotted branch, whose `collect_and_filter` drops
+    // every empty non-root object. One index's embedding mapping then silently
+    // deleted unrelated `{}` fields from every hit of every default search.
+    #[test]
+    fn dotted_target_strips_its_companions_without_pruning_empty_objects() {
+        let companions = generated_embedding_companion_fields(&dotted_target_schema());
+        assert!(companions.contains("semantic.embedding"));
+        assert!(companions.contains("semantic.embedding_chunks"));
+
+        let source = json!({
+            "body": "the source text",
+            "semantic.embedding": [0.1, 0.2, 0.3],
+            "semantic.embedding_chunks": [[0.1, 0.2]],
+            "meta": {},
+            "outer": {"inner": {}}
+        });
+        let filtered = apply_source_filter(
+            vec![hit("doc", 0.9, source)],
+            &SourceFilter::Default,
+            &companions,
+        );
+
+        assert_eq!(
+            filtered[0].source,
+            json!({
+                "body": "the source text",
+                "meta": {},
+                "outer": {"inner": {}}
+            })
+        );
+    }
+
+    // The companion key is the LITERAL dotted name the embedder writes. A
+    // user-authored nested object that merely happens to share the prefix is
+    // ordinary source data and must survive untouched.
+    #[test]
+    fn dotted_target_does_not_strip_a_user_written_nested_object() {
+        let companions = generated_embedding_companion_fields(&dotted_target_schema());
+        let original = json!({
+            "body": "the source text",
+            "semantic": {"embedding": [0.1, 0.2], "note": "mine"}
+        });
         let filtered = apply_source_filter(
             vec![hit("doc", 0.9, original.clone())],
             &SourceFilter::Default,
