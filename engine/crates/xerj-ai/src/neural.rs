@@ -21,6 +21,7 @@ use anyhow::{anyhow, Context, Result};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 
@@ -29,7 +30,10 @@ pub const DEFAULT_MODEL_ID: &str = "sentence-transformers/all-MiniLM-L6-v2";
 
 /// Cap on tokens per passage. MiniLM's positional table is 512; passages are
 /// already chunked upstream, so this is a safety clamp, not the usual path.
-const MAX_TOKENS: usize = 512;
+///
+/// Public because it is part of this backend's embedding contract: changing it
+/// changes the vectors, so it travels in the execution identity.
+pub const MAX_TOKENS: usize = 512;
 
 /// How to obtain the model weights.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -189,6 +193,107 @@ impl NeuralEmbedder {
             .to_vec2::<f32>()
             .map_err(|e| anyhow!("read embeddings: {e}"))
     }
+}
+
+/// Content address of the three files a [`NeuralEmbedder`] is built from.
+///
+/// A *configured model id* cannot identify an embedder: `all-MiniLM-L6-v2`
+/// names a mutable hub pointer, and `local_model_dir` names a directory whose
+/// contents can be swapped underneath a running server. The bytes can, which is
+/// how both reference implementations decide whether an artifact may be reused
+/// — Lucene reads the segment's own header id and footer checksum
+/// (`lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java:364`, `:526`)
+/// rather than trusting the file name, and usearch re-reads the on-disk head
+/// before loading (`rust/lib.rs:1358`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetIdentity {
+    /// sha256 of `model.safetensors`.
+    pub model_sha256: String,
+    /// sha256 of `tokenizer.json`.
+    pub tokenizer_sha256: String,
+    /// sha256 of `config.json`.
+    pub config_sha256: String,
+    /// `hidden_size` from the resolved `config.json` — the width of every
+    /// vector this embedder will produce, read without loading the model.
+    pub dimensions: usize,
+}
+
+/// How [`NeuralEmbedder::embed_blocking`] turns token states into one vector.
+/// Part of the identity: the same weights pooled differently are a different
+/// embedder.
+pub const POOLING: &str = "attention-mask-mean+l2-normalize";
+
+/// Content-address the assets `cfg` resolves to.
+///
+/// Resolution takes exactly the path [`NeuralEmbedder::load`] takes (local
+/// directory when set, hub cache otherwise), so a server that is able to embed
+/// is always able to state what it embeds with, and one that cannot resolve its
+/// assets reports *which file* failed instead of a fabricated identity.
+///
+/// Memoised per [`NeuralConfig`] for the process lifetime: the digest reads
+/// ~90 MB for MiniLM and the caller is a request path.
+pub fn asset_identity(cfg: &NeuralConfig) -> Result<AssetIdentity> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    static IDENTITIES: OnceLock<
+        Mutex<HashMap<NeuralConfig, std::result::Result<AssetIdentity, String>>>,
+    > = OnceLock::new();
+
+    let identities = IDENTITIES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(cached) = identities
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(cfg)
+    {
+        return cached.clone().map_err(|reason| anyhow!(reason));
+    }
+    // Computed outside the lock: hashing is seconds of I/O on a cold cache and
+    // must not serialise every other configuration behind it.
+    let computed = compute_asset_identity(cfg).map_err(|e| format!("{e:#}"));
+    identities
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(cfg.clone(), computed.clone());
+    computed.map_err(|reason| anyhow!(reason))
+}
+
+fn compute_asset_identity(cfg: &NeuralConfig) -> Result<AssetIdentity> {
+    let (config_path, tokenizer_path, weights_path) = match &cfg.local_dir {
+        Some(dir) => resolve_local(dir)?,
+        None => resolve_from_hub(&cfg.model_id, cfg.cache_dir.as_deref())?,
+    };
+    let config_json = std::fs::read_to_string(&config_path)
+        .with_context(|| format!("read model config {}", config_path.display()))?;
+    let config: Config = serde_json::from_str(&config_json)
+        .with_context(|| format!("parse model config {}", config_path.display()))?;
+    Ok(AssetIdentity {
+        model_sha256: file_sha256(&weights_path)?,
+        tokenizer_sha256: file_sha256(&tokenizer_path)?,
+        config_sha256: format!("{:x}", Sha256::digest(config_json.as_bytes())),
+        dimensions: config.hidden_size,
+    })
+}
+
+/// Streamed sha256 — the weights are ~90 MB and must not be held in memory
+/// just to be digested.
+fn file_sha256(path: &Path) -> Result<String> {
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("read embedding asset {}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let read = file
+            .read(&mut buf)
+            .with_context(|| format!("read embedding asset {}", path.display()))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buf[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 /// Resolve the three model files from a local directory (air-gapped).

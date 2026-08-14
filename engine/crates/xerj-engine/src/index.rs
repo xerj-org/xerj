@@ -27102,6 +27102,90 @@ fn configured_onnx_identity(
     }
 }
 
+/// The `NeuralConfig` this server's embedding configuration resolves to.
+///
+/// Deliberately shared with `make_neural_embedder`: an identity describing a
+/// different model than the one that actually loads would be worse than no
+/// identity at all.
+#[cfg(feature = "neural")]
+fn configured_neural_config(
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> xerj_ai::neural::NeuralConfig {
+    let model_id = if cfg.neural_model.trim().is_empty() {
+        xerj_ai::neural::DEFAULT_MODEL_ID.to_string()
+    } else {
+        cfg.neural_model.clone()
+    };
+    xerj_ai::neural::NeuralConfig {
+        model_id,
+        cache_dir: (!cfg.model_cache_dir.is_empty()).then(|| cfg.model_cache_dir.clone().into()),
+        local_dir: (!cfg.local_model_dir.is_empty()).then(|| cfg.local_model_dir.clone().into()),
+    }
+}
+
+/// Execution identity for the built-in Candle backend.
+///
+/// #367: this arm used to hash the configured model NAME and report
+/// `resumable: false` unconditionally, so a brand-new node and a long-running
+/// one emitted the identical `identity_sha256` and every semantic autoindex run
+/// against a neural node aborted at the generation cutover — with a remedy
+/// ("use a fresh autoindex state after changing it") that could not work,
+/// because the gate never reads journal state.
+///
+/// Neither reference implementation refuses to reuse an artifact it cannot
+/// identify; both identify it from its own bytes and fail only on a proven
+/// mismatch — `FieldInfo.verifySameVectorOptions`
+/// (`lucene/core/src/java/org/apache/lucene/index/FieldInfo.java:401`) compares
+/// the pinned dimension/encoding/similarity, and `ReplicaNode.fileIsIdentical`
+/// (`lucene/replicator/src/java/org/apache/lucene/replicator/nrt/ReplicaNode.java:855`)
+/// compares header id + checksum precisely to catch a reused *name* whose
+/// content changed. The assets were already resolved to concrete paths in
+/// `xerj-ai/src/neural.rs`; nothing was missing but the digest.
+///
+/// Still fails closed — assets that cannot be hashed are non-resumable — but
+/// the reason now names the file instead of blaming a configuration change that
+/// never happened.
+#[cfg(feature = "neural")]
+fn configured_neural_identity(
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> (String, bool, Option<String>, Option<usize>) {
+    let neural = configured_neural_config(cfg);
+    match xerj_ai::neural::asset_identity(&neural) {
+        Ok(identity) => (
+            format!(
+                "neural.v1;model={};tokenizer={};config={};dimensions={};pooling={};max_tokens={}",
+                identity.model_sha256,
+                identity.tokenizer_sha256,
+                identity.config_sha256,
+                identity.dimensions,
+                xerj_ai::neural::POOLING,
+                xerj_ai::neural::MAX_TOKENS
+            ),
+            true,
+            None,
+            Some(identity.dimensions),
+        ),
+        Err(e) => (
+            format!("neural-unresolved.v1;configured-model={}", neural.model_id),
+            false,
+            Some(format!(
+                "the neural model assets could not be content-addressed: {e:#}"
+            )),
+            None,
+        ),
+    }
+}
+
+#[cfg(not(feature = "neural"))]
+fn configured_neural_identity(
+    _cfg: &xerj_common::config::EmbeddingConfig,
+) -> (String, bool, Option<String>, Option<usize>) {
+    // `backend` below resolves a requested "neural" to "lexical" in slim
+    // builds, so this arm is unreachable there; it exists so the match needs
+    // no `cfg` of its own.
+    unreachable!("the neural backend is not compiled into this build")
+}
+
 pub(crate) fn embedding_execution_identity(
     cfg: &xerj_common::config::EmbeddingConfig,
 ) -> Result<crate::engine::EmbeddingExecutionIdentity> {
@@ -27131,9 +27215,9 @@ pub(crate) fn embedding_execution_identity(
         backend = "lexical";
     }
     // Only report a width for the backends whose width this server actually
-    // pins. `neural` reads it from the loaded model's `hidden_size` and
-    // `proxy` gets whatever the remote returns, so both are omitted rather
-    // than reported as 384.
+    // pins. `neural` reads it from the resolved model's `hidden_size` and
+    // `proxy` gets whatever the remote returns, so the latter is omitted
+    // rather than reported as 384.
     let (material, resumable, reason, dimensions) = match backend {
         "lexical" => (
             format!(
@@ -27166,15 +27250,7 @@ pub(crate) fn embedding_execution_identity(
                 Some(onnx_dimensions),
             )
         }
-        "neural" => (
-            format!("neural-unpinned.v1;configured-model={}", cfg.neural_model),
-            false,
-            Some(
-                "the neural model is not content-addressed; use a fresh autoindex state after changing it"
-                    .to_string(),
-            ),
-            None,
-        ),
+        "neural" => configured_neural_identity(cfg),
         "proxy" => (
             format!("proxy-unpinned.v1;configured-model={}", cfg.default_model),
             false,
@@ -27403,14 +27479,32 @@ mod embedding_identity_tests {
             mode: "neural".into(),
             ..Default::default()
         };
+        // Resolve against an empty directory rather than the hub: this asserts
+        // the fail-closed arm, and a unit test must never reach the network.
+        #[cfg(feature = "neural")]
+        let empty_model_dir = tempfile::tempdir().unwrap();
+        #[cfg(feature = "neural")]
+        let neural = xerj_common::config::EmbeddingConfig {
+            local_model_dir: empty_model_dir.path().to_string_lossy().into_owned(),
+            ..neural
+        };
         let neural_identity = embedding_execution_identity(&neural).unwrap();
         #[cfg(feature = "neural")]
         {
             assert_eq!(neural_identity.backend, "neural");
+            // Assets that cannot be resolved are still non-resumable — but the
+            // reason names the asset instead of blaming a configuration change
+            // (#367: the old text told operators to reset autoindex state,
+            // which the cutover gate never reads).
             assert!(!neural_identity.resumable);
-            // The neural width is the loaded model's `hidden_size`, which is
-            // not known until the model loads — reporting 384 here would be a
-            // false statement for any encoder that is not 384-wide.
+            let reason = neural_identity.non_resumable_reason.clone().unwrap();
+            assert!(
+                reason.contains("content-addressed") && reason.contains("model.safetensors"),
+                "the failure must name the missing asset: {reason}"
+            );
+            // The neural width is the resolved model's `hidden_size`, so it is
+            // unknown when the model cannot be resolved at all — reporting 384
+            // here would be a false statement for any non-384-wide encoder.
             assert_eq!(neural_identity.dimensions, None);
             let encoded = serde_json::to_string(&neural_identity).unwrap();
             assert!(!encoded.contains("dimensions"), "{encoded}");
@@ -27458,6 +27552,96 @@ mod embedding_identity_tests {
                 "{endpoint}"
             );
         }
+    }
+
+    /// A local model directory holding the three assets `NeuralEmbedder::load`
+    /// resolves. Only the digests and `config.json`'s `hidden_size` are read
+    /// here, so the weights can be arbitrary bytes.
+    #[cfg(feature = "neural")]
+    fn neural_model_dir(hidden_size: usize, weights: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "vocab_size": 30522,
+                "hidden_size": hidden_size,
+                "num_hidden_layers": 6,
+                "num_attention_heads": 12,
+                "intermediate_size": 1536,
+                "hidden_act": "gelu",
+                "hidden_dropout_prob": 0.1,
+                "max_position_embeddings": 512,
+                "type_vocab_size": 2,
+                "initializer_range": 0.02,
+                "layer_norm_eps": 1e-12,
+                "pad_token_id": 0,
+                "classifier_dropout": serde_json::Value::Null,
+                "model_type": "bert",
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("tokenizer.json"), b"{}").unwrap();
+        std::fs::write(dir.path().join("model.safetensors"), weights.as_bytes()).unwrap();
+        dir
+    }
+
+    /// #367: `/v1/embedding/identity` returned `resumable: false` on every
+    /// neural node, with an identity derived from the configured model NAME —
+    /// so a fresh node and a long-running one were indistinguishable and the
+    /// autoindex generation cutover aborted every semantic run. The identity
+    /// now comes from the assets' bytes, the way Lucene decides whether a
+    /// replicated file may be reused (`ReplicaNode.fileIsIdentical`,
+    /// lucene/replicator/src/java/org/apache/lucene/replicator/nrt/ReplicaNode.java:855).
+    #[cfg(feature = "neural")]
+    #[test]
+    fn neural_execution_identity_is_content_addressed_and_resumable() {
+        let neural = |dir: &tempfile::TempDir| xerj_common::config::EmbeddingConfig {
+            mode: "neural".into(),
+            local_model_dir: dir.path().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+
+        let first_dir = neural_model_dir(384, "weights-a");
+        let identity = embedding_execution_identity(&neural(&first_dir)).unwrap();
+        assert_eq!(identity.backend, "neural");
+        assert!(
+            identity.resumable,
+            "content-addressed assets are resumable: {:?}",
+            identity.non_resumable_reason
+        );
+        assert_eq!(identity.non_resumable_reason, None);
+        // Width now comes from the resolved `config.json`, not from a guess.
+        assert_eq!(identity.dimensions, Some(384));
+        // No path, and no bare model name, may leak into the reported identity.
+        let encoded = serde_json::to_string(&identity).unwrap();
+        assert!(!encoded.contains(&first_dir.path().to_string_lossy().into_owned()));
+
+        // Same bytes in a different directory → same identity. Two nodes that
+        // hold the same model must be able to resume each other's generation.
+        let same_content = neural_model_dir(384, "weights-a");
+        assert_eq!(
+            embedding_execution_identity(&neural(&same_content))
+                .unwrap()
+                .identity_sha256,
+            identity.identity_sha256
+        );
+
+        // Different weights → different identity. This is the mismatch the
+        // cutover gate exists to catch, and the old name-hash could not see it.
+        let other_weights = neural_model_dir(384, "weights-b");
+        assert_ne!(
+            embedding_execution_identity(&neural(&other_weights))
+                .unwrap()
+                .identity_sha256,
+            identity.identity_sha256
+        );
+
+        // A different width is a different embedder even with equal weights.
+        let other_width = neural_model_dir(768, "weights-a");
+        let wider = embedding_execution_identity(&neural(&other_width)).unwrap();
+        assert_eq!(wider.dimensions, Some(768));
+        assert_ne!(wider.identity_sha256, identity.identity_sha256);
     }
 
     #[cfg(feature = "onnx-experimental")]
@@ -27946,16 +28130,9 @@ fn make_onnx_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> Result<xer
 /// and fall back to lexical so a `mode=neural` config never bricks startup.
 #[cfg(feature = "neural")]
 fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
-    let model_id = if cfg.neural_model.trim().is_empty() {
-        xerj_ai::neural::DEFAULT_MODEL_ID.to_string()
-    } else {
-        cfg.neural_model.clone()
-    };
-    let neural_cfg = xerj_ai::neural::NeuralConfig {
-        model_id,
-        cache_dir: (!cfg.model_cache_dir.is_empty()).then(|| cfg.model_cache_dir.clone().into()),
-        local_dir: (!cfg.local_model_dir.is_empty()).then(|| cfg.local_model_dir.clone().into()),
-    };
+    // Same resolution the execution identity reports — see
+    // `configured_neural_config`.
+    let neural_cfg = configured_neural_config(cfg);
     info!(model = %neural_cfg.model_id, "embedding backend: built-in neural BERT (loads on first use)");
     xerj_ai::Embedder::neural(neural_cfg)
 }
