@@ -345,6 +345,104 @@ impl CodeCoverage {
     }
 }
 
+/// How many duplicate paths one catalog-alias sweep request may name.
+///
+/// The sweep used to issue one `_delete_by_query` per path. Lucene's
+/// `IndexWriter.deleteDocuments(Query...)`
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexWriter.java:1883`) takes
+/// N queries and applies them in one packet — "All given deletes are applied
+/// and flushed atomically at the same time" — and its buffered query deletes
+/// are drained inside the writer (`FrozenBufferedUpdates.applyQueryDeletes`,
+/// `lucene/core/src/java/org/apache/lucene/index/FrozenBufferedUpdates.java:357`),
+/// never as a separate client-visible operation that can fail an otherwise
+/// complete write. Here each round trip was an independent way for an
+/// already-indexed corpus to fail (#345), so a corpus with K duplicates now
+/// costs `ceil(K / this)` requests instead of K.
+///
+/// Bounded rather than one request for everything because this list is one
+/// entry per duplicate path and the request has to stay a request.
+const ALIAS_SWEEP_CHUNK: usize = 1_024;
+
+/// The delete-by-query for one chunk of duplicate-alias paths.
+///
+/// `path` and `status` are both `keyword` in [`catalog::catalog_mapping`], and
+/// `terms` here takes a plain value array — never the `{index, id, path}`
+/// lookup form, which `_delete_by_query` does not resolve.
+fn alias_sweep_query(paths: &[&str]) -> Value {
+    json!({
+        "bool": {
+            "filter": [
+                {"term": {"status": "duplicate"}},
+                {"terms": {"path": paths}}
+            ]
+        }
+    })
+}
+
+/// The `reason` a run finishes with when every document is indexed but the
+/// legacy-scheme catalog alias sweep could not be completed.
+///
+/// Its own string, not `completed-with-junk`, so it is greppable: the two
+/// states need different operator responses and an agent branching on `reason`
+/// must be able to tell them apart.
+const ALIAS_SWEEP_FAILED_REASON: &str = "catalog-alias-sweep-failed";
+
+/// What a run says when the duplicate-alias sweep failed but the corpus is
+/// indexed.
+///
+/// This is the #345 half that made the issue expensive. A byte-identical
+/// duplicate is the ONLY thing that makes the sweep run at all, and the sweep
+/// is metadata-only bookkeeping that happens AFTER every data document is
+/// durably indexed and after the per-file journal has committed. Propagating
+/// its error turned a fully successful indexing run into
+/// `xerj-done ok=false exit=1 reason=aborted`, permanently: the journal is
+/// already complete, so every rerun indexes zero files and aborts on the same
+/// line. Lucene has the precedent for the other choice — `tryDeleteDocument`
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexWriter.java:1688`)
+/// returns `-1` and lets the caller decide when a delete cannot be performed
+/// instead of throwing.
+///
+/// Two things keep the downgrade honest, and neither may be removed:
+///
+/// 1. It is loud and it NAMES the paths, because the cost is real — a stale
+///    legacy-scheme alias document can survive in the catalog beside the
+///    current one, which is a catalog-accuracy regression, not a free pass.
+/// 2. It cannot hide a broken catalog index. The catalog bulk immediately
+///    after this sweep is still fatal, so a catalog that cannot be written
+///    still aborts the run; only a catalog that accepts writes while refusing
+///    this delete reaches the warning.
+///
+/// One note per line, and the path list capped like every other human-facing
+/// listing in this file (see [`REFUSAL_LIST_CAP`]): [`progress::Progress::note`]
+/// sanitises a newline to `?`, so a multi-line message has to be multiple
+/// notes.
+fn alias_sweep_notes(paths: &[&str], error: &str) -> Vec<String> {
+    let mut notes = vec![
+        format!(
+            "warning: the corpus IS indexed — every document and the resume journal are \
+             committed — but the catalog's duplicate-alias sweep failed for {} path(s), so a \
+             stale alias document written by an older identity scheme may still sit beside \
+             the current one in {}. `xerj autoindex map` can therefore report a duplicate \
+             path twice. Rerun the same command once the server condition below clears; the \
+             sweep is idempotent.",
+            paths.len(),
+            catalog::CATALOG_INDEX,
+        ),
+        format!("  cause: {error}"),
+    ];
+    notes.extend(
+        paths
+            .iter()
+            .take(REFUSAL_LIST_CAP)
+            .map(|path| format!("  alias not swept: {path}")),
+    );
+    let remaining = paths.len().saturating_sub(REFUSAL_LIST_CAP);
+    if remaining > 0 {
+        notes.push(format!("  … and {remaining} more"));
+    }
+    notes
+}
+
 /// Exit code for a run that committed (or confirmed) a corpus generation.
 ///
 /// `3` is "completed with junk — recorded, never fatal", the same contract the
@@ -4436,26 +4534,40 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // ── catalog write ────────────────────────────────────────────────────
     // Alias IDs changed as identity evolved. Remove by logical path first so
     // catalogs created by any previous identity scheme cannot survive beside
-    // the one current alias document.
-    pr.phase(
-        "finalize-catalog",
-        alias_paths_to_replace.len() as u64 + 1,
-        0,
-    );
-    for path in &alias_paths_to_replace {
-        let _delete = pr.file(path, 0);
-        es.delete_by_query(
-            catalog::CATALOG_INDEX,
-            &json!({
-                "bool": {
-                    "filter": [
-                        {"term": {"status": "duplicate"}},
-                        {"term": {"path": path}}
-                    ]
-                }
-            }),
-        )
-        .with_context(|| format!("replace catalog alias for {path}"))?;
+    // the one current alias document. One request per CHUNK of paths — see
+    // [`alias_sweep_query`].
+    let mut alias_sweep_paths: Vec<&str> =
+        alias_paths_to_replace.iter().map(String::as_str).collect();
+    // Sorted so the chunk boundaries — and the failure report below — are the
+    // same on every run over the same corpus, not `HashSet` iteration order.
+    alias_sweep_paths.sort_unstable();
+    let alias_sweep_chunks: Vec<&[&str]> = alias_sweep_paths.chunks(ALIAS_SWEEP_CHUNK).collect();
+    pr.phase("finalize-catalog", alias_sweep_chunks.len() as u64 + 1, 0);
+    // Non-fatal, and only this sweep is. See [`alias_sweep_notes`] for why,
+    // and for the two things that keep the downgrade honest.
+    let mut alias_sweep_failed: Vec<&str> = Vec::new();
+    let mut alias_sweep_error: Option<String> = None;
+    for chunk in alias_sweep_chunks {
+        let _delete = pr.file(
+            &match chunk {
+                [only] => (*only).to_string(),
+                [first, ..] => format!("{first} (+{} more)", chunk.len() - 1),
+                [] => String::new(),
+            },
+            0,
+        );
+        if let Err(error) = es.delete_by_query(catalog::CATALOG_INDEX, &alias_sweep_query(chunk)) {
+            alias_sweep_failed.extend_from_slice(chunk);
+            alias_sweep_error.get_or_insert_with(|| format!("{error:#}"));
+        }
+    }
+    // Said here, next to what happened, and again on the terminal line — a
+    // failure that is only visible in an exit code is the state this change
+    // exists to leave behind.
+    if let Some(error) = &alias_sweep_error {
+        for note in alias_sweep_notes(&alias_sweep_failed, error) {
+            pr.note(&note);
+        }
     }
     let mut cat_buf: Vec<u8> = Vec::new();
     let push_doc = |id: &str, doc: &Value, buf: &mut Vec<u8>| {
@@ -4767,6 +4879,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     for (key, value) in code_coverage.fields() {
         run_doc[key] = json!(value);
     }
+    // Present only when it happened, so a healthy run document is unchanged and
+    // any reader that finds these keys knows the sweep really failed. The full
+    // list is kept here — the prose above is capped, the record is not.
+    if let Some(error) = &alias_sweep_error {
+        run_doc["catalog_alias_sweep_failed_paths"] = json!(alias_sweep_failed);
+        run_doc["catalog_alias_sweep_error"] = json!(error);
+    }
     push_doc(&format!("run:{run_id}"), &run_doc, &mut cat_buf);
 
     if !cat_buf.is_empty() {
@@ -4919,7 +5038,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // an error long before this line, so `rejected_records` is provably 0
     // here. Splitting them out of `junk_total_records` therefore changes no
     // exit code.
-    let code = if junk_total_records > 0 || junk_file_count > 0 {
+    //
+    // A failed alias sweep lands here too, and on 3 rather than on a code of
+    // its own: 3 already means "completed, and something about this run is
+    // recorded rather than fatal" (`cli.rs` EXIT CODES), and inventing a fourth
+    // success code would break every caller that already branches on 0/3. The
+    // `reason` is what tells the two apart.
+    let code = if junk_total_records > 0 || junk_file_count > 0 || alias_sweep_error.is_some() {
         3
     } else {
         0
@@ -4938,10 +5063,20 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         ("junk_files", junk_file_count as u64),
     ];
     done_fields.extend(code_coverage.fields());
+    if alias_sweep_error.is_some() {
+        done_fields.push((
+            "catalog_alias_sweep_failures",
+            alias_sweep_failed.len() as u64,
+        ));
+    }
     pr.finish(
         true,
         code,
-        if code == 3 {
+        // The sweep failure wins the `reason` when both are true: junk is the
+        // everyday state and this one needs an operator.
+        if alias_sweep_error.is_some() {
+            ALIAS_SWEEP_FAILED_REASON
+        } else if code == 3 {
             "completed-with-junk"
         } else {
             "completed"
@@ -6134,6 +6269,74 @@ mod code_coverage_tests {
                 ("code_files_junked", 1)
             ]
         );
+    }
+
+    /// The chunk boundary of the batched alias sweep (#345), asserted rather
+    /// than assumed: batching is only safe if the chunks partition the path
+    /// list exactly — one lost path leaves a stale alias document behind, and
+    /// one duplicated path is a wasted round trip on the run that has already
+    /// met a server problem.
+    #[test]
+    fn the_alias_sweep_partitions_its_paths_exactly_across_the_chunk_boundary() {
+        let corpus: Vec<String> = (0..ALIAS_SWEEP_CHUNK + 1)
+            .map(|nth| format!("dup-{nth:05}.csv"))
+            .collect();
+        for count in [0, 1, ALIAS_SWEEP_CHUNK - 1, ALIAS_SWEEP_CHUNK, corpus.len()] {
+            let paths: Vec<&str> = corpus[..count].iter().map(String::as_str).collect();
+            let chunks: Vec<&[&str]> = paths.chunks(ALIAS_SWEEP_CHUNK).collect();
+            assert_eq!(chunks.len(), count.div_ceil(ALIAS_SWEEP_CHUNK), "{count}");
+            let swept: Vec<&str> = chunks
+                .iter()
+                .flat_map(|chunk| {
+                    let query = alias_sweep_query(chunk);
+                    // The filter shape is the contract the server sees: a
+                    // `status` term beside a `path` terms ARRAY, never the
+                    // `{index, id, path}` lookup form.
+                    assert_eq!(query["bool"]["filter"][0]["term"]["status"], "duplicate");
+                    query["bool"]["filter"][1]["terms"]["path"]
+                        .as_array()
+                        .expect("terms values are a plain array")
+                        .iter()
+                        .map(|path| path.as_str().unwrap().to_owned())
+                        .collect::<Vec<_>>()
+                })
+                .map(|path| {
+                    corpus
+                        .iter()
+                        .find(|known| **known == path)
+                        .expect("a swept path the corpus never contained")
+                        .as_str()
+                })
+                .collect();
+            assert_eq!(swept, paths, "{count}");
+        }
+    }
+
+    /// The downgrade from fatal to reported is only defensible if it is loud
+    /// and names what survived (#345).
+    #[test]
+    fn a_failed_alias_sweep_names_its_paths_the_cause_and_caps_the_listing() {
+        let many: Vec<String> = (0..REFUSAL_LIST_CAP + 3)
+            .map(|nth| format!("dup-{nth}.csv"))
+            .collect();
+        let paths: Vec<&str> = many.iter().map(String::as_str).collect();
+        let notes = alias_sweep_notes(&paths, "delete_by_query: HTTP 500: publication interrupted");
+        let rendered = notes.join("\n");
+        assert!(rendered.contains("the corpus IS indexed"), "{rendered}");
+        assert!(rendered.contains(catalog::CATALOG_INDEX), "{rendered}");
+        assert!(rendered.contains("publication interrupted"), "{rendered}");
+        assert!(
+            rendered.contains("alias not swept: dup-0.csv"),
+            "{rendered}"
+        );
+        assert!(
+            !rendered.contains(&format!("alias not swept: dup-{}.csv", REFUSAL_LIST_CAP)),
+            "the listing is capped like every other one here: {rendered}"
+        );
+        assert!(rendered.contains("… and 3 more"), "{rendered}");
+        // A note carrying a newline would be sanitised to `?` on the progress
+        // surface, so each line has to be its own note.
+        assert!(notes.iter().all(|note| !note.contains('\n')), "{notes:?}");
     }
 }
 

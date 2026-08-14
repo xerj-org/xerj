@@ -339,7 +339,12 @@ pub fn help_text_with(feedback: bool) -> String {
              autoindex-catalog and old target only after validation.\n\
          \n\
          EXIT CODES: 0 complete (also: gate answered with --approve cancel);\n\
-                     3 completed-with-junk (junk recorded, never fatal);\n\
+                     3 completed-with-junk (junk recorded, never fatal), or\n\
+                       catalog-alias-sweep-failed — the corpus IS indexed and the\n\
+                       journal committed; only the catalog's duplicate-alias cleanup\n\
+                       could not run. Read `reason` on the xerj-done line to tell the\n\
+                       two apart, and rerun the same command once the reported server\n\
+                       condition clears;\n\
                      4 NEEDS A DECISION — the estimate exceeded --max-minutes and\n\
                        nothing was indexed; a JSON decision request is on stdout;\n\
                      2 usage; 1 endpoint/journal failure, a refused corpus removal, or a\n\

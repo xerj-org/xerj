@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **`autoindex` aborted permanently on a corpus containing a byte-identical
+  duplicate** (#345). A duplicate path is the only thing that makes a run issue
+  the catalog's duplicate-alias `_delete_by_query` at all, and that call was
+  fatal. Because it runs *after* every document is durably indexed and after the
+  per-file journal has committed, a 5xx there turned a fully successful run into
+  `xerj-done ok=false exit=1 reason=aborted` — and it stayed that way: the
+  journal was complete, so every rerun indexed zero files and aborted on the
+  same line. The sweep is metadata-only bookkeeping and is now reported instead
+  of fatal: the run finishes `ok=true exit=3
+  reason=catalog-alias-sweep-failed`, names the paths whose alias document was
+  not swept, and records `catalog_alias_sweep_failed_paths` /
+  `catalog_alias_sweep_error` on the run document. Exit `3` already means
+  "completed, and something is recorded rather than fatal", so no new exit code
+  was introduced — read `reason` to tell it apart from `completed-with-junk`.
+  The catalog *bulk* that follows the sweep is still fatal, so a catalog index
+  that cannot be written still fails the run.
+
+- **Any 429/5xx from the server was reported as a bare status line.** The retry
+  wrapper kept `HTTP 500 Internal Server Error` and discarded the response body,
+  which is the same sentence for a poisoned index, a full disk and a panicking
+  handler — the reason #345 was filed as "not investigated". A bounded prefix of
+  the server's own `error.type: error.reason` (or the raw body, for a proxy's
+  error page) now travels with the status on every `with_retry` call site.
+
+- **The duplicate-alias sweep issued one HTTP request per duplicate path.** It
+  now names up to 1024 paths per request with a `terms` filter, so a corpus with
+  K duplicates costs `ceil(K/1024)` round trips instead of K — and has
+  proportionally less surface on which to fail.
 
 ## [1.0.0-rc.16] - 2026-08-13
 

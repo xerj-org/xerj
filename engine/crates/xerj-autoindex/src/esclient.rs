@@ -256,6 +256,46 @@ fn is_index_block_error(error: &Value) -> bool {
     type_is_block || reason_is_block
 }
 
+/// How much of a 429/5xx body [`server_reason`] keeps. A 5xx body can be a
+/// whole stack trace; the sentence that names the condition is at the front.
+const SERVER_REASON_MAX: usize = 512;
+
+/// The server's own explanation for a 429/5xx, bounded to a prefix.
+///
+/// [`Es::with_retry`] used to report only `HTTP 500 Internal Server Error` and
+/// drop the body, which is the same sentence for a poisoned index, a full disk
+/// and a panicking handler. That is why #345 was filed as "not investigated":
+/// the reporter had a status line and nothing to act on, while the response
+/// they discarded carried the reason — every by-query refusal answers
+/// `{"error": {"type", "reason"}, "status"}` (`es_compat::by_query_response`),
+/// and `_bulk` already surfaces the per-item half of the same thing
+/// ([`BulkOutcome::first_server_error`]).
+///
+/// `error.type: error.reason` is preferred because that is the shape both XERJ
+/// and Elasticsearch answer with; the raw body is the fallback for anything
+/// else (an HTML proxy error page, a bare string), because a reverse proxy in
+/// front of the server is exactly the case where the status alone is useless.
+fn server_reason(resp: reqwest::blocking::Response) -> Option<String> {
+    let body = resp.text().ok()?;
+    let reason = serde_json::from_str::<Value>(&body)
+        .ok()
+        .and_then(|value| {
+            let error = value.get("error")?;
+            let kind = error.get("type").and_then(Value::as_str);
+            let why = error.get("reason").and_then(Value::as_str);
+            match (kind, why) {
+                (Some(kind), Some(why)) => Some(format!("{kind}: {why}")),
+                (Some(only), None) | (None, Some(only)) => Some(only.to_owned()),
+                (None, None) => None,
+            }
+        })
+        .unwrap_or(body);
+    // `chars`, not bytes: the body can be any encoding the server chose, and
+    // slicing one mid-codepoint would panic on the error path (#326).
+    let reason: String = reason.trim().chars().take(SERVER_REASON_MAX).collect();
+    (!reason.is_empty()).then_some(reason)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EmbeddingExecutionIdentity {
     pub version: u32,
@@ -508,7 +548,10 @@ impl Es {
                         if status.as_u16() == 429 {
                             self.admission.on_congestion();
                         }
-                        last_err = Some(anyhow!("{what}: HTTP {status}"));
+                        last_err = Some(match server_reason(resp) {
+                            Some(reason) => anyhow!("{what}: HTTP {status}: {reason}"),
+                            None => anyhow!("{what}: HTTP {status}"),
+                        });
                     } else {
                         return parse(resp);
                     }
@@ -1191,6 +1234,51 @@ mod tests {
         for request in requests.iter() {
             let text = String::from_utf8_lossy(request);
             assert!(text.contains("POST /data/_delete_by_query"), "{text}");
+        }
+    }
+
+    /// #345: the reporter's whole issue was `delete_by_query: HTTP 500
+    /// Internal Server Error` and nothing else, so it was filed "not
+    /// investigated". The server had already said why — every by-query refusal
+    /// answers `{"error": {"type", "reason"}, "status"}` — and the client threw
+    /// the body away after the last retry. Cover both shapes the wire really
+    /// produces: the structured refusal, and a proxy's HTML page.
+    #[test]
+    fn an_exhausted_5xx_retry_reports_the_server_reason_not_only_the_status() {
+        for (body, expect) in [
+            (
+                br#"{"error":{"type":"internal_server_error_exception","reason":"collection publication was interrupted"},"status":500}"#.as_slice(),
+                "internal_server_error_exception: collection publication was interrupted",
+            ),
+            (
+                b"<html><body>502 upstream connect error</body></html>".as_slice(),
+                "<html><body>502 upstream connect error</body></html>",
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                for _ in 0..6 {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    read_request(&mut stream);
+                    respond_status(&mut stream, "500 Internal Server Error", body);
+                }
+            });
+            let es = Es::with_bulk_policy(
+                &format!("http://{address}"),
+                None,
+                Duration::from_millis(100),
+                Duration::from_millis(1),
+                Duration::from_millis(2),
+            )
+            .unwrap();
+            let error = es
+                .delete_by_query("data", &serde_json::json!({"term": {"ax_file": "key"}}))
+                .unwrap_err();
+            let rendered = format!("{error:#}");
+            assert!(rendered.contains("HTTP 500 Internal Server Error"), "{rendered}");
+            assert!(rendered.contains(expect), "{rendered}");
+            server.join().unwrap();
         }
     }
 
