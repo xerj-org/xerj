@@ -230,6 +230,23 @@ jobs:
         working-directory: engine
         run: cargo test --profile ci-test --workspace -- --test-threads=2
 
+      # The script-limit suites are STACK-BUDGET tests, and a stack budget is a
+      # function of codegen: [profile.ci-test] inherits release, so the run above
+      # exercises them at opt-level 3 only. #353 was exactly that blind spot --
+      # `cargo test -p xerj-engine --test painless_script_limits` SIGABRTed on a
+      # stack overflow for anyone on the dev profile while CI stayed green,
+      # because the file was missing the sized-stack harness its xerj-api siblings
+      # already had. Single targets in crates the job already builds, so the
+      # extra dev-profile work is small; the workspace run above stays on
+      # ci-test.
+      - name: Script-limit stack budgets (dev profile)
+        working-directory: engine
+        run: |
+          cargo test -p xerj-engine --test painless_script_limits
+          cargo test -p xerj-api --test script_limits_http
+          cargo test -p xerj-api --test script_limits_remaining_surfaces_http
+          cargo test -p xerj-server --bin xerj runtime_tests
+
   # Fat LTO + codegen-units=1 + panic=abort over every workspace member is a
   # failure mode of its own (LTO ICEs, symbol collisions, panic-strategy
   # mismatches) and is not covered by `cargo clippy --all-targets` in `lint`

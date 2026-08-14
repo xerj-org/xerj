@@ -7,6 +7,16 @@
 //! error channel, so they mapped the limit error to `0.0` / `[]`. A scoring
 //! script that recursed past `MAX_CALL_DEPTH` therefore produced a WRONG SCORE
 //! and reported success. These tests pin the loud behavior.
+//!
+//! Issue #353: this file never got the explicitly-sized-stack harness its
+//! sibling `xerj-api/tests/script_limits_http.rs` already has, so every
+//! `#[tokio::test]` here ran on the 2 MiB `std`/`libtest` default while
+//! production runs on `RT_THREAD_STACK_SIZE`. A debug build's frames need more
+//! than that and the whole binary aborted with a stack overflow. Measured on
+//! this branch by bisecting `RUST_MIN_STACK` against the unfixed file: the dev
+//! profile aborts at 2,359,296 bytes and passes at 2,621,440; the `ci-test`
+//! profile (which inherits `release` codegen) is green on the stock 2 MiB,
+//! which is why CI never saw it.
 
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -14,6 +24,71 @@ use xerj_common::config::Config;
 use xerj_common::types::Schema;
 use xerj_engine::Engine;
 use xerj_query::parse_request;
+
+/// Stack size for every thread these tests evaluate a script on, replacing the
+/// 2 MiB `std`/`libtest` default that `#[tokio::test]` would have given them.
+///
+/// Equal to the *smallest* stack any production worker gets: `xerj-server`'s
+/// `RT_THREAD_STACK_SIZE` pins 4 MiB in a release build (and more in a debug
+/// one). `xerj_engine::painless::MAX_CALL_DEPTH` is a **stack** budget, and its
+/// 1.20 MiB worst case is an optimized-build measurement, so what these tests
+/// cost is a function of codegen — sizing the stack here keeps them measuring
+/// that the depth guard trips and the fault reaches `SearchResult`, instead of
+/// measuring how large `rustc -C opt-level=0` makes an async frame.
+///
+/// The budget assertions at the bottom of this file size their own threads and
+/// are deliberately NOT routed through this: there the stack size is the thing
+/// under test, not scaffolding.
+const WORKER_STACK_BYTES: usize = 4 * 1024 * 1024;
+
+/// Drive `fut` to completion on `builder`'s runtime with every stack involved
+/// sized to [`WORKER_STACK_BYTES`].
+///
+/// Both stacks have to be sized. The runtime builder covers work that lands on
+/// a worker thread; the outer `std` thread covers `block_on` itself, which runs
+/// on the caller — and under `libtest` the caller is the per-test thread, whose
+/// size comes from `RUST_MIN_STACK` (2 MiB by default), not from the builder.
+fn block_on_sized<F>(mut builder: tokio::runtime::Builder, fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    std::thread::Builder::new()
+        .stack_size(WORKER_STACK_BYTES)
+        .spawn(move || {
+            builder
+                .thread_stack_size(WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(fut)
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread panicked");
+}
+
+/// `#[tokio::test]`'s default flavor, with sized stacks.
+fn block_on_sized_current_thread<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    block_on_sized(tokio::runtime::Builder::new_current_thread(), fut);
+}
+
+/// `#[tokio::test(flavor = "multi_thread", worker_threads = 4)]`, with sized
+/// stacks. NOT interchangeable with the current-thread variant: `Index::search`
+/// gates its `block_in_place` hand-off on an `is_multi_thread` check
+/// (`index.rs`), so a current-thread runtime takes the other branch and the one
+/// test that exists to cover that path would keep passing while covering
+/// nothing.
+fn block_on_sized_multi_thread<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.worker_threads(4);
+    block_on_sized(builder, fut);
+}
 
 fn test_engine() -> (Engine, TempDir) {
     let dir = TempDir::new().expect("tempdir");
@@ -62,8 +137,14 @@ fn script_score_request(source: String) -> xerj_query::ast::SearchRequest {
 /// The headline of #97: a `script_score` that trips the call-depth limit used
 /// to return `_score: 0.0` and a 200-shaped success. It must now surface the
 /// limit on the result so the API layer can fail the request.
-#[tokio::test]
-async fn script_score_over_call_depth_reports_a_failure_not_a_score() {
+#[test]
+fn script_score_over_call_depth_reports_a_failure_not_a_score() {
+    block_on_sized_current_thread(
+        script_score_over_call_depth_reports_a_failure_not_a_score_inner(),
+    );
+}
+
+async fn script_score_over_call_depth_reports_a_failure_not_a_score_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -86,8 +167,12 @@ async fn script_score_over_call_depth_reports_a_failure_not_a_score() {
 /// A script the interpreter simply doesn't support must keep degrading
 /// gracefully — the fault sink is for *resource limits* only. Without this the
 /// fix would turn every out-of-subset script into a failed search.
-#[tokio::test]
-async fn ordinary_script_error_still_degrades_gracefully() {
+#[test]
+fn ordinary_script_error_still_degrades_gracefully() {
+    block_on_sized_current_thread(ordinary_script_error_still_degrades_gracefully_inner());
+}
+
+async fn ordinary_script_error_still_degrades_gracefully_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -105,8 +190,27 @@ async fn ordinary_script_error_still_degrades_gracefully() {
 /// whole search body inside `block_in_place` + `Handle::block_on`. The fault
 /// sink is a *task*-local, so this pins that it survives that hand-off — a
 /// current-thread-only test would pass while production stayed silently wrong.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn call_depth_limit_survives_the_multi_thread_block_in_place_path() {
+#[test]
+fn call_depth_limit_survives_the_multi_thread_block_in_place_path() {
+    // `block_on_sized_multi_thread`, not the current-thread variant: the
+    // `is_multi_thread` check is what selects the path this test is named for.
+    block_on_sized_multi_thread(
+        call_depth_limit_survives_the_multi_thread_block_in_place_path_inner(),
+    );
+}
+
+async fn call_depth_limit_survives_the_multi_thread_block_in_place_path_inner() {
+    // Nothing below would notice if this ran on the other flavor — the fault is
+    // reported either way — so the coverage this test exists for could be lost
+    // silently by picking the wrong helper. Pin the flavor, not just the
+    // outcome.
+    assert_eq!(
+        tokio::runtime::Handle::current().runtime_flavor(),
+        tokio::runtime::RuntimeFlavor::MultiThread,
+        "must run on the multi-thread flavor, or `Index::search`'s \
+         `is_multi_thread` check takes the branch without `block_in_place`"
+    );
+
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -122,8 +226,14 @@ async fn call_depth_limit_survives_the_multi_thread_block_in_place_path() {
 /// `terms_set`'s `minimum_should_match_script` is a *matching* path, not a
 /// scoring one: a script error makes the doc unsatisfiable (fail-closed), so a
 /// limit trip silently removes documents from the result set.
-#[tokio::test]
-async fn terms_set_min_should_match_script_over_call_depth_reports_a_failure() {
+#[test]
+fn terms_set_min_should_match_script_over_call_depth_reports_a_failure() {
+    block_on_sized_current_thread(
+        terms_set_min_should_match_script_over_call_depth_reports_a_failure_inner(),
+    );
+}
+
+async fn terms_set_min_should_match_script_over_call_depth_reports_a_failure_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -158,8 +268,12 @@ fn painless_values_can_cross_a_thread_boundary() {
 }
 
 /// The rescore path has the same shape (`Err(_) => 0.0`) and the same bug.
-#[tokio::test]
-async fn rescore_script_over_call_depth_reports_a_failure() {
+#[test]
+fn rescore_script_over_call_depth_reports_a_failure() {
+    block_on_sized_current_thread(rescore_script_over_call_depth_reports_a_failure_inner());
+}
+
+async fn rescore_script_over_call_depth_reports_a_failure_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -189,8 +303,14 @@ async fn rescore_script_over_call_depth_reports_a_failure() {
 /// Script-bucketed aggregations run inside the search too, and mapped a failed
 /// script to "no buckets" — an empty aggregation that looks like a legitimate
 /// answer.
-#[tokio::test]
-async fn script_bucketed_terms_agg_over_call_depth_reports_a_failure() {
+#[test]
+fn script_bucketed_terms_agg_over_call_depth_reports_a_failure() {
+    block_on_sized_current_thread(
+        script_bucketed_terms_agg_over_call_depth_reports_a_failure_inner(),
+    );
+}
+
+async fn script_bucketed_terms_agg_over_call_depth_reports_a_failure_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -213,8 +333,12 @@ async fn script_bucketed_terms_agg_over_call_depth_reports_a_failure() {
 
 /// A failed search must not poison the response cache, and the fault must not
 /// be replayed against the next (innocent) caller of the same query.
-#[tokio::test]
-async fn script_failure_is_not_cached_or_replayed() {
+#[test]
+fn script_failure_is_not_cached_or_replayed() {
+    block_on_sized_current_thread(script_failure_is_not_cached_or_replayed_inner());
+}
+
+async fn script_failure_is_not_cached_or_replayed_inner() {
     let (engine, _dir) = test_engine();
     let idx = seed(&engine).await;
 
@@ -253,13 +377,12 @@ async fn script_failure_is_not_cached_or_replayed() {
     );
 }
 
-/// Run `src` to completion on a thread with exactly the 2 MiB stack a tokio
-/// worker gets, and return the error. If the call-depth guard regresses, the
-/// recursion overflows that stack and the whole test process aborts — this
-/// cannot fail quietly.
-fn eval_on_a_2mib_stack(src: String) -> String {
+/// Run `src` to completion on a thread with exactly `stack_bytes` of stack and
+/// return the error. If the call-depth guard regresses, the recursion overflows
+/// that stack and the whole test process aborts — this cannot fail quietly.
+fn eval_on_a_stack(stack_bytes: usize, src: String) -> String {
     std::thread::Builder::new()
-        .stack_size(2 * 1024 * 1024)
+        .stack_size(stack_bytes)
         .spawn(move || {
             let doc = Value::Object(serde_json::Map::new());
             let params = Value::Object(serde_json::Map::new());
@@ -277,6 +400,23 @@ fn eval_on_a_2mib_stack(src: String) -> String {
         .expect("the closure-recursion guard let the stack overflow")
 }
 
+/// The 2 MiB a tokio worker gets when nobody sets `thread_stack_size` — the
+/// floor the budget assertions below are written against.
+fn eval_on_a_2mib_stack(src: String) -> String {
+    eval_on_a_stack(2 * 1024 * 1024, src)
+}
+
+/// The adversarial worst case: the closure body nested as deep as the parser
+/// allows, so every call level also pays ~90 `exec_stmt` frames.
+fn worst_case_nested_script() -> String {
+    let nest = 90;
+    format!(
+        "def f = (g, n) -> {{ {} return g(g, n); {} return 0; }}; return f(f, 1);",
+        "if(true){".repeat(nest),
+        "}".repeat(nest),
+    )
+}
+
 /// PR #88's process-abort repro must stay dead: the shape from the issue —
 /// closure self-application with 10 nested `if(true){}` blocks in the body.
 /// Measured at ~186 KiB of the 2 MiB stack in release.
@@ -286,20 +426,32 @@ fn nested_block_closure_recursion_does_not_abort_on_a_2mib_stack() {
     assert!(err.contains("closure call depth"), "got {err:?}");
 }
 
-/// The adversarial worst case for the same repro: the body nested as deep as
-/// the parser allows, so every call level also pays ~90 `exec_stmt` frames.
-/// Measured at 40,720 bytes/level → 1.20 MiB at `MAX_CALL_DEPTH` = 32, which
-/// is why that ceiling cannot be raised. Release only — debug frames are
-/// several times larger and would legitimately need more than 2 MiB.
+/// [`worst_case_nested_script`] measured at 40,720 bytes/level → 1.20 MiB at
+/// `MAX_CALL_DEPTH` = 32, which is why that ceiling cannot be raised. Release
+/// only — debug frames are several times larger and would legitimately need
+/// more than 2 MiB; see the debug counterpart below for how much more.
 #[cfg(not(debug_assertions))]
 #[test]
 fn worst_case_nested_block_recursion_still_fits_a_2mib_stack() {
-    let nest = 90;
-    let src = format!(
-        "def f = (g, n) -> {{ {} return g(g, n); {} return 0; }}; return f(f, 1);",
-        "if(true){".repeat(nest),
-        "}".repeat(nest),
-    );
-    let err = eval_on_a_2mib_stack(src);
+    let err = eval_on_a_2mib_stack(worst_case_nested_script());
+    assert!(err.contains("closure call depth"), "got {err:?}");
+}
+
+/// The debug half of the same budget, and the measurement behind #353's
+/// profile-aware `RT_THREAD_STACK_SIZE` in `xerj-server`.
+///
+/// `MAX_CALL_DEPTH` is a stack budget, so its cost is a function of codegen:
+/// the *same* worst case that fits 1.20 MiB at `opt-level=3` needs a measured
+/// 10,223,616 bytes at `opt-level=0` (bisected on a 256 KiB grid on
+/// `aarch64-unknown-linux-gnu`; 50 nested blocks already needs 5,767,168). That
+/// is why a flat 4 MiB pin was a release-only number and why a `cargo run`
+/// server aborted on a 50-block script. Runs on the debug branch of
+/// `RT_THREAD_STACK_SIZE` (32 MiB), so this also checks that the pin's margin
+/// really covers the evaluator on whatever architecture is running it; a
+/// regression aborts the process rather than failing quietly.
+#[cfg(debug_assertions)]
+#[test]
+fn worst_case_nested_block_recursion_fits_the_debug_worker_stack() {
+    let err = eval_on_a_stack(32 * 1024 * 1024, worst_case_nested_script());
     assert!(err.contains("closure call depth"), "got {err:?}");
 }

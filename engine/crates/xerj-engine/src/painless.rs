@@ -722,6 +722,12 @@ pub(crate) const EVAL_TOO_DEEP_MSG: &str =
 /// (4,194,304 − 1,262,320 = 2,931,984 bytes) — comfortably enough for the
 /// middleware and handler frames.
 ///
+/// Every byte in the table above is an OPTIMIZED-build number, and this cost is
+/// a stack budget, so it scales with codegen rather than with the constant: the
+/// same worst case was re-measured at 10,223,616 bytes at `opt-level=0` (#353),
+/// which is why `RT_THREAD_STACK_SIZE` is profile-aware and pins 32 MiB in a
+/// debug build. Do not quote the 1.20 MiB figure for an unoptimized binary.
+///
 /// HONEST NOTE ON THE 2.80 MiB: it is arithmetic against the new 4 MiB budget
 /// using the *unchanged* measured 1.20 MiB evaluator cost. The stackprobe
 /// instrumentation measures only this evaluator's per-level cost (unchanged

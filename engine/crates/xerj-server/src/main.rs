@@ -1704,7 +1704,7 @@ fn main() -> Result<()> {
 
 /// Explicit worker-thread stack size for the production Tokio runtime.
 ///
-/// Tokio's default is 2 MiB. We pin 4 MiB deliberately so the deepest
+/// Tokio's default is 2 MiB. We pin this deliberately so the deepest
 /// legitimate-but-adversarial request rides on documented headroom rather than
 /// on the default staying ahead of demand. The budget on ONE worker stack,
 /// deepest frame first:
@@ -1722,22 +1722,60 @@ fn main() -> Result<()> {
 ///
 /// At the old 2 MiB default the worst case left only ~0.8 MiB
 /// (2,097,152 − 1,262,320 = 834,832 bytes) for that whole "underneath" stack,
-/// and the authz layer now competes for it. At 4 MiB the headroom is ~2.80 MiB
-/// (4,194,304 − 1,262,320 = 2,931,984 bytes), which absorbs the middleware and
-/// handler frames with a comfortable margin. Idle workers park in `epoll_wait`
+/// and the authz layer now competes for it. At the 4 MiB release pin the
+/// headroom is ~2.80 MiB (4,194,304 − 1,262,320 = 2,931,984 bytes), which
+/// absorbs the middleware and handler frames with a comfortable margin — see
+/// the profile note below for why that arithmetic is release-only. Idle workers
+/// park in `epoll_wait`
 /// and only reserve *virtual* address space for the stack, so the larger size
 /// costs nothing at low concurrency.
-const RT_THREAD_STACK_SIZE: usize = 4 * 1024 * 1024;
+///
+/// PROFILE-AWARE, and that is not cosmetic (#353). Every byte figure above is
+/// an **optimized-build** measurement — the stackprobe table is produced by a
+/// release build, and `MAX_CALL_DEPTH` is a stack budget, so what it costs is a
+/// function of codegen, not of the constant. Re-measured at `opt-level=0` on
+/// this branch, the same worst case needs 10,223,616 bytes and 50 nested blocks
+/// already needs 5,767,168, so a flat 4 MiB pin meant a `cargo run` server
+/// aborted on a 50-block script that a release server answers with a
+/// `400 script_exception`.
+///
+/// Debug therefore gets 32 MiB — deliberately ~3x the measured need, not a tight
+/// fit. Frame sizes are architecture-dependent and that re-measurement was taken
+/// on one host (`aarch64-unknown-linux-gnu`); a debug stack costs only virtual
+/// address space, so paying for the margin is strictly cheaper than discovering
+/// on some other target that an unoptimized build is one frame short. The
+/// guardrail below still asserts against the *measured* 10 MiB, so the margin
+/// cannot quietly become the budget.
+///
+/// Lucene solves the same problem the other way: `JavascriptCompiler` treats its
+/// `DEFAULT_MAX_NESTING_DEPTH` as best-effort and catches `StackOverflowError`
+/// around the whole compile
+/// (`lucene/expressions/src/java/org/apache/lucene/expressions/js/JavascriptCompiler.java:249`,
+/// "we should catch this before in the visitor, but too high limits may cause
+/// this"). `panic = "abort"` leaves us no such backstop, so the margin has to be
+/// measured per profile instead.
+const RT_THREAD_STACK_SIZE: usize = if cfg!(debug_assertions) {
+    32 * 1024 * 1024
+} else {
+    4 * 1024 * 1024
+};
 
 /// Compile-time guardrails on the stack budget above. Enforced in the real
 /// build (not only under `cfg(test)`), so a future edit that drops the stack
 /// back to the tokio default, or that lets the "underneath" headroom fall
 /// below the axum + authz + by-query + search frames, fails to compile.
 const _: () = {
-    // Measured Painless closure-recursion worst case at `MAX_CALL_DEPTH`, from
-    // painless.rs's stackprobe table (40,720 B/level × 31 increments). Kept in
-    // sync with `xerj_engine::painless::MAX_CALL_DEPTH`'s documented figure.
-    const PAINLESS_WORST_CASE: usize = 1_262_320;
+    // Measured Painless closure-recursion worst case at `MAX_CALL_DEPTH`. The
+    // optimized figure comes from painless.rs's stackprobe table (40,720 B/level
+    // × 31 increments) and is kept in sync with
+    // `xerj_engine::painless::MAX_CALL_DEPTH`'s documented figure; the debug
+    // figure is the bisected 10,223,616 bytes, rounded up to a whole 10 MiB.
+    // Both branches are asserted, so neither profile can silently lose headroom.
+    const PAINLESS_WORST_CASE: usize = if cfg!(debug_assertions) {
+        10 * 1024 * 1024
+    } else {
+        1_262_320
+    };
     // Must be explicitly raised off tokio's 2 MiB default.
     assert!(RT_THREAD_STACK_SIZE >= 4 * 1024 * 1024);
     // Must leave > 1 MiB under the evaluator worst case for the frames beneath
@@ -1830,7 +1868,8 @@ mod runtime_tests {
         // The boot test above passes even if `.thread_stack_size` is reverted,
         // because a default-stack runtime still boots. This one exercises the
         // WIRING: a worker task uses a ~3 MiB stack frame, which fits under
-        // RT_THREAD_STACK_SIZE (4 MiB) but overflows tokio's 2 MiB default.
+        // RT_THREAD_STACK_SIZE (>= 4 MiB in every profile) but overflows
+        // tokio's 2 MiB default.
         // Reverting the `.thread_stack_size` line makes this abort the process
         // with a stack overflow rather than fail an assertion — a hard failure
         // either way, which is the point: the setting is load-bearing.
@@ -1856,6 +1895,52 @@ mod runtime_tests {
         // 256 repetitions of 0..=255 across 3 MiB: each full 0..255 block sums
         // to 32640; assert it ran rather than pinning the exact total.
         assert!(sum > 0, "the stack-heavy worker task actually executed");
+    }
+
+    /// The Painless evaluator's adversarial worst case for THIS build profile.
+    /// Mirrors `PAINLESS_WORST_CASE` in the `const _` guardrail on
+    /// [`super::RT_THREAD_STACK_SIZE`]; keep the two together.
+    const PAINLESS_WORST_CASE: usize = if cfg!(debug_assertions) {
+        10 * 1024 * 1024
+    } else {
+        1_262_320
+    };
+
+    /// Burn `PAINLESS_WORST_CASE` bytes of the *calling thread's* stack.
+    ///
+    /// Deliberately a plain `#[inline(never)]` fn rather than a local inside the
+    /// `async` block: a local that an async block holds can end up in the
+    /// (heap-boxed) future instead of on the stack, which would measure nothing.
+    #[inline(never)]
+    fn burn_painless_worst_case() -> u64 {
+        let mut buf = [0u8; PAINLESS_WORST_CASE];
+        for (i, b) in buf.iter_mut().enumerate() {
+            *b = (i & 0xff) as u8;
+        }
+        std::hint::black_box(&buf);
+        buf.iter().map(|&b| b as u64).sum::<u64>()
+    }
+
+    #[test]
+    fn worker_stack_covers_the_painless_worst_case_for_this_profile() {
+        // #353: RT_THREAD_STACK_SIZE's 4 MiB was sized from an *optimized*
+        // measurement of the Painless closure-recursion worst case (1.20 MiB),
+        // but that cost is a function of codegen — at opt-level=0 the same
+        // script needs a bisected 10,223,616 bytes, so `cargo run xerj-server`
+        // aborted on a script a release node answers with 400. This pins the
+        // pin against the profile it was built with: revert
+        // RT_THREAD_STACK_SIZE to a flat 4 MiB and a debug build dies here with
+        // a stack overflow.
+        let rt = build_runtime(2).expect("prod runtime builds");
+        let sum = rt.block_on(async {
+            tokio::spawn(async { burn_painless_worst_case() })
+                .await
+                .expect("worker task completed without overflowing its stack")
+        });
+        assert!(
+            sum > 0,
+            "the worst-case-sized worker frame actually existed"
+        );
     }
 }
 
