@@ -31,6 +31,7 @@ use fst::{Map, MapBuilder};
 use memmap2::Mmap;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use smallvec::SmallVec;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -542,6 +543,34 @@ fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
 
 // ── FtsIndexWriter ────────────────────────────────────────────────────────────
 
+/// Every value one document carries for one field, in source order.
+///
+/// A JSON array is ES's "one field, N independent values" shape, and Lucene
+/// models it the same way: `IndexingChain.invertAndStore` calls
+/// `PerField.invert` once per `IndexableField` INSTANCE
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1412-1453`,
+/// `:1885-1904`), so N array elements become N terms in ONE field — never a
+/// joined token. `SmallVec<[String; 1]>` keeps the overwhelmingly common
+/// single-valued case inline: the flush path allocates one of these per
+/// (doc × field) and is hand-tuned for exactly that (see the reshape below).
+pub type FieldValues = SmallVec<[String; 1]>;
+
+/// Positions inserted between two values of the same analyzed field, so a
+/// phrase cannot span a value boundary ("blue sky" must not match
+/// `["... blue", "sky ..."]`).
+///
+/// Lucene applies `Analyzer.getPositionIncrementGap` after each analyzed
+/// `IndexableField` instance
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1905-2061`,
+/// tail); the base default is 0
+/// (`lucene/core/src/java/org/apache/lucene/analysis/Analyzer.java:309-320`)
+/// and ES overrides it to 100 for text fields. XERJ is ES wire-compatible, so
+/// 100 is the value to match. Non-positional (keyword) fields never reach
+/// this: Lucene's `invertTerm` bumps the position by exactly 1 per value
+/// (`IndexingChain.java:2062-2107`), which is what a one-token-per-value
+/// keyword field does anyway.
+const POSITION_INCREMENT_GAP: u32 = 100;
+
 /// Builds the FTS inverted index for one segment.
 ///
 /// Usage:
@@ -689,6 +718,14 @@ impl FtsIndexWriter {
     /// `fields` is a map of field name → field text value.
     /// Fields not previously registered via `configure_field` are indexed
     /// with the default configuration (standard analyzer, positions on).
+    ///
+    /// Single-valued form: one value per (doc, field), so norms and stats are
+    /// trivially one row per document. A document that carries SEVERAL values
+    /// for one field (a source array) must go through
+    /// [`Self::add_documents_parallel`], whose input is [`FieldValues`] —
+    /// joining the values into one string here would produce the flattened
+    /// token #332 removed. The engine's flush and merge paths both use the
+    /// batch method; this one serves single-doc callers and tests.
     pub fn add_document(&mut self, doc_id: u32, fields: &HashMap<String, String>) {
         for (field_name, text) in fields {
             let registry = Arc::clone(&self.registry);
@@ -738,7 +775,7 @@ impl FtsIndexWriter {
 
     /// V4 M4 — **parallel batch** add for flush time.
     ///
-    /// Reshapes `(doc_id, field, text)` from row-major (per-doc) into
+    /// Reshapes `(doc_id, field, values)` from row-major (per-doc) into
     /// column-major (per-field) then tokenises + builds per-field
     /// postings in parallel via rayon.  The underlying PostingsWriter
     /// state is still single-threaded per field, but fields run in
@@ -752,31 +789,36 @@ impl FtsIndexWriter {
     /// - Doc ordinals are assigned by position in the input `docs` vec,
     ///   matching the row index the caller used with
     ///   `add_document(ordinal, ...)`.
+    /// - A field carries N values per doc ([`FieldValues`]); each is
+    ///   tokenised on its own so an array's elements become N independent
+    ///   terms, but norms and field stats are folded ONCE per document —
+    ///   see the run-fold in the build loop.
     ///
     /// Generic over the third tuple element (a source payload the caller
     /// keeps alongside for its own use — `serde_json::Value`,
     /// `Arc<serde_json::Value>`, …): this method never reads it.
     pub fn add_documents_parallel<S: Sync>(
         &mut self,
-        docs: &[(String, HashMap<String, String>, S)],
+        docs: &[(String, HashMap<String, FieldValues>, S)],
     ) {
         use rayon::prelude::*;
         use std::collections::HashMap as StdHashMap;
 
-        // Column-major reshape: field_name → Vec<(doc_ordinal, text)>.
+        // Column-major reshape: field_name → Vec<(doc_ordinal, value)>, ONE
+        // entry per value.  `docs` is walked in ordinal order, so each field's
+        // vec has non-decreasing ordinals and a doc's values sit in one
+        // contiguous run — the invariant the build loop's fold relies on.
         // Lookup-first so the common case (field already seen) skips the
         // per-doc-field `field_name.clone()` the `entry()` API forced.
         let mut per_field: StdHashMap<String, Vec<(u32, &str)>> = StdHashMap::new();
         for (ord, (_id, fields, _src)) in docs.iter().enumerate() {
-            for (field_name, text) in fields {
-                if let Some(v) = per_field.get_mut(field_name) {
-                    v.push((ord as u32, text.as_str()));
+            for (field_name, values) in fields {
+                let entries = if let Some(v) = per_field.get_mut(field_name) {
+                    v
                 } else {
-                    per_field
-                        .entry(field_name.clone())
-                        .or_default()
-                        .push((ord as u32, text.as_str()));
-                }
+                    per_field.entry(field_name.clone()).or_default()
+                };
+                entries.extend(values.iter().map(|value| (ord as u32, value.as_str())));
             }
         }
 
@@ -829,17 +871,47 @@ impl FtsIndexWriter {
                     norms: Vec::with_capacity(entries.len()),
                 };
 
-                for (doc_ord, text) in entries {
-                    let tokens = analyzer.analyze(text);
-                    let field_len = tokens.len() as u64;
-                    fd.norms
-                        .push((doc_ord, field_len.min(u16::MAX as u64) as u16));
-                    fd.stats.total_docs += 1;
-                    fd.stats.total_field_length += field_len;
-                    for token in &tokens {
-                        fd.postings
-                            .add_occurrence(&token.text, doc_ord, token.position);
+                // One run of equal ordinals == one document's values for this
+                // field.  Positions accumulate ACROSS the run (plus a gap for
+                // analyzed fields) but the norm and the two `FieldStats`
+                // counters are emitted exactly ONCE per document — that is
+                // `IndexingChain.PerField.finish(docID)`
+                // (`.../index/IndexingChain.java:1861-1884`), which writes a
+                // single norm from the invert state accumulated over every
+                // `IndexableField` instance sharing the field name.  Emitting
+                // them per VALUE would inflate `docCount` and
+                // `avgFieldLength` by the mean array length and silently shift
+                // IDF and length normalisation for the whole index, including
+                // its single-valued documents.
+                let gap = if fd.config.store_positions {
+                    POSITION_INCREMENT_GAP
+                } else {
+                    0
+                };
+                let mut i = 0usize;
+                while i < entries.len() {
+                    let doc_ord = entries[i].0;
+                    let mut doc_len: u64 = 0;
+                    let mut pos_base: u32 = 0;
+                    while i < entries.len() && entries[i].0 == doc_ord {
+                        let tokens = analyzer.analyze(entries[i].1);
+                        for token in &tokens {
+                            fd.postings.add_occurrence(
+                                &token.text,
+                                doc_ord,
+                                pos_base.saturating_add(token.position),
+                            );
+                        }
+                        doc_len += tokens.len() as u64;
+                        pos_base = pos_base
+                            .saturating_add(tokens.len() as u32)
+                            .saturating_add(gap);
+                        i += 1;
                     }
+                    fd.norms
+                        .push((doc_ord, doc_len.min(u16::MAX as u64) as u16));
+                    fd.stats.total_docs += 1;
+                    fd.stats.total_field_length += doc_len;
                 }
                 (field_name, fd)
             })
@@ -2234,5 +2306,189 @@ mod tests {
             .iter()
             .all(|entry| entry.file_type().unwrap().is_file()));
         assert!(!root.path().join("escape").exists());
+    }
+
+    // ── Multi-valued fields (#332) ───────────────────────────────────────
+
+    fn values(items: &[&str]) -> FieldValues {
+        items.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn keyword_cfg() -> FieldIndexConfig {
+        FieldIndexConfig {
+            analyzer: "keyword".to_owned(),
+            store_positions: false,
+            store_term_vectors: false,
+        }
+    }
+
+    /// Each element of a multi-valued keyword field is its own term, and the
+    /// joined string is NOT a term. Pre-#332 the writer took one flattened
+    /// `String` per (doc, field), so `["red","blue"]` produced exactly the
+    /// inverse: no `red`, no `blue`, and a phantom `red blue`.
+    #[test]
+    fn multi_valued_keyword_indexes_one_term_per_element() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", make_registry());
+        writer.configure_field("tags", keyword_cfg());
+        writer.add_documents_parallel(&[
+            (
+                "d0".to_owned(),
+                [("tags".to_owned(), values(&["red", "blue"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+            (
+                "d1".to_owned(),
+                [("tags".to_owned(), values(&["green"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+        ]);
+        writer.finish().unwrap();
+
+        let reader = FtsIndexReader::open(dir.path(), "seg0", &["tags"]).unwrap();
+        for term in ["red", "blue", "green"] {
+            assert!(reader.term_exists("tags", term), "missing term '{term}'");
+        }
+        assert!(
+            !reader.term_exists("tags", "red blue"),
+            "the joined array must not be a term"
+        );
+        assert_eq!(
+            reader.lookup_term("tags", "red").unwrap().doc_frequency,
+            1,
+            "one document carries 'red'"
+        );
+    }
+
+    /// The BM25 tripwire from #332's risk list: norms and `FieldStats` are
+    /// folded ONCE per DOCUMENT no matter how many values it carries — that is
+    /// `IndexingChain.PerField.finish(docID)`
+    /// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1861-1884`),
+    /// which writes a single norm from the invert state accumulated across
+    /// every `IndexableField` instance. Emitting them per VALUE would inflate
+    /// `total_docs` (here 2 → 3) and deflate `avg_field_length` (1.5 → 1.0),
+    /// silently shifting IDF and length normalisation for the whole index.
+    #[test]
+    fn multi_valued_field_stats_are_per_document_not_per_value() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", make_registry());
+        writer.configure_field("tags", keyword_cfg());
+        writer.add_documents_parallel(&[
+            (
+                "d0".to_owned(),
+                [("tags".to_owned(), values(&["red", "blue"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+            (
+                "d1".to_owned(),
+                [("tags".to_owned(), values(&["green"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+        ]);
+        let stats = writer.finish().unwrap();
+        let tags = stats.get("tags").expect("tags stats");
+        assert_eq!(tags.total_docs, 2, "two DOCUMENTS carry `tags`, not three");
+        assert_eq!(
+            tags.total_field_length, 3,
+            "three tokens total: red + blue + green"
+        );
+        assert!((tags.avg_field_length() - 1.5).abs() < f32::EPSILON);
+
+        // The reader's stats come back through the `.meta` side-car, so the
+        // scorer a query builds sees the same numbers.
+        let reader = FtsIndexReader::open(dir.path(), "seg0", &["tags"]).unwrap();
+        assert_eq!(reader.field_stats("tags").unwrap().total_docs, 2);
+        assert_eq!(reader.field_stats("tags").unwrap().total_field_length, 3);
+    }
+
+    /// A single-valued document must produce byte-identical postings, norms
+    /// and stats to the pre-#332 writer — the multi-value fold is a no-op when
+    /// every run has length one.
+    #[test]
+    fn single_valued_documents_are_unchanged() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", make_registry());
+        writer.add_documents_parallel(&[
+            (
+                "d0".to_owned(),
+                [("body".to_owned(), values(&["the quick brown fox"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+            (
+                "d1".to_owned(),
+                [("body".to_owned(), values(&["the lazy dog"]))]
+                    .into_iter()
+                    .collect(),
+                (),
+            ),
+        ]);
+        let stats = writer.finish().unwrap();
+        let body = stats.get("body").expect("body stats");
+        assert_eq!(body.total_docs, 2);
+        assert_eq!(body.total_field_length, 7);
+
+        let reader = FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap();
+        assert_eq!(
+            reader.lookup_term("body", "quick").unwrap().doc_frequency,
+            1
+        );
+        assert_eq!(reader.lookup_term("body", "the").unwrap().doc_frequency, 2);
+    }
+
+    /// An analyzed (positional) field gets [`POSITION_INCREMENT_GAP`] between
+    /// values, so a phrase cannot span a value boundary. Lucene inserts the
+    /// analyzer's gap after each analyzed instance
+    /// (`.../index/IndexingChain.java:1905-2061`, tail); ES's text default is
+    /// 100, which is what XERJ matches.
+    #[test]
+    fn analyzed_multi_value_gets_a_position_gap_between_values() {
+        use crate::search::{FtsSearcher, PhraseQuery, Query};
+
+        let dir = TempDir::new().unwrap();
+        let registry = make_registry();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        writer.configure_field(
+            "body",
+            FieldIndexConfig {
+                analyzer: "standard".to_owned(),
+                store_positions: true,
+                store_term_vectors: false,
+            },
+        );
+        writer.add_documents_parallel(&[(
+            "d0".to_owned(),
+            [("body".to_owned(), values(&["hello world", "quick fox"]))]
+                .into_iter()
+                .collect(),
+            (),
+        )]);
+        writer.finish().unwrap();
+
+        let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
+        let searcher = FtsSearcher::new(reader, registry);
+        let phrase = |terms: &[&str]| {
+            let q = Query::Phrase(PhraseQuery::new(
+                "body",
+                terms.iter().map(|t| (*t).to_owned()).collect::<Vec<_>>(),
+            ));
+            searcher.search(&q, 10, false).unwrap().len()
+        };
+        assert_eq!(phrase(&["hello", "world"]), 1, "phrase inside one value");
+        assert_eq!(phrase(&["quick", "fox"]), 1, "phrase inside the next value");
+        assert_eq!(
+            phrase(&["world", "quick"]),
+            0,
+            "a phrase must not span the value boundary"
+        );
     }
 }

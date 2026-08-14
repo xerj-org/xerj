@@ -27,6 +27,7 @@ lz4_flex = { workspace = true }
 zstd = { workspace = true }
 
 # Direct deps (not in workspace)
+smallvec = "1"
 unicode-segmentation = "1"
 unicode-normalization = "0.1"
 rust-stemmers = "1.2"

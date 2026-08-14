@@ -15,6 +15,7 @@ use xerj_common::types::{FieldType, Schema};
 use xerj_compress::field_codec::{FieldAnalyzer, FieldEncoding};
 use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, Token};
 use xerj_fts::bm25::Bm25Scorer;
+use xerj_fts::index::FieldValues;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -206,6 +207,69 @@ pub fn extract_text_fields_from_excluding(
         }
     }
     out
+}
+
+/// Multi-value form of [`extract_text_fields_from_excluding`] — the shape the
+/// segment FTS writer consumes at flush time.
+///
+/// The single-valued form flattens a source array into ONE space-joined
+/// string.  Run through the keyword analyzer that every non-Text field gets
+/// (`build_fts_field_configs`), `["red","blue"]` then became the single
+/// segment term `"red blue"`: `term tags=red` had no posting to hit, and
+/// `term tags="red blue"` was a live false positive against a document that
+/// never carried that value (#332).
+///
+/// Each element becomes its own value instead.  This is Lucene's model:
+/// `IndexingChain.invertAndStore` calls `PerField.invert` once per
+/// `IndexableField` INSTANCE
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1412-1453`,
+/// `:1885-1904`), and for a non-tokenized field `invertTerm` adds each
+/// instance's whole value as its own term (`IndexingChain.java:2062-2107`).
+///
+/// Shapes that are NOT arrays keep their existing rendering exactly, so a
+/// scalar field's postings are byte-identical to before: objects stay a whole
+/// JSON blob (the flattened-field convention), numbers/bools their string
+/// form, and empty values are still skipped.  Nested arrays flatten
+/// recursively — ES has no array-of-array type, `[[1,2],[3]]` is three values
+/// of one field.
+pub fn extract_field_values_from_excluding(
+    source: &Value,
+    excluded: &std::collections::HashSet<String>,
+) -> HashMap<String, FieldValues> {
+    let mut out: HashMap<String, FieldValues> = HashMap::new();
+    if let Some(obj) = source.as_object() {
+        for (key, val) in obj {
+            if excluded.contains(key) {
+                continue;
+            }
+            let mut values = FieldValues::new();
+            push_text_values(val, &mut values);
+            if !values.is_empty() {
+                out.insert(key.clone(), values);
+            }
+        }
+    }
+    out
+}
+
+/// Append every indexable value `val` contributes, in source order.
+///
+/// Mirrors [`extract_text_value`] for every non-array shape; an array fans
+/// out into one value per element (recursively) instead of one joined string.
+fn push_text_values(val: &Value, out: &mut FieldValues) {
+    match val {
+        Value::Array(arr) => {
+            for item in arr {
+                push_text_values(item, out);
+            }
+        }
+        _ => {
+            let text = extract_text_value(val);
+            if !text.is_empty() {
+                out.push(text);
+            }
+        }
+    }
 }
 
 /// Interned document identifier.

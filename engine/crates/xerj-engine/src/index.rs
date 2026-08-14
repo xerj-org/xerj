@@ -15,7 +15,7 @@ use xerj_common::config::Config;
 use xerj_common::schema::ManagedSchema;
 use xerj_common::types::{FieldConfig, FieldType, IndexName, Schema};
 use xerj_fts::analyzer::AnalyzerRegistry;
-use xerj_fts::index::FtsIndexReader;
+use xerj_fts::index::{FieldValues, FtsIndexReader};
 use xerj_fts::search::{
     BoolQuery as FtsBool, DisMaxQuery as FtsDisMax, FtsSearcher, Query as FtsQuery,
     TermQuery as FtsTerm,
@@ -8747,7 +8747,8 @@ impl Index {
                     // for the doc-values pass.  Drops `dv_sources` entirely.
                     // Halves merge working memory and frees the Arc<Value>
                     // immediately after both passes complete.
-                    let mut fts_input: Vec<(String, HashMap<String, String>, Value)> = Vec::new();
+                    let mut fts_input: Vec<(String, HashMap<String, FieldValues>, Value)> =
+                        Vec::new();
                     // (seq_no, doc_id) for every surviving doc — kept exactly
                     // aligned with the stored-section byte copy (pushed right
                     // after `live_doc_count += 1`, BEFORE the per-doc Value
@@ -19107,6 +19108,10 @@ fn build_fts_field_configs(schema: &Schema) -> HashMap<String, xerj_fts::index::
 /// into a flattened string suitable for tokenization, so the merge path
 /// indexes fields the same way the memtable does.  Kept as a free function
 /// here because the memtable's helper is private.
+///
+/// FTS callers reach this through [`push_field_values`], which peels arrays
+/// off first (one value per element, #332); the `Array` arm below is kept so
+/// this stays a faithful mirror of the memtable helper it is named after.
 fn extract_field_text(val: &Value) -> String {
     match val {
         Value::String(s) => s.clone(),
@@ -19122,19 +19127,44 @@ fn extract_field_text(val: &Value) -> String {
     }
 }
 
+/// Append every indexable value `val` contributes, in source order — the
+/// merge-side mirror of the memtable's `push_text_values`.
+///
+/// MUST stay behaviourally identical to it: if flush emits one term per array
+/// element and merge re-joins them, a force-merge resurrects the flattened
+/// token and the same document answers `term` differently depending on
+/// whether it has been merged yet.  That is the flush/merge parity trap the
+/// `doc_values_skip_set` doc-comment warns about, applied to postings.
+fn push_field_values(val: &Value, out: &mut FieldValues) {
+    match val {
+        Value::Array(arr) => {
+            for item in arr {
+                push_field_values(item, out);
+            }
+        }
+        _ => {
+            let text = extract_field_text(val);
+            if !text.is_empty() {
+                out.push(text);
+            }
+        }
+    }
+}
+
 fn extract_fts_fields_excluding(
     source: &Value,
     excluded: &std::collections::HashSet<String>,
-) -> HashMap<String, String> {
+) -> HashMap<String, FieldValues> {
     let mut fields = HashMap::new();
     if let Some(obj) = source.as_object() {
         for (key, val) in obj {
             if excluded.contains(key) {
                 continue;
             }
-            let text = extract_field_text(val);
-            if !text.is_empty() {
-                fields.insert(key.clone(), text);
+            let mut values = FieldValues::new();
+            push_field_values(val, &mut values);
+            if !values.is_empty() {
+                fields.insert(key.clone(), values);
             }
         }
     }
@@ -24137,7 +24167,7 @@ async fn do_flush_shard(
     let drained_opt: Option<(
         Vec<(
             String,
-            std::collections::HashMap<String, String>,
+            std::collections::HashMap<String, FieldValues>,
             std::sync::Arc<serde_json::Value>,
         )>,
         xerj_storage::index_store::DrainedMemtable,
@@ -24200,7 +24230,7 @@ async fn do_flush_shard(
                         } else {
                             std::sync::Arc::new(serde_json::Value::Null)
                         };
-                        let fields = crate::memtable::extract_text_fields_from_excluding(
+                        let fields = crate::memtable::extract_field_values_from_excluding(
                             &val,
                             &excluded_fts_fields,
                         );
@@ -24212,7 +24242,7 @@ async fn do_flush_shard(
             // doesn't queue ahead of concurrent search/agg par_iters.
             let drained_fts: Vec<(
                 String,
-                std::collections::HashMap<String, String>,
+                std::collections::HashMap<String, FieldValues>,
                 std::sync::Arc<serde_json::Value>,
             )> = if prep_offload {
                 crate::background_pool().install(build_drained_fts)
@@ -24467,7 +24497,16 @@ async fn do_flush_shard(
                         (
                             stored.seq_no,
                             doc_id.clone(),
-                            fields.clone(),
+                            // Restore rebuilds the MEMTABLE's postings, and the
+                            // ingest walk that originally built them
+                            // (`collect_text_fields`) analyses the space-joined
+                            // array. Rejoin so a failed flush puts the shard
+                            // back exactly as it was — the per-element split is
+                            // a SEGMENT-writer concern (#332).
+                            fields
+                                .iter()
+                                .map(|(field, values)| (field.clone(), values.join(" ")))
+                                .collect(),
                             Arc::clone(source),
                         )
                     })
@@ -36682,11 +36721,12 @@ fn query_node_to_fts_with_keyword_fields(
             // instead of routing the whole tree through the schema-blind
             // stored-source fallback.
             //
-            // This does not change the repository's existing post-flush
-            // multi-valued-keyword limitation: the segment sidecar flattens
-            // source arrays into one keyword token. Array/object query values
-            // therefore decline here, and scalar keyword coverage is the
-            // deliberately safe projection fixed by this change.
+            // #332 removed the post-flush multi-valued-keyword limitation this
+            // arm used to carry a caveat for: the segment sidecar now indexes
+            // one keyword token per array ELEMENT, so a scalar term projection
+            // is exact against multi-valued documents too. An array/object
+            // QUERY value is still declined — that is a `terms`-shaped
+            // request, not a single term.
             let term = match value {
                 Value::String(s) => s.clone(),
                 Value::Number(n) => n.to_string(),

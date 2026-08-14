@@ -75,7 +75,7 @@ pub use bm25::{
     DEFAULT_K1,
 };
 
-pub use index::{FieldIndexConfig, FtsIndexReader, FtsIndexWriter};
+pub use index::{FieldIndexConfig, FieldValues, FtsIndexReader, FtsIndexWriter};
 
 pub use postings::{
     DecodedPosting, PostingsReader, PostingsWriter, TermPostings, BLOCK_SIZE, SKIP_INTERVAL,
