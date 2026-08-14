@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **`match` / `multi_match` / `query_string` on a `keyword` field returned a
+  different hit set before and after a flush** (#354). A keyword field is
+  indexed with the keyword analyzer, so the query text is one case-preserved
+  term and matching is whole-value equality — which is what a flushed segment
+  did, but not what the memtable did. Both pre-flush evaluators were
+  schema-blind: the stored-source scan (`doc_matches_query` /
+  `score_query_against_doc`) took no mapping argument at all and analyzed every
+  field as `text`, and a top-level `match` did not even reach it — it was
+  answered from the memtable's BM25 index, which indexes keyword values through
+  the standard analyzer. So `match {tags: "red blue"}` matched the document
+  `{"tags": "red"}`, `match {tags: "red"}` matched `{"tags": "red blue"}`, and
+  `match {tags: "Red"}` matched `{"tags": "red"}` — until a background flush
+  fired, after which all three answered correctly. No arrays are involved, so
+  this is independent of the multi-valued keyword limitation. `date` fields
+  keep their date-aware pre-flush comparison, which is the correct side there.
 
 ## [1.0.0-rc.16] - 2026-08-13
 

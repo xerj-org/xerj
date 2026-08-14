@@ -10734,6 +10734,10 @@ impl Index {
         if trace_phases {
             tracing::info!(index=%self.name, field, k, "semantic_phase=start_brute");
         }
+        // Mapping slice for the `filter` pre-filter below (see
+        // `ScanFieldTypes`). Read once, outside the candidate loop — this
+        // entry point is reached before `search_inner` builds its own.
+        let scan_types = ScanFieldTypes::from_schema(&self.schema.read().await.schema);
 
         // ── Collect all candidate (doc_id, source) pairs ──────────────
         let mut candidates: Vec<(String, Value)> = Vec::new();
@@ -10870,7 +10874,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query(f, &src_with_id, &scan_types) {
                         continue;
                     }
                 }
@@ -10967,7 +10971,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query(f, &src_with_id, &scan_types) {
                         continue;
                     }
                 }
@@ -11955,6 +11959,8 @@ impl Index {
     ) -> Result<SearchResult> {
         let started = std::time::Instant::now();
         let mut timed_out = false;
+        // Mapping slice for the pre/post filters below (see `ScanFieldTypes`).
+        let scan_types = ScanFieldTypes::from_schema(&self.schema.read().await.schema);
         // The sub-field name inside each nested element.
         let subfield = field
             .strip_prefix(&format!("{}.", nested_path))
@@ -12052,7 +12058,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                if !doc_matches_query(f, &src_with_id) {
+                if !doc_matches_query(f, &src_with_id, &scan_types) {
                     continue;
                 }
             }
@@ -12108,7 +12114,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                doc_matches_query(f, &src_with_id)
+                doc_matches_query(f, &src_with_id, &scan_types)
             });
         }
 
@@ -13645,7 +13651,13 @@ impl Index {
         // declared `"index": false` with no doc values has neither postings nor
         // a column to scan, and ES fails the query rather than answering it
         // from `_source` (#204 — accepted means honoured).
-        let resolved_query = {
+        //
+        // `scan_types` rides on this guard too — it is the mapping slice the
+        // stored-source scan needs (see `ScanFieldTypes`), and it has to exist
+        // BEFORE the kNN short-circuit below, which already runs
+        // `doc_matches_query` pre-filters, i.e. long before `kw_fields` is
+        // built for the segment projection further down.
+        let (resolved_query, scan_types) = {
             let schema = self.schema.read().await;
             let resolved = rewrite_query_aliases(&request.query, &schema.schema);
             if let Some(field) = unsearchable_query_field(&resolved, &schema.schema) {
@@ -13656,9 +13668,10 @@ impl Index {
                     ),
                 )));
             }
-            resolved
+            (resolved, ScanFieldTypes::from_schema(&schema.schema))
         };
         let query = &resolved_query;
+        let scan_types = &scan_types;
 
         // ── KNN short-circuit ──────────────────────────────────────────────────
         // Vector-only queries (top-level `knn`) bypass the FTS / doc-scan
@@ -14194,18 +14207,19 @@ impl Index {
                 } = fs_node
                 {
                     let base = leaf_base_const
-                        .unwrap_or_else(|| score_query_against_doc(inner, src))
+                        .unwrap_or_else(|| score_query_against_doc(inner, src, scan_types))
                         * outer_boost;
-                    let mut fn_score = apply_function_score(id, src, functions, *score_mode, base);
+                    let mut fn_score =
+                        apply_function_score(id, src, functions, *score_mode, base, scan_types);
                     if let Some(cap) = max_boost {
                         fn_score = fn_score.min(*cap);
                     }
                     combine_scores(base, fn_score, *boost_mode)
                 } else {
-                    score_query_against_doc(query, src)
+                    score_query_against_doc(query, src, scan_types)
                 }
             } else {
-                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src))
+                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src, scan_types))
             };
             if let Some(min) = fs_min_tally {
                 if score.is_finite() && f64::from(score) >= min {
@@ -14560,7 +14574,7 @@ impl Index {
                     let extra = total.saturating_sub(ids.len() as u64);
                     MemSnapshot::AllDocIds(ids, extra)
                 }
-            } else if is_doc_scan_query(query) {
+            } else if is_doc_scan_query(query) || memtable_bm25_is_schema_blind(query, scan_types) {
                 // count_only + Term/Range short-circuits BEFORE
                 // `try_doc_values_query` because the DV-term path walks
                 // the whole memtable and clones the matching doc_id
@@ -14869,7 +14883,7 @@ impl Index {
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
                     } else if !query_may_read_id || source.get("_id").is_some() {
-                        doc_matches_query(query, &source)
+                        doc_matches_query(query, &source, scan_types)
                     } else {
                         // Inject `_id` so deeply-nested Ids queries (e.g.
                         // function_score → ids) can resolve it from source.
@@ -14880,7 +14894,7 @@ impl Index {
                         } else {
                             (*source).clone()
                         };
-                        doc_matches_query(query, &source_with_id)
+                        doc_matches_query(query, &source_with_id, scan_types)
                     };
                     if matched {
                         // Materialise (score + owned source) ONLY when the
@@ -16526,6 +16540,7 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            scan_types,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else if let Some(warm_slices) = (!sorted_candidates_path)
@@ -16571,6 +16586,7 @@ impl Index {
                                     &mut all_hits,
                                     &mut seen_ids,
                                     score_doc,
+                                    scan_types,
                                 );
                             }
                             _ => {
@@ -16592,6 +16608,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_types,
                                 );
                             }
                         }
@@ -16675,6 +16692,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    scan_types,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
@@ -16862,6 +16880,7 @@ impl Index {
                         functions,
                         *score_mode,
                         query_score,
+                        scan_types,
                     );
                     // ES caps the COMBINED FUNCTION score (not the
                     // final) at `max_boost`, before boost_mode
@@ -17102,7 +17121,7 @@ impl Index {
             self.sort_hits_page_order(&mut final_hits);
 
             for rescore_stage in &request.rescore {
-                apply_rescore(&mut final_hits, rescore_stage);
+                apply_rescore(&mut final_hits, rescore_stage, scan_types);
                 // ES re-sorts between chained rescore stages so the
                 // next stage's `window_size` applies to the top-N
                 // of the just-rescored order, not the pre-rescore
@@ -17193,7 +17212,8 @@ impl Index {
             } else {
                 hit.source.clone()
             };
-            hit.matched_queries = collect_matched_queries(&request.query, &source_with_id);
+            hit.matched_queries =
+                collect_matched_queries(&request.query, &source_with_id, scan_types);
         }
 
         // --- Apply search_after cursor (skip hits up to and including the cursor) ---
@@ -17498,7 +17518,7 @@ impl Index {
                         } else {
                             fg_owned = all_docs
                                 .iter()
-                                .filter(|d| doc_matches_query(query, d))
+                                .filter(|d| doc_matches_query(query, d, scan_types))
                                 .cloned()
                                 .collect();
                             &fg_owned[..]
@@ -19642,8 +19662,12 @@ impl Index {
                 total
             } else {
                 let docs = self.memtable.all_docs_with_sources_arc();
+                // Mapping slice for the scan (see `ScanFieldTypes`), read
+                // inside the arm that actually walks the memtable — the
+                // count fast paths above must not pay a schema lock.
+                let scan_types = ScanFieldTypes::from_schema(&self.schema.read().await.schema);
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query(query, src, &scan_types))
                     .count() as u64
             };
 
@@ -19867,8 +19891,10 @@ impl Index {
                 0
             } else {
                 let docs = self.memtable.all_docs_with_sources();
+                // Same lazy read as the Bool arm above.
+                let scan_types = ScanFieldTypes::from_schema(&self.schema.read().await.schema);
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query(query, src, &scan_types))
                     .count() as u64
             };
             return Some(seg_matches + mem_matches);
@@ -23294,6 +23320,10 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // Mapping slice for the stored-source re-test below — this is a sync
+        // helper with no schema in scope, so `search_inner` pushes its own
+        // `scan_types` down (see `ScanFieldTypes`).
+        kw: &ScanFieldTypes,
     ) {
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
@@ -23348,7 +23378,7 @@ impl Index {
                 } else {
                     source_ref.clone()
                 };
-                doc_matches_query(query, &source_with_id)
+                doc_matches_query(query, &source_with_id, kw)
             };
             if !matched {
                 continue;
@@ -23680,6 +23710,10 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // Mapping slice for the per-doc `doc_matches_query` below — this is a
+        // sync helper with no schema in scope, so `search_inner` pushes its own
+        // `scan_types` down (see `ScanFieldTypes`).
+        kw: &ScanFieldTypes,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -23889,9 +23923,9 @@ impl Index {
                     } else {
                         source_ref.clone()
                     };
-                    doc_matches_query(query, &source_with_id)
+                    doc_matches_query(query, &source_with_id, kw)
                 } else {
-                    doc_matches_query(query, source_ref)
+                    doc_matches_query(query, source_ref, kw)
                 }
             };
 
@@ -31187,6 +31221,50 @@ fn extract_query_text(q: &QueryNode) -> Option<String> {
     }
 }
 
+/// Whether a clause the memtable would otherwise answer from its BM25 index
+/// has to be evaluated by the stored-source scan instead, because the field is
+/// mapped `keyword` and the memtable's postings for it are analyzed WRONG.
+///
+/// The memtable's inverted index only *declares* `FieldType::Text` fields, but
+/// `memtable::collect_text_fields` then sweeps every string-valued key of the
+/// source into it as well — so a keyword field ends up with standard-analyzer
+/// postings, and the BM25 route matched `match {tags: "red"}` against both
+/// `{"tags": "red blue"}` (token OR) and `{"tags": "Red"}` (case folding).
+/// After `_flush` the segment answered the same query from a whole-value
+/// `FtsQuery::Term` and returned neither, so the hit set changed with flush
+/// timing (#354). `is_doc_scan_query` already routes every OTHER shape that can
+/// carry a keyword clause — `Term`, `Bool`, `MultiMatch`, `MatchPhrase`, … — to
+/// the scan; a top-level `Match` (and the opaque `QueryString` node, whose
+/// `default_field` the segment projects the same whole-value way) is the one
+/// shape that stays on the BM25 route, so it is the one this reroutes.
+///
+/// Lucene has no equivalent routing decision to get wrong: its pre-flush index
+/// is a real inverted index fed by the SAME per-field analyzer as the flushed
+/// one — `MemoryIndex.addField(String fieldName, String text, Analyzer
+/// analyzer)`
+/// (lucene/memory/src/java/org/apache/lucene/index/memory/MemoryIndex.java:511)
+/// — and searched by the same `Query` objects through the same `IndexSearcher`
+/// (`MemoryIndex.search`, MemoryIndex.java:1108). Giving the memtable real
+/// keyword postings is the structural fix and is a separate change; until then
+/// the stored-source scan is the only mapping-aware evaluator that exists
+/// before a flush, so keyword clauses are steered onto it.
+fn memtable_bm25_is_schema_blind(q: &QueryNode, kw: &ScanFieldTypes) -> bool {
+    match q {
+        // Same gate as the scan's Match arm: an explicit non-keyword query
+        // analyzer opts back out, because that request asks for tokenisation.
+        QueryNode::Match {
+            field, analyzer, ..
+        } => {
+            kw.keyword.contains(field.as_str())
+                && matches!(analyzer.as_deref(), None | Some("keyword"))
+        }
+        QueryNode::QueryString { default_field, .. } => default_field
+            .as_deref()
+            .is_some_and(|f| kw.keyword.contains(f)),
+        _ => false,
+    }
+}
+
 /// Returns true for query types that should be evaluated by scanning stored documents.
 fn is_doc_scan_query(q: &QueryNode) -> bool {
     // Wildcard field match queries must go through doc scanning.
@@ -31701,10 +31779,107 @@ fn multi_match_phrase_hit(
     }
 }
 
+/// The mapping facts the stored-source scan needs to evaluate a clause the way
+/// the segment path does.
+///
+/// `doc_matches_query` / `score_query_against_doc` only ever see a document's
+/// `_source`, which carries values but not their declared types, so without
+/// this they analyze EVERY field as if it were `text` — non-alphanumeric split,
+/// token OR. The segment side does consult the mapping
+/// (`query_node_to_fts_with_keyword_fields` projects an `exact_fields` member to
+/// one whole-value `FtsQuery::Term`), so the two phases answered the same
+/// `match` / `multi_match` differently and the hit set changed at `_flush`
+/// (#354). This set is also what steers a top-level `match` off the memtable's
+/// (equally schema-blind) BM25 route onto this evaluator — see
+/// `memtable_bm25_is_schema_blind`.
+///
+/// Lucene never has this bug because it has exactly one query-construction path
+/// and it is analyzer-driven per field: `QueryBuilder.createFieldQuery` opens
+/// `analyzer.tokenStream(field, queryText)`
+/// (lucene/core/src/java/org/apache/lucene/util/QueryBuilder.java:244), the
+/// analyzer is resolved FOR THE FIELD
+/// (`PerFieldAnalyzerWrapper.getWrappedAnalyzer`,
+/// lucene/analysis/common/src/java/org/apache/lucene/analysis/miscellaneous/PerFieldAnalyzerWrapper.java:74),
+/// and a one-token stream becomes a single whole-value `TermQuery`
+/// (`QueryBuilder.analyzeTerm`, QueryBuilder.java:372, reached from the
+/// `numTokens == 1` branch of QueryBuilder.java:289). `KeywordAnalyzer`
+/// "tokenizes" the entire stream as one token
+/// (lucene/analysis/common/src/java/org/apache/lucene/analysis/core/KeywordAnalyzer.java:27),
+/// so a keyword field's `match` IS whole-value equality in every execution
+/// mode — Lucene's own pre-flush index (`MemoryIndex.addField(String, String,
+/// Analyzer)`, lucene/memory/src/java/org/apache/lucene/index/memory/MemoryIndex.java:511,
+/// searched by the same `Query` objects at MemoryIndex.java:1108) is fed by the
+/// SAME analyzer, so there is no second place where the mapping can be
+/// forgotten. This struct is the minimum slice of the mapping that lets XERJ's
+/// second evaluator reach the same answer.
+///
+/// Only `keyword` is carried, deliberately. The other `exact_fields` types must
+/// NOT be widened into: a `date` field is the opposite polarity — `match:
+/// {when: "2021-04-01"}` against the stored `"2021-04-01T00:00:00Z"` is a hit
+/// in ES and the date short-circuit below already gets it right, so a blanket
+/// whole-value rule would break a correct answer. Numerics and booleans already
+/// compare by their whole rendered form.
+///
+/// The default (empty) value reproduces the historical schema-blind behaviour
+/// exactly, which is what every caller with no mapping in scope wants.
+#[derive(Debug, Default, Clone)]
+struct ScanFieldTypes {
+    /// Schema fields declared `FieldType::Keyword`. Mirrors the `kw_fields` set
+    /// `search_inner` builds for the segment projection, including its
+    /// "neither indexed nor doc-valued fields are not searchable" filter.
+    keyword: std::collections::HashSet<String>,
+}
+
+impl ScanFieldTypes {
+    /// Extract the keyword-typed field names from an index mapping.
+    fn from_schema(schema: &Schema) -> Self {
+        let mut keyword = std::collections::HashSet::new();
+        for f in &schema.fields {
+            // Same searchability filter as the `exact_fields` build in
+            // `search_inner`: a field that is neither indexed nor doc-valued has
+            // no segment-side term to be whole-value equal to, so it must keep
+            // whatever the scan did before (`unsearchable_query_field` rejects a
+            // clause that names one outright).
+            if !f.options.indexed && !f.options.doc_values {
+                continue;
+            }
+            if matches!(f.field_type, FieldType::Keyword) {
+                keyword.insert(f.name.clone());
+            }
+        }
+        Self { keyword }
+    }
+}
+
+/// Whole-value equality against a keyword-typed field, the stored-source twin
+/// of the segment's `FtsQuery::Term` projection.
+///
+/// A keyword field is indexed with the keyword analyzer, so both sides are ONE
+/// case-preserved token: the query text is compared to the field value whole,
+/// never tokenized. Non-string scalars compare by their rendered form (the same
+/// convention the segment's `Term` projection uses when it stringifies a JSON
+/// number/bool into an FTS term), and a multi-valued field matches when ANY
+/// element is equal — ES indexes one keyword term per array element.
+fn keyword_whole_value_matches(source: &Value, field: &str, query: &str) -> bool {
+    fn elem_eq(v: &Value, query: &str) -> bool {
+        match v {
+            Value::String(s) => s == query,
+            Value::Number(n) => n.to_string() == query,
+            Value::Bool(b) => b.to_string() == query,
+            _ => false,
+        }
+    }
+    match get_field_value(source, field) {
+        Some(Value::Array(arr)) => arr.iter().any(|e| elem_eq(e, query)),
+        Some(v) => elem_eq(&v, query),
+        None => false,
+    }
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
-fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
+fn doc_matches_query(q: &QueryNode, source: &Value, kw: &ScanFieldTypes) -> bool {
     match q {
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
@@ -31931,15 +32106,15 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             ..
         } => {
             // All must clauses must match.
-            if must.iter().any(|q| !doc_matches_query(q, source)) {
+            if must.iter().any(|q| !doc_matches_query(q, source, kw)) {
                 return false;
             }
             // No must_not clause may match.
-            if must_not.iter().any(|q| doc_matches_query(q, source)) {
+            if must_not.iter().any(|q| doc_matches_query(q, source, kw)) {
                 return false;
             }
             // All filter clauses must match.
-            if filter.iter().any(|q| !doc_matches_query(q, source)) {
+            if filter.iter().any(|q| !doc_matches_query(q, source, kw)) {
                 return false;
             }
             // Should clauses: if present, at least minimum_should_match must match.
@@ -31994,7 +32169,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 if min > 0 {
                     let matched = should
                         .iter()
-                        .filter(|q| doc_matches_query(q, source))
+                        .filter(|q| doc_matches_query(q, source, kw))
                         .count();
                     if matched < min {
                         return false;
@@ -32005,18 +32180,18 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-            doc_matches_query(query, source)
+            doc_matches_query(query, source, kw)
         }
 
         QueryNode::Boosting { positive, .. } => {
             // A doc must match the positive query to be returned.
-            doc_matches_query(positive, source)
+            doc_matches_query(positive, source, kw)
             // (score penalty for matching negative is handled in scoring, not filtering)
         }
 
         QueryNode::DisMax { queries, .. } => {
             // Matches if any sub-query matches.
-            queries.iter().any(|q| doc_matches_query(q, source))
+            queries.iter().any(|q| doc_matches_query(q, source, kw))
         }
 
         // Full-text queries via doc-scan: do simple substring match as fallback.
@@ -32038,6 +32213,35 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             // so this clause is effectively a no-op pass.
             if field == "_index" {
                 return true;
+            }
+            // Keyword-typed field: ONE whole, case-preserved value on both
+            // sides, exactly what the segment projects
+            // (`query_node_to_fts_with_keyword_fields` returns a bare
+            // `FtsQuery::Term` for an `exact_fields` member). Lucene reaches
+            // the same shape structurally rather than by special case: the
+            // field's analyzer is `KeywordAnalyzer`
+            // (.../analysis/core/KeywordAnalyzer.java:27, "tokenizes the entire
+            // stream as a single token"), so `QueryBuilder.createFieldQuery`
+            // (.../util/QueryBuilder.java:289) sees `numTokens == 1` and
+            // delegates to `analyzeTerm` (QueryBuilder.java:372), which emits a
+            // single whole-value `TermQuery`. Without this the scan tokenized
+            // the clause like a `text` field, so `match {tags: "red blue"}`
+            // matched the doc `{"tags": "red"}` before `_flush` and not after
+            // (#354).
+            //
+            // Placed BEFORE the date short-circuit on purpose: a keyword field
+            // holding a date-shaped string is still a keyword field, and ES
+            // compares it whole — the date coercion below belongs to `date`
+            // mappings (and to dynamic/untyped source values), where it is the
+            // side that is already correct.
+            //
+            // An explicit non-keyword `analyzer` on the clause opts back out:
+            // ES does honour a query-side analyzer override, and today's
+            // tokenizing behaviour is what that request already gets.
+            if kw.keyword.contains(field.as_str())
+                && matches!(analyzer.as_deref(), None | Some("keyword"))
+            {
+                return keyword_whole_value_matches(source, field, query);
             }
             // Analyzer-aware case handling: `whitespace` / `keyword`
             // analyzers don't lowercase, so a match query for "BROWN"
@@ -32261,11 +32465,36 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             } else {
                 Vec::new()
             };
-            let field_texts: Vec<String> = fields
+            // Keyword-typed fields are ONE whole, case-preserved token on both
+            // sides: the segment builds `FtsQuery::Term(field, query)` for
+            // every `exact_fields` member of the list, so tokenizing them here
+            // like text made `multi_match {query: "red blue", fields:
+            // ["tags"]}` match `{"tags": "red"}` before `_flush` and nothing
+            // after it (#354 — same Lucene lowering cited on the Match arm
+            // above). Decided PER FIELD, so a mixed list like
+            // `["tags", "body"]` converges without restructuring the token
+            // branches below. For `cross_fields` this is what the segment's
+            // per-field disjunction already means: a keyword field contributes
+            // a whole-value hit for the WHOLE query string.
+            // `!is_phrase` short-circuits the per-field `_source` descent for
+            // the phrase types, which do not consult this.
+            let kw_hit = !is_phrase
+                && fields.iter().any(|field_spec| {
+                    let (field, _) = parse_field_boost(field_spec);
+                    kw.keyword.contains(field) && keyword_whole_value_matches(source, field, query)
+                });
+            // `(is_keyword, lowercased text)` per listed field the document
+            // actually has. The phrase branch below keeps EVERY field: the
+            // segment declines the projection whole when any listed field is
+            // exact and runs this same positional predicate, so the parity it
+            // already has must not be disturbed. Every token branch filters the
+            // keyword entries out and defers to `kw_hit` instead.
+            let field_texts: Vec<(bool, String)> = fields
                 .iter()
                 .filter_map(|field_spec| {
                     let (field, _) = parse_field_boost(field_spec);
-                    match get_field_value(source, field) {
+                    let is_kw = kw.keyword.contains(field);
+                    let text = match get_field_value(source, field) {
                         Some(Value::String(s)) => Some(s.to_lowercase()),
                         Some(Value::Array(arr)) => {
                             let joined: Vec<String> = arr
@@ -32283,9 +32512,17 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                         }
                         Some(other) => Some(other.to_string().to_lowercase()),
                         None => None,
-                    }
+                    };
+                    text.map(|t| (is_kw, t))
                 })
                 .collect();
+            // The analyzed subset — everything the token branches may look at.
+            let analyzed_texts = || {
+                field_texts
+                    .iter()
+                    .filter(|(is_kw, _)| !is_kw)
+                    .map(|(_, t)| t)
+            };
             if is_phrase && !phrase_q_tokens.is_empty() {
                 // phrase / phrase_prefix: POSITIONAL, per field (issue
                 // #230). ES lowers these types to a dis_max over per-field
@@ -32312,18 +32549,18 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 // consults it), and pre-fix `{"type":"phrase","operator":
                 // "and"}` fell into the token-AND branch below and silently
                 // stopped being a phrase at all.
-                field_texts
-                    .iter()
-                    .any(|ft| multi_match_phrase_hit(ft, &phrase_q_tokens, is_phrase_prefix, *slop))
+                field_texts.iter().any(|(_, ft)| {
+                    multi_match_phrase_hit(ft, &phrase_q_tokens, is_phrase_prefix, *slop)
+                })
             } else if is_cross && is_and && !tokens.is_empty() {
                 // cross_fields + operator AND: every token must appear in
                 // at least one listed field (combined perspective).
-                let combined = field_texts.join(" ");
+                let combined = analyzed_texts().cloned().collect::<Vec<_>>().join(" ");
                 let combined_tokens: std::collections::HashSet<&str> = combined
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|t| !t.is_empty())
                     .collect();
-                tokens.iter().all(|t| combined_tokens.contains(t.as_str()))
+                kw_hit || tokens.iter().all(|t| combined_tokens.contains(t.as_str()))
             } else if is_cross && !tokens.is_empty() {
                 // cross_fields + operator OR (the default, used by
                 // `combined_fields`): admit the hit if ANY query token
@@ -32332,27 +32569,30 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 // are scattered across fields fell through to the
                 // substring-of-whole-query branch below and returned 0
                 // hits even though every token was present somewhere.
-                let combined = field_texts.join(" ");
+                let combined = analyzed_texts().cloned().collect::<Vec<_>>().join(" ");
                 let combined_tokens: std::collections::HashSet<&str> = combined
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|t| !t.is_empty())
                     .collect();
-                tokens.iter().any(|t| combined_tokens.contains(t.as_str()))
+                kw_hit || tokens.iter().any(|t| combined_tokens.contains(t.as_str()))
             } else if is_and && !tokens.is_empty() {
                 // best_fields + operator AND: a single field must hold
                 // every token.
-                field_texts.iter().any(|ft| {
-                    let ft_tokens: std::collections::HashSet<&str> = ft
-                        .split(|c: char| !c.is_alphanumeric())
-                        .filter(|t| !t.is_empty())
-                        .collect();
-                    tokens.iter().all(|t| ft_tokens.contains(t.as_str()))
-                })
+                kw_hit
+                    || analyzed_texts().any(|ft| {
+                        let ft_tokens: std::collections::HashSet<&str> = ft
+                            .split(|c: char| !c.is_alphanumeric())
+                            .filter(|t| !t.is_empty())
+                            .collect();
+                        tokens.iter().all(|t| ft_tokens.contains(t.as_str()))
+                    })
             } else if tokens.is_empty() {
                 // No alphanumeric tokens at all (e.g. a punctuation-only
                 // query): the analyzer yields nothing, so fall back to raw
-                // containment rather than admitting every document.
-                field_texts.iter().any(|ft| ft.contains(&q_lower))
+                // containment rather than admitting every document. A keyword
+                // field still has a legitimate whole-value term here — the
+                // segment keeps its projection alive on exactly this condition.
+                kw_hit || analyzed_texts().any(|ft| ft.contains(&q_lower))
             } else {
                 // best_fields / most_fields with the default operator (OR,
                 // issue #218): ANY query token equal to ANY token of a
@@ -32369,11 +32609,12 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 // adjacent and in order — so a multi-token query missed
                 // memtable docs the segment path matched, and the hit set
                 // changed at _flush.
-                field_texts.iter().any(|ft| {
-                    ft.split(|c: char| !c.is_alphanumeric())
-                        .filter(|t| !t.is_empty())
-                        .any(|ft_tok| tokens.iter().any(|qt| qt == ft_tok))
-                })
+                kw_hit
+                    || analyzed_texts().any(|ft| {
+                        ft.split(|c: char| !c.is_alphanumeric())
+                            .filter(|t| !t.is_empty())
+                            .any(|ft_tok| tokens.iter().any(|qt| qt == ft_tok))
+                    })
             }
         }
 
@@ -32618,6 +32859,20 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             default_field,
             ..
         } => {
+            // Keyword `default_field`: the segment projection short-circuits to
+            // a single whole-value term BEFORE tokenising (same
+            // `exact_fields.contains` gate the Match arm above mirrors), so the
+            // scan must too — otherwise `query_string {default_field: "tags",
+            // query: "red blue"}` OR'd its tokens here and matched
+            // `{"tags": "red"}` before `_flush` but not after (#354).
+            // Deliberately ahead of the `terms.is_empty()` guard below: an
+            // un-analyzable string is still a legitimate keyword term, which is
+            // exactly why the projection tests it first too.
+            if let Some(f) = default_field.as_deref() {
+                if kw.keyword.contains(f) {
+                    return keyword_whole_value_matches(source, f, query);
+                }
+            }
             // This runs PER DOCUMENT over every text-bearing field, so it has
             // to be O(document tokens), not O(document tokens × query tokens):
             // hash the query's tokens once and reuse a single lowercase buffer
@@ -32676,7 +32931,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             }
         }
 
-        QueryNode::FunctionScore { query, .. } => doc_matches_query(query, source),
+        QueryNode::FunctionScore { query, .. } => doc_matches_query(query, source, kw),
 
         // Nested: extract the array at `path`, run the inner query against each element.
         // The document matches if any element of the nested array matches.
@@ -32685,8 +32940,10 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         QueryNode::Nested { path, query, .. } => {
             let inner = strip_nested_path_in_query(query, path);
             match get_field_value(source, path) {
-                Some(Value::Array(arr)) => arr.iter().any(|elem| doc_matches_query(&inner, elem)),
-                Some(elem @ Value::Object(_)) => doc_matches_query(&inner, &elem),
+                Some(Value::Array(arr)) => {
+                    arr.iter().any(|elem| doc_matches_query(&inner, elem, kw))
+                }
+                Some(elem @ Value::Object(_)) => doc_matches_query(&inner, &elem, kw),
                 _ => false,
             }
         }
@@ -32742,7 +32999,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                     return true;
                 }
             }
-            doc_matches_query(organic, source)
+            doc_matches_query(organic, source, kw)
         }
 
         // GeoBoundingBox: check if doc's lat/lon is within the bounding box.
@@ -32800,7 +33057,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .unwrap_or(false)
         }
 
-        QueryNode::Named { query, .. } => doc_matches_query(query, source),
+        QueryNode::Named { query, .. } => doc_matches_query(query, source, kw),
 
         // ── Span queries ──────────────────────────────────────────────────────
 
@@ -32832,14 +33089,14 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .collect();
 
             if targets.is_empty() {
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses.iter().all(|c| doc_matches_query(c, source, kw));
             }
 
             // All targets must be on the same field for proximity logic.
             let first_field = &targets[0].0;
             if !targets.iter().all(|(f, _)| f == first_field) {
                 // Cross-field span: fall back to all-must match.
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses.iter().all(|c| doc_matches_query(c, source, kw));
             }
 
             let field_val = match get_field_value(source, first_field) {
@@ -32910,11 +33167,11 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         // SpanOr: matches if any clause matches.
-        QueryNode::SpanOr { clauses } => clauses.iter().any(|c| doc_matches_query(c, source)),
+        QueryNode::SpanOr { clauses } => clauses.iter().any(|c| doc_matches_query(c, source, kw)),
 
         // SpanNot: include matches AND exclude does not match.
         QueryNode::SpanNot { include, exclude } => {
-            doc_matches_query(include, source) && !doc_matches_query(exclude, source)
+            doc_matches_query(include, source, kw) && !doc_matches_query(exclude, source, kw)
         }
 
         // SpanFirst: match if the span_term appears in the first `end` tokens of the field.
@@ -32924,9 +33181,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 QueryNode::SpanTerm { field, value } => (field.as_str(), value.as_str()),
                 QueryNode::Term { field, value, .. } => match value.as_str() {
                     Some(v) => (field.as_str(), v),
-                    None => return doc_matches_query(match_query, source),
+                    None => return doc_matches_query(match_query, source, kw),
                 },
-                other => return doc_matches_query(other, source),
+                other => return doc_matches_query(other, source, kw),
             };
 
             let field_val = match get_field_value(source, field) {
@@ -33041,7 +33298,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 Ok(q) => q,
                 Err(_) => return false,
             };
-            documents.iter().any(|d| doc_matches_query(&stored_q, d))
+            documents
+                .iter()
+                .any(|d| doc_matches_query(&stored_q, d, kw))
         }
 
         _ => false,
@@ -33663,20 +33922,25 @@ fn point_in_polygon(lat: f64, lon: f64, polygon: &[(f64, f64)]) -> bool {
 ///
 /// Recursively traverses the query tree, collecting the `name` of every `Named`
 /// query whose inner query matches the document.
-fn collect_matched_queries(q: &QueryNode, source: &Value) -> Vec<String> {
+fn collect_matched_queries(q: &QueryNode, source: &Value, kw: &ScanFieldTypes) -> Vec<String> {
     let mut names = Vec::new();
-    collect_matched_queries_inner(q, source, &mut names);
+    collect_matched_queries_inner(q, source, &mut names, kw);
     names
 }
 
-fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<String>) {
+fn collect_matched_queries_inner(
+    q: &QueryNode,
+    source: &Value,
+    names: &mut Vec<String>,
+    kw: &ScanFieldTypes,
+) {
     match q {
         QueryNode::Named { name, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, kw) {
                 names.push(name.clone());
             }
             // Also recurse into the wrapped query in case it contains further Named nodes.
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, kw);
         }
         QueryNode::Bool {
             must,
@@ -33691,21 +33955,21 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 .chain(must_not.iter())
                 .chain(filter.iter())
             {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, names, kw);
             }
         }
         QueryNode::Boosted { query, .. } | QueryNode::Constant { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, kw);
         }
         QueryNode::DisMax { queries, .. } => {
             for sub in queries {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, names, kw);
             }
         }
         QueryNode::FunctionScore {
             query, functions, ..
         } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, kw);
             for f in functions {
                 // ES 8.9+: when the function entry itself carries
                 // `_name`, that name OVERRIDES any `_name` inside the
@@ -33716,9 +33980,9 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 let filter_matches = match &f.filter {
                     Some(filter) => {
                         if !filter_has_fn_name {
-                            collect_matched_queries_inner(filter, source, names);
+                            collect_matched_queries_inner(filter, source, names, kw);
                         }
-                        doc_matches_query(filter, source)
+                        doc_matches_query(filter, source, kw)
                     }
                     None => true,
                 };
@@ -33732,14 +33996,14 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
         QueryNode::Boosting {
             positive, negative, ..
         } => {
-            collect_matched_queries_inner(positive, source, names);
-            collect_matched_queries_inner(negative, source, names);
+            collect_matched_queries_inner(positive, source, names, kw);
+            collect_matched_queries_inner(negative, source, names, kw);
         }
         QueryNode::Nested { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, kw);
         }
         QueryNode::Pinned { organic, .. } => {
-            collect_matched_queries_inner(organic, source, names);
+            collect_matched_queries_inner(organic, source, names, kw);
         }
         _ => {}
     }
@@ -33749,7 +34013,7 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
 ///
 /// Re-scores the top `window_size` hits using the secondary query and blends
 /// the scores: final_score = original * query_weight + rescore * rescore_query_weight.
-fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
+fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery, kw: &ScanFieldTypes) {
     let window = stage.window_size.min(hits.len());
 
     // ── Query rescore ──────────────────────────────────────────────
@@ -33760,7 +34024,7 @@ fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
 
         for (i, hit) in hits.iter_mut().enumerate() {
             if i < window {
-                let rescore_score = score_query_against_doc(rescore_query, &hit.source);
+                let rescore_score = score_query_against_doc(rescore_query, &hit.source, kw);
                 hit.score = hit.score * q_weight + rescore_score * rq_weight;
             } else {
                 hit.score *= q_weight;
@@ -33859,19 +34123,19 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
     }
 }
 
-fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
+fn score_query_against_doc(q: &QueryNode, source: &Value, kw: &ScanFieldTypes) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
         QueryNode::MatchNone => 0.0,
         QueryNode::Boosted { boost, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, kw) {
                 *boost
             } else {
                 0.0
             }
         }
         QueryNode::Constant { score, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, kw) {
                 *score
             } else {
                 0.0
@@ -33883,7 +34147,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             query,
             ..
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, kw) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -33902,7 +34166,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             field,
             value,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, kw) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -33922,7 +34186,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
         | QueryNode::Prefix { boost, .. }
         | QueryNode::Wildcard { boost, .. } => {
             let b = boost.unwrap_or(1.0);
-            if doc_matches_query(q, source) {
+            if doc_matches_query(q, source, kw) {
                 b
             } else {
                 0.0
@@ -33935,7 +34199,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             filter,
             minimum_should_match,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, kw) {
                 return 0.0;
             }
             // Sum all contributing sub-query scores. DON'T clamp to 1.0
@@ -33944,10 +34208,10 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // matches 3 clauses".
             let mut score = 0.0f32;
             for sub in must {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, kw);
             }
             for sub in should {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, kw);
             }
             let _ = (must_not, minimum_should_match);
             if score == 0.0 {
@@ -33979,7 +34243,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                 score
             }
         }
-        QueryNode::Named { query, .. } => score_query_against_doc(query, source),
+        QueryNode::Named { query, .. } => score_query_against_doc(query, source, kw),
         // MultiMatch with field boosts. ES semantics per type:
         //   best_fields (default) → dis_max: MAX of the per-field scores.
         //   most_fields           → sum of the per-field scores.
@@ -34074,7 +34338,22 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                     None => None,
                 };
                 if let Some(text) = text_lc {
-                    if field_hit(&text) {
+                    // A keyword field is ONE whole token, so its hit test is
+                    // whole-value equality — the same test the membership arm
+                    // now applies (#354). Without mirroring it here a document
+                    // admitted by membership could still score 0.0 and be
+                    // dropped by the scored paths / rescore, which is the
+                    // #218/#230 failure mode this copy exists to avoid. Phrase
+                    // types are excluded deliberately: the membership arm keeps
+                    // keyword fields on the positional predicate there (the
+                    // segment declines the projection whole), so this copy must
+                    // too.
+                    let hit = if !is_phrase && kw.keyword.contains(field) {
+                        keyword_whole_value_matches(source, field, query)
+                    } else {
+                        field_hit(&text)
+                    };
+                    if hit {
                         sum_score += field_boost;
                         if field_boost > max_score {
                             max_score = field_boost;
@@ -34101,6 +34380,15 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                             .iter()
                             .filter_map(|fs| {
                                 let (f, _) = parse_field_boost(fs);
+                                // Keyword fields are excluded from the pool for
+                                // the same reason the membership arm excludes
+                                // them (#354): their value is one whole token
+                                // and was already tested above, so letting its
+                                // sub-tokens into the pool would score a
+                                // document the membership arm rejects.
+                                if kw.keyword.contains(f) {
+                                    return None;
+                                }
                                 match get_field_value(source, f) {
                                     Some(Value::String(s)) => Some(s.to_lowercase()),
                                     Some(Value::Array(arr)) => Some(
@@ -34150,12 +34438,13 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // Score the inner query, then run the function scores against
             // it — same flow as the main search path, but executed on
             // demand for rescore / nested (non-peelable) function_score.
-            if !doc_matches_query(query, source) {
+            if !doc_matches_query(query, source, kw) {
                 return 0.0;
             }
-            let inner = score_query_against_doc(query, source);
+            let inner = score_query_against_doc(query, source, kw);
             let doc_id = source.get("_id").and_then(Value::as_str).unwrap_or("");
-            let mut fn_score = apply_function_score(doc_id, source, functions, *score_mode, inner);
+            let mut fn_score =
+                apply_function_score(doc_id, source, functions, *score_mode, inner, kw);
             // `max_boost` caps the combined FUNCTION score before
             // boost_mode composition (ES semantics — see the post-loop).
             if let Some(cap) = max_boost {
@@ -34168,7 +34457,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // BM25-like weight 1/sqrt(doc_length) so shorter docs rank
             // higher when both match. Falls back to 1.0 when the field
             // isn't a string we can tokenise.
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, kw) {
                 return 0.0;
             }
             let text = match get_field_value(source, field) {
@@ -34180,7 +34469,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             1.0 / dl.sqrt()
         }
         other => {
-            if doc_matches_query(other, source) {
+            if doc_matches_query(other, source, kw) {
                 1.0
             } else {
                 0.0
@@ -38924,6 +39213,7 @@ fn apply_function_score(
     functions: &[ScoreFunction],
     score_mode: ScoreMode,
     query_score: f32,
+    kw: &ScanFieldTypes,
 ) -> f32 {
     if functions.is_empty() {
         return 1.0;
@@ -38939,7 +39229,7 @@ fn apply_function_score(
     for func in functions {
         // Check filter: if present, doc must match.
         if let Some(filter) = &func.filter {
-            if !doc_matches_query(filter, source) {
+            if !doc_matches_query(filter, source, kw) {
                 continue;
             }
         }
@@ -40256,25 +40546,30 @@ mod fts_projection_tests {
         };
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "a needle in here"})
+            &serde_json::json!({"alpha": "a needle in here"}),
+            &ScanFieldTypes::default()
         ));
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "nope", "beta": "needle"})
+            &serde_json::json!({"alpha": "nope", "beta": "needle"}),
+            &ScanFieldTypes::default()
         ));
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": ["nope", "needle"]})
+            &serde_json::json!({"alpha": ["nope", "needle"]}),
+            &ScanFieldTypes::default()
         ));
         assert!(!doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "haystack"})
+            &serde_json::json!({"alpha": "haystack"}),
+            &ScanFieldTypes::default()
         ));
         // `_id` is spliced into the scanned source but is not a mapped text
         // field — matching it would over-count relative to the FTS route.
         assert!(!doc_matches_query(
             &q,
-            &serde_json::json!({"_id": "needle", "alpha": "haystack"})
+            &serde_json::json!({"_id": "needle", "alpha": "haystack"}),
+            &ScanFieldTypes::default()
         ));
         // An explicit default_field stays single-field.
         let pinned = QueryNode::QueryString {
@@ -40285,11 +40580,13 @@ mod fts_projection_tests {
         };
         assert!(doc_matches_query(
             &pinned,
-            &serde_json::json!({"alpha": "needle"})
+            &serde_json::json!({"alpha": "needle"}),
+            &ScanFieldTypes::default()
         ));
         assert!(!doc_matches_query(
             &pinned,
-            &serde_json::json!({"beta": "needle"})
+            &serde_json::json!({"beta": "needle"}),
+            &ScanFieldTypes::default()
         ));
     }
 
@@ -40328,7 +40625,7 @@ mod percolate_tests {
             documents: vec![json!({ "message": "bonsai" })],
         };
         assert!(
-            doc_matches_query(&q_hit, &stored),
+            doc_matches_query(&q_hit, &stored, &ScanFieldTypes::default()),
             "term matches inline doc"
         );
 
@@ -40337,7 +40634,7 @@ mod percolate_tests {
             documents: vec![json!({ "message": "cactus" })],
         };
         assert!(
-            !doc_matches_query(&q_miss, &stored),
+            !doc_matches_query(&q_miss, &stored, &ScanFieldTypes::default()),
             "term does not match a different value"
         );
     }
@@ -40349,12 +40646,20 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "price": 15 })],
         };
-        assert!(doc_matches_query(&q, &stored_range));
+        assert!(doc_matches_query(
+            &q,
+            &stored_range,
+            &ScanFieldTypes::default()
+        ));
         let q_out = QueryNode::Percolate {
             field: "query".into(),
             documents: vec![json!({ "price": 25 })],
         };
-        assert!(!doc_matches_query(&q_out, &stored_range));
+        assert!(!doc_matches_query(
+            &q_out,
+            &stored_range,
+            &ScanFieldTypes::default()
+        ));
 
         let stored_bool = json!({
             "query": {
@@ -40370,12 +40675,20 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "message": "foo", "price": 9 })],
         };
-        assert!(doc_matches_query(&q_bool, &stored_bool));
+        assert!(doc_matches_query(
+            &q_bool,
+            &stored_bool,
+            &ScanFieldTypes::default()
+        ));
         let q_bool_miss = QueryNode::Percolate {
             field: "query".into(),
             documents: vec![json!({ "message": "foo", "price": 1 })],
         };
-        assert!(!doc_matches_query(&q_bool_miss, &stored_bool));
+        assert!(!doc_matches_query(
+            &q_bool_miss,
+            &stored_bool,
+            &ScanFieldTypes::default()
+        ));
     }
 
     #[test]
@@ -40385,10 +40698,10 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "message": "anything" })],
         };
-        assert!(!doc_matches_query(&q, &stored));
+        assert!(!doc_matches_query(&q, &stored, &ScanFieldTypes::default()));
 
         let stored2 = json!({ "query": "not-an-object" });
-        assert!(!doc_matches_query(&q, &stored2));
+        assert!(!doc_matches_query(&q, &stored2, &ScanFieldTypes::default()));
     }
 }
 
@@ -40408,7 +40721,7 @@ mod script_query_tests {
             source: "doc['x'].value > params.min".to_string(),
             params: Some(json!({"min": 5})),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -40418,7 +40731,7 @@ mod script_query_tests {
             source: "doc['x'].value > params.min".to_string(),
             params: Some(json!({"min": 5})),
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -40428,7 +40741,7 @@ mod script_query_tests {
             source: "this is not valid painless".to_string(),
             params: None,
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -40440,7 +40753,7 @@ mod script_query_tests {
             source: "1 + 1".to_string(),
             params: None,
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -40457,12 +40770,16 @@ mod script_query_tests {
             params: Some(json!({"min": 5})),
         };
         assert!(
-            doc_matches_query(&q, &json!({"x": 10})),
+            doc_matches_query(&q, &json!({"x": 10}), &ScanFieldTypes::default()),
             "guarded script must still match the document it selects for"
         );
-        assert!(!doc_matches_query(&q, &json!({"x": 1})));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({"x": 1}),
+            &ScanFieldTypes::default()
+        ));
         assert!(
-            !doc_matches_query(&q, &json!({"other": 1})),
+            !doc_matches_query(&q, &json!({"other": 1}), &ScanFieldTypes::default()),
             "a document without the field must be filtered out, not matched"
         );
     }
@@ -40484,7 +40801,7 @@ mod script_query_tests {
             json!({"coutn": null}),
         ] {
             assert!(
-                !doc_matches_query(&q, &doc),
+                !doc_matches_query(&q, &doc, &ScanFieldTypes::default()),
                 "a typo'd field name must not match {doc}"
             );
         }
@@ -40494,7 +40811,11 @@ mod script_query_tests {
             source: "doc['count'].value > -1".to_string(),
             params: None,
         };
-        assert!(doc_matches_query(&ok, &json!({"count": 5})));
+        assert!(doc_matches_query(
+            &ok,
+            &json!({"count": 5}),
+            &ScanFieldTypes::default()
+        ));
     }
 }
 
@@ -41095,7 +41416,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -41105,7 +41426,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
     }
 
     #[test]
@@ -41116,7 +41437,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "jumps")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, &ScanFieldTypes::default()));
 
         // And when the big span does not even form (no "quick" near "fox").
         let doc2 = json!({ "text": "brown only here" });
@@ -41124,7 +41445,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(!doc_matches_query(&q2, &doc2));
+        assert!(!doc_matches_query(&q2, &doc2, &ScanFieldTypes::default()));
     }
 }
 
@@ -41160,24 +41481,32 @@ mod terms_set_tests {
         // 2 of the codes present, required 2 => match.
         assert!(doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b"], "required": 2 })
+            &json!({ "codes": ["a", "b"], "required": 2 }),
+            &ScanFieldTypes::default()
         ));
         // Only 1 present, required 2 => no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a"], "required": 2 })
+            &json!({ "codes": ["a"], "required": 2 }),
+            &ScanFieldTypes::default()
         ));
         // required exceeds the number of matching terms => no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b", "c"], "required": 4 })
+            &json!({ "codes": ["a", "b", "c"], "required": 4 }),
+            &ScanFieldTypes::default()
         ));
         // required field missing => unsatisfiable, no match.
-        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b", "c"] }),
+            &ScanFieldTypes::default()
+        ));
         // required field non-numeric => unsatisfiable, no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b"], "required": "two" })
+            &json!({ "codes": ["a", "b"], "required": "two" }),
+            &ScanFieldTypes::default()
         ));
     }
 
@@ -41192,9 +41521,17 @@ mod terms_set_tests {
             },
         );
         // All three present => match.
-        assert!(doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        assert!(doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b", "c"] }),
+            &ScanFieldTypes::default()
+        ));
         // Only two present => no match.
-        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b"] })));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b"] }),
+            &ScanFieldTypes::default()
+        ));
     }
 }
 
