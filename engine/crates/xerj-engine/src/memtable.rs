@@ -3806,11 +3806,15 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
 
 /// Every field that must be kept OUT of the full-text inverted index.
 ///
-/// Two disjoint reasons, unioned into one set so flush, merge, the memtable
+/// Three disjoint reasons, unioned into one set so flush, merge, the memtable
 /// analyser and `build_fts_field_configs` cannot disagree:
 ///
 ///  * semantic-derived vector fields (see above) — engine-internal payloads
 ///    that were never user text;
+///  * fields whose declared type has no lexical representation at all — a
+///    user-mapped `dense_vector` (#328). Whatever `"index"` says, there is no
+///    string a `term`/`match` could legitimately name, so the postings are
+///    waste in every mapping;
 ///  * fields whose mapping declares `"index": false` — #204's last open
 ///    accepted-and-ignored instance. The option was echoed by `GET _mapping`
 ///    and then ignored, so the field kept a full inverted index and stayed
@@ -3820,6 +3824,52 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
 /// `doc_values_skip_set` — a merge must not resurrect postings that flush
 /// correctly skipped. Dynamic (unmapped) fields are absent from the schema
 /// and are unaffected: there is no declared `index: false` to honour.
+///
+/// ## Why the vector reason is ASYMMETRIC with the other two
+///
+/// Everything below is about whether the stored-doc scan is an *equivalent*
+/// fallback for the postings being dropped. For a `Vector` that question does
+/// not arise: there is no lexical semantics for a vector, so there is nothing
+/// for a fallback to be equivalent TO. `knn` reads the HNSW graph; the FST
+/// held one whole-value token per document that was a verbatim decimal
+/// re-rendering of the vector, and `keyword`-analysing a vector is not a
+/// weaker answer to a real question, it is an answer to no question.
+///
+/// Measured on `main` before the fix, over a 16-dim corpus: `term` returned
+/// `hits.total: 0` for every probe, as did a single component under every
+/// query type. The ONE form that matched was `match` / `match_phrase` given
+/// the exact whole-vector rendering — every component, `f64`-to-string, joined
+/// by single spaces — which the `keyword` analyzer reproduced token-for-token
+/// on both sides. That form now returns 0. It is the only observable change,
+/// it is not reachable except by reconstructing the engine's own float
+/// formatting, and 0 is the closer answer: ES refuses a `match` on a
+/// `dense_vector` outright. The status stays `200` rather than becoming that
+/// refusal, which is a wire-contract change this fix does not make.
+///
+/// Lucene makes the defect structurally impossible rather than filtering it
+/// out: `FieldType` defaults `indexOptions = IndexOptions.NONE`
+/// (`lucene/core/src/java/org/apache/lucene/document/FieldType.java:33-54`),
+/// `KnnFloatVectorField.createType` sets only the vector attributes and then
+/// freezes, never touching `indexOptions`
+/// (`lucene/core/src/java/org/apache/lucene/document/KnnFloatVectorField.java:42-69`),
+/// and `IndexingChain.invertAndStore` gates inversion on
+/// `indexOptions() != NONE`
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1412-1453`),
+/// so a knn field can never enter the inverting branch. The four physical
+/// roles are peers dispatched off four independent predicates in
+/// `IndexingChain.processField`
+/// (`lucene/core/src/java/org/apache/lucene/index/IndexingChain.java:1391-1411`);
+/// "has a vector" is never a subtype of "is indexed". XERJ collapses all of
+/// them into the single `options.indexed` boolean, which is why the row has to
+/// be written out here by hand; approach only, no code taken.
+///
+/// `FieldType::Chunk` is deliberately NOT swept in with `Vector`, despite the
+/// `Vector | Chunk` pairs elsewhere (those are about dimensionality and
+/// embedder provisioning, not lexicality). Its documented shape carries chunk
+/// TEXT alongside the vector (`xerj-common/src/types.rs:224-227`), which is
+/// legitimately lexical, and the type is unreachable today — `es_type_to_native`
+/// has no arm producing it, so no mapping can declare one. Including it would
+/// buy zero bytes now and bake a wrong default into the day it is implemented.
 ///
 /// ## Why `index: false` alone is not enough to drop the postings
 ///
@@ -3847,6 +3897,13 @@ pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::Hash
 pub fn fts_excluded_fields(schema: &Schema) -> std::collections::HashSet<String> {
     let mut excluded = semantic_derived_vector_fields(schema);
     for field in &schema.fields {
+        // No lexical representation at all — tested BEFORE `indexed`, because a
+        // `dense_vector` mapped `"index": false` must be excluded too and the
+        // arm below would let it through as soon as it kept its doc values.
+        if matches!(field.field_type, FieldType::Vector) {
+            excluded.insert(field.name.clone());
+            continue;
+        }
         if field.options.indexed {
             continue;
         }
@@ -3931,6 +3988,41 @@ mod semantic_derived_vector_exclusion_tests {
         for derived in &excluded {
             assert!(!fields.contains_key(derived));
         }
+    }
+
+    /// #328 — a field a user explicitly maps as `dense_vector` has no lexical
+    /// representation either, whatever `"index"` says. Before the fix it got
+    /// `options.indexed == true` for kNN, so it walked straight past the
+    /// `index: false` arm and into a full term dictionary over the decimal
+    /// renderings of its floats.
+    #[test]
+    fn a_user_mapped_dense_vector_joins_the_fts_exclusion_set() {
+        let mut schema = Schema::empty();
+        let mut emb = FieldConfig::new("emb", FieldType::Vector);
+        emb.options.indexed = true; // `"index": true` — kNN, not postings
+        emb.options.doc_values = true;
+        schema.add_field(emb).unwrap();
+        // The same field mapped `"index": false`: still no lexical side, and
+        // the `index: false` arm alone would have let it through on its doc
+        // values, which is why the type test runs first.
+        let mut cold = FieldConfig::new("cold", FieldType::Vector);
+        cold.options.indexed = false;
+        cold.options.doc_values = true;
+        schema.add_field(cold).unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+
+        let excluded = fts_excluded_fields(&schema);
+        assert!(
+            excluded.contains("emb"),
+            "an indexed dense_vector has no term a query could name: {excluded:?}"
+        );
+        assert!(excluded.contains("cold"), "{excluded:?}");
+        assert!(
+            !excluded.contains("body"),
+            "the indexed control field must keep its postings: {excluded:?}"
+        );
     }
 }
 

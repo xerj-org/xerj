@@ -7,7 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Performance
+
+- **A user-mapped `dense_vector` no longer builds a lexical term dictionary,
+  postings and norms that no query path can read**
+  ([#328](https://github.com/xerj-org/xerj/issues/328)). `"index": true` is how
+  Elasticsearch asks a `dense_vector` for kNN, but XERJ read it as "build
+  postings" as well, so the field was FTS-indexed with the `keyword` analyzer
+  and the FST ended up holding one whole-value token per document — a verbatim
+  decimal re-rendering of the entire vector, served by nothing (`knn` reads the
+  HNSW graph). Measured here on a 3,000-doc / 128-dim / force-merged index,
+  `<seg>.emb.fst` was 7,758,140 B against a `<seg>.emb.post` of 6,244 B — 3,000
+  terms carrying one posting each. Dropping it took the index from 9,884,840 B
+  to 2,118,623 B, **−78.6%**. The generated-vector half of this was fixed in
+  #12; this is the user-mapped half.
+
+  **The saving is corpus-shaped, not a constant.** It scales with `dims × docs`
+  relative to the rest of the index, and — because the terms are decimal
+  renderings — with how many digits the floats print to. Three measurements of
+  the *same* 3,000-doc / 128-dim shape have landed at 43.7%, 47.1% and the
+  78.6% above, differing only in the vector values. An index whose bytes are
+  mostly `_source` or text postings will see far less. Do not quote any of
+  these as universal.
+
+  **Existing segments keep their sidecar until they are next merged**, and
+  `_forcemerge` on an index that is already a single segment does not reclaim
+  it — that is a no-op (measured: `merged_batches: 0`, `segments: 1`). To
+  reclaim on an existing index, reindex, or let ordinary merge activity absorb
+  it.
+
+  One behaviour change, deliberate and pinned by test: `match` /
+  `match_phrase` given the *exact* whole-vector rendering — every component
+  `f64`-to-string, joined by single spaces — used to return the document and
+  now returns `hits.total: 0`. Every other lexical probe measured (`term` in
+  all forms, `query_string`, and any single vector component) returned 0 before
+  the fix as well. Elasticsearch refuses a `match` on a `dense_vector`
+  outright; XERJ keeps the `200` and returns no hits.
+
+  Not addressed here: a *dynamic* (unmapped) float array still gets an FST,
+  because the exclusion set is schema-derived — same class of waste, filed
+  separately. `POST /{index}/_disk_usage` still reports `"fields": {}`, which
+  is why this went unnoticed for so long; also filed separately.
 
 ## [1.0.0-rc.16] - 2026-08-13
 
