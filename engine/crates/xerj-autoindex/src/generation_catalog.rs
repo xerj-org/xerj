@@ -51,9 +51,10 @@ impl CatalogProjection {
     pub fn validate_observed(&self, observed: &BTreeMap<String, Value>) -> Result<()> {
         anyhow::ensure!(
             observed.len() == self.documents.len(),
-            "catalog read-back contains {} documents; expected {}",
+            "catalog read-back contains {} documents; expected {} ({})",
             observed.len(),
-            self.documents.len()
+            self.documents.len(),
+            id_set_diff(&self.documents, observed)
         );
         for (id, expected) in &self.documents {
             let actual = observed
@@ -61,11 +62,128 @@ impl CatalogProjection {
                 .with_context(|| format!("catalog read-back is missing {id}"))?;
             anyhow::ensure!(
                 actual == expected,
-                "catalog read-back for {id} disagrees with the sealed generation projection"
+                "catalog read-back for {id} disagrees with the sealed generation projection: {}",
+                document_diff(expected, actual)
             );
         }
         Ok(())
     }
+}
+
+/// How many differing keys or IDs a diff names before it truncates. A 7.5 k
+/// document projection whose read-back lost one field per document has to stay
+/// readable on a terminal.
+const DIFF_SAMPLE: usize = 5;
+
+/// Name the IDs that explain a read-back cardinality mismatch.
+fn id_set_diff(expected: &BTreeMap<String, Value>, actual: &BTreeMap<String, Value>) -> String {
+    let missing: Vec<&str> = expected
+        .keys()
+        .filter(|id| !actual.contains_key(*id))
+        .map(String::as_str)
+        .collect();
+    let extra: Vec<&str> = actual
+        .keys()
+        .filter(|id| !expected.contains_key(*id))
+        .map(String::as_str)
+        .collect();
+    let mut parts = Vec::new();
+    if !missing.is_empty() {
+        parts.push(format!("missing {}", sample(&missing)));
+    }
+    if !extra.is_empty() {
+        parts.push(format!("unexpected {}", sample(&extra)));
+    }
+    if parts.is_empty() {
+        // Both sets hold the same IDs, so the counts can only disagree if one
+        // side carried a duplicate — which the callers' `BTreeMap` cannot.
+        "no ID differs".into()
+    } else {
+        parts.join("; ")
+    }
+}
+
+/// Per-key diff of one catalog document.
+///
+/// The bare "disagrees with the sealed generation projection" this replaces
+/// named neither the key nor the values, so a read-back that silently dropped
+/// every `null`-valued field (`time_field`, `time_min`, `time_max`,
+/// `semantic_field` on `ds:*`; `reason` on an indexed `file:*`) was
+/// indistinguishable from a miscounted `record_count` — and the first key of
+/// the projection's `BTreeMap` was the only one the operator ever saw.
+fn document_diff(expected: &Value, actual: &Value) -> String {
+    let (Some(expected), Some(actual)) = (expected.as_object(), actual.as_object()) else {
+        return format!(
+            "expected {}, got {}",
+            truncate(&expected.to_string()),
+            truncate(&actual.to_string())
+        );
+    };
+    let mut parts = Vec::new();
+    let missing: Vec<String> = expected
+        .iter()
+        .filter(|(key, _)| !actual.contains_key(*key))
+        .map(|(key, value)| format!("{key} (expected {})", truncate(&value.to_string())))
+        .collect();
+    if !missing.is_empty() {
+        parts.push(format!("missing key {}", sample_owned(&missing)));
+    }
+    let extra: Vec<&str> = actual
+        .keys()
+        .filter(|key| !expected.contains_key(*key))
+        .map(String::as_str)
+        .collect();
+    if !extra.is_empty() {
+        parts.push(format!("unexpected key {}", sample(&extra)));
+    }
+    let changed: Vec<String> = expected
+        .iter()
+        .filter_map(|(key, value)| {
+            let observed = actual.get(key)?;
+            (observed != value).then(|| {
+                format!(
+                    "{key} (expected {}, got {})",
+                    truncate(&value.to_string()),
+                    truncate(&observed.to_string())
+                )
+            })
+        })
+        .collect();
+    if !changed.is_empty() {
+        parts.push(format!("changed value {}", sample_owned(&changed)));
+    }
+    if parts.is_empty() {
+        "no key differs".into()
+    } else {
+        parts.join("; ")
+    }
+}
+
+fn sample(items: &[&str]) -> String {
+    sample_owned(
+        &items
+            .iter()
+            .map(|item| (*item).to_owned())
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn sample_owned(items: &[String]) -> String {
+    let shown = items.len().min(DIFF_SAMPLE);
+    let mut out = items[..shown].join(", ");
+    if items.len() > shown {
+        out.push_str(&format!(" (+{} more)", items.len() - shown));
+    }
+    out
+}
+
+fn truncate(rendered: &str) -> String {
+    const LIMIT: usize = 80;
+    if rendered.chars().count() <= LIMIT {
+        return rendered.to_owned();
+    }
+    let head: String = rendered.chars().take(LIMIT).collect();
+    format!("{head}…")
 }
 
 /// Build the complete catalog projection for `desired`.
@@ -701,5 +819,72 @@ mod tests {
         let mut changed = projection.documents.clone();
         changed.get_mut("ds:reports").unwrap()["record_count"] = json!(999);
         assert!(projection.validate_observed(&changed).is_err());
+    }
+
+    /// #367: the read-back that aborted `lucene-meta` differed from the sealed
+    /// projection by exactly the four `null`-valued keys the stored-section
+    /// codec dropped, and the message named none of them — it named `ds:docs`,
+    /// which is just the first key of the `BTreeMap`. The failure has to say
+    /// which key and which value, or the next reporter spends a day on it too.
+    #[test]
+    fn readback_disagreement_names_the_keys_and_values_that_differ() {
+        let plan = Plan {
+            datasets: vec![dataset()],
+            ..Plan::default()
+        };
+        let base = committed(manifest(1, "g1", plan.clone(), Vec::new()));
+        let desired = manifest(2, "g2", plan, Vec::new());
+        let projection = project_generation(
+            &base,
+            &desired,
+            &metadata("g2"),
+            &stats(),
+            &BTreeMap::new(),
+            &managed_non_run_ids(&base.plan),
+        )
+        .unwrap();
+
+        // Exactly what a v2 stored section hands back: every null-valued key
+        // is simply absent.
+        let mut dropped = projection.documents.clone();
+        let dataset_doc = dropped.get_mut("ds:reports").unwrap();
+        for key in ["time_field", "time_min", "time_max", "semantic_field"] {
+            assert!(dataset_doc[key].is_null(), "{key} must be null to drop");
+            dataset_doc.as_object_mut().unwrap().remove(key);
+        }
+        let message = projection
+            .validate_observed(&dropped)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("time_field (expected null)"),
+            "the dropped null key must be named: {message}"
+        );
+        assert!(
+            message.contains("semantic_field"),
+            "every dropped key must be named: {message}"
+        );
+
+        let mut changed = projection.documents.clone();
+        changed.get_mut("ds:reports").unwrap()["record_count"] = json!(999);
+        let message = projection
+            .validate_observed(&changed)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("record_count (expected 2, got 999)"),
+            "a changed value must show both sides: {message}"
+        );
+
+        let mut missing = projection.documents.clone();
+        let (removed, _) = missing.pop_first().unwrap();
+        let message = projection
+            .validate_observed(&missing)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains(&removed),
+            "a cardinality mismatch must name the absent ID: {message}"
+        );
     }
 }
