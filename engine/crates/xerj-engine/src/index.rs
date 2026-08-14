@@ -13656,7 +13656,20 @@ impl Index {
                     ),
                 )));
             }
-            resolved
+            // #328's query half, and it rides the same guard for the same
+            // reason: a `dense_vector` has no term dictionary to consult, so a
+            // lexical clause naming one is lowered to `match_none` HERE,
+            // before `is_doc_scan_query` or `query_node_to_fts` ever see the
+            // tree. `unsearchable_query_field` cannot cover it — a vector
+            // field is `indexed`, so it is not "unsearchable" — and without
+            // the lowering the missing postings hand the clause to the
+            // stored-doc scan. See `lower_lexically_typeless_clauses`.
+            let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
+            if typeless.is_empty() {
+                resolved
+            } else {
+                lower_lexically_typeless_clauses(&resolved, &typeless)
+            }
         };
         let query = &resolved_query;
 
@@ -14037,6 +14050,22 @@ impl Index {
                 // `memtable::fts_excluded_fields` for why such a field keeps
                 // its postings rather than falling back to the scan.
                 if !f.options.indexed && !f.options.doc_values {
+                    continue;
+                }
+                // #328 — a `dense_vector` has no lexical representation at
+                // all, so it is not a field a `*` expansion may project onto.
+                // A vector field is declared with vector attributes and
+                // nothing else, so it never acquires index options and can
+                // never own terms (`lucene/core/src/java/org/apache/lucene/
+                // document/KnnFloatVectorField.java:70`, and `FieldInfo.java:565`
+                // for what `IndexOptions.NONE` means). Leaving it in would push
+                // a clause onto a field whose term dictionary this release
+                // stops building (`memtable::fts_excluded_fields`), and the
+                // per-segment `fts_has_field` gate would then hand the whole
+                // query to the stored-doc scan. A clause that NAMES the field
+                // rather than expanding onto it is handled separately, by
+                // `lower_lexically_typeless_clauses`.
+                if matches!(f.field_type, FieldType::Vector) {
                     continue;
                 }
                 if matches!(f.field_type, FieldType::Text) {
@@ -19132,7 +19161,18 @@ fn extract_fts_fields_excluding(
             if excluded.contains(key) {
                 continue;
             }
-            let text = extract_field_text(val);
+            // This is the MERGE path, and a merge must not resurrect postings
+            // that flush correctly skipped (#328). A root key is caught above;
+            // an object-valued key is flattened whole by `extract_field_text`,
+            // so a `dense_vector` nested under it (`passages.vec`) would come
+            // back here even though flush dropped it. Prune it out of the
+            // flattened blob exactly the way `collect_text_fields` does.
+            let text = if val.is_object() && crate::memtable::has_excluded_descendant(key, excluded)
+            {
+                crate::memtable::extract_text_value_excluding(val, key, excluded)
+            } else {
+                extract_field_text(val)
+            };
             if !text.is_empty() {
                 fields.insert(key.clone(), text);
             }
@@ -29334,7 +29374,12 @@ fn extract_numeric_vector(source: &Value, field: &str) -> Option<Vec<f32>> {
 
 /// Collect every dense_vector-mapped field in schema order (dotted paths
 /// for fields nested under object mappings).
-fn collect_dense_vector_fields(schema: &Schema) -> Vec<String> {
+///
+/// Also the single source of truth for `memtable::lexically_typeless_fields`
+/// (#328) — the set of fields that get an HNSW graph and the set that get no
+/// term dictionary must be the same set, or a field ends up with both or
+/// neither.
+pub(crate) fn collect_dense_vector_fields(schema: &Schema) -> Vec<String> {
     fn walk(fields: &[FieldConfig], prefix: &str, out: &mut Vec<String>) {
         for fc in fields {
             let path = if prefix.is_empty() {
@@ -30026,6 +30071,339 @@ fn unsearchable_query_field(q: &QueryNode, schema: &Schema) -> Option<String> {
         // `bool.should` of `match`, which the leaf arms above catch), and
         // `percolate` (the field holds stored queries, not data).
         _ => None,
+    }
+}
+
+/// Lower every LEXICAL clause that names a lexically typeless field to
+/// `QueryNode::MatchNone` — the query half of #328.
+///
+/// `typeless` is `memtable::lexically_typeless_fields`: the `dense_vector`
+/// fields and their `_chunks` / passage-metadata companions, i.e. exactly the
+/// fields this release stops giving a term dictionary. Dropping the postings
+/// alone is not enough, and this is the part the write-side change cannot do by
+/// itself. Every OTHER member of `fts_excluded_fields` is protected from the
+/// stored-doc scan by `unsearchable_query_field`, which 400s the query before
+/// execution; a `dense_vector` is not, because it IS indexed — kNN needs the
+/// HNSW graph. So without this pass a lexical clause on a vector field falls
+/// through the per-segment `fts_has_field` gate onto the stored-doc scan, whose
+/// `Term` arm matches ANY ELEMENT of a JSON array and whose `match` arm splits
+/// on non-alphanumerics. Measured post-`force_merge` on a 5,000-doc × 128-dim
+/// corpus with the postings removed but this pass absent, against `main`:
+/// `{"term":{"emb":"<component>"}}` 55.7 ms → 426.5 ms (O(docs), so it grows),
+/// and `{"multi_match":{"fields":["emb"],"query":"0"}}` **0 hits → all 5,000**,
+/// because every rendered float component contains a `0`. With this pass they
+/// are 0.062 ms and 0 hits.
+///
+/// Lucene's answer to "this field has no terms" is the same one, in two places:
+/// `Terms.getTerms` hands back `Terms.EMPTY` rather than null so the scorer is
+/// empty instead of absent (`lucene/core/src/java/org/apache/lucene/index/
+/// Terms.java:40`), and a query that cannot match is REWRITTEN to
+/// `MatchNoDocsQuery` (`lucene/core/src/java/org/apache/lucene/search/
+/// MatchNoDocsQuery.java:23`) — as `AbstractKnnVectorQuery` does on an empty
+/// index (`lucene/core/src/test/org/apache/lucene/search/
+/// BaseKnnVectorQueryTestCase.java:164`). Neither ever falls back to walking
+/// the corpus: `TestTermAutomatonQuery.testFieldMissing` asserts a plain 0 hits
+/// for a query on `bogusfield` (`lucene/sandbox/src/test/org/apache/lucene/
+/// sandbox/search/TestTermAutomatonQuery.java:1051`). The empty FIELD LIST case
+/// below is `BooleanQuery.rewrite`'s first line, verbatim in spirit —
+/// `if (clauses.size() == 0) return new MatchNoDocsQuery("empty BooleanQuery")`
+/// (`lucene/core/src/java/org/apache/lucene/search/BooleanQuery.java:270`).
+///
+/// This is deliberately NOT a rejection. ES 400s `term`/`match`/`range` on a
+/// `dense_vector` outright; XERJ answers 200 with zero hits, which is what it
+/// answered before #328 removed the postings, and preserving the answer is the
+/// point of this pass. Adding the rejection is a separate, breaking change.
+///
+/// Three classes of clause are deliberately left alone, because none of them
+/// ever read the term dictionary and all of them are measured unchanged:
+///
+///  * `Exists` — answered from `_source` / doc values (5,000/5,000 docs on
+///    `main` and here), and ES agrees it is not an error on a field with no
+///    terms;
+///  * `Knn` / `SemanticSearch` on the field itself — the whole reason the field
+///    exists. Their `filter` sub-query IS walked;
+///  * the geo leaves — a `geo_distance` on a `dense_vector` is nonsense either
+///    way, but it resolves from `_source` and this change does not touch it.
+///
+/// `Nested` is not walked either, and that is a scope decision rather than an
+/// oversight: field names inside a `nested` query resolve against the ELEMENT,
+/// not the root (see `strip_nested_path_in_query`), so a root-level `emb` in
+/// the set is not the same `emb` the inner clause names. Rewriting through it
+/// could turn a legitimate inner clause into a silent zero. The inner clause
+/// keeps exactly today's behaviour.
+fn lower_lexically_typeless_clauses(
+    q: &QueryNode,
+    typeless: &std::collections::HashSet<String>,
+) -> QueryNode {
+    // One entry of a `fields: [...]` list. `"emb^3"` carries a boost; a
+    // pattern (`"*"`, `"body.*"`) is an expansion, and the expansion sets in
+    // `search_inner` already drop vector fields, so it must stay.
+    let is_typeless_spec = |spec: &String| -> bool {
+        let (name, _boost) = parse_field_boost(spec);
+        !name.contains('*') && typeless.contains(name)
+    };
+    // A `fields: [...]` list with every vector entry removed. `None` means
+    // "leave this node alone": either nothing was dropped, or the list was
+    // already empty, which means "all fields" rather than "no fields".
+    let prune_specs = |fields: &Vec<String>| -> Option<Vec<String>> {
+        if fields.is_empty() || !fields.iter().any(is_typeless_spec) {
+            return None;
+        }
+        Some(
+            fields
+                .iter()
+                .filter(|spec| !is_typeless_spec(spec))
+                .cloned()
+                .collect(),
+        )
+    };
+    let recurse = |c: &QueryNode| lower_lexically_typeless_clauses(c, typeless);
+    match q {
+        // ── Leaves that name exactly one field ────────────────────────────
+        QueryNode::Term { field, .. }
+        | QueryNode::Terms { field, .. }
+        | QueryNode::Range { field, .. }
+        | QueryNode::Prefix { field, .. }
+        | QueryNode::Wildcard { field, .. }
+        | QueryNode::Match { field, .. }
+        | QueryNode::MatchPhrase { field, .. }
+        | QueryNode::MatchPhrasePrefix { field, .. }
+        | QueryNode::Fuzzy { field, .. }
+        | QueryNode::Regexp { field, .. }
+        | QueryNode::Intervals { field, .. }
+        | QueryNode::SpanTerm { field, .. } => {
+            if typeless.contains(field) {
+                QueryNode::MatchNone
+            } else {
+                q.clone()
+            }
+        }
+
+        // ── Multi-field forms: prune the list, empty list → MatchNone ─────
+        // The empty case is the specific hole. `query_node_to_fts` returns
+        // `None` for a field spec it cannot project, and `MultiMatch` is
+        // unconditionally in `is_doc_scan_query`, so a list that named ONLY
+        // vector fields would otherwise reach the stored-doc scan and match
+        // every document instead of none.
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            operator,
+            analyzer,
+            boost,
+            slop,
+            max_expansions,
+        } => match prune_specs(fields) {
+            None => q.clone(),
+            Some(kept) if kept.is_empty() => QueryNode::MatchNone,
+            Some(kept) => QueryNode::MultiMatch {
+                fields: kept,
+                query: query.clone(),
+                match_type: *match_type,
+                operator: *operator,
+                analyzer: analyzer.clone(),
+                boost: *boost,
+                slop: *slop,
+                max_expansions: *max_expansions,
+            },
+        },
+        QueryNode::SimpleQueryString { query, fields } => match prune_specs(fields) {
+            None => q.clone(),
+            Some(kept) if kept.is_empty() => QueryNode::MatchNone,
+            Some(kept) => QueryNode::SimpleQueryString {
+                query: query.clone(),
+                fields: kept,
+            },
+        },
+        QueryNode::QueryString {
+            default_field: Some(f),
+            ..
+        } if is_typeless_spec(f) => QueryNode::MatchNone,
+
+        // ── Composites: recurse, then fold the MatchNone we just created ──
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            let must: Vec<QueryNode> = must.iter().map(recurse).collect();
+            let mut should: Vec<QueryNode> = should.iter().map(recurse).collect();
+            let must_not: Vec<QueryNode> = must_not.iter().map(recurse).collect();
+            let filter: Vec<QueryNode> = filter.iter().map(recurse).collect();
+            // The fold is DELIBERATELY minimal — only the shapes this pass can
+            // itself produce, and only where the answer is unambiguous. It is
+            // not `xerj_query::rewriter::rewrite`, which is not on this path
+            // and whose "empty bool → MatchAll" rule fires AFTER it has
+            // stripped `MatchNone` out of `should`, i.e. turns an unsatisfiable
+            // bool into a match-everything one.
+            //
+            // Without a fold the lowering is CORRECT but not fast: a
+            // `simple_query_string {"fields":["emb"]}` lowers to
+            // `Bool{should:[Match{emb}]}` (`parser::make_simple_query_node`),
+            // which becomes `Bool{should:[MatchNone]}` — still a `Bool`, still
+            // in `is_doc_scan_query`, so still a full stored-doc scan that
+            // evaluates to nothing. Measured on a 5,000-doc × 128-dim corpus:
+            // 0.033 ms unfolded-on-`main` vs 260 ms lowered-but-unfolded.
+            if must.iter().any(QueryNode::is_match_none)
+                || filter.iter().any(QueryNode::is_match_none)
+            {
+                return QueryNode::MatchNone;
+            }
+            // A should-only bool whose every optional clause is unsatisfiable
+            // matches nothing — `minimum_should_match` defaults to 1 for this
+            // shape, and only an explicit zero would say otherwise.
+            let msm_is_zero = matches!(
+                minimum_should_match,
+                Some(MinShouldMatch::Fixed(0)) | Some(MinShouldMatch::Percentage(0))
+            );
+            if !should.is_empty()
+                && should.iter().all(QueryNode::is_match_none)
+                && must.is_empty()
+                && filter.is_empty()
+                && must_not.is_empty()
+                && !msm_is_zero
+            {
+                return QueryNode::MatchNone;
+            }
+            // Otherwise drop the dead optional clauses, but only when no
+            // explicit `minimum_should_match` is riding on the clause COUNT —
+            // `should:[A, MatchNone]` with `msm: 2` is unsatisfiable, and
+            // shrinking the list would quietly make it satisfiable.
+            if minimum_should_match.is_none() && should.iter().any(QueryNode::is_match_none) {
+                should.retain(|c| !c.is_match_none());
+            }
+            QueryNode::Bool {
+                must,
+                should,
+                must_not,
+                filter,
+                minimum_should_match: minimum_should_match.clone(),
+            }
+        }
+        QueryNode::Constant { score, query } => QueryNode::Constant {
+            score: *score,
+            query: Box::new(recurse(query)),
+        },
+        QueryNode::Boosted { boost, query } => QueryNode::Boosted {
+            boost: *boost,
+            query: Box::new(recurse(query)),
+        },
+        QueryNode::Named { name, query } => QueryNode::Named {
+            name: name.clone(),
+            query: Box::new(recurse(query)),
+        },
+        QueryNode::FunctionScore {
+            query,
+            functions,
+            score_mode,
+            boost_mode,
+            max_boost,
+        } => QueryNode::FunctionScore {
+            query: Box::new(recurse(query)),
+            functions: functions.clone(),
+            score_mode: *score_mode,
+            boost_mode: *boost_mode,
+            max_boost: *max_boost,
+        },
+        QueryNode::Pinned { ids, organic } => QueryNode::Pinned {
+            ids: ids.clone(),
+            organic: Box::new(recurse(organic)),
+        },
+        QueryNode::Boosting {
+            positive,
+            negative,
+            negative_boost,
+        } => QueryNode::Boosting {
+            positive: Box::new(recurse(positive)),
+            negative: Box::new(recurse(negative)),
+            negative_boost: *negative_boost,
+        },
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } => QueryNode::DisMax {
+            queries: queries.iter().map(recurse).collect(),
+            tie_breaker: *tie_breaker,
+        },
+        QueryNode::Hybrid { queries, fusion } => QueryNode::Hybrid {
+            queries: queries
+                .iter()
+                .map(|wq| xerj_query::ast::WeightedQuery {
+                    query: recurse(&wq.query),
+                    weight: wq.weight,
+                })
+                .collect(),
+            fusion: fusion.clone(),
+        },
+        QueryNode::Knn {
+            field,
+            vector,
+            k,
+            num_candidates,
+            filter,
+            boost,
+            similarity,
+        } => QueryNode::Knn {
+            field: field.clone(),
+            vector: vector.clone(),
+            k: *k,
+            num_candidates: *num_candidates,
+            filter: filter.as_ref().map(|f| Box::new(recurse(f))),
+            boost: *boost,
+            similarity: *similarity,
+        },
+        QueryNode::SemanticSearch {
+            field,
+            text,
+            k,
+            filter,
+            boost,
+        } => QueryNode::SemanticSearch {
+            field: field.clone(),
+            text: text.clone(),
+            k: *k,
+            filter: filter.as_ref().map(|f| Box::new(recurse(f))),
+            boost: *boost,
+        },
+        QueryNode::SpanNear {
+            clauses,
+            slop,
+            in_order,
+        } => QueryNode::SpanNear {
+            clauses: clauses.iter().map(recurse).collect(),
+            slop: *slop,
+            in_order: *in_order,
+        },
+        QueryNode::SpanOr { clauses } => QueryNode::SpanOr {
+            clauses: clauses.iter().map(recurse).collect(),
+        },
+        QueryNode::SpanNot { include, exclude } => QueryNode::SpanNot {
+            include: Box::new(recurse(include)),
+            exclude: Box::new(recurse(exclude)),
+        },
+        QueryNode::SpanFirst { match_query, end } => QueryNode::SpanFirst {
+            match_query: Box::new(recurse(match_query)),
+            end: *end,
+        },
+        QueryNode::SpanContaining { little, big } => QueryNode::SpanContaining {
+            little: Box::new(recurse(little)),
+            big: Box::new(recurse(big)),
+        },
+        QueryNode::SpanWithin { little, big } => QueryNode::SpanWithin {
+            little: Box::new(recurse(little)),
+            big: Box::new(recurse(big)),
+        },
+
+        // Everything else names no lexical target on a vector field:
+        // MatchAll/MatchNone/Ids/Script, `Exists`, the geo leaves, a
+        // field-less `query_string`, `percolate` (the field holds stored
+        // queries, not data), `more_like_this` (with `fields` the parser
+        // lowers it to a `bool.should` of `match`, which the leaf arms above
+        // catch), and `Nested` (see the doc comment).
+        other => other.clone(),
     }
 }
 

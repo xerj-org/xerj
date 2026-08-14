@@ -7,7 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Performance
+
+- **A field mapped `dense_vector` no longer gets a full-text term dictionary**
+  ([#328](https://github.com/xerj-org/xerj/issues/328)). The field was fed
+  through the lexical indexing path and given an FST + postings that no query
+  path can read: kNN is served by `hnsw/graph.bin`, `exists` from
+  `_source`/doc values, and `_field_caps` and highlighting never open the
+  field's term dictionary. `extract_field_text`'s array arm joined the
+  components with spaces, so a 128-dim vector became one enormous
+  decimal-string term per document.
+
+  Measured on a 5,000-doc × 128-dim corpus (text + keyword + long +
+  `dense_vector` + its `_chunks` companion), after `force_merge(1)`, WAL
+  excluded: **24,738,610 B → 9,788,059 B (60.4%, 2.53×)**. `<seg>.emb.fst`
+  13,256,659 B → 0 and `<seg>.emb_chunks.fst` 1,652,858 B → 0; the two lexical
+  `.fst` files in the same index total 331 B between them. A `dense_vector`
+  nested under an object mapping is covered too — its components were landing
+  in the *parent's* term dictionary, because the segment builder flattens the
+  whole object into one text field.
+
+  The exclusion covers the whole family a vector field generates, not just the
+  base name: `<field>_chunks` (the per-document multi-vector) and
+  `__xerj_passage_meta__<field>` are excluded on the same walk. Excluding only
+  the base name leaves the companion at 14.4% of the index it produces.
+
+  **Two behaviour changes to know about:**
+
+  - **Existing indices keep their bloat until a merge rewrites them.** This is
+    a write-side rule. Segments written by an earlier release keep their
+    `.emb.*` / `.emb_chunks.*` files, and the per-segment `fts_has_field` gate
+    reads whichever shape it finds. Run an explicit
+    `POST /<index>/_forcemerge?max_num_segments=1` to reclaim the bytes on an
+    index that already exists.
+  - **Pre-flush lexical answers on a `dense_vector` change**, always by moving
+    onto the answer the same query already gave once the index was flushed.
+    Measured across sixteen query shapes in both phases, every
+    post-`force_merge` answer is unchanged; five pre-flush answers move —
+    `terms` 1 → 0, `range` 5,000 → 0, `match` 1 → 0,
+    `multi_match {fields:["emb"]}` 5,000 → 0 and
+    `multi_match {fields:["emb","body"]}` 5,000 → 1.
+
+  A lexical clause that names a `dense_vector` (or one of its companions) is
+  now lowered to `match_none` at plan time rather than falling through to the
+  stored-doc scan — which is both the correctness half and the speed half of
+  the change. On the same corpus, post-`force_merge`:
+  `{"multi_match":{"fields":["emb"],"query":"0"}}` stays at 0 hits and goes
+  1.4 ms → 0.018 ms, and `{"term":{"emb":"<component>"}}` stays at 0 hits and
+  goes 55.7 ms → 0.062 ms. `exists`, `knn` and `semantic` on the field are
+  untouched, and a mixed `fields` list keeps its lexical members.
+
+  *Not changed:* ES rejects `term`/`match`/`range` on a `dense_vector`
+  outright, where XERJ answers `200` with zero hits. This release removes bytes
+  and preserves that answer; it does not add the rejection.
 
 ## [1.0.0-rc.16] - 2026-08-13
 
