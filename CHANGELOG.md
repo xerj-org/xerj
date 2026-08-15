@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A `wildcard` query on a `keyword` field no longer ignores case**
+  ([#396](https://github.com/xerj-org/xerj/issues/396)). This is a **visible
+  hit-set change** for every keyword `wildcard` request. One field, one value,
+  two spellings of one intent used to give opposite answers: against
+  `{"code":"HnswGraph"}` on a flushed index, `{"prefix":{"code":"hnsw"}}`
+  returned 0 hits and `{"wildcard":{"code":"hnsw*"}}` returned 1, with nothing
+  in either response to say why.
+
+  `prefix` was the one telling the truth. Lucene builds a prefix automaton from
+  the query's own bytes (`PrefixQuery.java:44-60`) and a wildcard automaton from
+  the query's own codepoints (`WildcardQuery.java:67-103`); case-folding is the
+  opt-in `Automata.makeCaseInsensitiveString` path (`Automata.java:573-594`).
+  XERJ's keyword `wildcard` folded unconditionally, which is an XERJ-only
+  default. Measured on the same document after `_flush`, on a release build,
+  own data dir, own port: `prefix hnsw` / `wildcard hnsw*` went from `(0, 1)`
+  to `(0, 0)`, and `prefix Hnsw` / `wildcard Hnsw*` stayed `(1, 1)`.
+
+  **The way back is `case_insensitive: true`**, which is now honoured on
+  `prefix` *and* `wildcard` (measured: both return 1 for the lowercase
+  spellings above, and `case_insensitive: false` returns 0 for both). It is
+  read through one shared parser helper so the two can no longer default
+  differently.
+
+  Nothing that had already lowercased the caller's value changed. Verified
+  unchanged on the same document: `term` with `case_insensitive: true` still
+  matches `hnswgraph` (1); `query_string` still matches for `code:Hnsw*` and
+  `code:hnsw*` (1 and 1); SQL `LIKE 'hnsw%'` still returns the row. `_count`
+  returns the same number as `_search` for both queries. The full ES-compat
+  YAML suite was re-run against a release build on a private port.
+
+  Still folding, and deliberately: the schema-blind stored scan that answers
+  un-flushed documents (it cannot tell a single-token keyword from a
+  single-token analysed text field, so dropping the fold there would break
+  `wildcard` on `text`), which is the separate
+  [#398](https://github.com/xerj-org/xerj/issues/398) and moves `prefix` and
+  `wildcard` together; and `fuzzy`, now the only term-level query that folds a
+  keyword field, filed as
+  [#406](https://github.com/xerj-org/xerj/issues/406).
+
 ### Fixed
 
 - **`xerj autoindex` aborted a whole run when one file declared two or more SQL

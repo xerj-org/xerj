@@ -627,6 +627,10 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
         "lte" => make_range(&field, None, Some(value), None, None),
         "like" => {
             // Convert SQL LIKE pattern (% → *, _ → ?) to wildcard query.
+            // `case_insensitive: true` keeps SQL `LIKE` folding, as it always
+            // has here (and as MySQL's default collation does).  #396 flipped
+            // the default for the ES `wildcard` QUERY only — SQL is a separate
+            // surface with its own contract and is deliberately untouched.
             let pattern = value
                 .as_str()
                 .unwrap_or("*")
@@ -637,6 +641,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
                 value: pattern,
                 boost: None,
                 constant_score: false,
+                case_insensitive: true,
             }
         }
         "not_like" => {
@@ -654,6 +659,8 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
                     value: pattern,
                     boost: None,
                     constant_score: false,
+                    // Mirrors `like` above — the negation of a folded match.
+                    case_insensitive: true,
                 }],
                 minimum_should_match: None,
             }

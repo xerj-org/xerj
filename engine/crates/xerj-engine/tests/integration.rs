@@ -8565,3 +8565,112 @@ async fn a_refusal_is_not_acknowledged_while_the_sidecar_is_unreadable() {
         "and nothing may be left behind that only this process can see"
     );
 }
+
+// ── #396: prefix and wildcard must not disagree by default on a keyword field ──
+// One `keyword` field, one value, two spellings of one intent. On `main` the
+// standalone `wildcard` query folded case (an XERJ-only default) while `prefix`
+// did not (ES/Lucene's rule — both automata are built from the query's OWN
+// bytes: PrefixQuery.java:44-60, WildcardQuery.java:67-103; folding is the
+// opt-in Automata.makeCaseInsensitiveString path, Automata.java:573-594). So
+// `prefix:"hnsw"` returned 0 and `wildcard:"hnsw*"` returned 1 against
+// `HnswGraph`, with nothing in the response to say why.
+//
+// The flush matters: it is what moves the doc off the schema-blind memtable
+// scan and onto the indexed (FST / columnar doc-values) routes, which is where
+// the two queries disagreed. Reproduced pre-fix as `(0, 1)`.
+#[tokio::test]
+async fn test_keyword_prefix_and_wildcard_agree_on_case_396() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("code", FieldType::Keyword));
+    engine.create_index("kw", schema).unwrap();
+    let idx = engine.get_index("kw").unwrap();
+
+    idx.index_document(Some("1".into()), json!({ "code": "HnswGraph" }))
+        .await
+        .unwrap();
+    idx.flush().await.unwrap();
+
+    async fn hits(idx: &xerj_engine::Index, q: Value) -> u64 {
+        idx.search(&make_search(q)).await.unwrap().total.value
+    }
+
+    // The issue's table. The two lowercase spellings are the regression.
+    let prefix_lc = hits(&idx, json!({"prefix": {"code": "hnsw"}})).await;
+    let wildcard_lc = hits(&idx, json!({"wildcard": {"code": "hnsw*"}})).await;
+    assert_eq!(
+        (prefix_lc, wildcard_lc),
+        (0, 0),
+        "a lowercase prefix and a lowercase wildcard ask the same question of \
+         the same keyword field and must get the same answer (#396); ES/Lucene \
+         answers 0 for both because neither automaton folds case"
+    );
+
+    let prefix_cased = hits(&idx, json!({"prefix": {"code": "Hnsw"}})).await;
+    let wildcard_cased = hits(&idx, json!({"wildcard": {"code": "Hnsw*"}})).await;
+    assert_eq!(
+        (prefix_cased, wildcard_cased),
+        (1, 1),
+        "the correctly-cased spellings must BOTH still match — the half of the \
+         fix that a blanket 'match nothing' regression would also satisfy"
+    );
+
+    // The explicit `case_insensitive: true` flag is the way back for a caller
+    // who wanted the old default. It has to work on BOTH queries: honouring it
+    // on `wildcard` alone would restate this same issue one keystroke along.
+    let prefix_ci = hits(
+        &idx,
+        json!({"prefix": {"code": {"value": "hnsw", "case_insensitive": true}}}),
+    )
+    .await;
+    let wildcard_ci = hits(
+        &idx,
+        json!({"wildcard": {"code": {"value": "hnsw*", "case_insensitive": true}}}),
+    )
+    .await;
+    assert_eq!(
+        (prefix_ci, wildcard_ci),
+        (1, 1),
+        "case_insensitive:true must be honoured, and honoured by BOTH — the ES \
+         conformance suite pins the `wildcard` half (search/390 and search/395, \
+         `{{value: \"K*1\", case_insensitive: true}}`)"
+    );
+
+    // The lowerings that SHARE the Wildcard node lowercase the caller's value
+    // themselves, so they must keep folding. These are exactly what a naive
+    // one-line default flip silently zeroes.
+    assert_eq!(
+        hits(
+            &idx,
+            json!({"term": {"code": {"value": "hnswgraph", "case_insensitive": true}}})
+        )
+        .await,
+        1,
+        "term{{case_insensitive:true}} lowers to a Wildcard node and must still match"
+    );
+    assert_eq!(
+        hits(&idx, json!({"query_string": {"query": "code:Hnsw*"}})).await,
+        1,
+        "query_string lowercases its own wildcard term, so it must still fold"
+    );
+    assert_eq!(
+        hits(&idx, json!({"query_string": {"query": "code:hnsw*"}})).await,
+        1,
+        "...for either spelling the caller gave it"
+    );
+
+    // `_count` synthesizes a size:0 search, which takes a different (count-only)
+    // plan: it must not become a second oracle.
+    let count_req = parse_request(&json!({
+        "query": {"wildcard": {"code": "hnsw*"}}, "size": 0
+    }))
+    .expect("parse_request");
+    assert_eq!(
+        idx.search(&count_req).await.unwrap().total.value,
+        0,
+        "the count-only (size:0) plan must agree with the paged search"
+    );
+}

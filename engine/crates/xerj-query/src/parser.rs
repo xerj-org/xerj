@@ -891,6 +891,11 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                     value: tokens[0].clone(),
                     boost: fb,
                     constant_score: false,
+                    // Analyzed lowering — no user-facing `case_insensitive`
+                    // knob, and `false` is exactly what this arm has always
+                    // done (the FST prefix route was an unconditional raw
+                    // `starts_with` before #396 made the rule explicit).
+                    case_insensitive: false,
                 };
                 should.push(prefix);
                 continue;
@@ -921,6 +926,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                 value: tokens[last].clone(),
                 boost: None,
                 constant_score: false,
+                case_insensitive: false,
             });
             let (im, is, imm) = if operator_and {
                 (inner_clauses, vec![], None)
@@ -1009,10 +1015,7 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                 .get("_name")
                 .and_then(|v| v.as_str())
                 .map(str::to_string);
-            let case_insensitive = inner
-                .get("case_insensitive")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
+            let case_insensitive = term_level_case_insensitive(inner);
             // `term` with `case_insensitive:true` is semantically an
             // exact-match against the lowercased value. Our Wildcard
             // matcher already lowercases both sides before comparing and
@@ -1032,14 +1035,14 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     // `term{case_insensitive:true}` to a case-insensitive
                     // automaton query with the CONSTANT_SCORE rewrite
                     // (max_score 1.0), while this keeps BM25 (1.2821425).
-                    // `constant_score: true` here is NOT safe yet: it
-                    // admits the shape to the columnar KeywordWildcard
-                    // leaf, whose dictionary narrowing is CASE-SENSITIVE —
-                    // a mixed-case value then returns 0 hits (hit-set
-                    // regression ≫ score diff). Fixing the score requires
-                    // threading `case_insensitive` through
-                    // QueryNode::Wildcard into the columnar/FST arms.
+                    // Flipping `constant_score` here is a SCORE change, not
+                    // a hit-set one, and is deliberately left alone.
                     constant_score: false,
+                    // The caller's case is already gone (this IS the
+                    // case-insensitive spelling of `term`), so the folding
+                    // must survive #396's default flip — carried explicitly
+                    // now that `Wildcard` no longer folds by default.
+                    case_insensitive: true,
                 };
                 return Ok(maybe_named(node, name));
             }
@@ -1233,6 +1236,18 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
     })
 }
 
+/// Read the optional `case_insensitive` flag shared by the term-level
+/// queries.  ES defaults it to `false` for `term`, `prefix` and `wildcard`
+/// alike, and #396 is what happens when one of them defaults differently:
+/// two spellings of one intent answer a keyword field two ways.  Both callers
+/// go through this one function so the defaults cannot drift again.
+fn term_level_case_insensitive(inner: &serde_json::Map<String, Value>) -> bool {
+    inner
+        .get("case_insensitive")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 fn parse_prefix(params: &Value) -> Result<QueryNode> {
     let obj = params
         .as_object()
@@ -1250,6 +1265,7 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             boost: None,
             constant_score: true,
+            case_insensitive: false,
         });
     }
 
@@ -1268,9 +1284,25 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
         value,
         boost,
         constant_score: true,
+        case_insensitive: term_level_case_insensitive(inner),
     })
 }
 
+/// A standalone `{wildcard:{…}}` query.
+///
+/// `case_insensitive: false` is #396: a keyword `wildcard` matches the raw
+/// pattern against the raw indexed term, which is what `prefix` on the same
+/// field has always done, and what Lucene does — the wildcard automaton is
+/// built from the query's own codepoints
+/// (`lucene/core/src/java/org/apache/lucene/search/WildcardQuery.java:67-103`),
+/// exactly like the prefix automaton is built from the query's own bytes
+/// (`lucene/core/src/java/org/apache/lucene/search/PrefixQuery.java:44-60`).
+///
+/// The request's `case_insensitive` flag is read through the same
+/// [`term_level_case_insensitive`] helper `parse_prefix` uses, so the two
+/// queries cannot end up with different rules on that axis either — honouring
+/// it on only one of them would re-open this very issue one keystroke further
+/// along.
 fn parse_wildcard(params: &Value) -> Result<QueryNode> {
     let obj = params
         .as_object()
@@ -1288,6 +1320,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             boost: None,
             constant_score: true,
+            case_insensitive: false,
         });
     }
 
@@ -1306,6 +1339,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         value,
         boost,
         constant_score: true,
+        case_insensitive: term_level_case_insensitive(inner),
     })
 }
 
@@ -2086,8 +2120,11 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
             // search analyzer normalizes them) — e.g. `q=field:BA*` matches the
             // indexed lowercased token `bar`.  The raw `wildcard` query does NOT
             // analyze its pattern (case-sensitive), so this lowering lives HERE
-            // in the query_string path only.  Harmless for keyword fields, whose
-            // FST-wildcard route case-folds both sides regardless.
+            // in the query_string path only.  For keyword fields the lowering
+            // has already destroyed the caller's case, so the node carries
+            // `case_insensitive: true` and keeps folding — #396 flipped only
+            // the STANDALONE `wildcard` default, and `q=code:Hnsw*` must go on
+            // matching `HnswGraph` exactly as it did before.
             if value.contains('*') || value.contains('?') {
                 // ES's query_string parser produces a WildcardQuery (or
                 // PrefixQuery for a trailing `*`) with the default
@@ -2107,6 +2144,7 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                             value: lowered.clone(),
                             boost,
                             constant_score: true,
+                            case_insensitive: true,
                         })
                         .collect(),
                 );
@@ -4232,6 +4270,9 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
             value: fold(&raw_tokens[0]),
             boost: None,
             constant_score: true,
+            // `fold` has already applied the field's analyzer, so the
+            // comparison is raw — the rule this arm has always used.
+            case_insensitive: false,
         });
     }
 
@@ -4264,6 +4305,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
         value: fold(&raw_tokens[last_idx]),
         boost: None,
         constant_score: false,
+        case_insensitive: false,
     });
 
     // operator:and → every clause must match; otherwise should + mm.

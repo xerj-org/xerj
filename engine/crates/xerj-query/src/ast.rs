@@ -356,6 +356,11 @@ pub enum QueryNode {
         /// match_bool_prefix) that keep BM25 scoring.
         #[serde(default, skip_serializing_if = "is_false")]
         constant_score: bool,
+        /// ES's `prefix.case_insensitive`.  See
+        /// [`QueryNode::Wildcard::case_insensitive`] — the two term-level
+        /// queries follow one rule on this axis, by construction (#396).
+        #[serde(default, skip_serializing_if = "is_false")]
+        case_insensitive: bool,
     },
 
     /// Wildcard pattern match (`?` = any char, `*` = zero-or-more chars).
@@ -369,6 +374,28 @@ pub enum QueryNode {
         /// `term{case_insensitive}` / query_string lowerings that keep BM25.
         #[serde(default, skip_serializing_if = "is_false")]
         constant_score: bool,
+        /// Case-fold BOTH the pattern and the indexed term before matching.
+        ///
+        /// `false` (the default) is ES/Lucene's rule for a keyword field:
+        /// `WildcardQuery.toAutomaton` builds the automaton straight off the
+        /// query's raw codepoints
+        /// (`lucene/core/src/java/org/apache/lucene/search/WildcardQuery.java:67-103`)
+        /// and folding is the opt-in
+        /// `Automata.makeCaseInsensitiveString` path
+        /// (`lucene/core/src/java/org/apache/lucene/util/automaton/Automata.java:573-594`)
+        /// — the same rule `Prefix` already follows
+        /// (`.../search/PrefixQuery.java:44-60`).  Keeping the two defaults
+        /// apart is #396: `prefix:"hnsw"` missed `HnswGraph` while
+        /// `wildcard:"hnsw*"` matched it.
+        ///
+        /// `true` comes from the request's own `case_insensitive` flag, or
+        /// from an *internal* lowering that has already destroyed the caller's
+        /// case: `term{case_insensitive: true}` (an exact match against the
+        /// folded value) and `query_string`, which lowercases its own wildcard
+        /// term at parse time.  SQL `LIKE` keeps it too, preserving
+        /// MySQL-style folding.
+        #[serde(default, skip_serializing_if = "is_false")]
+        case_insensitive: bool,
     },
 
     /// Matches documents where the field has any non-null value.

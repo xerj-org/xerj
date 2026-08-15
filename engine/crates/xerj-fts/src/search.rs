@@ -208,6 +208,14 @@ pub struct PrefixQuery {
     /// path), the per-expansion BM25 scores are summed.
     #[serde(default)]
     pub constant_score: bool,
+    /// Case-fold both the prefix and the indexed term before comparing —
+    /// ES's `prefix.case_insensitive`, which Lucene serves with
+    /// `AutomatonQuery(…, isCaseInsensitive)`.  `false` (the default, and the
+    /// only value for analyzed **text** fields, whose terms are already
+    /// lowercased and whose pattern ES does not analyze) is a raw
+    /// `starts_with`.  See [`WildcardQuery::case_insensitive`].
+    #[serde(default)]
+    pub case_insensitive: bool,
 }
 
 fn default_max_expansions() -> usize {
@@ -222,6 +230,7 @@ impl PrefixQuery {
             boost: 1.0,
             max_expansions: 50,
             constant_score: false,
+            case_insensitive: false,
         }
     }
 }
@@ -809,7 +818,9 @@ impl FtsSearcher {
         let last = ppq.terms.last().expect("non-empty");
         // Expand the trailing prefix against the field's term dictionary in FST
         // (lexicographic) order — matches ES's first-`max_expansions` selection.
-        let expansions = self.expand_prefix(&ppq.field, last, ppq.max_expansions);
+        // `match_phrase_prefix` has no `case_insensitive` knob: the caller has
+        // already run the analyzer over the terms, so the comparison is raw.
+        let expansions = self.expand_prefix(&ppq.field, last, ppq.max_expansions, false);
         if expansions.is_empty() {
             return Ok(Vec::new());
         }
@@ -868,7 +879,12 @@ impl FtsSearcher {
 
     fn execute_prefix(&self, pq: &PrefixQuery, explain: bool) -> Result<Vec<ScoredHit>> {
         // Expand prefix to term list using FST range scan
-        let expanded_terms = self.expand_prefix(&pq.field, &pq.prefix, pq.max_expansions);
+        let expanded_terms = self.expand_prefix(
+            &pq.field,
+            &pq.prefix,
+            pq.max_expansions,
+            pq.case_insensitive,
+        );
         self.score_expanded_terms(
             &pq.field,
             &expanded_terms,
@@ -878,10 +894,21 @@ impl FtsSearcher {
         )
     }
 
-    fn expand_prefix(&self, field: &str, prefix: &str, max: usize) -> Vec<String> {
+    fn expand_prefix(
+        &self,
+        field: &str,
+        prefix: &str,
+        max: usize,
+        case_insensitive: bool,
+    ) -> Vec<String> {
         // Streaming FST scan with a cooperative deadline poll every 1 024
         // terms (RC4 blocker 12) — a wide dictionary made the old
         // materialise-then-filter walk a multi-second uninterruptible unit.
+        //
+        // `case_insensitive` folds both sides, mirroring `expand_wildcard`.
+        // A folded prefix cannot bound a byte-ordered range, but this walk
+        // already visits every term, so the cost class is unchanged.
+        let pre_lc = case_insensitive.then(|| prefix.to_lowercase());
         let mut out: Vec<String> = Vec::new();
         let mut seen = 0usize;
         self.reader.for_each_term(field, |t| {
@@ -889,7 +916,11 @@ impl FtsSearcher {
             if seen & 1023 == 0 && self.deadline_hit() {
                 return false;
             }
-            if t.starts_with(prefix) {
+            let hit = match &pre_lc {
+                Some(p) => t.to_lowercase().starts_with(p.as_str()),
+                None => t.starts_with(prefix),
+            };
+            if hit {
                 out.push(t.to_owned());
                 if out.len() >= max {
                     return false;
