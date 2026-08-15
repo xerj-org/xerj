@@ -52,6 +52,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quiet when the same request already reaches the vector through `semantic`
   or `knn` (including the ES 8.x top-level `knn` block).
 
+- **`prefix` and `wildcard` no longer change their answer at `_flush`**
+  ([#398](https://github.com/xerj-org/xerj/issues/398)). The stored-document
+  scan — which answers both leaves for every document still in the memtable,
+  and for every field the inverted-index projection declines — had no field
+  type, so it folded case on *both* sides and split the stored string on
+  non-alphanumerics as a stand-in for the index-time analysis it could not
+  see. A flushed segment compares against the analysed term dictionary
+  instead, so the same request answered differently before and after a flush.
+  With `title` mapped `text` and `code` mapped `keyword`, both holding
+  `HnswGraphBuilder.java`: `{"prefix":{"title":"Hnsw"}}`,
+  `{"wildcard":{"title":"java"}}`, `{"wildcard":{"title":"Hnsw*"}}` and
+  `{"prefix":{"code":"hnsw"}}` each returned 1 hit before the flush and 0
+  after it.
+
+  The scan now resolves each field through the same function that decides how
+  a segment spells that field's terms (`build_fts_field_configs`): a `text`
+  field's *document* is analysed and the pattern is compared verbatim (ES does
+  not analyse a multi-term query, so an uppercase pattern correctly matches
+  nothing); a `keyword` field is compared whole and case-preserved for
+  `prefix`, and case-insensitively for `wildcard`, matching the FST expansion
+  the segment already ran. A field with no term dictionary keeps the previous
+  schema-blind predicate, because there the segment answers from this same
+  scan and the two already agreed. All four rows above now answer 0 in both
+  states, and in the mixed state where a flushed and a buffered document are
+  live at once — pinned in
+  `engine/crates/xerj-engine/tests/prefix_wildcard_flush_parity.rs`, which
+  asserts the whole table in all three states.
+
+  Two divergences of the same family are left open, filed rather than fixed
+  here: a `keyword` **array** is joined into one term at index time
+  (`["Alpha","Beta"]` → `"Alpha Beta"`), so `{"prefix":{"tags":"Beta"}}` still
+  answers 1 before a flush and 0 after — the defect is the join, in the write
+  path ([#408](https://github.com/xerj-org/xerj/issues/408)); and `term` with
+  `case_insensitive: true` on a `text` field now answers 0 in both states
+  instead of 1 then 0, because the parser spends the flag at parse time on a
+  `wildcard` node that the segment has always matched case-sensitively
+  ([#409](https://github.com/xerj-org/xerj/issues/409)).
+
 ## [1.0.0-rc.17] - 2026-08-15
 
 ### Added
