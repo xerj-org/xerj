@@ -29733,6 +29733,13 @@ struct PeeledKnn {
 /// answering the question next to the one asked — so it declines to the
 /// refusal instead.
 ///
+/// The default is not an accident to be papered over, it is the documented
+/// contract: Lucene's `BooleanQuery.Builder.setMinimumNumberShouldMatch`
+/// (`lucene/core/src/java/org/apache/lucene/search/BooleanQuery.java:63`) says
+/// "By default no optional clauses are necessary for a match (unless there are
+/// no required clauses)". A `filter` IS a required clause, which is precisely
+/// why it flips the lone `should` from required to optional.
+///
 /// `minimum_should_match` is therefore READ here, and the rule for it is the
 /// one `doc_matches_query` implements (the `Bool` arm's `min` match) and the
 /// bool fold restates (`should_required`), not the one ES documents in prose:
@@ -30331,7 +30338,8 @@ fn peel_nested_knn_query(
                 // holds is one the bool REQUIRES. A `should` clause is not,
                 // unless it is the only clause and `minimum_should_match` makes
                 // it one (the rule `peel_bool_vector_wrapper` documents, read
-                // off `doc_matches_query`). Measured before this gate, on three
+                // off `doc_matches_query` and off Lucene's own contract in
+                // `BooleanQuery.java:63`). Measured before this gate, on three
                 // documents with one nested vector each:
                 // `should: [<nested knn k:1>], filter: [match_all]` answered
                 // `200` with 1 hit where the bool matches 3, and
