@@ -8163,6 +8163,12 @@ mod semantic_text_lexical_hint_tests {
 
     /// A caller who already reached for `semantic` on that field knows the
     /// field is semantic. Telling them again is the noise case.
+    ///
+    /// The shape this used to assert on was `bool.should[match, semantic]`.
+    /// #395 refuses that bool outright — the `semantic` half was never
+    /// dispatched, so the 200 it answered was the lexical result set alone —
+    /// which leaves `hybrid` as the combining shape that both runs and must
+    /// not be nagged.
     #[tokio::test]
     async fn a_query_that_already_uses_semantic_on_the_field_is_not_flagged() {
         let state = test_state();
@@ -8177,9 +8183,9 @@ mod semantic_text_lexical_hint_tests {
             &state,
             "POST",
             "/sem-both/_search",
-            json!({"query": {"bool": {"should": [
-                {"match": {"ctx": "graph edges"}},
-                {"semantic": {"field": "ctx", "query": "graph edges", "k": 3}},
+            json!({"query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": "graph edges"}}},
+                {"query": {"semantic": {"field": "ctx", "query": "graph edges", "k": 3}}},
             ]}}, "_source": false}),
         )
         .await;
@@ -8191,11 +8197,16 @@ mod semantic_text_lexical_hint_tests {
     }
 
     /// The ES 8.x hand-rolled hybrid — top-level `knn` over the companion
-    /// vector plus a `match` for the lexical half — lives OUTSIDE `query`,
-    /// so a suppression check that only walked `query` would nag the one
-    /// caller who did the most correct thing available to them.
+    /// vector plus a `match` for the lexical half — used to reach this hint as
+    /// a 200 that had to be kept un-nagged. Since #395 it does not reach it at
+    /// all: the compat layer folds it into `bool.should[query, knn]`, the knn
+    /// half of that bool was never dispatched, and the shape is now refused
+    /// rather than answered lexically. What still has to hold is the thing
+    /// this test was written for — the caller who reached for the vector is
+    /// not ALSO nagged about it — so the refusal must carry no lexical hint,
+    /// and the same intent written as `hybrid` must run un-nagged.
     #[tokio::test]
-    async fn a_top_level_knn_over_the_companion_vector_suppresses_the_hint() {
+    async fn a_top_level_knn_over_the_companion_vector_is_refused_without_a_lexical_nag() {
         let state = test_state();
         build_index(
             &state,
@@ -8213,6 +8224,33 @@ mod semantic_text_lexical_hint_tests {
                 "knn": {"field": "ctx_vector", "query_vector": vec![0.1_f32; 32], "k": 3},
                 "_source": false,
             }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        assert!(
+            json["error"]["reason"]
+                .as_str()
+                .expect("reason")
+                .contains("hybrid"),
+            "the refusal names the remedy: {json}"
+        );
+        assert!(
+            semantic_hint(&json).is_none(),
+            "a refusal must not also nag: {json}"
+        );
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-knn/_search",
+            json!({"query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": "graph edges"}}},
+                {"query": {"knn": {
+                    "field": "ctx_vector",
+                    "query_vector": vec![0.1_f32; 32],
+                    "k": 3,
+                }}},
+            ]}}, "_source": false}),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{json}");
@@ -8252,6 +8290,474 @@ mod semantic_text_lexical_hint_tests {
                 && codes.contains(&"lexical_on_semantic_text".to_string()),
             "both diagnostics must survive: {codes:?} / {json}"
         );
+    }
+}
+
+/// #395 — a `semantic` / `knn` clause nested in a `bool` was never dispatched
+/// to the vector path. The request answered `200 OK` with the purely lexical
+/// result set, no error, no warning and `_shards.failed: 0`, so the caller had
+/// no way to tell the vector half had been dropped. These pin both halves of
+/// the fix: the lone-clause bool now dispatches, and every position that still
+/// cannot be dispatched is refused by name instead of answered.
+#[cfg(test)]
+mod nested_vector_clause_dispatch_tests {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::{Request, StatusCode};
+    use serde_json::{json, Value};
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn request_json(
+        state: &AppState,
+        method: &str,
+        path: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let response = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("route response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json = serde_json::from_slice(&bytes).unwrap();
+        (status, json)
+    }
+
+    const DOCS: [&str; 3] = [
+        "the hnsw graph builder prunes redundant neighbour edges",
+        "the segment merger rewrites postings and term dictionaries",
+        "a graph left unpruned becomes densely clustered near the entry node",
+    ];
+
+    async fn build_index(state: &AppState, index: &str) {
+        let (status, body) = request_json(
+            state,
+            "PUT",
+            &format!("/{index}"),
+            json!({"mappings": {"properties": {
+                "ctx": {"type": "semantic_text", "dimensions": 32},
+                "title": {"type": "text"},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, text) in DOCS.iter().enumerate() {
+            let (status, body) = request_json(
+                state,
+                "PUT",
+                &format!("/{index}/_doc/{id}"),
+                json!({"ctx": text, "title": format!("doc {id}")}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        state
+            .engine
+            .get_index(index)
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+    }
+
+    fn ids(json: &Value) -> Vec<String> {
+        json["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| h["_id"].as_str().expect("_id").to_string())
+            .collect()
+    }
+
+    fn scores(json: &Value) -> Vec<f64> {
+        json["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| h["_score"].as_f64().expect("_score"))
+            .collect()
+    }
+
+    fn reason(json: &Value) -> String {
+        json["error"]["reason"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected an error reason: {json}"))
+            .to_string()
+    }
+
+    /// Row B of the issue's table against row A. A `bool` whose only clause is
+    /// `semantic` answered `200 OK` with ZERO hits while the identical clause
+    /// at the top level answered with the whole neighbour list — the vector
+    /// path was never reached and nothing in the response said so.
+    #[tokio::test]
+    async fn a_semantic_clause_alone_in_a_bool_is_dispatched_to_the_vector_path() {
+        let state = test_state();
+        build_index(&state, "sem-395-bool").await;
+        let q = "graph edges";
+
+        let (status, bare) = request_json(
+            &state,
+            "POST",
+            "/sem-395-bool/_search",
+            json!({"query": {"semantic": {"field": "ctx", "query": q, "k": 10}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{bare}");
+        assert_eq!(ids(&bare).len(), 3, "control: the vector path ranks all 3");
+
+        for wrapper in ["must", "should"] {
+            let (status, wrapped) = request_json(
+                &state,
+                "POST",
+                "/sem-395-bool/_search",
+                json!({"query": {"bool": {
+                    wrapper: [{"semantic": {"field": "ctx", "query": q, "k": 10}}],
+                }}}),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "[{wrapper}] {wrapped}");
+            assert_eq!(
+                ids(&wrapped),
+                ids(&bare),
+                "[{wrapper}] a lone `semantic` in a bool must rank exactly as it does \
+                 at the top level: {wrapped}"
+            );
+            assert_eq!(
+                scores(&wrapped),
+                scores(&bare),
+                "[{wrapper}] and score identically: {wrapped}"
+            );
+        }
+    }
+
+    /// The wrapping bool's `filter` clauses have to survive the peel — a
+    /// `semantic` that ignored them would trade the dropped-clause bug for a
+    /// wrong-result-set one.
+    #[tokio::test]
+    async fn a_filter_beside_the_semantic_clause_narrows_the_neighbours() {
+        let state = test_state();
+        build_index(&state, "sem-395-filter").await;
+
+        let (status, filtered) = request_json(
+            &state,
+            "POST",
+            "/sem-395-filter/_search",
+            json!({"query": {"bool": {
+                "must": [{"semantic": {"field": "ctx", "query": "graph edges", "k": 10}}],
+                "filter": [{"term": {"title": "doc 1"}}],
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{filtered}");
+        assert_eq!(
+            ids(&filtered),
+            vec!["1".to_string()],
+            "the bool's `filter` must pre-filter the neighbour set: {filtered}"
+        );
+    }
+
+    /// Rows D and I. A vector clause beside a lexical one in the same bool
+    /// used to answer 200 with the lexical result set alone. It is now
+    /// refused, and the refusal names the query that does combine them.
+    #[tokio::test]
+    async fn a_vector_clause_beside_a_lexical_one_is_refused_and_names_hybrid() {
+        let state = test_state();
+        build_index(&state, "sem-395-mixed").await;
+        let q = "graph edges";
+        let vector = vec![0.1_f32; 32];
+
+        // What the lexical half answers on its own: the two documents that
+        // share a term with the query. Document 2 is the one the vector half
+        // ranks first and the lexical half cannot see, and it is exactly what
+        // the old 200 dropped.
+        let (status, lexical) = request_json(
+            &state,
+            "POST",
+            "/sem-395-mixed/_search",
+            json!({"query": {"match": {"ctx": q}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{lexical}");
+        assert_eq!(ids(&lexical), vec!["0".to_string(), "2".to_string()]);
+
+        let mixed = [
+            json!({"query": {"bool": {"should": [
+                {"match": {"ctx": q}},
+                {"semantic": {"field": "ctx", "query": q, "k": 10}},
+            ]}}}),
+            json!({"query": {"bool": {"should": [
+                {"match": {"ctx": q}},
+                {"knn": {"field": "ctx_vector", "query_vector": vector, "k": 3}},
+            ]}}}),
+        ];
+        for body in mixed {
+            let (status, json) = request_json(&state, "POST", "/sem-395-mixed/_search", body).await;
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "a dropped vector clause must not answer 200: {json}"
+            );
+            let reason = reason(&json);
+            assert!(
+                reason.contains("hybrid"),
+                "the refusal must name the remedy: {reason}"
+            );
+            assert!(
+                reason.contains("ctx"),
+                "and the clause it refused: {reason}"
+            );
+        }
+
+        // The remedy has to be more than a name: run it and require the
+        // document the lexical answer could not reach.
+        let (status, hybrid) = request_json(
+            &state,
+            "POST",
+            "/sem-395-mixed/_search",
+            json!({"query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": q}}},
+                {"query": {"semantic": {"field": "ctx", "query": q, "k": 10}}},
+            ]}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{hybrid}");
+        assert!(
+            ids(&hybrid).contains(&"1".to_string()),
+            "`hybrid` must recall the document the lexical half misses: {hybrid}"
+        );
+    }
+
+    /// Row G — the canonical ES 8.x hand-rolled hybrid. The compat layer folds
+    /// a top-level `knn` beside a `query` into `bool.should[query, knn]`, so it
+    /// hit the same hole and returned exactly the `query`-only answer. This is
+    /// a deliberate, breaking decision: ES answers this shape and XERJ now
+    /// refuses it, because answering it with half the query silently is worse.
+    #[tokio::test]
+    async fn the_es_top_level_knn_beside_a_query_is_refused_rather_than_answered_lexically() {
+        let state = test_state();
+        build_index(&state, "sem-395-eshybrid").await;
+        let vector = vec![0.1_f32; 32];
+
+        // The knn half on its own reaches all three documents, so the
+        // contribution the old 200 dropped was not empty.
+        let (status, knn_only) = request_json(
+            &state,
+            "POST",
+            "/sem-395-eshybrid/_search",
+            json!({"knn": {"field": "ctx_vector", "query_vector": vector.clone(), "k": 3}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{knn_only}");
+        assert_eq!(ids(&knn_only).len(), 3, "{knn_only}");
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-395-eshybrid/_search",
+            json!({
+                "query": {"match": {"ctx": "graph edges"}},
+                "knn": {"field": "ctx_vector", "query_vector": vector, "k": 3},
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        let reason = reason(&json);
+        assert!(
+            reason.contains("hybrid") && reason.contains("knn"),
+            "the refusal must name both the shape and the remedy: {reason}"
+        );
+    }
+
+    /// The positions the issue listed as unchecked: `filter` and `must_not`.
+    /// `must_not` is the loudest of them — a vector clause that matches
+    /// nothing inverts to a `must_not` that excludes nothing, so the query
+    /// answered with the whole index.
+    #[tokio::test]
+    async fn a_vector_clause_in_a_filter_or_must_not_position_is_refused() {
+        let state = test_state();
+        build_index(&state, "sem-395-positions").await;
+        let vector = vec![0.1_f32; 32];
+        let knn = json!({"knn": {"field": "ctx_vector", "query_vector": vector, "k": 3}});
+
+        // The second `must` shape is the one that survives the peel: a lone
+        // `semantic` clause IS dispatchable now, and the bool's `filter`
+        // becomes its pre-filter — a pre-filter the matcher cannot satisfy,
+        // which would answer zero hits with a 200 all over again.
+        for must in [
+            json!({"match_all": {}}),
+            json!({"semantic": {"field": "ctx", "query": "graph edges", "k": 10}}),
+        ] {
+            for position in ["filter", "must_not"] {
+                let (status, json) = request_json(
+                    &state,
+                    "POST",
+                    "/sem-395-positions/_search",
+                    json!({"query": {"bool": {
+                        "must": [must.clone()],
+                        position: [knn.clone()],
+                    }}}),
+                )
+                .await;
+                assert_eq!(
+                    status,
+                    StatusCode::BAD_REQUEST,
+                    "[{position}/{must}] must not answer 200: {json}"
+                );
+                assert!(reason(&json).contains("hybrid"), "[{position}] {json}");
+            }
+        }
+    }
+
+    /// The nested-kNN peel partitions the clauses AROUND the `nested` one into
+    /// pre- and post-filters, so a sibling vector clause became a post-filter
+    /// that excluded every parent document — the same silent zero, reached by
+    /// a different door.
+    #[tokio::test]
+    async fn a_vector_clause_beside_a_nested_knn_is_refused() {
+        let state = test_state();
+        let (status, body) = request_json(
+            &state,
+            "PUT",
+            "/sem-395-nested",
+            json!({"mappings": {"properties": {
+                "items": {"type": "nested", "properties": {
+                    "vector": {"type": "dense_vector", "dims": 4},
+                }},
+                "vec": {"type": "dense_vector", "dims": 4},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let (status, body) = request_json(
+            &state,
+            "PUT",
+            "/sem-395-nested/_doc/0",
+            json!({"items": [{"vector": [1.0, 0.0, 0.0, 0.0]}], "vec": [1.0, 0.0, 0.0, 0.0]}),
+        )
+        .await;
+        assert!(status.is_success(), "{body}");
+        state
+            .engine
+            .get_index("sem-395-nested")
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+
+        let nested = json!({"nested": {"path": "items", "query": {
+            "knn": {"field": "items.vector", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 3},
+        }}});
+
+        // Control: the nested clause on its own is dispatched and finds the doc.
+        let (status, alone) = request_json(
+            &state,
+            "POST",
+            "/sem-395-nested/_search",
+            json!({"query": nested.clone()}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{alone}");
+        assert_eq!(ids(&alone), vec!["0".to_string()], "{alone}");
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-395-nested/_search",
+            json!({"query": {"bool": {"must": [
+                nested,
+                {"knn": {"field": "vec", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 3}},
+            ]}}}),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "a sibling knn must not be swallowed as a post-filter: {json}"
+        );
+        assert!(reason(&json).contains("hybrid"), "{json}");
+    }
+
+    /// A `knn` whose own `filter` holds another vector clause is the same
+    /// silent zero one level down: knn pre-filters run through the generic
+    /// matcher, which has no arm for either vector node. The peel declines
+    /// such a spec so that it lands on the refusal instead of on a filter
+    /// that excludes every document.
+    #[tokio::test]
+    async fn a_vector_clause_inside_a_knn_filter_is_refused() {
+        let state = test_state();
+        build_index(&state, "sem-395-nestedfilter").await;
+        let vector = vec![0.1_f32; 32];
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-395-nestedfilter/_search",
+            json!({"query": {"knn": {
+                "field": "ctx_vector",
+                "query_vector": vector.clone(),
+                "k": 3,
+                "filter": {"knn": {"field": "ctx_vector", "query_vector": vector, "k": 3}},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{json}");
+        assert!(reason(&json).contains("hybrid"), "{json}");
+    }
+
+    /// The refusal must stay off every shape that already worked: a bare
+    /// vector clause, a vector clause wrapped in a bool that adds only
+    /// filters, the `knn: [...]` array form, and `hybrid`.
+    #[tokio::test]
+    async fn the_dispatchable_shapes_are_untouched() {
+        let state = test_state();
+        build_index(&state, "sem-395-ok").await;
+        let vector = vec![0.1_f32; 32];
+        let knn = json!({"field": "ctx_vector", "query_vector": vector, "k": 3});
+        let ok = [
+            json!({"knn": knn.clone()}),
+            json!({"knn": [knn.clone(), knn.clone()]}),
+            json!({"query": {"knn": knn.clone()}}),
+            json!({"query": {"bool": {
+                "must": [{"knn": knn.clone()}],
+                "filter": [{"term": {"title": "doc 1"}}],
+            }}}),
+            json!({"query": {"semantic": {"field": "ctx", "query": "graph edges", "k": 10}}}),
+            json!({"query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": "graph edges"}}},
+                {"query": {"knn": knn}},
+            ]}}}),
+        ];
+        for body in ok {
+            let (status, json) =
+                request_json(&state, "POST", "/sem-395-ok/_search", body.clone()).await;
+            assert_eq!(status, StatusCode::OK, "{body} must still answer: {json}");
+            assert!(
+                !ids(&json).is_empty(),
+                "{body} must still return hits: {json}"
+            );
+        }
     }
 }
 

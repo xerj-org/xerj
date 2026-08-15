@@ -13988,6 +13988,44 @@ impl Index {
                 .await;
         }
 
+        // ── Undispatchable vector clause (#395) ───────────────────────────────
+        // Every path that can reach the vector index has now declined. A `knn`
+        // or `semantic` clause still in the tree is therefore about to be
+        // handed to the generic executor, which has no arm for either node:
+        // it matches nothing, scores nothing, and says nothing. The request
+        // answers 200 with the purely lexical result set, `_shards.failed: 0`,
+        // and no way for the caller to tell that the half they built a vector
+        // index for was dropped — the shape #363 is about, one layer up.
+        //
+        // Refusing is the smaller half of #395: it converts a silent wrong
+        // answer into a loud one and names the query that does answer it.
+        // Fusing the clause the way `hybrid` already does is the larger half
+        // and is NOT done here. The structural reason it is a large change and
+        // not an oversight: in Lucene a kNN search IS a `Query`
+        // (`AbstractKnnVectorQuery extends Query`,
+        // `lucene/core/src/java/org/apache/lucene/search/AbstractKnnVectorQuery.java:52`),
+        // so it rewrites to a doc/score set and composes inside a
+        // `BooleanQuery` like any other clause. Here the vector paths are
+        // executor short-circuits reached by peeling the top of the tree, so
+        // there is nothing for a bool to compose — which is exactly why the
+        // clause vanished instead of erroring.
+        if let Some(clause) = undispatched_vector_clause(query) {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                format!(
+                    "[{clause}] sits in a position this version cannot dispatch to the vector \
+                     index. Executing it would drop the vector half of this query silently — \
+                     the lexical clauses would answer alone, with no error and no failed \
+                     shards. Combine the two signals with `hybrid` instead: \
+                     {{\"hybrid\": {{\"queries\": [{{\"query\": {{<lexical clause>}}}}, \
+                     {{\"query\": {{<vector clause>}}}}]}}}}. A single vector clause may also \
+                     be wrapped in a `bool` that adds nothing but `filter` clauses, and the \
+                     clause on its own is always dispatched. NOTE: the ES 8.x top-level \
+                     `knn` beside a `query` is folded into exactly this `bool` shape and is \
+                     refused for the same reason."
+                ),
+            )));
+        }
+
         // ── Max result window enforcement ──────────────────────────────────────
         // Default max_result_window is 10,000 (matches ES default).
         // Allow override via index setting `index.max_result_window`.
@@ -29649,6 +29687,77 @@ struct PeeledKnn {
     similarity: Option<f32>,
 }
 
+/// The one `Bool` shape that is a transparent wrapper around a single vector
+/// clause: no `must_not`, exactly one `must`/`should` clause, and a
+/// `minimum_should_match` that one clause can satisfy. Returns that clause
+/// together with the bool's own `filter` clauses, which AND into the vector
+/// node's pre-filter.
+///
+/// `minimum_should_match` is READ here rather than ignored. With a single
+/// `should` clause, every percentage form still requires that one clause, and
+/// `0` / `1` are the same requirement written out — all of those are no-ops.
+/// `Fixed(n >= 2)` cannot be satisfied by one clause, and the `terms_set`-only
+/// `Field` / `Script` forms have no per-bool meaning at all; peeling either
+/// would answer with the vector top-k instead, which is #395's own shape.
+/// Those decline, and `undispatched_vector_clause` converts the decline into a
+/// 400 rather than a wrong answer.
+fn peel_bool_vector_wrapper<'a>(
+    must: &'a [QueryNode],
+    should: &'a [QueryNode],
+    filter: &'a [QueryNode],
+    must_not: &'a [QueryNode],
+    minimum_should_match: Option<&MinShouldMatch>,
+) -> Option<(&'a QueryNode, Vec<QueryNode>)> {
+    if !must_not.is_empty() {
+        return None;
+    }
+    match minimum_should_match {
+        None | Some(MinShouldMatch::Percentage(_)) => {}
+        Some(MinShouldMatch::Fixed(n)) if *n <= 1 => {}
+        Some(_) => return None,
+    }
+    let mut candidates = must.iter().chain(should.iter());
+    let only = candidates.next()?;
+    if candidates.next().is_some() {
+        return None;
+    }
+    // A bool `filter` becomes the vector node's pre-filter, and pre-filters are
+    // evaluated by the generic matcher — which is the one place a vector clause
+    // is silently unsatisfiable. Peeling a filter we cannot honour would swap
+    // #395's dropped clause for a filter that excludes every document, so it
+    // declines to the refusal instead.
+    if filter
+        .iter()
+        .any(|f| undispatched_vector_clause(f).is_some())
+    {
+        return None;
+    }
+    Some((only, filter.to_vec()))
+}
+
+/// AND a vector node's own pre-filter together with the `filter` clauses of
+/// the bool it was peeled out of, into the single optional filter sub-query
+/// the vector executors take.
+fn merge_vector_filters(
+    mut clauses: Vec<QueryNode>,
+    inner: Option<Box<QueryNode>>,
+) -> Option<Box<QueryNode>> {
+    if let Some(fi) = inner {
+        clauses.push(*fi);
+    }
+    match clauses.len() {
+        0 => None,
+        1 => Some(Box::new(clauses.into_iter().next().unwrap())),
+        _ => Some(Box::new(QueryNode::Bool {
+            must: Vec::new(),
+            should: Vec::new(),
+            filter: clauses,
+            must_not: Vec::new(),
+            minimum_should_match: None,
+        })),
+    }
+}
+
 /// Unwrap a top-level Knn query, optionally nested under a single transparent
 /// wrapper (Boosted, Constant, Named, or a single-clause Bool must/should).
 /// Returns the peeled spec when the query is a KNN short-circuit candidate,
@@ -29668,15 +29777,27 @@ fn peel_knn_query(q: &QueryNode) -> Option<PeeledKnn> {
             filter,
             boost,
             similarity,
-        } => Some(PeeledKnn {
-            field: field.clone(),
-            vector: vector.clone(),
-            k: *k,
-            num_candidates: *num_candidates,
-            filter: filter.clone(),
-            boost: *boost,
-            similarity: *similarity,
-        }),
+        } => {
+            // Same reason as the bool `filter` above: a vector clause inside
+            // this knn's own pre-filter cannot be evaluated by the matcher, and
+            // dispatching anyway would answer zero hits with a 200.
+            if filter
+                .as_deref()
+                .and_then(undispatched_vector_clause)
+                .is_some()
+            {
+                return None;
+            }
+            Some(PeeledKnn {
+                field: field.clone(),
+                vector: vector.clone(),
+                k: *k,
+                num_candidates: *num_candidates,
+                filter: filter.clone(),
+                boost: *boost,
+                similarity: *similarity,
+            })
+        }
         QueryNode::Boosted { query, boost } => {
             let mut peeled = peel_knn_query(query)?;
             peeled.boost = Some(boost * peeled.boost.unwrap_or(1.0));
@@ -29688,34 +29809,20 @@ fn peel_knn_query(q: &QueryNode) -> Option<PeeledKnn> {
             should,
             filter,
             must_not,
-            ..
+            minimum_should_match,
         } => {
             // Only handle the simple case: exactly one clause containing a
             // KNN, possibly with extra filters to AND in.
-            if !must_not.is_empty() {
-                return None;
-            }
-            let candidates: Vec<&QueryNode> = must.iter().chain(should.iter()).collect();
-            if candidates.len() != 1 {
-                return None;
-            }
-            let mut peeled = peel_knn_query(candidates[0])?;
+            let (candidate, bool_filters) = peel_bool_vector_wrapper(
+                must,
+                should,
+                filter,
+                must_not,
+                minimum_should_match.as_ref(),
+            )?;
+            let mut peeled = peel_knn_query(candidate)?;
             // Combine inner_filter + bool's filter clauses.
-            let mut merged_filters: Vec<QueryNode> = filter.clone();
-            if let Some(fi) = peeled.filter.take() {
-                merged_filters.push(*fi);
-            }
-            peeled.filter = match merged_filters.len() {
-                0 => None,
-                1 => Some(Box::new(merged_filters.into_iter().next().unwrap())),
-                _ => Some(Box::new(QueryNode::Bool {
-                    must: Vec::new(),
-                    should: Vec::new(),
-                    filter: merged_filters,
-                    must_not: Vec::new(),
-                    minimum_should_match: None,
-                })),
-            };
+            peeled.filter = merge_vector_filters(bool_filters, peeled.filter.take());
             Some(peeled)
         }
         _ => None,
@@ -29877,8 +29984,17 @@ fn fuse_linear(sub_results: &[(Vec<Hit>, f32)]) -> Vec<Hit> {
 
 /// Detect a semantic query (parser node `QueryNode::SemanticSearch`)
 /// possibly wrapped in the harmless `Constant`/`Boosted`/`Named`
-/// decorators. Returns `(field, text, k, filter)` ready to feed
-/// into `Index::run_semantic`.
+/// decorators, or in a single-clause `Bool`. Returns `(field, text, k,
+/// filter)` ready to feed into `Index::run_semantic`.
+///
+/// The `Bool` arm is #395: `peel_knn_query` has taken a single-clause bool
+/// since the knn short-circuit was written, this one did not, and the
+/// asymmetry was invisible from the outside — `{"bool": {"must": [{"semantic":
+/// …}]}}` fell through to the generic executor, which has no arm for
+/// `SemanticSearch` and therefore matched nothing, so the request answered
+/// `200 OK` with zero hits while the same clause at the top level answered
+/// with the whole neighbour list. Filters on the wrapping bool AND into the
+/// semantic node's own pre-filter, exactly as they do for knn.
 fn peel_semantic_query(q: &QueryNode) -> Option<(String, String, usize, Option<Box<QueryNode>>)> {
     match q {
         QueryNode::SemanticSearch {
@@ -29887,10 +30003,111 @@ fn peel_semantic_query(q: &QueryNode) -> Option<(String, String, usize, Option<B
             k,
             filter,
             ..
-        } => Some((field.clone(), text.clone(), *k, filter.clone())),
+        } => {
+            // See `peel_knn_query`: a pre-filter holding a vector clause is
+            // unsatisfiable in the matcher, so it declines to the refusal
+            // rather than dispatching a search that can only answer zero.
+            if filter
+                .as_deref()
+                .and_then(undispatched_vector_clause)
+                .is_some()
+            {
+                return None;
+            }
+            Some((field.clone(), text.clone(), *k, filter.clone()))
+        }
         QueryNode::Constant { query, .. }
         | QueryNode::Boosted { query, .. }
         | QueryNode::Named { query, .. } => peel_semantic_query(query),
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            minimum_should_match,
+        } => {
+            let (candidate, bool_filters) = peel_bool_vector_wrapper(
+                must,
+                should,
+                filter,
+                must_not,
+                minimum_should_match.as_ref(),
+            )?;
+            let (field, text, k, inner_filter) = peel_semantic_query(candidate)?;
+            Some((
+                field,
+                text,
+                k,
+                merge_vector_filters(bool_filters, inner_filter),
+            ))
+        }
+        _ => None,
+    }
+}
+
+/// The first `knn` / `semantic` clause left in `q`, rendered for an error
+/// message — `None` when the tree holds none.
+///
+/// Called only once every vector dispatch path above has declined, and that is
+/// what makes a hit here an error rather than a note: the generic executor
+/// (`doc_matches_query` / `score_query_against_doc`) has no arm for either
+/// node, so a clause that reaches it contributes no documents and no score to
+/// anything. Nothing downstream notices — the surrounding lexical clauses
+/// answer normally, `_shards.failed` stays 0, and the caller gets a 200 whose
+/// recall is missing exactly the half they asked the vector index for (#395).
+///
+/// This walks the WHOLE tree, including the `filter` sub-query of a vector
+/// node: those are evaluated with `doc_matches_query` too, so a `knn` inside a
+/// `knn`'s filter is the same silent zero one level down. The peels decline
+/// such a spec (they cannot honour the filter), which routes it here.
+///
+/// Lucene's doctrine for "you asked this field for something it does not do"
+/// is to throw and name the fix rather than answer the neighbouring question —
+/// `FloatVectorValues.checkField` (`lucene/core/src/java/org/apache/lucene/
+/// index/FloatVectorValues.java:53`) and `DocValues.checkField`
+/// (`.../index/DocValues.java:206`, which closes with "Re-index with correct
+/// docvalues type."). Same shape here: refuse, and name `hybrid`.
+fn undispatched_vector_clause(q: &QueryNode) -> Option<String> {
+    match q {
+        QueryNode::Knn { field, .. } => Some(format!("knn on [{field}]")),
+        QueryNode::SemanticSearch { field, .. } => Some(format!("semantic on [{field}]")),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .find_map(undispatched_vector_clause),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::Nested { query, .. }
+        | QueryNode::FunctionScore { query, .. } => undispatched_vector_clause(query),
+        QueryNode::Pinned { organic, .. } => undispatched_vector_clause(organic),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => undispatched_vector_clause(positive).or_else(|| undispatched_vector_clause(negative)),
+        QueryNode::DisMax { queries, .. } => queries.iter().find_map(undispatched_vector_clause),
+        QueryNode::Hybrid { queries, .. } => queries
+            .iter()
+            .find_map(|wq| undispatched_vector_clause(&wq.query)),
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => {
+            clauses.iter().find_map(undispatched_vector_clause)
+        }
+        QueryNode::SpanNot { include, exclude } => {
+            undispatched_vector_clause(include).or_else(|| undispatched_vector_clause(exclude))
+        }
+        QueryNode::SpanFirst { match_query, .. } => undispatched_vector_clause(match_query),
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            undispatched_vector_clause(little).or_else(|| undispatched_vector_clause(big))
+        }
+        // Every remaining variant is a lexical / structural leaf that can hold
+        // no sub-query at all.
         _ => None,
     }
 }
@@ -30018,6 +30235,16 @@ fn peel_nested_knn_query(
     let mut pre_all: Vec<QueryNode> = pre_filters;
     if let Some(f) = inner_filter {
         pre_all.push(*f);
+    }
+    // Both filter sets run through the generic matcher, which cannot evaluate a
+    // vector clause — a sibling `knn` next to the `nested` one would silently
+    // post-filter every parent away. Decline to the #395 refusal instead.
+    if pre_all
+        .iter()
+        .chain(post_filters.iter())
+        .any(|f| undispatched_vector_clause(f).is_some())
+    {
+        return None;
     }
     let to_box = |mut v: Vec<QueryNode>| -> Option<Box<QueryNode>> {
         match v.len() {
@@ -42744,6 +42971,183 @@ mod knn_num_candidates_tests {
         assert!(
             peel_multi_knn_query(&hybrid).is_none(),
             "non-knn sibling must fall through to the generic path"
+        );
+    }
+}
+
+/// #395 — the peel side. The executor reaches a vector clause by peeling the
+/// top of the query tree; anything it cannot peel falls through to the generic
+/// path, which has no arm for either vector node and therefore drops the
+/// clause without saying so. These pin which shapes peel and which decline.
+#[cfg(test)]
+mod vector_clause_peel_tests {
+    use super::*;
+    use xerj_query::ast::{MinShouldMatch, QueryNode};
+
+    fn semantic() -> QueryNode {
+        QueryNode::SemanticSearch {
+            field: "ctx".into(),
+            text: "graph edges".into(),
+            k: 7,
+            filter: None,
+            boost: None,
+        }
+    }
+
+    fn knn() -> QueryNode {
+        QueryNode::Knn {
+            field: "vec".into(),
+            vector: vec![1.0, 0.0],
+            k: 3,
+            num_candidates: None,
+            filter: None,
+            boost: None,
+            similarity: None,
+        }
+    }
+
+    fn term(tag: &str) -> QueryNode {
+        QueryNode::Term {
+            field: "tag".into(),
+            value: serde_json::json!(tag),
+            boost: None,
+        }
+    }
+
+    fn bool_of(must: Vec<QueryNode>, should: Vec<QueryNode>, filter: Vec<QueryNode>) -> QueryNode {
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not: Vec::new(),
+            minimum_should_match: None,
+        }
+    }
+
+    /// The bug itself: `peel_knn_query` has always taken a single-clause bool,
+    /// `peel_semantic_query` did not, and nothing downstream noticed.
+    #[test]
+    fn a_lone_semantic_clause_peels_out_of_a_bool() {
+        for wrapper in [
+            bool_of(vec![semantic()], vec![], vec![]),
+            bool_of(vec![], vec![semantic()], vec![]),
+        ] {
+            let (field, text, k, filter) =
+                peel_semantic_query(&wrapper).expect("a lone semantic clause peels");
+            assert_eq!(field, "ctx");
+            assert_eq!(text, "graph edges");
+            assert_eq!(k, 7);
+            assert!(filter.is_none());
+        }
+    }
+
+    /// The wrapping bool's `filter` clauses become the semantic pre-filter,
+    /// and they AND with a filter the clause carried itself.
+    #[test]
+    fn bool_filters_merge_into_the_semantic_pre_filter() {
+        let (_, _, _, filter) =
+            peel_semantic_query(&bool_of(vec![semantic()], vec![], vec![term("a")]))
+                .expect("peels");
+        assert_eq!(filter.as_deref(), Some(&term("a")), "single filter is bare");
+
+        let mut inner = semantic();
+        if let QueryNode::SemanticSearch { filter, .. } = &mut inner {
+            *filter = Some(Box::new(term("b")));
+        }
+        let (_, _, _, filter) =
+            peel_semantic_query(&bool_of(vec![inner], vec![], vec![term("a")])).expect("peels");
+        match filter.as_deref() {
+            Some(QueryNode::Bool { filter, .. }) => {
+                assert_eq!(filter, &vec![term("a"), term("b")], "both filters survive");
+            }
+            other => panic!("expected an AND of both filters, got {other:?}"),
+        }
+    }
+
+    /// Two clauses is the shape that has no unambiguous vector dispatch, and
+    /// it must decline rather than peel one clause and drop the other.
+    #[test]
+    fn a_bool_with_a_sibling_clause_declines() {
+        assert!(
+            peel_semantic_query(&bool_of(vec![semantic(), term("a")], vec![], vec![])).is_none()
+        );
+        assert!(peel_knn_query(&bool_of(vec![], vec![knn(), term("a")], vec![])).is_none());
+    }
+
+    /// `minimum_should_match` is read, not ignored: `Fixed(n >= 2)` cannot be
+    /// satisfied by the one clause present, so peeling would answer with the
+    /// vector top-k for a bool that matches nothing.
+    #[test]
+    fn an_unsatisfiable_minimum_should_match_declines() {
+        let with_msm = |clause: QueryNode, msm: Option<MinShouldMatch>| QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![clause],
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            minimum_should_match: msm,
+        };
+        assert!(
+            peel_semantic_query(&with_msm(semantic(), Some(MinShouldMatch::Fixed(2)))).is_none()
+        );
+        assert!(peel_knn_query(&with_msm(knn(), Some(MinShouldMatch::Fixed(2)))).is_none());
+        // One clause satisfies "at least one", however it is written.
+        assert!(
+            peel_semantic_query(&with_msm(semantic(), Some(MinShouldMatch::Fixed(1)))).is_some()
+        );
+        assert!(
+            peel_semantic_query(&with_msm(semantic(), Some(MinShouldMatch::Percentage(100))))
+                .is_some()
+        );
+    }
+
+    /// A pre-filter is evaluated by the generic matcher, so a vector clause
+    /// inside one is unsatisfiable — the peel declines instead of dispatching
+    /// a search that can only return zero hits.
+    #[test]
+    fn a_vector_clause_inside_a_pre_filter_declines() {
+        let mut outer = knn();
+        if let QueryNode::Knn { filter, .. } = &mut outer {
+            *filter = Some(Box::new(knn()));
+        }
+        assert!(peel_knn_query(&outer).is_none());
+        assert!(peel_semantic_query(&bool_of(vec![semantic()], vec![], vec![knn()])).is_none());
+    }
+
+    /// What the refusal is keyed on. Every position here is one the generic
+    /// executor would have answered without the vector clause.
+    #[test]
+    fn undispatched_vector_clause_finds_every_nested_position() {
+        assert!(
+            undispatched_vector_clause(&bool_of(vec![term("a")], vec![knn()], vec![])).is_some()
+        );
+        assert!(undispatched_vector_clause(&QueryNode::Bool {
+            must: vec![term("a")],
+            should: Vec::new(),
+            filter: Vec::new(),
+            must_not: vec![semantic()],
+            minimum_should_match: None,
+        })
+        .is_some());
+        assert!(undispatched_vector_clause(&QueryNode::DisMax {
+            queries: vec![term("a"), knn()],
+            tie_breaker: 0.0,
+        })
+        .is_some());
+        assert!(
+            undispatched_vector_clause(&QueryNode::Hybrid {
+                queries: vec![xerj_query::ast::WeightedQuery {
+                    query: bool_of(vec![term("a"), knn()], vec![], vec![]),
+                    weight: 1.0,
+                }],
+                fusion: Default::default(),
+            })
+            .is_some(),
+            "a hybrid sub-query is searched recursively, and the same hole is inside it"
+        );
+        assert!(
+            undispatched_vector_clause(&bool_of(vec![term("a")], vec![term("b")], vec![]))
+                .is_none(),
+            "a purely lexical tree must never be refused"
         );
     }
 }

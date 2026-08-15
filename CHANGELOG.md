@@ -50,7 +50,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not consulted, and gives a ready-to-paste `semantic` query body. Scoring,
   hits and every ES-compat response field are unchanged, and the hint stays
   quiet when the same request already reaches the vector through `semantic`
-  or `knn` (including the ES 8.x top-level `knn` block).
+  or `knn` (including the ES 8.x top-level `knn` block). Two of the combining
+  shapes that suppression rule was written for are refused outright as of #395
+  below; `hybrid` is the one that still runs, and it still runs un-nagged.
+
+- **A `semantic` / `knn` clause nested in a `bool` is no longer dropped in
+  silence** ([#395](https://github.com/xerj-org/xerj/issues/395)). The executor
+  reaches the vector index by peeling the top of the query tree.
+  `peel_semantic_query` had no `Bool` arm at all, while `peel_knn_query` has
+  taken a single-clause bool since it was written; anything neither could peel
+  fell through to the generic executor, which has no arm for either vector node
+  — the clause matched nothing, scored nothing and said nothing. Measured
+  through the in-process ES-compat router on an index with a `semantic_text`
+  field and three documents: `{"bool": {"must": [{"semantic": …}]}}` answered
+  `200 OK` with `hits.total: 0` where the identical clause at the top level
+  ranked all three (`2@0.6774`, `0@0.6317`, `1@0.5130`), and
+  `bool.should[match, semantic]`, `bool.should[match, knn]` and the canonical
+  ES 8.x `query` + top-level `knn` each answered with the `match`-only document
+  set (ids `0`, `2`) while the vector half on its own reached all three — no
+  error, no warning, `_shards.failed: 0`.
+
+  Two changes. A lone vector clause inside a `bool` is now dispatched: it
+  returns the same ids at the same scores as the bare clause, and the bool's
+  `filter` clauses become the vector pre-filter. Every position that still
+  cannot be dispatched — a vector clause beside a lexical one, in `filter` or
+  `must_not`, inside another vector clause's pre-filter, or beside a `nested`
+  kNN — now fails with `400` naming `hybrid` as the query that combines both
+  signals, instead of a 200 that answers half the question. A single-clause
+  `bool` carrying a `minimum_should_match` its one clause cannot satisfy is
+  refused for the same reason rather than peeled.
+
+  **This is a breaking change for one shape ES answers**: the ES 8.x
+  hand-rolled hybrid — a top-level `knn` block beside a `query` — is folded
+  into `bool.should[query, knn]` by the compat layer, so it is now refused
+  rather than answered lexically. Fusing a nested vector clause the way
+  `hybrid` already does is the larger half of #395 and is deliberately not in
+  this change. `hybrid`, the `knn: [...]` array form, a bare `knn`/`semantic`
+  clause and `bool.must[knn] + filter` are all unaffected.
 
 ## [1.0.0-rc.17] - 2026-08-15
 
