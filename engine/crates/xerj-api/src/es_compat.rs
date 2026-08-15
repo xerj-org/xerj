@@ -3821,6 +3821,83 @@ fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
     None
 }
 
+/// ES meta-fields `compute_sort_values`
+/// (`xerj-engine/src/index.rs::compute_sort_values`) cannot yet resolve to a
+/// real per-document value: it special-cases exactly `_score`, `_doc`, and
+/// `_id` (the last one specifically for reindex's `search_after` keyset
+/// paging), and falls back to an ordinary `_source` field lookup for
+/// anything else. Every field below is engine/response metadata, never a
+/// literal key inside `_source`, so that fallback silently resolves to
+/// `null` for every hit — not an error, just a sort that never distinguishes
+/// any two documents. A `search_after` cursor built from a `null` value then
+/// never advances, so pagination keyed on one of these silently returns the
+/// same page forever instead of the rest of the index (#401).
+///
+/// `_seq_no` specifically already has a dedicated, narrower rejection above
+/// this one (`index.disable_sequence_numbers`), but only for that one
+/// opt-in per-index setting; with the setting at its default, sorting by
+/// `_seq_no` (or any of these siblings) still fell through to the silent-null
+/// case this closes.
+const UNSORTABLE_META_FIELDS: &[&str] = &[
+    "_seq_no",
+    "_primary_term",
+    "_version",
+    "_routing",
+    "_ignored",
+    "_index",
+    "_type",
+];
+
+/// First clause in `sort` that names an [`UNSORTABLE_META_FIELDS`] entry, if
+/// any — as `{"field": "clause_shape"}`, matching `count_sort_clauses`'s
+/// tolerance for both the bare-string and the `{field: order}` clause
+/// shapes.
+fn first_unsortable_meta_field(sort: &Value) -> Option<&'static str> {
+    fn clause_field(v: &Value) -> Option<&str> {
+        match v {
+            Value::String(s) => Some(s.as_str()),
+            Value::Object(o) => o.keys().next().map(String::as_str),
+            _ => None,
+        }
+    }
+    match sort {
+        Value::Array(arr) => arr.iter().find_map(first_unsortable_meta_field),
+        Value::String(_) | Value::Object(_) => {
+            let field = clause_field(sort)?;
+            UNSORTABLE_META_FIELDS.iter().find(|f| **f == field).copied()
+        }
+        _ => None,
+    }
+}
+
+/// Reject `sort` on a meta-field xerj cannot yet resolve to a real value
+/// (#401), instead of silently returning `null` for it on every hit. This is
+/// xerj declining a request a real Elasticsearch cluster would accept (most
+/// of these fields have real doc values there) — an honest 400 for a gap,
+/// not a replica of genuine ES rejection behavior, in the same spirit as the
+/// `... is not supported by this XERJ version` responses `reindex`
+/// (remote source) and `restore` (rename/settings options) already give
+/// rather than silently doing something other than what was asked.
+fn validate_sort_meta_fields(body: &EsSearchBody) -> Option<Response> {
+    let sort = body.sort.as_ref()?;
+    let field = first_unsortable_meta_field(sort)?;
+    let reason = format!("sort on [{field}] is not supported by this XERJ version yet");
+    Some(
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                    "type": "illegal_argument_exception",
+                    "reason": reason,
+                },
+                "status": 400,
+            })),
+        )
+            .into_response(),
+    )
+}
+
 /// Build ES's `illegal_argument_exception` for an unparseable integer URL
 /// parameter (item 4d): `?size=abc` → a JSON 400 with a `number_format_exception`
 /// cause, instead of axum's default `text/plain` 400.
@@ -8478,6 +8555,12 @@ async fn search_impl(
     // exactly as ES does (URL sort + body search_after is valid; URL sort +
     // body rescore is rejected — both live-verified).
     if let Some(err) = validate_search_after_rescore(&body) {
+        return err;
+    }
+    // Reject sort on a meta-field xerj cannot yet resolve to a real value
+    // (#401) rather than silently sorting by `null` for every hit — see
+    // `validate_sort_meta_fields`.
+    if let Some(err) = validate_sort_meta_fields(&body) {
         return err;
     }
 
@@ -38951,6 +39034,58 @@ mod request_validation_tests {
                 "sort={sort} search_after={sa} should be valid"
             );
         }
+    }
+
+    // ── #401: sort on a meta-field compute_sort_values can't resolve ──
+    #[test]
+    fn sort_on_unresolvable_meta_field_rejected() {
+        for sort in [
+            json!(["_seq_no"]),
+            json!([{"_seq_no": "asc"}]),
+            json!(["name", "_primary_term"]),
+            json!("_version"),
+            json!({"_routing": "desc"}),
+        ] {
+            let body = EsSearchBody {
+                sort: Some(sort.clone()),
+                ..Default::default()
+            };
+            assert!(
+                validate_sort_meta_fields(&body).is_some(),
+                "sort={sort} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn sort_on_resolvable_fields_accepted() {
+        for sort in [
+            json!(["_score"]),
+            json!(["_doc"]),
+            json!(["_id"]),
+            json!(["name"]),
+            json!([{"name": "desc"}, "_score"]),
+            json!(null),
+        ] {
+            let body = EsSearchBody {
+                sort: if sort.is_null() { None } else { Some(sort.clone()) },
+                ..Default::default()
+            };
+            assert!(
+                validate_sort_meta_fields(&body).is_none(),
+                "sort={sort} should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn unresolvable_meta_field_sort_error_names_the_field() {
+        let body = EsSearchBody {
+            sort: Some(json!(["_seq_no"])),
+            ..Default::default()
+        };
+        let resp = validate_sort_meta_fields(&body).expect("should reject");
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 
     // ── item 4c: rescore + sort ──
