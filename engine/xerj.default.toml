@@ -325,9 +325,13 @@ hnsw_ef_search = 100
 
 # Default quantization scheme for vector index storage.
 #
-#   "none"    — Full float32 (highest accuracy; highest memory usage).
-#   "scalar8" — 8-bit scalar quantization (~4× memory saving; ~1–2% accuracy loss).
-#               Recommended for most workloads.
+#   "none"    — Full float32 (highest accuracy). The default.
+#   "scalar8" — 8-bit scalar quantization: the kNN scan scores from
+#               1-byte-per-dimension codes (~1–2% accuracy loss). This buys
+#               PRECISION, NOT MEMORY — the scan reads the document's
+#               full-precision vector from `_source` and quantizes it per
+#               query, so resident memory is unchanged and the field also
+#               gives up HNSW-served kNN. See issue #392 before opting in.
 #
 # "binary" (1-bit) is recognised but NOT implemented in this build — the
 # engine rejects it at startup rather than silently storing full-precision

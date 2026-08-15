@@ -4,8 +4,14 @@
 XERJ stores dense vectors at full float32 precision by default. Opting a
 `dense_vector` field into scalar8 quantization (`index_options.type:
 int8_hnsw`) makes the kNN *serving* path score against 1-byte-per-dimension
-codes instead of 4-byte floats — a ~4x smaller vector working set with
-almost no recall loss. `_source` still returns the original vectors.
+codes instead of 4-byte floats, with almost no recall loss. `_source` still
+returns the original vectors.
+
+NOTE: this changes PRECISION, not memory. XERJ reads the full-precision
+vector from `_source` and quantizes it per query, so `scalar8` does not
+shrink the resident vector working set today — see issue #392. The footprint
+number printed below is the size of the int8 ENCODING, not a saving XERJ
+currently realises.
 
 This recipe embeds the 40 real KB articles (demo/data/ai_kb.ndjson) into
 128-dim vectors with a small deterministic feature-hasher (same idea as
@@ -15,9 +21,9 @@ shows that:
 
   1. kNN returns the same top results from both,
   2. recall@10 of the quantized index vs the exact index stays >= 0.90,
-  3. the quantized field's vector footprint is 4x smaller — MEASURED by
-     actually encoding every vector as float32 bytes vs int8 bytes and
-     comparing the real byte totals (not a hardcoded ratio).
+  3. what the int8 encoding costs vs float32 — MEASURED by actually
+     encoding every vector both ways and comparing the real byte totals
+     (not a hardcoded ratio). See the NOTE above on what this is not.
 
 Usage:
     xerj --insecure --data-dir ./data &        # start XERJ
@@ -172,9 +178,11 @@ def main():
         total += len(exact)
     recall = hits / total if total else 0.0
 
-    # ── 5. Measure the real byte footprint of each encoding. ─────────────
+    # ── 5. Measure the real byte size of each ENCODING. ──────────────────
     # Encode every corpus vector both ways and compare the actual byte totals
-    # — this is a genuine measurement, not a stipulated 4x.
+    # — a genuine measurement, not a stipulated 4x. It is a measurement of the
+    # encodings, though, NOT of XERJ's resident footprint: the serving path
+    # reads the f32 vector from `_source` and quantizes per query (issue #392).
     f32_total = sum(len(encode_f32(d["v"])) for d in docs)
     i8_total = sum(len(encode_i8(d["v"])) for d in docs)
     ratio = f32_total / i8_total if i8_total else 0.0
@@ -183,13 +191,14 @@ def main():
 
     print(f"recall@10 (scalar8 vs float32 ground truth): {recall:.3f}")
     print(
-        f"vector footprint over {len(docs)} vecs: "
+        f"encoding size over {len(docs)} vecs: "
         f"float32 = {f32_total} B ({f32_per} B/vec)  →  "
         f"scalar8 = {i8_total} B ({i8_per} B/vec)  ({ratio:.2f}x smaller)"
     )
     if recall < 0.90:
         raise SystemExit(f"FAIL: recall {recall:.3f} < 0.90")
-    print("\nOK — 4x smaller vectors, recall preserved. `_source` still holds the originals.")
+    print("\nOK — recall preserved through 1-byte-per-dim codes. `_source` still holds")
+    print("the originals. scalar8 changes precision, not resident memory (issue #392).")
 
 
 if __name__ == "__main__":

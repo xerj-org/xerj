@@ -660,8 +660,14 @@ semantic_text:
 dense_vector:
   - `dims` (required for meaningful kNN), `similarity` (default "cosine").
   - Quantization: `index_options.type` of `int8_hnsw` / `int8_flat`, or field-level
-    `quantization:"scalar8"`, opts the field into the serving-path SQ8 code store
-    (~1 byte/dim). SQ8 fields are always served by the exact code scan; unfiltered kNN
+    `quantization:"scalar8"`, makes the kNN scan score that field from 1-byte-per-dim
+    codes. It is a PRECISION option, not a memory one: the scan reads the document's
+    full-precision vector from `_source` and quantizes it per query, and nothing is
+    cached (issue #392; the per-field code store this used to describe was removed in
+    issue #371, where it was scoring updated documents from stale codes). Two
+    consequences: `_score` and the returned ORDER depend on the candidate set, so the
+    same document can move when a `filter` is added or when an unrelated document is
+    indexed; and SQ8 fields are always served by the exact code scan. Unfiltered kNN
     on full-precision fields is HNSW-served with exact rescoring (see §2).
 
 Supported mapping field types (ES type string → internal):

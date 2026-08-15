@@ -550,7 +550,7 @@
   </div>
   <div class="row">
     <div class="k">Columnar native</div>
-    <div class="v">Every column is encoded at write time — delta-of-delta for timestamps, dictionary + ZSTD for keywords, varint/bitpacking for small integers, SQ8 for vectors.</div>
+    <div class="v">Every column is encoded at write time — delta-of-delta for timestamps, dictionary + ZSTD for keywords, varint/bitpacking for small integers. Vectors are stored at full float32; SQ8 is a query-time scoring option, not a write-time encoding.</div>
   </div>
   <div class="row">
     <div class="k">Pre-computed term histograms</div>

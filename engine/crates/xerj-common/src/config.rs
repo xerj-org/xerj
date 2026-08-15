@@ -275,11 +275,14 @@ impl Config {
             ));
         }
 
-        // Vector: `scalar8` (SQ8) quantization is now wired into the kNN
-        // serving path (`Index::run_knn_brute_force`): a `scalar8` dense_vector
-        // field keeps a per-field u8 code store (1 byte/dim vs 4) and scores
-        // candidates by decoding those codes, giving a real ~4× reduction on
-        // that field's vector working set. `none` and `scalar8` are therefore
+        // Vector: `scalar8` (SQ8) quantization is wired into the kNN serving
+        // path (`Index::run_knn_brute_force`): a `scalar8` dense_vector field
+        // scores candidates from 1-byte-per-dimension codes rather than their
+        // f32 values, so it has the recall profile of SQ8. It does not reduce
+        // resident memory today — the scan quantizes each candidate's current
+        // vector per query rather than caching codes, which is what keeps an
+        // updated document from being scored on a stale code (#371).
+        // `none` and `scalar8` are therefore
         // accepted. `binary` (1-bit) has no implemented quantizer, so honouring
         // it would silently store full-precision vectors while claiming a 32×
         // saving — it stays rejected until a BinaryQuantizer lands.
@@ -1145,12 +1148,17 @@ pub struct VectorConfig {
     /// **not implemented in this build** and is rejected at startup.
     ///
     /// - `"none"` — full float32 vectors (highest accuracy, most memory).
-    /// - `"scalar8"` — 8-bit scalar quantization (~4× memory reduction) — WIRED
-    ///   into the kNN serving path. A `scalar8` dense_vector field keeps a
-    ///   per-field u8 code store (1 byte/dim) and scores candidates by decoding
-    ///   those codes, so the memory saving is real, not cosmetic. Typically
-    ///   opted into per field via `index_options.type: int8_hnsw` on the
-    ///   mapping; this global default applies the same scheme index-wide.
+    /// - `"scalar8"` — 8-bit scalar quantization — WIRED into the kNN serving
+    ///   path, but it buys **precision, not memory**. A `scalar8` dense_vector
+    ///   field scores candidates from 1-byte-per-dimension codes, so it has the
+    ///   recall profile of int8 (measured recall@10 ≈ 0.998). It does NOT
+    ///   reduce resident memory: the scan reads the full-precision vector from
+    ///   `_source` and quantizes it per query, which is what keeps an updated
+    ///   document from being scored on stale codes or a stale codebook (#371).
+    ///   The ingest-time code array that would make a memory claim true is
+    ///   tracked in #392. Typically opted into per field via
+    ///   `index_options.type: int8_hnsw` on the mapping; this global default
+    ///   applies the same scheme index-wide.
     /// - `"binary"` — 1-bit binary quantization (~32× memory reduction) — NOT
     ///   YET IMPLEMENTED (no `BinaryQuantizer` exists).
     ///

@@ -5190,33 +5190,7 @@ impl RequestCacheSeen {
     }
 }
 
-// ── SQ8 serving-path code store ───────────────────────────────────────────────
-
-/// Per-field in-memory SQ8 (scalar8) code store used by the kNN serving path.
-///
-/// Holds one shared [`Sq8Params`] (fitted from the first ~1000 ingested
-/// vectors for the field) plus a `doc_id -> Vec<u8>` code map. Each code vector
-/// is 1 byte per dimension — a quarter of the 4 bytes/dim an f32 vector costs —
-/// so this is the concrete artifact behind the ~4× memory claim. The store is
-/// consulted by [`Index::run_knn_brute_force`] instead of reading the f32
-/// vector from `_source` for scoring.
-struct Sq8FieldStore {
-    /// Shared per-dimension min/scale codec for this field.
-    params: Sq8Params,
-    /// Vector dimensionality the params were fitted for.
-    dim: usize,
-    /// Whether vectors were L2-normalised before quantising (cosine fields).
-    normalize: bool,
-    /// doc_id → SQ8 codes (1 byte/dim).
-    codes: HashMap<String, Vec<u8>>,
-}
-
-impl Sq8FieldStore {
-    /// Total bytes held by the u8 code map — the working set we shrank 4×.
-    fn code_bytes(&self) -> usize {
-        self.codes.values().map(|c| c.len()).sum()
-    }
-}
+// ── SQ8 serving-path codec ────────────────────────────────────────────────────
 
 /// L2-normalise a vector in place (no-op for a zero vector). Used for cosine
 /// fields so SQ8 fits over bounded per-dimension ranges (better recall).
@@ -5441,18 +5415,6 @@ pub struct Index {
     /// `abort_background_tasks` so an unfinished rebuild can't hold the
     /// runtime (or the index Arc) alive across shutdown.
     hnsw_rebuild_task: Arc<parking_lot::Mutex<Option<tokio::task::JoinHandle<()>>>>,
-    /// Per-field SQ8 (scalar8) code stores for the kNN serving path.
-    ///
-    /// Keyed by dense_vector field name. Populated only for fields whose
-    /// mapping opts into `scalar8` quantization (`index_options.type:
-    /// int8_hnsw`). Each store holds one shared [`Sq8Params`] plus a
-    /// `doc_id -> Vec<u8>` code map (1 byte/dim, NOT 4), giving a real ~4×
-    /// reduction on that field's vector working set. Built lazily on the first
-    /// kNN over the field from the same (doc_id, source) candidates the
-    /// brute-force scan already gathers, then refreshed incrementally as new
-    /// docs appear. Default (none) fields never touch this map, so their exact
-    /// f32 brute-force path is byte-identical to before.
-    sq8_stores: Arc<RwLock<HashMap<String, Sq8FieldStore>>>,
     // ── Per-index concurrency control ─────────────────────────────────────────
     /// Semaphore that limits the number of queries executing concurrently
     /// against this index.  The default is 64 permits, matching the global
@@ -6138,7 +6100,6 @@ impl Index {
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
-            sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
             metric_index_count: Arc::new(AtomicU64::new(0)),
@@ -6504,7 +6465,6 @@ impl Index {
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
-            sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
             metric_index_count: Arc::new(AtomicU64::new(0)),
@@ -10506,7 +10466,7 @@ impl Index {
     ///   * the graph is field-pinned to exactly the queried field and not
     ///     flush-time stale (see `hnsw_field` / `hnsw_stale`);
     ///   * the field does not opt into SQ8 (`scalar8` keeps its dedicated
-    ///     code-store scoring path);
+    ///     quantize-then-score brute path, which the graph does not model);
     ///   * `vector_doc_count >= HNSW_MIN_DOCS` — small vector sets (every
     ///     ES-YAML vector test is ≤ a few hundred docs) keep today's
     ///     byte-identical exact path;
@@ -10969,9 +10929,11 @@ impl Index {
 
         // ── Determine whether this field opts into SQ8 (scalar8) ──────
         // Default fields keep the exact f32 brute-force scan below,
-        // byte-identical to before. A `scalar8` field instead scores against
-        // a per-field u8 code store — decoding each doc's SQ8 codes rather
-        // than reading its f32 vector from `_source` for scoring.
+        // byte-identical to before. A `scalar8` field takes the branch above
+        // instead: it reads the same live f32 vector out of `_source`, but
+        // rounds it through 1-byte-per-dimension SQ8 codes before scoring, so
+        // the score carries `scalar8`'s precision loss. Nothing is cached —
+        // neither the codes nor the codebook outlive the query (#371).
         let use_sq8 = {
             let schema = self.schema.read().await;
             lookup_vector_quantization(&schema.schema, field).as_deref() == Some("scalar8")
@@ -11024,57 +10986,78 @@ impl Index {
                 cand.push((id, src, doc_vec));
             }
 
-            // Build/refresh the per-field SQ8 code store: fit params once from
-            // the first ≤1000 vectors, then encode any doc not yet stored. The
-            // store holds u8 codes (1 byte/dim), so its steady-state footprint
-            // is ~4× smaller than the f32 vectors it replaces for scoring.
-            {
-                let mut stores = self.sq8_stores.write().await;
-                let store = stores.entry(field.to_string()).or_insert_with(|| {
-                    let sample: Vec<Vec<f32>> =
-                        cand.iter().take(1000).map(|(_, _, v)| v.clone()).collect();
-                    let params = Sq8Params::fit(&sample, dim);
-                    Sq8FieldStore {
-                        params,
-                        dim,
-                        normalize,
-                        codes: HashMap::new(),
-                    }
-                });
-                if store.dim == dim {
-                    for (id, _src, v) in cand.iter() {
-                        if !store.codes.contains_key(id) {
-                            store.codes.insert(id.clone(), store.params.encode(v));
-                        }
-                    }
-                    debug!(
-                        field,
-                        docs = store.codes.len(),
-                        code_bytes = store.code_bytes(),
-                        f32_bytes = store.codes.len() * store.dim * std::mem::size_of::<f32>(),
-                        normalize = store.normalize,
-                        "SQ8 code store refreshed"
-                    );
-                }
-            }
+            // Fit this field's SQ8 codebook over the candidate vectors this
+            // query is about to score, and drop it when the query ends. No
+            // codec state survives a query (#371).
+            //
+            // The codebook used to be fitted from the first ≤1000 vectors the
+            // field was ever scanned with and then kept for the life of the
+            // process, which is the same write-once defect as the per-document
+            // code map one level up: a vector written afterwards outside the
+            // fitted per-dimension range is CLAMPED into it, and when that
+            // range is narrow the clamped decode is indistinguishable from the
+            // vector the document used to hold. A corpus whose dimension 0
+            // never left +1.0 fitted `[1,1]` there, so overwriting a document
+            // with its exact negation decoded straight back to +1.0 and it
+            // stayed top at cosine 1.000000 — verbatim the reported symptom,
+            // with the per-document map already gone.
+            //
+            // Fitting over exactly the set being encoded also makes clamping
+            // structurally impossible here rather than merely unlikely: every
+            // value passed to `encode_into` is inside `[min,max]` by
+            // construction. An empty candidate set fits degenerate params, but
+            // the scoring loop below is then empty too, so nothing observes
+            // them — the old code had to guard against publishing that codec
+            // because it outlived the query that produced it.
+            //
+            // ACCEPTED CONSEQUENCE: the codebook now depends on the candidate
+            // set, and that changes the RETURNED ORDER, not merely the score.
+            // Each individual score moves by at most SQ8's own quantization
+            // step (1/255 of the fitted range per dimension), which is inside
+            // the approximation error `scalar8` already advertises — but
+            // near-tied documents swap, so a caller sees a different ranking.
+            // Measured at the HTTP boundary on a 60-document 4-dim cosine
+            // field: adding a `filter` that removes only unrelated documents
+            // returned the same 30 survivors with max |Δ_score| 1.976e-05 but
+            // a different order at 19 of 30 positions. The trigger is the
+            // candidate set, not the `filter` keyword — indexing one more
+            // unrelated document moved the same corpus by max 7.100e-06 and
+            // reordered its top 10 — and on an unfiltered corpus over 1000
+            // documents every score also differs from rc.17, which fitted from
+            // the first <=1000 candidates and cached that (1500 documents: all
+            // of the top 40 changed, max 4.880e-05, one adjacent-rank swap).
+            // Documented in docs/recipes/vector-quantization.md and #392.
+            //
+            // This is NOT the dependency Lucene has. Lucene fits per segment at
+            // INDEX time, so a Lucene score is a function of the index state
+            // alone; here it is a function of the query's candidate set too.
+            // #392 is what would close that gap.
+            let params = Sq8Params::fit_borrowed(cand.iter().map(|(_, _, v)| v.as_slice()), dim);
+            debug!(
+                field,
+                dim,
+                candidates = cand.len(),
+                normalize,
+                "SQ8 codec fitted for this query"
+            );
 
-            // Score by DECODING the stored SQ8 codes (never the raw f32).
-            let stores = self.sq8_stores.read().await;
-            if let Some(store) = stores.get(field) {
-                let mut decoded = vec![0.0f32; store.dim];
-                for (position, (id, src, _v)) in cand.into_iter().enumerate() {
-                    if position & 127 == 0 && self.exact_scan_checkpoint(position, deadline).await {
-                        timed_out = true;
-                        break;
-                    }
-                    let codes = match store.codes.get(&id) {
-                        Some(c) if c.len() == store.dim => c,
-                        _ => continue,
-                    };
-                    store.params.decode_into(codes, &mut decoded);
-                    let score = compute_vector_similarity(similarity, query_vec, &decoded);
-                    scored.push((id, score, src, None));
+            // Score by quantizing each candidate's CURRENT vector and decoding
+            // it straight back — 1 byte/dim, so `scalar8` keeps its recall
+            // profile, and the score describes the vector the document holds
+            // right now rather than one a previous query cached. Both buffers
+            // are reused across the scan, so this allocates nothing per
+            // document. `v.len() == dim` was established when `cand` was built.
+            let mut codes = vec![0u8; dim];
+            let mut decoded = vec![0.0f32; dim];
+            for (position, (id, src, v)) in cand.into_iter().enumerate() {
+                if position & 127 == 0 && self.exact_scan_checkpoint(position, deadline).await {
+                    timed_out = true;
+                    break;
                 }
+                params.encode_into(&v, &mut codes);
+                params.decode_into(&codes, &mut decoded);
+                let score = compute_vector_similarity(similarity, query_vec, &decoded);
+                scored.push((id, score, src, None));
             }
         } else {
             // Per-chunk (passage) companion: multi-chunk `semantic_text` docs

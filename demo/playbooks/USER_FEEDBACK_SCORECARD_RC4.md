@@ -92,7 +92,7 @@ These are the strategic decisions for rc5, stated without spin.
 - `role_descriptors` accepted then ignored — every API key is effectively superuser.
 - ~~No `cargo-audit`/`cargo-deny` gate (528 unscanned dep crates) and no `cargo-fuzz` harnesses.~~
   **CLOSED 2026-08-09 (#207):** CI job `security-audit` runs `cargo audit` on every push and PR, and job `fuzz` builds and runs the libFuzzer harnesses in `engine/fuzz/` (ES DSL, `query_string`, date math, index-name date math, SQL, Painless, and the aggregation script tokenisers). `cargo-deny` is still absent.
-- Binary/RaBitQ (BBQ) quantization unimplemented; `bbq_*`/`int4_*` mappings silently keep full f32 (no memory saving) — HNSW RAM wall only 4× mitigated by SQ8, no DiskANN.
+- Binary/RaBitQ (BBQ) quantization unimplemented; `bbq_*`/`int4_*` mappings silently keep full f32 (no memory saving) — HNSW RAM wall NOT mitigated by SQ8 either — `scalar8` changes scoring precision, not resident memory (the scan quantizes from `_source` per query); see [#392](https://github.com/xerj-org/xerj/issues/392). No DiskANN.
 
 **Marketing numbers to reconcile with measured reality (honesty-posture debt):**
 `<500MB RSS / 1M docs` (measured 596MB / 200k) · `~30MB Docker image` (~75–100MB) · `2–5× compression` (~1.6×) · `2 files/segment` (~4) · `TLS enabled out of the box` (off by default) · `OpenAPI generated from code` (static hand-maintained, 404 live) · `no deep-pagination cliff` (identical 10k cap) · `cost-based planner` (rule/structure-based) · error links use `xerj.io` vs canonical `xerj.org`.
@@ -151,7 +151,7 @@ Ranking = severity × reach (how many pain points / clusters it closes) × inver
 | Candidate | Sev | Effort | Closes |
 |---|---|---|---|
 | **Default (or auto-detect) the neural embedder** instead of lexical feature-hash | MED | M | resource-cost + ai-logs — semantic/RAG/memory quality poor out-of-box |
-| **Binary/RaBitQ (BBQ 1-bit) quantization + make `bbq_*` mappings honest** | MED | L | ai-logs quantization PARTIAL (only 4× SQ8 today vs promised 32×) |
+| **Binary/RaBitQ (BBQ 1-bit) quantization + make `bbq_*` mappings honest** | MED | L | ai-logs quantization PARTIAL (SQ8 today buys precision, not the promised 32× — or any — memory reduction; [#392](https://github.com/xerj-org/xerj/issues/392)) |
 | **DiskANN / disk-backed vector index** | MED | L | ai-logs HNSW memory-wall GAP (graph is entirely in-RAM) |
 | **Contextual retrieval: surface prev/next sibling chunks + parent metadata on recall** | MED | M | upgrades-datamodel + ai-logs chunking PARTIAL — RAG context quality |
 

@@ -61,6 +61,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shape that fans a vector clause out beside a lexical one, and the one shape
   that silences the hint.
 
+  The "was your vector clause dispatched?" test follows `peel_knn_query`'s
+  own recursion rather than approximating it, so the wrapper forms that peel
+  *does* see through — `constant_score`, `_name`, `boost`, and a `bool` whose
+  single scoring clause is itself one of those — stay silent, and the "your
+  clause was dropped" wording is attached to the field whose clause was
+  actually dropped rather than to whichever `semantic_text` field the hint
+  happened to name first.
+- **A `quantization: "scalar8"` (`int8_hnsw`) vector field scored updated
+  documents from stale quantized data, silently, forever**
+  ([#371](https://github.com/xerj-org/xerj/issues/371)).
+  There were **two** write-once caches on this path, and either one alone
+  reproduces the reported symptom.
+
+  1. The per-field SQ8 **code store** was populated write-once: the first kNN
+     that observed a document computed its codes and nothing ever recomputed
+     them — not an update, not a delete-and-reindex, not a merge.
+  2. The per-field **codebook** (`Sq8Params`, the per-dimension min/scale pair)
+     was fitted from the first <=1000 candidate vectors the field was ever
+     scanned with and then kept for the life of the process. A vector written
+     afterwards that falls outside that fitted range is *clamped* into it, and
+     when the fitted range is narrow the clamped decode is indistinguishable
+     from the vector the document used to hold.
+
+  Both were reproduced at the HTTP boundary before the fix, each against a
+  byte-identical full-precision control index that performs the identical
+  manipulation:
+
+  * **codes** — 8-dimension cosine field, doc `0` starts as the query vector
+    and is rewritten with its exact negation. The control drops it as it must;
+    the `scalar8` index returned it at `_score` **0.99999774**, the same value
+    to the last bit as before the rewrite, with the entire 20-document score
+    list unchanged, while `GET /{index}/_doc/0` confirmed `_source` had taken
+    the negation. `PUT /{index}/_doc/{id}` and `_bulk` were both affected;
+    `_bulk` was untested in the original report.
+  * **codebook** — same shape, but over a corpus whose dimension 0 never leaves
+    `+1.0`, so it fits the degenerate range `[1,1]`. Doc `0` negated to `-1.0`
+    decodes straight back to `+1.0`: still first at `_score` **1.000000**, the
+    whole score list frozen. On the workload the issue names as what makes it a
+    blocker — re-embedding a corpus after a model change — a codebook fitted to
+    the old embedding space clamped 50 re-embedded documents into a 0.002-wide
+    score band, destroying ranking outright.
+
+  The fix removes both caches rather than adding invalidation to them. The
+  brute-force scan already holds each candidate's live f32 vector — it just
+  read it out of `_source` to apply the filter — so it now fits the codebook
+  over exactly the candidates it is about to score and quantizes/dequantizes
+  each one on the spot, through a new `Sq8Params::encode_into` and
+  `Sq8Params::fit_borrowed`, into two buffers reused across the scan (no
+  per-document allocation). **No SQ8 state of any kind now outlives a query**,
+  so there is nothing left to go stale. Fitting over exactly the set being
+  encoded additionally makes clamping impossible on this path rather than
+  merely unlikely: every value passed to `encode_into` is inside `[min,max]` by
+  construction. `scalar8` still scores from 1-byte-per-dimension codes, so its
+  recall profile is unchanged — measured recall@10 **0.998** against the exact
+  float32 index on the `vector-quantization` recipe corpus, byte-identical
+  scores to before this change on that (unfiltered, <1000-doc, never-updated)
+  shape.
+
+  Three defects in the removed objects went with them: unbounded growth (the
+  code map had no eviction and no upper bound — one entry per document ever
+  queried, for the life of the process), an exclusive write lock taken on the
+  query path on *every* kNN over the field, and a codebook that could be fitted
+  from an empty candidate set — a single query with a wrong-length vector
+  installed an all-zero-scale codec that every later score on that field
+  collapsed onto. That last one is now structurally absent rather than guarded:
+  a codebook that does not outlive its query cannot be observed by another.
+
+  **Not closed by this change**, tracked in
+  [#392](https://github.com/xerj-org/xerj/issues/392):
+  * `scalar8` still reads the full-precision vector from `_source` on every
+    query, so it **does not reduce resident memory** — it buys the precision
+    profile of int8 and nothing else. Making it a memory win means the
+    ordinal-addressed, ingest-time code array described in #371, written next
+    to the data it describes as Lucene does it.
+
+    The "~4x smaller vector working set" wording has been corrected in every
+    place this change could find it, listed exhaustively so the claim is
+    checkable rather than taken on trust. **Docs and shipped artifacts:**
+    `docs/recipes/vector-quantization.md`, `docs/recipes/README.md`,
+    `docs/examples/vector-quantization/quant_demo.py`,
+    `recipes/vector_quantization.py`, `engine/xerj.default.toml`,
+    `xerj-common/src/config.rs`, `xerj-common/src/types.rs`,
+    `xerj-vector/src/quantizer.rs`, `demo/playbooks/ES_COMPATIBILITY.md`,
+    `demo/playbooks/STUB_AUDIT.md`,
+    `demo/playbooks/USER_FEEDBACK_SCORECARD_RC4.md`. **Published site**
+    (`landing/docs/*.html` is the hand-maintained mirror of `docs/*.md`):
+    `landing/docs/recipes/vector-quantization.html`,
+    `landing/docs/recipes/index.html`, `landing/docs/index.html`,
+    `landing/docs/vectors.html`, `landing/docs/config.html` (both the
+    reference table and the example TOML), `landing/docs/operations.html` (the
+    RAM capacity-planning line), `landing/docs/playbooks/vector-search.html`,
+    plus the two `docs-index` search snippets that are duplicated into all 44
+    docs pages. **Marketing copy:** `landing/solutions/index.html`,
+    `landing/pricing/index.html`, `landing/resources/index.html`,
+    `landing/industries/finserv.html`, `landing/agent-search/index.html`,
+    `landing/use-cases/ai-search-retrieval.html`, `landing/product.html`,
+    `landing/llms-full.txt`.
+
+    **Deliberately NOT corrected here**, because replacing them needs numbers
+    this change cannot supply: the interactive capacity model on
+    `landing/industries/retail.html` (lines 82/93/177) and the matching row on
+    `landing/industries/healthcare.html:188` size a deployment from an SQ8
+    vector footprint (e.g. "18 GB (SQ8)" vs "92 GB (float32)"), as does the
+    "10 M SKUs ON ONE NODE · SQ8" card at `landing/industries/index.html:123`.
+    Those are product claims with a whole page built on them and they are
+    wrong until #392 lands; they need replacement figures and sign-off, not a
+    silent edit. Also left as-is: the dated review record
+    `engine/reports/FEATURE_FAIRNESS_REVIEW_v0.6.0_2026-04-25.md` (lines
+    81/272), which is an archive of what was believed on 2026-04-25, and the
+    synthetic demo corpus article "Scalar quantization: 4x memory savings for
+    free" (`demo/data/generate_ai_kb.py:56`, echoed as sample search output at
+    `demo/DEMO_RUNBOOK.md:528`), which is generic industry text in a sample
+    knowledge base rather than a claim about XERJ.
+  * because the codebook is now fitted per query, a `scalar8` `_score` depends
+    on the candidate set — **and that changes the returned order, not merely
+    the score.** Each individual score moves by at most SQ8's own quantization
+    step (1/255 of the fitted per-dimension range), inside the approximation
+    error `scalar8` already carries, but documents whose true scores are close
+    swap places, so a caller sees a different ranking. Measured at the HTTP
+    boundary against this branch, on a 60-document 4-dimension cosine field:
+
+    - adding `filter: {"term": {"grp": "a"}}`, which removes only the 30
+      unrelated `grp:b` documents, returned the same 30 survivors with a
+      maximum `_score` difference of **1.976e-05** but a **different order at
+      19 of the 30 positions**;
+    - the trigger is the candidate set, not the `filter` keyword — indexing
+      **one** more unrelated document moved the same 30 by up to **7.100e-06**
+      and reordered their top 10;
+    - on an **unfiltered corpus over 1000 documents** the scores also differ
+      from v1.0.0-rc.17, which fitted the codebook from the first ≤1000
+      candidates and cached it for the life of the process. On 1500 documents
+      all 40 of the top-40 `_score` values changed (maximum **4.880e-05**) and
+      two adjacent ranks swapped. This is a wire-visible change on any
+      `scalar8` field with more than 1000 candidates. Below 1000 documents,
+      unfiltered and never updated, scores are byte-identical to rc.17 — that
+      is the shape the recipe corpus has, and the only shape the
+      "byte-identical scores" note above covers.
+
+    None of this could happen on rc.17 once the first query pinned the
+    codebook, so it is behaviour this change introduces; it is the price of
+    the codebook not outliving the query. It is also **not** the dependency
+    Lucene has: Lucene fits per segment at index time, so a Lucene score is a
+    function of the index state alone, while here it is a function of the
+    query's candidate set as well.
+  * `scalar8` continues to disqualify a field from HNSW-served kNN, so opting
+    in still costs ANN.
+
+  Cost: measured, but **not resolved**. `ci-test` profile, 4000 docs x 384
+  dims, warm, min/p10/p50 of 60 requests, three builds per side. On the
+  scan-bound shape (`k=4000`) the two sides overlap and the ordering flips with
+  the statistic — best min-of-60 was 22.66 ms on main vs 24.88 ms here, but
+  best p10 was 29.26 ms on main vs 25.09 ms here — on a machine that produced
+  p50 outliers up to 159 ms from background load. No direction can be claimed
+  for that shape from these numbers. The small-`k` shape (`k=10`,
+  `num_candidates=100`) was consistently marginally faster here, 0.15-0.16 ms
+  against 0.17-0.18 ms on main, which is the per-query `RwLock` read on the
+  codec store going away. In principle this change adds one min/max pass over
+  the candidate vectors and removes a lock acquisition; both are small against
+  the encode/decode/similarity work the scan already does.
+
 ## [1.0.0-rc.17] - 2026-08-15
 
 ### Added

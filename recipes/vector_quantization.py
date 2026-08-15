@@ -4,7 +4,7 @@
 XERJ stores dense vectors at full float32 precision by default. Opting a
 `dense_vector` field into scalar8 quantization (`index_options.type:
 int8_hnsw`) makes the kNN *serving* path score against 1-byte-per-dimension
-codes instead of 4-byte floats — a ~4x smaller vector working set with
+codes instead of 4-byte floats — the recall profile of int8, with
 almost no recall loss. `_source` still returns the original vectors.
 
 This recipe embeds the 40 real KB articles (demo/data/ai_kb.ndjson) into
@@ -15,7 +15,13 @@ shows that:
 
   1. kNN returns the same top results from both,
   2. recall@10 of the quantized index vs the exact index stays >= 0.90,
-  3. the quantized field's vector footprint is 4x smaller (1 vs 4 bytes/dim).
+  3. what the int8 encoding costs vs float32 (1 vs 4 bytes/dim).
+
+NOTE: this changes PRECISION, not memory. XERJ reads the full-precision
+vector from `_source` and quantizes it per query, so `scalar8` does not
+shrink the resident vector working set today — see issue #392. The
+footprint line below is the size of the ENCODING, not a saving XERJ
+currently realises.
 
 Usage:
     xerj --insecure --data-dir ./data &        # start XERJ
@@ -138,10 +144,11 @@ def main():
         total += len(exact)
     recall = hits / total if total else 0.0
     print(f"recall@10 (scalar8 vs float32 ground truth): {recall:.3f}")
-    print(f"vector footprint: float32 = {DIM * 4} B/vec  →  scalar8 = {DIM} B/vec  (4x smaller)")
+    print(f"encoding size: float32 = {DIM * 4} B/vec  →  scalar8 = {DIM} B/vec  (4x smaller)")
     if recall < 0.90:
         raise SystemExit(f"FAIL: recall {recall:.3f} < 0.90")
-    print("\nOK — 4x smaller vectors, recall preserved. `_source` still holds the originals.")
+    print("\nOK — recall preserved through 1-byte-per-dim codes. `_source` still holds")
+    print("the originals. scalar8 changes precision, not resident memory (issue #392).")
 
 
 if __name__ == "__main__":

@@ -292,10 +292,14 @@ pub struct FieldOptions {
     pub similarity: Option<String>,
     /// Vector quantization scheme for this dense_vector field.
     ///
-    /// `Some("scalar8")` opts this field into the serving-path SQ8 code store
-    /// (1 byte/dim, ~4× memory reduction); `None`/absent keeps the exact
-    /// full-precision f32 brute-force path. Set from the mapping's
-    /// `index_options.type` (`int8_hnsw`/`int8_flat` → `scalar8`) in es_compat.
+    /// `Some("scalar8")` makes the brute-force kNN scan score this field from
+    /// 1-byte-per-dimension codes, quantized per query from the document's
+    /// current vector — precision, not memory: nothing smaller is held
+    /// resident, and no SQ8 state outlives the query (#371; #392 tracks the
+    /// ingest-time code array that would make it a memory win). `None`/absent
+    /// keeps the exact full-precision f32 brute-force path. Set from the
+    /// mapping's `index_options.type` (`int8_hnsw`/`int8_flat` → `scalar8`) in
+    /// es_compat.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quantization: Option<String>,
     /// Null value to substitute when the field is missing from a document.
