@@ -57,17 +57,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   beside a `query` is folded into — is never dispatched
   ([#395](https://github.com/xerj-org/xerj/issues/395)), so those requests
   answer with BM25 and now say so, naming the caller's own dropped clause and
-  suggesting the `hybrid` form that runs both halves. `hybrid` is the one
-  shape that fans a vector clause out beside a lexical one, and the one shape
-  that silences the hint.
+  suggesting the `hybrid` form that runs both halves.
 
-  The "was your vector clause dispatched?" test follows `peel_knn_query`'s
-  own recursion rather than approximating it, so the wrapper forms that peel
-  *does* see through — `constant_score`, `_name`, `boost`, and a `bool` whose
-  single scoring clause is itself one of those — stay silent, and the "your
-  clause was dropped" wording is attached to the field whose clause was
-  actually dropped rather than to whichever `semantic_text` field the hint
-  happened to name first.
+  It is equally not free to hint where the vector *did* run: the hint states
+  that the embedding was not consulted and tells the caller to rewrite the
+  query, so a gap in that test puts a false statement on the wire rather than
+  merely adding noise. The "did your vector clause dispatch?" test therefore
+  follows the executor's peels including their recursion, instead of
+  approximating them:
+
+  * a `knn` reached through `constant_score`, or through more than one
+    single-clause `bool` — both forms `peel_knn_query` recurses through — is
+    dispatched, and stays silent; so is a root `semantic` behind
+    `constant_score`;
+  * the ES 8.x top-level `knn: [...]` **array**, which is folded into the pure
+    multi-kNN `bool` that `peel_multi_knn_query` does dispatch, stays silent
+    even when its clauses carry their own lexical `filter`;
+  * a `semantic` or a `hybrid` written in the slot a `knn` would dispatch
+    from is still flagged — `peel_semantic_query` has no `bool` arm — and so
+    is a multi-kNN `bool` behind a `boost`, which `peel_multi_knn_query`
+    cannot survive;
+  * a `knn` under a `nested` is the one shape the test does not model, so it
+    makes no claim there in either direction and the hint stays quiet.
+
+  The "your clause was dropped" wording, and the `hybrid` body suggested with
+  it, are attached to the field whose clause was actually dropped rather than
+  to whichever `semantic_text` field the hint happened to name first.
 - **A `quantization: "scalar8"` (`int8_hnsw`) vector field scored updated
   documents from stale quantized data, silently, forever**
   ([#371](https://github.com/xerj-org/xerj/issues/371)).

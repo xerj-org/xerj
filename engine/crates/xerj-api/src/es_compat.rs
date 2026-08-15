@@ -7320,7 +7320,7 @@ fn lexical_text_clauses(q: &Value, out: &mut Vec<(String, String)>) {
 /// name that clause used — `semantic` names the text field, `knn` names the
 /// companion vector field.
 ///
-/// Named is not consulted. A clause this finds may sit in a position the
+/// Naming is not running. A clause this finds may sit in a position the
 /// executor never dispatches; [`dispatched_vector_fields`] is the narrower
 /// question of whether the vector actually ran.
 fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
@@ -7347,19 +7347,56 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
     }
 }
 
+/// The `Constant` / `Boosted` / `Named` decorators every peel except
+/// `peel_multi_knn_query` recurses through, stripped off the top of a query
+/// object.
+///
+/// Only `constant_score` is a JSON node of its own. `Boosted` comes from a
+/// `boost` key *inside* the clause it decorates (`parse_bool`,
+/// xerj-query/src/parser.rs:2671) and `Named` from a `_name` key inside a
+/// clause (`maybe_named`, parser.rs:123), so both are already transparent to
+/// a walk that dispatches on the clause's own key.
+fn strip_query_decorators(query: &Value) -> &Value {
+    let mut node = query;
+    // `parse_constant_score` (parser.rs:2679) parses `filter` and nothing
+    // else, so this is the whole of the wrapper.
+    while let Some(inner) = node.get("constant_score").and_then(|c| c.get("filter")) {
+        node = inner;
+    }
+    node
+}
+
 /// Fields this request actually *reaches* through a vector clause.
 ///
 /// The executor dispatches the vector by peeling the TOP of the query tree,
-/// not by walking it, so position decides whether a clause runs. This mirrors
-/// that peel, one arm per arm:
+/// not by walking it, so position decides whether a clause runs. `Index::search`
+/// tries five peels in order (xerj-engine/src/index.rs:13823-13968) and this
+/// mirrors four of them, arm for arm — including their recursion, which is the
+/// part a flat "look at the immediate child" check silently drops:
 ///
-///   * `peel_semantic_query` (xerj-engine/src/index.rs:29882) matches
-///     `SemanticSearch` at the root and has no `Bool` arm at all;
-///   * `peel_knn_query` (index.rs:29661) additionally peels a `bool` holding
-///     exactly one must/should clause, merging its filters in;
-///   * `peel_hybrid_query` (index.rs:29902) fans every sub-query out as its
+///   * `peel_knn_query` (index.rs:29644) takes a `knn`, recursing through
+///     `Constant`/`Boosted`/`Named` (index.rs:29663-29668) **and through the
+///     single must/should clause of a `bool`** (index.rs:29685), merging that
+///     `bool`'s filters in as the kNN pre-filter. It recurses into ITSELF, so
+///     `bool.must: [constant_score: {filter: {knn}}]` and
+///     `bool.must: [bool.must: [knn]]` both dispatch.
+///   * `peel_multi_knn_query` (index.rs:29713) takes a `bool` whose `should`
+///     clauses are ALL bare `knn` (>= 2) and which carries nothing else. This
+///     is the shape [`search_impl`] synthesises for the ES 8.x top-level
+///     `knn: [...]` array, whose clauses may each carry their own lexical
+///     `filter`. It is the one peel with **no** `Constant`/`Boosted` arm, so a
+///     `constant_score` wrapper or a `boost` on that `bool` stops it dead.
+///   * `peel_semantic_query` (index.rs:29865) takes a `semantic` through the
+///     same decorators and has **no `Bool` arm at all** — which is why the
+///     `bool` arm above is knn-only. Recursing into a `bool`'s `semantic`
+///     here would re-create exactly the false silence #394 is about.
+///   * `peel_hybrid_query` (index.rs:29885) fans every sub-query out as its
 ///     own search, so each is peeled at ITS root — which makes `hybrid` the
-///     only shape that runs a vector clause *beside* a lexical one.
+///     only shape that runs a vector clause *beside* an unrelated lexical one.
+///
+/// The fifth, `peel_nested_knn_query` (index.rs:29909), is NOT modelled here;
+/// [`unmodelled_vector_fields`] reports its shape instead and suppresses the
+/// hint on it.
 ///
 /// A root vector clause counts even though the caller also wrote a lexical
 /// clause: that clause can only be the vector clause's own `filter`, and the
@@ -7376,10 +7413,16 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
 /// in the JSON" as proof the vector ran. That was this hint's original
 /// suppression rule, and it went quiet on exactly the requests where the
 /// caller had asked for the vector and been handed BM25 — the silence the hint
-/// exists to break (#394). Where the mirror is incomplete it is incomplete in
-/// the direction of hinting (the `constant_score` / `_name` wrappers
-/// `peel_knn_query` also sees through are not tracked): an unnecessary hint is
-/// noise a caller can read past, a missing one is the bug this fixes.
+/// exists to break (#394).
+///
+/// **A gap here is not noise.** The hint it produces is an affirmative
+/// statement — "the embedding written at ingest was NOT consulted", and, when
+/// the caller wrote a vector clause, "it … is dropped. Re-run it as `hybrid`"
+/// — riding on a response whose vectors demonstrably ran, plus an instruction
+/// to rewrite a query that already works. A missing hint is silence; a wrong
+/// one is a false statement in the diagnostic channel that exists to be
+/// trusted. So this must be complete wherever it speaks, and where it cannot
+/// prove an answer it says nothing (see [`unmodelled_vector_fields`]).
 ///
 /// Position-sensitivity is a property of this executor, not of vector search:
 /// in Lucene a kNN query is an ordinary `Query` that materialises its top-k at
@@ -7416,18 +7459,65 @@ fn dispatched_vector_fields(query: &Value, out: &mut Vec<String>) {
         }
     }
 
-    field_named_by(query.get("semantic"), out);
-    field_named_by(query.get("knn"), out);
-    if let Some(bool_query) = query.get("bool") {
-        // `peel_knn_query`'s bool arm, and only its shape: one must/should
-        // clause, no must_not. `semantic` is NOT peeled here — a `bool` whose
-        // single clause is `semantic` returns zero hits (#395).
+    /// `peel_knn_query`, including its self-recursion through the decorators
+    /// and through a single-clause `bool`.
+    fn knn_reach(query: &Value, out: &mut Vec<String>) {
+        let query = strip_query_decorators(query);
+        if let Some(spec) = query.get("knn") {
+            field_named_by(Some(spec), out);
+            return;
+        }
+        let Some(bool_query) = query.get("bool") else {
+            return;
+        };
+        // Its bool arm, and only its shape: one must/should clause, no
+        // must_not. A `boost` on the bool is fine — that becomes a `Boosted`
+        // wrapper, which this peel does see through.
+        if !clauses(bool_query, "must_not").is_empty() {
+            return;
+        }
         let mut candidates = clauses(bool_query, "must");
         candidates.extend(clauses(bool_query, "should"));
-        if clauses(bool_query, "must_not").is_empty() && candidates.len() == 1 {
-            field_named_by(candidates[0].get("knn"), out);
+        if candidates.len() == 1 {
+            knn_reach(candidates[0], out);
         }
     }
+
+    /// `peel_multi_knn_query`. Not reached through [`strip_query_decorators`]:
+    /// this is the one peel with no `Constant`/`Boosted` arm, so it is handed
+    /// the query as written.
+    fn multi_knn_reach(query: &Value, out: &mut Vec<String>) {
+        let Some(bool_query) = query.get("bool") else {
+            return;
+        };
+        let boosted = bool_query
+            .get("boost")
+            .and_then(Value::as_f64)
+            .is_some_and(|b| b as f32 != 1.0);
+        if boosted
+            || !clauses(bool_query, "must").is_empty()
+            || !clauses(bool_query, "filter").is_empty()
+            || !clauses(bool_query, "must_not").is_empty()
+            || bool_query.get("minimum_should_match").is_some()
+        {
+            return;
+        }
+        let should = clauses(bool_query, "should");
+        // >= 2, and every one a BARE `knn`: the peel matches `QueryNode::Knn`
+        // directly, through no wrapper at all. Guarded against the vacuous
+        // `all` over an empty list by the length check.
+        if should.len() < 2 || !should.iter().all(|c| c.get("knn").is_some()) {
+            return;
+        }
+        for clause in should {
+            field_named_by(clause.get("knn"), out);
+        }
+    }
+
+    multi_knn_reach(query, out);
+    let query = strip_query_decorators(query);
+    field_named_by(query.get("semantic"), out);
+    knn_reach(query, out);
     if let Some(entries) = query
         .get("hybrid")
         .and_then(|hybrid| hybrid.get("queries"))
@@ -7440,6 +7530,46 @@ fn dispatched_vector_fields(query: &Value, out: &mut Vec<String>) {
                 dispatched_vector_fields(sub, out);
             }
         }
+    }
+}
+
+/// Fields named by a vector clause this diagnostic makes NO claim about.
+///
+/// `peel_nested_knn_query` (xerj-engine/src/index.rs:29909) dispatches a `knn`
+/// held by a `nested`, and its `Bool` arm (index.rs:29929) accepts arbitrary
+/// sibling clauses alongside it — partitioning them into pre-filters
+/// (`bool.filter`) and post-filters (`bool.must`/`should`) rather than
+/// refusing them. So `bool.must: [nested: {knn}] + filter: [match]` both
+/// reaches the vector and carries a lexical clause, which is precisely the
+/// pairing [`lexical_on_semantic_text_hint`] would otherwise call dropped.
+///
+/// Deciding which `nested` shapes that peel accepts is more machinery than a
+/// diagnostic is worth, so a vector clause anywhere under a `nested` is
+/// reported here and suppresses the hint. Saying nothing where the answer is
+/// unknown is the one option that cannot put a false statement on the wire.
+///
+/// Narrow by construction: it is reported per FIELD, so it withdraws only the
+/// claim about the field the nested clause names. A `nested` kNN over some
+/// other `dense_vector` says nothing about a `semantic_text` field's
+/// embedding, and the hint for that field still fires
+/// (`a_nested_knn_over_another_field_does_not_silence_the_hint`). And a
+/// `semantic_text` field's companion vector is always top-level — the mapping
+/// refuses a nested `semantic_text` (es_compat.rs:1216) and refuses a
+/// `target_field` that resolves into a nested path (es_compat.rs:1240) — so
+/// the one shape this does suppress matches nothing anyway.
+fn unmodelled_vector_fields(query: &Value, out: &mut Vec<String>) {
+    match query {
+        Value::Object(o) => {
+            for (k, v) in o {
+                if k == "nested" {
+                    vector_query_fields(v, out);
+                } else {
+                    unmodelled_vector_fields(v, out);
+                }
+            }
+        }
+        Value::Array(a) => a.iter().for_each(|v| unmodelled_vector_fields(v, out)),
+        _ => {}
     }
 }
 
@@ -7488,25 +7618,28 @@ fn lexical_on_semantic_text_hint(
     if lexical.is_empty() {
         return None;
     }
-    // Two different questions, and conflating them was the bug (#394):
-    // `reached` is where the vector actually ran, `named` is where the caller
-    // merely asked for it. Only the first may silence the hint; the second
-    // sharpens what it says.
+    // Three different questions, and conflating the first two was the bug
+    // (#394): `reached` is where the vector demonstrably ran, `unproven` is
+    // where this walk cannot tell, `named` is where the caller merely asked
+    // for it. The first two silence the hint; the third sharpens what it says.
     //
     // The ES 8.x top-level `knn` block needs no separate pass: by the time
-    // this runs, `search_impl` has already folded it into `body.query` as a
-    // `bool.should` beside the caller's query and cleared `body.knn`, and
-    // that fold is precisely what stops it reaching the vector.
+    // this runs, `search_impl` has already folded it into `body.query` and
+    // cleared `body.knn` — into a `bool.should` beside the caller's query
+    // (which is what stops a single clause reaching the vector), or, for the
+    // array form with no sibling `query`, into the pure multi-kNN `bool` that
+    // `peel_multi_knn_query` does dispatch.
     let mut reached = Vec::new();
     dispatched_vector_fields(query, &mut reached);
+    unmodelled_vector_fields(query, &mut reached);
     let mut named = Vec::new();
     vector_query_fields(query, &mut named);
 
-    let mut flagged: Vec<(String, String)> = Vec::new();
-    // At least one flagged field carries a vector clause the executor drops:
-    // the caller asked for semantics and was answered lexically anyway, which
-    // is a sharper thing to be told than "you did not ask".
-    let mut asked_but_dropped = false;
+    // `(field, query text, this field's own vector clause was dropped)`. The
+    // flag is per field: attributing a dropped clause to a sibling
+    // `semantic_text` field that never carried one names the wrong field and
+    // builds the remedy on the wrong intent.
+    let mut flagged: Vec<(String, String, bool)> = Vec::new();
     for (field, text) in lexical {
         // Only an exact field name: `ctx.keyword` is a different field with
         // different semantics, and querying it lexically is the point of it.
@@ -7524,25 +7657,36 @@ fn lexical_on_semantic_text_hint(
         if reached.iter().any(names_this_field) {
             continue;
         }
-        if flagged.iter().any(|(f, _)| *f == field) {
+        if flagged.iter().any(|(f, _, _)| *f == field) {
             continue;
         }
-        asked_but_dropped |= named.iter().any(names_this_field);
-        flagged.push((field, text));
+        // Not reached and not unproven, so a clause naming it here is one the
+        // executor provably dropped.
+        let asked_but_dropped = named.iter().any(names_this_field);
+        flagged.push((field, text, asked_but_dropped));
     }
-    let (first_field, first_text) = flagged.first()?.clone();
+    let (first_field, first_text, _) = flagged.first()?.clone();
     let names = flagged
         .iter()
-        .map(|(f, _)| format!("`{f}`"))
+        .map(|(f, _, _)| format!("`{f}`"))
         .collect::<Vec<_>>()
         .join(", ");
     let plural = flagged.len() > 1;
+    // The remedy speaks about ONE field. When some field's own vector clause
+    // was dropped, that has to be the one — it is the only field the "your
+    // clause was dropped" wording is true of, and the only one whose intent
+    // the suggested `hybrid` body can carry.
+    let dropped = flagged.iter().find(|(_, _, dropped)| *dropped).cloned();
+    let asked_but_dropped = dropped.is_some();
+    let (subject_field, subject_text) = dropped
+        .map(|(field, text, _)| (field, text))
+        .unwrap_or((first_field, first_text));
     // An empty text means a clause shape we did not recognise well enough to
     // quote back; a placeholder is honest, a wrong quote is not.
-    let suggested_text = if first_text.is_empty() {
+    let suggested_text = if subject_text.is_empty() {
         "<your text>".to_string()
     } else {
-        first_text
+        subject_text
     };
 
     let reason = format!(
@@ -7558,15 +7702,18 @@ fn lexical_on_semantic_text_hint(
             // it, and saying only "run the semantic query" would read as the
             // response not having looked at the request.
             format!(
-                "This request DOES carry a vector clause for `{first_field}`, but not in a \
-                 position this version dispatches: the vector is reached only when the whole \
-                 query is `semantic`/`knn`, or from inside `hybrid`. A vector clause nested in \
-                 a `bool` — which is also what a top-level `knn` block beside a `query` becomes \
-                 — is dropped. Re-run it as `hybrid` to get both signals."
+                "This request DOES carry a vector clause for `{subject_field}`, but not in a \
+                 position this version dispatches: the vector is reached only from the TOP of \
+                 the query — a whole-query `semantic`/`knn` (also through `constant_score`, or \
+                 a `bool` whose one scoring clause is that `knn`), the top-level `knn` block \
+                 with no sibling `query`, or each `hybrid` sub-query. A vector clause sharing a \
+                 `bool` with another scoring clause — which is also what a top-level `knn` \
+                 block beside a `query` becomes — is dropped. Re-run it as `hybrid` to get \
+                 both signals."
             )
         } else {
             format!(
-                "For meaning-based recall run the `semantic` query on `{first_field}`; \
+                "For meaning-based recall run the `semantic` query on `{subject_field}`; \
                  to keep both signals, combine them with `hybrid`."
             )
         },
@@ -7575,13 +7722,13 @@ fn lexical_on_semantic_text_hint(
     // the vector and had it dropped is not helped by a `semantic` body that
     // throws away the lexical half they also asked for.
     let semantic_half = json!({"semantic": {
-        "field": first_field.clone(),
+        "field": subject_field.clone(),
         "query": suggested_text.clone(),
         "k": 10,
     }});
     let suggested_query = if asked_but_dropped {
         let mut match_clause = serde_json::Map::new();
-        match_clause.insert(first_field, Value::String(suggested_text));
+        match_clause.insert(subject_field, Value::String(suggested_text));
         json!({"hybrid": {"queries": [
             {"query": {"match": Value::Object(match_clause)}},
             {"query": semantic_half},
@@ -8041,6 +8188,16 @@ mod semantic_text_lexical_hint_tests {
     //! the two shapes that name the vector and never reach it, and
     //! `a_hybrid_that_actually_reaches_the_vector_*` is the one silence left,
     //! asserted on the recall it buys rather than on the clause being present.
+    //!
+    //! And the same rule with the sign flipped: a hint on a request whose
+    //! vector DID run is an affirmative false statement plus an instruction to
+    //! rewrite a working query, so `*_still_reaches_the_vector` and
+    //! `*_reaches_the_vector` pin the silence on the wrapper and multi-kNN
+    //! shapes the executor's peels recurse through, each one paired with a
+    //! ranking that moves when only the vector moves.
+    //! `a_semantic_or_hybrid_in_the_knn_slot_still_hints` and
+    //! `a_multi_knn_bool_behind_a_boost_it_cannot_survive_still_hints` are the
+    //! opposite proofs: they fail if that widening goes one arm too far.
     use super::*;
     use axum::{
         body::{to_bytes, Body},
@@ -8702,6 +8859,493 @@ mod semantic_text_lexical_hint_tests {
             codes.contains(&"unknown_field".to_string())
                 && codes.contains(&"lexical_on_semantic_text".to_string()),
             "both diagnostics must survive: {codes:?} / {json}"
+        );
+    }
+
+    // ── #394 round 2: the mirror has to follow the peel's RECURSION ──────────
+    //
+    // `peel_knn_query` recurses into itself through `Constant`/`Boosted`/
+    // `Named` and through the single scoring clause of a `bool`, and
+    // `peel_multi_knn_query` takes a `bool` of bare `knn` clauses whose own
+    // `filter`s may be lexical. A mirror that looks only at a `bool`'s
+    // immediate child misses all three, and then states on the wire that a
+    // vector which demonstrably ran did not — plus an instruction to rewrite
+    // a query that already works. Each test below pairs the silence with the
+    // witness that earns it: change ONLY the vector payload and the ranking
+    // must move.
+
+    /// `id@score` per hit, in rank order. Used as the "the vector ran" witness
+    /// — a purely lexical answer cannot move when only a vector moves.
+    fn ranking(json: &Value) -> Vec<String> {
+        json["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| format!("{}@{}", h["_id"], h["_score"]))
+            .collect()
+    }
+
+    async fn vector_sensitive_pair(
+        state: &AppState,
+        index: &str,
+        a: Value,
+        b: Value,
+    ) -> (Value, Vec<String>, Vec<String>) {
+        let (status, first) = request_json(state, "POST", &format!("/{index}/_search"), a).await;
+        assert_eq!(status, StatusCode::OK, "{first}");
+        let (status, second) = request_json(state, "POST", &format!("/{index}/_search"), b).await;
+        assert_eq!(status, StatusCode::OK, "{second}");
+        let (x, y) = (ranking(&first), ranking(&second));
+        assert!(!x.is_empty(), "no hits to reason about: {first}");
+        (first, x, y)
+    }
+
+    /// `peel_knn_query` sees through `constant_score` (`QueryNode::Constant`,
+    /// xerj-engine/src/index.rs:29668) on its way into a `bool`'s single
+    /// clause, so this dispatches. Round 1's mirror stopped at
+    /// `candidates[0].get("knn")` and hinted here — on a response whose
+    /// ranking flips with the query vector.
+    #[tokio::test]
+    async fn a_knn_behind_constant_score_in_a_bool_still_reaches_the_vector() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-cs-knn",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let body = |v: f32| {
+            json!({"query": {"bool": {
+                "must": [{"constant_score": {"filter": {"knn": {
+                    "field": "ctx_vector",
+                    "query_vector": vec![v; 32],
+                    "k": 10,
+                }}}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false})
+        };
+        let (json, a, b) = vector_sensitive_pair(&state, "sem-cs-knn", body(0.1), body(-0.9)).await;
+        assert_ne!(a, b, "the vector ranked these hits: {json}");
+        assert!(
+            semantic_hint(&json).is_none(),
+            "the vector ran; saying it was NOT consulted is a false statement: {json}"
+        );
+    }
+
+    /// The same for the peel's self-recursion through a *second* `bool`
+    /// (index.rs:29685 calls `peel_knn_query` on the single candidate, which
+    /// re-enters the `Bool` arm).
+    #[tokio::test]
+    async fn a_knn_one_bool_deeper_still_reaches_the_vector() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-bool-knn",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let body = |v: f32| {
+            json!({"query": {"bool": {
+                "must": [{"bool": {"must": [{"knn": {
+                    "field": "ctx_vector",
+                    "query_vector": vec![v; 32],
+                    "k": 10,
+                }}]}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false})
+        };
+        let (json, a, b) =
+            vector_sensitive_pair(&state, "sem-bool-knn", body(0.1), body(-0.9)).await;
+        assert_ne!(a, b, "the vector ranked these hits: {json}");
+        assert!(
+            semantic_hint(&json).is_none(),
+            "the vector ran; saying it was NOT consulted is a false statement: {json}"
+        );
+    }
+
+    /// The ES 8.x top-level `knn: [...]` ARRAY, whose clauses each accept
+    /// their own `filter`. `search_impl` folds it into the pure multi-kNN
+    /// `bool` that `peel_multi_knn_query` (index.rs:29713) dispatches, and the
+    /// lexical `filter` rides along inside the `knn` node — so the request
+    /// both reaches the vector and carries a `match` on a `semantic_text`
+    /// field. Round 1 hinted on it.
+    #[tokio::test]
+    async fn the_top_level_knn_array_with_a_lexical_filter_reaches_the_vector() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-multiknn",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let body = |v: f32| {
+            json!({"knn": [
+                {"field": "ctx_vector", "query_vector": vec![v; 32], "k": 3,
+                 "filter": {"match": {"ctx": "graph"}}},
+                {"field": "ctx_vector", "query_vector": vec![v * 2.0; 32], "k": 3},
+            ], "_source": false})
+        };
+        let (json, a, b) =
+            vector_sensitive_pair(&state, "sem-multiknn", body(0.1), body(-0.9)).await;
+        assert_ne!(a, b, "the vectors ranked these hits: {json}");
+        assert!(
+            semantic_hint(&json).is_none(),
+            "the vectors ran; saying they were NOT consulted is a false statement: {json}"
+        );
+    }
+
+    /// The other half of the multi-kNN arm, and the reason it is not reached
+    /// through the decorator strip: `peel_multi_knn_query` has no `Boosted`
+    /// arm, and `parse_bool` turns a `bool.boost` into exactly that wrapper
+    /// (xerj-query/src/parser.rs:2670). Nothing peels the result, so the
+    /// vectors do NOT run — witnessed by zero hits where the unboosted form
+    /// returns three — and the hint must still fire.
+    #[tokio::test]
+    async fn a_multi_knn_bool_behind_a_boost_it_cannot_survive_still_hints() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-multiknn-boost",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let clauses = json!([
+            {"knn": {"field": "ctx_vector", "query_vector": vec![0.1_f32; 32], "k": 3,
+                     "filter": {"match": {"ctx": "graph"}}}},
+            {"knn": {"field": "ctx_vector", "query_vector": vec![0.2_f32; 32], "k": 3}},
+        ]);
+        let (status, bare) = request_json(
+            &state,
+            "POST",
+            "/sem-multiknn-boost/_search",
+            json!({"query": {"bool": {"should": clauses}}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{bare}");
+        assert!(
+            !ranking(&bare).is_empty(),
+            "the bare multi-kNN bool must dispatch, or this test proves nothing: {bare}"
+        );
+
+        let (status, boosted) = request_json(
+            &state,
+            "POST",
+            "/sem-multiknn-boost/_search",
+            json!({"query": {"bool": {"should": clauses, "boost": 2.0}}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{boosted}");
+        assert!(
+            ranking(&boosted).is_empty(),
+            "the `boost` wrapper is what stops the peel; if this returns hits the \
+             guard in `dispatched_vector_fields` is wrong, not merely unnecessary: {boosted}"
+        );
+        assert!(
+            semantic_hint(&boosted).is_some(),
+            "no vector ran here: {boosted}"
+        );
+    }
+
+    /// `peel_semantic_query` (index.rs:29865) sees through the same
+    /// decorators, so a root `semantic` behind `constant_score` dispatches.
+    #[tokio::test]
+    async fn a_root_semantic_behind_constant_score_is_not_flagged() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-cs-sem",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let body = |text: &str| {
+            json!({"query": {"constant_score": {"filter": {"semantic": {
+                "field": "ctx",
+                "query": text,
+                "k": 10,
+                "filter": {"match": {"ctx": "graph"}},
+            }}}}, "_source": false})
+        };
+        let (json, a, b) = vector_sensitive_pair(
+            &state,
+            "sem-cs-sem",
+            body("edges"),
+            body("densely clustered near the entry node"),
+        )
+        .await;
+        assert_ne!(a, b, "the text ranked these hits: {json}");
+        assert!(
+            semantic_hint(&json).is_none(),
+            "the vector did the ranking here: {json}"
+        );
+    }
+
+    /// THE OPPOSITE PROOF for the widened `bool` arm: it is knn-only on
+    /// purpose. `peel_semantic_query` has no `Bool` arm and `peel_knn_query`
+    /// bails on a non-`Knn` candidate, so a `semantic` or a `hybrid` written
+    /// in the slot a `knn` would dispatch from is NOT dispatched. Recursing
+    /// into those would re-create #394's own false silence inside its fix.
+    ///
+    /// The inertness is witnessed, not assumed: for `semantic`, the response
+    /// has hits and is byte-identical across two clause texts that rank
+    /// different documents; for `hybrid`, the whole request returns nothing
+    /// where its `filter` alone returns two.
+    #[tokio::test]
+    async fn a_semantic_or_hybrid_in_the_knn_slot_still_hints() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-boolslot",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let semantic_slot = |text: &str| {
+            json!({"query": {"bool": {
+                "should": [{"semantic": {"field": "ctx", "query": text, "k": 10}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false})
+        };
+        let (json, a, b) = vector_sensitive_pair(
+            &state,
+            "sem-boolslot",
+            semantic_slot("prune redundant edges"),
+            semantic_slot("aardvark pastry submarine"),
+        )
+        .await;
+        assert_eq!(
+            a, b,
+            "a `semantic` in this slot contributes nothing; if it now moves with its \
+             text the bool arm may widen to it: {json}"
+        );
+        assert!(
+            semantic_hint(&json).is_some(),
+            "the caller asked for the vector and got BM25: {json}"
+        );
+
+        let (status, filter_only) = request_json(
+            &state,
+            "POST",
+            "/sem-boolslot/_search",
+            json!({"query": {"bool": {"filter": [{"match": {"ctx": "graph"}}]}}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{filter_only}");
+        assert!(!ranking(&filter_only).is_empty(), "{filter_only}");
+
+        let (status, hybrid_slot) = request_json(
+            &state,
+            "POST",
+            "/sem-boolslot/_search",
+            json!({"query": {"bool": {
+                "must": [{"hybrid": {"queries": [
+                    {"query": {"semantic": {"field": "ctx", "query": "graph edges", "k": 3}}},
+                ]}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{hybrid_slot}");
+        assert!(
+            ranking(&hybrid_slot).is_empty(),
+            "a `hybrid` in this slot matches nothing where its own filter matches two; \
+             if that changed, the bool arm may widen to it: {hybrid_slot}"
+        );
+        assert!(
+            semantic_hint(&hybrid_slot).is_some(),
+            "no vector ran here: {hybrid_slot}"
+        );
+    }
+
+    /// #394 round 2, defect 2: the "your own vector clause was dropped"
+    /// wording and the `hybrid` remedy built from it are about ONE field, and
+    /// it has to be the field whose clause was actually dropped. Two
+    /// `semantic_text` fields, a `match` on each, and a `semantic` clause on
+    /// the second only: a single request-wide flag named the first field —
+    /// which carries no vector clause at all — and discarded the caller's real
+    /// intent when it built the remedy.
+    #[tokio::test]
+    async fn the_dropped_clause_wording_names_the_field_that_carried_it() {
+        let state = test_state();
+        let (status, body) = request_json(
+            &state,
+            "PUT",
+            "/sem-twofield",
+            json!({"mappings": {"properties": {
+                "alpha": {"type": "semantic_text", "dimensions": 32},
+                "ctx": {"type": "semantic_text", "dimensions": 32},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, text) in DOCS.iter().enumerate() {
+            let (status, body) = request_json(
+                &state,
+                "PUT",
+                &format!("/sem-twofield/_doc/{id}"),
+                json!({"alpha": text, "ctx": text}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        state
+            .engine
+            .get_index("sem-twofield")
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-twofield/_search",
+            json!({"query": {"bool": {"should": [
+                {"match": {"alpha": "graph edges"}},
+                {"match": {"ctx": "merger postings"}},
+                {"semantic": {"field": "ctx", "query": "merger postings", "k": 3}},
+            ]}}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        let hint = semantic_hint(&json)
+            .unwrap_or_else(|| panic!("expected a lexical_on_semantic_text hint: {json}"));
+        let reason = hint["reason"].as_str().expect("reason string");
+        // Both fields are named as `semantic_text` …
+        assert!(
+            reason.contains("`alpha`") && reason.contains("`ctx`"),
+            "both semantic_text fields are still listed: {reason}"
+        );
+        // … but only `ctx` carried the clause that was dropped.
+        assert!(
+            reason.contains("vector clause for `ctx`"),
+            "the dropped clause is `ctx`'s; naming `alpha` is a false statement: {reason}"
+        );
+        assert!(
+            !reason.contains("vector clause for `alpha`"),
+            "`alpha` carries no vector clause: {reason}"
+        );
+        // And the remedy has to carry the caller's actual intent, not another
+        // field's.
+        assert_eq!(
+            hint["try"]["body"]["query"]["hybrid"]["queries"][1]["query"]["semantic"]["field"],
+            "ctx",
+            "the `hybrid` remedy must be built on the field the caller aimed at: {hint}"
+        );
+        let (status, remedy) = request_json(
+            &state,
+            "POST",
+            "/sem-twofield/_search",
+            hint["try"]["body"].clone(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{remedy}");
+        assert!(
+            !remedy["hits"]["hits"].as_array().unwrap().is_empty(),
+            "the suggested body must actually return hits: {remedy}"
+        );
+    }
+
+    /// `unmodelled_vector_fields` withdraws rather than certifies, and this is
+    /// the boundary of that withdrawal: a `nested` kNN over an unrelated
+    /// `dense_vector` says nothing about `ctx`'s embedding, which really was
+    /// not consulted — so the hint must still fire. Over-suppressing on "a
+    /// `nested` appears somewhere" would be #394 again.
+    #[tokio::test]
+    async fn a_nested_knn_over_another_field_does_not_silence_the_hint() {
+        let state = test_state();
+        let (status, body) = request_json(
+            &state,
+            "PUT",
+            "/sem-nested-other",
+            json!({"mappings": {"properties": {
+                "ctx": {"type": "semantic_text", "dimensions": 32},
+                "chunks": {"type": "nested", "properties": {
+                    "vec": {"type": "dense_vector", "dims": 4, "similarity": "cosine"},
+                }},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, text) in DOCS.iter().enumerate() {
+            let (status, body) = request_json(
+                &state,
+                "PUT",
+                &format!("/sem-nested-other/_doc/{id}"),
+                json!({"ctx": text, "chunks": [{"vec": [0.1 * (id as f32 + 1.0), 0.2, 0.3, 0.4]}]}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        state
+            .engine
+            .get_index("sem-nested-other")
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+
+        let body = |v: f32| {
+            json!({"query": {"bool": {
+                "must": [{"nested": {"path": "chunks", "query": {"knn": {
+                    "field": "chunks.vec", "query_vector": [v, 0.2, 0.3, 0.4], "k": 3,
+                }}}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false})
+        };
+        let (json, a, b) =
+            vector_sensitive_pair(&state, "sem-nested-other", body(0.1), body(-0.9)).await;
+        assert_ne!(a, b, "the nested vector ranked these hits: {json}");
+        let hint = semantic_hint(&json)
+            .unwrap_or_else(|| panic!("`ctx`'s embedding really was not consulted: {json}"));
+        // And with no clause of its own dropped, the remedy is the plain one.
+        assert_eq!(hint["try"]["body"]["query"]["semantic"]["field"], "ctx");
+    }
+
+    /// The withdrawal itself. A `knn` under a `nested` that names the
+    /// `semantic_text` companion is a shape `peel_nested_knn_query`
+    /// (index.rs:29909) may dispatch and `dispatched_vector_fields` does not
+    /// model, so the walk asserts NOTHING about it in either direction and the
+    /// hint stays quiet.
+    ///
+    /// Read this as "no claim", not as "the vector ran": unlike every other
+    /// silence in this module there is deliberately no dispatch witness,
+    /// because there is no claim to witness. `semantic_text` cannot be mapped
+    /// under a `nested` path and its `target_field` may not resolve into one
+    /// (es_compat.rs:1218, :1240), so the companion vector is always
+    /// top-level and this shape matches nothing — which is exactly why the
+    /// hint's wording, and not its presence, is the thing at risk here.
+    #[tokio::test]
+    async fn a_knn_under_a_nested_is_not_certified_inert() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-nested-companion",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-nested-companion/_search",
+            json!({"query": {"bool": {
+                "must": [{"nested": {"path": "chunks", "query": {"knn": {
+                    "field": "ctx_vector", "query_vector": vec![0.1_f32; 32], "k": 3,
+                }}}}],
+                "filter": [{"match": {"ctx": "graph"}}],
+            }}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
+        assert!(
+            semantic_hint(&json).is_none(),
+            "this walk does not model `peel_nested_knn_query`, so it may not state \
+             that the embedding was not consulted: {json}"
         );
     }
 }
