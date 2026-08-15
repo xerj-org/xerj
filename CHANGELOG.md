@@ -22,6 +22,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quiet when the same request already reaches the vector through `semantic`
   or `knn` (including the ES 8.x top-level `knn` block).
 
+- **`_score` no longer depends on `size`; ranking is stable under pagination**
+  ([#361](https://github.com/xerj-org/xerj/issues/361)). A post-collection
+  "IDF-weighted rescore for Bool queries with multiple terms" in
+  `Index::search` overwrote every hit's `_score` using
+  `idf = ln(1 + (N - df + 0.5) / (df + 0.5))` with `N = final_hits.len()` and
+  `df` counted over those same hits — the **returned page**, not the index. On
+  the unsorted page path the collector cap is exactly `from + size`, so `N`
+  *was* the caller's `size`. The pass also ran *after* top-k truncation, so it
+  could promote a document the collector had already cut, moving the top hit
+  itself and not just its number. Measured on an 80-document corpus with one
+  `bool.should[match, match]` and nothing but `size` changing: top hit `d056`
+  at `size:1` versus `d014` at `size:60`, and a six-page `from`-sweep at
+  `size:10` scored `d042` at `0.91919494` where a single `size:60` request
+  scored it `2.6978195`. Consequences were silent: `from`/`search_after`
+  sweeps could return a document twice or skip it, and `_score` was not
+  comparable across requests, so RRF/hybrid fusion, `min_score` and any
+  client-side threshold read a moving scale.
+
+  The pass is removed rather than repaired: widening its statistics alone
+  would not have fixed the ordering, because it ran after truncation. This
+  matches the reference — Lucene has no post-collection rescoring stage, and
+  `BM25Similarity.idfExplain` takes `N` from `fieldStats.docCount()`, never the
+  collected page. For hits produced by the segment FTS arm the ordering the
+  pass existed to create is now produced at collection time, against the
+  index-wide `CollectionStats` that
+  [#188](https://github.com/xerj-org/xerj/issues/188) introduced. For hits
+  produced by the memtable arm it is not — see the gate note below. New
+  regression test
+  `engine/crates/xerj-engine/tests/score_is_independent_of_page_size.rs`.
+
+  **This entry is not release-ready: the ES-YAML gate is not green.** Measured
+  on the same machine, same suite, release binaries built from this tree:
+  `main` scores **1366 passed / 0 failed / 3 skipped**, this change scores
+  **1362 passed / 4 failed / 3 skipped**. The four are
+  `aggregations/diversified_sampler.yml` (3 cases) and
+  `aggregations/sampler.yml` (1 case) — the samplers keep the top-scoring
+  documents, and their fixtures are `refresh`-ed but never flushed, so every
+  document is memtable-resident. `is_doc_scan_query` lists `QueryNode::Bool`,
+  so a `bool` (and a `query_string` lowered to one) is scored on the memtable
+  arm by the IDF-less `score_query_against_doc` instead of BM25. Measured on
+  `sampler.yml`'s own four documents with `tags:kibana OR tags:javascript`:
+  unflushed, all four score `1.6931472` and the rare `javascript` document
+  does not win; after a flush the same query scores it `1.2039728` against
+  `0.35667497` for the three `kibana` documents, which is the ES answer. The
+  removed pass was masking that. The fix is to weight the brute scorer's
+  clauses with index-wide IDF at collection time — Lucene builds clause
+  weights once, up front, and applies them while collecting — not to restore a
+  post-collection pass.
+
+  Also not fixed here, and still open under #361: `bool.filter` / `must_not`
+  clauses still contribute to `_score` (they are non-scoring by definition in
+  ES), and an unprojectable filter child still drops the whole `bool` onto the
+  IDF-less stored-doc scan.
+
 ## [1.0.0-rc.17] - 2026-08-15
 
 ### Added

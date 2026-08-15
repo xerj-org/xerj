@@ -17036,63 +17036,85 @@ impl Index {
             self.sort_hits_page_order(&mut final_hits);
         }
 
-        // --- IDF-weighted rescore for Bool queries with multiple terms ---
-        // When the query is Bool(should: [Match(A), Match(B), ...]) or
-        // query_string lowered to one, the per-hit memtable score is
-        // uniform (sum of tf contributions without IDF). Re-weight using
-        // per-term document frequency across the full hit set so rare
-        // terms contribute more. This is the difference between "all
-        // docs get 1.0" and "docs with rare terms rank higher" for
-        // diversified_sampler / top_hits / 115_multi / interval_query
-        // ordering.
-        // (`!scored_fast_applied`: the columnar scored path already produced
-        // exact ES BM25 scores — this heuristic rescore would rewrite
-        // range-less scoring bools with ≥2 clauses.)
-        if !scored_fast_applied
-            && !final_hits.is_empty()
-            && request.sort.is_empty()
-            // Top-level constant_score: scores are the wrapper's constant —
-            // the hit-set idf heuristic must not rewrite them.
-            && !matches!(query, QueryNode::Constant { .. })
-            && query_uses_bool_text(&request.query)
-        {
-            let field_term_pairs = collect_match_field_terms(&request.query);
-            if !field_term_pairs.is_empty() {
-                let n_docs = final_hits.len() as f32;
-                // For each (field, term) clause, compute its doc frequency.
-                let term_idf: Vec<f32> = field_term_pairs
-                    .iter()
-                    .map(|(field, term, _boost)| {
-                        let df = final_hits
-                            .iter()
-                            .filter(|h| match_term_frequency(&h.source, field, term) > 0.0)
-                            .count() as f32;
-                        if df == 0.0 {
-                            0.0
-                        } else {
-                            // BM25-style IDF: ln(1 + (N - df + 0.5) / (df + 0.5))
-                            (1.0 + (n_docs - df + 0.5) / (df + 0.5)).ln()
-                        }
-                    })
-                    .collect();
-                // Rescore each hit: score = Σ boost(i) · idf(i) · (1 + ln(1 + tf(i)))
-                for hit in final_hits.iter_mut() {
-                    let mut score = 0.0f32;
-                    for (i, (field, term, clause_boost)) in field_term_pairs.iter().enumerate() {
-                        let tf = match_term_frequency(&hit.source, field, term);
-                        if tf > 0.0 {
-                            score += clause_boost * term_idf[i] * (1.0 + (1.0 + tf).ln());
-                        }
-                    }
-                    if score > 0.0 {
-                        hit.score = score;
-                    }
-                }
-                // Re-sort by the new scores (#270 — full page-order key, so
-                // hits the rescore left tied keep arrival order).
-                self.sort_hits_page_order(&mut final_hits);
-            }
-        }
+        // --- #361: NO post-collection IDF rescore ---
+        // An "IDF-weighted rescore for Bool queries with multiple terms" used
+        // to sit here.  It overwrote every hit's `_score` with
+        // `Σ boost·idf·(1 + ln(1 + tf))`, where `idf` came from
+        // `ln(1 + (N - df + 0.5) / (df + 0.5))` with `N = final_hits.len()`
+        // and `df` counted over those same hits — i.e. from the COLLECTED
+        // PAGE, not from the index.  On the strictly-safe unsorted page path
+        // the collector cap is exactly `from + size` (see the shadowed
+        // `materialisation_limit` above), so `N` *was* the caller's `size`.
+        //
+        // Consequence, measured by `score_is_independent_of_page_size.rs`
+        // against the pre-fix build — one 80-doc corpus, one
+        // `bool.should[match, match]`, only `size` changing:
+        //   size=1    top hit d056 @ 1.1735824
+        //   size=2    d035 @ 0.74377024
+        //   size=60   top hit d014 @ 3.7965584, d035 @ 3.7965584
+        // and a six-page `from`-sweep at size=10 scored d042 at 0.91919494
+        // where the single size=60 request scored it 2.6978195.  (#361 reports
+        // the same shape on a 75,578-doc index: top hit `OffHeapHnswGraph` at
+        // size=2/5, `copyGraphStructure` at size=10/50.)
+        // Page 2 was not scored on the same basis as page 1, so a `from` /
+        // `search_after` sweep could return a document twice or skip it, and
+        // `_score` was not comparable across requests — which silently breaks
+        // RRF / hybrid fusion, `min_score`, and any client-side threshold.
+        // Widening the statistics alone would not have been enough: the pass
+        // ran AFTER top-k truncation, so it could promote a document the
+        // collector had already ranked below the cut — which is why the top
+        // hit itself moved (d056 at size=1 vs d014 at size=60 above), not just
+        // the numbers attached to it.
+        //
+        // Lucene has no post-collection rescoring stage at all, and its
+        // statistics are index-wide by construction — the property this
+        // heuristic was trying to approximate from the page:
+        //   * `lucene/core/src/java/org/apache/lucene/search/BooleanWeight.java:49-64`
+        //     builds each clause's Weight ONCE, up front, from the searcher's
+        //     top-level reader context (and non-scoring clauses with
+        //     `ScoreMode.COMPLETE_NO_SCORES`); nothing re-weights the hits
+        //     afterwards.
+        //   * `lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java:177-197`
+        //     — `idfExplain` takes `df` from `termStats.docFreq()` and `N`
+        //     from `fieldStats.docCount()`, "N, total number of documents with
+        //     field".  Never the collected page.
+        // Apache-2.0, same licence as XERJ: read for the invariant, adapted,
+        // not copied.
+        //
+        // What replaces it: nothing.  The heuristic dated from when the
+        // per-hit score on the memtable/stored-doc arms was an IDF-less sum of
+        // tf contributions.  For the SEGMENT arm that is no longer true: since
+        // #188 it scores through one INDEX-WIDE `CollectionStats`
+        // (`collection_stats()` above), and the columnar scored family
+        // (`scored_fast_applied`) already emitted exact ES BM25 — so for those
+        // hits the ordering the rescore existed to produce is now produced at
+        // collection time, by the collector that selects the page.
+        //
+        // `query_uses_bool_text` went with it — it existed only to gate this
+        // pass.  `collect_match_field_terms` and `match_term_frequency` stay:
+        // the former now feeds only the aggs layer's explain plumbing, the
+        // latter is still the stored-doc scorer's tf source
+        // (`score_query_against_doc`).
+        //
+        // KNOWN, MEASURED, NOT YET CLOSED.  The claim above holds for the
+        // SEGMENT arm.  It does not hold for the memtable arm, because
+        // `is_doc_scan_query` lists `QueryNode::Bool` — so a `bool` (and a
+        // `query_string` lowered to one) is scored there by the IDF-less
+        // `score_query_against_doc`, not by BM25.  On `sampler.yml`'s four
+        // documents with `tags:kibana OR tags:javascript`: unflushed, all four
+        // score 1.6931472 and the rare `javascript` document does not win;
+        // after a flush the same query scores it 1.2039728 against 0.35667497.
+        // The removed pass was papering over that, and removing it costs four
+        // ES-YAML cases (`aggregations/sampler.yml`,
+        // `aggregations/diversified_sampler.yml` — both `refresh` without
+        // flushing, and both keep the top-scoring documents): the suite goes
+        // 1366 passed / 0 failed on `main` to 1362 passed / 4 failed here.
+        // The fix is to give the brute scorer index-wide per-(field, term) IDF
+        // weights computed ONCE before the scan and applied AT COLLECTION TIME
+        // — which is what `BooleanWeight`/`BM25Similarity` do — and not to
+        // reinstate any post-collection pass.  Blocked on `score_doc` being
+        // defined above `let snap = self.store.snapshot();`, so it cannot see
+        // collection statistics yet.
 
         // --- Score normalization: normalize BM25 scores to [0, max_score] ---
         // When scores are extremely low (BM25 near-zero), fall back to simple TF-IDF scoring.
@@ -35471,74 +35493,14 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
     }
 }
 
-/// Returns true when the query tree is a Bool with only Match/MultiMatch/
-/// Term children (no Prefix/Wildcard/etc.) and has two or more text
-/// clauses. We only rescore this shape because mixed Bool trees (e.g.
-/// match_bool_prefix → [Match, Prefix]) have per-clause scores that
-/// would break if we zeroed out the non-Match contribution.
-fn query_uses_bool_text(q: &QueryNode) -> bool {
-    fn walk(q: &QueryNode) -> (u32, bool) {
-        match q {
-            QueryNode::Bool {
-                must,
-                should,
-                filter,
-                must_not,
-                ..
-            } => {
-                let mut text_children = 0u32;
-                let mut any_disqualifying = false;
-                let mut any_sub_bool = false;
-                for sub in must
-                    .iter()
-                    .chain(should.iter())
-                    .chain(filter.iter())
-                    .chain(must_not.iter())
-                {
-                    match sub {
-                        QueryNode::Match { .. }
-                        | QueryNode::MultiMatch { .. }
-                        | QueryNode::Term { .. } => text_children += 1,
-                        QueryNode::Bool { .. }
-                        | QueryNode::Named { .. }
-                        | QueryNode::Boosted { .. }
-                        | QueryNode::Constant { .. } => {
-                            let (c, b) = walk(sub);
-                            text_children += c;
-                            any_sub_bool = any_sub_bool || b;
-                        }
-                        QueryNode::Prefix { .. }
-                        | QueryNode::Wildcard { .. }
-                        | QueryNode::Fuzzy { .. }
-                        | QueryNode::Regexp { .. }
-                        | QueryNode::MatchPhrase { .. }
-                        | QueryNode::MatchPhrasePrefix { .. }
-                        | QueryNode::Range { .. } => {
-                            any_disqualifying = true;
-                        }
-                        _ => {}
-                    }
-                }
-                if any_disqualifying {
-                    (0, false)
-                } else {
-                    (text_children, text_children >= 2 || any_sub_bool)
-                }
-            }
-            QueryNode::Named { query, .. }
-            | QueryNode::Boosted { query, .. }
-            | QueryNode::Constant { query, .. } => walk(query),
-            _ => (0, false),
-        }
-    }
-    walk(q).1
-}
-
 /// Flatten Match/Term clauses out of a Bool query tree into
-/// (field, term, boost) triples so the IDF rescore pass can compute
-/// per-term document frequency AND weight each clause's contribution by
-/// its ES `boost` (dropping the boost here made boosted and unboosted
-/// clauses score identically — test_weighted_bool_boost_ranking).
+/// (field, term, boost) triples.
+///
+/// Sole caller since #361 removed the post-collection IDF rescore: the aggs
+/// layer's `set_outer_query_field_terms`, which needs the outer query's
+/// (field, term) pairs so `run_top_hits` can render `explain` output without
+/// the aggs layer knowing about `QueryNode` trees.  The `boost` component is
+/// carried for callers that weight per clause; the aggs caller drops it.
 fn collect_match_field_terms(q: &QueryNode) -> Vec<(String, String, f32)> {
     let mut out: Vec<(String, String, f32)> = Vec::new();
     fn walk(q: &QueryNode, mult: f32, out: &mut Vec<(String, String, f32)>) {

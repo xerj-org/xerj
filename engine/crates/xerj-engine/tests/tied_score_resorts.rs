@@ -14,10 +14,19 @@
 //! was replaced.
 //!
 //! The fixtures below make the misordering visible with readable ids: the
-//! flushed documents are named `seg…` and the unflushed ones `mem…`, so `_id`
-//! ASC ("m" < "s") puts every LATER memtable document ahead of every segment
-//! document — the exact inversion measured in #270 (`mem0000…mem0599` before
+//! documents written first are named `seg…` and the later ones `mem…`, so
+//! `_id` ASC ("m" < "s") puts every LATER document ahead of every earlier one
+//! — the exact inversion measured in #270 (`mem0000…mem0599` before
 //! `seg0000…seg0039`).
+//!
+//! **#361 note.** Four of the five re-sorts are still here.  The fifth — the
+//! bool-text IDF rescore's — is gone: #361 removed the pass itself, because it
+//! derived its `N`/`df` from the returned page and so made `_score` a function
+//! of `size`.  `bool_text_all_tied_page_keeps_arrival_order` below now
+//! certifies the same *property* (an all-tied multi-clause bool page comes back
+//! in arrival order) through the main page sort instead, and it additionally
+//! asserts bounded pages are prefixes of the full one, which the old
+//! rescore-era fixture could not.
 
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -74,6 +83,22 @@ async fn mixed_corpus(
     inserted
 }
 
+/// Same two batches as [`mixed_corpus`], but the second one is flushed too, so
+/// both live in SEGMENTS and every document is scored by the same arm.  Ids
+/// still invert under `_id` ASC ("mem…" before "seg…"), so an `_id`-only
+/// tie-break is still visible — what goes away is the memtable/segment
+/// first-pass scoring divergence, which would otherwise stop the page tying at
+/// all (see `bool_text_all_tied_page_keeps_arrival_order`).
+async fn two_segment_corpus(
+    idx: &std::sync::Arc<xerj_engine::index::Index>,
+    first: usize,
+    second: usize,
+) -> Vec<String> {
+    let inserted = mixed_corpus(idx, first, second).await;
+    idx.flush().await.unwrap();
+    inserted
+}
+
 fn assert_tied_and_in_arrival_order(
     label: &str,
     hits: &[xerj_query::Hit],
@@ -126,31 +151,32 @@ async fn tfidf_fallback_resort_keeps_arrival_order() {
     }
 }
 
-/// The IDF-weighted rescore for bool-text queries (a Bool with ≥2 text
-/// clauses).  On identical documents every clause has df == N, the rescored
-/// score is uniform, and the pass's re-sort used to tie by `_id` alone.  The
-/// corpus stays SMALL enough (340 docs → rescored score ≈ 0.005 > 0.001)
-/// that the TF-IDF fallback does not also fire — this isolates the bool-text
-/// re-sort.
+/// A Bool with two text clauses over 340 byte-identical documents: every
+/// clause has `df == N`, so both clause scores are equal for every document
+/// and the whole page ties exactly (measured: `0.002934686`, which is exactly
+/// twice the single-clause `0.001467343`).  The corpus stays SMALL enough that
+/// the TF-IDF fallback (`max_score < 0.001`) does not fire — this isolates the
+/// bool page sort.
 ///
-/// Only the FULL materialisation is asserted, and that is a known residual
-/// rather than an oversight: bounded pages for a multi-clause bool on a
-/// MIXED corpus are selected under the FIRST-PASS scores, where the
-/// memtable's uniform tf-sum (no IDF — the divergence this rescore pass
-/// exists to repair, see the comment above the pass) does not equal the
-/// segment BM25 score, so segment documents lose ADMISSION before the
-/// rescore ever ties them.  That is a first-pass scoring divergence between
-/// the memtable and segment scorers (#188's remit), not the `_id`-only
-/// tie-break #270 is about — admission runs before any re-sort, so no
-/// re-sort change can affect it — and it needs a scoring fix, not a sort
-/// fix.
+/// The two batches land in two SEGMENTS rather than one segment plus the
+/// memtable, and that choice is load-bearing.  A `bool` over a mixed corpus
+/// does not tie at all: the memtable arm falls to the IDF-less stored-doc
+/// scorer while the segments score BM25, so identical documents come back
+/// `1.6931472` (memtable) against `0.0122700855` (segment) — every unflushed
+/// document outranking every flushed one by 138×.  That is reproducible on
+/// unmodified `main` with a ONE-clause bool, which never reached the removed
+/// #361 pass, so it is a pre-existing first-pass divergence between the
+/// memtable and segment scorers (#188's remit) and not something #361 caused
+/// or can fix.  A tie-break test must not be built on a fixture that does not
+/// tie, hence two segments; the divergence itself needs its own issue and its
+/// own fix.
 #[tokio::test]
-async fn bool_text_idf_rescore_keeps_arrival_order() {
+async fn bool_text_all_tied_page_keeps_arrival_order() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
     engine.create_index("booltext", Schema::empty()).unwrap();
     let idx = engine.get_index("booltext").unwrap();
-    let inserted = mixed_corpus(&idx, 40, 300).await;
+    let inserted = two_segment_corpus(&idx, 40, 300).await;
 
     let q = json!({"bool": {"should": [
         {"match": {"body": "listpack"}},
@@ -158,6 +184,18 @@ async fn bool_text_idf_rescore_keeps_arrival_order() {
     ]}});
     let full = idx.search(&req(0, 1000, &q)).await.unwrap();
     assert_tied_and_in_arrival_order("bool-text", &full.hits, &inserted, 340, full.total.value);
+
+    // #361: bounded pages must be prefixes of the full materialisation — the
+    // invariant the page-derived rescore broke.  The rescore-era fixture could
+    // not assert this at all.
+    for size in [1usize, 5, 41, 100] {
+        let p = idx.search(&req(0, size, &q)).await.unwrap();
+        assert_eq!(
+            page_ids(&p.hits),
+            inserted[..size],
+            "bool-text: size:{size} page disagrees with the full materialisation"
+        );
+    }
 }
 
 /// The three re-sorts in the `request.rescore` path (before the first stage,
