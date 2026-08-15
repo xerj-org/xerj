@@ -8759,6 +8759,379 @@ mod nested_vector_clause_dispatch_tests {
             );
         }
     }
+
+    /// The same defect one level down, in the sibling peel: a `nested` kNN in
+    /// a bool was dispatched with every OTHER clause folded into a
+    /// post-filter, which is an AND. Measured before the gate, on three
+    /// documents holding one nested vector each:
+    ///
+    /// * `should: [<nested knn k:1>], filter: [match_all]` → `200`, 1 hit,
+    ///   where the same shape spelled lexically returns all 3;
+    /// * `should: [<nested knn>, {"term": …}]` → `200`, ZERO hits, where the
+    ///   lexical spelling of that OR returns 2.
+    ///
+    /// Both are silent, both answer a different question than the one asked.
+    #[tokio::test]
+    async fn a_nested_knn_the_bool_does_not_require_is_refused() {
+        let state = test_state();
+        let (status, body) = request_json(
+            &state,
+            "PUT",
+            "/sem-395-nested-opt",
+            json!({"mappings": {"properties": {
+                "items": {"type": "nested", "properties": {
+                    "vector": {"type": "dense_vector", "dims": 4},
+                }},
+                "tag": {"type": "keyword"},
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, vec4, tag) in [
+            (0, [1.0, 0.0, 0.0, 0.0], "alpha"),
+            (1, [0.0, 1.0, 0.0, 0.0], "beta"),
+            (2, [0.0, 0.0, 1.0, 0.0], "gamma"),
+        ] {
+            let (status, body) = request_json(
+                &state,
+                "PUT",
+                &format!("/sem-395-nested-opt/_doc/{id}"),
+                json!({"items": [{"vector": vec4}], "tag": tag}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        state
+            .engine
+            .get_index("sem-395-nested-opt")
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+
+        let nested = json!({"nested": {"path": "items", "query": {
+            "knn": {"field": "items.vector", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 1},
+        }}});
+
+        // Controls first, so the test cannot pass by refusing everything.
+        // The nested clause alone still dispatches, and so does the shape the
+        // bool genuinely requires.
+        for (label, body) in [
+            ("alone", json!({"query": nested.clone()})),
+            (
+                "must + filter",
+                json!({"query": {"bool": {
+                    "must": [nested.clone()],
+                    "filter": [{"match_all": {}}],
+                }}}),
+            ),
+        ] {
+            let (status, ok) =
+                request_json(&state, "POST", "/sem-395-nested-opt/_search", body).await;
+            assert_eq!(status, StatusCode::OK, "[{label}] {ok}");
+            assert_eq!(
+                ids(&ok),
+                vec!["0".to_string()],
+                "[{label}] the nested kNN must still dispatch: {ok}"
+            );
+        }
+        // What the two refused shapes MEAN, spelled lexically. These pin the
+        // hit sets the dispatch was answering next to.
+        let (status, or_control) = request_json(
+            &state,
+            "POST",
+            "/sem-395-nested-opt/_search",
+            json!({"query": {"bool": {"should": [
+                {"term": {"tag": "alpha"}},
+                {"term": {"tag": "beta"}},
+            ]}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{or_control}");
+        assert_eq!(ids(&or_control).len(), 2, "`should` is an OR: {or_control}");
+        let (status, opt_control) = request_json(
+            &state,
+            "POST",
+            "/sem-395-nested-opt/_search",
+            json!({"query": {"bool": {
+                "should": [{"term": {"tag": "alpha"}}],
+                "filter": [{"match_all": {}}],
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{opt_control}");
+        assert_eq!(
+            ids(&opt_control).len(),
+            3,
+            "beside a `filter` a `should` is optional: {opt_control}"
+        );
+
+        for (label, body) in [
+            (
+                "optional should beside a filter",
+                json!({"query": {"bool": {
+                    "should": [nested.clone()],
+                    "filter": [{"match_all": {}}],
+                }}}),
+            ),
+            (
+                "should sibling folded into a post-filter",
+                json!({"query": {"bool": {"should": [
+                    nested.clone(),
+                    {"term": {"tag": "beta"}},
+                ]}}}),
+            ),
+        ] {
+            let (status, refused) =
+                request_json(&state, "POST", "/sem-395-nested-opt/_search", body).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "[{label}] {refused}");
+            assert!(
+                reason(&refused).contains("knn on [items.vector]"),
+                "[{label}] the refusal names the clause: {refused}"
+            );
+        }
+    }
+
+    /// The regression the first cut of this fix shipped, and the reason this
+    /// test is written as an INVARIANT rather than a status code: a lone
+    /// `should` clause beside a `filter` is OPTIONAL — `minimum_should_match`
+    /// defaults to 0 — so the bool's hit set is the filter's, and the vector
+    /// clause only moves `_score`. Peeling it answered with the vector top-k
+    /// instead: a 200 with `_shards.failed: 0` holding one document where the
+    /// bool matches three. That is #395's own shape, created by #395's own fix.
+    ///
+    /// The lexical control pins what the bool means: a `should` clause that
+    /// matches NOTHING, beside the same filter, still returns every document.
+    #[tokio::test]
+    async fn an_optional_should_clause_beside_a_filter_never_narrows_silently() {
+        let state = test_state();
+        build_index(&state, "sem-395-optional").await;
+
+        // Control: `should` is optional beside a `filter`, so a clause that
+        // matches nothing removes nothing.
+        let (status, control) = request_json(
+            &state,
+            "POST",
+            "/sem-395-optional/_search",
+            json!({"query": {"bool": {
+                "should": [{"match": {"title": "zzzz-no-such-token"}}],
+                "filter": [{"match_all": {}}],
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{control}");
+        let all_ids = ids(&control);
+        assert_eq!(
+            all_ids.len(),
+            3,
+            "an optional `should` must not narrow the filter's hit set: {control}"
+        );
+
+        // The same shape with a vector clause in the `should`. `k: 1` makes
+        // the difference between "the bool's hit set" (3) and "the vector
+        // top-k" (1) unmissable. The `knn` spelling is here for its own
+        // reason: `peel_knn_query` has taken this shape since long before
+        // #395, so it is the one narrowing that predates this branch.
+        for clause in [
+            json!({"semantic": {"field": "ctx", "query": "graph edges", "k": 1}}),
+            json!({"knn": {"field": "ctx_vector", "query_vector": vec![0.1_f32; 32], "k": 1}}),
+        ] {
+            let (status, vector) = request_json(
+                &state,
+                "POST",
+                "/sem-395-optional/_search",
+                json!({"query": {"bool": {
+                    "should": [clause.clone()],
+                    "filter": [{"match_all": {}}],
+                }}}),
+            )
+            .await;
+            if status == StatusCode::OK {
+                // Answering is allowed — answering a DIFFERENT question is not.
+                assert_eq!(
+                    ids(&vector),
+                    all_ids,
+                    "[{clause}] a 200 for an optional `should` must carry the bool's own \
+                     hit set, not the vector top-k: {vector}"
+                );
+            } else {
+                assert_eq!(status, StatusCode::BAD_REQUEST, "[{clause}] {vector}");
+                assert!(
+                    reason(&vector).contains("hybrid"),
+                    "[{clause}] the refusal names the remedy: {vector}"
+                );
+            }
+        }
+
+        // And the clause the bool DOES require still dispatches: an explicit
+        // `minimum_should_match: 1` puts the vector clause back in charge of
+        // the hit set, so this one answers with the top-k.
+        let (status, required) = request_json(
+            &state,
+            "POST",
+            "/sem-395-optional/_search",
+            json!({"query": {"bool": {
+                "should": [{"semantic": {"field": "ctx", "query": "graph edges", "k": 1}}],
+                "filter": [{"match_all": {}}],
+                "minimum_should_match": 1,
+            }}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{required}");
+        assert_eq!(
+            ids(&required).len(),
+            1,
+            "`minimum_should_match: 1` requires the clause, so the top-k IS the \
+             hit set: {required}"
+        );
+    }
+
+    /// `function_score` holds queries in two places, and the second one —
+    /// `functions[].filter` — is evaluated by the same generic matcher. A
+    /// vector clause there dropped no hits at all: the function simply never
+    /// fired, so the response was a plausible hit set with the boost missing.
+    /// The lexical control proves the weight would have applied.
+    #[tokio::test]
+    async fn a_vector_clause_in_a_function_score_filter_is_refused() {
+        let state = test_state();
+        build_index(&state, "sem-395-fnscore").await;
+        let vector = vec![0.1_f32; 32];
+        let body = |filter: Value| {
+            json!({"query": {"function_score": {
+                "query": {"match_all": {}},
+                "functions": [{"filter": filter, "weight": 100.0}],
+                "boost_mode": "replace",
+            }}})
+        };
+
+        // Control: a function filter that matches every document applies its
+        // weight, so every `_score` is the weight itself.
+        let (status, applied) = request_json(
+            &state,
+            "POST",
+            "/sem-395-fnscore/_search",
+            body(json!({"match_all": {}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{applied}");
+        assert_eq!(
+            scores(&applied),
+            vec![100.0, 100.0, 100.0],
+            "the control has to actually fire, or this test certifies nothing: {applied}"
+        );
+
+        // A `knn` in the same slot used to answer 200 with every `_score` at
+        // 1.000 — byte-identical to a filter that matches nothing.
+        let (status, refused) = request_json(
+            &state,
+            "POST",
+            "/sem-395-fnscore/_search",
+            body(json!({"knn": {"field": "ctx_vector", "query_vector": vector, "k": 2}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert!(
+            reason(&refused).contains("knn on [ctx_vector]"),
+            "the refusal names the clause: {refused}"
+        );
+    }
+
+    /// The aggregation half, and the only position in #395 that answers with a
+    /// wrong NUMBER rather than a missing one: `aggs` stays raw JSON down to a
+    /// matcher with no arm for a vector clause, which falls out of its loop
+    /// returning `true`, so the bucket counts EVERY document.
+    #[tokio::test]
+    async fn a_vector_clause_in_an_aggregation_filter_is_refused() {
+        let state = test_state();
+        build_index(&state, "sem-395-aggs").await;
+        let vector = vec![0.1_f32; 32];
+        let body = |filter: Value| json!({"size": 0, "query": {"match_all": {}}, "aggs": {"f": {"filter": filter}}});
+        let doc_count = |json: &Value| json["aggregations"]["f"]["doc_count"].as_i64();
+
+        // Controls: the slot works, and it can answer 0.
+        let (status, some) = request_json(
+            &state,
+            "POST",
+            "/sem-395-aggs/_search",
+            body(json!({"match": {"ctx": "graph"}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{some}");
+        assert_eq!(doc_count(&some), Some(2), "lexical filter agg: {some}");
+        let (status, none) = request_json(
+            &state,
+            "POST",
+            "/sem-395-aggs/_search",
+            body(json!({"term": {"title": "zzzz-no-such-doc"}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{none}");
+        assert_eq!(doc_count(&none), Some(0), "a filter can answer 0: {none}");
+
+        // The vector clause used to answer `doc_count: 3` — every document —
+        // for a filter that was never applied.
+        let (status, refused) = request_json(
+            &state,
+            "POST",
+            "/sem-395-aggs/_search",
+            body(json!({"knn": {"field": "ctx_vector", "query_vector": vector, "k": 2}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert!(
+            reason(&refused).contains("knn on [ctx_vector]")
+                && reason(&refused).contains("aggregation"),
+            "the refusal names the clause and the position: {refused}"
+        );
+    }
+
+    /// `rescore` is its own request field, so nothing in the query tree walk
+    /// reaches it. A vector clause there contributes no score to any hit,
+    /// which looks exactly like a rescore that changed nothing.
+    #[tokio::test]
+    async fn a_vector_clause_in_a_rescore_query_is_refused() {
+        let state = test_state();
+        build_index(&state, "sem-395-rescore").await;
+        let vector = vec![0.1_f32; 32];
+        let body = |rescore_query: Value| {
+            json!({
+                "query": {"match_all": {}},
+                "rescore": {"window_size": 10, "query": {
+                    "rescore_query": rescore_query,
+                    "query_weight": 0.0,
+                    "rescore_query_weight": 1.0,
+                }},
+            })
+        };
+
+        // Control: a lexical rescore query moves the scores it is given.
+        let (status, applied) = request_json(
+            &state,
+            "POST",
+            "/sem-395-rescore/_search",
+            body(json!({"match": {"ctx": "graph"}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{applied}");
+        assert!(
+            scores(&applied).iter().any(|s| *s > 0.0),
+            "the control rescore has to actually score: {applied}"
+        );
+
+        let (status, refused) = request_json(
+            &state,
+            "POST",
+            "/sem-395-rescore/_search",
+            body(json!({"knn": {"field": "ctx_vector", "query_vector": vector, "k": 2}})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert!(
+            reason(&refused).contains("knn on [ctx_vector]")
+                && reason(&refused).contains("rescore"),
+            "the refusal names the clause and the position: {refused}"
+        );
+    }
 }
 
 /// `POST /{index}/_search`.

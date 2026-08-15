@@ -70,15 +70,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   set (ids `0`, `2`) while the vector half on its own reached all three — no
   error, no warning, `_shards.failed: 0`.
 
-  Two changes. A lone vector clause inside a `bool` is now dispatched: it
-  returns the same ids at the same scores as the bare clause, and the bool's
-  `filter` clauses become the vector pre-filter. Every position that still
-  cannot be dispatched — a vector clause beside a lexical one, in `filter` or
-  `must_not`, inside another vector clause's pre-filter, or beside a `nested`
-  kNN — now fails with `400` naming `hybrid` as the query that combines both
-  signals, instead of a 200 that answers half the question. A single-clause
-  `bool` carrying a `minimum_should_match` its one clause cannot satisfy is
-  refused for the same reason rather than peeled.
+  Two changes. **A vector clause a `bool` REQUIRES and holds alone is now
+  dispatched**: it returns the same ids at the same scores as the bare clause,
+  and the bool's `filter` clauses become the vector pre-filter.
+  `{"bool": {"must": [{"semantic": …}]}}` goes `total: 0` → the three
+  documents at `2@0.6774 0@0.6317 1@0.5130`, identical to the bare clause.
+  "Requires" is read off the evaluator, not off ES prose: a lone `should`
+  beside a `filter` is OPTIONAL (`minimum_should_match` defaults to 0), so the
+  bool's hit set is the filter's and dispatching the clause would answer with
+  the vector top-k instead — that shape is refused, and spelling it
+  `"minimum_should_match": 1` dispatches it (`total: 0` → `2@0.6774`).
+
+  **And the rule for everything else: any `knn` / `semantic` node the executor
+  cannot dispatch is now a `400` naming `hybrid`, wherever it sits.** Not a
+  list of positions — the request is walked, and a vector node found anywhere
+  the vector paths did not consume is refused instead of executed. Measured on
+  the three-document fixture, `200` before / `400` now, every one of them a
+  silent wrong answer before:
+
+  | request | was |
+  |---|---|
+  | `bool.should[match, semantic]` | `200`, the 2 `match` ids, vector half gone |
+  | `query` + top-level `knn` (the ES 8.x hybrid) | `200`, the same 2 ids |
+  | `dis_max[match, semantic]` | `200`, 2 ids at `1.0000` |
+  | `boosting{positive: match, negative: knn}` | `200`, 2 ids at `1.0000` |
+  | `pinned{ids, organic: bool.must[semantic]}` | `200`, `total: 0` |
+  | `bool{must: [knn], must_not: [term]}` | `200`, `total: 0` |
+  | `bool{should: [semantic], filter: [match_all]}` | `200`, all 3 at `1.0000` — clause dropped |
+  | `bool{should: [knn], filter: [match_all]}` | `200`, `total: 1` — the knn top-k, not the bool's 3 |
+  | `bool{should: [<nested knn>], filter: [match_all]}` | `200`, `total: 1` — same narrowing in the `nested` peel |
+  | `bool{should: [<nested knn>, {"term": …}]}` | `200`, `total: 0` — the optional sibling became a required post-filter; the same bool spelled lexically returns 2 |
+  | `function_score` with `knn` in `functions[].filter` | `200`, every `_score` `1.0000`; the function never fired (a `match_all` filter scores `100.0000`) |
+  | aggregation `filter` / `filters` / `background_filter` holding a vector clause | `200`, `doc_count: 3` of 3 — EVERY document, for a filter never applied (the lexical equivalent counts 2) |
+  | `rescore.query.rescore_query` holding a vector clause | `200`, every `_score` `0.0000` — the rescore contributed nothing |
+  | `size: 0` + aggs whose `query` holds a dropped vector clause | `200`, aggregated over the lexical hits alone |
+
+  The four `bool{should: …}` rows, `function_score`, the aggregation slots and
+  `rescore` are all the same rule reaching further, not new behaviour bolted
+  on: a `should` clause the bool does not REQUIRE is not a wrapper around the
+  vector clause, and `nested` kNN folds its siblings into post-filters, so both
+  peels now check the requirement before dispatching. The aggregation row is
+  the only position that answered a wrong NUMBER rather than a short hit list,
+  because the aggregation matcher has no arm for a vector clause and admits
+  every document. `_count`, `_delete_by_query` and `_explain` run the same check and
+  answer `400` — `_delete_by_query` on `{"must_not": [{"knn": …}]}` refuses and
+  leaves all three documents in place where it used to delete them —  and
+  `_msearch` carries the identical error inside the affected sub-response of
+  its `200` envelope, ES-style. `_explain` over a dispatchable clause is
+  unaffected (a bare `knn` still answers `matched: true`).
 
   **This is a breaking change for one shape ES answers**: the ES 8.x
   hand-rolled hybrid — a top-level `knn` block beside a `query` — is folded
@@ -86,7 +125,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than answered lexically. Fusing a nested vector clause the way
   `hybrid` already does is the larger half of #395 and is deliberately not in
   this change. `hybrid`, the `knn: [...]` array form, a bare `knn`/`semantic`
-  clause and `bool.must[knn] + filter` are all unaffected.
+  clause, `bool.must[knn] + filter` and `/_memory` semantic recall are all
+  unaffected.
+
+  Known gaps, all of them "still silent" rather than "wrongly refused":
+  `POST /{index}/_validate/query` answers `200 {"valid": true}` for a body this
+  check refuses, because it parses without executing; the check runs on the
+  request, so a vector clause inside a query stored as a percolator document is
+  not inspected; and an aggregation query slot is only checked when the query
+  parser accepts it, so a malformed filter keeps whatever behaviour it already
+  had.
 
 ## [1.0.0-rc.17] - 2026-08-15
 

@@ -688,8 +688,16 @@ pub async fn recall(
         };
         // The `semantic` query carries its own `filter` (applied as a kNN
         // pre-filter inside the engine), so pass the metadata filter there
-        // rather than wrapping in a `bool` — a `semantic` node nested in a
-        // `bool` is not dispatched to the vector path.
+        // rather than wrapping in a `bool`.
+        //
+        // Until #395 that was a REQUIREMENT: a `semantic` node nested in a
+        // `bool` was not dispatched to the vector path at all, and the wrapped
+        // form answered 200 with zero hits. It is now only a preference —
+        // `{"bool": {"must": [{"semantic": …}], "filter": [<meta>]}}` peels and
+        // merges the filter into the same pre-filter. Keeping the filter on the
+        // node keeps recall independent of which bool shapes the peel accepts:
+        // the peel takes the clause the bool REQUIRES, so a `should`-spelled
+        // wrapper beside a filter would be refused rather than dispatched.
         let mut semantic = json!({ "field": "text", "query": q, "k": fetch });
         if let Some(filter) = filter_opt {
             semantic["filter"] = filter;

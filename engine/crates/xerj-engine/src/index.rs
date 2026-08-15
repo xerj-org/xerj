@@ -13803,6 +13803,48 @@ impl Index {
         };
         let query = &resolved_query;
 
+        // ── Undispatchable vector clause OUTSIDE the query tree (#395) ────────
+        // `aggs` and `rescore` are their own fields of the request, so a vector
+        // clause in either is not reachable from `query` and no peel below can
+        // make it reachable. They are checked HERE, ahead of the vector
+        // short-circuits, precisely because those return early: a request whose
+        // `query` is a perfectly dispatchable `knn` and whose aggregation
+        // filter holds a second one would never reach a check placed after
+        // them.
+        //
+        // The two silences differ, and the messages say which. An aggregation
+        // `filter` counts EVERY document into the bucket — `doc_matches_filter`
+        // is a JSON matcher with no arm for `knn`/`semantic`, so it falls out
+        // of its loop returning `true`. A `rescore` query contributes no score
+        // to any hit, which just looks like a rescore that changed nothing.
+        if let Some(aggs) = request.aggs.as_ref() {
+            if let Some(clause) = undispatched_vector_clause_in_aggs(aggs) {
+                return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                    format!(
+                        "[{clause}] sits in an aggregation query slot, which this version \
+                         cannot dispatch to the vector index. Executing it would not leave \
+                         the bucket empty — the aggregation matcher has no arm for a vector \
+                         clause and admits every document, so the bucket would answer with a \
+                         doc_count for a filter that was never applied. Filter the search \
+                         itself with `knn`/`semantic` (aggregations run over the query's \
+                         hits) instead of putting a vector clause in an aggregation filter."
+                    ),
+                )));
+            }
+        }
+        for rescore in &request.rescore {
+            if let Some(clause) = rescore
+                .query
+                .as_ref()
+                .and_then(|inner| undispatched_vector_clause(&inner.rescore_query))
+            {
+                return Err(undispatched_vector_clause_error(
+                    &clause,
+                    "a `rescore` query",
+                ));
+            }
+        }
+
         // ── KNN short-circuit ──────────────────────────────────────────────────
         // Vector-only queries (top-level `knn`) bypass the FTS / doc-scan
         // path entirely: we iterate every doc, compute the configured
@@ -14010,20 +14052,7 @@ impl Index {
         // there is nothing for a bool to compose — which is exactly why the
         // clause vanished instead of erroring.
         if let Some(clause) = undispatched_vector_clause(query) {
-            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
-                format!(
-                    "[{clause}] sits in a position this version cannot dispatch to the vector \
-                     index. Executing it would drop the vector half of this query silently — \
-                     the lexical clauses would answer alone, with no error and no failed \
-                     shards. Combine the two signals with `hybrid` instead: \
-                     {{\"hybrid\": {{\"queries\": [{{\"query\": {{<lexical clause>}}}}, \
-                     {{\"query\": {{<vector clause>}}}}]}}}}. A single vector clause may also \
-                     be wrapped in a `bool` that adds nothing but `filter` clauses, and the \
-                     clause on its own is always dispatched. NOTE: the ES 8.x top-level \
-                     `knn` beside a `query` is folded into exactly this `bool` shape and is \
-                     refused for the same reason."
-                ),
-            )));
+            return Err(undispatched_vector_clause_error(&clause, "a position"));
         }
 
         // ── Max result window enforcement ──────────────────────────────────────
@@ -29688,19 +29717,39 @@ struct PeeledKnn {
 }
 
 /// The one `Bool` shape that is a transparent wrapper around a single vector
-/// clause: no `must_not`, exactly one `must`/`should` clause, and a
-/// `minimum_should_match` that one clause can satisfy. Returns that clause
-/// together with the bool's own `filter` clauses, which AND into the vector
-/// node's pre-filter.
+/// clause: no `must_not`, exactly one `must`/`should` clause, that clause
+/// REQUIRED by the bool, and a `minimum_should_match` that one clause can
+/// satisfy. Returns the clause together with the bool's own `filter` clauses,
+/// which AND into the vector node's pre-filter.
 ///
-/// `minimum_should_match` is READ here rather than ignored. With a single
-/// `should` clause, every percentage form still requires that one clause, and
-/// `0` / `1` are the same requirement written out — all of those are no-ops.
-/// `Fixed(n >= 2)` cannot be satisfied by one clause, and the `terms_set`-only
-/// `Field` / `Script` forms have no per-bool meaning at all; peeling either
-/// would answer with the vector top-k instead, which is #395's own shape.
-/// Those decline, and `undispatched_vector_clause` converts the decline into a
-/// 400 rather than a wrong answer.
+/// "Required" is load-bearing and is NOT the same thing as "present". A bool
+/// answers with the documents its required clauses admit; a vector dispatch
+/// answers with the clause's own top-k. Those two agree only when the clause
+/// is the thing the bool requires — with a `filter` beside an OPTIONAL
+/// `should`, the bool's hit set is the filter's and the vector clause only
+/// moves `_score`. `{"bool": {"should": [{"semantic": …}], "filter":
+/// [{"match_all": {}}]}}` over three documents matches all three; peeling it
+/// as a `semantic` answers with the top-1. That is #395's own shape — a 200
+/// answering the question next to the one asked — so it declines to the
+/// refusal instead.
+///
+/// `minimum_should_match` is therefore READ here, and the rule for it is the
+/// one `doc_matches_query` implements (the `Bool` arm's `min` match) and the
+/// bool fold restates (`should_required`), not the one ES documents in prose:
+///
+/// * `None` → required iff `must` and `filter` are both empty.
+/// * `Fixed(0)` → optional, even with no `filter`: `min == 0` skips the
+///   should test entirely, so the bool matches every document.
+/// * `Fixed(1)` / `Percentage(_)` → required; the percentage count is
+///   `floor(len × p/100).max(1)`, which is 1 for the single clause present
+///   whatever the percentage says.
+/// * `Fixed(n >= 2)` → cannot be satisfied by one clause.
+/// * `Field` / `Script` (`terms_set`) → the count is read PER DOCUMENT, so
+///   there is no per-bool answer to "is this clause required" at all.
+///
+/// The last two decline whichever slot the clause sits in, the rest only
+/// matter for a `should`. Every decline routes to `undispatched_vector_clause`,
+/// which converts it into a 400 rather than a wrong answer.
 fn peel_bool_vector_wrapper<'a>(
     must: &'a [QueryNode],
     should: &'a [QueryNode],
@@ -29720,6 +29769,20 @@ fn peel_bool_vector_wrapper<'a>(
     let only = candidates.next()?;
     if candidates.next().is_some() {
         return None;
+    }
+    // `must` is empty exactly when the one clause came from `should`, and only
+    // then does `minimum_should_match` say anything: `doc_matches_query` skips
+    // the whole should block when `should` is empty.
+    if must.is_empty() {
+        let should_required = match minimum_should_match {
+            None => filter.is_empty(),
+            Some(MinShouldMatch::Fixed(n)) => *n == 1,
+            Some(MinShouldMatch::Percentage(_)) => true,
+            Some(MinShouldMatch::Field(_)) | Some(MinShouldMatch::Script { .. }) => false,
+        };
+        if !should_required {
+            return None;
+        }
     }
     // A bool `filter` becomes the vector node's pre-filter, and pre-filters are
     // evaluated by the generic matcher — which is the one place a vector clause
@@ -30056,10 +30119,18 @@ fn peel_semantic_query(q: &QueryNode) -> Option<(String, String, usize, Option<B
 /// answer normally, `_shards.failed` stays 0, and the caller gets a 200 whose
 /// recall is missing exactly the half they asked the vector index for (#395).
 ///
-/// This walks the WHOLE tree, including the `filter` sub-query of a vector
-/// node: those are evaluated with `doc_matches_query` too, so a `knn` inside a
-/// `knn`'s filter is the same silent zero one level down. The peels decline
-/// such a spec (they cannot honour the filter), which routes it here.
+/// This walks every sub-query slot of every `QueryNode` variant — including
+/// the ones that are not "the query" in the obvious sense: the `filter` of a
+/// vector node (a `knn` inside a `knn`'s pre-filter is the same silent zero one
+/// level down; the peels decline such a spec and route it here) and
+/// `function_score`'s `functions[].filter`. It does NOT reach the query slots
+/// that live OUTSIDE the query tree — `rescore[].query.rescore_query` and the
+/// `filter` / `filters` / `background_filter` of an aggregation. Those are
+/// separate fields of `SearchRequest`, and the caller checks them separately
+/// (`undispatched_vector_clause_in_aggs` and the `rescore` walk at the refusal
+/// site). `_validate/query` never reaches this function — it parses and answers
+/// `valid: true` without executing — which is disclosed in the #395 CHANGELOG
+/// entry along with the rest of the blast radius.
 ///
 /// Lucene's doctrine for "you asked this field for something it does not do"
 /// is to throw and name the fix rather than answer the neighbouring question —
@@ -30086,8 +30157,24 @@ fn undispatched_vector_clause(q: &QueryNode) -> Option<String> {
         QueryNode::Constant { query, .. }
         | QueryNode::Boosted { query, .. }
         | QueryNode::Named { query, .. }
-        | QueryNode::Nested { query, .. }
-        | QueryNode::FunctionScore { query, .. } => undispatched_vector_clause(query),
+        | QueryNode::Nested { query, .. } => undispatched_vector_clause(query),
+        // A `function_score` holds queries in TWO places. `apply_function_score`
+        // evaluates `functions[].filter` with `doc_matches_query` exactly as the
+        // main query is evaluated, so a vector clause there is the same silent
+        // drop one level down — and a quieter one: the function simply never
+        // fires, so the response is a plausible set of hits with the boost
+        // missing. Measured before this arm existed, on 5 documents:
+        // `functions: [{"filter": {"knn": {…, "k": 2}}, "weight": 100}]` with
+        // `boost_mode: replace` scored every hit 1.000, byte-identical to a
+        // filter that matches nothing, where `{"match_all": {}}` scores 100.000.
+        QueryNode::FunctionScore {
+            query, functions, ..
+        } => undispatched_vector_clause(query).or_else(|| {
+            functions
+                .iter()
+                .filter_map(|f| f.filter.as_ref())
+                .find_map(undispatched_vector_clause)
+        }),
         QueryNode::Pinned { organic, .. } => undispatched_vector_clause(organic),
         QueryNode::Boosting {
             positive, negative, ..
@@ -30108,6 +30195,75 @@ fn undispatched_vector_clause(q: &QueryNode) -> Option<String> {
         }
         // Every remaining variant is a lexical / structural leaf that can hold
         // no sub-query at all.
+        _ => None,
+    }
+}
+
+/// The 400 for a vector clause in a position this version cannot dispatch
+/// (#395). `position` completes "sits in …" and is the only part that varies
+/// between the query tree and `rescore`; both fail the same way, by dropping
+/// the vector contribution and answering with the lexical one.
+fn undispatched_vector_clause_error(clause: &str, position: &str) -> EngineError {
+    EngineError::Common(xerj_common::XerjError::invalid_query(format!(
+        "[{clause}] sits in {position} that this version cannot dispatch to the vector \
+         index. Executing it would drop the vector half of this query silently — \
+         the lexical clauses would answer alone, with no error and no failed \
+         shards. Combine the two signals with `hybrid` instead: \
+         {{\"hybrid\": {{\"queries\": [{{\"query\": {{<lexical clause>}}}}, \
+         {{\"query\": {{<vector clause>}}}}]}}}}. A single vector clause may also \
+         be wrapped in a `bool` that adds nothing but `filter` clauses, and the \
+         clause on its own is always dispatched. NOTE: the ES 8.x top-level \
+         `knn` beside a `query` is folded into exactly this `bool` shape and is \
+         refused for the same reason."
+    )))
+}
+
+/// The first `knn` / `semantic` clause sitting in an aggregation's query slot
+/// (#395), rendered like `undispatched_vector_clause`'s — `None` when there is
+/// none.
+///
+/// `aggs` stays raw JSON all the way down to `aggs::doc_matches_filter`, a
+/// JSON matcher with no arm for `knn` or `semantic`: the clause matches neither
+/// the `term`/`range`/… arms nor anything else, the loop falls out of the
+/// bottom, and the function returns `true`. So a bucket filtered by a vector
+/// clause does not come back EMPTY, it comes back holding EVERY document —
+/// a confidently wrong number rather than a missing one, which is worse than
+/// the dropped clause #395 opened with. Measured on the three-document fixture
+/// before this guard existed: `{"size": 0, "aggs": {"f": {"filter": {"knn":
+/// {…, "k": 2}}}}}` answered `{"f": {"doc_count": 3}}`, against `doc_count: 2`
+/// for the equivalent `match` and `0` for a filter that matches nothing.
+///
+/// Only slots that actually hold a query are inspected — `filter`, the members
+/// of a `filters` agg, and `significant_terms`' `background_filter` — and only
+/// when the real query parser accepts the value. A slot the parser rejects is
+/// left with exactly the behaviour it already had rather than being turned
+/// into a 400 by a walk that guessed; the parser requires a single-key object,
+/// so an agg body is not mistaken for a query.
+fn undispatched_vector_clause_in_aggs(aggs: &Value) -> Option<String> {
+    fn query_slot(v: &Value) -> Option<String> {
+        xerj_query::parse_query(v)
+            .ok()
+            .as_ref()
+            .and_then(undispatched_vector_clause)
+    }
+    match aggs {
+        Value::Object(map) => map.iter().find_map(|(key, val)| {
+            match key.as_str() {
+                "filter" | "background_filter" => query_slot(val),
+                // Named (`{"filters": {"a": {…}}}`) or anonymous
+                // (`{"filters": [{…}]}`). The outer `filters` agg body wraps
+                // one of those under the same key, and the recursion below
+                // reaches it.
+                "filters" => match val {
+                    Value::Object(named) => named.values().find_map(query_slot),
+                    Value::Array(list) => list.iter().find_map(query_slot),
+                    _ => None,
+                },
+                _ => None,
+            }
+            .or_else(|| undispatched_vector_clause_in_aggs(val))
+        }),
+        Value::Array(items) => items.iter().find_map(undispatched_vector_clause_in_aggs),
         _ => None,
     }
 }
@@ -30165,9 +30321,42 @@ fn peel_nested_knn_query(
                 should,
                 filter,
                 must_not,
-                ..
+                minimum_should_match,
             } => {
                 if !must_not.is_empty() {
+                    return None;
+                }
+                // This arm folds every sibling clause into a POST-FILTER, which
+                // is an AND — so it is only sound while every clause the bool
+                // holds is one the bool REQUIRES. A `should` clause is not,
+                // unless it is the only clause and `minimum_should_match` makes
+                // it one (the rule `peel_bool_vector_wrapper` documents, read
+                // off `doc_matches_query`). Measured before this gate, on three
+                // documents with one nested vector each:
+                // `should: [<nested knn k:1>], filter: [match_all]` answered
+                // `200` with 1 hit where the bool matches 3, and
+                // `should: [<nested knn>, {"term": …}]` answered `200` with
+                // ZERO hits where the same bool spelled lexically returns 2 —
+                // the optional sibling had become a required post-filter. Both
+                // are #395's own shape one level down, so they decline here and
+                // the refusal turns them into a 400.
+                let every_should_required = match should.len() {
+                    0 => true,
+                    1 => match minimum_should_match {
+                        None => must.is_empty() && filter.is_empty(),
+                        Some(MinShouldMatch::Fixed(n)) => *n == 1,
+                        Some(MinShouldMatch::Percentage(_)) => true,
+                        Some(MinShouldMatch::Field(_)) | Some(MinShouldMatch::Script { .. }) => {
+                            false
+                        }
+                    },
+                    // Two optional clauses ANDed as post-filters is the `total:
+                    // 0` case above; a `minimum_should_match` that requires
+                    // them all would be sound, but no caller writes it and
+                    // guessing here is what #395 is about.
+                    _ => false,
+                };
+                if !every_should_required {
                     return None;
                 }
                 // Find the single Nested(Knn) clause among must/should.
@@ -43100,6 +43289,103 @@ mod vector_clause_peel_tests {
         );
     }
 
+    /// A `should` clause is only a transparent wrapper when the bool REQUIRES
+    /// it. Beside a `filter`, `minimum_should_match` defaults to 0 — the bool
+    /// answers with the filter's documents and the clause only moves `_score`
+    /// — so peeling it would answer with the vector top-k for a strictly
+    /// larger hit set. Same for an explicit `Fixed(0)`, which makes the whole
+    /// should test a no-op and the bool match every document.
+    ///
+    /// The rule is read off `doc_matches_query`'s `Bool` arm, not off ES prose:
+    /// `Percentage(p)` computes `floor(len × p/100).max(1)`, so with one clause
+    /// EVERY percentage requires it, including `0`.
+    #[test]
+    fn a_should_clause_the_bool_does_not_require_declines() {
+        let shape = |msm: Option<MinShouldMatch>, filter: Vec<QueryNode>| QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![semantic()],
+            filter,
+            must_not: Vec::new(),
+            minimum_should_match: msm,
+        };
+        // The regression this test exists for: a lone `should` beside a
+        // `filter` is OPTIONAL, so the bool's hit set is the filter's.
+        assert!(
+            peel_semantic_query(&shape(None, vec![term("a")])).is_none(),
+            "an optional `should` beside a `filter` must not be peeled"
+        );
+        assert!(
+            peel_knn_query(&QueryNode::Bool {
+                must: Vec::new(),
+                should: vec![knn()],
+                filter: vec![term("a")],
+                must_not: Vec::new(),
+                minimum_should_match: None,
+            })
+            .is_none(),
+            "and the knn peel, which has taken this shape since it was written, \
+             must not be peeled either"
+        );
+        // `Fixed(0)` is optional with or without a filter.
+        assert!(peel_semantic_query(&shape(Some(MinShouldMatch::Fixed(0)), vec![])).is_none());
+        assert!(
+            peel_semantic_query(&shape(Some(MinShouldMatch::Fixed(0)), vec![term("a")])).is_none()
+        );
+        // An explicit requirement puts the clause back in charge of the hit set.
+        assert!(
+            peel_semantic_query(&shape(Some(MinShouldMatch::Fixed(1)), vec![term("a")])).is_some(),
+            "`minimum_should_match: 1` makes the one clause required again"
+        );
+        assert!(
+            peel_semantic_query(&shape(
+                Some(MinShouldMatch::Percentage(50)),
+                vec![term("a")]
+            ))
+            .is_some(),
+            "so does every percentage: the count is floor(1 × p/100).max(1) == 1"
+        );
+        // With no `filter` the clause is required by default, which is the
+        // shape the fix was written for and must keep working.
+        assert!(peel_semantic_query(&shape(None, vec![])).is_some());
+        // A `must` clause is required whatever sits beside it.
+        assert!(peel_semantic_query(&bool_of(vec![semantic()], vec![], vec![term("a")])).is_some());
+    }
+
+    /// The same rule in the sibling peel. `peel_nested_knn_query` folds every
+    /// clause beside the `nested` one into a POST-FILTER, which is an AND, so
+    /// it is only sound while the bool requires all of them. An optional
+    /// `should` there answered the vector top-k for a bool whose hit set is
+    /// its filter's, and an optional `should` SIBLING became a required
+    /// post-filter and emptied an OR.
+    #[test]
+    fn a_nested_knn_the_bool_does_not_require_declines() {
+        let nested = || QueryNode::Nested {
+            path: "items".into(),
+            query: Box::new(QueryNode::Knn {
+                field: "items.vector".into(),
+                vector: vec![1.0, 0.0],
+                k: 1,
+                num_candidates: None,
+                filter: None,
+                boost: None,
+                similarity: None,
+            }),
+            score_mode: None,
+        };
+        // Controls: the shapes the bool genuinely requires still peel.
+        assert!(peel_nested_knn_query(&nested()).is_some());
+        assert!(peel_nested_knn_query(&bool_of(vec![nested()], vec![], vec![term("a")])).is_some());
+        assert!(peel_nested_knn_query(&bool_of(vec![], vec![nested()], vec![])).is_some());
+        // Optional `should` beside a `filter`: the bool's hit set is the
+        // filter's, not the nested clause's top-k.
+        assert!(peel_nested_knn_query(&bool_of(vec![], vec![nested()], vec![term("a")])).is_none());
+        // A `should` sibling is an OR contribution, not a post-filter.
+        assert!(
+            peel_nested_knn_query(&bool_of(vec![], vec![nested(), term("a")], vec![])).is_none()
+        );
+        assert!(peel_nested_knn_query(&bool_of(vec![nested()], vec![term("a")], vec![])).is_none());
+    }
+
     /// A pre-filter is evaluated by the generic matcher, so a vector clause
     /// inside one is unsatisfiable — the peel declines instead of dispatching
     /// a search that can only return zero hits.
@@ -43144,11 +43430,92 @@ mod vector_clause_peel_tests {
             .is_some(),
             "a hybrid sub-query is searched recursively, and the same hole is inside it"
         );
+        // `function_score` holds queries in two slots and the second one,
+        // `functions[].filter`, is evaluated by `doc_matches_query` in
+        // `apply_function_score`. A vector clause there does not drop hits —
+        // the function silently never fires, so the response is the right
+        // documents with the boost missing.
+        assert!(
+            undispatched_vector_clause(&QueryNode::FunctionScore {
+                query: Box::new(QueryNode::MatchAll),
+                functions: vec![xerj_query::ast::ScoreFunction {
+                    filter: Some(knn()),
+                    weight: Some(100.0),
+                    ..Default::default()
+                }],
+                score_mode: Default::default(),
+                boost_mode: Default::default(),
+                max_boost: None,
+            })
+            .is_some(),
+            "a vector clause in a function's own filter is the same silent drop"
+        );
         assert!(
             undispatched_vector_clause(&bool_of(vec![term("a")], vec![term("b")], vec![]))
                 .is_none(),
             "a purely lexical tree must never be refused"
         );
+        assert!(
+            undispatched_vector_clause(&QueryNode::FunctionScore {
+                query: Box::new(QueryNode::MatchAll),
+                functions: vec![xerj_query::ast::ScoreFunction {
+                    filter: Some(term("a")),
+                    weight: Some(2.0),
+                    ..Default::default()
+                }],
+                score_mode: Default::default(),
+                boost_mode: Default::default(),
+                max_boost: None,
+            })
+            .is_none(),
+            "and a lexical function filter must still run"
+        );
+    }
+
+    /// The aggregation half of the same hole, which is worse than a drop: the
+    /// JSON matcher behind `filter`/`filters` has no arm for a vector clause
+    /// and returns `true`, so the bucket counts EVERY document. Only real query
+    /// slots are inspected, and only when the query parser accepts them.
+    #[test]
+    fn undispatched_vector_clause_in_aggs_finds_the_query_slots() {
+        let knn_json = serde_json::json!({
+            "field": "vec", "query_vector": [1.0, 0.0], "k": 2
+        });
+        for aggs in [
+            serde_json::json!({"f": {"filter": {"knn": knn_json}}}),
+            // Nested one level down, under a sub-aggregation.
+            serde_json::json!({"outer": {"terms": {"field": "tag"},
+                                         "aggs": {"f": {"filter": {"knn": knn_json}}}}}),
+            // Inside a bool inside the filter.
+            serde_json::json!({"f": {"filter": {"bool": {"must": [{"knn": knn_json}]}}}}),
+            // Named `filters` agg.
+            serde_json::json!({"f": {"filters": {"filters": {"a": {"knn": knn_json}}}}}),
+            // Anonymous `filters` agg.
+            serde_json::json!({"f": {"filters": {"filters": [{"knn": knn_json}]}}}),
+            // `significant_terms`' background corpus.
+            serde_json::json!({"f": {"significant_terms": {"field": "tag",
+                                     "background_filter": {"knn": knn_json}}}}),
+        ] {
+            assert!(
+                undispatched_vector_clause_in_aggs(&aggs).is_some(),
+                "a vector clause in an aggregation query slot must be found: {aggs}"
+            );
+        }
+        for aggs in [
+            // No query slot at all.
+            serde_json::json!({"f": {"terms": {"field": "tag"}}}),
+            // A lexical filter is exactly what these slots are for.
+            serde_json::json!({"f": {"filter": {"term": {"tag": "a"}}}}),
+            // A FIELD named `knn` is not a `knn` clause, and an aggregation
+            // NAMED `filter` is not a filter agg.
+            serde_json::json!({"f": {"filter": {"term": {"knn": "a"}}}}),
+            serde_json::json!({"filter": {"terms": {"field": "semantic"}}}),
+        ] {
+            assert!(
+                undispatched_vector_clause_in_aggs(&aggs).is_none(),
+                "must not refuse an aggregation that holds no vector clause: {aggs}"
+            );
+        }
     }
 }
 
