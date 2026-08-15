@@ -49,8 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "lexical_on_semantic_text"`) that names the field, says the embedding was
   not consulted, and gives a ready-to-paste `semantic` query body. Scoring,
   hits and every ES-compat response field are unchanged, and the hint stays
-  quiet when the same request already reaches the vector through `semantic`
-  or `knn` (including the ES 8.x top-level `knn` block).
+  quiet when the same request really does reach the vector — a `semantic` or
+  `knn` clause the engine dispatches, or a `hybrid` sub-query (see #394 below,
+  which corrects what "reaches the vector" was originally taken to mean).
+
 - **A `quantization: "scalar8"` (`int8_hnsw`) vector field scored updated
   documents from stale quantized data, silently, forever**
   ([#371](https://github.com/xerj-org/xerj/issues/371)).
@@ -203,6 +205,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   codec store going away. In principle this change adds one min/max pass over
   the candidate vectors and removes a lock acquisition; both are small against
   the encode/decode/similarity work the scan already does.
+
+- **The `semantic_text` hint no longer goes quiet on a query that never
+  reached the vector** ([#394](https://github.com/xerj-org/xerj/issues/394)).
+  The suppression rule shipped with #363 counted a `semantic` or `knn` key
+  *anywhere* in the request as "this caller already got the semantics". XERJ
+  enters vector search only from a whole-query short-circuit, so two of the
+  shapes it fell silent on never consult the vector at all: `bool.should:
+  [match, semantic]` — what a caller writes when they mean *both* signals —
+  and the ES 8.x top-level `knn` block beside a `query`, which the ES-compat
+  layer folds into exactly that `bool`. Each runs its lexical half, drops its
+  vector half, and had the one diagnostic that would have said so suppressed;
+  one of #363's own tests pinned the first as correct.
+
+  Suppression is now **positional**: the request is classified clause by
+  clause against each of the five short-circuits the engine actually tries —
+  `peel_knn_query`, `peel_multi_knn_query`, `peel_nested_knn_query`,
+  `peel_semantic_query`, `peel_hybrid_query` — rather than against the
+  presence of a keyword. The distinction that does the work is that **only a
+  `knn` is ever peeled out of a `bool`**: `peel_knn_query` is the one
+  short-circuit with a `Bool` arm and it recurses into itself, so a
+  `semantic` or a `hybrid` written in the same slot is dropped. A request
+  whose vector clause is inert now gets a hint that names the clause and
+  suggests a `hybrid` body — the shape that does run both halves — instead
+  of being told to write the `semantic` clause it can already see in its own
+  request body.
+
+  Three shapes that DO reach the vector stay silent, so the fix is not "hint
+  on everything": a `hybrid` sub-query, a `bool` holding one `knn` beside a
+  lexical `filter` (`peel_knn_query` folds that into a filtered kNN), and the
+  top-level `knn: [...]` array, whose `knn[].filter` is the one way a lexical
+  clause reaches this hint from a request whose vectors all ran.
+
+  Measured at the HTTP boundary on the three-document index in the tests
+  (`_score` values are from those runs, not from reading the code):
+
+  * dispatched, and silent — `bool.should:[{knn}] + filter:[{match}]` returns
+    the same hits and the same `_score`s (0.49674308, 0.3751064) as the
+    canonical top-level filtered `knn` it is folded into, and a different
+    query vector reorders them; the top-level `knn: [...]` array returns all
+    three documents, including the one no lexical clause here can reach.
+  * inert, and now flagged — `bool.should:[{semantic}] + filter:[{match}]`
+    returns 1.0/1.0 for two documents and returns *exactly the same response*
+    when the `semantic` clause's query text is changed to target a different
+    document, which is what "contributes no hits and no score" looks like
+    from outside. `bool.must:[{hybrid}] + filter:[{match}]` returns ZERO hits
+    where its own `filter` alone returns two.
+
+  Two shapes are deliberately **not** claimed either way, because the walk
+  cannot prove them and a hint that is wrong about what the engine did is
+  worth less than no hint: a `knn` under a `nested` (`peel_nested_knn_query`
+  dispatches some of those and this walk does not model which), and a
+  multi-kNN `bool` behind a `constant_score` or a `boost` — those two really
+  are inert (both return zero hits, against three for the bare form) and are
+  flagged, but they are singled out here because `peel_multi_knn_query` is
+  the one peel with no `Constant`/`Boosted` arm, and treating them as reached
+  would have put this very bug back inside its own fix.
+
+  Scope: this changes the diagnostic only. The engine behaviour underneath —
+  a vector clause outside a dispatch position is parsed and then contributes
+  no hits and no score, rather than running or being rejected — is unchanged
+  and is not fixed here.
 
 ## [1.0.0-rc.17] - 2026-08-15
 
