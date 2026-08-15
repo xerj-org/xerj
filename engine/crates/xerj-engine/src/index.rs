@@ -13795,11 +13795,17 @@ impl Index {
             // the lowering the missing postings hand the clause to the
             // stored-doc scan. See `lower_lexically_typeless_clauses`.
             let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
-            if typeless.is_empty() {
+            let lowered = if typeless.is_empty() {
                 resolved
             } else {
                 lower_lexically_typeless_clauses(&resolved, &typeless)
-            }
+            };
+            // #399 — and it belongs HERE for exactly the reason above: every
+            // path decision below is made on the SHAPE of this tree, so a
+            // `bool` wrapper that ES erases before it builds a `Weight` has to
+            // be erased before `is_doc_scan_query` or `query_node_to_fts` can
+            // read it. See `unwrap_single_clause_bool`.
+            unwrap_single_clause_bool(lowered)
         };
         let query = &resolved_query;
 
@@ -17161,9 +17167,17 @@ impl Index {
             // Top-level constant_score: scores are the wrapper's constant —
             // the hit-set idf heuristic must not rewrite them.
             && !matches!(query, QueryNode::Constant { .. })
-            && query_uses_bool_text(&request.query)
+            // `query`, not `request.query` (#399): these gates decide whether
+            // to REWRITE what the executor just scored, so they have to read
+            // the same tree the executor was steered by — alias-resolved,
+            // typeless-lowered, one-clause-bools erased. Reading the raw
+            // request re-opens the defect from the other side: after the
+            // unwrap `bool{must:[X]}` and bare `X` take the same path and
+            // score the same, and then a gate that still sees a `Bool` would
+            // rewrite one page and not the other.
+            && query_uses_bool_text(query)
         {
-            let field_term_pairs = collect_match_field_terms(&request.query);
+            let field_term_pairs = collect_match_field_terms(query);
             if !field_term_pairs.is_empty() {
                 let n_docs = final_hits.len() as f32;
                 // For each (field, term) clause, compute its doc frequency.
@@ -17223,7 +17237,13 @@ impl Index {
             // TF-IDF fallback: when all BM25 scores are negligibly small, recompute
             // using a simpler term-frequency heuristic for more useful ranking.
             if max_score > 0.0 && max_score < 0.001 {
-                let query_terms = extract_query_text(&request.query)
+                // `query`, not `request.query` — same argument as the rescore
+                // gate above (#399). `extract_query_text` answers `None` for a
+                // `Bool`, so with the raw request a very common term (BM25
+                // below 0.001) would be TF-IDF-rewritten as a bare `match` and
+                // left alone as `bool{must:[match]}` — the identical query
+                // shape divergence, one gate further down.
+                let query_terms = extract_query_text(query)
                     .map(|t| {
                         t.split_whitespace()
                             .map(|s| s.to_lowercase())
@@ -32575,6 +32595,94 @@ fn extract_query_text(q: &QueryNode) -> Option<String> {
         QueryNode::QueryString { query, .. } => Some(query.clone()),
         // MultiMatch and MatchPhrase are handled by doc scanning (is_doc_scan_query).
         _ => None,
+    }
+}
+
+/// Erase `bool` wrappers whose only clause is a single SCORING clause.
+///
+/// `{"bool":{"must":[X]}}` and bare `X` are the same query and ES gives them
+/// the same `_score`: `BooleanQuery.rewrite` replaces a one-clause boolean
+/// with the clause's own query *before* any `Weight` exists — a lone `MUST`,
+/// or a lone `SHOULD` with `minimumNumberShouldMatch` 0 or 1 (BooleanQuery.java:279-298,
+/// "optimize 1-clause queries") — so the wrapper is structurally incapable of
+/// contributing anything.
+///
+/// XERJ steers on the SHAPE of the query tree, which is what made the wrapper
+/// anything but neutral (#399). `is_doc_scan_query` matches every
+/// `QueryNode::Bool`, so on an unflushed index `bool{must:[match]}` was scored
+/// per-document by the IDF-less brute scorer (`score_query_against_doc`:
+/// `1 + ln(1 + tf)`) while the identical bare `Match` took the memtable BM25
+/// arm through `extract_query_text`. Measured on 120 memtable-resident docs,
+/// one `text` field, same clause: `2.7917595` against `0.0068451734`, and a
+/// different top hit.
+///
+/// Only the two shapes Lucene rewrites to the clause itself are erased:
+///
+/// * a lone `filter` rewrites to `BoostQuery(ConstantScoreQuery(q), 0)` —
+///   score 0, NOT the clause's score (BooleanQuery.java:290-292);
+/// * a lone `must_not` is a pure-negative bool (BooleanQuery.java:274-277);
+///
+/// neither is its child, so both keep the handling they already have, and
+/// `must_not`/`filter` children are left untouched for the same reason — they
+/// are non-scoring, so this stays confined to the scoring path.
+fn unwrap_single_clause_bool(q: QueryNode) -> QueryNode {
+    match q {
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            // Recurse into the scoring children first, so nested wrappers
+            // collapse in one walk — Lucene's `rewrite` is recursive over its
+            // clauses for the same reason (BooleanQuery.java:300-342).
+            let mut must: Vec<QueryNode> =
+                must.into_iter().map(unwrap_single_clause_bool).collect();
+            let mut should: Vec<QueryNode> =
+                should.into_iter().map(unwrap_single_clause_bool).collect();
+            let only_must = should.is_empty() && must_not.is_empty() && filter.is_empty();
+            if must.len() == 1
+                && only_must
+                && matches!(minimum_should_match, None | Some(MinShouldMatch::Fixed(0)))
+            {
+                return must.remove(0);
+            }
+            let only_should = must.is_empty() && must_not.is_empty() && filter.is_empty();
+            if should.len() == 1
+                && only_should
+                && matches!(
+                    minimum_should_match,
+                    None | Some(MinShouldMatch::Fixed(0)) | Some(MinShouldMatch::Fixed(1))
+                )
+            {
+                return should.remove(0);
+            }
+            QueryNode::Bool {
+                must,
+                should,
+                must_not,
+                filter,
+                minimum_should_match,
+            }
+        }
+        // The wrappers a `bool` can sit under without changing what its
+        // clauses mean. A `boost` on a `bool` is parsed into `Boosted`
+        // (`parse_bool`), so unwrapping underneath it is the same composition
+        // Lucene's `BoostQuery.rewrite` performs (BoostQuery.java:75-102).
+        QueryNode::Boosted { boost, query } => QueryNode::Boosted {
+            boost,
+            query: Box::new(unwrap_single_clause_bool(*query)),
+        },
+        QueryNode::Constant { score, query } => QueryNode::Constant {
+            score,
+            query: Box::new(unwrap_single_clause_bool(*query)),
+        },
+        QueryNode::Named { name, query } => QueryNode::Named {
+            name,
+            query: Box::new(unwrap_single_clause_bool(*query)),
+        },
+        other => other,
     }
 }
 

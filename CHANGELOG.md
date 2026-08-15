@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
+  its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
+  `{"bool":{"must":[X]}}` and bare `X` are the same query — Lucene's
+  `BooleanQuery.rewrite` erases a one-clause boolean before any `Weight` is
+  built (`BooleanQuery.java:279-298`) — but XERJ steers on the *shape* of the
+  query tree, and `is_doc_scan_query` matches every `bool`. On an index whose
+  documents were still in the memtable, the wrapped form was therefore scored
+  per-document by the IDF-less brute scorer (`1 + ln(1 + tf)`) while the
+  identical bare `match` took the memtable BM25 arm. Measured on a
+  120-document fixture with one `text` field, same clause throughout: the
+  wrapped query scored `d004` at `2.7917595` where the bare clause scored it
+  `0.0068451734`, and `size:1` returned a different document for each. The
+  flushed (segment FTS) population already agreed and still does.
+
+  A one-clause `bool` is now erased before any path decision reads the tree —
+  a lone `must`, or a lone `should` with `minimum_should_match` absent, `0`
+  or `1`, exactly the cases Lucene rewrites to the clause itself. A lone
+  `filter` (`BoostQuery(ConstantScoreQuery(q), 0)`, score 0) and a lone
+  `must_not` (pure-negative) are *not* their child and are left alone. The
+  two page-local score-rewrite gates further down now read the same
+  normalised tree the executor was steered by, rather than the raw request,
+  so the divergence cannot reappear one gate later.
+
+  Known and unchanged: on an unflushed index a `filter`-only `bool` still
+  scores `1.0` instead of `0.0`. That is the separately-tracked filter-context
+  defect in the memtable's brute scorer, not this one, and this change neither
+  fixes nor worsens it.
+
 - **`xerj autoindex` aborted a whole run when one file declared two or more SQL
   tables** ([#360](https://github.com/xerj-org/xerj/issues/360)). One file can
   feed several datasets — a SQL dump is one file and N tables — but the sealed
