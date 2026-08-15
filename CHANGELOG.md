@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — BREAKING: `term` on a `text` field now resolves against the analysed dictionary
+
+- **`term` on a `text` field is answered from the analysed term dictionary, not
+  from `_source`** ([#397](https://github.com/xerj-org/xerj/issues/397); split
+  out of [#362](https://github.com/xerj-org/xerj/issues/362)). ES analyses the
+  *index* side of a `text` field and does **not** analyse the query side of a
+  `term` query, so a `term` clause looks its value up verbatim in that field's
+  token dictionary. XERJ compared the value against the stored `_source` value
+  instead, which made it answer the opposite of ES in both directions.
+
+  On a document indexed as
+  `{"title": "HnswGraphBuilder.java", "body": "the quick brown fox"}` with both
+  fields mapped `text` (the fixture in
+  `engine/crates/xerj-engine/tests/term_on_text_uses_term_dictionary.rs`):
+
+  | query | before | after |
+  |---|---|---|
+  | `{"term":{"body":"quick"}}` | 0 | **1** |
+  | `{"term":{"title":"HnswGraphBuilder.java"}}` | 1 | **0** |
+  | `{"term":{"title":"hnswgraphbuilder.java"}}` | 0 | **1** |
+  | `{"term":{"body":"the quick brown fox"}}` | 1 | **0** |
+  | `{"match":{"body":"quick"}}` (control) | 1 | 1 |
+
+  **The second row is the breaking one.** `{"term":{"<text field>": "<the
+  literal spelling in the document>"}}` is the shape agents and humans reach
+  for to look a document up by identifier, and it used to work by accident —
+  it found the document by its `_source` spelling while answering a different
+  question from the one ES answers. It now returns zero hits, exactly as ES
+  does.
+
+  **Migration.** For look-up-by-identifier on an analysed field, use
+  `match_phrase` (analyses the query side, so the original spelling keeps
+  working), or map the field — or a `.keyword` sub-field — as `keyword` and
+  query that. `keyword` fields are untouched by this change: they stay
+  byte-exact and case-sensitive.
+
+  Matching is answered by ONE rule on every arm, so the hit set does not change
+  across `_flush`: the stored-source matcher re-derives the field's dictionary
+  from `_source` with the same analyzer and the same text extraction the
+  indexing path uses. Every `_source`-valued shortcut that could otherwise have
+  answered such a `term` from the raw stored value now abandons on an analysed
+  field rather than publishing a count no `_search` can reproduce — the failure
+  #362 recorded, in the other direction: the memtable and segment doc-values
+  walks, the fused bool count, the columnar aggregation filter and the
+  stored-scan term prefilter. `_count` on a bare `term` stays exact and cheap
+  on the segment side, where it now reads the analysed term dictionary
+  (`term_doc_freq` on the **unanalysed** query value, with the keyword-field
+  lowercase retry suppressed), and scans the memtable with the same rule the
+  hit path uses.
+
+  The regression test asserts every row above (plus the
+  `bool`/`must_not`/sorted/aggregation shapes and the CIDR carve-out) against
+  the memtable **and** against a flushed segment, and asserts that the `size:0`
+  count agrees with `_search` for each.
+
+  **Known cost, not closed here.** A `term` on a `text` field is answered by the
+  stored-document scan on both arms, i.e. O(N) rather than a postings lookup,
+  even though the segment holds exactly the dictionary it resolves against.
+  Routing the segment arm onto the postings was implemented and then reverted
+  inside this change: it puts the flushed and buffered halves of an index on two
+  different score scales, and an all-tied `term` page stopped coming back in
+  arrival order (measured on the `tied_score_page_order` fixture — 40 flushed +
+  300 buffered documents, one repeated value — every `mem*` id sorted ahead of
+  every `seg*` id). That is the score-unification gap #354 / #188 name, and
+  correctness of the hit set was the property worth keeping. `_count` is
+  unaffected: the shortcut above keeps it off the scan.
+
+  Two `text`-field shapes deliberately keep the `_source` comparison, because
+  for them it is the ES-correct answer rather than the old one. A `text` field
+  mapped `"index": false` has doc values and no postings — ES answers `term`
+  from that column, which stores the raw value, and the ES-compat YAML suite
+  asserts it (`aggregations/terms_text_docvalues`, "Indexing disabled"). And a
+  `term` value containing `/` keeps the CIDR meaning it has always had
+  (`{"term": {"ip": "192.168.1.0/24"}}`), since no tokenizer emits a token
+  containing `/` and a dictionary lookup could only answer zero.
+
+  Not covered by this change, and unchanged: `terms` (plural) on a `text`
+  field, which keeps its existing whitespace-token fallback; the `filter` /
+  `filters` **aggregation**'s own JSON filter, which is evaluated by a separate
+  `_source` matcher; and `prefix` / `wildcard`, which #362 covers.
+
 ### Fixed
 
 - **`xerj autoindex` aborted a whole run when one file declared two or more SQL

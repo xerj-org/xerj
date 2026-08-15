@@ -4878,13 +4878,19 @@ mod fast_aggs;
 /// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
 /// jointly support are emitted, so the memtable matcher and the columnar
 /// predicate stay byte-identical.
-fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
+fn query_node_to_agg_filter(node: &QueryNode, analysed: &AnalysedTermFields) -> Option<Value> {
+    // #397 — the columnar predicate this JSON compiles to reads the doc-values
+    // column, i.e. the raw `_source` value.  An analysed `term` is not
+    // answerable there, so the exact `_source`/dictionary brute path keeps it.
+    if query_has_analysed_term(node, analysed) {
+        return None;
+    }
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
         // `constant_score` is pure filter context — matching is exactly the
         // inner filter's (the wrapper only changes scores, which a size:0
         // agg never sees).
-        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query),
+        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query, analysed),
         // Exact term — keyword (string) values only.  Numeric/bool term keys
         // have typed-coercion subtleties, so bail (brute path handles them).
         QueryNode::Term {
@@ -4967,7 +4973,7 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             }
             let mut clauses: Vec<Value> = Vec::with_capacity(must.len() + filter.len());
             for c in must.iter().chain(filter.iter()) {
-                clauses.push(query_node_to_agg_filter(c)?);
+                clauses.push(query_node_to_agg_filter(c, analysed)?);
             }
             if clauses.is_empty() {
                 // bool with no positive clauses == match_all
@@ -10020,6 +10026,17 @@ impl Index {
         dv_fields.into_iter().next()
     }
 
+    /// This index's [`AnalysedTermFields`] (#397), read from the live schema.
+    ///
+    /// `search_inner` builds the same value under the schema guard it already
+    /// holds; this is for the paths that evaluate a query with
+    /// `doc_matches_query` WITHOUT going through `search_inner` (the brute kNN
+    /// filters).
+    async fn analysed_term_fields(&self) -> AnalysedTermFields {
+        let schema_guard = self.schema.read().await;
+        AnalysedTermFields::from_schema(&schema_guard.schema, &self.registry)
+    }
+
     /// Insert one doc's vector into the HNSW graph (creating the graph on
     /// first use), tombstoning any previous node for the same doc_id.
     /// Returns false when the vector was skipped (empty / dim mismatch /
@@ -10939,6 +10956,11 @@ impl Index {
             lookup_vector_quantization(&schema.schema, field).as_deref() == Some("scalar8")
         };
 
+        // #397: the kNN `filter` is evaluated against `_source`, so it needs
+        // the analysed-field set for its `term` clauses exactly like the
+        // stored-doc scan does.  Read once per query, not per candidate.
+        let analysed = self.analysed_term_fields().await;
+
         // ── Score each candidate against the query vector ─────────────
         let mut scored: Vec<(String, f32, Value, Option<u32>)> =
             Vec::with_capacity(candidates.len());
@@ -10962,7 +10984,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query(f, &src_with_id, &analysed) {
                         continue;
                     }
                 }
@@ -11080,7 +11102,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query(f, &src_with_id, &analysed) {
                         continue;
                     }
                 }
@@ -12152,6 +12174,10 @@ impl Index {
         }
 
         // ── Score each parent by best-matching nested element ─────────
+        // #397 — see the sibling brute kNN scan: the filter's `term` clauses
+        // resolve against the analysed dictionary for `text` fields.
+        let analysed = self.analysed_term_fields().await;
+
         // Pre-filter is applied before scoring (alias filter, knn.filter).
         let mut scored: Vec<(String, f32, Value)> = Vec::new();
         let mut nested_position = 0usize;
@@ -12165,7 +12191,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                if !doc_matches_query(f, &src_with_id) {
+                if !doc_matches_query(f, &src_with_id, &analysed) {
                     continue;
                 }
             }
@@ -12221,7 +12247,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                doc_matches_query(f, &src_with_id)
+                doc_matches_query(f, &src_with_id, &analysed)
             });
         }
 
@@ -14130,12 +14156,13 @@ impl Index {
         // alone can't prove "keyword" (it also holds numerics/dates/bools),
         // and Text fields must NEVER enter the columnar scorer (they get
         // Keyword dv columns but ES analyzes them).
-        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
+        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields, analysed): (
             Vec<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
             std::collections::HashSet<String>,
+            AnalysedTermFields,
         ) = {
             let schema_guard = self.schema.read().await;
             let mut tf: Vec<String> = Vec::new();
@@ -14199,7 +14226,18 @@ impl Index {
                     _ => {}
                 }
             }
-            (tf, ef, kw, num, bf)
+            // #397 — the `text` fields whose `term` clauses resolve against
+            // the ANALYSED dictionary rather than `_source`, plus the analyzer
+            // that built it.  Narrower than `tf`, which is the `*`-expansion
+            // set: a field must actually own a term dictionary to be a member
+            // (see `AnalysedTermFields::from_schema`).  Every stored-source
+            // evaluator in this request (`doc_matches_query` and the scorers
+            // reachable from it) is handed this so the memtable answers the
+            // same question the segment term dictionary does; the
+            // `_source`-valued doc-values shortcuts abandon on these fields
+            // (see `query_has_analysed_term`).
+            let analysed = AnalysedTermFields::from_schema(&schema_guard.schema, &self.registry);
+            (tf, ef, kw, num, bf, analysed)
         };
 
         // ── B3: peeled function_score for the brute path ──────────────────
@@ -14336,18 +14374,19 @@ impl Index {
                 } = fs_node
                 {
                     let base = leaf_base_const
-                        .unwrap_or_else(|| score_query_against_doc(inner, src))
+                        .unwrap_or_else(|| score_query_against_doc(inner, src, &analysed))
                         * outer_boost;
-                    let mut fn_score = apply_function_score(id, src, functions, *score_mode, base);
+                    let mut fn_score =
+                        apply_function_score(id, src, functions, *score_mode, base, &analysed);
                     if let Some(cap) = max_boost {
                         fn_score = fn_score.min(*cap);
                     }
                     combine_scores(base, fn_score, *boost_mode)
                 } else {
-                    score_query_against_doc(query, src)
+                    score_query_against_doc(query, src, &analysed)
                 }
             } else {
-                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src))
+                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src, &analysed))
             };
             if let Some(min) = fs_min_tally {
                 if score.is_finite() && f64::from(score) >= min {
@@ -14711,7 +14750,7 @@ impl Index {
                 // segment `try_shortcut_count` path overwrite the count
                 // a moment later.
                 if count_only
-                    && memtable_count_covered_by_shortcut(query)
+                    && memtable_count_covered_by_shortcut(query, &analysed)
                     && self.store.version_map.ghost_events() == 0
                 {
                     // NOTE the ghost_events guard (b8 T2b): with ghosts
@@ -14760,7 +14799,7 @@ impl Index {
                     // taking `Empty` here re-opened the hole for exactly
                     // those shapes (live-verified: the missing-bearing
                     // float-field bool below counted 14 seg-only vs 29).
-                    mem_matches_known = mem_bool_preds(query)
+                    mem_matches_known = mem_bool_preds(query, &analysed)
                         .and_then(|preds| mem.doc_values_bool_query(&preds, 0))
                         .map(|(_, total)| total);
                     if let Some(total) = mem_matches_known {
@@ -14772,6 +14811,7 @@ impl Index {
                         // mirror the size>0 arm's bounded materialisation
                         // (the consume arm tolerates unused ids).
                         materialisation_limit,
+                        &analysed,
                     ) {
                         mem_matches_known = Some(total);
                         let uncollected = total.saturating_sub(hits.len() as u64);
@@ -14794,7 +14834,7 @@ impl Index {
                     if sort_topk.is_some() || request.aggs.is_some() {
                         return None;
                     }
-                    let preds = mem_bool_preds(query)?;
+                    let preds = mem_bool_preds(query, &analysed)?;
                     mem.doc_values_bool_query(&preds, materialisation_limit)
                 })() {
                     let uncollected = total.saturating_sub(hits.len() as u64);
@@ -14815,6 +14855,7 @@ impl Index {
                     } else {
                         materialisation_limit
                     },
+                    &analysed,
                 ) {
                     // DocValues fast path for queries that actually need
                     // the hit list (size > 0 or sort-on-field).
@@ -14902,6 +14943,7 @@ impl Index {
                     } else {
                         materialisation_limit
                     },
+                    &analysed,
                 ) {
                     let uncollected = total.saturating_sub(hits.len() as u64);
                     MemSnapshot::DocValuesHits(hits, uncollected)
@@ -15011,7 +15053,7 @@ impl Index {
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
                     } else if !query_may_read_id || source.get("_id").is_some() {
-                        doc_matches_query(query, &source)
+                        doc_matches_query(query, &source, &analysed)
                     } else {
                         // Inject `_id` so deeply-nested Ids queries (e.g.
                         // function_score → ids) can resolve it from source.
@@ -15022,7 +15064,7 @@ impl Index {
                         } else {
                             (*source).clone()
                         };
-                        doc_matches_query(query, &source_with_id)
+                        doc_matches_query(query, &source_with_id, &analysed)
                     };
                     if matched {
                         // Materialise (score + owned source) ONLY when the
@@ -15236,7 +15278,7 @@ impl Index {
         let shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known)
+            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known, &analysed)
                 .await
         };
 
@@ -15280,7 +15322,7 @@ impl Index {
         let agg_filter: Option<Value> = if is_match_all {
             None
         } else {
-            query_node_to_agg_filter(query)
+            query_node_to_agg_filter(query, &analysed)
         };
         if size == 0
             && request.aggs.is_some()
@@ -16447,41 +16489,54 @@ impl Index {
                             None => base,
                         }
                     } else if let QueryNode::Term { field, value, .. } = query {
-                        // Selective `term`: parse only the matching stored
-                        // positions instead of the whole section (id lookups,
-                        // `code:500`). Without a field sort the builder's
-                        // complete set feeds the bounded arrival-order
-                        // collector; WITH a field sort the complete set used
-                        // to be offered wholesale to the top-N heap —
-                        // O(matches) simd_json parses per query (~185 ms for
-                        // a 37k-match term on the 100k bench corpus, vs ES
-                        // ~2 ms). Narrow it to the per-segment top-cap by
-                        // primary sort key exactly like the Range arm above:
-                        // the term prefilter set is EXACT (every position is
-                        // a genuine match), the scan-tallied total is partial
-                        // by design and overwritten with `shortcut_count`
-                        // post-loop (`sort_candidates_narrowed`).
-                        if let Some(topk) = sort_topk.as_ref() {
-                            if shortcut_count.is_some() && !deletes_present && !count_only {
-                                sort_cand = self.narrow_term_values_to_sort_candidates(
+                        // #397 — the term prefilter (and the sort narrowing
+                        // built from the same sets) resolves the value against
+                        // the segment's raw-valued keyword doc-values column.
+                        // On an analysed field that set is neither the match
+                        // set nor a superset of it, so it is declined and the
+                        // section is scanned in full; the FTS postings path
+                        // normally serves these queries anyway, and only a
+                        // segment with no FTS data for the field reaches here.
+                        if analysed.contains(field) {
+                            None
+                        } else {
+                            // Selective `term`: parse only the matching stored
+                            // positions instead of the whole section (id
+                            // lookups, `code:500`). Without a field sort the
+                            // builder's complete set feeds the bounded
+                            // arrival-order collector; WITH a field sort the
+                            // complete set used to be offered wholesale to the
+                            // top-N heap — O(matches) simd_json parses per
+                            // query (~185 ms for a 37k-match term on the 100k
+                            // bench corpus, vs ES ~2 ms). Narrow it to the
+                            // per-segment top-cap by primary sort key exactly
+                            // like the Range arm above: the term prefilter set
+                            // is EXACT (every position is a genuine match), the
+                            // scan-tallied total is partial by design and
+                            // overwritten with `shortcut_count` post-loop
+                            // (`sort_candidates_narrowed`).
+                            if let Some(topk) = sort_topk.as_ref() {
+                                if shortcut_count.is_some() && !deletes_present && !count_only {
+                                    sort_cand = self.narrow_term_values_to_sort_candidates(
+                                        &segments_dir,
+                                        &seg_id,
+                                        meta.doc_count,
+                                        topk,
+                                        materialisation_limit,
+                                        field,
+                                        std::slice::from_ref(value),
+                                    );
+                                }
+                            }
+                            match &sort_cand {
+                                Some(sc) => Some(Arc::new(PrefilterSet::from_set(sc.set.clone()))),
+                                None => self.build_term_prefilter_cached(
                                     &segments_dir,
                                     &seg_id,
-                                    meta.doc_count,
-                                    topk,
-                                    materialisation_limit,
                                     field,
                                     std::slice::from_ref(value),
-                                );
+                                ),
                             }
-                        }
-                        match &sort_cand {
-                            Some(sc) => Some(Arc::new(PrefilterSet::from_set(sc.set.clone()))),
-                            None => self.build_term_prefilter_cached(
-                                &segments_dir,
-                                &seg_id,
-                                field,
-                                std::slice::from_ref(value),
-                            ),
                         }
                     } else if let QueryNode::Terms { field, values, .. } = query {
                         // Same field-sort narrowing as the Term arm (the
@@ -16527,7 +16582,7 @@ impl Index {
                         // Pure-conjunction bool: parse only the most-selective
                         // conjunct's docs; `doc_matches_query` re-tests the full
                         // bool per admitted doc (superset filter).
-                        self.build_bool_prefilter_cached(&segments_dir, &seg_id, query)
+                        self.build_bool_prefilter_cached(&segments_dir, &seg_id, query, &analysed)
                     } else if is_match_all && !deletes_present {
                         // Sorted-DV candidate pruning for field-sorted
                         // match_all: the segment's sorted numeric
@@ -16692,6 +16747,7 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            &analysed,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else if let Some(warm_slices) = (!sorted_candidates_path)
@@ -16737,6 +16793,7 @@ impl Index {
                                     &mut all_hits,
                                     &mut seen_ids,
                                     score_doc,
+                                    &analysed,
                                 );
                             }
                             _ => {
@@ -16758,6 +16815,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &analysed,
                                 );
                             }
                         }
@@ -16841,6 +16899,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &analysed,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
@@ -17028,6 +17087,7 @@ impl Index {
                         functions,
                         *score_mode,
                         query_score,
+                        &analysed,
                     );
                     // ES caps the COMBINED FUNCTION score (not the
                     // final) at `max_boost`, before boost_mode
@@ -17277,7 +17337,7 @@ impl Index {
             self.sort_hits_page_order(&mut final_hits);
 
             for rescore_stage in &request.rescore {
-                apply_rescore(&mut final_hits, rescore_stage);
+                apply_rescore(&mut final_hits, rescore_stage, &analysed);
                 // ES re-sorts between chained rescore stages so the
                 // next stage's `window_size` applies to the top-N
                 // of the just-rescored order, not the pre-rescore
@@ -17368,7 +17428,8 @@ impl Index {
             } else {
                 hit.source.clone()
             };
-            hit.matched_queries = collect_matched_queries(&request.query, &source_with_id);
+            hit.matched_queries =
+                collect_matched_queries(&request.query, &source_with_id, &analysed);
         }
 
         // --- Apply search_after cursor (skip hits up to and including the cursor) ---
@@ -17673,7 +17734,7 @@ impl Index {
                         } else {
                             fg_owned = all_docs
                                 .iter()
-                                .filter(|d| doc_matches_query(query, d))
+                                .filter(|d| doc_matches_query(query, d, &analysed))
                                 .cloned()
                                 .collect();
                             &fg_owned[..]
@@ -19420,6 +19481,7 @@ impl Index {
     /// authoritative: bails on any ghost (overwrite/tombstone) event and on a
     /// non-empty memtable.  `minimum_should_match` percentages/field/script →
     /// `None`.
+    #[allow(clippy::too_many_arguments)] // one clause list per bool section, plus #397's field set
     fn bool_should_mustnot_count(
         &self,
         must: &[QueryNode],
@@ -19428,7 +19490,22 @@ impl Index {
         filter: &[QueryNode],
         minimum_should_match: &Option<xerj_query::ast::MinShouldMatch>,
         snap: &xerj_storage::index_store::IndexSnapshot,
+        analysed: &AnalysedTermFields,
     ) -> Option<u64> {
+        // #397 — `seg_term_positions` reads the raw-valued doc-values column;
+        // an analysed `term` has no answer there.  (`try_shortcut_count`
+        // already refuses the whole tree before delegating here; this is the
+        // same rule restated where the resolution actually happens, so the
+        // helper stays correct if it ever gains another caller.)
+        if must
+            .iter()
+            .chain(should.iter())
+            .chain(must_not.iter())
+            .chain(filter.iter())
+            .any(|c| query_has_analysed_term(c, analysed))
+        {
+            return None;
+        }
         // Delete/memtable blindness guards — an authoritative count must be
         // exact against live docs, and these sets only see flushed physical
         // segment docs.
@@ -19602,6 +19679,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         is_match_all: bool,
         mem_matches_known: Option<u64>,
+        analysed: &AnalysedTermFields,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -19609,6 +19687,24 @@ impl Index {
             QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => query.as_ref(),
             _ => query,
         };
+        // #397 — every COMPOUND shortcut below resolves a `term` from a
+        // doc-values column built from the RAW `_source` value.  On a `text`
+        // field that is the wrong dictionary: the answer lives in the analysed
+        // postings.  Abandon rather than publish a count no `_search` can
+        // reproduce — the exact failure #362 recorded, in the other direction.
+        //
+        // A BARE `term` is exempt because the single-term arm at the bottom of
+        // this function answers it exactly, from the segment's analysed term
+        // dictionary plus a memtable scan.  Keeping it resolvable matters
+        // beyond speed: `count_authoritative` in `search_inner` is derived from
+        // this result, and it is what lets the stored scan stop at
+        // `materialisation_limit` instead of walking every match.  Without it
+        // an all-tied `term` page stopped being a prefix of the full
+        // materialisation (`tied_score_page_order`, size:2 returned
+        // `[doc00, doc03]` against `[doc00, doc01]`).
+        if !matches!(query, QueryNode::Term { .. }) && query_has_analysed_term(query, analysed) {
+            return None;
+        }
         // Bool intersection shortcut — for `bool { must: [Term, Range] }`
         // (the most common production filter shape) compute the matching
         // doc-id set per segment via doc-values intersection, no scan.
@@ -19633,6 +19729,7 @@ impl Index {
                     filter,
                     minimum_should_match,
                     snap,
+                    analysed,
                 );
             }
             // Combine must + filter — both behave identically for counting.
@@ -19644,7 +19741,7 @@ impl Index {
             // `search_inner` (b7 DEFECT 1a) — the two sites must never
             // drift: non-empty conjunction of plain Term/Range children
             // only; anything else abandons to the scan.
-            if !memtable_count_covered_by_shortcut(query) {
+            if !memtable_count_covered_by_shortcut(query, analysed) {
                 return None;
             }
 
@@ -19880,14 +19977,14 @@ impl Index {
                 known
             } else if self.memtable.doc_count() == 0 {
                 0
-            } else if let Some((_, total)) = mem_bool_preds(query)
+            } else if let Some((_, total)) = mem_bool_preds(query, analysed)
                 .and_then(|preds| self.memtable.doc_values_bool_query(&preds, 0))
             {
                 total
             } else {
                 let docs = self.memtable.all_docs_with_sources_arc();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query(query, src, analysed))
                     .count() as u64
             };
 
@@ -20112,7 +20209,7 @@ impl Index {
             } else {
                 let docs = self.memtable.all_docs_with_sources();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query(query, src, analysed))
                     .count() as u64
             };
             return Some(seg_matches + mem_matches);
@@ -20209,6 +20306,24 @@ impl Index {
             QueryNode::Term { field, value, .. } => (field.as_str(), value),
             _ => return None,
         };
+        // #397 — on an ANALYSED field the raw-valued doc-values column is the
+        // wrong dictionary.  The segment side answers from the analysed term
+        // dictionary instead (`term_doc_freq` on the UNANALYSED query value,
+        // and with no lowercase fallback: ES does not case-fold a `term`), and
+        // the memtable side scans with the same `doc_matches_query` arm the
+        // hit path uses, so the count and the hit set come from one rule.
+        let analysed_field = analysed.contains(field);
+        // ...with one exception, and it is the same one `doc_matches_query`
+        // makes: a value containing `/` is the CIDR form
+        // (`{"term": {"ip": "192.168.1.0/24"}}`), which that arm resolves
+        // against the document's IP value BEFORE consulting any dictionary.
+        // No tokenizer emits a token containing `/`, so a dictionary lookup
+        // would confidently answer zero while `_search` answers two — the
+        // "`_count` disagrees with `_search`" failure #362 is about.  Abandon
+        // and let the counting scan answer.
+        if analysed_field && matches!(value, Value::String(v) if v.contains('/')) {
+            return None;
+        }
 
         // Memtable side — M5.1 sharded count via per-shard count maps.
         // Each shard lazily rebuilds its own count map on first query
@@ -20217,6 +20332,11 @@ impl Index {
         let mem_matches: u64 = {
             if self.memtable.doc_count() == 0 {
                 0
+            } else if analysed_field {
+                let docs = self.memtable.all_docs_with_sources_arc();
+                docs.iter()
+                    .filter(|(_, src)| doc_matches_query(query, src, analysed))
+                    .count() as u64
             } else {
                 // `value.as_str()`/`.as_f64()` both return `None` for a
                 // JSON boolean, so a boolean-field term query previously
@@ -20294,7 +20414,10 @@ impl Index {
             let cols = self.dv_columns_for(&segments_dir, &meta.id);
 
             let mut served_by_dv = false;
-            if let Some(cols) = cols {
+            // #397: an analysed field's doc-values column holds the raw
+            // `_source` value, so it is skipped outright and the FTS term
+            // dictionary below answers instead.
+            if let Some(cols) = cols.filter(|_| !analysed_field) {
                 match cols.get(field) {
                     Some(xerj_storage::doc_values::Column::Keyword(k)) => {
                         let df = k.doc_freq(&raw);
@@ -20324,10 +20447,15 @@ impl Index {
                 Err(_) => return None, // FST missing — abandon
             };
             reader.field_stats(field)?;
+            // #397: the lowercase retry is a KEYWORD-field accommodation — a
+            // keyword sidecar may have been written by an analyzer that
+            // case-folded it.  On an analysed field it would case-fold the
+            // QUERY, which is exactly what ES does not do, and is the
+            // `term`-normalises-case half of #362.
             let df = reader
                 .term_doc_freq(field, &raw)
                 .or_else(|| {
-                    if raw == lowered {
+                    if analysed_field || raw == lowered {
                         None
                     } else {
                         reader.term_doc_freq(field, &lowered)
@@ -22829,6 +22957,7 @@ impl Index {
         segments_dir: &std::path::Path,
         segment_id: &str,
         query: &QueryNode,
+        analysed: &AnalysedTermFields,
     ) -> Option<Arc<PrefilterSet>> {
         let QueryNode::Bool {
             must,
@@ -22855,12 +22984,17 @@ impl Index {
                 _ => child,
             };
             match child {
-                QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
-                    segments_dir,
-                    segment_id,
-                    field,
-                    std::slice::from_ref(value),
-                ),
+                // #397 — an analysed `term` is not resolvable from the
+                // raw-valued keyword column, and this closure's contract is a
+                // COMPLETE position set, so it must decline rather than hand
+                // back the `_source`-equality set.
+                QueryNode::Term { field, value, .. } if !analysed.contains(field) => self
+                    .build_term_prefilter_cached(
+                        segments_dir,
+                        segment_id,
+                        field,
+                        std::slice::from_ref(value),
+                    ),
                 QueryNode::Terms { field, values, .. } => {
                     self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
                 }
@@ -23538,6 +23672,9 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #397: `text` fields whose `term` clauses resolve against the
+        // analysed dictionary instead of `_source`.
+        analysed: &AnalysedTermFields,
     ) {
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
@@ -23592,7 +23729,7 @@ impl Index {
                 } else {
                     source_ref.clone()
                 };
-                doc_matches_query(query, &source_with_id)
+                doc_matches_query(query, &source_with_id, analysed)
             };
             if !matched {
                 continue;
@@ -23924,6 +24061,9 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        // #397: `text` fields whose `term` clauses resolve against the
+        // analysed dictionary instead of `_source`.
+        analysed: &AnalysedTermFields,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -24133,9 +24273,9 @@ impl Index {
                     } else {
                         source_ref.clone()
                     };
-                    doc_matches_query(query, &source_with_id)
+                    doc_matches_query(query, &source_with_id, analysed)
                 } else {
-                    doc_matches_query(query, source_ref)
+                    doc_matches_query(query, source_ref, analysed)
                 }
             };
 
@@ -32259,7 +32399,12 @@ fn merge_dynamic_children_into(
 /// every memtable-resident doc).  Used by BOTH the `count_only` memtable
 /// gate and the `try_shortcut_count` Bool arm so the two sites cannot
 /// drift.
-fn memtable_count_covered_by_shortcut(query: &QueryNode) -> bool {
+fn memtable_count_covered_by_shortcut(query: &QueryNode, analysed: &AnalysedTermFields) -> bool {
+    // #397 — an analysed `term` has no `_source`-valued column answer; the
+    // shortcut must not claim to cover it (`query_has_analysed_term`).
+    if query_has_analysed_term(query, analysed) {
+        return false;
+    }
     match query {
         QueryNode::Term { .. } => true,
         QueryNode::Bool {
@@ -32287,8 +32432,16 @@ fn memtable_count_covered_by_shortcut(query: &QueryNode) -> bool {
 /// any other shape (caller falls back to the stored-source scan).  Wrapper
 /// nodes (constant_score / boost) are peeled like `try_doc_values_query`
 /// does.
-fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
+fn mem_bool_preds(
+    q: &QueryNode,
+    analysed: &AnalysedTermFields,
+) -> Option<Vec<crate::memtable::MemBoolPred>> {
     use crate::memtable::MemBoolPred;
+    // #397 — the fused columnar walk compares against the stored value; an
+    // analysed `term` belongs to the dictionary, not the column.
+    if query_has_analysed_term(q, analysed) {
+        return None;
+    }
     let q = match q {
         QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => query.as_ref(),
         _ => q,
@@ -32389,7 +32542,16 @@ fn try_doc_values_query(
     q: &QueryNode,
     mem: &crate::memtable::ShardedFtsMemtable,
     limit: usize,
+    analysed: &AnalysedTermFields,
 ) -> Option<(Vec<(String, usize)>, u64)> {
+    // #397 — same reason as `mem_bool_preds`: the keyword doc-values column
+    // holds a `text` field's RAW source value, which is not what a `term` on
+    // that field resolves against.  Falling through hands the query to
+    // `MemSnapshot::DocsForScan`, whose `doc_matches_query` consults the
+    // analysed dictionary.
+    if query_has_analysed_term(q, analysed) {
+        return None;
+    }
     match q {
         QueryNode::Term { field, value, .. } => {
             // Skip if the value is complex or the field uses CIDR notation.
@@ -32468,7 +32630,7 @@ fn try_doc_values_query(
 
         // Wrapper queries: delegate to inner query.
         QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-            try_doc_values_query(query, mem, limit)
+            try_doc_values_query(query, mem, limit, analysed)
         }
 
         _ => None,
@@ -33075,10 +33237,185 @@ fn multi_match_phrase_hit(
     }
 }
 
+/// The fields whose searchable terms are the ANALYSED token stream rather than
+/// the raw `_source` value — every field mapped `text` — together with the
+/// analyzer that produced that stream.
+///
+/// #397.  ES resolves a `term` query against the field's TERM DICTIONARY and
+/// does not analyse the query term (the *index* side is analysed, the query
+/// side is not).  On a `text` field that dictionary holds the analysed tokens,
+/// so `{"term":{"body":"quick"}}` matches a document whose `body` is
+/// `"the quick brown fox"`, and `{"term":{"title":"HnswGraphBuilder.java"}}`
+/// does NOT match a document whose `title` is spelled exactly that way,
+/// because the indexed token is lowercased.  The schema-blind stored-source
+/// matcher answered the opposite in BOTH directions: it compared the query
+/// term against `_source`.
+///
+/// The analyzer is the same one `memtable::insert` indexes with (the
+/// registry's `default` pipeline when index settings configured one, else
+/// `standard`), and the text is extracted with the same
+/// `memtable::extract_text_value` the indexing path uses — so a document's
+/// answer here is identical to the one the segment term dictionary gives after
+/// a flush.  That equality is the point: it is what keeps the hit set
+/// invariant across `_flush` (the #218 regression class).
+///
+/// A default-constructed value carries no fields, which reproduces the
+/// pre-#397 `_source` comparison bit-for-bit.  Keyword/numeric/date/boolean
+/// fields are never members, so they stay byte-exact as before.
+#[derive(Clone, Default)]
+pub(crate) struct AnalysedTermFields {
+    fields: std::collections::HashSet<String>,
+    analyzer: Option<Arc<xerj_fts::analyzer::AnalyzerPipeline>>,
+}
+
+impl AnalysedTermFields {
+    /// Empty set: every `term` keeps the raw-`_source` comparison.  Used by
+    /// the unit tests that call `doc_matches_query` with no schema in hand;
+    /// every production path has a schema and builds the real set.
+    #[cfg(test)]
+    fn none() -> &'static Self {
+        static NONE: std::sync::OnceLock<AnalysedTermFields> = std::sync::OnceLock::new();
+        NONE.get_or_init(AnalysedTermFields::default)
+    }
+
+    /// Every `text` field that actually OWNS a term dictionary, plus the
+    /// analyzer that fills it.
+    ///
+    /// Membership is `FieldType::Text` minus `memtable::fts_excluded_fields`,
+    /// which is the same predicate `memtable::analyze_doc` uses to decide what
+    /// to tokenise — so a field is a member exactly when a dictionary for it
+    /// exists.  The exclusion that matters here is `"index": false`: ES keeps
+    /// such a `text` field searchable from its doc-values column, which stores
+    /// the RAW `_source` value, and answers `term` against that value rather
+    /// than against tokens (ES-compat YAML `aggregations/terms_text_docvalues`
+    /// → "Indexing disabled" asserts exactly this).  Those fields therefore
+    /// stay on the pre-#397 comparison, which is both what they had and what
+    /// ES does.
+    ///
+    /// With no analyzer registered there is no dictionary this can reproduce,
+    /// so it degrades to the empty set rather than guessing.
+    fn from_schema(schema: &Schema, registry: &AnalyzerRegistry) -> Self {
+        let excluded = crate::memtable::fts_excluded_fields(schema);
+        let fields: std::collections::HashSet<String> = schema
+            .fields
+            .iter()
+            .filter(|f| matches!(f.field_type, FieldType::Text) && !excluded.contains(&f.name))
+            .map(|f| f.name.clone())
+            .collect();
+        if fields.is_empty() {
+            return Self::default();
+        }
+        let Some(analyzer) = registry
+            .get_analyzer("default")
+            .or_else(|| registry.get_analyzer("standard"))
+        else {
+            return Self::default();
+        };
+        Self {
+            fields,
+            analyzer: Some(analyzer),
+        }
+    }
+
+    fn contains(&self, field: &str) -> bool {
+        self.fields.contains(field)
+    }
+
+    /// The same set re-keyed for the inside of a `nested` query.
+    ///
+    /// Field names inside a `nested` clause resolve against the ELEMENT, not
+    /// the root, and `strip_nested_path_in_query` rewrites them to their bare
+    /// form before the element is matched.  This applies the identical strip
+    /// to the analysed-field names, so `comments.body` is consulted as `body`
+    /// while a ROOT `body` — a different field — is dropped rather than
+    /// silently standing in for it.  A path with no declared `text` subfield
+    /// yields an empty set, i.e. exactly the pre-#397 behaviour for that
+    /// clause.
+    fn for_nested_path(&self, path: &str) -> Self {
+        let prefix = format!("{path}.");
+        Self {
+            fields: self
+                .fields
+                .iter()
+                .filter_map(|f| f.strip_prefix(&prefix).map(str::to_string))
+                .collect(),
+            analyzer: self.analyzer.clone(),
+        }
+    }
+
+    /// Does this document's `field` produce `term` as one of its analysed
+    /// dictionary entries?  `term` is used verbatim — ES does not analyse the
+    /// query side of a `term` query.
+    fn doc_has_term(&self, source: &Value, field: &str, term: &str) -> bool {
+        let Some(analyzer) = self.analyzer.as_ref() else {
+            return false;
+        };
+        let Some(v) = get_field_value(source, field) else {
+            return false;
+        };
+        let text = crate::memtable::extract_text_value(&v);
+        if text.is_empty() {
+            return false;
+        }
+        analyzer.analyze(&text).iter().any(|t| t.text == term)
+    }
+}
+
+/// Does this query tree contain a `term` clause naming an ANALYSED field?
+///
+/// #397.  Every `_source`-valued shortcut in this file — the memtable and
+/// segment doc-values walks, the fused bool count, the columnar agg filter,
+/// the term prefilter — resolves a `term` by comparing the query value against
+/// the stored value.  For a `text` field the searchable dictionary is the
+/// analysed token stream instead, so those shortcuts must abandon and let the
+/// FTS term dictionary (segments) or `doc_matches_query` (memtable) answer.
+///
+/// The walk covers exactly the node shapes those shortcuts are able to
+/// resolve; anything else already abandons on its own, so a `false` here can
+/// never hand an analysed term to a `_source` comparison.
+fn query_has_analysed_term(q: &QueryNode, analysed: &AnalysedTermFields) -> bool {
+    match q {
+        QueryNode::Term { field, .. } => analysed.contains(field),
+        QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+            query_has_analysed_term(query, analysed)
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should.iter())
+            .chain(must_not.iter())
+            .chain(filter.iter())
+            .any(|c| query_has_analysed_term(c, analysed)),
+        _ => false,
+    }
+}
+
+/// The string a scalar `term` value is looked up as.  `None` for the shapes
+/// that have no single dictionary spelling (null / array / object) — those
+/// keep the historical `_source` comparison, which is also what ES rejects
+/// outright rather than answers.
+fn term_value_as_dictionary_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        Value::Null | Value::Array(_) | Value::Object(_) => None,
+    }
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
+/// `analysed` names the `text`-mapped fields whose `term` clauses must resolve
+/// against the analysed dictionary instead of `_source` (#397); pass
+/// `AnalysedTermFields::none()` when no schema is available.
+///
 /// Returns true if the document matches the query.
-fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
+fn doc_matches_query(q: &QueryNode, source: &Value, analysed: &AnalysedTermFields) -> bool {
     match q {
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
@@ -33086,6 +33423,13 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         QueryNode::Term { field, value, .. } => {
             let doc_val = get_field_value(source, field);
             // Support CIDR notation for IP fields: {"term": {"ip": "192.168.1.0/24"}}
+            //
+            // Checked BEFORE the #397 analysed-dictionary arm and deliberately
+            // so: an IP-valued field is normally mapped dynamically, i.e. as
+            // `text`, and no analyser emits a token containing `/`, so letting
+            // the dictionary arm run first would answer every CIDR `term` with
+            // zero.  `term_query_declines_fts_projection` keeps the segment
+            // side on the same route for the same reason.
             if let Some(Value::String(query_str)) = value.as_str().map(|_| value) {
                 if query_str.contains('/') {
                     if let Some(doc_ip_str) = doc_val.as_ref().and_then(|v| v.as_str()) {
@@ -33093,6 +33437,14 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                             return matches;
                         }
                     }
+                }
+            }
+            // #397 — an analysed (`text`) field is answered from its term
+            // dictionary, not from `_source`.  The query term is NOT analysed:
+            // ES analyses the index side only.  See `AnalysedTermFields`.
+            if analysed.contains(field) {
+                if let Some(term) = term_value_as_dictionary_string(value) {
+                    return analysed.doc_has_term(source, field, &term);
                 }
             }
             json_values_equal(&doc_val, value)
@@ -33305,15 +33657,21 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             ..
         } => {
             // All must clauses must match.
-            if must.iter().any(|q| !doc_matches_query(q, source)) {
+            if must.iter().any(|q| !doc_matches_query(q, source, analysed)) {
                 return false;
             }
             // No must_not clause may match.
-            if must_not.iter().any(|q| doc_matches_query(q, source)) {
+            if must_not
+                .iter()
+                .any(|q| doc_matches_query(q, source, analysed))
+            {
                 return false;
             }
             // All filter clauses must match.
-            if filter.iter().any(|q| !doc_matches_query(q, source)) {
+            if filter
+                .iter()
+                .any(|q| !doc_matches_query(q, source, analysed))
+            {
                 return false;
             }
             // Should clauses: if present, at least minimum_should_match must match.
@@ -33368,7 +33726,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 if min > 0 {
                     let matched = should
                         .iter()
-                        .filter(|q| doc_matches_query(q, source))
+                        .filter(|q| doc_matches_query(q, source, analysed))
                         .count();
                     if matched < min {
                         return false;
@@ -33379,18 +33737,20 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-            doc_matches_query(query, source)
+            doc_matches_query(query, source, analysed)
         }
 
         QueryNode::Boosting { positive, .. } => {
             // A doc must match the positive query to be returned.
-            doc_matches_query(positive, source)
+            doc_matches_query(positive, source, analysed)
             // (score penalty for matching negative is handled in scoring, not filtering)
         }
 
         QueryNode::DisMax { queries, .. } => {
             // Matches if any sub-query matches.
-            queries.iter().any(|q| doc_matches_query(q, source))
+            queries
+                .iter()
+                .any(|q| doc_matches_query(q, source, analysed))
         }
 
         // Full-text queries via doc-scan: do simple substring match as fallback.
@@ -34050,7 +34410,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             }
         }
 
-        QueryNode::FunctionScore { query, .. } => doc_matches_query(query, source),
+        QueryNode::FunctionScore { query, .. } => doc_matches_query(query, source, analysed),
 
         // Nested: extract the array at `path`, run the inner query against each element.
         // The document matches if any element of the nested array matches.
@@ -34058,9 +34418,14 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         // though they resolve against the element — strip the prefix first.
         QueryNode::Nested { path, query, .. } => {
             let inner = strip_nested_path_in_query(query, path);
+            // #397 — the clause names were just stripped of the `path.`
+            // prefix, so the analysed-field set has to be stripped with them.
+            let analysed = analysed.for_nested_path(path);
             match get_field_value(source, path) {
-                Some(Value::Array(arr)) => arr.iter().any(|elem| doc_matches_query(&inner, elem)),
-                Some(elem @ Value::Object(_)) => doc_matches_query(&inner, &elem),
+                Some(Value::Array(arr)) => arr
+                    .iter()
+                    .any(|elem| doc_matches_query(&inner, elem, &analysed)),
+                Some(elem @ Value::Object(_)) => doc_matches_query(&inner, &elem, &analysed),
                 _ => false,
             }
         }
@@ -34116,7 +34481,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                     return true;
                 }
             }
-            doc_matches_query(organic, source)
+            doc_matches_query(organic, source, analysed)
         }
 
         // GeoBoundingBox: check if doc's lat/lon is within the bounding box.
@@ -34174,7 +34539,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .unwrap_or(false)
         }
 
-        QueryNode::Named { query, .. } => doc_matches_query(query, source),
+        QueryNode::Named { query, .. } => doc_matches_query(query, source, analysed),
 
         // ── Span queries ──────────────────────────────────────────────────────
 
@@ -34206,14 +34571,18 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .collect();
 
             if targets.is_empty() {
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses
+                    .iter()
+                    .all(|c| doc_matches_query(c, source, analysed));
             }
 
             // All targets must be on the same field for proximity logic.
             let first_field = &targets[0].0;
             if !targets.iter().all(|(f, _)| f == first_field) {
                 // Cross-field span: fall back to all-must match.
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses
+                    .iter()
+                    .all(|c| doc_matches_query(c, source, analysed));
             }
 
             let field_val = match get_field_value(source, first_field) {
@@ -34284,11 +34653,14 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         // SpanOr: matches if any clause matches.
-        QueryNode::SpanOr { clauses } => clauses.iter().any(|c| doc_matches_query(c, source)),
+        QueryNode::SpanOr { clauses } => clauses
+            .iter()
+            .any(|c| doc_matches_query(c, source, analysed)),
 
         // SpanNot: include matches AND exclude does not match.
         QueryNode::SpanNot { include, exclude } => {
-            doc_matches_query(include, source) && !doc_matches_query(exclude, source)
+            doc_matches_query(include, source, analysed)
+                && !doc_matches_query(exclude, source, analysed)
         }
 
         // SpanFirst: match if the span_term appears in the first `end` tokens of the field.
@@ -34298,9 +34670,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 QueryNode::SpanTerm { field, value } => (field.as_str(), value.as_str()),
                 QueryNode::Term { field, value, .. } => match value.as_str() {
                     Some(v) => (field.as_str(), v),
-                    None => return doc_matches_query(match_query, source),
+                    None => return doc_matches_query(match_query, source, analysed),
                 },
-                other => return doc_matches_query(other, source),
+                other => return doc_matches_query(other, source, analysed),
             };
 
             let field_val = match get_field_value(source, field) {
@@ -34415,7 +34787,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 Ok(q) => q,
                 Err(_) => return false,
             };
-            documents.iter().any(|d| doc_matches_query(&stored_q, d))
+            documents
+                .iter()
+                .any(|d| doc_matches_query(&stored_q, d, analysed))
         }
 
         _ => false,
@@ -35037,20 +35411,29 @@ fn point_in_polygon(lat: f64, lon: f64, polygon: &[(f64, f64)]) -> bool {
 ///
 /// Recursively traverses the query tree, collecting the `name` of every `Named`
 /// query whose inner query matches the document.
-fn collect_matched_queries(q: &QueryNode, source: &Value) -> Vec<String> {
+fn collect_matched_queries(
+    q: &QueryNode,
+    source: &Value,
+    analysed: &AnalysedTermFields,
+) -> Vec<String> {
     let mut names = Vec::new();
-    collect_matched_queries_inner(q, source, &mut names);
+    collect_matched_queries_inner(q, source, &mut names, analysed);
     names
 }
 
-fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<String>) {
+fn collect_matched_queries_inner(
+    q: &QueryNode,
+    source: &Value,
+    names: &mut Vec<String>,
+    analysed: &AnalysedTermFields,
+) {
     match q {
         QueryNode::Named { name, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, analysed) {
                 names.push(name.clone());
             }
             // Also recurse into the wrapped query in case it contains further Named nodes.
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, analysed);
         }
         QueryNode::Bool {
             must,
@@ -35065,21 +35448,21 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 .chain(must_not.iter())
                 .chain(filter.iter())
             {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, names, analysed);
             }
         }
         QueryNode::Boosted { query, .. } | QueryNode::Constant { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, analysed);
         }
         QueryNode::DisMax { queries, .. } => {
             for sub in queries {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, names, analysed);
             }
         }
         QueryNode::FunctionScore {
             query, functions, ..
         } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, analysed);
             for f in functions {
                 // ES 8.9+: when the function entry itself carries
                 // `_name`, that name OVERRIDES any `_name` inside the
@@ -35090,9 +35473,9 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 let filter_matches = match &f.filter {
                     Some(filter) => {
                         if !filter_has_fn_name {
-                            collect_matched_queries_inner(filter, source, names);
+                            collect_matched_queries_inner(filter, source, names, analysed);
                         }
-                        doc_matches_query(filter, source)
+                        doc_matches_query(filter, source, analysed)
                     }
                     None => true,
                 };
@@ -35106,14 +35489,14 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
         QueryNode::Boosting {
             positive, negative, ..
         } => {
-            collect_matched_queries_inner(positive, source, names);
-            collect_matched_queries_inner(negative, source, names);
+            collect_matched_queries_inner(positive, source, names, analysed);
+            collect_matched_queries_inner(negative, source, names, analysed);
         }
         QueryNode::Nested { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, names, analysed);
         }
         QueryNode::Pinned { organic, .. } => {
-            collect_matched_queries_inner(organic, source, names);
+            collect_matched_queries_inner(organic, source, names, analysed);
         }
         _ => {}
     }
@@ -35123,7 +35506,7 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
 ///
 /// Re-scores the top `window_size` hits using the secondary query and blends
 /// the scores: final_score = original * query_weight + rescore * rescore_query_weight.
-fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
+fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery, analysed: &AnalysedTermFields) {
     let window = stage.window_size.min(hits.len());
 
     // ── Query rescore ──────────────────────────────────────────────
@@ -35134,7 +35517,7 @@ fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
 
         for (i, hit) in hits.iter_mut().enumerate() {
             if i < window {
-                let rescore_score = score_query_against_doc(rescore_query, &hit.source);
+                let rescore_score = score_query_against_doc(rescore_query, &hit.source, analysed);
                 hit.score = hit.score * q_weight + rescore_score * rq_weight;
             } else {
                 hit.score *= q_weight;
@@ -35233,19 +35616,19 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
     }
 }
 
-fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
+fn score_query_against_doc(q: &QueryNode, source: &Value, analysed: &AnalysedTermFields) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
         QueryNode::MatchNone => 0.0,
         QueryNode::Boosted { boost, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, analysed) {
                 *boost
             } else {
                 0.0
             }
         }
         QueryNode::Constant { score, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query(query, source, analysed) {
                 *score
             } else {
                 0.0
@@ -35257,7 +35640,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             query,
             ..
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, analysed) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -35276,7 +35659,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             field,
             value,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, analysed) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -35296,7 +35679,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
         | QueryNode::Prefix { boost, .. }
         | QueryNode::Wildcard { boost, .. } => {
             let b = boost.unwrap_or(1.0);
-            if doc_matches_query(q, source) {
+            if doc_matches_query(q, source, analysed) {
                 b
             } else {
                 0.0
@@ -35309,7 +35692,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             filter,
             minimum_should_match,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, analysed) {
                 return 0.0;
             }
             // Sum all contributing sub-query scores. DON'T clamp to 1.0
@@ -35318,10 +35701,10 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // matches 3 clauses".
             let mut score = 0.0f32;
             for sub in must {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, analysed);
             }
             for sub in should {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, analysed);
             }
             let _ = (must_not, minimum_should_match);
             if score == 0.0 {
@@ -35353,7 +35736,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                 score
             }
         }
-        QueryNode::Named { query, .. } => score_query_against_doc(query, source),
+        QueryNode::Named { query, .. } => score_query_against_doc(query, source, analysed),
         // MultiMatch with field boosts. ES semantics per type:
         //   best_fields (default) → dis_max: MAX of the per-field scores.
         //   most_fields           → sum of the per-field scores.
@@ -35524,12 +35907,13 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // Score the inner query, then run the function scores against
             // it — same flow as the main search path, but executed on
             // demand for rescore / nested (non-peelable) function_score.
-            if !doc_matches_query(query, source) {
+            if !doc_matches_query(query, source, analysed) {
                 return 0.0;
             }
-            let inner = score_query_against_doc(query, source);
+            let inner = score_query_against_doc(query, source, analysed);
             let doc_id = source.get("_id").and_then(Value::as_str).unwrap_or("");
-            let mut fn_score = apply_function_score(doc_id, source, functions, *score_mode, inner);
+            let mut fn_score =
+                apply_function_score(doc_id, source, functions, *score_mode, inner, analysed);
             // `max_boost` caps the combined FUNCTION score before
             // boost_mode composition (ES semantics — see the post-loop).
             if let Some(cap) = max_boost {
@@ -35542,7 +35926,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // BM25-like weight 1/sqrt(doc_length) so shorter docs rank
             // higher when both match. Falls back to 1.0 when the field
             // isn't a string we can tokenise.
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query(q, source, analysed) {
                 return 0.0;
             }
             let text = match get_field_value(source, field) {
@@ -35554,7 +35938,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             1.0 / dl.sqrt()
         }
         other => {
-            if doc_matches_query(other, source) {
+            if doc_matches_query(other, source, analysed) {
                 1.0
             } else {
                 0.0
@@ -38085,6 +38469,27 @@ fn query_node_to_fts_with_keyword_fields(
                 boost.unwrap_or(1.0),
             )))
         }
+        // #397 — a `term` on an ANALYSED (`text`) field is deliberately NOT
+        // projected onto the segment's postings, even though the postings hold
+        // exactly the dictionary it has to be resolved against.
+        //
+        // Projecting it was tried and reverted inside the same change.  It
+        // moves the SEGMENT arm onto the FTS scorer while the memtable arm
+        // stays on the stored-doc scan (`is_doc_scan_query` includes `Term`,
+        // and the memtable's FTS entry point analyses the query text, which a
+        // `term` must not do).  The two arms then score on different scales,
+        // so an all-tied `term` page stopped coming back in arrival order:
+        // measured on the `tied_score_page_order` fixture (40 flushed + 300
+        // buffered documents, one repeated value), every `mem*` id sorted
+        // ahead of every `seg*` id.  That is the score-unification gap #354 /
+        // #188 name, and it is not this issue's to close.
+        //
+        // So both arms keep the stored-doc scan, where `doc_matches_query`
+        // re-derives the same dictionary from `_source` with the same analyzer
+        // and the same text extraction the indexing path uses.  The hit set is
+        // the ES one and is invariant across `_flush`; the cost is that a
+        // `term` on a `text` field is an O(N) scan rather than a postings
+        // lookup, which is the follow-up this leaves open.
         QueryNode::Term { .. } => None,
         QueryNode::Bool {
             must,
@@ -40325,6 +40730,7 @@ fn apply_function_score(
     functions: &[ScoreFunction],
     score_mode: ScoreMode,
     query_score: f32,
+    analysed: &AnalysedTermFields,
 ) -> f32 {
     if functions.is_empty() {
         return 1.0;
@@ -40340,7 +40746,7 @@ fn apply_function_score(
     for func in functions {
         // Check filter: if present, doc must match.
         if let Some(filter) = &func.filter {
-            if !doc_matches_query(filter, source) {
+            if !doc_matches_query(filter, source, analysed) {
                 continue;
             }
         }
@@ -41924,25 +42330,30 @@ mod fts_projection_tests {
         };
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "a needle in here"})
+            &serde_json::json!({"alpha": "a needle in here"}),
+            AnalysedTermFields::none(),
         ));
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "nope", "beta": "needle"})
+            &serde_json::json!({"alpha": "nope", "beta": "needle"}),
+            AnalysedTermFields::none(),
         ));
         assert!(doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": ["nope", "needle"]})
+            &serde_json::json!({"alpha": ["nope", "needle"]}),
+            AnalysedTermFields::none(),
         ));
         assert!(!doc_matches_query(
             &q,
-            &serde_json::json!({"alpha": "haystack"})
+            &serde_json::json!({"alpha": "haystack"}),
+            AnalysedTermFields::none(),
         ));
         // `_id` is spliced into the scanned source but is not a mapped text
         // field — matching it would over-count relative to the FTS route.
         assert!(!doc_matches_query(
             &q,
-            &serde_json::json!({"_id": "needle", "alpha": "haystack"})
+            &serde_json::json!({"_id": "needle", "alpha": "haystack"}),
+            AnalysedTermFields::none(),
         ));
         // An explicit default_field stays single-field.
         let pinned = QueryNode::QueryString {
@@ -41953,11 +42364,13 @@ mod fts_projection_tests {
         };
         assert!(doc_matches_query(
             &pinned,
-            &serde_json::json!({"alpha": "needle"})
+            &serde_json::json!({"alpha": "needle"}),
+            AnalysedTermFields::none(),
         ));
         assert!(!doc_matches_query(
             &pinned,
-            &serde_json::json!({"beta": "needle"})
+            &serde_json::json!({"beta": "needle"}),
+            AnalysedTermFields::none(),
         ));
     }
 
@@ -41996,7 +42409,7 @@ mod percolate_tests {
             documents: vec![json!({ "message": "bonsai" })],
         };
         assert!(
-            doc_matches_query(&q_hit, &stored),
+            doc_matches_query(&q_hit, &stored, AnalysedTermFields::none()),
             "term matches inline doc"
         );
 
@@ -42005,7 +42418,7 @@ mod percolate_tests {
             documents: vec![json!({ "message": "cactus" })],
         };
         assert!(
-            !doc_matches_query(&q_miss, &stored),
+            !doc_matches_query(&q_miss, &stored, AnalysedTermFields::none()),
             "term does not match a different value"
         );
     }
@@ -42017,12 +42430,20 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "price": 15 })],
         };
-        assert!(doc_matches_query(&q, &stored_range));
+        assert!(doc_matches_query(
+            &q,
+            &stored_range,
+            AnalysedTermFields::none()
+        ));
         let q_out = QueryNode::Percolate {
             field: "query".into(),
             documents: vec![json!({ "price": 25 })],
         };
-        assert!(!doc_matches_query(&q_out, &stored_range));
+        assert!(!doc_matches_query(
+            &q_out,
+            &stored_range,
+            AnalysedTermFields::none()
+        ));
 
         let stored_bool = json!({
             "query": {
@@ -42038,12 +42459,20 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "message": "foo", "price": 9 })],
         };
-        assert!(doc_matches_query(&q_bool, &stored_bool));
+        assert!(doc_matches_query(
+            &q_bool,
+            &stored_bool,
+            AnalysedTermFields::none()
+        ));
         let q_bool_miss = QueryNode::Percolate {
             field: "query".into(),
             documents: vec![json!({ "message": "foo", "price": 1 })],
         };
-        assert!(!doc_matches_query(&q_bool_miss, &stored_bool));
+        assert!(!doc_matches_query(
+            &q_bool_miss,
+            &stored_bool,
+            AnalysedTermFields::none()
+        ));
     }
 
     #[test]
@@ -42053,10 +42482,10 @@ mod percolate_tests {
             field: "query".into(),
             documents: vec![json!({ "message": "anything" })],
         };
-        assert!(!doc_matches_query(&q, &stored));
+        assert!(!doc_matches_query(&q, &stored, AnalysedTermFields::none()));
 
         let stored2 = json!({ "query": "not-an-object" });
-        assert!(!doc_matches_query(&q, &stored2));
+        assert!(!doc_matches_query(&q, &stored2, AnalysedTermFields::none()));
     }
 }
 
@@ -42076,7 +42505,7 @@ mod script_query_tests {
             source: "doc['x'].value > params.min".to_string(),
             params: Some(json!({"min": 5})),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42086,7 +42515,7 @@ mod script_query_tests {
             source: "doc['x'].value > params.min".to_string(),
             params: Some(json!({"min": 5})),
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42096,7 +42525,7 @@ mod script_query_tests {
             source: "this is not valid painless".to_string(),
             params: None,
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42108,7 +42537,7 @@ mod script_query_tests {
             source: "1 + 1".to_string(),
             params: None,
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42125,12 +42554,16 @@ mod script_query_tests {
             params: Some(json!({"min": 5})),
         };
         assert!(
-            doc_matches_query(&q, &json!({"x": 10})),
+            doc_matches_query(&q, &json!({"x": 10}), AnalysedTermFields::none()),
             "guarded script must still match the document it selects for"
         );
-        assert!(!doc_matches_query(&q, &json!({"x": 1})));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({"x": 1}),
+            AnalysedTermFields::none()
+        ));
         assert!(
-            !doc_matches_query(&q, &json!({"other": 1})),
+            !doc_matches_query(&q, &json!({"other": 1}), AnalysedTermFields::none()),
             "a document without the field must be filtered out, not matched"
         );
     }
@@ -42152,7 +42585,7 @@ mod script_query_tests {
             json!({"coutn": null}),
         ] {
             assert!(
-                !doc_matches_query(&q, &doc),
+                !doc_matches_query(&q, &doc, AnalysedTermFields::none()),
                 "a typo'd field name must not match {doc}"
             );
         }
@@ -42162,7 +42595,11 @@ mod script_query_tests {
             source: "doc['count'].value > -1".to_string(),
             params: None,
         };
-        assert!(doc_matches_query(&ok, &json!({"count": 5})));
+        assert!(doc_matches_query(
+            &ok,
+            &json!({"count": 5}),
+            AnalysedTermFields::none()
+        ));
     }
 }
 
@@ -42763,7 +43200,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42773,7 +43210,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(doc_matches_query(&q, &doc));
+        assert!(doc_matches_query(&q, &doc, AnalysedTermFields::none()));
     }
 
     #[test]
@@ -42784,7 +43221,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "jumps")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(!doc_matches_query(&q, &doc));
+        assert!(!doc_matches_query(&q, &doc, AnalysedTermFields::none()));
 
         // And when the big span does not even form (no "quick" near "fox").
         let doc2 = json!({ "text": "brown only here" });
@@ -42792,7 +43229,7 @@ mod span_containment_tests {
             little: Box::new(span_term("text", "brown")),
             big: Box::new(near_quick_fox()),
         };
-        assert!(!doc_matches_query(&q2, &doc2));
+        assert!(!doc_matches_query(&q2, &doc2, AnalysedTermFields::none()));
     }
 }
 
@@ -42828,24 +43265,32 @@ mod terms_set_tests {
         // 2 of the codes present, required 2 => match.
         assert!(doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b"], "required": 2 })
+            &json!({ "codes": ["a", "b"], "required": 2 }),
+            AnalysedTermFields::none(),
         ));
         // Only 1 present, required 2 => no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a"], "required": 2 })
+            &json!({ "codes": ["a"], "required": 2 }),
+            AnalysedTermFields::none(),
         ));
         // required exceeds the number of matching terms => no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b", "c"], "required": 4 })
+            &json!({ "codes": ["a", "b", "c"], "required": 4 }),
+            AnalysedTermFields::none(),
         ));
         // required field missing => unsatisfiable, no match.
-        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b", "c"] }),
+            AnalysedTermFields::none()
+        ));
         // required field non-numeric => unsatisfiable, no match.
         assert!(!doc_matches_query(
             &q,
-            &json!({ "codes": ["a", "b"], "required": "two" })
+            &json!({ "codes": ["a", "b"], "required": "two" }),
+            AnalysedTermFields::none(),
         ));
     }
 
@@ -42860,9 +43305,17 @@ mod terms_set_tests {
             },
         );
         // All three present => match.
-        assert!(doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        assert!(doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b", "c"] }),
+            AnalysedTermFields::none()
+        ));
         // Only two present => no match.
-        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b"] })));
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b"] }),
+            AnalysedTermFields::none()
+        ));
     }
 }
 

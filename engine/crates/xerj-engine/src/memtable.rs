@@ -4582,7 +4582,7 @@ mod index_false_exclusion_tests {
 }
 
 /// Extract a string value from a JSON value for text indexing.
-fn extract_text_value(val: &Value) -> String {
+pub(crate) fn extract_text_value(val: &Value) -> String {
     match val {
         Value::String(s) => s.clone(),
         Value::Number(n) => n.to_string(),

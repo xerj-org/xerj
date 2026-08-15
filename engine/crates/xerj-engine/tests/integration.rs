@@ -1301,7 +1301,18 @@ async fn an_undeclared_chunks_key_is_unmapped_only_when_its_value_is_a_multi_vec
             "scalar-string",
             Box::new(|d, _v: &[f64]| json!(if d % 2 == 0 { "tenant-a" } else { "tenant-b" })),
             true,
-            json!({"term": {"emb_chunks": "tenant-a"}}),
+            // The dynamic mapping for a string is `text`, and since #397 a
+            // `term` on an analysed field is looked up in that field's TOKEN
+            // dictionary with the query value unanalysed — ES semantics. The
+            // standard analyzer breaks `tenant-a` into `tenant` + `a`, so the
+            // whole `_source` spelling is not a dictionary entry and probing
+            // with it would assert the pre-#397 `_source` comparison rather
+            // than #328's claim. `a` is the discriminating token (`tenant`
+            // appears in both halves of the fixture), so this still selects
+            // exactly `DOCS / 2` documents — and it now proves the field's
+            // term dictionary is the thing being read, which is what the
+            // `fst > 0` assertion below is about.
+            json!({"term": {"emb_chunks": "a"}}),
         ),
         (
             "scalar-number",

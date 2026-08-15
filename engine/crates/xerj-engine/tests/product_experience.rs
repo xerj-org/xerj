@@ -354,11 +354,20 @@ async fn journey_log_analytics() {
     let ingest_time = ingest_start.elapsed();
 
     // Query 1: Find all ERROR logs.
+    //
+    // `level` and `service` are dynamically mapped, i.e. `text`, and since #397
+    // a `term` on an analysed field is looked up in that field's TOKEN
+    // dictionary with the query value unanalysed — ES semantics. `ERROR`
+    // indexes as the token `error`, and `payment-service` as `payment` +
+    // `service`, so neither `_source` spelling is a dictionary entry. These
+    // are the replacement spellings the CHANGELOG's migration note names:
+    // `match` for a single token, `match_phrase` for a multi-token
+    // identifier.
     let search_start = Instant::now();
     let errors = idx
         .search(
             &parse_request(&json!({
-                "query": { "term": { "level": "ERROR" } },
+                "query": { "match": { "level": "ERROR" } },
                 "size": 0
             }))
             .unwrap(),
@@ -376,8 +385,8 @@ async fn journey_log_analytics() {
                 "query": {
                     "bool": {
                         "must": [
-                            { "term": { "level": "ERROR" } },
-                            { "term": { "service": "payment-service" } }
+                            { "match": { "level": "ERROR" } },
+                            { "match_phrase": { "service": "payment-service" } }
                         ]
                     }
                 },
