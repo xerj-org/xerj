@@ -208,6 +208,16 @@ pub struct PrefixQuery {
     /// path), the per-expansion BM25 scores are summed.
     #[serde(default)]
     pub constant_score: bool,
+    /// When `true` the prefix and each indexed term are case-folded before
+    /// comparing.  `false` (the default, both the keyword and the text path)
+    /// matches the RAW prefix against the whole indexed term — Lucene builds a
+    /// prefix automaton straight off the query bytes and never analyses them
+    /// (`PrefixQuery.toAutomaton`, PrefixQuery.java:44), so an uppercase prefix
+    /// against a lowercased text dictionary correctly matches nothing.  Folding
+    /// is the opt-in ES exposes as `case_insensitive`, backed in Lucene by
+    /// `Automata.makeCaseInsensitiveString` (Automata.java:573).
+    #[serde(default)]
+    pub case_insensitive: bool,
 }
 
 fn default_max_expansions() -> usize {
@@ -222,6 +232,7 @@ impl PrefixQuery {
             boost: 1.0,
             max_expansions: 50,
             constant_score: false,
+            case_insensitive: false,
         }
     }
 }
@@ -798,7 +809,9 @@ impl FtsSearcher {
         let last = ppq.terms.last().expect("non-empty");
         // Expand the trailing prefix against the field's term dictionary in FST
         // (lexicographic) order — matches ES's first-`max_expansions` selection.
-        let expansions = self.expand_prefix(&ppq.field, last, ppq.max_expansions);
+        // Case-sensitive: `terms` reach here already analyzed by the caller
+        // (standard analyzer → lowercased), so both sides are folded already.
+        let expansions = self.expand_prefix(&ppq.field, last, ppq.max_expansions, false);
         if expansions.is_empty() {
             return Ok(Vec::new());
         }
@@ -857,7 +870,12 @@ impl FtsSearcher {
 
     fn execute_prefix(&self, pq: &PrefixQuery, explain: bool) -> Result<Vec<ScoredHit>> {
         // Expand prefix to term list using FST range scan
-        let expanded_terms = self.expand_prefix(&pq.field, &pq.prefix, pq.max_expansions);
+        let expanded_terms = self.expand_prefix(
+            &pq.field,
+            &pq.prefix,
+            pq.max_expansions,
+            pq.case_insensitive,
+        );
         self.score_expanded_terms(
             &pq.field,
             &expanded_terms,
@@ -867,18 +885,38 @@ impl FtsSearcher {
         )
     }
 
-    fn expand_prefix(&self, field: &str, prefix: &str, max: usize) -> Vec<String> {
+    /// Enumerate the field's FST term dictionary and keep every term starting
+    /// with `prefix`, up to `max` of them.
+    ///
+    /// - case-**sensitive** (the default): raw `starts_with` against the whole
+    ///   indexed term, reproducing Lucene's byte-exact prefix automaton.
+    /// - `case_insensitive`: fold both sides — the `case_insensitive: true`
+    ///   opt-in.  Only the whole term is compared, unlike the wildcard/fuzzy
+    ///   folded branches which additionally split sub-tokens to stay identical
+    ///   to the doc-scan predicate; a prefix has no sub-token analogue there.
+    fn expand_prefix(
+        &self,
+        field: &str,
+        prefix: &str,
+        max: usize,
+        case_insensitive: bool,
+    ) -> Vec<String> {
         // Streaming FST scan with a cooperative deadline poll every 1 024
         // terms (RC4 blocker 12) — a wide dictionary made the old
         // materialise-then-filter walk a multi-second uninterruptible unit.
         let mut out: Vec<String> = Vec::new();
         let mut seen = 0usize;
+        let folded = case_insensitive.then(|| prefix.to_lowercase());
         self.reader.for_each_term(field, |t| {
             seen += 1;
             if seen & 1023 == 0 && self.deadline_hit() {
                 return false;
             }
-            if t.starts_with(prefix) {
+            let hit = match &folded {
+                Some(p) => t.to_lowercase().starts_with(p.as_str()),
+                None => t.starts_with(prefix),
+            };
+            if hit {
                 out.push(t.to_owned());
                 if out.len() >= max {
                     return false;

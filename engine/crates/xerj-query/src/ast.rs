@@ -356,6 +356,9 @@ pub enum QueryNode {
         /// match_bool_prefix) that keep BM25 scoring.
         #[serde(default, skip_serializing_if = "is_false")]
         constant_score: bool,
+        /// ES's `case_insensitive` parameter — see [`QueryNode::Wildcard`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        case_insensitive: Option<bool>,
     },
 
     /// Wildcard pattern match (`?` = any char, `*` = zero-or-more chars).
@@ -369,6 +372,27 @@ pub enum QueryNode {
         /// `term{case_insensitive}` / query_string lowerings that keep BM25.
         #[serde(default, skip_serializing_if = "is_false")]
         constant_score: bool,
+        /// ES's `case_insensitive` parameter, tri-state on purpose (#362).
+        ///
+        /// A multi-term query is NOT analysed — Lucene builds the automaton
+        /// straight off the raw bytes (`PrefixQuery.toAutomaton`,
+        /// PrefixQuery.java:44) and folds case only when asked, via
+        /// `Automata.makeCaseInsensitiveString` (Automata.java:573).  So the
+        /// pattern is compared literally against a term dictionary the analyzer
+        /// already lowercased, and `Test*` on a text field matches nothing.
+        /// `Some(true)` is the documented escape hatch out of that; the parser
+        /// used to accept the parameter and drop it, which is what left #362's
+        /// reporter with a silent empty set.
+        ///
+        /// `None` means "caller said nothing", and each execution path keeps
+        /// its own historical default: case-INsensitive for a keyword
+        /// `wildcard` (the FST/columnar arms and the `term{case_insensitive}`
+        /// lowering have always folded there), case-sensitive everywhere else.
+        /// Those two defaults disagree and only one of them is ES's; unifying
+        /// them is a visible hit-set change and is deliberately NOT bundled
+        /// here.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        case_insensitive: Option<bool>,
     },
 
     /// Matches documents where the field has any non-null value.

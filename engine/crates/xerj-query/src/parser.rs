@@ -891,6 +891,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                     value: tokens[0].clone(),
                     boost: fb,
                     constant_score: false,
+                    case_insensitive: None,
                 };
                 should.push(prefix);
                 continue;
@@ -921,6 +922,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                 value: tokens[last].clone(),
                 boost: None,
                 constant_score: false,
+                case_insensitive: None,
             });
             let (im, is, imm) = if operator_and {
                 (inner_clauses, vec![], None)
@@ -1032,14 +1034,21 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     // `term{case_insensitive:true}` to a case-insensitive
                     // automaton query with the CONSTANT_SCORE rewrite
                     // (max_score 1.0), while this keeps BM25 (1.2821425).
-                    // `constant_score: true` here is NOT safe yet: it
-                    // admits the shape to the columnar KeywordWildcard
-                    // leaf, whose dictionary narrowing is CASE-SENSITIVE —
-                    // a mixed-case value then returns 0 hits (hit-set
-                    // regression ≫ score diff). Fixing the score requires
-                    // threading `case_insensitive` through
-                    // QueryNode::Wildcard into the columnar/FST arms.
+                    // The blocker used to be a hit-set one — `true` admits
+                    // the shape to the columnar KeywordWildcard leaf, whose
+                    // dictionary narrowing was unconditionally CASE-SENSITIVE
+                    // — and #362 removed it by making that leaf honour the
+                    // flag below. What remains is only the score difference,
+                    // so flipping this is now a self-contained scoring fix
+                    // rather than a rewrite; it is still a visible change and
+                    // is not bundled into #362.
                     constant_score: false,
+                    // State the requirement instead of relying on the
+                    // matcher's historical fold (#362): this lowering is only
+                    // correct if every arm it can reach folds case, and `None`
+                    // would leave that to a per-path default that the
+                    // ES-faithful direction is to flip.
+                    case_insensitive: Some(true),
                 };
                 return Ok(maybe_named(node, name));
             }
@@ -1250,6 +1259,7 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             boost: None,
             constant_score: true,
+            case_insensitive: None,
         });
     }
 
@@ -1268,6 +1278,10 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
         value,
         boost,
         constant_score: true,
+        // Accepted AND honoured (#362): this used to parse and vanish, so the
+        // one documented way out of "`Test` matches nothing, `test` matches
+        // 1735" silently did nothing.
+        case_insensitive: inner.get("case_insensitive").and_then(Value::as_bool),
     })
 }
 
@@ -1288,6 +1302,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             boost: None,
             constant_score: true,
+            case_insensitive: None,
         });
     }
 
@@ -1306,6 +1321,8 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         value,
         boost,
         constant_score: true,
+        // See `parse_prefix`.
+        case_insensitive: inner.get("case_insensitive").and_then(Value::as_bool),
     })
 }
 
@@ -2107,6 +2124,10 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                             value: lowered.clone(),
                             boost,
                             constant_score: true,
+                            // query_string lowercases its own wildcard term
+                            // (`lowered` above), so it needs no folding from
+                            // the matcher and takes the path default.
+                            case_insensitive: None,
                         })
                         .collect(),
                 );
@@ -4232,6 +4253,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
             value: fold(&raw_tokens[0]),
             boost: None,
             constant_score: true,
+            case_insensitive: None,
         });
     }
 
@@ -4264,6 +4286,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
         value: fold(&raw_tokens[last_idx]),
         boost: None,
         constant_score: false,
+        case_insensitive: None,
     });
 
     // operator:and → every clause must match; otherwise should + mm.

@@ -20181,7 +20181,6 @@ impl Index {
             Value::String(s) => s.as_str().to_string(),
             other => other.to_string(),
         };
-        let lowered = raw.to_ascii_lowercase();
         // Same bool coercion as the memtable side above — `value.as_f64()`
         // alone returns `None` for a JSON boolean, which used to make
         // `served_by_dv` false for every segment whose on-disk column for
@@ -20224,25 +20223,43 @@ impl Index {
                 continue;
             }
 
-            // Fallback: FTS term dictionary.  This is the slow path that
-            // parses meta.json; we only take it when the field isn't in
-            // the segment's doc-values (e.g. text fields with positions).
-            let reader = match FtsIndexReader::open(&segments_dir, &meta.id, &[field]) {
-                Ok(r) => r,
-                Err(_) => return None, // FST missing — abandon
-            };
-            reader.field_stats(field)?;
-            let df = reader
-                .term_doc_freq(field, &raw)
-                .or_else(|| {
-                    if raw == lowered {
-                        None
-                    } else {
-                        reader.term_doc_freq(field, &lowered)
-                    }
-                })
-                .unwrap_or(0);
-            seg_matches = seg_matches.saturating_add(df as u64);
+            // No doc-values column for this field in this segment — ABANDON
+            // to the real scan (#362).
+            //
+            // This branch used to answer from the FTS term dictionary, and
+            // that is a different question from the one `_search` answers. A
+            // field reaches here precisely because it has no column, which on
+            // this engine means a `text` field (or an explicit
+            // `doc_values: false`), and `_search` resolves a `term` on such a
+            // field through `doc_matches_query` — a comparison against the
+            // whole `_source` value, not against the analyzed dictionary. The
+            // two coincide only by accident, so the shortcut published counts
+            // no `_search` could reproduce:
+            //
+            //   {"term":{"title":"TestSegmentReader.java"}}         count 1, hits 0
+            //   {"term":{"title":"quick"}} / "the quick brown fox"  count 1, hits 0
+            //
+            // The first was masked further by a lowercase RETRY on the lookup,
+            // which answered from a term the caller never wrote and is what
+            // made `term` look like it normalised case while `prefix` did not
+            // — the report that opened #362. Deleting the retry alone would
+            // only flip the error's sign (count 0, hits 1); the dictionary is
+            // the wrong oracle either way.
+            //
+            // Lucene has no equivalent hazard because `IndexSearcher.count`
+            // (IndexSearcher.java:495) derives its answer from the SAME
+            // rewritten query and Weight as `search()`, taking only algebraic
+            // rewrites as shortcuts and otherwise collecting for real;
+            // `QueryUtils.checkCount` (QueryUtils.java:680) exists to assert
+            // exactly that. Abandoning here is that fallback: `_count` on a
+            // `term` over a text field costs a scan now, and is right.
+            //
+            // (The deeper issue — that `term` on a `text` field compares
+            // against `_source` at all, where ES compares against the analyzed
+            // dictionary — is a separate, visible behaviour change and is not
+            // resolved here. This makes `_count` agree with whatever `_search`
+            // does; it does not decide what `_search` should do.)
+            return None;
         }
 
         Some(mem_matches + seg_matches)
@@ -21514,23 +21531,47 @@ impl Index {
                             ords,
                         });
                     }
-                    ScoredFilterLeaf::KeywordPrefix { field, prefix } => {
+                    ScoredFilterLeaf::KeywordPrefix {
+                        field,
+                        prefix,
+                        case_insensitive,
+                    } => {
                         let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
                             return None;
                         };
-                        // `terms` is lexicographically sorted: the prefix's
-                        // matches form the contiguous ordinal range
-                        // [lo, hi) bounded by two partition_points.
-                        let lo = k.terms.partition_point(|t| t.as_str() < prefix.as_str());
-                        let hi =
-                            lo + k.terms[lo..].partition_point(|t| t.starts_with(prefix.as_str()));
+                        let ords: Vec<u32> = if *case_insensitive {
+                            // A folded prefix cannot bound a byte-ordered range
+                            // (`Ab` would have to cover both `AB…` and `ab…`),
+                            // so walk the distinct-term dictionary with a
+                            // folded compare — exactly what the KeywordWildcard
+                            // leaf below does, and what `expand_prefix`'s
+                            // folded branch does on the FST route.
+                            let pfx_lc = prefix.to_lowercase();
+                            (0..k.terms.len() as u32)
+                                .filter(|&o| {
+                                    k.terms[o as usize].to_lowercase().starts_with(&pfx_lc)
+                                })
+                                .collect()
+                        } else {
+                            // `terms` is lexicographically sorted: the prefix's
+                            // matches form the contiguous ordinal range
+                            // [lo, hi) bounded by two partition_points.
+                            let lo = k.terms.partition_point(|t| t.as_str() < prefix.as_str());
+                            let hi = lo
+                                + k.terms[lo..].partition_point(|t| t.starts_with(prefix.as_str()));
+                            (lo as u32..hi as u32).collect()
+                        };
                         fev.push(FilterEval::Kw {
                             col: k,
                             no_nulls: k.null_bitmap.is_empty(),
-                            ords: (lo as u32..hi as u32).collect(),
+                            ords,
                         });
                     }
-                    ScoredFilterLeaf::KeywordWildcard { field, pattern } => {
+                    ScoredFilterLeaf::KeywordWildcard {
+                        field,
+                        pattern,
+                        case_insensitive,
+                    } => {
                         let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
                             return None;
                         };
@@ -21543,11 +21584,22 @@ impl Index {
                         // from segments while the memtable matched.  A folded
                         // pattern cannot bound a byte-ordered prefix range, so
                         // walk the whole (distinct-term) dictionary — the same
-                        // cost class as the FST expansion.
-                        let pat_lc = pattern.to_lowercase();
+                        // cost class as the FST expansion.  An explicit
+                        // `case_insensitive: false` (#362) drops the folding
+                        // and compares raw, matching `expand_wildcard`'s
+                        // case-sensitive branch on the FST route.
+                        let pat_lc = if *case_insensitive {
+                            pattern.to_lowercase()
+                        } else {
+                            pattern.clone()
+                        };
                         let ords: Vec<u32> = (0..k.terms.len())
                             .filter(|&o| {
-                                let lc = k.terms[o].to_lowercase();
+                                let lc = if *case_insensitive {
+                                    k.terms[o].to_lowercase()
+                                } else {
+                                    k.terms[o].clone()
+                                };
                                 wildcard_match(&lc, &pat_lc)
                                     || lc
                                         .split(|c: char| !c.is_alphanumeric())
@@ -30757,12 +30809,14 @@ mod lexically_typeless_lowering_tests {
                 value: "0".into(),
                 boost: None,
                 constant_score: true,
+                case_insensitive: None,
             },
             QueryNode::Wildcard {
                 field: "emb".into(),
                 value: "0*".into(),
                 boost: None,
                 constant_score: true,
+                case_insensitive: None,
             },
             QueryNode::Match {
                 field: "emb".into(),
@@ -31358,22 +31412,26 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => QueryNode::Prefix {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
             constant_score: *constant_score,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Wildcard {
             field,
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => QueryNode::Wildcard {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
             constant_score: *constant_score,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Exists { field } => QueryNode::Exists {
             field: strip(field),
@@ -33114,15 +33172,32 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             _ => get_field_value(source, field).is_some(),
         },
 
-        QueryNode::Prefix { field, value, .. } => {
+        QueryNode::Prefix {
+            field,
+            value,
+            case_insensitive,
+            ..
+        } => {
             // ES Prefix matches against analyzed tokens for text fields and
             // against the raw value for keyword fields. Without schema info
             // at this layer we check both: either the whole value starts
             // with the pattern (keyword semantics) OR any whitespace-
             // separated token does (analyzed-text semantics).
-            let value_lc = value.to_lowercase();
+            //
+            // An EXPLICIT `case_insensitive: false` is honoured here (#362) so
+            // a caller who asks for ES's case-sensitive rule gets the same hit
+            // set from this fallback scan as from the FST route, which has
+            // always been case-sensitive. `None` keeps folding: this arm also
+            // serves fields with no mapping at all, where there is no indexed
+            // route to agree with.
+            let fold = case_insensitive.unwrap_or(true);
+            let value_lc = if fold {
+                value.to_lowercase()
+            } else {
+                value.clone()
+            };
             let matches_str = |s: &str| -> bool {
-                let lc = s.to_lowercase();
+                let lc = if fold { s.to_lowercase() } else { s.to_owned() };
                 if lc.starts_with(&value_lc) {
                     return true;
                 }
@@ -33144,13 +33219,21 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         QueryNode::Wildcard {
             field,
             value: pattern,
+            case_insensitive,
             ..
         } => {
             // Match against the raw value AND against every whitespace/
             // non-alnum token — matches both keyword and text semantics.
-            let pat_lc = pattern.to_lowercase();
+            // See the Prefix arm for why an explicit `false` folds nothing
+            // while `None` still folds (#362).
+            let fold = case_insensitive.unwrap_or(true);
+            let pat_lc = if fold {
+                pattern.to_lowercase()
+            } else {
+                pattern.clone()
+            };
             let matches_str = |s: &str| -> bool {
-                let lc = s.to_lowercase();
+                let lc = if fold { s.to_lowercase() } else { s.to_owned() };
                 if wildcard_match(&lc, &pat_lc) {
                     return true;
                 }
@@ -37612,6 +37695,29 @@ fn collect_field_boosts(q: &QueryNode, out: &mut HashMap<String, f32>) {
     }
 }
 
+// ── `case_insensitive` defaults for the multi-term family ────────────────────
+//
+// `QueryNode::{Prefix,Wildcard}::case_insensitive` is `Option<bool>`: `None`
+// means the request said nothing, and each execution path falls back to the
+// constant below.  They are named, not inlined, because they are the ONE place
+// the routes for a given (query, field-type) pair — FST expansion and columnar
+// filter leaf — agree, and #362 is exactly those routes disagreeing.  Change
+// one and the other must move with it.
+//
+// Lucene's own answer is a single case-sensitive rule (`PrefixQuery
+// .toAutomaton`, PrefixQuery.java:44, builds a byte-exact automaton off the
+// query bytes) with folding as an explicit opt-in (`Automata
+// .makeCaseInsensitiveString`, Automata.java:573).  Only the keyword-wildcard
+// constant still departs from that; it is `true` because every keyword wildcard
+// XERJ has shipped folded, and because `term{case_insensitive:true}` lowers to
+// a Wildcard node that depends on it.  Flipping it to `false` is the
+// ES-faithful end state and a visible hit-set change, so it is a separate
+// issue — but it is now a ONE-LINE change here rather than a rewrite, which was
+// the point.
+const PREFIX_CASE_INSENSITIVE_DEFAULT: bool = false;
+const TEXT_WILDCARD_CASE_INSENSITIVE_DEFAULT: bool = false;
+const KEYWORD_WILDCARD_CASE_INSENSITIVE_DEFAULT: bool = true;
+
 #[cfg(test)]
 fn query_node_to_fts(
     q: &QueryNode,
@@ -38230,6 +38336,7 @@ fn query_node_to_fts_with_keyword_fields(
                     boost: 1.0,
                     max_expansions: *max_expansions as usize,
                     constant_score: false,
+                    case_insensitive: false,
                 }));
             }
             // TEXT field: analyze the query with the standard analyzer (the
@@ -38266,6 +38373,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => {
             // `prefix` on a KEYWORD field: whole-value, case-sensitive prefix
             // match over the keyword FST term dictionary — byte-identical to ES
@@ -38293,6 +38401,7 @@ fn query_node_to_fts_with_keyword_fields(
                     // query_string / match_bool_prefix lowerings pass `false` and
                     // keep BM25.
                     constant_score: *constant_score,
+                    case_insensitive: case_insensitive.unwrap_or(PREFIX_CASE_INSENSITIVE_DEFAULT),
                 }));
             }
             // TEXT field: expand the prefix against the analyzed term dictionary
@@ -38300,7 +38409,8 @@ fn query_node_to_fts_with_keyword_fields(
             // the prefix pattern — it is matched CASE-SENSITIVELY against the
             // already-lowercased terms, so an uppercase pattern matches nothing.
             // `expand_prefix` is a raw `starts_with` (no folding), reproducing
-            // that exactly.  No `max_expansions` cap (ES `prefix` matches every
+            // that exactly, and `case_insensitive: true` is the caller's opt-out
+            // of it (#362).  No `max_expansions` cap (ES `prefix` matches every
             // term sharing the prefix) so `hits.total` stays exact.  ES rewrites
             // `prefix` to a `constant_score` query, so every match scores `boost`
             // (`constant_score: true`).
@@ -38311,6 +38421,7 @@ fn query_node_to_fts_with_keyword_fields(
                     boost: boost.unwrap_or(1.0),
                     max_expansions: usize::MAX,
                     constant_score: true,
+                    case_insensitive: case_insensitive.unwrap_or(PREFIX_CASE_INSENSITIVE_DEFAULT),
                 }));
             }
             None
@@ -38320,6 +38431,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => {
             // `wildcard` on a KEYWORD field: expand the keyword FST term
             // dictionary to every term matching the pattern (`*`=0+ chars,
@@ -38329,17 +38441,21 @@ fn query_node_to_fts_with_keyword_fields(
             // exactly the doc-scan's — only sourced from the term dictionary
             // (≪ docs) instead of a per-doc O(N) scan (~150 ms/100k → ~1 ms).
             //
-            // Case-insensitivity is REQUIRED, not a shortcut: XERJ's parser
-            // drops `case_insensitive` and rewrites `term{case_insensitive:true}`
-            // to a Wildcard, both relying on the matcher folding case — so a
-            // case-sensitive FST route would break those (passing) paths.
+            // Case-insensitivity is this arm's DEFAULT, not a shortcut: the
+            // `term{case_insensitive:true}` lowering rewrites to a Wildcard and
+            // needs the matcher to fold, and every keyword wildcard shipped so
+            // far has folded here — a blanket flip to ES's case-SENSITIVE
+            // default is a hit-set change and is not part of #362.  What #362
+            // does buy is that an explicit `case_insensitive` now wins over the
+            // default in both directions, instead of being parsed and dropped.
             // TEXT fields keep the doc-scan (None): analyzed-token semantics.
             if exact_fields.contains(field.as_str()) {
                 return Some(FtsQuery::Wildcard(xerj_fts::search::WildcardQuery {
                     field: field.clone(),
                     pattern: value.clone(),
                     boost: boost.unwrap_or(1.0),
-                    case_insensitive: true,
+                    case_insensitive: case_insensitive
+                        .unwrap_or(KEYWORD_WILDCARD_CASE_INSENSITIVE_DEFAULT),
                     // ES rewrites a standalone `wildcard` query to a
                     // constant_score.  The `term{case_insensitive}` /
                     // query_string lowerings that SHARE this node pass `false`
@@ -38352,16 +38468,19 @@ fn query_node_to_fts_with_keyword_fields(
             // the standard analyzer; ES does not analyze a RAW `wildcard`
             // pattern, so it is matched literally against those terms (an
             // uppercase pattern matches nothing).  `case_insensitive: false`
-            // gives exactly that.  (query_string lowercases its wildcard terms
-            // at parse time, so `q=field:BA*` still matches — that lowering is
-            // done in the parser, not here.)  ES rewrites `wildcard` to a
-            // `constant_score` query, so every match scores `boost`.
+            // gives exactly that, and an explicit `case_insensitive: true` is
+            // the way out of it (#362).  (query_string lowercases its wildcard
+            // terms at parse time, so `q=field:BA*` still matches — that
+            // lowering is done in the parser, not here.)  ES rewrites
+            // `wildcard` to a `constant_score` query, so every match scores
+            // `boost`.
             if text_fields.iter().any(|f| f == field) {
                 return Some(FtsQuery::Wildcard(xerj_fts::search::WildcardQuery {
                     field: field.clone(),
                     pattern: value.clone(),
                     boost: boost.unwrap_or(1.0),
-                    case_insensitive: false,
+                    case_insensitive: case_insensitive
+                        .unwrap_or(TEXT_WILDCARD_CASE_INSENSITIVE_DEFAULT),
                     constant_score: true,
                 }));
             }
@@ -38976,13 +39095,24 @@ enum ScoredFilterLeaf {
     /// Standalone constant-score `prefix` on a keyword field — resolved
     /// per segment to the contiguous ordinal range of matching dictionary
     /// terms (`terms` is lexicographically sorted, so two partition_points
-    /// bound the prefix).  LOSS_BATTLE_PLAN B3.
-    KeywordPrefix { field: String, prefix: String },
+    /// bound the prefix).  LOSS_BATTLE_PLAN B3.  Under `case_insensitive`
+    /// the folded prefix cannot bound a byte-ordered range, so that variant
+    /// walks the distinct-term dictionary instead — same shape as
+    /// `KeywordWildcard`, same cost class as the FST expansion.
+    KeywordPrefix {
+        field: String,
+        prefix: String,
+        case_insensitive: bool,
+    },
     /// Standalone constant-score `wildcard` on a keyword field — resolved
     /// per segment by matching the (distinct) dictionary terms with the
     /// SAME `wildcard_match` the brute path uses, narrowed to the leading
     /// literal's prefix range first.
-    KeywordWildcard { field: String, pattern: String },
+    KeywordWildcard {
+        field: String,
+        pattern: String,
+        case_insensitive: bool,
+    },
     /// `term` on a numeric/boolean field, or `range` on a numeric field —
     /// both evaluate as an inclusive/exclusive f64 window over the numeric
     /// doc-values column (a term is the degenerate `[v, v]` window;
@@ -39592,6 +39722,7 @@ fn scored_fast_plan(
             filter: vec![ScoredFilterLeaf::KeywordPrefix {
                 field: field.clone(),
                 prefix: String::new(),
+                case_insensitive: false,
             }],
             must_not: Vec::new(),
             score: 1.0,
@@ -39623,10 +39754,15 @@ fn scored_fast_plan(
             value,
             boost,
             constant_score: true,
+            case_insensitive,
         } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
             filter: vec![ScoredFilterLeaf::KeywordPrefix {
                 field: field.clone(),
                 prefix: value.clone(),
+                // Same constant the FST arm resolves against, so this plan and
+                // `query_node_to_fts_with_keyword_fields` cannot disagree —
+                // the divergence #362 is about.
+                case_insensitive: case_insensitive.unwrap_or(PREFIX_CASE_INSENSITIVE_DEFAULT),
             }],
             must_not: Vec::new(),
             score: scoring_boost(boost)?,
@@ -39636,10 +39772,13 @@ fn scored_fast_plan(
             value,
             boost,
             constant_score: true,
+            case_insensitive,
         } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
             filter: vec![ScoredFilterLeaf::KeywordWildcard {
                 field: field.clone(),
                 pattern: value.clone(),
+                case_insensitive: case_insensitive
+                    .unwrap_or(KEYWORD_WILDCARD_CASE_INSENSITIVE_DEFAULT),
             }],
             must_not: Vec::new(),
             score: scoring_boost(boost)?,
@@ -41472,11 +41611,13 @@ mod fts_projection_tests {
             value: "run".into(),
             boost: None,
             constant_score: true,
+            case_insensitive: None,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text prefix projects") {
             FtsQuery::Prefix(p) => {
                 assert_eq!(p.prefix, "run", "pattern NOT lowercased/analyzed");
                 assert_eq!(p.max_expansions, usize::MAX);
+                assert!(!p.case_insensitive, "text prefix is case-sensitive");
             }
             other => panic!("expected prefix, got {:?}", other),
         }
@@ -41486,6 +41627,7 @@ mod fts_projection_tests {
             value: "run*".into(),
             boost: None,
             constant_score: true,
+            case_insensitive: None,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text wildcard projects") {
             FtsQuery::Wildcard(w) => {
@@ -41521,6 +41663,50 @@ mod fts_projection_tests {
                 assert_eq!(p.max_expansions, 50);
             }
             other => panic!("expected phrase_prefix, got {:?}", other),
+        }
+    }
+
+    /// `case_insensitive: true` reaches the FST expansion instead of being
+    /// parsed and dropped (#362) — on BOTH field types, and on both prefix and
+    /// wildcard.  This is the projection half of the escape hatch that answers
+    /// the reporter's `prefix title=Test`; the end-to-end half lives in
+    /// `xerj-api/tests/multi_term_case_rule_is_one_rule.rs`.
+    #[test]
+    fn explicit_case_insensitive_reaches_the_fst_arms() {
+        let tf = ["body".to_string()];
+        for (field, exact) in [("body", kw(&[])), ("top_doc", kw(&["top_doc"]))] {
+            let q = QueryNode::Prefix {
+                field: field.into(),
+                value: "Run".into(),
+                boost: None,
+                constant_score: true,
+                case_insensitive: Some(true),
+            };
+            match query_node_to_fts(&q, &tf, &exact).expect("prefix projects") {
+                FtsQuery::Prefix(p) => {
+                    assert_eq!(p.prefix, "Run", "the pattern itself is never rewritten");
+                    assert!(
+                        p.case_insensitive,
+                        "{field}: opt-in must reach the searcher"
+                    );
+                }
+                other => panic!("expected prefix, got {:?}", other),
+            }
+            let q = QueryNode::Wildcard {
+                field: field.into(),
+                value: "Run*".into(),
+                boost: None,
+                constant_score: true,
+                case_insensitive: Some(false),
+            };
+            match query_node_to_fts(&q, &tf, &exact).expect("wildcard projects") {
+                FtsQuery::Wildcard(w) => {
+                    // Explicit `false` must win even on the keyword arm, whose
+                    // default is the one XERJ default that folds.
+                    assert!(!w.case_insensitive, "{field}: opt-OUT must reach it too");
+                }
+                other => panic!("expected wildcard, got {:?}", other),
+            }
         }
     }
 
