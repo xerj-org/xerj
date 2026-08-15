@@ -204,6 +204,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the candidate vectors and removes a lock acquisition; both are small against
   the encode/decode/similarity work the scan already does.
 
+- **`xerj autoindex` no longer junks a CSV because its first column header is
+  `BMW`** ([#379](https://github.com/xerj-org/xerj/issues/379),
+  [#380](https://github.com/xerj-org/xerj/issues/380) — the same defect filed
+  twice). `BM` and `GIF8` were the last two magic signatures made only of
+  printable ASCII that the sniffer believed without checking anything after
+  them, so any text file whose first bytes spelled them was classified
+  `Family::Binary`, never indexed, and reported as "junk: binary content (bmp)"
+  / "(gif)" — a silent omission with a wrong reason, in the one command whose
+  promise is that a folder becomes searchable with no configuration.
+
+  Both now carry a structural qualifier, like every other printable signature
+  in the table. `GIF8` requires the full `GIF87a`/`GIF89a` stamp, non-zero
+  canvas dimensions, and then the first block of the data stream — found by
+  stepping over the Global Colour Table, whose size the packed field declares.
+  A block introducer alone is not sufficient (`0x21`, `0x2C` and `0x3B` are
+  `!`, `,` and `;`), so the block is decoded one field further: after an
+  Extension introducer the label must be one of the four the spec defines
+  (`0x01`, `0xF9`, `0xFE`, `0xFF`), and after an Image Descriptor the frame
+  must be non-empty and fit inside the canvas. `BM` requires a DIB header size
+  in `12..=124`, a pixel-array offset that clears both headers, a colour-plane
+  count of 1 and a bit depth from the closed set. Widening `GIF8` to the
+  six-byte version stamp alone would NOT have been enough, because "GIF89a is
+  the version string of the second GIF spec" supplies those six bytes.
+
+  Measured through `sniff()` on the issue's own files, before and after:
+  `cars.csv` (`BMW,model,year`) `binary`/`bmp` -> `csv`, `gif-notes.txt`
+  (`GIF89a is the header format…`) `binary`/`gif` -> `txt-prose`,
+  `id3-notes.txt` `txt-prose` both times.
+
+  Real images must keep being caught by magic before any text heuristic, and
+  that side is now measured rather than assumed — an earlier revision of this
+  fix required the GIF pixel aspect ratio and background colour index to be
+  zero, which reads as safe (both take NUL bytes) and is not. Swept against
+  every distinct GIF and BMP on the build machine (147 GIFs, 51 B to 17.6 MB,
+  and 3 BMPs, deduped by content hash), that rule refused 4 real GIFs — 2.7%,
+  including this repository's own `docs/media/demo.gif`, whose aspect byte is
+  49, the spec's encoding of a 1:1 ratio. The rule that shipped accepts
+  147/147. The BMP rule is widened for the same reason: `bfReserved1/2` carry
+  CUR/ICO hot-spot coordinates in a converted cursor, and OS/2 2.x
+  BITMAPCOREHEADER2 is legally any size in `16..=64`, of which a closed set
+  admits five.
+
+  What a refusal costs is worth stating exactly, because "it still classifies
+  binary" is only half true. All 4 refused GIFs did still reach `binary`, but
+  as `unknown` instead of `gif`, and only because their first 8 KiB decodes
+  above the 10% control-character threshold — by 0.14 to 1.5 points. Two other
+  GIFs in the same sweep sit below it, at 9.39% and 9.78%, and would have been
+  sectioned into prose records outright. Whether a real image survives a
+  refused qualifier therefore depends on the entropy of its first 8 KiB, which
+  is not something a qualifier controls. `real_gif_shapes_the_aspect_ratio_rule_refused`,
+  `real_bmp_shapes_the_closed_set_refused` and a test that reads the actual
+  3.27 MB `docs/media/demo.gif` off disk pin all of this; every one of them
+  fails against the earlier revision.
+
+  The magic table is now a named constant, and
+  `printable_magic_tests::every_printable_signature_carries_a_qualifier` walks
+  every row: a signature that is all printable ASCII must refuse a prefix
+  consisting of that signature followed by prose. A future row wired to `accept`
+  fails a test rather than a code review. The walk covers `MAGIC_TABLE` only —
+  `%PDF-` is matched before it and has the same defect, filed as
+  [#403](https://github.com/xerj-org/xerj/issues/403) and pinned by
+  `signatures_matched_before_the_table`.
+
+  The same sweep found a third instance of the shape, in the row below: the
+  RIFF FORM-type set listed `ANI `, which is the animated-cursor file
+  *extension* rather than its FORM type. The FORM type is `ACON`, and all 12
+  real `.ani` files on the build machine were refused (195 RIFF files swept:
+  `WAVE` 158, `WEBP` 25, `ACON` 12). They still classified `binary` through the
+  heuristics, so the measured cost was the `binary_kind` label rather than
+  records, but it is corrected here rather than left for a third widening.
+
+  Two smaller notes. A GIF or BMP that fails its qualifier but still trips the
+  binary heuristics now reports `binary_kind` `unknown` rather than `gif`/`bmp`
+  in the autoindex junk report; the classification is unchanged, the label is
+  less specific. And `xerj index` is unaffected either way — it ingests an
+  explicit `--file` of JSON/NDJSON and never reaches the sniffer, so this
+  defect was always confined to `xerj autoindex` and `xerj brain`, which
+  answers the open question the issue left.
+
 ## [1.0.0-rc.17] - 2026-08-15
 
 ### Added
@@ -1155,7 +1234,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is filed as **#380** rather than smuggled in here, and today's wrong answers
   are pinned by `gif8_and_bm_are_still_taken_on_faith` so #380 has to flip that
   assertion deliberately. `GIF8` is listed alongside `BM` so the next reader
-  does not conclude `BM` is the only one.
+  does not conclude `BM` is the only one. *(Fixed after rc.17 — see #379/#380
+  under Unreleased. That pinning test is gone, replaced by
+  `printable_magic_tests`, which asserts the right answers.)*
 
 - **A junk entry could overwrite a successfully indexed file's catalog row.**
   When phase B met a record group phase A never sampled, the worker pushed a
@@ -1188,6 +1269,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no Unity content. Both names are recorded here on purpose: `BM` is the
   obvious one and `GIF8` is the one a reader would otherwise miss. Tracked as
   **#380**; `gif8_and_bm_are_still_taken_on_faith` pins the current behaviour.
+  *(Fixed after rc.17 — see #379/#380 under Unreleased. That pinning test is
+  gone, replaced by `printable_magic_tests`, which asserts the right answers.)*
 
 - **A magic-less binary is still sectioned and indexed in full.** The two
   byte-statistics guards this branch removed (they junked non-Latin text) also

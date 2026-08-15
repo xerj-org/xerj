@@ -183,58 +183,8 @@ fn sniff_bytes(
     // thousands of junk records — measured: a 4,194,360-byte printable blob
     // yields 2,048 sections. `for_each_section` streams, so the cost is the
     // record COUNT, not resident bytes. Magic bytes are the reliable signal.
-    //
-    // Every signature ADDED BY THIS BRANCH whose bytes are printable ASCII
-    // carries a `qualify` check as well, because "starts with these letters"
-    // is also true of ordinary text: a CSV whose first column header is `ID3`,
-    // and prose whose first word is `RIFF`, `OggS`, `fLaC`, `8BPS` or
-    // `Kaydara FBX Binary`, were all junked as media by the unqualified table
-    // (measured — see the tests below). That is six of the nine signatures
-    // added here; the other three (`II*\x00`, `MM\x00*`, the EXR magic) carry
-    // a byte text cannot contain.
-    //
-    // Two printable signatures remain unqualified — `GIF8` and `BM` — and both
-    // have the same defect. They are NOT new: they are unchanged from
-    // `ca4d75a` and were measured to classify identically on both trees, so
-    // fixing them is a separate behaviour change and is filed as #380 rather
-    // than smuggled into a Unity PR. Today's wrong answers are pinned by
-    // `printable_magic_regression_tests::gif8_and_bm_are_still_taken_on_faith`,
-    // so #380 has to come here and flip that assertion deliberately.
-    //
-    // Qualifying a magic number is the
-    // rule Lucene applies to its own containers: `CodecUtil.checkHeader`
-    // (`lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java:183-201`,
-    // Apache-2.0) matches `CODEC_MAGIC` and then hands straight to
-    // `checkHeaderNoMagic` (`CodecUtil.java:202-246`), which refuses the file
-    // unless the codec name AND a version inside an accepted range follow —
-    // the magic alone is never taken as proof. Adapted, not copied: Lucene is
-    // validating files it wrote itself, this is declining to delete somebody
-    // else's prose.
-    for (magic, kind, qualify) in [
-        (&b"\x89PNG"[..], "png", accept as fn(&[u8]) -> bool),
-        (&b"GIF8"[..], "gif", accept as fn(&[u8]) -> bool),
-        (&b"\xff\xd8\xff"[..], "jpeg", accept as fn(&[u8]) -> bool),
-        (&b"\x7fELF"[..], "elf", accept as fn(&[u8]) -> bool),
-        (&b"BM"[..], "bmp", accept as fn(&[u8]) -> bool),
-        (&b"\x00\x00\x01\x00"[..], "ico", accept as fn(&[u8]) -> bool),
-        (&b"8BPS"[..], "psd", psd_version as fn(&[u8]) -> bool),
-        (&b"II*\x00"[..], "tiff", accept as fn(&[u8]) -> bool),
-        (&b"MM\x00*"[..], "tiff", accept as fn(&[u8]) -> bool),
-        (&b"RIFF"[..], "riff", riff_form as fn(&[u8]) -> bool),
-        (&b"OggS"[..], "ogg", ogg_page as fn(&[u8]) -> bool),
-        (
-            &b"fLaC"[..],
-            "flac",
-            flac_metadata_block as fn(&[u8]) -> bool,
-        ),
-        (&b"ID3"[..], "mp3", id3v2_header as fn(&[u8]) -> bool),
-        (
-            &b"Kaydara FBX Binary"[..],
-            "fbx",
-            fbx_header as fn(&[u8]) -> bool,
-        ),
-        (&b"\x76\x2f\x31\x01"[..], "exr", accept as fn(&[u8]) -> bool),
-    ] {
+    // `MAGIC_TABLE` and its invariant are documented at the table itself.
+    for &(magic, kind, qualify) in MAGIC_TABLE {
         if prefix.starts_with(magic) && qualify(prefix) {
             let mut s = mk(Family::Binary);
             s.binary_kind = Some(kind.into());
@@ -376,21 +326,223 @@ fn sniff_bytes(
 /// the bytes are text — the binary heuristics key off this exact string.
 pub const WINDOWS_1252_LOSSY: &str = "windows-1252 (lossy)";
 
+/// A magic-byte row: the signature, the `binary_kind` it reports, and the
+/// structural check that has to pass before the signature is believed.
+type MagicRow = (&'static [u8], &'static str, fn(&[u8]) -> bool);
+
+/// Media/container signatures, tried in order before any text heuristic.
+///
+/// THE INVARIANT, and the reason this table is a named constant rather than a
+/// literal inside `sniff_bytes`: **a signature whose bytes are all printable
+/// ASCII MUST carry a qualifier**, because "starts with these letters" is also
+/// true of ordinary text. A CSV whose first column header is `ID3` or `BMW`,
+/// prose whose first word is `RIFF`, `OggS`, `fLaC`, `8BPS` or `Kaydara FBX
+/// Binary`, and a note opening `GIF89a is the version string…` were each junked
+/// as media by an unqualified row (measured — see the tests below). The rows
+/// that use `accept` are exactly the ones carrying a byte text cannot contain:
+/// `\x89PNG`, `\xff\xd8\xff`, `\x7fELF`, `\x00\x00\x01\x00`, the NUL in
+/// `II*\x00` / `MM\x00*`, and the `\x01` in the EXR magic.
+///
+/// `GIF8` and `BM` were the last two exceptions — printable ASCII taken on
+/// faith, so a `cars.csv` opening `BMW,model,year` was reported as an image and
+/// never indexed (#379/#380, the same defect filed twice). The invariant is now
+/// enforced by walking these rows in
+/// `printable_magic_tests::every_printable_signature_carries_a_qualifier`, so
+/// the next row added in violation of it fails a test instead of a code review.
+///
+/// Qualifying a magic number is the rule Lucene applies to its own containers:
+/// `CodecUtil.checkHeader`
+/// (`lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java:183-201`,
+/// Apache-2.0) matches `CODEC_MAGIC` and then hands straight to
+/// `checkHeaderNoMagic` (`CodecUtil.java:202-246`), which refuses the file
+/// unless the codec name AND a version inside an accepted range follow — the
+/// magic alone is never taken as proof. Adapted, not copied: Lucene is
+/// validating files it wrote itself, this is declining to delete somebody
+/// else's prose.
+const MAGIC_TABLE: &[MagicRow] = &[
+    (b"\x89PNG", "png", accept),
+    (b"GIF8", "gif", gif_screen_descriptor),
+    (b"\xff\xd8\xff", "jpeg", accept),
+    (b"\x7fELF", "elf", accept),
+    (b"BM", "bmp", bmp_file_header),
+    (b"\x00\x00\x01\x00", "ico", accept),
+    (b"8BPS", "psd", psd_version),
+    (b"II*\x00", "tiff", accept),
+    (b"MM\x00*", "tiff", accept),
+    (b"RIFF", "riff", riff_form),
+    (b"OggS", "ogg", ogg_page),
+    (b"fLaC", "flac", flac_metadata_block),
+    (b"ID3", "mp3", id3v2_header),
+    (b"Kaydara FBX Binary", "fbx", fbx_header),
+    (b"\x76\x2f\x31\x01", "exr", accept),
+];
+
 /// Magic-byte signature taken as sufficient on its own.
 ///
-/// For most callers that is because the signature contains a byte text cannot
-/// contain (`\x89PNG`, `\xff\xd8\xff`, `\x7fELF`, `\x00\x00\x01\x00`, the NUL
-/// in `II*\x00` / `MM\x00*`, the `\x01` in the EXR magic).
-///
-/// It is NOT true of the two remaining callers: `GIF8` and `BM` are printable
-/// ASCII, so prose or a CSV header beginning with those characters is junked
-/// as an image. Both predate this branch — they are unchanged from `ca4d75a`
-/// and measured identical on both trees — so they are left alone here rather
-/// than widened into an unrelated behaviour change, and are tracked as #380.
-/// Do not read this function as a proof that its callers are safe;
-/// it is only a statement that no *further* check is performed.
+/// Every caller is a signature containing a byte text cannot contain
+/// (`\x89PNG`, `\xff\xd8\xff`, `\x7fELF`, `\x00\x00\x01\x00`, the NUL in
+/// `II*\x00` / `MM\x00*`, the `\x01` in the EXR magic) — that byte, not this
+/// function, is what makes the match evidence. A signature made only of
+/// printable ASCII must NOT be routed here; give it a structural qualifier, as
+/// `GIF8` and `BM` now have (#379/#380). Do not read this function as a proof
+/// that its callers are safe; it is only a statement that no *further* check is
+/// performed.
 fn accept(_prefix: &[u8]) -> bool {
     true
+}
+
+/// GIF: `GIF8` on its own is four printable letters, so a note opening "GIF89a
+/// is the header format used by the GIF image standard" was classified as an
+/// image and junked by `scan_file` as "binary content (gif)" (#379/#380).
+///
+/// Widening the signature to the full six-byte version stamp is NOT enough on
+/// its own — that same sentence supplies `GIF89a` — and neither is adding the
+/// canvas dimensions, because " i"/"s " are perfectly good non-zero u16s. The
+/// qualifier has to reach the fields the spec pins to a fixed value.
+///
+/// GIF89a spec §17-19: the 6-byte Header (`GIF87a` or `GIF89a`) is followed by
+/// the 7-byte Logical Screen Descriptor — canvas width and height
+/// (little-endian, and an image has both), a packed field whose top bit is the
+/// Global Colour Table flag and whose low three bits size that table, a
+/// Background Colour Index, and a Pixel Aspect Ratio. Then comes the Global
+/// Colour Table itself, `3 * 2^(N+1)` bytes, and after it the first block of
+/// the data stream. The table is at most 768 bytes, so that first block starts
+/// at offset 781 at the very latest and is always inside the 8 KiB
+/// `read_prefix` buffer.
+///
+/// That first block is the discriminator. The spec admits exactly three
+/// introducers there — `0x21` Extension, `0x2C` Image Descriptor, `0x3B`
+/// Trailer — but the introducer ALONE is not enough, and this is worth
+/// spelling out because it is what the first attempt at this fix used: all
+/// three bytes are printable (`!`, `,`, `;`), so "GIF89a header, the six bytes
+/// at the front of every GIF file" puts a comma exactly there and is junked all
+/// over again. Measured, along with "GIF89a images! …" and "GIF87a format; …".
+/// So the block is decoded one step further, into fields prose cannot supply:
+///
+///   * after `0x21`, the extension label. The spec defines four — Plain Text
+///     `0x01`, Graphic Control `0xF9`, Comment `0xFE`, Application `0xFF` —
+///     three unprintable and the fourth a control character.
+///   * after `0x2C`, a 9-byte Image Descriptor. The frame must be non-empty and
+///     must fit inside the canvas declared two fields earlier, which four
+///     little-endian u16s of prose do not.
+///
+/// A bare `0x3B` is refused: that is a GIF containing no image at all, it
+/// appears in no corpus measured, and it carries no pixel data to junk.
+///
+/// The fields this check does NOT use are as important, because round 1 of
+/// #379 used them and they were wrong. Requiring the Pixel Aspect Ratio and
+/// the Background Colour Index to be zero looks safe — satisfying them takes
+/// NUL bytes, and prose has no NULs — but it refuses REAL GIFs. Swept over
+/// every distinct GIF on the build machine (147 files deduped by content hash,
+/// 51 B to 17.6 MB): the rule below accepts 147/147; the aspect/background rule
+/// refused 4, among them this repository's own `docs/media/demo.gif`, whose
+/// aspect byte is 49 — the spec's encoding of a 1:1 pixel ratio, since
+/// `(49 + 15) / 64 = 1.0`.
+///
+/// Falling through to the text heuristics is not a safety net, and the honest
+/// version of that claim is narrower than "it still classifies binary". All 4
+/// refused GIFs do still reach `Family::Binary` here, but as `unknown` rather
+/// than `gif`, and only because their first 8 KiB decodes above the 10%
+/// control-character threshold — by 0.14 to 1.5 percentage points. Two other
+/// GIFs in the same 147 sit BELOW it, at 9.39% and 9.78%, and would be
+/// sectioned into prose records outright if they were refused. Whether a real
+/// image survives therefore turns on the entropy of its first 8 KiB, which no
+/// qualifier controls. Pinned by
+/// `real_gif_shapes_the_aspect_ratio_rule_refused`.
+fn gif_screen_descriptor(prefix: &[u8]) -> bool {
+    if prefix.len() < 13 || !matches!(&prefix[..6], b"GIF87a" | b"GIF89a") {
+        return false;
+    }
+    let canvas_width = u16::from_le_bytes([prefix[6], prefix[7]]);
+    let canvas_height = u16::from_le_bytes([prefix[8], prefix[9]]);
+    if canvas_width == 0 || canvas_height == 0 {
+        return false;
+    }
+    let packed = prefix[10];
+    // `3 * 2^(N+1)`, N being the low three bits: 6 bytes at N=0, 768 at N=7.
+    let color_table = if packed & 0x80 != 0 {
+        3 * (1usize << ((packed & 0x07) + 1))
+    } else {
+        0
+    };
+    // Background Colour Index (11) and Pixel Aspect Ratio (12) are skipped on
+    // purpose — see above, real encoders put non-zero bytes in both.
+    let block = 13 + color_table;
+    match prefix.get(block) {
+        Some(0x21) => matches!(prefix.get(block + 1), Some(0x01 | 0xf9 | 0xfe | 0xff)),
+        Some(0x2c) => {
+            let Some(desc) = prefix.get(block + 1..block + 9) else {
+                return false;
+            };
+            let left = u32::from(u16::from_le_bytes([desc[0], desc[1]]));
+            let top = u32::from(u16::from_le_bytes([desc[2], desc[3]]));
+            let width = u32::from(u16::from_le_bytes([desc[4], desc[5]]));
+            let height = u32::from(u16::from_le_bytes([desc[6], desc[7]]));
+            width != 0
+                && height != 0
+                && left + width <= u32::from(canvas_width)
+                && top + height <= u32::from(canvas_height)
+        }
+        _ => false,
+    }
+}
+
+/// Windows bitmap: `BM`, then a 14-byte BITMAPFILEHEADER, then a DIB header
+/// that opens with its own size.
+///
+/// The discriminator is the DIB header size and the two fields immediately
+/// behind it. Every DIB header ever defined is between 12 (BITMAPCOREHEADER)
+/// and 124 (BITMAPV5HEADER) bytes, so its little-endian u32 puts three NUL
+/// bytes at offsets 15..18, where `BMW,model,year` puts `ar\n`. Colour planes
+/// is then fixed at 1 by every variant of the header, which pins a fourth NUL,
+/// and bit depth behind it is a closed set. Those are the checks text cannot
+/// pass; the pixel-array offset must additionally clear both headers.
+///
+/// Two tighter rules were tried first, in round 1 of #379, and both refuse real
+/// bitmaps — which is the failure this table exists to prevent, so neither is
+/// used:
+///
+///   * `bfReserved1/2` at offsets 6..10 are specified as zero, but a bitmap
+///     converted from a CUR or ICO carries the cursor hot-spot coordinates
+///     there.
+///   * a closed set of DIB sizes `{12, 16, 40, 52, 56, 64, 108, 124}` admits
+///     five of the OS/2 2.x BITMAPCOREHEADER2 sizes, which are legally anything
+///     in `16..=64`, and refuses the other 44.
+///
+/// Only 3 real BMPs exist on the build machine, all BITMAPINFOHEADER with zero
+/// reserved words, so unlike the GIF sweep this is reasoned from the format
+/// definitions rather than measured against a corpus — but the mechanism is the
+/// one that demonstrably broke GIF, and a synthetic hot-spot / OS/2 bitmap does
+/// sniff `txt-prose` under the old rule. Pinned by
+/// `real_bmp_shapes_the_closed_set_refused`.
+///
+/// `bfSize` (offsets 2..6) is deliberately NOT compared against the file
+/// length, which is what #379 proposed. Two reasons, both structural: this
+/// function classifies from the `read_prefix(path, gzip, 8192)` buffer and has
+/// no file length to compare against, and for a gzipped member the on-disk
+/// length is the *compressed* length, so the comparison would be wrong exactly
+/// where it was applied.
+fn bmp_file_header(prefix: &[u8]) -> bool {
+    if prefix.len() < 18 {
+        return false;
+    }
+    let pixel_offset = u32::from_le_bytes([prefix[10], prefix[11], prefix[12], prefix[13]]);
+    let dib_header_size = u32::from_le_bytes([prefix[14], prefix[15], prefix[16], prefix[17]]);
+    if !(12..=124).contains(&dib_header_size) || pixel_offset < 14 + dib_header_size {
+        return false;
+    }
+    // Colour planes then bit depth. BITMAPCOREHEADER declares u16 width and
+    // height, every later header i32, which moves the pair from 22 to 26.
+    let planes_at = if dib_header_size == 12 { 22 } else { 26 };
+    let Some(f) = prefix.get(planes_at..planes_at + 4) else {
+        return false;
+    };
+    u16::from_le_bytes([f[0], f[1]]) == 1
+        && matches!(
+            u16::from_le_bytes([f[2], f[3]]),
+            // 0 is BI_JPEG / BI_PNG, where the DIB carries an embedded image.
+            0 | 1 | 2 | 4 | 8 | 16 | 24 | 32
+        )
 }
 
 /// Adobe Photoshop: `8BPS` is followed by a big-endian version, 1 for PSD and
@@ -403,11 +555,19 @@ fn psd_version(prefix: &[u8]) -> bool {
 /// RIFF container: `RIFF`, a little-endian chunk size, then a four-character
 /// FORM type naming what the container actually holds. Requiring a known FORM
 /// is what separates a WAV from a sentence that opens with the word "RIFF".
+///
+/// `ACON` is the animated-cursor FORM. It is listed because `ANI ` — which was
+/// here on its own — is the file EXTENSION, not the FORM type, and no encoder
+/// writes it: swept over every RIFF file on the build machine (195 files;
+/// FORM types `WAVE` 158, `WEBP` 25, `ACON` 12), the closed set without `ACON`
+/// refused all 12 real `.ani` files. Same defect shape as #379 one row up, so
+/// it is corrected here rather than left for the closed set to be widened a
+/// third time.
 fn riff_form(prefix: &[u8]) -> bool {
     prefix.len() >= 12
         && matches!(
             &prefix[8..12],
-            b"WAVE" | b"AVI " | b"WEBP" | b"RMID" | b"ANI " | b"CDDA" | b"PAL " | b"RDIB"
+            b"WAVE" | b"AVI " | b"WEBP" | b"RMID" | b"ACON" | b"CDDA" | b"PAL " | b"RDIB"
         )
 }
 
@@ -1319,76 +1479,452 @@ mod unity_sniff_tests {
     }
 }
 
-/// Characterisation of a KNOWN, PRE-EXISTING defect, tracked as #380.
+/// Regression for #379/#380: `GIF8` and `BM` were the last two printable-ASCII
+/// signatures in `MAGIC_TABLE` taken on faith, so text beginning with those
+/// characters was classified `Family::Binary` and `scan_file` junked it as
+/// "binary content (gif)" / "(bmp)" — never indexed, with a wrong reason. The
+/// reported case is a CSV whose first column header is `BMW`.
 ///
-/// Every other printable-ASCII signature in the magic table carries a
-/// structural qualifier. `GIF8` and `BM` do not: they pass `accept`, which
-/// returns `true` without looking at a single byte. So text beginning with
-/// those characters is classified `Family::Binary` and `scan_file` junks it.
-///
-/// This module asserts the WRONG answer on purpose. The behaviour is not
-/// introduced by this branch — on `origin/main` the same two entries sit in a
-/// loop with no qualifier at all (`if prefix.starts_with(magic)`), so the
-/// control flow to `Family::Binary` is identical and cannot differ — and
-/// fixing it is a behaviour change with no Unity content. Pinning it here is
-/// what stops the CHANGELOG's "known issue" wording from being the only record
-/// of it: whoever fixes #380 must come to this file and flip these assertions,
-/// which is the point.
+/// Before this module's fix, `gif8_and_bm_are_still_taken_on_faith` pinned the
+/// wrong answers here on purpose. These tests are its replacement: they assert
+/// the right answer for the same fixtures, keep the true positives, and add a
+/// walk of `MAGIC_TABLE` so the *class* of defect cannot come back by way of a
+/// new row.
 #[cfg(test)]
-mod printable_magic_regression_tests {
+mod printable_magic_tests {
     use super::*;
 
+    fn sniff_str(text: &str, name: &str) -> Sniffed {
+        let p = Path::new(name);
+        sniff_bytes(text.as_bytes(), p, p, false).unwrap()
+    }
+
+    /// The issue's own three fixtures, plus the CSV shape it calls out. `ID3`
+    /// is included because it was already correct and must stay correct.
     #[test]
-    fn gif8_and_bm_are_still_taken_on_faith() {
-        // Prose, and a well-formed CSV whose first column header happens to be
-        // `GIF8`. All four are text. All four are reported as images.
-        for (label, bytes, name, kind) in [
+    fn text_that_opens_with_gif8_or_bm_is_text() {
+        for (label, text, name, want) in [
             (
-                "gif8-prose",
-                "GIF8 is the four byte magic that opens a GIF image file. "
-                    .repeat(30)
-                    .into_bytes(),
-                "notes.txt",
-                "gif",
+                "cars-csv",
+                "BMW,model,year\nX5,SUV,2024\n330i,sedan,2023\nM3,coupe,2022\niX,SUV,2025\n"
+                    .to_string(),
+                "cars.csv",
+                Family::Csv,
             ),
             (
-                "gif89a-prose",
-                "GIF89a is the version string of the second GIF spec. "
-                    .repeat(30)
-                    .into_bytes(),
-                "notes.txt",
-                "gif",
-            ),
-            (
-                "bm-prose",
-                "BM is the two byte magic that opens a Windows bitmap file. "
-                    .repeat(30)
-                    .into_bytes(),
-                "notes.txt",
-                "bmp",
+                "bmi-csv",
+                "BMI,height_cm,weight_kg\n22.1,180,71\n25.6,165,70\n19.8,171,58\n27.3,178,86\n"
+                    .to_string(),
+                "health.csv",
+                Family::Csv,
             ),
             (
                 "gif8-csv",
-                b"GIF8,name,value\n1,alpha,2\n3,beta,4\n5,gamma,6\n7,delta,8\n".to_vec(),
+                "GIF8,name,value\n1,alpha,2\n3,beta,4\n5,gamma,6\n7,delta,8\n".to_string(),
                 "t.csv",
-                "gif",
+                Family::Csv,
             ),
+            (
+                "gif-notes",
+                "GIF89a is the header format used by the GIF image standard. ".repeat(30),
+                "gif-notes.txt",
+                Family::TxtProse,
+            ),
+            (
+                "gif87a-notes",
+                "GIF87a was the first version of the format, published in 1987. ".repeat(30),
+                "gif87.txt",
+                Family::TxtProse,
+            ),
+            (
+                "gif8-prose",
+                "GIF8 is the four byte magic that opens a GIF image file. ".repeat(30),
+                "notes.txt",
+                Family::TxtProse,
+            ),
+            (
+                "bm-prose",
+                "BM is the two byte magic that opens a Windows bitmap file. ".repeat(30),
+                "notes.txt",
+                Family::TxtProse,
+            ),
+            (
+                "id3-notes",
+                "ID3 tags are metadata containers embedded in MP3 files. ".repeat(30),
+                "id3-notes.txt",
+                Family::TxtProse,
+            ),
+        ] {
+            let sn = sniff_str(&text, name);
+            assert_ne!(
+                sn.family,
+                Family::Binary,
+                "{label}: text opening with a printable signature was junked as \
+                 {:?}",
+                sn.binary_kind
+            );
+            assert_eq!(sn.family, want, "{label}: wrong family");
+        }
+    }
+
+    /// The signature is necessary, it is just not sufficient — real bitmaps and
+    /// real GIFs must still be caught by magic, before any text heuristic, or
+    /// the fix has simply moved the damage (a multi-MB image sectioned into
+    /// thousands of prose records, which is what the magic table exists to
+    /// prevent).
+    #[test]
+    fn real_bitmaps_and_gifs_are_still_binary_by_magic() {
+        // 2x2 24bpp BMP: BITMAPFILEHEADER (14) + BITMAPINFOHEADER (40).
+        let mut bmp: Vec<u8> = b"BM".to_vec();
+        bmp.extend_from_slice(&70u32.to_le_bytes()); // bfSize
+        bmp.extend_from_slice(&[0, 0, 0, 0]); // bfReserved1/2
+        bmp.extend_from_slice(&54u32.to_le_bytes()); // bfOffBits
+        bmp.extend_from_slice(&40u32.to_le_bytes()); // biSize
+        bmp.extend_from_slice(&2i32.to_le_bytes()); // biWidth
+        bmp.extend_from_slice(&2i32.to_le_bytes()); // biHeight
+        bmp.extend_from_slice(&[1, 0, 24, 0]); // planes, bpp
+        bmp.extend(std::iter::repeat_n(0u8, 24));
+        // A printable tail that WOULD pass the prose heuristics.
+        bmp.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20));
+
+        // BITMAPCOREHEADER is the other end of the range that exists.
+        let mut bmp_core: Vec<u8> = b"BM".to_vec();
+        bmp_core.extend_from_slice(&38u32.to_le_bytes());
+        bmp_core.extend_from_slice(&[0, 0, 0, 0]);
+        bmp_core.extend_from_slice(&26u32.to_le_bytes()); // 14 + 12
+        bmp_core.extend_from_slice(&12u32.to_le_bytes()); // BITMAPCOREHEADER
+        bmp_core.extend_from_slice(&[2, 0, 2, 0, 1, 0, 24, 0]);
+        bmp_core.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing. ".repeat(20));
+
+        // GIF89a, 4x4, global colour table of 2 entries, then a Graphic Control
+        // extension — introducer 0x21, label 0xF9.
+        let mut gif: Vec<u8> = b"GIF89a".to_vec();
+        gif.extend_from_slice(&4u16.to_le_bytes()); // width
+        gif.extend_from_slice(&4u16.to_le_bytes()); // height
+        gif.push(0x80); // GCT present, 2 entries
+        gif.push(0); // background colour index
+        gif.push(0); // pixel aspect ratio
+        gif.extend_from_slice(&[0, 0, 0, 0xff, 0xff, 0xff]); // GCT
+        gif.extend_from_slice(&[0x21, 0xf9]);
+        gif.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20));
+
+        // GIF87a with no global colour table, opening straight on an Image
+        // Descriptor: introducer 0x2C, then left/top/width/height/packed for a
+        // frame that fills the 16x16 canvas.
+        let mut gif87: Vec<u8> = b"GIF87a".to_vec();
+        gif87.extend_from_slice(&[16, 0, 16, 0, 0x07, 0, 0]);
+        gif87.extend_from_slice(&[0x2c, 0, 0, 0, 0, 16, 0, 16, 0, 0]);
+        gif87.extend(b"lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20));
+
+        for (name, bytes, kind) in [
+            ("t.bmp", bmp, "bmp"),
+            ("core.bmp", bmp_core, "bmp"),
+            ("t.gif", gif, "gif"),
+            ("t87.gif", gif87, "gif"),
         ] {
             let p = Path::new(name);
             let sn = sniff_bytes(&bytes, p, p, false).unwrap();
-            assert_eq!(
-                sn.family,
-                Family::Binary,
-                "{label}: if this now says text, #380 has been fixed — delete \
-                 this module, drop the CHANGELOG known-issue bullet, clear the \
-                 remaining `#380` mentions in this file (`grep -n '#380'`), and \
-                 close the issue"
-            );
+            assert_eq!(sn.family, Family::Binary, "{name} must be binary");
             assert_eq!(
                 sn.binary_kind.as_deref(),
                 Some(kind),
-                "{label}: pinned so a change in WHICH wrong answer is given is \
-                 also caught"
+                "{name} must be recognised as {kind} by magic, not fall through \
+                 to the heuristics"
+            );
+        }
+    }
+
+    /// A printable body the text heuristics WOULD accept: no NULs and no
+    /// control characters, so a fixture carrying it reaches `TxtProse` the
+    /// moment its qualifier declines. That is what makes the tests below true
+    /// negatives rather than restatements of the NUL ratio check — a colour
+    /// table or a pixel array full of zeroes would be caught by the heuristics
+    /// even with the magic row deleted, and would prove nothing.
+    fn printable_payload(n: usize) -> Vec<u8> {
+        b"lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+            .repeat(n)
+            .to_vec()
+    }
+
+    /// True negatives for the regression round 1 of #379 shipped: real GIF
+    /// header shapes that the "Pixel Aspect Ratio and Background Colour Index
+    /// must be zero" qualifier REFUSED, sending a real image down the text
+    /// path to be sectioned into prose records.
+    ///
+    /// Both shapes are transcribed from real files on the build machine, not
+    /// invented — which is the point, since
+    /// `real_bitmaps_and_gifs_are_still_binary_by_magic` builds ideal headers
+    /// and therefore could not see this class at all:
+    ///
+    ///   * `docs/media/demo.gif`, this repository's own 3.27 MB demo:
+    ///     720x450, packed `0xF7`, background `0xFF`, **aspect `0x31`**, a
+    ///     768-byte global colour table, then the `0x21 0xFF` NETSCAPE2.0
+    ///     application extension that every animated GIF carries. `0x31` is
+    ///     not corruption, it is the spec's encoding of a 1:1 pixel ratio:
+    ///     `(49 + 15) / 64 = 1.0`.
+    ///   * a 92 KB screen capture with the **GCT flag clear and background
+    ///     index 255**, which the spec says should be 0 when no table is
+    ///     declared and which real encoders write anyway.
+    ///
+    /// Two things about the assertion are deliberate. The bodies are printable
+    /// (see `printable_payload`), so a refused fixture sniffs `TxtProse` — the
+    /// cue for `extract` to turn an image into records — rather than being
+    /// rescued by the control-character heuristic and quietly proving nothing.
+    /// And the expectation is `Some("gif")`, not merely `Family::Binary`,
+    /// because that heuristic is luck, not a fallback: across the 147 real
+    /// GIFs measured it clears the 10% threshold by as little as 0.14 points,
+    /// and two of them sit under it at 9.39% and 9.78%.
+    #[test]
+    fn real_gif_shapes_the_aspect_ratio_rule_refused() {
+        // demo.gif: GCT present and full size, non-zero background AND aspect.
+        let mut animated: Vec<u8> = b"GIF89a".to_vec();
+        animated.extend_from_slice(&720u16.to_le_bytes());
+        animated.extend_from_slice(&450u16.to_le_bytes());
+        animated.push(0xf7); // GCT present, 256 entries -> 768 bytes
+        animated.push(0xff); // background colour index
+        animated.push(0x31); // pixel aspect ratio: 1:1, NOT "unspecified"
+        animated.extend(printable_payload(14).into_iter().take(768));
+        animated.extend_from_slice(&[0x21, 0xff]); // NETSCAPE2.0 loop extension
+        animated.extend(printable_payload(20));
+        assert_eq!(animated[781], 0x21, "the first block must land at 13 + 768");
+
+        // screen capture: GCT flag clear, background index still 255.
+        let mut no_table: Vec<u8> = b"GIF89a".to_vec();
+        no_table.extend_from_slice(&2184u16.to_le_bytes());
+        no_table.extend_from_slice(&1280u16.to_le_bytes());
+        no_table.push(0x70); // GCT flag CLEAR
+        no_table.push(0xff); // background colour index, spec says 0
+        no_table.push(0x00);
+        no_table.extend_from_slice(&[0x21, 0xff]);
+        no_table.extend(printable_payload(20));
+
+        for (label, bytes) in [("animated-loop", animated), ("no-global-table", no_table)] {
+            let p = Path::new("capture.gif");
+            let sn = sniff_bytes(&bytes, p, p, false).unwrap();
+            assert_eq!(
+                (sn.family, sn.binary_kind.as_deref()),
+                (Family::Binary, Some("gif")),
+                "{label}: a real GIF header was refused by its qualifier and \
+                 fell through to the text heuristics as {:?}/{:?} — this is \
+                 #379 inverted, an image turned into prose records",
+                sn.family,
+                sn.binary_kind
+            );
+        }
+    }
+
+    /// The same true negative for BMP. `bfReserved1/2` are specified as zero,
+    /// but a bitmap converted from a CUR or ICO carries the cursor hot-spot
+    /// there; OS/2 2.x BITMAPCOREHEADER2 is legally any size in `16..=64`,
+    /// while the closed set round 1 used admitted only five of those 49.
+    /// Bodies are printable, so a refusal here means `TxtProse`, not a lucky
+    /// save by the control-character ratio.
+    #[test]
+    fn real_bmp_shapes_the_closed_set_refused() {
+        fn bmp(dib: u32, reserved: [u8; 4], bits: u16) -> Vec<u8> {
+            let mut v: Vec<u8> = b"BM".to_vec();
+            v.extend_from_slice(&(14 + dib + 1024).to_le_bytes()); // bfSize
+            v.extend_from_slice(&reserved);
+            v.extend_from_slice(&(14 + dib + 1024).to_le_bytes()); // bfOffBits
+            v.extend_from_slice(&dib.to_le_bytes());
+            v.extend_from_slice(&256i32.to_le_bytes()); // width
+            v.extend_from_slice(&256i32.to_le_bytes()); // height
+            v.extend_from_slice(&1u16.to_le_bytes()); // colour planes
+            v.extend_from_slice(&bits.to_le_bytes());
+            v.extend(printable_payload(40).into_iter().take(dib as usize - 16));
+            v.extend(printable_payload(40));
+            v
+        }
+
+        for (label, bytes) in [
+            // Converted from a cursor: hot-spot coordinates in bfReserved1/2.
+            ("cur-hotspot", bmp(40, [16, 0, 16, 0], 8)),
+            // OS/2 2.x BITMAPCOREHEADER2, truncated to 24 and 44 bytes — both
+            // legal, neither in the closed set round 1 shipped.
+            ("os2-dib-24", bmp(24, [0, 0, 0, 0], 8)),
+            ("os2-dib-44", bmp(44, [0, 0, 0, 0], 24)),
+        ] {
+            let p = Path::new("logo.bmp");
+            let sn = sniff_bytes(&bytes, p, p, false).unwrap();
+            assert_eq!(
+                (sn.family, sn.binary_kind.as_deref()),
+                (Family::Binary, Some("bmp")),
+                "{label}: a real BMP header was refused by its qualifier and \
+                 fell through to the text heuristics as {:?}/{:?}",
+                sn.family,
+                sn.binary_kind
+            );
+        }
+    }
+
+    /// The third instance of the same shape, found by sweeping the build
+    /// machine while checking the GIF rule: `riff_form`'s closed set of FORM
+    /// types listed `ANI `, which is the animated-cursor file EXTENSION and
+    /// not its FORM type. The FORM type is `ACON`, and all 12 real `.ani`
+    /// files here were refused. They still reached `Family::Binary` through
+    /// the heuristics — 13.68% and 15.72% control characters against a 10%
+    /// threshold, and one at 90.99% NULs — so the measured cost was the
+    /// specific `binary_kind`, not records; the margin is the same kind of
+    /// luck the GIF rule was relying on.
+    #[test]
+    fn a_riff_form_type_is_the_form_not_the_extension() {
+        let mut ani: Vec<u8> = b"RIFF".to_vec();
+        ani.extend_from_slice(&4096u32.to_le_bytes());
+        ani.extend_from_slice(b"ACON");
+        ani.extend(printable_payload(20));
+        let p = Path::new("wait.ani");
+        let sn = sniff_bytes(&ani, p, p, false).unwrap();
+        assert_eq!(
+            (sn.family, sn.binary_kind.as_deref()),
+            (Family::Binary, Some("riff")),
+            "an animated cursor declares FORM type ACON; `ANI ` is the \
+             extension and no encoder writes it into the container"
+        );
+    }
+
+    /// The other half of the same trade: widening the qualifiers must not
+    /// hand #379 back. The GIF block introducers are `0x21`, `0x2C` and
+    /// `0x3B` — `!`, `,` and `;`, all printable — so "walk to the first block
+    /// and check the introducer", which is the obvious rule and the one this
+    /// fix was first asked for, junks ordinary sentences that happen to put
+    /// punctuation at offset 13. Each fixture below does exactly that.
+    ///
+    /// This is the repository's "a fix that reintroduces the very class it
+    /// fixes", caught in the same file it would have been reintroduced in.
+    #[test]
+    fn prose_that_lands_a_block_introducer_at_the_right_offset_is_still_text() {
+        for (label, opener) in [
+            // offset 13 is ',' -> 0x2C, an Image Descriptor introducer
+            (
+                "comma",
+                "GIF89a header, the six bytes at the front of every GIF file. ",
+            ),
+            // offset 13 is '!' -> 0x21, an Extension introducer
+            (
+                "bang",
+                "GIF89a images! They are still everywhere on the web today. ",
+            ),
+            // offset 13 is ';' -> 0x3B, the Trailer
+            (
+                "semicolon",
+                "GIF87a format; the original release, superseded two years on. ",
+            ),
+        ] {
+            let text = opener.repeat(30);
+            assert_eq!(
+                text.as_bytes()[13],
+                match label {
+                    "comma" => 0x2c,
+                    "bang" => 0x21,
+                    _ => 0x3b,
+                },
+                "{label}: fixture no longer lands an introducer at offset 13, \
+                 so it stopped testing anything — fix the sentence"
+            );
+            let p = Path::new("notes.txt");
+            let sn = sniff_bytes(text.as_bytes(), p, p, false).unwrap();
+            assert_eq!(
+                sn.family,
+                Family::TxtProse,
+                "{label}: prose was junked as {:?} — the block introducer is \
+                 printable, so it cannot be the whole qualifier (#379)",
+                sn.binary_kind
+            );
+        }
+    }
+
+    /// The invariant itself, walked over every row of `MAGIC_TABLE` rather than
+    /// asserted about the two rows this issue happened to name: a signature
+    /// made only of printable ASCII must REFUSE a prefix that is that signature
+    /// followed by ordinary prose. A new row wired to `accept` fails here.
+    ///
+    /// The counter is not decoration — without it a table whose printable rows
+    /// all disappeared would pass this test by iterating over nothing.
+    ///
+    /// SCOPE: `MAGIC_TABLE` only. Three signatures are matched earlier, as
+    /// early returns in `sniff_bytes` — see
+    /// `signatures_matched_before_the_table` below for what that leaves open.
+    #[test]
+    fn every_printable_signature_carries_a_qualifier() {
+        let mut printable_rows = 0;
+        for &(magic, kind, qualify) in MAGIC_TABLE {
+            let printable = magic.iter().all(|b| b.is_ascii_graphic() || *b == b' ');
+            if !printable {
+                continue;
+            }
+            printable_rows += 1;
+            let mut sentence = magic.to_vec();
+            sentence.extend(
+                " is a magic number that identifies a media file format, and this \
+                 sentence is about it rather than an instance of it. "
+                    .repeat(30)
+                    .as_bytes(),
+            );
+            assert!(
+                !qualify(&sentence),
+                "{kind}: the printable signature {:?} accepts a prefix that is \
+                 that signature followed by prose — it needs a structural \
+                 qualifier (#379/#380)",
+                String::from_utf8_lossy(magic)
+            );
+            let p = Path::new("notes.txt");
+            let sn = sniff_bytes(&sentence, p, p, false).unwrap();
+            assert_ne!(
+                sn.family,
+                Family::Binary,
+                "{kind}: prose opening with {:?} was junked",
+                String::from_utf8_lossy(magic)
+            );
+        }
+        assert!(
+            printable_rows >= 7,
+            "expected the printable signatures (GIF8, BM, 8BPS, RIFF, OggS, \
+             fLaC, ID3, Kaydara FBX Binary) to be walked; saw {printable_rows} \
+             — did the table lose rows, or did this filter stop matching?"
+        );
+    }
+
+    /// `%PDF-`, `SQLite format 3\0` and `PK\x03\x04` never reach `MAGIC_TABLE`
+    /// — they are early returns in `sniff_bytes` — so the walk above says
+    /// nothing about them. Two of the three are safe for the usual reason (a
+    /// byte text cannot contain: the NUL after `3`, and `\x03\x04`), and this
+    /// pins that.
+    ///
+    /// `%PDF-` is NOT safe and is the same class as #379/#380: prose opening
+    /// `%PDF-` sniffs `Family::Pdf` and is handed to the PDF extractor.
+    /// Measured on this branch and filed as #403 rather than widened into this
+    /// fix — five characters including `%` and `-` is a far smaller collision
+    /// surface than `BM`, and it does not produce #379's silent "binary
+    /// content" junk reason. The wrong answer is asserted here on purpose so
+    /// #403 has to come to this file and flip it.
+    #[test]
+    fn signatures_matched_before_the_table() {
+        for (label, opener, want) in [
+            (
+                "sqlite",
+                "SQLite format 3 is the string at the start of every database file. ",
+                Family::TxtProse,
+            ),
+            (
+                "zip",
+                "PK is the local file header signature of the ZIP format. ",
+                Family::TxtProse,
+            ),
+            // #403: this one is wrong. It must read TxtProse when #403 lands.
+            (
+                "pdf",
+                "%PDF- is the five byte header every PDF file begins with. ",
+                Family::Pdf,
+            ),
+        ] {
+            let text = opener.repeat(30);
+            let p = Path::new("notes.txt");
+            let sn = sniff_bytes(text.as_bytes(), p, p, false).unwrap();
+            assert_eq!(
+                sn.family, want,
+                "{label}: prose opening with a pre-table signature classified \
+                 {:?}/{:?}",
+                sn.family, sn.binary_kind
             );
         }
     }
