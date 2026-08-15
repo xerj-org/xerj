@@ -47,10 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caller had no way to tell which question had been answered. `_search`
   responses now carry an additive `_xerj.hints` entry (`code:
   "lexical_on_semantic_text"`) that names the field, says the embedding was
-  not consulted, and gives a ready-to-paste `semantic` query body. Scoring,
-  hits and every ES-compat response field are unchanged, and the hint stays
-  quiet when the same request already reaches the vector through `semantic`
-  or `knn` (including the ES 8.x top-level `knn` block).
+  not consulted, and gives a ready-to-paste query body that does reach it.
+  Scoring, hits and every ES-compat response field are unchanged.
+
+  The hint goes quiet only where the vector genuinely ran
+  ([#394](https://github.com/xerj-org/xerj/issues/394)). Naming `semantic` or
+  `knn` somewhere in the request is not that: a vector clause nested in a
+  multi-clause `bool` — which is also what the ES 8.x top-level `knn` block
+  beside a `query` is folded into — is never dispatched
+  ([#395](https://github.com/xerj-org/xerj/issues/395)), so those requests
+  answer with BM25 and now say so, naming the caller's own dropped clause and
+  suggesting the `hybrid` form that runs both halves. `hybrid` is the one
+  shape that fans a vector clause out beside a lexical one, and the one shape
+  that silences the hint.
 
 ## [1.0.0-rc.17] - 2026-08-15
 
