@@ -20035,8 +20035,22 @@ async fn scroll_page_response(
             // to carry, silently, regardless of what was asked for.
             let emit_seq_no = ctx.seq_no_primary_term;
             let emit_version = ctx.version;
-            let index_name = ctx.index.clone();
-            let index_for_lookup = state.engine.get_index(&index_name).ok();
+            // Resolve the handle PER HIT, against the index that hit actually
+            // came from — not against the context-level `ctx.index`. #424 made
+            // `_index` per-hit and explicitly demoted that field to a
+            // "context-level fallback only"; looking the version map up in one
+            // index while reporting another is how a two-index scroll ends up
+            // serving `_seq_no` read out of the wrong index. This mirrors the
+            // main search handler, which resolves inside its per-hit loop.
+            // Cached per distinct index name so a page still costs one
+            // `get_index` per index, not one per hit.
+            let mut handles: std::collections::HashMap<String, Option<_>> =
+                std::collections::HashMap::new();
+            for (hit_index, _) in ctx.hits.iter().skip(position).take(page_size) {
+                handles
+                    .entry(hit_index.clone())
+                    .or_insert_with(|| state.engine.get_index(hit_index).ok());
+            }
 
             let page_hits: Vec<EsHit> = ctx
                 .hits
@@ -20044,18 +20058,15 @@ async fn scroll_page_response(
                 .skip(position)
                 .take(page_size)
                 .map(|(hit_index, h)| {
+                    let own_index = handles.get(hit_index).and_then(|h| h.as_ref());
                     let (seq_no, primary_term) = if emit_seq_no {
-                        let sn = index_for_lookup
-                            .as_ref()
-                            .and_then(|idx| idx.lookup_seq_no(&h.id));
+                        let sn = own_index.and_then(|idx| idx.lookup_seq_no(&h.id));
                         (sn, sn.map(|_| 1u64))
                     } else {
                         (None, None)
                     };
                     let version = if emit_version {
-                        index_for_lookup
-                            .as_ref()
-                            .and_then(|idx| idx.lookup_version(&h.id))
+                        own_index.and_then(|idx| idx.lookup_version(&h.id))
                     } else {
                         None
                     };
