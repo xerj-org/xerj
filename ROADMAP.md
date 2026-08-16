@@ -2,7 +2,7 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-08-16 (against `v1.0.0-rc.18` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
+Last reviewed: 2026-08-16 (against `v1.0.0-rc.18` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298). That test can only see the review line and the next-release heading, so the issue-state claims below are checked separately by `scripts/check-roadmap-issue-states.sh`, which queries GitHub for every issue this file names — run it before cutting an RC. It exists because the rc.18 cut published closed issues as open twice in two rounds.
 
 ## Follow the roadmap
 
