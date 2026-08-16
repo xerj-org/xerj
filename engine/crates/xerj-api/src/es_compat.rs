@@ -20060,40 +20060,40 @@ async fn scroll_page_response(
                         None
                     };
                     EsHit {
-                    // Per-hit index, not the context-level one (#414).
-                    index: hit_index.clone(),
-                    id: h.id.clone(),
-                    score: Some(h.score as f64),
-                    version,
-                    seq_no,
-                    primary_term,
-                    source: if h.source.is_null() {
-                        None
-                    } else {
-                        Some(h.source.clone())
-                    },
-                    fields: passage_fields(h),
-                    sort: if h.sort.is_empty() {
-                        None
-                    } else {
-                        Some(h.sort.clone())
-                    },
-                    highlight: h.highlight.clone(),
-                    explanation: None,
-                    inner_hits: None,
-                    matched_queries: if h.matched_queries.is_empty() {
-                        Value::Null
-                    } else {
-                        Value::Array(
-                            h.matched_queries
-                                .iter()
-                                .cloned()
-                                .map(Value::String)
-                                .collect(),
-                        )
-                    },
-                    ignored: None,
-                    ignored_field_values: None,
+                        // Per-hit index, not the context-level one (#414).
+                        index: hit_index.clone(),
+                        id: h.id.clone(),
+                        score: Some(h.score as f64),
+                        version,
+                        seq_no,
+                        primary_term,
+                        source: if h.source.is_null() {
+                            None
+                        } else {
+                            Some(h.source.clone())
+                        },
+                        fields: passage_fields(h),
+                        sort: if h.sort.is_empty() {
+                            None
+                        } else {
+                            Some(h.sort.clone())
+                        },
+                        highlight: h.highlight.clone(),
+                        explanation: None,
+                        inner_hits: None,
+                        matched_queries: if h.matched_queries.is_empty() {
+                            Value::Null
+                        } else {
+                            Value::Array(
+                                h.matched_queries
+                                    .iter()
+                                    .cloned()
+                                    .map(Value::String)
+                                    .collect(),
+                            )
+                        },
+                        ignored: None,
+                        ignored_field_values: None,
                     }
                 })
                 .collect();
@@ -20420,7 +20420,10 @@ mod passage_scroll_tests {
         let body: Value = serde_json::from_slice(&bytes).unwrap();
         let scroll_id = body["_scroll_id"].as_str().unwrap().to_string();
         assert!(
-            body["hits"]["hits"][0].get("_seq_no").and_then(Value::as_u64).is_some(),
+            body["hits"]["hits"][0]
+                .get("_seq_no")
+                .and_then(Value::as_u64)
+                .is_some(),
             "page 1 should already carry a real _seq_no: {body}"
         );
 
