@@ -7,7 +7,7 @@ Last reviewed: 2026-08-16 (against `v1.0.0-rc.18` and `main`). Statuses trace to
 ## Follow the roadmap
 
 - **This file** is authoritative. If any other surface disagrees with it, this file wins — and that disagreement is a bug worth an issue.
-- **[Milestones](https://github.com/xerj-org/xerj/milestones)** — release-by-release, where they exist. They are **not** a live view: at the rc.18 cut 36 of 38 open issues carried no milestone and the only two that did sat on already-shipped rc.17. The [rc.19 milestone](https://github.com/xerj-org/xerj/milestone/4) was created at this cut, having been referenced by this file while not existing; issues are still being triaged onto it, so the "Next release" section below remains the authoritative short-term roadmap.
+- **[Milestones](https://github.com/xerj-org/xerj/milestones)** — release-by-release, where they exist. They are **not** a live view: at the rc.18 cut 36 of 38 open issues carried no milestone and the only two that did sat on already-shipped rc.17. The [rc.19 milestone](https://github.com/xerj-org/xerj/milestone/4) was created at this cut — this file had referenced it while it did not exist — and the 31 issues below are now on it. It is a live view again.
 - **[Project board](https://github.com/users/xerj-org/projects/1)** — live status of every open item.
 - **[Pinned issue #298](https://github.com/xerj-org/xerj/issues/298)** — the standing pointer, including how releases are cut and how to influence priorities.
 
@@ -35,7 +35,7 @@ The release-by-release record of how all of this landed (rc.1 through rc.18) is 
 rc.18 was cut on 2026-08-16 — its contents are the [CHANGELOG.md](./CHANGELOG.md)
 entry, not this file. Sixteen merges since rc.17. A correctness and
 release-hygiene RC: nearly everything in it closes a defect rc.17 shipped, and
-two of the merges came from outside contributors (#429 from @buger, #419 from @SebTardif).
+three came from outside contributors: #419 and #418 from @SebTardif and #429 from @buger. (#418 is a CLA signature rather than a code change, and it is squash-merged, so it carries no merge commit — which is how a count taken from `git log --merges` misses it.)
 
 Items it retired from this roadmap:
 
@@ -67,7 +67,7 @@ Items it retired from this roadmap:
   test-isolation defect ([#372](https://github.com/xerj-org/xerj/issues/372)) are
   closed.
 
-**Open defects targeted at rc.19** — this list, not a milestone query. Each carries a measured repro:
+**Open defects on the [rc.19 milestone](https://github.com/xerj-org/xerj/milestone/4)**, 31 issues, which this list mirrors. Each carries a measured repro:
 
 - **Correctness, release-blocking.** Term-level matching has two implementations
   and only one has a schema: `doc_matches_query` evaluates buffered documents
@@ -80,9 +80,12 @@ Items it retired from this roadmap:
   lost at 4,000 ([#415](https://github.com/xerj-org/xerj/issues/415)).
 - **Ranking.** A `bool` carrying any second clause collapses `_score` into a
   near-constant and reorders the hit set; two no-op filters both produce
-  `ln(2)+1` for every hit ([#361](https://github.com/xerj-org/xerj/issues/361)).
-  The single-clause wrapper is score-neutral again, so this is now specifically
-  the filter path.
+  `ln(2)+1` for every hit ([#361](https://github.com/xerj-org/xerj/issues/361),
+  [#399](https://github.com/xerj-org/xerj/issues/399)). Measured on this cut: a
+  bare `match` and a single-clause `bool.must` are score-neutral AND stable
+  across `size`; adding a `filter` **or** a `must_not` makes both untrue. So it
+  is not "the filter path" — it is any `bool` carrying a second clause, which
+  drops into the schema-less `_source` scorer described in #423.
 - **Performance regression shipped in this RC.** The #401 fix disables the
   memtable pre-clone rejection for meta-sorts: 130 ms at the stock 128k flush
   threshold against 1.4 ms for an ordinary field sort, and 16.2 s for a
@@ -145,13 +148,15 @@ Items it retired from this roadmap:
   and the Painless call-depth limit holding only under optimised codegen
   ([#353](https://github.com/xerj-org/xerj/issues/353)).
 
-In flight: [#402](https://github.com/xerj-org/xerj/pull/402) (**@Vinz2168**),
-[#425](https://github.com/xerj-org/xerj/pull/425) (**@SebTardif**),
-[#430](https://github.com/xerj-org/xerj/pull/430) and
-[#431](https://github.com/xerj-org/xerj/pull/431) — three of the four from
-outside contributors. [#427](https://github.com/xerj-org/xerj/pull/427) is green
-on paper and refuted three rounds running; it is not merging until a corpus
-decides its rule.
+In flight: [#425](https://github.com/xerj-org/xerj/pull/425) (**@SebTardif**),
+[#430](https://github.com/xerj-org/xerj/pull/430) (**@buger**) and
+[#431](https://github.com/xerj-org/xerj/pull/431) (**@Vinz2168**) — all three
+from outside contributors. [#402](https://github.com/xerj-org/xerj/pull/402) was
+closed: a request-level allowlist cannot know which meta-fields a given corpus
+makes resolvable, so #401's remaining half is
+[#437](https://github.com/xerj-org/xerj/issues/437). [#427](https://github.com/xerj-org/xerj/pull/427)
+is green on paper and has been refuted three rounds running; it is not merging
+until a corpus decides its rule.
 
 ## The road to [v1.0.0 GA](https://github.com/xerj-org/xerj/milestone/2)
 

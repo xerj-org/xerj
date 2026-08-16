@@ -23,8 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   separate non-scoring `filter` slot, matching `BooleanClause.isScoring()`. The
   IDF rescore heuristic no longer counts `filter` or `must_not` toward its
   trigger. And the page-local rescore is skipped when the whole page came from
-  the segment FTS path, so `_score` is no longer a function of the requested
-  `size` — the defect #361 was filed for.
+  the segment FTS path.
+
+  **That last claim needs its bounds stated, and the first draft of this entry
+  overstated it.** Measured on this cut across `size` 2/5/10/50:
+
+  ```text
+  bare match                    size-stable
+  bool.must[1]                  size-stable
+  bool.must + filter match_all  NOT size-stable
+  bool.must + must_not          NOT size-stable
+  ```
+
+  So `_score` stopped depending on `size` **on the BM25 path**. A `bool` carrying
+  any second clause never reaches that path — it falls into the schema-less
+  `_source` scorer, where scores collapse toward `ln(2)+1` and still move with
+  `size`. That is the half of #361 that is still open, together with #399, and
+  #423 is the root cause.
 
   It also adds a `filter` field to the native `BoolQuery`, which is a new public
   request surface.
