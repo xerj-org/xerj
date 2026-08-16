@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.18] - 2026-08-16
+
 ### Documentation
 
 - **The 10,000-document scroll snapshot cap is now published, and pinned to the

@@ -2,7 +2,7 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-08-15 (against `v1.0.0-rc.17` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
+Last reviewed: 2026-08-16 (against `v1.0.0-rc.18` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
 
 ## Follow the roadmap
 
@@ -28,54 +28,75 @@ These are implemented and exercised by real API requests / the test suite / benc
 - Bulk / scroll / delete-by-query, aliases, index templates, **executed** index-lifecycle policies (ISM-modeled, `_ilm/*` + `_plugins/_ism/*`, since rc.15), `_cat/*`, `_cluster/health`, `_count` / `_msearch` / `_mget`, `_update` / `_update_by_query` — all live-verified.
 - **A single native binary**, statically linked, no JVM, sub-second cold start.
 
-The release-by-release record of how all of this landed (rc.1 through rc.17) is [CHANGELOG.md](./CHANGELOG.md) — this file no longer duplicates it.
+The release-by-release record of how all of this landed (rc.1 through rc.18) is [CHANGELOG.md](./CHANGELOG.md) — this file no longer duplicates it.
 
-## Next release — [v1.0.0-rc.18](https://github.com/xerj-org/xerj/milestones)
+## Next release — [v1.0.0-rc.19](https://github.com/xerj-org/xerj/milestones)
 
-rc.17 was cut on 2026-08-15 — its full contents are the [CHANGELOG.md](./CHANGELOG.md)
-entry, not this file. It is the largest RC of the series so far: 105 commits, and every
-PR that was in flight at the rc.16 review has landed.
+rc.18 was cut on 2026-08-16 — its full contents are the [CHANGELOG.md](./CHANGELOG.md)
+entry, not this file. Eleven pull requests merged since rc.17. It is a correctness and
+release-hygiene RC rather than a feature RC: most of what landed closes defects that rc.17
+shipped.
 
 Items it retired from this roadmap:
 
-- The **#204 fail-closed/fail-loud sweep** ([#258](https://github.com/xerj-org/xerj/pull/258))
-  — the item rc.16 excluded on a failing check. It merged after four adversarial review
-  rounds; the ES-compat conformance regression it carried is fixed and the gate is green.
-- **First-class Unity project indexing**, relanded from community PR
-  [#274](https://github.com/xerj-org/xerj/pull/274) by **@gonchar** as
-  [#378](https://github.com/xerj-org/xerj/pull/378). Review of the reland found and fixed a
-  global regression that silently junked CJK, Cyrillic, Greek, Hebrew and Arabic documents
-  over ~4 KB.
-- **`dense_vector` no longer builds a term dictionary no query path can read**
-  ([#356](https://github.com/xerj-org/xerj/pull/356), closed
-  [#328](https://github.com/xerj-org/xerj/issues/328)) — measured 54,068,549 B → 14,251,975 B
-  (−73.6%) on a 5,000-doc × 128-dim corpus.
-- **The single-node WAL tap** ([#322](https://github.com/xerj-org/xerj/pull/322), closed
-  [#320](https://github.com/xerj-org/xerj/issues/320)) — the first path that pushes data out
-  of the engine.
-- The `fields` API deep-copy ([#311](https://github.com/xerj-org/xerj/issues/311)) and the
-  `--no-graph` durable path ([#294](https://github.com/xerj-org/xerj/issues/294)) are closed.
+- **`dense_vector` `quantization: "scalar8"` / `int8_hnsw` no longer scores from stale
+  codes** ([#371](https://github.com/xerj-org/xerj/issues/371)) — the release-blocking
+  correctness defect rc.17 shipped. The first attempt removed the per-document cache but
+  left the codebook stale and the bug still reproduced; the merged fix
+  ([#386](https://github.com/xerj-org/xerj/pull/386)) addresses both.
+- **`_count` no longer answers a `term` on a `text` field from an oracle `_search` never
+  uses** ([#417](https://github.com/xerj-org/xerj/pull/417), part of
+  [#362](https://github.com/xerj-org/xerj/issues/362)). Verified on `main`: `_count` and
+  `_search` agree on all three probes that previously diverged.
+- **`sort` on an ES meta-field resolves to a real value**
+  ([#420](https://github.com/xerj-org/xerj/pull/420), closed
+  [#401](https://github.com/xerj-org/xerj/issues/401)) — `_seq_no` keyset pagination walked
+  30 of 30 documents after the fix, against 4 of 30 before. Its cost is tracked below.
+- **autoindex no longer aborts a whole run on a file declaring 2+ SQL tables**
+  ([#407](https://github.com/xerj-org/xerj/pull/407), closed
+  [#360](https://github.com/xerj-org/xerj/issues/360)).
+- **Console deletes and upserts fail closed**
+  ([#419](https://github.com/xerj-org/xerj/pull/419), from **@SebTardif**) — a refused write
+  no longer returns `204` while the row stays on disk, and delete-then-create upserts no
+  longer drop the live user/session/token when the replacement is rejected.
+- **Test-isolation defects that CI could not see**
+  ([#372](https://github.com/xerj-org/xerj/issues/372)) and the `dense_vector`
+  accepted-and-ignored `quantization` value
+  ([#275](https://github.com/xerj-org/xerj/issues/275)) are closed.
 
-**Open defects on the rc.18 milestone.** Most were found by dogfooding the engine against
-its own reference corpora during the rc.17 cycle, and each carries a measured repro:
+**Open defects on the rc.19 milestone.** Each carries a measured repro:
 
-- **Correctness, release-blocking.** `dense_vector` `quantization: "scalar8"` /
-  `int8_hnsw` scores updated vectors from stale cached codes, so a document whose vector was
-  replaced with its own negation still ranks first at `1.000000`
-  ([#371](https://github.com/xerj-org/xerj/issues/371)).
-- **Ranking.** `_score` is derived from the returned page, so it changes with `size` and
-  ranking is not stable under pagination ([#361](https://github.com/xerj-org/xerj/issues/361));
-  `_count` and `_search` disagree for `term` on a `text` field
-  ([#362](https://github.com/xerj-org/xerj/issues/362)).
+- **Correctness, release-blocking.** Term-level matching has two implementations and only
+  one has a schema: `doc_matches_query` evaluates buffered documents against raw `_source`
+  with no mapping and no analyser, while flushed documents go through the real term
+  dictionary, so the same query returns different answers before and after a flush
+  ([#423](https://github.com/xerj-org/xerj/issues/423), consolidating eight symptom
+  issues). A multi-index `scroll` reports one index name for every hit, so `(_index, _id)`
+  is not distinct and a keyed consumer silently keeps a fraction of the corpus — measured
+  600 hits collapsing to 300 pairs ([#414](https://github.com/xerj-org/xerj/issues/414),
+  fix in [#424](https://github.com/xerj-org/xerj/pull/424)).
+- **Data fidelity.** `_source` drops null-valued keys, and whether it drops them depends on
+  corpus size — all four kept at 1,500 documents, mixed at 2,000, all lost at 4,000
+  ([#415](https://github.com/xerj-org/xerj/issues/415)). Reproduced on `main` at this cut.
+- **Ranking.** A `bool` carrying any second clause collapses `_score` into a near-constant
+  and reorders the hit set; two no-op filters (`exists` on a field every document has, and
+  `match_all`) both produce `ln(2)+1` for every hit
+  ([#361](https://github.com/xerj-org/xerj/issues/361), measurements in
+  [#399](https://github.com/xerj-org/xerj/issues/399)). The single-clause `bool.must`
+  wrapper is score-neutral again, so this is now specifically the filter path.
+- **Performance regression shipped in this RC.** The #401 fix disables the memtable
+  pre-clone rejection for meta-sorts, costing ~1.1 us per buffered document: 130 ms at the
+  stock 128k flush threshold against 1.4 ms for an ordinary field sort, and 16.2 s for a
+  `search_after` walk over a 128k-document buffered index — the very workload #401 was
+  filed for ([#421](https://github.com/xerj-org/xerj/issues/421)).
 - **Silently answering a different question.** `match` on a `semantic_text` field runs BM25
   rather than kNN ([#363](https://github.com/xerj-org/xerj/issues/363)); a refused key
   suppresses field evolution for up to 100 documents
   ([#382](https://github.com/xerj-org/xerj/issues/382)).
-- **autoindex robustness.** Reconciliation aborts a whole run on a file declaring 2+ SQL
-  tables ([#360](https://github.com/xerj-org/xerj/issues/360)) and on the project's own
-  reference corpora ([#367](https://github.com/xerj-org/xerj/issues/367)); unqualified
-  printable magic silently junks text ([#379](https://github.com/xerj-org/xerj/issues/379),
-  [#380](https://github.com/xerj-org/xerj/issues/380)); nothing bounds what a magic-less
+- **autoindex robustness.** Reconciliation still aborts on the project's own reference
+  corpora ([#367](https://github.com/xerj-org/xerj/issues/367)); unqualified printable
+  magic silently junks text ([#379](https://github.com/xerj-org/xerj/issues/379),
+  [#403](https://github.com/xerj-org/xerj/issues/403)); nothing bounds what a magic-less
   binary costs ([#381](https://github.com/xerj-org/xerj/issues/381)).
 - **Performance.** The neural embedder runs ~15 docs/s on short strings
   ([#366](https://github.com/xerj-org/xerj/issues/366)); nested term aggregations
@@ -83,13 +104,23 @@ its own reference corpora during the rc.17 cycle, and each carries a measured re
 - **Carried forward.** The `fields` API omitting embedding companions
   ([#310](https://github.com/xerj-org/xerj/issues/310)) and the dynamic-mapping field-budget
   overshoot ([#312](https://github.com/xerj-org/xerj/issues/312)).
-- **CI can only see what it is configured to run.** Two lib tests fail on clean `main` at
-  full test parallelism and are hidden by CI's `--test-threads=2`
-  ([#372](https://github.com/xerj-org/xerj/issues/372)); the same shape produced the
-  Rust-1.92 clippy lints and the Painless stack overflow
-  ([#353](https://github.com/xerj-org/xerj/issues/353)) this cycle.
+- **CI can only see what it is configured to run.** `xerj-autoindex` lib tests fail
+  nondeterministically at full parallelism and are hidden by CI's `--test-threads=2`
+  ([#385](https://github.com/xerj-org/xerj/issues/385)); the parallelism gate itself only
+  covers `--lib` ([#384](https://github.com/xerj-org/xerj/issues/384)); the Painless
+  call-depth limit holds only under optimised codegen
+  ([#353](https://github.com/xerj-org/xerj/issues/353)). This cycle added a sharper
+  instance: nothing pins the Rust toolchain, so a `stable` release introduced a clippy lint
+  that turned `main` red and failed every open pull request on code it had not touched
+  ([#422](https://github.com/xerj-org/xerj/pull/422)) — including two outside
+  contributions.
 
-In flight: nothing. Every PR open at the rc.16 review merged into rc.17.
+In flight: [#424](https://github.com/xerj-org/xerj/pull/424) (the #414 scroll fix, green but
+awaiting an independent review pass), [#402](https://github.com/xerj-org/xerj/pull/402)
+(**@Vinz2168**, rejecting `sort` on the three meta-fields #420 left unresolved), and three
+branches carrying rejected verifications ([#388](https://github.com/xerj-org/xerj/pull/388),
+[#410](https://github.com/xerj-org/xerj/pull/410),
+[#411](https://github.com/xerj-org/xerj/pull/411)) that need rework rather than a rebase.
 
 ## The road to [v1.0.0 GA](https://github.com/xerj-org/xerj/milestone/2)
 
