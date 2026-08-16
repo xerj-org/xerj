@@ -11199,10 +11199,27 @@ async fn search_impl(
     // Snapshot every matching hit for the scroll context BEFORE we consume
     // merged_hits to build `hits`. We'll register the context after the
     // response_body is built.
-    let scroll_snapshot: Option<Vec<(String, xerj_query::executor::Hit)>> = if is_scroll_request {
-        // Keep the index name with each hit (#414): dropping it here is what
-        // made continuation pages fall back to a single context-level name.
-        Some(merged_hits.clone())
+    let scroll_snapshot: Option<Vec<xerj_engine::engine::ScrollHit>> = if is_scroll_request {
+        // Freeze the meta-fields HERE, with the hits (#428). Resolving them at
+        // render time meant a document updated mid-scroll came back as the old
+        // body carrying the new sequence number, and a reindexer feeding that
+        // back as `if_seq_no` passed the CAS and destroyed the newer revision.
+        // A scroll is a point-in-time view; the metadata has to be part of the
+        // point in time. The index name likewise stays with its hit (#414).
+        let mut snap: Vec<xerj_engine::engine::ScrollHit> = Vec::with_capacity(merged_hits.len());
+        for (idx_name, h) in merged_hits.iter() {
+            let own = state.engine.get_index(idx_name).ok();
+            let seq_no = own.as_ref().and_then(|i| i.lookup_seq_no(&h.id));
+            let version = own.as_ref().and_then(|i| i.lookup_version(&h.id));
+            snap.push(xerj_engine::engine::ScrollHit {
+                index: idx_name.clone(),
+                hit: h.clone(),
+                seq_no,
+                primary_term: seq_no.map(|_| 1u64),
+                version,
+            });
+        }
+        Some(snap)
     } else {
         None
     };
@@ -19758,46 +19775,74 @@ pub async fn search_with_scroll(
         let scroll_id = Uuid::new_v4().to_string();
         // Extract just the hits from the pairs.
         // Index name stays paired with its hit (#414).
-        let hits_only: Vec<(String, xerj_query::executor::Hit)> = all_hits.clone();
+        // Freeze the meta-fields with the hits (#428) — see the sibling
+        // snapshot in `search_impl`. This route's own first page is rendered
+        // from the same values just below, so page one and every continuation
+        // page now agree instead of disagreeing (they previously both omitted
+        // the fields; wiring only the continuation path made them diverge).
+        let hits_only: Vec<xerj_engine::engine::ScrollHit> = all_hits
+            .iter()
+            .map(|(idx_name, h)| {
+                let own = state.engine.get_index(idx_name).ok();
+                let seq_no = own.as_ref().and_then(|i| i.lookup_seq_no(&h.id));
+                let version = own.as_ref().and_then(|i| i.lookup_version(&h.id));
+                xerj_engine::engine::ScrollHit {
+                    index: idx_name.clone(),
+                    hit: h.clone(),
+                    seq_no,
+                    primary_term: seq_no.map(|_| 1u64),
+                    version,
+                }
+            })
+            .collect();
 
         // Return first page.
-        let first_page: Vec<EsHit> = all_hits
+        let want_seq_no = body.seq_no_primary_term.unwrap_or(false);
+        let want_version = body.version.unwrap_or(false);
+        // Built from the SAME snapshot the continuation pages read, so this
+        // route stops disagreeing with itself. It previously omitted the
+        // meta-fields on page one while continuations emitted them, which is
+        // #428's own defect one route over.
+        let first_page: Vec<EsHit> = hits_only
             .iter()
             .take(page_size)
-            .map(|(idx_name, h)| EsHit {
-                index: idx_name.clone(),
-                id: h.id.clone(),
-                score: Some(h.score as f64),
-                version: Some(1),
-                seq_no: Some(0),
-                primary_term: Some(1),
-                source: if h.source.is_null() {
-                    None
-                } else {
-                    Some(h.source.clone())
-                },
-                fields: passage_fields(h),
-                sort: if h.sort.is_empty() {
-                    None
-                } else {
-                    Some(h.sort.clone())
-                },
-                highlight: h.highlight.clone(),
-                explanation: None,
-                inner_hits: None,
-                matched_queries: if h.matched_queries.is_empty() {
-                    Value::Null
-                } else {
-                    Value::Array(
-                        h.matched_queries
-                            .iter()
-                            .cloned()
-                            .map(Value::String)
-                            .collect(),
-                    )
-                },
-                ignored: None,
-                ignored_field_values: None,
+            .map(|sh| {
+                let h = &sh.hit;
+                EsHit {
+                    index: sh.index.clone(),
+                    id: h.id.clone(),
+                    score: Some(h.score as f64),
+                    version: sh.version,
+                    seq_no: sh.seq_no,
+                    primary_term: sh.primary_term,
+                    source: if h.source.is_null() {
+                        None
+                    } else {
+                        Some(h.source.clone())
+                    },
+                    fields: passage_fields(h),
+                    sort: if h.sort.is_empty() {
+                        None
+                    } else {
+                        Some(h.sort.clone())
+                    },
+                    highlight: h.highlight.clone(),
+                    explanation: None,
+                    inner_hits: None,
+                    matched_queries: if h.matched_queries.is_empty() {
+                        Value::Null
+                    } else {
+                        Value::Array(
+                            h.matched_queries
+                                .iter()
+                                .cloned()
+                                .map(Value::String)
+                                .collect(),
+                        )
+                    },
+                    ignored: None,
+                    ignored_field_values: None,
+                }
             })
             .collect();
 
@@ -19839,6 +19884,20 @@ pub async fn search_with_scroll(
                         "_score": h.score,
                         "_source": h.source,
                     });
+                    // Same fields, same condition, as the continuation pages.
+                    if want_seq_no {
+                        if let Some(sn) = h.seq_no {
+                            hit["_seq_no"] = json!(sn);
+                        }
+                        if let Some(pt) = h.primary_term {
+                            hit["_primary_term"] = json!(pt);
+                        }
+                    }
+                    if want_version {
+                        if let Some(v) = h.version {
+                            hit["_version"] = json!(v);
+                        }
+                    }
                     if let Some(fields) = &h.fields {
                         hit["fields"] = serde_json::to_value(fields).unwrap_or(Value::Null);
                     }
@@ -20023,7 +20082,7 @@ async fn scroll_page_response(
             let has_non_score_sort = ctx
                 .hits
                 .first()
-                .map(|(_, h)| !h.sort.is_empty())
+                .map(|sh| !sh.hit.sort.is_empty())
                 .unwrap_or(false);
 
             // #428: `seq_no_primary_term`/`version` are fixed for the
@@ -20035,44 +20094,28 @@ async fn scroll_page_response(
             // to carry, silently, regardless of what was asked for.
             let emit_seq_no = ctx.seq_no_primary_term;
             let emit_version = ctx.version;
-            // Resolve the handle PER HIT, against the index that hit actually
-            // came from — not against the context-level `ctx.index`. #424 made
-            // `_index` per-hit and explicitly demoted that field to a
-            // "context-level fallback only"; looking the version map up in one
-            // index while reporting another is how a two-index scroll ends up
-            // serving `_seq_no` read out of the wrong index. This mirrors the
-            // main search handler, which resolves inside its per-hit loop.
-            // Cached per distinct index name so a page still costs one
-            // `get_index` per index, not one per hit.
-            let mut handles: std::collections::HashMap<String, Option<_>> =
-                std::collections::HashMap::new();
-            for (hit_index, _) in ctx.hits.iter().skip(position).take(page_size) {
-                handles
-                    .entry(hit_index.clone())
-                    .or_insert_with(|| state.engine.get_index(hit_index).ok());
-            }
-
+            // Read the meta-fields OUT OF THE SNAPSHOT. Resolving them here
+            // against the live index is what produced a silent lost update:
+            // the frozen `source` below was paired with a `_seq_no` from now,
+            // so a document updated mid-scroll came back as the old body
+            // carrying the new sequence number, and `if_seq_no` fed back from
+            // it passed the CAS and overwrote the newer revision (#428).
             let page_hits: Vec<EsHit> = ctx
                 .hits
                 .iter()
                 .skip(position)
                 .take(page_size)
-                .map(|(hit_index, h)| {
-                    let own_index = handles.get(hit_index).and_then(|h| h.as_ref());
+                .map(|sh| {
+                    let h = &sh.hit;
                     let (seq_no, primary_term) = if emit_seq_no {
-                        let sn = own_index.and_then(|idx| idx.lookup_seq_no(&h.id));
-                        (sn, sn.map(|_| 1u64))
+                        (sh.seq_no, sh.primary_term)
                     } else {
                         (None, None)
                     };
-                    let version = if emit_version {
-                        own_index.and_then(|idx| idx.lookup_version(&h.id))
-                    } else {
-                        None
-                    };
+                    let version = if emit_version { sh.version } else { None };
                     EsHit {
                         // Per-hit index, not the context-level one (#414).
-                        index: hit_index.clone(),
+                        index: sh.index.clone(),
                         id: h.id.clone(),
                         score: Some(h.score as f64),
                         version,
@@ -20221,8 +20264,20 @@ mod passage_scroll_tests {
             xerj_engine::engine::ScrollContext {
                 index: "reports".into(),
                 hits: vec![
-                    ("reports".to_string(), passage_hit("page-1", 0)),
-                    ("reports".to_string(), passage_hit("page-2", 1)),
+                    xerj_engine::engine::ScrollHit {
+                        index: "reports".to_string(),
+                        hit: passage_hit("page-1", 0),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
+                    xerj_engine::engine::ScrollHit {
+                        index: "reports".to_string(),
+                        hit: passage_hit("page-2", 1),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
                 ],
                 position: 1,
                 page_size: 1,
@@ -20279,8 +20334,20 @@ mod passage_scroll_tests {
             xerj_engine::engine::ScrollContext {
                 index: "mi_a".into(),
                 hits: vec![
-                    ("mi_a".to_string(), passage_hit("dup-1", 0)),
-                    ("mi_b".to_string(), passage_hit("dup-1", 1)),
+                    xerj_engine::engine::ScrollHit {
+                        index: "mi_a".to_string(),
+                        hit: passage_hit("dup-1", 0),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
+                    xerj_engine::engine::ScrollHit {
+                        index: "mi_b".to_string(),
+                        hit: passage_hit("dup-1", 1),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
                 ],
                 position: 1,
                 page_size: 1,
@@ -20333,8 +20400,20 @@ mod passage_scroll_tests {
             xerj_engine::engine::ScrollContext {
                 index: "reports".into(),
                 hits: vec![
-                    ("reports".to_string(), passage_hit("page-1", 0)),
-                    ("reports".to_string(), passage_hit("page-2", 1)),
+                    xerj_engine::engine::ScrollHit {
+                        index: "reports".to_string(),
+                        hit: passage_hit("page-1", 0),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
+                    xerj_engine::engine::ScrollHit {
+                        index: "reports".to_string(),
+                        hit: passage_hit("page-2", 1),
+                        seq_no: None,
+                        primary_term: None,
+                        version: None,
+                    },
                 ],
                 position: 1,
                 page_size: 1,

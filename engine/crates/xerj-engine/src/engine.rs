@@ -151,14 +151,40 @@ pub struct IndexTemplate {
 /// (from the request's `scroll=…` keep-alive, capped by
 /// `Config.search_context.scroll_max_keep_alive_secs`), refreshed on each
 /// continuation, enforced on access, and swept in the background.
+/// One frozen hit in a scroll snapshot: the document as it was, the index it
+/// came from, and the meta-fields as they stood at scroll-open time.
+#[derive(Clone, Debug)]
+pub struct ScrollHit {
+    pub index: String,
+    pub hit: xerj_query::executor::Hit,
+    /// Captured at snapshot time, never re-derived. `None` means the engine
+    /// had no value then — not that it has none now.
+    pub seq_no: Option<u64>,
+    pub primary_term: Option<u64>,
+    pub version: Option<u64>,
+}
+
 pub struct ScrollContext {
     pub index: String,
-    /// Each hit paired with the name of the index it actually came from.
-    /// Pairing is structural on purpose (#414): a multi-index scroll used to
-    /// store bare hits plus one context-level `index`, so every continuation
-    /// page stamped the same name onto hits from different indices and
-    /// `(_index, _id)` stopped being distinct.
-    pub hits: Vec<(String, xerj_query::executor::Hit)>,
+    /// The frozen result set: each hit with the index it came from AND the
+    /// meta-fields as they stood when the scroll was opened.
+    ///
+    /// Both halves are structural on purpose. The index name because a
+    /// multi-index scroll used to store bare hits plus one context-level
+    /// `index`, so every continuation page stamped the same name onto hits
+    /// from different indices and `(_index, _id)` stopped being distinct
+    /// (#414).
+    ///
+    /// The meta-fields because a scroll is a point-in-time view and resolving
+    /// them later is not. Continuation pages once served this frozen `source`
+    /// beside a `_seq_no` read live at render time, so a document updated
+    /// mid-scroll came back as the OLD body carrying the NEW sequence number —
+    /// and a reindexer feeding that back as `if_seq_no` passed the CAS and
+    /// overwrote the newer revision. Lucene has no such gap: a scroll pins an
+    /// `IndexReader`, and `_seq_no` doc-values are written at index time and
+    /// immutable per segment, so ES emits a `_seq_no` that agrees with the
+    /// `_source` next to it and a stale `if_seq_no` correctly 409s (#428).
+    pub hits: Vec<ScrollHit>,
     pub position: usize,
     pub page_size: usize,
     pub created: Instant,
