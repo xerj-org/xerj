@@ -39,6 +39,8 @@ fn scroll_ctx(expires_in: i64) -> ScrollContext {
         created: now,
         keep_alive,
         expires_at,
+        seq_no_primary_term: false,
+        version: false,
     }
 }
 

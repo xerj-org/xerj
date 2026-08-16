@@ -171,6 +171,18 @@ pub struct ScrollContext {
     /// return the same 404 as an unknown id, and the background sweeper
     /// (or an opportunistic sweep on open) frees the pinned hits.
     pub expires_at: Instant,
+    /// Whether the request that opened this scroll carried
+    /// `seq_no_primary_term: true`. Real ES fixes this at the opening
+    /// `_search?scroll=…` request and does not accept it again on `POST
+    /// /_search/scroll` — the flag governs the scroll's whole lifetime, not
+    /// each individual page, so it belongs on the context, not re-read per
+    /// continuation (issue #428: continuation pages used to hardcode
+    /// `_seq_no`/`_version` and never even serialize them, regardless of
+    /// what the opening request asked for).
+    pub seq_no_primary_term: bool,
+    /// Whether the opening request carried `version: true`. Same reasoning
+    /// as `seq_no_primary_term` above.
+    pub version: bool,
 }
 
 /// Point-in-time search context — snapshots the set of indices and the

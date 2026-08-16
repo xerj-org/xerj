@@ -14250,6 +14250,10 @@ async fn search_impl(
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
+            // Fixed for the scroll's whole lifetime from the opening
+            // request — see the field's doc comment (issue #428).
+            seq_no_primary_term: body.seq_no_primary_term.unwrap_or(false),
+            version: body.version.unwrap_or(false),
         };
         state.engine.scrolls.insert(scroll_id.clone(), ctx);
         response_body["_scroll_id"] = Value::String(scroll_id);
@@ -19815,6 +19819,8 @@ pub async fn search_with_scroll(
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
+            seq_no_primary_term: body.seq_no_primary_term.unwrap_or(false),
+            version: body.version.unwrap_or(false),
         };
         state.engine.scrolls.insert(scroll_id.clone(), ctx);
 
@@ -20020,19 +20026,47 @@ async fn scroll_page_response(
                 .map(|(_, h)| !h.sort.is_empty())
                 .unwrap_or(false);
 
+            // #428: `seq_no_primary_term`/`version` are fixed for the
+            // scroll's whole lifetime by the opening `_search?scroll=…`
+            // request (see `ScrollContext`'s doc comment) — resolve the
+            // real values the same way the main `search()` handler does
+            // (`idx.lookup_seq_no`/`lookup_version`) rather than the
+            // hardcoded `Some(0)`/`Some(1)` every page after the first used
+            // to carry, silently, regardless of what was asked for.
+            let emit_seq_no = ctx.seq_no_primary_term;
+            let emit_version = ctx.version;
+            let index_name = ctx.index.clone();
+            let index_for_lookup = state.engine.get_index(&index_name).ok();
+
             let page_hits: Vec<EsHit> = ctx
                 .hits
                 .iter()
                 .skip(position)
                 .take(page_size)
-                .map(|(hit_index, h)| EsHit {
+                .map(|(hit_index, h)| {
+                    let (seq_no, primary_term) = if emit_seq_no {
+                        let sn = index_for_lookup
+                            .as_ref()
+                            .and_then(|idx| idx.lookup_seq_no(&h.id));
+                        (sn, sn.map(|_| 1u64))
+                    } else {
+                        (None, None)
+                    };
+                    let version = if emit_version {
+                        index_for_lookup
+                            .as_ref()
+                            .and_then(|idx| idx.lookup_version(&h.id))
+                    } else {
+                        None
+                    };
+                    EsHit {
                     // Per-hit index, not the context-level one (#414).
                     index: hit_index.clone(),
                     id: h.id.clone(),
                     score: Some(h.score as f64),
-                    version: Some(1),
-                    seq_no: Some(0),
-                    primary_term: Some(1),
+                    version,
+                    seq_no,
+                    primary_term,
                     source: if h.source.is_null() {
                         None
                     } else {
@@ -20060,6 +20094,7 @@ async fn scroll_page_response(
                     },
                     ignored: None,
                     ignored_field_values: None,
+                    }
                 })
                 .collect();
 
@@ -20086,6 +20121,20 @@ async fn scroll_page_response(
                             Some(s) => json!(s),
                             None => Value::Null,
                         });
+                        // #428: these were resolved above (or left None when
+                        // not requested) but never reached the wire — this
+                        // hit object is built by hand, not through EsHit's
+                        // derived Serialize, so a field only leaves this
+                        // function if it is inserted here explicitly.
+                        if let Some(seq_no) = h.seq_no {
+                            o.insert("_seq_no".to_string(), json!(seq_no));
+                        }
+                        if let Some(primary_term) = h.primary_term {
+                            o.insert("_primary_term".to_string(), json!(primary_term));
+                        }
+                        if let Some(version) = h.version {
+                            o.insert("_version".to_string(), json!(version));
+                        }
                         if let Some(src) = &h.source {
                             o.insert("_source".to_string(), src.clone());
                         }
@@ -20169,6 +20218,8 @@ mod passage_scroll_tests {
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
+                seq_no_primary_term: false,
+                version: false,
             },
         );
         let app = crate::router::build_es_compat_router(state);
@@ -20225,6 +20276,8 @@ mod passage_scroll_tests {
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
+                seq_no_primary_term: false,
+                version: false,
             },
         );
         let app = crate::router::build_es_compat_router(state);
@@ -20277,6 +20330,8 @@ mod passage_scroll_tests {
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
+                seq_no_primary_term: false,
+                version: false,
             },
         );
         let app = crate::router::build_es_compat_router(state);
@@ -20310,6 +20365,87 @@ mod passage_scroll_tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    /// Regression test for #428: `seq_no_primary_term: true` on the
+    /// scroll-opening request was honored on page one (resolved via
+    /// `idx.lookup_seq_no`, same as an ordinary search) but silently
+    /// dropped on every page after — `scroll_page_response` hardcoded
+    /// `seq_no: Some(0)` in the intermediate `EsHit` and then never even
+    /// serialized it (or `_version`) into the response at all, regardless
+    /// of what the opening request asked for. This indexes real documents
+    /// through the actual write path (so there is a real version-map entry
+    /// to resolve, not a synthetic `Hit`) and scrolls one at a time to
+    /// force a real page 2.
+    #[tokio::test]
+    async fn scroll_continuation_resolves_real_seq_no_when_requested() {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state);
+
+        for i in 0..3 {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::post(format!("/seqidx/_doc/d{i}"))
+                        .header("content-type", "application/json")
+                        .body(Body::from(json!({ "n": i }).to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::CREATED);
+        }
+
+        let open = app
+            .clone()
+            .oneshot(
+                Request::post("/seqidx/_search?scroll=1m")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "size": 1,
+                            "seq_no_primary_term": true,
+                            "query": { "match_all": {} },
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(open.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(open.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        let scroll_id = body["_scroll_id"].as_str().unwrap().to_string();
+        assert!(
+            body["hits"]["hits"][0].get("_seq_no").and_then(Value::as_u64).is_some(),
+            "page 1 should already carry a real _seq_no: {body}"
+        );
+
+        // Page 2 — exactly what #428 broke.
+        let next = app
+            .clone()
+            .oneshot(
+                Request::post("/_search/scroll")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "scroll": "1m", "scroll_id": scroll_id }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(next.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(next.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(
+            body["hits"]["hits"][0].get("_seq_no").and_then(Value::as_u64).is_some(),
+            "page 2 must carry a real _seq_no when seq_no_primary_term was requested (#428): {body}"
+        );
     }
 
     #[tokio::test]
