@@ -3822,31 +3822,25 @@ fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
 }
 
 /// ES meta-fields `compute_sort_values`
-/// (`xerj-engine/src/index.rs::compute_sort_values`) cannot yet resolve to a
-/// real per-document value: it special-cases exactly `_score`, `_doc`, and
-/// `_id` (the last one specifically for reindex's `search_after` keyset
-/// paging), and falls back to an ordinary `_source` field lookup for
-/// anything else. Every field below is engine/response metadata, never a
-/// literal key inside `_source`, so that fallback silently resolves to
-/// `null` for every hit — not an error, just a sort that never distinguishes
-/// any two documents. A `search_after` cursor built from a `null` value then
-/// never advances, so pagination keyed on one of these silently returns the
-/// same page forever instead of the rest of the index (#401).
+/// (`xerj-engine/src/index.rs::compute_sort_values`) cannot resolve to a real
+/// per-document value, so it falls back to an ordinary `_source` field lookup.
+/// None of these is ever a literal key inside `_source`, so that fallback
+/// resolves to `null` for every hit — not an error, just a sort that never
+/// distinguishes any two documents. A `search_after` cursor built from a
+/// `null` value never advances, so pagination keyed on one of them silently
+/// returns the same page forever instead of the rest of the index (#401).
 ///
-/// `_seq_no` specifically already has a dedicated, narrower rejection above
-/// this one (`index.disable_sequence_numbers`), but only for that one
-/// opt-in per-index setting; with the setting at its default, sorting by
-/// `_seq_no` (or any of these siblings) still fell through to the silent-null
-/// case this closes.
-const UNSORTABLE_META_FIELDS: &[&str] = &[
-    "_seq_no",
-    "_primary_term",
-    "_version",
-    "_routing",
-    "_ignored",
-    "_index",
-    "_type",
-];
+/// This list is deliberately narrower than the one this change was opened
+/// with. #420 has since taught `compute_sort_values` to resolve `_seq_no`,
+/// `_version`, `_primary_term` and `_index` through the same accessors that
+/// populate the response meta-fields, so rejecting those four now would
+/// REGRESS a working feature — `_seq_no` keyset paging is exactly the
+/// migration workload #401 was filed for, and it walks the whole index today.
+/// Measured on `main` at this change's base, sorting on each of the seven:
+/// `_seq_no` → `[0], [1], [2]`, `_version` / `_primary_term` → `[1]`,
+/// `_index` → the index name, and `_routing` / `_ignored` / `_type` → `[null]`
+/// on every hit. The three that still resolve to `null` are the ones below.
+const UNSORTABLE_META_FIELDS: &[&str] = &["_routing", "_ignored", "_type"];
 
 /// First clause in `sort` that names an [`UNSORTABLE_META_FIELDS`] entry, if
 /// any — as `{"field": "clause_shape"}`, matching `count_sort_clauses`'s
@@ -3864,7 +3858,10 @@ fn first_unsortable_meta_field(sort: &Value) -> Option<&'static str> {
         Value::Array(arr) => arr.iter().find_map(first_unsortable_meta_field),
         Value::String(_) | Value::Object(_) => {
             let field = clause_field(sort)?;
-            UNSORTABLE_META_FIELDS.iter().find(|f| **f == field).copied()
+            UNSORTABLE_META_FIELDS
+                .iter()
+                .find(|f| **f == field)
+                .copied()
         }
         _ => None,
     }
@@ -39040,11 +39037,11 @@ mod request_validation_tests {
     #[test]
     fn sort_on_unresolvable_meta_field_rejected() {
         for sort in [
-            json!(["_seq_no"]),
-            json!([{"_seq_no": "asc"}]),
-            json!(["name", "_primary_term"]),
-            json!("_version"),
-            json!({"_routing": "desc"}),
+            json!(["_routing"]),
+            json!([{"_routing": "asc"}]),
+            json!(["name", "_ignored"]),
+            json!("_type"),
+            json!({"_ignored": "desc"}),
         ] {
             let body = EsSearchBody {
                 sort: Some(sort.clone()),
@@ -39057,6 +39054,10 @@ mod request_validation_tests {
         }
     }
 
+    /// The four meta-fields #420 taught `compute_sort_values` to resolve must
+    /// keep going through. Rejecting them would regress `_seq_no` keyset
+    /// paging, which is the migration workload #401 was filed for and which
+    /// walks the whole index on `main` today.
     #[test]
     fn sort_on_resolvable_fields_accepted() {
         for sort in [
@@ -39065,10 +39066,19 @@ mod request_validation_tests {
             json!(["_id"]),
             json!(["name"]),
             json!([{"name": "desc"}, "_score"]),
+            json!(["_seq_no"]),
+            json!([{"_seq_no": "asc"}]),
+            json!(["_version"]),
+            json!(["_primary_term"]),
+            json!(["_index"]),
             json!(null),
         ] {
             let body = EsSearchBody {
-                sort: if sort.is_null() { None } else { Some(sort.clone()) },
+                sort: if sort.is_null() {
+                    None
+                } else {
+                    Some(sort.clone())
+                },
                 ..Default::default()
             };
             assert!(
@@ -39081,7 +39091,7 @@ mod request_validation_tests {
     #[test]
     fn unresolvable_meta_field_sort_error_names_the_field() {
         let body = EsSearchBody {
-            sort: Some(json!(["_seq_no"])),
+            sort: Some(json!(["_routing"])),
             ..Default::default()
         };
         let resp = validate_sort_meta_fields(&body).expect("should reject");
