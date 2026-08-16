@@ -3821,26 +3821,40 @@ fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
     None
 }
 
-/// ES meta-fields `compute_sort_values`
-/// (`xerj-engine/src/index.rs::compute_sort_values`) cannot resolve to a real
-/// per-document value, so it falls back to an ordinary `_source` field lookup.
-/// None of these is ever a literal key inside `_source`, so that fallback
-/// resolves to `null` for every hit — not an error, just a sort that never
-/// distinguishes any two documents. A `search_after` cursor built from a
-/// `null` value never advances, so pagination keyed on one of them silently
-/// returns the same page forever instead of the rest of the index (#401).
+/// ES meta-fields `compute_sort_values` cannot resolve to a real per-document
+/// value, so it falls back to an ordinary `_source` lookup that finds nothing
+/// and yields `null` for every hit. A `search_after` cursor built from `null`
+/// never advances, so pagination keyed on one of them silently returns the same
+/// page forever instead of the rest of the index (#401).
 ///
-/// This list is deliberately narrower than the one this change was opened
-/// with. #420 has since taught `compute_sort_values` to resolve `_seq_no`,
-/// `_version`, `_primary_term` and `_index` through the same accessors that
-/// populate the response meta-fields, so rejecting those four now would
-/// REGRESS a working feature — `_seq_no` keyset paging is exactly the
-/// migration workload #401 was filed for, and it walks the whole index today.
-/// Measured on `main` at this change's base, sorting on each of the seven:
-/// `_seq_no` → `[0], [1], [2]`, `_version` / `_primary_term` → `[1]`,
-/// `_index` → the index name, and `_routing` / `_ignored` / `_type` → `[null]`
-/// on every hit. The three that still resolve to `null` are the ones below.
-const UNSORTABLE_META_FIELDS: &[&str] = &["_routing", "_ignored", "_type"];
+/// **This list is one entry long, and the two fields removed from it are the
+/// point.** An independent verification refuted the earlier, wider list:
+/// `_routing` and `_ignored` DO resolve, because xerj writes them into
+/// `_source` itself — `bulk.rs` injects `_routing` for any action carrying ES
+/// routing metadata, and `apply_ignore_malformed` inserts `_ignored` as a
+/// literal key (the response layer strips it at render time, but
+/// `compute_sort_values` runs in the engine on the raw stored source, before
+/// that strip). Measured on `main` against a corpus that actually contains
+/// routing values and malformed fields:
+///
+/// ```text
+/// _routing   ['alpha'], ['bravo'], ['charlie'], null, null, null   3/6 real
+/// _ignored   [['ts']], [['ts']], null, null, null, null            2/6 real
+/// _type      null on every hit                                     0/6
+/// _seq_no / _version / _primary_term / _index                      resolved by #420
+/// ```
+///
+/// The earlier measurement that put `_routing` and `_ignored` here was taken on
+/// documents indexed without `?routing=` and without a malformed field, where
+/// both keys are *vacuously* absent — a corpus artefact, not a behaviour.
+/// Sorting on them works, reverses under `desc`, and pages with `search_after`,
+/// which is the workload #401 exists to protect.
+///
+/// The merged CHANGELOG entry for #420 said so in advance: "Rejecting
+/// metadata-named `_source` keys at the API edge is deliberately **not** part of
+/// this change — xerj writes `_routing` into `_source` itself, so the edge rule
+/// needs its own design."
+const UNSORTABLE_META_FIELDS: &[&str] = &["_type"];
 
 /// First clause in `sort` that names an [`UNSORTABLE_META_FIELDS`] entry, if
 /// any — as `{"field": "clause_shape"}`, matching `count_sort_clauses`'s
@@ -39037,11 +39051,11 @@ mod request_validation_tests {
     #[test]
     fn sort_on_unresolvable_meta_field_rejected() {
         for sort in [
-            json!(["_routing"]),
-            json!([{"_routing": "asc"}]),
-            json!(["name", "_ignored"]),
+            json!(["_type"]),
+            json!([{"_type": "asc"}]),
+            json!(["name", "_type"]),
             json!("_type"),
-            json!({"_ignored": "desc"}),
+            json!({"_type": "desc"}),
         ] {
             let body = EsSearchBody {
                 sort: Some(sort.clone()),
@@ -39071,6 +39085,11 @@ mod request_validation_tests {
             json!(["_version"]),
             json!(["_primary_term"]),
             json!(["_index"]),
+            // Refuted the earlier narrowing: xerj writes both of these into
+            // `_source`, so they carry real per-document values and sort.
+            json!(["_routing"]),
+            json!([{"_routing": "desc"}]),
+            json!(["_ignored"]),
             json!(null),
         ] {
             let body = EsSearchBody {
@@ -39091,7 +39110,7 @@ mod request_validation_tests {
     #[test]
     fn unresolvable_meta_field_sort_error_names_the_field() {
         let body = EsSearchBody {
-            sort: Some(json!(["_routing"])),
+            sort: Some(json!(["_type"])),
             ..Default::default()
         };
         let resp = validate_sort_meta_fields(&body).expect("should reject");
