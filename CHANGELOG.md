@@ -11,8 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **`bool.filter` and `must_not` stopped contributing to `_score`, and `_score`
-  stopped depending on `size`** ([#361](https://github.com/xerj-org/xerj/issues/361),
+- **`bool.filter` stopped contributing to `_score` on the FTS path** ([#361](https://github.com/xerj-org/xerj/issues/361),
   [#387](https://github.com/xerj-org/xerj/pull/387)). This entry is written after
   the fact: #387 merged with no CHANGELOG entry at all, and an independent
   verification of the rc.18 cut caught it as a silent merge — 471 insertions of
@@ -37,9 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   So `_score` stopped depending on `size` **on the BM25 path**. A `bool` carrying
   any second clause never reaches that path — it falls into the schema-less
-  `_source` scorer, where scores collapse toward `ln(2)+1` and still move with
-  `size`. That is the half of #361 that is still open, together with #399, and
-  #423 is the root cause.
+  `_source` scorer, where scores collapse toward `ln(2)+1`. That is the half of
+  #361 still open, together with #399, and #423 is the root cause.
+
+  **Two further corrections to this entry, both from independent verification.**
+  First, `must_not` never contributed to `_score` at all: the pre-change term
+  chain was `must.iter().chain(should.iter()).chain(filter.iter())`, with no
+  `must_not` in it, so #387 only removed it from the rescore *trigger* walk. The
+  headline said otherwise and has been narrowed.
+
+  Second, the size-independence above may be narrower than measured. The gate is
+  `exact_bm25_page = fts_scored_applied && !heuristic_scored_applied`, and
+  `heuristic_scored_applied` is set from `mem_doc_count > 0` — so by that reading
+  the rescore stays armed while any document is still buffered, which is the
+  normal state after ingest. **I could not reproduce it.** A 120-document index
+  queried with no `_refresh` at all (all 120 visible, so the probe was not
+  vacuous) was size-stable at 2/5/10/50, as was the flushed case. Recorded as an
+  unresolved discrepancy between a code reading and a measurement rather than
+  resolved in favour of whichever is more convenient.
 
   It also adds a `filter` field to the native `BoolQuery`, which is a new public
   request surface.
