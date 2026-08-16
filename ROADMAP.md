@@ -7,7 +7,7 @@ Last reviewed: 2026-08-16 (against `v1.0.0-rc.18` and `main`). Statuses trace to
 ## Follow the roadmap
 
 - **This file** is authoritative. If any other surface disagrees with it, this file wins — and that disagreement is a bug worth an issue.
-- **[Milestones](https://github.com/xerj-org/xerj/milestones)** — the release-by-release view. Every open issue is triaged onto a milestone; the next RC's milestone is the short-term roadmap.
+- **[Milestones](https://github.com/xerj-org/xerj/milestones)** — release-by-release, where they exist. They are **not** a live view: at the rc.18 cut 36 of 38 open issues carried no milestone and the only two that did sat on already-shipped rc.17. The [rc.19 milestone](https://github.com/xerj-org/xerj/milestone/4) was created at this cut, having been referenced by this file while not existing; issues are still being triaged onto it, so the "Next release" section below remains the authoritative short-term roadmap.
 - **[Project board](https://github.com/users/xerj-org/projects/1)** — live status of every open item.
 - **[Pinned issue #298](https://github.com/xerj-org/xerj/issues/298)** — the standing pointer, including how releases are cut and how to influence priorities.
 
@@ -30,20 +30,23 @@ These are implemented and exercised by real API requests / the test suite / benc
 
 The release-by-release record of how all of this landed (rc.1 through rc.18) is [CHANGELOG.md](./CHANGELOG.md) — this file no longer duplicates it.
 
-## Next release — [v1.0.0-rc.19](https://github.com/xerj-org/xerj/milestones)
+## Next release — [v1.0.0-rc.19](https://github.com/xerj-org/xerj/milestone/4)
 
 rc.18 was cut on 2026-08-16 — its contents are the [CHANGELOG.md](./CHANGELOG.md)
 entry, not this file. Sixteen merges since rc.17. A correctness and
 release-hygiene RC: nearly everything in it closes a defect rc.17 shipped, and
-three of the merges came from outside contributors.
+two of the merges came from outside contributors (#429 from @buger, #419 from @SebTardif).
 
 Items it retired from this roadmap:
 
 - **`dense_vector` `scalar8` / `int8_hnsw` no longer scores from stale codes**
   ([#371](https://github.com/xerj-org/xerj/issues/371)) — the release-blocking
   correctness defect rc.17 shipped.
-- **`_count` no longer answers a `term` on `text` from an oracle `_search` never
-  uses** ([#362](https://github.com/xerj-org/xerj/issues/362), via #417).
+- **`_count` stopped answering a `term` on `text` from an oracle `_search` never
+  uses** (via #417). Note what this is *not*: [#362](https://github.com/xerj-org/xerj/issues/362)
+  was closed `not_planned`, not fixed — its `prefix`/`wildcard` half is unresolved
+  and is now acceptance criteria on #423, which this file lists below as open and
+  release-blocking. Only the `_count` oracle half shipped.
 - **`sort` on an ES meta-field resolves to a real value**
   ([#401](https://github.com/xerj-org/xerj/issues/401), via #420) — `_seq_no`
   keyset pagination walks 30 of 30 where it walked 4.
@@ -64,7 +67,7 @@ Items it retired from this roadmap:
   test-isolation defect ([#372](https://github.com/xerj-org/xerj/issues/372)) are
   closed.
 
-**Open defects on the rc.19 milestone.** Each carries a measured repro:
+**Open defects targeted at rc.19** — this list, not a milestone query. Each carries a measured repro:
 
 - **Correctness, release-blocking.** Term-level matching has two implementations
   and only one has a schema: `doc_matches_query` evaluates buffered documents
@@ -84,7 +87,11 @@ Items it retired from this roadmap:
   memtable pre-clone rejection for meta-sorts: 130 ms at the stock 128k flush
   threshold against 1.4 ms for an ordinary field sort, and 16.2 s for a
   `search_after` walk over a 128k-document buffered index — the very workload
-  #401 was filed for ([#421](https://github.com/xerj-org/xerj/issues/421)).
+  #401 was filed for. That is only one of the three items
+  [#421](https://github.com/xerj-org/xerj/issues/421) records: `fix/issue-401`
+  merged as #420 while its verification returned `sound=false`, and one of the
+  unresolved items is that ES-YAML conformance was never run with a trustworthy
+  result on a change that alters ES wire sort semantics for four meta-fields.
 - **Silent wrong answers.** Switching `embedding.mode` from lexical to neural on
   an existing index is unguarded, so neural query vectors are scored against
   lexical document vectors in the same 384-dim space
@@ -101,6 +108,8 @@ Items it retired from this roadmap:
   ([#379](https://github.com/xerj-org/xerj/issues/379)) — three fix attempts have
   now been refuted by independent verification, twice for breaking real images,
   and the next attempt starts from a multi-encoder corpus rather than a rule.
+  `%PDF-` is the same class on a different code path, matched before the magic
+  table ([#403](https://github.com/xerj-org/xerj/issues/403)).
   Fallback prose amplifies one ≤16 MiB magic-less payload into thousands of
   records at ~40x peak RSS ([#381](https://github.com/xerj-org/xerj/issues/381),
   reframed by **@buger**'s measurements). Reconciliation still aborts on the
@@ -109,6 +118,27 @@ Items it retired from this roadmap:
 - **Performance.** The neural embedder runs ~15 docs/s on short strings
   ([#366](https://github.com/xerj-org/xerj/issues/366)); nested term aggregations
   materialise all sub-buckets ([#375](https://github.com/xerj-org/xerj/issues/375)).
+- **CI can only see what it is configured to run.** The parallelism gate covers
+  only `--lib`, so the class #385 belonged to stays invisible on the integration
+  targets ([#384](https://github.com/xerj-org/xerj/issues/384)); an `esclient`
+  test asserts a 260 ms wall-clock bound and flakes ~1 run in 5 on `main`, which
+  will redden unrelated pull requests
+  ([#436](https://github.com/xerj-org/xerj/issues/436)); and two green PRs once
+  produced an unbuildable merge because the merged workspace is not resolved
+  before merge ([#352](https://github.com/xerj-org/xerj/issues/352)).
+- **Named nowhere until now, and material.** Multi-valued keyword fields flatten
+  to one FTS token ([#332](https://github.com/xerj-org/xerj/issues/332));
+  `match`/`multi_match` on a keyword field is mapping-aware only after flush
+  ([#354](https://github.com/xerj-org/xerj/issues/354)) — both the same family as
+  #423; a semantic/kNN clause nested in a `bool` is silently dropped, including
+  the ES 8.x top-level `knn` block ([#395](https://github.com/xerj-org/xerj/issues/395));
+  the scroll snapshot cap is applied per-index on one route and to the summed
+  total on another ([#405](https://github.com/xerj-org/xerj/issues/405)); sorting
+  on any unresolvable field strands `search_after` at page one
+  ([#437](https://github.com/xerj-org/xerj/issues/437)); autoindex catalog IDs are
+  global, so two corpora sharing a byte-identical file overwrite each other
+  ([#416](https://github.com/xerj-org/xerj/issues/416)); and the audit log records
+  neither writes nor who made them ([#329](https://github.com/xerj-org/xerj/issues/329)).
 - **Carried forward.** The `fields` API omitting embedding companions
   ([#310](https://github.com/xerj-org/xerj/issues/310)), the dynamic-mapping
   field-budget overshoot ([#312](https://github.com/xerj-org/xerj/issues/312)),
@@ -127,14 +157,14 @@ decides its rule.
 
 The 1.0 bar: **every public claim verified against the release binary, and every input either honoured or refused loudly.** The gate list, each item an issue:
 
-- **Close the accepted-and-ignored class** (the [#204](https://github.com/xerj-org/xerj/issues/204) umbrella closed once its members carried their own tracking; the sweep continues in PR [#258](https://github.com/xerj-org/xerj/pull/258)). Known members still open: `dense_vector` `quantization` accepted, echoed, and ignored ([#275](https://github.com/xerj-org/xerj/issues/275)); `nested` `score_mode` parsed-then-ignored and `inner_hits` unparsed; `random_sampler`'s ignored `probability`; `weighted_avg` returning HTTP 200 with an error buried in the aggregations body instead of a 400 (the 400 is part of #258).
+- **Close the accepted-and-ignored class** (the [#204](https://github.com/xerj-org/xerj/issues/204) umbrella closed once its members carried their own tracking; the sweep continues in PR [#258](https://github.com/xerj-org/xerj/pull/258)). Known members still open: `nested` `score_mode` parsed-then-ignored and `inner_hits` unparsed; `random_sampler`'s ignored `probability`; `weighted_avg` returning HTTP 200 with an error buried in the aggregations body instead of a 400. `dense_vector` `quantization` ([#275](https://github.com/xerj-org/xerj/issues/275)) is **closed** — `lookup_vector_quantization` is read on the serving path. Every issue on this GA gate is now closed, so the gate needs re-deriving from open work rather than reading as a live list.
 - **Security hardening backlog** — cargo-audit and fuzzing landed in CI with rc.16 ([#207](https://github.com/xerj-org/xerj/issues/207) closed); the deferred TLS/auth/symlink hardening items from the Phase-2 security backlog remain.
 - **The mixed read-under-write p99 gap** — the 4 benchmark losses out of 85 measured comparisons, all the same root cause (reads landing on the live memtable under writer pressure). Written up in [`demo/playbooks/MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md`](./demo/playbooks/MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md); the candidate fix is a visibility/parity-mode design decision, not a micro-optimisation, and it stays on the GA gate until fixed or explicitly descoped with the benchmark loss kept public.
 - **Ship-or-descope every entry in *Known partials* below.** GA does not ship with a "partial" section that reads like a feature list.
 
 ## Beyond 1.0 — themes
 
-- **AST language expansion** — 25 further tree-sitter grammars, tiered by demand, one PR per tier ([#295](https://github.com/xerj-org/xerj/issues/295)); Tier 1 (Kotlin, Swift, Scala, Dart, Lua, Perl, R, Julia, Haskell, Elixir) may land earlier in an RC if the grammar/ABI checks prove out.
+- **AST language expansion** — [#295](https://github.com/xerj-org/xerj/issues/295) is **closed**: the expansion to 34 languages shipped, and "Shipping today" above describes the delivered state. What remains is not that issue — Clojure and source-SQL wait on usable grammar crates, Nim/Crystal have none, and fixed-form Fortran is deliberately unclaimed. Needs a fresh issue if it is to stay on this list.
 - **Distributed clustering maturity** — embedded Raft handles cluster metadata today, but the default run is **single-node**; multi-node sharding/replication hardening is a post-GA track, and XERJ does not claim multi-node production readiness until it is measured.
 - **Neural embedder ergonomics** — share one loaded model across indices (today each index lazily holds its own `NeuralHandle`), optional pre-warm at startup, a larger default model option.
 - **Log-analytics data path** — the dedicated `xerj-logs` columnar module is still not invoked from non-test engine/server code; log-shaped analytics run through ZBS2 + the generic aggregation suite. Wire it or remove it.

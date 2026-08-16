@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`bool.filter` and `must_not` stopped contributing to `_score`, and `_score`
+  stopped depending on `size`** ([#361](https://github.com/xerj-org/xerj/issues/361),
+  [#387](https://github.com/xerj-org/xerj/pull/387)). This entry is written after
+  the fact: #387 merged with no CHANGELOG entry at all, and an independent
+  verification of the rc.18 cut caught it as a silent merge — 471 insertions of
+  production scoring code on the ES-compat `_search` path, documented nowhere.
+
+  Three behaviours changed. `bool.filter` was being projected onto the FTS `must`
+  slot, so a non-scoring clause summed its BM25 into `_score`; it now occupies a
+  separate non-scoring `filter` slot, matching `BooleanClause.isScoring()`. The
+  IDF rescore heuristic no longer counts `filter` or `must_not` toward its
+  trigger. And the page-local rescore is skipped when the whole page came from
+  the segment FTS path, so `_score` is no longer a function of the requested
+  `size` — the defect #361 was filed for.
+
+  It also adds a `filter` field to the native `BoolQuery`, which is a new public
+  request surface.
+
+  **Anyone upgrading rc.17 → rc.18 should expect different `_score` values and a
+  different hit order for `bool` queries carrying `filter` or `must_not`.** That
+  is the intended correction, but it is a visible change and it was undocumented
+  until now. #361 remains open: a `bool` carrying any second clause still
+  collapses `_score` into a near-constant, which is the other half of the same
+  family.
+
+### Fixed
+
 - **A multi-index `scroll` reported the wrong `_index` on every continuation
   page, so `(_index, _id)` stopped being distinct**
   ([#414](https://github.com/xerj-org/xerj/issues/414)). The scroll context
