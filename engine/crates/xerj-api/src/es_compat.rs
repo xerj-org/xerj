@@ -19915,40 +19915,63 @@ pub async fn search_with_scroll(
         .iter()
         .skip(from)
         .take(size)
-        .map(|(idx_name, h)| EsHit {
-            index: idx_name.clone(),
-            id: h.id.clone(),
-            score: Some(h.score as f64),
-            version: Some(1),
-            seq_no: Some(0),
-            primary_term: Some(1),
-            source: if h.source.is_null() {
+        .map(|(idx_name, h)| {
+            // Resolve, or emit nothing. This branch — `_search_scroll` with no
+            // `scroll=` — previously hardcoded `seq_no: 0` / `version: 1`, and
+            // unlike the scroll branch it serialises through EsHit's derive,
+            // whose `skip_serializing_if = "Option::is_none"` suppresses only
+            // `None`. So the fabricated values reached the wire on every hit
+            // whether or not the caller asked for them: `_seq_no: 0` for a
+            // document whose real sequence number was 8. That is the same
+            // construct this change removes from the scroll branch, five lines
+            // below it.
+            let want_sn = body.seq_no_primary_term.unwrap_or(false);
+            let want_v = body.version.unwrap_or(false);
+            let own = state.engine.get_index(idx_name).ok();
+            let sn = if want_sn {
+                own.as_ref().and_then(|i| i.lookup_seq_no(&h.id))
+            } else {
                 None
-            } else {
-                Some(h.source.clone())
-            },
-            fields: passage_fields(h),
-            sort: if h.sort.is_empty() {
-                None
-            } else {
-                Some(h.sort.clone())
-            },
-            highlight: h.highlight.clone(),
-            explanation: None,
-            inner_hits: None,
-            matched_queries: if h.matched_queries.is_empty() {
-                Value::Null
-            } else {
-                Value::Array(
-                    h.matched_queries
-                        .iter()
-                        .cloned()
-                        .map(Value::String)
-                        .collect(),
-                )
-            },
-            ignored: None,
-            ignored_field_values: None,
+            };
+            EsHit {
+                index: idx_name.clone(),
+                id: h.id.clone(),
+                score: Some(h.score as f64),
+                version: if want_v {
+                    own.as_ref().and_then(|i| i.lookup_version(&h.id))
+                } else {
+                    None
+                },
+                seq_no: sn,
+                primary_term: sn.map(|_| 1u64),
+                source: if h.source.is_null() {
+                    None
+                } else {
+                    Some(h.source.clone())
+                },
+                fields: passage_fields(h),
+                sort: if h.sort.is_empty() {
+                    None
+                } else {
+                    Some(h.sort.clone())
+                },
+                highlight: h.highlight.clone(),
+                explanation: None,
+                inner_hits: None,
+                matched_queries: if h.matched_queries.is_empty() {
+                    Value::Null
+                } else {
+                    Value::Array(
+                        h.matched_queries
+                            .iter()
+                            .cloned()
+                            .map(Value::String)
+                            .collect(),
+                    )
+                },
+                ignored: None,
+                ignored_field_values: None,
+            }
         })
         .collect();
 

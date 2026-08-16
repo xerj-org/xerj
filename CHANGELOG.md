@@ -38,8 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   behaviour — that keeping the raw index spec left per-hit `_index`
   "authoritative when paging" — which is why the defect outlived review.
 
-  `ScrollContext::hits` is now `Vec<(String, Hit)>`, so a hit carries the index
-  it came from rather than borrowing one from the context. Both context-creation
+  `ScrollContext::hits` now carries a `ScrollHit` per hit — the index it came
+  from, and the meta-fields as they stood when the scroll opened — rather than a
+  bare hit borrowing both from the context. (This field changed twice in this
+  unreleased cycle: first to `Vec<(String, Hit)>` for the index, then to
+  `Vec<ScrollHit>` when #428 showed the meta-fields had to be frozen with it.
+  Recorded as one change because only the final shape ever ships.) Both context-creation
   sites previously discarded it with the same `.map(|(_, h)| h.clone())`.
 
   **Scope, established by an independent adversarial verification of the fix and
