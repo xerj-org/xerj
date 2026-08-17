@@ -19181,6 +19181,18 @@ pub struct AliasAction {
 pub struct AliasActionParams {
     pub index: String,
     pub alias: String,
+    /// Accepted only so it can be REFUSED. This route does not persist alias
+    /// metadata — only `put_alias` and index-create-time `aliases` write
+    /// `index_alias_metadata` — so a `filter` here used to be answered
+    /// `acknowledged: true` and thrown away.
+    ///
+    /// That silent drop is load-bearing for anything that reads alias filters.
+    /// `_delete_by_query` through such an alias sees no filter and deletes
+    /// every document behind it: measured 30 of 30 where the filter meant 9.
+    /// Accepting a filter and ignoring it is the most dangerous of the three
+    /// options; refusing is honest and points at the route that works.
+    #[serde(default)]
+    pub filter: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -19220,6 +19232,24 @@ pub async fn post_aliases(
         Add(&'a AliasActionParams, Vec<String>),
         Remove(&'a AliasActionParams, Vec<String>),
     }
+    // Refuse before resolving anything, so a rejected batch applies nothing.
+    // See `AliasActionParams::filter` for why silently dropping it is worse
+    // than refusing it.
+    for action in &body.actions {
+        let Some(p) = action.add.as_ref().or(action.remove.as_ref()) else {
+            continue;
+        };
+        if p.filter.is_some() {
+            return ApiError::new(xerj_common::XerjError::invalid_query(format!(
+                "`filter` in a POST /_aliases action is not stored by this route, so it \
+                 would be silently ignored; use PUT /{}/_alias/{} with the filter body \
+                 instead",
+                p.index, p.alias
+            )))
+            .into_response();
+        }
+    }
+
     let mut plan: Vec<Resolved> = Vec::with_capacity(body.actions.len());
     for action in &body.actions {
         if let Some(add) = &action.add {
@@ -24229,6 +24259,37 @@ async fn by_query_targets(
     ),
     xerj_common::XerjError,
 > {
+    // Wildcards and `_all` are REFUSED here, and this is deliberate.
+    //
+    // `resolve_index_selector` is a read-path resolver: it expands `_all`, `*`
+    // and globs over every index the node holds, with no hidden/system
+    // exclusion. Pointing it at a destructive verb turned `POST
+    // /_all/_delete_by_query` — which 404'd before, because `get_index("_all")`
+    // matched nothing — into one request that empties every index the caller
+    // can see, `.xerj_users`, `.xerj_api_tokens`, `.xerj_sessions`,
+    // `.xerj_audit` and `.xerj_cluster_state` included. Measured on the first
+    // revision of this change: 46 documents across 17 indices, HTTP 200.
+    //
+    // It also crossed a privilege line. `required_privilege` resolves this op
+    // segment to `Privilege::WriteIndex`, while the pre-existing `DELETE /*`
+    // has no op segment and needs `Privilege::AdminIndex` — so emptying the
+    // cluster went from needing `manage` to needing `write`.
+    //
+    // ES gates the same shape behind `action.destructive_requires_name`. Until
+    // this path carries the rest of what makes wildcards safe on the read side
+    // (`expand_wildcards`, `ignore_unavailable`, `allow_no_indices`, hidden
+    // handling), naming the target is required.
+    if let Some(pattern) = selector
+        .split(',')
+        .map(str::trim)
+        .find(|p| *p == "_all" || p.contains('*'))
+    {
+        return Err(xerj_common::XerjError::invalid_query(format!(
+            "wildcard and _all selectors are refused on _delete_by_query and \
+             _update_by_query: name each index or alias explicitly (got `{pattern}`)"
+        )));
+    }
+
     let names = resolve_index_selector(state, selector).await;
     if names.is_empty() {
         return Err(xerj_common::XerjError::index_not_found(selector));

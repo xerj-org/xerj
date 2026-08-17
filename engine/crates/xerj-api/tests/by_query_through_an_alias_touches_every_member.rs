@@ -254,3 +254,92 @@ async fn an_unknown_index_is_still_a_404() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "body: {body}");
 }
+
+/// The first revision of this fix turned `_all` and `*` — which 404'd before,
+/// because `get_index("_all")` matched nothing — into a cluster-wide delete at
+/// `Privilege::WriteIndex`, system indices included. Measured then: 46
+/// documents across 17 indices, HTTP 200. `DELETE /*` needs `AdminIndex`.
+#[tokio::test]
+async fn a_wildcard_or_all_selector_is_refused_rather_than_expanded() {
+    let (app, _dir) = app().await;
+    three_members(&app, "tri", None).await;
+
+    for selector in ["_all", "*", "idx-*"] {
+        let (status, body) = json_req(
+            &app,
+            "POST",
+            &format!("/{selector}/_delete_by_query"),
+            json!({"query":{"match_all":{}}}),
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "selector `{selector}` must be refused, not expanded. body: {body}"
+        );
+    }
+
+    json_req(&app, "POST", "/idx-a,idx-b,idx-c/_refresh", Value::Null).await;
+    assert_eq!(
+        count_of(&app, "idx-a,idx-b,idx-c").await,
+        30,
+        "a refused wildcard must not have deleted anything"
+    );
+}
+
+/// `POST /_aliases` never persisted a `filter` — it answered `acknowledged:
+/// true` and dropped it. Harmless while a by-query request only ever touched
+/// one member; catastrophic once the selector expands, because the expansion
+/// then sees no filter and deletes everything behind the alias. Measured on the
+/// first revision: 30 of 30 destroyed where the filter meant 9.
+#[tokio::test]
+async fn post_aliases_refuses_a_filter_it_cannot_store() {
+    let (app, _dir) = app().await;
+    three_members(&app, "tri", None).await;
+
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/_aliases",
+        json!({"actions":[{"add":{
+            "index":"idx-a","alias":"lowtri",
+            "filter":{"range":{"n":{"lte":3}}}}}]}),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "a filter this route cannot store must be refused, not ignored. body: {body}"
+    );
+
+    // And the refusal applied nothing: the alias must not exist.
+    let (_, aliases) = json_req(&app, "GET", "/_alias/lowtri", Value::Null).await;
+    assert!(
+        aliases.get("idx-a").is_none(),
+        "a refused batch must leave no alias behind. body: {aliases}"
+    );
+
+    // The route that DOES store filters still works, and still deletes only
+    // what the alias selects.
+    for m in ["idx-a", "idx-b", "idx-c"] {
+        let (st, _) = json_req(
+            &app,
+            "PUT",
+            &format!("/{m}/_alias/lowput"),
+            json!({"filter":{"range":{"n":{"lte":3}}}}),
+        )
+        .await;
+        assert!(st.is_success());
+    }
+    let (st, del) = json_req(
+        &app,
+        "POST",
+        "/lowput/_delete_by_query",
+        json!({"query":{"match_all":{}}}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "body: {del}");
+    assert_eq!(del["deleted"], 9, "body: {del}");
+    json_req(&app, "POST", "/idx-a,idx-b,idx-c/_refresh", Value::Null).await;
+    assert_eq!(count_of(&app, "idx-a,idx-b,idx-c").await, 21);
+}
