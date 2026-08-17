@@ -19207,6 +19207,54 @@ fn alias_target_is_pattern(spec: &str) -> bool {
         .any(|p| p == "_all" || p.contains('*'))
 }
 
+/// Record (or clear) one alias's metadata on one backing index.
+///
+/// `POST /_aliases` never wrote `index_alias_metadata` — only `put_alias` and
+/// index-create-time `aliases` did — so a `filter` sent through the atomic
+/// alias API was accepted, acknowledged and discarded. That is how a filtered
+/// alias silently became unfiltered, and with the by-query paths now honouring
+/// alias filters, an unfiltered alias means a `_delete_by_query` that empties
+/// the whole backing index instead of the slice the filter names.
+///
+/// Refusing the filter (the previous attempt) guarded the wrong door: it
+/// blocked the caller who DECLARED a filter while still accepting the
+/// canonical repoint idiom — `{"remove": {old}}, {"add": {new}}` — which
+/// carries no filter at all and drops it just as silently. It also left no
+/// route able to atomically repoint a filtered alias, since `PUT
+/// /{index}/_alias/{alias}` cannot do the `remove` half.
+fn set_alias_metadata(state: &AppState, index: &str, alias: &str, filter: Option<&Value>) {
+    let meta = match filter {
+        Some(f) if f.as_object().map(|o| !o.is_empty()).unwrap_or(false) => json!({ "filter": f }),
+        _ => {
+            clear_alias_metadata(state, index, alias);
+            return;
+        }
+    };
+    let mut existing = state
+        .engine
+        .index_alias_metadata
+        .get(index)
+        .map(|v| v.clone())
+        .unwrap_or_else(|| json!({}));
+    if let Some(obj) = existing.as_object_mut() {
+        obj.insert(alias.to_string(), meta);
+    } else {
+        existing = json!({ alias: meta });
+    }
+    state
+        .engine
+        .index_alias_metadata
+        .insert(index.to_string(), existing);
+}
+
+fn clear_alias_metadata(state: &AppState, index: &str, alias: &str) {
+    if let Some(mut entry) = state.engine.index_alias_metadata.get_mut(index) {
+        if let Some(obj) = entry.as_object_mut() {
+            obj.remove(alias);
+        }
+    }
+}
+
 pub async fn post_aliases(
     State(state): State<AppState>,
     Json(body): Json<AliasActionsBody>,
@@ -19232,24 +19280,6 @@ pub async fn post_aliases(
         Add(&'a AliasActionParams, Vec<String>),
         Remove(&'a AliasActionParams, Vec<String>),
     }
-    // Refuse before resolving anything, so a rejected batch applies nothing.
-    // See `AliasActionParams::filter` for why silently dropping it is worse
-    // than refusing it.
-    for action in &body.actions {
-        let Some(p) = action.add.as_ref().or(action.remove.as_ref()) else {
-            continue;
-        };
-        if p.filter.is_some() {
-            return ApiError::new(xerj_common::XerjError::invalid_query(format!(
-                "`filter` in a POST /_aliases action is not stored by this route, so it \
-                 would be silently ignored; use PUT /{}/_alias/{} with the filter body \
-                 instead",
-                p.index, p.alias
-            )))
-            .into_response();
-        }
-    }
-
     let mut plan: Vec<Resolved> = Vec::with_capacity(body.actions.len());
     for action in &body.actions {
         if let Some(add) = &action.add {
@@ -19283,6 +19313,11 @@ pub async fn post_aliases(
                     if let Err(error) = state.engine.add_alias(&add.alias, target) {
                         return ApiError::new(xerj_common::XerjError::from(error)).into_response();
                     }
+                    // Persist the filter, the way `put_alias`'s `attach`
+                    // closure does. This route used to accept a `filter` and
+                    // throw it away, answering `acknowledged: true`, which is
+                    // how a filtered alias silently became unfiltered.
+                    set_alias_metadata(&state, target, &add.alias, add.filter.as_ref());
                 }
             }
             Resolved::Remove(remove, targets) => {
@@ -19290,6 +19325,9 @@ pub async fn post_aliases(
                     if let Err(error) = state.engine.remove_alias(&remove.alias, target) {
                         return ApiError::new(xerj_common::XerjError::from(error)).into_response();
                     }
+                    // Drop the metadata with the alias, or a later re-add of
+                    // the same name inherits a filter nobody asked for.
+                    clear_alias_metadata(&state, target, &remove.alias);
                 }
             }
         }

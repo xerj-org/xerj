@@ -290,13 +290,19 @@ async fn a_wildcard_or_all_selector_is_refused_rather_than_expanded() {
 /// `POST /_aliases` never persisted a `filter` — it answered `acknowledged:
 /// true` and dropped it. Harmless while a by-query request only ever touched
 /// one member; catastrophic once the selector expands, because the expansion
-/// then sees no filter and deletes everything behind the alias. Measured on the
-/// first revision: 30 of 30 destroyed where the filter meant 9.
+/// then sees no filter and deletes everything behind the alias.
+///
+/// The first attempt at this REFUSED an action carrying a filter. That guarded
+/// the wrong door: it blocked the caller who declared a filter while still
+/// accepting the canonical repoint idiom — `{"remove": {old}}, {"add": {new}}`
+/// — which carries no filter and drops it just as silently. It also left no
+/// route able to atomically repoint a filtered alias. The filter is stored now.
 #[tokio::test]
-async fn post_aliases_refuses_a_filter_it_cannot_store() {
+async fn post_aliases_stores_the_filter_and_a_repoint_keeps_it() {
     let (app, _dir) = app().await;
     three_members(&app, "tri", None).await;
 
+    // Attach a filtered alias through the atomic API.
     let (status, body) = json_req(
         &app,
         "POST",
@@ -306,40 +312,53 @@ async fn post_aliases_refuses_a_filter_it_cannot_store() {
             "filter":{"range":{"n":{"lte":3}}}}}]}),
     )
     .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+
+    let (_, aliases) = json_req(&app, "GET", "/_alias/lowtri", Value::Null).await;
     assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "a filter this route cannot store must be refused, not ignored. body: {body}"
+        aliases["idx-a"]["aliases"]["lowtri"]["filter"],
+        json!({"range":{"n":{"lte":3}}}),
+        "the filter must survive the atomic alias API. body: {aliases}"
     );
 
-    // And the refusal applied nothing: the alias must not exist.
+    // The repoint idiom must carry it across, atomically.
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/_aliases",
+        json!({"actions":[
+            {"remove":{"index":"idx-a","alias":"lowtri"}},
+            {"add":{"index":"idx-b","alias":"lowtri",
+                    "filter":{"range":{"n":{"lte":3}}}}}]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+
     let (_, aliases) = json_req(&app, "GET", "/_alias/lowtri", Value::Null).await;
     assert!(
         aliases.get("idx-a").is_none(),
-        "a refused batch must leave no alias behind. body: {aliases}"
+        "the alias must have moved off idx-a. body: {aliases}"
+    );
+    assert_eq!(
+        aliases["idx-b"]["aliases"]["lowtri"]["filter"],
+        json!({"range":{"n":{"lte":3}}}),
+        "the filter must follow the repoint. body: {aliases}"
     );
 
-    // The route that DOES store filters still works, and still deletes only
-    // what the alias selects.
-    for m in ["idx-a", "idx-b", "idx-c"] {
-        let (st, _) = json_req(
-            &app,
-            "PUT",
-            &format!("/{m}/_alias/lowput"),
-            json!({"filter":{"range":{"n":{"lte":3}}}}),
-        )
-        .await;
-        assert!(st.is_success());
-    }
+    // And the delete honours it: 3 of idx-b's 10, not all 10.
     let (st, del) = json_req(
         &app,
         "POST",
-        "/lowput/_delete_by_query",
+        "/lowtri/_delete_by_query",
         json!({"query":{"match_all":{}}}),
     )
     .await;
     assert_eq!(st, StatusCode::OK, "body: {del}");
-    assert_eq!(del["deleted"], 9, "body: {del}");
+    assert_eq!(del["deleted"], 3, "body: {del}");
     json_req(&app, "POST", "/idx-a,idx-b,idx-c/_refresh", Value::Null).await;
-    assert_eq!(count_of(&app, "idx-a,idx-b,idx-c").await, 21);
+    assert_eq!(
+        count_of(&app, "idx-b").await,
+        7,
+        "an unfiltered expansion would have emptied idx-b"
+    );
 }
