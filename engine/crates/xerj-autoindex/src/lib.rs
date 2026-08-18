@@ -414,7 +414,7 @@ fn begin_non_graph_generation(
     root_identity: &str,
     inventory: &content::Inventory,
     plan: Plan,
-) -> Result<()> {
+) -> Result<Option<String>> {
     anyhow::ensure!(
         cfg.no_graph,
         "non-graph generation cutover requires --no-graph"
@@ -446,18 +446,54 @@ fn begin_non_graph_generation(
         .datasets
         .iter()
         .any(|dataset| dataset.semantic_field.is_some());
+    let mut non_resumable_note: Option<String> = None;
     let identity = if semantic {
         let identity = es
             .embedding_execution_identity()
             .context("generation cutover could not pin the server embedding execution identity")?;
-        anyhow::ensure!(
-            identity.resumable,
-            "generation cutover requires a resumable embedding execution identity: {}",
-            identity
-                .non_resumable_reason
-                .as_deref()
-                .unwrap_or("the server did not provide an immutable identity")
-        );
+        // Scoped to a cutover that actually carries vectors forward (issue #367).
+        //
+        // `resumable` answers "may I reuse vectors a PREVIOUS run wrote". On a
+        // genesis run there are none: `sync_bootstrap_genesis` builds generation
+        // 0 with an empty plan and `execution: None`, so there is no prior vector
+        // space to mix. Asserting it unconditionally refused every `--no-graph`
+        // semantic run on the `neural` and `proxy` backends, which report
+        // `resumable:false` by construction because their identity hashes the
+        // configured model NAME rather than its bytes. One 6 KB file was enough
+        // to trigger it; `apache/lucene`, the flagship reference-coding corpus,
+        // could not be indexed at all. The error even named `--fresh` as the
+        // remedy, which cannot help: `cfg.fresh` is client-side state, while the
+        // `false` is a property of the server's backend.
+        //
+        // The graph path already scopes it this way — `state.rs:1084` bails only
+        // `if self.resumed && !resumable` — so this brings the two into line.
+        //
+        // Carrying a non-resumable identity ACROSS a generation is still refused
+        // below, because for these backends a model swapped in under the same
+        // name yields the same digest, so the drift check cannot see it.
+        if base.generation > 0 || base.execution.is_some() {
+            anyhow::ensure!(
+                identity.resumable,
+                "carrying an embedding execution identity across a generation requires a \
+                 resumable one: {}",
+                identity
+                    .non_resumable_reason
+                    .as_deref()
+                    .unwrap_or("the server did not provide an immutable identity")
+            );
+        } else if !identity.resumable {
+            // Handed back rather than printed: stderr belongs to the progress
+            // surface, so `--progress none` stays silent and `--progress json`
+            // stays one parseable stream (#241).
+            non_resumable_note = Some(format!(
+                "autoindex: this embedding identity is not content-addressed, so a model \
+                 swapped in under the same name would not be detected on a later run: {}",
+                identity
+                    .non_resumable_reason
+                    .as_deref()
+                    .unwrap_or("the server did not provide an immutable identity")
+            ));
+        }
         journal.pin_embedding_identity(
             &identity.identity_sha256,
             identity.resumable,
@@ -577,7 +613,8 @@ fn begin_non_graph_generation(
             state_dir.display()
         )
     })?;
-    journal.sync_begin(&pending)
+    journal.sync_begin(&pending)?;
+    Ok(non_resumable_note)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -3196,7 +3233,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &root_str,
             &inventory,
             plan,
-        )?;
+        )?
+        .inspect(|note| pr.note(note));
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
@@ -3803,7 +3841,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &root_str,
             &inventory,
             plan,
-        )?;
+        )?
+        .inspect(|note| pr.note(note));
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;

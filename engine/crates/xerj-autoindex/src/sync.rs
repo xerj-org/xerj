@@ -778,10 +778,16 @@ fn validate_manifest(manifest: &GenerationManifest, legacy: bool) -> Result<()> 
             execution.embedding_dimension != Some(0),
             "embedding execution dimension must be positive when the server pins one"
         );
-        anyhow::ensure!(
-            execution.embedding_resumable,
-            "a durable generation requires a resumable embedding execution identity"
-        );
+        // Not asserted here (issue #367). Its neighbours are structural — a
+        // 64-char lowercase hex digest, a non-zero dimension — and say the record
+        // is well formed. `embedding_resumable` says something else: whether
+        // vectors could survive the model being swapped under the same name.
+        // That is a property of REUSE, decided where a cutover actually carries
+        // vectors forward (`begin_non_graph_generation`), not of whether this
+        // record is valid. The `neural` and `proxy` backends report it `false` by
+        // construction, so asserting it here refused every durable generation
+        // those backends could produce. The flag is still recorded on the
+        // execution and travels with it.
         match &execution.source_policy {
             SourceExecutionPolicy::DurableSnapshot {
                 reference,

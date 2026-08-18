@@ -28,6 +28,8 @@ struct HttpState {
     /// executor now, so the shape has to be proven here too.
     partially_apply_next_data_bulk: bool,
     fail_embedding_identity: bool,
+    /// #367: the `neural` and `proxy` backends report this `false`.
+    embedding_not_resumable: bool,
     stop: bool,
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
@@ -149,7 +151,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
                     "identity_sha256": locked.embedding_identity_sha256.clone(),
                     "dimensions": 384,
                     "semantic_contract": "semantic_text-derived-vector.v1",
-                    "resumable": true
+                    "resumable": !locked.embedding_not_resumable
                 }, "took_ms": 0, "request_id": "incremental-http-test"}),
             )
         }
@@ -1874,5 +1876,62 @@ fn a_journal_that_fails_its_own_revalidation_names_the_rebuild_route() {
     assert!(
         rendered.contains("Rebuild with a new --state-dir and a new --prefix"),
         "the refusal must name the recovery route, not just the invariant: {rendered}"
+    );
+}
+
+/// #367: a genesis run must not be refused for a non-resumable identity, and a
+/// later cutover must still be.
+///
+/// `resumable` is `false` by construction on the `neural` and `proxy` backends,
+/// because their identity hashes the configured model *name* rather than its
+/// bytes. That makes reuse unsafe — a model swapped in under the same name
+/// yields the same digest, so the drift check cannot see it — but it says
+/// nothing about whether a first generation may be created. Asserting it on
+/// every run made `--embed-mode neural` unable to index anything at all: one
+/// small file was enough, and `apache/lucene` failed after a full local
+/// extraction.
+///
+/// Both halves are pinned here because the fix is a narrowing, and a narrowing
+/// that goes too far would silently permit mixing two vector spaces in one
+/// index.
+#[test]
+fn a_non_resumable_identity_allows_genesis_and_still_refuses_a_cutover() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Initial quarterly report discusses durable subscription revenue and operating income.",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().embedding_not_resumable = true;
+
+    // Genesis: nothing to carry forward, so it proceeds.
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, true);
+    assert_eq!(
+        run_index(config).unwrap(),
+        0,
+        "a genesis generation has no prior vectors to mix, so a non-resumable \
+         identity must not refuse it"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    // Cutover: now there IS a committed generation, so it must refuse.
+    fs::write(
+        corpus.path().join("report.txt"),
+        "Revised quarterly report discusses durable subscription revenue, operating income and churn.",
+    )
+    .unwrap();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, true);
+    let err = run_index(config)
+        .expect_err("carrying a non-resumable identity across a generation must still be refused");
+    let msg = format!("{err:#}");
+    assert!(
+        msg.contains("across a generation requires a resumable"),
+        "the refusal must name what it is refusing, got: {msg}"
     );
 }
