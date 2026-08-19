@@ -1,0 +1,112 @@
+{
+  "corpus": "/home/claude/.xerj-code/corpora/lucene-meta/lucene",
+  "corpus_java_files": 6012,
+  "index": "refsym",
+  "frozen": "2026-08-18",
+  "note": "Frozen BEFORE any arm was run. Oracles are deterministic string/regex checks, not LLM judgments. 'expect' = must appear; 'forbid' = marks a wrong/hallucinated answer.",
+  "questions": [
+    {
+      "id": "q1_hnsw_maxconn",
+      "type": "point-constant",
+      "favors": "retrieval",
+      "q": "When this codebase builds an HNSW graph, what is the default maximum number of connections per node? Give the constant name, its value, and the file that defines it.",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/util/hnsw/HnswGraphBuilder.java",
+      "truth_line": 51,
+      "expect": ["DEFAULT_MAX_CONN", "16", "HnswGraphBuilder"],
+      "forbid": ["32", "64"]
+    },
+    {
+      "id": "q2_bm25_idf",
+      "type": "single-method-body",
+      "favors": "retrieval",
+      "q": "What exact formula does the default BM25 scoring implementation use to compute IDF from docFreq and docCount? Write the expression.",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java",
+      "truth_line": 105,
+      "expect": ["docCount - docFreq + 0.5", "docFreq + 0.5", "log"],
+      "forbid": ["docCount / docFreq"]
+    },
+    {
+      "id": "q3_max_term_len",
+      "type": "two-hop-constant",
+      "favors": "neutral",
+      "q": "What is the maximum length, in bytes, of a single indexed term, and how is that limit derived? Give the numeric value and the two constants involved.",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/index/IndexWriter.java",
+      "truth_line": 258,
+      "expect": ["MAX_TERM_LENGTH", "BYTE_BLOCK_SIZE", "32766"],
+      "forbid": ["32768 is the max term", "65535"],
+      "why": "Requires resolving MAX_TERM_LENGTH = BYTE_BLOCK_SIZE - 2 across two files (IndexWriter -> ByteBlockPool). Tests reference-chasing, where symbol-level top-k can stop one hop short."
+    },
+    {
+      "id": "q4_ram_buffer",
+      "type": "point-constant",
+      "favors": "retrieval",
+      "q": "What is the default RAM buffer size (in MB) that the index writer uses before flushing, and which constant holds it?",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/index/IndexWriterConfig.java",
+      "truth_line": 83,
+      "expect": ["DEFAULT_RAM_BUFFER_SIZE_MB", "16"],
+      "forbid": ["32", "64", "128"]
+    },
+    {
+      "id": "q5_fsdir_choice",
+      "type": "semantic-no-keyword",
+      "favors": "retrieval",
+      "q": "When you open a filesystem directory without naming a concrete implementation, what decides which implementation you actually get, and what are the two possible outcomes?",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/store/FSDirectory.java",
+      "truth_line": 155,
+      "expect": ["JRE_IS_64BIT", "MMapDirectory", "NIOFSDirectory"],
+      "forbid": ["SimpleFSDirectory", "operating system"],
+      "why": "The question deliberately contains none of the answer's identifiers. Tests semantic matching, not keyword grep."
+    },
+    {
+      "id": "q6_maxclause_locality",
+      "type": "misleading-locality",
+      "favors": "grep",
+      "q": "What is the default limit on the number of clauses a boolean query may contain, and in which class is that limit actually defined?",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/search/IndexSearcher.java",
+      "truth_line": 80,
+      "expect": ["1024", "IndexSearcher"],
+      "forbid": ["defined in BooleanQuery", "BooleanQuery.java:83"],
+      "why": "Every engineer expects this in BooleanQuery; it lives in IndexSearcher. BooleanQuery only READS it. A retriever that returns the highest-scoring BooleanQuery hit answers with the wrong file."
+    },
+    {
+      "id": "q7_fsdir_subclasses",
+      "type": "exhaustive-enumeration",
+      "favors": "grep",
+      "q": "List every concrete non-test class in this repository that directly extends the abstract filesystem Directory base class. Give all of them.",
+      "truth_file": "multiple",
+      "expect": ["MMapDirectory", "NIOFSDirectory", "RAFDirectory"],
+      "forbid": ["CommandLineUtil"],
+      "why": "Exhaustiveness. A top-k retriever silently truncates and returns 2 of 3, with no signal that it was incomplete. RAFDirectory lives in lucene/misc, far from the other two."
+    },
+    {
+      "id": "q8_deletes_pct",
+      "type": "point-constant",
+      "favors": "retrieval",
+      "q": "In the default merge policy, what percentage of deleted documents is tolerated in the index before merges are triggered to reclaim them, and what is the field called?",
+      "truth_file": "lucene/core/src/java/org/apache/lucene/index/TieredMergePolicy.java",
+      "truth_line": 82,
+      "expect": ["deletesPctAllowed", "20"],
+      "forbid": ["10.0 is the deletes", "50"]
+    },
+    {
+      "id": "q9_min_java",
+      "type": "outside-index-build-config",
+      "favors": "grep",
+      "q": "What is the minimum Java language version this project requires to build, and which file declares it?",
+      "truth_file": "gradle/libs.versions.toml",
+      "expect": ["25", "libs.versions.toml"],
+      "forbid": ["17", "21", "11"],
+      "why": "GUARANTEED RETRIEVAL LOSS, included deliberately. The index holds only parsed source symbols; .toml/.gradle files are not in it at all. Any honest post must report that the index cannot answer build-config questions."
+    },
+    {
+      "id": "q10_forcemerge_callers",
+      "type": "cross-file-reachability",
+      "favors": "grep",
+      "q": "Outside of tests and benchmarks, which classes in this repository call forceMerge on an index writer? Name them.",
+      "truth_file": "multiple",
+      "expect": ["IndexMergeTool", "SpellChecker", "DocumentBatch", "IndexUtils"],
+      "forbid": [],
+      "why": "Reachability. docs/research/wordpress-verification-and-xerj-vs-grep.md already found XERJ's structured call graph WORSE than grep here, with silent false negatives. Included so that precedent is re-tested, not dodged."
+    }
+  ]
+}
