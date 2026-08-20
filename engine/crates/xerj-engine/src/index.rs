@@ -13870,6 +13870,13 @@ impl Index {
                     ),
                 )));
             }
+            // #498: fail loudly when a `knn`/`semantic` clause names a field
+            // that cannot answer it, instead of returning an empty 200.
+            if let Some(reason) = vector_query_field_error(&resolved, &schema.schema) {
+                return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                    reason,
+                )));
+            }
             // #437: a sort field this engine cannot resolve (any of 11 ES
             // meta-field names besides the ones handled below, or an
             // unmapped/misspelled field) fell through to `_source` lookup
@@ -30732,6 +30739,82 @@ fn unsearchable_query_field(q: &QueryNode, schema: &Schema) -> Option<String> {
         // field-less `more_like_this` (with `fields` the parser lowers it to
         // `bool.should` of `match`, which the leaf arms above catch), and
         // `percolate` (the field holds stored queries, not data).
+        _ => None,
+    }
+}
+
+/// #498: a `knn` / `semantic` clause naming a field that is absent, or is not
+/// vector-capable, used to return an empty *successful* result instead of
+/// failing — an agent issuing a vector query against an index built without
+/// vectors got zero hits and could not tell "nothing matched" from "this index
+/// does no vector search". Real ES answers `400 illegal_argument_exception`
+/// here, so this returns the offending clause's message and the caller 400s.
+///
+/// The recursion mirrors [`unsearchable_query_field`]; only the two vector
+/// leaves validate a field. "Vector-capable" is deliberately permissive — a
+/// `dense_vector`, a `chunk`, or any field carrying an embedding config
+/// (`semantic_text`, whose companion vector exists even under the lexical
+/// feature-hash embedder) — so a legitimate vector query is never rejected;
+/// only a plainly non-vector or absent field is.
+fn vector_query_field_error(q: &QueryNode, schema: &Schema) -> Option<String> {
+    fn vector_capable(fc: &FieldConfig) -> bool {
+        matches!(fc.field_type, FieldType::Vector | FieldType::Chunk) || fc.embedding.is_some()
+    }
+    match q {
+        QueryNode::Knn { field, filter, .. } => match declared_field(schema, field) {
+            None => Some(format!(
+                "[knn] query targets field [{field}], which does not exist in the mapping"
+            )),
+            Some(fc) if !vector_capable(fc) => Some(format!(
+                "[knn] query is only supported on [dense_vector] fields, but [{field}] is of \
+                 type [{}]",
+                fc.field_type
+            )),
+            _ => filter
+                .as_deref()
+                .and_then(|f| vector_query_field_error(f, schema)),
+        },
+        QueryNode::SemanticSearch { field, filter, .. } => match declared_field(schema, field) {
+            None => Some(format!(
+                "[semantic] query targets field [{field}], which does not exist in the mapping"
+            )),
+            Some(fc) if !vector_capable(fc) => Some(format!(
+                "[semantic] query is only supported on [semantic_text] fields, but [{field}] is \
+                 of type [{}]",
+                fc.field_type
+            )),
+            _ => filter
+                .as_deref()
+                .and_then(|f| vector_query_field_error(f, schema)),
+        },
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .find_map(|c| vector_query_field_error(c, schema)),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::Nested { query, .. }
+        | QueryNode::FunctionScore { query, .. } => vector_query_field_error(query, schema),
+        QueryNode::Pinned { organic, .. } => vector_query_field_error(organic, schema),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => vector_query_field_error(positive, schema)
+            .or_else(|| vector_query_field_error(negative, schema)),
+        QueryNode::DisMax { queries, .. } => queries
+            .iter()
+            .find_map(|c| vector_query_field_error(c, schema)),
+        QueryNode::Hybrid { queries, .. } => queries
+            .iter()
+            .find_map(|wq| vector_query_field_error(&wq.query, schema)),
         _ => None,
     }
 }
