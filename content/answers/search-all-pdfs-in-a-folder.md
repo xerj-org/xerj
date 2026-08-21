@@ -1,0 +1,119 @@
+---
+title: "How do I search a folder of PDF papers?"
+h1: "I downloaded a bunch of papers as PDFs. How do I search across them?"
+description: "One xerj autoindex command indexes the folder, then a match_phrase query reads every PDF. A captured run hit all 3 born-digital files and refused a scanned one."
+slug: "search-all-pdfs-in-a-folder"
+cluster: "Files and formats"
+question: "I downloaded a bunch of papers as PDFs. How do I search across them?"
+intent: "how-to"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./papers --url http://127.0.0.1:9200 --prefix pdfx --progress plain`, POST a match_phrase query for a sentence you know is in one paper to /pdfx-docs/_search, then query /autoindex-catalog/_search for doc_kind=file and status=junk and report every PDF that produced no text."
+commands:
+  - cmd: "xerj autoindex ./pdf --url http://127.0.0.1:9200 --prefix pdfx --progress plain"
+    note: "Index every PDF in the folder; each file is parsed in its own worker process."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/pdfx-docs/_search -H 'content-type: application/json' -d '{\"query\":{\"match_phrase\":{\"body\":\"checkpoint journal\"}},\"size\":20,\"_source\":[\"ax_path\",\"title\",\"section\"],\"track_total_hits\":true}'"
+    note: "Find one phrase across every indexed PDF and return the file path per hit."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/autoindex-catalog/_search -H 'content-type: application/json' -d '{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"doc_kind\":\"file\"}},{\"term\":{\"status\":\"junk\"}}]}},\"size\":20}'"
+    note: "List every PDF that produced no text, with the reason XERJ recorded."
+links_out:
+  - "search-file-contents-in-a-folder"
+  - "search-word-documents-in-a-folder"
+  - "is-pdf-indexing-efficient"
+  - "rag-without-vector-database"
+  - "/compare/xerj-vs-recoll"
+faq:
+  - q: "I downloaded a bunch of papers as PDFs. How do I search across them?"
+    a: "Run `xerj autoindex` on the folder, then send a `match_phrase` query to the `_search` endpoint. XERJ extracts the text layer of each PDF, so one query reads the whole folder."
+  - q: "How do I search for a phrase across all PDFs in a folder?"
+    a: "Send the phrase as a `match_phrase` query against the index the run created. The captured query found the same phrase in all 3 born-digital PDFs of the fixture."
+  - q: "What's a local way to search a folder of academic PDFs without uploading them?"
+    a: "XERJ is one local binary that indexes the folder in place. No file leaves the host, and the default embedder is lexical feature hashing, so the default path calls no model."
+  - q: "Can I search PDF papers on my laptop without OCR?"
+    a: "You can search any paper that carries a text layer, which most publisher and arXiv PDFs do. A scanned page has none: it produces 0 documents, is marked `status=junk`, and XERJ has no optical character recognition."
+  - q: "How do I find the PDFs that failed?"
+    a: "Query the `autoindex-catalog` index for `doc_kind=file` and `status=junk`. Every refused file carries its path and a reason string."
+  - q: "Does one PDF become one document?"
+    a: "No. In the captured run each PDF produced one file-level document plus one document per page, so 3 PDFs of 6 pages produced 9 documents."
+  - q: "Can a corrupt PDF stop the whole run?"
+    a: "No. XERJ parses each PDF in an isolated worker process, so one failure is recorded and the run continues. The isolation guards against crashes, not against hostile input."
+---
+
+**TL;DR** — `xerj autoindex` indexes a folder of PDFs in one command, and a single `match_phrase` query then searches inside all of them. In a captured run, 3 born-digital PDFs produced 9 documents and one phrase hit all 3 files. The fourth PDF, an image-only file, produced 0 documents.
+
+## Index the folder, then query it
+
+`xerj autoindex <folder>` extracts the text layer of every PDF in the folder and writes the result to a XERJ node. XERJ parses each PDF in an isolated worker process, so one broken file does not stop the run.
+
+```sh
+xerj autoindex ./pdf --url http://127.0.0.1:9200 --prefix pdfx --progress plain
+```
+
+The captured run over 4 PDFs created 1 index, `pdfx-docs`, holding 9 documents from the 3 readable files. In this capture each readable PDF produced 1 file-level document plus 1 document per page.
+
+## One query searches every PDF
+
+One `match_phrase` query against `pdfx-docs` found the phrase `checkpoint journal` in all 3 born-digital PDFs. XERJ returned the source file path with each hit, so the answer names the file a reader must open.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9200/pdfx-docs/_search' \
+  -H 'content-type: application/json' \
+  -d '{"query":{"match_phrase":{"body":"checkpoint journal"}},"size":20,"_source":["ax_path","title","section"],"track_total_hits":true}'
+```
+
+The response held 3 hits, one per file, copied from `raw/pdf-search-all-three.json`.
+
+```json
+{"total": {"value": 3, "relation": "eq"},
+ "files": ["handbook-alpha.pdf", "handbook-gamma.pdf", "handbook-beta.pdf"]}
+```
+
+## The image-only PDF failed
+
+The fourth PDF in the folder had no text layer, and XERJ refused it. The refusal is recorded, not silent: the file lands in the `autoindex-catalog` index with `status=junk`, 0 documents, and the reason string below.
+
+```text
+path:    scanned-image-only.pdf
+format:  pdf
+status:  junk
+records: 0
+reason:  extract failed: isolated PDF parser failed for .../pdf/scanned-image-only.pdf:
+         PDF has no extractable text; it may be an image-only scan. Run OCR first,
+         then autoindex the searchable PDF; verify/decrypt the PDF, repair it, or
+         run OCR for image-only input
+```
+
+XERJ does no optical character recognition. If a folder holds photographed pages with no text layer, run an OCR tool first. Then index the searchable PDF that the tool writes.
+
+## Read the exit code
+
+The run ended with exit code 3 and the terminal line below. Exit 3 means the run finished and at least one file produced nothing, which is different from a failed run.
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.2s files=3 records=9 datasets=1 junk_files=1
+```
+
+Treat exit 3 as a prompt to query the catalog. A build step that only tests for exit 0 will report a PDF folder as broken when 3 of its 4 files indexed correctly.
+
+## How many PDF workers the host allows
+
+XERJ sizes the PDF worker pool from the memory it can actually use, and prints the decision. On the captured 16-core host, the safe zone allowed 1 worker rather than 4.
+
+```text
+autoindex: 16 scan threads, 16 index workers, 1 pdf workers, --bulk-mb 8
+  [cores=16 ram_total_mib=64306 ram_available_mib=9004 safe_zone_mib=965]
+autoindex: memory safe zone 966 MiB allows 1 PDF worker(s) at 1536 MiB each, not 4
+```
+
+A second run over the same folder reused the extraction artifacts from the first. The captured log line reads `phase B: reusing 3 run-local PDF extraction(s); these PDFs will not be parsed a second time`.
+
+## Limits worth knowing before a large library
+
+The PDF extractor caps input at 512 MiB per file and 100,000 pages. Each worker is capped at 32 MiB of output and a 120 second default timeout. A PDF past any cap is refused with a reason rather than truncated in silence.
+
+The isolated worker gives crash and resource isolation. XERJ states in its own help text that the worker is not a security sandbox. Do not treat it as a defense against hostile files.
+
+This capture is a single-node run of 4 small files on one host, so it measures behavior and not throughput. Ranking is BM25 over the extracted text, because the default embedder is lexical feature hashing; neural embeddings are opt-in through `--embed-mode neural`.

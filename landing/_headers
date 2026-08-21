@@ -55,3 +55,10 @@
 /get.ps1
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+
+# Agent-readable Markdown twins are alternate representations of the HTML
+# articles, not HTML pages. Keep the charset explicit for direct fetches.
+/answers/*.md
+  Content-Type: text/markdown; charset=utf-8
+/compare/*.md
+  Content-Type: text/markdown; charset=utf-8

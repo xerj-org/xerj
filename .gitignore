@@ -141,3 +141,39 @@ demo/.flow-chrome/
 # Local ES 8.13.4 reference node for fair benchmarking (never committed)
 .es-local/
 __pycache__/
+
+# Re-include: agentic-SEO article sources and their published Markdown
+# twins. The twins are what AI agents fetch via <link rel="alternate">;
+# without this rule the blanket *.md above silently drops them from the
+# deploy and every alternate link 404s.
+!content/**/*.md
+!landing/**/*.md
+
+# Re-include: the factcheck fixture corpus. These 21 Markdown files ARE the
+# regression suite for claims_rules.py - `factcheck.py --fixture-check` runs
+# every one of them and prints a confusion matrix, and each rule is required to
+# own at least one fixture. The blanket *.md rule above silently swallowed the
+# whole directory, so the suite has never been in the repo and --fixture-check
+# reports "no fixtures" on a clean checkout. Same failure mode as the
+# pull-request template and tools/**/SKILL.md above.
+!scripts/seo/testdata/**/*.md
+
+# Re-include: the SEO toolchain's own operational guide. It documents the
+# article generator, the URL map and every merge gate for landing/, so it is
+# part of the tooling — the same reasoning as tools/**/*.md above. The
+# unanchored `!README.md` rule further up happens to cover this path today,
+# but that rule exists for the repo-root README; anchoring it to `!/README.md`
+# would silently drop this file and nothing would say so.
+!scripts/seo/README.md
+
+# Working record for agent sessions. Never committed: the captures and
+# research notes under .dogfood/ are the session's scratch record, not
+# repository material, and the blanket *.md rule above does not cover
+# the JSON/txt captures. An explicit directory ignore keeps every path
+# under it out of a commit no matter what a later re-include says.
+.dogfood/
+
+# The evidence harness that produced those captures. It has no consumer
+# in site generation or in any CI gate, and its only output was
+# .dogfood/seo/evidence/, so it follows the captures out of the tree.
+scripts/seo/evidence/

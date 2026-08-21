@@ -1,0 +1,96 @@
+---
+title: "Set the MCP memory storage path"
+h1: "How do I set the MCP memory storage path?"
+description: "XERJ has no separate memory path. Agent memory lives in the node data directory as .xerj-memory-{namespace}, and the MCP server stores nothing itself."
+slug: "set-mcp-memory-storage-path"
+cluster: "Agent memory: storage"
+question: "Memory MCP ignores custom storage path setting"
+intent: "troubleshooting"
+published: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with a non-default data directory, store one memory, stop the node, start it again against the same directory, and report both the recalled ids and the .xerj-memory-* directory you find on disk."
+commands:
+  - cmd: "xerj --insecure --data-dir ./xerj-data"
+    note: "Start a node with a non-default data directory. Memory follows this path; there is no separate memory setting."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: application/json' -d '{\"text\":\"The deploy runbook lives in notes/01-runbook.md.\",\"metadata\":{\"session\":\"A\"}}'"
+    note: "Store one memory so that the backing index is created on disk."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem/_recall' -H 'content-type: application/json' -d '{\"query\":\"where is the deploy runbook\",\"k\":5}'"
+    note: "Recall after the restart. The capture returned both stored memories."
+links_out:
+  - "coding-agent-memory-across-sessions"
+  - "resume-interrupted-autoindex-run"
+  - "/docs/storage"
+faq:
+  - q: "Where does XERJ store agent memory?"
+    a: "In the node data directory, under a reserved index named `.xerj-memory-{namespace}`. Our capture found `.xerj-memory-agentmem` at the top level of that directory."
+  - q: "How do I set a custom memory path?"
+    a: "Set the node data directory with `--data-dir` or with `data_dir` in the config file. Memory follows it, because memory has no path setting of its own."
+  - q: "Why does my MCP memory server ignore the path setting?"
+    a: "The XERJ MCP server stores nothing. It is a stdio proxy to a running node, so the node data directory decides where memory lands."
+  - q: "Does memory survive a restart?"
+    a: "Yes. Our capture stopped the node, started it again against the same data directory, and recall returned both stored memories."
+  - q: "What else lives in the data directory?"
+    a: "`audit.jsonl`, `node.lock`, `.xerj_master_key` and reserved directories for tokens, sessions, dashboards and cluster state, alongside your indices."
+  - q: "Can two nodes share one data directory?"
+    a: "No. The `node.lock` file guards the directory, and XERJ is single-node with no replication, so one directory belongs to one running node."
+---
+
+**TL;DR** — XERJ has no memory-specific storage path. Agent memory is an ordinary index named `.xerj-memory-{namespace}` inside the node data directory, so `--data-dir` sets it. Our capture stored a memory, restarted the node against the same directory, and recalled it.
+
+## There is no memory path setting
+
+Agent memory in XERJ is not a separate store with its own configuration. Each memory is a document in a reserved index named `.xerj-memory-{namespace}`, and that index lives wherever the node data directory lives.
+
+Two settings control the location, and they are the same setting. Pass `--data-dir` (short form `-d`) on the command line, or set `data_dir` under `[server]` in a config file. Our capture used the config-file form.
+
+```text
+[server]
+rest_port = 8430
+grpc_port = 8431
+es_compat_port = 9430
+bind_address = "127.0.0.1"
+data_dir = "<run-local path>"
+```
+
+## What appears on disk
+
+After one store call, the memory backing index is visible in the data directory listing as a plain directory. Our capture listed the directory and found `.xerj-memory-agentmem` at the top level.
+
+```text
+-rw-------  1 root root 516 audit.jsonl
+-rw-r--r--  1 root root   8 node.lock
+-rw-------  1 root root  64 .xerj_master_key
+drwxr-xr-x  4 root root 160 .xerj-memory-agentmem
+```
+
+The rest of the listing holds the node's other reserved directories, for API tokens, sessions, dashboards, users and cluster state. Nothing there is memory-specific configuration.
+
+## The restart proof
+
+Our capture stopped the node completely, then started it again against the same non-default data directory. Recall afterwards returned both stored memories, under the same identifiers as before the stop.
+
+| id | score |
+| --- | --- |
+| `d6ed79bf-7174-4a6d-9f1d-987a53045a11` | 1.4581499 |
+| `2b00ed19-8741-49ca-8318-54e9ba8c7a58` | 0.27662587 |
+
+## Why the MCP server cannot own the path
+
+The XERJ MCP server writes nothing to disk. The server speaks newline-delimited JSON-RPC over stdio and proxies every tool call to an already-running node, by default at `http://localhost:9200`.
+
+That design answers the common complaint directly. A storage-path setting on the MCP side has nothing to configure, because the node holds the data. Set `XERJ_URL` to point the MCP server at the right node, and set that node's `--data-dir` to choose the path.
+
+## If recall comes back empty after a restart
+
+Work through four checks in order.
+
+1. Start the node against the same `--data-dir` or `data_dir` value as before.
+2. Use the same namespace in the recall URL, because `/_memory/other` is a different index.
+3. Look for `.xerj-memory-{namespace}` in the data directory listing.
+4. Read `node.lock` to make sure no second node holds the directory. XERJ is single-node, so one data directory belongs to one node.
+
+## What this capture does not show
+
+The node in this capture set its data directory through a config file, not through the `--data-dir` flag, and it ran with `--insecure`. No MCP client was connected in this pass, so every memory call on this page is plain HTTP against the node.

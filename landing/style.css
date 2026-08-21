@@ -983,6 +983,39 @@ section.section-split p.wide { max-width: none; }
   color: var(--z-mute);
 }
 
+/* ---------- site-map footer ---------- */
+
+/* Generated into every styled page by scripts/seo/fix_links.py. It is the
+   discovery path for the enterprise funnel — pricing, security, architecture,
+   solutions, resources and the four industry verticals — which previously had
+   their own nav that nothing else on the site linked to. Same type system as
+   .nav and .footer: data face, 11px, uppercase, tracked, 1px rule only. */
+.footer-map {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-6) var(--gap-x);
+  margin-top: var(--sp-16);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--z-line);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+}
+.footer-map .fm-col { display: flex; flex-direction: column; gap: var(--sp-2); }
+.footer-map .fm-h {
+  font-weight: 600;
+  letter-spacing: var(--track-ui);
+  color: var(--z-accent);
+  margin-bottom: var(--sp-1);
+}
+.footer-map a { color: var(--z-mute); }
+.footer-map a:hover { color: var(--z-ink); }
+
+/* The per-page identity strip sits directly under the map, so it does not
+   need the full sp-16 gap it uses when it is the only footer element. */
+.footer-map + .footer { margin-top: var(--sp-8); }
+
 /* ---------- chart viz blocks (landing pages) ------------- */
 
 /* Big hero visual — full bleed, no padding collapse */
@@ -2241,6 +2274,12 @@ pre.tree .c { color: var(--z-mute); }
     font-size: 10px;
   }
 
+  .footer-map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-4) var(--sp-4);
+    font-size: 10px;
+  }
+
   /* Wide data blocks — scroll inside their own box, not the page. */
   .heatmap,
   .bench,
@@ -2320,7 +2359,7 @@ pre.tree .c { color: var(--z-mute); }
 
 @media print {
   body { padding: 0 40px; max-width: none; background: #fff; color: #000; }
-  .nav, .docs-search, .docs-nav, .footer, .pdf-btn,
+  .nav, .docs-search, .docs-nav, .footer, .footer-map, .pdf-btn,
   .theme, .next, .source-note { display: none !important; }
   .docs-shell { display: block; }
   .docs-content { max-width: none; padding: 0; }

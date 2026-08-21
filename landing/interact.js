@@ -16,6 +16,36 @@
     });
   });
 
+  /* ---------- copyable agent prompts and commands ---------- */
+  /* Reuses the homepage contract:
+       <button type="button" class="prompt-copy" data-copy="...">COPY THE PROMPT</button>
+     The value is read from the attribute so HTML-escaped quotes are restored
+     before it reaches the clipboard. */
+  $$('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.getAttribute('data-copy');
+      const done = () => {
+        const orig = btn.textContent;
+        btn.textContent = 'COPIED';
+        setTimeout(() => { btn.textContent = orig; }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, done);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+        done();
+      }
+    });
+  });
+
   /* ---------- chip filters ---------- */
   /* Markup contract:
        <div class="chips" data-filter="{group}">

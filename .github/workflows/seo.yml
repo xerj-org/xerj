@@ -1,0 +1,104 @@
+name: SEO
+
+# Technical-SEO merge gate for the static site under landing/.
+#
+# There is no static site generator here — 80 hand-written HTML files are
+# deployed verbatim by Cloudflare Pages — so nothing except this job enforces
+# canonicals, the Open Graph set, structured data, sitemap coverage or the
+# extensionless URL shape that Pages actually serves. Every check is Python 3
+# stdlib; no npm install, no lockfile, no supply-chain surface.
+#
+# The invariants seo_lint.py enforces come from the sitemaps.org protocol and
+# Google Search Central's crawling-and-indexing guidance; each rule number is
+# defined and explained in seo_lint.py itself. The rules that need the live site
+# (every sitemap <loc> returns 200) belong in a post-deploy job, not this merge
+# gate, and are deliberately not run here: they live in
+# scripts/seo/verify_live.py, which is run by hand after a deploy. On a pull
+# request every URL it asks for would 404, so wiring it into this workflow
+# would make the gate fail on correct work.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - 'content/**'
+      - 'scripts/seo/**'
+      - '.github/workflows/seo.yml'
+  pull_request:
+    paths:
+      - 'landing/**'
+      - 'content/**'
+      - 'scripts/seo/**'
+      - '.github/workflows/seo.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seo:
+    name: Technical SEO gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # <lastmod> comes from `git log -1 --format=%cs -- <file>`; a shallow
+          # clone would silently degrade every date to the filesystem mtime.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: generated articles are current
+        run: python3 scripts/seo/build_articles.py --check
+
+      - name: sitemap.xml is generated, not hand-edited
+        run: python3 scripts/seo/gen_sitemap.py --check
+
+      - name: every <head> matches the generator
+        run: python3 scripts/seo/fix_heads.py --check
+
+      - name: internal links and site-map footer are current
+        run: python3 scripts/seo/fix_links.py --check
+
+      - name: Open Graph card is the committed render
+        run: python3 scripts/seo/mk_og_card.py --check
+
+      - name: SEO invariants
+        run: python3 scripts/seo/seo_lint.py
+
+      # This gates CONTENT, not markup. factcheck.py blocks claims the
+      # binary cannot back (S3 backup, RBAC, HA, unqualified "semantic
+      # search", retracted benchmark magnitudes) and enforces number
+      # provenance. It was built for this change and was initially left out
+      # of CI — during consolidation it caught a real ERROR in a shipped
+      # article that had survived every other gate. Never remove it.
+      - name: Article claims pass the fact-check rules
+        run: |
+          python3 scripts/seo/factcheck.py --self-test
+          # Proves the gate can still catch what it claims to: 21 committed
+          # fixtures, half of which must trip a rule and half must stay clean.
+          # The fixtures were untracked for most of this branch's life (the
+          # blanket *.md ignore swallowed them) and this step reported "no
+          # fixtures" while exiting 2, so run it in CI, not just locally.
+          python3 scripts/seo/factcheck.py --fixture-check
+          python3 scripts/seo/factcheck.py --fail-on error
+
+      # ste_check.py is NOT a gate, deliberately. It enforces ASD-STE100, whose
+      # grammar rules fight the plain-language phrasing this content depends on:
+      # the articles are targeted at the exact strings a person types, and STE
+      # rewrites them into controlled-language prose that no longer matches. The
+      # script stays in the repo as a local authoring aid — run it by hand with
+      #   python3 scripts/seo/ste_check.py content/answers/*.md content/compare/*.md
+      # and treat its output as advice, not as a merge condition. Do not add it
+      # back to this workflow; the false-claim gate above is factcheck.py, and
+      # that one does block.
+
+      - name: Full audit (report only, never fails the build)
+        if: always()
+        run: python3 scripts/seo/audit.py --root landing --fail-on critical --max-findings 99

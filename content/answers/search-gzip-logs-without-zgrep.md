@@ -1,0 +1,99 @@
+---
+title: "Search gzipped logs without decompressing them"
+h1: "How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?"
+description: "XERJ autoindex decompresses a .gz log once at index time. In our capture the plain and gzip copies returned identical counts, identical hits and one date field."
+slug: "search-gzip-logs-without-zgrep"
+cluster: "Files and formats"
+question: "How do I search gzipped logs without decompressing the whole file?"
+intent: "how-to"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex on a folder of .gz logs with --prefix gzz, then GET /gzz-*/_count and POST a bool filter on level to /gzz-*/_search, and report that ax_format is logs(gzip) and that ts is a date field you can range over."
+commands:
+  - cmd: "xerj autoindex ./gzip-logs/gz --url http://127.0.0.1:9410 --prefix gzz --state-dir ./state-gzz --progress plain --disable-feedback"
+    note: "Index a folder of gzip-compressed log files."
+  - cmd: "curl -s -XGET 'http://127.0.0.1:9410/gzz-*/_count'"
+    note: "Count the documents the gzip log produced."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9410/gzz-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"level\":\"ERROR\"}}]}},\"size\":3,\"_source\":[\"ts\",\"level\",\"message\",\"ax_format\",\"ax_path\"],\"track_total_hits\":true}'"
+    note: "Filter the log by level and read the parsed fields."
+links_out:
+  - "search-json-and-jsonl-logs"
+  - "cheap-low-volume-log-search"
+  - "search-file-contents-in-a-folder"
+faq:
+  - q: "How do I search gzipped logs without decompressing the whole file?"
+    a: "XERJ decompresses the file once during the `autoindex` run and indexes what it reads. Every later query runs against the index, so the archive is never expanded again."
+  - q: "What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?"
+    a: "Index the folder once. Gzip is transparent on every parsed family, so a `.jsonl.gz` file and a plain `.log` file are read in the same run and one index pattern queries both."
+  - q: "How do I grep a compressed log folder without zgrep?"
+    a: "Index the folder, then query the index. The captured gzip index answered a `level=ERROR` filter at p50 0.455 ms over 30 timed runs on one shared host, because no decompression happens at query time."
+  - q: "Do gzip logs and plain logs give the same results?"
+    a: "Yes. In our capture both indices held `5001` documents and both returned 1250 hits for `level=ERROR` with the same top message."
+  - q: "How do I tell a gzip-sourced document from a plain one?"
+    a: "Read `ax_format`. The gzip index records `logs(gzip)` and the plain index records `logs`, and `ax_path` keeps the `.gz` file name."
+  - q: "Which fields does XERJ create for a log line?"
+    a: "`ts` as a date, `level` as a keyword, `message` as a keyword, plus `title` and the 7 `ax_*` provenance fields. There is no generic `text` field."
+  - q: "Why does a match query on text return 0 hits?"
+    a: "Because a log index has no field named `text`. Filter on `level`, run a `wildcard` on `message`, and range over `ts`."
+---
+
+**TL;DR** — XERJ decompresses a `.gz` log once at index time, so a query never reads the compressed file again. In our capture the plain copy and the gzip copy of one log both returned `5001` from `_count`. Both also returned 1250 hits for `level=ERROR`.
+
+## Gzip is transparent to autoindex
+
+`xerj autoindex` detects gzip by content and decompresses it during indexing, on every parsed family. A `.gz` log therefore produces the same documents and the same fields as the plain file it came from.
+
+Index the gzip copy into its own prefix.
+
+```sh
+xerj autoindex ./gzip-logs/gz --url http://127.0.0.1:9410 --prefix gzz --state-dir ./state-gzz --progress plain --disable-feedback
+```
+
+Index the plain copy into a second prefix when you want to compare the two.
+
+```sh
+xerj autoindex ./gzip-logs/plain --url http://127.0.0.1:9410 --prefix gzp --state-dir ./state-gzp --progress plain --disable-feedback
+```
+
+## Identical counts and identical hits
+
+The 2 indices matched exactly in our capture. Both held `5001` documents, both returned 1250 hits for the `level=ERROR` filter, and both put the same message first.
+
+| request | plain copy | gzip copy | equal |
+| --- | --- | --- | --- |
+| `_count` | 5001 | 5001 | yes |
+| filter `level=ERROR` | 1250 hits | 1250 hits | yes |
+| wildcard `message=*marmoset-4242*` | 1 hit | 1 hit | yes |
+
+Both queries also returned the identical first message on the 2 indices: `auth marmoset-2 shard` for the level filter and `auth marmoset-4242 journal` for the wildcard. The fixture generator wrote those strings, and the node under test is single-shard and single-node.
+
+The only field that differs is provenance. The plain index stores `ax_format` as `logs` and `ax_path` as `service.log`. The gzip index stores `logs(gzip)` and `service.log.gz`.
+
+## The fields the logs family creates
+
+The logs family parses each line into `ts`, `level` and `message`, and adds `title` plus the 7 `ax_*` provenance fields. The `ts` field is a real `date` with format `strict_date_optional_time||epoch_millis`, so a range query and a date histogram both work.
+
+There is no generic `text` field on a log index, and `message` is a `keyword`. A `match` on a field named `text` returns 0 hits. Filter on `level`, run a `wildcard` on `message`, and range over `ts`.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9410/gzz-*/_search' -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"level":"ERROR"}}]}},"size":3,"_source":["ts","level","message","ax_format","ax_path"],"track_total_hits":true}'
+```
+
+## Repeated-query latency on the gzip index
+
+The same `level=ERROR` filter over the gzip-sourced index measured a p50 of 0.455 ms and a p95 of 0.788 ms. The method was 30 timed runs after 5 discarded warmup runs, timed client-side on loopback. The 1-minute host load average was 0.98 before and after.
+
+Read that as a repeated-query observation on 1 fixed corpus on 1 shared host. The number is not a benchmark and does not carry to another machine.
+
+## What decompression costs you
+
+XERJ pays for decompression once, during the `autoindex` run, and never during a query. The compressed file is not re-read to answer a search, so a hint that narrows the decompressed range is unnecessary.
+
+The cost you do pay is index size and memory during the run. Keep log work to modest volumes on 1 single-node process. The project's own guidance is to plan corpora of at most a few million documents.
+
+## Counting documents against lines
+
+The gzip index held `5001` documents for a 5,000-line log. XERJ writes 1 document per line plus 1 per-file document. Name the convention whenever you compare a document total with a line count.

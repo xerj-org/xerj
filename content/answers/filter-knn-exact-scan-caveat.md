@@ -1,0 +1,140 @@
+---
+title: "When does XERJ kNN use an exact scan instead of HNSW?"
+h1: "Why did my filtered vector search get slower when I added a filter?"
+description: "A filter takes kNN off the HNSW graph and onto an exact scan whose cost scales with vectors scanned. This page explains when that happens and publishes no timing."
+slug: "filter-knn-exact-scan-caveat"
+cluster: "Retrieval behaviour"
+question: "Why is filtered kNN slower than unfiltered?"
+intent: "troubleshooting"
+published: "2026-08-22"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, and before you attribute a kNN latency change to XERJ, check which path the query takes: an unfiltered cosine kNN on a full-precision field over a large enough index is HNSW-served, and a filtered, nested, aggregation-bearing, quantized, non-cosine or small-index query is an exact scan whose cost scales with the vectors it must scan."
+commands:
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/docs/_search -H 'content-type: application/json' -d '{\"knn\":{\"field\":\"embedding\",\"query_vector\":[0.1,0.2],\"k\":10,\"num_candidates\":100},\"_source\":[\"title\"]}'"
+    note: "An unfiltered kNN clause. This is the shape the graph can serve."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/docs/_search -H 'content-type: application/json' -d '{\"knn\":{\"field\":\"embedding\",\"query_vector\":[0.1,0.2],\"k\":10,\"num_candidates\":100,\"filter\":{\"term\":{\"ax_format\":\"pdf\"}}},\"_source\":[\"title\"]}'"
+    note: "The same query with a filter. This one runs the exact scan."
+  - cmd: "curl -s -XGET http://127.0.0.1:9200/docs/_count"
+    note: "Check the document count, because a small index takes the exact path whatever the query looks like."
+  - cmd: "curl -s -XGET http://127.0.0.1:9200/docs/_mapping"
+    note: "Check the vector field's similarity and quantization, because both decide the path."
+links_out:
+  - "how-xerj-combines-search"
+  - "do-search-embeddings-help"
+  - "vector-database-vs-full-text-search"
+  - "rag-without-vector-database"
+  - "/compare/xerj-vs-vector-database"
+evidence:
+  - claim: "kNN is HNSW-served (approximate) when unfiltered, exact brute-force otherwise. An unfiltered knn on a full-precision cosine field with at least 1,024 docs runs a beam search over a persisted HNSW graph and exact-rescores its candidates, so scores match the exact path bit-for-bit."
+    source: "landing/llms.txt:209"
+  - claim: "Filtered or nested kNN, non-cosine similarity, SQ8-quantized fields, indexes under 1,024 docs, a stale graph, and semantic or _memory recall all use the exact scan; recall is 1.00 by construction and latency scales with vectors scanned."
+    source: "landing/llms.txt:209"
+  - claim: "num_candidates is the beam width, floored at 800, and the Elasticsearch 1.5x k default applies when it is omitted."
+    source: "landing/llms.txt:209"
+  - claim: "An aggregation-bearing kNN always runs the exact scan, and no performance claim exists for that path."
+    source: "landing/llms.txt:270"
+faq:
+  - q: "Why is filtered kNN slower than unfiltered?"
+    a: "Because the filter takes the query off the HNSW graph. A filtered kNN runs the exact scan, and the cost of an exact scan scales with the number of vectors it has to scan."
+  - q: "Does a metadata filter on vector search use HNSW?"
+    a: "No. The graph serves the unfiltered case. Adding a `filter` to a `knn` clause moves the query onto the exact path."
+  - q: "When is exact scan used instead of HNSW?"
+    a: "On a filtered or nested kNN, a non-cosine similarity, an SQ8-quantized field, an index holding fewer than 1,024 documents, a stale graph, and on `semantic` and `_memory` recall."
+  - q: "Why did my filtered vector search get slower when I added a filter?"
+    a: "The filter changed the retrieval path, not just the result set. The unfiltered query was a beam search over a graph; the filtered one is a scan whose work grows with the corpus."
+  - q: "How much slower is a filtered kNN query?"
+    a: "This page does not say, because no latency was measured for it. Measure it on your own index and your own filter, because the answer scales with the vectors scanned."
+  - q: "Does a kNN query with aggregations use the graph?"
+    a: "No. An aggregation-bearing kNN always runs the exact scan, and there is no published performance claim for that path."
+  - q: "Why does a small index behave differently from a big one?"
+    a: "An index holding fewer than 1,024 documents always uses the exact scan. A test corpus that crosses that line will change path even if the query text never changed."
+  - q: "Is the exact scan less accurate?"
+    a: "No, the opposite. The exact scan has recall 1.00 by construction. The graph path is approximate, and its recall is measured rather than guaranteed."
+---
+
+**TL;DR** — The filter changed the retrieval path. An unfiltered cosine `knn` over a large enough full-precision field is served by a beam search over a persisted HNSW graph. A filtered one runs an exact scan, and its cost grows with the vectors it reads. This page publishes no latency measurement.
+
+## This page publishes no timing
+
+No latency capture stands behind this article. There is no millisecond number here, no before-and-after, and no claimed speed cliff.
+
+What is documented is the **mechanism**: which conditions put a `knn` query on the graph and which conditions take it off. That is a capability fact about the engine, not a measurement of your machine.
+
+If you need a number, measure your own index with your own filter. The cost of the exact path depends on how many vectors it must read. A number from someone else's corpus does not carry to yours.
+
+## The two paths
+
+XERJ answers a `knn` clause on one of two paths.
+
+The **graph path** is a beam search over a persisted HNSW graph. It exact-rescores its candidates, so the scores it returns match the exact path bit for bit. It is approximate: recall on this path is measured rather than guaranteed, and it can return fewer than `k` hits.
+
+The **exact path** reads the vectors directly. It has recall 1.00 by construction, and its latency grows with the number of vectors it reads.
+
+Neither path is the wrong one. They answer the same question with a different trade between work done and recall guaranteed.
+
+## When the graph is used
+
+All of these must hold at once:
+
+- the `knn` clause carries **no filter** and is **not nested**;
+- the field's similarity is **cosine**;
+- the field is **full precision**, not SQ8-quantized;
+- the index holds **at least 1,024 documents**;
+- the graph is **not stale**.
+
+`num_candidates` is the beam width on that path. It is floored at 800, and the Elasticsearch default of 1.5 times `k` applies when you omit it.
+
+## When the exact scan is used
+
+Any one of these is enough:
+
+| Condition | Why the graph cannot serve it |
+| --- | --- |
+| the `knn` clause has a `filter` | the graph is built over the whole field, not over your filtered subset |
+| the `knn` clause is nested | same reason: the candidate set is not the graph's set |
+| the similarity is not cosine | the persisted graph is a cosine graph |
+| the field is SQ8-quantized | the quantized representation is not the graph's |
+| the index holds fewer than 1,024 documents | below that size there is no graph to search |
+| the graph is stale | it cannot be trusted to answer for the current documents |
+| the request carries aggregations | an aggregation-bearing kNN always runs the exact scan |
+| the request is `semantic` or `/_memory` recall | those recall paths are exact by construction |
+
+Read that table before you attribute a change in query time to anything else. A filter you added for correctness is enough on its own to change the path.
+
+## The diagnosis, in three requests
+
+Check the count first, because a small index is on the exact path whatever the query says.
+
+```sh
+curl -s -XGET 'http://127.0.0.1:9200/docs/_count'
+```
+
+Check the mapping next, for the similarity and for quantization on the vector field.
+
+```sh
+curl -s -XGET 'http://127.0.0.1:9200/docs/_mapping'
+```
+
+Then run the same vector twice, once with the `filter` and once without it, and compare. If removing the filter changes the shape of the timing, the filter was the path change and not a ranking change.
+
+## What to do about it
+
+You have four honest options, and none of them is a hidden fast path.
+
+**Accept the exact scan.** Recall is 1.00 on it. For a corpus that is small, or for a query that is rare, that is the right answer and no work is needed.
+
+**Make the filter unnecessary.** `xerj autoindex` already splits a folder into typed datasets, so the thing you were filtering on is often already a separate index. Query `/<prefix>-<dataset>/_search` with an unfiltered `knn` instead of querying everything with a `filter`.
+
+**Narrow the corpus, not the query.** An index that only ever holds the subset you care about lets the unfiltered form do the work.
+
+**Reach for lexical retrieval where it fits.** The default embedder in XERJ is lexical feature hashing rather than a neural model. A keyword filter plus BM25 answers many of the questions a filtered vector query was written for. The [hybrid retrieval page](/answers/how-xerj-combines-search) covers fusing the two in one request.
+
+## What this page does not claim
+
+It does not claim a filtered query is slow. It does not claim a threshold in milliseconds, and it does not claim a ratio between the two paths.
+
+It also does not claim the graph path is exact. It is approximate and exact-rescored, which is why its scores agree with the exact path even though its candidate set may not.
+
+XERJ is single-node, so every number you measure here is one process on one host. Measure the path change on the corpus you actually serve.

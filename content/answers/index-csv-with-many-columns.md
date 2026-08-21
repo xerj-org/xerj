@@ -1,0 +1,103 @@
+---
+title: "How do I index a CSV with many columns?"
+h1: "How do I index a CSV with many columns?"
+description: "xerj autoindex infers a mapping for a wide CSV with no schema work. A captured 120-column file produced 128 mapped fields and an exact terms aggregation."
+slug: "index-csv-with-many-columns"
+cluster: "Files and formats"
+question: "How to index CSV files with big number of columns/fields"
+intent: "how-to"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./csv-wide --url http://127.0.0.1:9200 --prefix wide --progress plain`, GET /wide-csv/_mapping to read the inferred field types, then POST a terms aggregation on an inferred keyword field and report the bucket counts with doc_count_error_upper_bound."
+commands:
+  - cmd: "xerj autoindex ./csv-wide --url http://127.0.0.1:9200 --prefix wide --progress plain"
+    note: "Index the wide CSV file; XERJ infers one type per column."
+  - cmd: "curl -s -XGET http://127.0.0.1:9200/wide-csv/_mapping"
+    note: "Read the inferred mapping, including the 7 provenance fields."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/wide-csv/_search -H 'content-type: application/json' -d '{\"size\":0,\"aggs\":{\"by_region\":{\"terms\":{\"field\":\"region\",\"size\":10}},\"by_status\":{\"terms\":{\"field\":\"status\",\"size\":10}}}}'"
+    note: "Run an exact terms aggregation on two inferred keyword columns."
+  - cmd: "curl -s -XGET http://127.0.0.1:9200/wide-csv/_count"
+    note: "Count the documents the CSV produced."
+links_out:
+  - "index-multiple-csv-files"
+  - "full-text-search-sqlite-database"
+  - "/docs/aggregations"
+faq:
+  - q: "How do I index a CSV with hundreds of columns?"
+    a: "Run `xerj autoindex` on the folder holding the file. XERJ reads the header, infers one type per column, and writes the mapping without a schema file."
+  - q: "How many columns can one CSV have?"
+    a: "XERJ caps a dataset at 512 fields, which includes the 7 provenance fields. The captured 120-column file used 128 of that budget."
+  - q: "Which types does XERJ infer for CSV columns?"
+    a: "XERJ infers `boolean`, `date`, `long`, `double`, `keyword`, `text` and `semantic_text`. A column needs at least 95% of its non-null values to parse as a type."
+  - q: "Are aggregations over a wide CSV exact?"
+    a: "Yes. XERJ returns `doc_count_error_upper_bound` 0 and `sum_other_doc_count` 0, and `cardinality` is a true distinct count rather than a sketch."
+  - q: "Do I have to name the columns I want to search?"
+    a: "No. Every column becomes a mapped field, so a `term` filter or a `terms` aggregation works on any of them straight after the run."
+  - q: "What happens to a column that mixes types?"
+    a: "XERJ falls back to a string type when fewer than 95% of the non-null values parse as one type. The column stays searchable as text or as a keyword."
+---
+
+**TL;DR** — `xerj autoindex` infers a mapping for a wide CSV with no schema work. In a captured run a 120-column file became 128 mapped fields, 121 from the file and 7 provenance fields, across 501 documents. A terms aggregation on an inferred `keyword` column returned 4 exact buckets of 125.
+
+## One command, no mapping file
+
+`xerj autoindex <folder>` reads the CSV header, samples the values, and assigns one Elasticsearch type per column. No mapping file and no column list are involved.
+
+```sh
+xerj autoindex ./csv-wide --url http://127.0.0.1:9200 --prefix wide --progress plain
+```
+
+XERJ assigns a type only when at least 95% of the non-null values in the column parse as that type. A column that mixes numbers and text therefore falls back to a string type instead of failing the run.
+
+## What a 120-column file produced
+
+The captured run indexed a 120-column CSV of 500 data rows and created 1 index, `wide-csv`. The mapping held 128 fields.
+
+| group | fields | types |
+| --- | --- | --- |
+| columns from the file | 121 | 118 `long`, 2 `keyword`, 1 `text` |
+| provenance added by XERJ | 7 | 7 `keyword` |
+| total mapped fields | 128 | — |
+
+The 2 `keyword` columns are `region` and `status`, the low-cardinality string columns. The single `text` field is the derived `title`. XERJ elects `keyword` for exact filtering and aggregation, and `text` for full-text search.
+
+## The field budget is 512
+
+XERJ caps a dataset at 512 fields, and the 7 provenance fields count toward that cap. The captured file used 128 of the budget, so a file about 4 times wider still fits.
+
+Plan for the cap before you index a very wide export. A file past 512 columns must be split into more than one dataset, because XERJ will not map every column of it.
+
+## An exact aggregation over an inferred column
+
+A terms aggregation on the inferred `region` column returned 4 buckets of 125 documents each. XERJ reports `doc_count_error_upper_bound` 0 and `sum_other_doc_count` 0, because every aggregation in XERJ is exact rather than sampled.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9200/wide-csv/_search' \
+  -H 'content-type: application/json' \
+  -d '{"size":0,"aggs":{"by_region":{"terms":{"field":"region","size":10}},"by_status":{"terms":{"field":"status","size":10}}}}'
+```
+
+```json
+{"by_region": {"buckets": [{"key": "amer", "doc_count": 125},
+                           {"key": "apac", "doc_count": 125},
+                           {"key": "emea", "doc_count": 125},
+                           {"key": "latam", "doc_count": 125}],
+               "doc_count_error_upper_bound": 0, "sum_other_doc_count": 0}}
+```
+
+## Read the counts together
+
+The `_count` endpoint reported 501 documents for the same index, while the `region` buckets total 500. One document therefore carries no `region` value, and `sum_other_doc_count` 0 proves that XERJ did not hide it in another bucket.
+
+Compare `_count` with the bucket total whenever you report a number from a CSV index. The two answer different questions, and the gap tells you how many documents lack the field you grouped on.
+
+## What this capture does not show
+
+This is a single-node run of 1 file on 1 host, so it measures inference and correctness rather than throughput. XERJ has no replication and no failover in this configuration.
+
+Ranking on the text column is BM25. The default embedder in XERJ is lexical feature hashing, so it cannot connect a query to a synonym; neural embeddings are opt-in through `--embed-mode neural`.
+
+Every number above comes from `RUN-A`, captured on 2026-08-21 on a 16-core AMD EPYC 9645 host.

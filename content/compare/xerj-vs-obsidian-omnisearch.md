@@ -1,0 +1,130 @@
+---
+title: "XERJ vs Omnisearch for an Obsidian vault"
+h1: "How do I search an Obsidian vault from outside Obsidian?"
+description: "Omnisearch wins inside Obsidian and reaches images and PDFs through Text Extractor. XERJ reads the vault folder outside the editor. No head-to-head was run here."
+slug: "xerj-vs-obsidian-omnisearch"
+cluster: "Comparison: notes and vaults"
+question: "How do I search an Obsidian vault from outside Obsidian?"
+intent: "comparison"
+published: "2026-08-22"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent whose user has closed Obsidian. Read https://xerj.org/llms.txt, start a node outside the vault with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./MyVault --prefix vault --state-dir ./state-vault`, then POST a match_phrase on body for a phrase that exists only inside a PDF or DOCX attachment and report the ax_path of every hit without opening Obsidian."
+commands:
+  - cmd: "xerj --insecure --data-dir ./xerj-data"
+    note: "Start one node outside the vault folder, so the node never indexes its own storage."
+  - cmd: "xerj autoindex ./MyVault --prefix vault --state-dir ./state-vault"
+    note: "Markdown notes and the PDF or DOCX attachments beside them land in one index."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/vault-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"match_phrase\":{\"body\":\"retention policy\"}},\"_source\":[\"ax_path\"]}'"
+    note: "A phrase that lives only in an attachment, returned with the file path."
+links_out:
+  - "search-obsidian-pdf-docx-attachments"
+  - "give-chatgpt-claude-local-file-access"
+  - "search-word-documents-in-a-folder"
+  - "search-file-contents-in-a-folder"
+evidence:
+  - claim: "Omnisearch is a search plugin inside Obsidian whose stated first goal is to locate files instantly, and it scores documents with the BM25 algorithm through the MiniSearch library."
+    source: "https://github.com/scambier/obsidian-omnisearch"
+  - claim: "Omnisearch indexes PDFs, images and some Microsoft Office documents with the help of the Text Extractor plugin, and its own documentation warns that extraction is not guaranteed and that many PDFs do not work with Text Extractor."
+    source: "https://publish.obsidian.md/omnisearch/Images,+PDFs,+and+non-text+documents"
+  - claim: "The Omnisearch HTTP server must be activated in settings, is not accessible outside localhost, is unavailable on mobile, and stops automatically when Obsidian closes."
+    source: "https://publish.obsidian.md/omnisearch/Public+API+%26+URL+Scheme"
+  - claim: "The Omnisearch README points at a third-party MCP server that detects Omnisearch and exposes it as a BM25-ranked search mode for agents reading a vault."
+    source: "https://github.com/scambier/obsidian-omnisearch"
+  - claim: "Omnisearch is licensed under GPL-3."
+    source: "https://github.com/scambier/obsidian-omnisearch"
+faq:
+  - q: "Does XERJ replace Omnisearch inside Obsidian?"
+    a: "No. For a person searching in Obsidian, Omnisearch is the better tool and XERJ has no plugin at all."
+  - q: "Omnisearch vs an external index for Claude?"
+    a: "Omnisearch runs inside the editor. An external index reads the vault folder while Obsidian is closed, and answers an agent over an API that does not depend on the editor running."
+  - q: "Can an agent search my Obsidian vault including PDFs?"
+    a: "Yes, where the PDF has a text layer: XERJ indexes vault attachments beside the notes. A PDF that is only page images needs Omnisearch and its Text Extractor plugin, because XERJ does no optical character recognition."
+  - q: "Can an agent already call Omnisearch?"
+    a: "Yes. Omnisearch has an opt-in local HTTP server, and its README points at a third-party MCP server built on it. Obsidian must be running."
+  - q: "Is there a measured comparison on this page?"
+    a: "No. No head-to-head was run. Every Omnisearch fact here comes from its own README and documentation."
+  - q: "How does each one rank?"
+    a: "Omnisearch scores with BM25 through MiniSearch. XERJ ranks with BM25 and can fuse a vector clause with Reciprocal Rank Fusion in the same query."
+  - q: "What license is Omnisearch under?"
+    a: "Omnisearch is GPL-3, so a derived work you distribute has to carry the same license. XERJ is Apache-2.0, which is permissive."
+  - q: "Can I run both?"
+    a: "Yes, and that is the usual answer. Omnisearch serves you inside the editor, and XERJ serves the agent outside it."
+---
+
+**TL;DR** — Omnisearch wins inside Obsidian: an instant search interface, BM25 ranking, and PDFs and images reached through the Text Extractor plugin. XERJ reads the same folder with Obsidian closed and answers an agent. No head-to-head was run for this page.
+
+## Concede the editor, and concede the images
+
+Omnisearch lives inside Obsidian, and its stated first goal is to locate files instantly. It ranks with BM25 through the MiniSearch library, tolerates a typo, and behaves like a quick switcher with a memory.
+
+It also reaches formats that XERJ cannot. With the Text Extractor plugin installed, Omnisearch indexes PDFs, images and some Office documents. XERJ does no optical character recognition of any kind, so a photographed page is junk to it.
+
+For a person searching notes in Obsidian, Omnisearch is the better tool. This page does not claim otherwise, and no measurement here would change that.
+
+## The one caveat Omnisearch publishes about itself
+
+Its own documentation is careful about the extraction path. It states that extracting text from those files is not guaranteed, and that at the time of writing many PDFs do not work with Text Extractor.
+
+Take that as written rather than as an argument. It means a vault with heavy PDF attachments deserves a test on both sides before you trust either one.
+
+## Where the boundary really sits
+
+Omnisearch is a plugin, so it runs when Obsidian runs. Its HTTP server is opt-in, listens on localhost only, is unavailable on mobile, and stops automatically when Obsidian closes.
+
+That is a sensible design for an editor plugin. It is also the reason an agent on a headless machine, a scheduled job, or a second application cannot rely on it.
+
+XERJ starts from the folder instead of the editor:
+
+```sh
+xerj autoindex ./MyVault --prefix vault --state-dir ./state-vault
+```
+
+Markdown notes and the attachments beside them land in one index. The node answers over the Elasticsearch REST API whether Obsidian is open, closed or uninstalled.
+
+## Agent access is not a place where XERJ stands alone
+
+The Omnisearch README points at a third-party MCP server that detects Omnisearch and exposes it as a BM25-ranked search mode for agents reading a vault. That path exists and it works.
+
+The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.
+
+`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 10 tools, and it needs no editor at all.
+
+## What XERJ reads in a vault, and how
+
+Thirteen families are covered. For a vault the ones that matter are plain text and markdown, PDF, DOCX, HTML, CSV and JSON.
+
+Ranking is BM25, and a vector clause can be fused into the same query with Reciprocal Rank Fusion or a weighted linear sum. The default embedder is lexical feature hashing, not neural, so the fused vector side carries no meaning-based signal until `--embed-mode neural` is turned on.
+
+One operational note. Put the node's data directory outside the vault you index, or the node will index its own storage.
+
+## The limits you inherit with XERJ
+
+XERJ is single-node only. There is no data-plane replication and no failover, so one host is the whole deployment.
+
+The server retains heap for every document it indexes, which is an open tracked defect. A large vault with thousands of attachments is worth watching.
+
+There is no plugin, no panel and no keyboard shortcut. XERJ answers programs, not people.
+
+## When to choose Omnisearch instead
+
+Choose Omnisearch when you are the one searching, inside Obsidian. That is its job and it is good at it.
+
+Choose Omnisearch when your attachments include images or page photographs. Text Extractor reaches them and XERJ never will.
+
+Choose Omnisearch when you want zero extra processes on the machine. A plugin costs less than an engine.
+
+## When to choose XERJ instead
+
+Choose XERJ when an agent must read the vault with Obsidian closed. A machine with no editor installed is the same case.
+
+Choose XERJ when the folder holds data files rather than notes. A CSV export or a SQLite database is the usual case.
+
+Choose XERJ when you want the answer as a cited passage over an API an agent already speaks.
+
+## What was not measured
+
+No head-to-head was run for this page. No vault was indexed on both sides, so there is no recall figure, no timing and no phrase-by-phrase score here.
+
+Every Omnisearch fact above comes from its own README and published documentation. Read those before you decide.
