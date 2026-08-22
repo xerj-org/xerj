@@ -14272,6 +14272,25 @@ impl Index {
             }
         };
         let query = &resolved_query;
+        // #574: resolve each rescore stage's secondary query the same way the
+        // main query above (alias-rewrite + keyword→Term). A keyword
+        // `match`/`multi_match` in a `rescore.query` otherwise reaches
+        // `score_query_against_doc`/`doc_matches_query`, which tokenize `Match`
+        // (no schema at that layer), so it would re-score docs matching only a
+        // token of the value rather than the whole keyword value. Only the
+        // application at the rescore stage below consumes this; the many
+        // `request.rescore.is_empty()` presence checks stay on `request` since
+        // rewriting never adds or drops a stage.
+        let resolved_rescore: Vec<RescoreQuery> = if request.rescore.is_empty() {
+            Vec::new()
+        } else {
+            let schema = self.schema.read().await;
+            request
+                .rescore
+                .iter()
+                .map(|rs| rewrite_rescore_keyword(rs, &schema.schema))
+                .collect()
+        };
 
         // ── KNN short-circuit ──────────────────────────────────────────────────
         // Vector-only queries (top-level `knn`) bypass the FTS / doc-scan
@@ -17994,7 +18013,7 @@ impl Index {
             // arrival order rather than `_id`).
             self.sort_hits_page_order(&mut final_hits);
 
-            for rescore_stage in &request.rescore {
+            for rescore_stage in &resolved_rescore {
                 apply_rescore(&mut final_hits, rescore_stage);
                 // ES re-sorts between chained rescore stages so the
                 // next stage's `window_size` applies to the top-N
@@ -32803,6 +32822,26 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
     }
 }
 
+/// #574: resolve a rescore stage's secondary query the same way the main query
+/// is resolved — alias-rewrite then keyword→`Term` — so a keyword
+/// `match`/`multi_match` in a `rescore.query` is made mapping-aware. Without
+/// this the raw query reaches `doc_matches_query`/`score_query_against_doc`,
+/// which tokenize `Match` (they have no schema at that layer), so a rescore
+/// `match {kw: "a b"}` would re-score a doc whose keyword value is only "a"
+/// (token-OR) instead of requiring the whole value "a b" — a wrong-scoring
+/// divergence from the main query and from ES keyword semantics. A script-only
+/// rescore carries no `QueryNode` and is returned unchanged.
+fn rewrite_rescore_keyword(stage: &RescoreQuery, schema: &Schema) -> RescoreQuery {
+    let mut out = stage.clone();
+    if let Some(inner) = out.query.as_mut() {
+        inner.rescore_query = rewrite_keyword_full_text_to_term(
+            &rewrite_query_aliases(&inner.rescore_query, schema),
+            schema,
+        );
+    }
+    out
+}
+
 #[cfg(test)]
 mod keyword_rewrite_filter_tests {
     use super::*;
@@ -32926,6 +32965,128 @@ mod keyword_rewrite_filter_tests {
                 "a non-keyword field must stay a Match, got {f:?}"
             ),
             other => panic!("Knn shape changed: {other:?}"),
+        }
+    }
+
+    /// #574 (rescore half): a keyword `match` in a `rescore.query` is rewritten
+    /// to a whole-value `Term` via `rewrite_rescore_keyword`. `apply_rescore`
+    /// scores through `score_query_against_doc`/`doc_matches_query`, which
+    /// tokenize `Match` (no schema at that layer), so an un-rewritten
+    /// `match {kw:"a b"}` would re-score a doc whose keyword value is only "a".
+    /// Text-field rescores stay analyzed; script-only stages pass through.
+    #[test]
+    fn keyword_match_in_rescore_query_is_rewritten() {
+        let schema = kw_schema();
+        let kw_stage = RescoreQuery {
+            window_size: 10,
+            query: Some(xerj_query::ast::RescoreQueryInner {
+                rescore_query: kw_match(),
+                query_weight: 1.0,
+                rescore_query_weight: 1.0,
+            }),
+            script: None,
+        };
+        assert_is_kw_term(
+            &rewrite_rescore_keyword(&kw_stage, &schema)
+                .query
+                .expect("query preserved")
+                .rescore_query,
+        );
+
+        // A text-field rescore match stays analyzed (only keyword fields rewrite).
+        let text_stage = RescoreQuery {
+            window_size: 10,
+            query: Some(xerj_query::ast::RescoreQueryInner {
+                rescore_query: QueryNode::Match {
+                    field: "body".to_string(),
+                    query: "a b".to_string(),
+                    operator: Default::default(),
+                    analyzer: None,
+                    boost: None,
+                    minimum_should_match: None,
+                },
+                query_weight: 1.0,
+                rescore_query_weight: 1.0,
+            }),
+            script: None,
+        };
+        assert!(
+            matches!(
+                rewrite_rescore_keyword(&text_stage, &schema)
+                    .query
+                    .unwrap()
+                    .rescore_query,
+                QueryNode::Match { .. }
+            ),
+            "text-field rescore match must stay analyzed"
+        );
+
+        // A script-only rescore carries no QueryNode and is unchanged.
+        let script_stage = RescoreQuery {
+            window_size: 10,
+            query: None,
+            script: Some(xerj_query::ast::ScriptRescore::default()),
+        };
+        assert!(rewrite_rescore_keyword(&script_stage, &schema)
+            .query
+            .is_none());
+    }
+
+    /// #574: the five compound wrappers added in #573 (`Boosted`, `Nested`,
+    /// `Hybrid`, `Pinned`, `Named`) recurse into their sub-query so a nested
+    /// keyword `match` is made mapping-aware. These arms were correct but
+    /// untested (verified field-by-field by #573's correctness lens).
+    #[test]
+    fn keyword_match_in_remaining_wrapper_arms_is_rewritten() {
+        let schema = kw_schema();
+
+        let boosted = QueryNode::Boosted {
+            boost: 2.0,
+            query: Box::new(kw_match()),
+        };
+        match rewrite_keyword_full_text_to_term(&boosted, &schema) {
+            QueryNode::Boosted { query, .. } => assert_is_kw_term(&query),
+            other => panic!("Boosted shape changed: {other:?}"),
+        }
+
+        let nested = QueryNode::Nested {
+            path: "p".to_string(),
+            query: Box::new(kw_match()),
+            score_mode: None,
+        };
+        match rewrite_keyword_full_text_to_term(&nested, &schema) {
+            QueryNode::Nested { query, .. } => assert_is_kw_term(&query),
+            other => panic!("Nested shape changed: {other:?}"),
+        }
+
+        let hybrid = QueryNode::Hybrid {
+            queries: vec![WeightedQuery {
+                query: kw_match(),
+                weight: 1.0,
+            }],
+            fusion: Default::default(),
+        };
+        match rewrite_keyword_full_text_to_term(&hybrid, &schema) {
+            QueryNode::Hybrid { queries, .. } => assert_is_kw_term(&queries[0].query),
+            other => panic!("Hybrid shape changed: {other:?}"),
+        }
+
+        let pinned = QueryNode::Pinned {
+            ids: vec!["x".to_string()],
+            organic: Box::new(kw_match()),
+        };
+        match rewrite_keyword_full_text_to_term(&pinned, &schema) {
+            QueryNode::Pinned { organic, .. } => assert_is_kw_term(&organic),
+            other => panic!("Pinned shape changed: {other:?}"),
+        }
+
+        let named = QueryNode::Named {
+            name: "n".to_string(),
+            query: Box::new(kw_match()),
+        };
+        match rewrite_keyword_full_text_to_term(&named, &schema) {
+            QueryNode::Named { query, .. } => assert_is_kw_term(&query),
+            other => panic!("Named shape changed: {other:?}"),
         }
     }
 }
