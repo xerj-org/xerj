@@ -8,7 +8,7 @@ use tempfile::TempDir;
 use xerj_common::config::Config;
 use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_engine::{detect_log_format, Engine, LogFormat};
-use xerj_query::ast::{QueryNode, SearchRequest};
+use xerj_query::ast::{QueryNode, RescoreQuery, RescoreQueryInner, SearchRequest};
 use xerj_query::parse_request;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -5355,82 +5355,69 @@ async fn test_rescore_changes_ranking() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("rescore_idx", Schema::empty()).unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("kw", FieldType::Keyword));
+    engine.create_index("rescore_idx", schema).unwrap();
     let idx = engine.get_index("rescore_idx").unwrap();
 
-    // Doc "a": lots of "search", few "engine" mentions → high score for "search"
-    idx.index_document(
-        Some("a".into()),
-        json!({ "title": "search", "body": "search search search" }),
-    )
-    .await
-    .unwrap();
+    idx.index_document(Some("partial".into()), json!({ "kw": "claude" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("whole".into()), json!({ "kw": "claude code" }))
+        .await
+        .unwrap();
 
-    // Doc "b": lots of "engine" mentions → would rank lower for "search", higher for "engine"
-    idx.index_document(
-        Some("b".into()),
-        json!({ "title": "engine", "body": "engine engine engine engine engine" }),
-    )
-    .await
-    .unwrap();
-
-    // Doc "c": mentions "search engine" once
-    idx.index_document(
-        Some("c".into()),
-        json!({ "title": "search engine", "body": "search engine" }),
-    )
-    .await
-    .unwrap();
-
-    // Primary query: search for "search" — doc "a" should rank highest initially.
-    let primary_req = parse_request(&json!({
-        "query": { "match": { "body": "search" } },
+    let mut request = parse_request(&json!({
+        "query": { "match_all": {} },
         "size": 10,
     }))
     .unwrap();
-    let primary_result = idx.search(&primary_req).await.unwrap();
-    assert!(!primary_result.hits.is_empty());
-    let primary_top = primary_result.hits[0].id.clone();
-
-    // Now add rescore that weights "engine" matches heavily.
-    // This should boost doc "b" (many "engine" occurrences) up.
-    let rescore_req = parse_request(&json!({
-        "query": { "match": { "body": "search" } },
-        "size": 10,
-        "rescore": {
-            "window_size": 10,
-            "query": {
-                "rescore_query": { "match": { "title": "engine" } },
-                "query_weight": 0.1,
-                "rescore_query_weight": 10.0
-            }
-        }
-    }))
-    .unwrap();
-    let rescore_result = idx.search(&rescore_req).await.unwrap();
-    assert!(
-        !rescore_result.hits.is_empty(),
-        "rescore search should return hits"
+    let primary = idx.search(&request).await.unwrap();
+    assert_eq!(primary.total.value, 2);
+    assert_eq!(primary.hits.len(), 2);
+    assert_eq!(
+        primary
+            .hits
+            .iter()
+            .map(|hit| hit.id.as_str())
+            .collect::<Vec<_>>(),
+        ["partial", "whole"],
+        "tied primary hits should preserve insertion order"
+    );
+    assert_eq!(
+        primary.hits[0].score.to_bits(),
+        primary.hits[1].score.to_bits(),
+        "match_all must establish a tied primary score"
     );
 
-    // After rescoring, doc "b" (title contains "engine") should appear — check scores changed.
-    let rescore_scores: Vec<(&str, f32)> = rescore_result
-        .hits
-        .iter()
-        .map(|h| (h.id.as_str(), h.score))
-        .collect();
-    // Verify the rescore was applied (scores differ from primary).
-    let primary_scores: Vec<(&str, f32)> = primary_result
-        .hits
-        .iter()
-        .map(|h| (h.id.as_str(), h.score))
-        .collect();
-    // At least the top score should differ since rescore applies different weights.
-    let _ = (rescore_scores, primary_scores, primary_top);
-    // Just verify that the request parsed and executed successfully with rescore.
+    request.rescore = vec![RescoreQuery {
+        window_size: 10,
+        query: Some(RescoreQueryInner {
+            rescore_query: xerj_query::parse_query(&json!({
+                "match": { "kw": "claude code" }
+            }))
+            .unwrap(),
+            query_weight: 0.0,
+            rescore_query_weight: 1.0,
+        }),
+        script: None,
+    }];
+
+    let rescored = idx.search(&request).await.unwrap();
+    assert_eq!(rescored.total.value, 2);
+    assert_eq!(rescored.hits.len(), 2);
+    assert_eq!(rescored.hits[0].id, "whole", "rescore must flip the order");
+    assert_eq!(rescored.hits[1].id, "partial");
     assert!(
-        rescore_result.total.value > 0,
-        "should have hits after rescoring"
+        rescored.hits[0].score > 0.0,
+        "the whole keyword value must receive a rescore contribution"
+    );
+    assert_eq!(
+        rescored.hits[1].score.to_bits(),
+        0.0f32.to_bits(),
+        "a partial keyword token must receive no rescore contribution"
     );
 }
 
