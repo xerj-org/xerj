@@ -4755,6 +4755,62 @@ mod semantic_deadline_regression_tests {
         assert_eq!(result.total.value, 6, "{:?}", result.total);
     }
 
+    /// #594: a hybrid sub-list with EXACTLY `per_query_topk` matches (and none
+    /// beyond) is exact, not capped: the leg reports `total.value ==
+    /// per_query_topk` with relation `Eq`, so the capped check does not trip and
+    /// the fused total stays `Eq` (ES parity) — where the old
+    /// `hits.len() >= per_query_topk` cap reported a needless `Gte`.
+    /// Fail-before: reverting the capped check `>` → `>=` flips this leg to `Gte`.
+    #[tokio::test]
+    async fn hybrid_reports_eq_at_the_exact_per_query_topk_boundary() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        engine
+            .create_index("hybrid-boundary", Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("hybrid-boundary").unwrap();
+        // EXACTLY per_query_topk (default size 10 → 50) docs, identical vectors,
+        // so the kNN leg matches all 50 and reports total.value == 50 (Eq).
+        for n in 0..50 {
+            idx.index_document(
+                Some(format!("d{n}")),
+                serde_json::json!({"embedding": [1.0, 0.0]}),
+            )
+            .await
+            .unwrap();
+        }
+        let knn = QueryNode::Knn {
+            field: "embedding".into(),
+            vector: vec![1.0, 0.0],
+            k: 256, // asks for more than exist → returns all 50, none beyond
+            num_candidates: None,
+            filter: None,
+            boost: None,
+            similarity: None,
+        };
+        let far = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        let result = idx
+            .run_hybrid_with_deadline(
+                &match_all(30_000), // default size 10 → per_query_topk = 50
+                far,
+                vec![xerj_query::ast::WeightedQuery {
+                    query: knn,
+                    weight: 1.0,
+                }],
+                xerj_query::ast::FusionStrategy::Rrf { k: 60 },
+            )
+            .await
+            .unwrap();
+        assert!(!result.timed_out);
+        assert_eq!(
+            result.total.relation,
+            TotalHitsRelation::Eq,
+            "a leg with exactly per_query_topk matches is exact, not capped (#594): {:?}",
+            result.total
+        );
+        assert_eq!(result.total.value, 50, "{:?}", result.total);
+    }
+
     #[tokio::test]
     async fn nested_knn_uses_the_shared_request_deadline() {
         let dir = TempDir::new().unwrap();
@@ -12233,11 +12289,20 @@ impl Index {
             // run_hybrid both async fn).
             let sub_result = Box::pin(self.search_inner(&sub_request, deadline)).await?;
             any_timed_out |= sub_result.timed_out;
-            // #569: this sub-list is truncated (more matches exist than we
-            // fetched) if it filled the `per_query_topk` page, or its own total
-            // exceeds the page, or its own count is already a lower bound. Any of
-            // these makes the fused union an under-count → report Gte, not Eq.
-            if sub_result.hits.len() >= per_query_topk
+            // #569/#594: this sub-list under-counts the fused total only when the
+            // leg genuinely has MORE than `per_query_topk` matches — signalled by
+            // the leg's own exact total exceeding the cap, or its own count
+            // already being a lower bound (Gte). `total.value` is the load-bearing
+            // capping signal (`total.value >= hits.len()` always). A leg with
+            // EXACTLY `per_query_topk` matches reports `total.value ==
+            // per_query_topk` (Eq) → NOT capped → the fused total stays Eq at the
+            // boundary (ES parity), where the old `hits.len() >= per_query_topk`
+            // tripped a needless Gte because a full page cannot distinguish
+            // "exactly N" from ">N". The `hits.len() > per_query_topk` arm is a
+            // cheap defensive guard: it never fires for `size == per_query_topk`
+            // (a leg cannot return more than it was asked for), but it catches any
+            // future leg that over-returns hits without a matching total.
+            if sub_result.hits.len() > per_query_topk
                 || sub_result.total.value > per_query_topk as u64
                 || sub_result.total.relation == TotalHitsRelation::Gte
             {
