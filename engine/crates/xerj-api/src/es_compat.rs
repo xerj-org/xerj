@@ -20140,56 +20140,44 @@ pub async fn search_with_scroll(
         let first_page: Vec<EsHit> = all_hits
             .iter()
             .take(page_size)
-            .map(|(idx_name, h)| EsHit {
-                index: idx_name.clone(),
-                id: h.id.clone(),
-                score: Some(h.score as f64),
-                version: if emit_version {
-                    // #603: absent `_version` omitted, never defaulted to 1.
-                    h.version
-                } else {
-                    None
-                },
-                seq_no: if emit_seq_no {
-                    // #603: absent `_seq_no` omitted, never a positional
-                    // `hit_idx` a client could replay into OCC.
-                    h.seq_no
-                } else {
-                    None
-                },
-                // #603: `_primary_term` only alongside a real `_seq_no`.
-                primary_term: if emit_seq_no {
-                    h.seq_no.map(|_| 1)
-                } else {
-                    None
-                },
-                source: if h.source.is_null() {
-                    None
-                } else {
-                    Some(h.source.clone())
-                },
-                fields: passage_fields(h),
-                sort: if h.sort.is_empty() {
-                    None
-                } else {
-                    Some(h.sort.clone())
-                },
-                highlight: h.highlight.clone(),
-                explanation: None,
-                inner_hits: None,
-                matched_queries: if h.matched_queries.is_empty() {
-                    Value::Null
-                } else {
-                    Value::Array(
-                        h.matched_queries
-                            .iter()
-                            .cloned()
-                            .map(Value::String)
-                            .collect(),
-                    )
-                },
-                ignored: None,
-                ignored_field_values: None,
+            .map(|(idx_name, h)| {
+                let (version, seq_no, primary_term) =
+                    resolve_hit_versioning(h.seq_no, h.version, emit_seq_no, emit_version);
+                EsHit {
+                    index: idx_name.clone(),
+                    id: h.id.clone(),
+                    score: Some(h.score as f64),
+                    version,
+                    seq_no,
+                    primary_term,
+                    source: if h.source.is_null() {
+                        None
+                    } else {
+                        Some(h.source.clone())
+                    },
+                    fields: passage_fields(h),
+                    sort: if h.sort.is_empty() {
+                        None
+                    } else {
+                        Some(h.sort.clone())
+                    },
+                    highlight: h.highlight.clone(),
+                    explanation: None,
+                    inner_hits: None,
+                    matched_queries: if h.matched_queries.is_empty() {
+                        Value::Null
+                    } else {
+                        Value::Array(
+                            h.matched_queries
+                                .iter()
+                                .cloned()
+                                .map(Value::String)
+                                .collect(),
+                        )
+                    },
+                    ignored: None,
+                    ignored_field_values: None,
+                }
             })
             .collect();
 
@@ -20479,57 +20467,45 @@ async fn scroll_page_response(
                 .iter()
                 .skip(position)
                 .take(page_size)
-                .map(|(hit_index, h)| EsHit {
-                    // Per-hit index, not the context-level one (#414).
-                    index: hit_index.clone(),
-                    id: h.id.clone(),
-                    score: Some(h.score as f64),
-                    version: if emit_version {
-                        // #603: absent `_version` omitted, never defaulted to 1.
-                        h.version
-                    } else {
-                        None
-                    },
-                    seq_no: if emit_seq_no {
-                        // #603: absent `_seq_no` omitted, never a positional
-                        // `hit_idx` a client could replay into OCC.
-                        h.seq_no
-                    } else {
-                        None
-                    },
-                    // #603: `_primary_term` only alongside a real `_seq_no`.
-                    primary_term: if emit_seq_no {
-                        h.seq_no.map(|_| 1)
-                    } else {
-                        None
-                    },
-                    source: if h.source.is_null() {
-                        None
-                    } else {
-                        Some(h.source.clone())
-                    },
-                    fields: passage_fields(h),
-                    sort: if h.sort.is_empty() {
-                        None
-                    } else {
-                        Some(h.sort.clone())
-                    },
-                    highlight: h.highlight.clone(),
-                    explanation: None,
-                    inner_hits: None,
-                    matched_queries: if h.matched_queries.is_empty() {
-                        Value::Null
-                    } else {
-                        Value::Array(
-                            h.matched_queries
-                                .iter()
-                                .cloned()
-                                .map(Value::String)
-                                .collect(),
-                        )
-                    },
-                    ignored: None,
-                    ignored_field_values: None,
+                .map(|(hit_index, h)| {
+                    let (version, seq_no, primary_term) =
+                        resolve_hit_versioning(h.seq_no, h.version, emit_seq_no, emit_version);
+                    EsHit {
+                        // Per-hit index, not the context-level one (#414).
+                        index: hit_index.clone(),
+                        id: h.id.clone(),
+                        score: Some(h.score as f64),
+                        version,
+                        seq_no,
+                        primary_term,
+                        source: if h.source.is_null() {
+                            None
+                        } else {
+                            Some(h.source.clone())
+                        },
+                        fields: passage_fields(h),
+                        sort: if h.sort.is_empty() {
+                            None
+                        } else {
+                            Some(h.sort.clone())
+                        },
+                        highlight: h.highlight.clone(),
+                        explanation: None,
+                        inner_hits: None,
+                        matched_queries: if h.matched_queries.is_empty() {
+                            Value::Null
+                        } else {
+                            Value::Array(
+                                h.matched_queries
+                                    .iter()
+                                    .cloned()
+                                    .map(Value::String)
+                                    .collect(),
+                            )
+                        },
+                        ignored: None,
+                        ignored_field_values: None,
+                    }
                 })
                 .collect();
 
