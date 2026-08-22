@@ -32460,6 +32460,7 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
             fields,
             query,
             boost,
+            match_type,
             ..
         } if fields
             .iter()
@@ -32504,6 +32505,19 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
             }
             if should.len() == 1 {
                 should.into_iter().next().unwrap()
+            } else if matches!(match_type, xerj_query::ast::MultiMatchType::BestFields) {
+                // #572: `best_fields` (the ES default) is a dis_max — the
+                // keyword `Term`(s) and the text `multi_match` combine by MAX
+                // (+ tie_breaker 0.0), not the SUM a `Bool.should` gives. This
+                // mirrors the all-text per-field combination in
+                // `query_node_to_fts_with_keyword_fields`, so a doc matching
+                // both halves scores `max(keyword, text)` as ES does, not the
+                // sum. `most_fields` stays a `should` (ES sums it), and
+                // `cross_fields`/phrase variants are a separate concern (#572).
+                QueryNode::DisMax {
+                    queries: should,
+                    tie_breaker: 0.0,
+                }
             } else {
                 QueryNode::Bool {
                     must: Vec::new(),
@@ -39658,6 +39672,38 @@ fn query_node_to_fts_with_keyword_fields(
                 )))
             } else {
                 Some(combined)
+            }
+        }
+        // #572: a rewritten `best_fields` keyword split (keyword `Term`(s) + a
+        // text `multi_match`) reaches the segment path as a `DisMax`. Project
+        // each child and combine by MAX so the segment scores it like ES — and
+        // like the memtable — instead of declining FTS projection and dropping
+        // to the schema-blind stored-source scan (which SUMS the children).
+        // Decline only when a child cannot project, so a single DisMax never
+        // mixes FTS and fallback scoring.
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } => {
+            let children: Vec<FtsQuery> = queries
+                .iter()
+                .filter_map(|c| {
+                    query_node_to_fts_with_keyword_fields(
+                        c,
+                        text_fields,
+                        exact_fields,
+                        keyword_fields,
+                    )
+                })
+                .collect();
+            if children.is_empty() || children.len() != queries.len() {
+                None
+            } else if children.len() == 1 {
+                children.into_iter().next()
+            } else {
+                Some(FtsQuery::DisMax(Box::new(
+                    FtsDisMax::new(children).tie_breaker(*tie_breaker),
+                )))
             }
         }
         QueryNode::Term {

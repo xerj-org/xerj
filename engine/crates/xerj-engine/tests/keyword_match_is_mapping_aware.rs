@@ -53,6 +53,17 @@ fn expect(ids: &[&str]) -> BTreeSet<String> {
     ids.iter().map(|s| s.to_string()).collect()
 }
 
+async fn score_of(idx: &Index, q: &Value, id: &str) -> f32 {
+    idx.search(&req(q.clone()))
+        .await
+        .unwrap()
+        .hits
+        .iter()
+        .find(|h| h.id == id)
+        .unwrap_or_else(|| panic!("doc {id} not in hits for {q}"))
+        .score
+}
+
 /// A multi-token `match`/`multi_match` over a scalar `keyword` field must match
 /// the value WHOLE (keyword analyzer) — so `"red blue"` never matches `"red"` —
 /// identically before and after `flush()`. Fixed by rewriting keyword-targeted
@@ -181,5 +192,74 @@ async fn mixed_multi_match_splits_keyword_and_text() {
             expect(exp),
             "{label}: POST-flush hit set wrong for {q}"
         );
+    }
+}
+
+/// #572: a `best_fields` multi_match spanning BOTH a keyword and a text field
+/// must combine the two halves by **dis_max** (MAX + tie_breaker), exactly as ES
+/// does — not the **SUM** a `Bool.should` gives. Hit sets are unchanged (pinned
+/// by `mixed_multi_match_splits_keyword_and_text`); this pins the `_score` in
+/// both the memtable and segment phases. Fail-before (the pre-fix `Bool.should`):
+/// the combined score equals `kw + text`, so both asserts below trip.
+#[tokio::test]
+async fn best_fields_multi_match_scores_keyword_and_text_by_max_not_sum() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tags", FieldType::Keyword));
+    schema
+        .fields
+        .push(FieldConfig::new("body", FieldType::Text));
+    engine.create_index("mmscore", schema).unwrap();
+    let idx = engine.get_index("mmscore").unwrap();
+    // "1" matches BOTH halves of query "vip": keyword `tags == "vip"` (whole)
+    // AND text `body` contains "vip".
+    idx.index_document(
+        Some("1".into()),
+        json!({ "tags": "vip", "body": "vip lounge access" }),
+    )
+    .await
+    .unwrap();
+    // Extra docs skew each field's BM25 stats so the two half-scores differ,
+    // making MAX vs SUM unambiguous, and so both halves have matching peers.
+    idx.index_document(
+        Some("2".into()),
+        json!({ "tags": "guest", "body": "vip vip vip vip vip" }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("3".into()),
+        json!({ "tags": "vip", "body": "nothing relevant here at all" }),
+    )
+    .await
+    .unwrap();
+
+    let both = json!({ "multi_match": { "query": "vip", "fields": ["tags", "body"] } });
+    let kw_only = json!({ "multi_match": { "query": "vip", "fields": ["tags"] } });
+    let text_only = json!({ "multi_match": { "query": "vip", "fields": ["body"] } });
+
+    for phase in ["pre-flush", "post-flush"] {
+        let s_both = score_of(&idx, &both, "1").await;
+        let s_kw = score_of(&idx, &kw_only, "1").await;
+        let s_text = score_of(&idx, &text_only, "1").await;
+        let max = s_kw.max(s_text);
+        let sum = s_kw + s_text;
+        assert!(
+            (s_both - max).abs() < 1e-3,
+            "{phase}: best_fields multi_match over [keyword, text] must score \
+             max(kw={s_kw}, text={s_text})={max} (dis_max), got {s_both} (#572)"
+        );
+        assert!(
+            s_both + 1e-3 < sum,
+            "{phase}: combined score {s_both} must be MAX, not the SUM \
+             kw+text={sum} a Bool.should gives (#572)"
+        );
+        if phase == "pre-flush" {
+            idx.flush().await.unwrap();
+        }
     }
 }
