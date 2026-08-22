@@ -26533,7 +26533,14 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
         }
         patterns.iter().any(|p| {
             if p.contains('*') {
-                glob_match(p, path) || (p.ends_with(".*") && path.starts_with(&p[..p.len() - 2]))
+                // A `prefix.*` include also keeps the whole subtree under
+                // `prefix.` (`glob_match`'s `*` cannot cross a dot, so it alone
+                // would drop `prefix.a.b`). #602: this subtree check must keep
+                // the dot boundary — strip only the trailing `*` (`prefix.`),
+                // NOT `.*` (`prefix`). Otherwise `meta.*` matched `metadata`
+                // via `starts_with("meta")`, where ES keeps only paths under
+                // `meta.` and returns `{}` for a sibling like `metadata`.
+                glob_match(p, path) || (p.ends_with(".*") && path.starts_with(&p[..p.len() - 1]))
             } else {
                 path == p || path.starts_with(&format!("{}.", p))
             }
@@ -26582,12 +26589,16 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
                 // it, so ES drops it and so must we; under a match-all /
                 // exclude-only filter the empty object must survive (#310).
                 //
-                // `matches_path` cannot be reused as the accept test: it also
-                // returns true for a prefix (to DRIVE recursion), and its glob
-                // clause `p.ends_with(".*") && path.starts_with(p[..len-2])` marks
-                // bare `meta` as matching `meta.*`. ES's automaton needs the
-                // trailing dot -- `meta` is a live but non-accepting state of
-                // `meta.*` -- so the accept test must require it.
+                // `matches_path` cannot be reused WHOLE as the accept test: it
+                // also returns true for a subtree/prefix on the way to a deeper
+                // include (to DRIVE recursion). Its `base.*` subtree clause now
+                // requires the trailing dot (#602 divergence 1:
+                // `path.starts_with(&p[..len-1])` = `base.`, not the old dot-less
+                // `p[..len-2]` = `base`), so bare `meta` is a live but
+                // non-accepting state of `meta.*` -- exactly what ES's automaton
+                // needs. The accept test expresses that directly here: a `base.*`
+                // include accepts only paths strictly below `base.`, and every
+                // other pattern falls to a full `matches_path`.
                 let path_is_accepting = |path: &str| {
                     includes.iter().any(|inc| match inc.strip_suffix(".*") {
                         // `base.*`: accept only paths strictly BELOW `base`.
@@ -26749,8 +26760,10 @@ mod source_filter_tests {
         );
         // Glob form: `meta.*` — bare `meta` is a non-accepting prefix (ES's
         // automaton needs the trailing dot), so an empty `{"meta":{}}` drops just
-        // as under `meta.foo`. Reusing `matches_path` as the accept test leaked
-        // this because its `.*` clause matches the dot-less prefix.
+        // as under `meta.foo`. `path_is_accepting` expresses this directly
+        // (a `base.*` include accepts only paths strictly below `base.`);
+        // #602 divergence 1 also made `matches_path`'s own `.*` clause require
+        // the dot, so it no longer leaks the dot-less prefix either.
         assert_eq!(
             filter_object(&json!({ "meta": {} }), &["meta.*".to_string()], &[]),
             json!({}),
@@ -26773,6 +26786,47 @@ mod source_filter_tests {
             filter_object(&json!({ "metadata": {} }), &["meta.*".to_string()], &[]),
             json!({}),
             "a prefix-sharing sibling (metadata vs meta.*) is not accepted (#310)"
+        );
+    }
+
+    /// #602 (divergence 1): a `prefix.*` include keeps ONLY paths under
+    /// `prefix.`. The empty-object sibling case was covered by #310's
+    /// `path_is_accepting`; this pins the NON-EMPTY case, which leaked through
+    /// `matches_path`'s `.*` subtree clause using `starts_with("meta")` (no dot
+    /// boundary), so `{"metadata":{"x":1}}` under `meta.*` was wrongly kept where
+    /// ES returns `{}`. Fixed by stripping only the trailing `*` (`meta.`), not
+    /// `.*` (`meta`), in that clause.
+    #[test]
+    fn source_glob_prefix_requires_the_dot_boundary_for_nonempty_siblings() {
+        // Non-empty prefix-sharing sibling: dropped (ES parity).
+        assert_eq!(
+            filter_object(
+                &json!({ "metadata": { "x": 1 } }),
+                &["meta.*".to_string()],
+                &[]
+            ),
+            json!({}),
+            "a non-empty prefix-sharing sibling (metadata vs meta.*) is dropped (#602)"
+        );
+        // Positive control: a real child under `meta.` is kept, subtree and all.
+        assert_eq!(
+            filter_object(
+                &json!({ "meta": { "foo": { "bar": 1 } } }),
+                &["meta.*".to_string()],
+                &[]
+            ),
+            json!({ "meta": { "foo": { "bar": 1 } } }),
+            "the subtree under meta.* is kept (#602 must not over-prune)"
+        );
+        // A prefix-sharing sibling next to a real match: only the match survives.
+        assert_eq!(
+            filter_object(
+                &json!({ "meta": { "foo": 1 }, "metadata": { "x": 2 } }),
+                &["meta.*".to_string()],
+                &[]
+            ),
+            json!({ "meta": { "foo": 1 } }),
+            "meta.* keeps meta.* but not the prefix-sharing metadata (#602)"
         );
     }
 
