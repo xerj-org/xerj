@@ -5457,6 +5457,86 @@ async fn test_rescore_changes_ranking() {
     );
 }
 
+/// #627 / #634 (@mvanhorn): the rescore stage ALONE must be able to reorder a
+/// tied primary. `match_all` gives both docs one identical primary score, the
+/// rescore gives the primary zero weight (`query_weight: 0.0`), so the only
+/// score left is the rescore contribution — which the keyword rewrite hands to
+/// the whole-value doc and to nobody else. This isolates the rescore from the
+/// primary in a way `test_rescore_changes_ranking` (primary ×0.1) cannot: there
+/// a rank flip could still be a primary-score artefact; here it cannot be.
+#[tokio::test]
+async fn rescore_alone_reorders_a_tied_primary() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("kw", FieldType::Keyword));
+    engine.create_index("rescore_tied", schema).unwrap();
+    let idx = engine.get_index("rescore_tied").unwrap();
+
+    idx.index_document(Some("partial".into()), json!({ "kw": "claude" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("whole".into()), json!({ "kw": "claude code" }))
+        .await
+        .unwrap();
+
+    let mut request = parse_request(&json!({
+        "query": { "match_all": {} },
+        "size": 10,
+    }))
+    .unwrap();
+    let primary = idx.search(&request).await.unwrap();
+    assert_eq!(primary.total.value, 2);
+    assert_eq!(primary.hits.len(), 2);
+    assert_eq!(
+        primary
+            .hits
+            .iter()
+            .map(|hit| hit.id.as_str())
+            .collect::<Vec<_>>(),
+        ["partial", "whole"],
+        "tied primary hits should preserve insertion order"
+    );
+    assert_eq!(
+        primary.hits[0].score.to_bits(),
+        primary.hits[1].score.to_bits(),
+        "match_all must establish a tied primary score"
+    );
+
+    // `parse_request` deliberately leaves `rescore` empty (only the ES-compat
+    // handler parses it), so populate the stage directly — see #627.
+    request.rescore = vec![xerj_query::ast::RescoreQuery {
+        window_size: 10,
+        query: Some(xerj_query::ast::RescoreQueryInner {
+            rescore_query: xerj_query::parse_query(&json!({
+                "match": { "kw": "claude code" }
+            }))
+            .unwrap(),
+            query_weight: 0.0,
+            rescore_query_weight: 1.0,
+        }),
+        script: None,
+    }];
+
+    let rescored = idx.search(&request).await.unwrap();
+    assert_eq!(rescored.total.value, 2);
+    assert_eq!(rescored.hits.len(), 2);
+    assert_eq!(rescored.hits[0].id, "whole", "rescore must flip the order");
+    assert_eq!(rescored.hits[1].id, "partial");
+    assert!(
+        rescored.hits[0].score > 0.0,
+        "the whole keyword value must receive a rescore contribution"
+    );
+    assert_eq!(
+        rescored.hits[1].score.to_bits(),
+        0.0f32.to_bits(),
+        "a partial keyword token must receive no rescore contribution"
+    );
+}
+
 // ── Rescore keyword rewrite: a keyword `match` in a rescore query is whole-value ──
 
 /// #627 (end-to-end guard for #574): a keyword `match` in a `rescore` query must be
