@@ -20204,6 +20204,53 @@ pub async fn search_with_scroll(
         };
         state.engine.scrolls.insert(scroll_id.clone(), ctx);
 
+        // #630: emit `_version`/`_seq_no`/`_primary_term` when requested. The
+        // `EsHit` carried them (gated on the request flags), but this hand-built
+        // first-page map previously dropped them, unlike the continuation page
+        // (`scroll_page_response`, #428) and the `_search?scroll=` first page
+        // (`search_impl`). `_source` emission is unchanged (always present, null
+        // when absent). The `disable_sequence_numbers` sentinel is then applied
+        // exactly as the continuation does (#440), so both pages agree.
+        let mut hits_json: Vec<Value> = first_page
+            .iter()
+            .map(|h| {
+                let mut o = serde_json::Map::new();
+                o.insert("_index".to_string(), Value::String(h.index.clone()));
+                o.insert("_id".to_string(), Value::String(h.id.clone()));
+                o.insert(
+                    "_score".to_string(),
+                    match h.score {
+                        Some(s) => json!(s),
+                        None => Value::Null,
+                    },
+                );
+                if let Some(v) = h.version {
+                    o.insert("_version".to_string(), json!(v));
+                }
+                if let Some(sn) = h.seq_no {
+                    o.insert("_seq_no".to_string(), json!(sn));
+                }
+                if let Some(pt) = h.primary_term {
+                    o.insert("_primary_term".to_string(), json!(pt));
+                }
+                o.insert(
+                    "_source".to_string(),
+                    match &h.source {
+                        Some(src) => src.clone(),
+                        None => Value::Null,
+                    },
+                );
+                if let Some(fields) = &h.fields {
+                    o.insert(
+                        "fields".to_string(),
+                        serde_json::to_value(fields).unwrap_or(Value::Null),
+                    );
+                }
+                Value::Object(o)
+            })
+            .collect();
+        apply_disable_seqno_sentinel(&state, &mut hits_json);
+
         let resp = json!({
             "_scroll_id": scroll_id,
             "took": took_ms,
@@ -20212,18 +20259,7 @@ pub async fn search_with_scroll(
             "hits": {
                 "total": { "value": total_count, "relation": "eq" },
                 "max_score": first_page.first().and_then(|h| h.score),
-                "hits": first_page.iter().map(|h| {
-                    let mut hit = json!({
-                        "_index": h.index,
-                        "_id": h.id,
-                        "_score": h.score,
-                        "_source": h.source,
-                    });
-                    if let Some(fields) = &h.fields {
-                        hit["fields"] = serde_json::to_value(fields).unwrap_or(Value::Null);
-                    }
-                    hit
-                }).collect::<Vec<_>>()
+                "hits": hits_json
             }
         });
         return Json(resp).into_response();
