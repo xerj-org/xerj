@@ -8443,6 +8443,235 @@ mod inner_hit_versioning_tests {
     }
 }
 
+/// Render a collapse leader's `inner_hits` from the `__xy_collapse_group__`
+/// / `__xy_collapse_spec__` sentinels `apply_collapse` planted in its
+/// `_source`, honoring each spec's `size`/`from`/`sort`/`collapse`/`fields`
+/// and the snapshot `_version`/`_seq_no` carried per member (never a
+/// render-time live lookup — #506/#566). Shared by `search_impl` and the
+/// scroll continuation (`scroll_page_response`) so a collapsed scroll renders
+/// inner_hits identically instead of leaking the sentinels into `_source`
+/// (#621).
+fn render_collapse_inner_hits(
+    group: Vec<Value>,
+    spec: Value,
+    idx_name: &str,
+    rest_total_hits_as_int: bool,
+) -> Value {
+    let spec_list: Vec<Value> = match spec {
+        Value::Array(a) => a,
+        other => vec![other],
+    };
+    let mut combined = serde_json::Map::new();
+    for spec in &spec_list {
+        let name = spec
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("inner_hits")
+            .to_string();
+        let size = spec.get("size").and_then(Value::as_u64).unwrap_or(3) as usize;
+        let sort_spec = spec.get("sort").cloned().unwrap_or(Value::Null);
+        let from_spec = spec.get("from").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let mut members = group.clone();
+        if let Value::Array(sort_arr) = &sort_spec {
+            for s in sort_arr.iter().rev() {
+                if let Some(obj) = s.as_object() {
+                    for (field, opts) in obj {
+                        let desc = match opts {
+                            Value::String(s) => s == "desc",
+                            Value::Object(o) => o
+                                .get("order")
+                                .and_then(Value::as_str)
+                                .map(|v| v == "desc")
+                                .unwrap_or(false),
+                            _ => false,
+                        };
+                        let f = field.clone();
+                        // Compare numerically when both sides
+                        // parse as numbers, else fall back to a
+                        // lexicographic string compare so keyword
+                        // and date fields sort correctly. Ties
+                        // break on `_id` so the result is
+                        // deterministic across runs and matches
+                        // ES's `_doc` secondary sort for
+                        // monotonically-assigned ids.
+                        members.sort_by(|a, b| {
+                            let av = a.get("_source").and_then(|s| s.get(&f));
+                            let bv = b.get("_source").and_then(|s| s.get(&f));
+                            let av_n = av.and_then(Value::as_f64);
+                            let bv_n = bv.and_then(Value::as_f64);
+                            let primary = match (av_n, bv_n) {
+                                (Some(x), Some(y)) => {
+                                    x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
+                                }
+                                _ => {
+                                    let to_str = |v: Option<&Value>| match v {
+                                        Some(Value::String(s)) => Some(s.clone()),
+                                        Some(other) if !other.is_null() => Some(other.to_string()),
+                                        _ => None,
+                                    };
+                                    let av_s = to_str(av);
+                                    let bv_s = to_str(bv);
+                                    match (av_s, bv_s) {
+                                        (Some(x), Some(y)) => x.cmp(&y),
+                                        (Some(_), None) => std::cmp::Ordering::Less,
+                                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                                        (None, None) => std::cmp::Ordering::Equal,
+                                    }
+                                }
+                            };
+                            let primary = if desc { primary.reverse() } else { primary };
+                            if primary != std::cmp::Ordering::Equal {
+                                return primary;
+                            }
+                            let aid = a.get("_id").and_then(Value::as_str).unwrap_or("");
+                            let bid = b.get("_id").and_then(Value::as_str).unwrap_or("");
+                            aid.cmp(bid)
+                        });
+                    }
+                }
+            }
+        }
+        let emit_seq_no_ih = spec
+            .get("seq_no_primary_term")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let emit_version_ih = spec
+            .get("version")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        // `inner_hits.collapse.field` — second-level collapse
+        // applied to the group members. ES counts `total` against
+        // the pre-collapse member set but the returned `hits` are
+        // deduped by the inner collapse field, preserving sort
+        // order. (See ES 8.13 multi-level collapse.)
+        let total = members.len();
+        if let Some(inner_field) = spec
+            .get("collapse")
+            .and_then(|c| c.get("field"))
+            .and_then(Value::as_str)
+        {
+            let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+            members.retain(|m| {
+                let key = m
+                    .get("_source")
+                    .and_then(|s| s.get(inner_field))
+                    .map(|v| match v {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        Value::Null => "\0null".to_string(),
+                        other => other.to_string(),
+                    })
+                    .unwrap_or_else(|| "\0missing".to_string());
+                seen.insert(key)
+            });
+        }
+        let rendered_hits: Vec<Value> = members
+            .into_iter()
+            .skip(from_spec)
+            .take(size)
+            .map(|mut m| {
+                if let Some(src) = m.get_mut("_source").and_then(Value::as_object_mut) {
+                    src.remove("__xy_collapse_group__");
+                    src.remove("__xy_collapse_spec__");
+                }
+                let mut hit_obj = serde_json::Map::new();
+                hit_obj.insert("_index".to_string(), Value::String(idx_name.to_string()));
+                if let Some(id) = m.get("_id").cloned() {
+                    hit_obj.insert("_id".to_string(), id);
+                }
+                if let Some(score) = m.get("_score").cloned() {
+                    hit_obj.insert("_score".to_string(), score);
+                }
+                // Snapshotted `_version` / `_seq_no` carried in the
+                // collapse group (#506) — NOT a render-time live
+                // lookup, which could pair a live version with the
+                // snapshot `_source` on a collapsed scroll. An absent
+                // snapshot value is OMITTED, not fabricated (#566).
+                emit_inner_hit_versioning(&m, emit_seq_no_ih, emit_version_ih, &mut hit_obj);
+                if let Some(src) = m.get("_source").cloned() {
+                    hit_obj.insert("_source".to_string(), src);
+                }
+                // inner_hits `fields` — emit the requested
+                // source fields as a `fields: {name: [values]}`
+                // map matching top-level hit semantics.
+                let mut fmap = serde_json::Map::new();
+                if let Some(ih_fields) = spec.get("fields").and_then(Value::as_array) {
+                    for f in ih_fields {
+                        let fname = match f {
+                            Value::String(s) => s.as_str(),
+                            Value::Object(o) => {
+                                o.get("field").and_then(Value::as_str).unwrap_or("")
+                            }
+                            _ => continue,
+                        };
+                        if fname.is_empty() {
+                            continue;
+                        }
+                        if let Some(src) = m.get("_source") {
+                            if let Some(v) = src.get(fname).cloned() {
+                                let wrapped = match v {
+                                    Value::Array(a) => Value::Array(a),
+                                    Value::Null => continue,
+                                    other => Value::Array(vec![other]),
+                                };
+                                fmap.insert(fname.to_string(), wrapped);
+                            }
+                        }
+                    }
+                }
+                // ES auto-emits the inner-collapse field into
+                // `fields` even without an explicit `fields`
+                // clause, mirroring the top-level collapse
+                // behavior (see line ~7070).
+                if let Some(inner_field) = spec
+                    .get("collapse")
+                    .and_then(|c| c.get("field"))
+                    .and_then(Value::as_str)
+                {
+                    if !fmap.contains_key(inner_field) {
+                        if let Some(v) = m.get("_source").and_then(|s| s.get(inner_field)).cloned()
+                        {
+                            let wrapped = match v {
+                                Value::Array(a) => Value::Array(a),
+                                Value::Null => Value::Array(vec![]),
+                                other => Value::Array(vec![other]),
+                            };
+                            if !matches!(&wrapped, Value::Array(a) if a.is_empty()) {
+                                fmap.insert(inner_field.to_string(), wrapped);
+                            }
+                        }
+                    }
+                }
+                if !fmap.is_empty() {
+                    hit_obj.insert("fields".to_string(), Value::Object(fmap));
+                }
+                Value::Object(hit_obj)
+            })
+            .collect();
+        // When the caller set `rest_total_hits_as_int: true`
+        // on the outer request, inner_hits totals become
+        // bare numbers — mirror the top-level hits.total
+        // shape.
+        let inner_total = if rest_total_hits_as_int {
+            json!(total as u64)
+        } else {
+            json!({ "value": total as u64, "relation": "eq" })
+        };
+        combined.insert(
+            name,
+            serde_json::json!({
+                "hits": {
+                    "total": inner_total,
+                    "max_score": Value::Null,
+                    "hits": rendered_hits,
+                }
+            }),
+        );
+    }
+    Value::Object(combined)
+}
+
 async fn search_impl(
     state: AppState,
     index: String,
@@ -13240,225 +13469,12 @@ async fn search_impl(
             // The spec may be a single object or an array of objects so
             // tests can declare multiple named inner_hits per collapse.
             if let (Some(group), Some(spec)) = (collapse_group, collapse_spec) {
-                let spec_list: Vec<Value> = match spec {
-                    Value::Array(a) => a,
-                    other => vec![other],
-                };
-                let mut combined = serde_json::Map::new();
-                for spec in &spec_list {
-                    let name = spec
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .unwrap_or("inner_hits")
-                        .to_string();
-                    let size = spec
-                        .get("size")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(3) as usize;
-                    let sort_spec = spec.get("sort").cloned().unwrap_or(Value::Null);
-                    let from_spec = spec.get("from").and_then(Value::as_u64).unwrap_or(0) as usize;
-                    let mut members = group.clone();
-                    if let Value::Array(sort_arr) = &sort_spec {
-                        for s in sort_arr.iter().rev() {
-                            if let Some(obj) = s.as_object() {
-                                for (field, opts) in obj {
-                                    let desc = match opts {
-                                        Value::String(s) => s == "desc",
-                                        Value::Object(o) => o
-                                            .get("order")
-                                            .and_then(Value::as_str)
-                                            .map(|v| v == "desc")
-                                            .unwrap_or(false),
-                                        _ => false,
-                                    };
-                                    let f = field.clone();
-                                    // Compare numerically when both sides
-                                    // parse as numbers, else fall back to a
-                                    // lexicographic string compare so keyword
-                                    // and date fields sort correctly. Ties
-                                    // break on `_id` so the result is
-                                    // deterministic across runs and matches
-                                    // ES's `_doc` secondary sort for
-                                    // monotonically-assigned ids.
-                                    members.sort_by(|a, b| {
-                                        let av = a.get("_source").and_then(|s| s.get(&f));
-                                        let bv = b.get("_source").and_then(|s| s.get(&f));
-                                        let av_n = av.and_then(Value::as_f64);
-                                        let bv_n = bv.and_then(Value::as_f64);
-                                        let primary = match (av_n, bv_n) {
-                                            (Some(x), Some(y)) => x
-                                                .partial_cmp(&y)
-                                                .unwrap_or(std::cmp::Ordering::Equal),
-                                            _ => {
-                                                let to_str = |v: Option<&Value>| match v {
-                                                    Some(Value::String(s)) => Some(s.clone()),
-                                                    Some(other) if !other.is_null() => Some(other.to_string()),
-                                                    _ => None,
-                                                };
-                                                let av_s = to_str(av);
-                                                let bv_s = to_str(bv);
-                                                match (av_s, bv_s) {
-                                                    (Some(x), Some(y)) => x.cmp(&y),
-                                                    (Some(_), None) => std::cmp::Ordering::Less,
-                                                    (None, Some(_)) => std::cmp::Ordering::Greater,
-                                                    (None, None) => std::cmp::Ordering::Equal,
-                                                }
-                                            }
-                                        };
-                                        let primary = if desc { primary.reverse() } else { primary };
-                                        if primary != std::cmp::Ordering::Equal { return primary; }
-                                        let aid = a.get("_id").and_then(Value::as_str).unwrap_or("");
-                                        let bid = b.get("_id").and_then(Value::as_str).unwrap_or("");
-                                        aid.cmp(bid)
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    let emit_seq_no_ih = spec
-                        .get("seq_no_primary_term")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false);
-                    let emit_version_ih = spec
-                        .get("version")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false);
-                    // `inner_hits.collapse.field` — second-level collapse
-                    // applied to the group members. ES counts `total` against
-                    // the pre-collapse member set but the returned `hits` are
-                    // deduped by the inner collapse field, preserving sort
-                    // order. (See ES 8.13 multi-level collapse.)
-                    let total = members.len();
-                    if let Some(inner_field) = spec
-                        .get("collapse")
-                        .and_then(|c| c.get("field"))
-                        .and_then(Value::as_str)
-                    {
-                        let mut seen: std::collections::HashSet<String> =
-                            std::collections::HashSet::new();
-                        members.retain(|m| {
-                            let key = m
-                                .get("_source")
-                                .and_then(|s| s.get(inner_field))
-                                .map(|v| match v {
-                                    Value::String(s) => s.clone(),
-                                    Value::Number(n) => n.to_string(),
-                                    Value::Bool(b) => b.to_string(),
-                                    Value::Null => "\0null".to_string(),
-                                    other => other.to_string(),
-                                })
-                                .unwrap_or_else(|| "\0missing".to_string());
-                            seen.insert(key)
-                        });
-                    }
-                    let rendered_hits: Vec<Value> = members
-                        .into_iter()
-                        .skip(from_spec)
-                        .take(size)
-                        .map(|mut m| {
-                            if let Some(src) = m.get_mut("_source").and_then(Value::as_object_mut) {
-                                src.remove("__xy_collapse_group__");
-                                src.remove("__xy_collapse_spec__");
-                            }
-                            let mut hit_obj = serde_json::Map::new();
-                            hit_obj.insert("_index".to_string(), Value::String(idx_name.clone()));
-                            if let Some(id) = m.get("_id").cloned() {
-                                hit_obj.insert("_id".to_string(), id);
-                            }
-                            if let Some(score) = m.get("_score").cloned() {
-                                hit_obj.insert("_score".to_string(), score);
-                            }
-                            // Snapshotted `_version` / `_seq_no` carried in the
-                            // collapse group (#506) — NOT a render-time live
-                            // lookup, which could pair a live version with the
-                            // snapshot `_source` on a collapsed scroll. An absent
-                            // snapshot value is OMITTED, not fabricated (#566).
-                            emit_inner_hit_versioning(
-                                &m,
-                                emit_seq_no_ih,
-                                emit_version_ih,
-                                &mut hit_obj,
-                            );
-                            if let Some(src) = m.get("_source").cloned() {
-                                hit_obj.insert("_source".to_string(), src);
-                            }
-                            // inner_hits `fields` — emit the requested
-                            // source fields as a `fields: {name: [values]}`
-                            // map matching top-level hit semantics.
-                            let mut fmap = serde_json::Map::new();
-                            if let Some(ih_fields) = spec.get("fields").and_then(Value::as_array) {
-                                for f in ih_fields {
-                                    let fname = match f {
-                                        Value::String(s) => s.as_str(),
-                                        Value::Object(o) => o.get("field").and_then(Value::as_str).unwrap_or(""),
-                                        _ => continue,
-                                    };
-                                    if fname.is_empty() { continue; }
-                                    if let Some(src) = m.get("_source") {
-                                        if let Some(v) = src.get(fname).cloned() {
-                                            let wrapped = match v {
-                                                Value::Array(a) => Value::Array(a),
-                                                Value::Null => continue,
-                                                other => Value::Array(vec![other]),
-                                            };
-                                            fmap.insert(fname.to_string(), wrapped);
-                                        }
-                                    }
-                                }
-                            }
-                            // ES auto-emits the inner-collapse field into
-                            // `fields` even without an explicit `fields`
-                            // clause, mirroring the top-level collapse
-                            // behavior (see line ~7070).
-                            if let Some(inner_field) = spec
-                                .get("collapse")
-                                .and_then(|c| c.get("field"))
-                                .and_then(Value::as_str)
-                            {
-                                if !fmap.contains_key(inner_field) {
-                                    if let Some(v) = m
-                                        .get("_source")
-                                        .and_then(|s| s.get(inner_field))
-                                        .cloned()
-                                    {
-                                        let wrapped = match v {
-                                            Value::Array(a) => Value::Array(a),
-                                            Value::Null => Value::Array(vec![]),
-                                            other => Value::Array(vec![other]),
-                                        };
-                                        if !matches!(&wrapped, Value::Array(a) if a.is_empty()) {
-                                            fmap.insert(inner_field.to_string(), wrapped);
-                                        }
-                                    }
-                                }
-                            }
-                            if !fmap.is_empty() {
-                                hit_obj.insert("fields".to_string(), Value::Object(fmap));
-                            }
-                            Value::Object(hit_obj)
-                        })
-                        .collect();
-                    // When the caller set `rest_total_hits_as_int: true`
-                    // on the outer request, inner_hits totals become
-                    // bare numbers — mirror the top-level hits.total
-                    // shape.
-                    let inner_total = if params.rest_total_hits_as_int.as_deref() == Some("true") {
-                        json!(total as u64)
-                    } else {
-                        json!({ "value": total as u64, "relation": "eq" })
-                    };
-                    combined.insert(
-                        name,
-                        serde_json::json!({
-                            "hits": {
-                                "total": inner_total,
-                                "max_score": Value::Null,
-                                "hits": rendered_hits,
-                            }
-                        }),
-                    );
-                }
-                hit_inner_hits = Some(Value::Object(combined));
+                hit_inner_hits = Some(render_collapse_inner_hits(
+                    group,
+                    spec,
+                    &idx_name,
+                    params.rest_total_hits_as_int.as_deref() == Some("true"),
+                ));
             }
 
             // Real seq_no (and a placeholder primary_term of 1), read from
@@ -20550,7 +20566,35 @@ async fn scroll_page_response(
                         o.insert("_primary_term".to_string(), json!(pt));
                     }
                     if let Some(src) = &h.source {
-                        o.insert("_source".to_string(), src.clone());
+                        // A collapse leader carries `__xy_collapse_group__` /
+                        // `__xy_collapse_spec__` sentinels snapshotted into the
+                        // scroll context at open time. `search_impl` renders them
+                        // into `inner_hits` and strips them from `_source`; the
+                        // scroll continuation must do the same or it leaks the
+                        // sentinels and emits no inner_hits (#621/#566).
+                        let mut src = src.clone();
+                        let collapse_inner = src.as_object_mut().and_then(|obj| {
+                            let group = obj
+                                .get("__xy_collapse_group__")
+                                .and_then(Value::as_array)
+                                .cloned();
+                            let spec = obj.get("__xy_collapse_spec__").cloned();
+                            obj.remove("__xy_collapse_group__");
+                            obj.remove("__xy_collapse_spec__");
+                            match (group, spec) {
+                                (Some(g), Some(s)) => Some(render_collapse_inner_hits(
+                                    g,
+                                    s,
+                                    &h.index,
+                                    rest_total_hits_as_int,
+                                )),
+                                _ => None,
+                            }
+                        });
+                        o.insert("_source".to_string(), src);
+                        if let Some(inner) = collapse_inner {
+                            o.insert("inner_hits".to_string(), inner);
+                        }
                     }
                     if let Some(sort) = &h.sort {
                         o.insert("sort".to_string(), Value::Array(sort.clone()));
