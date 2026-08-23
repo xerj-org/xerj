@@ -5392,45 +5392,129 @@ async fn test_rescore_changes_ranking() {
     assert!(!primary_result.hits.is_empty());
     let primary_top = primary_result.hits[0].id.clone();
 
-    // Now add rescore that weights "engine" matches heavily.
-    // This should boost doc "b" (many "engine" occurrences) up.
-    let rescore_req = parse_request(&json!({
+    // Now add a rescore that weights `title:engine` matches heavily. NOTE:
+    // `parse_request` does NOT parse the native `rescore` body — it hard-codes
+    // `rescore: Vec::new()` (parser.rs); only the ES-compat handler's
+    // `parse_rescore` does. The previous version of this test passed `rescore`
+    // through `parse_request`, which SILENTLY DROPPED it, then discarded the
+    // scores and asserted only `total.value > 0` — exercising ZERO rescore
+    // behaviour (#627). Populate the rescore stage directly instead.
+    let mut rescore_req = parse_request(&json!({
         "query": { "match": { "body": "search" } },
         "size": 10,
-        "rescore": {
-            "window_size": 10,
-            "query": {
-                "rescore_query": { "match": { "title": "engine" } },
-                "query_weight": 0.1,
-                "rescore_query_weight": 10.0
-            }
-        }
     }))
     .unwrap();
+    rescore_req.rescore = vec![xerj_query::ast::RescoreQuery {
+        window_size: 10,
+        query: Some(xerj_query::ast::RescoreQueryInner {
+            rescore_query: QueryNode::Match {
+                field: "title".into(),
+                query: "engine".into(),
+                operator: Default::default(),
+                analyzer: None,
+                boost: None,
+                minimum_should_match: None,
+            },
+            query_weight: 0.1,
+            rescore_query_weight: 10.0,
+        }),
+        script: None,
+    }];
     let rescore_result = idx.search(&rescore_req).await.unwrap();
     assert!(
         !rescore_result.hits.is_empty(),
         "rescore search should return hits"
     );
 
-    // After rescoring, doc "b" (title contains "engine") should appear — check scores changed.
-    let rescore_scores: Vec<(&str, f32)> = rescore_result
+    // The rescore must genuinely RE-RANK. Primary (`match body:search`) ranks
+    // doc "a" (3x "search") above doc "c" (1x). The rescore scales the primary
+    // score ×0.1 and adds `title:engine` ×10: doc "c" (title "search engine")
+    // matches and is lifted; doc "a" (title "search") does not. So doc "c" must
+    // rank ABOVE doc "a" after rescore — the exact inversion the primary lacked.
+    assert_eq!(
+        primary_top, "a",
+        "primary must rank doc a first (most `search`)"
+    );
+    let a_pos = rescore_result
         .hits
         .iter()
-        .map(|h| (h.id.as_str(), h.score))
-        .collect();
-    // Verify the rescore was applied (scores differ from primary).
-    let primary_scores: Vec<(&str, f32)> = primary_result
+        .position(|h| h.id == "a")
+        .expect("doc a present after rescore");
+    let c_pos = rescore_result
         .hits
         .iter()
-        .map(|h| (h.id.as_str(), h.score))
-        .collect();
-    // At least the top score should differ since rescore applies different weights.
-    let _ = (rescore_scores, primary_scores, primary_top);
-    // Just verify that the request parsed and executed successfully with rescore.
+        .position(|h| h.id == "c")
+        .expect("doc c present after rescore");
     assert!(
-        rescore_result.total.value > 0,
-        "should have hits after rescoring"
+        c_pos < a_pos,
+        "rescore must lift doc c (title matches `engine`, ×10) above doc a — a \
+         no-op rescore would leave a on top: c@{c_pos} a@{a_pos}, hits={:?}",
+        rescore_result
+            .hits
+            .iter()
+            .map(|h| (h.id.as_str(), h.score))
+            .collect::<Vec<_>>()
+    );
+}
+
+// ── Rescore keyword rewrite: a keyword `match` in a rescore query is whole-value ──
+
+/// #627 (end-to-end guard for #574): a keyword `match` in a `rescore` query must be
+/// rewritten to a whole-value `Term`, so only the exact-value doc is boosted — not
+/// every doc sharing a token. Without the rewrite, `match {kw:"foo bar"}` tokenizes
+/// (OR) and would boost `{kw:"foo"}` too. The engine rewrites the rescore query at
+/// the search entry (`rewrite_rescore_keyword`), so this exercises that path.
+#[tokio::test]
+async fn rescore_keyword_query_is_mapping_aware() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("kw", FieldType::Keyword));
+    engine.create_index("rescore_kw", schema).unwrap();
+    let idx = engine.get_index("rescore_kw").unwrap();
+    idx.index_document(Some("whole".into()), json!({ "kw": "foo bar" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("token".into()), json!({ "kw": "foo" }))
+        .await
+        .unwrap();
+
+    // Primary: match_all → both docs at equal primary score. Rescore boosts the
+    // keyword value "foo bar" ×10 (query_weight ×0.1).
+    let mut req = parse_request(&json!({ "query": { "match_all": {} }, "size": 10 })).unwrap();
+    req.rescore = vec![xerj_query::ast::RescoreQuery {
+        window_size: 10,
+        query: Some(xerj_query::ast::RescoreQueryInner {
+            rescore_query: QueryNode::Match {
+                field: "kw".into(),
+                query: "foo bar".into(),
+                operator: Default::default(),
+                analyzer: None,
+                boost: None,
+                minimum_should_match: None,
+            },
+            query_weight: 0.1,
+            rescore_query_weight: 10.0,
+        }),
+        script: None,
+    }];
+    let result = idx.search(&req).await.unwrap();
+    let score = |id: &str| result.hits.iter().find(|h| h.id == id).map(|h| h.score);
+    let whole = score("whole").expect("whole-value doc present");
+    let token = score("token").expect("token-sharing doc present");
+    // Whole-value Term matches only "foo bar" → boosted; "foo" does not. A tokenized
+    // (un-rewritten) rescore would boost both roughly equally. So the whole-value doc
+    // must clearly outscore the token-sharing doc.
+    assert!(
+        whole > token * 3.0,
+        "keyword rescore must boost ONLY the whole-value doc (#574/#627): \
+         whole={whole} token={token}; a tokenized rescore would boost both"
+    );
+    assert_eq!(
+        result.hits[0].id, "whole",
+        "the boosted whole-value doc must rank first"
     );
 }
 
