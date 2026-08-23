@@ -1804,6 +1804,19 @@ impl ShardedFtsMemtable {
         })
     }
 
+    /// True when the memtable's single-valued doc-values column for `field`
+    /// cannot authoritatively answer a `term`/count query: the field has
+    /// carried an ARRAY (only the first element is stored — see `push_field`)
+    /// or a whitespace keyword (the column holds analyzed-text source). Callers
+    /// that count via the column MUST fall back to the stored-source scan,
+    /// which matches array membership. This is the same guard `doc_values_term_query`
+    /// and `doc_values_bool_hits` already apply; exposed so the `try_shortcut_count`
+    /// bare-`term` count path can bail identically (#423/#408: a `term` on a
+    /// keyword array counted 0 while buffered but N after flush).
+    pub fn term_count_needs_source_scan(&self, field: &str) -> bool {
+        self.dv_column_unusable(field)
+    }
+
     /// DocValues term query — aggregates hits across all shards.
     /// Returns `Some(Vec<(doc_id, local_idx)>)` if any shard matched.
     /// The `local_idx` is shard-local; callers use the doc_id to
