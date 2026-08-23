@@ -26496,14 +26496,23 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
         None => return source.clone(),
     };
 
-    // Check if any include/exclude path is dotted (nested).
-    let has_dotted = includes
+    // Route through the ES automaton whenever a pattern is nested (dotted) OR
+    // contains a wildcard. The simple top-level branch below understands only a
+    // trailing `*` on a whole key (`field_matches`), so a dot-less LEADING or
+    // MID glob must go through the NFA too: in ES a `*` is `Σ*` over the full
+    // dotted path whether or not the pattern itself contains a `.`, so `*id`
+    // matches `user.groupid` and `exclude ["*secret"]` strips `password_secret`.
+    // Without this, `include ["*id"]` dropped the whole source and
+    // `exclude ["*secret"]` silently no-oped — the data-loss / data-exposure
+    // failure modes #602 exists to eliminate. Only pure-literal top-level
+    // patterns (no `.`, no `*`) take the fast path.
+    let needs_automaton = includes
         .iter()
         .chain(excludes.iter())
-        .any(|f| f.contains('.'));
+        .any(|f| f.contains('.') || f.contains('*'));
 
-    if !has_dotted {
-        // Simple top-level filtering.
+    if !needs_automaton {
+        // Simple top-level filtering: literal whole-key includes/excludes only.
         let mut result = serde_json::Map::new();
         for (k, v) in obj {
             let keep = if includes.is_empty() {
@@ -27037,6 +27046,41 @@ mod source_filter_tests {
         assert_eq!(
             actual, expected,
             "ES _source `*` crosses dots at any depth (makeAnyString); scalars kept only when accepted"
+        );
+    }
+
+    /// #602 (verification follow-up 2): a DOT-LESS leading/mid wildcard is still
+    /// `Σ*` over the full path in ES, so `*id` matches `user.groupid` and
+    /// `exclude ["*secret"]` strips `password_secret` at any depth. The dispatch
+    /// gate must route any pattern containing `*` (not only dotted ones) through
+    /// the automaton — the simple top-level branch understands only a trailing
+    /// `*`, so without this `include ["*id"]` dropped the whole source and
+    /// `exclude ["*secret"]` silently no-oped.
+    #[test]
+    fn source_dotless_wildcard_routes_through_the_automaton() {
+        // include `*id` selects any key ending in `id`, at any depth.
+        assert_eq!(
+            filter_object(
+                &json!({ "user": { "groupid": 1, "name": 2 }, "id": 3 }),
+                &["*id".to_string()],
+                &[]
+            ),
+            json!({ "user": { "groupid": 1 }, "id": 3 }),
+            "dot-less `*id` must match nested `user.groupid` and top-level `id` (#602)"
+        );
+        // exclude `*secret` strips a sensitive key at the top level AND at depth.
+        assert_eq!(
+            filter_object(
+                &json!({
+                    "password_secret": 1,
+                    "keep": 2,
+                    "nested": { "api_secret": 3, "host": 4 }
+                }),
+                &[],
+                &["*secret".to_string()]
+            ),
+            json!({ "keep": 2, "nested": { "host": 4 } }),
+            "dot-less `exclude *secret` must strip `password_secret` and nested `api_secret` (#602)"
         );
     }
 
