@@ -172,7 +172,44 @@ fn neutral_wrappers() -> Vec<(&'static str, Value)> {
             "bool.must[bool.must[1]]",
             json!({"bool": {"must": [{"bool": {"must": [text_query()]}}]}}),
         ),
+        (
+            // #643: a lone `should` with a PERCENTAGE msm resolves to 1 for a
+            // single optional clause (coerced to ≥1 when there is no required
+            // clause), so it is the same query and must now collapse like
+            // Fixed(0)/Fixed(1).
+            "bool.should[1]+pct100",
+            json!({"bool": {"should": [text_query()], "minimum_should_match": "100%"}}),
+        ),
+        (
+            "bool.should[1]+pct50",
+            json!({"bool": {"should": [text_query()], "minimum_should_match": "50%"}}),
+        ),
     ]
+}
+
+/// #643 guard: a lone `should` whose `minimum_should_match` is a percentage
+/// >= 200% resolves to `max(1, floor(1 * pct/100)) >= 2` — it requires 2 of 1
+/// optional clause, which is unsatisfiable, so the bool matches NOTHING. It must
+/// stay wrapped, NOT collapse to the bare clause (which matches). Guards the
+/// over-broad `Percentage(_)` unwrap the 3-skeptic pass caught.
+#[tokio::test]
+async fn high_percentage_msm_lone_should_matches_nothing() {
+    for flush in [false, true] {
+        let (_dir, idx) = seed(&format!("bool-pct-high-{flush}"), flush).await;
+        let bare = idx.search(&req(text_query(), 50)).await.unwrap();
+        assert_eq!(
+            bare.total.value, 120,
+            "fixture: the bare clause matches all"
+        );
+        for pct in ["200%", "300%"] {
+            let q = json!({"bool": {"should": [text_query()], "minimum_should_match": pct}});
+            let r = idx.search(&req(q, 50)).await.unwrap();
+            assert_eq!(
+                r.total.value, 0,
+                "#643: lone should + msm {pct} requires 2 of 1 clause \u{2192} must match nothing (flush={flush})"
+            );
+        }
+    }
 }
 
 /// The headline of #399, on the population that showed it: an UNFLUSHED index.
