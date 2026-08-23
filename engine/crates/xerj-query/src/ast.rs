@@ -369,6 +369,13 @@ pub enum QueryNode {
         /// `term{case_insensitive}` / query_string lowerings that keep BM25.
         #[serde(default, skip_serializing_if = "is_false")]
         constant_score: bool,
+        /// #668: fold case on both sides when matching a KEYWORD field. `false`
+        /// (default) = ES-correct case-sensitive keyword wildcard. `true` is set
+        /// only for the `term{case_insensitive:true}` → Wildcard rewrite (and
+        /// query_string lowerings), which rely on the matcher folding case.
+        /// Ignored for `text` fields (analysed-token semantics apply regardless).
+        #[serde(default, skip_serializing_if = "is_false")]
+        case_insensitive: bool,
     },
 
     /// Matches documents where the field has any non-null value.

@@ -1040,6 +1040,7 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     // threading `case_insensitive` through
                     // QueryNode::Wildcard into the columnar/FST arms.
                     constant_score: false,
+                    case_insensitive: true,
                 };
                 return Ok(maybe_named(node, name));
             }
@@ -1288,6 +1289,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             boost: None,
             constant_score: true,
+            case_insensitive: false,
         });
     }
 
@@ -1306,6 +1308,10 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         value,
         boost,
         constant_score: true,
+        case_insensitive: inner
+            .get("case_insensitive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     })
 }
 
@@ -2107,6 +2113,7 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                             value: lowered.clone(),
                             boost,
                             constant_score: true,
+                            case_insensitive: true,
                         })
                         .collect(),
                 );

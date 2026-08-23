@@ -32634,6 +32634,7 @@ mod lexically_typeless_lowering_tests {
                 value: "0*".into(),
                 boost: None,
                 constant_score: true,
+                case_insensitive: false,
             },
             QueryNode::Match {
                 field: "emb".into(),
@@ -33765,11 +33766,13 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             value,
             boost,
             constant_score,
+            case_insensitive,
         } => QueryNode::Wildcard {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
             constant_score: *constant_score,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Exists { field } => QueryNode::Exists {
             field: strip(field),
@@ -41049,6 +41052,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             boost,
             constant_score,
+            case_insensitive: _,
         } => {
             // `wildcard` on a KEYWORD field: expand the keyword FST term
             // dictionary to every term matching the pattern (`*`=0+ chars,
@@ -42415,6 +42419,7 @@ fn scored_fast_plan(
             value,
             boost,
             constant_score: true,
+            case_insensitive: _,
         } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
             filter: vec![ScoredFilterLeaf::KeywordWildcard {
                 field: field.clone(),
@@ -44336,6 +44341,7 @@ mod fts_projection_tests {
             value: "run*".into(),
             boost: None,
             constant_score: true,
+            case_insensitive: false,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text wildcard projects") {
             FtsQuery::Wildcard(w) => {
