@@ -22091,28 +22091,51 @@ impl Index {
         // ── KeywordFuzzy global expansion stats (LOSS_BATTLE_PLAN B4) ────
         // term → (folded Damerau dist, Σ df) over ALL segments'
         // dictionaries, plus the blended df (max Σdf across expansions —
-        // ES TopTermsBlendedFreqScoringRewrite).  The match predicate is
-        // the same folded whole-value-or-sub-token test as
-        // `xerj_fts::search::expand_fuzzy` / the doc-scan fuzzy arm.
-        // Sub-token-only matches (an intentional xerj leniency ES lacks)
-        // can carry a whole-value dist > max_edits; their sim clamps to
-        // ≥ 0 so the extra hits score deterministically.
+        // ES TopTermsBlendedFreqScoringRewrite).  The match predicate
+        // mirrors `xerj_fts::search::expand_fuzzy` / the doc-scan fuzzy
+        // arm EXACTLY: whole-value edit distance always, plus the
+        // sub-token fallback ONLY when folding (case_insensitive) — the
+        // case-sensitive keyword default is whole-term-only on every path
+        // (#423/#406). Sub-token-only matches (an intentional xerj
+        // leniency ES lacks, fold path only) can carry a whole-value
+        // dist > max_edits; their sim clamps to ≥ 0 so the extra hits
+        // score deterministically.
         let fuzzy_stats: Option<(HashMap<String, (usize, u64)>, u64)> = match plan {
             ScoredPlan::KeywordFuzzy {
                 field,
                 value,
                 max_edits,
+                case_insensitive,
                 ..
             } => {
-                let q_folded = value.to_lowercase();
-                let term_matches = |folded: &str| -> bool {
-                    if levenshtein_distance(folded, &q_folded) <= *max_edits {
+                // #423/#406: case-sensitive keyword fuzzy (the ES default)
+                // compares the RAW term; case_insensitive folds both sides.
+                let ci = *case_insensitive;
+                let q_ref = if ci {
+                    value.to_lowercase()
+                } else {
+                    value.clone()
+                };
+                let term_matches = |cmp: &str| -> bool {
+                    if levenshtein_distance(cmp, &q_ref) <= *max_edits {
                         return true;
                     }
-                    folded
-                        .split(|c: char| !c.is_alphanumeric())
+                    // #423/#406: the sub-token fallback is a FOLD-path leniency
+                    // ONLY. When case-sensitive (the ES keyword default), the
+                    // memtable Fuzzy arm (`token_match`) and the FST
+                    // `expand_fuzzy` both match the whole un-analysed term and
+                    // nothing else — so this DV path must too, or a
+                    // separator-containing keyword ("alpha-beta") answers a
+                    // sub-token query ("beta") after flush but not before
+                    // (flush-invariance; caught by the PR #675 correctness
+                    // skeptic). The post-flush sub-token hit was also non-ES:
+                    // keyword fuzzy compares the whole term.
+                    if !ci {
+                        return false;
+                    }
+                    cmp.split(|c: char| !c.is_alphanumeric())
                         .filter(|t| !t.is_empty())
-                        .any(|tok| levenshtein_distance(tok, &q_folded) <= *max_edits)
+                        .any(|tok| levenshtein_distance(tok, &q_ref) <= *max_edits)
                 };
                 let mut map: HashMap<String, (usize, u64)> = HashMap::new();
                 for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
@@ -22126,10 +22149,14 @@ impl Index {
                         return None;
                     }
                     for (ord, term) in k.terms.iter().enumerate() {
-                        let folded = term.to_lowercase();
-                        if term_matches(&folded) {
+                        let cmp = if ci {
+                            term.to_lowercase()
+                        } else {
+                            term.clone()
+                        };
+                        if term_matches(&cmp) {
                             let seg_df = k.per_ord_count.get(ord).copied().unwrap_or(0) as u64;
-                            let dist = levenshtein_distance(&folded, &q_folded);
+                            let dist = levenshtein_distance(&cmp, &q_ref);
                             let e = map.entry(term.clone()).or_insert((dist, 0));
                             e.1 += seg_df;
                         }
@@ -33826,10 +33853,12 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             field,
             value,
             fuzziness,
+            case_insensitive,
         } => QueryNode::Fuzzy {
             field: strip(field),
             value: value.clone(),
             fuzziness: *fuzziness,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Regexp { field, pattern } => QueryNode::Regexp {
             field: strip(field),
@@ -36451,20 +36480,34 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             field,
             value: query_value,
             fuzziness,
+            case_insensitive,
         } => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
                 Fuzziness::Fixed(n) => *n as usize,
             };
-            let q_lower = query_value.to_lowercase();
             // ES's Fuzzy query matches at the TERM level with an UNANALYZED
             // query term. For keyword fields the indexed term is the whole
-            // field value, so first compare the full (case-folded) string
-            // against the query — e.g. doc "claude-haiku-4-5" vs query
-            // "claude-haiku-4-6" is 1 edit and must match. Then fall back to
-            // per-token comparison for text-field semantics, where each
-            // analyzed token is an indexed term.
+            // field value, so first compare the full string against the query —
+            // e.g. doc "claude-haiku-4-5" vs query "claude-haiku-4-6" is 1 edit
+            // and must match. Then fall back to per-token comparison for
+            // text-field semantics, where each analyzed token is an indexed
+            // term.
+            //
+            // #423/#406: a declared `keyword` whose node did NOT ask to fold is
+            // case-SENSITIVE (ES default) — compare the RAW whole value (a
+            // keyword is one un-analysed term). Everything else (text, an
+            // explicit case_insensitive, or an unknown/shim field) folds, as
+            // before.
+            let keyword_case_sensitive = matches!(
+                declared_field(schema, field).map(|f| &f.field_type),
+                Some(FieldType::Keyword)
+            ) && !*case_insensitive;
+            let q_lower = query_value.to_lowercase();
             let token_match = |s: &str| -> bool {
+                if keyword_case_sensitive {
+                    return levenshtein_distance(s, query_value.as_str()) <= max_edits;
+                }
                 let s_lower = s.to_lowercase();
                 if levenshtein_distance(&s_lower, &q_lower) <= max_edits {
                     return true;
@@ -41170,6 +41213,7 @@ fn query_node_to_fts_with_keyword_fields(
             field,
             value,
             fuzziness,
+            case_insensitive,
         } => {
             // `fuzzy` on a KEYWORD field: expand the keyword FST term dictionary
             // to every term within `max_edits` Damerau-Levenshtein distance and
@@ -41190,7 +41234,10 @@ fn query_node_to_fts_with_keyword_fields(
                     value: value.clone(),
                     max_edits,
                     boost: 1.0,
-                    case_insensitive: true,
+                    // #423/#406: a standalone `{fuzzy}` sets the flag false → the
+                    // keyword FST route is case-SENSITIVE (ES default); a
+                    // query_string/term-ci fuzzy sets it true and keeps folding.
+                    case_insensitive: *case_insensitive,
                 }));
             }
             // TEXT field: expand the term dictionary within `max_edits`
@@ -41901,6 +41948,9 @@ enum ScoredPlan {
         value: String,
         max_edits: usize,
         boost: f32,
+        /// #423/#406: fold both sides when true; case-sensitive raw-term match
+        /// when false (standalone keyword fuzzy, ES default).
+        case_insensitive: bool,
     },
 }
 
@@ -42509,6 +42559,7 @@ fn scored_fast_plan(
             field,
             value,
             fuzziness,
+            case_insensitive,
         } if fs.kw.contains(field) => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(value),
@@ -42519,6 +42570,7 @@ fn scored_fast_plan(
                 value: value.clone(),
                 max_edits,
                 boost: 1.0,
+                case_insensitive: *case_insensitive,
             })
         }
         // Filter-only bool: ES scores filter context 0.0 (the brute path's
@@ -44428,6 +44480,7 @@ mod fts_projection_tests {
             field: "body".into(),
             value: "runbok".into(),
             fuzziness: Fuzziness::Fixed(1),
+            case_insensitive: false,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text fuzzy projects") {
             FtsQuery::Fuzzy(f) => {

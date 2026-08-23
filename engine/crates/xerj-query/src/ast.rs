@@ -544,6 +544,11 @@ pub enum QueryNode {
         value: String,
         #[serde(default)]
         fuzziness: Fuzziness,
+        /// #423/#406: fold case on both sides when true. `false` (default) =
+        /// ES-correct case-sensitive keyword fuzzy (the value is matched raw
+        /// against the term dictionary). Ignored for `text` fields.
+        #[serde(default, skip_serializing_if = "is_false")]
+        case_insensitive: bool,
     },
 
     /// Regular expression match against a field value.
