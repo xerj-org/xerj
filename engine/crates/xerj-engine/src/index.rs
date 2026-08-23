@@ -22091,12 +22091,15 @@ impl Index {
         // ── KeywordFuzzy global expansion stats (LOSS_BATTLE_PLAN B4) ────
         // term → (folded Damerau dist, Σ df) over ALL segments'
         // dictionaries, plus the blended df (max Σdf across expansions —
-        // ES TopTermsBlendedFreqScoringRewrite).  The match predicate is
-        // the same folded whole-value-or-sub-token test as
-        // `xerj_fts::search::expand_fuzzy` / the doc-scan fuzzy arm.
-        // Sub-token-only matches (an intentional xerj leniency ES lacks)
-        // can carry a whole-value dist > max_edits; their sim clamps to
-        // ≥ 0 so the extra hits score deterministically.
+        // ES TopTermsBlendedFreqScoringRewrite).  The match predicate
+        // mirrors `xerj_fts::search::expand_fuzzy` / the doc-scan fuzzy
+        // arm EXACTLY: whole-value edit distance always, plus the
+        // sub-token fallback ONLY when folding (case_insensitive) — the
+        // case-sensitive keyword default is whole-term-only on every path
+        // (#423/#406). Sub-token-only matches (an intentional xerj
+        // leniency ES lacks, fold path only) can carry a whole-value
+        // dist > max_edits; their sim clamps to ≥ 0 so the extra hits
+        // score deterministically.
         let fuzzy_stats: Option<(HashMap<String, (usize, u64)>, u64)> = match plan {
             ScoredPlan::KeywordFuzzy {
                 field,
@@ -22116,6 +22119,19 @@ impl Index {
                 let term_matches = |cmp: &str| -> bool {
                     if levenshtein_distance(cmp, &q_ref) <= *max_edits {
                         return true;
+                    }
+                    // #423/#406: the sub-token fallback is a FOLD-path leniency
+                    // ONLY. When case-sensitive (the ES keyword default), the
+                    // memtable Fuzzy arm (`token_match`) and the FST
+                    // `expand_fuzzy` both match the whole un-analysed term and
+                    // nothing else — so this DV path must too, or a
+                    // separator-containing keyword ("alpha-beta") answers a
+                    // sub-token query ("beta") after flush but not before
+                    // (flush-invariance; caught by the PR #675 correctness
+                    // skeptic). The post-flush sub-token hit was also non-ES:
+                    // keyword fuzzy compares the whole term.
+                    if !ci {
+                        return false;
                     }
                     cmp.split(|c: char| !c.is_alphanumeric())
                         .filter(|t| !t.is_empty())

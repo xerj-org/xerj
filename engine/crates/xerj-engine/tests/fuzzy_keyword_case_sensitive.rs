@@ -81,3 +81,67 @@ async fn fuzzy_keyword_is_case_sensitive_but_ci_flag_still_folds() {
         "#423/#406: fuzzy with case_insensitive true still folds"
     );
 }
+
+#[tokio::test]
+async fn fuzzy_keyword_separator_matches_whole_term_only_when_case_sensitive() {
+    // #423/#406 (PR #675 correctness skeptic): a case-SENSITIVE keyword fuzzy
+    // matches the whole un-analysed term ONLY — the sub-token fallback is a
+    // FOLD-path leniency. A separator-containing keyword "alpha-beta" must NOT
+    // fuzzy-match the sub-token query "beta" (fuzziness 0) case-sensitively,
+    // and — the load-bearing part — must answer the SAME before and after a
+    // flush. The DV `ScoredPlan::KeywordFuzzy` expansion used to run the
+    // sub-token fallback UNCONDITIONALLY, so it matched only after flush
+    // (memtable=0, segment=1). The explicit case_insensitive:true still folds,
+    // where the sub-token leniency applies and is itself flush-invariant.
+    let dir = TempDir::new().unwrap();
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().to_str().unwrap().to_string();
+    let engine = Engine::new(config).expect("engine");
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("name", FieldType::Keyword));
+    engine.create_index("docs", schema).expect("create");
+    let idx = engine.get_index("docs").expect("get");
+    idx.index_document(Some("d0".to_string()), json!({ "name": "alpha-beta" }))
+        .await
+        .expect("index");
+
+    let fz = |v: &str| json!({ "fuzzy": { "name": { "value": v, "fuzziness": 0 } } });
+    let fz_ci = json!({ "fuzzy": { "name": { "value": "beta", "fuzziness": 0, "case_insensitive": true } } });
+
+    let pre_sub = hits(&engine, fz("beta")).await;
+    let pre_whole = hits(&engine, fz("alpha-beta")).await;
+    let pre_ci = hits(&engine, fz_ci.clone()).await;
+    idx.refresh().await.expect("refresh");
+    let post_sub = hits(&engine, fz("beta")).await;
+    let post_whole = hits(&engine, fz("alpha-beta")).await;
+    let post_ci = hits(&engine, fz_ci.clone()).await;
+
+    assert_eq!(
+        pre_sub, post_sub,
+        "#423/#406: case-sensitive keyword sub-token fuzzy must be flush-invariant"
+    );
+    assert_eq!(
+        pre_whole, post_whole,
+        "#423/#406: case-sensitive keyword whole-term fuzzy must be flush-invariant"
+    );
+    assert_eq!(
+        pre_ci, post_ci,
+        "#423/#406: fuzzy case_insensitive must be flush-invariant"
+    );
+
+    assert_eq!(
+        post_sub, 0,
+        "#423/#406: case-sensitive keyword fuzzy matches the whole term only (no sub-token)"
+    );
+    assert_eq!(
+        post_whole, 1,
+        "the whole-term case-sensitive fuzzy matches exactly"
+    );
+    assert_eq!(
+        post_ci, 1,
+        "#423/#406: case_insensitive folds and keeps the sub-token leniency"
+    );
+}
