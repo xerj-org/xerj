@@ -11971,6 +11971,22 @@ async fn search_impl(
                         !name.starts_with(xerj_query::executor::PASSAGE_METADATA_PREFIX)
                     });
                 }
+                // #310 emission site 1: this request pierced the default
+                // `_source` projection so the `fields` builder below could
+                // resolve an embedding companion the caller explicitly named.
+                // The pierce ends HERE — `fields` reads `h.source`, which is
+                // untouched, while the wire `_source` carries exactly what the
+                // #309 default would have carried. Miss this and #309's headline
+                // guarantee turns into a full-vector response for anyone who
+                // named a companion in `fields`.
+                if pierce_default_source {
+                    if let (Some(companions), Some(obj)) = (
+                        companions_by_index.get(idx_name.as_str()),
+                        s.as_object_mut(),
+                    ) {
+                        obj.retain(|name, _| !companions.contains(name));
+                    }
+                }
                 // Non-synthetic mode: strip the internal copy-to
                 // tracking marker; keep the copied values in the source
                 // since stored-source clients expect them.
