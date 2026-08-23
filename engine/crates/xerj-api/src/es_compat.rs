@@ -8726,6 +8726,30 @@ fn render_collapse_inner_hits(
     Value::Object(combined)
 }
 
+/// Whether the index mapping sets `_source.enabled: false`. ES suppresses
+/// `_source` in the response for such an index; xerj keeps the underlying
+/// source available internally (fields/highlight/_ignored extraction) and makes
+/// the suppression a response-time decision. Extracted from `search_impl`'s
+/// per-hit render so the scroll continuation (`scroll_page_response`) can apply
+/// the SAME per-hit decision from each hit's own index — mapping suppression is
+/// NOT a snapshot constant, because a scroll can span indices with divergent
+/// `_source` settings (#637).
+fn mapping_source_disabled(state: &AppState, index: &str) -> bool {
+    state
+        .engine
+        .index_mappings
+        .get(index)
+        .and_then(|m| {
+            m.get("mappings")
+                .and_then(|mm| mm.get("_source"))
+                .or_else(|| m.get("_source"))
+                .cloned()
+        })
+        .and_then(|src| src.get("enabled").and_then(Value::as_bool))
+        .map(|b| !b)
+        .unwrap_or(false)
+}
+
 async fn search_impl(
     state: AppState,
     index: String,
@@ -11958,19 +11982,7 @@ async fn search_impl(
             // extraction, so the suppression is a response-time
             // decision not a data-layer decision.
             let source_body_disabled = matches!(body.source, Some(Value::Bool(false)));
-            let source_mapping_disabled = state
-                .engine
-                .index_mappings
-                .get(idx_name.as_str())
-                .and_then(|m| {
-                    m.get("mappings")
-                        .and_then(|mm| mm.get("_source"))
-                        .or_else(|| m.get("_source"))
-                        .cloned()
-                })
-                .and_then(|src| src.get("enabled").and_then(Value::as_bool))
-                .map(|b| !b)
-                .unwrap_or(false);
+            let source_mapping_disabled = mapping_source_disabled(&state, idx_name.as_str());
             // `stored_fields` implicitly suppressing `_source` (unless the
             // list literally contains `"_source"`) is only a DEFAULT for
             // when the caller left `_source` unspecified. When the request
@@ -14620,6 +14632,31 @@ async fn search_impl(
             .min(sc_cfg.scroll_max_keep_alive_secs);
         let keep_alive = std::time::Duration::from_secs(keep_alive_secs);
         let now = Instant::now();
+        // #637: capture the REQUEST-LEVEL part of the first-page `_source`
+        // suppression decision — `_source: false`, and `stored_fields` implying
+        // suppression when the request left `_source` unspecified. These are
+        // genuinely constant across the whole snapshot (index-independent), so a
+        // single captured boolean is correct for them.
+        //
+        // The mapping `_source.enabled: false` case is deliberately NOT folded in
+        // here: a scroll can span MULTIPLE indices with divergent `_source`
+        // settings, and the first page suppresses that case PER HIT using each
+        // hit's own index. Collapsing it to `scroll_index` (the first index)
+        // would strip `_source` from every continuation hit of a source-ENABLED
+        // index whenever the first index disabled source — a new first-page/
+        // continuation split and silent `_source` loss on the export/reindex API
+        // (found by the #658 correctness skeptic). So `scroll_page_response`
+        // re-derives the mapping check per hit from `h.index` instead.
+        //
+        // The per-hit null-source case is likewise handled in
+        // `scroll_page_response`. `scroll_page_response` is shared with the
+        // `/:index/_search_scroll` route, whose first page does NOT apply the
+        // mapping check — so the per-hit mapping gate there is guarded by the
+        // `mapping_source_check` flag set below (true here, false for that
+        // route), keeping each route's continuation identical to its own first
+        // page. That route's broader `_source` gap is tracked in #659.
+        let scroll_source_disabled = matches!(body.source, Some(Value::Bool(false)))
+            || (suppress_source_for_stored && body.source.is_none());
         let ctx = xerj_engine::engine::ScrollContext {
             index: scroll_index,
             hits: snapshot,
@@ -14630,7 +14667,10 @@ async fn search_impl(
             // first page's own `_seq_no`/`_version` emission above.
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
-            source_disabled: matches!(body.source, Some(Value::Bool(false))),
+            source_disabled: scroll_source_disabled,
+            // `_search?scroll=` first page (this fn) suppresses mapping
+            // `_source.enabled:false` per hit, so the continuation must too.
+            mapping_source_check: true,
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
@@ -20352,6 +20392,12 @@ pub async fn search_with_scroll(
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
             source_disabled: matches!(body.source, Some(Value::Bool(false))),
+            // `_search_scroll` (this route) does NOT apply mapping
+            // `_source.enabled:false` suppression on its first page (it emits
+            // `_source` unconditionally), so its continuation must not either —
+            // otherwise it gains a new first-page/continuation split. That
+            // route's broader `_source` gap is tracked in #659.
+            mapping_source_check: false,
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
@@ -20637,12 +20683,18 @@ async fn scroll_page_response(
             // borrows `ctx.hits`.
             let emit_seq_no = ctx.seq_no_primary_term;
             let emit_version = ctx.version;
-            // #624: the opening request's `_source: false` governs the whole
-            // scroll — omit `_source` on continuation pages too (ES fixes source
-            // selection at open; the `_search?scroll=` first page already omits
-            // it via search_impl). inner_hits still render from the collapse
-            // group snapshot regardless.
+            // #624/#637: the opening request's REQUEST-level `_source` decision
+            // (`_source:false`, stored_fields-implied) governs the whole scroll —
+            // omit `_source` on continuation pages too (ES fixes source selection
+            // at open). inner_hits still render from the collapse group snapshot
+            // regardless.
             let source_disabled = ctx.source_disabled;
+            // #637: whether to ALSO apply the mapping `_source.enabled:false`
+            // suppression per hit below. Only true for scrolls opened by
+            // `search_impl` (whose first page applies it); false for the
+            // `_search_scroll` route, whose first page does not — so its
+            // continuation stays byte-identical to that first page (#659).
+            let mapping_source_check = ctx.mapping_source_check;
 
             // Detect whether the initial search sorted by a non-score key;
             // in that case `max_score` must be null on scroll pages too.
@@ -20770,11 +20822,22 @@ async fn scroll_page_response(
                                 _ => None,
                             }
                         });
-                        // #624: honor the scroll's opening `_source: false` —
-                        // omit `_source` here (the sentinels have already been
-                        // consumed into `inner_hits` above), matching the first
-                        // page. inner_hits are emitted regardless.
-                        if !source_disabled {
+                        // #624/#637: honor the first page's `_source` suppression
+                        // (the sentinels have already been consumed into
+                        // `inner_hits` above). `source_disabled` carries the
+                        // request-level constant (`_source:false`, stored_fields-
+                        // implied). The mapping `_source.enabled:false` case is
+                        // re-derived PER HIT from this hit's own index (a scroll
+                        // can span indices with divergent `_source` settings, and
+                        // search_impl's first page suppresses it per-hit — #658
+                        // skeptic), but ONLY when the opening route applies it on
+                        // its first page (`mapping_source_check`); the
+                        // `_search_scroll` route does not, so its continuation
+                        // stays identical to its first page (#659). inner_hits are
+                        // emitted regardless.
+                        if !source_disabled
+                            && !(mapping_source_check && mapping_source_disabled(state, &h.index))
+                        {
                             o.insert("_source".to_string(), src);
                         }
                         if let Some(inner) = collapse_inner {
@@ -20878,6 +20941,7 @@ mod passage_scroll_tests {
                 seq_no_primary_term: false,
                 version: false,
                 source_disabled: false,
+                mapping_source_check: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
@@ -20937,6 +21001,7 @@ mod passage_scroll_tests {
                 seq_no_primary_term: false,
                 version: false,
                 source_disabled: false,
+                mapping_source_check: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
@@ -20992,6 +21057,7 @@ mod passage_scroll_tests {
                 seq_no_primary_term: false,
                 version: false,
                 source_disabled: false,
+                mapping_source_check: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),

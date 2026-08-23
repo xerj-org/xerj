@@ -170,12 +170,24 @@ pub struct ScrollContext {
     /// Whether to emit `_version` on every page. Same once-at-open semantics
     /// as `seq_no_primary_term`.
     pub version: bool,
-    /// Whether the opening request suppressed `_source` (`"_source": false`).
-    /// Captured once at open — like `seq_no_primary_term`/`version`, ES fixes
-    /// the `_source` selection at the scroll-opening request and applies it to
-    /// every continuation page — so the continuation render omits `_source`
-    /// when this is set, matching the `_search?scroll=` first page (#624).
+    /// Whether the opening request suppressed `_source` at the REQUEST level —
+    /// `"_source": false`, or `stored_fields` implying suppression when
+    /// `_source` was unspecified. These are constant across the whole snapshot
+    /// (index-independent), so a single captured boolean is correct. Captured
+    /// once at open — like `seq_no_primary_term`/`version`, ES fixes the
+    /// `_source` selection at the scroll-opening request — so the continuation
+    /// render omits `_source` when this is set, matching the first page
+    /// (#624/#637).
     pub source_disabled: bool,
+    /// Whether the opening route's first page also applies mapping-level
+    /// `_source.enabled: false` suppression (which is PER-HIT: a scroll can span
+    /// indices with divergent `_source` settings). `search_impl` (`_search?scroll=`)
+    /// does, so the continuation re-derives it per hit from each hit's own index;
+    /// `search_with_scroll` (`_search_scroll`) does NOT suppress it on its first
+    /// page, so its continuation must not either, or it would introduce a new
+    /// first-page/continuation split on that route (#637; that route's own gap is
+    /// tracked in #659).
+    pub mapping_source_check: bool,
     pub created: Instant,
     /// The keep-alive window last requested for this context. A
     /// continuation without an explicit `scroll` parameter re-arms the
