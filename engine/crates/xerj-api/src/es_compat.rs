@@ -14478,6 +14478,7 @@ async fn search_impl(
             // first page's own `_seq_no`/`_version` emission above.
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
+            source_disabled: matches!(body.source, Some(Value::Bool(false))),
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
@@ -20198,6 +20199,7 @@ pub async fn search_with_scroll(
             page_size,
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
+            source_disabled: matches!(body.source, Some(Value::Bool(false))),
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
@@ -20483,6 +20485,12 @@ async fn scroll_page_response(
             // borrows `ctx.hits`.
             let emit_seq_no = ctx.seq_no_primary_term;
             let emit_version = ctx.version;
+            // #624: the opening request's `_source: false` governs the whole
+            // scroll — omit `_source` on continuation pages too (ES fixes source
+            // selection at open; the `_search?scroll=` first page already omits
+            // it via search_impl). inner_hits still render from the collapse
+            // group snapshot regardless.
+            let source_disabled = ctx.source_disabled;
 
             // Detect whether the initial search sorted by a non-score key;
             // in that case `max_score` must be null on scroll pages too.
@@ -20603,7 +20611,13 @@ async fn scroll_page_response(
                                 _ => None,
                             }
                         });
-                        o.insert("_source".to_string(), src);
+                        // #624: honor the scroll's opening `_source: false` —
+                        // omit `_source` here (the sentinels have already been
+                        // consumed into `inner_hits` above), matching the first
+                        // page. inner_hits are emitted regardless.
+                        if !source_disabled {
+                            o.insert("_source".to_string(), src);
+                        }
                         if let Some(inner) = collapse_inner {
                             o.insert("inner_hits".to_string(), inner);
                         }
@@ -20704,6 +20718,7 @@ mod passage_scroll_tests {
                 page_size: 1,
                 seq_no_primary_term: false,
                 version: false,
+                source_disabled: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
@@ -20762,6 +20777,7 @@ mod passage_scroll_tests {
                 page_size: 1,
                 seq_no_primary_term: false,
                 version: false,
+                source_disabled: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),
@@ -20816,6 +20832,7 @@ mod passage_scroll_tests {
                 page_size: 1,
                 seq_no_primary_term: false,
                 version: false,
+                source_disabled: false,
                 created: now,
                 keep_alive: Duration::from_secs(60),
                 expires_at: now + Duration::from_secs(60),

@@ -170,6 +170,12 @@ pub struct ScrollContext {
     /// Whether to emit `_version` on every page. Same once-at-open semantics
     /// as `seq_no_primary_term`.
     pub version: bool,
+    /// Whether the opening request suppressed `_source` (`"_source": false`).
+    /// Captured once at open — like `seq_no_primary_term`/`version`, ES fixes
+    /// the `_source` selection at the scroll-opening request and applies it to
+    /// every continuation page — so the continuation render omits `_source`
+    /// when this is set, matching the `_search?scroll=` first page (#624).
+    pub source_disabled: bool,
     pub created: Instant,
     /// The keep-alive window last requested for this context. A
     /// continuation without an explicit `scroll` parameter re-arms the
