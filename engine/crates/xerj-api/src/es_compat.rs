@@ -34424,7 +34424,17 @@ pub(crate) fn build_docvalue_fields(
         } else {
             arr
         };
+        // A field that resolves to NO values is omitted, never emitted as a bare
+        // `[]` (#310): `{"body_vector": []}` is a positive claim that the doc has
+        // no values for that field. ES omits an unresolvable `docvalue_fields`
+        // entry entirely (mirrors the `fields` builder's `None => continue`).
+        if formatted.is_empty() {
+            continue;
+        }
         map.insert(field_name.to_string(), Value::Array(formatted));
+    }
+    if map.is_empty() {
+        return None;
     }
     Some(map)
 }
