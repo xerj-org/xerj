@@ -3187,6 +3187,58 @@ impl Engine {
         }
     }
 
+    /// Whether the concrete index `name` is currently held in memory (its
+    /// `Arc<Index>` — memtable, per-segment caches, hydration budget — is live
+    /// in `self.indices`). A `_close` that actually reclaims RAM drops the handle
+    /// here (#463); a still-loaded name after close means the close was a no-op.
+    /// Not alias-resolving — callers pass a concrete index name.
+    pub fn is_index_loaded(&self, name: &str) -> bool {
+        self.indices.contains_key(name)
+    }
+
+    /// `_close` that actually reclaims RAM (#463). Marks the index unqueryable
+    /// AND releases its in-memory handle — the memtable, the per-segment caches,
+    /// and the hydration budget deallocate once no in-flight request holds a
+    /// clone of the `Arc<Index>`. The on-disk bytes remain untouched, so
+    /// [`reopen_index`](Self::reopen_index) reconstructs the index losslessly.
+    ///
+    /// The memtable is flushed to disk FIRST: dropping the handle without
+    /// flushing would discard every not-yet-published document — turning a memory
+    /// win into silent data loss. A flush failure aborts the close and leaves the
+    /// index fully in service.
+    pub async fn close_index(&self, name: &str) -> Result<()> {
+        self.ensure_cluster_state_writable()?;
+        if self.indices.contains_key(name) {
+            // Durability barrier before the handle is dropped.
+            self.flush_index(name).await?;
+            // Drop the strong ref held by the engine. Any in-flight request that
+            // cloned the `Arc` keeps its own copy alive until it completes, then
+            // the index (and its governor-registered segment caches) frees.
+            self.indices.remove(name);
+        }
+        self.closed_indices.insert(name.to_string(), true);
+        info!(name, "index closed; in-memory handle released");
+        Ok(())
+    }
+
+    /// `_open` counterpart to [`close_index`](Self::close_index): clears the
+    /// closed flag and, if the index was memory-released, reconstructs its
+    /// `Arc<Index>` from disk via [`Index::open`] (which replays the WAL and
+    /// republishes segments). A no-op for an index that is already loaded.
+    pub fn reopen_index(&self, name: &str) -> Result<()> {
+        self.ensure_cluster_state_writable()?;
+        if !self.indices.contains_key(name) {
+            let index_name = IndexName::new(name).map_err(EngineError::Common)?;
+            // `Index::open` returns an `Arc<Index>` (replays the WAL and
+            // republishes segments from disk) — insert it directly.
+            let idx = Index::open(index_name, &self.config, &self.data_dir)?;
+            self.indices.insert(name.to_string(), idx);
+        }
+        self.closed_indices.remove(name);
+        info!(name, "index reopened");
+        Ok(())
+    }
+
     /// Get a reference to an index by name, resolving aliases first.
     /// If the name is an alias pointing to multiple indices, returns the first one.
     ///
