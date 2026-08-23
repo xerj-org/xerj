@@ -26639,6 +26639,38 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
         (acc, liv)
     }
 
+    // Project each element of an array at the same dotted `path` — an array
+    // index is transparent to a `_source` path at EVERY depth (#644/#653), so a
+    // nested array of objects recurses too. An object element is filtered (and
+    // an emptied one dropped, mirroring the map-value rule); a nested-array
+    // element recurses here; a scalar survives only in an accepting state.
+    fn project_array_at(
+        arr: &[Value],
+        path: &str,
+        child_all: bool,
+        includes: &[String],
+        excludes: &[String],
+    ) -> Vec<Value> {
+        arr.iter()
+            .filter_map(|elem| match elem {
+                Value::Object(child_obj) => {
+                    let f = es_filter(elem, path, child_all, includes, excludes);
+                    match &f {
+                        Value::Object(m) if m.is_empty() => {
+                            (child_obj.is_empty() && child_all).then_some(f)
+                        }
+                        _ => Some(f),
+                    }
+                }
+                Value::Array(inner) => {
+                    let p = project_array_at(inner, path, child_all, includes, excludes);
+                    (!p.is_empty() || (inner.is_empty() && child_all)).then(|| Value::Array(p))
+                }
+                other => child_all.then(|| other.clone()),
+            })
+            .collect()
+    }
+
     // Filter one value at dotted `path`. `include_all` means an ancestor path
     // was ACCEPTed (or the include list is empty), so this subtree is included
     // subject only to excludes.
@@ -26708,26 +26740,10 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
                     if child_all && !exc_live {
                         out.insert(key.clone(), val.clone());
                     } else {
-                        let projected: Vec<Value> = arr
-                            .iter()
-                            .filter_map(|elem| match elem {
-                                Value::Object(child_obj) => {
-                                    let f = es_filter(elem, &child, child_all, includes, excludes);
-                                    match &f {
-                                        // An element that *filtering* emptied is
-                                        // dropped from the array; one that was
-                                        // ALREADY `{}` survives only in an
-                                        // accepting state — same rule ES applies
-                                        // to array elements as to map values.
-                                        Value::Object(m) if m.is_empty() => {
-                                            (child_obj.is_empty() && child_all).then_some(f)
-                                        }
-                                        _ => Some(f),
-                                    }
-                                }
-                                other => child_all.then(|| other.clone()),
-                            })
-                            .collect();
+                        // Project each element at the same path (recursing into
+                        // nested arrays — #644/#653).
+                        let projected =
+                            project_array_at(arr, &child, child_all, includes, excludes);
                         // A key whose array *filtering* emptied is pruned (had
                         // elements, all dropped); an already-empty source array
                         // survives only in an accepting state — mirrors the
@@ -27207,6 +27223,34 @@ mod source_filter_tests {
             ),
             json!({}),
             "#644: an exclude that empties every element prunes the key"
+        );
+    }
+
+    /// #653 (follow-up to #644): an array is transparent to a `_source` path at
+    /// EVERY depth, so a nested array of arrays of objects is projected too —
+    /// `a.name` over `{"a":[[{"name":"x","id":1}]]}` keeps `[[{"name":"x"}]]`.
+    /// The array arm previously sent a nested-list element to the scalar branch,
+    /// dropping it.
+    #[test]
+    fn source_filter_projects_inside_nested_arrays() {
+        assert_eq!(
+            filter_object(
+                &json!({ "a": [[{ "name": "x", "id": 1 }], [{ "name": "y", "id": 2 }]] }),
+                &["a.name".to_string()],
+                &[]
+            ),
+            json!({ "a": [[{ "name": "x" }], [{ "name": "y" }]] }),
+            "#653: a nested array of objects must project at depth"
+        );
+        // Exclude scrubs at depth through the nested array too.
+        assert_eq!(
+            filter_object(
+                &json!({ "logs": [[{ "msg": 1, "secret": 2 }]] }),
+                &[],
+                &["logs.secret".to_string()]
+            ),
+            json!({ "logs": [[{ "msg": 1 }]] }),
+            "#653: an exclude scrubs inside a nested array of objects"
         );
     }
 
