@@ -26263,6 +26263,39 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
+/// The engine-internal collapse sentinels — a user's `_source` include/exclude
+/// list must not strip these, or the API renders no `inner_hits` (#651). They
+/// are captured before an explicit projection and re-attached after, so the API
+/// (which extracts the group and strips the sentinels from the wire `_source`)
+/// still sees them.
+const COLLAPSE_SENTINELS: [&str; 2] = ["__xy_collapse_group__", "__xy_collapse_spec__"];
+
+fn take_collapse_sentinels(source: &Value) -> Vec<(String, Value)> {
+    source
+        .as_object()
+        .map(|o| {
+            COLLAPSE_SENTINELS
+                .iter()
+                .filter_map(|k| o.get(*k).map(|v| (k.to_string(), v.clone())))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn reattach_collapse_sentinels(source: &mut Value, sentinels: Vec<(String, Value)>) {
+    if sentinels.is_empty() {
+        return;
+    }
+    if !source.is_object() {
+        *source = Value::Object(serde_json::Map::new());
+    }
+    if let Some(obj) = source.as_object_mut() {
+        for (k, v) in sentinels {
+            obj.insert(k, v);
+        }
+    }
+}
+
 /// Unmeasured filtering — the shape every pre-existing test asserts on, and
 /// proof that the measurement is strictly additive rather than a rewrite of
 /// the `_source` projection semantics.
@@ -26387,13 +26420,15 @@ fn apply_source_filter_measured(
             .map(|mut h| {
                 let baseline = measuring
                     .then(|| default_projection_len(&h.source, generated_companion_fields, mode));
+                let sentinels = take_collapse_sentinels(&h.source);
                 h.source = filter_object(&h.source, fields, &[]);
                 if let Some(baseline) = baseline {
                     // Saturating: a caller who explicitly projects a generated
                     // companion gets MORE than the default, and more is not a
-                    // saving.
+                    // saving. Measured on the sentinel-free projection.
                     acc.record(&h.id, baseline.saturating_sub(json_len(&h.source, mode)));
                 }
+                reattach_collapse_sentinels(&mut h.source, sentinels);
                 h
             })
             .collect(),
@@ -26402,10 +26437,12 @@ fn apply_source_filter_measured(
             .map(|mut h| {
                 let baseline = measuring
                     .then(|| default_projection_len(&h.source, generated_companion_fields, mode));
+                let sentinels = take_collapse_sentinels(&h.source);
                 h.source = filter_object(&h.source, includes, excludes);
                 if let Some(baseline) = baseline {
                     acc.record(&h.id, baseline.saturating_sub(json_len(&h.source, mode)));
                 }
+                reattach_collapse_sentinels(&mut h.source, sentinels);
                 h
             })
             .collect(),
