@@ -14631,21 +14631,28 @@ async fn search_impl(
             .min(sc_cfg.scroll_max_keep_alive_secs);
         let keep_alive = std::time::Duration::from_secs(keep_alive_secs);
         let now = Instant::now();
-        // #637: capture the FULL first-page `_source` suppression decision, not
-        // just request-level `_source: false`. search_impl's own render above
-        // also omits `_source` when `stored_fields` implies it (and the request
-        // left `_source` unspecified) or the mapping sets `_source.enabled:
-        // false`. Both are request/index-level (constant across the snapshot),
-        // so a single captured boolean keeps continuation pages in parity with
-        // this first page. The remaining per-hit null-source case is already
-        // handled directly in `scroll_page_response`. (The
-        // `/:index/_search_scroll` route's own first page does not suppress these
-        // cases, so its capture site is intentionally left as request-level only
-        // — matching ITS render.) Computed before the struct literal moves
-        // `scroll_index` into `ctx.index`.
+        // #637: capture the REQUEST-LEVEL part of the first-page `_source`
+        // suppression decision — `_source: false`, and `stored_fields` implying
+        // suppression when the request left `_source` unspecified. These are
+        // genuinely constant across the whole snapshot (index-independent), so a
+        // single captured boolean is correct for them.
+        //
+        // The mapping `_source.enabled: false` case is deliberately NOT folded in
+        // here: a scroll can span MULTIPLE indices with divergent `_source`
+        // settings, and the first page suppresses that case PER HIT using each
+        // hit's own index. Collapsing it to `scroll_index` (the first index)
+        // would strip `_source` from every continuation hit of a source-ENABLED
+        // index whenever the first index disabled source — a new first-page/
+        // continuation split and silent `_source` loss on the export/reindex API
+        // (found by the #658 correctness skeptic). So `scroll_page_response`
+        // re-derives the mapping check per hit from `h.index` instead.
+        //
+        // The per-hit null-source case is likewise handled in
+        // `scroll_page_response`. (The `/:index/_search_scroll` route's own first
+        // page does not suppress any of these, so its capture site stays
+        // request-level only — matching ITS render; see #659.)
         let scroll_source_disabled = matches!(body.source, Some(Value::Bool(false)))
-            || (suppress_source_for_stored && body.source.is_none())
-            || mapping_source_disabled(&state, &scroll_index);
+            || (suppress_source_for_stored && body.source.is_none());
         let ctx = xerj_engine::engine::ScrollContext {
             index: scroll_index,
             hits: snapshot,
@@ -20796,11 +20803,17 @@ async fn scroll_page_response(
                                 _ => None,
                             }
                         });
-                        // #624: honor the scroll's opening `_source: false` —
-                        // omit `_source` here (the sentinels have already been
-                        // consumed into `inner_hits` above), matching the first
-                        // page. inner_hits are emitted regardless.
-                        if !source_disabled {
+                        // #624/#637: honor the first page's `_source` suppression
+                        // (the sentinels have already been consumed into
+                        // `inner_hits` above), matching search_impl exactly.
+                        // `source_disabled` carries the request-level constant
+                        // (`_source:false`, stored_fields-implied); the mapping
+                        // `_source.enabled:false` case is re-derived PER HIT from
+                        // this hit's own index, because a scroll can span indices
+                        // with divergent `_source` settings and the first page
+                        // suppresses that case per-hit (#658 skeptic). inner_hits
+                        // are emitted regardless.
+                        if !source_disabled && !mapping_source_disabled(state, &h.index) {
                             o.insert("_source".to_string(), src);
                         }
                         if let Some(inner) = collapse_inner {

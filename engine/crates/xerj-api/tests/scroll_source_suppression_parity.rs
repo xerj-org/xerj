@@ -166,3 +166,97 @@ async fn scroll_continuation_omits_source_under_stored_fields() {
          stored_fields without _source (first-page parity), got: {hit}"
     );
 }
+
+/// Open a scroll and page through EVERY page, returning all hits across all pages.
+async fn scroll_all_hits(app: &axum::Router, open_path: &str, open_body: Value) -> Vec<Value> {
+    let (st, first) = call(app, "POST", open_path, open_body).await;
+    assert_eq!(st, StatusCode::OK, "scroll open: {first}");
+    let sid = first["_scroll_id"].as_str().expect("scroll id").to_string();
+    let mut all: Vec<Value> = first["hits"]["hits"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    loop {
+        let (st, page) = call(
+            app,
+            "POST",
+            "/_search/scroll",
+            json!({"scroll": "5m", "scroll_id": sid}),
+        )
+        .await;
+        assert_eq!(st, StatusCode::OK, "continuation: {page}");
+        let hits = page["hits"]["hits"].as_array().cloned().unwrap_or_default();
+        if hits.is_empty() {
+            break;
+        }
+        all.extend(hits);
+    }
+    all
+}
+
+/// Multi-index scroll where the FIRST-resolved index disables `_source` and a
+/// second index enables it. Suppression must be decided PER HIT from each hit's
+/// own index — not from a single snapshot constant keyed on the first index —
+/// or continuation pages silently drop `_source` from the source-ENABLED index
+/// (a regression the #658 correctness skeptic caught: silent data-loss on the
+/// export/reindex API). Every page, first and continuation, must agree with the
+/// first page: `a_off` hits omit `_source`, `b_on` hits keep it.
+#[tokio::test]
+async fn scroll_multi_index_source_suppression_is_per_hit() {
+    let (app, _dir) = app().await;
+    seed(
+        &app,
+        "a_off",
+        json!({"mappings": {
+            "_source": {"enabled": false},
+            "properties": {"grp": {"type": "keyword"}, "v": {"type": "long"}}
+        }}),
+    )
+    .await;
+    seed(
+        &app,
+        "b_on",
+        json!({"mappings": {
+            "properties": {"grp": {"type": "keyword"}, "v": {"type": "long"}}
+        }}),
+    )
+    .await;
+
+    // Small size so several continuation pages exist; sort v asc interleaves the
+    // two indices across pages so continuation pages carry BOTH.
+    let hits = scroll_all_hits(
+        &app,
+        "/a_off,b_on/_search?scroll=5m",
+        json!({"query": {"match_all": {}}, "size": 3, "sort": [{"v": "asc"}]}),
+    )
+    .await;
+
+    let mut a_seen = 0;
+    let mut b_seen = 0;
+    for h in &hits {
+        match h["_index"].as_str() {
+            Some("a_off") => {
+                a_seen += 1;
+                assert!(
+                    h.get("_source").is_none(),
+                    "#658: a_off (source-disabled) hit must omit _source on every page: {h}"
+                );
+            }
+            Some("b_on") => {
+                b_seen += 1;
+                assert!(
+                    h.get("_source").and_then(Value::as_object).is_some(),
+                    "#658: b_on (source-ENABLED) hit must KEEP _source on every page, \
+                     including continuation — per-hit suppression, not a first-index \
+                     constant: {h}"
+                );
+            }
+            other => panic!("unexpected _index {other:?} in {h}"),
+        }
+    }
+    assert_eq!(
+        a_seen, 4,
+        "expected all 4 a_off hits across pages: {hits:?}"
+    );
+    assert_eq!(b_seen, 4, "expected all 4 b_on hits across pages: {hits:?}");
+}
