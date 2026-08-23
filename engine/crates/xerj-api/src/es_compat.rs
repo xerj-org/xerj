@@ -8497,6 +8497,7 @@ fn render_collapse_inner_hits(
     spec: Value,
     idx_name: &str,
     rest_total_hits_as_int: bool,
+    strip_companions: Option<&std::collections::HashSet<String>>,
 ) -> Value {
     let spec_list: Vec<Value> = match spec {
         Value::Array(a) => a,
@@ -8615,6 +8616,18 @@ fn render_collapse_inner_hits(
                 if let Some(src) = m.get_mut("_source").and_then(Value::as_object_mut) {
                     src.remove("__xy_collapse_group__");
                     src.remove("__xy_collapse_spec__");
+                    // #646: a member's source is stashed BEFORE the engine's
+                    // `_source` projection, so it still carries the passage
+                    // sentinels (always internal) and, under the default
+                    // projection, the generated embedding companions. Match the
+                    // top-level hit rendering: strip the sentinels unconditionally
+                    // and the companions when the caller passed the set.
+                    src.retain(|k, _| {
+                        !k.starts_with(xerj_query::executor::PASSAGE_METADATA_PREFIX)
+                    });
+                    if let Some(companions) = strip_companions {
+                        src.retain(|k, _| !companions.contains(k));
+                    }
                 }
                 let mut hit_obj = serde_json::Map::new();
                 hit_obj.insert("_index".to_string(), Value::String(idx_name.to_string()));
@@ -10866,11 +10879,12 @@ async fn search_impl(
         Vec::new()
     };
     // One schema read-lock per participating index, and only for a request that
-    // could actually consume the answer. (The collapse `inner_hits` companion
-    // leak under a default projection is a separate, pre-existing gap tracked as
-    // a follow-up; it is not driven by the pierce, so it is not populated here.)
+    // could actually consume the answer: a pierce (a companion named in
+    // `fields`/`docvalue_fields`) OR a collapse `inner_hits` block, whose members
+    // are stashed before the #309 projection and would otherwise ship the
+    // companions on the wire (#646).
     let mut companions_by_index: HashMap<String, HashSet<String>> = HashMap::new();
-    if default_source_projection && !value_bearing_names.is_empty() {
+    if default_source_projection && (!value_bearing_names.is_empty() || body.collapse.is_some()) {
         for idx_name in &index_names {
             let Ok(idx) = state.engine.get_index(idx_name) else {
                 continue;
@@ -13600,6 +13614,18 @@ async fn search_impl(
                     spec,
                     &idx_name,
                     params.rest_total_hits_as_int.as_deref() == Some("true"),
+                    // #646: under the default projection, strip the generated
+                    // companions from each member's `_source` — the members were
+                    // stashed before #309 ran. Gated on `!is_scroll_request` so a
+                    // collapse SCROLL stays byte-identical across pages (#623):
+                    // the continuation path (scroll_page_response) cannot strip
+                    // companions yet, so page 1 must not either — scroll+collapse
+                    // companion stripping is the clean remaining sub-case.
+                    if default_source_projection && !is_scroll_request {
+                        companions_by_index.get(idx_name.as_str())
+                    } else {
+                        None
+                    },
                 ));
             }
 
@@ -20733,6 +20759,13 @@ async fn scroll_page_response(
                                     s,
                                     &h.index,
                                     rest_total_hits_as_int,
+                                    // The scroll continuation has no companion set
+                                    // in scope (it would need threading through
+                                    // ScrollContext); the unconditional passage
+                                    // sentinel strip still applies. Scroll+collapse
+                                    // companion stripping is a scoped remaining
+                                    // sub-case of #646.
+                                    None,
                                 )),
                                 _ => None,
                             }
