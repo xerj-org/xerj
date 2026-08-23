@@ -8726,6 +8726,29 @@ fn render_collapse_inner_hits(
     Value::Object(combined)
 }
 
+/// Whether the index mapping sets `_source.enabled: false`. ES suppresses
+/// `_source` in the response for such an index; xerj keeps the underlying
+/// source available internally (fields/highlight/_ignored extraction) and makes
+/// the suppression a response-time decision. Mirrors the per-hit check in
+/// `search_impl`'s render, extracted so scroll-open can capture the SAME
+/// decision into `ScrollContext::source_disabled` and continuation pages stay in
+/// parity with the first page (#637).
+fn mapping_source_disabled(state: &AppState, index: &str) -> bool {
+    state
+        .engine
+        .index_mappings
+        .get(index)
+        .and_then(|m| {
+            m.get("mappings")
+                .and_then(|mm| mm.get("_source"))
+                .or_else(|| m.get("_source"))
+                .cloned()
+        })
+        .and_then(|src| src.get("enabled").and_then(Value::as_bool))
+        .map(|b| !b)
+        .unwrap_or(false)
+}
+
 async fn search_impl(
     state: AppState,
     index: String,
@@ -11958,19 +11981,7 @@ async fn search_impl(
             // extraction, so the suppression is a response-time
             // decision not a data-layer decision.
             let source_body_disabled = matches!(body.source, Some(Value::Bool(false)));
-            let source_mapping_disabled = state
-                .engine
-                .index_mappings
-                .get(idx_name.as_str())
-                .and_then(|m| {
-                    m.get("mappings")
-                        .and_then(|mm| mm.get("_source"))
-                        .or_else(|| m.get("_source"))
-                        .cloned()
-                })
-                .and_then(|src| src.get("enabled").and_then(Value::as_bool))
-                .map(|b| !b)
-                .unwrap_or(false);
+            let source_mapping_disabled = mapping_source_disabled(&state, idx_name.as_str());
             // `stored_fields` implicitly suppressing `_source` (unless the
             // list literally contains `"_source"`) is only a DEFAULT for
             // when the caller left `_source` unspecified. When the request
@@ -14620,6 +14631,21 @@ async fn search_impl(
             .min(sc_cfg.scroll_max_keep_alive_secs);
         let keep_alive = std::time::Duration::from_secs(keep_alive_secs);
         let now = Instant::now();
+        // #637: capture the FULL first-page `_source` suppression decision, not
+        // just request-level `_source: false`. search_impl's own render above
+        // also omits `_source` when `stored_fields` implies it (and the request
+        // left `_source` unspecified) or the mapping sets `_source.enabled:
+        // false`. Both are request/index-level (constant across the snapshot),
+        // so a single captured boolean keeps continuation pages in parity with
+        // this first page. The remaining per-hit null-source case is already
+        // handled directly in `scroll_page_response`. (The
+        // `/:index/_search_scroll` route's own first page does not suppress these
+        // cases, so its capture site is intentionally left as request-level only
+        // — matching ITS render.) Computed before the struct literal moves
+        // `scroll_index` into `ctx.index`.
+        let scroll_source_disabled = matches!(body.source, Some(Value::Bool(false)))
+            || (suppress_source_for_stored && body.source.is_none())
+            || mapping_source_disabled(&state, &scroll_index);
         let ctx = xerj_engine::engine::ScrollContext {
             index: scroll_index,
             hits: snapshot,
@@ -14630,7 +14656,7 @@ async fn search_impl(
             // first page's own `_seq_no`/`_version` emission above.
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
-            source_disabled: matches!(body.source, Some(Value::Bool(false))),
+            source_disabled: scroll_source_disabled,
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
