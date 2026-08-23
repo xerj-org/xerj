@@ -26521,123 +26521,132 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
 
     // Dotted path filtering: a faithful ES `_source` include/exclude automaton.
     //
-    // ES matches PER PATH SEGMENT. Each pattern is split on `.` into segments;
-    // a `*` matches exactly one WHOLE segment (never across a `.`, because keys
-    // contain no dots); a pattern fully consumed AT a node includes that node's
-    // entire subtree; and an exclude removes a node only when its pattern fully
-    // matches at that node. The previous ad-hoc `matches_path` was a
-    // prefix/recursion matcher that could not step through a leading/mid glob
-    // (`*.foo`, `a.*.c`) nor expand a trailing-`*` segment (`meta*`) across the
-    // dot into the subtree (#602 divergences 2/3/4). Object descent goes through
-    // the automaton; a non-object value (scalar or array) is kept whole when its
-    // key is a live candidate — XERJ does not project into arrays today, so
-    // #602 is deliberately scoped to object-nested paths.
+    // ES compiles each include/exclude pattern with `Regex.simpleMatchToAutomaton`,
+    // where `*` becomes `Automata.makeAnyString()` — it matches ANY run of
+    // characters INCLUDING `.`, so a wildcard spans path segments at any depth
+    // (`org.elasticsearch.common.regex.Regex`, Apache-2.0). That is why `obj.*`
+    // keeps `obj`'s whole subtree, `*.foo` keeps every `foo` leaf at any depth,
+    // and `exclude ["*.secret"]` scrubs a nested `secret` however deep it sits.
+    // `XContentMapValues.filter` then walks the document and, at each node, asks
+    // the automaton two questions about that node's dotted path:
+    //   * ACCEPT — the pattern matches this path in full → include the whole
+    //     subtree (subject to excludes);
+    //   * LIVE — this path is a proper prefix the pattern can still extend to an
+    //     ACCEPT deeper down → descend.
+    // A leaf that is only LIVE (never ACCEPTed) was not selected and is dropped.
+    //
+    // The matcher is a small glob NFA over the FULL dotted path (`*` = any char
+    // incl `.`); leading/mid/trailing wildcards, the dot boundary, and
+    // multi-level globs all fall out of it (#602). Object descent goes through
+    // the automaton; scalars and arrays are handled at the leaf (see below).
 
-    // A single-segment glob: `*` matches any run of characters WITHIN one
-    // segment. Keys never contain `.`, so this can never cross a dot boundary —
-    // the property the old cross-path `glob_match` had to enforce by hand.
-    fn seg_matches(seg: &str, key: &str) -> bool {
-        if !seg.contains('*') {
-            return seg == key;
-        }
-        // Iterative glob with backtracking (`*` = greedy, backtrack on mismatch).
-        fn walk(pat: &[u8], s: &[u8]) -> bool {
-            let (mut pi, mut si) = (0usize, 0usize);
-            let (mut star, mut mark) = (usize::MAX, 0usize);
-            while si < s.len() {
-                if pi < pat.len() && pat[pi] == b'*' {
-                    star = pi;
-                    mark = si;
-                    pi += 1;
-                } else if pi < pat.len() && pat[pi] == s[si] {
-                    pi += 1;
-                    si += 1;
-                } else if star != usize::MAX {
-                    pi = star + 1;
-                    mark += 1;
-                    si = mark;
-                } else {
-                    return false;
+    // Reachable-state summary of glob `pat` after consuming `text`, with
+    // `*` = Σ* (matches any character, including `.`). Returns `(accept, live)`:
+    // `accept` = the whole pattern matched `text`; `live` = some reachable
+    // position can still consume a deeper `.segment` (sitting on a `*`, or on a
+    // literal `.` awaiting the next level), i.e. `text` is a viable prefix.
+    fn glob_reach(pat: &[u8], text: &[u8]) -> (bool, bool) {
+        let n = pat.len();
+        // Epsilon-closure: a `*` may match zero characters, so reaching the
+        // position of a `*` also reaches the position after it. A single forward
+        // pass suffices because a `*` only ever skips to `i + 1`.
+        let closure = |set: &mut [bool]| {
+            for i in 0..n {
+                if set[i] && pat[i] == b'*' {
+                    set[i + 1] = true;
                 }
             }
-            while pi < pat.len() && pat[pi] == b'*' {
-                pi += 1;
+        };
+        let mut cur = vec![false; n + 1];
+        let mut nxt = vec![false; n + 1];
+        cur[0] = true;
+        closure(&mut cur);
+        for &c in text {
+            for x in nxt.iter_mut() {
+                *x = false;
             }
-            pi == pat.len()
+            for i in 0..n {
+                if !cur[i] {
+                    continue;
+                }
+                if pat[i] == b'*' {
+                    // Σ* consumes any character (including `.`) and stays put.
+                    nxt[i] = true;
+                } else if pat[i] == c {
+                    nxt[i + 1] = true;
+                }
+            }
+            closure(&mut nxt);
+            std::mem::swap(&mut cur, &mut nxt);
         }
-        walk(seg.as_bytes(), key.as_bytes())
+        let accept = cur[n];
+        let live = (0..n).any(|i| cur[i] && (pat[i] == b'*' || pat[i] == b'.'));
+        (accept, live)
     }
 
-    // Filter one value against the active include/exclude segment-suffixes.
-    // `include_all` means an ancestor pattern was already fully consumed (or
-    // the top-level include list is empty), so this whole subtree is included
+    // `(accept, live)` of a path against a set of patterns — OR over the set.
+    fn reach_any(patterns: &[String], path: &str) -> (bool, bool) {
+        let mut acc = false;
+        let mut liv = false;
+        for p in patterns {
+            let (a, l) = glob_reach(p.as_bytes(), path.as_bytes());
+            acc |= a;
+            liv |= l;
+        }
+        (acc, liv)
+    }
+
+    // Filter one value at dotted `path`. `include_all` means an ancestor path
+    // was ACCEPTed (or the include list is empty), so this subtree is included
     // subject only to excludes.
     fn es_filter(
         value: &Value,
+        path: &str,
         include_all: bool,
-        includes: &[&[String]],
-        excludes: &[&[String]],
+        includes: &[String],
+        excludes: &[String],
     ) -> Value {
         let Value::Object(obj) = value else {
             return value.clone();
         };
-        let level_all = include_all || includes.is_empty();
         let mut out = serde_json::Map::new();
         for (key, val) in obj {
-            // An exclude whose pattern fully matches AT this node drops the value.
-            if excludes
-                .iter()
-                .any(|p| p.len() == 1 && seg_matches(&p[0], key))
-            {
+            let child = if path.is_empty() {
+                key.clone()
+            } else {
+                format!("{path}.{key}")
+            };
+
+            let (exc_acc, exc_live) = reach_any(excludes, &child);
+            if exc_acc {
+                // The exclude matches this path in full → drop the subtree.
                 continue;
             }
-            let exc_children: Vec<&[String]> = excludes
-                .iter()
-                .filter(|p| p.len() > 1 && seg_matches(&p[0], key))
-                .map(|p| &p[1..])
-                .collect();
-
-            // Which include patterns match this key? A fully-consumed one
-            // includes the whole subtree; a longer one is a LIVE state that
-            // descends by its tail.
-            let mut key_fully_included = false;
-            let inc_children: Vec<&[String]> = includes
-                .iter()
-                .filter_map(|p| {
-                    if seg_matches(&p[0], key) {
-                        if p.len() == 1 {
-                            key_fully_included = true;
-                            None
-                        } else {
-                            Some(&p[1..])
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let candidate = level_all || key_fully_included || !inc_children.is_empty();
-            if !candidate {
-                continue;
+            let (inc_acc, inc_live) = if includes.is_empty() {
+                (true, false)
+            } else {
+                reach_any(includes, &child)
+            };
+            let accept = include_all || inc_acc;
+            if !(accept || inc_live) {
+                continue; // neither selected nor a live prefix
             }
-            let child_all = level_all || key_fully_included;
-
-            // Fully included with nothing to strip below → keep the value as-is.
-            if child_all && exc_children.is_empty() {
-                out.insert(key.clone(), val.clone());
-                continue;
-            }
+            let child_all = accept;
 
             match val {
                 Value::Object(child_obj) => {
-                    let filtered = es_filter(val, child_all, &inc_children, &exc_children);
+                    // A fully-included object with no exclude reaching into it is
+                    // kept whole; otherwise descend to select/strip.
+                    if child_all && !exc_live {
+                        out.insert(key.clone(), val.clone());
+                        continue;
+                    }
+                    let filtered = es_filter(val, &child, child_all, includes, excludes);
                     let keep = match &filtered {
                         // An object that *filtering* emptied is pruned; one that
                         // was ALREADY empty in the source survives only in an
-                        // accepting state (its own path fully included) — a live
-                        // prefix state on the way to a deeper include is dropped,
-                        // matching ES (#310).
+                        // accepting state — a live-only prefix on the way to a
+                        // deeper include is dropped, matching ES (#310).
                         Value::Object(m) if m.is_empty() => child_obj.is_empty() && child_all,
                         _ => true,
                     };
@@ -26645,28 +26654,29 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
                         out.insert(key.clone(), filtered);
                     }
                 }
-                // Non-object (scalar/array): kept whole — XERJ does not project
-                // into arrays, and a scalar cannot satisfy a deeper include, so
-                // preserving it matches prior behavior without array data-loss.
-                _ => {
+                // An array is kept WHOLE whenever its key is selected: XERJ does
+                // not project inside arrays (documented scope), which also keeps
+                // it free of the projection-induced data loss #602 must avoid.
+                // (Consequence: an exclude cannot strip fields inside an array of
+                // objects — tracked separately, not a #602 regression.)
+                Value::Array(_) => {
                     out.insert(key.clone(), val.clone());
+                }
+                // A scalar leaf is kept ONLY in an ACCEPTing state. A scalar that
+                // merely sits on a LIVE (not-yet-accepted) include path cannot
+                // extend to satisfy the pattern, so ES drops it — keeping it
+                // would over-include a field the pattern never selected.
+                _ => {
+                    if child_all {
+                        out.insert(key.clone(), val.clone());
+                    }
                 }
             }
         }
         Value::Object(out)
     }
 
-    let inc: Vec<Vec<String>> = includes
-        .iter()
-        .map(|p| p.split('.').map(str::to_string).collect())
-        .collect();
-    let exc: Vec<Vec<String>> = excludes
-        .iter()
-        .map(|p| p.split('.').map(str::to_string).collect())
-        .collect();
-    let inc_refs: Vec<&[String]> = inc.iter().map(Vec::as_slice).collect();
-    let exc_refs: Vec<&[String]> = exc.iter().map(Vec::as_slice).collect();
-    es_filter(source, false, &inc_refs, &exc_refs)
+    es_filter(source, "", false, includes, excludes)
 }
 
 #[cfg(test)]
@@ -26955,6 +26965,78 @@ mod source_filter_tests {
         assert_eq!(
             actual, expected,
             "ES _source glob parity (#602 divergences 2/3/4)"
+        );
+    }
+
+    /// #602 (verification follow-up): ES `_source` `*` compiles to
+    /// `Automata.makeAnyString()`, so a wildcard matches ACROSS dots at any
+    /// depth. Two blocking divergences surfaced by the 3-skeptic pass are pinned
+    /// here: (a) a leading/mid glob must descend to ANY depth (`*.foo` keeps
+    /// `a.b.foo`, `exclude *.secret` scrubs a nested secret); (b) a SCALAR leaf
+    /// sitting on a live-but-non-accepting glob path must be DROPPED, not kept
+    /// whole (the pattern never selected it).
+    #[test]
+    fn source_glob_crosses_dots_at_any_depth_like_es() {
+        let cases: Vec<(&str, Value, Vec<String>, Vec<String>, Value)> = vec![
+            // (a) leading glob descends past >=2 dots.
+            (
+                "*.foo keeps a.b.foo (depth 2)",
+                json!({ "a": { "b": { "foo": 1, "bar": 2 } } }),
+                vec!["*.foo".into()],
+                vec![],
+                json!({ "a": { "b": { "foo": 1 } } }),
+            ),
+            // (a) mid glob spans an intermediate level.
+            (
+                "a.*.c keeps a.b.e.c (glob crosses b.e)",
+                json!({ "a": { "b": { "e": { "c": 1, "d": 2 } } } }),
+                vec!["a.*.c".into()],
+                vec![],
+                json!({ "a": { "b": { "e": { "c": 1 } } } }),
+            ),
+            // `obj.*` includes the whole subtree at any depth.
+            (
+                "obj.* keeps the whole subtree",
+                json!({ "obj": { "a": { "b": 1 } }, "other": 9 }),
+                vec!["obj.*".into()],
+                vec![],
+                json!({ "obj": { "a": { "b": 1 } } }),
+            ),
+            // (b) Case A: a scalar sibling on a non-accepting glob path is dropped.
+            (
+                "a.*.c drops scalar sibling a.x",
+                json!({ "a": { "b": { "c": 1 }, "x": 9 } }),
+                vec!["a.*.c".into()],
+                vec![],
+                json!({ "a": { "b": { "c": 1 } } }),
+            ),
+            // (b) Case B: double glob, scalar sibling dropped.
+            (
+                "*.*.foo drops scalar sibling a.c",
+                json!({ "a": { "b": { "foo": 1, "bar": 2 }, "c": 3 } }),
+                vec!["*.*.foo".into()],
+                vec![],
+                json!({ "a": { "b": { "foo": 1 } } }),
+            ),
+            // (a) exclude wildcard scrubs a nested field at depth >= 2.
+            (
+                "exclude *.description strips it at depth 2",
+                json!({ "a": { "b": { "description": 1, "keep": 2 } } }),
+                vec![],
+                vec!["*.description".into()],
+                json!({ "a": { "b": { "keep": 2 } } }),
+            ),
+        ];
+
+        let mut actual: Vec<(&str, Value)> = Vec::new();
+        let mut expected: Vec<(&str, Value)> = Vec::new();
+        for (label, source, inc, exc, want) in cases {
+            actual.push((label, filter_object(&source, &inc, &exc)));
+            expected.push((label, want));
+        }
+        assert_eq!(
+            actual, expected,
+            "ES _source `*` crosses dots at any depth (makeAnyString); scalars kept only when accepted"
         );
     }
 
