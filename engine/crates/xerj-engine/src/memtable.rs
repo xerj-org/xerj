@@ -1797,6 +1797,17 @@ impl ShardedFtsMemtable {
     /// refusal globally (`?` inside its loop); this makes the single-leaf
     /// wrappers behave the same way.
     fn dv_column_unusable(&self, field: &str) -> bool {
+        // #677: a dotted path (an object sub-field like `meta.owner`, or a
+        // `.keyword` multi-field) resolves through `get_field_value` /
+        // `get_nested_field` against the stored `_source`, NOT a faithful
+        // single-valued DV column — the same rule `terms_counts_columnar`
+        // states. Counting such a field via the column undercounts (0 while
+        // the buffered source matches → the #677 size:0-vs-size:5 split), so
+        // force the authoritative source scan. Always correct (the scan is the
+        // authority); only a bounded perf cost on dotted-field term counts.
+        if field.contains('.') {
+            return true;
+        }
         self.shards.iter().any(|s| {
             let g = s.read();
             g.doc_values.array_fields.contains(field)
@@ -3366,6 +3377,14 @@ impl FtsMemtable {
                     if self.doc_values.array_fields.contains(field.as_str()) {
                         return None;
                     }
+                    // #677: a dotted path (object sub-field / `.keyword`
+                    // multi-field) is not faithfully represented by a single
+                    // DV column — it resolves through `_source`. Bail to the
+                    // source scan, else a `term` on `meta.owner` counts 0 while
+                    // buffered but matches after flush (size:0 undercount).
+                    if field.contains('.') {
+                        return None;
+                    }
                     if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
                         // Step 2: analyzed-text bailout via the insert-time
                         // cached flag instead of an O(N) per-query column
@@ -3394,6 +3413,10 @@ impl FtsMemtable {
                     lt,
                 } => {
                     if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    // #677: dotted path → source scan (see the Term arm).
+                    if field.contains('.') {
                         return None;
                     }
                     let col = self.doc_values.numeric.get(field.as_str())?;
@@ -3486,6 +3509,12 @@ impl FtsMemtable {
                     if self.doc_values.array_fields.contains(field.as_str()) {
                         return None;
                     }
+                    // #677: dotted path (object sub-field / `.keyword`) → source
+                    // scan, so the count and filter paths agree (see the count
+                    // fn `doc_values_bool_hits`).
+                    if field.contains('.') {
+                        return None;
+                    }
                     if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
                         if self
                             .doc_values
@@ -3509,6 +3538,10 @@ impl FtsMemtable {
                     lt,
                 } => {
                     if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    // #677: dotted path → source scan (see the Term arm).
+                    if field.contains('.') {
                         return None;
                     }
                     let col = self.doc_values.numeric.get(field.as_str())?;

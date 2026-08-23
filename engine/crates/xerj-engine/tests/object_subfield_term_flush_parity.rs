@@ -25,7 +25,6 @@ async fn hits(engine: &Engine, q: serde_json::Value) -> u64 {
 }
 
 #[tokio::test]
-#[ignore = "#677: memtable term path does not resolve object sub-fields; un-ignored by the fix"]
 async fn term_on_object_subfield_is_flush_invariant() {
     let dir = TempDir::new().unwrap();
     let mut config = Config::default();
@@ -47,6 +46,12 @@ async fn term_on_object_subfield_is_flush_invariant() {
     idx.refresh().await.expect("refresh");
     let post = hits(&engine, q.clone()).await;
 
-    assert_eq!(pre, post, "#677: term on an object sub-field must be flush-invariant");
-    assert_eq!(post, 1, "#677: meta.owner is an indexed keyword sub-field (ES matches)");
+    assert_eq!(
+        pre, post,
+        "#677: term on an object sub-field must be flush-invariant"
+    );
+    assert_eq!(
+        post, 1,
+        "#677: meta.owner is an indexed keyword sub-field (ES matches)"
+    );
 }
