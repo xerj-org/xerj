@@ -260,3 +260,56 @@ async fn scroll_multi_index_source_suppression_is_per_hit() {
     );
     assert_eq!(b_seen, 4, "expected all 4 b_on hits across pages: {hits:?}");
 }
+
+/// Regression guard for the sibling `/:index/_search_scroll` route
+/// (`search_with_scroll`), which shares `scroll_page_response` for continuation
+/// but emits `_source` UNCONDITIONALLY on its own first page. This #637 change
+/// must NOT make that route's continuation start suppressing `_source` for a
+/// mapping-disabled index while its first page still emits it — a new
+/// first-page/continuation split (caught by the #658 regression skeptic; guarded
+/// by the `ScrollContext::mapping_source_check` flag). The route stays
+/// self-consistent; fixing its first page to actually suppress is #659.
+#[tokio::test]
+async fn search_scroll_route_source_parity_first_page_and_continuation_agree() {
+    let (app, _dir) = app().await;
+    seed(
+        &app,
+        "docs",
+        json!({"mappings": {
+            "_source": {"enabled": false},
+            "properties": {"grp": {"type": "keyword"}, "v": {"type": "long"}}
+        }}),
+    )
+    .await;
+
+    // Open via the `_search_scroll` route (NOT `_search?scroll=`).
+    let (st, first) = call(
+        &app,
+        "POST",
+        "/docs/_search_scroll?scroll=5m",
+        json!({"query": {"match_all": {}}, "size": 1, "sort": [{"v": "asc"}]}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "search_scroll open: {first}");
+    let first_has_source = first["hits"]["hits"][0].get("_source").is_some();
+    let sid = first["_scroll_id"].as_str().expect("scroll id").to_string();
+
+    let (st, page2) = call(
+        &app,
+        "POST",
+        "/_search/scroll",
+        json!({"scroll": "5m", "scroll_id": sid}),
+    )
+    .await;
+    assert_eq!(st, StatusCode::OK, "continuation: {page2}");
+    let cont_has_source = page2["hits"]["hits"][0].get("_source").is_some();
+
+    // The crux: whatever this route does on its first page, the continuation must
+    // AGREE — #637 must not introduce a page-to-page `_source` split here.
+    assert_eq!(
+        first_has_source, cont_has_source,
+        "#637/#659: the _search_scroll route's continuation must match its own first \
+         page on _source presence (first={first_has_source}, continuation={cont_has_source}); \
+         page1={first} page2={page2}"
+    );
+}
