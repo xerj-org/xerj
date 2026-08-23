@@ -35728,14 +35728,40 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                             .any(|tok| !tok.is_empty() && tok.starts_with(&value_lc))
                 }
             };
+            let is_object = matches!(ft, Some(FieldType::Object));
             get_field_value(source, field)
-                .and_then(|v| match v {
-                    Value::String(s) => Some(matches_str(&s)),
-                    Value::Array(arr) => Some(arr.iter().any(|e| match e {
-                        Value::String(s) => matches_str(s),
-                        _ => false,
-                    })),
-                    _ => None,
+                .and_then(|v| {
+                    // #413: a root-level object-mapped field is indexed on flush
+                    // as ONE whole, untokenised, case-preserved keyword-style
+                    // blob — the pruned `serde_json::to_string` emitted by
+                    // `collect_text_fields`. The memtable used to decline objects
+                    // (`_ => None`), so `prefix` answered 0 before a flush and 1
+                    // after. Mirror the blob here — raw, case-SENSITIVE, and
+                    // root-level only (`collect_text_fields` blobs only when its
+                    // incoming prefix is empty) — so the answer is flush-
+                    // invariant. Gated on a declared `object` mapping so the
+                    // `EMPTY_SCHEMA` shim callers stay byte-for-byte unchanged.
+                    if is_object && !field.contains('.') {
+                        // Object OR array: `collect_text_fields` emits a blob
+                        // for a root-level object AND for an array (joining its
+                        // elements via the same `extract_text_value`), so mirror
+                        // both here. Keyword/text arrays never reach this branch
+                        // (`is_object` is false for them).
+                        if matches!(&v, Value::Object(_) | Value::Array(_)) {
+                            let excluded = crate::memtable::fts_excluded_fields(schema);
+                            let blob =
+                                crate::memtable::extract_text_value_excluding(&v, field, &excluded);
+                            return Some(blob.starts_with(value.as_str()));
+                        }
+                    }
+                    match v {
+                        Value::String(s) => Some(matches_str(&s)),
+                        Value::Array(arr) => Some(arr.iter().any(|e| match e {
+                            Value::String(s) => matches_str(s),
+                            _ => false,
+                        })),
+                        _ => None,
+                    }
                 })
                 .unwrap_or(false)
         }
@@ -35785,14 +35811,37 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                             .any(|tok| !tok.is_empty() && wildcard_match(tok, &pat_lc))
                 }
             };
+            let is_object = matches!(ft, Some(FieldType::Object));
             get_field_value(source, field)
-                .and_then(|v| match v {
-                    Value::String(s) => Some(matches_str(&s)),
-                    Value::Array(arr) => Some(arr.iter().any(|e| match e {
-                        Value::String(s) => matches_str(s),
-                        _ => false,
-                    })),
-                    _ => None,
+                .and_then(|v| {
+                    // #413: mirror the whole-object blob (see the Prefix arm).
+                    // The segment stores it case-preserved; honour
+                    // `case_insensitive` exactly as the keyword branch does.
+                    if is_object && !field.contains('.') {
+                        // Object OR array: `collect_text_fields` emits a blob
+                        // for a root-level object AND for an array (joining its
+                        // elements via the same `extract_text_value`), so mirror
+                        // both here. Keyword/text arrays never reach this branch
+                        // (`is_object` is false for them).
+                        if matches!(&v, Value::Object(_) | Value::Array(_)) {
+                            let excluded = crate::memtable::fts_excluded_fields(schema);
+                            let blob =
+                                crate::memtable::extract_text_value_excluding(&v, field, &excluded);
+                            return Some(if *case_insensitive {
+                                wildcard_match(&blob.to_lowercase(), &pat_lc)
+                            } else {
+                                wildcard_match(&blob, pattern.as_str())
+                            });
+                        }
+                    }
+                    match v {
+                        Value::String(s) => Some(matches_str(&s)),
+                        Value::Array(arr) => Some(arr.iter().any(|e| match e {
+                            Value::String(s) => matches_str(s),
+                            _ => false,
+                        })),
+                        _ => None,
+                    }
                 })
                 .unwrap_or(false)
         }
