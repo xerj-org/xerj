@@ -5992,6 +5992,47 @@ fn parse_time_to_millis(s: &str) -> Option<u64> {
     Some(n.saturating_mul(mul_ms).max(1))
 }
 
+/// Every field name this request pulls a VALUE out of the stored document for
+/// by a route other than `_source` — the `fields` clause and `docvalue_fields`.
+///
+/// Used once per request, before the engine runs, to decide whether the default
+/// `_source` projection has to be pierced (#310). It deliberately re-parses the
+/// two clauses instead of the response-time lists built later in `search_impl`:
+/// the decision has to be taken BEFORE the search, and the URL-param forms
+/// (`?fields=`, `?docvalue_fields=`) have already been promoted into `body` by
+/// then, so this sees exactly what the response layer will.
+fn value_bearing_field_names(body: &EsSearchBody, fields: &[String]) -> Vec<String> {
+    fn push_names(v: Option<&Value>, out: &mut Vec<String>) {
+        match v {
+            Some(Value::Array(arr)) => {
+                for entry in arr {
+                    match entry {
+                        Value::String(s) => out.push(s.clone()),
+                        Value::Object(o) => {
+                            if let Some(name) = o.get("field").and_then(Value::as_str) {
+                                out.push(name.to_string());
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Some(Value::String(s)) => out.push(s.clone()),
+            _ => {}
+        }
+    }
+    let mut names = Vec::new();
+    match &body.fields {
+        Some(v @ (Value::Array(_) | Value::String(_))) => push_names(Some(v), &mut names),
+        // Same fallback the response-time `field_specs` builder takes: anything
+        // else (absent, or a shape the body parser does not recognise) leaves
+        // the typed request's list.
+        _ => names.extend(fields.iter().cloned()),
+    }
+    push_names(body.docvalue_fields.as_ref(), &mut names);
+    names
+}
+
 /// Build a `SearchRequest` from the ES body, forwarding all relevant options.
 fn build_search_request(
     body: &EsSearchBody,
@@ -10784,7 +10825,7 @@ async fn search_impl(
         .filter(|n| !value_type_failed_indices.contains(*n))
         .collect();
 
-    let search_req = match build_search_request(&body, aggs_value) {
+    let mut search_req = match build_search_request(&body, aggs_value) {
         Ok(mut r) => {
             // ES 7.16 leaf ordering for the implicit auto-@timestamp hint
             // (see the injection block above) — internal field, never on
@@ -10797,6 +10838,59 @@ async fn search_impl(
         }
         Err(e) => return ApiError::new(e).into_response(),
     };
+
+    // ── The default `_source` projection, and who has to see past it (#310) ──
+    //
+    // Since #309 a request with no `_source` clause gets `SourceFilter::Default`
+    // and the engine drops the generated embedding companions before the
+    // response layer ever sees a hit. But `_source` is not the only consumer of
+    // the stored document: `fields` and `docvalue_fields` resolve their values
+    // out of that same `hit.source`, AFTER the projection has narrowed it. So
+    // `{"fields": ["body_vector"]}` came back with nothing — silently, because an
+    // unresolvable `fields` entry is legally omitted — while the very same clause
+    // under `"_source": false` returned the whole vector, since `Enabled(false)`
+    // deliberately keeps the raw source for exactly this resolution. Two spellings
+    // of "I do not want `_source`", opposite answers.
+    //
+    // The fix: if a caller named a companion in `fields`/`docvalue_fields` and
+    // wrote no `_source` clause, ask the engine for the intact source and narrow
+    // it back to the default at each emission site below. Wire bytes are
+    // unchanged; the caller gets the value they explicitly asked for. Decided in
+    // the API (the only layer that sees the `fields` clause), not the engine —
+    // teaching the engine to treat `Default` as `Enabled(true)` would put
+    // companions back into every internal `SearchRequest::default()`.
+    let default_source_projection = body.source.is_none();
+    let value_bearing_names = if default_source_projection {
+        value_bearing_field_names(&body, &search_req.fields)
+    } else {
+        Vec::new()
+    };
+    // One schema read-lock per participating index, and only for a request that
+    // could actually consume the answer. (The collapse `inner_hits` companion
+    // leak under a default projection is a separate, pre-existing gap tracked as
+    // a follow-up; it is not driven by the pierce, so it is not populated here.)
+    let mut companions_by_index: HashMap<String, HashSet<String>> = HashMap::new();
+    if default_source_projection && !value_bearing_names.is_empty() {
+        for idx_name in &index_names {
+            let Ok(idx) = state.engine.get_index(idx_name) else {
+                continue;
+            };
+            let companions = idx.embedding_companion_fields().await;
+            if !companions.is_empty() {
+                companions_by_index.insert((*idx_name).to_string(), companions);
+            }
+        }
+    }
+    // The pierce, and the obligation it creates: every site that emits a
+    // `_source` for this response must undo it (top-level hit, collapse
+    // `inner_hits`, scroll snapshot).
+    let pierce_default_source = value_bearing_names
+        .iter()
+        .any(|f| companions_by_index.values().any(|c| c.contains(f)));
+    if pierce_default_source {
+        search_req.source = xerj_query::ast::SourceFilter::Enabled(true);
+    }
+    let search_req = search_req;
 
     // Execute search on each index and merge results.
     let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new(); // (index_name, hit)
@@ -11663,7 +11757,23 @@ async fn search_impl(
     let scroll_snapshot: Option<Vec<(String, xerj_query::executor::Hit)>> = if is_scroll_request {
         // Keep the index name with each hit (#414): dropping it here is what
         // made continuation pages fall back to a single context-level name.
-        Some(merged_hits.clone())
+        let mut snap = merged_hits.clone();
+        // #310 emission site 3: the snapshot outlives this response, and every
+        // later page is rendered by `scroll_page_response`, which carries no
+        // `fields` clause of its own and so has no reason to hold companions.
+        // Undo the pierce before the context is stored — otherwise page 1
+        // honours #309 and pages 2..n ship the companion in `_source`.
+        if pierce_default_source {
+            for (idx_name, h) in snap.iter_mut() {
+                if let (Some(companions), Some(obj)) = (
+                    companions_by_index.get(idx_name.as_str()),
+                    h.source.as_object_mut(),
+                ) {
+                    obj.retain(|name, _| !companions.contains(name));
+                }
+            }
+        }
+        Some(snap)
     } else {
         None
     };
@@ -11878,6 +11988,22 @@ async fn search_impl(
                     obj.retain(|name, _| {
                         !name.starts_with(xerj_query::executor::PASSAGE_METADATA_PREFIX)
                     });
+                }
+                // #310 emission site 1: this request pierced the default
+                // `_source` projection so the `fields` builder below could
+                // resolve an embedding companion the caller explicitly named.
+                // The pierce ends HERE — `fields` reads `h.source`, which is
+                // untouched, while the wire `_source` carries exactly what the
+                // #309 default would have carried. Miss this and #309's headline
+                // guarantee turns into a full-vector response for anyone who
+                // named a companion in `fields`.
+                if pierce_default_source {
+                    if let (Some(companions), Some(obj)) = (
+                        companions_by_index.get(idx_name.as_str()),
+                        s.as_object_mut(),
+                    ) {
+                        obj.retain(|name, _| !companions.contains(name));
+                    }
                 }
                 // Non-synthetic mode: strip the internal copy-to
                 // tracking marker; keep the copied values in the source
@@ -34316,7 +34442,17 @@ pub(crate) fn build_docvalue_fields(
         } else {
             arr
         };
+        // A field that resolves to NO values is omitted, never emitted as a bare
+        // `[]` (#310): `{"body_vector": []}` is a positive claim that the doc has
+        // no values for that field. ES omits an unresolvable `docvalue_fields`
+        // entry entirely (mirrors the `fields` builder's `None => continue`).
+        if formatted.is_empty() {
+            continue;
+        }
         map.insert(field_name.to_string(), Value::Array(formatted));
+    }
+    if map.is_empty() {
+        return None;
     }
     Some(map)
 }
