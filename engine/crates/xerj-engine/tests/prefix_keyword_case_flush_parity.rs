@@ -68,3 +68,44 @@ async fn prefix_keyword_case_is_flush_invariant() {
         "ES: keyword prefix is case-sensitive, so `hel` != `Hello`"
     );
 }
+
+/// Companion: `prefix` on a `text` field is also flush-invariant. The segment
+/// matches the LOWERCASED token with a RAW (un-lowercased) query, so an
+/// uppercase prefix `"Hel"` on `"Hello World"` is 0; the memtable folds both
+/// sides and answers 1. FAIL-BEFORE: pre-flush=1, post-flush=0.
+#[tokio::test]
+#[ignore = "#396/#423: memtable prefix folds the query for text too; un-ignored by the schema-aware fix"]
+async fn prefix_text_case_is_flush_invariant() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("body", FieldType::Text));
+    engine.create_index("docs", schema).expect("create");
+
+    let idx = engine.get_index("docs").expect("get");
+    idx.index_document(Some("d0".to_string()), json!({ "body": "Hello World" }))
+        .await
+        .expect("index");
+
+    // Uppercase prefix: the segment token is lowercased but the query is not,
+    // so `"Hel"` does not prefix `"hello"`.
+    let req = |p: &str| {
+        parse_request(&json!({ "query": { "prefix": { "body": p } }, "size": 0 })).unwrap()
+    };
+    let pre = idx.search(&req("Hel")).await.unwrap().total.value;
+    idx.refresh().await.expect("refresh");
+    let post = idx.search(&req("Hel")).await.unwrap().total.value;
+
+    assert_eq!(
+        pre, post,
+        "#396: `prefix:Hel` on text \"Hello World\" must be flush-invariant \
+         (pre-flush={pre}, post-flush={post})"
+    );
+    assert_eq!(
+        post, 0,
+        "segment lowercases the token but not the query: `Hel` !prefix `hello`"
+    );
+}
