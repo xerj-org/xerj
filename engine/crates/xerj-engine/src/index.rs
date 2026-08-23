@@ -14131,6 +14131,13 @@ impl Index {
             )));
         }
 
+        // #396: the memtable brute-scan matcher must see the mapping so
+        // `prefix`/`wildcard` apply the same keyword/text folding rules as the
+        // segment matcher (buffered answers must not change at flush). Resolved
+        // once (owned; the read guard is released immediately, so no re-entrancy
+        // with the guards taken later in this function).
+        let dmq_schema = self.schema().await;
+
         // Implicit @timestamp "sort segments on timestamp" handling (see
         // `SearchRequest::leaf_ts_field`).  Two regimes:
         //
@@ -15613,7 +15620,7 @@ impl Index {
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
                     } else if !query_may_read_id || source.get("_id").is_some() {
-                        doc_matches_query(query, &source)
+                        doc_matches_query_typed(query, &source, &dmq_schema)
                     } else {
                         // Inject `_id` so deeply-nested Ids queries (e.g.
                         // function_score → ids) can resolve it from source.
@@ -15624,7 +15631,7 @@ impl Index {
                         } else {
                             (*source).clone()
                         };
-                        doc_matches_query(query, &source_with_id)
+                        doc_matches_query_typed(query, &source_with_id, &dmq_schema)
                     };
                     if matched {
                         // Materialise (score + owned source) ONLY when the
@@ -16584,7 +16591,11 @@ impl Index {
                                                 Value::String(id.clone()),
                                             );
                                         }
-                                        if !doc_matches_query(query, &src_with_id) {
+                                        if !doc_matches_query_typed(
+                                            query,
+                                            &src_with_id,
+                                            &dmq_schema,
+                                        ) {
                                             continue;
                                         }
                                         total_count += 1;
@@ -18482,7 +18493,7 @@ impl Index {
                         } else {
                             fg_owned = all_docs
                                 .iter()
-                                .filter(|d| doc_matches_query(query, d))
+                                .filter(|d| doc_matches_query_typed(query, d, &dmq_schema))
                                 .cloned()
                                 .collect();
                             &fg_owned[..]
@@ -35541,7 +35552,17 @@ fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
+/// Schemaless compatibility shim (pre-#423 behaviour) for callers with no
+/// `Schema` in scope — unit tests, `collect_matched_queries_inner`,
+/// `apply_function_score`. The memtable search/scan paths call
+/// `doc_matches_query_typed` with the index's real schema so buffered-doc
+/// answers agree with the segment matcher (#396: keyword/text `prefix` folding).
 fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
+    static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
+    doc_matches_query_typed(q, source, &EMPTY_SCHEMA)
+}
+
+fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
     match q {
         QueryNode::MatchAll => true,
         QueryNode::MatchNone => false,
@@ -35670,19 +35691,33 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         },
 
         QueryNode::Prefix { field, value, .. } => {
-            // ES Prefix matches against analyzed tokens for text fields and
-            // against the raw value for keyword fields. Without schema info
-            // at this layer we check both: either the whole value starts
-            // with the pattern (keyword semantics) OR any whitespace-
-            // separated token does (analyzed-text semantics).
+            // #396: prefix semantics depend on the field's mapping, and ES never
+            // analyses the prefix VALUE itself.
+            //  - keyword: match the RAW stored value, case-SENSITIVE ("Hello"
+            //    does not start with "hel").
+            //  - analysed text: match the analysed (lower-cased) token stream
+            //    against the RAW query ("hel" prefixes "hello"; "Hel" does not).
+            //  - unknown field (schemaless shim caller — no `Schema` in scope):
+            //    preserve the pre-#423 fold-both heuristic so those callers are
+            //    byte-for-byte unchanged.
+            let ft = declared_field(schema, field).map(|f| &f.field_type);
+            let is_keyword = matches!(ft, Some(FieldType::Keyword));
+            let is_text = matches!(ft, Some(FieldType::Text));
             let value_lc = value.to_lowercase();
             let matches_str = |s: &str| -> bool {
-                let lc = s.to_lowercase();
-                if lc.starts_with(&value_lc) {
-                    return true;
+                if is_keyword {
+                    s.starts_with(value.as_str())
+                } else if is_text {
+                    s.split(|c: char| !c.is_alphanumeric()).any(|tok| {
+                        !tok.is_empty() && tok.to_lowercase().starts_with(value.as_str())
+                    })
+                } else {
+                    let lc = s.to_lowercase();
+                    lc.starts_with(&value_lc)
+                        || lc
+                            .split(|c: char| !c.is_alphanumeric())
+                            .any(|tok| !tok.is_empty() && tok.starts_with(&value_lc))
                 }
-                lc.split(|c: char| !c.is_alphanumeric())
-                    .any(|tok| !tok.is_empty() && tok.starts_with(&value_lc))
             };
             get_field_value(source, field)
                 .and_then(|v| match v {
@@ -35701,16 +35736,35 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             value: pattern,
             ..
         } => {
-            // Match against the raw value AND against every whitespace/
-            // non-alnum token — matches both keyword and text semantics.
+            // #396: `wildcard` must mirror its segment path per field type
+            // (ES never analyses the pattern):
+            //  - analysed TEXT: the segment matches the RAW pattern against the
+            //    lower-cased token stream (case_insensitive:false), so an
+            //    uppercase pattern matches nothing — do the same here (this is
+            //    the flush-divergence the KEYWORD-only earlier attempt missed).
+            //  - KEYWORD: the segment doc-values keyword-wildcard path folds
+            //    both sides (case-insensitive), so fold here to stay in
+            //    agreement. ES-correct case-sensitive keyword wildcard needs the
+            //    segment path changed too — tracked in #668.
+            //  - unknown field (schemaless shim caller): the pre-#423 fold-both
+            //    heuristic, byte-for-byte unchanged.
+            let is_text = matches!(
+                declared_field(schema, field).map(|f| &f.field_type),
+                Some(FieldType::Text)
+            );
             let pat_lc = pattern.to_lowercase();
             let matches_str = |s: &str| -> bool {
-                let lc = s.to_lowercase();
-                if wildcard_match(&lc, &pat_lc) {
-                    return true;
+                if is_text {
+                    s.split(|c: char| !c.is_alphanumeric()).any(|tok| {
+                        !tok.is_empty() && wildcard_match(&tok.to_lowercase(), pattern.as_str())
+                    })
+                } else {
+                    let lc = s.to_lowercase();
+                    wildcard_match(&lc, &pat_lc)
+                        || lc
+                            .split(|c: char| !c.is_alphanumeric())
+                            .any(|tok| !tok.is_empty() && wildcard_match(tok, &pat_lc))
                 }
-                lc.split(|c: char| !c.is_alphanumeric())
-                    .any(|tok| !tok.is_empty() && wildcard_match(tok, &pat_lc))
             };
             get_field_value(source, field)
                 .and_then(|v| match v {
@@ -35768,15 +35822,24 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             ..
         } => {
             // All must clauses must match.
-            if must.iter().any(|q| !doc_matches_query(q, source)) {
+            if must
+                .iter()
+                .any(|q| !doc_matches_query_typed(q, source, schema))
+            {
                 return false;
             }
             // No must_not clause may match.
-            if must_not.iter().any(|q| doc_matches_query(q, source)) {
+            if must_not
+                .iter()
+                .any(|q| doc_matches_query_typed(q, source, schema))
+            {
                 return false;
             }
             // All filter clauses must match.
-            if filter.iter().any(|q| !doc_matches_query(q, source)) {
+            if filter
+                .iter()
+                .any(|q| !doc_matches_query_typed(q, source, schema))
+            {
                 return false;
             }
             // Should clauses: if present, at least minimum_should_match must match.
@@ -35831,7 +35894,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 if min > 0 {
                     let matched = should
                         .iter()
-                        .filter(|q| doc_matches_query(q, source))
+                        .filter(|q| doc_matches_query_typed(q, source, schema))
                         .count();
                     if matched < min {
                         return false;
@@ -35842,18 +35905,20 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
-            doc_matches_query(query, source)
+            doc_matches_query_typed(query, source, schema)
         }
 
         QueryNode::Boosting { positive, .. } => {
             // A doc must match the positive query to be returned.
-            doc_matches_query(positive, source)
+            doc_matches_query_typed(positive, source, schema)
             // (score penalty for matching negative is handled in scoring, not filtering)
         }
 
         QueryNode::DisMax { queries, .. } => {
             // Matches if any sub-query matches.
-            queries.iter().any(|q| doc_matches_query(q, source))
+            queries
+                .iter()
+                .any(|q| doc_matches_query_typed(q, source, schema))
         }
 
         // Full-text queries via doc-scan: do simple substring match as fallback.
@@ -36511,7 +36576,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             }
         }
 
-        QueryNode::FunctionScore { query, .. } => doc_matches_query(query, source),
+        QueryNode::FunctionScore { query, .. } => doc_matches_query_typed(query, source, schema),
 
         // Nested: extract the array at `path`, run the inner query against each element.
         // The document matches if any element of the nested array matches.
@@ -36520,8 +36585,10 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         QueryNode::Nested { path, query, .. } => {
             let inner = strip_nested_path_in_query(query, path);
             match get_field_value(source, path) {
-                Some(Value::Array(arr)) => arr.iter().any(|elem| doc_matches_query(&inner, elem)),
-                Some(elem @ Value::Object(_)) => doc_matches_query(&inner, &elem),
+                Some(Value::Array(arr)) => arr
+                    .iter()
+                    .any(|elem| doc_matches_query_typed(&inner, elem, schema)),
+                Some(elem @ Value::Object(_)) => doc_matches_query_typed(&inner, &elem, schema),
                 _ => false,
             }
         }
@@ -36577,7 +36644,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                     return true;
                 }
             }
-            doc_matches_query(organic, source)
+            doc_matches_query_typed(organic, source, schema)
         }
 
         // GeoBoundingBox: check if doc's lat/lon is within the bounding box.
@@ -36635,7 +36702,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .unwrap_or(false)
         }
 
-        QueryNode::Named { query, .. } => doc_matches_query(query, source),
+        QueryNode::Named { query, .. } => doc_matches_query_typed(query, source, schema),
 
         // ── Span queries ──────────────────────────────────────────────────────
 
@@ -36667,14 +36734,18 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 .collect();
 
             if targets.is_empty() {
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses
+                    .iter()
+                    .all(|c| doc_matches_query_typed(c, source, schema));
             }
 
             // All targets must be on the same field for proximity logic.
             let first_field = &targets[0].0;
             if !targets.iter().all(|(f, _)| f == first_field) {
                 // Cross-field span: fall back to all-must match.
-                return clauses.iter().all(|c| doc_matches_query(c, source));
+                return clauses
+                    .iter()
+                    .all(|c| doc_matches_query_typed(c, source, schema));
             }
 
             let field_val = match get_field_value(source, first_field) {
@@ -36745,11 +36816,14 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         }
 
         // SpanOr: matches if any clause matches.
-        QueryNode::SpanOr { clauses } => clauses.iter().any(|c| doc_matches_query(c, source)),
+        QueryNode::SpanOr { clauses } => clauses
+            .iter()
+            .any(|c| doc_matches_query_typed(c, source, schema)),
 
         // SpanNot: include matches AND exclude does not match.
         QueryNode::SpanNot { include, exclude } => {
-            doc_matches_query(include, source) && !doc_matches_query(exclude, source)
+            doc_matches_query_typed(include, source, schema)
+                && !doc_matches_query_typed(exclude, source, schema)
         }
 
         // SpanFirst: match if the span_term appears in the first `end` tokens of the field.
@@ -36759,9 +36833,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 QueryNode::SpanTerm { field, value } => (field.as_str(), value.as_str()),
                 QueryNode::Term { field, value, .. } => match value.as_str() {
                     Some(v) => (field.as_str(), v),
-                    None => return doc_matches_query(match_query, source),
+                    None => return doc_matches_query_typed(match_query, source, schema),
                 },
-                other => return doc_matches_query(other, source),
+                other => return doc_matches_query_typed(other, source, schema),
             };
 
             let field_val = match get_field_value(source, field) {
@@ -36876,7 +36950,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 Ok(q) => q,
                 Err(_) => return false,
             };
-            documents.iter().any(|d| doc_matches_query(&stored_q, d))
+            documents
+                .iter()
+                .any(|d| doc_matches_query_typed(&stored_q, d, schema))
         }
 
         _ => false,

@@ -36,7 +36,6 @@ async fn prefix_hits(engine: &Engine, p: &str) -> u64 {
 /// matcher folds case so `prefix:hel` on `"Hello"` is 1 pre-flush but 0 after
 /// flush (the segment is case-sensitive, which is ES-correct for `keyword`).
 #[tokio::test]
-#[ignore = "#396/#423: memtable prefix folds case for keyword; un-ignored by the schema-aware fix"]
 async fn prefix_keyword_case_is_flush_invariant() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
@@ -74,7 +73,6 @@ async fn prefix_keyword_case_is_flush_invariant() {
 /// uppercase prefix `"Hel"` on `"Hello World"` is 0; the memtable folds both
 /// sides and answers 1. FAIL-BEFORE: pre-flush=1, post-flush=0.
 #[tokio::test]
-#[ignore = "#396/#423: memtable prefix folds the query for text too; un-ignored by the schema-aware fix"]
 async fn prefix_text_case_is_flush_invariant() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
@@ -108,4 +106,86 @@ async fn prefix_text_case_is_flush_invariant() {
         post, 0,
         "segment lowercases the token but not the query: `Hel` !prefix `hello`"
     );
+}
+
+/// #396 guard: `wildcard` on a keyword field stays flush-invariant. Unlike
+/// `prefix`, the memtable and the segment BOTH fold case for wildcard, so a
+/// lower-case pattern matches a capitalized keyword the same way before and
+/// after flush. Making only the memtable case-sensitive split-brained it (a
+/// regression caught in review); ES-correct keyword-wildcard case-sensitivity
+/// is a separate change that must also touch the segment doc-values path.
+#[tokio::test]
+async fn wildcard_keyword_is_flush_invariant() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("name", FieldType::Keyword));
+    engine.create_index("docs", schema).expect("create");
+
+    let idx = engine.get_index("docs").expect("get");
+    idx.index_document(Some("d0".to_string()), json!({ "name": "Hello" }))
+        .await
+        .expect("index");
+
+    let req = |p: &str| {
+        parse_request(&json!({ "query": { "wildcard": { "name": p } }, "size": 0 })).unwrap()
+    };
+    let pre = idx.search(&req("hel*")).await.unwrap().total.value;
+    idx.refresh().await.expect("refresh");
+    let post = idx.search(&req("hel*")).await.unwrap().total.value;
+
+    assert_eq!(
+        pre, post,
+        "#396: wildcard on a keyword field must be flush-invariant (pre={pre}, post={post})"
+    );
+}
+
+/// #396 guard: `wildcard` on a TEXT field is flush-invariant. The segment
+/// matches the RAW pattern against the lower-cased token stream (case-sensitive
+/// on the pattern), so an uppercase `"Hel*"` matches nothing after flush — the
+/// memtable must agree (it previously folded and answered 1, a divergence
+/// caught in review). Lower-case `"hel*"` matches the token `hello` both sides.
+#[tokio::test]
+async fn wildcard_text_is_flush_invariant() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("body", FieldType::Text));
+    engine.create_index("docs", schema).expect("create");
+
+    let idx = engine.get_index("docs").expect("get");
+    idx.index_document(Some("d0".to_string()), json!({ "body": "Hello World" }))
+        .await
+        .expect("index");
+
+    let req = |p: &str| {
+        parse_request(&json!({ "query": { "wildcard": { "body": p } }, "size": 0 })).unwrap()
+    };
+    // Uppercase pattern: case-sensitive against the lower-cased token => 0.
+    let pre_u = idx.search(&req("Hel*")).await.unwrap().total.value;
+    // Lower-case pattern: matches token "hello" => 1.
+    let pre_l = idx.search(&req("hel*")).await.unwrap().total.value;
+    idx.refresh().await.expect("refresh");
+    let post_u = idx.search(&req("Hel*")).await.unwrap().total.value;
+    let post_l = idx.search(&req("hel*")).await.unwrap().total.value;
+
+    assert_eq!(
+        pre_u, post_u,
+        "#396: wildcard text `Hel*` must be flush-invariant (pre={pre_u}, post={post_u})"
+    );
+    assert_eq!(
+        pre_l, post_l,
+        "#396: wildcard text `hel*` must be flush-invariant (pre={pre_l}, post={post_l})"
+    );
+    assert_eq!(
+        post_u, 0,
+        "uppercase pattern is case-sensitive against the lowercased token"
+    );
+    assert_eq!(post_l, 1, "lowercase pattern matches the token");
 }
