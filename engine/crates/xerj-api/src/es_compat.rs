@@ -20330,6 +20330,19 @@ pub async fn search_with_scroll(
         // itself — resolved at construction time in the engine, from the
         // same read as `_source` — not hardcoded, and omitted entirely
         // when not requested (#428/#440).
+        // #659: bring THIS route's first page into `_source` suppression parity
+        // with search_impl. The request-level part (`_source:false`, or
+        // `stored_fields` implying suppression when `_source` is unspecified) is
+        // constant across the snapshot; the mapping `_source.enabled:false` part
+        // is per-hit (applied in the hits_json build below). The continuation
+        // then matches via `mapping_source_check: true` on the ctx.
+        let (suppress_source_for_stored, _) = body
+            .stored_fields
+            .as_ref()
+            .map(parse_stored_fields)
+            .unwrap_or((false, vec![]));
+        let scroll_request_source_disabled = matches!(body.source, Some(Value::Bool(false)))
+            || (suppress_source_for_stored && body.source.is_none());
         let first_page: Vec<EsHit> = all_hits
             .iter()
             .take(page_size)
@@ -20391,13 +20404,12 @@ pub async fn search_with_scroll(
             page_size,
             seq_no_primary_term: emit_seq_no,
             version: emit_version,
-            source_disabled: matches!(body.source, Some(Value::Bool(false))),
-            // `_search_scroll` (this route) does NOT apply mapping
-            // `_source.enabled:false` suppression on its first page (it emits
-            // `_source` unconditionally), so its continuation must not either —
-            // otherwise it gains a new first-page/continuation split. That
-            // route's broader `_source` gap is tracked in #659.
-            mapping_source_check: false,
+            source_disabled: scroll_request_source_disabled,
+            // #659: this route's first page now applies the per-hit mapping
+            // `_source.enabled:false` suppression (below), so the continuation
+            // must too — matching search_impl and keeping the route
+            // self-consistent page to page.
+            mapping_source_check: true,
             created: now,
             keep_alive,
             expires_at: now + keep_alive,
@@ -20433,13 +20445,21 @@ pub async fn search_with_scroll(
                 if let Some(pt) = h.primary_term {
                     o.insert("_primary_term".to_string(), json!(pt));
                 }
-                o.insert(
-                    "_source".to_string(),
-                    match &h.source {
-                        Some(src) => src.clone(),
-                        None => Value::Null,
-                    },
-                );
+                // #659: omit `_source` under the same conditions search_impl
+                // does — request-level (`_source:false`/stored_fields-implied) or
+                // the per-hit mapping `_source.enabled:false`. Otherwise emit the
+                // (possibly null) source as before.
+                let suppress =
+                    scroll_request_source_disabled || mapping_source_disabled(&state, &h.index);
+                if !suppress {
+                    o.insert(
+                        "_source".to_string(),
+                        match &h.source {
+                            Some(src) => src.clone(),
+                            None => Value::Null,
+                        },
+                    );
+                }
                 if let Some(fields) = &h.fields {
                     o.insert(
                         "fields".to_string(),
