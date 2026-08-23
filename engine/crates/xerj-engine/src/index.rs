@@ -8405,6 +8405,20 @@ impl Index {
     /// RAM.  This keeps memory usage bounded regardless of dataset size.
     ///
     /// Search reads: active memtable (RAM) + disk segments (file I/O).
+    /// The engine-generated embedding companion field names for this index —
+    /// exactly the keys the default `_source` projection omits (#309).
+    ///
+    /// Published for the API layer, which has to know the same set for a reason
+    /// the engine cannot serve: only the API sees the `fields`/`docvalue_fields`
+    /// clauses, and only it can decide that a caller who named a companion there
+    /// must get the intact source from the engine and the narrowed one on the
+    /// wire (#310). The mapping rule stays in `generated_embedding_companion_fields`;
+    /// this is a lock-scoped accessor for it, not a second implementation.
+    pub async fn embedding_companion_fields(&self) -> HashSet<String> {
+        let schema = self.schema.read().await;
+        generated_embedding_companion_fields(&schema.schema)
+    }
+
     pub async fn refresh(&self) -> Result<()> {
         {
             let mem = &*self.memtable;
