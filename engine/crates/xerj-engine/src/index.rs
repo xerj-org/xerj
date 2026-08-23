@@ -26711,13 +26711,31 @@ fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Va
                         let projected: Vec<Value> = arr
                             .iter()
                             .filter_map(|elem| match elem {
-                                Value::Object(_) => {
-                                    Some(es_filter(elem, &child, child_all, includes, excludes))
+                                Value::Object(child_obj) => {
+                                    let f = es_filter(elem, &child, child_all, includes, excludes);
+                                    match &f {
+                                        // An element that *filtering* emptied is
+                                        // dropped from the array; one that was
+                                        // ALREADY `{}` survives only in an
+                                        // accepting state — same rule ES applies
+                                        // to array elements as to map values.
+                                        Value::Object(m) if m.is_empty() => {
+                                            (child_obj.is_empty() && child_all).then_some(f)
+                                        }
+                                        _ => Some(f),
+                                    }
                                 }
                                 other => child_all.then(|| other.clone()),
                             })
                             .collect();
-                        out.insert(key.clone(), Value::Array(projected));
+                        // A key whose array *filtering* emptied is pruned (had
+                        // elements, all dropped); an already-empty source array
+                        // survives only in an accepting state — mirrors the
+                        // object arm so an emptied array does not leave a bare
+                        // `[]` (or a `[{}]`) on the wire.
+                        if !projected.is_empty() || (arr.is_empty() && child_all) {
+                            out.insert(key.clone(), Value::Array(projected));
+                        }
                     }
                 }
                 // A scalar leaf is kept ONLY in an ACCEPTing state. A scalar that
@@ -27159,6 +27177,36 @@ mod source_filter_tests {
             ),
             json!({ "logs": [{ "msg": 1 }, { "msg": 3 }] }),
             "#644: exclude logs.secret must strip secret from every array element"
+        );
+        // Emptied elements are pruned, not left as `{}`; a heterogeneous array
+        // drops the elements (and scalars) that do not match, keeping the rest.
+        assert_eq!(
+            filter_object(
+                &json!({ "tags": [{ "name": "x", "id": 1 }, { "id": 2 }, "loose"] }),
+                &["tags.name".to_string()],
+                &[]
+            ),
+            json!({ "tags": [{ "name": "x" }] }),
+            "#644: an emptied array element (and a scalar) is dropped, not kept as an empty object"
+        );
+        // An array all of whose elements empty → the key is pruned entirely.
+        assert_eq!(
+            filter_object(
+                &json!({ "tags": [{ "id": 1 }, { "id": 2 }], "keep": 5 }),
+                &["tags.name".to_string()],
+                &[]
+            ),
+            json!({}),
+            "#644: an array that filtering emptied drops its key (no bare [])"
+        );
+        assert_eq!(
+            filter_object(
+                &json!({ "tags": [{ "secret": 1 }, { "secret": 2 }] }),
+                &[],
+                &["tags.secret".to_string()]
+            ),
+            json!({}),
+            "#644: an exclude that empties every element prunes the key"
         );
     }
 
