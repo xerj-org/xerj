@@ -14649,12 +14649,13 @@ async fn search_impl(
         // re-derives the mapping check per hit from `h.index` instead.
         //
         // The per-hit null-source case is likewise handled in
-        // `scroll_page_response`. `scroll_page_response` is shared with the
-        // `/:index/_search_scroll` route, whose first page does NOT apply the
-        // mapping check — so the per-hit mapping gate there is guarded by the
-        // `mapping_source_check` flag set below (true here, false for that
-        // route), keeping each route's continuation identical to its own first
-        // page. That route's broader `_source` gap is tracked in #659.
+        // `scroll_page_response`, which is shared with the `/:index/_search_scroll`
+        // route. Both real scroll-opening routes now apply this same per-hit
+        // mapping suppression on their first page (`_search_scroll` since #659),
+        // so both set `mapping_source_check: true`. That flag still guards the
+        // shared continuation's mapping gate — it is `false` only for the
+        // synthetic/test `ScrollContext`s that have no first page — keeping each
+        // route's continuation identical to its own first page.
         let scroll_source_disabled = matches!(body.source, Some(Value::Bool(false)))
             || (suppress_source_for_stored && body.source.is_none());
         let ctx = xerj_engine::engine::ScrollContext {
@@ -20709,11 +20710,12 @@ async fn scroll_page_response(
             // at open). inner_hits still render from the collapse group snapshot
             // regardless.
             let source_disabled = ctx.source_disabled;
-            // #637: whether to ALSO apply the mapping `_source.enabled:false`
-            // suppression per hit below. Only true for scrolls opened by
-            // `search_impl` (whose first page applies it); false for the
-            // `_search_scroll` route, whose first page does not — so its
-            // continuation stays byte-identical to that first page (#659).
+            // #637/#659: whether to ALSO apply the mapping `_source.enabled:false`
+            // suppression per hit below. True for scrolls opened by either real
+            // route — `search_impl` and, since #659, `_search_scroll` — both of
+            // which apply it on their first page; false only for synthetic/test
+            // contexts. Keeps the continuation byte-identical to the opening
+            // route's own first page.
             let mapping_source_check = ctx.mapping_source_check;
 
             // Detect whether the initial search sorted by a non-score key;
@@ -20849,12 +20851,12 @@ async fn scroll_page_response(
                         // implied). The mapping `_source.enabled:false` case is
                         // re-derived PER HIT from this hit's own index (a scroll
                         // can span indices with divergent `_source` settings, and
-                        // search_impl's first page suppresses it per-hit — #658
-                        // skeptic), but ONLY when the opening route applies it on
-                        // its first page (`mapping_source_check`); the
-                        // `_search_scroll` route does not, so its continuation
-                        // stays identical to its first page (#659). inner_hits are
-                        // emitted regardless.
+                        // the first page suppresses it per-hit — #658 skeptic),
+                        // but ONLY when the opening route applies it on its first
+                        // page (`mapping_source_check`). Both real scroll routes
+                        // now do (search_impl, and `_search_scroll` since #659);
+                        // the flag is false only for synthetic contexts.
+                        // inner_hits are emitted regardless.
                         if !source_disabled
                             && !(mapping_source_check && mapping_source_disabled(state, &h.index))
                         {
