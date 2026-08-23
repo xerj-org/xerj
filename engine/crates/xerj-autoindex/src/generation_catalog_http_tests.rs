@@ -222,24 +222,26 @@ fn plan(indexed: &[(&str, &str)], junk_files: Vec<JunkFile>) -> Plan {
 
 fn prior_managed_ids(base: &CommittedManifest) -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
-    ids.extend(base.plan.files.keys().map(|key| format!("file:{key}")));
+    ids.extend(
+        base.plan
+            .files
+            .keys()
+            .map(|key| catalog::file_id("ax", key)),
+    );
     ids.extend(
         base.plan
             .junk_files
             .iter()
-            .map(|junk| format!("file:{}", junk.file_key)),
+            .map(|junk| catalog::file_id("ax", &junk.file_key)),
     );
-    ids.extend(
-        base.plan
-            .duplicate_files
-            .iter()
-            .map(|alias| catalog::duplicate_file_id(&alias.file_key, &alias.rel, &alias.path_id)),
-    );
+    ids.extend(base.plan.duplicate_files.iter().map(|alias| {
+        catalog::duplicate_file_id("ax", &alias.file_key, &alias.rel, &alias.path_id)
+    }));
     ids.extend(
         base.plan
             .datasets
             .iter()
-            .map(|dataset| format!("ds:{}", dataset.slug)),
+            .map(|dataset| format!("ds:ax:{}", dataset.slug)),
     );
     ids
 }
@@ -274,8 +276,8 @@ fn junk_only_add_change_and_delete_converge_without_hiding_unchanged_data() {
     )
     .unwrap();
     endpoint.publish(&projection, &BTreeSet::new()).unwrap();
-    assert_eq!(endpoint.documents["file:junk-a"]["status"], "junk");
-    assert_eq!(endpoint.documents["file:keep"]["run_id"], "g2");
+    assert_eq!(endpoint.documents["file:ax:junk-a"]["status"], "junk");
+    assert_eq!(endpoint.documents["file:ax:keep"]["run_id"], "g2");
 
     let base = committed(added);
     let changed = generation(
@@ -298,7 +300,7 @@ fn junk_only_add_change_and_delete_converge_without_hiding_unchanged_data() {
     .unwrap();
     endpoint.publish(&projection, &BTreeSet::new()).unwrap();
     assert_eq!(
-        endpoint.documents["file:junk-a"]["reason"],
+        endpoint.documents["file:ax:junk-a"]["reason"],
         "unsupported archive"
     );
 
@@ -318,10 +320,10 @@ fn junk_only_add_change_and_delete_converge_without_hiding_unchanged_data() {
         &prior_managed_ids(&base),
     )
     .unwrap();
-    assert!(projection.stale_ids.contains("file:junk-a"));
+    assert!(projection.stale_ids.contains("file:ax:junk-a"));
     endpoint.publish(&projection, &BTreeSet::new()).unwrap();
-    assert!(!endpoint.documents.contains_key("file:junk-a"));
-    assert_eq!(endpoint.documents["file:keep"]["run_id"], "g4");
+    assert!(!endpoint.documents.contains_key("file:ax:junk-a"));
+    assert_eq!(endpoint.documents["file:ax:keep"]["run_id"], "g4");
 }
 
 #[test]
@@ -353,8 +355,8 @@ fn indexed_and_junk_transitions_replace_the_same_catalog_identity() {
         &prior_managed_ids(&base),
     )
     .unwrap();
-    assert_eq!(junk_projection.documents["file:same"]["status"], "junk");
-    assert!(!junk_projection.stale_ids.contains("file:same"));
+    assert_eq!(junk_projection.documents["file:ax:same"]["status"], "junk");
+    assert!(!junk_projection.stale_ids.contains("file:ax:same"));
 
     let base = committed(became_junk);
     let indexed_again = generation(
@@ -372,8 +374,8 @@ fn indexed_and_junk_transitions_replace_the_same_catalog_identity() {
         &prior_managed_ids(&base),
     )
     .unwrap();
-    assert_eq!(projection.documents["file:same"]["status"], "indexed");
-    assert!(!projection.stale_ids.contains("file:same"));
+    assert_eq!(projection.documents["file:ax:same"]["status"], "indexed");
+    assert!(!projection.stale_ids.contains("file:ax:same"));
 }
 
 #[test]
@@ -435,12 +437,16 @@ fn exact_run_dataset_file_ids_and_payloads_are_generation_bound() {
             .keys()
             .cloned()
             .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["ds:reports".into(), "file:report".into(), "run:g2".into()])
+        BTreeSet::from([
+            "ds:ax:reports".into(),
+            "file:ax:report".into(),
+            "run:g2".into()
+        ])
     );
     assert_eq!(projection.documents["run:g2"]["records_total"], 2);
     assert_eq!(projection.documents["run:g2"]["files_total"], 1);
-    assert_eq!(projection.documents["ds:reports"]["record_count"], 2);
-    assert_eq!(projection.documents["file:report"]["records"], 2);
+    assert_eq!(projection.documents["ds:ax:reports"]["record_count"], 2);
+    assert_eq!(projection.documents["file:ax:report"]["records"], 2);
     assert!(projection
         .documents
         .values()
@@ -483,7 +489,7 @@ fn stale_alias_and_independently_observed_correlation_are_deleted() {
         &observed_prior,
     )
     .unwrap();
-    let alias_id = catalog::duplicate_file_id(&alias.file_key, &alias.rel, &alias.path_id);
+    let alias_id = catalog::duplicate_file_id("ax", &alias.file_key, &alias.rel, &alias.path_id);
     assert!(projection.stale_ids.contains(&alias_id));
 
     let mut endpoint = CatalogEndpoint::default();

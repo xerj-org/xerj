@@ -3552,11 +3552,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         let needs_alias_path_migration = !plan.alias_paths_indexed;
         let previous_aliases = plan.duplicate_files.clone();
         alias_paths_to_replace.extend(previous_aliases.iter().map(|alias| alias.rel.clone()));
-        stale_alias_ids.extend(
-            plan.duplicate_files
-                .iter()
-                .map(|old| catalog::duplicate_file_id(&old.file_key, &old.rel, &old.path_id)),
-        );
+        stale_alias_ids.extend(plan.duplicate_files.iter().map(|old| {
+            catalog::duplicate_file_id(&cfg.prefix, &old.file_key, &old.rel, &old.path_id)
+        }));
         let selected_plan_keys =
             select_resume_plan_keys(&inventory.files, &inventory.keys, plan, &journal_path)?;
         for (index, planned_key) in selected_plan_keys.into_iter().enumerate() {
@@ -3634,7 +3632,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         let current_alias_ids: std::collections::HashSet<String> = inventory
             .duplicates
             .iter()
-            .map(|alias| catalog::duplicate_file_id(&alias.file_key, &alias.rel, &alias.path_id))
+            .map(|alias| {
+                catalog::duplicate_file_id(&cfg.prefix, &alias.file_key, &alias.rel, &alias.path_id)
+            })
             .collect();
         stale_alias_ids.retain(|id| !current_alias_ids.contains(id));
         // The historical global flag cannot identify which live documents
@@ -5328,7 +5328,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     for key in &swept_junk_keys {
         let action = json!({"delete": {
             "_index": catalog::CATALOG_INDEX,
-            "_id": catalog::file_id(key),
+            "_id": catalog::file_id(&cfg.prefix, key),
         }});
         cat_buf.extend_from_slice(action.to_string().as_bytes());
         cat_buf.push(b'\n');
@@ -5385,6 +5385,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         formats.dedup();
         let (tmin, tmax) = ds_timerange.get(&d.slug).cloned().unwrap_or((None, None));
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
+            prefix: &cfg.prefix,
             pd: d,
             record_count: *ds_counts.get(&d.slug).unwrap_or(&0),
             junk_records: durable.junk,
@@ -5429,6 +5430,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 .unwrap_or_else(|| "unknown".into());
             code_coverage.observe(&fmt, fd.records);
             let (id, doc) = catalog::file_doc(
+                &cfg.prefix,
                 &fd.file_key,
                 current_path,
                 &fmt,
@@ -5489,6 +5491,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     for jf in &all_junk {
         code_coverage.observe(&jf.format, 0);
         let (id, doc) = catalog::file_doc(
+            &cfg.prefix,
             &jf.file_key,
             &jf.rel,
             &jf.format,
@@ -5504,6 +5507,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     }
     for duplicate in &plan.duplicate_files {
         let (id, doc) = catalog::duplicate_file_doc(
+            &cfg.prefix,
             &duplicate.file_key,
             &duplicate.rel,
             &duplicate.path_id,
