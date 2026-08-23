@@ -61,7 +61,10 @@ async fn post(app: &axum::Router, path: &str, body: Value) -> (StatusCode, Value
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("body");
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 /// A collapse `inner_hits` must render even under an explicit
