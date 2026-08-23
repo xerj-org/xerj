@@ -10866,9 +10866,11 @@ async fn search_impl(
         Vec::new()
     };
     // One schema read-lock per participating index, and only for a request that
-    // could actually consume the answer.
+    // could actually consume the answer. (The collapse `inner_hits` companion
+    // leak under a default projection is a separate, pre-existing gap tracked as
+    // a follow-up; it is not driven by the pierce, so it is not populated here.)
     let mut companions_by_index: HashMap<String, HashSet<String>> = HashMap::new();
-    if default_source_projection && (!value_bearing_names.is_empty() || body.collapse.is_some()) {
+    if default_source_projection && !value_bearing_names.is_empty() {
         for idx_name in &index_names {
             let Ok(idx) = state.engine.get_index(idx_name) else {
                 continue;
@@ -11755,7 +11757,23 @@ async fn search_impl(
     let scroll_snapshot: Option<Vec<(String, xerj_query::executor::Hit)>> = if is_scroll_request {
         // Keep the index name with each hit (#414): dropping it here is what
         // made continuation pages fall back to a single context-level name.
-        Some(merged_hits.clone())
+        let mut snap = merged_hits.clone();
+        // #310 emission site 3: the snapshot outlives this response, and every
+        // later page is rendered by `scroll_page_response`, which carries no
+        // `fields` clause of its own and so has no reason to hold companions.
+        // Undo the pierce before the context is stored — otherwise page 1
+        // honours #309 and pages 2..n ship the companion in `_source`.
+        if pierce_default_source {
+            for (idx_name, h) in snap.iter_mut() {
+                if let (Some(companions), Some(obj)) = (
+                    companions_by_index.get(idx_name.as_str()),
+                    h.source.as_object_mut(),
+                ) {
+                    obj.retain(|name, _| !companions.contains(name));
+                }
+            }
+        }
+        Some(snap)
     } else {
         None
     };

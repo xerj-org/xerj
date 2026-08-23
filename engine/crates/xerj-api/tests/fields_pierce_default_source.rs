@@ -294,3 +294,74 @@ async fn a_dotted_target_field_keeps_unrelated_empty_objects() {
         "the dotted companion itself must still be omitted: {response}"
     );
 }
+
+/// #310 emission site 3: a `_search?scroll=` that pierced the default `_source`
+/// for a `fields` companion must NOT leak that companion on the CONTINUATION
+/// pages. The scroll snapshot is taken in `search_impl`; the pierce widened it
+/// to the intact source, so page 1 (rendered inline) is re-narrowed by site 1
+/// but pages 2..n (rendered by `scroll_page_response`, which has no `fields`
+/// clause) would ship the vector unless the snapshot itself is re-narrowed.
+#[tokio::test]
+async fn scroll_continuation_does_not_leak_a_companion_after_a_pierce() {
+    let (app, _dir) = seeded_app().await;
+    // A second doc so a size:1 scroll has a continuation page.
+    let (status, _) = post(
+        &app,
+        "/docs/_doc/2",
+        json!({ "body": "a second document so the scroll has a page two. ".repeat(8), "title": "second" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "index second doc");
+    let _ = post(&app, "/docs/_refresh", Value::Null).await;
+
+    // Page 1: pierce for the named companion, size 1, default `_source`.
+    let (status, page1) = post(
+        &app,
+        "/docs/_search?scroll=5m",
+        json!({ "query": { "match_all": {} }, "size": 1, "fields": ["body_vector"] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{page1}");
+    let h1 = first_hit(&page1);
+    assert_eq!(
+        h1["fields"]["body_vector"]
+            .as_array()
+            .map(|v| v.len())
+            .unwrap_or(0),
+        DIMS,
+        "page 1 must resolve the named companion via the pierce: {page1}"
+    );
+    assert!(
+        !h1["_source"]
+            .as_object()
+            .expect("_source")
+            .contains_key("body_vector"),
+        "page 1 _source must not leak the companion (#309 via site 1): {page1}"
+    );
+    let sid = page1["_scroll_id"].as_str().expect("scroll id").to_string();
+
+    // Page 2 (continuation): rendered by scroll_page_response, no `fields`
+    // clause. The companion must be absent from `_source` (site 3).
+    let (status, page2) = post(
+        &app,
+        "/_search/scroll",
+        json!({ "scroll": "5m", "scroll_id": sid }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{page2}");
+    let h2 = first_hit(&page2);
+    assert!(
+        !h2["_source"]
+            .as_object()
+            .expect("_source")
+            .contains_key("body_vector"),
+        "#310 site 3: the scroll continuation must not leak the companion: {page2}"
+    );
+    assert!(
+        !h2["_source"]
+            .as_object()
+            .expect("_source")
+            .contains_key("body_vector_chunks"),
+        "#310 site 3: the chunks companion must not leak either: {page2}"
+    );
+}
