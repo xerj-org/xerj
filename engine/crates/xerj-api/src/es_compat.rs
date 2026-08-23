@@ -668,18 +668,6 @@ async fn cat_indices_inner(
     // operator can delete or retry, and omitting them is what made a failed
     // index invisible to every dashboard (issue #206).
     let failed = state.engine.list_failed_indices();
-    // #463: a `_close` that reclaimed RAM released the index's in-memory handle,
-    // so it is absent from `list_indices` (loaded-only). List those indices with
-    // status `close` rather than omitting them — an operator who closed an index
-    // must still see it (the same visibility guarantee #206 restored for failed
-    // indices). No doc count is shown: we do not load the index just to count.
-    let closed_all: Vec<String> = state
-        .engine
-        .closed_indices
-        .iter()
-        .map(|e| e.key().clone())
-        .filter(|n| !indices.iter().any(|i| &i.name == n) && !failed.iter().any(|f| &f.name == n))
-        .collect();
 
     // Narrow to the path pattern when present (`/_cat/indices/{pattern}`):
     // a comma-separated list of concrete names and/or `*` globs. ES rules:
@@ -699,7 +687,6 @@ async fn cat_indices_inner(
                 if !is_wildcard
                     && !indices.iter().any(|i| i.name == p)
                     && !failed.iter().any(|f| f.name == p)
-                    && !closed_all.iter().any(|n| n == p)
                 {
                     return ApiError::new(xerj_common::XerjError::index_not_found(p))
                         .into_response();
@@ -765,21 +752,6 @@ async fn cat_indices_inner(
         .map(|f| (f.name.clone(), stable_index_uuid(&f.name)))
         .collect();
 
-    // #463: closed indices selected by the same pattern rules as above.
-    let selected_closed: Vec<String> = match pattern.as_deref() {
-        None => closed_all.clone(),
-        Some(pat) => closed_all
-            .iter()
-            .filter(|n| {
-                pat.split(',')
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .any(|p| p == "_all" || p == "*" || n.as_str() == p || glob_match_simple(p, n))
-            })
-            .cloned()
-            .collect(),
-    };
-
     if params.format.as_deref() == Some("json") {
         let mut arr: Vec<Value> = rows
             .iter()
@@ -812,20 +784,6 @@ async fn cat_indices_inner(
                 "pri.store.size": "0b",
             })
         }));
-        arr.extend(selected_closed.iter().map(|name| {
-            json!({
-                "health": "",
-                "status": "close",
-                "index": name,
-                "uuid": stable_index_uuid(name),
-                "pri": "1",
-                "rep": "0",
-                "docs.count": "0",
-                "docs.deleted": "0",
-                "store.size": "0b",
-                "pri.store.size": "0b",
-            })
-        }));
         return Json(arr).into_response();
     }
 
@@ -837,13 +795,6 @@ async fn cat_indices_inner(
         .collect();
     for (name, uuid) in &failed_rows {
         lines.push(format!("red open {name} {uuid} 1 0 0 0 0b 0b 0b"));
-    }
-    for name in &selected_closed {
-        // Empty health column (rendered `-`), status `close` (#463).
-        lines.push(format!(
-            "- close {name} {} 1 0 0 0 0b 0b 0b",
-            stable_index_uuid(name)
-        ));
     }
     // ES returns an empty body (not a bare newline) when nothing matches.
     let body = if lines.is_empty() {
@@ -27875,28 +27826,6 @@ pub async fn open_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
 ) -> impl IntoResponse {
-    // #463: a `_close` that reclaimed RAM dropped the index's in-memory handle,
-    // so it is not in the loaded set that `resolve_indices_for_op` sees. Any
-    // closed index the spec names is reconstructed from disk FIRST, so the
-    // resolve + reopen loop below finds it. Concrete names match directly;
-    // wildcards/_all match against the closed set.
-    let closed_names: Vec<String> = state
-        .engine
-        .closed_indices
-        .iter()
-        .map(|e| e.key().clone())
-        .collect();
-    for name in &closed_names {
-        let named = index
-            .split(',')
-            .map(str::trim)
-            .any(|p| p == "_all" || p == "*" || p == name || glob_match_simple(p, name));
-        if named && !state.engine.is_index_loaded(name) {
-            if let Err(e) = state.engine.reopen_index(name) {
-                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
-            }
-        }
-    }
     let handles = match resolve_indices_for_op(&state, &index).await {
         Ok(h) => h,
         Err(e) => return ApiError::new(e).into_response(),

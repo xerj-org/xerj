@@ -43,31 +43,50 @@ async fn seed(engine: &Engine, name: &str, n: usize) {
     }
 }
 
-/// `close_index` releases the in-memory handle; `reopen_index` reconstructs it
-/// from disk with no data loss. FAIL-BEFORE: with the release hunk reverted the
-/// handle stays loaded after close, so the `!is_index_loaded` assertion fails.
+/// Run a size>0 search so the per-segment caches actually hydrate.
+async fn hydrate(engine: &Engine, name: &str) -> u64 {
+    let idx = engine.get_index(name).expect("get index");
+    let req = parse_request(&json!({ "query": { "match": { "body": "document" } }, "size": 25 }))
+        .expect("parse_request");
+    idx.search(&req).await.expect("search").total.value
+}
+
+/// `close_index` releases the resident caches while keeping the `Arc<Index>`
+/// shell loaded (so `_cat`/`_cluster` views are unchanged); reads re-hydrate on
+/// reopen with no data loss. FAIL-BEFORE: with the `idx.release_memory()` call
+/// reverted, the caches stay populated so `total_cache_entries == 0` fails.
 #[tokio::test]
-async fn close_releases_handle_and_reopen_is_lossless() {
+async fn close_releases_caches_and_reopen_is_lossless() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
     seed(&engine, "docs", 50).await;
     engine.get_index("docs").unwrap().refresh().await.unwrap();
 
     assert!(engine.is_index_loaded("docs"), "loaded before close");
-    assert_eq!(count_all(&engine, "docs").await, 50);
+    hydrate(&engine, "docs").await;
+    let cached_before = engine.get_index("docs").unwrap().total_cache_entries();
+    assert!(
+        cached_before > 0,
+        "a query should have hydrated the caches, got {cached_before}"
+    );
 
     engine.close_index("docs").await.expect("close");
+    // The shell stays loaded (loaded-index views unchanged), but caches are freed.
     assert!(
-        !engine.is_index_loaded("docs"),
-        "#463: _close must release the in-memory Arc<Index>, not just flip a flag"
+        engine.is_index_loaded("docs"),
+        "a closed index stays loaded (shell) — matches _cat/_cluster's model"
     );
     assert!(
         engine.closed_indices.contains_key("docs"),
-        "close still marks the index closed"
+        "close marks the index closed"
+    );
+    let cached_after = engine.get_index("docs").unwrap().total_cache_entries();
+    assert_eq!(
+        cached_after, 0,
+        "#463: _close must release the resident caches (was {cached_before}, now {cached_after})"
     );
 
     engine.reopen_index("docs").expect("reopen");
-    assert!(engine.is_index_loaded("docs"), "reopen reloads the handle");
     assert!(
         !engine.closed_indices.contains_key("docs"),
         "reopen clears the closed flag"
@@ -75,13 +94,13 @@ async fn close_releases_handle_and_reopen_is_lossless() {
     assert_eq!(
         count_all(&engine, "docs").await,
         50,
-        "#463: reopen must be lossless"
+        "#463: reopen re-hydrates losslessly"
     );
 }
 
 /// Data-safety: documents indexed but NOT refreshed/flushed before close must
-/// survive close→open (close flushes; reopen replays). Guards against a memory
-/// win that silently drops the memtable.
+/// survive close→reopen (close flushes the memtable BEFORE releasing caches).
+/// Guards against a memory win that silently drops the memtable.
 #[tokio::test]
 async fn close_flushes_so_unrefreshed_docs_survive_reopen() {
     let dir = TempDir::new().unwrap();
@@ -89,8 +108,6 @@ async fn close_flushes_so_unrefreshed_docs_survive_reopen() {
     seed(&engine, "docs", 30).await; // NO refresh — docs sit in the memtable/WAL
 
     engine.close_index("docs").await.expect("close");
-    assert!(!engine.is_index_loaded("docs"), "released on close");
-
     engine.reopen_index("docs").expect("reopen");
     assert_eq!(
         count_all(&engine, "docs").await,

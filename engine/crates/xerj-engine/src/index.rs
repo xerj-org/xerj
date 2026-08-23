@@ -18887,6 +18887,54 @@ impl Index {
         self.flush_byte_threshold
     }
 
+    /// Release this index's rebuildable in-memory caches (#463). Every one of
+    /// these DashMaps holds hydrated-from-disk data (or recomputable results):
+    /// clearing them frees the resident payload — the `Resident` wrappers refund
+    /// their hydration budget on drop — and the next read re-hydrates from disk,
+    /// exactly as a cache eviction under memory pressure already does. The caller
+    /// MUST flush the memtable first (see `Engine::close_index`) so no
+    /// not-yet-published document is lost; caches only ever mirror durable data.
+    /// The `Arc<Index>` shell itself stays in `Engine::indices` so every
+    /// loaded-index view (`_cat/indices`, `_cluster/health`, …) is unchanged.
+    pub fn release_memory(&self) {
+        self.dv_cache.clear();
+        self.sort_shadow_cache.clear();
+        self.range_prefilter_cache.clear();
+        self.id_pos_cache.clear();
+        self.row_seq_cache.clear();
+        self.stored_value_cache.clear();
+        self.stored_slices_cache.clear();
+        self.decoded_stored_cache.clear();
+        self.fts_reader_cache.clear();
+        self.shortcut_count_cache.clear();
+        self.ghost_positions_cache.clear();
+        self.regexp_expand_cache.clear();
+        self.fast_date_cache.clear();
+        self.fast_date_sorted_cache.clear();
+        self.query_cache.clear();
+    }
+
+    /// Total resident cache entries across every per-segment cache — a
+    /// deterministic observable for the `release_memory` effect (#463 tests):
+    /// non-zero after a query hydrates segments, zero after `release_memory`.
+    pub fn total_cache_entries(&self) -> usize {
+        self.dv_cache.len()
+            + self.sort_shadow_cache.len()
+            + self.range_prefilter_cache.len()
+            + self.id_pos_cache.len()
+            + self.row_seq_cache.len()
+            + self.stored_value_cache.len()
+            + self.stored_slices_cache.len()
+            + self.decoded_stored_cache.len()
+            + self.fts_reader_cache.len()
+            + self.shortcut_count_cache.len()
+            + self.ghost_positions_cache.len()
+            + self.regexp_expand_cache.len()
+            + self.fast_date_cache.len()
+            + self.fast_date_sorted_cache.len()
+            + self.query_cache.len()
+    }
+
     // ── Stats ─────────────────────────────────────────────────────────────────
 
     /// Return statistics for this index.
