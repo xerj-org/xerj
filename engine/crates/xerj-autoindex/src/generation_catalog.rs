@@ -109,6 +109,7 @@ pub fn project_generation(
         let format = assignment_format(assignment.family.as_str(), assignment.gzip);
         code.observe(&format, group.expected_records);
         let (id, doc) = catalog::file_doc(
+            &execution.prefix,
             &group.content_id,
             &group.canonical.rel,
             &format,
@@ -122,6 +123,7 @@ pub fn project_generation(
         insert_unique(&mut documents, id, doc)?;
         for alias in &group.aliases {
             let (id, doc) = catalog::duplicate_file_doc(
+                &execution.prefix,
                 &group.content_id,
                 &alias.rel,
                 &alias.path_id,
@@ -138,6 +140,7 @@ pub fn project_generation(
         // these cannot double-count the groups above.
         code.observe(&junk.format, 0);
         let (id, doc) = catalog::file_doc(
+            &execution.prefix,
             &junk.file_key,
             &junk.rel,
             &junk.format,
@@ -176,6 +179,7 @@ pub fn project_generation(
         formats.sort();
         formats.dedup();
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
+            prefix: &execution.prefix,
             pd: dataset,
             record_count: stats.record_count,
             junk_records: stats.junk_records,
@@ -283,23 +287,23 @@ pub fn expected_ax_run<'a>(
 }
 
 #[cfg(test)]
-fn managed_non_run_ids(plan: &crate::state::Plan) -> BTreeSet<String> {
+fn managed_non_run_ids(prefix: &str, plan: &crate::state::Plan) -> BTreeSet<String> {
+    // #416: these prior-generation ids MUST match the write path's (prefixed)
+    // ids exactly, or the stale-sweep never removes them → orphan rows.
     let mut ids = BTreeSet::new();
-    ids.extend(plan.files.keys().map(|key| format!("file:{key}")));
+    ids.extend(plan.files.keys().map(|key| catalog::file_id(prefix, key)));
     ids.extend(
         plan.junk_files
             .iter()
-            .map(|junk| format!("file:{}", junk.file_key)),
+            .map(|junk| catalog::file_id(prefix, &junk.file_key)),
     );
-    ids.extend(
-        plan.duplicate_files
-            .iter()
-            .map(|alias| catalog::duplicate_file_id(&alias.file_key, &alias.rel, &alias.path_id)),
-    );
+    ids.extend(plan.duplicate_files.iter().map(|alias| {
+        catalog::duplicate_file_id(prefix, &alias.file_key, &alias.rel, &alias.path_id)
+    }));
     ids.extend(
         plan.datasets
             .iter()
-            .map(|dataset| format!("ds:{}", dataset.slug)),
+            .map(|dataset| format!("ds:{}:{}", prefix, dataset.slug)),
     );
     ids
 }
@@ -571,7 +575,7 @@ mod tests {
             &metadata("generation-2"),
             &stats(),
             &BTreeMap::new(),
-            &managed_non_run_ids(&base.plan),
+            &managed_non_run_ids("ax", &base.plan),
         )
         .unwrap();
 
@@ -581,7 +585,7 @@ mod tests {
             .values()
             .all(|doc| { doc.get("run_id").and_then(Value::as_str) == Some("generation-2") }));
         assert_eq!(
-            projection.documents["file:keep"]["run_id"], "generation-2",
+            projection.documents["file:ax:keep"]["run_id"], "generation-2",
             "an unchanged peer remains visible in the latest data map"
         );
     }
@@ -645,18 +649,19 @@ mod tests {
             &metadata("generation-2"),
             &no_dataset_stats,
             &BTreeMap::new(),
-            &managed_non_run_ids(&base.plan),
+            &managed_non_run_ids("ax", &base.plan),
         )
         .unwrap();
 
-        assert_eq!(projection.documents["file:indexed"]["status"], "junk");
-        assert!(projection.stale_ids.contains("file:old-junk"));
+        assert_eq!(projection.documents["file:ax:indexed"]["status"], "junk");
+        assert!(projection.stale_ids.contains("file:ax:old-junk"));
         assert!(projection.stale_ids.contains(&catalog::duplicate_file_id(
+            "ax",
             &duplicate.file_key,
             &duplicate.rel,
             &duplicate.path_id
         )));
-        assert!(!projection.stale_ids.contains("file:indexed"));
+        assert!(!projection.stale_ids.contains("file:ax:indexed"));
     }
 
     #[test]
@@ -690,7 +695,7 @@ mod tests {
             &metadata("g2"),
             &stats(),
             &BTreeMap::new(),
-            &managed_non_run_ids(&base.plan),
+            &managed_non_run_ids("ax", &base.plan),
         )
         .unwrap();
         projection.validate_observed(&projection.documents).unwrap();
@@ -700,7 +705,7 @@ mod tests {
         assert!(projection.validate_observed(&missing).is_err());
 
         let mut changed = projection.documents.clone();
-        changed.get_mut("ds:reports").unwrap()["record_count"] = json!(999);
+        changed.get_mut("ds:ax:reports").unwrap()["record_count"] = json!(999);
         assert!(projection.validate_observed(&changed).is_err());
     }
 }

@@ -1493,7 +1493,7 @@ fn a_multi_table_dump_reconciles_each_dataset_against_its_own_sealed_count() {
     for doc in endpoint.data_docs() {
         let slug = doc["ax_dataset"].as_str().unwrap().to_owned();
         assert!(
-            dataset_docs.contains_key(&format!("ds:{slug}")),
+            dataset_docs.contains_key(&format!("ds:incremental-http:{slug}")),
             "record published under an uncatalogued dataset {slug}"
         );
     }

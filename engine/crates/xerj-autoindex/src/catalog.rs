@@ -123,6 +123,8 @@ pub const GOTCHAS: &[&str] = &[
 ];
 
 pub struct DatasetDocInput<'a> {
+    /// Corpus scope (`--prefix`): keeps catalog ids from colliding across corpora (#416).
+    pub prefix: &'a str,
     pub pd: &'a PlanDataset,
     pub record_count: u64,
     pub junk_records: u64,
@@ -142,7 +144,7 @@ pub struct DatasetDocInput<'a> {
 }
 
 pub fn dataset_doc(inp: &DatasetDocInput) -> (String, Value) {
-    let id = format!("ds:{}", inp.pd.slug);
+    let id = format!("ds:{}:{}", inp.prefix, inp.pd.slug);
     let fields_json = serde_json::to_string(&inp.pd.specs).unwrap_or_else(|_| "[]".into());
     let doc = json!({
         "doc_kind": "dataset",
@@ -170,12 +172,13 @@ pub fn dataset_doc(inp: &DatasetDocInput) -> (String, Value) {
 /// Catalog document id for a file. One definition, because the sweep that
 /// removes a junk/skipped file's document (`lib.rs`, "stale junk-catalog
 /// sweep") has to name the id without holding the document.
-pub fn file_id(file_key: &str) -> String {
-    format!("file:{file_key}")
+pub fn file_id(prefix: &str, file_key: &str) -> String {
+    format!("file:{prefix}:{file_key}")
 }
 
 #[allow(clippy::too_many_arguments)] // 1:1 with the file-status doc's fields
 pub fn file_doc(
+    prefix: &str,
     file_key: &str,
     path: &str,
     format: &str,
@@ -187,7 +190,7 @@ pub fn file_doc(
     run_id: &str,
 ) -> (String, Value) {
     (
-        file_id(file_key),
+        file_id(prefix, file_key),
         json!({
             "doc_kind": "file",
             "file_key": file_key,
@@ -204,6 +207,7 @@ pub fn file_doc(
 }
 
 pub fn duplicate_file_doc(
+    prefix: &str,
     file_key: &str,
     path: &str,
     path_id: &str,
@@ -211,7 +215,7 @@ pub fn duplicate_file_doc(
     bytes: u64,
     run_id: &str,
 ) -> (String, Value) {
-    let alias_id = duplicate_file_id(file_key, path, path_id);
+    let alias_id = duplicate_file_id(prefix, file_key, path, path_id);
     (
         alias_id,
         json!({
@@ -230,10 +234,11 @@ pub fn duplicate_file_doc(
     )
 }
 
-pub fn duplicate_file_id(file_key: &str, path: &str, path_id: &str) -> String {
+pub fn duplicate_file_id(prefix: &str, file_key: &str, path: &str, path_id: &str) -> String {
     let identity = if path_id.is_empty() { path } else { path_id };
     format!(
-        "file-alias:{}",
+        "file-alias:{}:{}",
+        prefix,
         crate::ids::doc_id("duplicate-file", file_key, identity)
     )
 }
@@ -778,5 +783,24 @@ mod sample_query_tests {
         assert!(full_text["body"]["query"].get("match_phrase").is_none());
         assert!(full_text["body"].get("_source").is_none());
         assert!(full_text["body"].get("fields").is_none());
+    }
+
+    /// #416 (data-loss): the shared `autoindex-catalog` index is written by
+    /// every corpus, so its doc ids MUST be scoped by the corpus `--prefix` —
+    /// otherwise two corpora indexing the same file key (or producing the same
+    /// slug) overwrite each other's catalog entry. FAIL-BEFORE: dropping the
+    /// prefix from the id bodies makes these `assert_ne!` collide.
+    #[test]
+    fn catalog_ids_are_prefix_scoped_across_corpora() {
+        // Same key, different corpus prefix -> distinct ids (no overwrite).
+        assert_ne!(super::file_id("ax-a", "k"), super::file_id("ax-b", "k"));
+        assert_ne!(
+            super::duplicate_file_id("ax-a", "k", "p", "pi"),
+            super::duplicate_file_id("ax-b", "k", "p", "pi"),
+        );
+        // Idempotent within one corpus (a re-run must upsert, not duplicate).
+        assert_eq!(super::file_id("ax-a", "k"), super::file_id("ax-a", "k"));
+        // The prefix is actually in the id (not just concatenated key).
+        assert!(super::file_id("ax-a", "k").starts_with("file:ax-a:"));
     }
 }
