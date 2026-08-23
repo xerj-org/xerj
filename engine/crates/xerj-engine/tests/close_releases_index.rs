@@ -1,10 +1,10 @@
 //! Issue #463: `_close` must actually reclaim RAM, not just flip a flag.
 //!
 //! Before the fix, `close_index` only set the `closed_indices` gate; the
-//! `Arc<Index>` (memtable, per-segment caches, hydration budget) stayed in
-//! `Engine::indices`, so `_close` freed ~0.03% of an index's memory. The fix
-//! releases the in-memory handle on close and reconstructs it from disk on
-//! reopen — and must flush first so no not-yet-published document is lost.
+//! `Arc<Index>`'s per-segment caches stayed resident, so `_close` freed ~0.03%
+//! of an index's memory. The fix flushes the memtable then frees the index's
+//! rebuildable caches while KEEPING the `Arc<Index>` loaded (so `_cat`/`_cluster`
+//! views are unchanged); the next read re-hydrates from disk.
 
 use serde_json::json;
 use tempfile::TempDir;

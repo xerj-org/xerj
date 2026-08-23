@@ -1,11 +1,13 @@
-//! Issue #463: `POST /{index}/_close` marks an index unqueryable but frees ~no
-//! memory — `close_index` only sets the `closed_indices` flag; the `Arc<Index>`
-//! (memtable + per-segment caches + hydration budget) stays in `engine.indices`.
+//! Issue #463: `POST /{index}/_close` must actually reclaim RAM. The fix frees
+//! the index's rebuildable caches while keeping the `Arc<Index>` loaded, so the
+//! closed index stays visible and a later `_open` re-hydrates from disk.
 //!
-//! This probe establishes the fail-before observable: after `_close`, the global
-//! `segment_hydration.current_in_bytes` gauge does NOT drop (memory retained),
-//! and a subsequent `_open` + query must still return every doc (the fix must
-//! flush before releasing, so no data is lost).
+//! These are the HTTP-level guards: the `_close`→`_open`→query round-trip is
+//! lossless, and a closed index stays listed in `_cat/indices` (it did not
+//! vanish). The actual memory-reclaim assertion lives in the engine test
+//! (`close_releases_index`: `total_cache_entries` drops to 0) — the global
+//! `segment_hydration` gauge is not initialised in-process, so it cannot be an
+//! in-test observable here.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
