@@ -21055,6 +21055,18 @@ impl Index {
             _ => return None,
         };
 
+        // #423/#408: a keyword ARRAY (or whitespace keyword) stores only its
+        // FIRST element in the memtable's single-valued count column (see
+        // `push_field`), so counting `term` on any non-first element here would
+        // undercount — a confident, wrong 0 while the doc is buffered, then N
+        // after flush (size:0 = 0 while size:5 returned the doc). Abandon to the
+        // stored-source scan, which matches array membership via
+        // `doc_matches_query`. Mirrors the identical guard in
+        // `doc_values_term_query` / `doc_values_bool_hits`.
+        if self.memtable.term_count_needs_source_scan(field) {
+            return None;
+        }
+
         // Memtable side — M5.1 sharded count via per-shard count maps.
         // Each shard lazily rebuilds its own count map on first query
         // after an ingest; the sharded `doc_values_*_count` helpers
