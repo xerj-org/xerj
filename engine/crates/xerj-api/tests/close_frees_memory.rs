@@ -131,3 +131,48 @@ async fn probe_close_hydration_and_reopen_roundtrip() {
     eprintln!("PROBE post-open total hits = {total:?}");
     assert_eq!(total, Some(200), "reopen must be lossless: {q}");
 }
+
+/// #463 (+#206 visibility guarantee): a closed index whose in-memory handle was
+/// released must still appear in `_cat/indices` with status `close` — omitting
+/// it is the exact invisibility regression #206 fixed for failed indices. This
+/// is the fail-before for the release change (before the cat_indices fix the row
+/// vanishes because the released index is absent from the loaded-only listing).
+#[tokio::test]
+async fn closed_index_stays_visible_in_cat_indices() {
+    let (app, _dir) = app().await;
+
+    let (st, before) = call(&app, "GET", "/_cat/indices?format=json", Value::Null).await;
+    assert_eq!(st, StatusCode::OK);
+    assert!(
+        before
+            .as_array()
+            .is_some_and(|a| a.iter().any(|r| r["index"] == "docs")),
+        "docs should be listed before close: {before}"
+    );
+
+    let (st, _) = call(&app, "POST", "/docs/_close", Value::Null).await;
+    assert_eq!(st, StatusCode::OK);
+
+    let (st, after) = call(&app, "GET", "/_cat/indices?format=json", Value::Null).await;
+    assert_eq!(st, StatusCode::OK);
+    let row = after
+        .as_array()
+        .and_then(|a| a.iter().find(|r| r["index"] == "docs"));
+    assert!(
+        row.is_some(),
+        "#463/#206: a closed index must stay visible in _cat/indices, not vanish: {after}"
+    );
+    assert_eq!(
+        row.unwrap()["status"],
+        "close",
+        "#463: the closed index must report status close: {after}"
+    );
+
+    // And a concrete-name lookup of the closed index must not 404.
+    let (st, _) = call(&app, "GET", "/_cat/indices/docs?format=json", Value::Null).await;
+    assert_eq!(
+        st,
+        StatusCode::OK,
+        "a concrete _cat lookup of a closed index must not 404"
+    );
+}
