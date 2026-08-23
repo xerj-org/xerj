@@ -902,6 +902,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                         field: field.to_string(),
                         value: tok.to_string(),
                         fuzziness: fz,
+                        case_insensitive: false,
                     }
                 } else {
                     QueryNode::Match {
@@ -2198,6 +2199,7 @@ fn parse_fuzzy(params: &Value) -> Result<QueryNode> {
             field,
             value: value.to_string(),
             fuzziness: Fuzziness::Auto,
+            case_insensitive: false,
         });
     }
 
@@ -2227,10 +2229,15 @@ fn parse_fuzzy(params: &Value) -> Result<QueryNode> {
         _ => return invalid("`fuzzy.fuzziness` must be 'AUTO' or an integer"),
     };
 
+    let case_insensitive = inner
+        .get("case_insensitive")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     Ok(QueryNode::Fuzzy {
         field,
         value,
         fuzziness,
+        case_insensitive,
     })
 }
 
@@ -4259,6 +4266,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
                 field: field.clone(),
                 value: folded,
                 fuzziness: fz,
+                case_insensitive: true,
             }
         } else {
             QueryNode::Match {

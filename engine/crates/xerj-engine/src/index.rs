@@ -33826,10 +33826,12 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             field,
             value,
             fuzziness,
+            case_insensitive,
         } => QueryNode::Fuzzy {
             field: strip(field),
             value: value.clone(),
             fuzziness: *fuzziness,
+            case_insensitive: *case_insensitive,
         },
         QueryNode::Regexp { field, pattern } => QueryNode::Regexp {
             field: strip(field),
@@ -36402,6 +36404,7 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             field,
             value: query_value,
             fuzziness,
+            case_insensitive: _,
         } => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
@@ -41121,6 +41124,7 @@ fn query_node_to_fts_with_keyword_fields(
             field,
             value,
             fuzziness,
+            case_insensitive: _,
         } => {
             // `fuzzy` on a KEYWORD field: expand the keyword FST term dictionary
             // to every term within `max_edits` Damerau-Levenshtein distance and
@@ -42460,6 +42464,7 @@ fn scored_fast_plan(
             field,
             value,
             fuzziness,
+            case_insensitive: _,
         } if fs.kw.contains(field) => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(value),
@@ -44379,6 +44384,7 @@ mod fts_projection_tests {
             field: "body".into(),
             value: "runbok".into(),
             fuzziness: Fuzziness::Fixed(1),
+            case_insensitive: false,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text fuzzy projects") {
             FtsQuery::Fuzzy(f) => {
