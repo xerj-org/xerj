@@ -27806,7 +27806,12 @@ pub async fn close_index(
     };
     let mut indices = serde_json::Map::new();
     for (name, _) in &handles {
-        state.engine.closed_indices.insert(name.clone(), true);
+        // #463: actually release the index's RAM (flush → drop the in-memory
+        // handle), not just flip the closed flag. A flush failure aborts the
+        // close and leaves the index in service rather than losing data.
+        if let Err(e) = state.engine.close_index(name).await {
+            return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+        }
         indices.insert(name.clone(), json!({ "closed": true }));
     }
     Json(json!({
@@ -27821,6 +27826,28 @@ pub async fn open_index(
     State(state): State<AppState>,
     Path(index): Path<String>,
 ) -> impl IntoResponse {
+    // #463: a `_close` that reclaimed RAM dropped the index's in-memory handle,
+    // so it is not in the loaded set that `resolve_indices_for_op` sees. Any
+    // closed index the spec names is reconstructed from disk FIRST, so the
+    // resolve + reopen loop below finds it. Concrete names match directly;
+    // wildcards/_all match against the closed set.
+    let closed_names: Vec<String> = state
+        .engine
+        .closed_indices
+        .iter()
+        .map(|e| e.key().clone())
+        .collect();
+    for name in &closed_names {
+        let named = index
+            .split(',')
+            .map(str::trim)
+            .any(|p| p == "_all" || p == "*" || p == name || glob_match_simple(p, name));
+        if named && !state.engine.is_index_loaded(name) {
+            if let Err(e) = state.engine.reopen_index(name) {
+                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+            }
+        }
+    }
     let handles = match resolve_indices_for_op(&state, &index).await {
         Ok(h) => h,
         Err(e) => return ApiError::new(e).into_response(),
