@@ -638,6 +638,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
                 value: pattern,
                 boost: None,
                 constant_score: false,
+                case_insensitive: false,
             }
         }
         "not_like" => {
@@ -655,6 +656,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
                     value: pattern,
                     boost: None,
                     constant_score: false,
+                    case_insensitive: false,
                 }],
                 minimum_should_match: None,
             }
