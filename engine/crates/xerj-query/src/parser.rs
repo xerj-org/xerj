@@ -2657,16 +2657,28 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
         .map(|b| b as f32)
         .filter(|b| *b != 1.0);
 
+    // #681: honor `_name` on a bool clause (a top-level sibling of
+    // must/should/must_not/filter), so a named bool surfaces in
+    // matched_queries when it matches. `parse_bool` ignores unknown keys, so
+    // this was silently dropped before.
+    let name = obj
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
     if must.is_empty() && should.is_empty() && must_not.is_empty() && filter.is_empty() {
         // Empty bool == match_all; with a boost, ES scores it `boost`
         // per hit (constant-score semantics), like `match_all{boost}`.
-        return Ok(match boost {
-            Some(b) => QueryNode::Constant {
-                score: b,
-                query: Box::new(QueryNode::MatchAll),
+        return Ok(maybe_named(
+            match boost {
+                Some(b) => QueryNode::Constant {
+                    score: b,
+                    query: Box::new(QueryNode::MatchAll),
+                },
+                None => QueryNode::MatchAll,
             },
-            None => QueryNode::MatchAll,
-        });
+            name,
+        ));
     }
 
     let minimum_should_match = obj
@@ -2681,13 +2693,14 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
         filter,
         minimum_should_match,
     };
-    Ok(match boost {
+    let node = match boost {
         Some(b) => QueryNode::Boosted {
             boost: b,
             query: Box::new(node),
         },
         None => node,
-    })
+    };
+    Ok(maybe_named(node, name))
 }
 
 fn parse_constant_score(params: &Value) -> Result<QueryNode> {
