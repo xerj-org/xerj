@@ -22547,28 +22547,34 @@ impl Index {
                             ords: (lo as u32..hi as u32).collect(),
                         });
                     }
-                    ScoredFilterLeaf::KeywordWildcard { field, pattern } => {
+                    ScoredFilterLeaf::KeywordWildcard {
+                        field,
+                        pattern,
+                        case_insensitive,
+                    } => {
                         let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
                             return None;
                         };
-                        // SAME predicate as the brute path (`doc_matches_query`)
-                        // and the FST route (`term_matches_wildcard`): fold BOTH
-                        // sides, whole-value OR sub-token.  The old range+match
-                        // here was case-SENSITIVE, so a cased pattern (`K*1`,
-                        // case_insensitive) found nothing in a lowercase
-                        // dictionary — DV-only keyword wildcards returned 0 hits
-                        // from segments while the memtable matched.  A folded
-                        // pattern cannot bound a byte-ordered prefix range, so
-                        // walk the whole (distinct-term) dictionary — the same
-                        // cost class as the FST expansion.
+                        // #668: honor the node's case flag — the SAME predicate
+                        // the brute path (`doc_matches_query`) and the FST route
+                        // now apply. `term{case_insensitive:true}` / query_string
+                        // rewrites fold BOTH sides (whole-value OR sub-token); a
+                        // standalone `{wildcard}` matches the RAW term
+                        // case-sensitively (ES default). A folded pattern cannot
+                        // bound a byte-ordered prefix range, so walk the whole
+                        // (distinct-term) dictionary — same cost class as the FST.
                         let pat_lc = pattern.to_lowercase();
                         let ords: Vec<u32> = (0..k.terms.len())
                             .filter(|&o| {
-                                let lc = k.terms[o].to_lowercase();
-                                wildcard_match(&lc, &pat_lc)
-                                    || lc
-                                        .split(|c: char| !c.is_alphanumeric())
-                                        .any(|tok| !tok.is_empty() && wildcard_match(tok, &pat_lc))
+                                if *case_insensitive {
+                                    let lc = k.terms[o].to_lowercase();
+                                    wildcard_match(&lc, &pat_lc)
+                                        || lc.split(|c: char| !c.is_alphanumeric()).any(|tok| {
+                                            !tok.is_empty() && wildcard_match(tok, &pat_lc)
+                                        })
+                                } else {
+                                    wildcard_match(&k.terms[o], pattern.as_str())
+                                }
                             })
                             .map(|o| o as u32)
                             .collect();
@@ -35737,30 +35743,40 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
         QueryNode::Wildcard {
             field,
             value: pattern,
+            case_insensitive,
             ..
         } => {
-            // #396: `wildcard` must mirror its segment path per field type
+            // #396/#668: `wildcard` must mirror its segment path per field type
             // (ES never analyses the pattern):
             //  - analysed TEXT: the segment matches the RAW pattern against the
             //    lower-cased token stream (case_insensitive:false), so an
-            //    uppercase pattern matches nothing — do the same here (this is
-            //    the flush-divergence the KEYWORD-only earlier attempt missed).
-            //  - KEYWORD: the segment doc-values keyword-wildcard path folds
-            //    both sides (case-insensitive), so fold here to stay in
-            //    agreement. ES-correct case-sensitive keyword wildcard needs the
-            //    segment path changed too — tracked in #668.
-            //  - unknown field (schemaless shim caller): the pre-#423 fold-both
-            //    heuristic, byte-for-byte unchanged.
-            let is_text = matches!(
-                declared_field(schema, field).map(|f| &f.field_type),
-                Some(FieldType::Text)
-            );
+            //    uppercase pattern matches nothing — do the same here.
+            //  - KEYWORD, case-sensitive (standalone `{wildcard}`, the ES
+            //    default): match the RAW value with `wildcard_match` (#668).
+            //  - KEYWORD, case-insensitive (`term{case_insensitive:true}` /
+            //    query_string lowerings set the flag): fold both sides.
+            //  - field absent from the schema (the `EMPTY_SCHEMA` shim callers,
+            //    or a genuinely-undeclared field): the pre-#423 fold-both
+            //    heuristic. NB memtable search passes the real, dynamically-grown
+            //    schema, where an undeclared string is already mapped to `text`
+            //    and takes the branch above — so this arm is effectively the
+            //    schemaless-shim path, byte-for-byte unchanged.
+            let ft = declared_field(schema, field).map(|f| &f.field_type);
+            let is_text = matches!(ft, Some(FieldType::Text));
+            // Case-sensitive only for a declared keyword whose node did NOT ask
+            // to fold. Unknown fields (ft == None) keep folding (shim parity).
+            let keyword_case_sensitive =
+                matches!(ft, Some(FieldType::Keyword)) && !*case_insensitive;
             let pat_lc = pattern.to_lowercase();
             let matches_str = |s: &str| -> bool {
                 if is_text {
                     s.split(|c: char| !c.is_alphanumeric()).any(|tok| {
                         !tok.is_empty() && wildcard_match(&tok.to_lowercase(), pattern.as_str())
                     })
+                } else if keyword_case_sensitive {
+                    // A keyword is a single un-analysed term: match the whole
+                    // raw value, case-sensitively (mirrors the segment FST).
+                    wildcard_match(s, pattern.as_str())
                 } else {
                     let lc = s.to_lowercase();
                     wildcard_match(&lc, &pat_lc)
@@ -41052,7 +41068,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             boost,
             constant_score,
-            case_insensitive: _,
+            case_insensitive,
         } => {
             // `wildcard` on a KEYWORD field: expand the keyword FST term
             // dictionary to every term matching the pattern (`*`=0+ chars,
@@ -41063,16 +41079,17 @@ fn query_node_to_fts_with_keyword_fields(
             // (≪ docs) instead of a per-doc O(N) scan (~150 ms/100k → ~1 ms).
             //
             // Case-insensitivity is REQUIRED, not a shortcut: XERJ's parser
-            // drops `case_insensitive` and rewrites `term{case_insensitive:true}`
-            // to a Wildcard, both relying on the matcher folding case — so a
-            // case-sensitive FST route would break those (passing) paths.
+            // rewrites `term{case_insensitive:true}` to a Wildcard, which sets
+            // the node's `case_insensitive` flag so this route keeps folding for
+            // that (passing) path. A standalone `{wildcard}` sets the flag
+            // `false` → the FST route is case-SENSITIVE (ES-correct, #668).
             // TEXT fields keep the doc-scan (None): analyzed-token semantics.
             if exact_fields.contains(field.as_str()) {
                 return Some(FtsQuery::Wildcard(xerj_fts::search::WildcardQuery {
                     field: field.clone(),
                     pattern: value.clone(),
                     boost: boost.unwrap_or(1.0),
-                    case_insensitive: true,
+                    case_insensitive: *case_insensitive,
                     // ES rewrites a standalone `wildcard` query to a
                     // constant_score.  The `term{case_insensitive}` /
                     // query_string lowerings that SHARE this node pass `false`
@@ -41765,7 +41782,13 @@ enum ScoredFilterLeaf {
     /// per segment by matching the (distinct) dictionary terms with the
     /// SAME `wildcard_match` the brute path uses, narrowed to the leading
     /// literal's prefix range first.
-    KeywordWildcard { field: String, pattern: String },
+    KeywordWildcard {
+        field: String,
+        pattern: String,
+        /// #668: fold both sides when true (term-ci / query_string rewrites);
+        /// match the raw term case-sensitively when false (standalone wildcard).
+        case_insensitive: bool,
+    },
     /// `term` on a numeric/boolean field, or `range` on a numeric field —
     /// both evaluate as an inclusive/exclusive f64 window over the numeric
     /// doc-values column (a term is the degenerate `[v, v]` window;
@@ -42419,11 +42442,12 @@ fn scored_fast_plan(
             value,
             boost,
             constant_score: true,
-            case_insensitive: _,
+            case_insensitive,
         } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
             filter: vec![ScoredFilterLeaf::KeywordWildcard {
                 field: field.clone(),
                 pattern: value.clone(),
+                case_insensitive: *case_insensitive,
             }],
             must_not: Vec::new(),
             score: scoring_boost(boost)?,

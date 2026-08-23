@@ -27,7 +27,6 @@ async fn hits(engine: &Engine, q: serde_json::Value) -> u64 {
 }
 
 #[tokio::test]
-#[ignore = "#668: keyword wildcard folds case; un-ignored when the case_insensitive flag is threaded"]
 async fn keyword_wildcard_is_case_sensitive_but_term_ci_still_folds() {
     let dir = TempDir::new().unwrap();
     let mut config = Config::default();
@@ -43,30 +42,44 @@ async fn keyword_wildcard_is_case_sensitive_but_term_ci_still_folds() {
     idx.index_document(Some("d0".to_string()), json!({ "name": "Hello" }))
         .await
         .expect("index");
+
+    let wc = |p: &str| json!({ "wildcard": { "name": p } });
+    let term_ci = json!({ "term": { "name": { "value": "hello", "case_insensitive": true } } });
+
+    // Capture the buffered (memtable) answers, then flush and re-query the
+    // segment: every pair must agree (flush-invariance — the #667 lesson).
+    let pre_lower = hits(&engine, wc("hell*")).await;
+    let pre_cased = hits(&engine, wc("Hell*")).await;
+    let pre_ci = hits(&engine, term_ci.clone()).await;
     idx.refresh().await.expect("refresh");
+    let post_lower = hits(&engine, wc("hell*")).await;
+    let post_cased = hits(&engine, wc("Hell*")).await;
+    let post_ci = hits(&engine, term_ci.clone()).await;
+
+    assert_eq!(
+        pre_lower, post_lower,
+        "#668: keyword wildcard must be flush-invariant"
+    );
+    assert_eq!(
+        pre_cased, post_cased,
+        "#668: keyword wildcard must be flush-invariant"
+    );
+    assert_eq!(
+        pre_ci, post_ci,
+        "#668: term-ci wildcard must be flush-invariant"
+    );
 
     // ES-correct: keyword wildcard is case-sensitive, so a lower-case pattern
-    // does not match a capitalized value. (Currently returns 1 — the bug.)
+    // does not match a capitalized value; a correctly-cased one does.
     assert_eq!(
-        hits(&engine, json!({ "wildcard": { "name": "hell*" } })).await,
-        0,
+        post_lower, 0,
         "#668: keyword `wildcard` must be case-sensitive"
     );
-    // Sanity: a correctly-cased pattern still matches.
-    assert_eq!(
-        hits(&engine, json!({ "wildcard": { "name": "Hell*" } })).await,
-        1,
-        "case-correct wildcard still matches"
-    );
+    assert_eq!(post_cased, 1, "case-correct wildcard still matches");
     // CONSTRAINT: `term{case_insensitive:true}` (rewritten to a Wildcard) must
     // KEEP folding — the fix must not break this passing path.
     assert_eq!(
-        hits(
-            &engine,
-            json!({ "term": { "name": { "value": "hello", "case_insensitive": true } } })
-        )
-        .await,
-        1,
-        "#668: term with case_insensitive true must still fold after the fix"
+        post_ci, 1,
+        "#668: term with case_insensitive true must still fold"
     );
 }
