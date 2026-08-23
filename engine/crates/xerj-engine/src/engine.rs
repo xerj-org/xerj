@@ -3187,6 +3187,59 @@ impl Engine {
         }
     }
 
+    /// Whether the concrete index `name` is currently held in memory (its
+    /// `Arc<Index>` is live in `self.indices`). A closed index stays loaded —
+    /// `_close` frees the index's rebuildable caches but keeps the handle here
+    /// (#463), so this returns `true` for a closed index too; it is `false` only
+    /// for a name that was never opened or has been deleted. Not alias-resolving
+    /// — callers pass a concrete index name.
+    pub fn is_index_loaded(&self, name: &str) -> bool {
+        self.indices.contains_key(name)
+    }
+
+    /// `_close` that actually reclaims RAM (#463). Marks the index unqueryable
+    /// AND frees its rebuildable in-memory caches via [`Index::release_memory`]
+    /// (the ~15 per-segment cache DashMaps; reads re-hydrate from disk). The
+    /// `Arc<Index>` handle STAYS in `self.indices`, so every loaded-index view
+    /// (`_cat/indices`, `_cluster/health`, the `expand_wildcards` filtering) is
+    /// unchanged — a closed index is loaded-and-flagged, matching the rest of the
+    /// codebase's model. [`reopen_index`](Self::reopen_index) just clears the flag.
+    ///
+    /// The memtable is flushed to disk FIRST: freeing the caches without flushing
+    /// would be harmless (caches only mirror durable data), but the flush also
+    /// drains the memtable so the closed index holds no unpublished writes. A
+    /// flush failure aborts the close and leaves the index fully in service.
+    pub async fn close_index(&self, name: &str) -> Result<()> {
+        self.ensure_cluster_state_writable()?;
+        if let Some(idx) = self.indices.get(name).map(|r| Arc::clone(r.value())) {
+            // Durability barrier: flush the memtable to disk BEFORE releasing the
+            // caches, so no not-yet-published document is lost. A flush failure
+            // aborts the close and leaves the index fully in service.
+            idx.flush().await?;
+            // Free the rebuildable in-memory caches (memtable is now empty; the
+            // per-segment caches re-hydrate from disk on the next read). The
+            // `Arc<Index>` shell STAYS in `self.indices`, so every loaded-index
+            // view (`_cat/indices`, `_cluster/health`, `_cluster/state`, the
+            // `expand_wildcards` filtering) is unchanged — a closed index is
+            // loaded-and-flagged, matching the rest of the codebase's model.
+            idx.release_memory();
+        }
+        self.closed_indices.insert(name.to_string(), true);
+        info!(name, "index closed; in-memory caches released");
+        Ok(())
+    }
+
+    /// `_open` counterpart to [`close_index`](Self::close_index): clears the
+    /// closed flag. The index handle was never removed (only its caches were
+    /// released), so there is nothing to reconstruct — subsequent reads
+    /// re-hydrate segments from disk on demand.
+    pub fn reopen_index(&self, name: &str) -> Result<()> {
+        self.ensure_cluster_state_writable()?;
+        self.closed_indices.remove(name);
+        info!(name, "index reopened");
+        Ok(())
+    }
+
     /// Get a reference to an index by name, resolving aliases first.
     /// If the name is an alias pointing to multiple indices, returns the first one.
     ///

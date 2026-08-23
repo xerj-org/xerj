@@ -27806,7 +27806,12 @@ pub async fn close_index(
     };
     let mut indices = serde_json::Map::new();
     for (name, _) in &handles {
-        state.engine.closed_indices.insert(name.clone(), true);
+        // #463: actually release the index's RAM (flush → drop the in-memory
+        // handle), not just flip the closed flag. A flush failure aborts the
+        // close and leaves the index in service rather than losing data.
+        if let Err(e) = state.engine.close_index(name).await {
+            return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+        }
         indices.insert(name.clone(), json!({ "closed": true }));
     }
     Json(json!({
