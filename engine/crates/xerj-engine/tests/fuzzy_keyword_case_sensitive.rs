@@ -26,7 +26,6 @@ async fn hits(engine: &Engine, q: serde_json::Value) -> u64 {
 }
 
 #[tokio::test]
-#[ignore = "#423/#406: fuzzy ignores case_insensitive (always folds); un-ignored by the fix"]
 async fn fuzzy_keyword_is_case_sensitive_but_ci_flag_still_folds() {
     let dir = TempDir::new().unwrap();
     let mut config = Config::default();
@@ -42,29 +41,43 @@ async fn fuzzy_keyword_is_case_sensitive_but_ci_flag_still_folds() {
     idx.index_document(Some("d0".to_string()), json!({ "name": "Hello" }))
         .await
         .expect("index");
+
+    let fz = |v: &str| json!({ "fuzzy": { "name": { "value": v, "fuzziness": 0 } } });
+    let fz_ci = json!({ "fuzzy": { "name": { "value": "hello", "fuzziness": 0, "case_insensitive": true } } });
+
+    // Buffered (memtable) answers, then flush and re-query the segment — every
+    // pair must agree (flush-invariance — the #668 lesson).
+    let pre_lower = hits(&engine, fz("hello")).await;
+    let pre_cased = hits(&engine, fz("Hello")).await;
+    let pre_ci = hits(&engine, fz_ci.clone()).await;
     idx.refresh().await.expect("refresh");
+    let post_lower = hits(&engine, fz("hello")).await;
+    let post_cased = hits(&engine, fz("Hello")).await;
+    let post_ci = hits(&engine, fz_ci.clone()).await;
+
+    assert_eq!(
+        pre_lower, post_lower,
+        "#423/#406: keyword fuzzy must be flush-invariant"
+    );
+    assert_eq!(
+        pre_cased, post_cased,
+        "#423/#406: keyword fuzzy must be flush-invariant"
+    );
+    assert_eq!(
+        pre_ci, post_ci,
+        "#423/#406: fuzzy case_insensitive must be flush-invariant"
+    );
 
     // ES default: case-sensitive → a lower-case value does not fuzzy-match a
-    // capitalized keyword at fuzziness 0. (Currently returns 1 — the bug.)
+    // capitalized keyword at fuzziness 0; the correctly-cased one does; and the
+    // explicit `case_insensitive: true` still folds.
     assert_eq!(
-        hits(&engine, json!({ "fuzzy": { "name": { "value": "hello", "fuzziness": 0 } } })).await,
-        0,
+        post_lower, 0,
         "#423/#406: keyword fuzzy must be case-sensitive by default"
     );
-    // Correct case still matches.
+    assert_eq!(post_cased, 1, "case-correct fuzzy matches");
     assert_eq!(
-        hits(&engine, json!({ "fuzzy": { "name": { "value": "Hello", "fuzziness": 0 } } })).await,
-        1,
-        "case-correct fuzzy matches"
-    );
-    // The explicit flag still folds.
-    assert_eq!(
-        hits(
-            &engine,
-            json!({ "fuzzy": { "name": { "value": "hello", "fuzziness": 0, "case_insensitive": true } } })
-        )
-        .await,
-        1,
+        post_ci, 1,
         "#423/#406: fuzzy with case_insensitive true still folds"
     );
 }
