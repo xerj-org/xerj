@@ -355,6 +355,60 @@ async fn residual_filter_still_excludes_nonmatching_docs() {
     }
 }
 
+/// #577: a `count_only` (size:0) residual query must return the exact total via
+/// the membership gate with ZERO materialised hits. The residual pass now skips
+/// the `Hit` build under count_only (mirroring the normal walk), rather than
+/// hydrating O(matches) `Hit`s for a page that is empty. Result-invariant guard:
+/// the count stays exact and the page stays empty.
+#[tokio::test]
+async fn residual_count_only_returns_exact_total_with_no_hits() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("body", FieldType::Text));
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    engine.create_index("residual-count-only", schema).unwrap();
+    let idx = engine.get_index("residual-count-only").unwrap();
+    for i in 0..120usize {
+        let alphas = "alpha ".repeat(1 + i % 5);
+        let mut doc = json!({ "body": alphas });
+        if i % 2 == 0 {
+            doc.as_object_mut()
+                .unwrap()
+                .insert("tag".into(), json!("kept"));
+        }
+        idx.index_document(Some(format!("d{i:03}")), doc)
+            .await
+            .unwrap();
+    }
+    idx.flush().await.unwrap();
+
+    let counted = idx
+        .search(&req(
+            json!({"bool": {
+                "must": [{"match": {"body": "alpha"}}],
+                "filter": [{"exists": {"field": "tag"}}]
+            }}),
+            0,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        counted.total.value, 60,
+        "count_only must still apply the residual membership gate — only the 60 \
+         even docs carry `tag`"
+    );
+    assert_eq!(
+        counted.hits.len(),
+        0,
+        "size:0 returns no hits — the residual pass must not materialise any (#577)"
+    );
+}
+
 /// The residual gate must be page-size-invariant: forcing full materialisation
 /// and re-counting survivors must give the same top hit, the same score, and
 /// the same total at size:1 and size:200 (a gate that miscounts or mis-ranks

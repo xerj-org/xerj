@@ -16569,23 +16569,34 @@ impl Index {
                                         }
                                         total_count += 1;
                                         seen_ids.insert(id.clone());
-                                        let hit = Hit {
-                                            id,
-                                            score: sh.score,
-                                            source,
-                                            seq_no: hit_seq_no,
-                                            version: hit_version,
-                                            sort: Vec::new(),
-                                            explain: None,
-                                            highlight: None,
-                                            matched_queries: Vec::new(),
-                                            passage: None,
-                                        };
-                                        if let Some(topk) = sort_topk.as_mut() {
-                                            let seq = hit_seq_no.unwrap_or(u64::MAX);
-                                            topk.offer(hit, seq, self);
-                                        } else {
-                                            all_hits.push(hit);
+                                        // #577: under `count_only` (size:0) the page is
+                                        // empty, so — exactly like the normal walk, which
+                                        // does NOT materialise a hit at all under
+                                        // count_only (the `if !count_only` guards near
+                                        // this pass at ~14939/14975) — skip the `Hit`
+                                        // build and `_source` retention; only the count
+                                        // matters. Without this a size:0 bool with a
+                                        // non-projectable filter held O(matches) hydrated
+                                        // `Hit`s before the (empty) slice discarded them.
+                                        if !count_only {
+                                            let hit = Hit {
+                                                id,
+                                                score: sh.score,
+                                                source,
+                                                seq_no: hit_seq_no,
+                                                version: hit_version,
+                                                sort: Vec::new(),
+                                                explain: None,
+                                                highlight: None,
+                                                matched_queries: Vec::new(),
+                                                passage: None,
+                                            };
+                                            if let Some(topk) = sort_topk.as_mut() {
+                                                let seq = hit_seq_no.unwrap_or(u64::MAX);
+                                                topk.offer(hit, seq, self);
+                                            } else {
+                                                all_hits.push(hit);
+                                            }
                                         }
                                     }
                                     // Preserve the segment-tail deadline propagation
