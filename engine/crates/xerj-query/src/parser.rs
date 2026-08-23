@@ -1264,13 +1264,22 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
         .get("boost")
         .and_then(|v| v.as_f64())
         .map(|b| b as f32);
+    // #681: honor `_name` on the expanded form, like `parse_term`, so a named
+    // prefix clause surfaces in `matched_queries`.
+    let name = inner
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
-    Ok(QueryNode::Prefix {
-        field,
-        value,
-        boost,
-        constant_score: true,
-    })
+    Ok(maybe_named(
+        QueryNode::Prefix {
+            field,
+            value,
+            boost,
+            constant_score: true,
+        },
+        name,
+    ))
 }
 
 fn parse_wildcard(params: &Value) -> Result<QueryNode> {
@@ -1303,17 +1312,25 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         .get("boost")
         .and_then(|v| v.as_f64())
         .map(|b| b as f32);
+    // #681: honor `_name` on the expanded form (like `parse_term`).
+    let name = inner
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
-    Ok(QueryNode::Wildcard {
-        field,
-        value,
-        boost,
-        constant_score: true,
-        case_insensitive: inner
-            .get("case_insensitive")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-    })
+    Ok(maybe_named(
+        QueryNode::Wildcard {
+            field,
+            value,
+            boost,
+            constant_score: true,
+            case_insensitive: inner
+                .get("case_insensitive")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+        },
+        name,
+    ))
 }
 
 fn parse_exists(params: &Value) -> Result<QueryNode> {
