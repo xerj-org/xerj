@@ -18161,7 +18161,8 @@ impl Index {
             } else {
                 hit.source.clone()
             };
-            hit.matched_queries = collect_matched_queries(&request.query, &source_with_id);
+            hit.matched_queries =
+                collect_matched_queries(&request.query, &source_with_id, &dmq_schema);
         }
 
         // --- Apply search_after cursor (skip hits up to and including the cursor) ---
@@ -37685,20 +37686,31 @@ fn point_in_polygon(lat: f64, lon: f64, polygon: &[(f64, f64)]) -> bool {
 ///
 /// Recursively traverses the query tree, collecting the `name` of every `Named`
 /// query whose inner query matches the document.
-fn collect_matched_queries(q: &QueryNode, source: &Value) -> Vec<String> {
+fn collect_matched_queries(q: &QueryNode, source: &Value, schema: &Schema) -> Vec<String> {
     let mut names = Vec::new();
-    collect_matched_queries_inner(q, source, &mut names);
+    collect_matched_queries_inner(q, source, schema, &mut names);
     names
 }
 
-fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<String>) {
+// #669: the `_name` / `matched_queries` channel must decide a named clause with
+// the SAME schema-aware matcher hit-SELECTION uses (`doc_matches_query_typed`
+// with the real index schema, post-#396/#667). The old 2-arg `doc_matches_query`
+// shim folded case for every field, so a named keyword `prefix`/`term` clause
+// could report a `_name` the hit set never granted (and disagree pre- vs
+// post-flush). Thread the schema through so the annotation matches selection.
+fn collect_matched_queries_inner(
+    q: &QueryNode,
+    source: &Value,
+    schema: &Schema,
+    names: &mut Vec<String>,
+) {
     match q {
         QueryNode::Named { name, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query_typed(query, source, schema) {
                 names.push(name.clone());
             }
             // Also recurse into the wrapped query in case it contains further Named nodes.
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, schema, names);
         }
         QueryNode::Bool {
             must,
@@ -37713,21 +37725,21 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 .chain(must_not.iter())
                 .chain(filter.iter())
             {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, schema, names);
             }
         }
         QueryNode::Boosted { query, .. } | QueryNode::Constant { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, schema, names);
         }
         QueryNode::DisMax { queries, .. } => {
             for sub in queries {
-                collect_matched_queries_inner(sub, source, names);
+                collect_matched_queries_inner(sub, source, schema, names);
             }
         }
         QueryNode::FunctionScore {
             query, functions, ..
         } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, schema, names);
             for f in functions {
                 // ES 8.9+: when the function entry itself carries
                 // `_name`, that name OVERRIDES any `_name` inside the
@@ -37738,9 +37750,9 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
                 let filter_matches = match &f.filter {
                     Some(filter) => {
                         if !filter_has_fn_name {
-                            collect_matched_queries_inner(filter, source, names);
+                            collect_matched_queries_inner(filter, source, schema, names);
                         }
-                        doc_matches_query(filter, source)
+                        doc_matches_query_typed(filter, source, schema)
                     }
                     None => true,
                 };
@@ -37754,14 +37766,14 @@ fn collect_matched_queries_inner(q: &QueryNode, source: &Value, names: &mut Vec<
         QueryNode::Boosting {
             positive, negative, ..
         } => {
-            collect_matched_queries_inner(positive, source, names);
-            collect_matched_queries_inner(negative, source, names);
+            collect_matched_queries_inner(positive, source, schema, names);
+            collect_matched_queries_inner(negative, source, schema, names);
         }
         QueryNode::Nested { query, .. } => {
-            collect_matched_queries_inner(query, source, names);
+            collect_matched_queries_inner(query, source, schema, names);
         }
         QueryNode::Pinned { organic, .. } => {
-            collect_matched_queries_inner(organic, source, names);
+            collect_matched_queries_inner(organic, source, schema, names);
         }
         _ => {}
     }
