@@ -11076,6 +11076,16 @@ impl Index {
             tracing::info!(index=%self.name, field, k, "semantic_phase=start_brute");
         }
 
+        // #423: evaluate the kNN `filter` through the SAME schema-aware matcher
+        // the rest of search uses (`search_inner` runs its filter through
+        // `doc_matches_query_typed(.., &dmq_schema)`). The schemaless
+        // `doc_matches_query` has no field types, so on a `keyword`/`text` field
+        // it folds case and OVER-MATCHES — a `prefix`/`match`/`fuzzy` filter kept
+        // documents a plain (non-knn) search would reject. A filtered knn ALWAYS
+        // takes this brute-force path (HNSW serves only `filter.is_none()`), so
+        // this is the whole filtered-kNN path. Owned clone; the lock is released.
+        let dmq_schema = self.schema().await;
+
         // ── Collect all candidate (doc_id, source) pairs ──────────────
         let mut candidates: Vec<(String, Value)> = Vec::new();
         // Memtable first (newest writes).
@@ -11213,7 +11223,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query_typed(f, &src_with_id, &dmq_schema) {
                         continue;
                     }
                 }
@@ -11331,7 +11341,7 @@ impl Index {
                     if let Some(obj) = src_with_id.as_object_mut() {
                         obj.insert("_id".to_string(), Value::String(id.clone()));
                     }
-                    if !doc_matches_query(f, &src_with_id) {
+                    if !doc_matches_query_typed(f, &src_with_id, &dmq_schema) {
                         continue;
                     }
                 }

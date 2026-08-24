@@ -8653,3 +8653,146 @@ async fn a_refusal_is_not_acknowledged_while_the_sidecar_is_unreadable() {
         "and nothing may be left behind that only this process can see"
     );
 }
+
+/// #423 (schemaless-matcher root cause, kNN slice): a filtered `knn` applies
+/// its `filter` through the SCHEMALESS matcher inside
+/// `run_knn_brute_force_with_deadline` (`doc_matches_query`), whereas the rest
+/// of search evaluates the same filter through the schema-aware path
+/// (`search_inner`'s `doc_matches_query_typed(.., &dmq_schema)`). A `knn` that
+/// carries a `filter` ALWAYS routes to brute force — the dispatch serves HNSW
+/// only when `filter.is_none()`, so "filters remain exact scans" — hence this
+/// is the WHOLE filtered-kNN path, reachable from the public search API, not an
+/// edge case.
+///
+/// Divergence: `tag` is a declared `keyword`, so a keyword `prefix` is
+/// case-SENSITIVE in ES ("Hello" does not start with lowercase "hel"). The
+/// schemaless matcher has no schema, folds case, and wrongly keeps the doc.
+/// Fail-before (schemaless): 1 hit. After (schema-aware): 0 hits — consistent
+/// with the identical filter run outside a knn.
+#[tokio::test]
+async fn knn_filter_prefix_on_keyword_is_case_sensitive_like_plain_search() {
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    let mut emb = FieldConfig::new("emb", FieldType::Vector);
+    emb.options.dimensions = Some(3);
+    emb.options.similarity = Some("cosine".to_string());
+    schema.fields.push(emb);
+
+    let engine = make_engine(&dir);
+    engine.create_index("knn_filter_kw", schema).unwrap();
+    let idx = engine.get_index("knn_filter_kw").unwrap();
+
+    idx.index_document(
+        Some("d0".to_string()),
+        json!({"tag": "Hello", "emb": [1.0, 0.0, 0.0]}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("d1".to_string()),
+        json!({"tag": "World", "emb": [0.0, 1.0, 0.0]}),
+    )
+    .await
+    .unwrap();
+    idx.refresh().await.unwrap();
+
+    let knn_body = json!({
+        "size": 10,
+        "query": {"knn": {
+            "field": "emb",
+            "query_vector": [1.0, 0.0, 0.0],
+            "k": 10,
+            "filter": {"prefix": {"tag": "hel"}}
+        }}
+    });
+
+    // Control: the SAME keyword `prefix` filter run as a plain query already
+    // matches nothing (the schema-aware path is case-sensitive). The filtered
+    // knn must agree.
+    let plain = idx
+        .search(&parse_request(&json!({"size": 10, "query": {"prefix": {"tag": "hel"}}})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        plain.hits.len(),
+        0,
+        "control: plain keyword `prefix:hel` must match no case-preserved term; got {:?}",
+        plain.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
+
+    let knn = idx
+        .search(&parse_request(&knn_body).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        knn.hits.len(),
+        0,
+        "filtered kNN must apply the keyword `prefix` filter case-sensitively \
+         (consistent with plain search); the schemaless matcher folded case and \
+         wrongly kept: {:?}",
+        knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
+}
+
+/// #423 companion for the scalar8-quantised brute-force loop (the `use_sq8`
+/// branch of `run_knn_brute_force_with_deadline`, a distinct filter call site
+/// from the default f32 loop above). Same keyword-`prefix` divergence; the only
+/// change is `quantization = scalar8`, which routes candidate filtering through
+/// the SQ8 pre-filter loop instead of the default one.
+#[tokio::test]
+async fn knn_filter_prefix_on_keyword_is_case_sensitive_for_scalar8() {
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    let mut emb = FieldConfig::new("emb", FieldType::Vector);
+    emb.options.dimensions = Some(3);
+    emb.options.similarity = Some("cosine".to_string());
+    emb.options.quantization = Some("scalar8".to_string());
+    schema.fields.push(emb);
+
+    let engine = make_engine(&dir);
+    engine.create_index("knn_filter_kw_sq8", schema).unwrap();
+    let idx = engine.get_index("knn_filter_kw_sq8").unwrap();
+
+    idx.index_document(
+        Some("d0".to_string()),
+        json!({"tag": "Hello", "emb": [1.0, 0.0, 0.0]}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("d1".to_string()),
+        json!({"tag": "World", "emb": [0.0, 1.0, 0.0]}),
+    )
+    .await
+    .unwrap();
+    idx.refresh().await.unwrap();
+
+    let knn = idx
+        .search(
+            &parse_request(&json!({
+                "size": 10,
+                "query": {"knn": {
+                    "field": "emb",
+                    "query_vector": [1.0, 0.0, 0.0],
+                    "k": 10,
+                    "filter": {"prefix": {"tag": "hel"}}
+                }}
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        knn.hits.len(),
+        0,
+        "scalar8 filtered kNN must apply the keyword `prefix` filter \
+         case-sensitively; schemaless matcher folded case and wrongly kept: {:?}",
+        knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
+}
