@@ -358,3 +358,41 @@ async fn must_not_only_bool_is_not_unwrapped() {
         );
     }
 }
+
+/// #643 remaining gap: a single-clause `bool` nested inside a score-preserving
+/// wrapper that `unwrap_single_clause_bool` does NOT recurse through
+/// (`function_score` inner query, `dis_max` single query) keeps the wrapped
+/// `bool`, so #399's memtable/segment score divergence can resurface. A
+/// no-functions `function_score` and a single-query `dis_max` (tie_breaker 0)
+/// are both score-neutral, so each must rank exactly like the bare clause on
+/// BOTH populations. Fail-before: the nested `bool` is not erased, so the
+/// memtable diverges from the bare clause.
+#[tokio::test]
+async fn nested_single_clause_bool_in_wrappers_is_score_neutral() {
+    let shapes = [
+        (
+            "function_score[bool.must[1]]",
+            json!({"function_score": {"query": {"bool": {"must": [text_query()]}}}}),
+        ),
+        (
+            "dis_max[bool.must[1]]",
+            json!({"dis_max": {"queries": [{"bool": {"must": [text_query()]}}], "tie_breaker": 0.0}}),
+        ),
+    ];
+    for flush in [false, true] {
+        let (_dir, idx) = seed(&format!("bool-643-nested-{flush}"), flush).await;
+        // Reference: the SAME wrapper around the BARE clause (isolates the inner
+        // bool-unwrap effect from any wrapper scoring).
+        for (label, wrapped) in &shapes {
+            let bare_wrapped = match label {
+                l if l.starts_with("function_score") => {
+                    json!({"function_score": {"query": text_query()}})
+                }
+                _ => json!({"dis_max": {"queries": [text_query()], "tie_breaker": 0.0}}),
+            };
+            let reference = idx.search(&req(bare_wrapped, 50)).await.unwrap();
+            let actual = idx.search(&req(wrapped.clone(), 50)).await.unwrap();
+            assert_same_ranking(&format!("{label} flush={flush}"), &reference, &actual);
+        }
+    }
+}

@@ -35120,6 +35120,33 @@ fn unwrap_single_clause_bool(q: QueryNode) -> QueryNode {
             name,
             query: Box::new(unwrap_single_clause_bool(*query)),
         },
+        // #643: `function_score` merges its inner query's score via `boost_mode`,
+        // so erasing a single-clause `bool` underneath it is score-preserving —
+        // the same recursion Lucene's FunctionScoreQuery.rewrite performs over
+        // its wrapped query. Closes the wrapper the earlier unwrap left un-erased.
+        QueryNode::FunctionScore {
+            query,
+            functions,
+            score_mode,
+            boost_mode,
+            max_boost,
+        } => QueryNode::FunctionScore {
+            query: Box::new(unwrap_single_clause_bool(*query)),
+            functions,
+            score_mode,
+            boost_mode,
+            max_boost,
+        },
+        // #643: `dis_max` scores `max(sub-scores) + tie_breaker*Σ(rest)`; erasing a
+        // single-clause `bool` in any disjunct leaves that disjunct's score
+        // unchanged, so recurse into every query (DisjunctionMaxQuery.rewrite).
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } => QueryNode::DisMax {
+            queries: queries.into_iter().map(unwrap_single_clause_bool).collect(),
+            tie_breaker,
+        },
         other => other,
     }
 }
@@ -47178,3 +47205,73 @@ pub mod graph;
 #[cfg(test)]
 #[path = "wal_shard_settings_tests.rs"]
 mod wal_shard_settings_tests;
+
+#[cfg(test)]
+mod unwrap_single_clause_643_wrapper_tests {
+    use super::*;
+    use xerj_query::ast::{BoolOperator, QueryNode};
+
+    fn bare_match() -> QueryNode {
+        QueryNode::Match {
+            field: "body".into(),
+            query: "x".into(),
+            operator: BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+        }
+    }
+
+    fn single_clause_bool() -> QueryNode {
+        QueryNode::Bool {
+            must: vec![bare_match()],
+            should: vec![],
+            must_not: vec![],
+            filter: vec![],
+            minimum_should_match: None,
+        }
+    }
+
+    /// #643: `unwrap_single_clause_bool` must recurse through `function_score`'s
+    /// inner query (a score-preserving wrapper), erasing the nested one-clause
+    /// bool to the bare clause.
+    #[test]
+    fn unwrap_recurses_through_function_score() {
+        let q = QueryNode::FunctionScore {
+            query: Box::new(single_clause_bool()),
+            functions: vec![],
+            score_mode: Default::default(),
+            boost_mode: Default::default(),
+            max_boost: None,
+        };
+        match unwrap_single_clause_bool(q) {
+            QueryNode::FunctionScore { query, .. } => assert!(
+                matches!(*query, QueryNode::Match { .. }),
+                "the single-clause bool inside function_score must be erased to \
+                 the bare clause, got {:?}",
+                query
+            ),
+            other => panic!("function_score wrapper must be preserved, got {:?}", other),
+        }
+    }
+
+    /// #643: same for every disjunct of a `dis_max`.
+    #[test]
+    fn unwrap_recurses_through_dis_max() {
+        let q = QueryNode::DisMax {
+            queries: vec![single_clause_bool()],
+            tie_breaker: 0.0,
+        };
+        match unwrap_single_clause_bool(q) {
+            QueryNode::DisMax { queries, .. } => {
+                assert_eq!(queries.len(), 1);
+                assert!(
+                    matches!(queries[0], QueryNode::Match { .. }),
+                    "the single-clause bool inside dis_max must be erased, got {:?}",
+                    queries[0]
+                );
+            }
+            other => panic!("dis_max wrapper must be preserved, got {:?}", other),
+        }
+    }
+}
