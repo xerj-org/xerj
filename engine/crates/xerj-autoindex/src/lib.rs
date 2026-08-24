@@ -5521,11 +5521,14 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     for c in &key_corrs {
         let mut v = c.to_value();
         v["run_id"] = json!(run_id);
-        push_doc(&c.id(), &v, &mut cat_buf);
+        push_doc(&c.id(&cfg.prefix), &v, &mut cat_buf);
     }
     for (i, tc) in time_corrs.iter().enumerate() {
+        // Prefix-scoped for the same cross-corpus reason as `corr:` above (#673):
+        // time correlations are keyed by dataset slugs and share the catalog.
         let id = format!(
-            "tcorr:{}:{}",
+            "tcorr:{}:{}:{}",
+            cfg.prefix,
             tc.get("a_dataset").and_then(|v| v.as_str()).unwrap_or(""),
             tc.get("b_dataset")
                 .and_then(|v| v.as_str())
