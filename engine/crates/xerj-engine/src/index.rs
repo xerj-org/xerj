@@ -47305,7 +47305,7 @@ mod wal_shard_settings_tests;
 #[cfg(test)]
 mod unwrap_single_clause_643_wrapper_tests {
     use super::*;
-    use xerj_query::ast::{BoolOperator, QueryNode};
+    use xerj_query::ast::{BoolOperator, MinShouldMatch, QueryNode};
 
     fn bare_match() -> QueryNode {
         QueryNode::Match {
@@ -47325,6 +47325,18 @@ mod unwrap_single_clause_643_wrapper_tests {
             must_not: vec![],
             filter: vec![],
             minimum_should_match: None,
+        }
+    }
+
+    /// A `bool` whose only clause is a lone `should` with the given
+    /// `minimum_should_match` — the shape #643 gap 1 is about.
+    fn single_should_bool(msm: Option<MinShouldMatch>) -> QueryNode {
+        QueryNode::Bool {
+            must: vec![],
+            should: vec![bare_match()],
+            must_not: vec![],
+            filter: vec![],
+            minimum_should_match: msm,
         }
     }
 
@@ -47369,6 +47381,69 @@ mod unwrap_single_clause_643_wrapper_tests {
             }
             other => panic!("dis_max wrapper must be preserved, got {:?}", other),
         }
+    }
+
+    /// #643 (gap 1): a lone `should` whose `minimum_should_match` is a
+    /// `Percentage` that resolves to 1 is the clause-required shape Lucene
+    /// collapses to the bare clause, so it must unwrap exactly like
+    /// `Fixed(1)`/`None`. msm resolution is `max(1, floor(len * pct / 100))`,
+    /// so for the single clause (`len == 1`) every `pct < 200` resolves to 1
+    /// (`floor(1 * 199 / 100) == 1`, `max(1, 0) == 1` at `pct == 0`).
+    #[test]
+    fn unwrap_collapses_lone_should_with_percentage_msm_resolving_to_one() {
+        for pct in [0u32, 1, 50, 100, 150, 199] {
+            let unwrapped = unwrap_single_clause_bool(single_should_bool(Some(
+                MinShouldMatch::Percentage(pct),
+            )));
+            assert!(
+                matches!(unwrapped, QueryNode::Match { .. }),
+                "a lone should with {pct}% msm resolves to 1 required and must erase \
+                 to the bare clause, got {unwrapped:?}",
+            );
+        }
+    }
+
+    /// #643 (gap 1): a `Percentage` that resolves to >= 2 (`pct >= 200`, since
+    /// `floor(1 * 200 / 100) == 2`) requires 2 of the single clause — the bool
+    /// matches NOTHING, unlike the bare clause — so it must stay wrapped
+    /// (strictly conservative). The parser puts no upper cap on `pct`, so
+    /// `"200%"` is reachable.
+    #[test]
+    fn unwrap_keeps_lone_should_wrapped_when_percentage_msm_exceeds_the_clause_count() {
+        for pct in [200u32, 250, 400] {
+            let unwrapped = unwrap_single_clause_bool(single_should_bool(Some(
+                MinShouldMatch::Percentage(pct),
+            )));
+            assert!(
+                matches!(unwrapped, QueryNode::Bool { .. }),
+                "a lone should with {pct}% msm resolves to >= 2 over 1 clause (matches \
+                 nothing) and must stay wrapped, got {unwrapped:?}",
+            );
+        }
+    }
+
+    /// #643 (gap 1): `Field`/`Script` msm resolve only at query time (a per-doc
+    /// field value or a script result) and can exceed the clause count, so a
+    /// static rewrite cannot prove they resolve to 1 — they stay wrapped,
+    /// conservatively (the same `_ => false` fall-through as any un-erasable
+    /// shape).
+    #[test]
+    fn unwrap_keeps_lone_should_wrapped_for_query_time_msm() {
+        let field = unwrap_single_clause_bool(single_should_bool(Some(MinShouldMatch::Field(
+            "req".into(),
+        ))));
+        assert!(
+            matches!(field, QueryNode::Bool { .. }),
+            "a Field msm is unresolvable at rewrite time and must stay wrapped, got {field:?}",
+        );
+        let script = unwrap_single_clause_bool(single_should_bool(Some(MinShouldMatch::Script {
+            source: "params.num_terms".into(),
+            params: None,
+        })));
+        assert!(
+            matches!(script, QueryNode::Bool { .. }),
+            "a Script msm is unresolvable at rewrite time and must stay wrapped, got {script:?}",
+        );
     }
 }
 
