@@ -47367,9 +47367,12 @@ mod residual_gate_trim_577_tests {
             peak > 0,
             "the residual_gate path must have run for this query (peak={peak})"
         );
-        // materialisation_limit = (0 + 10 + 100).max(256) = 256; the eager trim
-        // fires at > 2*256, so the peak cannot exceed 513. Without the trim it
-        // reaches N = 2000.
+        // For this size:10/from:0 query over a flushed, memtable-empty index the
+        // fast-path re-bind (`materialisation_limit = from + size`) applies, so
+        // the cap is 10 and the eager trim fires at > 20, giving a real peak of
+        // ~21. The `<= 513` bound below is a deliberately loose ceiling (it also
+        // covers the general `(from+size+100).max(256)` cap), still far under the
+        // no-trim peak of N = 2000 — the assertion is what discriminates the fix.
         assert!(
             peak <= 513,
             "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
