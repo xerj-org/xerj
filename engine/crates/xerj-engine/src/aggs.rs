@@ -376,6 +376,16 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
     run_aggs_in_bucket(aggs_def, docs, all_docs, docs.len() as u64)
 }
 
+// #375: counts how many buckets actually had their sub-aggregations
+// materialised, so a test can prove the nested-terms path defers sub-aggs to
+// the surviving top-N instead of computing them for every candidate bucket.
+// Thread-local (not a global atomic) so parallel agg tests don't pollute each
+// other's count — the brute agg path runs synchronously on the caller thread.
+#[cfg(test)]
+thread_local! {
+    pub(crate) static SUBAGG_BUCKET_EVALS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// `run_aggs_with_all` for the sub-aggs of a single bucket.
 ///
 /// `bucket_doc_count` is the value the CALLER puts in that bucket's
@@ -387,6 +397,8 @@ pub(crate) fn run_aggs_in_bucket(
     all_docs: &[Value],
     bucket_doc_count: u64,
 ) -> Value {
+    #[cfg(test)]
+    SUBAGG_BUCKET_EVALS.with(|c| c.set(c.get() + 1));
     let obj = match aggs_def.as_object() {
         Some(o) => o,
         None => return Value::Object(Map::new()),
@@ -3650,9 +3662,15 @@ fn run_terms(
 
     // Build (key, count, sub_aggs) so we can reuse sub-agg results for
     // both ordering and final bucket output.
-    let pre_computed: Vec<(String, u64, Option<Value>)> = if orders_need_sub_agg
-        || sub_aggs.is_some()
-    {
+    // #375: pre-compute sub-aggregations for EVERY candidate bucket ONLY when
+    // the requested order actually references a sub-agg metric — otherwise the
+    // top-level order (`_count`/`_key`) is independent of the sub-aggs, so we
+    // sort + size-truncate first and let the bucket loop below compute
+    // sub-aggs for the surviving top-N only (`sub_result`'s `.or_else`). The
+    // old `|| sub_aggs.is_some()` here defeated that: a nested terms agg (top
+    // 10 of a 100k-term field with a sub-agg) eagerly materialised all 100k
+    // sub-buckets and then discarded 99,990 of them (reported by Pascal Seitz).
+    let pre_computed: Vec<(String, u64, Option<Value>)> = if orders_need_sub_agg {
         candidates
             .iter()
             .map(|(k, c)| {
@@ -14764,6 +14782,44 @@ mod tests {
             after["t"]["buckets"].as_array().map(Vec::len),
             Some(5),
             "cap outlived its call, got {after}"
+        );
+    }
+
+    /// #375 (Pascal Seitz): a nested terms aggregation ordered by `_count`/`_key`
+    /// must materialise sub-aggregations only for the surviving top-N buckets,
+    /// not for every candidate. With 1000 distinct top-level terms and `size: 5`,
+    /// sub-aggs must run ~5 times, not 1000. Before the fix (`|| sub_aggs.is_some()`
+    /// in the pre-compute gate) it ran for all 1000 and discarded 995.
+    #[test]
+    fn nested_terms_defers_subaggs_to_the_surviving_top_buckets() {
+        let docs: Vec<Value> = (0..1000)
+            .map(|i| json!({ "top": format!("t{i:04}"), "sub": format!("s{}", i % 7) }))
+            .collect();
+        let agg = json!({
+            "by_top": {
+                "terms": { "field": "top", "size": 5 },
+                "aggs": { "by_sub": { "terms": { "field": "sub", "size": 3 } } }
+            }
+        });
+        SUBAGG_BUCKET_EVALS.with(|c| c.set(0));
+        let result = run_aggs(&agg, &docs);
+        let evals = SUBAGG_BUCKET_EVALS.with(|c| c.get());
+
+        // Correctness: exactly the requested top-N buckets, each with its sub-agg.
+        assert_eq!(
+            result["by_top"]["buckets"].as_array().map(Vec::len),
+            Some(5),
+            "expected 5 top buckets, got {result}"
+        );
+        assert!(
+            result["by_top"]["buckets"][0]["by_sub"]["buckets"].is_array(),
+            "each surviving bucket still carries its sub-agg: {result}"
+        );
+        // #375: the sub-agg ran only for the survivors, not all 1000 candidates.
+        assert!(
+            evals <= 10,
+            "#375: sub-aggs materialised for {evals} buckets; expected only the \
+             top-N survivors (<=10), not all 1000 candidates"
         );
     }
 
