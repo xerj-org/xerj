@@ -306,21 +306,45 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
         .next()
         .unwrap();
     let query: Value = serde_json::from_slice(body).unwrap();
-    let term = query
+    // Collect every term constraint: the single `/query/term` form AND each
+    // `/query/bool/filter[].term` (#737 scopes catalog deletes with a
+    // `prefix` + `path`/`file_key` bool filter). A doc is deleted iff it
+    // matches EVERY collected term.
+    let mut terms: Vec<(String, Value)> = Vec::new();
+    if let Some((field, value)) = query
         .pointer("/query/term")
         .and_then(Value::as_object)
         .and_then(|term| term.iter().next())
-        .map(|(field, value)| (field.clone(), value.clone()));
+    {
+        terms.push((field.clone(), value.clone()));
+    }
+    if let Some(filters) = query
+        .pointer("/query/bool/filter")
+        .and_then(Value::as_array)
+    {
+        for filter in filters {
+            if let Some((field, value)) = filter
+                .pointer("/term")
+                .and_then(Value::as_object)
+                .and_then(|term| term.iter().next())
+            {
+                terms.push((field.clone(), value.clone()));
+            }
+        }
+    }
     let mut locked = state.lock().unwrap();
     let before = locked.docs.len();
     locked.docs.retain(|(candidate, _), doc| {
         if candidate != index {
             return true;
         }
-        let Some((field, expected)) = &term else {
-            return false;
-        };
-        doc.get(field) != Some(expected)
+        if terms.is_empty() {
+            return false; // no constraint: a match-all delete
+        }
+        // Retain (do NOT delete) unless the doc matches every term.
+        !terms
+            .iter()
+            .all(|(field, expected)| doc.get(field) == Some(expected))
     });
     before - locked.docs.len()
 }
@@ -2048,11 +2072,11 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
         );
         st.docs.insert(
             (catalog::CATALOG_INDEX.to_string(), "file:excluded".into()),
-            json!({"doc_kind": "file", "path": "secret.csv"}),
+            json!({"doc_kind": "file", "prefix": "ax", "path": "secret.csv"}),
         );
         st.docs.insert(
             (catalog::CATALOG_INDEX.to_string(), "file:kept".into()),
-            json!({"doc_kind": "file", "path": "kept.csv"}),
+            json!({"doc_kind": "file", "prefix": "ax", "path": "kept.csv"}),
         );
     }
 
@@ -2076,7 +2100,7 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
         path: "secret.csv".into(),
     }];
 
-    sweep_excluded_groups(&es, &plan, &excluded, None, 0).expect("sweep");
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
 
     let st = ep.state.lock().unwrap();
     // The excluded file's dataset record is gone.
@@ -2159,7 +2183,7 @@ fn sweep_excluded_groups_invalidates_the_excluded_files_edges() {
     }];
 
     let now_ms = 1_724_500_000_000i64;
-    sweep_excluded_groups(&es, &plan, &excluded, Some(edges), now_ms).expect("sweep");
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, Some(edges), now_ms).expect("sweep");
 
     let st = ep.state.lock().unwrap();
     // The excluded file's edge is soft-invalidated (present, stamped invalid_at).
@@ -2201,16 +2225,16 @@ fn sweep_excluded_groups_purges_the_excluded_files_alias_catalog_docs() {
         // `file_key`.
         st.docs.insert(
             (catalog::CATALOG_INDEX.to_string(), "file:excluded".into()),
-            json!({"doc_kind": "file", "file_key": "key-excluded", "path": "canonical.csv"}),
+            json!({"doc_kind": "file", "prefix": "ax", "file_key": "key-excluded", "path": "canonical.csv"}),
         );
         st.docs.insert(
             (catalog::CATALOG_INDEX.to_string(), "file-alias:ax:excluded".into()),
-            json!({"doc_kind": "file", "file_key": "key-excluded", "path": "dup.csv", "status": "duplicate"}),
+            json!({"doc_kind": "file", "prefix": "ax", "file_key": "key-excluded", "path": "dup.csv", "status": "duplicate"}),
         );
         // A different file's alias (distinct file_key) must survive.
         st.docs.insert(
             (catalog::CATALOG_INDEX.to_string(), "file-alias:ax:kept".into()),
-            json!({"doc_kind": "file", "file_key": "key-kept", "path": "kept-dup.csv", "status": "duplicate"}),
+            json!({"doc_kind": "file", "prefix": "ax", "file_key": "key-kept", "path": "kept-dup.csv", "status": "duplicate"}),
         );
     }
 
@@ -2233,9 +2257,9 @@ fn sweep_excluded_groups_purges_the_excluded_files_alias_catalog_docs() {
         path: "canonical.csv".into(),
     }];
 
-    // 5-arg signature (post-#694): this test does not exercise edges, so pass
-    // `None`/`0` — only the catalog file_key sweep is under test here.
-    sweep_excluded_groups(&es, &plan, &excluded, None, 0).expect("sweep");
+    // 6-arg signature (post-#694 edges, post-#737 prefix): this test does not
+    // exercise edges, so pass `None`/`0`; the corpus prefix is "ax".
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
 
     let st = ep.state.lock().unwrap();
     // The excluded file's alias catalog doc is gone (the #693 fix).
@@ -2261,6 +2285,69 @@ fn sweep_excluded_groups_purges_the_excluded_files_alias_catalog_docs() {
             .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
                 && d.get("path").and_then(Value::as_str) == Some("kept-dup.csv")),
         "#693: a different file's alias doc must NOT be swept"
+    );
+}
+
+/// #737: the catalog sweep is scoped to THIS corpus's `prefix`. The
+/// `autoindex-catalog` index is shared across corpora; a byte-identical common
+/// file (LICENSE, a lockfile) indexed by a still-live SIBLING corpus shares the
+/// same `file_key`/`path`, so an unscoped sweep would delete the sibling's live
+/// catalog docs too. Fail-before: dropping the `prefix` filter (unscoped
+/// `{term:{file_key}}`) deletes the sibling-corpus doc as well.
+#[test]
+fn sweep_excluded_groups_does_not_delete_a_sibling_corpus_catalog_doc() {
+    let ep = HttpEndpoint::start();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // Corpus "ax" excludes a file; corpus "bx" is a live sibling holding a
+        // byte-identical copy (same file_key) under its own prefix-scoped id.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file:ax:excluded".into()),
+            json!({"doc_kind": "file", "prefix": "ax", "file_key": "shared-key", "path": "LICENSE"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file:bx:sibling".into()),
+            json!({"doc_kind": "file", "prefix": "bx", "file_key": "shared-key", "path": "LICENSE"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "shared-key".into(),
+        path: "LICENSE".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // Corpus ax's own doc is swept (same file_key/path, matching prefix).
+    assert!(
+        !st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file:ax:excluded".to_string()
+        )),
+        "#737: the excluding corpus's own catalog doc must still be swept"
+    );
+    // The live sibling corpus's byte-identical doc SURVIVES (prefix-scoped).
+    assert!(
+        st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file:bx:sibling".to_string()
+        )),
+        "#737: a sibling corpus's byte-identical catalog doc must NOT be swept"
     );
 }
 

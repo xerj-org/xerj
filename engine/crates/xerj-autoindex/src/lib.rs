@@ -3172,6 +3172,7 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// `None`) there is no edges index to touch.
 fn sweep_excluded_groups(
     es: &Es,
+    prefix: &str,
     plan: &Plan,
     excluded: &[InventoryDeltaEntry],
     edges_index: Option<&str>,
@@ -3193,9 +3194,18 @@ fn sweep_excluded_groups(
                     )
                 })?;
         }
+        // #737: BOTH catalog deletes are scoped to THIS corpus's `prefix`. The
+        // `autoindex-catalog` index is shared across corpora; an unscoped `path`
+        // or `file_key` term would also delete a byte-identical file's catalog
+        // docs owned by a still-live SIBLING corpus (`current_keys` only guards
+        // the same corpus). The `prefix` keyword field (written by `file_doc`/
+        // `duplicate_file_doc`) makes the scope term-queryable.
         es.delete_by_query(
             catalog::CATALOG_INDEX,
-            &json!({"term": {"path": entry.path}}),
+            &json!({"bool": {"filter": [
+                {"term": {"prefix": prefix}},
+                {"term": {"path": entry.path}},
+            ]}}),
         )
         .with_context(|| format!("sweep catalog entry for newly-excluded {}", entry.path))?;
         // #693: also purge the file's `file-alias:` duplicate catalog docs
@@ -3205,10 +3215,14 @@ fn sweep_excluded_groups(
         // and every `file-alias:` doc carry `file_key`, and the delta classifies
         // a content group as excluded ONLY when no surviving file bears its key
         // (`UnsupportedInventoryDelta::between`: the `current_keys` guard), so a
-        // `file_key` term cannot strand a still-live byte-identical duplicate.
+        // `file_key` term cannot strand a still-live byte-identical duplicate in
+        // the same corpus; the `prefix` filter (#737) guards the cross-corpus axis.
         es.delete_by_query(
             catalog::CATALOG_INDEX,
-            &json!({"term": {"file_key": entry.file_key}}),
+            &json!({"bool": {"filter": [
+                {"term": {"prefix": prefix}},
+                {"term": {"file_key": entry.file_key}},
+            ]}}),
         )
         .with_context(|| format!("sweep catalog aliases for newly-excluded {}", entry.path))?;
         // #694: soft-invalidate the edges this file taught. `invalidate_prior_edges`
@@ -3827,6 +3841,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             let edges_index = graph_edges_index(&cfg);
             sweep_excluded_groups(
                 &es,
+                &cfg.prefix,
                 prior_plan,
                 &delta.excluded_content_groups,
                 edges_index.as_deref(),
@@ -4094,6 +4109,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             let edges_index = graph_edges_index(&cfg);
             sweep_excluded_groups(
                 &es,
+                &cfg.prefix,
                 &plan,
                 &delta.excluded_content_groups,
                 edges_index.as_deref(),

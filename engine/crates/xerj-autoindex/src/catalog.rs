@@ -108,6 +108,12 @@ pub fn catalog_mapping() -> Value {
         json!({"type": "keyword"}),
     );
     properties.insert("junk_records_this_run".into(), json!({"type": "long"}));
+    // #737: corpus scope, so a delete_by_query can constrain a sweep to THIS
+    // corpus's docs. The doc `_id`s are already prefix-scoped (`file:{prefix}:…`)
+    // but `_id` is not term-queryable; a byte-identical file shared with a live
+    // sibling corpus would otherwise be caught by an unscoped `file_key`/`path`
+    // sweep. Written by `file_doc`/`duplicate_file_doc` (the sweep's targets).
+    properties.insert("prefix".into(), json!({"type": "keyword"}));
     mapping
 }
 
@@ -193,6 +199,7 @@ pub fn file_doc(
         file_id(prefix, file_key),
         json!({
             "doc_kind": "file",
+            "prefix": prefix, // #737: corpus scope for a scoped exclusion sweep
             "file_key": file_key,
             "path": path,
             "format": format,
@@ -220,6 +227,7 @@ pub fn duplicate_file_doc(
         alias_id,
         json!({
             "doc_kind": "file",
+            "prefix": prefix, // #737: corpus scope for a scoped exclusion sweep
             "file_key": file_key,
             "path": path,
             "format": "duplicate",
