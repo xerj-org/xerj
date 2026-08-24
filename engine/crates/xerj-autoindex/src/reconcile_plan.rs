@@ -164,10 +164,30 @@ pub(crate) fn reconcile_plan(
             let group = &sketch.group;
             let fields = document_fields.as_ref().unwrap_or(&sketch.fields);
             let slug = if let Some(owner) = retained {
+                // `FileAssignment.family` (the frozen per-FILE record) keeps
+                // the raw sniffed family — the same value `sniffed.family`
+                // recomputes here — so the two compare directly.
                 retained_slug(owner, group, sniffed.family.as_str(), fields, &datasets)
                     .with_context(|| format!("project retained file {}", file.rel))?
             } else {
-                classify_new(group, sniffed.family.as_str(), fields, &previous.datasets)
+                // #346: `PlanDataset.family` (the frozen DATASET's label) is
+                // a different value — a fresh plan's dataset construction
+                // collapses every "no data-derived name, no sub-file group"
+                // sketch's family to the literal `"docs"`
+                // (`dataset::cluster`'s own is-docs definition, mirrored
+                // here — see `lib.rs`'s `PlanDataset` build). Comparing the
+                // raw sniffed family against that frozen `"docs"` label
+                // instead made every incrementally-added document file
+                // (prose, markdown, one-off config, …) match zero frozen
+                // datasets and fail closed as "unsupported dataset/schema
+                // evolution" — even one byte-for-byte the same shape as the
+                // dataset it belongs to.
+                let family = if sketch.key_fields.is_empty() && group.is_none() {
+                    "docs"
+                } else {
+                    sniffed.family.as_str()
+                };
+                classify_new(group, family, fields, &previous.datasets)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
             assignments.push((group.clone(), slug));
@@ -476,8 +496,15 @@ mod tests {
             }),
             sketches: vec![crate::GroupSketch {
                 group: None,
+                // A real jsonl sketch's `key_fields` is the record's own
+                // field names read out of the file — non-empty is what makes
+                // `dataset::cluster` (and, since #346, this module) treat it
+                // as schema'd data rather than a `"docs"` document. Every
+                // fixture in this module models structured jsonl content, so
+                // mirror that instead of the empty set a real document sketch
+                // would carry.
+                key_fields: fields.keys().cloned().collect(),
                 fields,
-                key_fields: std::collections::HashSet::new(),
                 records: 1,
             }],
             junk: None,
@@ -599,6 +626,42 @@ mod tests {
         );
         assert!(message.contains("a-tie"), "{message}");
         assert!(message.contains("z-tie"), "{message}");
+    }
+
+    /// #346: a fresh plan collapses every document-shaped cluster's family to
+    /// the literal `"docs"` (`lib.rs`'s `PlanDataset` build, mirroring
+    /// `dataset::cluster`'s own is-docs definition — no data-derived
+    /// `key_fields`, no sub-file `group`). A new file with that exact same
+    /// shape used to be compared against its RAW sniffed family instead,
+    /// matched zero frozen datasets, and aborted the whole run as
+    /// "unsupported dataset/schema evolution" — even though it was the same
+    /// shape as the dataset sitting right there.
+    #[test]
+    fn new_document_shaped_file_matches_the_frozen_docs_dataset() {
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset("docs", vec![spec("body", "text"), spec("title", "text")])
+            }],
+            ..Plan::default()
+        };
+        let fields = HashMap::from([
+            ("body".into(), acc(&[json!("hello world")])),
+            ("title".into(), acc(&[json!("hello world")])),
+        ]);
+        let mut file_scan = scan(fields);
+        // A document sketch: no data-derived key fields, no sub-file group —
+        // the same shape `dataset::cluster` treats as "docs" on a fresh run.
+        file_scan.sketches[0].key_fields.clear();
+        let plan = reconcile_plan(
+            &inventory("new.txt", "unix:6e", "new"),
+            &previous,
+            vec![file_scan],
+            50,
+        )
+        .unwrap();
+        assert_eq!(plan.files["new"].assignments, vec![(None, "docs".into())]);
+        assert_eq!(plan.datasets[0].file_count, 1);
     }
 
     #[test]
