@@ -3094,6 +3094,41 @@ fn sweep_excluded_groups(es: &Es, plan: &Plan, excluded: &[InventoryDeltaEntry])
     Ok(())
 }
 
+/// Catalog doc id for a time correlation, corpus-prefix-scoped (#673): the
+/// `autoindex-catalog` index is shared across corpora, so a time correlation
+/// keyed only by dataset slugs would overwrite the same-slug correlation from
+/// another corpus. Extracted (#689) so the prefix scoping is unit-testable, the
+/// way `KeyCorr::id` is for `corr:`.
+fn tcorr_id(prefix: &str, a_dataset: &str, b_dataset: &str) -> String {
+    format!("tcorr:{prefix}:{a_dataset}:{b_dataset}")
+}
+
+#[cfg(test)]
+mod tcorr_id_tests {
+    use super::tcorr_id;
+
+    /// #689 (coverage gap from #673): the shared `autoindex-catalog` index means
+    /// a time correlation keyed by dataset slugs must carry the corpus prefix, or
+    /// `(reports, orders)` in corpus A overwrites the same-slug correlation in
+    /// corpus B. `corr:` is pinned by `correlate::tests`; this pins `tcorr:`.
+    #[test]
+    fn tcorr_id_is_prefix_scoped_across_corpora() {
+        // Same slugs, different corpus prefix -> distinct ids (no overwrite).
+        assert_ne!(
+            tcorr_id("ax-a", "reports", "orders"),
+            tcorr_id("ax-b", "reports", "orders"),
+            "#689: same-slug time correlations from two corpora must not collide"
+        );
+        // Idempotent within one corpus.
+        assert_eq!(
+            tcorr_id("ax-a", "reports", "orders"),
+            tcorr_id("ax-a", "reports", "orders"),
+        );
+        // The prefix is actually in the id.
+        assert!(tcorr_id("ax-a", "reports", "orders").starts_with("tcorr:ax-a:"));
+    }
+}
+
 fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
@@ -5584,13 +5619,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     for (i, tc) in time_corrs.iter().enumerate() {
         // Prefix-scoped for the same cross-corpus reason as `corr:` above (#673):
         // time correlations are keyed by dataset slugs and share the catalog.
-        let id = format!(
-            "tcorr:{}:{}:{}",
-            cfg.prefix,
+        let i_fallback = i.to_string();
+        let id = tcorr_id(
+            &cfg.prefix,
             tc.get("a_dataset").and_then(|v| v.as_str()).unwrap_or(""),
             tc.get("b_dataset")
                 .and_then(|v| v.as_str())
-                .unwrap_or(&i.to_string())
+                .unwrap_or(&i_fallback),
         );
         let mut v = tc.clone();
         v["run_id"] = json!(run_id);
