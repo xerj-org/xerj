@@ -152,7 +152,43 @@ pub(crate) fn reconcile_plan(
         // renderer `build_phase_a` uses, exactly as the fresh path does, and
         // carry the committed `as_document` decision forward. Losing it would
         // index flattened records into a document mapping.
-        let as_document = retained.is_some_and(|owner| owner.as_document);
+        // A fresh plan folds a group-less DOCUMENT (empty `key_fields`:
+        // prose/code/PDF, dataset.rs:119) AND a demoted one-off CONFIG (a
+        // single-record `demotable_family` JSON/YAML/XML, the demotion loop)
+        // into the scope's `docs` dataset. On the `--no-graph` incremental path
+        // a NEW file of either shape must reconcile the same way — else it is
+        // compared by its raw family here, matches no frozen dataset, and
+        // aborts the whole run ("use a new prefix"). Gate on the frozen plan
+        // having actually done the fold: a group-less `docs` dataset exists to
+        // join, and NO group-less dataset of the file's own family exists (a
+        // >8-config fleet forms its own data dataset instead, and such a file
+        // must join THAT, not be forced into docs).
+        let all_group_less = scan.sketches.iter().all(|s| s.group.is_none());
+        let all_empty_key_fields = scan.sketches.iter().all(|s| s.key_fields.is_empty());
+        let docs_target = retained.is_none()
+            && all_group_less
+            && previous
+                .datasets
+                .iter()
+                .any(|d| d.family == "docs" && d.group.is_none())
+            && !previous
+                .datasets
+                .iter()
+                .any(|d| d.family == sniffed.family.as_str() && d.group.is_none());
+        let new_document = docs_target && all_empty_key_fields;
+        let new_demoted_config = docs_target
+            && !all_empty_key_fields
+            && crate::dataset::demotable_family(sniffed.family)
+            && scan.sketches.iter().map(|s| s.records).sum::<u64>() == 1;
+        let route_to_docs = new_document || new_demoted_config;
+
+        // Only a demoted CONFIG re-samples through the document renderer (its
+        // family extractor's flattened fields are the wrong mapping). A
+        // prose/code document indexes through its OWN extractor, so its scan
+        // fields already describe the document shape and `as_document` stays
+        // false — exactly as `build_phase_a` leaves non-demoted docs members
+        // (1946-1962).
+        let as_document = retained.is_some_and(|owner| owner.as_document) || new_demoted_config;
         let document_fields = if as_document {
             Some(document_sample(&file.path, sniffed.gzip, sample))
         } else {
@@ -167,7 +203,14 @@ pub(crate) fn reconcile_plan(
                 retained_slug(owner, group, sniffed.family.as_str(), fields, &datasets)
                     .with_context(|| format!("project retained file {}", file.rel))?
             } else {
-                classify_new(group, sniffed.family.as_str(), fields, &previous.datasets)
+                // A routed document/config classifies as "docs" — its fresh-plan
+                // fold target — instead of aborting on its raw family.
+                let family = if route_to_docs {
+                    "docs"
+                } else {
+                    sniffed.family.as_str()
+                };
+                classify_new(group, family, fields, &previous.datasets)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
             assignments.push((group.clone(), slug));
@@ -285,7 +328,22 @@ fn classify_new(
             continue;
         }
         let (intersection, union) = field_overlap(fields, &dataset.specs);
-        let threshold_met = if group.is_some() {
+        let threshold_met = if dataset.family == "docs" {
+            // A `docs` dataset's specs are the UNION of every document/config
+            // the fold produced. `ensure_compatible` (run just above) already
+            // requires every observed SCALAR field to be present in the frozen
+            // specs — a field absent from the specs is tolerated ONLY when
+            // `acc.n == 0` (pruned: e.g. a code file's object-valued `symbols`
+            // sidecar, #580). So a document/config that reached here belongs to
+            // the docs dataset regardless of how many other fields the union
+            // carries; accept it. (The 0.7 Jaccard would wrongly reject a
+            // document with fewer fields than the union, and `== fields.len()`
+            // wrongly counts the pruned `symbols` key and aborted a new code
+            // file — the #729 central case.) `let _` keeps the shared
+            // `field_overlap` result in scope for the data-family branches.
+            let _ = (intersection, union);
+            true
+        } else if group.is_some() {
             intersection * 2 >= union // 0.5
         } else {
             intersection * 10 >= union * 7 // 0.7
@@ -645,6 +703,161 @@ mod tests {
         )
         .unwrap_err();
         assert!(format!("{error:#}").contains("unsupported dataset/schema evolution"));
+    }
+
+    /// A NEW document file (empty `key_fields`, no group — the shape a fresh
+    /// plan folds into the scope's docs dataset, dataset.rs:119) added to an
+    /// already-indexed folder must join the frozen `docs` dataset on the
+    /// `--no-graph` incremental path, not be compared by its raw family
+    /// (`txt-prose`, `code`, …) — which matches no frozen dataset and aborts
+    /// the whole run ("use a new prefix"). It is NOT `as_document` (a prose
+    /// document indexes through its own extractor; only demoted configs
+    /// re-sample). Its rendered fields are a SUBSET of the docs dataset's
+    /// union, so `classify_new` must accept a docs-family subset.
+    #[test]
+    fn new_document_file_joins_the_docs_dataset_on_incremental() {
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset("docs", vec![spec("title", "text"), spec("body", "text")])
+            }],
+            ..Plan::default()
+        };
+        // A prose document: `title`/`body` (a subset of the frozen docs union),
+        // empty key_fields (the `scan` helper default), family txt-prose.
+        let fields = HashMap::from([
+            ("title".to_string(), acc(&[json!("Runbook")])),
+            (
+                "body".to_string(),
+                acc(&[json!("promote the standby with pg_ctl")]),
+            ),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::TxtProse;
+
+        let plan = reconcile_plan(
+            &inventory("notes.txt", "unix:7b", "doc"),
+            &previous,
+            vec![file_scan],
+            50,
+        )
+        .unwrap();
+        assert_eq!(
+            plan.files["doc"].assignments,
+            vec![(None, "docs".into())],
+            "a new prose document must join the frozen docs dataset, not abort on family txt-prose"
+        );
+        assert!(
+            !plan.files["doc"].as_document,
+            "a prose document indexes through its own extractor, not as_document"
+        );
+    }
+
+    /// A NEW demotable one-off config (single-record JSON/YAML/XML, non-empty
+    /// key_fields) joins the frozen docs dataset AND re-samples `as_document` —
+    /// even when the docs dataset carries MORE fields than the config renders
+    /// (a realistic docs folder of multi-section markdown adds `section`). The
+    /// config re-samples to `{title, body}`, a SUBSET of the docs union, which
+    /// the old 0.7-Jaccard threshold rejected (aborting the run) — the
+    /// docs-subset relaxation in `classify_new` fixes it.
+    #[test]
+    fn new_demotable_config_joins_a_richer_docs_dataset_as_a_document() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cfg_path = tmp.path().join("config.json");
+        std::fs::write(&cfg_path, "{\"host\":\"localhost\",\"port\":8080}").unwrap();
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset(
+                    "docs",
+                    vec![
+                        spec("title", "text"),
+                        spec("body", "text"),
+                        spec("section", "text"),
+                    ],
+                )
+            }],
+            ..Plan::default()
+        };
+        let fields = HashMap::from([
+            ("host".to_string(), acc(&[json!("localhost")])),
+            ("port".to_string(), acc(&[json!(8080)])),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::Json;
+        file_scan.sketches[0].key_fields = ["host".to_string(), "port".to_string()]
+            .into_iter()
+            .collect();
+        let inv = Inventory {
+            files: vec![FileEntry {
+                path: cfg_path.clone(),
+                rel: "config.json".into(),
+                rel_id: "unix:7c".into(),
+                is_symlink: false,
+                size: 32,
+            }],
+            keys: vec!["cfg".into()],
+            digests: vec!["digest-cfg".into()],
+            duplicates: vec![],
+        };
+        let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50).unwrap();
+        assert_eq!(plan.files["cfg"].assignments, vec![(None, "docs".into())]);
+        assert!(
+            plan.files["cfg"].as_document,
+            "a demoted config re-samples as a document"
+        );
+    }
+
+    /// #729: a code file emits a `symbols` sidecar (array-of-objects, #580)
+    /// that `FieldAcc` records with `acc.n == 0`, so it is pruned from every
+    /// frozen docs `FieldSpec`. A NEW code file carrying it must still join the
+    /// docs dataset on the incremental path — `ensure_compatible` tolerates the
+    /// pruned key, so the docs-family acceptance must not re-count it (the
+    /// earlier `intersection == fields.len()` did, and aborted every new
+    /// `.rs`/`.py` with functions — the central #729 case for code repos).
+    #[test]
+    fn new_code_file_with_a_pruned_symbols_sidecar_joins_docs_not_aborts() {
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset(
+                    "docs",
+                    vec![
+                        spec("title", "text"),
+                        spec("language", "keyword"),
+                        spec("body", "text"),
+                        spec("defs", "text"),
+                        spec("symbol_count", "long"),
+                    ],
+                )
+            }],
+            ..Plan::default()
+        };
+        let fields = HashMap::from([
+            ("title".to_string(), acc(&[json!("alpha.rs")])),
+            ("language".to_string(), acc(&[json!("rust")])),
+            ("body".to_string(), acc(&[json!("fn main() {}")])),
+            ("defs".to_string(), acc(&[json!("struct Alpha")])),
+            ("symbol_count".to_string(), acc(&[json!(3)])),
+            // Observed key, object-valued -> acc.n == 0, pruned from the frozen
+            // specs — exactly the shape that aborted before the fix.
+            ("symbols".to_string(), acc(&[json!({"name": "main"})])),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::Code;
+
+        let plan = reconcile_plan(
+            &inventory("alpha.rs", "unix:7d", "code"),
+            &previous,
+            vec![file_scan],
+            50,
+        )
+        .unwrap();
+        assert_eq!(plan.files["code"].assignments, vec![(None, "docs".into())]);
+        assert!(
+            !plan.files["code"].as_document,
+            "a code document indexes through its own extractor, not as_document"
+        );
     }
 
     #[test]

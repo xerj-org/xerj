@@ -87,7 +87,7 @@ fn jaccard(a: &HashSet<&str>, b: &HashSet<&str>) -> f64 {
 /// single-record files? Self-describing structured formats only: CSV is
 /// tabular by nature, logs/jsonl are collections by nature, and sql groups
 /// carry a real table schema.
-fn demotable_family(f: Family) -> bool {
+pub(crate) fn demotable_family(f: Family) -> bool {
     matches!(f, Family::Json | Family::Yaml | Family::Xml)
 }
 
