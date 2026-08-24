@@ -95,7 +95,9 @@ pub enum Fuzziness {
 pub enum MinShouldMatch {
     /// Exact number of `should` clauses that must match.
     Fixed(u32),
-    /// Percentage of `should` clauses that must match (0–100).
+    /// Percentage of `should` clauses that must match. Values may exceed 100:
+    /// `>100` requires more matches than there are clauses, so the clause set
+    /// is unsatisfiable (the parser applies no upper cap).
     Percentage(u32),
     /// `terms_set.minimum_should_match_field`: the required count is read
     /// per-document from this numeric field.
