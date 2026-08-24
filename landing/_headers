@@ -4,7 +4,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: interest-cohort=()
-  Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data:; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' blob: https://cloudflareinsights.com; frame-ancestors 'self';
+  Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data:; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' blob: https://cloudflareinsights.com https://api.github.com; frame-ancestors 'self';
 
 # Site-wide stylesheet changes with the design — must revalidate on
 # every deploy (ETag 304s keep this cheap). A stale copy here breaks

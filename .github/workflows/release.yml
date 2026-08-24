@@ -156,6 +156,13 @@ jobs:
               export "$line"
             done <<< '${{ matrix.linker_env }}'
           fi
+          # Binary --version is env!("CARGO_PKG_VERSION"); without this it stays
+          # frozen at whatever engine/Cargo.toml last shipped (rc.18), so every
+          # release self-reported rc.18. Derive it from the tag.
+          VER="${GITHUB_REF_NAME#v}"
+          sed -i.bak -E "0,/^version = \".*\"/s//version = \"${VER}\"/" Cargo.toml && rm -f Cargo.toml.bak
+          echo "set workspace version to ${VER}"; grep -m1 '^version = ' Cargo.toml
+          cargo update --workspace --offline 2>/dev/null || cargo update --workspace
           if [ "${{ matrix.use_zigbuild }}" = "true" ]; then
             cargo zigbuild --release --locked --target ${{ matrix.target }} -p xerj-server
           else
