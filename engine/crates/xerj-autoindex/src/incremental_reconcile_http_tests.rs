@@ -2183,6 +2183,87 @@ fn sweep_excluded_groups_invalidates_the_excluded_files_edges() {
     );
 }
 
+/// #693: `sweep_excluded_groups` also purges the excluded file's `file-alias:`
+/// duplicate catalog docs. Those carry the DUPLICATE's own path (not the
+/// canonical `entry.path`), so the `path` term alone misses them — leaving an
+/// excluded file's alternate path/filename searchable. Deleting by `file_key`
+/// catches them, and cannot strand a live duplicate (a group is only excluded
+/// when no surviving file bears its key). Fail-before: without the `file_key`
+/// delete, the alias doc (path "dup.csv") survives the canonical-path sweep.
+#[test]
+fn sweep_excluded_groups_purges_the_excluded_files_alias_catalog_docs() {
+    let ep = HttpEndpoint::start();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // Excluded file: a canonical `file:` doc plus a byte-identical
+        // `file-alias:` doc under a DIFFERENT path — both carry the same
+        // `file_key`.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file:excluded".into()),
+            json!({"doc_kind": "file", "file_key": "key-excluded", "path": "canonical.csv"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file-alias:ax:excluded".into()),
+            json!({"doc_kind": "file", "file_key": "key-excluded", "path": "dup.csv", "status": "duplicate"}),
+        );
+        // A different file's alias (distinct file_key) must survive.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file-alias:ax:kept".into()),
+            json!({"doc_kind": "file", "file_key": "key-kept", "path": "kept-dup.csv", "status": "duplicate"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    // entry.path is the CANONICAL rel — deliberately NOT the alias's "dup.csv".
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "key-excluded".into(),
+        path: "canonical.csv".into(),
+    }];
+
+    // 5-arg signature (post-#694): this test does not exercise edges, so pass
+    // `None`/`0` — only the catalog file_key sweep is under test here.
+    sweep_excluded_groups(&es, &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // The excluded file's alias catalog doc is gone (the #693 fix).
+    assert!(
+        !st.docs
+            .iter()
+            .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
+                && d.get("path").and_then(Value::as_str) == Some("dup.csv")),
+        "#693: the excluded file's file-alias: catalog doc must be swept"
+    );
+    // Its canonical file doc is gone too.
+    assert!(
+        !st.docs
+            .iter()
+            .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
+                && d.get("file_key").and_then(Value::as_str) == Some("key-excluded")),
+        "#693: the excluded file's catalog docs (by file_key) must be swept"
+    );
+    // A different file's alias must NOT be swept (file_key is content-scoped).
+    assert!(
+        st.docs
+            .iter()
+            .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
+                && d.get("path").and_then(Value::as_str) == Some("kept-dup.csv")),
+        "#693: a different file's alias doc must NOT be swept"
+    );
+}
+
 /// #585 (case 1): a pending (uncommitted) `--no-graph` generation must NOT be
 /// resumed and committed on the default graph path — doing so silently commits
 /// a no-graph generation under a graph authority (the #584 hazard, but for a
