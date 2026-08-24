@@ -103,7 +103,10 @@ be driven by you on their behalf, so the loop is fixed:
 
 Exit codes: `0` complete · `3` completed-with-junk — **this is success** · `2`
 usage · `1` any error at all (read the `error:` line before acting) · `4`
-needs a decision (gate above; answer with `--approve`, never a retry). Percent,
+needs a decision (gate above; answer with `--approve`, never a retry). Exit `3`
+also carries `reason=catalog-alias-sweep-failed`: the corpus **is** indexed and
+the journal committed, and only the catalog's duplicate-alias cleanup could not
+run — read `reason`, not the bare code, to tell the two apart. Percent,
 ETA and the drawn bar are honest or absent: `unknown` / `[????…]` when there is
 no denominator, and a full bar only at a real 100%. The short version is under
 "Running an index on someone's machine" in

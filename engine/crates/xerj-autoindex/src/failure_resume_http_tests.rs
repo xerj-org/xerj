@@ -101,6 +101,15 @@ struct MockState {
     /// Accept every data bulk (`errors: false`) but persist nothing — the
     /// shape of any rejection path the client-side classifier misses.
     swallow_data_bulks: bool,
+    /// Answer the catalog's duplicate-alias sweep — and ONLY that request —
+    /// with a 500 whose body names the condition. Scoped to the one call so
+    /// the fixture proves the sweep is what wedged the run (#345), not that a
+    /// server which 500s everything fails.
+    fail_alias_sweep: bool,
+    /// One entry per alias-sweep request, holding the paths it named. The
+    /// sweep used to be one round trip per duplicate path, so the batching is
+    /// only observable here.
+    alias_sweep_batches: Vec<Vec<String>>,
     /// Refuse the FIRST document of every data bulk with a per-item 400 and
     /// apply the rest. This is the one bulk shape that produces an
     /// `item_error` without a `server_error`: status is neither 429 nor 5xx
@@ -294,6 +303,33 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
             .pointer("/query/term/file_key")
             .and_then(Value::as_str)
             .map(str::to_owned);
+        // The catalog's duplicate-alias sweep. Recognised by SHAPE — a
+        // `status: duplicate` filter beside a `path` terms list — because
+        // since #345 one request carries a whole chunk of paths rather than
+        // one path per round trip.
+        let filter = query
+            .pointer("/query/bool/filter")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let alias_sweep = filter
+            .iter()
+            .any(|clause| {
+                clause.pointer("/term/status").and_then(Value::as_str) == Some("duplicate")
+            })
+            .then(|| {
+                filter
+                    .iter()
+                    .find_map(|clause| clause.pointer("/terms/path").and_then(Value::as_array))
+                    .map(|paths| {
+                        paths
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_owned)
+                            .collect::<Vec<String>>()
+                    })
+                    .unwrap_or_default()
+            });
         let mut locked = state.lock().unwrap();
         locked.delete_calls += 1;
         if let Some(key) = ax_file {
@@ -306,7 +342,39 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 .catalog_docs
                 .retain(|_, doc| doc.get("file_key").and_then(Value::as_str) != Some(key.as_str()));
         }
-        (200, json!({"deleted": 0, "failures": []}))
+        // Recorded before the fault so a refused sweep is counted too — the
+        // point of the batching assertion is how many round trips the run
+        // made, not how many of them succeeded.
+        if let Some(swept) = &alias_sweep {
+            locked.alias_sweep_batches.push(swept.clone());
+        }
+        match alias_sweep {
+            Some(_) if locked.fail_alias_sweep => (
+                // What a poisoned catalog collection really answers: a 500
+                // whose BODY names the condition. The client used to keep the
+                // status and discard the body, which is the whole reason #345
+                // was filed "not investigated".
+                500,
+                json!({
+                    "error": {
+                        "type": "internal_server_error_exception",
+                        "reason": "collection publication was interrupted; reopen the index \
+                                   so WAL recovery can rebuild a consistent searchable state"
+                    },
+                    "status": 500
+                }),
+            ),
+            Some(swept) => {
+                locked.catalog_docs.retain(|_, doc| {
+                    doc.get("status").and_then(Value::as_str) != Some("duplicate")
+                        || !swept
+                            .iter()
+                            .any(|path| doc.get("path").and_then(Value::as_str) == Some(path))
+                });
+                (200, json!({"deleted": 0, "failures": []}))
+            }
+            None => (200, json!({"deleted": 0, "failures": []})),
+        }
     } else if method == "GET" && path.ends_with("/_count") {
         (200, json!({"count": state.lock().unwrap().docs.len()}))
     } else if method == "POST" && path.ends_with("/_search") {
@@ -346,7 +414,11 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
         (200, json!({"acknowledged": true}))
     };
     let bytes = response.to_string();
-    let reason = if status == 200 { "OK" } else { "Bad Request" };
+    let reason = match status {
+        200 => "OK",
+        500 => "Internal Server Error",
+        _ => "Bad Request",
+    };
     write!(
         stream,
         "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -1009,6 +1081,111 @@ fn fresh_cannot_erase_the_plan_and_bypass_the_removal_gate() {
     fs::write(corpus.path().join("new.csv"), "id,value\n2,new\n").unwrap();
     config.fresh = true;
     assert_unsupported_delta_without_remote_mutation(&endpoint, config, &["new.csv"], &["old.csv"]);
+}
+
+/// #345. A byte-identical duplicate is the ONLY thing that makes a run issue
+/// the catalog's duplicate-alias `_delete_by_query` at all, and that call was
+/// fatal. A 500 there turned a run whose every document AND whose per-file
+/// journal had already committed into `xerj-done ok=false exit=1
+/// reason=aborted` — permanently, because the journal is complete, so every
+/// rerun indexes zero files and aborts on the same line.
+///
+/// Three things are asserted together because each one alone is insufficient:
+/// the run reaches a terminal non-aborted state, the surfaced text carries the
+/// SERVER's reason (a status line alone is what left the original report
+/// uninvestigable), and the same corpus without a duplicate is untouched by
+/// the identical fault — which is what proves the duplicate is the cause
+/// rather than a coincidence.
+#[test]
+fn a_refused_duplicate_alias_sweep_is_reported_loudly_and_is_not_fatal() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let shared = "id,value\n1,same\n";
+    fs::write(corpus.path().join("a.csv"), shared).unwrap();
+    fs::write(corpus.path().join("b.csv"), shared).unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    {
+        let batches = &endpoint.state.lock().unwrap().alias_sweep_batches;
+        assert_eq!(
+            batches.len(),
+            1,
+            "one duplicate path is one sweep request, not one per path: {batches:?}"
+        );
+        assert_eq!(batches[0].len(), 1, "{batches:?}");
+    }
+
+    // Now refuse only that one call, and rerun the completed corpus.
+    endpoint.state.lock().unwrap().fail_alias_sweep = true;
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config.clone())
+            .expect("a fully indexed corpus must not be aborted by a metadata-only catalog sweep")
+    };
+    assert_eq!(code, 3, "recorded, never fatal — cli.rs EXIT CODES");
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.contains("ok=true"), "{done}");
+    assert!(
+        done.contains("reason=catalog-alias-sweep-failed"),
+        "the sweep failure needs its own greppable reason, not completed-with-junk: {done}"
+    );
+    assert!(done.contains("catalog_alias_sweep_failures=1"), "{done}");
+    // The server said WHY, and the operator has to be able to read it.
+    assert!(
+        stream.contains("collection publication was interrupted"),
+        "the server's own reason must reach the surface: {stream}"
+    );
+    assert!(stream.contains("the corpus IS indexed"), "{stream}");
+    assert!(stream.contains("alias not swept: b.csv"), "{stream}");
+    let report = report.expect("the run still publishes its run document");
+    assert_eq!(report["catalog_alias_sweep_failed_paths"], json!(["b.csv"]));
+    assert!(
+        report["catalog_alias_sweep_error"]
+            .as_str()
+            .is_some_and(|error| error.contains("HTTP 500 Internal Server Error")
+                && error.contains("collection publication was interrupted")),
+        "{report}"
+    );
+
+    // The control: the identical fault over a corpus with no duplicate never
+    // reaches the sweep at all, so nothing about that run changes.
+    let control_corpus = tempfile::tempdir().unwrap();
+    let control_state = tempfile::tempdir().unwrap();
+    fs::write(control_corpus.path().join("a.csv"), shared).unwrap();
+    let control_endpoint = MockEndpoint::start(usize::MAX);
+    control_endpoint.state.lock().unwrap().fail_alias_sweep = true;
+    let control = cfg(
+        control_corpus.path(),
+        control_state.path(),
+        &control_endpoint.url,
+    );
+    assert_eq!(run_index(control).unwrap(), 0);
+    assert!(
+        control_endpoint
+            .state
+            .lock()
+            .unwrap()
+            .alias_sweep_batches
+            .is_empty(),
+        "a corpus with no duplicate must not issue the sweep at all"
+    );
 }
 
 #[test]
