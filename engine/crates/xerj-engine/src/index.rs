@@ -282,6 +282,63 @@ mod collection_publication_fail_closed_tests {
         );
     }
 
+    /// #421: the memtable pre-clone rejection must be META-AWARE. A `_seq_no`
+    /// sort resolves its key from the version map (`meta_sort_value`), the same
+    /// resolver the heap ranks on, so `memtable_primary_key_rejects` can and
+    /// must reject a doc whose `_seq_no` is strictly worse than the bounded
+    /// frontier — skipping its `_source` clone. Before the fix the gate
+    /// declined every meta-sort field and returned `false` for this exact call,
+    /// forcing the full O(memtable) clone-and-offer walk (#401's `search_after`
+    /// latency cliff).
+    #[tokio::test]
+    async fn memtable_preclone_rejection_is_meta_aware_for_seq_no() {
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("seq-reject", text_schema()).unwrap();
+        let idx = engine.get_index("seq-reject").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..6u64 {
+            idx.index_document(Some(format!("d{i}")), json!({ "body": format!("doc {i}") }))
+                .await
+                .unwrap();
+        }
+
+        // Hits sorted by `_seq_no` asc: d0..d5 with strictly increasing seq_no.
+        let req = xerj_query::parse_request(&json!({
+            "query": {"match_all": {}},
+            "size": 6,
+            "sort": [{"_seq_no": "asc"}],
+        }))
+        .unwrap();
+        let all = idx.search(&req).await.unwrap().hits;
+        assert_eq!(all.len(), 6, "corpus size");
+
+        // Fill a size-5 frontier with the five lowest-`_seq_no` docs (d0..d4).
+        let mut topk = super::SortTopK::new(Arc::new(req.sort.clone()), 5, None);
+        for (seq, hit) in all[..5].iter().enumerate() {
+            topk.offer(hit.clone(), seq as u64, &idx);
+        }
+
+        // d5 (highest `_seq_no`) is strictly worse than the frontier for an ASC
+        // sort → the meta-aware pre-clone gate MUST reject it (before the fix:
+        // `false`, the whole point of #421).
+        let worse = &all[5];
+        assert!(
+            super::memtable_primary_key_rejects(&topk, &worse.source, &worse.id, &idx),
+            "#421: a `_seq_no` sort must reject a worse-than-frontier doc via the \
+             pre-clone gate"
+        );
+        // Sanity: the best-`_seq_no` doc belongs on the page and must NOT be rejected.
+        let best = &all[0];
+        assert!(
+            !super::memtable_primary_key_rejects(&topk, &best.source, &best.id, &idx),
+            "the best `_seq_no` doc belongs on the page and must not be rejected"
+        );
+    }
+
     async fn assert_flush_publication_blocks_reader_then_finishes(inject_error: bool) {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
@@ -15018,7 +15075,7 @@ impl Index {
                             let src_arc = self.memtable.get_doc_source_arc(&id);
                             let rejected = src_arc
                                 .as_deref()
-                                .is_some_and(|s| memtable_primary_key_rejects(topk, s));
+                                .is_some_and(|s| memtable_primary_key_rejects(topk, s, &id, self));
                             if !rejected {
                                 let source = src_arc.map(|a| (*a).clone()).unwrap_or(Value::Null);
                                 seen_ids.insert(id.clone());
@@ -15674,7 +15731,7 @@ impl Index {
                             // like `admit_hit!` would have counted it).
                             if let Some(topk) = sort_topk.as_ref() {
                                 if !seen_ids.contains(&doc_id)
-                                    && memtable_primary_key_rejects(topk, &source)
+                                    && memtable_primary_key_rejects(topk, &source, &doc_id, self)
                                 {
                                     total_count += 1;
                                     continue;
@@ -39559,7 +39616,7 @@ fn sort_date_normalize(s: &str) -> Option<Value> {
 /// ties conservatively admitted, cursor never consulted).  Any shape we
 /// can't derive → `false` → the doc takes the identical admit path it
 /// always took.
-fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value) -> bool {
+fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: &Index) -> bool {
     let Some(sf) = topk.fields.first() else {
         return false;
     };
@@ -39584,7 +39641,20 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value) -> bool {
     // size 5 and size 3000.  Give `_id` a numeric sort value and it becomes
     // the same defect; add it here if that ever changes.
     if is_meta_sort_field(&sf.field) {
-        return false;
+        // #421: derive the meta key from the SAME resolver the heap ranks on
+        // (`meta_sort_value`, the version map — NOT `_source`), so a literal
+        // `_seq_no`/`_version` inside a document cannot shadow the real
+        // metadata (the shadowing hazard the old unconditional decline
+        // guarded against), while restoring the O(1) pre-clone rejection:
+        // declining forced the full O(memtable) walk this accelerator exists
+        // to kill (~1.1 µs/buffered doc, ~1.1 s at 1M docs on the
+        // `search_after`/reindex workload #401 was filed for). Unresolvable
+        // (`Null`), `_index` (string) and `_primary_term` (constant) all
+        // yield `None` from `as_f64()` and are conservatively admitted.
+        return match idx.meta_sort_value(&sf.field, id).and_then(|m| m.as_f64()) {
+            Some(v) => topk.primary_f64_rejects(v),
+            None => false,
+        };
     }
     // Root-level literal key only — mirrors `get_field_value`'s fast path.
     // A dotted/nested primary field misses here and is admitted (correct,
