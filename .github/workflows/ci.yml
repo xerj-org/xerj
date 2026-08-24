@@ -279,23 +279,27 @@ jobs:
       # runner. It is cheap insurance and the place a wider, better-sized gate
       # (#384) can land -- not a claim that the class is now covered.
       #
-      # #384: widened from `-p xerj-engine --lib` to the full `--workspace --lib`
-      # now that the whole workspace's lib tests are *measured* green at default
-      # parallelism (6 ci-test-profile clean runs at this scope, 20 cores). This
-      # was blocked until #385: xerj-autoindex used to be red because
-      # `incremental_reconcile_http_tests` could reach the global
-      # `SNAPSHOT_FAILPOINT` without holding the `SNAPSHOT_TEST_LOCK` and steal
-      # another test's injected failure; the thread-local failpoint fix (merged)
-      # removed that defect, and re-measuring the widened scope is clean. A gate
-      # is worth nothing if it is merged red, so it goes in at the width it
-      # passes at; the integration targets (`tests/*.rs`) are the next,
-      # separately-measured step.
+      # #384: widened progressively — `-p xerj-engine --lib` -> `--workspace --lib`
+      # -> the full `--workspace` (all targets, INCLUDING the integration tests
+      # under `crates/*/tests/*.rs`) — now that every scope is *measured* green at
+      # default parallelism (6 clean `--workspace --lib` runs, then 4 clean full
+      # `--workspace` runs, ci-test profile, 20 cores). This was blocked until
+      # #385: xerj-autoindex used to be red because `incremental_reconcile_http_tests`
+      # could reach the global `SNAPSHOT_FAILPOINT` without holding the
+      # `SNAPSHOT_TEST_LOCK` and steal another test's injected failure; the
+      # thread-local failpoint fix (merged) removed that defect. The integration
+      # targets bind ports and share fixture dirs, so they are the likeliest to
+      # carry this class of defect (#384's own note) — but they passed every run
+      # here, and a hosted runner has FEWER cores than this 20-core box, so its
+      # default parallelism is strictly lower and less contended than what these
+      # runs already survived. A gate is worth nothing if it is merged red, so it
+      # goes in at the width it passes at.
       #
       # Reuses the binaries the step above already built: the added cost is test
       # runtime, not another compile.
-      - name: Workspace lib tests at default parallelism (contributor's `cargo test`)
+      - name: Workspace tests (all targets) at default parallelism (contributor's `cargo test`)
         working-directory: engine
-        run: cargo test --profile ci-test --workspace --lib
+        run: cargo test --profile ci-test --workspace
 
   # Fat LTO + codegen-units=1 + panic=abort over every workspace member is a
   # failure mode of its own (LTO ICEs, symbol collisions, panic-strategy
