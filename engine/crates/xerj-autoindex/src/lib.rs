@@ -3249,6 +3249,26 @@ fn sweep_excluded_groups(
         if let Some(edges) = edges_index {
             detect::invalidate_prior_edges(es, edges, &entry.path, now_ms)
                 .with_context(|| format!("sweep graph edges for newly-excluded {}", entry.path))?;
+            // #736: also soft-invalidate INBOUND edges — ones a surviving file
+            // taught that point AT this now-removed file's anchor node. Without
+            // this they stay live, pointing at a `dst` whose node is gone. The
+            // edge's `dst` is the target file's anchor doc id
+            // `ids::doc_id(slug, file_key, "file")`; a file can anchor in more
+            // than one dataset, so invalidate for every slug the frozen plan
+            // assigned it. Same soft-invalidate as the src side (bi-temporal).
+            if let Some(fa) = plan.files.get(&entry.file_key) {
+                for (_, slug) in &fa.assignments {
+                    let anchor =
+                        crate::ids::doc_id(slug, &entry.file_key, detect::FILE_CARD_LOCATOR);
+                    detect::invalidate_edges_by_field(es, edges, "dst", &anchor, now_ms)
+                        .with_context(|| {
+                            format!(
+                                "sweep inbound graph edges for newly-excluded {}",
+                                entry.path
+                            )
+                        })?;
+                }
+            }
         }
     }
     Ok(())

@@ -655,17 +655,22 @@ pub fn ensure_brain_meta(
     Ok(())
 }
 
-/// Soft-invalidate every live edge taught by `rel` (replacement hook, §6.6.3).
-/// Runs BEFORE any of this run's edges for that file are written, so the
-/// `src_file` + no-`invalid_at` query can only match prior-generation edges.
+/// Soft-invalidate every live edge whose keyword `field` equals `value`.
 /// Each pass re-indexes its hits with `invalid_at = expired_at = now` and
 /// refreshes, so repeat-until-empty converges; the pass bound turns a broken
-/// endpoint into an error instead of an infinite loop.
-pub fn invalidate_prior_edges(es: &Es, edges_index: &str, rel: &str, now_ms: i64) -> Result<u64> {
+/// endpoint into an error instead of an infinite loop. Callers pass `src_file`
+/// (edges a file taught) or `dst` (edges pointing at a file's anchor node).
+pub fn invalidate_edges_by_field(
+    es: &Es,
+    edges_index: &str,
+    field: &str,
+    value: &str,
+    now_ms: i64,
+) -> Result<u64> {
     const MAX_PASSES: usize = 1_000;
     let query = json!({
         "query": {"bool": {
-            "filter": [{"term": {"src_file": rel}}],
+            "filter": [{"term": {field: value}}],
             "must_not": [{"exists": {"field": "invalid_at"}}]
         }},
         "size": 1000,
@@ -715,8 +720,9 @@ pub fn invalidate_prior_edges(es: &Es, edges_index: &str, rel: &str, now_ms: i64
         let outcome = es.bulk(body).context("invalidate prior edges")?;
         if outcome.server_errors > 0 || outcome.item_errors > 0 {
             return Err(anyhow!(
-                "edge invalidation for {} was partial: {}",
-                rel,
+                "edge invalidation for {}={} was partial: {}",
+                field,
+                value,
                 outcome
                     .first_server_error
                     .or(outcome.first_error)
@@ -727,8 +733,15 @@ pub fn invalidate_prior_edges(es: &Es, edges_index: &str, rel: &str, now_ms: i64
         es.refresh(edges_index)?;
     }
     Err(anyhow!(
-        "edge invalidation for {rel} still found live edges after {MAX_PASSES} passes"
+        "edge invalidation for {field}={value} still found live edges after {MAX_PASSES} passes"
     ))
+}
+
+/// Soft-invalidate every live edge a file taught (`src_file` == `rel`). The
+/// replacement hook (§6.6.3): runs before this run rewrites the file's edges,
+/// so it only matches prior generations. Also reused by the exclusion sweep.
+pub fn invalidate_prior_edges(es: &Es, edges_index: &str, rel: &str, now_ms: i64) -> Result<u64> {
+    invalidate_edges_by_field(es, edges_index, "src_file", rel, now_ms)
 }
 
 #[cfg(test)]
