@@ -2814,11 +2814,15 @@ impl UnsupportedInventoryDelta {
     /// Additions are not refused — they are skipped by the frozen plan exactly
     /// as before and `--fresh` rebuilds the plan in place to include them.
     fn refuses(&self) -> bool {
-        // Both categories still stay live with no reconcile behind them, so both
-        // still refuse the rerun (#439 splits them only to give the accurate
-        // recovery route — the excluded case gets swept, not refused, in a
-        // follow-up). Equivalent to the pre-split `!vanished.is_empty()`.
-        !self.deleted_content_groups.is_empty() || !self.excluded_content_groups.is_empty()
+        // #589: only a GENUINE deletion (source file gone from disk) refuses the
+        // rerun — its published documents would be left live with no file behind
+        // them and nothing else removes them. An EXCLUSION (file still on disk,
+        // newly matched by a widened ignore/hidden/`.xerjignore` rule) is data
+        // the exclusion must REMOVE, so it is SWEPT by `sweep_excluded_groups`
+        // and the run continues (#439's data-exposure headline). When a genuine
+        // deletion co-occurs the whole rerun is refused, and `into_error` still
+        // reports the excluded set too because it also stays live in that case.
+        !self.deleted_content_groups.is_empty()
     }
 
     fn into_error(self, targets: RefusalTargets) -> anyhow::Error {
@@ -3048,6 +3052,46 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         );
     }
     Ok(summary)
+}
+
+/// #589: sweep the documents an exclusion left behind. A file still on disk
+/// that a widened ignore/hidden/`.xerjignore` rule now skips must have its
+/// already-published documents removed — an exclusion that cannot remove data
+/// already in the index is the #439 data-exposure hole. Deletes the indexed
+/// records (by `ax_file`) across the corpus indices and the file's catalog
+/// document(s) (by logical `path`).
+///
+/// The caller sweeps only when there is NO genuine deletion in the same delta
+/// (a co-occurring deletion refuses the whole rerun, mutating nothing) and
+/// never under `--dry-run`.
+///
+/// KNOWN GAP (#589, next hunk): graph edges taught by the file remain in the
+/// edges index until it is swept too — the same limitation the refusal message
+/// already documents in `edges_note`.
+fn sweep_excluded_groups(es: &Es, plan: &Plan, excluded: &[InventoryDeltaEntry]) -> Result<()> {
+    // Exact dataset indices from the plan — the same resolution the replacement
+    // delete path uses (`ds_rt` → `rt.index`); a `{prefix}-*` wildcard would be
+    // untestable and could reach indices this corpus does not own.
+    let mut indices: Vec<&str> = plan.datasets.iter().map(|d| d.index.as_str()).collect();
+    indices.sort_unstable();
+    indices.dedup();
+    for entry in excluded {
+        for index in &indices {
+            es.delete_by_query(index, &json!({"term": {"ax_file": entry.file_key}}))
+                .with_context(|| {
+                    format!(
+                        "sweep indexed records for newly-excluded {} in {index}",
+                        entry.path
+                    )
+                })?;
+        }
+        es.delete_by_query(
+            catalog::CATALOG_INDEX,
+            &json!({"term": {"path": entry.path}}),
+        )
+        .with_context(|| format!("sweep catalog entry for newly-excluded {}", entry.path))?;
+    }
+    Ok(())
 }
 
 fn run_index(cfg: IndexCfg) -> Result<i32> {
@@ -3517,6 +3561,14 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         if delta.refuses() {
             return Err(delta.into_error(RefusalTargets::describe(&cfg, &state_dir, prior_plan)));
         }
+        // #589: a widened exclusion (file still on disk, newly ignored) is data
+        // the exclusion must remove — sweep the excluded group's documents and
+        // continue, rather than leaving them live in the destination. Genuine
+        // deletions above still refuse; never mutate under --dry-run.
+        if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
+            sweep_excluded_groups(&es, prior_plan, &delta.excluded_content_groups)
+                .context("sweep newly-excluded content groups")?;
+        }
     }
     let mut journal = state::Journal::open_after_preflight(
         preflight,
@@ -3770,6 +3822,12 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         let delta = UnsupportedInventoryDelta::between(&cfg.root, &files, &keys, &plan);
         if delta.refuses() {
             return Err(delta.into_error(RefusalTargets::describe(&cfg, &state_dir, &plan)));
+        }
+        // #589: sweep documents left behind by a widened exclusion (see gate
+        // above). Genuine deletions still refuse; never mutate under --dry-run.
+        if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
+            sweep_excluded_groups(&es, &plan, &delta.excluded_content_groups)
+                .context("sweep newly-excluded content groups")?;
         }
     }
 
@@ -6439,9 +6497,16 @@ mod inventory_delta_tests {
                 .collect::<Vec<_>>(),
             ["secret.csv"]
         );
-        // Its documents still stay live, so the rerun is still refused (#439's
-        // in-place sweep is a follow-up) — but with the accurate cause.
-        assert!(delta.refuses());
+        // #589: an excluded-only delta is now SWEPT, not refused — the rerun
+        // continues after `sweep_excluded_groups` removes its documents, so
+        // `refuses()` (deletion-only) is false here. `into_error`'s excluded
+        // wording still applies when a genuine deletion co-occurs (both sets
+        // stay live in that case), so it is still exercised below as a direct
+        // message-builder check.
+        assert!(
+            !delta.refuses(),
+            "#589: an excluded-only delta is swept, not refused"
+        );
         let error = delta.into_error(targets());
         let message = format!("{error:#}");
         assert!(message.contains("secret.csv"), "{message}");
@@ -6467,6 +6532,46 @@ mod inventory_delta_tests {
         );
         // Back-compat: the v1 union field still lists it.
         assert_eq!(json["vanished_content_groups"].as_array().unwrap().len(), 1);
+    }
+
+    /// #589 (fail-before, WIP): the purge half of #439. An exclusion (a file
+    /// still on disk that a widened ignore/hidden/`.xerjignore` rule now skips)
+    /// is data the exclusion must REMOVE from the index, not a reason to refuse
+    /// the whole rerun. With NO genuine deletion present, the reconcile must
+    /// PROCEED — sweeping the excluded group's published documents — unlike a
+    /// real deletion, which stays refused. Today `refuses()` conflates the two.
+    ///
+    /// Un-ignore when the sweep lands; that change also flips the
+    /// `assert!(delta.refuses())` in
+    /// `an_excluded_still_on_disk_group_is_not_reported_as_a_deletion` (the
+    /// excluded-only case no longer produces a refusal).
+    #[test]
+    fn an_excluded_only_delta_is_swept_not_refused() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("secret.csv"), "id,value\n1,live\n").unwrap();
+        let mut plan = Plan::default();
+        plan.files.insert("secret".into(), assignment("secret.csv"));
+
+        // The walk yields nothing (the file is now excluded) though it is on disk.
+        let delta = UnsupportedInventoryDelta::between(root.path(), &[], &[], &plan);
+        assert!(
+            delta.deleted_content_groups.is_empty(),
+            "no genuine deletion — the file is still on disk"
+        );
+        assert_eq!(
+            delta
+                .excluded_content_groups
+                .iter()
+                .map(|e| e.path.as_str())
+                .collect::<Vec<_>>(),
+            ["secret.csv"],
+        );
+        // #589: an excluded-only delta must NOT refuse the rerun — the excluded
+        // group is swept from the destination and the run continues.
+        assert!(
+            !delta.refuses(),
+            "#589: an excluded-only delta must be swept, not refused"
+        );
     }
 
     /// #439's headline case (CHANGELOG): a hidden NON-UTF-8 name still on disk.

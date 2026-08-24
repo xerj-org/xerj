@@ -2016,3 +2016,87 @@ fn a_journal_that_fails_its_own_revalidation_names_the_rebuild_route() {
         "the refusal must name the recovery route, not just the invariant: {rendered}"
     );
 }
+
+/// #589: `sweep_excluded_groups` actually deletes an excluded file's published
+/// documents (by `ax_file`, across the plan's dataset indices) and its catalog
+/// document (by `path`), while leaving every OTHER file's documents intact.
+/// Exercised over the real mock HTTP backend so the delete-by-query truly runs.
+#[test]
+fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
+    let ep = HttpEndpoint::start();
+
+    // Seed two files' records in one dataset index, plus their catalog docs.
+    {
+        let mut st = ep.state.lock().unwrap();
+        let ds = "incremental-http-ds".to_string();
+        st.docs.insert(
+            (ds.clone(), "d1".into()),
+            json!({"ax_file": "key-excluded", "body": "secret"}),
+        );
+        st.docs.insert(
+            (ds.clone(), "d2".into()),
+            json!({"ax_file": "key-kept", "body": "kept"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file:excluded".into()),
+            json!({"doc_kind": "file", "path": "secret.csv"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), "file:kept".into()),
+            json!({"doc_kind": "file", "path": "kept.csv"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "key-excluded".into(),
+        path: "secret.csv".into(),
+    }];
+
+    sweep_excluded_groups(&es, &plan, &excluded).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // The excluded file's dataset record is gone.
+    assert!(
+        !st.docs
+            .values()
+            .any(|d| d.get("ax_file").and_then(Value::as_str) == Some("key-excluded")),
+        "#589: the excluded file's indexed records must be swept"
+    );
+    // Its catalog document is gone.
+    assert!(
+        !st.docs
+            .iter()
+            .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
+                && d.get("path").and_then(Value::as_str) == Some("secret.csv")),
+        "#589: the excluded file's catalog document must be swept"
+    );
+    // Every other file is untouched (no over-deletion).
+    assert!(
+        st.docs
+            .values()
+            .any(|d| d.get("ax_file").and_then(Value::as_str) == Some("key-kept")),
+        "#589: a different file's records must NOT be swept"
+    );
+    assert!(
+        st.docs
+            .iter()
+            .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
+                && d.get("path").and_then(Value::as_str) == Some("kept.csv")),
+        "#589: a different file's catalog document must NOT be swept"
+    );
+}
