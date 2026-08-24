@@ -16710,6 +16710,29 @@ impl Index {
                                                 topk.offer(hit, seq, self);
                                             } else {
                                                 all_hits.push(hit);
+                                                #[cfg(test)]
+                                                RESIDUAL_HITS_PEAK
+                                                    .with(|c| c.set(c.get().max(all_hits.len())));
+                                                // #577: `fts_cap == usize::MAX` for the
+                                                // residual gate, so a non-selective
+                                                // non-projectable filter over a large
+                                                // segment would grow `all_hits` to
+                                                // O(matches) before the post-loop slice.
+                                                // Eager-trim to the page cap here, the
+                                                // same shape the normal walk uses at its
+                                                // `materialisation_limit.saturating_mul(2)`
+                                                // check — `trim_page_to_cap` keeps the
+                                                // top `materialisation_limit` by score, so
+                                                // the page is unchanged.
+                                                if all_hits.len()
+                                                    > materialisation_limit.saturating_mul(2)
+                                                {
+                                                    let (kept, _worst) = self.trim_page_to_cap(
+                                                        std::mem::take(&mut all_hits),
+                                                        materialisation_limit,
+                                                    );
+                                                    all_hits = kept;
+                                                }
                                             }
                                         }
                                     }
@@ -47283,5 +47306,73 @@ mod unwrap_single_clause_643_wrapper_tests {
             }
             other => panic!("dis_max wrapper must be preserved, got {:?}", other),
         }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// #577 fail-before instrument: the high-water mark of `all_hits.len()`
+    /// reached inside the `residual_gate` per-segment loop.
+    pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod residual_gate_trim_577_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #577: the `residual_gate` pass runs with `fts_cap == usize::MAX`, so a
+    /// non-selective non-projectable filter (a numeric `range`) alongside an FTS
+    /// scoring clause (`match`) must NOT accumulate O(matches) `Hit`s — it eager-
+    /// trims to the page cap. Fail-before: with the trim reverted, the peak is
+    /// O(matches) (~N); with the fix it stays ~2·materialisation_limit. Page
+    /// and count are unchanged either way.
+    #[tokio::test]
+    async fn residual_gate_bounds_all_hits_to_the_page_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("residual-577", Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("residual-577").unwrap();
+
+        const N: usize = 2000;
+        for i in 0..N {
+            idx.index_document(Some(format!("d{i}")), json!({"body": "alpha beta", "n": i}))
+                .await
+                .unwrap();
+        }
+        idx.flush().await.unwrap();
+
+        RESIDUAL_HITS_PEAK.with(|c| c.set(0));
+        // bool{ must:[match body:alpha — FTS scoring], filter:[range n>=0 — not
+        // FTS-projectable, triggers the residual gate] }; every doc matches both.
+        let req = xerj_query::parse_request(&json!({
+            "size": 10,
+            "query": {"bool": {
+                "must": [{"match": {"body": "alpha"}}],
+                "filter": [{"range": {"n": {"gte": 0}}}]
+            }}
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+
+        assert_eq!(res.total.value, N as u64, "every doc matches match + range");
+        assert_eq!(res.hits.len(), 10, "page returns size:10");
+        let peak = RESIDUAL_HITS_PEAK.with(|c| c.get());
+        assert!(
+            peak > 0,
+            "the residual_gate path must have run for this query (peak={peak})"
+        );
+        // materialisation_limit = (0 + 10 + 100).max(256) = 256; the eager trim
+        // fires at > 2*256, so the peak cannot exceed 513. Without the trim it
+        // reaches N = 2000.
+        assert!(
+            peak <= 513,
+            "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
+        );
     }
 }
