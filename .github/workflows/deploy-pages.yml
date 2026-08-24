@@ -1,0 +1,60 @@
+name: Deploy site (Cloudflare Pages)
+
+# Deploys the static site under landing/ to the "xerj" Cloudflare Pages project
+# on every push to main. Cloudflare serves landing/ verbatim (no build step);
+# wrangler uploads it directly. Auth is a scoped API token stored as the
+# CLOUDFLARE_API_TOKEN repo secret (needs the "Cloudflare Pages:Edit" permission)
+# plus CLOUDFLARE_ACCOUNT_ID. Both are configured in repo Settings → Secrets.
+#
+# This replaces reliance on Cloudflare's git integration with an explicit,
+# auditable deploy that only fires after CI/SEO gates on main have the chance to
+# run, and whose logs live in Actions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - 'wrangler.toml'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch: {}          # allow manual redeploy from the Actions tab
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false      # never abort a deploy mid-upload
+
+jobs:
+  deploy:
+    name: Publish landing/ to Cloudflare Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://xerj.org
+    steps:
+      - name: Check out the site
+        uses: actions/checkout@v4
+
+      - name: Guard — secrets must be present
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be set in repo secrets."
+            exit 1
+          fi
+          [ -d landing ] || { echo "::error::landing/ not found — nothing to deploy."; exit 1; }
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Upload landing/ verbatim to the existing "xerj" project, tagged with
+          # the commit so a bad deploy is one rollback away in the CF dashboard.
+          command: >-
+            pages deploy landing
+            --project-name=xerj
+            --branch=main
+            --commit-dirty=true
