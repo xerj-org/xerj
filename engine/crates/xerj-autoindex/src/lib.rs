@@ -4473,6 +4473,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
              stay idempotent)",
         );
     }
+    // #346: the count of files that appeared after the resume plan was frozen
+    // (and so were skipped, never indexed) is surfaced DISTINCTLY below — in the
+    // run summary and the terminal `xerj-done` line — not just as a mid-stream
+    // note folded into the generic `junk_files` total. Folding it in leaves a
+    // "make the index match the tree" re-run reading as an ordinary
+    // completed-with-junk success while the index is in fact incomplete, which
+    // is the below-the-noise-floor reporting #346 is about. Captured here before
+    // `new_unplanned` is drained into `plan.junk_files`.
+    let skipped_appeared = new_unplanned.len();
     if resumed_with_plan {
         // Legacy journals predate intent-before-publication and may have live
         // partial records without either file_done or file_replace_start.
@@ -5933,6 +5942,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         run_doc["catalog_alias_sweep_failed_paths"] = json!(alias_sweep_failed);
         run_doc["catalog_alias_sweep_error"] = json!(error);
     }
+    // #346: present only when files appeared after the plan was frozen, so a
+    // healthy run document is unchanged and any reader finding this key knows
+    // the index is incomplete for that many files (distinct from unparseable
+    // `junk`).
+    if skipped_appeared > 0 {
+        run_doc["skipped_appeared"] = json!(skipped_appeared);
+    }
     push_doc(&format!("run:{run_id}"), &run_doc, &mut cat_buf);
 
     if !cat_buf.is_empty() {
@@ -6115,6 +6131,12 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             "catalog_alias_sweep_failures",
             alias_sweep_failed.len() as u64,
         ));
+    }
+    // #346: surface files-skipped-because-they-appeared-after-freeze on the
+    // terminal line, distinct from `junk_files`, so a re-run whose index is
+    // silently incomplete is visible instead of below the noise floor.
+    if skipped_appeared > 0 {
+        done_fields.push(("skipped_appeared", skipped_appeared as u64));
     }
     pr.finish(
         true,

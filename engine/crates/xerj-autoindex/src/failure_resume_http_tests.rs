@@ -823,6 +823,11 @@ fn a_rerun_after_an_added_file_succeeds_and_fresh_absorbs_it() {
     assert_eq!(code, 3);
     let report = report.unwrap();
     assert_eq!(report["files_junk"], 1, "{report}");
+    // #346: the file that appeared after the plan was frozen is surfaced
+    // DISTINCTLY as `skipped_appeared`, not just folded into `files_junk`, so a
+    // "make the index match the tree" re-run can see the index is incomplete
+    // instead of reading as an ordinary completed-with-junk success.
+    assert_eq!(report["skipped_appeared"], 1, "{report}");
     // `records_total` is the live server-side count (#195), so it still reports
     // the record the first run published. What must be zero is the run-local
     // counter: this rerun indexed nothing, because the frozen plan cannot
