@@ -125,8 +125,24 @@ pub fn read_whole(path: &Path, gzip: bool, cap: u64) -> Result<Option<Vec<u8>>> 
 /// the text itself. Emits the same `title`/`body`/`section` vocabulary as
 /// every other document extractor (`FieldOrigin::Extractor`).
 pub fn extract_as_document(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
+    extract_as_document_with_name(path, path, gzip, sink)
+}
+
+/// [`extract_as_document`], but the title comes from `logical_path` rather
+/// than `content_path`. The `--no-graph` generated pipeline reads a
+/// SEALED SNAPSHOT — a real file on disk, but under its own ordinal name
+/// (`prepared/00000000`, …), not the source's — so deriving the title from
+/// `content_path` there produced `"00000000"` instead of the file's own
+/// name (#722). Mirrors `sniff::sniff_with_name`'s split for exactly the
+/// same reason.
+pub fn extract_as_document_with_name(
+    content_path: &Path,
+    logical_path: &Path,
+    gzip: bool,
+    sink: Sink,
+) -> Result<ExtractStats> {
     let mut stats = ExtractStats::default();
-    let Some(bytes) = read_whole(path, gzip, MAX_WHOLE_FILE)? else {
+    let Some(bytes) = read_whole(content_path, gzip, MAX_WHOLE_FILE)? else {
         stats.junk += 1;
         return Ok(stats);
     };
@@ -135,7 +151,7 @@ pub fn extract_as_document(path: &Path, gzip: bool, sink: Sink) -> Result<Extrac
         stats.junk += 1;
         return Ok(stats);
     }
-    let title = path
+    let title = logical_path
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "untitled".into());
