@@ -164,13 +164,15 @@
     prompt above.
   </p>
 
-<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;      <span class="comment"># 1. a node must be running first</span>
-$ git clone --depth 1 https://github.com/spacejam/sled ref/sled
-$ xerj autoindex ref/sled                        <span class="comment"># 2. tree-sitter AST fields, once per clone</span>
-$ curl -sXPOST 'localhost:9200/ax-*/_search' -H 'content-type: application/json' \
-    -d '{"query":{"multi_match":{"query":"fsync the WAL segment on rotation",
-                                 "fields":["defs^3","body","title"]}}}'
-→ the exact function, file:line, contract included — a passage to read, not a tree to grep</pre>
+<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;                       <span class="comment"># a node, running</span>
+$ tools/xerj-code/scripts/xc-corpus.sh sled https://github.com/spacejam/sled   <span class="comment"># clone + pin the commit</span>
+$ tools/xerj-code/scripts/xc-index.sh  sled                        <span class="comment"># autoindex — tree-sitter AST fields, once</span>
+$ tools/xerj-code/scripts/xc.py sled <span class="accent">"fsync the WAL segment on rotation"</span>
+→ the exact function, its file:line and contract — one plain-English line in, a passage to read out
+
+<span class="comment"># prefer zero extra tooling? the same query on the raw ES wire:</span>
+$ curl -sXPOST localhost:9200/ax-*/_search -H content-type:application/json \
+    -d '{"query":{"multi_match":{"query":"fsync the WAL segment on rotation","fields":["defs^3","body"]}}}'</pre>
 
   <p class="wide" style="margin-top:var(--sp-3);">
     Optional convenience layer: the same four steps are wrapped by
