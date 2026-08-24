@@ -279,24 +279,44 @@ jobs:
       # runner. It is cheap insurance and the place a wider, better-sized gate
       # (#384) can land -- not a claim that the class is now covered.
       #
-      # Scoped to the one crate whose lib tests have been *measured* green at
-      # default parallelism (10 dev-profile and 5 ci-test-profile clean runs at
-      # this commit, 20 cores). `--workspace --lib` remains the destination,
-      # but the broader gate is tracked separately in #384.
+      # #384 widened this from `-p xerj-engine --lib` to every crate's lib
+      # tests: #385 (the blocker this issue named -- xerj-autoindex stealing
+      # another test module's global SNAPSHOT_FAILPOINT without holding its
+      # lock) is fixed, and `--workspace --lib` at default parallelism is now
+      # *measured* clean of anything parallelism-specific -- 3 clean-main
+      # `--no-fail-fast` runs (all 16 crates, every lib test binary actually
+      # invoked, not just the ones before the first failure) plus 3 more
+      # scoped to `--lib` alone, all bit-for-bit identical, on a 10-core box.
       #
-      # Historical context for this scope: before #385, xerj-autoindex was red
-      # at default parallelism because `incremental_reconcile_http_tests` could
-      # reach the global `SNAPSHOT_FAILPOINT` without holding the
-      # `SNAPSHOT_TEST_LOCK` and steal another test's injected failure. The
-      # thread-local failpoint fix in this commit removes that defect; widening
-      # this step past xerj-engine remains #384. A gate is worth nothing if it
-      # is merged red, so it goes in at the width it passes at.
+      # Two classes of failure showed up every single run and are excluded as
+      # NOT what this gate is for: they reproduce byte-for-byte at
+      # `--test-threads=2` too (this workflow's step above), so they are
+      # deterministic local-filesystem quirks, not interleaving-dependent --
+      # xerj-autoindex content/inventory tests that write a non-UTF-8 file
+      # name (accepted on Linux ext4, rejected by macOS APFS with
+      # `Illegal byte sequence`), and xerj-engine's
+      # `snapshot_path_security_tests`, which compare a raw tempdir path
+      # against its canonicalized form and only macOS's `/var` ->
+      # `/private/var` symlink makes those disagree.
       #
-      # Reuses the binaries the step above already built: the added cost is test
-      # runtime, not another compile.
-      - name: Engine lib tests at default parallelism (contributor's `cargo test`)
+      # Honest about what "measured" means here: the runs above are all on
+      # macOS, not `ubuntu-latest`, and a defect that only interleaves at 2-4
+      # threads (#372's own shape) could still be invisible on a 10-core
+      # laptop the same way `--test-threads=2` hid it in the first place.
+      # This step is where such a defect would surface for the first time on
+      # THIS runner, exactly as it did for xerj-engine originally -- it is not
+      # a claim that CI running it once proves the absence of one.
+      #
+      # `--workspace --lib` is not `--workspace`: the integration targets
+      # (`engine/crates/*/tests/*.rs`) are a real, separately-tracked
+      # question -- they bind ports and share fixture directories, the shape
+      # most likely to carry the next #372-class defect, and nobody has yet
+      # measured them clean at default parallelism the way this step's scope
+      # now is. Reuses the binaries the step above already built: the added
+      # cost is test runtime, not another compile.
+      - name: Workspace lib tests at default parallelism (contributor's `cargo test`)
         working-directory: engine
-        run: cargo test --profile ci-test -p xerj-engine --lib
+        run: cargo test --profile ci-test --workspace --lib
 
   # Fat LTO + codegen-units=1 + panic=abort over every workspace member is a
   # failure mode of its own (LTO ICEs, symbol collisions, panic-strategy
