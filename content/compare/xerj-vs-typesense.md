@@ -1,0 +1,140 @@
+---
+title: "XERJ vs Typesense when the corpus is a folder"
+h1: "Do I need Typesense for an agent to search my docs?"
+description: "Typesense wins faceted product browsing and says so in its own use cases. An agent can query a folder of mixed files without it. No faceting test was run here."
+slug: "xerj-vs-typesense"
+cluster: "Comparison: search engines"
+question: "Do I need Typesense for an agent to search my docs?"
+intent: "comparison"
+published: "2026-08-22"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent handed a folder of CSV exports, SQLite files and PDFs. Read https://xerj.org/llms.txt, start a node with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./exports --prefix ex --state-dir ./state-ex`, then POST a terms aggregation on an inferred keyword field to /ex-*/_search and report both the bucket counts and how many files you had to convert to JSON first."
+commands:
+  - cmd: "xerj --insecure --data-dir ./xerj-data"
+    note: "Start one node. Nothing has to become JSON first."
+  - cmd: "xerj autoindex ./exports --prefix ex --state-dir ./state-ex"
+    note: "CSV dialects, SQLite files and PDFs are read where they sit."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/ex-*/_search' -H 'content-type: application/json' -d '{\"size\":0,\"aggs\":{\"by_brand\":{\"terms\":{\"field\":\"brand\"}}}}'"
+    note: "The facet-shaped question, answered with an Elasticsearch terms aggregation."
+links_out:
+  - "index-multiple-csv-files"
+  - "index-csv-with-many-columns"
+  - "how-xerj-autoindexes-a-folder"
+  - "search-file-contents-in-a-folder"
+evidence:
+  - claim: "Typesense documents faceted navigation and browsing as a headline use case and states that it should not hold the only copy of your data."
+    source: "https://typesense.org/docs/overview/use-cases.html"
+  - claim: "Typesense faceting uses facet_by, including labelled numeric range facets, and filtering uses filter_by."
+    source: "https://typesense.org/docs/30.2/api/search.html"
+  - claim: "Typesense is primarily a JSON store, bulk import needs newline-delimited JSON, and PDF, PPT and XLS files must be extracted with an external library such as Apache Tika before they can be indexed."
+    source: "https://typesense.org/docs/30.2/api/documents.html"
+  - claim: "Typesense typo tolerance defaults to two typos, with one-typo correction from word length four and two-typo correction from word length seven."
+    source: "https://typesense.org/docs/30.2/api/search.html"
+  - claim: "Typesense combines its two result rankings with the documented formula rank_fusion_score = 0.7 * K + 0.3 * S, tunable through the alpha parameter."
+    source: "https://typesense.org/docs/30.2/api/vector-search.html"
+  - claim: "The Typesense server is licensed GPL-3.0, and Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search."
+    source: "https://github.com/typesense/typesense"
+faq:
+  - q: "Which tool is better for a product catalog?"
+    a: "Typesense. Faceted browsing is a documented headline use case there, with facet_by, labelled numeric range facets and filter_by."
+  - q: "What's a single-binary alternative to Typesense for private files?"
+    a: "XERJ, one binary that indexes the folder in place. Typesense's own documentation says it is primarily a JSON store and that PDF, PPT and XLS need an external extractor such as Apache Tika first."
+  - q: "Does XERJ match Typesense on faceting?"
+    a: "That was not measured. XERJ answers facet-shaped questions with Elasticsearch aggregations, and no head-to-head faceting test was run for this page."
+  - q: "How does each side merge full-text and vector results?"
+    a: "Typesense publishes rank_fusion_score = 0.7 * K + 0.3 * S with a tunable alpha. XERJ fuses with Reciprocal Rank Fusion or a weighted linear sum."
+  - q: "Which handles typos by default?"
+    a: "Typesense, with two typos by default from word length seven and one from length four. XERJ needs an explicit fuzzy query."
+  - q: "Is Typesense free to self-host, and what license is it under?"
+    a: "The Typesense server is GPL-3.0 and free to self-host. XERJ is Apache-2.0, which is permissive rather than copyleft."
+  - q: "Typesense vs local folder search?"
+    a: "Typesense is a JSON store you feed. Local folder search reads a folder of mixed files directly, including PDF, DOCX, SQLite and SQL exports, and holds agent memory and an MCP server in the same binary."
+  - q: "Should either one hold the only copy of my data?"
+    a: "No. Typesense says it should not hold the only copy of your data, and XERJ is single-node only, so both need the original files kept elsewhere."
+---
+
+**TL;DR** — Typesense wins faceted product browsing, and its own documentation names that as a headline use case. XERJ wins the step before the query, because it reads a folder of mixed files with one command. No faceting head-to-head was measured for this page.
+
+## Concede the facets first
+
+Typesense documents faceted navigation as a job it is built for, including the case where a person applies filters instead of typing anything. Faceting uses `facet_by`, with labelled numeric ranges such as a price or rating band, and filtering uses `filter_by`.
+
+Typo tolerance is on by default there too: up to two typos, with one-typo correction from word length four and two-typo correction from word length seven.
+
+If you are building a storefront, that is the tool. XERJ has no facet UI story, and this page does not claim one.
+
+## Where the two products actually differ
+
+Typesense states its own boundary plainly. It is primarily a JSON store, and its documentation says it should not hold the only copy of your data.
+
+That boundary sets the work. Bulk import needs newline-delimited JSON. A CSV file needs a conversion step first. PDF, PPT and XLS files need an external extraction library such as Apache Tika before anything can be indexed.
+
+XERJ starts before that step:
+
+```sh
+xerj autoindex ./exports --prefix ex --state-dir ./state-ex
+```
+
+The command reads a content signature rather than the file extension. It infers field types from bounded samples and writes explicit mappings.
+
+Thirteen families are covered. The list holds JSON and JSONL, CSV, structured logs, SQL exports and SQLite. It also holds PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants.
+
+A CSV with semicolons and a decimal comma is read where it sits. So is a SQLite file, which no conversion pipeline enjoys writing.
+
+## The facet-shaped question, without a facet engine
+
+XERJ has no `facet_by`. It has Elasticsearch aggregations, and an agent asks the same questions through them:
+
+```json
+{ "size": 0, "aggs": { "by_brand": { "terms": { "field": "brand" } } } }
+```
+
+`terms`, `range`, `date_range` and `filters` cover the counting questions a facet panel asks. That is a different shape from a facet API, and it is aimed at an agent rather than at a browser.
+
+Do not read this section as parity. No faceting comparison was measured, so treat the two as different tools that can answer some of the same questions.
+
+## Two ways to merge full-text and vector results
+
+Typesense publishes its formula: `rank_fusion_score = 0.7 * K + 0.3 * S`, where `K` and `S` are the two rankings, tunable through `alpha`. XERJ fuses with Reciprocal Rank Fusion or with a weighted linear sum inside one query.
+
+The disclosure matters more than the formula. The XERJ default embedder is lexical feature hashing, not neural, so the default path carries no meaning-based signal at all. Neural embeddings are opt-in through `--embed-mode neural`, and they are CPU-only.
+
+## Licenses and who runs it
+
+The Typesense server is GPL-3.0. XERJ is Apache-2.0. If you plan to embed either one in a product, read both license texts rather than this sentence.
+
+Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search. XERJ ships self-hosted only, with no managed product at all, so a managed plan is a reason to pick Typesense.
+
+Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 10 tools.
+
+## The limits you inherit with XERJ
+
+XERJ is single-node only. There is no data-plane replication, no failover and no multi-region mode, so one host is the whole deployment.
+
+The server retains heap for every document it indexes, which is an open tracked defect. Corpora past a few million documents can exhaust memory on one node.
+
+XERJ does no optical character recognition. A page image with no text layer stays junk until a separate tool gives it a text layer.
+
+## When to choose Typesense instead
+
+Choose Typesense for a product catalog with facets, filters and a person driving it. Its own use-case page describes that job.
+
+Choose Typesense when your documents already live in a database. A sync job then keeps the search copy fresh, and the extraction problem is already solved.
+
+Choose Typesense when you want typo tolerance by default, or a managed dedicated cluster somebody else operates.
+
+## When to choose XERJ instead
+
+Choose XERJ when the corpus is a folder nobody has built a pipeline for. The mixed formats are the reason, not a detail.
+
+Choose XERJ when the caller is an agent. The same binary holds namespaced agent memory and an MCP server. It answers the Elasticsearch query DSL an agent already writes.
+
+Choose XERJ when the files hold shapes a JSON store never accepts. A SQLite database and a large SQL export both qualify.
+
+## What was not measured
+
+No head-to-head was run for this page. There is no timing, no recall figure and no faceting score, because no Typesense node was installed to produce one.
+
+Every Typesense fact above comes from Typesense's own documentation or repository. Read those sources before you decide, because vendor defaults and license terms move.

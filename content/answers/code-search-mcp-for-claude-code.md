@@ -1,0 +1,142 @@
+---
+title: "Make an agent cite a file instead of dumping it"
+h1: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
+description: "Index the repository with xerj autoindex, then call xerj_search through xerj mcp. One captured call returned the file and line for 2 symbols without opening a file."
+slug: "code-search-mcp-for-claude-code"
+cluster: "Agent access and memory"
+question: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
+intent: "how-to"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, index this repository with xerj autoindex --prefix mcpcode, add xerj mcp to your MCP host with the absolute binary path, then answer 'where is merge_segments defined' with one xerj_search call on the defs field and quote the file and line from the symbols array without opening the file."
+commands:
+  - cmd: "xerj autoindex ./code --url http://127.0.0.1:9500 --prefix mcpcode --state-dir ./state-mcpcode --progress plain --disable-feedback"
+    note: "Index the repository into mcpcode-* before the agent asks anything."
+  - cmd: "xerj mcp --url http://127.0.0.1:9500 --disable-feedback"
+    note: "Run the MCP stdio server against the node that holds the code index."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9500/mcpcode-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"defs\":\"merge_segments\"}},\"size\":5,\"_source\":[\"ax_path\",\"language\",\"symbols\",\"defs\"]}'"
+    note: "The same definition query over plain HTTP, for when you want to read it without an agent."
+links_out:
+  - "index-monorepo-for-agent"
+  - "syntax-aware-code-search-refactoring"
+  - "give-chatgpt-claude-local-file-access"
+  - "/compare/xerj-vs-ast-grep"
+faq:
+  - q: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
+    a: "Register `xerj mcp` and let the agent call `xerj_search`. Each hit carries a `symbols` array with `name`, `kind` and `line`, so the answer can cite the declaration site."
+  - q: "How do I make a coding agent quote a file:line instead of pasting the repo?"
+    a: "Query the `defs` field and read the `symbols` array on the hit. Our capture returned `merge_segments` at `src/lib.rs` line 17, which is enough to cite without opening the file."
+  - q: "Claude Code keeps grepping. Is there a better way to let it search the project?"
+    a: "Index the repository once and register `xerj mcp`, then one search call replaces the scan. Narrow the response with `_source`: our narrowed call reported `_savings` of 1137 bytes against the full document."
+  - q: "How do I get search hits with paths instead of whole files?"
+    a: "Pass `_source` with the fields you want. The hit then carries the path, the matched text and the `symbols` array, rather than the whole document body."
+  - q: "Do I need a separate vector database for code search?"
+    a: "No. The process inventory taken during our MCP session showed one `xerj` process and no separate retrieval service of any kind running beside it."
+  - q: "Can XERJ tell the agent who calls a function?"
+    a: "No. Extraction is definitions only, with no call graph, no import graph and no cross-file reference resolution. A `defs` hit names the declaration site."
+  - q: "Are the OpenAI and Anthropic tool schema files up to date?"
+    a: "No. Both list 6 tools while the binary serves 10. Read `tools/list` from a live server rather than copying either file."
+---
+
+**TL;DR** — Index the repository with `xerj autoindex`, then register `xerj mcp` as an MCP server in the agent host. One captured `xerj_search` call on the `defs` field returned 2 documents. Each carried a `symbols` array with file and line, including `merge_segments` at `src/lib.rs` line 17.
+
+## Index the repository first
+
+The MCP server holds no code of its own. Index the tree into a predictable prefix, and the agent queries that prefix forever after.
+
+```sh
+xerj autoindex ./code --url http://127.0.0.1:9500 --prefix mcpcode --state-dir ./state-mcpcode --progress plain --disable-feedback
+```
+
+XERJ parses 34 languages with tree-sitter and writes `language`, `defs`, `symbols[]`, `symbol_count` and `body` on every code document. The `defs` field is the retrieval hook for an agent.
+
+## Register the MCP server
+
+Every `mcpServers`-shaped host configuration takes the same three keys. Use the absolute path of the binary, because a host launched from a desktop icon does not inherit your shell PATH.
+
+```json
+{
+  "mcpServers": {
+    "xerj": {
+      "command": "/home/you/.local/bin/xerj",
+      "args": ["mcp", "--url", "http://127.0.0.1:9500"],
+      "env": { "XERJ_DISABLE_FEEDBACK": "true" }
+    }
+  }
+}
+```
+
+`xerj mcp` does not start a node. Start the node first, otherwise the handshake succeeds and every tool call then fails at the HTTP hop.
+
+## One definition query, and what came back
+
+The agent sends a `match` clause on `defs` to locate a declaration. Narrow `_source` in the same call so the response does not fill the context window.
+
+```json
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{
+  "name":"xerj_search",
+  "arguments":{"index":"mcpcode-*","size":5,
+    "_source":["ax_path","language","symbols","defs"],
+    "query":{"match":{"defs":"merge_segments"}}}}}
+```
+
+The response returned 2 documents in 2 languages, each carrying a `symbols` array with a kind, a name and a line number.
+
+```json
+{"hits":{"total":{"value":2,"relation":"eq"},"hits":[
+  {"_index":"mcpcode-docs","_source":{"language":"python","ax_path":"src/ingest.py",
+    "defs":"class IngestPipeline\nfunction __init__\nfunction checkpoint_journal_offset\nfunction merge_segments",
+    "symbols":[{"name":"IngestPipeline","kind":"class","line":4},
+               {"name":"merge_segments","kind":"function","line":12}]}},
+  {"_index":"mcpcode-docs","_source":{"language":"rust","ax_path":"src/lib.rs",
+    "defs":"struct SegmentReader\nfunction open\nfunction checkpoint_journal_offset\nfunction merge_segments",
+    "symbols":[{"name":"SegmentReader","kind":"struct","line":3},
+               {"name":"merge_segments","kind":"function","line":17}]}}]}}
+```
+
+## The field an agent should quote
+
+`ax_path` plus the matching `symbols` entry is the whole answer. The agent quotes `src/lib.rs` line 17 and never opens the file.
+
+One `defs` query covers every language in the index at once. A regular expression over source text needs a different pattern per language, and the C07 comparison measured that difference on a real tree.
+
+## The response tells you what it saved
+
+XERJ reports the byte cost of the fields you asked for. Our narrowed call carried a `_savings` object.
+
+```json
+{"_savings":{"bytes":1137,"measured":"sampled","note":"_source narrowed to the 4 fields you listed"}}
+```
+
+Pass `_source` on every agent-facing call. The default response carries `body`, and a source file body is the largest field in the document.
+
+## No second retrieval service is running
+
+We took a process inventory while the MCP session was open. One `xerj` process served the tools, and no other retrieval service appeared.
+
+```text
+2679581 2679385 105872 xerj  .../xerj --insecure -c /tmp/xerj-evidence/RUN-C2/run-c2.toml
+--- separate retrieval services:
+none of postgres/qdrant/redis/weaviate/milvus/chroma/elasticsearch/opensearch/ollama is running
+```
+
+The inventory is the evidence, not a claim about what other stacks need. Read it as one measured configuration on one host.
+
+## The boundary: definitions only
+
+XERJ extracts definitions. There is no call graph, no import graph and no cross-file reference resolution, so a `defs` hit always names a declaration site.
+
+Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A parse failure is never fatal, because XERJ still indexes the file body as plain text.
+
+## One thing that will trip you up
+
+Install the latest XERJ before you write any host configuration, so that the `xerj mcp` subcommand is present.
+
+The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools while the binary serves 10. The 4 missing names are `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_overview` and `xerj_brain_unlink`. Read `tools/list` from a live server instead of copying either file.
+
+## What the capture was
+
+One single-node XERJ process and a generated 2-file code tree in Rust and Python. This run measured no large repository, and the binary was a `ci-test` build, so no timing from it is a performance figure.

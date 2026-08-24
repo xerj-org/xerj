@@ -1,0 +1,108 @@
+---
+title: "Can I full-text search my browser history file?"
+h1: "Is there a way to full-text search my browser history file itself?"
+description: "Copy the Chrome History SQLite file and index it. A captured run made titles and URLs queryable, left the source unchanged, and missed 40 WAL rows."
+slug: "full-text-search-browser-history"
+cluster: "Files and formats"
+question: "Is there a way to full-text search my browser history?"
+intent: "tool-selection"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, close the browser, copy the Chrome History file and its -wal and -shm side files to a scratch folder, record sha256 of all 3, start a local XERJ node, run `xerj autoindex ./browser-history --url http://127.0.0.1:9200 --prefix bh --progress plain`, re-record the checksums, then POST a match_phrase on title, a term on url, and an exists query on body, and report the hit totals plus the row count in the source urls table."
+commands:
+  - cmd: "bash -c 'cd ./browser-history && sha256sum History History-wal History-shm'"
+    note: "Record the source checksums before and after the run, to prove nothing was written."
+  - cmd: "xerj autoindex ./browser-history --url http://127.0.0.1:9200 --prefix bh --progress plain"
+    note: "Index the copied History database. XERJ opens SQLite read-only."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/bh-*/_search -H 'content-type: application/json' -d '{\"query\":{\"match_phrase\":{\"title\":\"Lemur documentation portal\"}},\"size\":5,\"_source\":[\"url\",\"title\",\"visit_count\",\"last_visit_time\"],\"track_total_hits\":true}'"
+    note: "Full-text search the page titles Chrome stored."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/bh-*/_search -H 'content-type: application/json' -d '{\"query\":{\"exists\":{\"field\":\"body\"}},\"size\":5,\"track_total_hits\":true}'"
+    note: "Prove that no page body exists, because Chrome does not store one."
+links_out:
+  - "full-text-search-sqlite-database"
+  - "catalog-files-with-autoindex-map"
+  - "why-autoindex-skipped-files"
+faq:
+  - q: "Is there a way to full-text search my browser history?"
+    a: "Yes, on the page titles and URLs the browser stores. A captured `match_phrase` on `title` returned 60 hits, each with its URL and visit count."
+  - q: "How do I search Chrome places.sqlite?"
+    a: "Chrome keeps its history in a SQLite file named `History`; `places.sqlite` is the Firefox name. Close the browser, copy the file, index the copy, and query `title` and `url`."
+  - q: "Can I index a Firefox places database?"
+    a: "It is a SQLite file, so `autoindex` reads it the way it reads any other. This capture used the Chrome `History` file, so the Firefox table and column names were not verified here."
+  - q: "Can I search the text of the pages I visited?"
+    a: "No. The browser stores no page body in the history database. An `exists` query on `body` returned 0 documents in the captured run."
+  - q: "Does indexing modify my History file?"
+    a: "No. XERJ opens SQLite read-only. The sha256 of `History`, `History-wal` and `History-shm` was identical before and after the captured run."
+  - q: "Why are my most recent pages missing?"
+    a: "A copied `History` file is read only as far as its last checkpoint. In the captured run 40 of 340 rows lived only in `History-wal` and returned 0 hits."
+  - q: "Why does a partial URL return nothing?"
+    a: "XERJ typed `url` as `keyword`, so it matches whole values only. An exact `term` on the full URL returned 1 hit; a `match` on a substring returned 0."
+---
+
+**TL;DR** — Copy the Chrome `History` SQLite file, then run `xerj autoindex` on the folder. A captured run returned 60 hits for a title phrase and 1 hit for an exact URL. All 3 source checksums were unchanged, and `body` returned 0 documents because Chrome stores no page text.
+
+## Copy the file, then index the folder
+
+Copy `History` to a scratch folder while the browser is closed. XERJ opens SQLite read-only, and the captured run left the file byte-identical. A live profile can still change while you read it.
+
+```sh
+xerj autoindex ./browser-history --url http://127.0.0.1:9200 --prefix bh --progress plain
+```
+
+The run read 1 file and produced 4 datasets with 624 documents live. The indices were `bh-urls` with 300 documents, `bh-visits` with 300, `bh-keyword-search-terms` with 21 and `bh-meta` with 3. XERJ writes 1 index per table, with no configuration.
+
+## The mandatory warning: WAL rows are invisible
+
+A copied `History` file is read only as far as its last checkpoint. Rows that live only in `History-wal` are not indexed and return 0 hits, and nothing in the output says so.
+
+The captured database held 340 committed rows in `urls`. 300 of them were checkpointed into `History` and indexed. The 40 rows resident only in `History-wal` returned 0 hits for a phrase that exists in all 40.
+
+XERJ refused the side files themselves. `History-wal` and `History-shm` were each detected as `binary` with the reason `binary content (unknown)`, and produced 0 documents.
+
+A live browser profile always has an uncheckpointed tail. Your most recent pages are therefore the first ones to disappear from the index. This reproduces a first-pass finding on an unrelated support-ticket database, in a second database with a different schema.
+
+## Titles are full-text, URLs are exact
+
+XERJ inferred the field types from the `urls` table without configuration. The 2 fields you search behave differently, and mixing them up is the most common way to get 0 hits.
+
+| field | inferred type | query that works |
+| --- | --- | --- |
+| `title` | `text` | `match` or `match_phrase` |
+| `url` | `keyword` | `term` with the whole URL |
+| `visit_count`, `typed_count`, `id`, `hidden` | `long` | `range` or `term` |
+| `last_visit_time` | `long` | `range` on microseconds since 1601-01-01 |
+
+A `match_phrase` on `title` returned 60 hits. An exact `term` on `https://docs.example.invalid/page/5?ref=history` returned 1 hit. A `match` for the substring `docs.example.invalid` on the same field returned 0, because a `keyword` field is not analyzed.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9200/bh-*/_search' \
+  -H 'content-type: application/json' \
+  -d '{"query":{"match_phrase":{"title":"Lemur documentation portal"}},"size":5,"_source":["url","title","visit_count","last_visit_time"],"track_total_hits":true}'
+```
+
+## There is no page text to search
+
+Chrome does not keep the content of the pages you visited in `History`. An `exists` query on `body` returned 0 documents across every index in the captured run.
+
+Decide on that basis. If you want to search what a page said, archive the page yourself and index the archive. Browser history alone gives you the title, the URL and the visit counters.
+
+## The source database is unchanged
+
+The harness recorded the sha256 of `History`, `History-wal` and `History-shm` before the run and again after it. All 3 values matched.
+
+```sh
+bash -c 'cd ./browser-history && sha256sum History History-wal History-shm'
+```
+
+Run that line on both sides of the index run if the profile matters to you. An immutable read is the property that makes this safe to do on a copy of real data.
+
+## What this capture does not show
+
+The `History` file in this run came from the fixture generator, written to the Chrome schema in WAL mode. No browser ran on the host, and no profile was read. Firefox uses a different schema and was not tested.
+
+XERJ runs single-node here, with no replication and no failover. The default embedder in XERJ is lexical feature hashing, so a query and a paraphrase that share no words do not match. Neural embeddings are opt-in through `--embed-mode neural`.
+
+Every number above comes from RUN-B, captured on 2026-08-21. The binary was a `ci-test` profile build, so no wall-clock figure from this run is published as a performance number.

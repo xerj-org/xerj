@@ -1,0 +1,134 @@
+---
+title: "Search Unity scenes and the C# beside them"
+h1: "How do I search Unity YAML scenes and the C# that references them as one project?"
+description: "xerj autoindex detects the unity and unity-meta families, splits a scene into one index per Unity class, and joins an asset to its .meta record by path."
+slug: "search-unity-project-assets"
+cluster: "Files and formats"
+question: "How do I search a Unity project's assets?"
+intent: "how-to"
+published: "2026-08-21"
+updated: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, install the latest XERJ and start a node, run xerj autoindex on a Unity project folder with --prefix unity, list the indices it created, then find one GameObject by m_Name and join one asset to its .meta record with a bool should query on asset_path and ax_path."
+commands:
+  - cmd: "xerj autoindex ./unity --url http://127.0.0.1:9480 --prefix unity --state-dir ./state-unity --progress plain --disable-feedback"
+    note: "Index the Unity project folder into unity-* indices."
+  - cmd: "curl -s -XGET 'http://127.0.0.1:9480/unity-*/_mapping'"
+    note: "Read the fields XERJ extracted before you write a query against them."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9480/unity-*/_search' -H 'content-type: application/json' -d '{\"query\":{\"term\":{\"m_Name\":\"QuokkaSpawner\"}},\"size\":5,\"track_total_hits\":true}'"
+    note: "Find one scene object by the name Unity wrote into the scene file."
+links_out:
+  - "search-yaml-xml-config-repository"
+  - "index-monorepo-for-agent"
+  - "catalog-files-with-autoindex-map"
+faq:
+  - q: "How do I search a Unity project's assets?"
+    a: "Run `xerj autoindex` on the project folder. XERJ detects `.unity` scenes and `.meta` files as their own families and extracts typed fields from both."
+  - q: "How do I search Unity scenes and the C# in the same project?"
+    a: "Run one `autoindex` over the project root. Scene and `.meta` files get the Unity families and `.cs` files are parsed as source code, so both land under one index prefix."
+  - q: "Unity YAML is unreadable. How do I search it?"
+    a: "The scene is split into one index per Unity class with typed fields instead of raw YAML. A `term` on `m_Name` matched `QuokkaSpawner` and returned `unity_class`, `unity_class_id`, `file_id` and `m_TagString`."
+  - q: "How do I find every prefab that references a script?"
+    a: "XERJ indexes the `guid` field on the `.meta` document, and it does not resolve a GUID reference to the asset it names. Our capture joined an asset to its own `.meta` record by path and did not verify a prefab-to-script lookup."
+  - q: "What indices does a Unity scene create?"
+    a: "One per Unity class in the scene. Our 1-scene fixture created `unity-assets-scenes-gameobject` and `unity-assets-scenes-occlusioncullingsettings`."
+  - q: "Can I join an asset to its .meta file?"
+    a: "Yes. The `.meta` document carries `asset_path`, and the asset document carries the same value in `ax_path`. One `bool` `should` query returns both."
+  - q: "Does the unity family produce a body field?"
+    a: "No. The scene indices carry typed Unity fields such as `m_Name` and `unity_class`, so a `match` query on `body` returns 0 hits against them."
+---
+
+**TL;DR** — Run `xerj autoindex` on the project folder. XERJ detects the `unity` and `unity-meta` families and extracts `m_Name`, `unity_class` and `guid`. One `bool` query joined an asset to its `.meta` document and returned 3 documents across 2 families.
+
+## Index the project folder
+
+Install the latest XERJ first. Point `xerj autoindex` at the Unity project. XERJ decides each file's family from its content, so no per-extension configuration exists to write.
+
+```sh
+xerj autoindex ./unity --url http://127.0.0.1:9480 --prefix unity --state-dir ./state-unity --progress plain --disable-feedback
+```
+
+The run wrote 1 file document per file, plus the extracted content documents. Read the catalog if you want the per-file view.
+
+| path | family | status | `records` |
+| --- | --- | --- | --- |
+| `Assets/PlayerController.cs` | `code` | indexed | 1 |
+| `Assets/PlayerController.cs.meta` | `unity-meta` | indexed | 1 |
+| `Assets/Scenes/Main.unity` | `unity` | indexed | 2 |
+
+## One index per Unity class
+
+XERJ does not put a scene into a single index. Each Unity class in the scene gets its own index, named after the dataset path and the class.
+
+```text
+unity-assets-scenes-gameobject
+unity-assets-scenes-occlusioncullingsettings
+unity-docs
+```
+
+`unity-docs` holds the `.meta` documents and the C# source. The 2 scene indices hold 1 document per object in the scene, and their mappings differ because their Unity classes differ.
+
+## Find a scene object by its Unity name
+
+A `term` query on `m_Name` locates a single object in the scene.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9480/unity-*/_search' -H 'content-type: application/json' -d '{"query":{"term":{"m_Name":"QuokkaSpawner"}},"size":5,"track_total_hits":true}'
+```
+
+```json
+{"_index":"unity-assets-scenes-gameobject",
+ "_source":{"unity_class":"GameObject","unity_class_id":1,"file_id":519420028,
+            "m_Name":"QuokkaSpawner","m_TagString":"Untagged","m_IsActive":1,
+            "ax_path":"Assets/Scenes/Main.unity","ax_locator":"u519420028"}}
+```
+
+`ax_locator` carries the Unity `fileID` prefixed with `u`. That value is how you point a human or an agent back at the exact object inside the scene file.
+
+## What a `.meta` file becomes
+
+Every `.meta` file lands in the `unity-meta` family with its importer settings flattened into fields.
+
+```json
+{"guid":"8f3c1d2e4b5a6c7d8e9f0a1b2c3d4e5f",
+ "asset_name":"PlayerController.cs",
+ "asset_path":"Assets/PlayerController.cs",
+ "importer":"MonoImporter",
+ "fileFormatVersion":2,
+ "MonoImporter_executionOrder":0,
+ "ax_path":"Assets/PlayerController.cs.meta","ax_locator":"meta"}
+```
+
+A `term` query on `guid` returns that document directly. XERJ indexes the GUID as a value; it does not resolve GUID references between assets for you.
+
+## Join an asset to its metadata
+
+`asset_path` on the `.meta` document holds the same string as `ax_path` on the asset itself. One `bool` `should` query therefore returns both sides of the pair.
+
+```sh
+curl -s -XPOST 'http://127.0.0.1:9480/unity-*/_search' -H 'content-type: application/json' -d '{"query":{"bool":{"should":[{"term":{"asset_path":"Assets/PlayerController.cs"}},{"term":{"ax_path":"Assets/PlayerController.cs"}}],"minimum_should_match":1}},"size":20,"track_total_hits":true}'
+```
+
+The capture returned 3 documents across 2 families.
+
+| `ax_path` | `ax_format` | `ax_locator` |
+| --- | --- | --- |
+| `Assets/PlayerController.cs.meta` | `unity-meta` | `meta` |
+| `Assets/PlayerController.cs` | `code` | `file` |
+| `Assets/PlayerController.cs` | `code` | `code` |
+
+The importer settings and the parsed C# symbols arrive in one response. You configure no join key anywhere, because the provenance fields carry it.
+
+## There is no `body` field on a scene document
+
+The scene indices carry typed Unity fields and nothing else. A `match` query on `body` against `unity-assets-scenes-*` returns 0 hits, so read `_mapping` before you write a query.
+
+```sh
+curl -s -XGET 'http://127.0.0.1:9480/unity-*/_mapping'
+```
+
+## What the capture was
+
+One single-node XERJ process and 3 generated fixture files totalling 789 bytes. Our fixture generator wrote those files to the real on-disk Unity formats, and no Unity editor produced them. Read the field names as real and the project size as a demonstration.

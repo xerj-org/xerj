@@ -162,6 +162,35 @@ regenerates (`--write`) and gates (default) them, and
 diverge from what the server serves. That guard exists because the file once
 advertised six tools while the binary served ten.
 
+## Working on the website (`landing/`)
+
+`landing/` is deployed **verbatim** by Cloudflare Pages (`pages_build_output_dir
+= "landing"`), so there is no build step at deploy and the committed HTML is what
+ships. Four rules keep a merge gate green:
+
+- **Do not hand-edit generated HTML.** `landing/answers/**`, `landing/compare/**`
+  and their `.md` twins are rendered from `content/answers/*.md` and
+  `content/compare/*.md` by `scripts/seo/build_articles.py`; `sitemap.xml` is
+  derived from the filesystem and from `git log`. Every generated file says so on
+  its first line. Edit the source, run the generator, commit the output.
+- **Never write a `.html` internal link.** Pages serves this site
+  extensionless — `/product.html` 308s to `/product`. `scripts/seo/urlmap.py` is
+  the single source of truth, and canonical, `og:url` and the sitemap `<loc>`
+  must be byte-identical strings from it.
+- **A new page must be registered** in `scripts/seo/pagedata.py` before any
+  generator will run; a new article's title, dates and links live in its
+  frontmatter (`scripts/seo/article_data.py` is the authoritative schema).
+- **New Markdown anywhere in this repo needs a `.gitignore` re-include.** The
+  blanket `*.md` rule has already silently swallowed the pull-request template,
+  `tools/**/SKILL.md` and the fact-check fixture corpus. Confirm with
+  `git check-ignore -v <path>` that the last matching pattern is a `!` rule.
+
+Before pushing site changes run the gates in `.github/workflows/seo.yml`, plus
+the two it does not run: `python3 scripts/seo/factcheck.py --fixture-check` and
+`bash .github/scripts/landing-constants-guard.sh` (that one lives in `ci.yml`).
+The full reference — frontmatter schema, every tool, and the traps that cost
+time — is [scripts/seo/README.md](./scripts/seo/README.md).
+
 ## Where to look
 
 | You want | Go to |
@@ -173,6 +202,7 @@ advertised six tools while the binary served ten.
 | The flagship feature's evaluation | [demo/usecases/autoindex/](./demo/usecases/autoindex/) (80/81 adversarial ground-truth exam, agent-vs-grep scorecard, scale report) |
 | Benchmark methodology & per-cell results | [demo/playbooks/](./demo/playbooks/) |
 | Architecture map | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
+| Maintaining the website: article generator, URL map, SEO merge gates | [scripts/seo/README.md](./scripts/seo/README.md) |
 | XERJ vs Lucene architecture comparison | [docs/XERJ_VS_LUCENE.md](./docs/XERJ_VS_LUCENE.md) |
 | Pre-submission and review protocol | [docs/CONTRIBUTION_REVIEW.md](./docs/CONTRIBUTION_REVIEW.md) |
 | How to send a bug or a fix back upstream (written for agents) | [.github/AI_CONTRIBUTIONS.md](./.github/AI_CONTRIBUTIONS.md) |

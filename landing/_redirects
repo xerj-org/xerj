@@ -8,13 +8,37 @@
 #   /playground.html    email-gate page (encrypted)
 #   /playground/        the dashboards app (NOT encrypted — gated by email)
 
-# Friendly short paths
-/demo         /playground.html    302
-/gate         /playground.html    302
-/dashboards   /playground.html    302
-/app          /playground/        302
-/bench        /benchmarks/        302
+# Friendly short paths.
+#
+# Targets are the URL Cloudflare actually serves (extensionless for files,
+# trailing slash for directories). Pointing an alias at /playground.html made
+# it a 302 into Pages' own 308 -> /playground, i.e. two hops for one click.
+#
+# /demo is NOT an alias any more: landing/demo/index.html is a real 75 KB page
+# and this rule was shadowing it, so /demo was unreachable at its own URL.
+# The dashboards gate keeps /gate and /dashboards.
+/gate         /playground         301
+/dashboards   /playground         301
+/app          /playground/        301
+/bench        /benchmarks/        301
 /github       https://github.com/xerj-org/xerj 302
 
 # Trailing slash normalization
 /home         /                   301
+
+# ── NO CATCH-ALL. Ever. ─────────────────────────────────────────────────────
+#
+# There must never be a rule whose source matches every path — `/* ... 200`,
+# `/* ... 301`, `/:slug ...`. Cloudflare Pages decides not-found handling from
+# the published tree: with a top-level `404.html` an unmatched path gets that
+# page and a real HTTP 404; a catch-all here takes the path first and the 404
+# never happens. That is a soft 404 — every typo'd URL becomes a duplicate of
+# whatever the rule points at, and a removed page can no longer be signalled
+# as removed. Until 2026-08-22 this site had no `404.html` at all and Pages
+# treated it as a single-page app: `/`, `/answers/what-is-xerj` and
+# `/this-page-has-never-existed-xyz123` all returned 200 with the same
+# 21,841-byte homepage body and the same ETag.
+#
+# `seo_lint.py` rule 67 fails the build on a catch-all source and on a missing
+# `landing/404.html`. Named prefixes (`/docs/*`) are fine: they claim a real
+# section instead of claiming everything.

@@ -1,0 +1,155 @@
+---
+title: "Search API or Qdrant for agent memory?"
+h1: "Should my agent call a search API or stand up Qdrant for persistent memory?"
+description: "Agent memory lives in the index process XERJ already runs, so no second data service starts. On 8 judged queries hybrid linear fusion scored precision@3 0.4583."
+slug: "xerj-vs-vector-database"
+cluster: "Comparison: vector database"
+question: "Should my agent call a search API or a vector store?"
+intent: "comparison"
+published: "2026-08-21"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start one local XERJ node, store a fact with POST /_memory/{namespace} and read it back with _recall, then index a labeled corpus into the same node and run the same judged queries as BM25, kNN and hybrid RRF. Report every miss, and report whether any second data service had to start."
+commands:
+  - cmd: "curl -s -XPUT http://127.0.0.1:9200/eval -H 'content-type: application/json' -d '{\"mappings\":{\"properties\":{\"doc_id\":{\"type\":\"keyword\"},\"title\":{\"type\":\"text\"},\"text\":{\"type\":\"semantic_text\"}}}}'"
+    note: "Create one index that carries both the inverted index and the dense vectors."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/_memory/agentmem' -H 'content-type: application/json' -d '{\"text\":\"The user prefers p50 and p95 latency, never the mean.\"}'"
+    note: "Store a durable agent memory on the same node and the same port that serves _search. No second service takes part."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/_memory/agentmem/_recall' -H 'content-type: application/json' -d '{\"query\":\"which latency percentile does the user want\",\"k\":5}'"
+    note: "Read the memory back after a node restart, which is the whole job people stand up Qdrant for."
+  - cmd: "curl -s http://127.0.0.1:9200/v1/embedding/identity"
+    note: "Read which embedder the node uses before you judge any result."
+  - cmd: "xerj --insecure --data-dir ./xerj-neural --embed-mode neural"
+    note: "Start a node on the opt-in neural embedder instead of the lexical default."
+links_out:
+  - "rag-without-vector-database"
+  - "vector-database-vs-full-text-search"
+  - "agent-memory-without-postgres-qdrant"
+  - "private-agent-memory-namespaces"
+  - "store-agent-memory-without-llm-call"
+evidence:
+  - claim: "Qdrant's built-in embedding inference is available on Qdrant Cloud only; self-hosted deployments run an external service or a client-side embedder."
+    source: "https://qdrant.tech/cloud-inference/"
+  - claim: "Pinecone's Standard plan carries a 50 dollar per month minimum, and self-hosting is not offered below Enterprise BYOC."
+    source: "https://www.pinecone.io/pricing/"
+  - claim: "Manticore Search ships local ONNX embedders with no API key and native RRF through OPTION fusion_method='rrf' in one query."
+    source: "https://manual.manticoresearch.com/Searching/Hybrid_search"
+faq:
+  - q: "Should my agent call a search API or a vector store?"
+    a: "A search API is enough when one host holds the corpus. XERJ serves `_memory/{namespace}` and `_search` from the same process, so an agent that already calls the search API gets persistent memory with no second endpoint to run."
+  - q: "Do I need a vector database for this, or am I overcomplicating it?"
+    a: "For a laptop-sized memory store you are probably overcomplicating it. A vector database earns its keep at filtered vector search at scale, or when a node loss must not lose service, and XERJ answers neither."
+  - q: "Do I need Postgres or Qdrant to keep agent memory between sessions?"
+    a: "No. Memory persists in a reserved `.xerj-memory-{namespace}` index under the node data directory, so it survives a restart without a second data service."
+  - q: "Is there a measured Qdrant head-to-head on this page?"
+    a: "No. The numbers here come from a 20-document retrieval capture on XERJ alone. No Qdrant index was built and no memory recall was scored against one."
+  - q: "Which retrieval mode won the measured test?"
+    a: "Hybrid linear fusion, at precision@3 0.4583 and recall 0.7708 on the lexical default. It beat BM25, semantic and kNN on the same 8 judged queries."
+  - q: "Does the default embedder do semantic matching?"
+    a: "No. The default embedder is lexical feature hashing and cannot connect synonyms. Semantic matching needs --embed-mode neural, which is opt-in and CPU-only."
+  - q: "When should I choose Qdrant instead?"
+    a: "Choose Qdrant when you need filtered vector search at scale, a Kubernetes operator, or DBSF fusion. Its built-in inference is Cloud only."
+  - q: "Can XERJ replace a vector database for a large filtered workload?"
+    a: "No. XERJ is single-node with no data-plane replication, and filtered kNN falls back to an exact scan rather than the graph index."
+---
+
+**TL;DR** — Call the search API you already run. XERJ serves agent memory at `_memory/{namespace}` from the same single-node process that serves `_search`, so no second data service starts. On 20 labeled documents and 8 judged queries, hybrid linear fusion scored the best precision@3 at 0.4583. Choose Qdrant instead for filtered vector search at scale.
+
+## Memory without a second data service
+
+Agent memory here is an endpoint on the node, not a separate deployment. An agent stores a fact with `POST /_memory/{namespace}` and reads it back with `_recall`, on the same port and the same process that answers `_search`.
+
+The store is an ordinary XERJ index named `.xerj-memory-{namespace}` under the node data directory, so memory outlives a restart. Each namespace is its own index, which is how two agents on one host keep separate memory. Namespace isolation is enforced by scoped API keys rather than by roles, and the node reports role enforcement as off, so read `/answers/private-agent-memory-namespaces` before you trust a shared host.
+
+The default embedder is lexical feature hashing inside the binary. That means the memory path needs no model download and no API key, and it also means recall matches terms rather than paraphrases until you opt in to `--embed-mode neural`.
+
+## What was measured, and what was not
+
+One single-node XERJ process indexed 20 labeled documents into a single index with a `semantic_text` field. All 8 judged queries then ran in 5 retrieval modes at k=3. The capture kept every returned id and every miss.
+
+This is a 20-document fixture. The size is enough to show how the modes differ, and far too small to rank retrieval engines. Read the table as a shape, not as a score.
+
+No Qdrant index was built for this page and no head-to-head was run. Nothing below reports how a vector database scored on the same texts, because nothing here measured one. The memory topology above was captured separately, and `/answers/agent-memory-without-postgres-qdrant` carries the process and socket inventory behind it.
+
+## The measured result, with the misses
+
+The default embedder is lexical feature hashing, so the vector-backed modes here carry no semantic understanding at all. The opt-in neural embedder changes every vector-backed row.
+
+| Mode | precision@3, lexical | recall, lexical | precision@3, neural | recall, neural |
+| --- | --- | --- | --- | --- |
+| BM25 | 0.375 | 0.6875 | 0.375 | 0.6875 |
+| `semantic` | 0.4167 | 0.7083 | 0.6667 | 1.0 |
+| kNN | 0.4167 | 0.7083 | 0.6667 | 1.0 |
+| Hybrid RRF | 0.4167 | 0.7083 | 0.6667 | 1.0 |
+| Hybrid linear | 0.4583 | 0.7708 | 0.6667 | 1.0 |
+
+The capture publishes every miss. On the query `car` the lexical modes returned `d02`, `d13` and `d09`, and missed both `d01` and `d03`. Those 2 misses are the synonym failure a feature-hashing embedder produces.
+
+## Two honest readings of that table
+
+Hybrid earns its place even with the weak default embedder. Hybrid linear at 0.4583 beat `semantic` at 0.4167 and BM25 at 0.375. Fusion adds a signal that neither side supplies alone.
+
+The neural column is the stronger argument for disclosure, not for XERJ. The opt-in `--embed-mode neural` took recall from 0.7083 to 1.0. The lexical default is therefore measurably worse at the job most readers think they are buying.
+
+## One index instead of two systems
+
+A separate vector database splits a document across 2 stores and creates a consistency problem between them. XERJ writes the dense vector and the inverted-index fields into one index, and a single `_search` request reads both.
+
+```json
+{
+  "query": {
+    "hybrid": {
+      "queries": [
+        { "query": { "match": { "text": "checkpoint" } }, "weight": 1.0 },
+        { "knn": { "field": "text_vector", "query_vector": [0.1], "k": 5 } }
+      ],
+      "fusion": "rrf"
+    }
+  }
+}
+```
+
+The `hybrid` clause lives inside `query`, and a top-level `hybrid` key returns an error. The Elasticsearch habit that puts a top-level `knn` block beside `query` does fuse. XERJ folds that pair into a single `hybrid` query and merges the two ranked lists with Reciprocal Rank Fusion. The scores that come back are RRF scores, not a BM25 sum.
+
+That fold is conditional. It happens only when the request carries none of `aggs`, `aggregations`, `sort`, `collapse`, `search_after`, `rescore`, `highlight`, `min_score`, `explain` or `profile`, because the fusion executor drops every one of those. Send any of them beside `knn` and `query` and the request keeps the older lexical `bool.should` shape. That shape honours the clause you sent and answers 200, but takes nothing from the kNN half. An array of several `knn` clauses beside a `query` is refused with 400 instead of answering partially.
+
+## Where XERJ is awkward and a vector database is not
+
+Two ergonomics gaps showed up in the capture, and both cost real time. The Elasticsearch idiom `query_vector_builder` returns 400 with `parse error: knn requires query_vector (or vector) as a float array`, and no query-time text-embedding endpoint exists.
+
+The supported route is to index the query text into a `semantic_text` field and read the companion `<field>_vector` back out of `_source`. A dedicated vector database with server-side inference does this in one call.
+
+## The route the engine will not tell you
+
+XERJ documents 7 conditions for approximate kNN. The list includes cosine similarity, no filter on the kNN clause, and at least 1,024 vectors present.
+
+No field in any response names the route a query took, and `profile: true` adds none.
+
+The capture crossed those conditions anyway, with everything else held fixed. p50 across the 5 cells ranged from 0.599 ms to 0.800 ms. That spread is smaller than the run-to-run variation on the shared host, so the matrix cannot identify the route.
+
+Publish that as a limitation. A filtered kNN query falls back to an `exact scan`, and the response cannot confirm which path ran.
+
+## When to choose Qdrant, Pinecone or Manticore instead
+
+Most readers arrive here searching for alternatives to Pinecone, or for XERJ compared with Qdrant. Both questions have an honest answer, and the answer is not XERJ every time.
+
+Choose Qdrant instead when you need filtered vector search at scale, a Kubernetes operator, or DBSF alongside RRF. Qdrant built-in inference runs on Qdrant Cloud only, so a self-hosted Qdrant still calls an external embedder. Qdrant fusion and filtered-search engineering are ahead of ours.
+
+For memory specifically, the dividing line is the host. A namespace on the node you already run is the cheaper answer while one machine holds the memory and an outage of that machine is survivable. Once memory must survive a node loss, or must be filtered by metadata at scale, XERJ has no answer and Qdrant does.
+
+Choose Pinecone instead when you want a managed service with integrated inference and no operations. XERJ ships as a self-hosted binary and offers no managed or cloud product. Pinecone carries a 50 dollar per month minimum and offers no local mode.
+
+Manticore Search is the honest comparison for the "one daemon, no external embedder" claim. Manticore ships local ONNX embedders with no API key and native RRF in one query. XERJ is not alone in this position and never claims to be, and it loses to Manticore on maturity and on embedder breadth.
+
+## The limits you inherit with XERJ
+
+XERJ is single-node, and that is the only configuration these captures measured. There is no data-plane replication, no failover and no multi-region mode. A retrieval tier on XERJ therefore needs a snapshot and restore plan.
+
+Memory is the other limit. The server retains heap per indexed document. The project's own guidance is to not plan corpora beyond a few million documents on one node.
+
+## What survives the comparison
+
+The durable arguments are structural rather than numeric. XERJ speaks the Elasticsearch REST API against a published conformance suite. The same binary indexes a folder of mixed formats with `xerj autoindex`, and serves agent memory.
+
+For a small corpus on one host, one index and one query beat 2 systems and a synchronization job. XERJ ships self-hosted only. For filtered vector search at scale, a managed service, or survival of a node loss, pick the vector database.

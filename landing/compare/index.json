@@ -1,0 +1,150 @@
+{
+  "generated_by": "scripts/seo/build_articles.py",
+  "section": "compare",
+  "articles": [
+    {
+      "title": "Local folder search vs a web agent search API",
+      "question": "How do I let an agent search a folder on my laptop instead of crawling the web?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-web-agent-search",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-web-agent-search.md",
+      "cluster": "Comparison: agent retrieval",
+      "updated": "2026-08-23",
+      "summary": "Exa, Tavily and Firecrawl take a query or a URL and answer from the public web. XERJ takes a folder already on your disk and never opens a network connection."
+    },
+    {
+      "title": "XERJ compared with ripgrep for code agents",
+      "question": "Is ripgrep enough for a coding agent, or do I need a code index?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-ripgrep-for-code-agents",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-ripgrep-for-code-agents.md",
+      "cluster": "Comparison: code retrieval",
+      "updated": "2026-08-21",
+      "summary": "30 disclosed tasks on one 331-file code tree. The two tools agree on 18. ripgrep wins 5 named tasks outright, including a substring inside an identifier."
+    },
+    {
+      "title": "XERJ vs ast-grep — syntax search and an index",
+      "question": "ast-grep vs a code index for an agent?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-ast-grep",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-ast-grep.md",
+      "cluster": "Comparison: code retrieval",
+      "updated": "2026-08-23",
+      "summary": "ast-grep wins structural rewriting and XERJ does none of it. For an agent the honest recommendation is to install both and give each the job it was built for."
+    },
+    {
+      "title": "DocFetcher compared with XERJ for document search",
+      "question": "What is a free DocFetcher alternative that an agent can call?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-docfetcher",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-docfetcher.md",
+      "cluster": "Comparison: desktop search",
+      "updated": "2026-08-23",
+      "summary": "DocFetcher is a desktop search GUI with a portable index and Outlook PST support. XERJ is a search engine an agent calls. A capability comparison, with no benchmark."
+    },
+    {
+      "title": "HoudahSpot compared with XERJ for file search",
+      "question": "HoudahSpot vs a local search engine I can script?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-houdahspot",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-houdahspot.md",
+      "cluster": "Comparison: desktop search",
+      "updated": "2026-08-23",
+      "summary": "HoudahSpot is a power-user front end for Spotlight, with hundreds of attribute filters. XERJ is a folder index an agent calls. No Mac run stands behind this page."
+    },
+    {
+      "title": "Recoll compared with XERJ for document search",
+      "question": "What is the best local desktop search for a folder of PDFs and docs?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-recoll",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-recoll.md",
+      "cluster": "Comparison: desktop search",
+      "updated": "2026-08-23",
+      "summary": "Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark."
+    },
+    {
+      "title": "ripgrep-all compared with XERJ for PDFs and docs",
+      "question": "How do I grep PDFs and Word docs from the command line?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-ripgrep-all",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-ripgrep-all.md",
+      "cluster": "Comparison: desktop search",
+      "updated": "2026-08-23",
+      "summary": "ripgrep-all wraps ripgrep with adapters for PDF, Office files, archives and SQLite. XERJ indexes the same folder for an agent. A capability comparison, no benchmark."
+    },
+    {
+      "title": "Spotlight compared with XERJ for folder content",
+      "question": "Spotlight can't find text inside my project files. What else is there?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-spotlight",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-spotlight.md",
+      "cluster": "Comparison: desktop search",
+      "updated": "2026-08-23",
+      "summary": "Spotlight is the Mac's system-wide index with zero setup and wide metadata. XERJ is a folder index an agent queries. A capability comparison, run on no Mac."
+    },
+    {
+      "title": "XERJ vs LocalSynapse for MCP local file search",
+      "question": "What's a local MCP search engine for Claude?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-localsynapse",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-localsynapse.md",
+      "cluster": "Comparison: local MCP search",
+      "updated": "2026-08-23",
+      "summary": "Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API."
+    },
+    {
+      "title": "XERJ vs Elasticsearch run on one machine",
+      "question": "Is there an Elasticsearch-compatible engine that isn't Elasticsearch?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-elasticsearch-local",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-elasticsearch-local.md",
+      "cluster": "Comparison: local search engines",
+      "updated": "2026-08-23",
+      "summary": "The published board is 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4. All 4 losses are read p99 under a write flood."
+    },
+    {
+      "title": "XERJ vs Omnisearch for an Obsidian vault",
+      "question": "How do I search an Obsidian vault from outside Obsidian?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-obsidian-omnisearch",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-obsidian-omnisearch.md",
+      "cluster": "Comparison: notes and vaults",
+      "updated": "2026-08-23",
+      "summary": "Omnisearch wins inside Obsidian and reaches images and PDFs through Text Extractor. XERJ reads the vault folder outside the editor. No head-to-head was run here."
+    },
+    {
+      "title": "XERJ vs Khoj for searching your own documents",
+      "question": "What's a simpler alternative to Khoj if I only need search and memory?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-khoj",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-khoj.md",
+      "cluster": "Comparison: personal search",
+      "updated": "2026-08-23",
+      "summary": "Khoj is a whole self-hosted assistant: chat, custom agents, scheduled research and image generation. XERJ is the smaller piece, the search and memory engine."
+    },
+    {
+      "title": "XERJ vs Meilisearch for local and agent search",
+      "question": "What's a local alternative to Meilisearch that indexes a folder by itself?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-meilisearch",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-meilisearch.md",
+      "cluster": "Comparison: search engines",
+      "updated": "2026-08-23",
+      "summary": "A local alternative to Meilisearch that reads a folder of mixed files by itself. Meilisearch wins typo tolerance by default. No head-to-head was run here."
+    },
+    {
+      "title": "XERJ vs Typesense when the corpus is a folder",
+      "question": "Do I need Typesense for an agent to search my docs?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-typesense",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-typesense.md",
+      "cluster": "Comparison: search engines",
+      "updated": "2026-08-23",
+      "summary": "Typesense wins faceted product browsing and says so in its own use cases. An agent can query a folder of mixed files without it. No faceting test was run here."
+    },
+    {
+      "title": "XERJ vs Pagefind for a folder of saved HTML",
+      "question": "Pagefind vs indexing a local HTML dump for an agent?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-pagefind",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-pagefind.md",
+      "cluster": "Comparison: site and export search",
+      "updated": "2026-08-23",
+      "summary": "Pagefind wins static-site search in the browser with no server. XERJ indexes a local HTML dump on disk so an agent can query it. No head-to-head was run here."
+    },
+    {
+      "title": "Search API or Qdrant for agent memory?",
+      "question": "Should my agent call a search API or a vector store?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-vector-database",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-vector-database.md",
+      "cluster": "Comparison: vector database",
+      "updated": "2026-08-23",
+      "summary": "Agent memory lives in the index process XERJ already runs, so no second data service starts. On 8 judged queries hybrid linear fusion scored precision@3 0.4583."
+    }
+  ]
+}
