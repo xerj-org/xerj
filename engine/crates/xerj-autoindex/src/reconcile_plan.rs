@@ -152,7 +152,32 @@ pub(crate) fn reconcile_plan(
         // renderer `build_phase_a` uses, exactly as the fresh path does, and
         // carry the committed `as_document` decision forward. Losing it would
         // index flattened records into a document mapping.
-        let as_document = retained.is_some_and(|owner| owner.as_document);
+        // #346: a fresh plan demotes a group-less, single-record,
+        // `demotable_family` (Json/Yaml/Xml) file into the scope's docs dataset
+        // and indexes it AS a document (the `dataset::cluster` demotion loop +
+        // `build_phase_a`'s `extract_as_document`, lib.rs:1919-1962). An
+        // incrementally-added file of that same shape must reconcile the same
+        // way — otherwise it is compared by its raw family, matches no frozen
+        // dataset, and aborts the whole run ("use a new prefix"). Guarded so it
+        // fires ONLY when the demotion is what the frozen plan actually did: a
+        // group-less `docs` dataset exists to join, and NO group-less dataset
+        // of the file's own family exists (the >8-configs case forms its own
+        // `json` data dataset instead of demoting, and such a config must join
+        // that dataset, not be forced into docs).
+        let new_file_demoted = retained.is_none()
+            && crate::dataset::demotable_family(sniffed.family)
+            && scan.sketches.iter().all(|s| s.group.is_none())
+            && scan.sketches.iter().map(|s| s.records).sum::<u64>() == 1
+            && previous
+                .datasets
+                .iter()
+                .any(|d| d.family == "docs" && d.group.is_none())
+            && !previous
+                .datasets
+                .iter()
+                .any(|d| d.family == sniffed.family.as_str() && d.group.is_none());
+
+        let as_document = retained.is_some_and(|owner| owner.as_document) || new_file_demoted;
         let document_fields = if as_document {
             Some(document_sample(&file.path, sniffed.gzip, sample))
         } else {
@@ -167,7 +192,15 @@ pub(crate) fn reconcile_plan(
                 retained_slug(owner, group, sniffed.family.as_str(), fields, &datasets)
                     .with_context(|| format!("project retained file {}", file.rel))?
             } else {
-                classify_new(group, sniffed.family.as_str(), fields, &previous.datasets)
+                // #346: a demoted new config classifies as its fresh-plan
+                // demotion target ("docs"), so it joins the frozen docs dataset
+                // instead of aborting on its raw family.
+                let family = if new_file_demoted {
+                    "docs"
+                } else {
+                    sniffed.family.as_str()
+                };
+                classify_new(group, family, fields, &previous.datasets)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
             assignments.push((group.clone(), slug));
@@ -645,6 +678,70 @@ mod tests {
         )
         .unwrap_err();
         assert!(format!("{error:#}").contains("unsupported dataset/schema evolution"));
+    }
+
+    /// #346: a fresh plan demotes a one-off JSON/YAML/XML config (group-less,
+    /// single-record, `demotable_family`) into the scope's docs dataset and
+    /// indexes it AS a document — `build_phase_a` re-samples it through
+    /// `extract_as_document` and sets `as_document` (lib.rs:1919-1962). An
+    /// incrementally-added config of that same shape must reconcile the same
+    /// way: routed to the frozen "docs" dataset and carried `as_document` — not
+    /// compared by its raw "json" family (which matches zero frozen datasets
+    /// and aborts the whole run with "use a new prefix", #346), nor indexed as
+    /// flattened records into a document mapping.
+    #[test]
+    fn new_demotable_config_file_joins_the_docs_dataset_as_a_document() {
+        // A real on-disk config: `document_sample`/`extract_as_document` reads
+        // it and renders the `{title, body}` document shape `emit_document`
+        // produces (extract/mod.rs).
+        let tmp = tempfile::tempdir().unwrap();
+        let cfg_path = tmp.path().join("config.json");
+        std::fs::write(&cfg_path, "{\"host\":\"localhost\",\"port\":8080}").unwrap();
+
+        // Frozen docs dataset carries that same document shape.
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset("docs", vec![spec("title", "text"), spec("body", "text")])
+            }],
+            ..Plan::default()
+        };
+
+        // A demotable one-off config: Json family, non-empty key_fields (so it
+        // is NOT the empty-key_fields document shape), a single record, no group.
+        let fields = HashMap::from([
+            ("host".to_string(), acc(&[json!("localhost")])),
+            ("port".to_string(), acc(&[json!(8080)])),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::Json;
+        file_scan.sketches[0].key_fields = ["host".to_string(), "port".to_string()]
+            .into_iter()
+            .collect();
+
+        let inv = Inventory {
+            files: vec![FileEntry {
+                path: cfg_path.clone(),
+                rel: "config.json".into(),
+                rel_id: "unix:7a".into(),
+                is_symlink: false,
+                size: 32,
+            }],
+            keys: vec!["cfg".into()],
+            digests: vec!["digest-cfg".into()],
+            duplicates: vec![],
+        };
+
+        let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50).unwrap();
+        assert_eq!(
+            plan.files["cfg"].assignments,
+            vec![(None, "docs".into())],
+            "#346: a demotable config must join the frozen docs dataset, not abort"
+        );
+        assert!(
+            plan.files["cfg"].as_document,
+            "#346: a demoted config must be indexed as a document, not flattened"
+        );
     }
 
     #[test]
