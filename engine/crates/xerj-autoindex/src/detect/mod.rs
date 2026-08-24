@@ -673,7 +673,15 @@ pub fn invalidate_prior_edges(es: &Es, edges_index: &str, rel: &str, now_ms: i64
     });
     let mut total = 0u64;
     for _ in 0..MAX_PASSES {
-        let resp = es.search(edges_index, &query)?;
+        // `search_present`, not `search`: the exclusion sweep (#694) may call
+        // this before the edges index has ever been created (it runs ahead of
+        // the graph phase's `ensure_index`). A missing index is not a failure —
+        // it simply holds no edges to invalidate. The replacement-invalidation
+        // caller always ensures the index first, so its behaviour is unchanged
+        // (the index is present → `Some`).
+        let Some(resp) = es.search_present(edges_index, &query)? else {
+            return Ok(total);
+        };
         let hits = resp
             .pointer("/hits/hits")
             .and_then(Value::as_array)

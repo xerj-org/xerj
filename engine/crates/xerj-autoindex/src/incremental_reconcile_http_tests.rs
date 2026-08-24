@@ -349,6 +349,12 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
     let exists = query
         .pointer("/query/bool/must/1/exists/field")
         .and_then(Value::as_str);
+    // #694: `invalidate_prior_edges` filters live edges with
+    // `must_not:[{exists:{field:"invalid_at"}}]`; honour it so the pass
+    // converges (an already-invalidated edge must drop out of the result).
+    let must_not_exists = query
+        .pointer("/query/bool/must_not/0/exists/field")
+        .and_then(Value::as_str);
     let locked = state.lock().unwrap();
     let matching: Vec<_> = locked
         .docs
@@ -386,6 +392,9 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                             })
                 })
                 && exists.map(|field| doc.get(field).is_some()).unwrap_or(true)
+                && must_not_exists
+                    .map(|field| doc.get(field).is_none())
+                    .unwrap_or(true)
         })
         .collect();
     let hits = matching
@@ -2067,7 +2076,7 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
         path: "secret.csv".into(),
     }];
 
-    sweep_excluded_groups(&es, &plan, &excluded).expect("sweep");
+    sweep_excluded_groups(&es, &plan, &excluded, None, 0).expect("sweep");
 
     let st = ep.state.lock().unwrap();
     // The excluded file's dataset record is gone.
@@ -2098,6 +2107,79 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
             .any(|((idx, _), d)| idx == catalog::CATALOG_INDEX
                 && d.get("path").and_then(Value::as_str) == Some("kept.csv")),
         "#589: a different file's catalog document must NOT be swept"
+    );
+}
+
+/// #694: `sweep_excluded_groups` also soft-invalidates the graph edges an
+/// excluded file taught (reusing the replacement hook `invalidate_prior_edges`),
+/// while leaving a different file's edges live. The bi-temporal record survives
+/// (`as_of` time travel), so the edge is stamped `invalid_at`, not deleted.
+/// Fail-before: with the `invalidate_prior_edges` call reverted, the excluded
+/// file's edge carries no `invalid_at` and stays searchable.
+#[test]
+fn sweep_excluded_groups_invalidates_the_excluded_files_edges() {
+    let ep = HttpEndpoint::start();
+    let edges = ".xerj-memory-testbrain-edges";
+
+    // Two live edges (no `invalid_at`): one taught by the file about to be
+    // excluded, one by a file that stays.
+    {
+        let mut st = ep.state.lock().unwrap();
+        // The mock's `_bulk` guard asserts mappings were seen first (ingest
+        // ordering); the invalidation re-index is a bulk, so satisfy it — this
+        // test exercises edge invalidation, not the mapping-ordering invariant.
+        st.saw_dataset_mapping_update = true;
+        st.saw_catalog_mapping_update = true;
+        st.docs.insert(
+            (edges.to_string(), "edge-secret".to_string()),
+            json!({"src_file": "secret.csv", "kind": "samedir", "dst_file": "other.csv"}),
+        );
+        st.docs.insert(
+            (edges.to_string(), "edge-kept".to_string()),
+            json!({"src_file": "kept.csv", "kind": "samedir", "dst_file": "other.csv"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "key-excluded".into(),
+        path: "secret.csv".into(),
+    }];
+
+    let now_ms = 1_724_500_000_000i64;
+    sweep_excluded_groups(&es, &plan, &excluded, Some(edges), now_ms).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // The excluded file's edge is soft-invalidated (present, stamped invalid_at).
+    let secret_edge = st
+        .docs
+        .get(&(edges.to_string(), "edge-secret".to_string()))
+        .expect("excluded file's edge is soft-invalidated, not deleted");
+    assert_eq!(
+        secret_edge.get("invalid_at").and_then(Value::as_i64),
+        Some(now_ms),
+        "#694: the excluded file's edge must be stamped invalid_at by the sweep"
+    );
+    // A different file's edge stays live (no over-invalidation).
+    let kept_edge = st
+        .docs
+        .get(&(edges.to_string(), "edge-kept".to_string()))
+        .expect("kept file's edge present");
+    assert!(
+        kept_edge.get("invalid_at").is_none(),
+        "#694: a different file's edge must NOT be invalidated"
     );
 }
 
