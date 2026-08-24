@@ -112,6 +112,7 @@ function platform(ua) {
 /** Which script this request is for. Anything else is not ours to serve. */
 function scriptFor(pathname) {
   if (pathname === '/get') return 'get';
+  if (pathname === '/get.sh') return 'get'; // alias: same shell installer
   if (pathname === '/get.ps1') return 'get.ps1';
   return null;
 }
