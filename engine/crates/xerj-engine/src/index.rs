@@ -13084,8 +13084,14 @@ impl Index {
     /// and `NumericComparator` compares those column values directly
     /// (`lucene/core/src/java/org/apache/lucene/search/comparators/NumericComparator.java:47-63`).
     /// xerj has no column for these fields, so it resolves them through the
-    /// SAME accessors that populate the response meta-fields — a hit's
-    /// `sort` value and its `_seq_no` / `_version` therefore agree.
+    /// SAME version-map accessors (`lookup_seq_no` / `lookup_version`) that
+    /// back the response meta-fields — so a hit's `sort` value equals its
+    /// `_seq_no` / `_version` whenever the lookup RESOLVES. It can only diverge
+    /// for a doc whose lookup returns `None` after it was collected (a
+    /// concurrent tombstone / version-map miss): this function then yields
+    /// `Value::Null` (so the request's `missing` policy governs the sort key),
+    /// while the response side applies its own `None` fallback — a narrow,
+    /// already-racing case that does not affect the ranking key computed here.
     ///
     /// Returns `None` for every other field name, so the caller falls
     /// through to the ordinary `_source` lookup.
