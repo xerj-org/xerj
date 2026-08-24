@@ -359,14 +359,18 @@ async fn must_not_only_bool_is_not_unwrapped() {
     }
 }
 
-/// #643 remaining gap: a single-clause `bool` nested inside a score-preserving
-/// wrapper that `unwrap_single_clause_bool` does NOT recurse through
-/// (`function_score` inner query, `dis_max` single query) keeps the wrapped
-/// `bool`, so #399's memtable/segment score divergence can resurface. A
-/// no-functions `function_score` and a single-query `dis_max` (tie_breaker 0)
-/// are both score-neutral, so each must rank exactly like the bare clause on
-/// BOTH populations. Fail-before: the nested `bool` is not erased, so the
-/// memtable diverges from the bare clause.
+/// #643 remaining gap: before the fix, a single-clause `bool` nested inside a
+/// score-preserving wrapper that `unwrap_single_clause_bool` does NOT recurse
+/// through (`function_score` inner query, `dis_max` single query) stayed
+/// wrapped, so the unwrap did not match Lucene's recursive rewrite for those
+/// wrappers. A no-functions `function_score` and a single-query `dis_max`
+/// (tie_breaker 0) are both score-neutral, so each must rank exactly like the
+/// bare clause on BOTH populations — and empirically they ALREADY do, with or
+/// without the fix (the #399 divergence does not manifest for these nested
+/// shapes; the wrappers force the doc-scan path regardless). So this is a
+/// neutrality REGRESSION GUARD, not a fail-before: the fix's real fail-before is
+/// the unit tests `unwrap_recurses_through_*`, which assert the nested `bool` is
+/// erased to the bare clause.
 #[tokio::test]
 async fn nested_single_clause_bool_in_wrappers_is_score_neutral() {
     let shapes = [
