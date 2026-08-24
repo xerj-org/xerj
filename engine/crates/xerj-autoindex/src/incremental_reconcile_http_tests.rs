@@ -2156,3 +2156,61 @@ fn pending_no_graph_generation_is_refused_on_the_graph_path() {
         "#585: the refused re-run must mutate nothing"
     );
 }
+
+/// #585 (case 2): a `--no-graph` generation's genesis bootstrap (`sync_bootstrap`
+/// committed, interrupted before `sync_begin`) must NOT be continued on the
+/// default graph path either. Genesis carries no execution identity of its own
+/// (`validate_genesis` requires `execution: None`), so unlike case 1 the guard
+/// cannot compare a recorded mode — it instead relies on `sync_bootstrap` having
+/// actually replayed, which only `begin_non_graph_generation` ever writes, and
+/// only under `--no-graph`.
+#[test]
+fn no_graph_genesis_bootstrap_is_refused_on_the_graph_path() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let mut no_graph = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    no_graph.snapshot_max_bytes = 1;
+
+    // Interrupt the very first --no-graph run between sync_bootstrap and
+    // sync_begin: generation 0 (genesis) is committed, nothing else is.
+    let error = run_index(no_graph.clone()).unwrap_err();
+    assert!(format!("{error:#}").contains("snapshot source footprint"));
+    assert_eq!(journal_events(state_dir.path(), "sync_bootstrap"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    assert_eq!(endpoint.data_docs().len(), 0);
+
+    // Re-run the SAME state dir on the default graph path. The pending
+    // --no-graph genesis bootstrap must be refused, not continued.
+    let mut graph = no_graph.clone();
+    graph.no_graph = false;
+    graph.snapshot_max_bytes = 64 << 30;
+    let error = run_index(graph).unwrap_err();
+    let rendered = format!("{error:#}");
+    assert!(
+        rendered.contains("genesis bootstrap") && rendered.contains("different graph authority"),
+        "#585 case 2: a --no-graph genesis bootstrap must be refused on the graph path with the \
+         clear message, got: {rendered}"
+    );
+    // No mutation: nothing indexed, no new durable transaction beyond the
+    // original sync_bootstrap.
+    assert_eq!(journal_events(state_dir.path(), "sync_bootstrap"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    assert_eq!(endpoint.data_docs().len(), 0);
+
+    // Positive control: re-running in the SAME (--no-graph) mode continues
+    // the interrupted genesis normally.
+    no_graph.snapshot_max_bytes = 64 << 30;
+    assert_eq!(run_index(no_graph).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_bootstrap"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(endpoint.data_docs().len(), 1);
+}
