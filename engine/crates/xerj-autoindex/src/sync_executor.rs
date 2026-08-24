@@ -1602,8 +1602,36 @@ fn prepare_artifact(
     // generation because one line of one log file did not parse would make a
     // realistic corpus unindexable. The count is sealed into the artifact so
     // the generation, and then the catalog, can report it.
-    let stats = crate::extract::extract(snapshot_blob, &sniffed, None, &mut sink)
-        .with_context(|| format!("extract {} into durable preparation", source.rel))?;
+    //
+    // #722: `assignment.as_document` (a demoted one-off config file, #173)
+    // decides the record *shape*, the same precedence the legacy path's own
+    // phase-B dispatch gives it (`lib.rs`, `if fa.as_document { … }`) — the
+    // frozen dataset's mapping was built by re-sampling through
+    // `extract_as_document`, so that is the only extractor whose output may
+    // be compared against it. Before this, the durable/generated pipeline
+    // never checked the flag at all: a demoted file was correctly ROUTED
+    // into the docs dataset (`reconcile_plan`/`dataset::cluster` agree it
+    // belongs there) but its published fields still came from its raw
+    // family extractor, silently disagreeing with the mapping. `sniffed` is
+    // already sniffed from `snapshot_blob`, a real path on the sealed
+    // snapshot (not a byte blob), so the branch is exactly the legacy
+    // path's — no format change needed.
+    let stats = if assignment.as_document {
+        // `extract_as_document_with_name`, not `extract_as_document`:
+        // `snapshot_blob` is a real path, but to the SEALED SNAPSHOT under
+        // its own ordinal name, not the source file's — the title must come
+        // from `source.path` (the same split `sniff_with_name` above makes
+        // for the same reason).
+        crate::extract::extract_as_document_with_name(
+            snapshot_blob,
+            &source.path,
+            sniffed.gzip,
+            &mut sink,
+        )
+    } else {
+        crate::extract::extract(snapshot_blob, &sniffed, None, &mut sink)
+    }
+    .with_context(|| format!("extract {} into durable preparation", source.rel))?;
     if let Some(error) = sink_error {
         return Err(error);
     }
@@ -1917,6 +1945,67 @@ mod tests {
         assert_eq!(groups[0].expected_records_for("users"), Some(2));
         assert_eq!(groups[0].expected_records_for("orders"), Some(2));
         assert_eq!(groups[0].expected_records_for("absent"), Some(0));
+    }
+
+    /// #722: `assignment.as_document` was never read here at all — a demoted
+    /// one-off config file (#173) was correctly ROUTED into the docs dataset
+    /// (`reconcile_plan`/`dataset::cluster` agree) but published through its
+    /// raw family extractor, not `extract_as_document`, silently disagreeing
+    /// with the docs mapping the run itself built. A first, file-path-only
+    /// fix used `extract_as_document(snapshot_blob, …)` directly and derived
+    /// the title from `snapshot_blob`'s own name — the SEALED SNAPSHOT's
+    /// ordinal filename (`prepared/00000000`), not the source file's, so
+    /// every demoted document titled itself `"00000000"`. Pins both halves:
+    /// the record is document-shaped (`title`/`body`, not the source's raw
+    /// JSON keys) AND the title is the real source name.
+    #[test]
+    fn preparation_of_a_demoted_file_publishes_a_real_document_with_the_source_title() {
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let corpus = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        std::fs::write(
+            corpus.path().join("config.json"),
+            br#"{"host": "example.com", "port": 8080}"#,
+        )
+        .unwrap();
+        let inventory = inventory(corpus.path());
+        let mut plan = plan_for(&inventory);
+        let key = inventory.keys[0].clone();
+        plan.files.get_mut(&key).unwrap().as_document = true;
+
+        let snapshot = create_prepared_snapshot(
+            state.path(),
+            "tx-demoted-config",
+            &inventory,
+            &plan,
+            "test-preparation-v1",
+            u64::MAX,
+        )
+        .unwrap();
+
+        let prepared = snapshot.files[0].prepared.as_ref().unwrap();
+        assert_eq!(prepared.records, 1);
+        let root = state.path().join("sync-snapshots/tx-demoted-config");
+        let ndjson = std::fs::read_to_string(root.join(&prepared.relative_ndjson)).unwrap();
+        let document: Value = serde_json::from_str(ndjson.lines().nth(1).unwrap()).unwrap();
+        assert_eq!(
+            document["title"], "config",
+            "title must be the source file's own stem, not the sealed snapshot's ordinal \
+             filename: {document}"
+        );
+        assert!(
+            document["body"]
+                .as_str()
+                .unwrap()
+                .contains(r#""host": "example.com""#),
+            "body must be the decoded document text, not raw extracted JSON fields: {document}"
+        );
+        assert!(
+            document.get("host").is_none() && document.get("port").is_none(),
+            "a demoted file must not publish its raw family-extractor fields: {document}"
+        );
     }
 
     /// `snapshot_digest` covers the serialized `PreparedArtifact` and
