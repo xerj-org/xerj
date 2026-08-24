@@ -35005,13 +35005,22 @@ fn unwrap_single_clause_bool(q: QueryNode) -> QueryNode {
                 return must.remove(0);
             }
             let only_should = must.is_empty() && must_not.is_empty() && filter.is_empty();
-            if should.len() == 1
-                && only_should
-                && matches!(
-                    minimum_should_match,
-                    None | Some(MinShouldMatch::Fixed(0)) | Some(MinShouldMatch::Fixed(1))
-                )
-            {
+            // #643: a lone `should` collapses to the bare clause only when its
+            // effective required count is 1 (the clause is required). msm
+            // resolution is `max(1, floor(len * pct / 100))` (the Bool matcher
+            // and FTS arms), so for a single clause a `Percentage` resolves to
+            // 1 iff `pct < 200`: `pct >= 200` resolves to >= 2 (requires 2 of 1
+            // clause => the bool matches NOTHING), unlike the bare clause, so it
+            // must stay wrapped. `Field`/`Script` resolve at query time and can
+            // likewise exceed the clause count, so they too stay wrapped
+            // (conservative). The parser puts no upper cap on `pct`, so `"200%"`
+            // is reachable.
+            let should_msm_collapses = match &minimum_should_match {
+                None | Some(MinShouldMatch::Fixed(0)) | Some(MinShouldMatch::Fixed(1)) => true,
+                Some(MinShouldMatch::Percentage(pct)) => *pct < 200,
+                _ => false,
+            };
+            if should.len() == 1 && only_should && should_msm_collapses {
                 return should.remove(0);
             }
             QueryNode::Bool {
