@@ -3163,10 +3163,20 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// (a co-occurring deletion refuses the whole rerun, mutating nothing) and
 /// never under `--dry-run`.
 ///
-/// KNOWN GAP (#589, next hunk): graph edges taught by the file remain in the
-/// edges index until it is swept too — the same limitation the refusal message
-/// already documents in `edges_note`.
-fn sweep_excluded_groups(es: &Es, plan: &Plan, excluded: &[InventoryDeltaEntry]) -> Result<()> {
+/// #694: graph edges taught by the excluded file are soft-invalidated too, when
+/// this run has a graph (`edges_index` is `Some`). It reuses the replacement
+/// hook `detect::invalidate_prior_edges` — the excluded entry's `path` IS the
+/// `src_file` the edges carry — so an edge naming a now-excluded file stops
+/// being searchable (the bi-temporal record survives for `as_of` time travel,
+/// exactly like a replaced file's edges). Under `--no-graph` (`edges_index` is
+/// `None`) there is no edges index to touch.
+fn sweep_excluded_groups(
+    es: &Es,
+    plan: &Plan,
+    excluded: &[InventoryDeltaEntry],
+    edges_index: Option<&str>,
+    now_ms: i64,
+) -> Result<()> {
     // Exact dataset indices from the plan — the same resolution the replacement
     // delete path uses (`ds_rt` → `rt.index`); a `{prefix}-*` wildcard would be
     // untestable and could reach indices this corpus does not own.
@@ -3188,8 +3198,34 @@ fn sweep_excluded_groups(es: &Es, plan: &Plan, excluded: &[InventoryDeltaEntry])
             &json!({"term": {"path": entry.path}}),
         )
         .with_context(|| format!("sweep catalog entry for newly-excluded {}", entry.path))?;
+        // #694: soft-invalidate the edges this file taught. `invalidate_prior_edges`
+        // tolerates a not-yet-created edges index (returns 0), so a graph run whose
+        // edges index has not been ensured at this point is safe.
+        if let Some(edges) = edges_index {
+            detect::invalidate_prior_edges(es, edges, &entry.path, now_ms)
+                .with_context(|| format!("sweep graph edges for newly-excluded {}", entry.path))?;
+        }
     }
     Ok(())
+}
+
+/// The edges index this run's graph writes to, or `None` when there is none to
+/// sweep: `--no-graph`, or a brain name that fails validation (a run that could
+/// never have written edges — the graph phase bails on it before any write).
+/// #694: the exclusion sweep uses this to invalidate a removed file's edges,
+/// mirroring `edges_index_name(&brain)` at the graph phase without duplicating
+/// the `--brain`/`derive_brain_name` fallback.
+fn graph_edges_index(cfg: &IndexCfg) -> Option<String> {
+    if cfg.no_graph {
+        return None;
+    }
+    let brain = cfg
+        .brain
+        .clone()
+        .unwrap_or_else(|| derive_brain_name(&cfg.root));
+    detect::validate_brain(&brain)
+        .ok()
+        .map(|()| detect::edges_index_name(&brain))
 }
 
 /// Catalog doc id for a time correlation, corpus-prefix-scoped (#673): the
@@ -3775,8 +3811,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         // continue, rather than leaving them live in the destination. Genuine
         // deletions above still refuse; never mutate under --dry-run.
         if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
-            sweep_excluded_groups(&es, prior_plan, &delta.excluded_content_groups)
-                .context("sweep newly-excluded content groups")?;
+            let edges_index = graph_edges_index(&cfg);
+            sweep_excluded_groups(
+                &es,
+                prior_plan,
+                &delta.excluded_content_groups,
+                edges_index.as_deref(),
+                chrono::Utc::now().timestamp_millis(),
+            )
+            .context("sweep newly-excluded content groups")?;
         }
     }
     let mut journal = state::Journal::open_after_preflight(
@@ -4035,8 +4078,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         // #589: sweep documents left behind by a widened exclusion (see gate
         // above). Genuine deletions still refuse; never mutate under --dry-run.
         if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
-            sweep_excluded_groups(&es, &plan, &delta.excluded_content_groups)
-                .context("sweep newly-excluded content groups")?;
+            let edges_index = graph_edges_index(&cfg);
+            sweep_excluded_groups(
+                &es,
+                &plan,
+                &delta.excluded_content_groups,
+                edges_index.as_deref(),
+                chrono::Utc::now().timestamp_millis(),
+            )
+            .context("sweep newly-excluded content groups")?;
         }
     }
 
