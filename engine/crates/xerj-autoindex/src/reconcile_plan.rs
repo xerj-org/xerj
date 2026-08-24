@@ -330,13 +330,19 @@ fn classify_new(
         let (intersection, union) = field_overlap(fields, &dataset.specs);
         let threshold_met = if dataset.family == "docs" {
             // A `docs` dataset's specs are the UNION of every document/config
-            // the fold produced. A group-less document whose rendered field
-            // NAMES are all present in that union belongs to it, however many
-            // other document fields the union carries — so accept on subset
-            // (`intersection == |fields|`), not the 0.7 Jaccard the larger union
-            // would otherwise fail. `field_overlap` counts names, and
-            // `fields.len()` is the file's rendered-field count.
-            intersection == fields.len()
+            // the fold produced. `ensure_compatible` (run just above) already
+            // requires every observed SCALAR field to be present in the frozen
+            // specs — a field absent from the specs is tolerated ONLY when
+            // `acc.n == 0` (pruned: e.g. a code file's object-valued `symbols`
+            // sidecar, #580). So a document/config that reached here belongs to
+            // the docs dataset regardless of how many other fields the union
+            // carries; accept it. (The 0.7 Jaccard would wrongly reject a
+            // document with fewer fields than the union, and `== fields.len()`
+            // wrongly counts the pruned `symbols` key and aborted a new code
+            // file — the #729 central case.) `let _` keeps the shared
+            // `field_overlap` result in scope for the data-family branches.
+            let _ = (intersection, union);
+            true
         } else if group.is_some() {
             intersection * 2 >= union // 0.5
         } else {
@@ -799,6 +805,58 @@ mod tests {
         assert!(
             plan.files["cfg"].as_document,
             "a demoted config re-samples as a document"
+        );
+    }
+
+    /// #729: a code file emits a `symbols` sidecar (array-of-objects, #580)
+    /// that `FieldAcc` records with `acc.n == 0`, so it is pruned from every
+    /// frozen docs `FieldSpec`. A NEW code file carrying it must still join the
+    /// docs dataset on the incremental path — `ensure_compatible` tolerates the
+    /// pruned key, so the docs-family acceptance must not re-count it (the
+    /// earlier `intersection == fields.len()` did, and aborted every new
+    /// `.rs`/`.py` with functions — the central #729 case for code repos).
+    #[test]
+    fn new_code_file_with_a_pruned_symbols_sidecar_joins_docs_not_aborts() {
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset(
+                    "docs",
+                    vec![
+                        spec("title", "text"),
+                        spec("language", "keyword"),
+                        spec("body", "text"),
+                        spec("defs", "text"),
+                        spec("symbol_count", "long"),
+                    ],
+                )
+            }],
+            ..Plan::default()
+        };
+        let fields = HashMap::from([
+            ("title".to_string(), acc(&[json!("alpha.rs")])),
+            ("language".to_string(), acc(&[json!("rust")])),
+            ("body".to_string(), acc(&[json!("fn main() {}")])),
+            ("defs".to_string(), acc(&[json!("struct Alpha")])),
+            ("symbol_count".to_string(), acc(&[json!(3)])),
+            // Observed key, object-valued -> acc.n == 0, pruned from the frozen
+            // specs — exactly the shape that aborted before the fix.
+            ("symbols".to_string(), acc(&[json!({"name": "main"})])),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::Code;
+
+        let plan = reconcile_plan(
+            &inventory("alpha.rs", "unix:7d", "code"),
+            &previous,
+            vec![file_scan],
+            50,
+        )
+        .unwrap();
+        assert_eq!(plan.files["code"].assignments, vec![(None, "docs".into())]);
+        assert!(
+            !plan.files["code"].as_document,
+            "a code document indexes through its own extractor, not as_document"
         );
     }
 
