@@ -2762,3 +2762,9 @@ html[data-theme='night'] .prompt-stage::before { opacity: 0.5; }
   .prompt-stage::before { inset: -14px; filter: blur(28px); }
   .prompt-copy { align-self: stretch; text-align: center; }
 }
+
+/* nav download button — latest release tag, links to /releases/latest */
+.nav .nav-dl{padding:.35rem .7rem;border:1px solid var(--accent,#ffc400);border-radius:4px;
+  color:var(--accent,#ffc400);font-weight:700;white-space:nowrap;text-decoration:none;
+  font-family:"JetBrains Mono",monospace;font-size:.8rem;}
+.nav .nav-dl:hover{background:var(--accent,#ffc400);color:#0b0b0d;}

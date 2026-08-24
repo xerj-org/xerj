@@ -97,6 +97,7 @@
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <a class="nav-dl" href="https://github.com/xerj-org/xerj/releases/latest" rel="external" title="Download the latest XERJ release">↓ <span data-latest-tag>v1.0.0-rc.67</span></a>
   <span class="theme">
     <button type="button" data-theme="day" class="active">DAY</button>
     <span class="dash">·</span>
@@ -159,13 +160,15 @@
     prompt above.
   </p>
 
-<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;      <span class="comment"># 1. a node must be running first</span>
-$ git clone --depth 1 https://github.com/spacejam/sled ref/sled
-$ xerj autoindex ref/sled                        <span class="comment"># 2. tree-sitter AST fields, once per clone</span>
-$ curl -sXPOST 'localhost:9200/ax-*/_search' -H 'content-type: application/json' \
-    -d '{"query":{"multi_match":{"query":"fsync the WAL segment on rotation",
-                                 "fields":["defs^3","body","title"]}}}'
-→ the exact function, file:line, contract included — a passage to read, not a tree to grep</pre>
+<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;                       <span class="comment"># a node, running</span>
+$ tools/xerj-code/scripts/xc-corpus.sh sled https://github.com/spacejam/sled   <span class="comment"># clone + pin the commit</span>
+$ tools/xerj-code/scripts/xc-index.sh  sled                        <span class="comment"># autoindex — tree-sitter AST fields, once</span>
+$ tools/xerj-code/scripts/xc.py sled <span class="accent">"fsync the WAL segment on rotation"</span>
+→ the exact function, its file:line and contract — one plain-English line in, a passage to read out
+
+<span class="comment"># prefer zero extra tooling? the same query on the raw ES wire:</span>
+$ curl -sXPOST localhost:9200/ax-*/_search -H content-type:application/json \
+    -d '{"query":{"multi_match":{"query":"fsync the WAL segment on rotation","fields":["defs^3","body"]}}}'</pre>
 
   <p class="wide" style="margin-top:var(--sp-3);">
     Optional convenience layer: the same four steps are wrapped by
@@ -298,45 +301,9 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
 </section>
 
 
-<!-- 04 — SHIPPING NOW ---------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>SHIPPING NOW · THE CURRENT BUILD</span></div>
-  <h2 class="scene">RC.18.<br><span class="accent">AND COUNTING.</span></h2>
-
-  <p class="wide">
-    <strong>18 release candidates in 43 days</strong> — v1.0.0-rc.1 shipped
-    2026-07-07, <strong>v1.0.0-rc.18</strong> on 2026-08-19, and the installers
-    above always resolve the latest. Every commit re-runs the
-    <strong>1,366 / 1,369</strong> ES-YAML conformance suite; the changelog
-    states known defects instead of implying their absence. In the current
-    build: code arrives <strong>AST-parsed for 34 languages</strong> (symbols,
-    definitions, line numbers), index lifecycle policies <strong>execute</strong>
-    (ILM / ISM), <code class="inline">.gitignore</code> is honoured on
-    autoindex, and dense-vector kNN is HNSW-served with exact rescoring.
-  </p>
-
-  <div class="recipes" style="grid-template-columns:repeat(3,1fr); margin-top:var(--sp-6);">
-    <a class="recipe" href="https://github.com/xerj-org/xerj/releases">
-      <span class="num">RELEASES</span>
-      <span class="title">Every build, 8 targets</span>
-      <p class="lead">Linux / macOS / Windows &times; x86-64 / arm64, SHA-256 checksums, prerelease-transparent.</p>
-    </a>
-    <a class="recipe" href="https://github.com/xerj-org/xerj/blob/main/CHANGELOG.md">
-      <span class="num">CHANGELOG</span>
-      <span class="title">What changed, honestly</span>
-      <p class="lead">Keep-a-Changelog format — including the defects we know about at cut time.</p>
-    </a>
-    <a class="recipe" href="https://github.com/xerj-org/xerj/blob/main/ROADMAP.md">
-      <span class="num">ROADMAP</span>
-      <span class="title">Where it is going</span>
-      <p class="lead">Verified against the release binary, with public milestones and a live project board.</p>
-    </a>
-  </div>
-</section>
-
 <!-- BENCHMARKS — SUPPORTING EVIDENCE -------------------------->
 <section class="scene-section" id="engine">
-  <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>WHY XERJ · THE COMPETITIVE ADVANTAGE</span></div>
+  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>WHY XERJ · THE COMPETITIVE ADVANTAGE</span></div>
   <h2 class="scene">THE ADVANTAGE,<br><span class="accent">FEATURE BY FEATURE.</span></h2>
 
   <p class="wide">
@@ -493,5 +460,8 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
 
 <script defer src="/chart-data.js?v=ic7"></script>
 <script defer src="/charts.js?v=ic7"></script>
+<script>
+(function(){try{fetch("https://api.github.com/repos/xerj-org/xerj/releases/latest").then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||!d.tag_name)return;document.querySelectorAll("[data-latest-tag]").forEach(function(e){e.textContent=d.tag_name;});}).catch(function(){});}catch(e){}})();
+</script>
 </body>
 </html>
