@@ -1033,6 +1033,57 @@ pub fn decode_text(bytes: &[u8]) -> (String, &'static str) {
 }
 
 fn classify_text(text: &str, nonblank: &[&str]) -> Family {
+    // Structured families (JSON/HTML/XML/logs/SQL/CSV) win first, for the whole
+    // file and — via the #551 frontmatter lookahead below — for a frontmatter
+    // body too.
+    if let Some(family) = classify_structured(text, nonblank) {
+        return family;
+    }
+
+    // YAML — but a leading `---` is also the opening delimiter of markdown/prose
+    // frontmatter (Jekyll, Hugo, Obsidian, Docusaurus, MkDocs, Astro, and Claude
+    // Code skill files — including the two this repo ships). Without a lookahead
+    // for the *closing* `---` and what follows it, every such file was handed to
+    // the YAML extractor, which keeps the frontmatter mapping and the first
+    // paragraph and discards the rest of the body (#551, silent data loss). If
+    // the file opens with `---`, has a matching closing `---`, and the body after
+    // it is majority non-YAML, classify by that body so the whole document is
+    // indexed. A pure/multi-document YAML file keeps YAML: the content after its
+    // `---` document marker is still YAML-like (or too short to be called prose).
+    let leads_with_marker = nonblank.first().map(|l| l.trim() == "---").unwrap_or(false);
+    if leads_with_marker {
+        if let Some(close_offset) = nonblank.iter().skip(1).position(|l| l.trim() == "---") {
+            let body = &nonblank[close_offset + 2..];
+            if body.len() >= 2 && yaml_like_count(body) * 2 < body.len() {
+                // #587: classify the body by its real structured family
+                // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
+                // frontmatter-over-CSV/JSON body matches its frontmatter-less
+                // twin; fall to `txt_kind` only for a genuinely prose body.
+                // `classify_structured` never re-enters this YAML/frontmatter
+                // branch, so a recursive frontmatter parse cannot occur.
+                let body_text = body.join("\n");
+                return classify_structured(&body_text, body).unwrap_or_else(|| txt_kind(body));
+            }
+        }
+    }
+    if leads_with_marker || yaml_line_ratio(nonblank) >= 0.6 {
+        return Family::Yaml;
+    }
+
+    txt_kind(nonblank)
+}
+
+/// The structured-family branches of [`classify_text`] — JSON/JSONL, HTML/XML,
+/// logs, SQL dump, CSV — returning the first family that matches, or `None` to
+/// continue to the YAML/prose fallbacks.
+///
+/// Extracted (#587) so the #551 frontmatter lookahead can classify its body by
+/// the *same* structured rules rather than prose-only: before this, a
+/// frontmatter-over-CSV/JSON file was classified `TxtProse` while its
+/// frontmatter-less twin was `Csv`/`Json`. It intentionally does **not** look
+/// at YAML or the `---` frontmatter marker, so running it over a body cannot
+/// recurse back into the frontmatter lookahead.
+fn classify_structured(text: &str, nonblank: &[&str]) -> Option<Family> {
     let trimmed = text.trim_start();
     // A lone `[section]` opening line that does not parse as JSON is a
     // TOML/INI table header (`[package]` in Cargo.toml, `[Unit]` in a
@@ -1057,32 +1108,32 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
                 .filter(|l| serde_json::from_str::<serde_json::Value>(l).is_ok())
                 .count();
             if parse_ok * 10 >= nonblank.len() * 9 {
-                return Family::Jsonl;
+                return Some(Family::Jsonl);
             }
         } else if nonblank.len() == 1
             && serde_json::from_str::<serde_json::Value>(nonblank[0]).is_ok()
         {
             // single complete JSON line — treat as JSON value file
-            return Family::Json;
+            return Some(Family::Json);
         }
         // Pretty-printed or multi-line JSON value.
         if looks_like_json_start(trimmed) {
-            return Family::Json;
+            return Some(Family::Json);
         }
     }
 
     // HTML / XML — declaration within the first 256 bytes.
     let head_lc: String = text.chars().take(256).collect::<String>().to_lowercase();
     if head_lc.contains("<!doctype html") || head_lc.contains("<html") {
-        return Family::Html;
+        return Some(Family::Html);
     }
     if head_lc.contains("<?xml") || (trimmed.starts_with('<') && text.contains("</")) {
         // xhtml disguised as xml?
         let lc: String = text.to_lowercase();
         if lc.contains("<html") || lc.contains("<body") {
-            return Family::Html;
+            return Some(Family::Html);
         }
-        return Family::Xml;
+        return Some(Family::Xml);
     }
 
     // Log lines
@@ -1092,45 +1143,22 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
             .filter(|l| crate::extract::logs::probe_line(l))
             .count();
         if hits * 10 >= nonblank.len() * 6 {
-            return Family::Logs;
+            return Some(Family::Logs);
         }
     }
 
     // SQL dump
     let upper: String = text.chars().take(4096).collect::<String>().to_uppercase();
     if (upper.contains("CREATE TABLE") || upper.contains("INSERT INTO")) && text.contains(';') {
-        return Family::SqlDump;
+        return Some(Family::SqlDump);
     }
 
     // CSV — dialect probe happens in caller; here just a cheap plausibility test.
     if nonblank.len() >= 2 && sniff_csv_dialect(nonblank).is_some() {
-        return Family::Csv;
+        return Some(Family::Csv);
     }
 
-    // YAML — but a leading `---` is also the opening delimiter of markdown/prose
-    // frontmatter (Jekyll, Hugo, Obsidian, Docusaurus, MkDocs, Astro, and Claude
-    // Code skill files — including the two this repo ships). Without a lookahead
-    // for the *closing* `---` and what follows it, every such file was handed to
-    // the YAML extractor, which keeps the frontmatter mapping and the first
-    // paragraph and discards the rest of the body (#551, silent data loss). If
-    // the file opens with `---`, has a matching closing `---`, and the body after
-    // it is majority non-YAML, classify by that body so the whole document is
-    // indexed. A pure/multi-document YAML file keeps YAML: the content after its
-    // `---` document marker is still YAML-like (or too short to be called prose).
-    let leads_with_marker = nonblank.first().map(|l| l.trim() == "---").unwrap_or(false);
-    if leads_with_marker {
-        if let Some(close_offset) = nonblank.iter().skip(1).position(|l| l.trim() == "---") {
-            let body = &nonblank[close_offset + 2..];
-            if body.len() >= 2 && yaml_like_count(body) * 2 < body.len() {
-                return txt_kind(body);
-            }
-        }
-    }
-    if leads_with_marker || yaml_line_ratio(nonblank) >= 0.6 {
-        return Family::Yaml;
-    }
-
-    txt_kind(nonblank)
+    None
 }
 
 fn looks_like_json_start(t: &str) -> bool {
@@ -3163,6 +3191,43 @@ mod text_family_tests {
             twin,
             "markdown frontmatter must be classified by its body, identical to the \
              frontmatter-less twin, not routed to the YAML extractor (#551)"
+        );
+    }
+
+    /// #587 (item 1): the #551 frontmatter lookahead classified the body with
+    /// `txt_kind` only, so a frontmatter-over-CSV/JSON body was mislabelled a
+    /// prose family while its frontmatter-less twin was `Csv`/`Jsonl`. Running
+    /// the body through the structured branches makes the family match the twin
+    /// for a structured body (a prose body still classifies as prose — the #551
+    /// test above).
+    #[test]
+    fn frontmatter_over_a_structured_body_is_classified_by_that_body() {
+        // CSV body under YAML frontmatter.
+        let csv_body = "name,role,team\n\
+                        alice,eng,core\n\
+                        bob,design,platform\n\
+                        carol,pm,growth\n";
+        let csv_with_frontmatter =
+            format!("---\ntitle: Team roster\nowner: ops\n---\n\n{csv_body}");
+        let csv_twin = classify_full(csv_body);
+        assert_eq!(csv_twin, Family::Csv, "sanity: the bare body is CSV");
+        assert_eq!(
+            classify_full(&csv_with_frontmatter),
+            csv_twin,
+            "a frontmatter-over-CSV body must be classified by its structured family \
+             (CSV), identical to the frontmatter-less twin (#587)"
+        );
+
+        // JSONL body under YAML frontmatter.
+        let json_body = "{\"id\":1,\"name\":\"a\"}\n{\"id\":2,\"name\":\"b\"}\n";
+        let json_with_frontmatter = format!("---\nsource: export\ncount: 2\n---\n\n{json_body}");
+        let json_twin = classify_full(json_body);
+        assert_eq!(json_twin, Family::Jsonl, "sanity: the bare body is JSONL");
+        assert_eq!(
+            classify_full(&json_with_frontmatter),
+            json_twin,
+            "a frontmatter-over-JSON body must be classified by its structured family \
+             (JSONL), identical to the frontmatter-less twin (#587)"
         );
     }
 
