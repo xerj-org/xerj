@@ -22,6 +22,16 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   CARGO_TERM_COLOR: always
 
+# #456: every `uses:` below is pinned to a commit SHA (with the resolved
+# tag/version as a trailing comment for humans), including `dtolnay/rust-
+# toolchain`, whose git ref IS the rustc version it installs. Before this,
+# `@stable` meant "whatever rustup resolves as stable on the day the job
+# runs" -- the compiler CI validates against could move with no commit, no
+# review, and nothing in the diff. Bumping any of these now takes an actual
+# PR, the same as bumping a Cargo dependency. `dtolnay/rust-toolchain@nightly`
+# (the fuzz job) is the one exception left floating: nightly drifting is the
+# point there, so only its ACTION ref is pinned, not what "nightly" resolves
+# to on the day the job runs.
 jobs:
   cla-config:
     name: CLA gate config
@@ -30,7 +40,7 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       # cla-bot reads .contributors straight off this repo; malformed JSON or a
       # missing bot exemption breaks the gate silently (it just flags everyone).
@@ -68,7 +78,7 @@ jobs:
     name: Reference-coding toolkit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Shell syntax
         run: |
@@ -100,7 +110,7 @@ jobs:
     name: Landing constants guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
         with:
           fetch-depth: 0
 
@@ -111,15 +121,15 @@ jobs:
     name: Format + Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
         with:
           components: rustfmt, clippy
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
 
@@ -146,17 +156,17 @@ jobs:
     name: Dependency advisory audit (cargo-audit)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       # Cache the binary, not the advisory database — the database is the part
       # that must be fetched fresh on every run. Bump the `-vN` suffix to force
       # a cargo-audit upgrade (a very old binary can fail to read a newer
       # advisory-db schema).
       - name: Cache cargo-audit
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cargo/bin/cargo-audit
           key: ci-cargo-audit-bin-v1
@@ -182,16 +192,16 @@ jobs:
     name: Fuzz harnesses (cargo-fuzz)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       # libFuzzer + the sanitizer runtimes are nightly-only.
       - name: Install Rust (nightly)
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly (pinned action ref; toolchain itself floats by design)
         with:
           components: rustfmt
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry/cache
@@ -219,7 +229,7 @@ jobs:
       # mean the failure is unreproducible.
       - name: Upload crashing inputs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fuzz-artifacts
           path: engine/fuzz/artifacts/
@@ -229,13 +239,13 @@ jobs:
     name: Build + Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
           # Single writer for the Linux [profile.ci-test] dependency cache.
@@ -311,13 +321,13 @@ jobs:
     name: Release build (fat LTO, all members link)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
 
@@ -329,15 +339,15 @@ jobs:
     name: ONNX feature compile + tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
         with:
           components: clippy
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
 
@@ -361,13 +371,13 @@ jobs:
     name: API smoke + liveness + benchmark
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
           # Read-only consumer of build-test's ci-test dependency cache.
@@ -378,7 +388,7 @@ jobs:
           shared-key: ci-test-linux
           save-if: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
@@ -401,13 +411,13 @@ jobs:
     name: ES-compat YAML conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
           # Read-only consumer of build-test's ci-test dependency cache.
@@ -496,9 +506,9 @@ jobs:
     name: UX pipeline tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
@@ -518,12 +528,12 @@ jobs:
     name: Use-case harnesses (brain + MCP + autoindex)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Installer script lint (landing/get, landing/get.ps1)
         run: bash .github/scripts/installer-lint.sh
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
@@ -531,10 +541,10 @@ jobs:
         run: node .github/scripts/functions-get-test.mjs
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
           # Read-only consumer of build-test's ci-test dependency cache.
@@ -589,13 +599,13 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
       - name: Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.8.1
         with:
           workspaces: engine
 
