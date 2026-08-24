@@ -3472,14 +3472,24 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     //
     // `--fresh` is deliberately exempt, the same way `blocking_generation`
     // above exempts genesis recovery: nothing has been committed past
-    // genesis, so discarding and rebuilding in the requested mode is safe.
+    // genesis, so discarding and rebuilding in the requested mode is safe —
+    // which is why `--fresh` is one of the recovery routes the message names.
+    //
+    // #718: this refusal is intentionally NOT gated on `!cfg.dry_run`, unlike
+    // the pending-sync projection above. A dry run previews the run that WOULD
+    // execute, but this graph-path run would itself be refused, and there is no
+    // graph-path genesis projection to show (the `--no-graph` dry-run
+    // projection further below is `!genesis_recovery`-gated). Bailing is
+    // therefore the honest preview, and it precedes every write, so `--dry-run`
+    // reaches it before anything is mutated.
     if genesis_recovery && preflight.no_graph_genesis && !cfg.no_graph && !cfg.fresh {
         anyhow::bail!(
             "a --no-graph generation's genesis bootstrap is pending in {} (nothing beyond \
              generation 0 committed); continuing it on the default graph path would proceed \
              under a different graph authority and mutate the destination. No remote mutation \
-             was attempted. Re-run with --no-graph to finish the pending generation, or rebuild \
-             with a new --state-dir and a new --prefix.",
+             was attempted. Re-run with --no-graph to finish the pending generation, re-run with \
+             --fresh to discard generation 0 and rebuild on the graph path, or rebuild with a new \
+             --state-dir and a new --prefix.",
             state_dir.join("journal.ndjson").display()
         );
     }
