@@ -6466,6 +6466,47 @@ mod inventory_delta_tests {
         assert_eq!(json["vanished_content_groups"].as_array().unwrap().len(), 1);
     }
 
+    /// #589 (fail-before, WIP): the purge half of #439. An exclusion (a file
+    /// still on disk that a widened ignore/hidden/`.xerjignore` rule now skips)
+    /// is data the exclusion must REMOVE from the index, not a reason to refuse
+    /// the whole rerun. With NO genuine deletion present, the reconcile must
+    /// PROCEED — sweeping the excluded group's published documents — unlike a
+    /// real deletion, which stays refused. Today `refuses()` conflates the two.
+    ///
+    /// Un-ignore when the sweep lands; that change also flips the
+    /// `assert!(delta.refuses())` in
+    /// `an_excluded_still_on_disk_group_is_not_reported_as_a_deletion` (the
+    /// excluded-only case no longer produces a refusal).
+    #[test]
+    #[ignore = "#589 WIP: excluded-only sweep not yet implemented"]
+    fn an_excluded_only_delta_is_swept_not_refused() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("secret.csv"), "id,value\n1,live\n").unwrap();
+        let mut plan = Plan::default();
+        plan.files.insert("secret".into(), assignment("secret.csv"));
+
+        // The walk yields nothing (the file is now excluded) though it is on disk.
+        let delta = UnsupportedInventoryDelta::between(root.path(), &[], &[], &plan);
+        assert!(
+            delta.deleted_content_groups.is_empty(),
+            "no genuine deletion — the file is still on disk"
+        );
+        assert_eq!(
+            delta
+                .excluded_content_groups
+                .iter()
+                .map(|e| e.path.as_str())
+                .collect::<Vec<_>>(),
+            ["secret.csv"],
+        );
+        // #589: an excluded-only delta must NOT refuse the rerun — the excluded
+        // group is swept from the destination and the run continues.
+        assert!(
+            !delta.refuses(),
+            "#589: an excluded-only delta must be swept, not refused"
+        );
+    }
+
     /// #439's headline case (CHANGELOG): a hidden NON-UTF-8 name still on disk.
     /// Its `rel` is a lossy `U+FFFD` rendering that matches no dirent, so a probe
     /// through `rel` would call it a deletion; the reversible `path_id` matches
