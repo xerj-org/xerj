@@ -56,6 +56,12 @@
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
 
+# /get.sh alias (#740): text/plain so the Functions-off fallback rewrite to /get
+# serves the installer as plain text, never HTML.
+/get.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300
+
 # Agent-readable Markdown twins are alternate representations of the HTML
 # articles, not HTML pages. Keep the charset explicit for direct fetches.
 /answers/*.md

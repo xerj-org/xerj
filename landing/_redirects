@@ -23,6 +23,13 @@
 /bench        /benchmarks/        301
 /github       https://github.com/xerj-org/xerj 302
 
+# Installer fallback (#740). /get.sh is normally answered by functions/get.js
+# (it's in _routes.json), which counts the request and serves the installer.
+# This 200-rewrite only fires if Functions are disabled, so /get.sh serves the
+# real installer body (same file as /get) instead of falling to the SPA/404 and
+# piping HTML to sh. No drift: it points at /get, not a copy. Not a catch-all.
+/get.sh       /get                200
+
 # Trailing slash normalization
 /home         /                   301
 
