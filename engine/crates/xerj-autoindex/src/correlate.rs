@@ -38,10 +38,15 @@ pub struct KeyCorr {
 }
 
 impl KeyCorr {
-    pub fn id(&self) -> String {
+    /// Catalog doc id, corpus-prefix-scoped (#673). The `autoindex-catalog`
+    /// index is shared across corpora, so a correlation keyed only by dataset
+    /// slugs (`corr:reports:orders:…`) would overwrite the same-slug
+    /// correlation from another corpus. Threading `prefix` — exactly as #416
+    /// did for `file:`/`ds:` ids — keeps them distinct.
+    pub fn id(&self, prefix: &str) -> String {
         format!(
-            "corr:{}:{}:{}:{}",
-            self.a_slug, self.b_slug, self.a_field, self.b_field
+            "corr:{}:{}:{}:{}:{}",
+            prefix, self.a_slug, self.b_slug, self.a_field, self.b_field
         )
     }
     pub fn to_value(&self) -> Value {
@@ -340,4 +345,52 @@ pub fn time_alignment(series: &[TimeSeries]) -> Vec<Value> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_corr() -> KeyCorr {
+        KeyCorr {
+            a_slug: "reports".into(),
+            a_index: "ax-reports".into(),
+            a_field: "order_id".into(),
+            b_slug: "orders".into(),
+            b_index: "ax-orders".into(),
+            b_field: "id".into(),
+            kind: "keyword".into(),
+            a_set: 100,
+            b_set: 100,
+            overlap: 80,
+            containment: 0.8,
+            grade: "strong".into(),
+            examples: vec!["500001".into()],
+            confirmed: None,
+            confirm_details: Vec::new(),
+        }
+    }
+
+    /// #673: the `autoindex-catalog` index is shared across corpora, so a
+    /// correlation keyed only by dataset slugs must carry the corpus prefix in
+    /// its id — otherwise `(reports, orders)` in corpus A overwrites the
+    /// same-slug correlation in corpus B (silent cross-corpus data-loss).
+    #[test]
+    fn correlation_id_is_prefix_scoped_across_corpora() {
+        let c = sample_corr();
+        // Same correlation, different corpus prefix -> distinct ids (no overwrite).
+        assert_ne!(
+            c.id("ax-a"),
+            c.id("ax-b"),
+            "#673: same-slug correlations from two corpora must not collide"
+        );
+        // Idempotent within one corpus (a re-run upserts, does not duplicate).
+        assert_eq!(c.id("ax-a"), c.id("ax-a"));
+        // The prefix is actually in the id (not merely concatenated onto slugs).
+        assert!(
+            c.id("ax-a").starts_with("corr:ax-a:"),
+            "id was {:?}",
+            c.id("ax-a")
+        );
+    }
 }
