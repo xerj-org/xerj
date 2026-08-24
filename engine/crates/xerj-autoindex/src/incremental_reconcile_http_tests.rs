@@ -2100,3 +2100,59 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
         "#589: a different file's catalog document must NOT be swept"
     );
 }
+
+/// #585 (case 1): a pending (uncommitted) `--no-graph` generation must NOT be
+/// resumed and committed on the default graph path — doing so silently commits
+/// a no-graph generation under a graph authority (the #584 hazard, but for a
+/// not-yet-committed generation the committed-manifest guard never sees it
+/// because the pending-sync branch returns first). The re-run must be refused
+/// before any mutation, symmetric to #584.
+#[test]
+fn pending_no_graph_generation_is_refused_on_the_graph_path() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("rows.csv");
+    fs::write(&source, "id,value\n1,first\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+
+    // Commit generation 1 with the `--no-graph` generated executor.
+    let no_graph = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(no_graph.clone()).unwrap(), 0);
+
+    // Interrupt a second `--no-graph` generation after sync_begin: the data bulk
+    // fails, leaving a pending sync (no-graph, uncommitted).
+    fs::write(&source, "id,value\n1,first\n2,second\n").unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = true;
+    assert!(run_index(no_graph.clone()).is_err());
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 2);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    // The destination as the refused re-run will find it (the interrupted run's
+    // delete-before-replace already mutated it — irrelevant to the guard).
+    let docs_before_rerun = endpoint.data_docs().len();
+
+    // Re-run the SAME state dir on the default graph path. The pending no-graph
+    // generation must be refused, not resumed-and-committed.
+    let mut graph = no_graph.clone();
+    graph.no_graph = false;
+    let error = run_index(graph).unwrap_err();
+    let rendered = format!("{error:#}");
+    assert!(
+        rendered.contains("pending sync") && rendered.contains("different graph authority"),
+        "#585: a pending no-graph generation must be refused on the graph path with the clear message, got: {rendered}"
+    );
+    // No second generation committed, and the guard mutated nothing further.
+    assert_eq!(
+        journal_events(state_dir.path(), "sync_commit"),
+        1,
+        "#585: the refused graph re-run must not commit the pending no-graph generation"
+    );
+    assert_eq!(
+        endpoint.data_docs().len(),
+        docs_before_rerun,
+        "#585: the refused re-run must mutate nothing"
+    );
+}

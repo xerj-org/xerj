@@ -3292,6 +3292,43 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // slice; fail with the exact durable transaction rather than accidentally
     // executing a different folder snapshot.
     if preflight.pending_sync.is_some() {
+        // #585: a not-yet-committed generation carries the graph mode it was
+        // BEGUN in (`desired.execution.graph_enabled`). Resuming it under the
+        // other mode replays and COMMITS that generation on a mismatched
+        // authority — the #584 cross-path hazard, but for a pending generation
+        // the committed-manifest guard below never sees it because this branch
+        // returns first. Refuse before the journal is opened for write and
+        // before `gc_snapshots`, exactly the way #584 refuses the committed
+        // case: nothing is mutated.
+        if let Some(pending) = preflight.pending_sync.as_ref() {
+            if let Some(exec) = pending.desired.execution.as_ref() {
+                if exec.graph_enabled == cfg.no_graph {
+                    anyhow::bail!(
+                        "a generation is mid-commit (pending sync {}) begun {}; re-running it {} \
+                         would resume and commit it under a different graph authority and mutate \
+                         the destination. No remote mutation was attempted. Re-run {} to finish \
+                         the pending generation, or rebuild with a new --state-dir and a new \
+                         --prefix.",
+                        pending.tx_id,
+                        if exec.graph_enabled {
+                            "with graph detection"
+                        } else {
+                            "with --no-graph"
+                        },
+                        if cfg.no_graph {
+                            "with --no-graph"
+                        } else {
+                            "on the default graph path"
+                        },
+                        if exec.graph_enabled {
+                            "on the default graph path"
+                        } else {
+                            "with --no-graph"
+                        },
+                    );
+                }
+            }
+        }
         let mut journal = state::Journal::open_after_preflight(
             preflight,
             &root_str,
