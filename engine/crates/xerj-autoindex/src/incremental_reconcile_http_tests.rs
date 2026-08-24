@@ -2431,6 +2431,89 @@ fn sweep_excluded_groups_deletes_a_legacy_main_doc_by_id() {
     );
 }
 
+/// #736: the sweep also soft-invalidates INBOUND edges — ones a surviving file
+/// taught that point AT the excluded file's anchor node (`dst`). Without it they
+/// stay live, pointing at a node that is gone. An edge to a different node stays
+/// live. Fail-before: with the dst-side invalidation reverted, the inbound edge
+/// keeps no `invalid_at`.
+#[test]
+fn sweep_excluded_groups_invalidates_inbound_edges() {
+    let ep = HttpEndpoint::start();
+    let edges = ".xerj-memory-testbrain-edges";
+    // The excluded file anchors in dataset slug "ds"; edges point at this id.
+    let anchor = crate::ids::doc_id("ds", "key-excluded", "file");
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        st.saw_dataset_mapping_update = true;
+        st.saw_catalog_mapping_update = true;
+        // A surviving file's edge INTO the excluded file's anchor.
+        st.docs.insert(
+            (edges.to_string(), "edge-inbound".to_string()),
+            json!({"src_file": "survivor.csv", "dst": anchor, "kind": "samedir"}),
+        );
+        // A surviving file's edge to some OTHER node must stay live.
+        st.docs.insert(
+            (edges.to_string(), "edge-other".to_string()),
+            json!({"src_file": "survivor.csv", "dst": "other-node-id", "kind": "samedir"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    // plan.files carries the excluded file's slug so the dst anchor resolves.
+    plan.files.insert(
+        "key-excluded".to_string(),
+        crate::state::FileAssignment {
+            rel: "secret.csv".into(),
+            path_id: String::new(),
+            is_symlink: None,
+            family: "csv".into(),
+            gzip: false,
+            content_digest: None,
+            assignments: vec![(None, "ds".into())],
+            as_document: false,
+        },
+    );
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "key-excluded".into(),
+        path: "secret.csv".into(),
+    }];
+
+    let now_ms = 1_724_500_000_000i64;
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, Some(edges), now_ms).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    let inbound = st
+        .docs
+        .get(&(edges.to_string(), "edge-inbound".to_string()))
+        .expect("inbound edge present (soft-invalidated, not deleted)");
+    assert_eq!(
+        inbound.get("invalid_at").and_then(Value::as_i64),
+        Some(now_ms),
+        "#736: an inbound edge to the excluded file's anchor must be invalidated"
+    );
+    let other = st
+        .docs
+        .get(&(edges.to_string(), "edge-other".to_string()))
+        .expect("other edge present");
+    assert!(
+        other.get("invalid_at").is_none(),
+        "#736: an edge to a different node must NOT be invalidated"
+    );
+}
+
 /// #585 (case 1): a pending (uncommitted) `--no-graph` generation must NOT be
 /// resumed and committed on the default graph path — doing so silently commits
 /// a no-graph generation under a graph authority (the #584 hazard, but for a
