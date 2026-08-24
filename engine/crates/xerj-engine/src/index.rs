@@ -12500,6 +12500,16 @@ impl Index {
     ) -> Result<SearchResult> {
         let started = std::time::Instant::now();
         let mut timed_out = false;
+        // #423: evaluate the nested-kNN pre/post filters through the SAME
+        // schema-aware matcher the rest of search uses (`search_inner` runs its
+        // filter through `doc_matches_query_typed(.., &dmq_schema)`). The
+        // schemaless `doc_matches_query` has no field types, so on a
+        // `keyword`/`text` field it folds case and OVER-MATCHES — a
+        // `prefix`/`match`/`fuzzy` pre/post filter kept parent docs a plain
+        // (non-knn) search would reject. Nested kNN always takes this
+        // brute-force path (there is no nested HNSW graph). Owned clone; the
+        // lock is released.
+        let dmq_schema = self.schema().await;
         // The sub-field name inside each nested element.
         let subfield = field
             .strip_prefix(&format!("{}.", nested_path))
@@ -12597,7 +12607,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                if !doc_matches_query(f, &src_with_id) {
+                if !doc_matches_query_typed(f, &src_with_id, &dmq_schema) {
                     continue;
                 }
             }
@@ -12653,7 +12663,7 @@ impl Index {
                 if let Some(obj) = src_with_id.as_object_mut() {
                     obj.insert("_id".to_string(), Value::String(id.clone()));
                 }
-                doc_matches_query(f, &src_with_id)
+                doc_matches_query_typed(f, &src_with_id, &dmq_schema)
             });
         }
 

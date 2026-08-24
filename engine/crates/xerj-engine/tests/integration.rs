@@ -8796,3 +8796,137 @@ async fn knn_filter_prefix_on_keyword_is_case_sensitive_for_scalar8() {
         knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
     );
 }
+
+/// #423 nested-kNN slice, pre-filter site: a nested `knn`'s own `filter`
+/// (`knn.filter`, applied to parent docs before scoring in
+/// `run_nested_knn_brute_force_with_deadline`) went through the SCHEMALESS
+/// matcher, so a keyword `prefix` folded case and over-matched. The query is a
+/// true `nested{ path, query: knn{ .., filter } }` (the only shape that reaches
+/// this executor — a bare dotted-field knn goes to the non-nested path); `tag`
+/// is a declared `keyword`, so `prefix:hel` is case-sensitive and must match no
+/// case-preserved term. Fail-before: 1 hit (d0 "Hello" wrongly kept). After: 0.
+#[tokio::test]
+async fn nested_knn_prefilter_prefix_on_keyword_is_case_sensitive() {
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    // Dotted-name mapping so `passages.vec` is an answerable dense_vector leaf.
+    let mut vec_field = FieldConfig::new("passages.vec", FieldType::Vector);
+    vec_field.options.dimensions = Some(3);
+    vec_field.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vec_field);
+
+    let engine = make_engine(&dir);
+    engine.create_index("nested_knn_pre", schema).unwrap();
+    let idx = engine.get_index("nested_knn_pre").unwrap();
+
+    idx.index_document(
+        Some("d0".to_string()),
+        json!({"tag": "Hello", "passages": [{"vec": [1.0, 0.0, 0.0]}]}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("d1".to_string()),
+        json!({"tag": "World", "passages": [{"vec": [0.0, 1.0, 0.0]}]}),
+    )
+    .await
+    .unwrap();
+    idx.refresh().await.unwrap();
+
+    let knn = idx
+        .search(
+            &parse_request(&json!({
+                "size": 10,
+                "query": {"nested": {
+                    "path": "passages",
+                    "query": {"knn": {
+                        "field": "passages.vec",
+                        "query_vector": [1.0, 0.0, 0.0],
+                        "k": 10,
+                        "filter": {"prefix": {"tag": "hel"}}
+                    }}
+                }}
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        knn.hits.len(),
+        0,
+        "nested kNN pre-filter must apply the keyword `prefix` case-sensitively; \
+         schemaless matcher folded case and wrongly kept: {:?}",
+        knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
+}
+
+/// #423 nested-kNN slice, post-filter site: a sibling clause in the `bool` that
+/// wraps a nested `knn` (`bool{ must:[ nested{query:knn}, <sibling> ] }`) is
+/// peeled into `post_filter` and applied — after `num_candidates` truncation —
+/// through the SCHEMALESS matcher in `run_nested_knn_brute_force_with_deadline`.
+/// The sibling must be next to a `nested{}`-wrapped knn (a bare knn sibling is
+/// handled by the main bool path, which is already schema-aware). Same
+/// keyword-`prefix` divergence, distinct call site from the pre-filter.
+/// Fail-before: 1 hit (d0 "Hello" wrongly kept). After: 0.
+#[tokio::test]
+async fn nested_knn_postfilter_prefix_on_keyword_is_case_sensitive() {
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    let mut vec_field = FieldConfig::new("passages.vec", FieldType::Vector);
+    vec_field.options.dimensions = Some(3);
+    vec_field.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vec_field);
+
+    let engine = make_engine(&dir);
+    engine.create_index("nested_knn_post", schema).unwrap();
+    let idx = engine.get_index("nested_knn_post").unwrap();
+
+    idx.index_document(
+        Some("d0".to_string()),
+        json!({"tag": "Hello", "passages": [{"vec": [1.0, 0.0, 0.0]}]}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("d1".to_string()),
+        json!({"tag": "World", "passages": [{"vec": [0.0, 1.0, 0.0]}]}),
+    )
+    .await
+    .unwrap();
+    idx.refresh().await.unwrap();
+
+    let knn = idx
+        .search(
+            &parse_request(&json!({
+                "size": 10,
+                "query": {"bool": {"must": [
+                    {"nested": {
+                        "path": "passages",
+                        "query": {"knn": {
+                            "field": "passages.vec",
+                            "query_vector": [1.0, 0.0, 0.0],
+                            "k": 10,
+                            "num_candidates": 10
+                        }}
+                    }},
+                    {"prefix": {"tag": "hel"}}
+                ]}}
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        knn.hits.len(),
+        0,
+        "nested kNN post-filter must apply the keyword `prefix` case-sensitively; \
+         schemaless matcher folded case and wrongly kept: {:?}",
+        knn.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+    );
+}
