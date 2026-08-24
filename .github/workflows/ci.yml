@@ -279,24 +279,23 @@ jobs:
       # runner. It is cheap insurance and the place a wider, better-sized gate
       # (#384) can land -- not a claim that the class is now covered.
       #
-      # Scoped to the one crate whose lib tests have been *measured* green at
-      # default parallelism (10 dev-profile and 5 ci-test-profile clean runs at
-      # this commit, 20 cores). `--workspace --lib` remains the destination,
-      # but the broader gate is tracked separately in #384.
-      #
-      # Historical context for this scope: before #385, xerj-autoindex was red
-      # at default parallelism because `incremental_reconcile_http_tests` could
-      # reach the global `SNAPSHOT_FAILPOINT` without holding the
-      # `SNAPSHOT_TEST_LOCK` and steal another test's injected failure. The
-      # thread-local failpoint fix in this commit removes that defect; widening
-      # this step past xerj-engine remains #384. A gate is worth nothing if it
-      # is merged red, so it goes in at the width it passes at.
+      # #384: widened from `-p xerj-engine --lib` to the full `--workspace --lib`
+      # now that the whole workspace's lib tests are *measured* green at default
+      # parallelism (6 ci-test-profile clean runs at this scope, 20 cores). This
+      # was blocked until #385: xerj-autoindex used to be red because
+      # `incremental_reconcile_http_tests` could reach the global
+      # `SNAPSHOT_FAILPOINT` without holding the `SNAPSHOT_TEST_LOCK` and steal
+      # another test's injected failure; the thread-local failpoint fix (merged)
+      # removed that defect, and re-measuring the widened scope is clean. A gate
+      # is worth nothing if it is merged red, so it goes in at the width it
+      # passes at; the integration targets (`tests/*.rs`) are the next,
+      # separately-measured step.
       #
       # Reuses the binaries the step above already built: the added cost is test
       # runtime, not another compile.
-      - name: Engine lib tests at default parallelism (contributor's `cargo test`)
+      - name: Workspace lib tests at default parallelism (contributor's `cargo test`)
         working-directory: engine
-        run: cargo test --profile ci-test -p xerj-engine --lib
+        run: cargo test --profile ci-test --workspace --lib
 
   # Fat LTO + codegen-units=1 + panic=abort over every workspace member is a
   # failure mode of its own (LTO ICEs, symbol collisions, panic-strategy
