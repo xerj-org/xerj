@@ -3670,6 +3670,54 @@ mod semantic_deadline_regression_tests {
         );
     }
 
+    /// #312 bug 1: a single dynamic insert whose new top-level field is a nested
+    /// OBJECT must count the whole subtree against `max_fields_per_index`, not as
+    /// one field — otherwise one document overshoots the budget by the subtree's
+    /// key count (bounded, but a real overshoot) before the next evolve blocks it.
+    #[tokio::test]
+    async fn dynamic_insert_of_a_nested_subtree_cannot_overshoot_the_field_budget() {
+        let dir = TempDir::new().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        config.limits.max_fields_per_index = 5;
+        let engine_instance = Engine::new(config).expect("engine");
+        engine_instance
+            .create_index("budget-312", Schema::empty())
+            .unwrap();
+        let index = engine_instance.get_index("budget-312").unwrap();
+
+        // Seed a base field so `big` below arrives as a SUBSEQUENT new top-level
+        // field on the dynamic-evolve path (the site #312 bug 1 cites), not the
+        // first-doc inference path.
+        index
+            .index_document(Some("seed".to_string()), serde_json::json!({"seed": 1}))
+            .await
+            .unwrap();
+        let base = index.schema().await.field_count();
+        assert!(base <= 5, "sanity: base schema within budget, got {base}");
+
+        // A later doc whose only new top-level field is a 6-key nested object:
+        // the dynamic `Object` FieldConfig has total_field_count == 7 (1 + 6),
+        // which would push base+7 well past the cap of 5.
+        index
+            .index_document(
+                Some("d1".to_string()),
+                serde_json::json!({
+                    "seed": 1,
+                    "big": {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6}
+                }),
+            )
+            .await
+            .unwrap();
+
+        let fc = index.schema().await.field_count();
+        assert!(
+            fc <= 5,
+            "a single dynamic insert must not overshoot max_fields_per_index (5); \
+             the whole `big` subtree (size 7) should be rejected, got field_count={fc}"
+        );
+    }
+
     #[tokio::test]
     async fn mapping_vector_over_existing_hidden_chunks_fails_closed_before_visibility() {
         let dir = TempDir::new().unwrap();
@@ -19835,7 +19883,14 @@ impl Index {
                 }
                 continue;
             }
-            if field_count >= self.max_fields_per_index {
+            let fc = dynamic_field_config(&key, &val, date_detection);
+            // #312: `fc` can carry an entire nested subtree, so count its real
+            // recursive size (`total_field_count`, the same measure the guard's
+            // `Schema::field_count()` uses) — counting it as one field let a
+            // single insert overshoot `max_fields_per_index` by the subtree's
+            // key count before the next evolve recomputed the budget.
+            let fc_size = fc.total_field_count() as u32;
+            if field_count + fc_size > self.max_fields_per_index {
                 tracing::warn!(
                     field = %key,
                     limit = self.max_fields_per_index,
@@ -19843,11 +19898,10 @@ impl Index {
                 );
                 break;
             }
-            let fc = dynamic_field_config(&key, &val, date_detection);
             if matches!(fc.field_type, FieldType::Date) {
                 self.has_date_fields.store(true, Ordering::Relaxed);
             }
-            field_count += 1;
+            field_count += fc_size;
             let _ = schema.schema.add_field(fc);
             schema_changed = true;
         }
@@ -19956,7 +20010,12 @@ impl Index {
                 }
                 continue;
             }
-            if field_count >= self.max_fields_per_index {
+            let fc = dynamic_field_config(key, val, date_detection);
+            // #312: count the new field's real recursive subtree size, not one,
+            // so a single nested-object insert cannot overshoot the budget (the
+            // single-doc evolve path, the twin of `evolve_schema_from_docs`).
+            let fc_size = fc.total_field_count() as u32;
+            if field_count + fc_size > self.max_fields_per_index {
                 tracing::warn!(
                     field = %key,
                     limit = self.max_fields_per_index,
@@ -19964,11 +20023,10 @@ impl Index {
                 );
                 break;
             }
-            let fc = dynamic_field_config(key, val, date_detection);
             if matches!(fc.field_type, FieldType::Date) {
                 self.has_date_fields.store(true, Ordering::Relaxed);
             }
-            field_count += 1;
+            field_count += fc_size;
             let _ = schema.schema.add_field(fc);
             schema_changed = true;
         }
@@ -34706,7 +34764,11 @@ fn merge_dynamic_children_into(
                 }
             }
             None => {
-                if *field_count >= limit {
+                let new_fc = dynamic_field_config_at_depth(key, sub_val, date_detection, depth + 1);
+                // #312: count the new child's real recursive size, not one, so a
+                // nested subtree merged in one pass cannot overshoot the budget.
+                let new_size = new_fc.total_field_count() as u32;
+                if *field_count + new_size > limit {
                     tracing::warn!(
                         field = %key,
                         limit,
@@ -34714,13 +34776,8 @@ fn merge_dynamic_children_into(
                     );
                     break;
                 }
-                field.fields.push(dynamic_field_config_at_depth(
-                    key,
-                    sub_val,
-                    date_detection,
-                    depth + 1,
-                ));
-                *field_count += 1;
+                field.fields.push(new_fc);
+                *field_count += new_size;
                 changed = true;
             }
         }
@@ -43711,10 +43768,14 @@ mod date_detection_tests {
         assert_eq!(field.fields.len(), 2, "{field:?}");
         assert!(field.fields.iter().any(|f| f.name == "kind"));
         assert!(field.fields.iter().any(|f| f.name == "project"));
-        assert_eq!(field_count, 11, "one new field was actually added");
+        // #312: the new `project` string maps to text + a `.keyword` multi-field
+        // (total_field_count 2), so admission counts +2 — matching the recursive
+        // `Schema::field_count()` the budget guard uses (the pre-#312 `+= 1`
+        // under-counted it, which is exactly the overshoot this fixes).
+        assert_eq!(field_count, 12, "the new field plus its .keyword sub-field");
 
         // Re-merging the exact same shape adds nothing and reports no change.
-        let mut field_count2 = 11u32;
+        let mut field_count2 = 12u32;
         let changed_again = merge_dynamic_children_into(
             &mut field,
             &serde_json::json!({"project": "xerj"}),
@@ -43725,7 +43786,7 @@ mod date_detection_tests {
         );
         assert!(!changed_again);
         assert_eq!(field.fields.len(), 2);
-        assert_eq!(field_count2, 11);
+        assert_eq!(field_count2, 12);
     }
 
     #[test]
@@ -44045,7 +44106,9 @@ mod multi_vector_companion_mapping_tests {
             !parent.fields.iter().any(|f| f.name == "vec_chunks"),
             "the nested multi-vector companion must not be registered: {parent:?}"
         );
-        assert_eq!(count, 2, "exactly one field was added");
+        // #312: `title` maps to text + a `.keyword` multi-field (total 2), so
+        // admission counts +2 (the companion `vec_chunks` is still not counted).
+        assert_eq!(count, 3, "the sibling field plus its .keyword sub-field");
 
         // A scalar under the same name IS somebody's own field.
         let mut own = FieldConfig::new("passages", FieldType::Object);
