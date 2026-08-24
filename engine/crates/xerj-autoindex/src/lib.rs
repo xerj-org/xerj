@@ -3198,6 +3198,19 @@ fn sweep_excluded_groups(
             &json!({"term": {"path": entry.path}}),
         )
         .with_context(|| format!("sweep catalog entry for newly-excluded {}", entry.path))?;
+        // #693: also purge the file's `file-alias:` duplicate catalog docs
+        // (`catalog::duplicate_file_doc`). Each carries the DUPLICATE's own
+        // `path`, so the `path` term above misses them, leaving an excluded
+        // file's alternate path/filename searchable. Both the main `file:` doc
+        // and every `file-alias:` doc carry `file_key`, and the delta classifies
+        // a content group as excluded ONLY when no surviving file bears its key
+        // (`UnsupportedInventoryDelta::between`: the `current_keys` guard), so a
+        // `file_key` term cannot strand a still-live byte-identical duplicate.
+        es.delete_by_query(
+            catalog::CATALOG_INDEX,
+            &json!({"term": {"file_key": entry.file_key}}),
+        )
+        .with_context(|| format!("sweep catalog aliases for newly-excluded {}", entry.path))?;
         // #694: soft-invalidate the edges this file taught. `invalidate_prior_edges`
         // tolerates a not-yet-created edges index (returns 0), so a graph run whose
         // edges index has not been ensured at this point is safe.
