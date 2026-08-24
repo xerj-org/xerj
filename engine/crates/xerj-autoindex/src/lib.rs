@@ -3068,11 +3068,23 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// KNOWN GAP (#589, next hunk): graph edges taught by the file remain in the
 /// edges index until it is swept too — the same limitation the refusal message
 /// already documents in `edges_note`.
-fn sweep_excluded_groups(es: &Es, prefix: &str, excluded: &[InventoryDeltaEntry]) -> Result<()> {
-    let corpus = format!("{prefix}-*");
+fn sweep_excluded_groups(es: &Es, plan: &Plan, excluded: &[InventoryDeltaEntry]) -> Result<()> {
+    // Exact dataset indices from the plan — the same resolution the replacement
+    // delete path uses (`ds_rt` → `rt.index`); a `{prefix}-*` wildcard would be
+    // untestable and could reach indices this corpus does not own.
+    let mut indices: Vec<&str> = plan.datasets.iter().map(|d| d.index.as_str()).collect();
+    indices.sort_unstable();
+    indices.dedup();
     for entry in excluded {
-        es.delete_by_query(&corpus, &json!({"term": {"ax_file": entry.file_key}}))
-            .with_context(|| format!("sweep indexed records for newly-excluded {}", entry.path))?;
+        for index in &indices {
+            es.delete_by_query(index, &json!({"term": {"ax_file": entry.file_key}}))
+                .with_context(|| {
+                    format!(
+                        "sweep indexed records for newly-excluded {} in {index}",
+                        entry.path
+                    )
+                })?;
+        }
         es.delete_by_query(
             catalog::CATALOG_INDEX,
             &json!({"term": {"path": entry.path}}),
@@ -3554,7 +3566,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         // continue, rather than leaving them live in the destination. Genuine
         // deletions above still refuse; never mutate under --dry-run.
         if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
-            sweep_excluded_groups(&es, &cfg.prefix, &delta.excluded_content_groups)
+            sweep_excluded_groups(&es, prior_plan, &delta.excluded_content_groups)
                 .context("sweep newly-excluded content groups")?;
         }
     }
@@ -3814,7 +3826,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         // #589: sweep documents left behind by a widened exclusion (see gate
         // above). Genuine deletions still refuse; never mutate under --dry-run.
         if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
-            sweep_excluded_groups(&es, &cfg.prefix, &delta.excluded_content_groups)
+            sweep_excluded_groups(&es, &plan, &delta.excluded_content_groups)
                 .context("sweep newly-excluded content groups")?;
         }
     }
