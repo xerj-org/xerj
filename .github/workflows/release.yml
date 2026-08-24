@@ -157,12 +157,26 @@ jobs:
             done <<< '${{ matrix.linker_env }}'
           fi
           # Binary --version is env!("CARGO_PKG_VERSION"); without this it stays
-          # frozen at whatever engine/Cargo.toml last shipped (rc.18), so every
-          # release self-reported rc.18. Derive it from the tag.
-          VER="${GITHUB_REF_NAME#v}"
-          sed -i.bak -E "0,/^version = \".*\"/s//version = \"${VER}\"/" Cargo.toml && rm -f Cargo.toml.bak
-          echo "set workspace version to ${VER}"; grep -m1 '^version = ' Cargo.toml
-          cargo update --workspace --offline 2>/dev/null || cargo update --workspace
+          # frozen at whatever engine/Cargo.toml last shipped (rc.18). Stamp it
+          # from the tag — but ONLY on a v-tag: this matrix also runs on main
+          # pushes / workflow_dispatch as a cross-compile canary, where
+          # GITHUB_REF_NAME is a branch name and `version = "main"` would make
+          # cargo reject the manifest and fail the build.
+          case "${GITHUB_REF_NAME}" in
+            v[0-9]*)
+              VER="${GITHUB_REF_NAME#v}"
+              # perl, not `sed 0,/re/`: the address-0 form is a GNU extension and
+              # the macOS legs run BSD sed, which errors on it and (being non-final
+              # in `sed && rm`) leaves the version unchanged. This rewrites only the
+              # first `version = "..."` line, the [workspace.package] version.
+              perl -0777 -i -pe 's/^version = "[^"]*"/version = "'"$VER"'"/m' Cargo.toml
+              echo "set workspace version to ${VER}"; grep -m1 '^version = ' Cargo.toml
+              cargo update --workspace --offline 2>/dev/null || cargo update --workspace
+              ;;
+            *)
+              echo "ref ${GITHUB_REF_NAME} is not a version tag; leaving engine/Cargo.toml version as-is (canary build)"
+              ;;
+          esac
           if [ "${{ matrix.use_zigbuild }}" = "true" ]; then
             cargo zigbuild --release --locked --target ${{ matrix.target }} -p xerj-server
           else
