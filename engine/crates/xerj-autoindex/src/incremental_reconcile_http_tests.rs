@@ -332,11 +332,24 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
             }
         }
     }
+    // #739: an `ids` query deletes by exact `_id` (the main `file:` doc sweep).
+    let ids: Option<Vec<String>> = query
+        .pointer("/query/ids/values")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
     let mut locked = state.lock().unwrap();
     let before = locked.docs.len();
-    locked.docs.retain(|(candidate, _), doc| {
+    locked.docs.retain(|(candidate, id), doc| {
         if candidate != index {
             return true;
+        }
+        if let Some(ids) = &ids {
+            // ids query: delete iff this doc's _id is listed (nothing else).
+            return !ids.contains(id);
         }
         if terms.is_empty() {
             return false; // no constraint: a match-all delete
@@ -2348,6 +2361,73 @@ fn sweep_excluded_groups_does_not_delete_a_sibling_corpus_catalog_doc() {
             "file:bx:sibling".to_string()
         )),
         "#737: a sibling corpus's byte-identical catalog doc must NOT be swept"
+    );
+}
+
+/// #739: a `file:` catalog doc written by a pre-#737 binary has NO `prefix`
+/// field, so the #737 prefix-scoped sweep misses it on the first upgraded run.
+/// The by-`_id` delete catches it (the id encodes the prefix), while a sibling
+/// corpus's same-key legacy doc — a different `_id` — survives.
+#[test]
+fn sweep_excluded_groups_deletes_a_legacy_main_doc_by_id() {
+    let ep = HttpEndpoint::start();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // Legacy docs: no `prefix` field (pre-#737). Corpus "ax" excludes the
+        // file; corpus "bx" holds a same-key copy under its own id.
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file:ax:legacy-key".to_string(),
+            ),
+            json!({"doc_kind": "file", "path": "legacy.csv"}),
+        );
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file:bx:legacy-key".to_string(),
+            ),
+            json!({"doc_kind": "file", "path": "legacy.csv"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "legacy-key".into(),
+        path: "legacy.csv".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // ax's legacy main doc is swept by id, even without a `prefix` field.
+    assert!(
+        !st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file:ax:legacy-key".to_string()
+        )),
+        "#739: the excluding corpus's legacy file: doc must be swept by id"
+    );
+    // The sibling corpus's same-key legacy doc survives (different id).
+    assert!(
+        st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file:bx:legacy-key".to_string()
+        )),
+        "#739: a sibling corpus's legacy doc must NOT be swept"
     );
 }
 

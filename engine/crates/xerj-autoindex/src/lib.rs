@@ -3225,6 +3225,24 @@ fn sweep_excluded_groups(
             ]}}),
         )
         .with_context(|| format!("sweep catalog aliases for newly-excluded {}", entry.path))?;
+        // #739: the two scoped deletes above match only docs that carry the
+        // `prefix` field, which was added in #737 — a `file:` doc written by a
+        // pre-#737 binary has no `prefix` value and would survive the sweep on
+        // the first upgraded run. Delete the main `file:` doc by its exact,
+        // prefix-encoded `_id` too: it catches legacy and current docs alike and
+        // is inherently corpus-scoped (a sibling corpus's id differs), so it
+        // cannot strand or over-delete. (Legacy `file-alias:` ids can't be
+        // reconstructed here without the per-alias path_ids — a smaller residual.)
+        es.delete_by_query(
+            catalog::CATALOG_INDEX,
+            &json!({"ids": {"values": [catalog::file_id(prefix, &entry.file_key)]}}),
+        )
+        .with_context(|| {
+            format!(
+                "sweep catalog file doc by id for newly-excluded {}",
+                entry.path
+            )
+        })?;
         // #694: soft-invalidate the edges this file taught. `invalidate_prior_edges`
         // tolerates a not-yet-created edges index (returns 0), so a graph run whose
         // edges index has not been ensured at this point is safe.
