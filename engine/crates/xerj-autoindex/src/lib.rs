@@ -3356,6 +3356,35 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         finish_generated_progress(&pr, code, &summary);
         return Ok((code, Some(summary)));
     }
+    // #585 case 2: a --no-graph generation's genesis bootstrap (sync_bootstrap
+    // committed, nothing beyond generation 0 committed yet — no pending_sync,
+    // handled above, either) has no execution identity of its own to compare
+    // a mode against: `validate_genesis` requires `execution: None`, so
+    // unlike the pending-sync case above, genesis cannot carry
+    // `graph_enabled`. But the durable record that produced it is
+    // unambiguous — `preflight.no_graph_genesis` is `true` only when a
+    // `sync_bootstrap` record actually replayed, and the only caller of
+    // `sync_bootstrap_genesis` is `begin_non_graph_generation`, only under
+    // `cfg.no_graph`. Continuing that generation on the default graph path
+    // would proceed down the legacy `write_plan`/commit path below over the
+    // same state directory — the #584 cross-path hazard, for the one
+    // generation-0 case the committed-manifest guard cannot see either
+    // (`genesis_recovery` exempts it there on purpose, for genuinely legacy
+    // empty-plan journals that were never no-graph).
+    //
+    // `--fresh` is deliberately exempt, the same way `blocking_generation`
+    // above exempts genesis recovery: nothing has been committed past
+    // genesis, so discarding and rebuilding in the requested mode is safe.
+    if genesis_recovery && preflight.no_graph_genesis && !cfg.no_graph && !cfg.fresh {
+        anyhow::bail!(
+            "a --no-graph generation's genesis bootstrap is pending in {} (nothing beyond \
+             generation 0 committed); continuing it on the default graph path would proceed \
+             under a different graph authority and mutate the destination. No remote mutation \
+             was attempted. Re-run with --no-graph to finish the pending generation, or rebuild \
+             with a new --state-dir and a new --prefix.",
+            state_dir.join("journal.ndjson").display()
+        );
+    }
     // Totals are unknown until the walk returns, so this phase honestly
     // reports `pct=unknown` and proves liveness with the clock alone.
     pr.phase("walk", 0, 0);

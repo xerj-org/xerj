@@ -545,6 +545,7 @@ type PreflightReplay = (
     Option<crate::sync::CommittedManifest>,
     Option<crate::sync::PendingSync>,
     Vec<String>,
+    bool,
 );
 
 /// Read the last durable plan without locking, repairing, truncating or
@@ -560,7 +561,7 @@ fn read_plan_for_preflight(
     let file = match std::fs::File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((None, None, None, Vec::new()));
+            return Ok((None, None, None, Vec::new(), false));
         }
         Err(error) => return Err(error.into()),
     };
@@ -569,6 +570,16 @@ fn read_plan_for_preflight(
     let mut committed_manifest: Option<crate::sync::CommittedManifest> = None;
     let mut pending_sync: Option<crate::sync::PendingSync> = None;
     let mut legacy_migration_reasons = Vec::new();
+    // #585 case 2: set (and never cleared) the moment a durable
+    // `sync_bootstrap` record replays. `begin_non_graph_generation` is the
+    // only caller of `sync_bootstrap_genesis`, and only under `cfg.no_graph`
+    // — so this is the one durable fact that tells a generation-0,
+    // empty-groups `committed_manifest` reached via generation-format
+    // records (an interrupted --no-graph genesis) apart from the same shape
+    // reached via a legacy graph-path `write_plan(Plan::default())` (an
+    // empty legacy plan, never no-graph). Genesis itself cannot carry this:
+    // `validate_genesis` requires `execution: None`.
+    let mut no_graph_genesis = false;
     let mut offset = 0u64;
     loop {
         let record_start = offset;
@@ -660,6 +671,7 @@ fn read_plan_for_preflight(
                 }
                 if kind == "sync_bootstrap" {
                     legacy_migration_reasons.clear();
+                    no_graph_genesis = true;
                 }
             }
             Some(kind) if kind.starts_with("sync_") => {
@@ -673,6 +685,7 @@ fn read_plan_for_preflight(
         committed_manifest,
         pending_sync,
         legacy_migration_reasons,
+        no_graph_genesis,
     ))
 }
 
@@ -688,6 +701,15 @@ pub struct JournalPreflight {
     /// the run is about to discard the journal anyway. The caller owns the
     /// decision to print it (autoindex honours `--quiet`).
     pub unreadable_plan: Option<String>,
+    /// #585 case 2: `true` once a durable `sync_bootstrap` record has
+    /// replayed. The only caller of `sync_bootstrap_genesis` is
+    /// `begin_non_graph_generation`, and only under `cfg.no_graph`, so this
+    /// is what lets a caller tell a generation-0/empty-groups
+    /// `committed_manifest` reached that shape via an interrupted --no-graph
+    /// genesis apart from the identical shape a legacy graph-path
+    /// `write_plan(Plan::default())` can also produce (never no-graph).
+    /// Meaningless unless `committed_manifest` is itself genesis-shaped.
+    pub no_graph_genesis: bool,
 }
 
 impl Journal {
@@ -729,26 +751,39 @@ impl Journal {
         };
         let journal_path = state_dir.join("journal.ndjson");
         let journal_exists = journal_path.exists();
-        let (plan, committed_manifest, pending_sync, legacy_migration_reasons, unreadable_plan) =
-            match read_plan_for_preflight(&journal_path, root, url, prefix) {
-                Ok((plan, committed, pending, reasons)) => {
-                    (plan, committed, pending, reasons, None)
-                }
-                // The journal is about to be deleted unread. Losing the plan here
-                // costs the removed-file gate its comparison basis, which is
-                // exactly what a full in-place rebuild accepts; the alternative is
-                // a state directory that no supported flag can recover.
-                //
-                // Every generated record is discarded with it, so the durable
-                // generation this run might otherwise have refused to overwrite is
-                // reported as absent rather than half-parsed. That is what keeps
-                // `--fresh` genuinely reachable here: the caller's generation
-                // refusal reads `committed_manifest`/`pending_sync`, and firing it
-                // off a partially-replayed journal would contradict the recovery
-                // this very error recommends.
-                Err(error) if fresh => (None, None, None, Vec::new(), Some(format!("{error:#}"))),
-                Err(error) => return Err(error),
-            };
+        let (
+            plan,
+            committed_manifest,
+            pending_sync,
+            legacy_migration_reasons,
+            no_graph_genesis,
+            unreadable_plan,
+        ) = match read_plan_for_preflight(&journal_path, root, url, prefix) {
+            Ok((plan, committed, pending, reasons, no_graph_genesis)) => {
+                (plan, committed, pending, reasons, no_graph_genesis, None)
+            }
+            // The journal is about to be deleted unread. Losing the plan here
+            // costs the removed-file gate its comparison basis, which is
+            // exactly what a full in-place rebuild accepts; the alternative is
+            // a state directory that no supported flag can recover.
+            //
+            // Every generated record is discarded with it, so the durable
+            // generation this run might otherwise have refused to overwrite is
+            // reported as absent rather than half-parsed. That is what keeps
+            // `--fresh` genuinely reachable here: the caller's generation
+            // refusal reads `committed_manifest`/`pending_sync`, and firing it
+            // off a partially-replayed journal would contradict the recovery
+            // this very error recommends.
+            Err(error) if fresh => (
+                None,
+                None,
+                None,
+                Vec::new(),
+                false,
+                Some(format!("{error:#}")),
+            ),
+            Err(error) => return Err(error),
+        };
         Ok(JournalPreflight {
             state_dir: state_dir.to_owned(),
             state_lock,
@@ -758,6 +793,7 @@ impl Journal {
             legacy_migration_reasons,
             journal_exists,
             unreadable_plan,
+            no_graph_genesis,
         })
     }
 
