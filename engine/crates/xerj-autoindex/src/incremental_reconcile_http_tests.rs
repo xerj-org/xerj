@@ -2191,15 +2191,39 @@ fn no_graph_genesis_bootstrap_is_refused_on_the_graph_path() {
     let mut graph = no_graph.clone();
     graph.no_graph = false;
     graph.snapshot_max_bytes = 64 << 30;
-    let error = run_index(graph).unwrap_err();
+    let error = run_index(graph.clone()).unwrap_err();
     let rendered = format!("{error:#}");
     assert!(
         rendered.contains("genesis bootstrap") && rendered.contains("different graph authority"),
         "#585 case 2: a --no-graph genesis bootstrap must be refused on the graph path with the \
          clear message, got: {rendered}"
     );
+    // #718: the message must name every valid recovery route, including
+    // `--fresh` — the guard exempts it (nothing is committed past genesis), so
+    // omitting it hides a working recovery from the operator.
+    assert!(
+        rendered.contains("--fresh"),
+        "#718: the recovery message must offer --fresh, which the guard exempts, got: {rendered}"
+    );
     // No mutation: nothing indexed, no new durable transaction beyond the
     // original sync_bootstrap.
+    assert_eq!(journal_events(state_dir.path(), "sync_bootstrap"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    assert_eq!(endpoint.data_docs().len(), 0);
+
+    // #718: `--dry-run` does not exempt the refusal. A graph-path dry run over
+    // the pending --no-graph genesis is refused the same way (there is no graph
+    // genesis projection to show), with the same recovery message, and mutates
+    // nothing — a dry run of a refused run is a refusal.
+    let mut graph_dry = graph;
+    graph_dry.dry_run = true;
+    let dry_error = run_index(graph_dry).unwrap_err();
+    let dry_rendered = format!("{dry_error:#}");
+    assert!(
+        dry_rendered.contains("genesis bootstrap") && dry_rendered.contains("--fresh"),
+        "#718: --dry-run over a genesis on the graph path is refused too, got: {dry_rendered}"
+    );
     assert_eq!(journal_events(state_dir.path(), "sync_bootstrap"), 1);
     assert_eq!(journal_events(state_dir.path(), "sync_begin"), 0);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
