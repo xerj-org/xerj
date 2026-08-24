@@ -152,7 +152,26 @@ pub(crate) fn reconcile_plan(
         // renderer `build_phase_a` uses, exactly as the fresh path does, and
         // carry the committed `as_document` decision forward. Losing it would
         // index flattened records into a document mapping.
-        let as_document = retained.is_some_and(|owner| owner.as_document);
+        //
+        // A brand-new file gets no such carried-forward decision — it needs
+        // its OWN. #346 review: a fresh run's `dataset::cluster` demotes a
+        // `demotable_family` (Json/Yaml/Xml), group-less, single-record
+        // cluster of at most `DOC_DEMOTE_MAX_FILES` members into the scope's
+        // docs dataset. A lone new file's own membership is always
+        // `1 <= DOC_DEMOTE_MAX_FILES`, so its per-file eligibility is exactly
+        // that same shape test minus the membership cap. Without this, an
+        // incrementally-added one-off config file that a fresh run would
+        // happily fold into "docs" instead compared its raw structured
+        // fields (e.g. a JSON file's `host`/`port`) against nothing and
+        // failed closed — the exact shape the commit this comment replaces
+        // claimed to fix but did not.
+        let new_file_is_demoted = retained.is_none()
+            && scan.sketches.iter().any(|sk| {
+                sk.group.is_none()
+                    && sk.records == 1
+                    && crate::dataset::demotable_family(sniffed.family)
+            });
+        let as_document = retained.is_some_and(|owner| owner.as_document) || new_file_is_demoted;
         let document_fields = if as_document {
             Some(document_sample(&file.path, sniffed.gzip, sample))
         } else {
@@ -166,27 +185,35 @@ pub(crate) fn reconcile_plan(
             let slug = if let Some(owner) = retained {
                 // `FileAssignment.family` (the frozen per-FILE record) keeps
                 // the raw sniffed family — the same value `sniffed.family`
-                // recomputes here — so the two compare directly.
+                // recomputes here — so the two compare directly, whether or
+                // not the file is demoted (a demoted retained file's
+                // `FileAssignment.family` was never rewritten to "docs" at
+                // fresh-plan build time either — see `lib.rs`'s
+                // `PlanDataset` build).
                 retained_slug(owner, group, sniffed.family.as_str(), fields, &datasets)
                     .with_context(|| format!("project retained file {}", file.rel))?
             } else {
                 // #346: `PlanDataset.family` (the frozen DATASET's label) is
                 // a different value — a fresh plan's dataset construction
-                // collapses every "no data-derived name, no sub-file group"
-                // sketch's family to the literal `"docs"`
-                // (`dataset::cluster`'s own is-docs definition, mirrored
-                // here — see `lib.rs`'s `PlanDataset` build). Comparing the
-                // raw sniffed family against that frozen `"docs"` label
-                // instead made every incrementally-added document file
-                // (prose, markdown, one-off config, …) match zero frozen
-                // datasets and fail closed as "unsupported dataset/schema
-                // evolution" — even one byte-for-byte the same shape as the
-                // dataset it belongs to.
-                let family = if sketch.key_fields.is_empty() && group.is_none() {
-                    "docs"
-                } else {
-                    sniffed.family.as_str()
-                };
+                // collapses every document-shaped OR demoted sketch's family
+                // to the literal `"docs"` (`dataset::cluster`'s own is-docs
+                // and demotion rules, mirrored here and in
+                // `new_file_is_demoted` above). Comparing the raw sniffed
+                // family against that frozen `"docs"` label instead made
+                // every incrementally-added document file (prose, markdown,
+                // one-off config, …) match zero frozen datasets and fail
+                // closed as "unsupported dataset/schema evolution" — even
+                // one byte-for-byte the same shape as the dataset it belongs
+                // to. `new_file_is_demoted` is file-level (it drove
+                // `document_fields` above too); a direct document sketch
+                // (empty `key_fields`, no group) is docs-eligible on its own
+                // regardless of that flag.
+                let family =
+                    if new_file_is_demoted || (sketch.key_fields.is_empty() && group.is_none()) {
+                        "docs"
+                    } else {
+                        sniffed.family.as_str()
+                    };
                 classify_new(group, family, fields, &previous.datasets)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
@@ -661,6 +688,80 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.files["new"].assignments, vec![(None, "docs".into())]);
+        assert_eq!(plan.datasets[0].file_count, 1);
+    }
+
+    /// #346 review (3-skeptic pass, blocking finding): the fix above mirrors
+    /// only ONE of `dataset::cluster`'s two is-docs paths — the direct one
+    /// (empty `key_fields`, no group). The other is demotion (dataset.rs
+    /// ~180-193): a `demotable_family` (Json/Yaml/Xml), group-less,
+    /// single-record cluster folds into the docs dataset too, and such a
+    /// cluster has NON-empty `key_fields` by construction (it started as
+    /// structured data). A one-off `config.json` added incrementally to an
+    /// already-`docs`-indexed folder hits exactly this: real repro proved it
+    /// still aborted ("no frozen dataset accepts family json, group None,
+    /// and fields [...]") even after the fix above landed. This test pins
+    /// the actual on-disk document-rendering path (`document_sample`,
+    /// title/body from `extract_as_document`), not just the family label —
+    /// a real file is required because `as_document` re-samples from disk.
+    #[test]
+    fn new_one_off_config_file_demotes_into_the_frozen_docs_dataset() {
+        let dir = tempfile::tempdir().unwrap();
+        let json_path = dir.path().join("config.json");
+        std::fs::write(&json_path, br#"{"host": "example.com", "port": 8080}"#).unwrap();
+
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset("docs", vec![spec("body", "text"), spec("title", "text")])
+            }],
+            ..Plan::default()
+        };
+        // The family extractor's own (pre-demotion) view of the file: a
+        // single-record JSON object with real key fields — this is what
+        // made the OLD code treat it as data, not docs.
+        let raw_fields = HashMap::from([
+            ("host".into(), acc(&[json!("example.com")])),
+            ("port".into(), acc(&[json!(8080)])),
+        ]);
+        let scan = FileScan {
+            sniffed: Some(Sniffed {
+                family: Family::Json,
+                gzip: false,
+                binary_kind: None,
+                csv: None,
+                encoding: "utf-8",
+                logical_name: None,
+            }),
+            sketches: vec![crate::GroupSketch {
+                group: None,
+                key_fields: raw_fields.keys().cloned().collect(),
+                fields: raw_fields,
+                records: 1,
+            }],
+            junk: None,
+            pdf_spool: None,
+            pdf_spool_fallbacks: Vec::new(),
+        };
+        let inventory = Inventory {
+            files: vec![FileEntry {
+                path: json_path,
+                rel: "config.json".into(),
+                rel_id: "unix:63".into(),
+                is_symlink: false,
+                size: 10,
+            }],
+            keys: vec!["new".into()],
+            digests: vec!["digest-new".into()],
+            duplicates: vec![],
+        };
+        let plan = reconcile_plan(&inventory, &previous, vec![scan], 50).unwrap();
+        assert_eq!(plan.files["new"].assignments, vec![(None, "docs".into())]);
+        assert!(
+            plan.files["new"].as_document,
+            "a demoted new file must be indexed through the document renderer, not its raw \
+             family fields"
+        );
         assert_eq!(plan.datasets[0].file_count, 1);
     }
 

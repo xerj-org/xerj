@@ -87,7 +87,15 @@ fn jaccard(a: &HashSet<&str>, b: &HashSet<&str>) -> f64 {
 /// single-record files? Self-describing structured formats only: CSV is
 /// tabular by nature, logs/jsonl are collections by nature, and sql groups
 /// carry a real table schema.
-fn demotable_family(f: Family) -> bool {
+///
+/// `pub(crate)`: `reconcile_plan::classify_new` mirrors this same shape test
+/// for an incrementally-added single file (#346 review) — it cannot reuse
+/// `cluster`'s aggregate demotion loop (multi-file membership depends on
+/// corpus order, which incremental reconcile deliberately does not
+/// replay), but a lone new file's OWN eligibility is exactly this
+/// predicate plus `members.len() == 1 <= DOC_DEMOTE_MAX_FILES`, which is
+/// unconditionally true for one file.
+pub(crate) fn demotable_family(f: Family) -> bool {
     matches!(f, Family::Json | Family::Yaml | Family::Xml)
 }
 
