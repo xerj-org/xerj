@@ -29033,6 +29033,15 @@ const EMBEDDING_IDENTITY_FILE: &str = "embedding_identity.json";
 /// proxy endpoint or neural model — which is the half a mode check cannot see.
 const EMBEDDING_EXECUTION_FILE: &str = "embedding_execution.json";
 
+/// On-disk record version for `embedding_execution.json`. Distinct from the
+/// wire `EmbeddingExecutionIdentity.version` (the API contract, pinned == 1 by
+/// the autoindex client). Bumped to 2 by #533: the proxy identity_sha256 now
+/// folds in the endpoint, so a v1 record's hash was produced by a different
+/// algorithm — `validate_embedding_execution` treats a version delta as
+/// "unknown" (grandfather + re-record), never a mismatch, so upgrading does not
+/// brick a populated proxy index; a later change under v2 is still detected.
+const PERSISTED_EMBEDDING_EXECUTION_VERSION: u32 = 2;
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct PersistedEmbeddingExecution {
     version: u32,
@@ -29239,11 +29248,13 @@ pub(crate) fn embedding_execution_identity(
     };
     let canonical = format!("{CONTRACT};backend={backend};{material}");
     Ok(crate::engine::EmbeddingExecutionIdentity {
-        // #533: v2 folds the proxy endpoint into the identity material. A
-        // persisted v1 record is grandfathered by `validate_embedding_execution`
-        // (a version delta is treated as "unknown", not a mismatch) so upgrading
-        // does not brick an already-populated proxy index.
-        version: 2,
+        // This is the WIRE/API version the autoindex client pins on
+        // (esclient.rs requires == 1); it is NOT the on-disk migration marker.
+        // #533 folds the proxy endpoint into `material` (moving identity_sha256)
+        // without changing this contract; the on-disk record version is bumped
+        // separately (PERSISTED_EMBEDDING_EXECUTION_VERSION) so a populated proxy
+        // index is grandfathered, not bricked, on upgrade.
+        version: 1,
         backend: backend.to_string(),
         identity_sha256: format!("{:x}", Sha256::digest(canonical.as_bytes())),
         dimensions,
@@ -29426,7 +29437,7 @@ fn validate_embedding_execution(
                     path.display()
                 )))
             })?;
-        if persisted.version != current.version {
+        if persisted.version != PERSISTED_EMBEDDING_EXECUTION_VERSION {
             version_upgraded = true;
         } else if persisted.identity_sha256 != current.identity_sha256 && has_documents {
             return Err(EngineError::Common(xerj_common::XerjError::embedding(
@@ -29444,7 +29455,7 @@ fn validate_embedding_execution(
         write_file_atomic(
             &path,
             &serde_json::to_vec_pretty(&PersistedEmbeddingExecution {
-                version: current.version,
+                version: PERSISTED_EMBEDDING_EXECUTION_VERSION,
                 backend: current.backend.clone(),
                 identity_sha256: current.identity_sha256.clone(),
             })?,
