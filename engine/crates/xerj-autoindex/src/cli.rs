@@ -385,12 +385,38 @@ pub fn help_text_with(feedback: bool) -> String {
     )
 }
 
+/// A startup note for the case where `XERJ_URL` is set but the run did not pass
+/// `--url`. `autoindex` resolves its endpoint from `--url` only (default
+/// `http://localhost:9200`); `XERJ_URL` is honored by `xerj search` but not
+/// here, on purpose, so a stale variable can't silently redirect a write. Silent
+/// is the trap though, so name the mismatch and how to act on it. `None` when
+/// `--url` was passed, or `XERJ_URL` is unset or empty.
+pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) -> Option<String> {
+    if url_explicit {
+        return None;
+    }
+    let value = xerj_url?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "XERJ_URL={value} is set but ignored here: autoindex takes its endpoint from --url only \
+         (default http://localhost:9200). Pass --url {value} to target it."
+    ))
+}
+
 pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut it = args.into_iter().peekable();
     let mut folder: Option<PathBuf> = None;
     let mut sub: Option<String> = None;
 
     let mut url = "http://localhost:9200".to_string();
+    // `xerj autoindex` takes its endpoint from `--url` ONLY, unlike `xerj
+    // search` which honors `XERJ_URL`. Ignoring the env var here is deliberate:
+    // a write must not be redirected by a stale variable. But silent is a trap
+    // (it cost a multi-session mis-target debug), so we track whether --url was
+    // actually passed and warn when XERJ_URL is set and it was not.
+    let mut url_explicit = false;
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
     // Set only when the key was discovered on disk, so output can reference the
     // file instead of echoing the secret.
@@ -431,7 +457,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
 
     while let Some(arg) = it.next() {
         match arg.as_str() {
-            "--url" => url = it.next().ok_or("--url needs a value")?,
+            "--url" => {
+                url = it.next().ok_or("--url needs a value")?;
+                url_explicit = true;
+            }
             "--api-key" => api_key = it.next(),
             "--workers" => {
                 // Refused, not clamped: `--workers 0` used to become 1 and
@@ -775,6 +804,12 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 );
             }
             let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
+            let mut resource_notes = plan.notes;
+            if let Some(note) =
+                xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit)
+            {
+                resource_notes.push(note);
+            }
             Ok(Cmd::Index(Box::new(IndexCfg {
                 root,
                 url,
@@ -783,7 +818,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 workers: plan.index_workers,
                 scan_workers: plan.scan_threads,
                 pdf_workers: plan.pdf_workers,
-                resource_notes: plan.notes,
+                resource_notes,
                 pdf_timeout_secs,
                 bulk_mb,
                 bulk_timeout_secs,
@@ -921,6 +956,35 @@ mod tests {
 
     fn err(args: &[&str]) -> String {
         parse(args.iter().map(|s| s.to_string()).collect()).expect_err("must be refused")
+    }
+
+    /// `xerj autoindex` reads its endpoint from `--url` only; setting `XERJ_URL`
+    /// (which `xerj search` honors) and forgetting `--url` used to silently hit
+    /// the loopback default with no word to the operator. The note fires exactly
+    /// on that mismatch and nowhere else.
+    #[test]
+    fn xerj_url_ignored_note_fires_only_on_the_mismatch() {
+        use super::xerj_url_ignored_note as note;
+
+        // XERJ_URL set, --url absent: warn, and say what and how.
+        let n = note(Some("http://es.internal:9200"), false)
+            .expect("a set-but-ignored XERJ_URL must be surfaced");
+        assert!(
+            n.contains("http://es.internal:9200") && n.contains("--url") && n.contains("ignored"),
+            "the note must echo the value, name --url, and say it is ignored: {n}"
+        );
+
+        // --url was passed: it wins, no note (env is genuinely irrelevant).
+        assert!(
+            note(Some("http://es.internal:9200"), true).is_none(),
+            "an explicit --url means XERJ_URL was not ignored; no note"
+        );
+        // Nothing set, or set to blank: nothing to warn about.
+        assert!(note(None, false).is_none(), "unset XERJ_URL: no note");
+        assert!(
+            note(Some("   "), false).is_none(),
+            "blank XERJ_URL: no note"
+        );
     }
 
     /// #240 §1/§2: `--workers` capped itself at 8 for no recorded reason and
