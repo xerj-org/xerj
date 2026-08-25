@@ -2431,6 +2431,77 @@ fn sweep_excluded_groups_deletes_a_legacy_main_doc_by_id() {
     );
 }
 
+/// #739 (alias half): a `file-alias:` catalog doc written by a pre-#737
+/// binary has NO `prefix` field either, so it survives both the #737
+/// prefix-scoped alias sweep AND the #693 term-scoped one on the first
+/// upgraded run — the residual the main-doc fix (#739 above) left open. The
+/// frozen `plan.duplicate_files` still carries the alias's `rel`/`path_id`,
+/// so the sweep can reconstruct its exact `_id` and delete it directly.
+#[test]
+fn sweep_excluded_groups_deletes_a_legacy_alias_doc_by_id() {
+    let ep = HttpEndpoint::start();
+    let legacy_alias_id = catalog::duplicate_file_id("ax", "legacy-key", "alias.csv", "pid1");
+    let sibling_alias_id = catalog::duplicate_file_id("bx", "legacy-key", "alias.csv", "pid1");
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // Legacy alias docs: no `prefix` field (pre-#737). Corpus "ax"
+        // excludes the canonical file; corpus "bx" holds a same-key alias
+        // under its own (differently prefix-encoded) id.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), legacy_alias_id.clone()),
+            json!({"doc_kind": "file", "path": "alias.csv"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), sibling_alias_id.clone()),
+            json!({"doc_kind": "file", "path": "alias.csv"}),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    plan.duplicate_files.push(crate::state::DuplicateFile {
+        file_key: "legacy-key".into(),
+        rel: "alias.csv".into(),
+        path_id: "pid1".into(),
+        is_symlink: None,
+        duplicate_of: "legacy.csv".into(),
+        bytes: 0,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "legacy-key".into(),
+        path: "legacy.csv".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    // ax's legacy alias doc is swept by its reconstructed id, even without a
+    // `prefix` field.
+    assert!(
+        !st.docs
+            .contains_key(&(catalog::CATALOG_INDEX.to_string(), legacy_alias_id)),
+        "#739: the excluding corpus's legacy file-alias: doc must be swept by id"
+    );
+    // The sibling corpus's same-key legacy alias doc survives (different id).
+    assert!(
+        st.docs
+            .contains_key(&(catalog::CATALOG_INDEX.to_string(), sibling_alias_id)),
+        "#739: a sibling corpus's legacy file-alias: doc must NOT be swept"
+    );
+}
+
 /// #736: the sweep also soft-invalidates INBOUND edges — ones a surviving file
 /// taught that point AT the excluded file's anchor node (`dst`). Without it they
 /// stay live, pointing at a node that is gone. An edge to a different node stays
