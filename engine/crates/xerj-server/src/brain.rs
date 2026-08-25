@@ -565,6 +565,10 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         scan_workers: plan.scan_threads,
         pdf_workers: plan.pdf_workers,
         resource_notes: plan.notes,
+        // #768: the XERJ_URL-vs-`--url` mismatch is a CLI-parse concern; the
+        // brain path takes its endpoint from BrainCfg directly and never reads
+        // the env var, so there is no ignored-XERJ_URL warning to carry here.
+        xerj_url_note: None,
         pdf_timeout_secs: 120,
         bulk_mb: BULK_MB,
         bulk_timeout_secs: 300,
