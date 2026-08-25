@@ -595,6 +595,7 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value) {
     );
 }
 
+#[allow(clippy::too_many_arguments)] // cutover threads the whole run context
 fn begin_non_graph_generation(
     es: &Es,
     journal: &mut state::Journal,
@@ -602,6 +603,7 @@ fn begin_non_graph_generation(
     cfg: &IndexCfg,
     root_identity: &str,
     inventory: &content::Inventory,
+    pr: &Progress,
     plan: Plan,
 ) -> Result<()> {
     anyhow::ensure!(
@@ -630,6 +632,22 @@ fn begin_non_graph_generation(
         &preparation_contract,
         cfg.snapshot_max_bytes,
     )?;
+    // #381: the per-file record cap dropped a file's tail during preparation.
+    // The generated path seals before the graph worker loop runs, so report it
+    // here rather than at the shared post-run summary.
+    let truncated = snapshot
+        .files
+        .iter()
+        .filter_map(|f| f.prepared.as_ref())
+        .filter(|p| p.truncated)
+        .count();
+    if truncated > 0 {
+        pr.note(&format!(
+            "{truncated} file(s) hit the per-file record cap ({}) and were truncated; \
+             split the input or raise the cap if the dropped tail matters (#381)",
+            extract::MAX_RECORDS_PER_FILE
+        ));
+    }
     let chunker_identity = prepared_records_identity(cfg)?;
     let semantic = plan
         .datasets
@@ -3847,6 +3865,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &cfg,
             &root_str,
             &inventory,
+            &pr,
             plan,
         )?;
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
@@ -4512,6 +4531,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &cfg,
             &root_str,
             &inventory,
+            &pr,
             plan,
         )?;
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
