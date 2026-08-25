@@ -34,10 +34,11 @@ pub struct IndexCfg {
     pub resource_notes: Vec<String>,
     /// #768: the `XERJ_URL`-ignored safety note (set when `XERJ_URL` is present
     /// but `--url` was not passed). Carried separately from `resource_notes`
-    /// because it is a safety warning, not routine progress chatter: it is
-    /// emitted with an unconditional `eprintln` (so `--quiet` does not silence a
-    /// "you may be writing to the wrong node" message) and mirrored into the
-    /// `--json` result, matching how `map`/`status` deliver the same note.
+    /// because it is a safety warning, not routine progress chatter: the index
+    /// path emits it through `pr.warn` (which, unlike `pr.note`, is not silenced
+    /// by `--quiet`/`Surface::Silent`, yet stays a well-formed event on
+    /// `--progress json`) and mirrors it into the `--json` result. `map`/`status`
+    /// carry the same note but `eprintln` it, having no progress surface.
     pub xerj_url_note: Option<String>,
     pub pdf_timeout_secs: u64,
     pub bulk_mb: usize,
@@ -835,9 +836,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 scan_workers: plan.scan_threads,
                 pdf_workers: plan.pdf_workers,
                 resource_notes: plan.notes,
-                // #768: delivered by run_index via unconditional eprintln (not the
-                // --quiet-suppressible resource_notes surface) and mirrored into
-                // --json, so a wrong-node warning is never silently dropped.
+                // #768: delivered by run_index via pr.warn (not the
+                // --quiet-suppressible resource_notes/pr.note surface) and
+                // mirrored into --json, so a wrong-node warning is never silently
+                // dropped, yet stays a well-formed event on --progress json.
                 xerj_url_note,
                 pdf_timeout_secs,
                 bulk_mb,
@@ -1008,11 +1010,10 @@ mod tests {
     }
 
     /// #768: the index cfg carries the XERJ_URL-ignored note on its own field
-    /// (delivered by an unconditional eprintln, so --quiet cannot silence a
-    /// wrong-node warning) rather than folding it into the --quiet-suppressible
-    /// resource_notes. An explicit --url means the env var was not ignored, so
-    /// there is nothing to warn about — deterministic regardless of the
-    /// environment the test runs in.
+    /// (delivered by `pr.warn`, which `--quiet` cannot silence, rather than
+    /// folding it into the --quiet-suppressible resource_notes). An explicit
+    /// --url means the env var was not ignored, so there is nothing to warn
+    /// about — deterministic regardless of the environment the test runs in.
     #[test]
     fn index_suppresses_the_xerj_url_note_when_url_is_explicit() {
         let cfg = index(&["data", "--url", "http://es.internal:9200"]);
