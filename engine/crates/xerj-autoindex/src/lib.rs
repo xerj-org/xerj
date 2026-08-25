@@ -6494,6 +6494,9 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 // ─── map subcommand ──────────────────────────────────────────────────────
 
 fn run_map(cfg: MapCfg) -> Result<i32> {
+    if let Some(note) = &cfg.xerj_url_note {
+        eprintln!("autoindex: {note}");
+    }
     let es = Es::new(&cfg.url, cfg.api_key.clone())?;
     es.ping()?;
     let fetch = |query: Value, size: usize, sort: Option<Value>| -> Result<Vec<Value>> {
@@ -6755,6 +6758,9 @@ pub fn fetch_catalog_summary(url: &str, api_key: Option<String>) -> Result<Catal
 // ─── status subcommand ───────────────────────────────────────────────────
 
 fn run_status(cfg: StatusCfg) -> Result<i32> {
+    if let Some(note) = &cfg.xerj_url_note {
+        eprintln!("autoindex: {note}");
+    }
     // journals
     let dirs: Vec<std::path::PathBuf> = match &cfg.state_dir {
         Some(d) => vec![d.clone()],
