@@ -2,7 +2,7 @@
 //! Collects w:t runs, breaks paragraphs on w:p, records Heading-styled
 //! paragraphs as headings. One document record (sectioned at 32KB).
 
-use super::{emit_document, ExtractStats, Sink};
+use super::{emit_document, ExtractStats, Sink, MAX_RECORDS_PER_FILE};
 use anyhow::{Context, Result};
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -138,7 +138,14 @@ fn extract_bounded(
                     .unwrap_or_else(|| "untitled".into())
             })
     });
-    emit_document(&title, &headings, body, sink, &mut stats);
+    emit_document(
+        &title,
+        &headings,
+        body,
+        MAX_RECORDS_PER_FILE,
+        sink,
+        &mut stats,
+    );
     Ok(stats)
 }
 

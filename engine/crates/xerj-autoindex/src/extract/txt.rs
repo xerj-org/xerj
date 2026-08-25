@@ -22,7 +22,7 @@
 //! caller can jump straight to the source — the old per-line record only
 //! carried an opaque byte locator.
 
-use super::{emit_document, ExtractStats, FieldOrigin, RawRecord, Sink};
+use super::{emit_document, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -62,7 +62,14 @@ pub fn extract_prose(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| "untitled".into())
         });
-    emit_document(&title, &[], text.trim(), sink, &mut stats);
+    emit_document(
+        &title,
+        &[],
+        text.trim(),
+        MAX_RECORDS_PER_FILE,
+        sink,
+        &mut stats,
+    );
     Ok(stats)
 }
 

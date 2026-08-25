@@ -595,6 +595,7 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value) {
     );
 }
 
+#[allow(clippy::too_many_arguments)] // cutover threads the whole run context
 fn begin_non_graph_generation(
     es: &Es,
     journal: &mut state::Journal,
@@ -602,6 +603,7 @@ fn begin_non_graph_generation(
     cfg: &IndexCfg,
     root_identity: &str,
     inventory: &content::Inventory,
+    pr: &Progress,
     plan: Plan,
 ) -> Result<()> {
     anyhow::ensure!(
@@ -630,6 +632,22 @@ fn begin_non_graph_generation(
         &preparation_contract,
         cfg.snapshot_max_bytes,
     )?;
+    // #381: the per-file record cap dropped a file's tail during preparation.
+    // The generated path seals before the graph worker loop runs, so report it
+    // here rather than at the shared post-run summary.
+    let truncated = snapshot
+        .files
+        .iter()
+        .filter_map(|f| f.prepared.as_ref())
+        .filter(|p| p.truncated)
+        .count();
+    if truncated > 0 {
+        pr.note(&format!(
+            "{truncated} file(s) hit the per-file record cap ({}) and were truncated; \
+             split the input or raise the cap if the dropped tail matters (#381)",
+            extract::MAX_RECORDS_PER_FILE
+        ));
+    }
     let chunker_identity = prepared_records_identity(cfg)?;
     let semantic = plan
         .datasets
@@ -3847,6 +3865,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &cfg,
             &root_str,
             &inventory,
+            &pr,
             plan,
         )?;
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
@@ -4512,6 +4531,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &cfg,
             &root_str,
             &inventory,
+            &pr,
             plan,
         )?;
         let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
@@ -4749,6 +4769,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // Records the backend refused in a bulk response (invocation-local: no
     // journal record exists for a document that was never accepted).
     let rejected_records = AtomicU64::new(0);
+    // Files whose section stream hit the per-file record cap (#381): the tail
+    // was dropped, so it is surfaced after the run rather than silently lost.
+    let truncated_files = AtomicU64::new(0);
     let bulk_errors = Mutex::new(Vec::<String>::new());
     let graph: Option<GraphRt> = if cfg.no_graph {
         None
@@ -5255,6 +5278,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                         match res {
                             Ok(stats) => {
                                 file_junk += stats.junk;
+                                if stats.truncated {
+                                    truncated_files.fetch_add(1, Ordering::Relaxed);
+                                }
                             }
                             Err(e) => {
                                 send_err = Some(format!("extract {}: {e}", f.rel));
@@ -5830,6 +5856,17 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         }});
         cat_buf.extend_from_slice(action.to_string().as_bytes());
         cat_buf.push(b'\n');
+    }
+
+    // #381: the per-file record cap dropped a file's tail. Report it (never
+    // silent) so a genuinely large legitimate document is visible, not guessed.
+    let truncated = truncated_files.load(Ordering::Relaxed);
+    if truncated > 0 {
+        pr.note(&format!(
+            "{truncated} file(s) hit the per-file record cap ({}) and were truncated; \
+             split the input or raise the cap if the dropped tail matters (#381)",
+            extract::MAX_RECORDS_PER_FILE
+        ));
     }
 
     // dataset docs

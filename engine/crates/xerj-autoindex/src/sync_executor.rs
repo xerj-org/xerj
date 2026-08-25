@@ -59,6 +59,12 @@ pub struct PreparedArtifact {
     /// never published, so no read-back count sees it.
     #[serde(default)]
     pub junk: u64,
+    /// The per-file record cap (#381) stopped this file's section stream before
+    /// the whole body was emitted. Skip-serialized when false so a non-truncated
+    /// artifact hashes exactly as before (a truncating file already differs by
+    /// design — it seals fewer records).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
     /// Per-dataset breakdown of `records`, keyed by the dataset each record was
     /// written under. One file can feed several datasets — a SQL dump is one
     /// file and N tables — so the flat total is not comparable to any single
@@ -1645,6 +1651,7 @@ fn prepare_artifact(
         passages,
         vectors,
         junk: stats.junk,
+        truncated: stats.truncated,
         records_by_dataset,
         bytes,
         digest: stream_digest(&path, "axp1")?,
