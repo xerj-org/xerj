@@ -32,6 +32,12 @@ struct HttpState {
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
     saw_catalog_mapping_update: bool,
+    /// Opt-in (#755/#760): make the catalog `_mapping` PUT fail with the exact
+    /// `field [X] already exists as [text]` conflict an older-build catalog
+    /// produces, so a test can prove the run surfaces the ENRICHED error rather
+    /// than the opaque mapper_parsing_exception. Off by default — every other
+    /// test's faithful-accept behaviour is unchanged.
+    catalog_mapping_conflict: bool,
 }
 
 struct HttpEndpoint {
@@ -179,11 +185,13 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
     } else if method == "PUT" {
         let value: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         let mut locked = state.lock().unwrap();
+        let mut inject_catalog_conflict = false;
         if path.ends_with("/_mapping") {
             assert!(value.get("properties").is_some());
             assert!(value.get("mappings").is_none());
             if path.starts_with(&format!("/{}/", catalog::CATALOG_INDEX)) {
                 locked.saw_catalog_mapping_update = true;
+                inject_catalog_conflict = locked.catalog_mapping_conflict;
             } else {
                 locked.saw_dataset_mapping_update = true;
             }
@@ -191,7 +199,22 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
             assert!(value.pointer("/mappings/properties").is_some());
             assert!(value.get("properties").is_none());
         }
-        (200, json!({"acknowledged": true}))
+        if inject_catalog_conflict {
+            let reason = "field [prefix] already exists as [text], cannot add [keyword]";
+            (
+                400,
+                json!({
+                    "error": {
+                        "root_cause": [{"type": "mapper_parsing_exception", "reason": reason}],
+                        "type": "mapper_parsing_exception",
+                        "reason": reason
+                    },
+                    "status": 400
+                }),
+            )
+        } else {
+            (200, json!({"acknowledged": true}))
+        }
     } else {
         // Readiness, index creation/mapping, and refresh.
         (200, json!({"acknowledged": true}))
@@ -200,10 +223,10 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
     write!(
         stream,
         "HTTP/1.1 {status} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        if status == 200 {
-            "OK"
-        } else {
-            "Internal Server Error"
+        match status {
+            200 => "OK",
+            400 => "Bad Request",
+            _ => "Internal Server Error",
         },
         bytes.len(),
         bytes
@@ -534,6 +557,39 @@ fn final_snapshot_count(state_dir: &Path) -> usize {
                 .count()
         })
         .unwrap_or(0)
+}
+
+/// #755/#760: an older-build global catalog holds a field mapped as `text`, so
+/// the generation's keyword `_mapping` update conflicts. The run must surface
+/// the ENRICHED, actionable error (name the field + reindex recovery), not the
+/// opaque `mapper_parsing_exception`. This exercises the `.map_err` wiring end to
+/// end — the helper's own unit tests pass even if that wiring is dropped, so
+/// this is what actually guards it (evidence lens, #756 review).
+#[test]
+fn a_legacy_text_mapped_catalog_surfaces_the_actionable_error() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().catalog_mapping_conflict = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config).unwrap_err();
+    let msg = format!("{error:#}");
+    assert!(
+        msg.contains("older build") && msg.contains("Reindex"),
+        "expected the enriched migration error, got: {msg}"
+    );
+    // The named field and the raw reason are both preserved in the chain.
+    assert!(
+        msg.contains("`prefix`"),
+        "must name the conflicting field: {msg}"
+    );
+    assert!(
+        msg.contains("already exists as [text]"),
+        "must preserve the raw reason: {msg}"
+    );
 }
 
 #[test]
