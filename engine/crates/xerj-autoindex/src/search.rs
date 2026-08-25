@@ -98,16 +98,18 @@ pub fn run_search_cli() -> i32 {
         return 2;
     }
 
-    // Bias the match toward symbol definitions (defs), then body, then title —
-    // the same ranking the reference-coding wrapper used, now built in.
+    // Bias toward the exact symbol name and its declaration `code`, then prose
+    // `body`, then `title`. A plain `xerj autoindex` of code writes symbol docs
+    // with `name`/`code`/`line` (issue #500); `defs` is kept for the older
+    // reference-coding wrapper schema (harmless when absent).
     let body = json!({
         "size": k,
         "query": { "multi_match": {
             "query": query,
-            "fields": ["defs^3", "body", "title"],
+            "fields": ["name^4", "defs^3", "code^2", "body", "title"],
             "type": "most_fields"
         }},
-        "_source": ["ax_path", "start_line", "language", "body", "title"]
+        "_source": ["ax_path", "line", "start_line", "language", "code", "body", "title"]
     });
 
     let pattern = format!("{prefix}-*");
@@ -146,13 +148,20 @@ pub fn run_search_cli() -> i32 {
         let src = h.get("_source").cloned().unwrap_or(Value::Null);
         let path = src.get("ax_path").and_then(Value::as_str).unwrap_or("?");
         let score = h.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
-        let line = src.get("start_line").and_then(Value::as_u64);
+        let line = src
+            .get("line")
+            .or_else(|| src.get("start_line"))
+            .and_then(Value::as_u64);
         let loc = match line {
             Some(n) => format!("{path}:{n}"),
             None => path.to_string(),
         };
         println!("\n─── {loc}  (score {score:.2})");
-        if let Some(text) = src.get("body").and_then(Value::as_str) {
+        let passage = src
+            .get("code")
+            .or_else(|| src.get("body"))
+            .and_then(Value::as_str);
+        if let Some(text) = passage {
             let snippet: String = text.chars().take(full).collect();
             for l in snippet.lines() {
                 println!("    {l}");
