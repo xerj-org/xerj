@@ -1636,6 +1636,7 @@ mod phase_a_grouping_tests {
             scan_workers: 1,
             pdf_workers: 1,
             resource_notes: Vec::new(),
+            xerj_url_note: None,
             pdf_timeout_secs: 10,
             bulk_mb: 1,
             bulk_timeout_secs: 10,
@@ -3556,6 +3557,16 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .unwrap_or_else(|| progress::default_interval(surface)),
     );
     let ticker = pr.spawn_ticker();
+    // #768: the wrong-node warning is a safety signal, not routine progress, so
+    // it goes out FIRST and through `pr.warn` — which, unlike `pr.note`, is not
+    // silenced by `--quiet`/`Surface::Silent` (a "you may be writing to the
+    // wrong node" message must still reach the operator) yet stays a well-formed
+    // event on `--progress json` instead of a bare line. It is emitted before
+    // any endpoint I/O below, and mirrored into the --json result. map/status
+    // deliver the same note; they have no progress surface, so they `eprintln`.
+    if let Some(note) = &cfg.xerj_url_note {
+        pr.warn(&format!("autoindex: {note}"));
+    }
     // One throughput meter for the whole run: both phase-A routes (the legacy
     // scan and the generated route's `project_reconcile_plan`) feed it, so the
     // estimate is built from whatever this invocation actually parsed.
@@ -6250,6 +6261,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "bulk_concurrency_final": es.bulk_concurrency_limit(),
         "bulk_congestion_events": es.bulk_congestion_events(),
         "resource_notes": cfg.resource_notes,
+        // #768: mirror the wrong-node warning here too (null when it did not
+        // fire), so a --json consumer sees the same safety signal stderr does.
+        "xerj_url_note": cfg.xerj_url_note,
         "semantic": !cfg.no_semantic,
         "pdf_extraction_reuse": pdf_spool_budget.report(),
     });

@@ -558,6 +558,33 @@ impl Progress {
         }
     }
 
+    /// Like [`Self::note`] but for a safety warning that must not be silenced.
+    /// A "you may be writing to the wrong node" message (#768) still has to reach
+    /// the operator under [`Surface::Silent`] (`--quiet` / `--progress none`),
+    /// where routine notes are dropped, so this does NOT early-return there — it
+    /// writes a plain line to stderr instead. On [`Surface::Json`] it stays a
+    /// well-formed `{"event":"warning",…}` object rather than a bare line, so a
+    /// `--progress json` consumer's one-object-per-line stderr contract holds.
+    pub fn warn(&self, message: &str) {
+        let message = &sanitize(message, SAFE_NOTE_MAX);
+        match self.surface {
+            Surface::Silent | Surface::Plain => self.sink.write(format!("{message}\n").as_bytes()),
+            Surface::Json => {
+                let line = serde_json::json!({"event": "warning", "message": message});
+                self.sink.write(format!("{line}\n").as_bytes());
+            }
+            Surface::Tty => {
+                let mut state = self.state.lock().unwrap();
+                let mut out = clear_tty(state.tty_width);
+                state.tty_width = 0;
+                drop(state);
+                out.push_str(message);
+                out.push('\n');
+                self.sink.write(out.as_bytes());
+            }
+        }
+    }
+
     /// Render one progress line now.
     pub fn tick(&self) {
         self.emit();
@@ -1358,6 +1385,51 @@ mod tests {
 
     fn captured(buffer: &Arc<Mutex<Vec<u8>>>) -> String {
         String::from_utf8(buffer.lock().unwrap().clone()).unwrap()
+    }
+
+    /// #768: a safety warning must reach the operator even under `--quiet`
+    /// (`Surface::Silent`), where a routine `note` is dropped — and on
+    /// `--progress json` it must stay a well-formed event, not a bare line that
+    /// corrupts the one-object-per-line stderr contract.
+    #[test]
+    fn warn_pierces_quiet_and_stays_json_on_the_json_surface() {
+        // Silent: a plain `note` emits nothing, but `warn` still reaches stderr.
+        let (progress, buffer) = Progress::capture(Surface::Silent, Duration::from_secs(3600));
+        progress.note("routine: suppressed under --quiet");
+        assert_eq!(
+            captured(&buffer),
+            "",
+            "a note must stay silent under --quiet"
+        );
+        progress.warn("autoindex: XERJ_URL=http://h:9200 is set but ignored");
+        let out = captured(&buffer);
+        assert!(
+            out.contains("XERJ_URL=http://h:9200 is set but ignored"),
+            "warn must pierce --quiet: {out:?}"
+        );
+        assert!(
+            !out.trim_start().starts_with('{'),
+            "Silent warn is a plain line, not JSON"
+        );
+
+        // Json: `warn` is a well-formed {"event":"warning",...} object, one per
+        // line — never a bare line that would break a --progress json consumer.
+        let (progress, buffer) = Progress::capture(Surface::Json, Duration::from_secs(3600));
+        progress.warn("autoindex: XERJ_URL is set but ignored");
+        let out = captured(&buffer);
+        for line in out.lines().filter(|l| !l.trim().is_empty()) {
+            let v: serde_json::Value = serde_json::from_str(line)
+                .unwrap_or_else(|e| panic!("non-JSON line {line:?}: {e}"));
+            assert_eq!(
+                v.get("event").and_then(|e| e.as_str()),
+                Some("warning"),
+                "{line}"
+            );
+        }
+        assert!(
+            out.contains("XERJ_URL is set but ignored"),
+            "message must survive: {out:?}"
+        );
     }
 
     #[test]
