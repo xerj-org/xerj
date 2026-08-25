@@ -33,8 +33,10 @@ EXAMPLE:
 
 /// Entry point for the `search` subcommand. Returns a process exit code.
 pub fn run_search_cli() -> i32 {
-    let mut url =
-        std::env::var("XERJ_URL").ok().filter(|s| !s.is_empty()).unwrap_or_default();
+    let mut url = std::env::var("XERJ_URL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_default();
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
     let mut prefix = "ax".to_string();
     let mut k: usize = 5;
@@ -56,9 +58,7 @@ pub fn run_search_cli() -> i32 {
             "-k" => k = it.next().and_then(|s| s.parse().ok()).unwrap_or(k),
             "--full" => full = it.next().and_then(|s| s.parse().ok()).unwrap_or(full),
             "--json" => as_json = true,
-            other if !other.starts_with('-') && query.is_none() => {
-                query = Some(other.to_string())
-            }
+            other if !other.starts_with('-') && query.is_none() => query = Some(other.to_string()),
             other => {
                 eprintln!("xerj search: unexpected argument '{other}'\n\n{USAGE}");
                 return 2;
@@ -124,7 +124,10 @@ pub fn run_search_cli() -> i32 {
     };
 
     if as_json {
-        println!("{}", serde_json::to_string_pretty(&resp).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&resp).unwrap_or_default()
+        );
         return 0;
     }
 
@@ -159,6 +162,9 @@ pub fn run_search_cli() -> i32 {
             }
         }
     }
-    println!("\n{} passage(s) from '{pattern}'. Cite ax_path:line for anything you rely on.", hits.len());
+    println!(
+        "\n{} passage(s) from '{pattern}'. Cite ax_path:line for anything you rely on.",
+        hits.len()
+    );
     0
 }
