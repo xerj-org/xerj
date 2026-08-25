@@ -29422,12 +29422,16 @@ fn validate_embedding_execution(
 ) -> Result<()> {
     let path = index_dir.join(EMBEDDING_EXECUTION_FILE);
     let current = embedding_execution_identity(cfg)?;
-    // #533: when the persisted record is from an OLDER identity version, the
-    // `identity_sha256` was computed by a different algorithm (e.g. v1 hashed a
-    // proxy without its endpoint), so a hash delta can't be told apart from a
-    // real embedder change. Grandfather it once — do not refuse — and re-record
-    // at the current version below, so a LATER change under the new algorithm is
-    // detected. Only a SAME-version hash delta is a genuine embedder change.
+    // #533 migration guard. A genuine embedder change over a POPULATED index is
+    // refused. Two signals:
+    //  - a backend-NAME change (e.g. lexical -> proxy) is unambiguous at ANY
+    //    version — no hash comparison needed, so it is refused even across a
+    //    version bump;
+    //  - a hash delta is a real change only WITHIN the same on-disk version.
+    //    Across an OLDER record the hash was produced by a different algorithm
+    //    (v1 hashed a proxy without its endpoint), so it can't be compared and
+    //    is grandfathered — the record is then re-recorded at the current
+    //    version below, so a LATER change under v2 is still detected.
     let mut version_upgraded = false;
     if path.exists() {
         let persisted: PersistedEmbeddingExecution = serde_json::from_slice(&std::fs::read(&path)?)
@@ -29437,9 +29441,11 @@ fn validate_embedding_execution(
                     path.display()
                 )))
             })?;
-        if persisted.version != PERSISTED_EMBEDDING_EXECUTION_VERSION {
-            version_upgraded = true;
-        } else if persisted.identity_sha256 != current.identity_sha256 && has_documents {
+        let older_record = persisted.version < PERSISTED_EMBEDDING_EXECUTION_VERSION;
+        let genuine_change = has_documents
+            && (persisted.backend != current.backend
+                || (!older_record && persisted.identity_sha256 != current.identity_sha256));
+        if genuine_change {
             return Err(EngineError::Common(xerj_common::XerjError::embedding(
                 format!(
                     "index {} holds vectors produced by embedding backend {:?} but this server resolves embedding.mode={:?} to backend {:?}. Query vectors from one embedder scored against document vectors from another are silently wrong rather than visibly wrong: the widths can agree, so no dimension check fires, and the scores stay plausible while the ranking degrades toward noise. Restore the previous embedding configuration, or reindex into a new index under this one.",
@@ -29450,6 +29456,7 @@ fn validate_embedding_execution(
                 ),
             )));
         }
+        version_upgraded = older_record;
     }
     if new_index || !has_documents || version_upgraded {
         write_file_atomic(
@@ -29744,6 +29751,39 @@ mod embedding_identity_tests {
         };
         validate_embedding_execution(index_dir, &swapped, false, true)
             .expect_err("#533: after re-baselining, a v2 endpoint change must be refused");
+    }
+
+    /// #533: the version-delta grandfather must NOT mask a genuine BACKEND change
+    /// — a lexical->proxy swap is a different embedder regardless of hash, so a
+    /// populated index whose v1 record names a different backend is still refused
+    /// on the first upgraded reopen (the hash is uncomparable across versions,
+    /// but the backend name is not).
+    #[test]
+    fn a_version_delta_still_refuses_a_backend_change() {
+        let dir = tempfile::tempdir().unwrap();
+        let index_dir = dir.path();
+        let path = index_dir.join(EMBEDDING_EXECUTION_FILE);
+        // Legacy v1 record: the index holds LEXICAL vectors.
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&PersistedEmbeddingExecution {
+                version: 1,
+                backend: "lexical".into(),
+                identity_sha256: "legacy-lexical-sha".into(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        // Reopen the POPULATED index under a proxy config → backend "proxy".
+        let proxy = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: "https://a.example/v1".into(),
+            default_model: "text-embedding-x".into(),
+            ..Default::default()
+        };
+        validate_embedding_execution(index_dir, &proxy, false, true).expect_err(
+            "#533: a version delta must NOT grandfather a lexical->proxy backend change",
+        );
     }
 
     #[cfg(feature = "onnx-experimental")]
