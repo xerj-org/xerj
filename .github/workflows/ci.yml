@@ -141,6 +141,28 @@ jobs:
         working-directory: engine
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+  # #352: #327 (tree-sitter 0.25) and #317 (0.26) were each green on their own
+  # head, but tree-sitter declares `links = "tree-sitter"` so only one version
+  # may exist — the MERGE was a hard resolution failure that took out build,
+  # test, clippy and every release job at once, and stayed red long enough that
+  # ~every open PR inherited it. No gate caught it because each branch resolved
+  # its own head, never the merge. This resolves the merge in a few seconds, no
+  # compile: `actions/checkout` gives refs/pull/N/merge by default on a
+  # pull_request, so this runs against the merged tree. `--locked` also fails on
+  # Cargo.lock drift.
+  workspace-resolves:
+    name: Workspace resolves (links + lockfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+
+      - name: cargo metadata (resolves the merge; fails on a links conflict or lock drift)
+        working-directory: engine
+        run: cargo metadata --locked --format-version 1 >/dev/null
+
   # XERJ's security pitch is "no JVM, so none of the Log4Shell class of supply
   # chain CVEs" — which is only worth anything if somebody is actually watching
   # the 660-odd crates we do depend on. This job is that somebody. It was
