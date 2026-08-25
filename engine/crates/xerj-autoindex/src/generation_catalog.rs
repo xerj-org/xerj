@@ -49,22 +49,78 @@ impl CatalogProjection {
     /// outside this corpus projection and therefore are not accepted through
     /// this API.
     pub fn validate_observed(&self, observed: &BTreeMap<String, Value>) -> Result<()> {
-        anyhow::ensure!(
-            observed.len() == self.documents.len(),
-            "catalog read-back contains {} documents; expected {}",
-            observed.len(),
-            self.documents.len()
-        );
+        if observed.len() != self.documents.len() {
+            let expected_ids: BTreeSet<&String> = self.documents.keys().collect();
+            let observed_ids: BTreeSet<&String> = observed.keys().collect();
+            let missing: Vec<&&String> = expected_ids.difference(&observed_ids).collect();
+            let unexpected: Vec<&&String> = observed_ids.difference(&expected_ids).collect();
+            anyhow::bail!(
+                "catalog read-back contains {} documents; expected {} (missing: {:?}; \
+                 unexpected: {:?})",
+                observed.len(),
+                self.documents.len(),
+                missing,
+                unexpected
+            );
+        }
         for (id, expected) in &self.documents {
             let actual = observed
                 .get(id)
                 .with_context(|| format!("catalog read-back is missing {id}"))?;
             anyhow::ensure!(
                 actual == expected,
-                "catalog read-back for {id} disagrees with the sealed generation projection"
+                "catalog read-back for {id} disagrees with the sealed generation \
+                 projection: {}",
+                describe_field_diff(expected, actual)
             );
         }
         Ok(())
+    }
+}
+
+/// Name the field(s) by which a read-back catalog document differs from the
+/// sealed projection, so a mismatch is diagnosable rather than an opaque
+/// "disagrees". #367: a real-server run aborted here with no way to see which
+/// field the server rewrote — the prime suspect is a dropped `null`-valued key
+/// (`time_min`/`time_max`/`time_field`/`semantic_field` are `null` for a
+/// timestamp-less, non-semantic dataset like `ds:docs`), which this surfaces as
+/// "`time_min` dropped". Values are truncated so a large `fields_json` cannot
+/// blow up the message.
+fn describe_field_diff(expected: &Value, actual: &Value) -> String {
+    fn short(v: &Value) -> String {
+        let s = v.to_string();
+        // Truncate on a CHAR boundary (values can hold non-ASCII, e.g. a CJK
+        // `fields_json`); byte slicing `&s[..120]` would panic mid-codepoint.
+        if let Some((idx, _)) = s.char_indices().nth(120) {
+            format!("{}…", &s[..idx])
+        } else {
+            s
+        }
+    }
+    match (expected.as_object(), actual.as_object()) {
+        (Some(e), Some(a)) => {
+            let mut diffs: Vec<String> = Vec::new();
+            for (k, ev) in e {
+                match a.get(k) {
+                    None => diffs.push(format!("`{k}` dropped (was {})", short(ev))),
+                    Some(av) if av != ev => {
+                        diffs.push(format!("`{k}`: expected {}, got {}", short(ev), short(av)))
+                    }
+                    _ => {}
+                }
+            }
+            for k in a.keys() {
+                if !e.contains_key(k) {
+                    diffs.push(format!("`{k}` unexpectedly added"));
+                }
+            }
+            if diffs.is_empty() {
+                "documents differ with no field-level difference (type or ordering?)".into()
+            } else {
+                diffs.join("; ")
+            }
+        }
+        _ => format!("expected {}, got {}", short(expected), short(actual)),
     }
 }
 
@@ -706,6 +762,41 @@ mod tests {
 
         let mut changed = projection.documents.clone();
         changed.get_mut("ds:ax:reports").unwrap()["record_count"] = json!(999);
-        assert!(projection.validate_observed(&changed).is_err());
+        // #367: the message must NAME the offending field, not just "disagrees".
+        let err = projection
+            .validate_observed(&changed)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("record_count"),
+            "the diff must name the changed field: {err}"
+        );
+
+        // A dropped key (the #367 null-key-drop shape) is surfaced as "dropped".
+        let mut dropped = projection.documents.clone();
+        dropped
+            .get_mut("ds:ax:reports")
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .remove("time_min");
+        let err = projection
+            .validate_observed(&dropped)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("time_min") && err.contains("dropped"),
+            "a dropped key must be named: {err}"
+        );
+
+        // A long non-ASCII differing value must be reported, not panic the
+        // truncation (byte-slicing would split a multibyte codepoint).
+        let mut wide = projection.documents.clone();
+        wide.get_mut("ds:ax:reports").unwrap()["notes"] = json!(["名前".repeat(60)]);
+        let err = projection.validate_observed(&wide).unwrap_err().to_string();
+        assert!(
+            err.contains("notes"),
+            "a wide non-ASCII diff must be reported: {err}"
+        );
     }
 }
