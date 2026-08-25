@@ -89,8 +89,10 @@ impl CatalogProjection {
 fn describe_field_diff(expected: &Value, actual: &Value) -> String {
     fn short(v: &Value) -> String {
         let s = v.to_string();
-        if s.len() > 120 {
-            format!("{}…", &s[..120])
+        // Truncate on a CHAR boundary (values can hold non-ASCII, e.g. a CJK
+        // `fields_json`); byte slicing `&s[..120]` would panic mid-codepoint.
+        if let Some((idx, _)) = s.char_indices().nth(120) {
+            format!("{}…", &s[..idx])
         } else {
             s
         }
@@ -785,6 +787,16 @@ mod tests {
         assert!(
             err.contains("time_min") && err.contains("dropped"),
             "a dropped key must be named: {err}"
+        );
+
+        // A long non-ASCII differing value must be reported, not panic the
+        // truncation (byte-slicing would split a multibyte codepoint).
+        let mut wide = projection.documents.clone();
+        wide.get_mut("ds:ax:reports").unwrap()["notes"] = json!(["名前".repeat(60)]);
+        let err = projection.validate_observed(&wide).unwrap_err().to_string();
+        assert!(
+            err.contains("notes"),
+            "a wide non-ASCII diff must be reported: {err}"
         );
     }
 }
