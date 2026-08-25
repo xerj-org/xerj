@@ -163,6 +163,16 @@ pub(crate) fn reconcile_plan(
         // join, and NO group-less dataset of the file's own family exists (a
         // >8-config fleet forms its own data dataset instead, and such a file
         // must join THAT, not be forced into docs).
+        // #731 (1): unlike `dataset::cluster`, this fold does not bound the
+        // demoted fleet at `DOC_DEMOTE_MAX_FILES`. A 9th single-record config
+        // landing in a scope whose frozen plan already demoted 8 into `docs`
+        // (so no group-less dataset of its own family exists) joins docs too,
+        // where a *fresh* re-cluster would instead form a new data dataset for
+        // that family. This is not drift from the committed plan — it is
+        // incremental's committed-identity-preservation contract doing its
+        // job (it must not re-cluster) — but it does mean a long-lived
+        // incremental run and a from-scratch genesis can diverge on where a
+        // >8-file fleet ends up.
         let all_group_less = scan.sketches.iter().all(|s| s.group.is_none());
         let all_empty_key_fields = scan.sketches.iter().all(|s| s.key_fields.is_empty());
         let docs_target = retained.is_none()
@@ -313,6 +323,16 @@ fn retained_slug(
     Ok(slug.clone())
 }
 
+// #731 (2): scope-agnostic by construction — candidates are filtered by
+// `family`/`group` only, never by which scope (e.g. which nested `.git`
+// repo) the file lives under. With multiple group-less `docs` datasets
+// already frozen (one per scope), a routed document is free to join
+// whichever one wins on field-overlap ratio + slug, not necessarily the one
+// a fresh, scope-keyed plan would have folded it into. `ensure_compatible`
+// still gates by type, so this can only pick a *compatible* docs dataset,
+// never a mismatched one — but it is pre-existing family-based classify
+// behavior, not something #729/#730 introduced, and is not demonstrable in
+// a single-scope tree.
 fn classify_new(
     group: &Option<String>,
     family: &str,
@@ -341,6 +361,20 @@ fn classify_new(
             // wrongly counts the pruned `symbols` key and aborted a new code
             // file — the #729 central case.) `let _` keeps the shared
             // `field_overlap` result in scope for the data-family branches.
+            //
+            // #731 (3): this also silently admits a routed file with ZERO
+            // rendered fields (e.g. an unreadable/empty document) — harmless,
+            // since it junks at phase B (see `document_sample`'s doc
+            // comment), but unscreened here rather than flagged.
+            //
+            // #731 (4): and it tolerates a brand-new object-valued
+            // (`acc.n == 0`) field beyond the known `symbols` sidecar — e.g. a
+            // document introducing a never-before-seen `metadata: {...}`
+            // field absent from the frozen specs. By design, not a
+            // mapping-widening regression: `FieldAcc` never scalar-types
+            // objects (see `ensure_compatible` above), and genesis folds
+            // object-field documents without a `FieldSpec` too, so this is
+            // consistent with genesis admission.
             let _ = (intersection, union);
             true
         } else if group.is_some() {
