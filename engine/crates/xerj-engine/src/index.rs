@@ -339,6 +339,49 @@ mod collection_publication_fail_closed_tests {
         );
     }
 
+    /// #421 "Also unresolved": `_id`'s numeric-prefilter safety rests on a TYPE
+    /// invariant, not a gate. `compute_sort_values` emits the `_id` sort value as
+    /// a `String`, so `SortTopK::primary_f64_rejects`'s `as_f64()` is always
+    /// `None` for an `_id` sort and the numeric pre-filter never mis-rejects a
+    /// hit. The invariant held but had no binding test; pin it, so a change that
+    /// makes the `_id` sort value numeric fails here instead of silently
+    /// re-opening the defect the code comment warns about.
+    #[tokio::test]
+    async fn id_sort_value_stays_a_string_so_the_numeric_prefilter_declines_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("id-sort-invariant", text_schema())
+            .unwrap();
+        let idx = engine.get_index("id-sort-invariant").unwrap();
+        idx.abort_background_tasks();
+
+        let req = xerj_query::parse_request(&json!({
+            "query": {"match_all": {}},
+            "sort": [{"_id": "asc"}],
+        }))
+        .unwrap();
+
+        let vals =
+            super::compute_sort_values(&json!({"body": "x"}), 1.0, "doc-42", &req.sort, &idx);
+        assert_eq!(vals.len(), 1, "one sort field yields one sort value");
+        assert!(
+            matches!(&vals[0], serde_json::Value::String(s) if s == "doc-42"),
+            "#421: the `_id` sort value must be a String (got {:?}); a numeric value \
+             would let SortTopK::primary_f64_rejects' as_f64() apply and mis-reject an \
+             `_id`-sorted hit",
+            vals[0]
+        );
+        // The consumer end: `as_f64()` on the `_id` sort value is `None`, which is
+        // exactly what keeps the numeric pre-filter from ever touching an `_id` sort.
+        assert!(
+            vals[0].as_f64().is_none(),
+            "an `_id` sort value must not be numeric"
+        );
+    }
+
     async fn assert_flush_publication_blocks_reader_then_finishes(inject_error: bool) {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
