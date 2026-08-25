@@ -481,6 +481,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         scan_workers: 1,
         pdf_workers: 1,
         resource_notes: Vec::new(),
+        xerj_url_note: None,
         pdf_timeout_secs: 30,
         bulk_mb: 1,
         bulk_timeout_secs: 30,

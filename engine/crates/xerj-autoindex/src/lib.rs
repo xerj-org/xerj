@@ -1636,6 +1636,7 @@ mod phase_a_grouping_tests {
             scan_workers: 1,
             pdf_workers: 1,
             resource_notes: Vec::new(),
+            xerj_url_note: None,
             pdf_timeout_secs: 10,
             bulk_mb: 1,
             bulk_timeout_secs: 10,
@@ -3530,6 +3531,13 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
+    // #768: the wrong-node warning is a safety signal, not progress chatter, so
+    // it goes to stderr unconditionally (surviving --quiet, which silences the
+    // resource_notes/pr.note surface) and before any endpoint I/O — the same
+    // delivery map/status use. It is also mirrored into the --json result below.
+    if let Some(note) = &cfg.xerj_url_note {
+        eprintln!("autoindex: {note}");
+    }
     // Fix the phase-A pool width BEFORE anything parallel starts: hashing and
     // sniffing are the CPU-bound phase, and they used to take every core no
     // matter what the caller asked for (#240 §2).
@@ -6250,6 +6258,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         "bulk_concurrency_final": es.bulk_concurrency_limit(),
         "bulk_congestion_events": es.bulk_congestion_events(),
         "resource_notes": cfg.resource_notes,
+        // #768: mirror the wrong-node warning here too (null when it did not
+        // fire), so a --json consumer sees the same safety signal stderr does.
+        "xerj_url_note": cfg.xerj_url_note,
         "semantic": !cfg.no_semantic,
         "pdf_extraction_reuse": pdf_spool_budget.report(),
     });

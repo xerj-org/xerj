@@ -32,6 +32,13 @@ pub struct IndexCfg {
     pub pdf_workers: usize,
     /// What the machine forced on this run, printed once at start-up.
     pub resource_notes: Vec<String>,
+    /// #768: the `XERJ_URL`-ignored safety note (set when `XERJ_URL` is present
+    /// but `--url` was not passed). Carried separately from `resource_notes`
+    /// because it is a safety warning, not routine progress chatter: it is
+    /// emitted with an unconditional `eprintln` (so `--quiet` does not silence a
+    /// "you may be writing to the wrong node" message) and mirrored into the
+    /// `--json` result, matching how `map`/`status` deliver the same note.
+    pub xerj_url_note: Option<String>,
     pub pdf_timeout_secs: u64,
     pub bulk_mb: usize,
     pub bulk_timeout_secs: u64,
@@ -819,10 +826,6 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 );
             }
             let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
-            let mut resource_notes = plan.notes;
-            if let Some(note) = xerj_url_note {
-                resource_notes.push(note);
-            }
             Ok(Cmd::Index(Box::new(IndexCfg {
                 root,
                 url,
@@ -831,7 +834,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 workers: plan.index_workers,
                 scan_workers: plan.scan_threads,
                 pdf_workers: plan.pdf_workers,
-                resource_notes,
+                resource_notes: plan.notes,
+                // #768: delivered by run_index via unconditional eprintln (not the
+                // --quiet-suppressible resource_notes surface) and mirrored into
+                // --json, so a wrong-node warning is never silently dropped.
+                xerj_url_note,
                 pdf_timeout_secs,
                 bulk_mb,
                 bulk_timeout_secs,
@@ -997,6 +1004,21 @@ mod tests {
         assert!(
             note(Some("   "), false).is_none(),
             "blank XERJ_URL: no note"
+        );
+    }
+
+    /// #768: the index cfg carries the XERJ_URL-ignored note on its own field
+    /// (delivered by an unconditional eprintln, so --quiet cannot silence a
+    /// wrong-node warning) rather than folding it into the --quiet-suppressible
+    /// resource_notes. An explicit --url means the env var was not ignored, so
+    /// there is nothing to warn about — deterministic regardless of the
+    /// environment the test runs in.
+    #[test]
+    fn index_suppresses_the_xerj_url_note_when_url_is_explicit() {
+        let cfg = index(&["data", "--url", "http://es.internal:9200"]);
+        assert!(
+            cfg.xerj_url_note.is_none(),
+            "an explicit --url means XERJ_URL was not ignored; no note"
         );
     }
 
