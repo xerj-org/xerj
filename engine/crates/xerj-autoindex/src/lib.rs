@@ -3334,18 +3334,33 @@ fn sweep_excluded_groups(
         // the first upgraded run. Delete the main `file:` doc by its exact,
         // prefix-encoded `_id` too: it catches legacy and current docs alike and
         // is inherently corpus-scoped (a sibling corpus's id differs), so it
-        // cannot strand or over-delete. (Legacy `file-alias:` ids can't be
-        // reconstructed here without the per-alias path_ids — a smaller residual.)
-        es.delete_by_query(
-            catalog::CATALOG_INDEX,
-            &json!({"ids": {"values": [catalog::file_id(prefix, &entry.file_key)]}}),
-        )
-        .with_context(|| {
-            format!(
-                "sweep catalog file doc by id for newly-excluded {}",
-                entry.path
-            )
-        })?;
+        // cannot strand or over-delete.
+        //
+        // Legacy `file-alias:` docs get the same treatment: `plan` is the
+        // FROZEN plan (the state before this run), so `duplicate_files` still
+        // carries every alias's `rel`/`path_id` for a content group being
+        // excluded now — the same lookup `catalog::duplicate_file_id` needs,
+        // and the same shape `stale_alias_ids` above already reconstructs ids
+        // from elsewhere in this file. Building each alias's exact id closes
+        // the residual the main-doc fix (above) left open: a pre-#737
+        // `file-alias:` doc has no `prefix` either, so it also survives the
+        // #693 term-scoped alias sweep on the first upgraded run.
+        let mut ids = vec![catalog::file_id(prefix, &entry.file_key)];
+        ids.extend(
+            plan.duplicate_files
+                .iter()
+                .filter(|alias| alias.file_key == entry.file_key)
+                .map(|alias| {
+                    catalog::duplicate_file_id(prefix, &alias.file_key, &alias.rel, &alias.path_id)
+                }),
+        );
+        es.delete_by_query(catalog::CATALOG_INDEX, &json!({"ids": {"values": ids}}))
+            .with_context(|| {
+                format!(
+                    "sweep catalog file/alias docs by id for newly-excluded {}",
+                    entry.path
+                )
+            })?;
         // #694: soft-invalidate the edges this file taught. `invalidate_prior_edges`
         // tolerates a not-yet-created edges index (returns 0), so a graph run whose
         // edges index has not been ensured at this point is safe.
