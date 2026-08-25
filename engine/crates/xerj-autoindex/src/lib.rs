@@ -12,6 +12,7 @@ pub mod dataset;
 pub mod detect;
 pub mod esclient;
 pub mod estimate;
+pub mod search;
 pub mod extract;
 pub mod feedback;
 pub mod gate;
