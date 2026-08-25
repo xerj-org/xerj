@@ -5,7 +5,8 @@
 //! document record {title, headings, body}.
 
 use super::{
-    emit_document, sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_WHOLE_FILE,
+    emit_document, sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink,
+    MAX_RECORDS_PER_FILE, MAX_WHOLE_FILE,
 };
 use anyhow::Result;
 use serde_json::{Map, Value};
@@ -92,7 +93,14 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     } else {
         doc.title.trim().to_string()
     };
-    emit_document(&title, &doc.headings, doc.body.trim(), sink, &mut stats);
+    emit_document(
+        &title,
+        &doc.headings,
+        doc.body.trim(),
+        MAX_RECORDS_PER_FILE,
+        sink,
+        &mut stats,
+    );
     Ok(stats)
 }
 

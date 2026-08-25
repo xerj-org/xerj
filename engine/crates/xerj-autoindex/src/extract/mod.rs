@@ -67,6 +67,10 @@ pub struct RawRecord {
 pub struct ExtractStats {
     pub records: u64,
     pub junk: u64,
+    /// Set when a per-file record cap (`MAX_RECORDS_PER_FILE`) stopped the
+    /// split before the whole body was emitted (#381). Carried out so the
+    /// truncation is reported, never silent.
+    pub truncated: bool,
 }
 
 /// Sink returns false to stop extraction early (sampling).
@@ -86,6 +90,18 @@ pub const MAX_WHOLE_FILE: u64 = 64 << 20; // whole-file parse cap (json/html/yam
 /// comfortably inside the 512-token limit of the built-in neural embedder, so
 /// a section maps to one vector without truncation.
 pub const SECTION_CHARS: usize = 2 << 10;
+
+/// Hard cap on section records one file may emit (#381).
+///
+/// A magic-less printable byte payload (a raw texture, a packed `.bytes` asset)
+/// decodes under the text fallback, classifies as prose and is sectioned in
+/// full — one record per `SECTION_CHARS`, so the 16 MiB txt read cap becomes
+/// ~8k noise records with no ceiling of its own. This bounds that; the drop is
+/// surfaced via `ExtractStats.truncated`, so a genuinely large *legitimate*
+/// document is reported and never silently cut. A resource guard keyed off
+/// record count only — never off byte statistics, which is what deleted CJK
+/// text worldwide and was removed in #371.
+pub const MAX_RECORDS_PER_FILE: usize = 4 << 10; // 4096
 
 /// Characters of the previous section repeated at the start of the next, so an
 /// answer spanning a boundary stays retrievable from both sides.
@@ -155,7 +171,14 @@ pub fn extract_as_document_with_name(
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "untitled".into());
-    emit_document(&title, &[], text.trim(), sink, &mut stats);
+    emit_document(
+        &title,
+        &[],
+        text.trim(),
+        MAX_RECORDS_PER_FILE,
+        sink,
+        &mut stats,
+    );
     Ok(stats)
 }
 
@@ -506,6 +529,7 @@ pub fn emit_document(
     title: &str,
     headings: &[String],
     body: &str,
+    max_records: usize,
     sink: Sink,
     stats: &mut ExtractStats,
 ) -> bool {
@@ -518,17 +542,33 @@ pub fn emit_document(
         let Some(prev) = pending.replace(sec) else {
             return true;
         };
+        // #381: bound noise from a misclassified payload. Stopping the split
+        // (not just the sink) also stops paying to section the rest of the body.
+        if next >= max_records {
+            stats.truncated = true;
+            return false;
+        }
         let i = next;
         next += 1;
         stats.records += 1;
         alive = sink(section_record(title, headings, i, true, prev));
         alive
     });
+    // A sink that stopped early (sampling) sets `alive = false`; the cap leaves
+    // it true and sets `truncated` instead. Distinguish so a capped run still
+    // reports success and does NOT emit the over-cap `pending` tail section.
     if !alive {
         return false;
     }
+    if stats.truncated {
+        return true;
+    }
     match pending {
         Some(last) => {
+            if next >= max_records {
+                stats.truncated = true;
+                return true;
+            }
             stats.records += 1;
             sink(section_record(title, headings, next, next > 0, last))
         }
@@ -771,7 +811,14 @@ mod section_tests {
                 got.push((r.locator.clone(), r.fields.contains_key("section")));
                 true
             };
-            assert!(emit_document("t", &[], body, &mut sink, &mut stats));
+            assert!(emit_document(
+                "t",
+                &[],
+                body,
+                MAX_RECORDS_PER_FILE,
+                &mut sink,
+                &mut stats
+            ));
             assert_eq!(stats.records as usize, got.len());
             got
         }
@@ -801,10 +848,61 @@ mod section_tests {
             "t",
             &[],
             &doc(60, 300),
+            MAX_RECORDS_PER_FILE,
             &mut sink,
             &mut stats
         ));
         assert_eq!(got, vec!["s0".to_string(), "s1".to_string()]);
         assert_eq!(stats.records, 2);
+    }
+
+    /// #381: a body that sections into far more chunks than the cap yields
+    /// exactly the cap and REPORTS the truncation — it is never silent.
+    #[test]
+    fn emit_document_caps_records_and_reports_truncation() {
+        let mut got = Vec::new();
+        let mut stats = ExtractStats::default();
+        let mut sink = |r: RawRecord| {
+            got.push(r.locator.clone());
+            true
+        };
+        // doc(60, 300) sections into well more than 3 chunks.
+        assert!(emit_document(
+            "t",
+            &[],
+            &doc(60, 300),
+            3,
+            &mut sink,
+            &mut stats
+        ));
+        assert_eq!(got.len(), 3, "record count must be bounded by the cap");
+        assert_eq!(stats.records, 3);
+        assert!(stats.truncated, "truncation must be reported, not silent");
+    }
+
+    /// A document within the cap indexes in full and is not flagged truncated.
+    #[test]
+    fn emit_document_under_the_cap_is_not_truncated() {
+        let mut n = 0usize;
+        let mut stats = ExtractStats::default();
+        let mut sink = |_r: RawRecord| {
+            n += 1;
+            true
+        };
+        let body = doc(60, 300); // ~9 sections, well under the cap
+        assert!(emit_document(
+            "t",
+            &[],
+            &body,
+            MAX_RECORDS_PER_FILE,
+            &mut sink,
+            &mut stats
+        ));
+        assert!(!stats.truncated);
+        assert_eq!(stats.records as usize, n);
+        assert!(
+            n > 1 && n < MAX_RECORDS_PER_FILE,
+            "sanity: multi-section but under the cap, got {n}"
+        );
     }
 }
