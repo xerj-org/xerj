@@ -80,6 +80,10 @@ pub struct MapCfg {
     pub prefix: String,
     pub json: bool,
     pub dataset: Option<String>,
+    /// A startup note when `XERJ_URL` was set but ignored (endpoint comes from
+    /// `--url` only). `map` reads the catalog, so a stale var shows the wrong
+    /// node's map without a word — same trap as the index path, read side.
+    pub xerj_url_note: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +92,9 @@ pub struct StatusCfg {
     pub api_key: Option<String>,
     pub prefix: String,
     pub state_dir: Option<PathBuf>,
+    /// See [`MapCfg::xerj_url_note`]: `status` queries the same endpoint, so a
+    /// set-but-ignored `XERJ_URL` would report the wrong node's progress.
+    pub xerj_url_note: Option<String>,
 }
 
 #[derive(Debug)]
@@ -749,6 +756,12 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         }
     }
 
+    // `--url` is the only endpoint source for every subcommand; XERJ_URL is
+    // ignored on purpose (a stale var must not redirect a write). Computed once
+    // so index, map, and status all surface the same mismatch note.
+    let xerj_url_note =
+        xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit);
+
     match (sub.as_deref(), folder) {
         (Some("map"), _) | (Some("status"), _) if max_minutes_explicit || approve_explicit => {
             Err(format!(
@@ -782,6 +795,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             prefix,
             json,
             dataset,
+            xerj_url_note,
         })),
         (Some("status"), _) if bulk_timeout_explicit => {
             Err("--bulk-timeout-secs applies only to indexing, not `autoindex status`".into())
@@ -791,6 +805,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             api_key,
             prefix,
             state_dir,
+            xerj_url_note,
         })),
         (None, Some(root)) => {
             // A flag that is accepted and does nothing is the shape this repo
@@ -805,9 +820,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             }
             let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
             let mut resource_notes = plan.notes;
-            if let Some(note) =
-                xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit)
-            {
+            if let Some(note) = xerj_url_note {
                 resource_notes.push(note);
             }
             Ok(Cmd::Index(Box::new(IndexCfg {
