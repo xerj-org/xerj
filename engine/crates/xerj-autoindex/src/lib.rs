@@ -3531,13 +3531,6 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
-    // #768: the wrong-node warning is a safety signal, not progress chatter, so
-    // it goes to stderr unconditionally (surviving --quiet, which silences the
-    // resource_notes/pr.note surface) and before any endpoint I/O — the same
-    // delivery map/status use. It is also mirrored into the --json result below.
-    if let Some(note) = &cfg.xerj_url_note {
-        eprintln!("autoindex: {note}");
-    }
     // Fix the phase-A pool width BEFORE anything parallel starts: hashing and
     // sniffing are the CPU-bound phase, and they used to take every core no
     // matter what the caller asked for (#240 §2).
@@ -3564,6 +3557,16 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .unwrap_or_else(|| progress::default_interval(surface)),
     );
     let ticker = pr.spawn_ticker();
+    // #768: the wrong-node warning is a safety signal, not routine progress, so
+    // it goes out FIRST and through `pr.warn` — which, unlike `pr.note`, is not
+    // silenced by `--quiet`/`Surface::Silent` (a "you may be writing to the
+    // wrong node" message must still reach the operator) yet stays a well-formed
+    // event on `--progress json` instead of a bare line. It is emitted before
+    // any endpoint I/O below, and mirrored into the --json result. map/status
+    // deliver the same note; they have no progress surface, so they `eprintln`.
+    if let Some(note) = &cfg.xerj_url_note {
+        pr.warn(&format!("autoindex: {note}"));
+    }
     // One throughput meter for the whole run: both phase-A routes (the legacy
     // scan and the generated route's `project_reconcile_plan`) feed it, so the
     // estimate is built from whatever this invocation actually parsed.
