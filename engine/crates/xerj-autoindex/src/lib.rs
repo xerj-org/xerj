@@ -635,19 +635,13 @@ fn begin_non_graph_generation(
     // #381: the per-file record cap dropped a file's tail during preparation.
     // The generated path seals before the graph worker loop runs, so report it
     // here rather than at the shared post-run summary.
-    let truncated = snapshot
+    let truncated: Vec<String> = snapshot
         .files
         .iter()
-        .filter_map(|f| f.prepared.as_ref())
-        .filter(|p| p.truncated)
-        .count();
-    if truncated > 0 {
-        pr.note(&format!(
-            "{truncated} file(s) hit the per-file record cap ({}) and were truncated; \
-             split the input or raise the cap if the dropped tail matters (#381)",
-            extract::MAX_RECORDS_PER_FILE
-        ));
-    }
+        .filter(|f| f.prepared.as_ref().is_some_and(|p| p.truncated))
+        .filter_map(|f| plan.files.get(&f.content_id).map(|a| a.rel.clone()))
+        .collect();
+    note_truncated_files(pr, &truncated);
     let chunker_identity = prepared_records_identity(cfg)?;
     let semantic = plan
         .datasets
@@ -3441,6 +3435,74 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
 
+/// #381/#759: the per-file record cap dropped these files' tails. Name them (up
+/// to a bound) so a truncated document is identifiable on a multi-file corpus,
+/// not merely counted — the "never silent" guarantee is only useful if the user
+/// can tell *which* document lost its tail. `None` when nothing was truncated.
+fn truncation_note_message(rels: &[String]) -> Option<String> {
+    if rels.is_empty() {
+        return None;
+    }
+    const SHOWN: usize = 10;
+    let mut names: Vec<&str> = rels.iter().map(String::as_str).collect();
+    names.sort_unstable();
+    let listed = names
+        .iter()
+        .take(SHOWN)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let more = names.len().saturating_sub(SHOWN);
+    let tail = if more > 0 {
+        format!(" (and {more} more)")
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "{} file(s) hit the per-file record cap ({}) and were truncated: {listed}{tail} — \
+         split them or raise the cap if the dropped tail matters (#381)",
+        names.len(),
+        extract::MAX_RECORDS_PER_FILE
+    ))
+}
+
+fn note_truncated_files(pr: &Progress, rels: &[String]) {
+    if let Some(msg) = truncation_note_message(rels) {
+        pr.note(&msg);
+    }
+}
+
+#[cfg(test)]
+mod truncation_note_tests {
+    use super::truncation_note_message;
+
+    #[test]
+    fn empty_is_none() {
+        assert!(truncation_note_message(&[]).is_none());
+    }
+
+    #[test]
+    fn names_the_truncated_files() {
+        let msg = truncation_note_message(&["docs/big.md".into(), "a/soup.bytes".into()]).unwrap();
+        // Count, both names (sorted), the cap, and the #381 tag.
+        assert!(msg.contains("2 file(s)"), "{msg}");
+        assert!(
+            msg.contains("a/soup.bytes") && msg.contains("docs/big.md"),
+            "{msg}"
+        );
+        assert!(msg.contains("4096") && msg.contains("#381"), "{msg}");
+        assert!(!msg.contains("and 0 more"), "{msg}");
+    }
+
+    #[test]
+    fn caps_the_list_and_counts_the_rest() {
+        let rels: Vec<String> = (0..14).map(|i| format!("f{i:02}.txt")).collect();
+        let msg = truncation_note_message(&rels).unwrap();
+        assert!(msg.contains("14 file(s)"), "{msg}");
+        assert!(msg.contains("(and 4 more)"), "{msg}");
+    }
+}
+
 /// `run_index` plus the machine-readable run summary — the same JSON the
 /// run writes to the catalog as `run:{run_id}` (datasets, `records_total`
 /// as *live* per-dataset counts, `graph.edges_written` etc.). `xerj brain`
@@ -4770,8 +4832,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // journal record exists for a document that was never accepted).
     let rejected_records = AtomicU64::new(0);
     // Files whose section stream hit the per-file record cap (#381): the tail
-    // was dropped, so it is surfaced after the run rather than silently lost.
-    let truncated_files = AtomicU64::new(0);
+    // was dropped, so it is surfaced BY NAME after the run, not silently lost.
+    let truncated_files = Mutex::new(Vec::<String>::new());
     let bulk_errors = Mutex::new(Vec::<String>::new());
     let graph: Option<GraphRt> = if cfg.no_graph {
         None
@@ -5279,7 +5341,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                             Ok(stats) => {
                                 file_junk += stats.junk;
                                 if stats.truncated {
-                                    truncated_files.fetch_add(1, Ordering::Relaxed);
+                                    truncated_files.lock().unwrap().push(f.rel.clone());
                                 }
                             }
                             Err(e) => {
@@ -5858,16 +5920,10 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         cat_buf.push(b'\n');
     }
 
-    // #381: the per-file record cap dropped a file's tail. Report it (never
-    // silent) so a genuinely large legitimate document is visible, not guessed.
-    let truncated = truncated_files.load(Ordering::Relaxed);
-    if truncated > 0 {
-        pr.note(&format!(
-            "{truncated} file(s) hit the per-file record cap ({}) and were truncated; \
-             split the input or raise the cap if the dropped tail matters (#381)",
-            extract::MAX_RECORDS_PER_FILE
-        ));
-    }
+    // #381/#759: the per-file record cap dropped these files' tails. Report them
+    // by name (never silent) so a genuinely large legitimate document is visible.
+    let truncated = truncated_files.into_inner().unwrap();
+    note_truncated_files(&pr, &truncated);
 
     // dataset docs
     let mut junk_records_by_run: u64 = junk_records.load(Ordering::Relaxed);

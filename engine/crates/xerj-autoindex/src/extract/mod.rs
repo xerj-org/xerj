@@ -905,4 +905,44 @@ mod section_tests {
             "sanity: multi-section but under the cap, got {n}"
         );
     }
+
+    /// #381 boundary (from the #758 correctness review): a body of EXACTLY the
+    /// cap emits every section and is NOT flagged truncated; one section over
+    /// emits exactly the cap and IS truncated, dropping the tail. Driven by the
+    /// body's real section count so it pins the off-by-one directly.
+    #[test]
+    fn emit_document_boundary_at_and_one_over_the_cap() {
+        let body = doc(60, 300);
+        let total = split_sections(&body).len();
+        assert!(total >= 3, "need a multi-section body, got {total}");
+
+        // N == cap: all emitted, not truncated.
+        let mut at = 0usize;
+        let mut stats = ExtractStats::default();
+        let mut sink = |_r: RawRecord| {
+            at += 1;
+            true
+        };
+        assert!(emit_document("t", &[], &body, total, &mut sink, &mut stats));
+        assert_eq!(at, total, "N==cap must emit every section");
+        assert!(!stats.truncated, "N==cap must NOT set truncated");
+
+        // N == cap + 1 (cap = total - 1): exactly cap emitted, tail dropped.
+        let mut over = 0usize;
+        let mut stats2 = ExtractStats::default();
+        let mut sink2 = |_r: RawRecord| {
+            over += 1;
+            true
+        };
+        assert!(emit_document(
+            "t",
+            &[],
+            &body,
+            total - 1,
+            &mut sink2,
+            &mut stats2
+        ));
+        assert_eq!(over, total - 1, "N>cap must emit exactly the cap");
+        assert!(stats2.truncated, "N>cap must set truncated");
+    }
 }
