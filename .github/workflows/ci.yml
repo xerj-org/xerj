@@ -141,15 +141,18 @@ jobs:
         working-directory: engine
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-  # #352: #327 (tree-sitter 0.25) and #317 (0.26) were each green on their own
-  # head, but tree-sitter declares `links = "tree-sitter"` so only one version
-  # may exist — the MERGE was a hard resolution failure that took out build,
-  # test, clippy and every release job at once, and stayed red long enough that
-  # ~every open PR inherited it. No gate caught it because each branch resolved
-  # its own head, never the merge. This resolves the merge in a few seconds, no
-  # compile: `actions/checkout` gives refs/pull/N/merge by default on a
-  # pull_request, so this runs against the merged tree. `--locked` also fails on
-  # Cargo.lock drift.
+  # #352: #327 (tree-sitter 0.25) and #317 (0.26) were each green alone, but
+  # tree-sitter is a `links` crate so only one version may exist. The merged
+  # tree stopped resolving, taking out build/test/clippy/release at once.
+  # Each PR's checks ran on its own merge ref (head + base-at-check-time) and
+  # neither base had the sibling yet; GitHub does not re-run a green PR when the
+  # base moves, so the conflicting pair was never in one check's tree. This job
+  # runs on refs/pull/N/merge too (default checkout on pull_request), so it does
+  # NOT close that stale-base gap by itself. Its value is a fast dedicated signal
+  # (seconds, no compile) plus `--locked`, which catches Cargo.lock drift no
+  # other job checks. The tree-sitter recurrence is prevented structurally by the
+  # hoist to [workspace.dependencies], where two version bumps now collide on one
+  # line. (#749)
   workspace-resolves:
     name: Workspace resolves (links + lockfile)
     runs-on: ubuntu-latest
