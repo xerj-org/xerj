@@ -1,0 +1,13 @@
+{
+  "method": "Two-point measurement against the CLI's own accounting. A payload of known char length is injected via --append-system-prompt; cache_creation_input_tokens is read from --output-format json and the no-payload baseline subtracted. Uses the real production tokenizer; no third-party tokenizer is involved.",
+  "baseline_cc_tokens": 6246,
+  "measured": [
+    {"category": "java_source",  "chars": 20000, "cc": 14924, "delta_tokens": 8678,  "chars_per_token": 2.305},
+    {"category": "java_source",  "chars": 40004, "cc": 22812, "delta_tokens": 16566, "chars_per_token": 2.415},
+    {"category": "grep_output",  "chars": 20000, "cc": 17118, "delta_tokens": 10872, "chars_per_token": 1.840},
+    {"category": "xerj_json",    "chars": 13207, "cc": 11986, "delta_tokens": 5740,  "chars_per_token": 2.301}
+  ],
+  "ratios_chars_per_token": {"java_source": 2.35, "grep_output": 1.84, "xerj_json": 2.30, "default": 2.20},
+  "linearity_check": "20k java predicts 17356 tokens at 40k; measured 16566 (-4.6%). Deviation is composition, not nonlinearity: the second 20k is IndexWriter.java, which is javadoc-heavy English (less dense than code).",
+  "finding": "grep output is 1.84 chars/token vs 2.35 for Java source - it is ~25% denser per character because file paths, colons and line numbers fragment into many tokens. Attributing grep output at a source-code ratio would UNDERCOUNT the cost of the search arm by about a quarter."
+}

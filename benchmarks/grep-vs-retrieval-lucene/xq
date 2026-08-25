@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""
+xq -- the ONLY retrieval affordance the XERJ arms get.
+
+Usage:  xq "<free text query>" [k]
+
+Deliberately dumb and question-agnostic: it takes whatever query string the model
+supplies and runs one fixed ES query template against the refsym index. There is no
+per-question tuning, no hand-written query, no reranking we authored for a specific
+answer. If this file contained question-specific logic the benchmark would be rigged,
+so it must stay generic -- that is the point.
+
+Returns symbol-level hits: path:line, kind, signature, and the actual body, capped so
+a single call cannot dump the corpus into context.
+"""
+import json
+import sys
+import urllib.request
+
+ENDPOINT = "http://localhost:9200/refsym/_search"
+MAX_CODE_CHARS = 1600   # per hit; keeps one call from being a whole-file dump
+DEFAULT_K = 5
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("usage: xq \"<query>\" [k]", file=sys.stderr)
+        return 2
+    q = sys.argv[1]
+    k = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_K
+    k = max(1, min(k, 10))
+
+    body = {
+        "size": k,
+        "_source": ["path", "name", "kind", "line", "end_line", "sig", "doc", "code"],
+        "query": {
+            "bool": {
+                "should": [
+                    {"match": {"code": {"query": q}}},
+                    {"match": {"name_text": {"query": q, "boost": 3}}},
+                    {"match": {"sig": {"query": q, "boost": 2}}},
+                    {"match": {"doc": {"query": q}}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+
+    req = urllib.request.Request(
+        ENDPOINT, data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            res = json.load(r)
+    except Exception as e:
+        print(f"xq: query failed: {e}", file=sys.stderr)
+        return 1
+
+    hits = res.get("hits", {}).get("hits", [])
+    if not hits:
+        print("no hits")
+        return 0
+
+    for h in hits:
+        s = h["_source"]
+        code = (s.get("code") or "")
+        truncated = len(code) > MAX_CODE_CHARS
+        if truncated:
+            code = code[:MAX_CODE_CHARS]
+        print(f"--- {s.get('path')}:{s.get('line')}  [{s.get('kind')}] {s.get('name')}  score={h['_score']:.1f}")
+        if s.get("sig"):
+            print(f"sig: {s['sig']}")
+        print(code)
+        if truncated:
+            print("... [truncated]")
+        print()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
