@@ -204,7 +204,98 @@ pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan) -> Result<()> {
     });
     es.ensure_index(catalog::CATALOG_INDEX, &catalog_create_body)?;
     es.update_mapping(catalog::CATALOG_INDEX, &catalog_update_body)
+        .map_err(|e| explain_legacy_catalog_mapping_conflict(catalog::CATALOG_INDEX, e))
         .context("install generation catalog mapping")
+}
+
+/// The generated catalog declares its fields as `keyword` (exact corpus-scoped
+/// exclusion sweeps depend on it; #737 added `prefix`). A catalog created by an
+/// older build can hold one of those fields dynamically mapped as `text`, and
+/// Elasticsearch cannot change a field's type in place, so the additive
+/// `update_mapping` fails with an opaque `mapper_parsing_exception` naming
+/// whichever field it checked first. Name the cause and the (operator-driven,
+/// data-preserving) recovery instead of surfacing the raw type conflict.
+///
+/// An automatic reindex is deliberately NOT done here: the catalog is global
+/// across every corpus and its scoping drives deletions, so migrating it is a
+/// maintainer decision, not a silent side effect of a run.
+fn explain_legacy_catalog_mapping_conflict(index: &str, err: anyhow::Error) -> anyhow::Error {
+    let msg = format!("{err:#}");
+    if let Some(field) = legacy_text_field_in_conflict(&msg) {
+        return err.context(format!(
+            "the global `{index}` was created by an older build: its `{field}` is mapped as text, \
+             but this version needs the catalog fields as keyword (corpus-scoped sweeps depend on \
+             exact matching) and Elasticsearch cannot change a field's type in place. Reindex \
+             `{index}` into an index with the current mapping (create a fresh index with the \
+             keyword mapping, `_reindex` into it, then swap), and retry"
+        ));
+    }
+    err
+}
+
+/// Pull the field name out of an ES `field [X] already exists as [text], …`
+/// mapper conflict. `None` for any other error, so unrelated failures pass
+/// through untouched.
+fn legacy_text_field_in_conflict(msg: &str) -> Option<String> {
+    let head = &msg[..msg.find("already exists as [text]")?];
+    let open = head.rfind("field [")? + "field [".len();
+    let close = open + head[open..].find(']')?;
+    Some(head[open..close].to_string())
+}
+
+#[cfg(test)]
+mod catalog_mapping_conflict_tests {
+    use super::explain_legacy_catalog_mapping_conflict;
+
+    #[test]
+    fn legacy_text_prefix_conflict_is_explained_not_opaque() {
+        let raw = anyhow::anyhow!(
+            "PUT /autoindex-catalog/_mapping failed: 400 Bad Request \
+             field [prefix] already exists as [text], cannot add [keyword]"
+        );
+        let explained = format!(
+            "{:#}",
+            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
+        );
+        assert!(
+            explained.contains("older build")
+                && explained.contains("Reindex")
+                && explained.contains("`prefix`"),
+            "conflict must be explained with the field + migration path, got: {explained}"
+        );
+        // The original opaque reason is preserved in the chain.
+        assert!(explained.contains("already exists as [text]"));
+    }
+
+    #[test]
+    fn a_different_legacy_text_field_is_named() {
+        // Not just prefix: a fully-dynamic legacy catalog conflicts on whatever
+        // field the server checks first (e.g. doc_kind).
+        let raw =
+            anyhow::anyhow!("field [doc_kind] already exists as [text], cannot add [keyword]");
+        let explained = format!(
+            "{:#}",
+            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
+        );
+        assert!(
+            explained.contains("`doc_kind`") && explained.contains("Reindex"),
+            "must name the actual conflicting field, got: {explained}"
+        );
+    }
+
+    #[test]
+    fn unrelated_mapping_errors_pass_through_unchanged() {
+        let raw = anyhow::anyhow!("PUT /autoindex-catalog/_mapping failed: 503 unavailable");
+        let out = format!(
+            "{:#}",
+            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
+        );
+        assert!(
+            !out.contains("older build"),
+            "must not annotate unrelated errors: {out}"
+        );
+        assert!(out.contains("503 unavailable"));
+    }
 }
 
 /// Project the current inventory onto a committed plan.
