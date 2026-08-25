@@ -273,6 +273,8 @@ fn help_text(feedback: bool) -> String {
              xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
              xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
              xerj autoindex  map             print the discovered data map\n\
+             xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
+                                             query client, no wrapper scripts (see xerj search --help)\n\
              xerj brain      <folder>        one command: index a folder into a running, browsable\n\
                                              second brain in your browser (see xerj brain --help)\n\
              xerj mcp        [opts]          Model Context Protocol stdio server: exposes 10 tools\n\
@@ -1920,6 +1922,12 @@ async fn async_main() -> Result<()> {
     if matches!(argv1.as_deref(), Some("index")) {
         let cmd = parse_index_args();
         return run_cli_index(cmd).await;
+    }
+    if matches!(argv1.as_deref(), Some("search")) {
+        let code = tokio::task::spawn_blocking(xerj_autoindex::search::run_search_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
     }
     if matches!(argv1.as_deref(), Some("autoindex")) {
         // Zero-config folder discovery + indexing over the ES-compat API.

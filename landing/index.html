@@ -160,26 +160,23 @@
     prompt above.
   </p>
 
-<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;                       <span class="comment"># a node, running</span>
-$ tools/xerj-code/scripts/xc-corpus.sh sled https://github.com/spacejam/sled   <span class="comment"># clone + pin the commit</span>
-$ tools/xerj-code/scripts/xc-index.sh  sled                        <span class="comment"># autoindex — tree-sitter AST fields, once</span>
-$ tools/xerj-code/scripts/xc.py sled <span class="accent">"fsync the WAL segment on rotation"</span>
-→ the exact function, its file:line and contract — one plain-English line in, a passage to read out
-
-<span class="comment"># prefer zero extra tooling? the same query on the raw ES wire:</span>
-$ curl -sXPOST localhost:9200/ax-*/_search -H content-type:application/json \
-    -d '{"query":{"multi_match":{"query":"fsync the WAL segment on rotation","fields":["defs^3","body"]}}}'</pre>
+<pre class="code">$ xerj --insecure --data-dir ./.xerj-data &amp;      <span class="comment"># a node, running</span>
+$ git clone --depth 1 https://github.com/spacejam/sled ref/sled
+$ xerj autoindex ref/sled                        <span class="comment"># index once — tree-sitter AST fields</span>
+$ xerj search <span class="accent">"fsync the WAL segment on rotation"</span>
+→ the exact function, its file:line and contract — one plain-English line in, a passage to read out</pre>
 
   <p class="wide" style="margin-top:var(--sp-3);">
-    Optional convenience layer: the same four steps are wrapped by
-    <code class="inline">xc-corpus.sh</code> / <code class="inline">xc-index.sh</code> /
-    <code class="inline">xc.py</code>, which ship in the repo under
-    <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-mute);">tools/xerj-code/</a>.
-    They add one thing the plain commands don't have — a corpus definition, a
-    few hundred bytes of URLs, pinned commit SHAs and licences, no source, so
-    nothing to redistribute. Share that file, and
-    <code class="inline">xc-corpus.sh --from</code> rebuilds the same commits on
-    the other machine.
+    One binary, no wrapper scripts: <code class="inline">xerj search</code> is a
+    client — it detects the running node and queries it, ranking symbol
+    definitions first (<code class="inline">defs^3</code>) so you get the
+    function, not a grep list. For a whole team, the repeatable-corpus helpers
+    (<code class="inline">xc-corpus.sh</code> / <code class="inline">xc.py</code>)
+    still ship under
+    <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-mute);">tools/xerj-code/</a>:
+    they add a corpus definition — a few hundred bytes of pinned commit SHAs and
+    licences, no source — so <code class="inline">xc-corpus.sh --from</code>
+    rebuilds the exact same commits on another machine.
   </p>
 
   <p class="viz-caption"><a class="mono" href="/case-studies/reference-coding" style="color:var(--z-mute);">THE FULL CASE STUDY — EVERY NUMBER, EVERY TASK, THE EXACT PROMPT →</a><span class="dash" style="color:var(--z-mute);">·</span><a class="mono" href="https://github.com/xerj-org/xerj/blob/main/user-feedback/11-reference-coding-field-reports/2026-08-11-token-savings-reports.md" style="color:var(--z-mute);">WHERE THE USERS-REPORT ~5× FIGURE COMES FROM →</a></p>

@@ -26,6 +26,7 @@ pub mod pool;
 pub mod progress;
 mod reconcile_plan;
 pub mod resources;
+pub mod search;
 pub mod sniff;
 pub mod state;
 mod sync;
