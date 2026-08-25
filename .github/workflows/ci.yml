@@ -332,7 +332,16 @@ jobs:
       #
       # Reuses the binaries the step above already built: the added cost is test
       # runtime, not another compile.
+      # #751: this step intermittently hangs on the 2-4 vCPU hosted runner (a
+      # port/fixture race at low thread count — normal ~2.3 min, observed hanging
+      # 18-28 min). Because main's `cancel-in-progress: false` never auto-cancels,
+      # a hang leaves the whole run stuck for hours with no completed signal, so
+      # main commits never get a CI verdict. Bound it: a hang now fails the step
+      # in 12 min (5x normal, well under the observed hangs) so the run completes
+      # and `gh run rerun --failed` can recover. This does NOT fix the root race —
+      # #751 stays open for the bisect + port/fixture serialisation.
       - name: Workspace tests (all targets) at default parallelism (contributor's `cargo test`)
+        timeout-minutes: 12
         working-directory: engine
         run: cargo test --profile ci-test --workspace
 
