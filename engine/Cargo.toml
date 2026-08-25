@@ -109,6 +109,13 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tempfile = "3"
 # Benchmarking
 criterion = { version = "0.5", features = ["html_reports"] }
+# AST parsing. Only tree-sitter CORE is hoisted here: it declares
+# `links = "tree-sitter"`, so two crates pinning different core versions is a
+# hard resolution failure that takes out the whole workspace at once, not a
+# duplicate-dep warning (#352: #327 pinned 0.25, #317 moved to 0.26, and the
+# merge stopped resolving). One pin, one version. Per-crate grammar pins stay
+# local; the `workspace-resolves` CI gate catches any links crate that drifts.
+tree-sitter = "0.26"
 
 [profile.release]
 opt-level = 3

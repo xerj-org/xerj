@@ -40,7 +40,7 @@ reqwest = { workspace = true, features = ["blocking"] }
 # Core 0.26: forced by tree-sitter-perl 1.1.2, the only #295 grammar with a
 # hard (`links`) core dep — same story as the c-sharp 0.24→0.25 bump. Every
 # other grammar binds through tree-sitter-language and does not care.
-tree-sitter = "0.26"
+tree-sitter = { workspace = true }
 tree-sitter-python = "0.23"
 tree-sitter-c = "0.23"
 tree-sitter-rust = "0.23"
