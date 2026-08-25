@@ -29219,7 +29219,15 @@ pub(crate) fn embedding_execution_identity(
             None,
         ),
         "proxy" => (
-            format!("proxy-unpinned.v1;configured-model={}", cfg.default_model),
+            // #533: the endpoint is part of the embedder identity — the same
+            // model name behind a different `default_endpoint` is a DIFFERENT
+            // embedder, and omitting it let the endpoint change silently past the
+            // #434 guard (a missed detection). `api_key` is deliberately left out
+            // (a rotated key over the same endpoint+model is the same embedder).
+            format!(
+                "proxy-unpinned.v1;configured-model={};endpoint={}",
+                cfg.default_model, cfg.default_endpoint
+            ),
             false,
             Some(
                 "the remote provider does not attest immutable model assets; semantic resume is unsafe"
@@ -29231,7 +29239,11 @@ pub(crate) fn embedding_execution_identity(
     };
     let canonical = format!("{CONTRACT};backend={backend};{material}");
     Ok(crate::engine::EmbeddingExecutionIdentity {
-        version: 1,
+        // #533: v2 folds the proxy endpoint into the identity material. A
+        // persisted v1 record is grandfathered by `validate_embedding_execution`
+        // (a version delta is treated as "unknown", not a mismatch) so upgrading
+        // does not brick an already-populated proxy index.
+        version: 2,
         backend: backend.to_string(),
         identity_sha256: format!("{:x}", Sha256::digest(canonical.as_bytes())),
         dimensions,
@@ -29399,6 +29411,13 @@ fn validate_embedding_execution(
 ) -> Result<()> {
     let path = index_dir.join(EMBEDDING_EXECUTION_FILE);
     let current = embedding_execution_identity(cfg)?;
+    // #533: when the persisted record is from an OLDER identity version, the
+    // `identity_sha256` was computed by a different algorithm (e.g. v1 hashed a
+    // proxy without its endpoint), so a hash delta can't be told apart from a
+    // real embedder change. Grandfather it once — do not refuse — and re-record
+    // at the current version below, so a LATER change under the new algorithm is
+    // detected. Only a SAME-version hash delta is a genuine embedder change.
+    let mut version_upgraded = false;
     if path.exists() {
         let persisted: PersistedEmbeddingExecution = serde_json::from_slice(&std::fs::read(&path)?)
             .map_err(|e| {
@@ -29407,7 +29426,9 @@ fn validate_embedding_execution(
                     path.display()
                 )))
             })?;
-        if persisted.identity_sha256 != current.identity_sha256 && has_documents {
+        if persisted.version != current.version {
+            version_upgraded = true;
+        } else if persisted.identity_sha256 != current.identity_sha256 && has_documents {
             return Err(EngineError::Common(xerj_common::XerjError::embedding(
                 format!(
                     "index {} holds vectors produced by embedding backend {:?} but this server resolves embedding.mode={:?} to backend {:?}. Query vectors from one embedder scored against document vectors from another are silently wrong rather than visibly wrong: the widths can agree, so no dimension check fires, and the scores stay plausible while the ranking degrades toward noise. Restore the previous embedding configuration, or reindex into a new index under this one.",
@@ -29419,11 +29440,11 @@ fn validate_embedding_execution(
             )));
         }
     }
-    if new_index || !has_documents {
+    if new_index || !has_documents || version_upgraded {
         write_file_atomic(
             &path,
             &serde_json::to_vec_pretty(&PersistedEmbeddingExecution {
-                version: 1,
+                version: current.version,
                 backend: current.backend.clone(),
                 identity_sha256: current.identity_sha256.clone(),
             })?,
@@ -29627,6 +29648,91 @@ mod embedding_identity_tests {
         };
         validate_embedding_execution(index_dir, &proxy_without_endpoint, false, true)
             .expect("a proxy that falls back to lexical must not be refused");
+    }
+
+    /// #533: the proxy `default_endpoint` is part of the embedder identity. Same
+    /// model behind a different endpoint is a different embedder; before this it
+    /// slipped past the #434 guard (a missed detection).
+    #[test]
+    fn proxy_endpoint_is_part_of_the_execution_identity() {
+        let a = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: "https://a.example/v1".into(),
+            default_model: "text-embedding-x".into(),
+            ..Default::default()
+        };
+        let b = xerj_common::config::EmbeddingConfig {
+            default_endpoint: "https://b.example/v1".into(),
+            ..a.clone()
+        };
+        let id_a = embedding_execution_identity(&a).unwrap();
+        let id_b = embedding_execution_identity(&b).unwrap();
+        assert_eq!(id_a.backend, "proxy");
+        assert_ne!(
+            id_a.identity_sha256, id_b.identity_sha256,
+            "#533: same model + different endpoint must be distinct identities"
+        );
+
+        // End to end: a populated proxy index reopened under a swapped endpoint
+        // (same identity version, different sha) is refused.
+        let dir = tempfile::tempdir().unwrap();
+        let index_dir = dir.path();
+        validate_embedding_execution(index_dir, &a, true, false).unwrap();
+        let err = validate_embedding_execution(index_dir, &b, false, true)
+            .expect_err("#533: a swapped proxy endpoint over a populated index must be refused");
+        assert!(format!("{err}").contains("holds vectors produced by embedding backend"));
+    }
+
+    /// #533 migration: a record persisted at version 1 (before the endpoint was
+    /// folded in) must be grandfathered — not refused — on upgrade, then
+    /// re-recorded at the current version so a LATER change IS detected.
+    #[test]
+    fn a_version_1_record_is_grandfathered_then_rebaselined() {
+        let dir = tempfile::tempdir().unwrap();
+        let index_dir = dir.path();
+        let path = index_dir.join(EMBEDDING_EXECUTION_FILE);
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&PersistedEmbeddingExecution {
+                version: 1,
+                backend: "proxy".into(),
+                identity_sha256: "legacy-v1-sha-without-endpoint".into(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let proxy = xerj_common::config::EmbeddingConfig {
+            mode: "proxy".into(),
+            default_endpoint: "https://a.example/v1".into(),
+            default_model: "text-embedding-x".into(),
+            ..Default::default()
+        };
+        // Populated index, v1 record, v2 current → grandfathered (not refused).
+        validate_embedding_execution(index_dir, &proxy, false, true)
+            .expect("#533: a v1 record must be grandfathered, not refused, on upgrade");
+
+        // Re-baselined to v2 with the current identity.
+        let rewritten: PersistedEmbeddingExecution =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            rewritten.version, 2,
+            "#533: the record must be re-recorded at v2"
+        );
+        assert_eq!(
+            rewritten.identity_sha256,
+            embedding_execution_identity(&proxy)
+                .unwrap()
+                .identity_sha256
+        );
+
+        // After re-baselining, a LATER endpoint change under v2 IS detected.
+        let swapped = xerj_common::config::EmbeddingConfig {
+            default_endpoint: "https://b.example/v1".into(),
+            ..proxy.clone()
+        };
+        validate_embedding_execution(index_dir, &swapped, false, true)
+            .expect_err("#533: after re-baselining, a v2 endpoint change must be refused");
     }
 
     #[cfg(feature = "onnx-experimental")]
