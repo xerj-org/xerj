@@ -1436,6 +1436,9 @@ mod flush_publication_recovery_tests {
             ("a", "2020-01-01T00:00:00Z"),
             ("b", "2021-06-15T00:00:00Z"),
             ("c", "2022-12-31T00:00:00Z"),
+            // Sub-millisecond precision (>=4 fractional digits): the sort-shadow
+            // stores this in nanoseconds, so a ms-scale range would miss it.
+            ("d", "2020-03-03T03:03:03.123456Z"),
         ] {
             idx.index_document(Some(id.into()), json!({ "ts": ts }))
                 .await
@@ -1464,6 +1467,11 @@ mod flush_publication_recovery_tests {
             idx.search(&req).await.unwrap().total.value
         };
         let want = (1u64, vec!["a".to_string()]);
+        // A sub-millisecond term must still match its own exact stored value
+        // after flush (#789: the ms-scale range rewrite lost these to the
+        // nanosecond sort-shadow — the rewrite must be skipped for such values).
+        let subms = json!({"term": {"ts": "2020-03-03T03:03:03.123456Z"}});
+        let want_d = (1u64, vec!["d".to_string()]);
         for phase in ["pre-flush", "post-flush"] {
             for body in &shapes {
                 let got = run(idx.clone(), body.clone()).await;
@@ -1472,6 +1480,16 @@ mod flush_publication_recovery_tests {
                 let c = count0(idx.clone(), body.clone()).await;
                 assert_eq!(c, 1, "#788 {phase} {body} size:0 count must be 1");
             }
+            let got_d = run(idx.clone(), subms.clone()).await;
+            assert_eq!(
+                got_d, want_d,
+                "#789 {phase} exact sub-ms term must match doc d"
+            );
+            let c_d = count0(idx.clone(), subms.clone()).await;
+            assert_eq!(
+                c_d, 1,
+                "#789 {phase} exact sub-ms term size:0 count must be 1"
+            );
             if phase == "pre-flush" {
                 idx.flush().await.unwrap();
                 assert_eq!(idx.memtable.doc_count(), 0);
@@ -34305,6 +34323,22 @@ mod keyword_rewrite_filter_tests {
     }
 }
 
+/// Does a date string carry sub-millisecond precision — four or more
+/// fractional-second digits after the `.`? The sort-shadow encodes such values
+/// in nanoseconds while `parse_date_ms` yields milliseconds, so the two scales
+/// disagree and the date-`term` rewrite must leave these an exact literal term
+/// (see the rewrite site and #789). Millisecond precision (<=3 digits) and
+/// second precision agree on both scales and are safe to rewrite.
+fn date_string_has_subms(s: &str) -> bool {
+    // Count fractional-second digits EXACTLY as `date_string_to_epoch` does
+    // (its `is_nanos = frac_digits >= 4`), so this gate triggers on precisely
+    // the values the sort-shadow encodes in nanoseconds — no gap, no over-gate.
+    s.rsplit_once('.')
+        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+        .unwrap_or(0)
+        >= 4
+}
+
 /// Rewrite a query by resolving any field aliases to their canonical field names.
 ///
 /// Traverses the query tree, replacing alias field names with their target paths.
@@ -34349,8 +34383,18 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             // #782 used for CIDR. Only fires when the schema types the field
             // `date` and the value parses as a date; a keyword holding a
             // date-looking literal is left an exact `term`.
+            //
+            // EXCEPT sub-millisecond string values (>=4 fractional-second
+            // digits): the sort-shadow encodes those in NANOSECONDS
+            // (`date_string_to_epoch`), while `parse_date_ms` yields
+            // milliseconds, so an ms-scale range prefilter misses the doc's own
+            // nanos shadow key and the term would evaporate after flush — even
+            // for its exact stored value (#789). Leave those an exact literal
+            // term (which still matches). A numeric epoch value is always
+            // ms-scale, so it is always safe to rewrite.
             if declared_field(schema, &resolved)
                 .is_some_and(|fc| matches!(fc.field_type, FieldType::Date))
+                && !value.as_str().is_some_and(date_string_has_subms)
             {
                 if let Some(ms) = crate::aggs::parse_date_ms(value) {
                     let epoch = Value::Number(serde_json::Number::from(ms));
