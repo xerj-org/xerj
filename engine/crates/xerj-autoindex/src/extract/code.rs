@@ -562,6 +562,7 @@ fn emit_code_doc(
 const PYTHON_Q: &str = r#"
 (function_definition name: (identifier) @function)
 (class_definition name: (identifier) @class)
+(module (expression_statement (assignment left: (identifier) @const)))
 "#;
 
 // The last pattern is the JavaScript half of #170, and it is the same hole
@@ -1408,6 +1409,36 @@ mod tests {
         assert!(has(&s, "Bar", "class"));
         assert!(has(&s, "baz", "function"));
     }
+
+    /// #500: Python was the one major language whose extractor captured only
+    /// `function` + `class`, so a module-level constant / config binding (the
+    /// exact `DEFAULT_MAX_CONN` failure #500 measured on Java) was indexed
+    /// nowhere and only survived folded inside… nothing — Python has no
+    /// enclosing type, so a settings module extracted ZERO retrievable facts
+    /// for its constants. Mirror the Java-constant (#605) / TS-`export const`
+    /// (#285) fix: promote each module-level assignment to its own `const`
+    /// symbol. Anchored to `module` (like TS_Q's `program`) so a
+    /// function-LOCAL assignment stays out of the cross-file retrieval surface.
+    #[test]
+    fn python_module_level_constants() {
+        let s = syms(
+            "python",
+            "MAX_CONN = 100\n\
+             DATABASE_URL = \"postgres://x\"\n\
+             ROUTES = [\"a\", \"b\"]\n\
+             def f():\n    local_v = 1\n    return local_v\n\
+             class C:\n    pass\n",
+        );
+        assert!(has(&s, "MAX_CONN", "const"), "got {s:?}");
+        assert!(has(&s, "DATABASE_URL", "const"), "got {s:?}");
+        assert!(has(&s, "ROUTES", "const"), "got {s:?}");
+        // Function-local assignment stays out (anchored to `module`).
+        assert!(!has(&s, "local_v", "const"), "got {s:?}");
+        // Existing function/class capture is unchanged.
+        assert!(has(&s, "f", "function"));
+        assert!(has(&s, "C", "class"));
+    }
+
     #[test]
     fn javascript() {
         let s = syms(
