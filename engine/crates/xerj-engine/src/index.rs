@@ -1891,6 +1891,40 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn bytes_written_metric_increments_on_flush() {
+        // #804: xerj_bytes_written_total was registered but never incremented,
+        // so it read a flat zero regardless of write volume. Flush now records
+        // each sealed segment's on-disk size via engine_metrics().
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        // Idempotent OnceLock: installs a handle if none yet, else reads the
+        // existing one. Either way the post-flush delta must be positive.
+        crate::set_engine_metrics(std::sync::Arc::new(
+            xerj_common::metrics::Metrics::new().unwrap(),
+        ));
+        let m = crate::engine_metrics().expect("engine metrics installed");
+        let before = m.bytes_written.get();
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("bw804", Schema::empty()).unwrap();
+        let idx = engine.get_index("bw804").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..5 {
+            idx.index_document(Some(format!("{i}")), json!({ "body": "some text content" }))
+                .await
+                .unwrap();
+        }
+        idx.flush().await.unwrap();
+        assert_eq!(idx.memtable.doc_count(), 0);
+        let after = m.bytes_written.get();
+        assert!(
+            after > before,
+            "#804: bytes_written must increase after a flush, got {before} -> {after}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -10048,6 +10082,10 @@ impl Index {
                             return None;
                         }
                     };
+                    // #804: count the merge-written segment's on-disk bytes.
+                    if let Some(m) = crate::engine_metrics() {
+                        m.record_bytes_written(merged_meta.size_bytes);
+                    }
 
                     // Build FTS side-cars using the parallel per-field builder.
                     // We pre-built `fts_input` during the byte-copy pass above,
@@ -26403,6 +26441,11 @@ async fn do_flush_shard(
         .filter(|hook| hook.target_memtable == test_target)
         .and_then(|hook| hook.before_blocking_spawn.as_ref().map(Arc::clone));
     let build_fts = move |meta: &xerj_storage::segment::SegmentMeta| -> xerj_storage::Result<()> {
+        // #804: count the flush-written segment's on-disk bytes (the sealed
+        // `.seg` whose `size_bytes` this closure receives).
+        if let Some(m) = crate::engine_metrics() {
+            m.record_bytes_written(meta.size_bytes);
+        }
         #[cfg(test)]
         let test_callback = test_hook
             .as_ref()
