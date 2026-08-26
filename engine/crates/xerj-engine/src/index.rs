@@ -1694,6 +1694,74 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn partial_update_deep_merges_nested_objects() {
+        // #821: a partial `_update` of a field INSIDE a nested object must keep
+        // the object's other fields (ES recursive deep-merge), not shallow-
+        // replace the whole object (which dropped siblings = data-loss).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("upd821", Schema::empty()).unwrap();
+        let idx = engine.get_index("upd821").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(
+            Some("1".into()),
+            json!({
+                "author": {"name": "amy", "id": 7, "addr": {"city": "NYC", "zip": "10001"}},
+                "title": "x",
+                "tags": ["a", "b"],
+            }),
+        )
+        .await
+        .unwrap();
+        // Patch: rename author.name, deepen author.addr.city, replace tags, add top-level.
+        idx.update_document_with_upsert(
+            "1",
+            Some(json!({
+                "author": {"name": "bob", "addr": {"city": "LA"}},
+                "tags": ["c"],
+                "extra": 1,
+            })),
+            None,
+            false,
+        )
+        .await
+        .unwrap();
+        let got = idx.get_document("1").await.unwrap().unwrap();
+        // Nested siblings preserved: author.id, author.addr.zip.
+        assert_eq!(
+            got["author"]["id"],
+            json!(7),
+            "author.id must survive: {got}"
+        );
+        assert_eq!(
+            got["author"]["name"],
+            json!("bob"),
+            "author.name updated: {got}"
+        );
+        assert_eq!(
+            got["author"]["addr"]["zip"],
+            json!("10001"),
+            "addr.zip must survive: {got}"
+        );
+        assert_eq!(
+            got["author"]["addr"]["city"],
+            json!("LA"),
+            "addr.city updated: {got}"
+        );
+        // Top-level scalar unchanged; array REPLACED (not merged, ES semantics); new key added.
+        assert_eq!(got["title"], json!("x"), "title survives: {got}");
+        assert_eq!(
+            got["tags"],
+            json!(["c"]),
+            "array replaced, not merged: {got}"
+        );
+        assert_eq!(got["extra"], json!(1), "new top-level key added: {got}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
@@ -10745,6 +10813,32 @@ impl Index {
     /// - If the document does not exist and `doc_as_upsert` is `true`: use
     ///   `partial_doc` itself as the creation body.
     /// - Otherwise (no doc, no upsert): return `None` (not found).
+    ///
+    /// Merges use [`Self::deep_merge_json`] — a partial update of one nested
+    /// field preserves that object's siblings (ES semantics), not a shallow
+    /// top-level replace (#821).
+    ///
+    /// ES `_update` `doc` semantics: recursively merge `patch` into `target`.
+    /// For a key present in both where BOTH values are objects, merge
+    /// recursively; otherwise the patch value replaces the target's (arrays and
+    /// scalars replace, `null` sets). Without this, a partial update of one
+    /// nested field silently dropped the object's other fields (#821 data-loss).
+    fn deep_merge_json(target: &mut Value, patch: Value) {
+        match (target, patch) {
+            (Value::Object(t), Value::Object(p)) => {
+                for (k, v) in p {
+                    match t.get_mut(&k) {
+                        Some(tv) => Self::deep_merge_json(tv, v),
+                        None => {
+                            t.insert(k, v);
+                        }
+                    }
+                }
+            }
+            (t, p) => *t = p,
+        }
+    }
+
     pub async fn update_document_with_upsert(
         &self,
         id: &str,
@@ -10759,13 +10853,11 @@ impl Index {
                 let merged = if let Some(patch) = partial_doc {
                     match &existing {
                         Value::Object(map) => {
-                            let mut new_map = map.clone();
-                            if let Some(patch_obj) = patch.as_object() {
-                                for (k, v) in patch_obj {
-                                    new_map.insert(k.clone(), v.clone());
-                                }
+                            let mut merged = Value::Object(map.clone());
+                            if patch.is_object() {
+                                Self::deep_merge_json(&mut merged, patch.clone());
                             }
-                            Value::Object(new_map)
+                            merged
                         }
                         _ => {
                             if patch.is_object() {
@@ -10827,13 +10919,12 @@ impl Index {
                     // Create with upsert body, then merge partial_doc on top.
                     let body = if let Some(patch) = partial_doc {
                         match upsert_body {
-                            Value::Object(mut map) => {
-                                if let Some(patch_obj) = patch.as_object() {
-                                    for (k, v) in patch_obj {
-                                        map.insert(k.clone(), v.clone());
-                                    }
+                            Value::Object(map) => {
+                                let mut merged = Value::Object(map);
+                                if patch.is_object() {
+                                    Self::deep_merge_json(&mut merged, patch.clone());
                                 }
-                                Value::Object(map)
+                                merged
                             }
                             other => other,
                         }
