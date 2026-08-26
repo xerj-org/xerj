@@ -1498,6 +1498,40 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn flush_increments_the_bytes_written_metric() {
+        // #804: `xerj_bytes_written_total` was registered but nothing ever
+        // incremented it, so it stayed 0 regardless of write volume. This is
+        // the one call site in the whole binary that installs a `Metrics`
+        // instance (`OnceLock`, set-once-per-process) — assert `after >
+        // before` rather than an exact delta, since other tests' concurrent
+        // flushes may also land on this now-shared counter once installed.
+        let metrics = std::sync::Arc::new(xerj_common::metrics::Metrics::new().unwrap());
+        crate::set_engine_metrics(metrics.clone());
+        let before = metrics.bytes_written.get();
+
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("bytes-written", Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("bytes-written").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("a".into()), json!({ "f": "x" }))
+            .await
+            .unwrap();
+        idx.flush().await.unwrap();
+
+        let after = metrics.bytes_written.get();
+        assert!(
+            after > before,
+            "#804 a flush must increment xerj_bytes_written_total: before={before} after={after}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
         // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
         // field matches in the memtable (the value-driven source scan expands
@@ -26667,6 +26701,15 @@ async fn do_flush_shard(
             )));
         }
     };
+    // #804: `xerj_bytes_written_total` was registered but nothing ever
+    // incremented it, so it stayed 0 regardless of write volume. A flush is
+    // the actual byte-producing event on this path; `meta.size_bytes` is the
+    // freshly-written `.seg` file's own size (set from the encoded buffer
+    // length in `SegmentWriter::finish`), so this is one real, non-double-
+    // counted number per flush — not an estimate.
+    if let Some(m) = crate::engine_metrics() {
+        m.bytes_written.inc_by(meta.size_bytes);
+    }
     if prof {
         eprintln!(
             "XERJ_PROF flush-total shard={} docs={} drain_us={} prep_us={} finalize_us={} total_us={}",
