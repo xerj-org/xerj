@@ -1659,7 +1659,6 @@ mod flush_publication_recovery_tests {
         }
     }
 
-    #[ignore = "#794 WIP: scoring+hydration threaded; exclusion is elsewhere (prefix prefilter?) — TRACE next"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
         // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
@@ -16430,7 +16429,7 @@ impl Index {
         let shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known)
+            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known, &dmq_schema)
                 .await
         };
 
@@ -18065,6 +18064,7 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            &dmq_schema,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else if let Some(warm_slices) = (!sorted_candidates_path)
@@ -18132,6 +18132,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                             }
                         }
@@ -18215,6 +18216,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
@@ -21064,6 +21066,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         is_match_all: bool,
         mem_matches_known: Option<u64>,
+        schema: &Schema,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -21362,7 +21365,7 @@ impl Index {
             } else {
                 let docs = self.memtable.all_docs_with_sources_arc();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query_typed(query, src, schema))
                     .count() as u64
             };
 
@@ -21587,7 +21590,7 @@ impl Index {
             } else {
                 let docs = self.memtable.all_docs_with_sources();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query_typed(query, src, schema))
                     .count() as u64
             };
             return Some(seg_matches + mem_matches);
@@ -25585,6 +25588,7 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        schema: &Schema,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -25802,9 +25806,9 @@ impl Index {
                     } else {
                         source_ref.clone()
                     };
-                    doc_matches_query(query, &source_with_id)
+                    doc_matches_query_typed(query, &source_with_id, schema)
                 } else {
-                    doc_matches_query(query, source_ref)
+                    doc_matches_query_typed(query, source_ref, schema)
                 }
             };
 
