@@ -885,6 +885,8 @@ const KOTLIN_Q: &str = r#"
 (object_declaration name: (identifier) @object)
 (function_declaration name: (identifier) @function)
 (type_alias type: (identifier) @type)
+(source_file (property_declaration (variable_declaration (identifier) @const)))
+(object_declaration (class_body (property_declaration (variable_declaration (identifier) @const))))
 "#;
 
 // Adapted from tree-sitter-swift 0.7.3 queries/tags.scm (class_declaration /
@@ -1972,6 +1974,30 @@ mod tests {
         assert!(has(&s, "greet", "function"), "got {s:?}");
         assert!(has(&s, "topLevel", "function"), "got {s:?}");
         assert!(has(&s, "Handler", "type"), "got {s:?}");
+    }
+
+    /// #500: `KOTLIN_Q` captured class/object/function/type but not `val`/`const
+    /// val` properties, so a top-level or object-level constant — the
+    /// `DEFAULT_MAX_CONN`-class fact #500 measured — was indexed nowhere. Capture
+    /// file-level and object-level (singleton) properties as `const` symbols;
+    /// anchored to `source_file` / the object body so a function-LOCAL `val` and
+    /// class INSTANCE state stay out (the Java-`static` precision boundary).
+    #[test]
+    fn kotlin_constants() {
+        let s = syms(
+            "kotlin",
+            "const val MAX = 100\n\
+             val Host = \"x\"\n\
+             object Cfg {\n  const val TIMEOUT = 30\n}\n\
+             fun f() {\n  val local = 1\n}\n",
+        );
+        assert!(has(&s, "MAX", "const"), "got {s:?}");
+        assert!(has(&s, "Host", "const"), "got {s:?}");
+        assert!(has(&s, "TIMEOUT", "const"), "got {s:?}");
+        // Function-local `val` stays out (anchored to file / object scope).
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "Cfg", "object"));
+        assert!(has(&s, "f", "function"));
     }
 
     #[test]
