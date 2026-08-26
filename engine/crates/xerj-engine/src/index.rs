@@ -1767,6 +1767,69 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multivalue_sort_reduces_min_for_asc_max_for_desc() {
+        // A multi-valued numeric field must rank by each doc's MIN value for an
+        // ascending sort and MAX for a descending one (ES default), with an
+        // explicit `mode` overriding that. Before the fix, `compute_sort_values`
+        // handed the raw array to the comparator, which fell through to
+        // `stringify-and-compare` — ranking docs by the JSON text of the array.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("mvs", Schema::empty()).unwrap();
+        let idx = engine.get_index("mvs").unwrap();
+        idx.abort_background_tasks();
+        // mins:  A=1  C=5  B=40      maxes: C=100 B=50 A=10
+        idx.index_document(Some("A".into()), json!({"vals": [10, 1]}))
+            .await
+            .unwrap();
+        idx.index_document(Some("B".into()), json!({"vals": [40, 50]}))
+            .await
+            .unwrap();
+        idx.index_document(Some("C".into()), json!({"vals": [5, 100]}))
+            .await
+            .unwrap();
+        // A single-element array must sort numerically, not lexically:
+        // string compare put "[10]" before "[9]".
+        idx.index_document(Some("nine".into()), json!({"v1": [9]}))
+            .await
+            .unwrap();
+        idx.index_document(Some("ten".into()), json!({"v1": [10]}))
+            .await
+            .unwrap();
+        let order = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&body).unwrap();
+            let r = idx.search(&req).await.unwrap();
+            r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>()
+        };
+        let asc = json!({"query":{"exists":{"field":"vals"}},"size":10,"sort":[{"vals":{"order":"asc"}}]});
+        let desc = json!({"query":{"exists":{"field":"vals"}},"size":10,"sort":[{"vals":{"order":"desc"}}]});
+        let asc_max = json!({"query":{"exists":{"field":"vals"}},"size":10,"sort":[{"vals":{"order":"asc","mode":"max"}}]});
+        let single =
+            json!({"query":{"exists":{"field":"v1"}},"size":10,"sort":[{"v1":{"order":"asc"}}]});
+        let check = |idx: &std::sync::Arc<crate::Index>| {
+            let idx = idx.clone();
+            let (asc, desc, asc_max, single) =
+                (asc.clone(), desc.clone(), asc_max.clone(), single.clone());
+            async move {
+                // asc -> by min: A(1) C(5) B(40)
+                assert_eq!(order(idx.clone(), asc).await, vec!["A", "C", "B"]);
+                // desc -> by max: C(100) B(50) A(10)
+                assert_eq!(order(idx.clone(), desc).await, vec!["C", "B", "A"]);
+                // explicit mode:max overrides the asc default: A(10) B(50) C(100)
+                assert_eq!(order(idx.clone(), asc_max).await, vec!["A", "B", "C"]);
+                // single-element arrays sort numerically: 9 before 10
+                assert_eq!(order(idx.clone(), single).await, vec!["nine", "ten"]);
+            }
+        };
+        check(&idx).await;
+        idx.flush().await.unwrap();
+        check(&idx).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
@@ -41142,6 +41205,13 @@ fn compute_sort_values(
                     get_field_value(source, base)
                 })
                 .unwrap_or(Value::Null);
+            // A multi-valued field is reduced to its single representative
+            // value FIRST (ES: `min` for asc / `max` for desc unless an
+            // explicit `mode` overrides), so the comparator never sees a raw
+            // array. Without this the two arrays fell through to
+            // `compare_values`' stringify-and-compare fallback, ranking
+            // multi-valued docs by the JSON text of the array (`[9]` > `[10]`).
+            let raw = xerj_query::sort::reduce_sort_value(&raw, sf.order, sf.mode);
             match raw {
                 Value::String(ref s) if looks_like_date(s) => {
                     date_string_to_epoch(s).unwrap_or(raw)

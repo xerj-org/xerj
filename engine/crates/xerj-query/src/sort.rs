@@ -116,10 +116,15 @@ impl SortOrder {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SortMode {
+    /// No explicit `mode` was requested. ES then picks the `min` value for an
+    /// ascending sort and the `max` value for a descending one — see
+    /// `effective(order)`. Kept distinct from an explicit `min`/`max` so that
+    /// `{"order":"desc"}` (no mode) resolves to `max`, not the enum default.
+    #[default]
+    Default,
     /// Use the minimum value across all field values.
     Min,
-    /// Use the maximum value across all field values (default for `asc`).
-    #[default]
+    /// Use the maximum value across all field values.
     Max,
     /// Use the arithmetic mean.
     Avg,
@@ -127,6 +132,85 @@ pub enum SortMode {
     Sum,
     /// Use the median.
     Median,
+}
+
+impl SortMode {
+    /// Resolve the effective reduction for a multi-valued field, applying ES's
+    /// order-based default (`asc` -> min, `desc` -> max) when no explicit mode
+    /// was given. An explicit mode is honoured regardless of order.
+    pub fn effective(self, order: SortOrder) -> SortMode {
+        match self {
+            SortMode::Default => match order {
+                SortOrder::Asc => SortMode::Min,
+                SortOrder::Desc => SortMode::Max,
+            },
+            other => other,
+        }
+    }
+}
+
+/// Reduce a (possibly multi-valued) sort field value to the single
+/// representative value ES would compare, per the sort `mode` and `order`.
+///
+/// A non-array value is returned unchanged. `null` array entries are ignored
+/// (ES skips them when selecting the representative); an array that is empty or
+/// all-null reduces to `Null`, so the request's `missing` policy governs it.
+/// `min`/`max` use the same numbers-then-strings ordering as the sort
+/// comparator; `avg`/`sum`/`median` are numeric-only (non-numeric entries are
+/// ignored, matching ES, which rejects them at mapping time).
+pub fn reduce_sort_value(
+    raw: &serde_json::Value,
+    order: SortOrder,
+    mode: SortMode,
+) -> serde_json::Value {
+    use serde_json::Value;
+    let arr = match raw {
+        Value::Array(a) => a,
+        other => return other.clone(),
+    };
+    let vals: Vec<&Value> = arr.iter().filter(|v| !v.is_null()).collect();
+    if vals.is_empty() {
+        return Value::Null;
+    }
+    match mode.effective(order) {
+        SortMode::Min => vals
+            .iter()
+            .copied()
+            .min_by(|a, b| compare_values(a, b, &SortMissing::Last))
+            .cloned()
+            .unwrap_or(Value::Null),
+        SortMode::Max => vals
+            .iter()
+            .copied()
+            .max_by(|a, b| compare_values(a, b, &SortMissing::Last))
+            .cloned()
+            .unwrap_or(Value::Null),
+        SortMode::Avg | SortMode::Sum | SortMode::Median => {
+            let mut nums: Vec<f64> = vals.iter().filter_map(|v| v.as_f64()).collect();
+            if nums.is_empty() {
+                return Value::Null;
+            }
+            let out = match mode.effective(order) {
+                SortMode::Sum => nums.iter().sum(),
+                SortMode::Avg => nums.iter().sum::<f64>() / nums.len() as f64,
+                SortMode::Median => {
+                    nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                    let m = nums.len() / 2;
+                    if nums.len() % 2 == 1 {
+                        nums[m]
+                    } else {
+                        (nums[m - 1] + nums[m]) / 2.0
+                    }
+                }
+                _ => unreachable!(),
+            };
+            serde_json::Number::from_f64(out)
+                .map(Value::Number)
+                .unwrap_or(Value::Null)
+        }
+        // `effective` never returns `Default`.
+        SortMode::Default => Value::Null,
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
