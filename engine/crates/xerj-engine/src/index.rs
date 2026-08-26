@@ -1498,6 +1498,126 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_on_a_date_field_normalizes_alt_formats_across_flush() {
+        // #799: `terms` on a declared `date` field did a raw literal lookup
+        // per value and never normalized formats, so naming the same instants
+        // in an alternate representation (date-only string, epoch-ms number)
+        // returned 0 — the sibling of the #788/#789 single-`term` fix, but
+        // the `Terms` arm never got it.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("date-terms", schema).unwrap();
+        let idx = engine.get_index("date-terms").unwrap();
+        idx.abort_background_tasks();
+        for (id, ts) in [
+            ("a", "2020-01-01T00:00:00Z"),
+            ("b", "2021-06-15T12:00:00Z"),
+            ("c", "2019-03-03T00:00:00Z"),
+            // Sub-millisecond precision must stay an exact residual match,
+            // same nanos-shadow hazard as the single-`term` fix (#789).
+            ("d", "2020-03-03T03:03:03.123456Z"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "ts": ts }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // date-only form of a's instant + epoch-ms of b's instant.
+        let alt_formats = json!({"terms": {"ts": ["2020-01-01", 1623758400000i64]}});
+        let want_ab = (2u64, vec!["a".to_string(), "b".to_string()]);
+        // Mixing an alt-format value with doc d's exact sub-ms stored value:
+        // the sub-ms value must stay a residual exact match alongside the
+        // rewritten one.
+        let mixed_with_subms = json!({
+            "terms": {"ts": ["2020-01-01", "2020-03-03T03:03:03.123456Z"]}
+        });
+        let want_ad = (2u64, vec!["a".to_string(), "d".to_string()]);
+        for phase in ["pre-flush", "post-flush"] {
+            let got = run(idx.clone(), alt_formats.clone()).await;
+            assert_eq!(got, want_ab, "#799 {phase} alt-format terms must match a,b");
+            let got_mixed = run(idx.clone(), mixed_with_subms.clone()).await;
+            assert_eq!(
+                got_mixed, want_ad,
+                "#799 {phase} mixed alt-format + sub-ms residual terms must match a,d"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_with_cidr_values_on_an_ip_field_rewrites_each_to_a_range() {
+        // #801: the single-`term` CIDR-on-`ip` rewrite (#782/#783) expands a
+        // CIDR to its `[network, broadcast]` range, but the `Terms` arm never
+        // got it, so `terms` with CIDR values silently returned 0 — pre and
+        // post flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("addr", FieldType::Ip))
+            .unwrap();
+        engine.create_index("ip-terms", schema).unwrap();
+        let idx = engine.get_index("ip-terms").unwrap();
+        idx.abort_background_tasks();
+        for (id, addr) in [("a", "10.0.0.5"), ("b", "192.168.1.9"), ("c", "172.16.0.1")] {
+            idx.index_document(Some(id.into()), json!({ "addr": addr }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        let two_cidrs = json!({"terms": {"addr": ["10.0.0.0/8", "192.168.0.0/16"]}});
+        let want_ab = (2u64, vec!["a".to_string(), "b".to_string()]);
+        // A CIDR value mixed with an exact plain-ip value must combine: the
+        // CIDR rewrites to a range, the plain value stays a residual `terms`.
+        let mixed_with_exact = json!({"terms": {"addr": ["10.0.0.0/8", "172.16.0.1"]}});
+        let want_ac = (2u64, vec!["a".to_string(), "c".to_string()]);
+        for phase in ["pre-flush", "post-flush"] {
+            let got = run(idx.clone(), two_cidrs.clone()).await;
+            assert_eq!(got, want_ab, "#801 {phase} two-CIDR terms must match a,b");
+            let got_mixed = run(idx.clone(), mixed_with_exact.clone()).await;
+            assert_eq!(
+                got_mixed, want_ac,
+                "#801 {phase} CIDR + exact residual terms must match a,c"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
         // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
         // field matches in the memtable (the value-driven source scan expands
@@ -34545,6 +34665,101 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             boost,
         } => {
             let resolved = resolve_field_alias(schema, field);
+            let field_type = declared_field(schema, &resolved).map(|fc| fc.field_type);
+
+            // Sibling of the single-`term` CIDR-on-`ip` rewrite (#782/#783):
+            // `terms` never got it, so a CIDR value inside `terms` silently
+            // returned 0 after flush (#801). Rewrite each CIDR value to its
+            // equivalent inclusive range and OR them together; plain-ip and
+            // non-CIDR values stay an exact residual `terms`.
+            if matches!(field_type, Some(FieldType::Ip)) {
+                let mut should: Vec<QueryNode> = Vec::new();
+                let mut residual: Vec<Value> = Vec::new();
+                for v in values {
+                    let range = v.as_str().filter(|s| s.contains('/')).and_then(|cidr| {
+                        cidr_to_ip_range(cidr).map(|(lo, hi)| QueryNode::Range {
+                            field: resolved.clone(),
+                            gte: Some(Value::String(lo)),
+                            gt: None,
+                            lte: Some(Value::String(hi)),
+                            lt: None,
+                            boost: *boost,
+                        })
+                    });
+                    match range {
+                        Some(r) => should.push(r),
+                        None => residual.push(v.clone()),
+                    }
+                }
+                if !should.is_empty() {
+                    if !residual.is_empty() {
+                        should.push(QueryNode::Terms {
+                            field: resolved.clone(),
+                            values: residual,
+                            boost: *boost,
+                        });
+                    }
+                    return QueryNode::Bool {
+                        must: Vec::new(),
+                        should,
+                        must_not: Vec::new(),
+                        filter: Vec::new(),
+                        minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+                    };
+                }
+            }
+
+            // Sibling of the single-`term` date-instant rewrite (#788/#789):
+            // `terms` on a declared `date` field did a raw literal lookup per
+            // value and never normalized formats, so a `terms` naming the
+            // same instants in an alternate representation returned 0 (#799).
+            // Rewrite each date-parseable, non-sub-ms value to a degenerate
+            // `range [epoch, epoch]` and OR them together; sub-ms strings
+            // (nanos-shadow hazard, #789) and non-date-parseable values stay
+            // an exact residual `terms`.
+            if matches!(field_type, Some(FieldType::Date)) {
+                let mut should: Vec<QueryNode> = Vec::new();
+                let mut residual: Vec<Value> = Vec::new();
+                for v in values {
+                    let is_subms = v.as_str().is_some_and(date_string_has_subms);
+                    let epoch_range = if is_subms {
+                        None
+                    } else {
+                        crate::aggs::parse_date_ms(v).map(|ms| {
+                            let epoch = Value::Number(serde_json::Number::from(ms));
+                            QueryNode::Range {
+                                field: resolved.clone(),
+                                gte: Some(epoch.clone()),
+                                gt: None,
+                                lte: Some(epoch),
+                                lt: None,
+                                boost: *boost,
+                            }
+                        })
+                    };
+                    match epoch_range {
+                        Some(r) => should.push(r),
+                        None => residual.push(v.clone()),
+                    }
+                }
+                if !should.is_empty() {
+                    if !residual.is_empty() {
+                        should.push(QueryNode::Terms {
+                            field: resolved.clone(),
+                            values: residual,
+                            boost: *boost,
+                        });
+                    }
+                    return QueryNode::Bool {
+                        must: Vec::new(),
+                        should,
+                        must_not: Vec::new(),
+                        filter: Vec::new(),
+                        minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+                    };
+                }
+            }
+
             QueryNode::Terms {
                 field: resolved,
                 values: values.clone(),
