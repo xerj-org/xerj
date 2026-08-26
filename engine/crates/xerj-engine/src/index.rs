@@ -1414,6 +1414,103 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
+        // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
+        // field matches in the memtable (the value-driven source scan expands
+        // it via `ip_matches_cidr`) but returned 0 once the docs flushed to a
+        // segment — the #782/#413 flush-divergence: same query, different
+        // results before and after flush. The declared-ip rewrite (#783) can't
+        // cover this: dynamic mapping never infers `ip`, so its `FieldType::Ip`
+        // guard is false. Post-flush must AGREE with the memtable.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("schemaless-cidr", Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("schemaless-cidr").unwrap();
+        idx.abort_background_tasks();
+        for (id, addr) in [
+            ("a", "192.168.1.5"),
+            ("b", "192.168.1.200"),
+            ("c", "10.0.0.1"),
+            ("d", "192.168.2.5"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "addr": addr }))
+                .await
+                .unwrap();
+        }
+        let cidr = xerj_query::parse_request(&json!({
+            "query": {"term": {"addr": "192.168.1.0/24"}},
+            "size": 10,
+            "track_total_hits": true
+        }))
+        .unwrap();
+
+        // Memtable: the source scan matches the two 192.168.1.x docs.
+        let pre = idx.search(&cidr).await.unwrap();
+        let mut pre_ids: Vec<_> = pre.hits.iter().map(|h| h.id.clone()).collect();
+        pre_ids.sort();
+        assert_eq!(
+            pre_ids,
+            vec!["a".to_string(), "b".to_string()],
+            "memtable CIDR term must match the /24 subnet"
+        );
+        assert_eq!(pre.total.value, 2, "memtable CIDR count must be the subnet");
+
+        idx.flush().await.unwrap();
+        // Memtable drained, so the query now resolves against the segment(s).
+        assert_eq!(idx.memtable.doc_count(), 0);
+        assert!(!idx.store.snapshot().segments.is_empty());
+
+        // Post-flush must agree with the memtable (was 0 before the #786 fix).
+        let post = idx.search(&cidr).await.unwrap();
+        let mut post_ids: Vec<_> = post.hits.iter().map(|h| h.id.clone()).collect();
+        post_ids.sort();
+        assert_eq!(
+            post_ids,
+            vec!["a".to_string(), "b".to_string()],
+            "#786: schemaless CIDR term must still match the /24 subnet after flush"
+        );
+        assert_eq!(
+            post.total.value, 2,
+            "#786: post-flush CIDR count must agree with the memtable"
+        );
+
+        // Count-only (size:0) exercises the `seg_term_positions` shortcut, which
+        // had the same ord-only miss as the prefilter builder.
+        let count_only = xerj_query::parse_request(&json!({
+            "query": {"term": {"addr": "192.168.1.0/24"}},
+            "size": 0,
+            "track_total_hits": true
+        }))
+        .unwrap();
+        let counted = idx.search(&count_only).await.unwrap();
+        assert_eq!(
+            counted.total.value, 2,
+            "#786: post-flush size:0 CIDR count must be the subnet"
+        );
+
+        // A CIDR term wrapped in a `bool.filter` exercises the segment
+        // bool-count shortcuts, which had the same ord-only miss.
+        for size in [0, 10] {
+            let boolq = xerj_query::parse_request(&json!({
+                "query": {"bool": {"filter": [{"term": {"addr": "192.168.1.0/24"}}]}},
+                "size": size,
+                "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&boolq).await.unwrap();
+            assert_eq!(
+                r.total.value, 2,
+                "#786: post-flush bool.filter CIDR count must be the subnet (size {size})"
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -20849,7 +20946,20 @@ impl Index {
                         QueryNode::Term { field, value, .. } => match cols.get(field.as_str()) {
                             Some(xerj_storage::doc_values::Column::Keyword(k)) => {
                                 let term = match value {
-                                    Value::String(s) => s.clone(),
+                                    Value::String(s) => {
+                                        // A CIDR value expands to a subnet in the
+                                        // source scan (`ip_matches_cidr`); it is
+                                        // never a dictionary literal. Abandon this
+                                        // fused count (→ full scan) instead of
+                                        // treating the whole subnet as an empty
+                                        // predicate, which counted 0 after flush
+                                        // (#786).
+                                        if s.contains('/') {
+                                            abandoned = true;
+                                            break;
+                                        }
+                                        s.clone()
+                                    }
                                     other => other.to_string(),
                                 };
                                 match k.ord_for_term(&term) {
@@ -21370,6 +21480,18 @@ impl Index {
             QueryNode::Term { field, value, .. } => (field.as_str(), value),
             _ => return None,
         };
+
+        // A CIDR value (`192.168.1.0/24`) is not a term-dictionary / count-map
+        // literal: both the memtable count map and the segment `doc_freq` look
+        // up the exact string, find nothing, and count 0 for the whole subnet
+        // after flush (#786). Abandon the count shortcut so the full source scan
+        // — which expands CIDR via `ip_matches_cidr`, exactly as the memtable's
+        // hit path does — answers instead.
+        if let Value::String(s) = value {
+            if s.contains('/') {
+                return None;
+            }
+        }
 
         // #423/#408: a keyword ARRAY (or whitespace keyword) stores only its
         // FIRST element in the memtable's single-valued count column (see
@@ -22134,11 +22256,16 @@ impl Index {
             node = query;
         }
         let (field, kind, boost): (&str, LeafConst, f32) = match node {
+            // A CIDR value (`192.168.1.0/24`) is not a term-dictionary literal;
+            // the source scan expands it via `ip_matches_cidr`. Excluding it here
+            // routes it to the full scan (`_ => return None`) instead of summing
+            // `per_ord_count` for an ordinal that does not exist, which counted 0
+            // for the whole subnet after flush (#786).
             QueryNode::Term {
                 field,
                 value: Value::String(term),
                 boost,
-            } if kw_fields.contains(field) => (
+            } if kw_fields.contains(field) && !term.contains('/') => (
                 field,
                 LeafConst::Keyword(term.clone()),
                 boost.unwrap_or(1.0),
@@ -23927,7 +24054,19 @@ impl Index {
                 let mut set: HashSet<u32> = HashSet::new();
                 for v in values {
                     let term = match v {
-                        Value::String(s) => s.clone(),
+                        Value::String(s) => {
+                            // A CIDR value (`192.168.1.0/24`) is not a literal
+                            // in the term dictionary; the source scan expands it
+                            // via `ip_matches_cidr`. `ord_for_term` would miss
+                            // and this arm would return an EMPTY prefilter, which
+                            // silently drops the whole subnet once the docs flush
+                            // to a segment (#786). Bail to a full scan instead,
+                            // mirroring the memtable fast paths' `/` bailout.
+                            if s.contains('/') {
+                                return None;
+                            }
+                            s.clone()
+                        }
                         other => other.to_string(),
                     };
                     let Some(ord) = k.ord_for_term(&term) else {
@@ -39239,7 +39378,17 @@ fn seg_term_positions(
             let mut ords: HashSet<u32> = HashSet::new();
             for v in values {
                 let term = match v {
-                    Value::String(s) => s.clone(),
+                    Value::String(s) => {
+                        // A CIDR value expands to a subnet in the source scan
+                        // (`ip_matches_cidr`); it is never a literal ordinal, so
+                        // the ord lookup would miss and this shortcut would count
+                        // 0 for the whole subnet after flush (#786). Abandon the
+                        // shortcut (→ full scan), mirroring the prefilter builder.
+                        if s.contains('/') {
+                            return None;
+                        }
+                        s.clone()
+                    }
                     other => other.to_string(),
                 };
                 if let Some(ord) = k.ord_for_term(&term) {
