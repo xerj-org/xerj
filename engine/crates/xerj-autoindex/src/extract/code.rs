@@ -809,6 +809,11 @@ const CPP_Q: &str = r#"
 (struct_specifier name: (type_identifier) @struct)
 (enum_specifier name: (type_identifier) @enum)
 (namespace_definition name: (namespace_identifier) @module)
+(translation_unit (declaration declarator: (init_declarator declarator: (identifier) @const)))
+(translation_unit (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const))))
+(namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (identifier) @const))))
+(namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const)))))
+(enumerator name: (identifier) @const)
 "#;
 
 const RUBY_Q: &str = r#"
@@ -1839,6 +1844,34 @@ mod tests {
         assert!(has(&s, "f", "function"));
         assert!(has(&s, "n", "module"));
     }
+
+    /// #500: `CPP_Q` captured function/class/struct/enum/namespace but not
+    /// top-level `constexpr`/`const` variables or enum values — so a config
+    /// header of `constexpr int DEFAULT_MAX_CONN = 100;` (the fact #500 measured)
+    /// indexed the constant nowhere. Capture translation-unit and namespace
+    /// declarations (plain + pointer declarators, e.g. `const char* HOST`) plus
+    /// enumerators as `const`, following the `C_Q` file-scope precedent (#170);
+    /// anchored to unit/namespace so a function-LOCAL stays out.
+    #[test]
+    fn cpp_constants() {
+        let s = syms(
+            "cpp",
+            "constexpr int MaxConn = 100;\n\
+             const char* Host = \"x\";\n\
+             namespace cfg { constexpr int Timeout = 30; }\n\
+             enum Color { Red, Green };\n\
+             int fn() { int local = 1; return local; }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Host", "const"), "got {s:?}");
+        assert!(has(&s, "Timeout", "const"), "got {s:?}");
+        assert!(has(&s, "Red", "const"), "got {s:?}");
+        assert!(has(&s, "Green", "const"), "got {s:?}");
+        // Function-local stays out (anchored to unit / namespace scope).
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "fn", "function"));
+    }
+
     #[test]
     fn ruby() {
         let s = syms("ruby", "class C\n def m\n end\nend\nmodule M\nend\n");
