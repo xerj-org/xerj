@@ -905,6 +905,9 @@ const SWIFT_Q: &str = r#"
 (class_declaration declaration_kind: "extension" name: (user_type) @class)
 (protocol_declaration name: (type_identifier) @protocol)
 (function_declaration name: (simple_identifier) @function)
+(source_file (property_declaration (pattern (simple_identifier) @const)))
+(enum_entry name: (simple_identifier) @const)
+(property_declaration (modifiers (property_modifier) @_m) (pattern (simple_identifier) @const)) (#eq? @_m "static")
 "#;
 
 // Adapted from tree-sitter-scala 0.26.2 queries/tags.scm. `val`/`var`
@@ -920,6 +923,8 @@ const SCALA_Q: &str = r#"
 (simple_enum_case name: (identifier) @const)
 (function_definition name: (identifier) @function)
 (type_definition name: (type_identifier) @type)
+(compilation_unit (val_definition pattern: (identifier) @const))
+(object_definition body: (template_body (val_definition pattern: (identifier) @const)))
 "#;
 
 // Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin / enum
@@ -2020,6 +2025,33 @@ mod tests {
         assert!(has(&s, "launch", "function"), "got {s:?}");
     }
 
+    /// #500: `SWIFT_Q` captured types + functions but not constants, so Swift's
+    /// dominant constant idiom — a `static let` namespaced in an `enum`/`struct`
+    /// (`enum K { static let maxConn = 100 }`), the `DEFAULT_MAX_CONN`-class fact
+    /// #500 measured — plus top-level `let` and enum cases were indexed nowhere.
+    /// Capture: top-level `let` (source_file), `static let` type members (the
+    /// `static` modifier is the precision gate — an INSTANCE `let` stays out,
+    /// the Java-`static` boundary), and enum cases.
+    #[test]
+    fn swift_constants() {
+        let s = syms(
+            "swift",
+            "enum K { static let MaxConn = 100 }\n\
+             struct S { static let Url = \"x\"; let instanceName = \"n\" }\n\
+             let TopLevel = 1\n\
+             enum Dir { case north, south }\n\
+             func f() { let local = 1 }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        assert!(has(&s, "TopLevel", "const"), "got {s:?}");
+        assert!(has(&s, "north", "const"), "got {s:?}");
+        assert!(has(&s, "south", "const"), "got {s:?}");
+        // Instance `let` (not static) and function-local `let` stay out.
+        assert!(!has(&s, "instanceName", "const"), "got {s:?}");
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+    }
+
     #[test]
     fn scala() {
         let s = syms(
@@ -2037,6 +2069,28 @@ mod tests {
         assert!(has(&s, "Color", "enum"), "got {s:?}");
         assert!(has(&s, "Red", "const"), "got {s:?}");
         assert!(has(&s, "Handler", "type"), "got {s:?}");
+    }
+
+    /// #500: `SCALA_Q` captured class/object/trait/enum/function/type and enum
+    /// cases, but not `val` definitions, so a top-level or object (singleton)
+    /// `val MaxConn = 100` — the `DEFAULT_MAX_CONN`-class fact #500 measured —
+    /// was indexed nowhere. Capture compilation-unit and object-body `val`
+    /// definitions as `const`; anchored to those scopes so a function-LOCAL
+    /// `val` and class INSTANCE state stay out.
+    #[test]
+    fn scala_val_constants() {
+        let s = syms(
+            "scala",
+            "val MaxConn = 100\n\
+             object Cfg {\n  val Url = \"x\"\n}\n\
+             def f(): Int = { val local = 1; local }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        // Function-local `val` stays out (anchored to unit / object scope).
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "Cfg", "object"));
+        assert!(has(&s, "f", "function"));
     }
 
     #[test]
