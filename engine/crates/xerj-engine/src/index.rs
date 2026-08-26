@@ -1500,13 +1500,18 @@ mod flush_publication_recovery_tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn flush_increments_the_bytes_written_metric() {
         // #804: `xerj_bytes_written_total` was registered but nothing ever
-        // incremented it, so it stayed 0 regardless of write volume. This is
-        // the one call site in the whole binary that installs a `Metrics`
-        // instance (`OnceLock`, set-once-per-process) — assert `after >
-        // before` rather than an exact delta, since other tests' concurrent
-        // flushes may also land on this now-shared counter once installed.
-        let metrics = std::sync::Arc::new(xerj_common::metrics::Metrics::new().unwrap());
-        crate::set_engine_metrics(metrics.clone());
+        // incremented it, so it stayed 0 regardless of write volume. The
+        // handle is a process-wide `OnceLock` (set-once) and MORE THAN ONE
+        // test installs one (`bytes_written_metric_increments_on_flush`), so
+        // whichever runs first wins the race and a locally-constructed
+        // `Metrics` may never be the one `engine_metrics()` (and thus flush)
+        // increments — reading it gave a flat 0 under high-core parallelism.
+        // Read the INSTALLED handle instead, and assert `after > before`
+        // rather than an exact delta since concurrent flushes share it.
+        crate::set_engine_metrics(std::sync::Arc::new(
+            xerj_common::metrics::Metrics::new().unwrap(),
+        ));
+        let metrics = crate::engine_metrics().expect("engine metrics installed");
         let before = metrics.bytes_written.get();
 
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
