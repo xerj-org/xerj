@@ -118,6 +118,74 @@ mod collection_publication_fail_closed_tests {
         schema
     }
 
+    #[test]
+    fn cidr_term_on_an_ip_field_rewrites_to_the_subnet_range() {
+        // #782: a CIDR `term` on an ip field silently returned 0 after a flush
+        // because the segment term-dictionary lookup can't expand a CIDR. Fix:
+        // rewrite it to the equivalent inclusive range (which every path
+        // handles) before execution.
+        assert_eq!(
+            cidr_to_ip_range("192.168.1.0/24"),
+            Some(("192.168.1.0".to_string(), "192.168.1.255".to_string()))
+        );
+        assert_eq!(
+            cidr_to_ip_range("192.168.1.0/25"),
+            Some(("192.168.1.0".to_string(), "192.168.1.127".to_string()))
+        );
+        assert_eq!(
+            cidr_to_ip_range("10.0.0.1/32"),
+            Some(("10.0.0.1".to_string(), "10.0.0.1".to_string()))
+        );
+        assert_eq!(
+            cidr_to_ip_range("192.168.0.0/16"),
+            Some(("192.168.0.0".to_string(), "192.168.255.255".to_string()))
+        );
+        assert_eq!(cidr_to_ip_range("not-a-cidr"), None);
+        assert_eq!(cidr_to_ip_range("192.168.1.5"), None);
+
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("addr", FieldType::Ip))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("name", FieldType::Keyword))
+            .unwrap();
+
+        let term = |f: &str, v: serde_json::Value| QueryNode::Term {
+            field: f.into(),
+            value: v,
+            boost: None,
+        };
+        // CIDR term on the ip field -> inclusive [network, broadcast] range.
+        match rewrite_query_aliases(&term("addr", json!("192.168.1.0/24")), &schema) {
+            QueryNode::Range {
+                field,
+                gte,
+                lte,
+                gt,
+                lt,
+                ..
+            } => {
+                assert_eq!(field, "addr");
+                assert_eq!(gte, Some(json!("192.168.1.0")));
+                assert_eq!(lte, Some(json!("192.168.1.255")));
+                assert_eq!(gt, None);
+                assert_eq!(lt, None);
+            }
+            other => panic!("#782: CIDR term on ip must rewrite to a Range, got {other:?}"),
+        }
+        // A non-CIDR (exact) term on the ip field stays a Term.
+        assert!(matches!(
+            rewrite_query_aliases(&term("addr", json!("192.168.1.5")), &schema),
+            QueryNode::Term { .. }
+        ));
+        // A CIDR-looking value on a NON-ip field is a literal string, unchanged.
+        assert!(matches!(
+            rewrite_query_aliases(&term("name", json!("192.168.1.0/24")), &schema),
+            QueryNode::Term { .. }
+        ));
+    }
+
     async fn assert_active_reader_waits_for_commit<F, Fut>(
         idx: &Arc<Index>,
         id: &'static str,
@@ -34043,6 +34111,28 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             boost,
         } => {
             let resolved = resolve_field_alias(schema, field);
+            // A CIDR `term` on an `ip` field means the whole subnet. The
+            // source-scan matcher expands it (`ip_matches_cidr`), but the
+            // segment term-dictionary lookup can't, so it silently returned 0
+            // after a flush (#782). Rewrite it to the equivalent inclusive
+            // range, which every path (memtable + segment) handles the same.
+            if let Some(cidr) = value.as_str() {
+                if cidr.contains('/')
+                    && declared_field(schema, &resolved)
+                        .is_some_and(|fc| matches!(fc.field_type, FieldType::Ip))
+                {
+                    if let Some((lo, hi)) = cidr_to_ip_range(cidr) {
+                        return QueryNode::Range {
+                            field: resolved,
+                            gte: Some(Value::String(lo)),
+                            gt: None,
+                            lte: Some(Value::String(hi)),
+                            lt: None,
+                            boost: *boost,
+                        };
+                    }
+                }
+            }
             QueryNode::Term {
                 field: resolved,
                 value: value.clone(),
@@ -40515,6 +40605,48 @@ fn ip_matches_cidr(ip_str: &str, cidr: &str) -> Option<bool> {
 
     let mask = !0u128 << (128 - adjusted_prefix);
     Some((ip & mask) == (network & mask))
+}
+
+/// A CIDR like `192.168.1.0/24` on an `ip` field is, in ES, the inclusive
+/// range [network, broadcast]. Return those two endpoints as IP strings so a
+/// CIDR `term` can be rewritten into a `range` that works on every path (the
+/// segment term-dictionary lookup can't expand a CIDR — #782). Handles IPv4
+/// and IPv6; returns `None` if `cidr` is not valid CIDR notation.
+fn cidr_to_ip_range(cidr: &str) -> Option<(String, String)> {
+    let slash = cidr.find('/')?;
+    let prefix: u32 = cidr[slash + 1..].parse().ok()?;
+    match cidr[..slash].parse::<std::net::IpAddr>().ok()? {
+        std::net::IpAddr::V4(v4) => {
+            if prefix > 32 {
+                return None;
+            }
+            let bits = u32::from(v4);
+            let mask = if prefix == 0 {
+                0
+            } else {
+                !0u32 << (32 - prefix)
+            };
+            Some((
+                std::net::Ipv4Addr::from(bits & mask).to_string(),
+                std::net::Ipv4Addr::from(bits | !mask).to_string(),
+            ))
+        }
+        std::net::IpAddr::V6(v6) => {
+            if prefix > 128 {
+                return None;
+            }
+            let bits = u128::from(v6);
+            let mask = if prefix == 0 {
+                0
+            } else {
+                !0u128 << (128 - prefix)
+            };
+            Some((
+                std::net::Ipv6Addr::from(bits & mask).to_string(),
+                std::net::Ipv6Addr::from(bits | !mask).to_string(),
+            ))
+        }
+    }
 }
 
 /// Drop the `should` clauses of a pure disjunction that name a field this
