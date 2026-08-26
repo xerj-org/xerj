@@ -892,6 +892,7 @@ const KOTLIN_Q: &str = r#"
 (type_alias type: (identifier) @type)
 (source_file (property_declaration (variable_declaration (identifier) @const)))
 (object_declaration (class_body (property_declaration (variable_declaration (identifier) @const))))
+(companion_object (class_body (property_declaration (variable_declaration (identifier) @const))))
 "#;
 
 // Adapted from tree-sitter-swift 0.7.3 queries/tags.scm (class_declaration /
@@ -2027,14 +2028,20 @@ mod tests {
             "const val MAX = 100\n\
              val Host = \"x\"\n\
              object Cfg {\n  const val TIMEOUT = 30\n}\n\
+             class Db {\n  companion object {\n    const val DEFAULT_MAX_CONN = 100\n  }\n  val instance = 1\n}\n\
              fun f() {\n  val local = 1\n}\n",
         );
         assert!(has(&s, "MAX", "const"), "got {s:?}");
         assert!(has(&s, "Host", "const"), "got {s:?}");
         assert!(has(&s, "TIMEOUT", "const"), "got {s:?}");
-        // Function-local `val` stays out (anchored to file / object scope).
+        // companion object const — the idiomatic Kotlin class-scoped constant
+        // (direct analog of the Java `static final` #500 measured).
+        assert!(has(&s, "DEFAULT_MAX_CONN", "const"), "got {s:?}");
+        // Function-local `val` and class INSTANCE state stay out.
         assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(!has(&s, "instance", "const"), "got {s:?}");
         assert!(has(&s, "Cfg", "object"));
+        assert!(has(&s, "Db", "class"));
         assert!(has(&s, "f", "function"));
     }
 
