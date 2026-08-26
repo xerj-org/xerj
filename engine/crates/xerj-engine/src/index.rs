@@ -1830,6 +1830,58 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dis_max_ranks_multi_disjunct_doc_highest_pre_and_post_flush() {
+        // #834: dis_max scored a flat 1.0 on the memtable (catch-all), so a doc
+        // matching BOTH disjuncts tied with single-disjunct matches pre-flush
+        // and the ranking changed at flush. It must rank the two-disjunct doc
+        // FIRST in both phases (max + tie_breaker * Σ rest).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("dm", Schema::empty()).unwrap();
+        let idx = engine.get_index("dm").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("a".into()), json!({"x":"quick","y":"other"}))
+            .await
+            .unwrap();
+        idx.index_document(Some("b".into()), json!({"x":"other","y":"quick"}))
+            .await
+            .unwrap();
+        idx.index_document(Some("ab".into()), json!({"x":"quick","y":"quick"}))
+            .await
+            .unwrap();
+        let run = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query":{"dis_max":{"queries":[{"match":{"x":"quick"}},{"match":{"y":"quick"}}],"tie_breaker":0.3}},
+                "size":10,"track_total_hits":true,"sort":[{"_score":{"order":"desc"}}]
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            (
+                r.total.value,
+                r.hits.first().map(|h| h.id.clone()).unwrap_or_default(),
+                r.hits
+                    .iter()
+                    .map(|h| h.id.clone())
+                    .collect::<std::collections::BTreeSet<_>>(),
+            )
+        };
+        let want: std::collections::BTreeSet<String> =
+            ["a", "ab", "b"].iter().map(|s| s.to_string()).collect();
+        for phase in ["mem", "seg"] {
+            let (total, first, ids) = run(idx.clone()).await;
+            assert_eq!(total, 3, "all three match ({phase})");
+            assert_eq!(ids, want, "membership ({phase})");
+            assert_eq!(first, "ab", "two-disjunct doc ranks first ({phase})");
+            if phase == "mem" {
+                idx.flush().await.unwrap();
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
@@ -39700,6 +39752,28 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             let tokens = intervals_tokenise(&text);
             let dl = tokens.len().max(1) as f32;
             1.0 / dl.sqrt()
+        }
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } => {
+            // ES dis_max: score = max(sub scores) + tie_breaker * Σ(other
+            // matching sub scores). Without this arm dis_max fell to the
+            // catch-all's flat 1.0 on the stored-doc / memtable scoring path,
+            // so a doc matching MORE disjuncts tied with single-disjunct
+            // matches pre-flush and the ranking changed at flush (#834). Mirror
+            // the segment's `FtsSearcher::execute_dis_max`.
+            let scores: Vec<f32> = queries
+                .iter()
+                .map(|sub| score_query_against_doc(sub, source, schema))
+                .filter(|s| *s > 0.0)
+                .collect();
+            if scores.is_empty() {
+                return 0.0;
+            }
+            let max = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+            let sum: f32 = scores.iter().sum();
+            max + tie_breaker * (sum - max)
         }
         other => {
             if doc_matches_query_typed(other, source, schema) {
