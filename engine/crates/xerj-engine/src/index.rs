@@ -1719,6 +1719,62 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn funcscore_filter_prefix_on_keyword_is_case_sensitive() {
+        // #802 (#423 family): a function_score per-function `filter` was matched
+        // with the SCHEMALESS doc_matches_query, so a keyword `prefix` filter
+        // case-FOLDED — "Application" wrongly got the weight-5 boost for prefix
+        // "ap" (lowercase) it does not start with. Must be case-sensitive: only
+        // "apple" is boosted. Flush-invariant (same on memtable + segment).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("k", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("fs802", schema).unwrap();
+        let idx = engine.get_index("fs802").unwrap();
+        idx.abort_background_tasks();
+        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+            idx.index_document(Some(id.into()), json!({ "k": k }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>| async move {
+            let q = json!({"function_score": {
+                "query": {"match_all": {}},
+                "functions": [{"filter": {"prefix": {"k": "ap"}}, "weight": 5.0}],
+                "boost_mode": "replace"
+            }});
+            let req = xerj_query::parse_request(&json!({"query": q, "size": 10})).unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut v: Vec<_> = r.hits.iter().map(|h| (h.id.clone(), h.score)).collect();
+            v.sort_by(|a, b| a.0.cmp(&b.0));
+            v
+        };
+        // Only apple(1) starts with lowercase "ap" -> boosted 5.0; Application(2)
+        // and banana(3) stay 1.0. (Fold-both would wrongly give (2) a 5.0.)
+        let want = vec![
+            ("1".to_string(), 5.0f32),
+            ("2".to_string(), 1.0f32),
+            ("3".to_string(), 1.0f32),
+        ];
+        for phase in ["pre", "post"] {
+            assert_eq!(
+                run(idx.clone()).await,
+                want,
+                "#802 {phase}: function_score keyword prefix filter is case-sensitive"
+            );
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
         // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
         // path (schemaless doc_matches_query), wrongly excluding "Application"
@@ -15651,7 +15707,8 @@ impl Index {
                     let base = leaf_base_const
                         .unwrap_or_else(|| score_query_against_doc(inner, src, &dmq_schema))
                         * outer_boost;
-                    let mut fn_score = apply_function_score(id, src, functions, *score_mode, base);
+                    let mut fn_score =
+                        apply_function_score(id, src, functions, *score_mode, base, &dmq_schema);
                     if let Some(cap) = max_boost {
                         fn_score = fn_score.min(*cap);
                     }
@@ -18582,6 +18639,7 @@ impl Index {
                         functions,
                         *score_mode,
                         query_score,
+                        &dmq_schema,
                     );
                     // ES caps the COMBINED FUNCTION score (not the
                     // final) at `max_boost`, before boost_mode
@@ -36773,6 +36831,11 @@ fn multi_match_field_values_lc(source: &Value, field: &str) -> Option<Vec<String
 /// `apply_function_score`. The memtable search/scan paths call
 /// `doc_matches_query_typed` with the index's real schema so buffered-doc
 /// answers agree with the segment matcher (#396: keyword/text `prefix` folding).
+// #802/#423: every PRODUCTION caller now threads the real index `Schema`
+// through `doc_matches_query_typed`, so this schemaless (EMPTY_SCHEMA) shim is
+// used ONLY by unit tests that assert schema-independent shapes — gate it to
+// test builds so the lib target has no dead code and no schemaless prod path.
+#[cfg(test)]
 fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
     static EMPTY_SCHEMA: std::sync::LazyLock<Schema> = std::sync::LazyLock::new(Schema::empty);
     doc_matches_query_typed(q, source, &EMPTY_SCHEMA)
@@ -39368,7 +39431,8 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             }
             let inner = score_query_against_doc(query, source, schema);
             let doc_id = source.get("_id").and_then(Value::as_str).unwrap_or("");
-            let mut fn_score = apply_function_score(doc_id, source, functions, *score_mode, inner);
+            let mut fn_score =
+                apply_function_score(doc_id, source, functions, *score_mode, inner, schema);
             // `max_boost` caps the combined FUNCTION score before
             // boost_mode composition (ES semantics — see the post-loop).
             if let Some(cap) = max_boost {
@@ -44394,6 +44458,7 @@ fn apply_function_score(
     functions: &[ScoreFunction],
     score_mode: ScoreMode,
     query_score: f32,
+    schema: &Schema,
 ) -> f32 {
     if functions.is_empty() {
         return 1.0;
@@ -44409,7 +44474,7 @@ fn apply_function_score(
     for func in functions {
         // Check filter: if present, doc must match.
         if let Some(filter) = &func.filter {
-            if !doc_matches_query(filter, source) {
+            if !doc_matches_query_typed(filter, source, schema) {
                 continue;
             }
         }
