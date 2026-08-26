@@ -122,7 +122,7 @@ impl Metrics {
 
         let bytes_written = IntCounter::with_opts(Opts::new(
             "xerj_bytes_written_total",
-            "Total bytes written to segment files (uncompressed)",
+            "Total on-disk bytes written to segment (.seg) files by flush and merge",
         ))
         .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
 
@@ -354,6 +354,18 @@ impl Metrics {
         self.docs_indexed_by_index
             .with_label_values(&[index])
             .inc_by(n);
+    }
+
+    /// Record `n` on-disk bytes written to a segment (.seg) file — called
+    /// once per segment finalized by flush or merge with the sealed segment's
+    /// `size_bytes`. A no-op when `n == 0`. (#804: the counter was registered
+    /// but never incremented, so it read a flat zero regardless of write
+    /// volume.)
+    pub fn record_bytes_written(&self, n: u64) {
+        if n == 0 {
+            return;
+        }
+        self.bytes_written.inc_by(n);
     }
 
     /// Drop the per-index label series for `index` (RC4-W4 item 5).
