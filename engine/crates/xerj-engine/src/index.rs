@@ -1498,6 +1498,62 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn mustnot_only_prefix_or_wildcard_bool_excludes_correctly_after_flush() {
+        // #797: a `bool` with ONLY a `must_not` (no must/should/filter)
+        // containing a `prefix` or `wildcard` silently returned zero results
+        // after flush. With no positive driver, ES semantics say the base
+        // set is ALL docs, must_not subtracting matches — `term` in the same
+        // position already got this right; `prefix`/`wildcard` didn't
+        // because the FTS bool evaluator has no notion of "every doc in this
+        // segment" and built its candidate set from the (empty) `should`
+        // union instead.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("k", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mustnot-only", schema).unwrap();
+        let idx = engine.get_index("mustnot-only").unwrap();
+        idx.abort_background_tasks();
+        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+            idx.index_document(Some(id.into()), json!({ "k": k }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // Case-sensitive prefix "ap" excludes only "apple" ("Application"
+        // starts with "Ap", not "ap"), so the expected survivors are 2 and 3.
+        let want = (2u64, vec!["2".to_string(), "3".to_string()]);
+        let shapes: Vec<serde_json::Value> = vec![
+            json!({"bool": {"must_not": [{"prefix": {"k": "ap"}}]}}),
+            json!({"bool": {"must_not": [{"wildcard": {"k": "ap*"}}]}}),
+        ];
+        for phase in ["pre-flush", "post-flush"] {
+            for body in &shapes {
+                let got = run(idx.clone(), body.clone()).await;
+                assert_eq!(got, want, "#797 {phase} {body} must exclude only apple");
+            }
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
         // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
         // field matches in the memtable (the value-driven source scan expands
@@ -41813,6 +41869,20 @@ fn query_node_to_fts_with_keyword_fields(
             filter,
             minimum_should_match,
         } => {
+            // #797: with no positive driver (must/filter/should all empty),
+            // ES semantics say the base set is ALL docs, with must_not
+            // subtracting matches. The FTS bool evaluator has no notion of
+            // "every doc in this segment" — it only ever sees clause hits —
+            // so its "no required clauses" branch builds the candidate set
+            // from the (here, empty) `should` union instead of all docs,
+            // silently returning zero. Decline this projection so a
+            // must_not-only bool falls back to the stored-doc scan, which
+            // already implements "all docs minus must_not" correctly via
+            // `doc_matches_query_typed` (the pre-flush memtable path proves
+            // it).
+            if must.is_empty() && filter.is_empty() && should.is_empty() && !must_not.is_empty() {
+                return None;
+            }
             let mut bool_q = FtsBool::new();
             // `minimum_should_match` changes MATCHING, not just scoring, and
             // the FTS bool evaluator (`execute_bool`) enforces it — dropping
