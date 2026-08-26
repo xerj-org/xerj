@@ -814,6 +814,7 @@ const CPP_Q: &str = r#"
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (identifier) @const))))
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const)))))
 (enumerator name: (identifier) @const)
+(field_declaration (storage_class_specifier) @_s declarator: (field_identifier) @const (#eq? @_s "static"))
 "#;
 
 const RUBY_Q: &str = r#"
@@ -1868,6 +1869,7 @@ mod tests {
              const char* Host = \"x\";\n\
              namespace cfg { constexpr int Timeout = 30; }\n\
              enum Color { Red, Green };\n\
+             class K { static const int MEMBER = 1; const int inst_c = 2; int inst = 3; };\n\
              int fn() { int local = 1; return local; }\n",
         );
         assert!(has(&s, "MaxConn", "const"), "got {s:?}");
@@ -1875,6 +1877,13 @@ mod tests {
         assert!(has(&s, "Timeout", "const"), "got {s:?}");
         assert!(has(&s, "Red", "const"), "got {s:?}");
         assert!(has(&s, "Green", "const"), "got {s:?}");
+        // class-scope `static const` member captured (the C++ analog of the
+        // Kotlin companion / Java static constant #500 measured).
+        assert!(has(&s, "MEMBER", "const"), "got {s:?}");
+        // Instance state stays out: a non-static `const` member and a plain
+        // instance field are both excluded (the `static` precision gate).
+        assert!(!has(&s, "inst_c", "const"), "got {s:?}");
+        assert!(!has(&s, "inst", "const"), "got {s:?}");
         // Function-local stays out (anchored to unit / namespace scope).
         assert!(!has(&s, "local", "const"), "got {s:?}");
         assert!(has(&s, "fn", "function"));
