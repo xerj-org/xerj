@@ -562,6 +562,7 @@ fn emit_code_doc(
 const PYTHON_Q: &str = r#"
 (function_definition name: (identifier) @function)
 (class_definition name: (identifier) @class)
+(module (expression_statement (assignment left: (identifier) @const right: (_))))
 "#;
 
 // The last pattern is the JavaScript half of #170, and it is the same hole
@@ -808,6 +809,12 @@ const CPP_Q: &str = r#"
 (struct_specifier name: (type_identifier) @struct)
 (enum_specifier name: (type_identifier) @enum)
 (namespace_definition name: (namespace_identifier) @module)
+(translation_unit (declaration declarator: (init_declarator declarator: (identifier) @const)))
+(translation_unit (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const))))
+(namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (identifier) @const))))
+(namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const)))))
+(enumerator name: (identifier) @const)
+(field_declaration (storage_class_specifier) @_s declarator: (field_identifier) @const (#eq? @_s "static"))
 "#;
 
 const RUBY_Q: &str = r#"
@@ -815,6 +822,7 @@ const RUBY_Q: &str = r#"
 (singleton_method name: (identifier) @method)
 (class name: (constant) @class)
 (module name: (constant) @module)
+(assignment left: (constant) @const)
 "#;
 
 // `enum_declaration` was missing entirely, which is worse than a missing kind:
@@ -853,6 +861,8 @@ const CSHARP_Q: &str = r#"
 (enum_declaration name: (identifier) @enum)
 (method_declaration name: (identifier) @method)
 (constructor_declaration name: (identifier) @method)
+(field_declaration (modifier) @_m (variable_declaration (variable_declarator (identifier) @const)) (#any-of? @_m "const" "static"))
+(enum_member_declaration name: (identifier) @const)
 "#;
 
 const BASH_Q: &str = r#"
@@ -881,6 +891,9 @@ const KOTLIN_Q: &str = r#"
 (object_declaration name: (identifier) @object)
 (function_declaration name: (identifier) @function)
 (type_alias type: (identifier) @type)
+(source_file (property_declaration (variable_declaration (identifier) @const)))
+(object_declaration (class_body (property_declaration (variable_declaration (identifier) @const))))
+(companion_object (class_body (property_declaration (variable_declaration (identifier) @const))))
 "#;
 
 // Adapted from tree-sitter-swift 0.7.3 queries/tags.scm (class_declaration /
@@ -899,6 +912,9 @@ const SWIFT_Q: &str = r#"
 (class_declaration declaration_kind: "extension" name: (user_type) @class)
 (protocol_declaration name: (type_identifier) @protocol)
 (function_declaration name: (simple_identifier) @function)
+(source_file (property_declaration (pattern (simple_identifier) @const)))
+(enum_entry name: (simple_identifier) @const)
+(property_declaration (modifiers (property_modifier) @_m) (pattern (simple_identifier) @const)) (#eq? @_m "static")
 "#;
 
 // Adapted from tree-sitter-scala 0.26.2 queries/tags.scm. `val`/`var`
@@ -914,6 +930,8 @@ const SCALA_Q: &str = r#"
 (simple_enum_case name: (identifier) @const)
 (function_definition name: (identifier) @function)
 (type_definition name: (type_identifier) @type)
+(compilation_unit (val_definition pattern: (identifier) @const))
+(object_definition body: (template_body (val_definition pattern: (identifier) @const)))
 "#;
 
 // Adapted from tree-sitter-dart 0.2.0 queries/tags.scm (class / mixin / enum
@@ -1408,6 +1426,43 @@ mod tests {
         assert!(has(&s, "Bar", "class"));
         assert!(has(&s, "baz", "function"));
     }
+
+    /// #500: Python was the one major language whose extractor captured only
+    /// `function` + `class`, so a module-level constant / config binding (the
+    /// exact `DEFAULT_MAX_CONN` failure #500 measured on Java) was indexed
+    /// nowhere and only survived folded inside… nothing — Python has no
+    /// enclosing type, so a settings module extracted ZERO retrievable facts
+    /// for its constants. Mirror the Java-constant (#605) / TS-`export const`
+    /// (#285) fix: promote each module-level assignment to its own `const`
+    /// symbol. Anchored to `module` (like TS_Q's `program`) so a
+    /// function-LOCAL assignment stays out of the cross-file retrieval surface.
+    #[test]
+    fn python_module_level_constants() {
+        let s = syms(
+            "python",
+            "MAX_CONN = 100\n\
+             DATABASE_URL = \"postgres://x\"\n\
+             ROUTES = [\"a\", \"b\"]\n\
+             TYPED: int = 5\n\
+             BARE_ANNOT: str\n\
+             def f():\n    local_v = 1\n    return local_v\n\
+             class C:\n    pass\n",
+        );
+        assert!(has(&s, "MAX_CONN", "const"), "got {s:?}");
+        assert!(has(&s, "DATABASE_URL", "const"), "got {s:?}");
+        assert!(has(&s, "ROUTES", "const"), "got {s:?}");
+        // A type-annotated assignment WITH a value is a real constant.
+        assert!(has(&s, "TYPED", "const"), "got {s:?}");
+        // A bare annotation (`BARE_ANNOT: str`, no value) binds nothing — the
+        // `right: (_)` gate excludes it (precision, no recall loss).
+        assert!(!has(&s, "BARE_ANNOT", "const"), "got {s:?}");
+        // Function-local assignment stays out (anchored to `module`).
+        assert!(!has(&s, "local_v", "const"), "got {s:?}");
+        // Existing function/class capture is unchanged.
+        assert!(has(&s, "f", "function"));
+        assert!(has(&s, "C", "class"));
+    }
+
     #[test]
     fn javascript() {
         let s = syms(
@@ -1798,6 +1853,42 @@ mod tests {
         assert!(has(&s, "f", "function"));
         assert!(has(&s, "n", "module"));
     }
+
+    /// #500: `CPP_Q` captured function/class/struct/enum/namespace but not
+    /// top-level `constexpr`/`const` variables or enum values — so a config
+    /// header of `constexpr int DEFAULT_MAX_CONN = 100;` (the fact #500 measured)
+    /// indexed the constant nowhere. Capture translation-unit and namespace
+    /// declarations (plain + pointer declarators, e.g. `const char* HOST`) plus
+    /// enumerators as `const`, following the `C_Q` file-scope precedent (#170);
+    /// anchored to unit/namespace so a function-LOCAL stays out.
+    #[test]
+    fn cpp_constants() {
+        let s = syms(
+            "cpp",
+            "constexpr int MaxConn = 100;\n\
+             const char* Host = \"x\";\n\
+             namespace cfg { constexpr int Timeout = 30; }\n\
+             enum Color { Red, Green };\n\
+             class K { static const int MEMBER = 1; const int inst_c = 2; int inst = 3; };\n\
+             int fn() { int local = 1; return local; }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Host", "const"), "got {s:?}");
+        assert!(has(&s, "Timeout", "const"), "got {s:?}");
+        assert!(has(&s, "Red", "const"), "got {s:?}");
+        assert!(has(&s, "Green", "const"), "got {s:?}");
+        // class-scope `static const` member captured (the C++ analog of the
+        // Kotlin companion / Java static constant #500 measured).
+        assert!(has(&s, "MEMBER", "const"), "got {s:?}");
+        // Instance state stays out: a non-static `const` member and a plain
+        // instance field are both excluded (the `static` precision gate).
+        assert!(!has(&s, "inst_c", "const"), "got {s:?}");
+        assert!(!has(&s, "inst", "const"), "got {s:?}");
+        // Function-local stays out (anchored to unit / namespace scope).
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "fn", "function"));
+    }
+
     #[test]
     fn ruby() {
         let s = syms("ruby", "class C\n def m\n end\nend\nmodule M\nend\n");
@@ -1805,6 +1896,31 @@ mod tests {
         assert!(has(&s, "m", "method"));
         assert!(has(&s, "M", "module"));
     }
+
+    /// #500: `RUBY_Q` captured method/class/module but not CONSTANTS, so a
+    /// `MAX_CONN = 100` (the `DEFAULT_MAX_CONN`-class fact #500 measured) was
+    /// indexed nowhere. Ruby's grammar makes this precise for free: a constant
+    /// assignment binds `left: (constant)` — a distinct node from a local
+    /// variable's `(identifier)` — so `(assignment left: (constant))` captures
+    /// UPPER_CASE constants at any scope and NEVER a lowercase local, no anchor
+    /// needed (unlike Python/module).
+    #[test]
+    fn ruby_constants() {
+        let s = syms(
+            "ruby",
+            "MAX = 100\n\
+             HOST = \"x\"\n\
+             class C\n  TABLE = [1, 2]\n  def m\n    local = 1\n  end\nend\n",
+        );
+        assert!(has(&s, "MAX", "const"), "got {s:?}");
+        assert!(has(&s, "HOST", "const"), "got {s:?}");
+        assert!(has(&s, "TABLE", "const"), "got {s:?}");
+        // A lowercase local variable is `(identifier)`, never `(constant)`.
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "C", "class"));
+        assert!(has(&s, "m", "method"));
+    }
+
     #[test]
     fn php() {
         let s = syms(
@@ -1852,6 +1968,39 @@ mod tests {
         assert!(has(&s, "I", "interface"));
         assert!(has(&s, "E", "enum"));
     }
+
+    /// #500: `CSHARP_Q` captured only class/interface/struct/enum/method/ctor,
+    /// so a `const`/`static readonly` constant or an enum member — the
+    /// `DEFAULT_MAX_CONN`-class fact #500 measured — was indexed nowhere. Mirror
+    /// the Java-constant fix (#605): promote each `const`/`static` field and
+    /// each enum member to its own `const` symbol. The `const`/`static` gate is
+    /// the precision filter (like Java's `static`): an INSTANCE `readonly` field
+    /// (dependency state, not a constant) stays out.
+    #[test]
+    fn csharp_static_constants_and_enum_members() {
+        let s = syms(
+            "csharp",
+            "class C {\n\
+             \x20 public const int MaxConn = 100;\n\
+             \x20 static readonly string Url = \"x\";\n\
+             \x20 readonly int Instance = 3;\n\
+             \x20 void M() { int local = 1; }\n\
+             }\n\
+             enum E { A, B }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        assert!(has(&s, "A", "const"), "got {s:?}");
+        assert!(has(&s, "B", "const"), "got {s:?}");
+        // Instance readonly field (not static/const) and method-local stay out.
+        assert!(!has(&s, "Instance", "const"), "got {s:?}");
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        // Existing captures unchanged.
+        assert!(has(&s, "C", "class"));
+        assert!(has(&s, "M", "method"));
+        assert!(has(&s, "E", "enum"));
+    }
+
     #[test]
     fn bash() {
         let s = syms("bash", "foo() { echo hi; }\nfunction bar { echo yo; }\n");
@@ -1882,6 +2031,36 @@ mod tests {
         assert!(has(&s, "Handler", "type"), "got {s:?}");
     }
 
+    /// #500: `KOTLIN_Q` captured class/object/function/type but not `val`/`const
+    /// val` properties, so a top-level or object-level constant — the
+    /// `DEFAULT_MAX_CONN`-class fact #500 measured — was indexed nowhere. Capture
+    /// file-level and object-level (singleton) properties as `const` symbols;
+    /// anchored to `source_file` / the object body so a function-LOCAL `val` and
+    /// class INSTANCE state stay out (the Java-`static` precision boundary).
+    #[test]
+    fn kotlin_constants() {
+        let s = syms(
+            "kotlin",
+            "const val MAX = 100\n\
+             val Host = \"x\"\n\
+             object Cfg {\n  const val TIMEOUT = 30\n}\n\
+             class Db {\n  companion object {\n    const val DEFAULT_MAX_CONN = 100\n  }\n  val instance = 1\n}\n\
+             fun f() {\n  val local = 1\n}\n",
+        );
+        assert!(has(&s, "MAX", "const"), "got {s:?}");
+        assert!(has(&s, "Host", "const"), "got {s:?}");
+        assert!(has(&s, "TIMEOUT", "const"), "got {s:?}");
+        // companion object const — the idiomatic Kotlin class-scoped constant
+        // (direct analog of the Java `static final` #500 measured).
+        assert!(has(&s, "DEFAULT_MAX_CONN", "const"), "got {s:?}");
+        // Function-local `val` and class INSTANCE state stay out.
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(!has(&s, "instance", "const"), "got {s:?}");
+        assert!(has(&s, "Cfg", "object"));
+        assert!(has(&s, "Db", "class"));
+        assert!(has(&s, "f", "function"));
+    }
+
     #[test]
     fn swift() {
         let s = syms(
@@ -1902,6 +2081,33 @@ mod tests {
         assert!(has(&s, "launch", "function"), "got {s:?}");
     }
 
+    /// #500: `SWIFT_Q` captured types + functions but not constants, so Swift's
+    /// dominant constant idiom — a `static let` namespaced in an `enum`/`struct`
+    /// (`enum K { static let maxConn = 100 }`), the `DEFAULT_MAX_CONN`-class fact
+    /// #500 measured — plus top-level `let` and enum cases were indexed nowhere.
+    /// Capture: top-level `let` (source_file), `static let` type members (the
+    /// `static` modifier is the precision gate — an INSTANCE `let` stays out,
+    /// the Java-`static` boundary), and enum cases.
+    #[test]
+    fn swift_constants() {
+        let s = syms(
+            "swift",
+            "enum K { static let MaxConn = 100 }\n\
+             struct S { static let Url = \"x\"; let instanceName = \"n\" }\n\
+             let TopLevel = 1\n\
+             enum Dir { case north, south }\n\
+             func f() { let local = 1 }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        assert!(has(&s, "TopLevel", "const"), "got {s:?}");
+        assert!(has(&s, "north", "const"), "got {s:?}");
+        assert!(has(&s, "south", "const"), "got {s:?}");
+        // Instance `let` (not static) and function-local `let` stay out.
+        assert!(!has(&s, "instanceName", "const"), "got {s:?}");
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+    }
+
     #[test]
     fn scala() {
         let s = syms(
@@ -1919,6 +2125,28 @@ mod tests {
         assert!(has(&s, "Color", "enum"), "got {s:?}");
         assert!(has(&s, "Red", "const"), "got {s:?}");
         assert!(has(&s, "Handler", "type"), "got {s:?}");
+    }
+
+    /// #500: `SCALA_Q` captured class/object/trait/enum/function/type and enum
+    /// cases, but not `val` definitions, so a top-level or object (singleton)
+    /// `val MaxConn = 100` — the `DEFAULT_MAX_CONN`-class fact #500 measured —
+    /// was indexed nowhere. Capture compilation-unit and object-body `val`
+    /// definitions as `const`; anchored to those scopes so a function-LOCAL
+    /// `val` and class INSTANCE state stay out.
+    #[test]
+    fn scala_val_constants() {
+        let s = syms(
+            "scala",
+            "val MaxConn = 100\n\
+             object Cfg {\n  val Url = \"x\"\n}\n\
+             def f(): Int = { val local = 1; local }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        // Function-local `val` stays out (anchored to unit / object scope).
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "Cfg", "object"));
+        assert!(has(&s, "f", "function"));
     }
 
     #[test]
