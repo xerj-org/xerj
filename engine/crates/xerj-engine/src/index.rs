@@ -1830,6 +1830,75 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn match_minimum_should_match_requires_k_terms() {
+        // #832: a `match` with `minimum_should_match` was dropped — the
+        // OR-over-tokens BM25 path ignored it, so `match {msm:2}` behaved as OR
+        // and returned docs matching only ONE term. Fix routes match-with-msm
+        // to the doc-scan path (like operator:and), which enforces the count.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("msm", Schema::empty()).unwrap();
+        let idx = engine.get_index("msm").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("both".into()), json!({"t": "quick brown fox"}))
+            .await
+            .unwrap();
+        idx.index_document(Some("one".into()), json!({"t": "quick red car"}))
+            .await
+            .unwrap();
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query":{"match":{"t":q}},"size":10,"track_total_hits":true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["mem", "seg"] {
+            assert_eq!(
+                run(idx.clone(), json!("quick brown")).await,
+                (2, vec!["both".to_string(), "one".to_string()]),
+                "OR default ({phase})"
+            );
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"query":"quick brown","minimum_should_match":2})
+                )
+                .await,
+                (1, vec!["both".to_string()]),
+                "msm:2 ({phase})"
+            );
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"query":"quick brown","minimum_should_match":"100%"})
+                )
+                .await,
+                (1, vec!["both".to_string()]),
+                "msm:100% ({phase})"
+            );
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"query":"quick brown","minimum_should_match":1})
+                )
+                .await,
+                (2, vec!["both".to_string(), "one".to_string()]),
+                "msm:1 ({phase})"
+            );
+            if phase == "mem" {
+                idx.flush().await.unwrap();
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
@@ -36536,6 +36605,7 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
         field,
         operator,
         query,
+        minimum_should_match,
         ..
     } = q
     {
@@ -36543,6 +36613,13 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
             return true;
         }
         if matches!(operator, xerj_query::ast::BoolOperator::And) {
+            return true;
+        }
+        // `minimum_should_match` (like `operator:and`) is a per-token count the
+        // OR-over-tokens BM25 path cannot honour — route to the doc-scan, which
+        // enforces the threshold via `doc_matches_query_typed`, so mem and
+        // segment agree (#832). A bare OR match (no msm) keeps the fast path.
+        if minimum_should_match.is_some() {
             return true;
         }
         if crate::aggs::parse_date_ms(&Value::String(query.clone())).is_some()
@@ -37528,6 +37605,7 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             query,
             operator,
             analyzer,
+            minimum_should_match,
             ..
         } => {
             // Support wildcard field names
@@ -37631,44 +37709,47 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                     .map(str::to_string)
                     .collect()
             };
+            // How many of the query tokens must be present. `operator:and`
+            // requires all; `operator:or` requires 1 by default, or
+            // `minimum_should_match` if set (#832). A multi-valued field
+            // analyses to one combined token stream (ES concatenates values),
+            // so the threshold applies across the union.
+            let need: usize = match operator {
+                xerj_query::ast::BoolOperator::And => q_tokens.len(),
+                xerj_query::ast::BoolOperator::Or => match minimum_should_match {
+                    None => 1,
+                    Some(MinShouldMatch::Fixed(n)) => *n as usize,
+                    Some(MinShouldMatch::Percentage(pct)) => {
+                        ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize).max(1)
+                    }
+                    // terms_set field/script counts aren't valid on a plain
+                    // match; degrade to OR rather than reject.
+                    Some(_) => 1,
+                },
+            };
+            let count_matched = |field_tokens: &[String]| -> usize {
+                q_tokens
+                    .iter()
+                    .filter(|qt| field_tokens.iter().any(|ft| ft == *qt))
+                    .count()
+            };
             get_field_value(source, field)
                 .and_then(|v| match v {
-                    Value::String(s) => {
-                        let field_tokens = tokenize(&s);
-                        let hit = match operator {
-                            xerj_query::ast::BoolOperator::And => q_tokens
-                                .iter()
-                                .all(|qt| field_tokens.iter().any(|ft| ft == qt)),
-                            xerj_query::ast::BoolOperator::Or => q_tokens
-                                .iter()
-                                .any(|qt| field_tokens.iter().any(|ft| ft == qt)),
-                        };
-                        Some(hit)
-                    }
-                    Value::Number(n) => {
-                        let s = n.to_string();
-                        let hit = match operator {
-                            xerj_query::ast::BoolOperator::And => {
-                                q_tokens.iter().all(|qt| qt == &s)
-                            }
-                            xerj_query::ast::BoolOperator::Or => q_tokens.iter().any(|qt| qt == &s),
-                        };
-                        Some(hit)
-                    }
+                    Value::String(s) => Some(count_matched(&tokenize(&s)) >= need),
+                    Value::Number(n) => Some(count_matched(&[n.to_string()]) >= need),
                     Value::Array(arr) => {
-                        // Multi-valued field: a match on any element is a hit.
-                        let hit = arr.iter().any(|elem| match elem {
-                            Value::String(s) => {
-                                let ft = tokenize(s);
-                                q_tokens.iter().any(|qt| ft.iter().any(|t| t == qt))
+                        // Multi-valued field: combine all element tokens into
+                        // one stream, then apply the threshold (operator/msm-
+                        // aware; was OR-only).
+                        let mut combined: Vec<String> = Vec::new();
+                        for elem in &arr {
+                            match elem {
+                                Value::String(s) => combined.extend(tokenize(s)),
+                                Value::Number(n) => combined.push(n.to_string()),
+                                _ => {}
                             }
-                            Value::Number(n) => {
-                                let s = n.to_string();
-                                q_tokens.iter().any(|qt| qt == &s)
-                            }
-                            _ => false,
-                        });
-                        Some(hit)
+                        }
+                        Some(count_matched(&combined) >= need)
                     }
                     Value::Object(_) => {
                         // Flattened-field match: the field maps to an
@@ -37708,15 +37789,7 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                         }
                         let mut flat_tokens: Vec<String> = Vec::new();
                         collect_leaf_tokens(&v, &fold, &mut flat_tokens);
-                        let hit = match operator {
-                            xerj_query::ast::BoolOperator::And => q_tokens
-                                .iter()
-                                .all(|qt| flat_tokens.iter().any(|ft| ft == qt)),
-                            xerj_query::ast::BoolOperator::Or => q_tokens
-                                .iter()
-                                .any(|qt| flat_tokens.iter().any(|ft| ft == qt)),
-                        };
-                        Some(hit)
+                        Some(count_matched(&flat_tokens) >= need)
                     }
                     _ => None,
                 })
@@ -42017,7 +42090,7 @@ fn query_node_to_fts_with_keyword_fields(
             operator,
             boost,
             analyzer,
-            ..
+            minimum_should_match,
         } => {
             // Per-clause boost (ES `{"match": {"f": {"query": …, "boost": N}}}`)
             // must reach the BM25 scorer — dropping it here made boosted and
@@ -42059,6 +42132,22 @@ fn query_node_to_fts_with_keyword_fields(
                 } else {
                     bool_q.should(term)
                 };
+            }
+            // `minimum_should_match` on the OR (should) form — execute_bool
+            // enforces "at least K should clauses match" (#832). `operator:and`
+            // already requires every token. Resolve against the token count,
+            // mirroring the Bool arm.
+            if !is_and {
+                match minimum_should_match {
+                    None => {}
+                    Some(MinShouldMatch::Fixed(n)) => bool_q = bool_q.min_should_match(*n),
+                    Some(MinShouldMatch::Percentage(pct)) => {
+                        let n =
+                            ((tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as u32).max(1);
+                        bool_q = bool_q.min_should_match(n);
+                    }
+                    Some(_) => return None,
+                }
             }
             Some(FtsQuery::Bool(Box::new(bool_q)))
         }
