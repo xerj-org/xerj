@@ -1713,6 +1713,125 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_on_date_matches_alt_format_values_across_flush() {
+        // #799: `terms` on a declared date field did a raw literal lookup per
+        // value, so alternate formats of the same instant (date-only string,
+        // epoch-ms number) returned zero — pre AND post flush. Mirror the #789
+        // single-`term` date rewrite: each date value becomes a degenerate
+        // range [epoch, epoch], combined via bool.should.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("dterms799", schema).unwrap();
+        let idx = engine.get_index("dterms799").unwrap();
+        idx.abort_background_tasks();
+        for (id, ts) in [
+            ("1", "2020-01-01T00:00:00Z"),
+            ("2", "2021-06-15T12:00:00Z"),
+            ("3", "2019-03-03T00:00:00Z"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "ts": ts }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": q, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // Alt formats of docs 1 & 2's instants: date-only string + epoch-ms.
+        let want = (2u64, vec!["1".to_string(), "2".to_string()]);
+        for phase in ["pre", "post"] {
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"terms": {"ts": ["2020-01-01", 1_623_758_400_000_i64]}}),
+                )
+                .await,
+                want,
+                "#799 {phase}: terms on a date field matches alt-format instants"
+            );
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_of_cidrs_on_ip_field_matches_across_flush() {
+        // #801: `terms` of CIDR values on a declared ip field returned 0 — the
+        // segment term dictionary can't expand a subnet. Mirror the #782/#783
+        // single-`term` CIDR rewrite: each CIDR becomes a [network, broadcast]
+        // range, combined via bool.should; plain (non-CIDR) ips stay a residual
+        // exact terms.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("addr", FieldType::Ip))
+            .unwrap();
+        engine.create_index("ipterms801", schema).unwrap();
+        let idx = engine.get_index("ipterms801").unwrap();
+        idx.abort_background_tasks();
+        for (id, ip) in [("1", "10.0.0.5"), ("2", "192.168.1.9"), ("3", "172.16.0.1")] {
+            idx.index_document(Some(id.into()), json!({ "addr": ip }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": q, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["pre", "post"] {
+            // Two CIDRs -> docs 1 & 2.
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"terms": {"addr": ["10.0.0.0/8", "192.168.0.0/16"]}}),
+                )
+                .await,
+                (2u64, vec!["1".to_string(), "2".to_string()]),
+                "#801 {phase}: terms of CIDRs matches subnet members"
+            );
+            // Mixed: a CIDR + a plain ip (residual exact-terms path) -> docs 1 & 3.
+            assert_eq!(
+                run(
+                    idx.clone(),
+                    json!({"terms": {"addr": ["10.0.0.0/8", "172.16.0.1"]}}),
+                )
+                .await,
+                (2u64, vec!["1".to_string(), "3".to_string()]),
+                "#801 {phase}: mixed CIDR + plain-ip terms keeps both"
+            );
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -34545,6 +34664,87 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             boost,
         } => {
             let resolved = resolve_field_alias(schema, field);
+            // The `Terms` arm must normalize its values the SAME way the single
+            // `term` arm above does, or `terms` misses matches `term` finds:
+            //   #799 (date): a `terms` naming the same instants in alternate
+            //     formats (date-only string, ISO variant, epoch-ms) returned 0,
+            //     because the per-value literal lookup (memtable
+            //     `doc_values_term_query`, segment term dictionary) matches only
+            //     the stored representation. Rewrite each value to the degenerate
+            //     inclusive `range [epoch, epoch]` (#788/#789).
+            //   #801 (ip): a `terms` of CIDRs on an `ip` field returned 0 — the
+            //     segment term dictionary can't expand a subnet. Rewrite each
+            //     CIDR to its `[network, broadcast]` range (#782/#783).
+            // The rewritten values are OR-combined via `bool.should` (default
+            // minimum_should_match 1 = ES `terms` OR). Range-on-date/ip resolves
+            // through the same normaliser on every path (memtable + segment +
+            // FTS), so one rewrite fixes them all.
+            //
+            // Non-rewritable values are preserved in a residual exact `terms`
+            // should-clause so nothing is lost: sub-millisecond date strings
+            // (>=4 fractional digits — the #790 nanos-shadow hazard, per the
+            // single-term gate), plain (non-CIDR) ips, and any value that does
+            // not parse. Only fires on a declared `date`/`ip` field with >=1
+            // rewritable value; otherwise the plain `terms` is returned as-is.
+            let ft_is_date = declared_field(schema, &resolved)
+                .is_some_and(|fc| matches!(fc.field_type, FieldType::Date));
+            let ft_is_ip = declared_field(schema, &resolved)
+                .is_some_and(|fc| matches!(fc.field_type, FieldType::Ip));
+            if ft_is_date || ft_is_ip {
+                let mut should: Vec<QueryNode> = Vec::new();
+                let mut residual: Vec<Value> = Vec::new();
+                for v in values {
+                    let rewritten = if ft_is_date {
+                        if v.as_str().is_some_and(date_string_has_subms) {
+                            None
+                        } else {
+                            crate::aggs::parse_date_ms(v).map(|ms| {
+                                let epoch = Value::Number(serde_json::Number::from(ms));
+                                QueryNode::Range {
+                                    field: resolved.clone(),
+                                    gte: Some(epoch.clone()),
+                                    gt: None,
+                                    lte: Some(epoch),
+                                    lt: None,
+                                    boost: *boost,
+                                }
+                            })
+                        }
+                    } else {
+                        v.as_str()
+                            .filter(|s| s.contains('/'))
+                            .and_then(cidr_to_ip_range)
+                            .map(|(lo, hi)| QueryNode::Range {
+                                field: resolved.clone(),
+                                gte: Some(Value::String(lo)),
+                                gt: None,
+                                lte: Some(Value::String(hi)),
+                                lt: None,
+                                boost: *boost,
+                            })
+                    };
+                    match rewritten {
+                        Some(r) => should.push(r),
+                        None => residual.push(v.clone()),
+                    }
+                }
+                if !should.is_empty() {
+                    if !residual.is_empty() {
+                        should.push(QueryNode::Terms {
+                            field: resolved.clone(),
+                            values: residual,
+                            boost: *boost,
+                        });
+                    }
+                    return QueryNode::Bool {
+                        must: Vec::new(),
+                        should,
+                        must_not: Vec::new(),
+                        filter: Vec::new(),
+                        minimum_should_match: None,
+                    };
+                }
+            }
             QueryNode::Terms {
                 field: resolved,
                 values: values.clone(),
