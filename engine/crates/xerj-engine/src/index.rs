@@ -1659,6 +1659,52 @@ mod flush_publication_recovery_tests {
         }
     }
 
+    #[ignore = "#794 fail-before repro; un-ignore when schema is threaded into score_query_against_doc/apply_rescore"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
+        // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
+        // path (schemaless doc_matches_query), wrongly excluding "Application"
+        // for prefix "ap" on a declared keyword field. Must be case-sensitive,
+        // pre AND post flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("k", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mn794", schema).unwrap();
+        let idx = engine.get_index("mn794").unwrap();
+        idx.abort_background_tasks();
+        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+            idx.index_document(Some(id.into()), json!({ "k": k })).await.unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({"query": q, "size": 10, "track_total_hits": true})).unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // must_not [prefix ap] -> keep Application(2) + banana(3); with match_all base too.
+        let want = (2u64, vec!["2".to_string(), "3".to_string()]);
+        for phase in ["pre", "post"] {
+            for q in [
+                json!({"bool": {"must_not": [{"prefix": {"k": "ap"}}]}}),
+                json!({"bool": {"must": [{"match_all": {}}], "must_not": [{"prefix": {"k": "ap"}}]}}),
+                json!({"bool": {"must_not": [{"wildcard": {"k": "ap*"}}]}}),
+            ] {
+                assert_eq!(run(idx.clone(), q.clone()).await, want, "#794 {phase} {q}: keyword prefix/wildcard in must_not is case-sensitive");
+            }
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
