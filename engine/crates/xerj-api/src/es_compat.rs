@@ -7403,17 +7403,29 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
     }
 }
 
-/// Fields whose vector clause GENUINELY reaches the vector for this query,
-/// mirroring the engine's `peel_semantic_query` / `peel_knn_query` dispatch
-/// (index.rs). A `semantic`/`knn` clause consults the vector only as the whole
-/// query, as the SOLE `must`/`should` candidate of a `bool` with no `must_not`,
-/// or inside a `hybrid` (which fuses and runs every branch). A `semantic`/`knn`
-/// clause sitting BESIDE a sibling in a multi-clause `bool` falls through to the
-/// lexical path and never consults the vector (#394) — so it must NOT count as
-/// "reached the vector" here, or the hint gets suppressed on a query that ran
-/// BM25-only, reintroducing the exact silence the hint exists to break. Contrast
-/// [`vector_query_fields`], which collects every mention regardless of shape and
-/// is right only for the top-level `knn` block (which always dispatches).
+/// Fields whose vector clause reaches the vector for this query, approximating
+/// the engine's `peel_semantic_query` / `peel_knn_query` dispatch (index.rs) for
+/// the shapes that can co-exist with a lexical `semantic_text` clause. A
+/// `semantic`/`knn` clause consults the vector only as the whole query, as the
+/// SOLE `must`/`should` candidate of a `bool` with no `must_not`, or inside a
+/// `hybrid` (which fuses and runs every branch). A `semantic`/`knn` clause
+/// sitting BESIDE a sibling in a multi-clause `bool` falls through to the lexical
+/// path and never consults the vector (#394) — so it must NOT count as "reached
+/// the vector" here, or the hint gets suppressed on a query that ran BM25-only,
+/// reintroducing the exact silence the hint exists to break.
+///
+/// This is NOT a byte-exact mirror of `peel`, and does not need to be (#777):
+/// where it diverges the shapes are contrived or carry no lexical clause, so none
+/// can produce an observable wrong hint — a pure multi-`knn` or `nested` bool has
+/// no text clause to flag; a `hybrid` nested as a bool's sole candidate is
+/// collected here even though `peel`'s bool arm would not descend into it
+/// (over-suppressing a contrived `bool{should:[hybrid], filter:[match]}`, exactly
+/// as the prior blanket walk did — not a regression); and a query-level
+/// `boost`/`_name` is an inline leaf param, not a wrapper key, so nothing
+/// dispatching is missed.
+///
+/// Contrast [`vector_query_fields`], which collects every mention regardless of
+/// shape and is right only for the top-level `knn` block (which always dispatches).
 fn dispatching_vector_fields(q: &Value, out: &mut Vec<String>) {
     let Value::Object(o) = q else {
         return;
