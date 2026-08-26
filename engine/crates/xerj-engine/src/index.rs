@@ -382,6 +382,35 @@ mod collection_publication_fail_closed_tests {
         );
     }
 
+    /// #421 "Also unresolved": `sorted_shadow_for`'s correctness rests on
+    /// `build_doc_value_columns` skipping `_`-prefixed source keys — `_seq_no`,
+    /// `_id`, `_source` and friends are envelope bookkeeping, not user data, and
+    /// must never be shadowed into a doc-value column from `_source` (a meta
+    /// field is resolved from the version map, never from a source column). That
+    /// invariant lived only in a comment (index.rs, the `starts_with('_')` skip)
+    /// with no test binding it to `sorted_shadow_for`. Pin it: a source doc
+    /// carrying `_`-prefixed keys must yield NO column for them, so removing the
+    /// skip fails here instead of silently shadowing meta-fields.
+    #[test]
+    fn build_doc_value_columns_skips_underscore_prefixed_source_keys() {
+        let doc = json!({"_seq_no": 5, "_id": "abc", "title": "hello", "count": 42});
+        let skip = std::collections::HashSet::new();
+        let cols = super::build_doc_value_columns([Some(&doc)].into_iter(), &skip);
+        assert!(
+            !cols.keys().any(|k| k.starts_with('_')),
+            "#421: no `_`-prefixed source key may become a doc-value column (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+        // Sanity so the assertion above is not vacuously true: real user fields
+        // DO get shadowed, so the function did build columns — it just excluded
+        // the meta keys.
+        assert!(
+            cols.contains_key("title") && cols.contains_key("count"),
+            "user fields must be shadowed into columns (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+    }
+
     async fn assert_flush_publication_blocks_reader_then_finishes(inject_error: bool) {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
