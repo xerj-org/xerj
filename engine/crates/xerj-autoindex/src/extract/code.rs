@@ -562,7 +562,7 @@ fn emit_code_doc(
 const PYTHON_Q: &str = r#"
 (function_definition name: (identifier) @function)
 (class_definition name: (identifier) @class)
-(module (expression_statement (assignment left: (identifier) @const)))
+(module (expression_statement (assignment left: (identifier) @const right: (_))))
 "#;
 
 // The last pattern is the JavaScript half of #170, and it is the same hole
@@ -1442,12 +1442,19 @@ mod tests {
             "MAX_CONN = 100\n\
              DATABASE_URL = \"postgres://x\"\n\
              ROUTES = [\"a\", \"b\"]\n\
+             TYPED: int = 5\n\
+             BARE_ANNOT: str\n\
              def f():\n    local_v = 1\n    return local_v\n\
              class C:\n    pass\n",
         );
         assert!(has(&s, "MAX_CONN", "const"), "got {s:?}");
         assert!(has(&s, "DATABASE_URL", "const"), "got {s:?}");
         assert!(has(&s, "ROUTES", "const"), "got {s:?}");
+        // A type-annotated assignment WITH a value is a real constant.
+        assert!(has(&s, "TYPED", "const"), "got {s:?}");
+        // A bare annotation (`BARE_ANNOT: str`, no value) binds nothing — the
+        // `right: (_)` gate excludes it (precision, no recall loss).
+        assert!(!has(&s, "BARE_ANNOT", "const"), "got {s:?}");
         // Function-local assignment stays out (anchored to `module`).
         assert!(!has(&s, "local_v", "const"), "got {s:?}");
         // Existing function/class capture is unchanged.
