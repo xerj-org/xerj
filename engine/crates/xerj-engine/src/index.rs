@@ -1413,7 +1413,6 @@ mod flush_publication_recovery_tests {
         assert_eq!(result.hits[0].id, "survivor");
     }
 
-    #[ignore = "#788: fail-before repro; un-ignore when the Term/Terms date-normalization fix lands"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn date_term_normalizes_formats_and_epoch_ms_across_flush() {
         // #788: a `term` on a date field must match by instant, not by raw
@@ -1457,11 +1456,21 @@ mod flush_publication_recovery_tests {
             json!({"term": {"ts": "2020-01-01"}}),
             json!({"term": {"ts": 1577836800000i64}}),
         ];
+        let count0 = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 0, "track_total_hits": true
+            }))
+            .unwrap();
+            idx.search(&req).await.unwrap().total.value
+        };
         let want = (1u64, vec!["a".to_string()]);
         for phase in ["pre-flush", "post-flush"] {
             for body in &shapes {
                 let got = run(idx.clone(), body.clone()).await;
                 assert_eq!(got, want, "#788 {phase} {body} must match doc a by instant");
+                // size:0 count fast path must agree with the hit scan.
+                let c = count0(idx.clone(), body.clone()).await;
+                assert_eq!(c, 1, "#788 {phase} {body} size:0 count must be 1");
             }
             if phase == "pre-flush" {
                 idx.flush().await.unwrap();
@@ -34327,6 +34336,32 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
                             boost: *boost,
                         };
                     }
+                }
+            }
+            // A `term` on a `date` field matches by INSTANT, not by the raw
+            // stored representation: "2020-01-01", "2020-01-01T00:00:00Z", and
+            // the epoch-ms number all name the same instant. The term fast paths
+            // (memtable `doc_values_term_query`, segment term dictionary) do a
+            // literal lookup and miss any format but the stored one, so the
+            // match evaporated for alternate forms (#788). Rewrite to the
+            // degenerate inclusive `range [epoch, epoch]`, which every path
+            // resolves through `parse_date_ms` identically — the same fix shape
+            // #782 used for CIDR. Only fires when the schema types the field
+            // `date` and the value parses as a date; a keyword holding a
+            // date-looking literal is left an exact `term`.
+            if declared_field(schema, &resolved)
+                .is_some_and(|fc| matches!(fc.field_type, FieldType::Date))
+            {
+                if let Some(ms) = crate::aggs::parse_date_ms(value) {
+                    let epoch = Value::Number(serde_json::Number::from(ms));
+                    return QueryNode::Range {
+                        field: resolved,
+                        gte: Some(epoch.clone()),
+                        gt: None,
+                        lte: Some(epoch),
+                        lt: None,
+                        boost: *boost,
+                    };
                 }
             }
             QueryNode::Term {
