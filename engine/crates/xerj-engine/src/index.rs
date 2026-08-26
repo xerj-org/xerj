@@ -1659,7 +1659,7 @@ mod flush_publication_recovery_tests {
         }
     }
 
-    #[ignore = "#794 WIP: score_query_against_doc threaded; hit-scan (25242/25793) + count (try_shortcut_count) sites still schemaless"]
+    #[ignore = "#794 WIP: scoring+hydration threaded; exclusion is elsewhere (prefix prefilter?) — TRACE next"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
         // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
@@ -1679,10 +1679,15 @@ mod flush_publication_recovery_tests {
         let idx = engine.get_index("mn794").unwrap();
         idx.abort_background_tasks();
         for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
-            idx.index_document(Some(id.into()), json!({ "k": k })).await.unwrap();
+            idx.index_document(Some(id.into()), json!({ "k": k }))
+                .await
+                .unwrap();
         }
         let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
-            let req = xerj_query::parse_request(&json!({"query": q, "size": 10, "track_total_hits": true})).unwrap();
+            let req = xerj_query::parse_request(
+                &json!({"query": q, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
             let r = idx.search(&req).await.unwrap();
             let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
             ids.sort();
@@ -1695,7 +1700,11 @@ mod flush_publication_recovery_tests {
                 json!({"bool": {"must": [{"match_all": {}}], "must_not": [{"prefix": {"k": "ap"}}]}}),
                 json!({"bool": {"must": [{"match_all": {}}], "must_not": [{"wildcard": {"k": "ap*"}}]}}),
             ] {
-                assert_eq!(run(idx.clone(), q.clone()).await, want, "#794 {phase} {q}: keyword prefix/wildcard in must_not is case-sensitive");
+                assert_eq!(
+                    run(idx.clone(), q.clone()).await,
+                    want,
+                    "#794 {phase} {q}: keyword prefix/wildcard in must_not is case-sensitive"
+                );
             }
             if phase == "pre" {
                 idx.flush().await.unwrap();
@@ -18101,6 +18110,7 @@ impl Index {
                                     &mut all_hits,
                                     &mut seen_ids,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                             }
                             _ => {
@@ -25178,6 +25188,7 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        schema: &Schema,
     ) {
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
@@ -25240,7 +25251,7 @@ impl Index {
                 } else {
                     source_ref.clone()
                 };
-                doc_matches_query(query, &source_with_id)
+                doc_matches_query_typed(query, &source_with_id, schema)
             };
             if !matched {
                 continue;
