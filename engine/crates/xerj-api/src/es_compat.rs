@@ -7403,6 +7403,73 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
     }
 }
 
+/// Fields whose vector clause GENUINELY reaches the vector for this query,
+/// mirroring the engine's `peel_semantic_query` / `peel_knn_query` dispatch
+/// (index.rs). A `semantic`/`knn` clause consults the vector only as the whole
+/// query, as the SOLE `must`/`should` candidate of a `bool` with no `must_not`,
+/// or inside a `hybrid` (which fuses and runs every branch). A `semantic`/`knn`
+/// clause sitting BESIDE a sibling in a multi-clause `bool` falls through to the
+/// lexical path and never consults the vector (#394) — so it must NOT count as
+/// "reached the vector" here, or the hint gets suppressed on a query that ran
+/// BM25-only, reintroducing the exact silence the hint exists to break. Contrast
+/// [`vector_query_fields`], which collects every mention regardless of shape and
+/// is right only for the top-level `knn` block (which always dispatches).
+fn dispatching_vector_fields(q: &Value, out: &mut Vec<String>) {
+    let Value::Object(o) = q else {
+        return;
+    };
+    // A direct `semantic`/`knn` at this level dispatches.
+    for key in ["semantic", "knn"] {
+        if let Some(v) = o.get(key) {
+            let specs: Vec<&Value> = match v {
+                Value::Array(a) => a.iter().collect(),
+                single => vec![single],
+            };
+            for spec in specs {
+                if let Some(f) = spec.get("field").and_then(Value::as_str) {
+                    out.push(f.to_string());
+                }
+            }
+        }
+    }
+    // `hybrid` runs and fuses every branch, so each branch dispatches on its
+    // own terms.
+    if let Some(Value::Array(branches)) = o.get("hybrid").and_then(|h| h.get("queries")) {
+        for entry in branches {
+            if let Some(inner) = entry.get("query") {
+                dispatching_vector_fields(inner, out);
+            }
+        }
+    }
+    // `constant_score` is a transparent wrapper (the engine peels it).
+    if let Some(inner) = o.get("constant_score").and_then(|c| c.get("filter")) {
+        dispatching_vector_fields(inner, out);
+    }
+    // `bool` reaches its vector clause ONLY in the single-`must`/`should`
+    // candidate, no-`must_not` shape the engine peels; every other bool falls
+    // through to the lexical path and consults no vector.
+    if let Some(Value::Object(b)) = o.get("bool") {
+        let must_not_empty = match b.get("must_not") {
+            None | Some(Value::Null) => true,
+            Some(Value::Array(a)) => a.is_empty(),
+            Some(_) => false,
+        };
+        if must_not_empty {
+            let mut candidates: Vec<&Value> = Vec::new();
+            for key in ["must", "should"] {
+                match b.get(key) {
+                    Some(Value::Array(a)) => candidates.extend(a.iter()),
+                    Some(Value::Null) | None => {}
+                    Some(other) => candidates.push(other),
+                }
+            }
+            if candidates.len() == 1 {
+                dispatching_vector_fields(candidates[0], out);
+            }
+        }
+    }
+}
+
 /// Hint for a lexical full-text query aimed at a `semantic_text` field (#363).
 ///
 /// `semantic_text` maps to `FieldType::Text` plus an `EmbeddingConfig`, and the
@@ -7448,11 +7515,13 @@ fn lexical_on_semantic_text_hint(
     if lexical.is_empty() {
         return None;
     }
+    // Only the vector clauses that GENUINELY dispatch count as "reached the
+    // vector" — a `semantic`/`knn` beside a lexical clause in a multi-clause
+    // bool falls through to BM25 and consulted no embedding, so it must not
+    // suppress the hint (#394). The top-level `knn` block is the exception:
+    // it lives outside `query` and always dispatches.
     let mut vectorised = Vec::new();
-    vector_query_fields(query, &mut vectorised);
-    // The ES 8.x top-level `knn` block lives outside `query`, and pairing it
-    // with a `match` is the canonical hand-rolled hybrid — the one shape that
-    // most deserves not to be nagged.
+    dispatching_vector_fields(query, &mut vectorised);
     if let Some(knn) = body.knn.as_ref() {
         vector_query_fields(&json!({ "knn": knn }), &mut vectorised);
     }
@@ -7468,9 +7537,12 @@ fn lexical_on_semantic_text_hint(
             .target_field
             .clone()
             .unwrap_or_else(|| format!("{field}_vector"));
-        // A caller who already wrote `semantic`/`knn` for this field knows
-        // what the field is. Repeating it is the noise that gets a hint
-        // channel muted, and a hybrid query is a correct use, not a mistake.
+        // A caller whose query actually reached the vector for this field
+        // (a dispatching `semantic`/`knn`, a top-level `knn`, or a `hybrid`)
+        // knows what the field is; repeating it is the noise that mutes a hint
+        // channel, and a hybrid is a correct use, not a mistake. A `semantic`
+        // clause that never dispatched (a multi-clause bool) is NOT in this set
+        // (#394), so its lexical sibling is still flagged.
         if vectorised.iter().any(|f| *f == field || *f == companion) {
             continue;
         }
@@ -8221,10 +8293,15 @@ mod semantic_text_lexical_hint_tests {
         );
     }
 
-    /// A caller who already reached for `semantic` on that field knows the
-    /// field is semantic. Telling them again is the noise case.
+    /// #394: a `semantic` clause sitting BESIDE a lexical one in a multi-clause
+    /// bool never reaches the vector. `peel_semantic_query` dispatches a bool to
+    /// the vector only when `must`+`should` holds exactly one candidate, so this
+    /// query runs BM25-only and the embedding is not consulted. The prior rule
+    /// read the bare `semantic` clause as "the caller reached the vector" and
+    /// suppressed the hint — reintroducing the very silence it exists to break.
+    /// It must be flagged.
     #[tokio::test]
-    async fn a_query_that_already_uses_semantic_on_the_field_is_not_flagged() {
+    async fn a_semantic_clause_that_never_reached_the_vector_is_still_flagged() {
         let state = test_state();
         build_index(
             &state,
@@ -8244,9 +8321,46 @@ mod semantic_text_lexical_hint_tests {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{json}");
+        let hint = semantic_hint(&json).unwrap_or_else(|| {
+            panic!(
+                "#394: a nested semantic beside a lexical clause never reached the \
+                 vector, so the `match` must still be flagged: {json}"
+            )
+        });
+        assert!(
+            hint["reason"].as_str().unwrap().contains("ctx"),
+            "must name the field: {hint}"
+        );
+    }
+
+    /// Regression guard for the #394 dispatch-aware suppression: a `hybrid`
+    /// query fuses and runs its lexical AND vector branches, so the vector IS
+    /// consulted and the lexical branch must NOT be nagged. Narrowing the rule
+    /// to genuinely-dispatching clauses must keep suppressing here.
+    #[tokio::test]
+    async fn a_hybrid_query_over_the_semantic_field_is_not_flagged() {
+        let state = test_state();
+        build_index(
+            &state,
+            "sem-hyb",
+            json!({"type": "semantic_text", "dimensions": 32}),
+        )
+        .await;
+
+        let (status, json) = request_json(
+            &state,
+            "POST",
+            "/sem-hyb/_search",
+            json!({"query": {"hybrid": {"queries": [
+                {"query": {"match": {"ctx": "graph edges"}}},
+                {"query": {"knn": {"field": "ctx_vector", "query_vector": vec![0.1_f32; 32], "k": 3}}},
+            ]}}, "_source": false}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{json}");
         assert!(
             semantic_hint(&json).is_none(),
-            "caller already knows: {json}"
+            "a hybrid consults the vector; nagging its lexical half is wrong: {json}"
         );
     }
 
