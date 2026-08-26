@@ -1511,6 +1511,78 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_mixed_precision_sorts_and_ranges_consistently() {
+        // #790: the sort-shadow encoded >=4-fractional-digit dates in
+        // nanoseconds and coarser ones in milliseconds, mixing two scales in
+        // one column. A 2020 sub-ms doc's nanos key (~1.6e18) then sorted AFTER
+        // a 2025 whole-second doc's ms key (~1.7e12), and an ms-scale range
+        // bound missed the nanos key. ES `date` is millisecond precision, so
+        // the fix drops the nanos branch — everything is ms, and sort/range are
+        // consistent regardless of per-value precision.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("date-mixed", schema).unwrap();
+        let idx = engine.get_index("date-mixed").unwrap();
+        idx.abort_background_tasks();
+        // true order: e(2019) < s(2020, sub-ms) < w(2025).
+        for (id, ts) in [
+            ("w", "2025-01-01T00:00:00Z"),
+            ("s", "2020-06-06T06:06:06.123456Z"),
+            ("e", "2019-01-01T00:00:00Z"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "ts": ts }))
+                .await
+                .unwrap();
+        }
+        let sort_asc = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": "asc"}]}),
+            )
+            .unwrap();
+            idx.search(&req)
+                .await
+                .unwrap()
+                .hits
+                .iter()
+                .map(|h| h.id.clone())
+                .collect::<Vec<_>>()
+        };
+        let range_ge_2021 = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": {"range": {"ts": {"gte": "2021-01-01"}}},
+                "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            idx.search(&req).await.unwrap().total.value
+        };
+        let want_sort = vec!["e".to_string(), "s".to_string(), "w".to_string()];
+        for phase in ["pre", "post"] {
+            assert_eq!(
+                sort_asc(idx.clone()).await,
+                want_sort,
+                "#790 {phase} date sort must be chronological on mixed precision"
+            );
+            // gte 2021 excludes e(2019) and s(2020); keeps only w(2025).
+            assert_eq!(
+                range_ge_2021(idx.clone()).await,
+                1,
+                "#790 {phase} range gte 2021 must keep only w"
+            );
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -40038,29 +40110,17 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
             && bytes[3].is_ascii_digit()
             && bytes[4] == b'-';
         if looks_date {
-            let frac_digits = s
-                .rsplit_once('.')
-                .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-                .unwrap_or(0);
-            let is_nanos = frac_digits >= 4;
+            // ES `date` is millisecond precision (XERJ has no `date_nanos`), so
+            // ALWAYS normalise to epoch-ms. Encoding >=4-fractional-digit values
+            // in nanoseconds and coarser ones in ms mixed two scales in one sort
+            // column, corrupting sort order and range on mixed-precision data
+            // (#790). Sub-millisecond digits are truncated, matching ES `date`.
             let s_utc = s.replace(' ', "T");
             let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
                 s_utc
             } else {
                 format!("{}Z", s_utc)
             };
-            if is_nanos {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                    let secs = dt.timestamp();
-                    let nanos = dt.timestamp_subsec_nanos() as i64;
-                    if let Some(ns) = secs
-                        .checked_mul(1_000_000_000)
-                        .and_then(|x| x.checked_add(nanos))
-                    {
-                        return Value::Number(serde_json::Number::from(ns));
-                    }
-                }
-            }
             if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
                 return Value::Number(serde_json::Number::from(dt.timestamp_millis()));
             }
@@ -40139,35 +40199,17 @@ fn slash_date_to_epoch(s: &str) -> Option<Value> {
     None
 }
 fn date_string_to_epoch(s: &str) -> Option<Value> {
-    let frac_digits = s
-        .rsplit_once('.')
-        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-        .unwrap_or(0);
-    let is_nanos = frac_digits >= 4;
+    // ES `date` is millisecond precision (XERJ has no `date_nanos`), so ALWAYS
+    // normalise to epoch-ms. Encoding >=4-fractional-digit values in
+    // nanoseconds and coarser ones in ms mixed two scales in one sort column,
+    // corrupting sort order and range on mixed-precision data (#790).
+    // Sub-millisecond digits are truncated, matching ES `date`.
     let s_utc = s.replace(' ', "T");
     let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
         s_utc
     } else {
         format!("{}Z", s_utc)
     };
-    if is_nanos {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-            let secs = dt.timestamp();
-            let nanos = dt.timestamp_subsec_nanos() as i64;
-            let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(nanos)?;
-            return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-        }
-        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
-            s_utc.trim_end_matches('Z'),
-            "%Y-%m-%dT%H:%M:%S%.f",
-        ) {
-            let subsec_nanos = dt.and_utc().timestamp_subsec_nanos() as i64;
-            let secs = dt.and_utc().timestamp();
-            let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(subsec_nanos)?;
-            return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-        }
-        return None;
-    }
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
         return Some(Value::Number(serde_json::Number::from(
             dt.timestamp_millis(),
