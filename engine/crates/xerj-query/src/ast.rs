@@ -413,7 +413,10 @@ pub enum QueryNode {
         minimum_should_match: Option<MinShouldMatch>,
     },
 
-    /// Ordered phrase match with optional slop (token transpositions allowed).
+    /// Ordered phrase match with optional slop. `slop` admits forward gaps
+    /// between the in-order tokens ONLY — it does NOT admit transpositions
+    /// (reorderings), a known divergence from Lucene's SloppyPhraseMatcher
+    /// (see #830 and `index.rs::phrase_walk`).
     MatchPhrase {
         field: String,
         query: String,
