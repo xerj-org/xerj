@@ -816,6 +816,7 @@ const RUBY_Q: &str = r#"
 (singleton_method name: (identifier) @method)
 (class name: (constant) @class)
 (module name: (constant) @module)
+(assignment left: (constant) @const)
 "#;
 
 // `enum_declaration` was missing entirely, which is worse than a missing kind:
@@ -1838,6 +1839,31 @@ mod tests {
         assert!(has(&s, "m", "method"));
         assert!(has(&s, "M", "module"));
     }
+
+    /// #500: `RUBY_Q` captured method/class/module but not CONSTANTS, so a
+    /// `MAX_CONN = 100` (the `DEFAULT_MAX_CONN`-class fact #500 measured) was
+    /// indexed nowhere. Ruby's grammar makes this precise for free: a constant
+    /// assignment binds `left: (constant)` — a distinct node from a local
+    /// variable's `(identifier)` — so `(assignment left: (constant))` captures
+    /// UPPER_CASE constants at any scope and NEVER a lowercase local, no anchor
+    /// needed (unlike Python/module).
+    #[test]
+    fn ruby_constants() {
+        let s = syms(
+            "ruby",
+            "MAX = 100\n\
+             HOST = \"x\"\n\
+             class C\n  TABLE = [1, 2]\n  def m\n    local = 1\n  end\nend\n",
+        );
+        assert!(has(&s, "MAX", "const"), "got {s:?}");
+        assert!(has(&s, "HOST", "const"), "got {s:?}");
+        assert!(has(&s, "TABLE", "const"), "got {s:?}");
+        // A lowercase local variable is `(identifier)`, never `(constant)`.
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        assert!(has(&s, "C", "class"));
+        assert!(has(&s, "m", "method"));
+    }
+
     #[test]
     fn php() {
         let s = syms(
