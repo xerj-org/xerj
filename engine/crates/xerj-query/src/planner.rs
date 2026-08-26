@@ -62,7 +62,8 @@ pub enum ExecutionPlan {
         field: String,
         tokens: Vec<String>,
         require_all: bool,
-        /// Phrase mode — tokens must appear in order (with `slop` transpositions).
+        /// Phrase mode — tokens must appear IN ORDER, with `slop` forward gaps
+        /// permitted between them (NOT transpositions/reorderings; see #830).
         phrase: bool,
         slop: u32,
         cost: f64,
