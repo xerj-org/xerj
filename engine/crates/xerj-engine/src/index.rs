@@ -1660,6 +1660,59 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
+        // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
+        // path (schemaless doc_matches_query), wrongly excluding "Application"
+        // for prefix "ap" on a declared keyword field. Must be case-sensitive,
+        // pre AND post flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("k", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mn794", schema).unwrap();
+        let idx = engine.get_index("mn794").unwrap();
+        idx.abort_background_tasks();
+        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+            idx.index_document(Some(id.into()), json!({ "k": k }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": q, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // must_not [prefix ap] -> keep Application(2) + banana(3); with match_all base too.
+        let want = (2u64, vec!["2".to_string(), "3".to_string()]);
+        for phase in ["pre", "post"] {
+            for q in [
+                json!({"bool": {"must": [{"match_all": {}}], "must_not": [{"prefix": {"k": "ap"}}]}}),
+                json!({"bool": {"must": [{"match_all": {}}], "must_not": [{"wildcard": {"k": "ap*"}}]}}),
+            ] {
+                assert_eq!(
+                    run(idx.clone(), q.clone()).await,
+                    want,
+                    "#794 {phase} {q}: keyword prefix/wildcard in must_not is case-sensitive"
+                );
+            }
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -15418,7 +15471,7 @@ impl Index {
                 } = fs_node
                 {
                     let base = leaf_base_const
-                        .unwrap_or_else(|| score_query_against_doc(inner, src))
+                        .unwrap_or_else(|| score_query_against_doc(inner, src, &dmq_schema))
                         * outer_boost;
                     let mut fn_score = apply_function_score(id, src, functions, *score_mode, base);
                     if let Some(cap) = max_boost {
@@ -15426,10 +15479,10 @@ impl Index {
                     }
                     combine_scores(base, fn_score, *boost_mode)
                 } else {
-                    score_query_against_doc(query, src)
+                    score_query_against_doc(query, src, &dmq_schema)
                 }
             } else {
-                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src))
+                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src, &dmq_schema))
             };
             if let Some(min) = fs_min_tally {
                 if score.is_finite() && f64::from(score) >= min {
@@ -16376,7 +16429,7 @@ impl Index {
         let shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known)
+            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known, &dmq_schema)
                 .await
         };
 
@@ -18011,6 +18064,7 @@ impl Index {
                             &mut dbg_walked,
                             &mut dbg_admitted,
                             score_doc,
+                            &dmq_schema,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else if let Some(warm_slices) = (!sorted_candidates_path)
@@ -18056,6 +18110,7 @@ impl Index {
                                     &mut all_hits,
                                     &mut seen_ids,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                             }
                             _ => {
@@ -18077,6 +18132,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                             }
                         }
@@ -18160,6 +18216,7 @@ impl Index {
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
                                     score_doc,
+                                    &dmq_schema,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
@@ -18610,7 +18667,7 @@ impl Index {
             self.sort_hits_page_order(&mut final_hits);
 
             for rescore_stage in &resolved_rescore {
-                apply_rescore(&mut final_hits, rescore_stage);
+                apply_rescore(&mut final_hits, rescore_stage, &dmq_schema);
                 // ES re-sorts between chained rescore stages so the
                 // next stage's `window_size` applies to the top-N
                 // of the just-rescored order, not the pre-rescore
@@ -21009,6 +21066,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         is_match_all: bool,
         mem_matches_known: Option<u64>,
+        schema: &Schema,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -21307,7 +21365,7 @@ impl Index {
             } else {
                 let docs = self.memtable.all_docs_with_sources_arc();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query_typed(query, src, schema))
                     .count() as u64
             };
 
@@ -21532,7 +21590,7 @@ impl Index {
             } else {
                 let docs = self.memtable.all_docs_with_sources();
                 docs.iter()
-                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .filter(|(_, src)| doc_matches_query_typed(query, src, schema))
                     .count() as u64
             };
             return Some(seg_matches + mem_matches);
@@ -25133,6 +25191,7 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        schema: &Schema,
     ) {
         // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
         // ascending from the cached `PrefilterSet` — zero per-query set
@@ -25195,7 +25254,7 @@ impl Index {
                 } else {
                     source_ref.clone()
                 };
-                doc_matches_query(query, &source_with_id)
+                doc_matches_query_typed(query, &source_with_id, schema)
             };
             if !matched {
                 continue;
@@ -25529,6 +25588,7 @@ impl Index {
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
+        schema: &Schema,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -25746,9 +25806,9 @@ impl Index {
                     } else {
                         source_ref.clone()
                     };
-                    doc_matches_query(query, &source_with_id)
+                    doc_matches_query_typed(query, &source_with_id, schema)
                 } else {
-                    doc_matches_query(query, source_ref)
+                    doc_matches_query_typed(query, source_ref, schema)
                 }
             };
 
@@ -38659,7 +38719,7 @@ fn collect_matched_queries_inner(
 ///
 /// Re-scores the top `window_size` hits using the secondary query and blends
 /// the scores: final_score = original * query_weight + rescore * rescore_query_weight.
-fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
+fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery, schema: &Schema) {
     let window = stage.window_size.min(hits.len());
 
     // ── Query rescore ──────────────────────────────────────────────
@@ -38670,7 +38730,7 @@ fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
 
         for (i, hit) in hits.iter_mut().enumerate() {
             if i < window {
-                let rescore_score = score_query_against_doc(rescore_query, &hit.source);
+                let rescore_score = score_query_against_doc(rescore_query, &hit.source, schema);
                 hit.score = hit.score * q_weight + rescore_score * rq_weight;
             } else {
                 hit.score *= q_weight;
@@ -38769,19 +38829,19 @@ fn query_tree_contains_ids(q: &QueryNode) -> bool {
     }
 }
 
-fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
+fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
         QueryNode::MatchNone => 0.0,
         QueryNode::Boosted { boost, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query_typed(query, source, schema) {
                 *boost
             } else {
                 0.0
             }
         }
         QueryNode::Constant { score, query } => {
-            if doc_matches_query(query, source) {
+            if doc_matches_query_typed(query, source, schema) {
                 *score
             } else {
                 0.0
@@ -38793,7 +38853,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             query,
             ..
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query_typed(q, source, schema) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -38812,7 +38872,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             field,
             value,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query_typed(q, source, schema) {
                 return 0.0;
             }
             let b = boost.unwrap_or(1.0);
@@ -38832,7 +38892,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
         | QueryNode::Prefix { boost, .. }
         | QueryNode::Wildcard { boost, .. } => {
             let b = boost.unwrap_or(1.0);
-            if doc_matches_query(q, source) {
+            if doc_matches_query_typed(q, source, schema) {
                 b
             } else {
                 0.0
@@ -38845,7 +38905,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             filter,
             minimum_should_match,
         } => {
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query_typed(q, source, schema) {
                 return 0.0;
             }
             // Sum all contributing sub-query scores. DON'T clamp to 1.0
@@ -38854,10 +38914,10 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // matches 3 clauses".
             let mut score = 0.0f32;
             for sub in must {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, schema);
             }
             for sub in should {
-                score += score_query_against_doc(sub, source);
+                score += score_query_against_doc(sub, source, schema);
             }
             let _ = (must_not, minimum_should_match);
             if score == 0.0 {
@@ -38889,7 +38949,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                 score
             }
         }
-        QueryNode::Named { query, .. } => score_query_against_doc(query, source),
+        QueryNode::Named { query, .. } => score_query_against_doc(query, source, schema),
         // MultiMatch with field boosts. ES semantics per type:
         //   best_fields (default) → dis_max: MAX of the per-field scores.
         //   most_fields           → sum of the per-field scores.
@@ -39044,10 +39104,10 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // Score the inner query, then run the function scores against
             // it — same flow as the main search path, but executed on
             // demand for rescore / nested (non-peelable) function_score.
-            if !doc_matches_query(query, source) {
+            if !doc_matches_query_typed(query, source, schema) {
                 return 0.0;
             }
-            let inner = score_query_against_doc(query, source);
+            let inner = score_query_against_doc(query, source, schema);
             let doc_id = source.get("_id").and_then(Value::as_str).unwrap_or("");
             let mut fn_score = apply_function_score(doc_id, source, functions, *score_mode, inner);
             // `max_boost` caps the combined FUNCTION score before
@@ -39062,7 +39122,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             // BM25-like weight 1/sqrt(doc_length) so shorter docs rank
             // higher when both match. Falls back to 1.0 when the field
             // isn't a string we can tokenise.
-            if !doc_matches_query(q, source) {
+            if !doc_matches_query_typed(q, source, schema) {
                 return 0.0;
             }
             let text = match get_field_value(source, field) {
@@ -39074,7 +39134,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             1.0 / dl.sqrt()
         }
         other => {
-            if doc_matches_query(other, source) {
+            if doc_matches_query_typed(other, source, schema) {
                 1.0
             } else {
                 0.0
