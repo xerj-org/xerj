@@ -1413,6 +1413,63 @@ mod flush_publication_recovery_tests {
         assert_eq!(result.hits[0].id, "survivor");
     }
 
+    #[ignore = "#788: fail-before repro; un-ignore when the Term/Terms date-normalization fix lands"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_term_normalizes_formats_and_epoch_ms_across_flush() {
+        // #788: a `term` on a date field must match by instant, not by raw
+        // stored representation. "2020-01-01", "2020-01-01T00:00:00Z", and the
+        // epoch-ms number 1577836800000 all name the same instant as doc `a`,
+        // so all three must return [a] — before AND after flush (the segment
+        // path must agree with the memtable source scan; no new divergence).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("date-term", schema).unwrap();
+        let idx = engine.get_index("date-term").unwrap();
+        idx.abort_background_tasks();
+        for (id, ts) in [
+            ("a", "2020-01-01T00:00:00Z"),
+            ("b", "2021-06-15T00:00:00Z"),
+            ("c", "2022-12-31T00:00:00Z"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "ts": ts }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        let shapes: Vec<serde_json::Value> = vec![
+            json!({"term": {"ts": "2020-01-01T00:00:00Z"}}),
+            json!({"term": {"ts": "2020-01-01"}}),
+            json!({"term": {"ts": 1577836800000i64}}),
+        ];
+        let want = (1u64, vec!["a".to_string()]);
+        for phase in ["pre-flush", "post-flush"] {
+            for body in &shapes {
+                let got = run(idx.clone(), body.clone()).await;
+                assert_eq!(got, want, "#788 {phase} {body} must match doc a by instant");
+            }
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
         // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
