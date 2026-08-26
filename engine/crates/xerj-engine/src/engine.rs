@@ -3833,6 +3833,8 @@ impl Engine {
         // exit when the engine is dropped.
         let weak_a = Arc::downgrade(self);
         let data_dir = self.data_dir.to_string_lossy().to_string();
+        let cluster_settings = self.cluster_settings.clone();
+        const FLOOD_STAGE_SETTING: &str = "cluster.routing.allocation.disk.watermark.flood_stage";
         let _ = std::thread::Builder::new()
             .name("xerj-mem-sampler".to_string())
             .spawn(move || {
@@ -3850,8 +3852,27 @@ impl Engine {
                         None => return,
                     };
                     let rss = crate::governor::current_rss_bytes();
-                    let disk_pct = crate::governor::disk_used_pct(&data_dir);
-                    governor.refresh_memory_disk(rss, disk_pct);
+                    let (disk_pct, disk_avail) =
+                        crate::governor::disk_used_pct_and_avail(&data_dir);
+                    governor.refresh_memory_disk(rss, disk_pct, disk_avail);
+
+                    // Runtime disk flood-stage override, matching ES's
+                    // `PUT _cluster/settings` unblock without a restart. A
+                    // non-blocking read: on contention we just keep last
+                    // tick's threshold and retry next sample, never stall
+                    // the memory/disk breaker on this lock.
+                    if let Ok(settings) = cluster_settings.try_read() {
+                        let flood_override = settings
+                            .get("persistent")
+                            .and_then(|p| p.get(FLOOD_STAGE_SETTING))
+                            .or_else(|| {
+                                settings
+                                    .get("transient")
+                                    .and_then(|t| t.get(FLOOD_STAGE_SETTING))
+                            })
+                            .and_then(crate::governor::parse_flood_stage_pct);
+                        governor.set_disk_flood_pct_override(flood_override);
+                    }
                 }
             });
 
