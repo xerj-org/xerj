@@ -1659,6 +1659,62 @@ mod flush_publication_recovery_tests {
         }
     }
 
+    #[ignore = "#797 WIP: fail-before repro — must_not-only prefix/wildcard drops all docs after flush"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
+        // #797: a bool with ONLY a must_not (no must/should/filter) containing a
+        // prefix/wildcard leaf returns zero hits after flush — the segment
+        // planner lets the negative leaf drive candidate generation, so the
+        // non-matching docs never enter the set. `term` is unaffected. Base set
+        // must be all docs, must_not subtracting only its matches.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("k", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("mn797", schema).unwrap();
+        let idx = engine.get_index("mn797").unwrap();
+        idx.abort_background_tasks();
+        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+            idx.index_document(Some(id.into()), json!({ "k": k }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, q: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": q, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        // must_not-ONLY [prefix "ap"] (case-sensitive keyword) excludes apple(1);
+        // Application(2) + banana(3) must remain, pre AND post flush.
+        let want = (2u64, vec!["2".to_string(), "3".to_string()]);
+        for phase in ["pre", "post"] {
+            for q in [
+                json!({"bool": {"must_not": [{"prefix": {"k": "ap"}}]}}),
+                json!({"bool": {"must_not": [{"wildcard": {"k": "app*"}}]}}),
+            ] {
+                assert_eq!(
+                    run(idx.clone(), q.clone()).await,
+                    want,
+                    "#797 {phase} {q}: must_not-only prefix/wildcard keeps non-matching docs"
+                );
+            }
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_prefix_on_keyword_stays_case_sensitive_after_flush() {
         // #794: a prefix/wildcard inside bool.must_not case-folded on the segment
