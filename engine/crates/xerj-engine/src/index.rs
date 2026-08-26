@@ -1659,7 +1659,6 @@ mod flush_publication_recovery_tests {
         }
     }
 
-    #[ignore = "#797 WIP: fail-before repro — must_not-only prefix/wildcard drops all docs after flush"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
@@ -1679,7 +1678,10 @@ mod flush_publication_recovery_tests {
         engine.create_index("mn797", schema).unwrap();
         let idx = engine.get_index("mn797").unwrap();
         idx.abort_background_tasks();
-        for (id, k) in [("1", "apple"), ("2", "Application"), ("3", "banana")] {
+        // Data is case-fold-invariant for prefix "ap"/"app*": only "apple"
+        // starts with it under ANY casing, so the correct answer does not
+        // depend on the separate #794 keyword-prefix case-sensitivity fix.
+        for (id, k) in [("1", "apple"), ("2", "grape"), ("3", "banana")] {
             idx.index_document(Some(id.into()), json!({ "k": k }))
                 .await
                 .unwrap();
@@ -1694,8 +1696,9 @@ mod flush_publication_recovery_tests {
             ids.sort();
             (r.total.value, ids)
         };
-        // must_not-ONLY [prefix "ap"] (case-sensitive keyword) excludes apple(1);
-        // Application(2) + banana(3) must remain, pre AND post flush.
+        // must_not-ONLY [prefix "ap"] excludes apple(1); grape(2) + banana(3)
+        // must remain, pre AND post flush (before the fix, post-flush dropped
+        // ALL docs → (0, []) via the pure-negative FTS projection).
         let want = (2u64, vec!["2".to_string(), "3".to_string()]);
         for phase in ["pre", "post"] {
             for q in [
@@ -41886,7 +41889,15 @@ fn query_node_to_fts_with_keyword_fields(
                 // — not projectable; fall back to the stored-doc scan.
                 Some(_) => return None,
             }
-            let mut projected_any = false;
+            // #797: a bool that projects NO positive (must/should/filter)
+            // clause must NOT become a pure-negative FTS bool. FTS (like
+            // Lucene) requires a positive clause to enumerate a base set, so a
+            // `must_not`-only projection matches NOTHING — whereas the true
+            // answer is "all docs minus the must_not matches". Track whether a
+            // positive clause projected; if none did, decline so the stored
+            // scan (whose base is all docs) answers, exactly as a `must_not`-
+            // only keyword `term` (which never projects) already does.
+            let mut projected_positive = false;
             // CRITICAL: if a `must` child can't be projected to FTS we
             // CANNOT lift just the projectable subset — the bool would
             // become more permissive than the original query.  Return
@@ -41900,7 +41911,7 @@ fn query_node_to_fts_with_keyword_fields(
                     keyword_fields,
                 )?;
                 bool_q = bool_q.must(fq);
-                projected_any = true;
+                projected_positive = true;
             }
             // `filter` children constrain the hit set exactly like `must` but
             // contribute NOTHING to `_score` (`BooleanClause.isScoring()` is
@@ -41931,7 +41942,7 @@ fn query_node_to_fts_with_keyword_fields(
                     keyword_fields,
                 ) {
                     bool_q = bool_q.filter(fq);
-                    projected_any = true;
+                    projected_positive = true;
                 }
             }
             for sub in should {
@@ -41947,7 +41958,7 @@ fn query_node_to_fts_with_keyword_fields(
                     keyword_fields,
                 )?;
                 bool_q = bool_q.should(fq);
-                projected_any = true;
+                projected_positive = true;
             }
             // `must_not` children that don't project are similar: dropping
             // a must_not relaxes the filter, which is wrong.
@@ -41963,10 +41974,9 @@ fn query_node_to_fts_with_keyword_fields(
                     keyword_fields,
                 ) {
                     bool_q = bool_q.must_not(fq);
-                    projected_any = true;
                 }
             }
-            if !projected_any {
+            if !projected_positive {
                 return None;
             }
             Some(FtsQuery::Bool(Box::new(bool_q)))
