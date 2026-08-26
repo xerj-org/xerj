@@ -1414,6 +1414,90 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_term_normalizes_formats_and_epoch_ms_across_flush() {
+        // #788: a `term` on a date field must match by instant, not by raw
+        // stored representation. "2020-01-01", "2020-01-01T00:00:00Z", and the
+        // epoch-ms number 1577836800000 all name the same instant as doc `a`,
+        // so all three must return [a] — before AND after flush (the segment
+        // path must agree with the memtable source scan; no new divergence).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("ts", FieldType::Date))
+            .unwrap();
+        engine.create_index("date-term", schema).unwrap();
+        let idx = engine.get_index("date-term").unwrap();
+        idx.abort_background_tasks();
+        for (id, ts) in [
+            ("a", "2020-01-01T00:00:00Z"),
+            ("b", "2021-06-15T00:00:00Z"),
+            ("c", "2022-12-31T00:00:00Z"),
+            // Sub-millisecond precision (>=4 fractional digits): the sort-shadow
+            // stores this in nanoseconds, so a ms-scale range would miss it.
+            ("d", "2020-03-03T03:03:03.123456Z"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "ts": ts }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        let shapes: Vec<serde_json::Value> = vec![
+            json!({"term": {"ts": "2020-01-01T00:00:00Z"}}),
+            json!({"term": {"ts": "2020-01-01"}}),
+            json!({"term": {"ts": 1577836800000i64}}),
+        ];
+        let count0 = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 0, "track_total_hits": true
+            }))
+            .unwrap();
+            idx.search(&req).await.unwrap().total.value
+        };
+        let want = (1u64, vec!["a".to_string()]);
+        // A sub-millisecond term must still match its own exact stored value
+        // after flush (#789: the ms-scale range rewrite lost these to the
+        // nanosecond sort-shadow — the rewrite must be skipped for such values).
+        let subms = json!({"term": {"ts": "2020-03-03T03:03:03.123456Z"}});
+        let want_d = (1u64, vec!["d".to_string()]);
+        for phase in ["pre-flush", "post-flush"] {
+            for body in &shapes {
+                let got = run(idx.clone(), body.clone()).await;
+                assert_eq!(got, want, "#788 {phase} {body} must match doc a by instant");
+                // size:0 count fast path must agree with the hit scan.
+                let c = count0(idx.clone(), body.clone()).await;
+                assert_eq!(c, 1, "#788 {phase} {body} size:0 count must be 1");
+            }
+            let got_d = run(idx.clone(), subms.clone()).await;
+            assert_eq!(
+                got_d, want_d,
+                "#789 {phase} exact sub-ms term must match doc d"
+            );
+            let c_d = count0(idx.clone(), subms.clone()).await;
+            assert_eq!(
+                c_d, 1,
+                "#789 {phase} exact sub-ms term size:0 count must be 1"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn schemaless_cidr_term_matches_the_subnet_after_flush() {
         // #786: a CIDR `term` on an undeclared (dynamically mapped) ip-shaped
         // field matches in the memtable (the value-driven source scan expands
@@ -34239,6 +34323,22 @@ mod keyword_rewrite_filter_tests {
     }
 }
 
+/// Does a date string carry sub-millisecond precision — four or more
+/// fractional-second digits after the `.`? The sort-shadow encodes such values
+/// in nanoseconds while `parse_date_ms` yields milliseconds, so the two scales
+/// disagree and the date-`term` rewrite must leave these an exact literal term
+/// (see the rewrite site and #789). Millisecond precision (<=3 digits) and
+/// second precision agree on both scales and are safe to rewrite.
+fn date_string_has_subms(s: &str) -> bool {
+    // Count fractional-second digits EXACTLY as `date_string_to_epoch` does
+    // (its `is_nanos = frac_digits >= 4`), so this gate triggers on precisely
+    // the values the sort-shadow encodes in nanoseconds — no gap, no over-gate.
+    s.rsplit_once('.')
+        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+        .unwrap_or(0)
+        >= 4
+}
+
 /// Rewrite a query by resolving any field aliases to their canonical field names.
 ///
 /// Traverses the query tree, replacing alias field names with their target paths.
@@ -34270,6 +34370,42 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
                             boost: *boost,
                         };
                     }
+                }
+            }
+            // A `term` on a `date` field matches by INSTANT, not by the raw
+            // stored representation: "2020-01-01", "2020-01-01T00:00:00Z", and
+            // the epoch-ms number all name the same instant. The term fast paths
+            // (memtable `doc_values_term_query`, segment term dictionary) do a
+            // literal lookup and miss any format but the stored one, so the
+            // match evaporated for alternate forms (#788). Rewrite to the
+            // degenerate inclusive `range [epoch, epoch]`, which every path
+            // resolves through `parse_date_ms` identically — the same fix shape
+            // #782 used for CIDR. Only fires when the schema types the field
+            // `date` and the value parses as a date; a keyword holding a
+            // date-looking literal is left an exact `term`.
+            //
+            // EXCEPT sub-millisecond string values (>=4 fractional-second
+            // digits): the sort-shadow encodes those in NANOSECONDS
+            // (`date_string_to_epoch`), while `parse_date_ms` yields
+            // milliseconds, so an ms-scale range prefilter misses the doc's own
+            // nanos shadow key and the term would evaporate after flush — even
+            // for its exact stored value (#789). Leave those an exact literal
+            // term (which still matches). A numeric epoch value is always
+            // ms-scale, so it is always safe to rewrite.
+            if declared_field(schema, &resolved)
+                .is_some_and(|fc| matches!(fc.field_type, FieldType::Date))
+                && !value.as_str().is_some_and(date_string_has_subms)
+            {
+                if let Some(ms) = crate::aggs::parse_date_ms(value) {
+                    let epoch = Value::Number(serde_json::Number::from(ms));
+                    return QueryNode::Range {
+                        field: resolved,
+                        gte: Some(epoch.clone()),
+                        gt: None,
+                        lte: Some(epoch),
+                        lt: None,
+                        boost: *boost,
+                    };
                 }
             }
             QueryNode::Term {
