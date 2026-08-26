@@ -854,6 +854,8 @@ const CSHARP_Q: &str = r#"
 (enum_declaration name: (identifier) @enum)
 (method_declaration name: (identifier) @method)
 (constructor_declaration name: (identifier) @method)
+(field_declaration (modifier) @_m (variable_declaration (variable_declarator (identifier) @const)) (#any-of? @_m "const" "static"))
+(enum_member_declaration name: (identifier) @const)
 "#;
 
 const BASH_Q: &str = r#"
@@ -1883,6 +1885,39 @@ mod tests {
         assert!(has(&s, "I", "interface"));
         assert!(has(&s, "E", "enum"));
     }
+
+    /// #500: `CSHARP_Q` captured only class/interface/struct/enum/method/ctor,
+    /// so a `const`/`static readonly` constant or an enum member — the
+    /// `DEFAULT_MAX_CONN`-class fact #500 measured — was indexed nowhere. Mirror
+    /// the Java-constant fix (#605): promote each `const`/`static` field and
+    /// each enum member to its own `const` symbol. The `const`/`static` gate is
+    /// the precision filter (like Java's `static`): an INSTANCE `readonly` field
+    /// (dependency state, not a constant) stays out.
+    #[test]
+    fn csharp_static_constants_and_enum_members() {
+        let s = syms(
+            "csharp",
+            "class C {\n\
+             \x20 public const int MaxConn = 100;\n\
+             \x20 static readonly string Url = \"x\";\n\
+             \x20 readonly int Instance = 3;\n\
+             \x20 void M() { int local = 1; }\n\
+             }\n\
+             enum E { A, B }\n",
+        );
+        assert!(has(&s, "MaxConn", "const"), "got {s:?}");
+        assert!(has(&s, "Url", "const"), "got {s:?}");
+        assert!(has(&s, "A", "const"), "got {s:?}");
+        assert!(has(&s, "B", "const"), "got {s:?}");
+        // Instance readonly field (not static/const) and method-local stay out.
+        assert!(!has(&s, "Instance", "const"), "got {s:?}");
+        assert!(!has(&s, "local", "const"), "got {s:?}");
+        // Existing captures unchanged.
+        assert!(has(&s, "C", "class"));
+        assert!(has(&s, "M", "method"));
+        assert!(has(&s, "E", "enum"));
+    }
+
     #[test]
     fn bash() {
         let s = syms("bash", "foo() { echo hi; }\nfunction bar { echo yo; }\n");
