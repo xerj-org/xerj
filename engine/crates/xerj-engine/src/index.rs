@@ -1595,6 +1595,71 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exists_requires_a_non_null_value_across_flush() {
+        // ES `exists` matches a field iff it has >=1 non-null value. An explicit
+        // null, `[]`, and `[null]` do NOT match; `[null,"x"]` does. XERJ matched
+        // by key-presence (wrong). Must hold for schemaless AND declared fields,
+        // via size:10 hits AND size:0 count, before and after flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("kw", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("exists-nn", schema).unwrap();
+        let idx = engine.get_index("exists-nn").unwrap();
+        idx.abort_background_tasks();
+        // Each doc sets BOTH a schemaless `f` and a declared keyword `kw` to the
+        // same shape, so both field kinds are exercised identically.
+        let docs = vec![
+            ("present", json!("x")),
+            ("null", Value::Null),
+            ("empty_arr", json!([])),
+            ("null_arr", json!([null])),
+            ("mixed_arr", json!(["a", null])),
+        ];
+        for (id, v) in &docs {
+            idx.index_document(Some((*id).into()), json!({ "f": v, "kw": v }))
+                .await
+                .unwrap();
+        }
+        // "missing" sets neither field.
+        idx.index_document(Some("missing".into()), json!({ "other": 1 }))
+            .await
+            .unwrap();
+        let want = vec!["mixed_arr".to_string(), "present".to_string()];
+        let ex = |idx: std::sync::Arc<crate::Index>, field: &'static str, size: u64| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": {"exists": {"field": field}}, "size": size, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["pre", "post"] {
+            for field in ["f", "kw"] {
+                let (total, ids) = ex(idx.clone(), field, 10).await;
+                assert_eq!(
+                    ids, want,
+                    "{phase} exists on {field}: only non-null values match"
+                );
+                assert_eq!(total, 2, "{phase} exists on {field} count must be 2");
+                let (c0, _) = ex(idx.clone(), field, 0).await;
+                assert_eq!(c0, 2, "{phase} exists on {field} size:0 count must be 2");
+            }
+            if phase == "pre" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn portable_field_flush_keeps_baseline_data_dir_format() {
         let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir().unwrap();
@@ -36394,6 +36459,19 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
     doc_matches_query_typed(q, source, &EMPTY_SCHEMA)
 }
 
+/// ES `exists` semantics: a field is present iff it has at least one non-null
+/// value. An explicit `null`, an empty array `[]`, and an array of only nulls
+/// `[null]` are NOT present; `[null, "x"]` is (it has a non-null element).
+/// Scalars and objects are present (object sub-field recursion is a separate
+/// concern the dense/declared paths already handle).
+fn value_present(v: &Value) -> bool {
+    match v {
+        Value::Null => false,
+        Value::Array(a) => a.iter().any(value_present),
+        _ => true,
+    }
+}
+
 fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bool {
     match q {
         QueryNode::MatchAll => true,
@@ -36519,7 +36597,12 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
         QueryNode::Exists { field } => match field.as_str() {
             "_id" | "_index" | "_seq_no" | "_version" | "_primary_term" => true,
             "_routing" => source.get("_routing").is_some(),
-            _ => get_field_value(source, field).is_some(),
+            // ES `exists` matches a field iff it has at least one NON-NULL value.
+            // Plain key-presence wrongly matched an explicit `null`, an empty
+            // array `[]`, and an array of only nulls `[null]`. This aligns the
+            // schemaless source scan with the declared-field paths (a keyword /
+            // numeric dv column has no entry for a null doc).
+            _ => get_field_value(source, field).is_some_and(|v| value_present(&v)),
         },
 
         QueryNode::Prefix { field, value, .. } => {
