@@ -4609,7 +4609,14 @@ fn run_top_metrics(params: &Value, docs: &[Value]) -> Value {
 /// `^` and `$` aren't automatically added — ES matches if the regex
 /// finds the term *anywhere* unless the pattern starts/ends explicitly.
 fn term_matches_regex(term: &str, pattern: &str) -> bool {
-    match regex::Regex::new(pattern) {
+    // ES `terms` include/exclude use a FULLY-ANCHORED Lucene regexp: the
+    // pattern must match the ENTIRE term, not a substring (#837). Anchoring
+    // with `^(?:…)$` makes `include:"a.*"` keep only terms starting with `a`
+    // and `include:"ppl"` keep only the exact term `ppl` — matching ES.
+    // Without the anchors `is_match` did a substring find, so `a.*` wrongly
+    // matched every term containing an `a`.
+    let anchored = format!("^(?:{pattern})$");
+    match regex::Regex::new(&anchored) {
         Ok(re) => re.is_match(term),
         Err(_) => false,
     }

@@ -1899,6 +1899,78 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_agg_include_exclude_is_fully_anchored() {
+        // #837: terms include/exclude regex must match the WHOLE term (ES
+        // fully-anchored Lucene regexp), not a substring. Before the fix
+        // `include:"a.*"` matched every term containing an `a`.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("g", FieldType::Keyword))
+            .unwrap();
+        engine.create_index("ie837", schema).unwrap();
+        let idx = engine.get_index("ie837").unwrap();
+        idx.abort_background_tasks();
+        for (id, g) in [
+            ("1", "apple"),
+            ("2", "apricot"),
+            ("3", "banana"),
+            ("4", "avocado"),
+        ] {
+            idx.index_document(Some(id.into()), json!({ "g": g }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, terms: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query":{"match_all":{}},"size":0,"aggs":{"byg":{"terms":terms}}}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ks: Vec<String> = r
+                .aggs
+                .as_ref()
+                .and_then(|a| a["byg"]["buckets"].as_array())
+                .map(|bs| {
+                    bs.iter()
+                        .filter_map(|b| b["key"].as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+            ks.sort();
+            ks
+        };
+        for phase in ["mem", "seg"] {
+            // include "a.*": only terms STARTING with a (anchored).
+            assert_eq!(
+                run(idx.clone(), json!({"field":"g","size":10,"include":"a.*"})).await,
+                vec!["apple", "apricot", "avocado"],
+                "include a.* ({phase})"
+            );
+            // exclude "a.*": only banana survives.
+            assert_eq!(
+                run(idx.clone(), json!({"field":"g","size":10,"exclude":"a.*"})).await,
+                vec!["banana"],
+                "exclude a.* ({phase})"
+            );
+            // "ppl" is a substring of apple but not the whole term => no bucket.
+            assert!(
+                run(idx.clone(), json!({"field":"g","size":10,"include":"ppl"}))
+                    .await
+                    .is_empty(),
+                "include ppl must be empty ({phase})"
+            );
+            if phase == "mem" {
+                idx.flush().await.unwrap();
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
