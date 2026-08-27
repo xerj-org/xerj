@@ -3212,14 +3212,6 @@ fn apply_get_doc_source_filter(source: Value, params: &GetDocParams) -> Value {
     xerj_engine::filter_object(&source, &includes, &excludes)
 }
 
-fn source_field_matches(field: &str, pattern: &str) -> bool {
-    if let Some(prefix) = pattern.strip_suffix('*') {
-        field.starts_with(prefix)
-    } else {
-        field == pattern
-    }
-}
-
 #[cfg(test)]
 mod get_doc_source_filter_tests {
     use super::*;
@@ -22151,7 +22143,7 @@ fn register_field_cap_entry(
     let matches = fields_filter == "*"
         || fields_filter
             .split(',')
-            .any(|f| source_field_matches(&dotted_name, f.trim()));
+            .any(|f| glob_match(f.trim(), &dotted_name));
     if matches {
         let native_es_type = native_type_to_es_str(&field.field_type);
         let es_type = declared_flattened_type(properties, &dotted_name)
@@ -22454,7 +22446,7 @@ pub async fn field_caps(
             if fields_filter != "*" {
                 let matches = fields_filter
                     .split(',')
-                    .any(|f| source_field_matches(&name, f.trim()));
+                    .any(|f| glob_match(f.trim(), &name));
                 if !matches {
                     continue;
                 }
@@ -22758,6 +22750,51 @@ mod flat_object_field_caps_tests {
         assert!(
             response["fields"]["attrs"].get("object").is_none(),
             "attrs should not ALSO be reported as a generic object: {response}"
+        );
+    }
+
+    // #853: `_field_caps?fields=<pattern>` must honor FULL globs (`*` anywhere),
+    // like ES — the old trailing-`*`-only matcher dropped a leading/mid glob, so
+    // `fields=*name` returned nothing for a nested `user.name` field.
+    #[tokio::test]
+    async fn field_caps_fields_filter_honors_leading_glob() {
+        let router = crate::router::build_es_compat_router(test_state());
+        let create = router
+            .clone()
+            .oneshot(
+                Request::put("/leadglob-caps-e2e")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({"mappings": {"properties": {"user": {"properties": {
+                            "name": {"type": "keyword"}, "age": {"type": "long"}
+                        }}}}})
+                        .to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("create");
+        assert!(create.status().is_success());
+
+        let caps = router
+            .oneshot(
+                Request::get("/leadglob-caps-e2e/_field_caps?fields=*name")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("field_caps");
+        assert!(caps.status().is_success());
+        let bytes = to_bytes(caps.into_body(), usize::MAX).await.expect("bytes");
+        let resp: Value = serde_json::from_slice(&bytes).expect("json");
+        assert!(
+            resp["fields"].get("user.name").is_some(),
+            "fields=*name must match nested user.name (leading glob), got: {resp}"
+        );
+        // A field NOT matching the glob is absent.
+        assert!(
+            resp["fields"].get("user.age").is_none(),
+            "user.age must not match *name: {resp}"
         );
     }
 
@@ -34081,7 +34118,7 @@ pub async fn global_field_caps(
             if fields_filter != "*" {
                 let matches = fields_filter
                     .split(',')
-                    .any(|f| source_field_matches(&name, f.trim()));
+                    .any(|f| glob_match(f.trim(), &name));
                 if !matches {
                     continue;
                 }
