@@ -33891,7 +33891,15 @@ fn lower_lexically_typeless_clauses(
                 None => must.is_empty() && filter.is_empty(),
                 Some(MinShouldMatch::Fixed(0)) => false,
                 Some(MinShouldMatch::Fixed(_)) | Some(MinShouldMatch::Percentage(_)) => true,
-                Some(MinShouldMatch::Field(_)) | Some(MinShouldMatch::Script { .. }) => {
+                // #846: negative / negative-% / combination can resolve to 0 (no
+                // requirement) depending on the should-count, so this constant
+                // fold is unsound — leave the node exactly as recursed (like the
+                // per-doc Field/Script specs), letting the evaluator resolve it.
+                Some(MinShouldMatch::Field(_))
+                | Some(MinShouldMatch::Script { .. })
+                | Some(MinShouldMatch::Negative(_))
+                | Some(MinShouldMatch::NegativePercentage(_))
+                | Some(MinShouldMatch::Combination(_)) => {
                     return QueryNode::Bool {
                         must,
                         should,
@@ -37709,6 +37717,11 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                             _ => unsatisfiable,
                         }
                     }
+                    // #846: negative / negative-% / combination specs resolve
+                    // to a concrete required count against the should-clause
+                    // count (the FTS/columnar fast paths decline these, so this
+                    // stored-doc scan is the flush-invariant path for them).
+                    Some(other) => other.required(should.len()).unwrap_or(unsatisfiable),
                     None => {
                         // Default: if must/filter are empty, at least 1 should must match.
                         if must.is_empty() && filter.is_empty() {
@@ -37871,9 +37884,10 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                     Some(MinShouldMatch::Percentage(pct)) => {
                         ((q_tokens.len() as f32 * (*pct as f32 / 100.0)).floor() as usize).max(1)
                     }
-                    // terms_set field/script counts aren't valid on a plain
-                    // match; degrade to OR rather than reject.
-                    Some(_) => 1,
+                    // #846: negative / negative-% / combination resolve against
+                    // the token count; terms_set field/script counts aren't
+                    // valid on a plain match, so degrade those to OR (need 1).
+                    Some(other) => other.required(q_tokens.len()).unwrap_or(1),
                 },
             };
             let count_matched = |field_tokens: &[String]| -> usize {
