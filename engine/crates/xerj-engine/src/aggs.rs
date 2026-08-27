@@ -3911,6 +3911,16 @@ pub(crate) fn typed_term_key(key: &str) -> (Value, Option<String>) {
 /// `["10", "100", "2"]`. Which keys count as numeric mirrors `typed_term_key`
 /// exactly: an `i64`, or a finite `f64` (non-finite / bool / date stay lexical).
 fn cmp_term_key(a: &str, b: &str) -> std::cmp::Ordering {
+    // Both keys are exact integers -> compare as i64 losslessly. Snowflake IDs
+    // and epoch-nanos exceed f64's 2^53 exact range, so widening to f64 (the
+    // fallback below) would collapse distinct long keys to the same float and
+    // mis-order them. ES orders a long field by exact value.
+    if let (Ok(x), Ok(y)) = (a.parse::<i64>(), b.parse::<i64>()) {
+        return x.cmp(&y);
+    }
+    // Otherwise order numerically when both parse as a finite number (covers
+    // floats and int/float mixes), else byte/lexicographic -- mirroring
+    // typed_term_key's numeric-key notion (non-finite/bool/date/keyword lexical).
     fn as_num(s: &str) -> Option<f64> {
         if let Ok(n) = s.parse::<i64>() {
             return Some(n as f64);
@@ -13857,6 +13867,32 @@ mod tests {
         ];
         let r = run_aggs(&json!({ "m": { "missing": { "field": "f" } } }), &docs);
         assert_eq!(r["m"]["doc_count"].as_u64(), Some(4), "got {r:?}");
+    }
+
+    #[test]
+    fn cmp_term_key_orders_longs_beyond_f64_range_exactly() {
+        use std::cmp::Ordering;
+        // Snowflake IDs / epoch-nanos exceed f64's 2^53 exact range. `cmp_term_key`
+        // must compare such keys by exact i64 value: a lossy i64->f64 widening
+        // collapses distinct longs to the same float and returns Equal (then the
+        // stable sort leaves them in arbitrary hash order — a wrong, unstable
+        // result vs ES). f64 rounding is monotonic, so the defect only ever
+        // shows as this Equal-collapse, which is why it is asserted directly.
+        assert_eq!(
+            cmp_term_key("9007199254740992", "9007199254740993"), // 2^53, 2^53+1
+            Ordering::Less,
+            "adjacent longs past 2^53 must not collapse to Equal"
+        );
+        assert_eq!(
+            cmp_term_key("1500000000000000002", "1500000000000000001"), // snowflake scale
+            Ordering::Greater
+        );
+        // Small ints, negatives, floats and int/float mixes stay numeric; a
+        // non-numeric key stays lexical.
+        assert_eq!(cmp_term_key("2", "10"), Ordering::Less);
+        assert_eq!(cmp_term_key("-5", "-2"), Ordering::Less);
+        assert_eq!(cmp_term_key("9.5", "10"), Ordering::Less);
+        assert_eq!(cmp_term_key("banana", "apple"), Ordering::Greater);
     }
 
     #[test]
