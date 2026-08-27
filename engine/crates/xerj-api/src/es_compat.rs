@@ -3205,29 +3205,11 @@ fn apply_get_doc_source_filter(source: Value, params: &GetDocParams) -> Value {
         return source;
     }
 
-    // Re-use the same filter_object logic from the search path.
-    filter_source_object(&source, &includes, &excludes)
-}
-
-/// Filter a JSON object by includes/excludes lists (with trailing `*` wildcard support).
-fn filter_source_object(source: &Value, includes: &[String], excludes: &[String]) -> Value {
-    let obj = match source.as_object() {
-        Some(o) => o,
-        None => return source.clone(),
-    };
-    let mut result = serde_json::Map::new();
-    for (k, v) in obj {
-        let keep = if includes.is_empty() {
-            true
-        } else {
-            includes.iter().any(|inc| source_field_matches(k, inc))
-        };
-        let excluded = excludes.iter().any(|exc| source_field_matches(k, exc));
-        if keep && !excluded {
-            result.insert(k.clone(), v.clone());
-        }
-    }
-    Value::Object(result)
+    // Project through the SAME faithful ES `_source` automaton the search path
+    // uses (`xerj_engine::filter_object`), so dotted/nested includes+excludes
+    // and `*` globs behave identically. The old local top-level-only filter
+    // dropped nested includes entirely and no-oped nested excludes (#850).
+    xerj_engine::filter_object(&source, &includes, &excludes)
 }
 
 fn source_field_matches(field: &str, pattern: &str) -> bool {
@@ -3235,6 +3217,54 @@ fn source_field_matches(field: &str, pattern: &str) -> bool {
         field.starts_with(prefix)
     } else {
         field == pattern
+    }
+}
+
+#[cfg(test)]
+mod get_doc_source_filter_tests {
+    use super::*;
+    use serde_json::json;
+
+    // #850: GET /_doc `_source_includes`/`_source_excludes` must support
+    // dotted/nested paths (and `*` globs), like search — the old top-level-only
+    // filter dropped a nested include entirely and no-oped a nested exclude.
+    #[test]
+    fn get_doc_source_filter_handles_nested_paths() {
+        let src = || json!({ "user": { "name": "x", "age": 5 }, "id": 1 });
+
+        // Nested include keeps only the requested leaf under its parent.
+        let inc = apply_get_doc_source_filter(
+            src(),
+            &GetDocParams {
+                source_includes: Some("user.name".into()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(inc, json!({ "user": { "name": "x" } }), "nested include");
+
+        // Nested exclude removes just that leaf, keeps siblings + other keys.
+        let exc = apply_get_doc_source_filter(
+            src(),
+            &GetDocParams {
+                source_excludes: Some("user.age".into()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            exc,
+            json!({ "user": { "name": "x" }, "id": 1 }),
+            "nested exclude"
+        );
+
+        // Top-level literal include is unchanged from before.
+        let top = apply_get_doc_source_filter(
+            src(),
+            &GetDocParams {
+                source_includes: Some("id".into()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(top, json!({ "id": 1 }), "top-level include");
     }
 }
 
@@ -17991,7 +18021,7 @@ async fn build_update_get_field(
             let filtered = if includes.is_empty() && excludes.is_empty() {
                 source
             } else {
-                filter_source_object(&source, &includes, &excludes)
+                xerj_engine::filter_object(&source, &includes, &excludes)
             };
             json!({ "found": true, "_source": filtered })
         }
