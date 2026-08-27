@@ -7264,8 +7264,11 @@ fn run_missing(params: &Value, docs: &[Value]) -> Value {
     } else {
         docs.iter()
             .filter(|doc| {
-                let v = get_nested_field(doc, field);
-                v.is_null()
+                // A doc is "missing" the field iff it has no non-null value —
+                // the exact complement of `exists` (#792/#793 value_present):
+                // absent, null, `[]` and `[null]` all count as missing, so
+                // `is_null()` alone (which kept `[]`/`[null]`) undercounted.
+                !crate::index::value_present(get_nested_field(doc, field))
             })
             .count()
     };
@@ -13816,6 +13819,22 @@ mod tests {
             rd["mn"]["value_as_string"].is_string(),
             "date min_as_string: {rd:?}"
         );
+    }
+
+    #[test]
+    fn missing_agg_counts_empty_and_null_arrays() {
+        // ES `missing` agg counts docs with NO value: absent, null, [] and
+        // [null] all count as missing; a real value does not. This is the
+        // exact complement of `exists` (#792/#793 value_present).
+        let docs = vec![
+            json!({ "f": 5 }),      // present
+            json!({ "f": null }),   // missing
+            json!({ "f": [] }),     // missing (empty array)
+            json!({ "f": [null] }), // missing (only-null array)
+            json!({ "other": 1 }),  // missing (absent)
+        ];
+        let r = run_aggs(&json!({ "m": { "missing": { "field": "f" } } }), &docs);
+        assert_eq!(r["m"]["doc_count"].as_u64(), Some(4), "got {r:?}");
     }
 
     #[test]
