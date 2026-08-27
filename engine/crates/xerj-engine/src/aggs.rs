@@ -6717,6 +6717,33 @@ fn run_filters(
     // array of buckets each carrying a `key` field.
     let keyed_override = params.get("keyed").and_then(Value::as_bool);
 
+    // ES `other_bucket` / `other_bucket_key`: an extra bucket counting docs
+    // that match NONE of the filters. `other_bucket_key` implies it and sets
+    // the key; a bare `other_bucket: true` uses the default key `_other_`.
+    let other_key: Option<String> = params
+        .get("other_bucket_key")
+        .and_then(Value::as_str)
+        .map(String::from)
+        .or_else(|| {
+            (params.get("other_bucket").and_then(Value::as_bool) == Some(true))
+                .then(|| "_other_".to_string())
+        });
+    // Build the doc_count (+ sub-aggs) body for the "other" bucket.
+    let other_body = |other: &[Value]| -> serde_json::Map<String, Value> {
+        let mut m = serde_json::Map::new();
+        m.insert("doc_count".to_string(), json!(sum_doc_count(other)));
+        if let Some(sub) = sub_aggs {
+            if let Value::Object(so) =
+                run_aggs_in_bucket(sub, other, all_docs, sum_doc_count(other))
+            {
+                for (k, v) in so {
+                    m.insert(k, v);
+                }
+            }
+        }
+        m
+    };
+
     match filters_val {
         // Named filters: { "name1": { query }, "name2": { query } }
         Value::Object(map) => {
@@ -6742,6 +6769,14 @@ fn run_filters(
                     }
                     buckets.insert(name.clone(), Value::Object(bucket));
                 }
+                if let Some(ok) = &other_key {
+                    let other: Vec<Value> = docs
+                        .iter()
+                        .filter(|d| !map.values().any(|q| doc_matches_filter(d, q)))
+                        .cloned()
+                        .collect();
+                    buckets.insert(ok.clone(), Value::Object(other_body(&other)));
+                }
                 json!({"buckets": buckets})
             } else {
                 let mut buckets: Vec<Value> = Vec::new();
@@ -6762,6 +6797,19 @@ fn run_filters(
                                 bucket.insert(k, v);
                             }
                         }
+                    }
+                    buckets.push(Value::Object(bucket));
+                }
+                if let Some(ok) = &other_key {
+                    let other: Vec<Value> = docs
+                        .iter()
+                        .filter(|d| !map.values().any(|q| doc_matches_filter(d, q)))
+                        .cloned()
+                        .collect();
+                    let mut bucket = serde_json::Map::new();
+                    bucket.insert("key".to_string(), Value::String(ok.clone()));
+                    for (k, v) in other_body(&other) {
+                        bucket.insert(k, v);
                     }
                     buckets.push(Value::Object(bucket));
                 }
@@ -6786,6 +6834,19 @@ fn run_filters(
                             bucket.insert(k, v);
                         }
                     }
+                }
+                buckets.push(Value::Object(bucket));
+            }
+            if let Some(ok) = &other_key {
+                let other: Vec<Value> = docs
+                    .iter()
+                    .filter(|d| !arr.iter().any(|q| doc_matches_filter(d, q)))
+                    .cloned()
+                    .collect();
+                let mut bucket = serde_json::Map::new();
+                bucket.insert("key".to_string(), Value::String(ok.clone()));
+                for (k, v) in other_body(&other) {
+                    bucket.insert(k, v);
                 }
                 buckets.push(Value::Object(bucket));
             }
@@ -13893,6 +13954,57 @@ mod tests {
         assert_eq!(cmp_term_key("-5", "-2"), Ordering::Less);
         assert_eq!(cmp_term_key("9.5", "10"), Ordering::Less);
         assert_eq!(cmp_term_key("banana", "apple"), Ordering::Greater);
+    }
+
+    #[test]
+    fn filters_agg_other_bucket_counts_unmatched_docs() {
+        // ES `filters` agg: `other_bucket`/`other_bucket_key` adds a bucket for
+        // docs matching NONE of the filters. Was silently dropped.
+        let docs = vec![
+            json!({ "s": "a" }),
+            json!({ "s": "a" }),
+            json!({ "s": "b" }),
+            json!({ "s": "c" }),
+            json!({ "s": "d" }),
+        ];
+        // Named (keyed) filters + default other key `_other_`.
+        let r = run_aggs(
+            &json!({ "f": { "filters": {
+                "filters": { "aa": {"term": {"s": "a"}}, "bb": {"term": {"s": "b"}} },
+                "other_bucket": true
+            }}}),
+            &docs,
+        );
+        assert_eq!(r["f"]["buckets"]["aa"]["doc_count"].as_u64(), Some(2));
+        assert_eq!(r["f"]["buckets"]["bb"]["doc_count"].as_u64(), Some(1));
+        assert_eq!(
+            r["f"]["buckets"]["_other_"]["doc_count"].as_u64(),
+            Some(2),
+            "c,d match no filter: {r}"
+        );
+
+        // Custom other_bucket_key (implies other_bucket).
+        let rk = run_aggs(
+            &json!({ "f": { "filters": {
+                "filters": { "aa": {"term": {"s": "a"}} },
+                "other_bucket_key": "rest"
+            }}}),
+            &docs,
+        );
+        assert_eq!(rk["f"]["buckets"]["rest"]["doc_count"].as_u64(), Some(3));
+
+        // Anonymous array filters -> the other bucket is appended, keyed.
+        let ra = run_aggs(
+            &json!({ "f": { "filters": {
+                "filters": [ {"term": {"s": "a"}} ],
+                "other_bucket": true
+            }}}),
+            &docs,
+        );
+        let arr = ra["f"]["buckets"].as_array().expect("array buckets");
+        let other = arr.last().expect("other bucket");
+        assert_eq!(other["key"], json!("_other_"));
+        assert_eq!(other["doc_count"].as_u64(), Some(3));
     }
 
     #[test]
