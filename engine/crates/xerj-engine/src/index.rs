@@ -41449,7 +41449,7 @@ fn compute_sort_values(
     sort_vals
 }
 
-fn get_field_value(source: &Value, field: &str) -> Option<Value> {
+pub(crate) fn get_field_value(source: &Value, field: &str) -> Option<Value> {
     // Fast path: literal dotted key at the source root (subobjects:false).
     if let Value::Object(obj) = source {
         if let Some(v) = obj.get(field) {
