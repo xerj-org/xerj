@@ -1971,6 +1971,78 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terms_agg_numeric_key_order_is_numeric_not_lexicographic() {
+        // A terms agg on a numeric field must order `_key` (and break count
+        // ties) NUMERICALLY, like ES — not by the lexicographic string form of
+        // the number. Before the fix the comparator did `key_a.cmp(&key_b)` on
+        // the raw string keys, so [2, 10, 100] sorted as ["10","100","2"], even
+        // though the bucket keys are emitted as JSON numbers.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("n", FieldType::Long))
+            .unwrap();
+        engine.create_index("ntk", schema).unwrap();
+        let idx = engine.get_index("ntk").unwrap();
+        idx.abort_background_tasks();
+        // counts: 10->2, 2->1, 100->1.
+        for (id, n) in [("a", 10), ("b", 10), ("c", 2), ("d", 100)] {
+            idx.index_document(Some(id.into()), json!({ "n": n }))
+                .await
+                .unwrap();
+        }
+        let run = |idx: std::sync::Arc<crate::Index>, order: serde_json::Value| async move {
+            let terms = if order.is_null() {
+                json!({"field":"n","size":10})
+            } else {
+                json!({"field":"n","size":10,"order":order})
+            };
+            let req = xerj_query::parse_request(
+                &json!({"query":{"match_all":{}},"size":0,"aggs":{"byn":{"terms":terms}}}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            r.aggs
+                .as_ref()
+                .and_then(|a| a["byn"]["buckets"].as_array())
+                .map(|bs| {
+                    bs.iter()
+                        .filter_map(|b| b["key"].as_i64())
+                        .collect::<Vec<i64>>()
+                })
+                .unwrap_or_default()
+        };
+        for phase in ["mem", "seg"] {
+            // order _key asc: 2 < 10 < 100 numerically (lexically "10" < "2").
+            assert_eq!(
+                run(idx.clone(), json!({"_key":"asc"})).await,
+                vec![2i64, 10, 100],
+                "_key asc numeric ({phase})"
+            );
+            // order _key desc.
+            assert_eq!(
+                run(idx.clone(), json!({"_key":"desc"})).await,
+                vec![100i64, 10, 2],
+                "_key desc numeric ({phase})"
+            );
+            // default order = count desc, then _key ASC numerically: 10 (count
+            // 2) first, then 2 before 100 (lexically "100" < "2" would flip it).
+            assert_eq!(
+                run(idx.clone(), serde_json::Value::Null).await,
+                vec![10i64, 2, 100],
+                "default tie-break numeric ({phase})"
+            );
+            if phase == "mem" {
+                idx.flush().await.unwrap();
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn mustnot_only_prefix_keeps_nonmatching_docs_after_flush() {
         // #797: a bool with ONLY a must_not (no must/should/filter) containing a
         // prefix/wildcard leaf returns zero hits after flush — the segment
