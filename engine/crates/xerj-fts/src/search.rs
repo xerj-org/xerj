@@ -294,6 +294,11 @@ pub struct FuzzyQuery {
     /// lowercased term dictionary without lowercasing the query term.
     #[serde(default = "default_case_insensitive")]
     pub case_insensitive: bool,
+    /// #848: ES `prefix_length` — the leading characters that must match
+    /// exactly (not subject to edits) before Levenshtein applies. Default `0`
+    /// (no constraint).
+    #[serde(default)]
+    pub prefix_length: usize,
 }
 
 impl FuzzyQuery {
@@ -304,6 +309,7 @@ impl FuzzyQuery {
             max_edits,
             boost: 1.0,
             case_insensitive: true,
+            prefix_length: 0,
         }
     }
 }
@@ -953,7 +959,13 @@ impl FtsSearcher {
     // ── Fuzzy query ─────────────────────────────────────────────────────────────
 
     fn execute_fuzzy(&self, fq: &FuzzyQuery, explain: bool) -> Result<Vec<ScoredHit>> {
-        let terms = self.expand_fuzzy(&fq.field, &fq.value, fq.max_edits, fq.case_insensitive);
+        let terms = self.expand_fuzzy(
+            &fq.field,
+            &fq.value,
+            fq.max_edits,
+            fq.case_insensitive,
+            fq.prefix_length,
+        );
         // Fuzzy keeps per-term scoring (ES rewrites fuzzy to a blended-frequency
         // scoring query, NOT constant_score).
         self.score_expanded_terms(&fq.field, &terms, fq.boost, explain, false)
@@ -973,6 +985,7 @@ impl FtsSearcher {
         value: &str,
         max_edits: usize,
         case_insensitive: bool,
+        prefix_length: usize,
     ) -> Vec<String> {
         // Streaming FST scan + deadline poll every 1 024 terms (RC4
         // blocker 12): per-term edit distance is the most expensive
@@ -986,7 +999,7 @@ impl FtsSearcher {
                 if seen & 1023 == 0 && self.deadline_hit() {
                     return false;
                 }
-                if term_matches_fuzzy(t, &q_lower, max_edits) {
+                if term_matches_fuzzy(t, &q_lower, max_edits, prefix_length) {
                     out.push(t.to_owned());
                 }
                 true
@@ -997,7 +1010,9 @@ impl FtsSearcher {
                 if seen & 1023 == 0 && self.deadline_hit() {
                     return false;
                 }
-                if levenshtein_distance(t, value) <= max_edits {
+                if fuzzy_prefix_ok(t, value, prefix_length)
+                    && levenshtein_distance(t, value) <= max_edits
+                {
                     out.push(t.to_owned());
                 }
                 true
@@ -1339,15 +1354,33 @@ fn term_matches_wildcard(term: &str, pat_lc: &str) -> bool {
 /// `true` if `term` (case-folded) is within `max_edits` Damerau-Levenshtein
 /// distance of the already-lowercased `q_lower`, as the whole value or any
 /// sub-token.
-fn term_matches_fuzzy(term: &str, q_lower: &str, max_edits: usize) -> bool {
+fn term_matches_fuzzy(term: &str, q_lower: &str, max_edits: usize, prefix_length: usize) -> bool {
     let s_lower = term.to_lowercase();
-    if levenshtein_distance(&s_lower, q_lower) <= max_edits {
+    if fuzzy_prefix_ok(&s_lower, q_lower, prefix_length)
+        && levenshtein_distance(&s_lower, q_lower) <= max_edits
+    {
         return true;
     }
     s_lower
         .split(|c: char| !c.is_alphanumeric())
         .filter(|t| !t.is_empty())
-        .any(|tok| levenshtein_distance(tok, q_lower) <= max_edits)
+        .any(|tok| {
+            fuzzy_prefix_ok(tok, q_lower, prefix_length)
+                && levenshtein_distance(tok, q_lower) <= max_edits
+        })
+}
+
+/// #848: ES `prefix_length` guard — the first `prefix_length` characters of the
+/// query and a candidate term must be identical before Levenshtein applies.
+/// `0` (ES default) imposes no constraint. Lock-step with the engine's copy in
+/// `xerj-engine/src/index.rs`.
+#[inline]
+fn fuzzy_prefix_ok(candidate: &str, query: &str, prefix_length: usize) -> bool {
+    prefix_length == 0
+        || candidate
+            .chars()
+            .take(prefix_length)
+            .eq(query.chars().take(prefix_length))
 }
 
 /// Glob match: `*` = zero-or-more chars, `?` = exactly one.  No case folding —

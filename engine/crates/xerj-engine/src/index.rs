@@ -23425,18 +23425,22 @@ impl Index {
                 value,
                 max_edits,
                 case_insensitive,
+                prefix_length,
                 ..
             } => {
                 // #423/#406: case-sensitive keyword fuzzy (the ES default)
                 // compares the RAW term; case_insensitive folds both sides.
                 let ci = *case_insensitive;
+                let pl = *prefix_length;
                 let q_ref = if ci {
                     value.to_lowercase()
                 } else {
                     value.clone()
                 };
                 let term_matches = |cmp: &str| -> bool {
-                    if levenshtein_distance(cmp, &q_ref) <= *max_edits {
+                    if fuzzy_prefix_ok(cmp, &q_ref, pl)
+                        && levenshtein_distance(cmp, &q_ref) <= *max_edits
+                    {
                         return true;
                     }
                     // #423/#406: the sub-token fallback is a FOLD-path leniency
@@ -23454,7 +23458,10 @@ impl Index {
                     }
                     cmp.split(|c: char| !c.is_alphanumeric())
                         .filter(|t| !t.is_empty())
-                        .any(|tok| levenshtein_distance(tok, &q_ref) <= *max_edits)
+                        .any(|tok| {
+                            fuzzy_prefix_ok(tok, &q_ref, pl)
+                                && levenshtein_distance(tok, &q_ref) <= *max_edits
+                        })
                 };
                 let mut map: HashMap<String, (usize, u64)> = HashMap::new();
                 for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
@@ -35518,11 +35525,13 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => QueryNode::Fuzzy {
             field: strip(field),
             value: value.clone(),
             fuzziness: *fuzziness,
             case_insensitive: *case_insensitive,
+            prefix_length: *prefix_length,
         },
         QueryNode::Regexp { field, pattern } => QueryNode::Regexp {
             field: strip(field),
@@ -38207,11 +38216,13 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             value: query_value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
                 Fuzziness::Fixed(n) => *n as usize,
             };
+            let prefix_length = *prefix_length;
             // ES's Fuzzy query matches at the TERM level with an UNANALYZED
             // query term. For keyword fields the indexed term is the whole
             // field value, so first compare the full string against the query —
@@ -38232,16 +38243,22 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             let q_lower = query_value.to_lowercase();
             let token_match = |s: &str| -> bool {
                 if keyword_case_sensitive {
-                    return levenshtein_distance(s, query_value.as_str()) <= max_edits;
+                    return fuzzy_prefix_ok(s, query_value.as_str(), prefix_length)
+                        && levenshtein_distance(s, query_value.as_str()) <= max_edits;
                 }
                 let s_lower = s.to_lowercase();
-                if levenshtein_distance(&s_lower, &q_lower) <= max_edits {
+                if fuzzy_prefix_ok(&s_lower, &q_lower, prefix_length)
+                    && levenshtein_distance(&s_lower, &q_lower) <= max_edits
+                {
                     return true;
                 }
                 s_lower
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|t| !t.is_empty())
-                    .any(|tok| levenshtein_distance(tok, &q_lower) <= max_edits)
+                    .any(|tok| {
+                        fuzzy_prefix_ok(tok, &q_lower, prefix_length)
+                            && levenshtein_distance(tok, &q_lower) <= max_edits
+                    })
             };
             get_field_value(source, field)
                 .and_then(|v| match v {
@@ -41702,6 +41719,21 @@ fn wildcard_match_inner(text: &[char], pattern: &[char]) -> bool {
     }
 }
 
+/// #848: ES `prefix_length` guard — the first `prefix_length` characters of the
+/// query and a candidate term must be IDENTICAL (not subject to edits) before
+/// Levenshtein distance is consulted. `prefix_length == 0` (ES default) imposes
+/// no constraint. Compare the SAME (already case-folded, where applicable)
+/// strings that the distance call uses. Kept in lock-step with the copy in
+/// `xerj-fts/src/search.rs`.
+#[inline]
+fn fuzzy_prefix_ok(candidate: &str, query: &str, prefix_length: usize) -> bool {
+    prefix_length == 0
+        || candidate
+            .chars()
+            .take(prefix_length)
+            .eq(query.chars().take(prefix_length))
+}
+
 /// Compute Levenshtein edit distance between two strings.
 fn levenshtein_distance(a: &str, b: &str) -> usize {
     // Damerau-Levenshtein (with transposition) — ES `fuzzy` queries default
@@ -43047,6 +43079,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => {
             // `fuzzy` on a KEYWORD field: expand the keyword FST term dictionary
             // to every term within `max_edits` Damerau-Levenshtein distance and
@@ -43071,6 +43104,7 @@ fn query_node_to_fts_with_keyword_fields(
                     // keyword FST route is case-SENSITIVE (ES default); a
                     // query_string/term-ci fuzzy sets it true and keeps folding.
                     case_insensitive: *case_insensitive,
+                    prefix_length: *prefix_length,
                 }));
             }
             // TEXT field: expand the term dictionary within `max_edits`
@@ -43090,6 +43124,7 @@ fn query_node_to_fts_with_keyword_fields(
                     max_edits,
                     boost: 1.0,
                     case_insensitive: false,
+                    prefix_length: *prefix_length,
                 }));
             }
             None
@@ -43784,6 +43819,8 @@ enum ScoredPlan {
         /// #423/#406: fold both sides when true; case-sensitive raw-term match
         /// when false (standalone keyword fuzzy, ES default).
         case_insensitive: bool,
+        /// #848: leading characters that must match exactly (ES default 0).
+        prefix_length: usize,
     },
 }
 
@@ -44393,6 +44430,7 @@ fn scored_fast_plan(
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } if fs.kw.contains(field) => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(value),
@@ -44404,6 +44442,7 @@ fn scored_fast_plan(
                 max_edits,
                 boost: 1.0,
                 case_insensitive: *case_insensitive,
+                prefix_length: *prefix_length,
             })
         }
         // Filter-only bool: ES scores filter context 0.0 (the brute path's
@@ -46321,6 +46360,7 @@ mod fts_projection_tests {
             value: "runbok".into(),
             fuzziness: Fuzziness::Fixed(1),
             case_insensitive: false,
+            prefix_length: 0,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text fuzzy projects") {
             FtsQuery::Fuzzy(f) => {
