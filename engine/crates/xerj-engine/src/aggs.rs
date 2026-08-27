@@ -121,8 +121,8 @@ pub const SUPPORTED_AGG_TYPES: &[&str] = &[
 /// their own cache scoped to the (filtered) bucket docs.
 struct FieldCache<'d> {
     docs: &'d [Value],
-    /// field → Vec<Option<f64>>
-    numeric: HashMap<String, Vec<Option<f64>>>,
+    /// field → Vec<Vec<f64>> (ALL numeric values per doc, for metric aggs)
+    numeric_multi: HashMap<String, Vec<Vec<f64>>>,
     /// field → Vec<Vec<String>>
     strings: HashMap<String, Vec<Vec<String>>>,
 }
@@ -131,18 +131,23 @@ impl<'d> FieldCache<'d> {
     fn new(docs: &'d [Value]) -> Self {
         Self {
             docs,
-            numeric: HashMap::new(),
+            numeric_multi: HashMap::new(),
             strings: HashMap::new(),
         }
     }
 
-    fn get_numeric(&mut self, field: &str) -> &[Option<f64>] {
-        self.numeric.entry(field.to_string()).or_insert_with(|| {
-            self.docs
-                .iter()
-                .map(|d| extract_numeric(d, field))
-                .collect()
-        })
+    /// Every numeric value per doc (a multi-valued field yields all its
+    /// values, ES semantics — not just the first). Coercion matches
+    /// `extract_numeric` (number, numeric string, or date string → epoch ms).
+    fn get_numeric_multi(&mut self, field: &str) -> &[Vec<f64>] {
+        self.numeric_multi
+            .entry(field.to_string())
+            .or_insert_with(|| {
+                self.docs
+                    .iter()
+                    .map(|d| extract_metric_numeric_values(d, field))
+                    .collect()
+            })
     }
 
     fn get_strings(&mut self, field: &str) -> &[Vec<String>] {
@@ -3292,6 +3297,59 @@ pub(crate) fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
     out
 }
 
+/// All numeric values of a field for a METRIC agg (avg/sum/min/max/stats/…),
+/// matching `extract_numeric`'s per-value coercion — a plain number, a numeric
+/// string, or a date string parsed to epoch ms — but across EVERY value of a
+/// multi-valued field, not just the first. `extract_numeric_values` above is
+/// NOT used here because it lacks the date-string fallback that date metric
+/// aggs depend on.
+pub(crate) fn extract_metric_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
+    fn num_of(v: &Value) -> Option<f64> {
+        match v {
+            Value::Number(n) => n.as_f64(),
+            Value::String(s) => s
+                .parse::<f64>()
+                .ok()
+                .or_else(|| parse_date_ms(&Value::String(s.clone())).map(|ms| ms as f64)),
+            _ => None,
+        }
+    }
+    fn walk(v: &Value, out: &mut Vec<f64>) {
+        match v {
+            Value::Array(arr) => {
+                for e in arr {
+                    walk(e, out);
+                }
+            }
+            other => {
+                if let Some(f) = num_of(other) {
+                    out.push(f);
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(get_nested_field(doc, field), &mut out);
+    out
+}
+
+/// Flatten every numeric value across all docs for a metric agg: a multi-valued
+/// field contributes ALL its values (ES semantics); a doc with NO numeric value
+/// contributes the `missing` placeholder once, when set.
+fn metric_numeric_values(cache: &mut FieldCache, field: &str, missing: Option<f64>) -> Vec<f64> {
+    let mut out = Vec::new();
+    for vals in cache.get_numeric_multi(field) {
+        if vals.is_empty() {
+            if let Some(m) = missing {
+                out.push(m);
+            }
+        } else {
+            out.extend_from_slice(vals);
+        }
+    }
+    out
+}
+
 /// Extract ALL parseable date values (as epoch ms) from a field.
 pub(crate) fn extract_date_ms_values(doc: &Value, field: &str) -> Vec<i64> {
     fn walk(v: &Value, out: &mut Vec<i64>) {
@@ -6384,13 +6442,9 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_count__": 0, "__xy_sum__": 0.0}),
     };
     let missing = get_missing_value(params);
-    let (sum, count) = cache
-        .get_numeric(field)
+    let (sum, count) = metric_numeric_values(cache, field, missing)
         .iter()
-        .fold((0.0f64, 0usize), |(s, n), v| match v.or(missing) {
-            Some(x) => (s + x, n + 1),
-            None => (s, n),
-        });
+        .fold((0.0f64, 0usize), |(s, n), x| (s + x, n + 1));
     if count == 0 {
         return json!({ "value": Value::Null, "__xy_count__": 0, "__xy_sum__": 0.0 });
     }
@@ -6408,11 +6462,7 @@ fn run_sum<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": 0.0, "__xy_agg__": "sum"}),
     };
     let missing = get_missing_value(params);
-    let values: Vec<f64> = cache
-        .get_numeric(field)
-        .iter()
-        .filter_map(|v| v.or(missing))
-        .collect();
+    let values: Vec<f64> = metric_numeric_values(cache, field, missing);
     // ES semantics: a top-level `sum` with no matching docs returns 0.0
     // (the additive identity), but a `sum` that participated in a
     // bucketing agg where the bucket had zero docs is emitted as 0 in the
@@ -6432,10 +6482,9 @@ fn run_min<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_agg__": "min"}),
     };
     let missing = get_missing_value(params);
-    let min = cache
-        .get_numeric(field)
+    let min = metric_numeric_values(cache, field, missing)
         .iter()
-        .filter_map(|v| v.or(missing))
+        .copied()
         .fold(f64::INFINITY, f64::min);
     if min.is_infinite() {
         return json!({ "value": Value::Null, "__xy_agg__": "min" });
@@ -6455,10 +6504,9 @@ fn run_max<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_agg__": "max"}),
     };
     let missing = get_missing_value(params);
-    let max = cache
-        .get_numeric(field)
+    let max = metric_numeric_values(cache, field, missing)
         .iter()
-        .filter_map(|v| v.or(missing))
+        .copied()
         .fold(f64::NEG_INFINITY, f64::max);
     if max.is_infinite() {
         return json!({ "value": Value::Null, "__xy_agg__": "max" });
@@ -6503,10 +6551,9 @@ fn run_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>)
     };
 
     let missing = get_missing_value(params);
-    let (count, sum, min, max) = cache
-        .get_numeric(field)
+    let (count, sum, min, max) = metric_numeric_values(cache, field, missing)
         .iter()
-        .filter_map(|v| v.or(missing))
+        .copied()
         .fold(
             (0usize, 0.0f64, f64::INFINITY, f64::NEG_INFINITY),
             |(cnt, s, mn, mx), x| (cnt + 1, s + x, mn.min(x), mx.max(x)),
@@ -11458,11 +11505,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     // `missing: N` — docs without a numeric value for the field contribute
     // N instead of being skipped. Applied before count/sum/sum_of_squares.
     let missing_default = get_missing_value(params);
-    let values: Vec<f64> = cache
-        .get_numeric(field)
-        .iter()
-        .filter_map(|v| v.or(missing_default))
-        .collect();
+    let values: Vec<f64> = metric_numeric_values(cache, field, missing_default);
     let count = values.len();
 
     if count == 0 {
@@ -11643,11 +11686,7 @@ fn run_median_absolute_deviation<'d>(
     };
 
     let missing = get_missing_value(params);
-    let mut values: Vec<f64> = cache
-        .get_numeric(field)
-        .iter()
-        .filter_map(|v| v.or(missing))
-        .collect();
+    let mut values: Vec<f64> = metric_numeric_values(cache, field, missing);
     if values.is_empty() {
         return json!({"value": Value::Null});
     }
@@ -13733,6 +13772,51 @@ fn run_ip_range(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn multivalued_numeric_metric_aggs_use_all_values() {
+        // ES aggregates over EVERY value of a multi-valued field; the old path
+        // used only the first (extract_numeric), so sum/avg/stats undercounted
+        // and min/max could miss the extreme. `n` values: [1,20] + [3].
+        let docs = vec![json!({ "n": [1, 20] }), json!({ "n": [3] })];
+        let r = run_aggs(
+            &json!({
+                "s": {"sum": {"field": "n"}},
+                "a": {"avg": {"field": "n"}},
+                "mn": {"min": {"field": "n"}},
+                "mx": {"max": {"field": "n"}},
+                "st": {"stats": {"field": "n"}},
+                "es": {"extended_stats": {"field": "n"}},
+            }),
+            &docs,
+        );
+        assert_eq!(r["s"]["value"].as_f64(), Some(24.0), "sum");
+        assert_eq!(r["a"]["value"].as_f64(), Some(8.0), "avg");
+        assert_eq!(r["mn"]["value"].as_f64(), Some(1.0), "min");
+        assert_eq!(r["mx"]["value"].as_f64(), Some(20.0), "max");
+        assert_eq!(r["st"]["count"].as_u64(), Some(3), "stats.count");
+        assert_eq!(r["st"]["sum"].as_f64(), Some(24.0), "stats.sum");
+        assert_eq!(r["st"]["max"].as_f64(), Some(20.0), "stats.max");
+        assert_eq!(r["es"]["count"].as_u64(), Some(3), "extended_stats.count");
+
+        // `missing`: a doc with no value contributes the placeholder once.
+        let dm = vec![json!({ "n": [2, 4] }), json!({ "x": 1 })];
+        let rm = run_aggs(&json!({ "s": {"sum": {"field": "n", "missing": 10}} }), &dm);
+        assert_eq!(rm["s"]["value"].as_f64(), Some(16.0), "sum with missing");
+
+        // Date-string field (single value) must still resolve via date coercion
+        // — the all-values extractor keeps `extract_numeric`'s date fallback.
+        let dd = vec![json!({ "d": "2016-05-03" }), json!({ "d": "2016-05-01" })];
+        let rd = run_aggs(&json!({ "mn": {"min": {"field": "d"}} }), &dd);
+        assert!(
+            rd["mn"]["value"].as_f64().is_some(),
+            "date min resolves: {rd:?}"
+        );
+        assert!(
+            rd["mn"]["value_as_string"].is_string(),
+            "date min_as_string: {rd:?}"
+        );
+    }
 
     #[test]
     fn passage_metadata_is_not_an_aggregation_field() {
