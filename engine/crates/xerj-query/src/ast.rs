@@ -90,7 +90,12 @@ pub enum Fuzziness {
 ///
 /// Not `Copy`/`Eq` because the `Script` variant carries an owned source
 /// string and a free-form params object (`serde_json::Value` is not `Eq`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// NOTE: `Serialize` is HAND-WRITTEN below (not derived). The query cache hashes
+// the serialized request (index.rs `body_hash`), and an untagged derive would
+// serialize `Negative(2)`/`Percentage(2)` as the bare number `2` — identical to
+// `Fixed(2)` — conflating semantically different specs into one cache entry
+// (#860). The manual impl gives every spec a distinct wire form.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum MinShouldMatch {
     /// Exact number of `should` clauses that must match.
@@ -167,6 +172,61 @@ impl MinShouldMatch {
                 }
             }
             MinShouldMatch::Field(_) | MinShouldMatch::Script { .. } => None,
+        }
+    }
+
+    /// The canonical ES string spelling of a SCALAR spec (`Fixed`/`Percentage`/
+    /// `Negative`/`NegativePercentage`). Used inside `Combination` and by the
+    /// custom `Serialize` so distinct specs never share a wire form. `None` for
+    /// the non-scalar `Combination`/`Field`/`Script`.
+    fn spec_token(&self) -> Option<String> {
+        match self {
+            MinShouldMatch::Fixed(n) => Some(n.to_string()),
+            MinShouldMatch::Percentage(p) => Some(format!("{p}%")),
+            MinShouldMatch::Negative(n) => Some(format!("-{n}")),
+            MinShouldMatch::NegativePercentage(p) => Some(format!("-{p}%")),
+            _ => None,
+        }
+    }
+}
+
+impl Serialize for MinShouldMatch {
+    // Distinct wire form per spec so the request hash (query cache) never
+    // conflates two specs (#860). Only feeds the opaque cache hash — no client
+    // response echoes this — so the exact spelling is free to choose.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            // A plain count stays a JSON number.
+            MinShouldMatch::Fixed(n) => serializer.serialize_u32(*n),
+            // Percentage / negative / negative-% serialize as their distinct ES
+            // string spelling ("50%", "-1", "-25%") — NOT bare numbers.
+            MinShouldMatch::Percentage(_)
+            | MinShouldMatch::Negative(_)
+            | MinShouldMatch::NegativePercentage(_) => {
+                serializer.serialize_str(&self.spec_token().expect("scalar spec has a token"))
+            }
+            // Combination as its "pivot<spec ..." spelling.
+            MinShouldMatch::Combination(conds) => {
+                let s = conds
+                    .iter()
+                    .map(|c| format!("{}<{}", c.pivot, c.spec.spec_token().unwrap_or_default()))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                serializer.serialize_str(&s)
+            }
+            MinShouldMatch::Field(f) => serializer.serialize_str(f),
+            MinShouldMatch::Script { source, params } => {
+                use serde::ser::SerializeMap;
+                let mut m = serializer.serialize_map(None)?;
+                m.serialize_entry("source", source)?;
+                if let Some(p) = params {
+                    m.serialize_entry("params", p)?;
+                }
+                m.end()
+            }
         }
     }
 }
