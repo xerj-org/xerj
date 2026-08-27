@@ -7358,10 +7358,19 @@ fn run_missing(params: &Value, docs: &[Value]) -> Value {
         docs.iter()
             .filter(|doc| {
                 // A doc is "missing" the field iff it has no non-null value —
-                // the exact complement of `exists` (#792/#793 value_present):
-                // absent, null, `[]` and `[null]` all count as missing, so
-                // `is_null()` alone (which kept `[]`/`[null]`) undercounted.
-                !crate::index::value_present(get_nested_field(doc, field))
+                // the EXACT complement of `exists`. Resolve through the same
+                // `get_field_value` the exists query uses (index.rs): it
+                // array-descends (so a leaf inside an array of objects,
+                // `a=[{b:1}]`, is found present) and strips a `.keyword`
+                // multi-field to its scalar parent, then `value_present`
+                // treats absent / null / `[]` / `[null]` as missing (#847,
+                // #844, #792/#793). Aggs' own `get_nested_field` does NOT
+                // descend arrays nor guard an absent nested leaf, so using it
+                // here wrongly reported such fields present/missing.
+                crate::index::get_field_value(doc, field)
+                    .as_ref()
+                    .map(crate::index::value_present)
+                    != Some(true)
             })
             .count()
     };
@@ -14005,6 +14014,35 @@ mod tests {
         let other = arr.last().expect("other bucket");
         assert_eq!(other["key"], json!("_other_"));
         assert_eq!(other["doc_count"].as_u64(), Some(3));
+    }
+
+    #[test]
+    fn missing_agg_nested_leaf_absent_under_present_parent_object() {
+        // A nested leaf `a.b` that is absent must count as MISSING even when
+        // the parent object `a` exists; but a leaf that IS present — including
+        // one inside an ARRAY of objects (`a=[{b:1}]`) — must count present,
+        // exactly like `exists`. #847. `missing` resolves through the same
+        // `get_field_value` the exists query uses (array-descends).
+        let docs = vec![
+            json!({ "a": { "b": 5 } }),    // present
+            json!({ "a": [{ "b": 1 }] }),  // present via array-of-objects descent
+            json!({ "a": { "c": 1 } }),    // b absent, parent object -> missing
+            json!({ "a": {} }),            // missing
+            json!({ "a": { "b": null } }), // null -> missing
+            json!({ "x": 1 }),             // parent absent -> missing
+        ];
+        let r = run_aggs(&json!({ "m": { "missing": { "field": "a.b" } } }), &docs);
+        assert_eq!(r["m"]["doc_count"].as_u64(), Some(4), "got {r:?}");
+
+        // The legitimate `.keyword` multi-field fallback still works: a SCALAR
+        // parent is a real leaf, so `cat.keyword` resolves to `cat`'s value and
+        // counts as present.
+        let kw = vec![json!({ "cat": "x" }), json!({ "other": 1 })];
+        let rk = run_aggs(
+            &json!({ "m": { "missing": { "field": "cat.keyword" } } }),
+            &kw,
+        );
+        assert_eq!(rk["m"]["doc_count"].as_u64(), Some(1), "got {rk:?}");
     }
 
     #[test]
