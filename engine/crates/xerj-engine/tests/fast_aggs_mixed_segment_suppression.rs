@@ -221,16 +221,15 @@ async fn fast_and_brute_agree_on_mixed_segment_numeric_metrics() {
          metrics over a field whose column is suppressed in ONE segment only",
     )
     .await;
-    // The reference is the BRUTE path, asserted as it actually behaves, not
-    // as ES would: its sum/avg resolvers fold ONE value per doc (the array's
-    // first element), while value_count counts every element.  So sum is
-    // 11 000 × 5 + 1 000 × 1, avg divides by the 12 000 docs, and
-    // value_count sees all 13 000 values.  What this test pins is the
-    // fast/brute AGREEMENT above; brute's own array-metric semantics are a
-    // separate (pre-existing) question.
-    assert_eq!(brute["aggs"]["s"]["value"], 56_000.0);
+    // The reference is the BRUTE path. Metric aggs now fold EVERY value of a
+    // multi-valued field (ES semantics — #839-family fix), so sum is
+    // 11 000 × 5 + 1 000 × (1 + 2) = 58 000, value_count sees all 13 000
+    // values, and avg divides the sum by the 13 000 values (not the 12 000
+    // docs). What this test pins is the fast/brute AGREEMENT above; both paths
+    // resolve `score` through brute here (its column is suppressed in seg 2).
+    assert_eq!(brute["aggs"]["s"]["value"], 58_000.0);
     assert_eq!(brute["aggs"]["n"]["value"], 13_000);
-    assert_eq!(brute["aggs"]["a"]["value"], 56_000.0 / 12_000.0);
+    assert_eq!(brute["aggs"]["a"]["value"], 58_000.0 / 13_000.0);
 }
 
 /// The same metric as a SUB-agg under a fully-covered `terms` parent:
@@ -260,9 +259,9 @@ async fn fast_and_brute_agree_on_mixed_segment_sub_metric() {
     let buckets = brute["aggs"]["by_group"]["buckets"].as_array().unwrap();
     assert_eq!(buckets.len(), 2);
     for b in buckets {
-        // Each group: 5 500 scalar docs × 5 + 500 array docs × 1 (brute's
-        // sum folds one value per doc — see the metrics test above).
+        // Each group: 5 500 scalar docs × 5 + 500 array docs × (1 + 2) — the
+        // sub-metric sum folds every value of the multi-valued field (ES).
         assert_eq!(b["doc_count"], 6_000);
-        assert_eq!(b["s"]["value"], 28_000.0);
+        assert_eq!(b["s"]["value"], 29_000.0);
     }
 }
