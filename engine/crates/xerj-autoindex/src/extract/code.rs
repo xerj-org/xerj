@@ -817,6 +817,10 @@ const CPP_Q: &str = r#"
 (namespace_definition body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
 (field_declaration_list (field_declaration type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
 (linkage_specification body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(translation_unit (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(namespace_definition body: (declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
+(field_declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(linkage_specification body: (declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
 (field_declaration (storage_class_specifier) @_s declarator: (field_identifier) @const (#eq? @_s "static"))
 "#;
 
@@ -1904,7 +1908,9 @@ mod tests {
              namespace n { enum Ns { NA, NB }; }\n\
              class K { enum Member { MA, MB }; };\n\
              extern \"C\" { enum Linkage { GA, GB }; }\n\
-             void f() { enum Local { LA, LB }; }\n",
+             typedef enum { TDA, TDB } TdColor;\n\
+             void f() { enum Local { LA, LB }; }\n\
+             void g() { typedef enum { LTA, LTB } LocTd; }\n",
         );
         // File-scope enumerators (top-level / namespace / class / extern "C")
         // stay captured.
@@ -1914,9 +1920,14 @@ mod tests {
         // `extern "C"` is a linkage_specification block, a common interop-header
         // shape — its file-scope enum must be captured, not dropped (#841 gate).
         assert!(has(&s, "GA", "const"), "got {s:?}");
-        // Function-local enumerators must NOT leak.
+        // `typedef enum { .. } Name;` is the pervasive C/C++ header idiom — the
+        // enum_specifier sits under a type_definition, so it needs its own
+        // scope anchors, else its values are dropped (#841 gate 2).
+        assert!(has(&s, "TDA", "const"), "got {s:?}");
+        // Function-local enumerators must NOT leak — plain OR typedef'd.
         assert!(!has(&s, "LA", "const"), "got {s:?}");
         assert!(!has(&s, "LB", "const"), "got {s:?}");
+        assert!(!has(&s, "LTA", "const"), "got {s:?}");
     }
 
     #[test]
