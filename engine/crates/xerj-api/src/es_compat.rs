@@ -18804,6 +18804,40 @@ pub struct MgetDoc {
     pub index: String,
     #[serde(rename = "_id")]
     pub id: String,
+    /// Per-item `_source` filter (ES): `false` omits `_source`, `true`/absent
+    /// returns it whole, a string/array is an includes list, and
+    /// `{"includes":[..],"excludes":[..]}` is both.
+    #[serde(rename = "_source", default)]
+    pub source: Option<Value>,
+}
+
+/// Apply a per-item mget `_source` spec to a document's source. Returns `None`
+/// when the item asked to suppress `_source` (`_source: false`) so the caller
+/// omits the key entirely (ES). Absent / `true` returns the source unchanged.
+fn apply_mget_item_source(source: Value, spec: Option<&Value>) -> Option<Value> {
+    let str_list = |v: &Value| -> Vec<String> {
+        match v {
+            Value::String(s) => vec![s.clone()],
+            Value::Array(a) => a
+                .iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    match spec {
+        Some(Value::Bool(false)) => None,
+        Some(Value::Bool(true)) | None | Some(Value::Null) => Some(source),
+        Some(v @ (Value::String(_) | Value::Array(_))) => {
+            Some(xerj_engine::filter_object(&source, &str_list(v), &[]))
+        }
+        Some(Value::Object(o)) => {
+            let inc = o.get("includes").map(str_list).unwrap_or_default();
+            let exc = o.get("excludes").map(str_list).unwrap_or_default();
+            Some(xerj_engine::filter_object(&source, &inc, &exc))
+        }
+        Some(_) => Some(source),
+    }
 }
 
 pub async fn mget(
@@ -18849,15 +18883,18 @@ pub async fn mget(
                 // 0 / 1.
                 let seq_no = idx.lookup_seq_no(&req_doc.id).unwrap_or(0);
                 let version = idx.lookup_version(&req_doc.id).unwrap_or(1);
-                docs.push(json!({
+                let mut d = json!({
                     "_index": req_doc.index,
                     "_id": req_doc.id,
                     "_version": version,
                     "_seq_no": seq_no,
                     "_primary_term": 1,
                     "found": true,
-                    "_source": source,
-                }));
+                });
+                if let Some(s) = apply_mget_item_source(source, req_doc.source.as_ref()) {
+                    d["_source"] = s;
+                }
+                docs.push(d);
             }
             _ => {
                 docs.push(json!({
@@ -18884,12 +18921,13 @@ pub async fn mget_index(
     Path(index): Path<String>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
-    // Collect (index, id) entries, defaulting the index to the path index.
-    let mut entries: Vec<(String, String)> = Vec::new();
+    // Collect (index, id, per-item _source spec) entries, defaulting the index
+    // to the path index.
+    let mut entries: Vec<(String, String, Option<Value>)> = Vec::new();
     if let Some(ids) = body.get("ids").and_then(Value::as_array) {
         for id in ids {
             if let Some(s) = id.as_str() {
-                entries.push((index.clone(), s.to_string()));
+                entries.push((index.clone(), s.to_string(), None));
             }
         }
     } else if let Some(docs) = body.get("docs").and_then(Value::as_array) {
@@ -18904,7 +18942,7 @@ pub async fn mget_index(
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string();
-            entries.push((i, id));
+            entries.push((i, id, d.get("_source").cloned()));
         }
     }
 
@@ -18927,7 +18965,7 @@ pub async fn mget_index(
     }
 
     let mut docs: Vec<Value> = Vec::with_capacity(entries.len());
-    for (ix, id) in &entries {
+    for (ix, id, src_spec) in &entries {
         // Resolve the entry's index through the shared resolver (#451): an
         // alias expands to every member, so a doc in any member is found — not
         // just the first. `get_index` collapsed an alias to `aliased.first()`,
@@ -18953,15 +18991,18 @@ pub async fn mget_index(
                 // concrete member the doc lives in, not the alias.
                 let seq_no = midx.lookup_seq_no(id).unwrap_or(0);
                 let version = midx.lookup_version(id).unwrap_or(1);
-                docs.push(json!({
+                let mut d = json!({
                     "_index": mname,
                     "_id": id,
                     "_version": version,
                     "_seq_no": seq_no,
                     "_primary_term": 1,
                     "found": true,
-                    "_source": source,
-                }));
+                });
+                if let Some(s) = apply_mget_item_source(source, src_spec.as_ref()) {
+                    d["_source"] = s;
+                }
+                docs.push(d);
             }
             None => docs.push(json!({
                 "_index": ix,
@@ -22795,6 +22836,66 @@ mod flat_object_field_caps_tests {
         assert!(
             resp["fields"].get("user.age").is_none(),
             "user.age must not match *name: {resp}"
+        );
+    }
+
+    /// #855: `_mget` honors the per-item `_source` spec — `false` omits the
+    /// field entirely, an include-list keeps only matching (dotted) paths, and
+    /// an `{excludes:[...]}` object drops the named paths, all via the engine's
+    /// `filter_object` (the same projection the search path uses).
+    #[tokio::test]
+    async fn mget_honors_per_item_source() {
+        let router = crate::router::build_es_compat_router(test_state());
+
+        let write = router
+            .clone()
+            .oneshot(
+                Request::put("/mget-src-e2e/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "user": { "name": "x", "age": 5 }, "id": 7 }).to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("write response");
+        assert!(write.status().is_success());
+
+        let resp = router
+            .oneshot(
+                Request::post("/mget-src-e2e/_mget")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({ "docs": [
+                            { "_id": "1", "_source": ["user.name"] },
+                            { "_id": "1", "_source": false },
+                            { "_id": "1", "_source": { "excludes": ["user.age"] } },
+                        ]})
+                        .to_string(),
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("mget response");
+        assert!(resp.status().is_success());
+        let bytes = to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .expect("response bytes");
+        let v: Value = serde_json::from_slice(&bytes).expect("JSON response");
+        let d = v["docs"].as_array().expect("docs array");
+        // Item 0: include-list keeps only user.name.
+        assert_eq!(
+            d[0]["_source"],
+            json!({ "user": { "name": "x" } }),
+            "include-list, got: {v}"
+        );
+        // Item 1: _source:false omits _source entirely.
+        assert!(d[1].get("_source").is_none(), "_source:false, got: {v}");
+        // Item 2: excludes drops user.age, keeps siblings + id.
+        assert_eq!(
+            d[2]["_source"],
+            json!({ "user": { "name": "x" }, "id": 7 }),
+            "excludes, got: {v}"
         );
     }
 
