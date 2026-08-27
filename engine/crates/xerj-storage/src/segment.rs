@@ -552,7 +552,16 @@ impl SegmentReader {
         let file = File::open(path.as_ref())?;
         let mmap = unsafe { Mmap::map(&file) }?;
         let mmap = Arc::new(mmap);
-        Self::from_mmap(mmap)
+        let reader = Self::from_mmap(mmap)?;
+        // #819: `from_mmap`'s open-time whole-file CRC pass reads every
+        // on-disk byte of the segment, so a validated open is the faithful
+        // "bytes read from disk" site. The reader-cache hit path
+        // (`from_mmap_arc`) reuses the mmap and reads nothing, so it
+        // deliberately does not record.
+        if let Some(m) = xerj_common::metrics::global_metrics() {
+            m.record_bytes_read(reader.mmap.len() as u64);
+        }
+        Ok(reader)
     }
 
     /// Return the underlying Arc<Mmap>.  Used by the cached
@@ -733,6 +742,40 @@ mod tests {
 
         // Missing section returns None
         assert!(reader.section(SectionType::Fts).unwrap().is_none());
+    }
+
+    /// #819: `xerj_bytes_read_total` was registered but never incremented,
+    /// so it read a flat zero regardless of read volume. A validated
+    /// `SegmentReader::open` now records the opened file's on-disk length
+    /// through the process-global metrics handle.
+    #[test]
+    fn bytes_read_metric_increments_on_segment_open() {
+        // Idempotent OnceLock: installs a handle if none yet, else reads the
+        // existing one. Once installed, concurrent tests in this binary may
+        // also open segments, so assert a lower bound, not an exact delta.
+        xerj_common::metrics::set_global_metrics(std::sync::Arc::new(
+            xerj_common::metrics::Metrics::new().unwrap(),
+        ));
+        let m = xerj_common::metrics::global_metrics().expect("global metrics installed");
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut writer = SegmentWriter::new(dir.path(), 1, 0, 0).unwrap();
+        writer
+            .add_section(SectionType::Stored, b"{\"title\":\"bytes read 819\"}")
+            .unwrap();
+        let meta = writer.finish(1, 1, 1).unwrap();
+        let seg_path = dir.path().join(&meta.seg_path);
+        let seg_len = std::fs::metadata(&seg_path).unwrap().len();
+        assert!(seg_len > 0);
+
+        let before = m.bytes_read.get();
+        let _reader = SegmentReader::open(&seg_path).unwrap();
+        let after = m.bytes_read.get();
+        assert!(
+            after - before >= seg_len,
+            "#819: bytes_read must grow by at least the segment's on-disk \
+             length ({seg_len}) on a validated open, got {before} -> {after}"
+        );
     }
 
     #[test]

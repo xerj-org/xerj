@@ -28,6 +28,32 @@ use prometheus::{
 use crate::error::XerjError;
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Process-global metrics handle
+// ═════════════════════════════════════════════════════════════════════════════
+
+// The registry stays per-instance (see the module docs), but some call sites
+// are constructed before the server's `Metrics` exists and without a handle
+// to it: the engine's flush/merge pipeline (#804) and the storage layer's
+// segment-open path (#819). The server installs the single process-wide
+// instance here once at startup; call sites record through `global_metrics()`,
+// which is `None` (a no-op) when nothing is installed, so libraries never
+// fabricate observations. `xerj_engine::set_engine_metrics` delegates here,
+// keeping one install site per process.
+static GLOBAL_METRICS: std::sync::OnceLock<std::sync::Arc<Metrics>> = std::sync::OnceLock::new();
+
+/// Install the process-wide metrics handle. Idempotent; the first call wins
+/// (later calls are ignored).
+pub fn set_global_metrics(metrics: std::sync::Arc<Metrics>) {
+    let _ = GLOBAL_METRICS.set(metrics);
+}
+
+/// The installed process-wide metrics handle, or `None` if no server has
+/// installed one (unit tests, embedded uses).
+pub fn global_metrics() -> Option<&'static std::sync::Arc<Metrics>> {
+    GLOBAL_METRICS.get()
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Metrics collection
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -47,7 +73,8 @@ pub struct Metrics {
     pub queries_executed: IntCounter,
     /// Total bytes written to segment files (uncompressed).
     pub bytes_written: IntCounter,
-    /// Total bytes read from segment files (uncompressed).
+    /// Total on-disk bytes read from segment (.seg) files at open-time
+    /// validation (reader-cache misses only).
     pub bytes_read: IntCounter,
 
     // ── Per-index counters ────────────────────────────────────────────────────
@@ -128,7 +155,7 @@ impl Metrics {
 
         let bytes_read = IntCounter::with_opts(Opts::new(
             "xerj_bytes_read_total",
-            "Total bytes read from segment files (uncompressed)",
+            "Total on-disk bytes read from segment (.seg) files at open-time validation (reader-cache misses only)",
         ))
         .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
 
@@ -366,6 +393,18 @@ impl Metrics {
             return;
         }
         self.bytes_written.inc_by(n);
+    }
+
+    /// Record `n` on-disk bytes read from a segment (.seg) file, called once
+    /// per validated `SegmentReader` open with the opened file's length (the
+    /// open path reads and CRC-checks the whole file; the reader-cache hit
+    /// path reuses the mmap and reads nothing). A no-op when `n == 0`.
+    /// (#819: the counter was registered but never incremented, so it read a
+    /// flat zero regardless of read volume.)
+    pub fn record_bytes_read(&self, n: u64) {
+        if n != 0 {
+            self.bytes_read.inc_by(n);
+        }
     }
 
     /// Drop the per-index label series for `index` (RC4-W4 item 5).

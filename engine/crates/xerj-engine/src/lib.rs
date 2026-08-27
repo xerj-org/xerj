@@ -68,22 +68,22 @@ pub use memtable::FtsMemtable;
 // process). Call sites record via `engine_metrics()` — a no-op when unset
 // (e.g. in unit tests), so the engine never fabricates observations.
 //
-// This mirrors the `OnceLock` pattern the rayon pools below already use.
-static ENGINE_METRICS: std::sync::OnceLock<std::sync::Arc<xerj_common::metrics::Metrics>> =
-    std::sync::OnceLock::new();
+// The cell itself lives in `xerj_common::metrics` (#819) so `xerj-storage`
+// call sites (segment open) can record into the same process-wide instance;
+// these wrappers keep the engine-facing API unchanged.
 
 /// Install the process-wide metrics handle the engine records into. Idempotent;
 /// the first call wins (later calls are ignored). Called once by the server at
 /// startup with the same `Metrics` the HTTP `/metrics` endpoint scrapes.
 pub fn set_engine_metrics(metrics: std::sync::Arc<xerj_common::metrics::Metrics>) {
-    let _ = ENGINE_METRICS.set(metrics);
+    xerj_common::metrics::set_global_metrics(metrics);
 }
 
 /// The installed metrics handle, or `None` if the server has not installed one
 /// (unit tests, embedded uses). Engine call sites guard on this so recording is
 /// a no-op when metrics are not wired.
 pub fn engine_metrics() -> Option<&'static std::sync::Arc<xerj_common::metrics::Metrics>> {
-    ENGINE_METRICS.get()
+    xerj_common::metrics::global_metrics()
 }
 
 // ── Ingest/flush/merge rayon pool ────────────────────────────────────────────
