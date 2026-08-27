@@ -814,13 +814,12 @@ const CPP_Q: &str = r#"
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (identifier) @const))))
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const)))))
 (translation_unit (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))
+(translation_unit (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
 (namespace_definition body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
-(field_declaration_list (field_declaration type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(namespace_definition body: (declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
+(field_declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
 (linkage_specification body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
-(translation_unit (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
-(namespace_definition body: (declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
-(field_declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
-(linkage_specification body: (declaration_list (type_definition type: (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
+(linkage_specification body: (declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
 (field_declaration (storage_class_specifier) @_s declarator: (field_identifier) @const (#eq? @_s "static"))
 "#;
 
@@ -1909,8 +1908,12 @@ mod tests {
              class K { enum Member { MA, MB }; };\n\
              extern \"C\" { enum Linkage { GA, GB }; }\n\
              typedef enum { TDA, TDB } TdColor;\n\
+             enum WithVar { WVA, WVB } gvar;\n\
+             enum { ANONA = 1, ANONB = 2 } dims;\n\
+             namespace m { enum NsVar { NVA } nvinst; }\n\
              void f() { enum Local { LA, LB }; }\n\
-             void g() { typedef enum { LTA, LTB } LocTd; }\n",
+             void g() { typedef enum { LTA, LTB } LocTd; }\n\
+             void h() { enum LVar { LVA } lvi; }\n",
         );
         // File-scope enumerators (top-level / namespace / class / extern "C")
         // stay captured.
@@ -1924,10 +1927,19 @@ mod tests {
         // enum_specifier sits under a type_definition, so it needs its own
         // scope anchors, else its values are dropped (#841 gate 2).
         assert!(has(&s, "TDA", "const"), "got {s:?}");
-        // Function-local enumerators must NOT leak — plain OR typedef'd.
+        // An enum with an INLINE variable declarator (`enum E {..} v;`) — and
+        // the idiomatic anonymous-constant form (`enum { A, B } v;`) — wraps the
+        // enum_specifier in a `declaration` node, so file-scope anchors must
+        // allow that wrapper (#841 gate 3, the #500 "constants indexed nowhere").
+        assert!(has(&s, "WVA", "const"), "got {s:?}");
+        assert!(has(&s, "ANONA", "const"), "got {s:?}");
+        assert!(has(&s, "NVA", "const"), "got {s:?}");
+        // Function-local enumerators must NOT leak — plain, typedef'd, OR with
+        // an inline declarator.
         assert!(!has(&s, "LA", "const"), "got {s:?}");
         assert!(!has(&s, "LB", "const"), "got {s:?}");
         assert!(!has(&s, "LTA", "const"), "got {s:?}");
+        assert!(!has(&s, "LVA", "const"), "got {s:?}");
     }
 
     #[test]
