@@ -37240,7 +37240,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
 /// `[null]` are NOT present; `[null, "x"]` is (it has a non-null element).
 /// Scalars and objects are present (object sub-field recursion is a separate
 /// concern the dense/declared paths already handle).
-fn value_present(v: &Value) -> bool {
+pub(crate) fn value_present(v: &Value) -> bool {
     match v {
         Value::Null => false,
         Value::Array(a) => a.iter().any(value_present),
