@@ -813,7 +813,13 @@ const CPP_Q: &str = r#"
 (translation_unit (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const))))
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (identifier) @const))))
 (namespace_definition body: (declaration_list (declaration declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @const)))))
-(enumerator name: (identifier) @const)
+(translation_unit (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))
+(translation_unit (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(namespace_definition body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(namespace_definition body: (declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
+(field_declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(linkage_specification body: (declaration_list (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const)))))
+(linkage_specification body: (declaration_list (_ (enum_specifier body: (enumerator_list (enumerator name: (identifier) @const))))))
 (field_declaration (storage_class_specifier) @_s declarator: (field_identifier) @const (#eq? @_s "static"))
 "#;
 
@@ -1887,6 +1893,53 @@ mod tests {
         // Function-local stays out (anchored to unit / namespace scope).
         assert!(!has(&s, "local", "const"), "got {s:?}");
         assert!(has(&s, "fn", "function"));
+    }
+
+    /// #820 item 2: the `enumerator` pattern must be anchored to file-scope
+    /// (top-level / namespace / class / `extern "C"` linkage block) — a
+    /// FUNCTION-LOCAL enum's values are not a cross-file symbol and must not
+    /// leak into `defs`.
+    #[test]
+    fn cpp_function_local_enum_does_not_leak() {
+        let s = syms(
+            "cpp",
+            "enum Top { TA, TB };\n\
+             namespace n { enum Ns { NA, NB }; }\n\
+             class K { enum Member { MA, MB }; };\n\
+             extern \"C\" { enum Linkage { GA, GB }; }\n\
+             typedef enum { TDA, TDB } TdColor;\n\
+             enum WithVar { WVA, WVB } gvar;\n\
+             enum { ANONA = 1, ANONB = 2 } dims;\n\
+             namespace m { enum NsVar { NVA } nvinst; }\n\
+             void f() { enum Local { LA, LB }; }\n\
+             void g() { typedef enum { LTA, LTB } LocTd; }\n\
+             void h() { enum LVar { LVA } lvi; }\n",
+        );
+        // File-scope enumerators (top-level / namespace / class / extern "C")
+        // stay captured.
+        assert!(has(&s, "TA", "const"), "got {s:?}");
+        assert!(has(&s, "NA", "const"), "got {s:?}");
+        assert!(has(&s, "MA", "const"), "got {s:?}");
+        // `extern "C"` is a linkage_specification block, a common interop-header
+        // shape — its file-scope enum must be captured, not dropped (#841 gate).
+        assert!(has(&s, "GA", "const"), "got {s:?}");
+        // `typedef enum { .. } Name;` is the pervasive C/C++ header idiom — the
+        // enum_specifier sits under a type_definition, so it needs its own
+        // scope anchors, else its values are dropped (#841 gate 2).
+        assert!(has(&s, "TDA", "const"), "got {s:?}");
+        // An enum with an INLINE variable declarator (`enum E {..} v;`) — and
+        // the idiomatic anonymous-constant form (`enum { A, B } v;`) — wraps the
+        // enum_specifier in a `declaration` node, so file-scope anchors must
+        // allow that wrapper (#841 gate 3, the #500 "constants indexed nowhere").
+        assert!(has(&s, "WVA", "const"), "got {s:?}");
+        assert!(has(&s, "ANONA", "const"), "got {s:?}");
+        assert!(has(&s, "NVA", "const"), "got {s:?}");
+        // Function-local enumerators must NOT leak — plain, typedef'd, OR with
+        // an inline declarator.
+        assert!(!has(&s, "LA", "const"), "got {s:?}");
+        assert!(!has(&s, "LB", "const"), "got {s:?}");
+        assert!(!has(&s, "LTA", "const"), "got {s:?}");
+        assert!(!has(&s, "LVA", "const"), "got {s:?}");
     }
 
     #[test]
