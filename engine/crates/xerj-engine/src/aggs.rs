@@ -3904,6 +3904,38 @@ pub(crate) fn typed_term_key(key: &str) -> (Value, Option<String>) {
 /// other path is resolved against the bucket's precomputed sub-aggs and
 /// compared as a floating-point metric value (missing → -inf for asc,
 /// +inf for desc so gaps sort last).
+/// Order two terms-agg `_key`s the way ES does: NUMERICALLY when both keys are
+/// numbers, otherwise by byte/lexicographic order. XERJ already types numeric
+/// keys by value in `typed_term_key` (emitting `10` as JSON `10`, not `"10"`),
+/// so the ordering must match — otherwise `[2, 10, 100]` sorts as
+/// `["10", "100", "2"]`. Which keys count as numeric mirrors `typed_term_key`
+/// exactly: an `i64`, or a finite `f64` (non-finite / bool / date stay lexical).
+fn cmp_term_key(a: &str, b: &str) -> std::cmp::Ordering {
+    // Both keys are exact integers -> compare as i64 losslessly. Snowflake IDs
+    // and epoch-nanos exceed f64's 2^53 exact range, so widening to f64 (the
+    // fallback below) would collapse distinct long keys to the same float and
+    // mis-order them. ES orders a long field by exact value.
+    if let (Ok(x), Ok(y)) = (a.parse::<i64>(), b.parse::<i64>()) {
+        return x.cmp(&y);
+    }
+    // Otherwise order numerically when both parse as a finite number (covers
+    // floats and int/float mixes), else byte/lexicographic -- mirroring
+    // typed_term_key's numeric-key notion (non-finite/bool/date/keyword lexical).
+    fn as_num(s: &str) -> Option<f64> {
+        if let Ok(n) = s.parse::<i64>() {
+            return Some(n as f64);
+        }
+        match s.parse::<f64>() {
+            Ok(f) if f.is_finite() => Some(f),
+            _ => None,
+        }
+    }
+    match (as_num(a), as_num(b)) {
+        (Some(x), Some(y)) => x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal),
+        _ => a.cmp(b),
+    }
+}
+
 fn cmp_terms_by_orders(
     a: &(String, u64, Option<Value>),
     b: &(String, u64, Option<Value>),
@@ -3912,12 +3944,12 @@ fn cmp_terms_by_orders(
     use std::cmp::Ordering;
     if orders.is_empty() {
         // ES default: count desc, key asc.
-        return b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0));
+        return b.1.cmp(&a.1).then_with(|| cmp_term_key(&a.0, &b.0));
     }
     for (path, asc) in orders {
         let ord = match path.as_str() {
             "_count" => a.1.cmp(&b.1),
-            "_key" => a.0.cmp(&b.0),
+            "_key" => cmp_term_key(&a.0, &b.0),
             other => {
                 let va = lookup_agg_metric(a.2.as_ref(), other);
                 let vb = lookup_agg_metric(b.2.as_ref(), other);
@@ -3930,7 +3962,7 @@ fn cmp_terms_by_orders(
         }
     }
     // Final tiebreaker on key.
-    a.0.cmp(&b.0)
+    cmp_term_key(&a.0, &b.0)
 }
 
 /// Resolve a dotted/`>`-separated path against a sub-aggregation result
@@ -13835,6 +13867,32 @@ mod tests {
         ];
         let r = run_aggs(&json!({ "m": { "missing": { "field": "f" } } }), &docs);
         assert_eq!(r["m"]["doc_count"].as_u64(), Some(4), "got {r:?}");
+    }
+
+    #[test]
+    fn cmp_term_key_orders_longs_beyond_f64_range_exactly() {
+        use std::cmp::Ordering;
+        // Snowflake IDs / epoch-nanos exceed f64's 2^53 exact range. `cmp_term_key`
+        // must compare such keys by exact i64 value: a lossy i64->f64 widening
+        // collapses distinct longs to the same float and returns Equal (then the
+        // stable sort leaves them in arbitrary hash order — a wrong, unstable
+        // result vs ES). f64 rounding is monotonic, so the defect only ever
+        // shows as this Equal-collapse, which is why it is asserted directly.
+        assert_eq!(
+            cmp_term_key("9007199254740992", "9007199254740993"), // 2^53, 2^53+1
+            Ordering::Less,
+            "adjacent longs past 2^53 must not collapse to Equal"
+        );
+        assert_eq!(
+            cmp_term_key("1500000000000000002", "1500000000000000001"), // snowflake scale
+            Ordering::Greater
+        );
+        // Small ints, negatives, floats and int/float mixes stay numeric; a
+        // non-numeric key stays lexical.
+        assert_eq!(cmp_term_key("2", "10"), Ordering::Less);
+        assert_eq!(cmp_term_key("-5", "-2"), Ordering::Less);
+        assert_eq!(cmp_term_key("9.5", "10"), Ordering::Less);
+        assert_eq!(cmp_term_key("banana", "apple"), Ordering::Greater);
     }
 
     #[test]
