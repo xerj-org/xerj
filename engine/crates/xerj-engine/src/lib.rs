@@ -49,8 +49,8 @@ mod bounded_ingest_resources_tests;
 pub use cluster_state::{ClusterStateBlockKind, ClusterStateBootStatus};
 pub use engine::{EmbeddingExecutionIdentity, Engine, HealthStatus, IndexInfo};
 pub use index::{
-    detect_log_format, resolve_date_math, resolve_field_alias, EnrichTable, FieldEncodingInfo,
-    Index, IndexResponse, IndexStats, LogFormat,
+    detect_log_format, filter_object, resolve_date_math, resolve_field_alias, EnrichTable,
+    FieldEncodingInfo, Index, IndexResponse, IndexStats, LogFormat,
 };
 // Second-brain graph expansion (bounded columnar traversal over an edges
 // index). Lives under `index` for private-field access; re-exported at the

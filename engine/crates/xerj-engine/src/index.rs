@@ -27940,7 +27940,12 @@ fn generated_embedding_companion_fields(schema: &Schema) -> HashSet<String> {
 /// Supports dotted field paths: `include.field1` matches the nested
 /// `{"include": {"field1": ...}}` structure. If `includes` is empty,
 /// all fields are kept before exclusions are applied.
-fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Value {
+/// Faithful ES `_source` include/exclude projection over a single JSON value:
+/// dotted paths and `*` globs that span `.` at any depth, includes then
+/// excludes (#602). Exposed so the document-GET path (`_source_includes` /
+/// `_source_excludes` on `GET /_doc`) projects identically to search instead
+/// of the old top-level-only filter that dropped nested includes.
+pub fn filter_object(source: &Value, includes: &[String], excludes: &[String]) -> Value {
     let obj = match source.as_object() {
         Some(o) => o,
         None => return source.clone(),
