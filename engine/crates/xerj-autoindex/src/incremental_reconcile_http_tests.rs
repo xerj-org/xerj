@@ -688,6 +688,67 @@ fn initial_generation_and_noop_are_end_to_end_idempotent() {
     assert_eq!(journal_events(state_dir.path(), "finish"), 2);
 }
 
+/// Incremental re-index must NOT re-run the Phase-A scan/parse for files whose
+/// content is byte-identical to the committed generation — that is the ~100x
+/// win for the edit-and-rerun / CI workflow, since the tree-sitter parse
+/// dominates per-file cost. Proven directly with the `SCAN_FILE_PARSED` counter
+/// (0 on an unchanged re-run, exactly the changed count when one file changes),
+/// and the committed index stays byte-identical.
+#[test]
+fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
+    use std::sync::atomic::Ordering;
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    // A code file (tree-sitter parse is the expensive Phase-A work) + a data file.
+    fs::write(
+        corpus.path().join("main.py"),
+        "def add(a, b):\n    return a + b\n\nclass Calc:\n    def run(self):\n        return add(1, 2)\n",
+    )
+    .unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    // Genesis: everything is parsed.
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let first_docs = endpoint.data_docs();
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    // Re-index with NOTHING changed → zero files parsed, index byte-identical.
+    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(
+        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        0,
+        "unchanged re-index must parse zero files"
+    );
+    assert_eq!(
+        endpoint.data_docs(),
+        first_docs,
+        "unchanged re-index must leave the index byte-identical"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    // Change ONE file → exactly that file is parsed (gate is digest-driven, not
+    // a blanket skip).
+    fs::write(
+        corpus.path().join("main.py"),
+        "def add(a, b):\n    return a + b + 1\n",
+    )
+    .unwrap();
+    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(
+        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        1,
+        "only the one changed file must be parsed; the unchanged file stays skipped"
+    );
+}
+
 #[test]
 fn add_change_delete_and_rename_converge_over_real_http() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
