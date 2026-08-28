@@ -16556,6 +16556,39 @@ impl Index {
                     let extra = total.saturating_sub(ids.len() as u64);
                     MemSnapshot::AllDocIds(ids, extra)
                 }
+            } else if let Some((dm_subs, dm_tie)) = dis_max_mem_fts_subs(query) {
+                // #834: a `dis_max` of single-field text `match` subs used
+                // to fall through to the stored-doc scan, whose scorer has
+                // no DisMax arm — every buffered match took the flat-1.0
+                // catch-all, so a doc matching MORE disjuncts tied with
+                // single-disjunct docs and the ranking changed at flush.
+                // Score each sub through the SAME memtable BM25 path a
+                // standalone `match` takes and combine per doc as
+                // max + tie_breaker·Σ(rest), mirroring the segment's
+                // `execute_dis_max`.  GHOST WINDOW: same complete-hit-list
+                // widening as the single-`Match` arm below — the consume
+                // arm's liveness filter needs every hit.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_boosted_with_total_using(
+                    &dm_subs,
+                    dm_tie,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
                 // `try_doc_values_query` because the DV-term path walks
@@ -36612,6 +36645,49 @@ fn extract_query_text(q: &QueryNode) -> Option<String> {
         }
         QueryNode::QueryString { query, .. } => Some(query.clone()),
         // MultiMatch and MatchPhrase are handled by doc scanning (is_doc_scan_query).
+        _ => None,
+    }
+}
+
+/// The per-sub `(field, query, boost)` triples and the `tie_breaker` of a
+/// `dis_max` whose EVERY sub is a single-field `Match` the memtable BM25
+/// path can score — the same shapes the standalone-`Match` FTS arm serves,
+/// minus the carve-outs `is_doc_scan_query` routes to the doc-scan
+/// (wildcard field, `operator: and`, `minimum_should_match`, date-shaped
+/// query text).  Any other sub shape answers `None` so the query keeps its
+/// existing doc-scan route — in particular the keyword-rewrite
+/// `DisMax{[Term, MultiMatch]}` shape (#572) stays untouched: those subs
+/// score through paths this arm cannot reproduce, and changing only the
+/// combine step would move that query's score without moving its
+/// standalone sub scores.
+fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> {
+    match q {
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } if !queries.is_empty() => queries
+            .iter()
+            .map(|sub| match sub {
+                QueryNode::Match {
+                    field,
+                    query,
+                    operator,
+                    minimum_should_match,
+                    boost,
+                    ..
+                } if field != "*"
+                    && !field.ends_with('*')
+                    && !matches!(operator, xerj_query::ast::BoolOperator::And)
+                    && minimum_should_match.is_none()
+                    && !(crate::aggs::parse_date_ms(&Value::String(query.clone())).is_some()
+                        && query.chars().any(|c| c == '-' || c == '/' || c == 'T')) =>
+                {
+                    Some((field.as_str(), query.as_str(), boost.unwrap_or(1.0)))
+                }
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|subs| (subs, *tie_breaker)),
         _ => None,
     }
 }
