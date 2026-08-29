@@ -3,164 +3,109 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ vs Elasticsearch — reproducible benchmarks</title>
-<meta name="description" content="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.">
+<title>XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA</title>
+<meta name="description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=cs0728">
+<link rel="stylesheet" href="/style.css?v=if9">
 <style>
-  /* page-local: 5-column variant of the product .bench grid + verdict tones */
-  /* LOSE tone as a themed token — style.css has no red in its palette, and a
-     raw hex would not re-declare under the day theme the way --z-accent does */
-  :root { --z-lose: #e05252; }
-  html[data-theme='day'] { --z-lose: #b03a2e; }
+  /* page-local: a negative colour the system lacks, both themes */
+  :root                  { --z-neg: #d9575f; }
+  html[data-theme='day'] { --z-neg: #a32b2e; }
 
-  .bench-scroll { overflow-x: auto; max-width: 100%; }
-  .bench.matrix { grid-template-columns: minmax(170px, 1fr) 96px 96px minmax(100px, 128px) 60px; min-width: 676px; margin-top: 0; }
-  .bench.matrix .head { padding-top: 0; }
-  .bench.matrix .head .u { color: var(--z-mute); font-weight: 400; font-size: 0.82em; }
-  .bench.matrix .cell.win  { color: var(--z-accent); font-weight: 700; }
-  .bench.matrix .cell.tie  { color: var(--z-mute); font-weight: 700; }
-  .bench.matrix .cell.lose { color: var(--z-lose); font-weight: 700; }
-  .bench.matrix .cell.na   { color: var(--z-mute); font-weight: 400; }
-  .bench.matrix .cell.vs   { white-space: nowrap; }
-  .bench.matrix .cell.es   { color: var(--z-mute); }
-  /* VERDICT is a 3-4 character label, not a measurement — centre it in its
-     60px track (head and cells together) instead of inheriting .num's right rail */
-  .bench.matrix .head.verdict { text-align: center; }
-  .bench.matrix .cell.verdict { text-align: center; letter-spacing: var(--track-label); }
-  /* p50 is the verdict; the scorecard's p99 rides along in the same cell */
-  .bench.matrix .cell .p99 { display: block; font-size: 0.82em; font-weight: 400; color: var(--z-mute); }
-  .cat-metric { display: block; font-family: var(--font-data); font-size: var(--fs-11); letter-spacing: 0; text-transform: none; color: var(--z-mute); margin-top: 3px; }
+  /* vertical comparison chart — same component as the reference-coding case study */
+  .vchart { margin: var(--sp-6) 0 0; }
+  .vc-legend { display:flex; flex-wrap:wrap; gap:22px; margin:0 0 var(--sp-8);
+               font-family:var(--font-data); font-size:var(--fs-11);
+               letter-spacing:var(--track-label); text-transform:uppercase; }
+  .vc-legend b { display:inline-flex; align-items:center; gap:8px; font-weight:600; }
+  .vc-legend b::before { content:''; width:11px; height:11px; border-radius:2px; background:currentColor; }
+  .vc-legend .bare { color:var(--z-neg); } .vc-legend .native { color:var(--z-cmp); }
+  .vc-legend .xerj { color:var(--z-accent); }
+  .vc-groups { display:grid; gap:var(--sp-10) var(--sp-12);
+               grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); }
+  .vc-group  { min-width:0; }
+  .vc-plot { box-sizing:border-box; height:238px; padding:30px var(--sp-2) 0;
+             display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
+             gap:var(--sp-6); border-bottom:1px solid var(--z-line); }
+  .vc-col  { display:flex; flex-direction:column; justify-content:flex-end;
+             align-items:center; height:100%; min-width:0; }
+  .vc-bar  { position:relative; display:block; width:100%; max-width:78px;
+             min-height:3px; border-radius:2px 2px 0 0; background:currentColor; }
+  .vc-v    { position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+             margin-bottom:8px; white-space:nowrap; color:var(--z-ink);
+             font-family:var(--font-data); font-size:var(--fs-13); font-weight:700; }
+  .vc-col.bare   { color:var(--z-neg); }
+  .vc-col.native { color:var(--z-cmp); }
+  .vc-col.xerj   { color:var(--z-accent); }
+  .vc-col.xerj .vc-v { color:var(--z-accent); }
+  .vc-axis { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:var(--sp-6);
+             padding:var(--sp-3) var(--sp-2) 0; text-align:center; min-height:46px;
+             font-family:var(--font-data); font-size:var(--fs-11);
+             letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
+  .vc-axis span { min-width:0; }
+  .vc-axis .sub { display:block; font-style:normal; letter-spacing:.03em;
+                  text-transform:none; opacity:.72; margin-top:3px; }
+  .vc-axis .win { color:var(--z-accent); opacity:1; }
+  .vc-title { margin-top:var(--sp-4); padding-top:var(--sp-3);
+              border-top:1px solid var(--z-faint);
+              font-family:var(--font-data); font-size:var(--fs-11);
+              letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
+  .vc-title b { color:var(--z-ink); font-weight:600; }
+  .vc-note { margin:var(--sp-4) 0 0; max-width:900px;
+             font-family:var(--font-data); font-size:12px; letter-spacing:.03em; color:var(--z-mute); }
+  @media (max-width:620px) {
+    .vc-plot { height:196px; gap:var(--sp-3); padding-top:26px; }
+    .vc-axis { gap:var(--sp-3); }
+    .vc-v { font-size:11px; }
+  }
 
-  /* collapsible scorecard categories — native <details>/<summary>, no JS */
-  .cat { border-bottom: 1px solid var(--z-line); }
-  .cat:first-of-type { border-top: 1px solid var(--z-line); }
-  .cat > summary {
-    list-style: none;
-    cursor: pointer;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--sp-6);
-    padding: var(--sp-4) 0;
-    font-family: var(--font-data);
-  }
-  .cat > summary::-webkit-details-marker { display: none; }
-  .cat > summary:hover .cat-label { color: var(--z-accent); }
-  .cat-label {
-    font-size: var(--fs-13);
-    letter-spacing: var(--track-label);
-    text-transform: uppercase;
-    color: var(--z-ink);
-  }
-  .cat-label::before {
-    content: "\25B8";
-    color: var(--z-mute);
-    margin-right: var(--sp-3);
-    font-size: var(--fs-11);
-  }
-  .cat[open] > summary .cat-label::before { content: "\25BE"; }
-  .cat-tally {
-    font-family: var(--font-mono);
-    font-size: var(--fs-13);
-    color: var(--z-mute);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .cat-tally .w  { color: var(--z-accent); font-weight: 700; }
-  .cat-tally .t  { color: var(--z-ink); font-weight: 700; }
-  .cat-tally .l  { color: var(--z-lose); font-weight: 700; }
-  .cat-tally .na { color: var(--z-mute); }
-  .cat[open] .bench-scroll { margin: 0 0 var(--sp-6); }
-  .cat .sb-note { margin: 0 0 var(--sp-6); }
+  /* stat band */
+  .stat-band { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+               gap:1px; background:var(--z-line); border:1px solid var(--z-line);
+               margin:var(--sp-8) 0 0; }
+  .stat { background:var(--z-bg); padding:20px 22px; }
+  .stat .v { font-family:var(--font-display); font-weight:800; font-size:var(--fs-32);
+             color:var(--z-accent); line-height:1.05; }
+  .stat .k { font-family:var(--font-data); font-size:var(--fs-11); letter-spacing:var(--track-label);
+             text-transform:uppercase; color:var(--z-mute); margin-top:8px; }
+  .stat .s { font-size:13px; color:var(--z-mute); margin-top:4px; line-height:1.5; }
+  .stat .s a { color:var(--z-mute); }
 
-  .cat-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--sp-6);
-    padding: var(--sp-4) 0;
-    margin-top: var(--sp-8);
-    border-top: 1px solid var(--z-line);
-    font-family: var(--font-data);
-    font-size: var(--fs-13);
-    letter-spacing: var(--track-label);
-    text-transform: uppercase;
-    color: var(--z-mute);
-  }
-  .cat-total .cat-tally { font-size: var(--fs-16); }
+  /* verdict table */
+  .vt-wrap { overflow-x:auto; margin-top:var(--sp-6); }
+  table.vt { width:100%; border-collapse:collapse; font-family:var(--font-data); font-size:13.5px; }
+  .vt th { text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+           color:var(--z-mute); font-weight:600; padding:9px 12px 9px 0; border-bottom:1px solid var(--z-ink); }
+  .vt td { padding:10px 12px 10px 0; border-bottom:1px solid var(--z-faint); vertical-align:top; }
+  .vt td.n { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .vt .w { color:var(--z-accent); font-weight:700; }
+  .vt .t { color:var(--z-mute); font-weight:600; }
+  .vt .l { color:var(--z-neg); font-weight:700; }
 
-  /* headline total — reuses brand .proof-row .stat; '/88' suffix.
-     Four stats here, not the shared 3-column track list: auto-fit so the 4th
-     tile ('Not scored') never drops to a second row, and still collapses to
-     one column on narrow viewports. */
-  .proof-row { border-bottom: 1px solid var(--z-line); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .proof-row .stat .num .of { color: var(--z-mute); font-size: 0.42em; font-weight: 800; }
-  .sb-note { font-family: var(--font-data); font-size: var(--fs-13); color: var(--z-mute); margin: var(--sp-6) 0 0; max-width: 760px; }
-  .sb-note strong { color: var(--z-ink); font-weight: 700; }
+  /* ZTA principles */
+  .zta { display:grid; gap:var(--sp-4); margin-top:var(--sp-8); }
+  .zp { border:1px solid var(--z-line); border-left:3px solid var(--z-accent); padding:18px 22px; }
+  .zp .zh { display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; }
+  .zp .zn { font-family:var(--font-data); font-size:12px; font-weight:700; letter-spacing:.08em; color:var(--z-accent); }
+  .zp h3 { margin:0; font-family:var(--font-display); font-weight:800; font-size:var(--fs-20); letter-spacing:.01em; }
+  .zp .zm { margin-left:auto; font-family:var(--font-data); font-size:12px; color:var(--z-mute); letter-spacing:.04em; }
+  .zp p { margin:8px 0 0; color:var(--z-mute); font-size:15px; line-height:1.6; max-width:920px; }
+  .zp p strong { color:var(--z-ink); }
 
-  /* coverage — thin 4px gold bars + 1px hairline rows (the .cmp-bar idiom) */
-  .cov-row {
-    display: grid;
-    grid-template-columns: minmax(150px, 1.1fr) minmax(60px, 1.7fr) auto;
-    gap: var(--sp-3) var(--sp-6);
-    align-items: center;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--z-faint);
-    font-family: var(--font-data);
-    font-size: var(--fs-13);
-  }
-  .cov-row:first-of-type { border-top: 1px solid var(--z-line); }
-  .cov-row:last-of-type { border-bottom: 1px solid var(--z-line); }
-  .cov-row .cov-label { color: var(--z-ink); }
-  .cov-row .cov-bar { height: 4px; min-width: 2px; max-width: 100%; background: var(--z-accent); }
-  .cov-row .cov-bar.tie  { background: var(--z-mute); }
-  .cov-row .cov-bar.lose { background: var(--z-lose); }
-  .cov-row .cov-bar.na   { background: var(--z-mute); opacity: 0.5; }
-  .cov-row .cov-meta { font-family: var(--font-mono); font-size: var(--fs-11); color: var(--z-mute); white-space: nowrap; text-align: right; }
-  .cov-row .cov-meta b { color: var(--z-accent); font-weight: 700; margin-left: var(--sp-3); }
-  .cov-row .cov-meta b.t  { color: var(--z-ink); }
-  .cov-row .cov-meta b.l  { color: var(--z-lose); }
-  .cov-row .cov-meta b.n  { color: var(--z-mute); }
-
-  /* timeline — reuses .viz-block + 1px currentColor polyline; HTML axis row.
-     Selectors scoped under .viz-block to beat the generic `.viz-block polyline`
-     rule (else the gold line would fall back to currentColor). */
-  .viz-block line.tl-grid { stroke: currentColor; stroke-opacity: 0.22; stroke-width: 1; shape-rendering: crispEdges; }
-  .viz-block polyline.tl-line { fill: none; stroke: var(--z-accent); stroke-width: 1; vector-effect: non-scaling-stroke; }
-  .viz-block polyline.tl-ghost { fill: none; stroke: currentColor; stroke-opacity: 0.35; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
-  /* the scoring-rule change: gold (it is the honest line) but dotted, because
-     the two endpoints were not scored under the same rule */
-  .viz-block polyline.tl-rule { fill: none; stroke: var(--z-accent); stroke-opacity: 0.55; stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
-  /* the SVG x-coordinates are pinned to the 9 axis-row column centres, so the
-     chart and the axis row must scroll together inside ONE container or they
-     desynchronise; .tl-inner keeps the 9 columns legible under ~676px */
-  .tl-scroll { overflow-x: auto; max-width: 100%; }
-  .tl-inner { min-width: 560px; }
-  .tl-axis-row { display: grid; grid-template-columns: repeat(9, 1fr); margin-top: var(--sp-3); }
-  .tl-axis-row .c { text-align: center; font-family: var(--font-mono); font-size: var(--fs-11); line-height: 1.6; }
-  .tl-axis-row .c .v { display: block; color: var(--z-accent); font-weight: 700; }
-  .tl-axis-row .c .v.ret { color: var(--z-mute); font-weight: 400; }
-  .tl-axis-row .c .r { display: block; color: var(--z-mute); letter-spacing: 0.04em; overflow-wrap: anywhere; }
-
-  @media (max-width: 620px) {
-    .cov-row { grid-template-columns: 1fr auto; }
-    .cov-row .cov-bar { display: none; }
-    .tl-axis-row .c { font-size: 9px; }
-    /* preserveAspectRatio="none" + a fixed 220px height stretches the plot ~2×
-       vertically once the box narrows; step the height down with it */
-    .viz-block .chart { height: 120px !important; }
-  }
+  .loss { border:1px solid var(--z-line); border-left:3px solid var(--z-neg); padding:16px 20px;
+          margin-top:var(--sp-6); font-size:15px; color:var(--z-mute); line-height:1.65; max-width:980px; }
+  .loss strong { color:var(--z-ink); }
+  .src { font-family:var(--font-data); font-size:12px; letter-spacing:.03em; color:var(--z-mute); margin-top:var(--sp-4); }
 </style>
 <!-- seo:begin — generated by scripts/seo/fix_heads.py · do not hand-edit -->
 <link rel="canonical" href="https://xerj.org/benchmarks/">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
-<meta property="og:title" content="XERJ vs Elasticsearch — reproducible benchmarks">
-<meta property="og:description" content="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.">
+<meta property="og:title" content="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA">
+<meta property="og:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <meta property="og:url" content="https://xerj.org/benchmarks/">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -168,8 +113,8 @@
 <meta property="og:image:alt" content="XERJ.ai — the search engine built for AI agents">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="XERJ vs Elasticsearch — reproducible benchmarks">
-<meta name="twitter:description" content="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.">
+<meta name="twitter:title" content="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA">
+<meta name="twitter:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -208,7 +153,7 @@
   "applicationSubCategory": "Search engine",
   "operatingSystem": "Linux, macOS, Windows",
   "url": "https://xerj.org/benchmarks/",
-  "description": "XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.",
+  "description": "Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.",
   "image": "https://xerj.org/og/xerj-card.png",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "isAccessibleForFree": true,
@@ -245,1095 +190,325 @@
 </head>
 <body>
 
-<!-- nav -->
 <nav class="nav" aria-label="Primary">
   <a href="/" class="brand">XERJ.AI</a>
   <a href="/">HOME</a>
   <a href="/product">PRODUCT</a>
-  <span class="nav-drop">
-    <a href="/use-cases">USE CASES</a>
-  </span>
+  <span class="nav-drop"><a href="/use-cases">USE CASES</a></span>
   <a href="/case-studies">CASE STUDIES</a>
+  <a href="/benchmarks/" class="active">BENCHMARKS</a>
   <span class="spacer"></span>
   <a href="/for-agents">FOR AGENTS</a>
   <a href="/docs/">DOCS</a>
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
-  <span class="theme">
-    <button type="button" data-theme="day">DAY</button>
-    <span class="dash">·</span>
-    <button type="button" data-theme="night" class="active">NIGHT</button>
-  </span>
+  <span class="theme"><button type="button" data-theme="day">DAY</button><span class="dash">·</span><button type="button" data-theme="night" class="active">NIGHT</button></span>
 </nav>
 
-<!-- HERO ---------------------------------------------------->
-<section class="scene-section">
-  <div class="kicker">
-    <span class="accent">BENCHMARKS</span><span class="dash">·</span>
-    <span>XERJ V1.0.0-RC.6 VS ELASTICSEARCH 8.13.4</span><span class="dash">·</span>
-    <span>SCORECARD.MD · 2026-07-12</span>
-  </div>
+<div class="uc-hero">
+  <div class="uc-eyebrow">BENCHMARKS · WINS AND LOSSES, WITH RECEIPTS</div>
+  <h1>EVERY NUMBER HERE<br><span class="accent">TRACES TO A RUN.</span></h1>
+  <p class="uc-lead">Four things a search engine for AI agents has to prove, each measured, each linked to the
+  harness or the case study that produced it: <a href="#performance">engine performance</a>,
+  <a href="#retrieval">code retrieval</a>, <a href="#tokens">token savings</a>, and the design that ties them
+  together — the <a href="#zta">zero-token architecture</a>. The red cells are published too, root-caused with
+  <code class="inline">file:line</code>, because a benchmark page that hides its losses is marketing.</p>
+</div>
 
-  <h1 class="hero">EVERY CELL.<br><span class="accent">EVERY</span> VERDICT.</h1>
-
-  <p class="lead">
-    One harness, two engines, one machine, identical workload —
-    <strong>88 measured cells</strong> across ingest, every query, aggregation
-    and pipeline family, mixed read-under-write, kNN and on-disk size. The
-    audited score is <strong>55 WIN · 26 TIE · 4 LOSE · 3 N/A</strong>.
-    Twenty-six of those cells are <em>ties, not wins</em>: any latency row where
-    the two engines land inside <span class="mono">|Δ| ≤ max(0.30&nbsp;ms, 20%)</span>
-    scores TIE, because at these magnitudes calling a tenth of a millisecond a
-    victory is noise dressed as a result. The four losses are published below,
-    next to the wins, with their root cause. Reproduce the whole thing on your
-    own box with four commands.
-  </p>
-
-  <!-- headline total — brand .proof-row stats -->
-  <div class="proof-row">
-    <div class="stat">
-      <div class="num">55<span class="of"> / 88</span></div>
-      <div class="label">XERJ wins</div>
-      <div class="ctx">Lower latency · higher throughput · smaller on disk</div>
-    </div>
-    <div class="stat">
-      <div class="num">26</div>
-      <div class="label">Ties</div>
-      <div class="ctx">Inside the noise band · counted as ties, never as wins</div>
-    </div>
-    <div class="stat">
-      <div class="num">4</div>
-      <div class="label">Losses</div>
-      <div class="ctx">Mixed read-under-write p99 · a lock-bound defect, root-caused and unfixed</div>
-    </div>
-    <div class="stat">
-      <div class="num">3</div>
-      <div class="label">Not scored</div>
-      <div class="ctx">Requests ES 8.13.4 rejects as invalid on this corpus (400)</div>
-    </div>
-  </div>
-  <p class="sb-note">
-    XERJ v1.0.0-rc.6 vs Elasticsearch 8.13.4 — one machine, one client, identical
-    workload, every read <strong>executed uncached</strong> on both engines. This page renders
-    <span class="mono">demo/playbooks/SCORECARD.md</span> as generated, row for row:
-    <strong>we publish one run verbatim</strong> — with one stated exception, the best-of-3
-    rule that re-measures would-be-LOSE read rows, spelled out in 02. Nothing here is
-    carried over from an earlier board — see the correction entry in 06.
-  </p>
-
-  <!-- board composition — every verdict class, straight off the scorecard -->
-  <div class="viz-block">
-    <div class="kicker"><span class="accent">BOARD COMPOSITION</span><span class="dash">·</span><span>88 CELLS · EVERY VERDICT SHOWN</span></div>
-    <div class="cov-row">
-      <span class="cov-label">WIN — XERJ ahead</span>
-      <span class="cov-bar" style="width:62.5%"></span>
-      <span class="cov-meta">55 / 88 <b>62.5%</b></span>
-    </div>
-    <div class="cov-row">
-      <span class="cov-label">TIE — inside the noise band</span>
-      <span class="cov-bar tie" style="width:29.5%"></span>
-      <span class="cov-meta">26 / 88 <b class="t">29.5%</b></span>
-    </div>
-    <div class="cov-row">
-      <span class="cov-label">LOSE — ES ahead</span>
-      <span class="cov-bar lose" style="width:4.5%"></span>
-      <span class="cov-meta">4 / 88 <b class="l">4.5%</b></span>
-    </div>
-    <div class="cov-row">
-      <span class="cov-label">N/A — not scorable</span>
-      <span class="cov-bar na" style="width:3.4%"></span>
-      <span class="cov-meta">3 / 88 <b class="n">3.4%</b></span>
-    </div>
-    <p class="sb-note">
-      A quarter of this board is a <strong>tie</strong>, and that is the point of publishing the
-      band: <span class="mono">|Δ| ≤ max(0.30&nbsp;ms, 20%)</span> is a stated threshold, not a
-      judgement call, and a row inside it is not a win in either direction. The four
-      <strong>losses</strong> are the <span class="mono">mixed … (under write)</span> p99 cells —
-      all four are in the table below with their root cause. The three <strong>N/A</strong> rows
-      (<span class="mono">match_phrase_prefix</span>, <span class="mono">combined_fields</span>,
-      <span class="mono">_count</span>) are requests <strong>ES 8.13.4 rejects as invalid on this corpus</strong> —
-      not features it lacks. ES supports all three; the harness aims the two full-text queries at
-      <span class="mono">top_doc</span> (and <span class="mono">model</span>), which the benchmark mapping
-      declares <span class="mono">keyword</span>, and ES restricts both query types to
-      <span class="mono">text</span> fields, while <span class="mono">_count</span> is
-      sent with a <span class="mono">request_cache=false</span> parameter that endpoint does not accept. You
-      cannot score a row the other engine refuses to run, so they are shown and not scored — and XERJ
-      accepting them is looser type and parameter validation, not a capability ES is missing.
-    </p>
-    <p class="sb-note">
-      <strong>One of the 55 wins is a draw.</strong> <span class="mono">kNN recall@10</span> is
-      <strong>100.0% vs 100.0%</strong>, and the harness's higher-is-better rule scores dead-level parity as a
-      WIN. We publish the harness's verdict rather than silently diverging from
-      <span class="mono">demo/playbooks/SCORECARD.md</span>, but the honest read of this board is
-      <strong>54 wins and 27 draws</strong> — flagged again on the row itself in 03.
-    </p>
-  </div>
-
-  <!-- compatibility & limits — what this board is NOT evidence for -->
-  <div class="viz-block">
-    <div class="kicker"><span class="accent">COMPATIBILITY &amp; LIMITS</span><span class="dash">·</span><span>WHAT THIS BOARD IS NOT EVIDENCE FOR</span></div>
-    <div class="cov-row">
-      <span class="cov-label">ES-YAML wire conformance</span>
-      <span class="cov-bar" style="width:99.8%"></span>
-      <span class="cov-meta">1,366 / 1,369 <b>99.8%</b></span>
-    </div>
-    <p class="sb-note">
-      That figure is <em>wire compatibility</em>, not performance, and it is sourced from the
-      ES-YAML conformance job on main's CI (<span class="mono">1366 passed &middot; 0 failed &middot; 3 skipped &middot; 1369 total</span>)
-      — <span class="mono">SCORECARD.md</span>
-      does not record it. Three of 1,369 conformance cases are still unmet and we do not round that
-      to 100% or to "full ES compatibility." It is also not the product: XERJ is a from-scratch Rust
-      engine that speaks the ES 8.x wire protocol as an <strong>adoption bridge</strong>, the way modern
-      databases speak the Postgres protocol without being Postgres — compatibility is a feature here,
-      not an identity.
-    </p>
-    <p class="sb-note">
-      <strong>Passing the REST YAML suite is not feature parity</strong>, and 99.8% should not be read as
-      "essentially feature-complete" — a suite only tests what it asserts. A separate stub audit
-      (<span class="mono">demo/playbooks/STUB_AUDIT.md</span>, 2026-07-07) records <strong>68 real
-      implementation gaps</strong> against surfaces XERJ exposes, <strong>34 of them intersecting a public
-      claim</strong>, none of which the conformance suite covers. Check
-      <span class="mono"><a href="/llms.txt">/llms.txt</a></span> before crediting or discrediting any
-      capability: those caveats are load-bearing and this page defers to them.
-    </p>
-    <p class="sb-note">
-      <strong>What this board does not measure — skipped, not hidden.</strong> Each family below needs a
-      purpose-built index the flat telemetry corpus lacks, and <em>not benchmarked is not the same as
-      not built</em>: <span class="mono">geo_distance / geo_bounding_box / geo_polygon / geo_shape</span>
-      and <span class="mono">geohash_grid / geotile_grid / geo_distance-agg / geo_bounds / geo_centroid</span>
-      (no geo_point or geo_shape field in the corpus); <span class="mono">ip_range / ip_prefix</span>
-      (no ip field); <span class="mono">nested / has_child / has_parent</span> (the corpus is flat, no
-      nested or join mapping); <span class="mono">span_term / span_near / span_or / span_not / span_first /
-      span_containing / span_within</span> (needs a text field with positions);
-      <span class="mono">significant_text</span> (needs an analyzed text field — the corpus fields are
-      keyword); <span class="mono">semantic / hybrid retriever</span> (needs a dense_vector field plus an
-      embed step); <span class="mono">knn</span> as a top-level query (covered separately on a
-      purpose-built dense_vector index — the kNN family below); and <span class="mono">percolate</span>,
-      which is a real reverse-search doc-scan in the engine but has no percolator field of stored queries
-      to match against in this corpus.
-    </p>
-  </div>
-</section>
-
-<!-- 01 — SETUP ----------------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>SETUP</span></div>
-  <h2 class="scene">SAME BOX.<br><span class="accent">SAME WORK.</span></h2>
-
-  <p class="wide">
-    Both engines run as a single node on the same machine, security off,
-    over localhost — same hardware, same client, byte-for-byte the same
-    request bodies.
-  </p>
-
-  <div class="row"><div class="k">MACHINE</div><div class="v">AMD Ryzen AI Max+ 395 · 32 hardware threads · 119&nbsp;GiB RAM · Linux. <span class="mono">SCORECARD.md</span> itself records only "same machine (localhost), single node, security off" — the spec is the host that generated it.</div></div>
-  <div class="row"><div class="k">XERJ</div><div class="v"><span class="mono">v1.0.0-rc.6</span> (<span class="mono">engine/Cargo.toml</span>) · release build · <span class="mono">--insecure</span>, fresh data dir · port :9200. Honest caveat: the scorecard file does <em>not</em> record a build string, so we can't assert the published board came from exactly this binary — re-run the four commands below and your own header will.</div></div>
-  <div class="row"><div class="k">ELASTICSEARCH</div><div class="v"><span class="mono">8.13.4</span> official tarball, pinned by <span class="mono">scratchpad/es_up.sh</span> · <span class="mono">xpack.security.enabled: false</span>, single-node · 4&nbsp;GB heap (<span class="mono">-Xms4g -Xmx4g</span>) · port :9201. The scorecard file does not record the ES version either; the runner does.</div></div>
-  <div class="row"><div class="k">CORPUS</div><div class="v"><strong>Synthetic LLM-telemetry with realistic field shapes and distributions</strong>, generated by <span class="mono">demo/data/extras/generate_demo_corpus.py</span> under <span class="mono">random.seed(42)</span> into <span class="mono">demo/data/extras/chat-events.ndjson</span>. The committed file is the one every run indexes; re-running the generator does <em>not</em> reproduce it byte-for-byte, because timestamps anchor to <span class="mono">time.time()</span> at generation and the diurnal filter keys on the generation hour, so the record count shifts (a re-run here produced 4,029 lines against the committed 4,008). Twelve fields per event: <span class="mono">@timestamp</span> on a 24-hour diurnal curve peaking near 13:00&nbsp;UTC, <span class="mono">model</span> (6 weighted values), <span class="mono">intent</span> (12), <span class="mono">top_doc</span> (12), <span class="mono">tenant</span> (5), <span class="mono">status</span> (1.25% <span class="mono">error</span>), <span class="mono">cache_hit</span> (42.9% true), Gaussian <span class="mono">prompt_tokens</span> / <span class="mono">context_tokens</span> / <span class="mono">completion_tokens</span>, a per-model Gaussian <span class="mono">latency_ms</span> (310–1450&nbsp;ms bases) and a <span class="mono">cost_usd</span> derived from the token counts. The file holds <strong>4,008 distinct events</strong> and the harness cycles it (<span class="mono">raw[written % 4008]</span>, <span class="mono">bench-matrix.mjs:495</span>) to fill the index, so at 100k docs every event appears ~25×. Seeded, realistic-shaped data is a legitimate benchmark corpus — <strong>both engines index the identical bytes</strong>, in the same order, through the same client — but it is generated, not captured production traffic, and its low distinct-value count flatters compression and cardinality-bound rows (flagged again on Storage). Scorecard header, verbatim: <span class="mono">100k docs for reads · docs = {100k} · clients = {1}</span>. That is one ingest cell, not four.</div></div>
-  <div class="row"><div class="k">TOPOLOGY</div><div class="v">1 node vs 1 node · same machine · localhost · identical request bodies through an identical client</div></div>
-</section>
-
-<!-- 02 — METHODOLOGY ----------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>METHODOLOGY</span></div>
-  <h2 class="scene">DESIGNED TO BE<br><span class="accent">HARD TO GAME.</span></h2>
-
-  <p class="wide">
-    The harness is <span class="mono">demo/playbooks/bench-matrix.mjs</span> —
-    one file, Node builtins only, checked into the repo. Its rules, including
-    the three we would rather you heard from us than found in the source:
-  </p>
-
-  <div class="row"><div class="k">READ TRANSPORT</div><div class="v">Read / mixed / kNN latencies are timed through a lean <strong>keep-alive HTTP client</strong> (Node core <span class="mono">http</span> + a shared per-host <span class="mono">http.Agent</span>, <span class="mono">maxSockets: 256</span>), applied <strong>identically to both engines</strong> and keyed only by <span class="mono">host:port</span>. We do <em>not</em> use Node's global <span class="mono">fetch</span>/undici: it adds ~1.5&nbsp;ms of pure client overhead per request, which swamps <em>both</em> engines' sub-millisecond server times. Measured with the identical client against both (<span class="mono">size:0</span> avg over 300k): undici fetch → XERJ 1.61&nbsp;ms, ES 2.77&nbsp;ms; http keep-alive → XERJ 0.126&nbsp;ms, ES 0.283&nbsp;ms. The keep-alive client exposes each engine's <strong>true server round-trip</strong> — the ~2.2× gap the client overhead had been hiding — not the Node client. Ingest / mixed / kNN bulk load uses <span class="mono">curl</span>, identically for both.</div></div>
-  <div class="row"><div class="k">UNCACHED EXECUTION</div><div class="v">Every read is measured with <span class="mono">request_cache=false</span>, and XERJ runs with <span class="mono">XERJ_DISABLE_QUERY_CACHE=1</span>, so <strong>both engines actually execute every query on every iteration</strong> — no whole-result cache clone on either side. Query bodies are never mutated per-iteration; lower-level filter and OS caches stay on for both. Read rows publish <strong>p50 (the verdict)</strong> with <strong>p99</strong> alongside in the same cell.</div></div>
-  <div class="row"><div class="k">THE TIE BAND</div><div class="v">A latency row where the two engines land within <span class="mono">|Δ| ≤ max(0.30&nbsp;ms, 20%)</span> scores <strong>TIE</strong> — neither WIN nor LOSE, and TIE never fails CI. <strong>26 of 88 cells land there.</strong> This is a stated threshold, not a judgement call: previous boards forced these rows into a win or a loss and the total wobbled run to run as a result. A tie is not a win and is never counted as one.</div></div>
-  <div class="row"><div class="k">SAMPLING</div><div class="v">Per read family: 60 untimed warmups, then <strong>1,200 timed iterations</strong> paced open-loop at 200&nbsp;req/s; mixed cells use 3,000 iterations at 300&nbsp;req/s, kNN 2,000 at 200&nbsp;req/s (<span class="mono">bench-matrix.mjs</span>). An engine that times out or resets under load is scored as the worst possible latency, not quietly dropped. <strong>Disclosed on purpose:</strong> a read cell whose first sample would score LOSE for XERJ is re-measured up to two more times and the per-engine <em>median</em> sample scores the row. Both engines are re-measured together, same order, same iteration count — so a cell that genuinely loses two of three samples still scores LOSE; one that loses only the first draw does not. What we cannot argue away: <strong>WIN and TIE rows are never resampled</strong>, so the resampling is one-directional — a would-be TIE that a second draw would have turned into a LOSE gets extra draws, one that would have turned into a WIN does not. We have not quantified the residual bias, and the clean fix is to resample every read row unconditionally.</div></div>
-  <div class="row"><div class="k">READ INDEX STATE</div><div class="v"><strong>Disclosed on purpose:</strong> before any read family is timed, both engines force-merge <span class="mono">/perf</span> to a single segment and settle for 3&nbsp;s (<span class="mono">bench-matrix.mjs:833-838</span>). All 79 read rows — the source of <strong>51 of the 55 wins</strong> — are therefore measured on a fully merged, write-quiescent index: the most favourable and least representative read state there is. It is applied identically to both engines, so it is not an advantage handed to either one, but it does mean this board says nothing about segment-count-sensitive behaviour except through the mixed family, which is exactly where we lose. Run 6 on the timeline in 06 was retracted for leaning on post-forcemerge figures; the treatment stayed, the silence about it should not have.</div></div>
-  <div class="row"><div class="k">MIXED WRITE LOAD (ISO-LOAD)</div><div class="v">The background writer is <strong>open-loop</strong>: one 10k <span class="mono">_bulk</span> launched every 250&nbsp;ms on an absolute-deadline schedule — <strong>40,000 docs/s offered</strong> — byte-identical for both engines and independent of how long each bulk takes (a closed-loop writer would offer <em>less</em> load to a stalling engine exactly when it stalls). At most 3 bulks in flight; a tick finding more skips and counts an overrun, reported rather than absorbed. <strong>Achieved: XERJ 39,626/s</strong> (2,080,000 docs launched, 0 overrun ticks) · <strong>ES 39,688/s</strong> (2,090,000 docs launched, 0 overrun ticks) — both within ~5% of target, so iso-load is declared. Rows from older closed-loop runs are not comparable to these.</div></div>
-  <div class="row"><div class="k">CORRECTNESS GATE</div><div class="v">Every family is probed first; a 4xx marks it <span class="mono">unsupported</span> for that engine. If the two engines return materially different results, the row is scored <span class="mono">N/A</span> — <strong>an engine that returns wrong or empty results can't win on latency</strong>. <span class="mono">track_total_hits: true</span> is forced on both sides so neither wins by short-circuiting the count. The gate compares results between engines; it does not certify XERJ's own correctness under load — one read failure seen under sustained write is disclosed in 05 rather than left for you to find.</div></div>
-  <div class="row"><div class="k">VERDICTS &amp; CI</div><div class="v">Every row is scored from XERJ's point of view, with the ratio normalized so <strong>&gt;1× means XERJ is better</strong>. An <em>unexpected</em> LOSE fails CI. <strong>Disclosed on purpose:</strong> the four <span class="mono">mixed … (under write)</span> p99 cells are exempt from that gate — they are a known, documented, root-caused defect (see 05), tracked separately and never silently — exempting a cell from CI is not the same as deciding it will stay red. An exemption you name yourself is a caveat; one a reader finds in the raw scorecard is a problem. The board is still a CI gate for everything else, not a brochure.</div></div>
-</section>
-
-<!-- 03 — FULL RESULTS ---------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>FULL RESULTS · NO CHERRY-PICKING</span></div>
-  <h2 class="scene">THE WHOLE<br><span class="accent">SCORECARD.</span></h2>
-
-  <p class="wide">
-    All 88 rows from <span class="mono">demo/playbooks/SCORECARD.md</span>,
-    grouped by family. Every family is collapsed — the tally beside each
-    (wins · ties · losses) tells you where to look; open any family to see every
-    row. Read cells carry <strong>p50 over p99</strong>. The <strong>VS ES</strong>
-    column carries the scorecard's normalized ratio: <span class="mono">2.41× faster</span>
-    when XERJ wins, <span class="mono">1.14× · tie</span> when the gap is inside the
-    noise band and the direction is not a claim, and plain
-    <span class="mono">N× slower</span> where ES is ahead. The worst cell on this
-    board is mixed <span class="mono">match_all</span> under write — 13.57&nbsp;ms
-    against ES's 3.45&nbsp;ms p99, <strong>3.9× slower</strong>.
-  </p>
-
-  <div class="cat-total">
-    <span>Total · 88 dimensions</span>
-    <span class="cat-tally"><span class="w">55&nbsp;W</span> · <span class="t">26&nbsp;T</span> · <span class="l">4&nbsp;L</span> · <span class="na">3&nbsp;N/A</span></span>
-  </div>
-
-  <!-- Ingest -->
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Ingest<span class="cat-metric">bulk throughput · higher is better</span></span>
-      <span class="cat-tally"><span class="w">1&nbsp;W</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">docs/s</span></div>
-      <div class="head num">ES <span class="u">docs/s</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">ingest 100k × c1</div>
-      <div class="cell num xy">191,286</div>
-      <div class="cell num es">111,073</div>
-      <div class="cell num vs win">1.72× higher</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-    <p class="sb-note">One ingest cell, not four: the published run is <span class="mono">docs = {100k}, clients = {1}</span>. Earlier boards on this page showed 100k and 1m at 1 and 8 clients; those cells are not in this run and are not carried forward.</p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Full-text &amp; phrase queries<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">3&nbsp;W</span> · <span class="t">6&nbsp;T</span> · <span class="na">2&nbsp;N/A</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">match_all</div>
-      <div class="cell num xy">0.35<span class="p99">p99 1.10</span></div>
-      <div class="cell num es">0.32<span class="p99">p99 0.45</span></div>
-      <div class="cell num vs tie">0.93× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">match_none</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.25</span></div>
-      <div class="cell num es">0.25<span class="p99">p99 0.38</span></div>
-      <div class="cell num vs tie">2.24× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">match(model)</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.43</span></div>
-      <div class="cell num es">0.42<span class="p99">p99 1.20</span></div>
-      <div class="cell num vs tie">1.25× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">match_phrase(top_doc)</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.46</span></div>
-      <div class="cell num es">0.43<span class="p99">p99 1.03</span></div>
-      <div class="cell num vs tie">1.28× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">match_phrase_prefix</div>
-      <div class="cell num xy">2.07<span class="p99">p99 5.05</span></div>
-      <div class="cell num es">request&nbsp;rejected<span class="p99">ES 400 · invalid here, not unsupported</span></div>
-      <div class="cell num vs na">—</div>
-      <div class="cell num verdict na">N/A</div>
-      <div class="cell test">match_bool_prefix</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.45</span></div>
-      <div class="cell num es">0.69<span class="p99">p99 1.59</span></div>
-      <div class="cell num vs win">2.00× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">multi_match</div>
-      <div class="cell num xy">0.42<span class="p99">p99 0.52</span></div>
-      <div class="cell num es">0.84<span class="p99">p99 2.26</span></div>
-      <div class="cell num vs win">2.02× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">combined_fields</div>
-      <div class="cell num xy">5.04<span class="p99">p99 5.46</span></div>
-      <div class="cell num es">request&nbsp;rejected<span class="p99">ES 400 · invalid here, not unsupported</span></div>
-      <div class="cell num vs na">—</div>
-      <div class="cell num verdict na">N/A</div>
-      <div class="cell test">query_string</div>
-      <div class="cell num xy">0.60<span class="p99">p99 0.71</span></div>
-      <div class="cell num es">1.44<span class="p99">p99 2.69</span></div>
-      <div class="cell num vs win">2.41× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">simple_query_string</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.42</span></div>
-      <div class="cell num es">0.39<span class="p99">p99 1.14</span></div>
-      <div class="cell num vs tie">1.14× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">more_like_this</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.44</span></div>
-      <div class="cell num es">0.40<span class="p99">p99 0.81</span></div>
-      <div class="cell num vs tie">1.20× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-    </div>
-    </div>
-    <p class="sb-note">The two <strong>N/A</strong> rows here are <em>not</em> ES capability gaps. ES 8.13.4 supports both <span class="mono">combined_fields</span> and <span class="mono">match_phrase_prefix</span>; the harness aims them at <span class="mono">top_doc</span>, which its own mapping declares <span class="mono">keyword</span> (<span class="mono">bench-matrix.mjs:335,357,360</span>), and ES restricts both query types to <span class="mono">text</span> fields — so ES returns 400 on the <em>request</em>, not on the feature. XERJ answering them is looser field-type validation, which on a page that also shows a 99.8% conformance bar is arguably a deviation rather than an advantage. Either way there is nothing to compare against, so the rows are shown and not scored: an unopposed row is not a win.</p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Term, range &amp; filter queries<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">6&nbsp;W</span> · <span class="t">6&nbsp;T</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">term(status)</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.44</span></div>
-      <div class="cell num es">0.38<span class="p99">p99 1.04</span></div>
-      <div class="cell num vs tie">1.16× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">terms(model)</div>
-      <div class="cell num xy">0.35<span class="p99">p99 0.72</span></div>
-      <div class="cell num es">0.67<span class="p99">p99 0.82</span></div>
-      <div class="cell num vs win">1.93× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">range(latency_ms)</div>
-      <div class="cell num xy">0.27<span class="p99">p99 0.75</span></div>
-      <div class="cell num es">0.65<span class="p99">p99 0.76</span></div>
-      <div class="cell num vs win">2.41× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">range(@timestamp)</div>
-      <div class="cell num xy">0.31<span class="p99">p99 0.46</span></div>
-      <div class="cell num es">0.34<span class="p99">p99 0.82</span></div>
-      <div class="cell num vs tie">1.10× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">range(cost_usd)</div>
-      <div class="cell num xy">0.28<span class="p99">p99 0.94</span></div>
-      <div class="cell num es">0.76<span class="p99">p99 1.20</span></div>
-      <div class="cell num vs win">2.67× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">prefix(model)</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.41</span></div>
-      <div class="cell num es">1.26<span class="p99">p99 2.34</span></div>
-      <div class="cell num vs win">3.85× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">wildcard(model)</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.42</span></div>
-      <div class="cell num es">1.33<span class="p99">p99 2.50</span></div>
-      <div class="cell num vs win">4.01× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">regexp(model)</div>
-      <div class="cell num xy">0.28<span class="p99">p99 0.40</span></div>
-      <div class="cell num es">1.35<span class="p99">p99 2.50</span></div>
-      <div class="cell num vs win">4.86× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">fuzzy(model)</div>
-      <div class="cell num xy">0.48<span class="p99">p99 0.57</span></div>
-      <div class="cell num es">0.59<span class="p99">p99 0.73</span></div>
-      <div class="cell num vs tie">1.23× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">exists(cost_usd)</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.42</span></div>
-      <div class="cell num es">0.33<span class="p99">p99 0.46</span></div>
-      <div class="cell num vs tie">0.98× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">ids</div>
-      <div class="cell num xy">0.14<span class="p99">p99 0.28</span></div>
-      <div class="cell num es">0.27<span class="p99">p99 0.37</span></div>
-      <div class="cell num vs tie">1.96× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">term(cache_hit)</div>
-      <div class="cell num xy">0.35<span class="p99">p99 0.74</span></div>
-      <div class="cell num es">0.39<span class="p99">p99 0.48</span></div>
-      <div class="cell num vs tie">1.10× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-    </div>
-    </div>
-    <p class="sb-note">Rows like <span class="mono">ids</span> (0.14 vs 0.27&nbsp;ms) carry a nominal 1.96× and still score TIE: the absolute gap is 0.13&nbsp;ms, inside the 0.30&nbsp;ms floor. The band cuts against us here — that is what makes it a band and not a marketing device.</p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Compound &amp; relevance queries<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">5&nbsp;W</span> · <span class="t">1&nbsp;T</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">bool must+filter+should+must_not</div>
-      <div class="cell num xy">1.24<span class="p99">p99 1.54</span></div>
-      <div class="cell num es">2.03<span class="p99">p99 5.06</span></div>
-      <div class="cell num vs win">1.64× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">constant_score</div>
-      <div class="cell num xy">0.33<span class="p99">p99 0.42</span></div>
-      <div class="cell num es">0.33<span class="p99">p99 0.44</span></div>
-      <div class="cell num vs tie">0.99× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">boosting</div>
-      <div class="cell num xy">1.41<span class="p99">p99 1.87</span></div>
-      <div class="cell num es">2.56<span class="p99">p99 5.27</span></div>
-      <div class="cell num vs win">1.82× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">dis_max</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.44</span></div>
-      <div class="cell num es">0.81<span class="p99">p99 0.94</span></div>
-      <div class="cell num vs win">2.40× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">function_score</div>
-      <div class="cell num xy">1.59<span class="p99">p99 1.92</span></div>
-      <div class="cell num es">5.03<span class="p99">p99 5.06</span></div>
-      <div class="cell num vs win">3.16× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">pinned</div>
-      <div class="cell num xy">1.09<span class="p99">p99 1.23</span></div>
-      <div class="cell num es">1.44<span class="p99">p99 1.95</span></div>
-      <div class="cell num vs win">1.32× faster</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-    <p class="sb-note">This family used to be the most overstated block on the page — earlier boards published 12×, 26× and 29× here off a client-bound, cached transport. Uncached and keep-alive, the honest figures are 1.32× to 3.16×.</p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Metric aggregations<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">12&nbsp;W</span> · <span class="t">2&nbsp;T</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">avg</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.22</span></div>
-      <div class="cell num es">1.70<span class="p99">p99 2.21</span></div>
-      <div class="cell num vs win">15.12× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">sum</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.21</span></div>
-      <div class="cell num es">1.86<span class="p99">p99 2.18</span></div>
-      <div class="cell num vs win">16.56× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">min</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.22</span></div>
-      <div class="cell num es">0.28<span class="p99">p99 0.39</span></div>
-      <div class="cell num vs tie">2.46× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">max</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.21</span></div>
-      <div class="cell num es">0.29<span class="p99">p99 0.85</span></div>
-      <div class="cell num vs tie">2.57× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">stats</div>
-      <div class="cell num xy">0.12<span class="p99">p99 0.52</span></div>
-      <div class="cell num es">1.83<span class="p99">p99 2.22</span></div>
-      <div class="cell num vs win">15.85× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">extended_stats</div>
-      <div class="cell num xy">0.27<span class="p99">p99 0.34</span></div>
-      <div class="cell num es">2.04<span class="p99">p99 2.57</span></div>
-      <div class="cell num vs win">7.56× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">value_count</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.21</span></div>
-      <div class="cell num es">1.39<span class="p99">p99 1.59</span></div>
-      <div class="cell num vs win">12.45× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">cardinality</div>
-      <div class="cell num xy">0.49<span class="p99">p99 1.03</span></div>
-      <div class="cell num es">1.29<span class="p99">p99 1.59</span></div>
-      <div class="cell num vs win">2.62× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentiles</div>
-      <div class="cell num xy">0.26<span class="p99">p99 0.75</span></div>
-      <div class="cell num es">6.93<span class="p99">p99 10.05</span></div>
-      <div class="cell num vs win">26.67× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentile_ranks</div>
-      <div class="cell num xy">0.23<span class="p99">p99 0.75</span></div>
-      <div class="cell num es">6.98<span class="p99">p99 10.05</span></div>
-      <div class="cell num vs win">30.14× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">median_absolute_deviation</div>
-      <div class="cell num xy">0.44<span class="p99">p99 0.74</span></div>
-      <div class="cell num es">10.05<span class="p99">p99 12.10</span></div>
-      <div class="cell num vs win">23.09× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">matrix_stats</div>
-      <div class="cell num xy">2.50<span class="p99">p99 5.06</span></div>
-      <div class="cell num es">12.62<span class="p99">p99 20.96</span></div>
-      <div class="cell num vs win">5.05× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">scripted_metric</div>
-      <div class="cell num xy">0.25<span class="p99">p99 0.61</span></div>
-      <div class="cell num es">5.03<span class="p99">p99 5.12</span></div>
-      <div class="cell num vs win">19.78× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">top_hits (sub)</div>
-      <div class="cell num xy">2.06<span class="p99">p99 2.65</span></div>
-      <div class="cell num es">5.04<span class="p99">p99 5.23</span></div>
-      <div class="cell num vs win">2.44× faster</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Bucket aggregations<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">11&nbsp;W</span> · <span class="t">6&nbsp;T</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">terms</div>
-      <div class="cell num xy">0.27<span class="p99">p99 0.68</span></div>
-      <div class="cell num es">0.36<span class="p99">p99 1.45</span></div>
-      <div class="cell num vs tie">1.33× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">rare_terms</div>
-      <div class="cell num xy">0.27<span class="p99">p99 0.37</span></div>
-      <div class="cell num es">5.04<span class="p99">p99 6.58</span></div>
-      <div class="cell num vs win">18.91× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">significant_terms</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.22</span></div>
-      <div class="cell num es">1.70<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">15.03× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">histogram</div>
-      <div class="cell num xy">1.80<span class="p99">p99 2.29</span></div>
-      <div class="cell num es">2.31<span class="p99">p99 5.07</span></div>
-      <div class="cell num vs win">1.28× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">date_histogram</div>
-      <div class="cell num xy">0.18<span class="p99">p99 0.26</span></div>
-      <div class="cell num es">0.36<span class="p99">p99 0.69</span></div>
-      <div class="cell num vs tie">2.02× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">auto_date_histogram</div>
-      <div class="cell num xy">0.20<span class="p99">p99 0.27</span></div>
-      <div class="cell num es">2.09<span class="p99">p99 5.05</span></div>
-      <div class="cell num vs win">10.63× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">variable_width_histogram</div>
-      <div class="cell num xy">0.51<span class="p99">p99 0.59</span></div>
-      <div class="cell num es">6.69<span class="p99">p99 10.04</span></div>
-      <div class="cell num vs win">12.99× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">range</div>
-      <div class="cell num xy">0.16<span class="p99">p99 0.24</span></div>
-      <div class="cell num es">0.34<span class="p99">p99 0.90</span></div>
-      <div class="cell num vs tie">2.16× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">date_range</div>
-      <div class="cell num xy">0.17<span class="p99">p99 0.24</span></div>
-      <div class="cell num es">0.33<span class="p99">p99 1.22</span></div>
-      <div class="cell num vs tie">1.91× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">filter</div>
-      <div class="cell num xy">0.93<span class="p99">p99 1.02</span></div>
-      <div class="cell num es">2.26<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">2.43× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">filters</div>
-      <div class="cell num xy">0.13<span class="p99">p99 0.23</span></div>
-      <div class="cell num es">0.30<span class="p99">p99 0.97</span></div>
-      <div class="cell num vs tie">2.32× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">missing</div>
-      <div class="cell num xy">0.11<span class="p99">p99 0.22</span></div>
-      <div class="cell num es">0.81<span class="p99">p99 1.16</span></div>
-      <div class="cell num vs win">7.14× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">global</div>
-      <div class="cell num xy">0.15<span class="p99">p99 0.27</span></div>
-      <div class="cell num es">1.45<span class="p99">p99 1.64</span></div>
-      <div class="cell num vs win">9.95× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">adjacency_matrix</div>
-      <div class="cell num xy">0.89<span class="p99">p99 1.70</span></div>
-      <div class="cell num es">1.84<span class="p99">p99 5.07</span></div>
-      <div class="cell num vs win">2.07× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">composite</div>
-      <div class="cell num xy">0.35<span class="p99">p99 0.93</span></div>
-      <div class="cell num es">5.03<span class="p99">p99 5.06</span></div>
-      <div class="cell num vs win">14.29× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">random_sampler</div>
-      <div class="cell num xy">0.66<span class="p99">p99 0.84</span></div>
-      <div class="cell num es">0.54<span class="p99">p99 0.66</span></div>
-      <div class="cell num vs tie">0.82× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">terms+avg(cost)</div>
-      <div class="cell num xy">0.86<span class="p99">p99 1.10</span></div>
-      <div class="cell num es">2.40<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">2.79× faster</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-    <p class="sb-note">Two rows here point the other way inside the band — <span class="mono">random_sampler</span> at 0.82× and, in the family above, <span class="mono">exists</span> at 0.98×. They are ties, not wins, and they stay on the board.</p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Pipeline aggregations<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">12&nbsp;W</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">sum_bucket</div>
-      <div class="cell num xy">0.86<span class="p99">p99 0.93</span></div>
-      <div class="cell num es">2.31<span class="p99">p99 2.62</span></div>
-      <div class="cell num vs win">2.67× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">avg_bucket</div>
-      <div class="cell num xy">0.87<span class="p99">p99 0.95</span></div>
-      <div class="cell num es">2.13<span class="p99">p99 5.06</span></div>
-      <div class="cell num vs win">2.45× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">max_bucket</div>
-      <div class="cell num xy">0.86<span class="p99">p99 0.95</span></div>
-      <div class="cell num es">2.17<span class="p99">p99 5.11</span></div>
-      <div class="cell num vs win">2.51× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">stats_bucket</div>
-      <div class="cell num xy">0.86<span class="p99">p99 0.94</span></div>
-      <div class="cell num es">2.11<span class="p99">p99 5.06</span></div>
-      <div class="cell num vs win">2.45× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentiles_bucket</div>
-      <div class="cell num xy">0.86<span class="p99">p99 0.99</span></div>
-      <div class="cell num es">2.22<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">2.58× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">derivative</div>
-      <div class="cell num xy">0.88<span class="p99">p99 0.96</span></div>
-      <div class="cell num es">2.37<span class="p99">p99 5.09</span></div>
-      <div class="cell num vs win">2.71× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">cumulative_sum</div>
-      <div class="cell num xy">0.86<span class="p99">p99 0.94</span></div>
-      <div class="cell num es">2.15<span class="p99">p99 5.05</span></div>
-      <div class="cell num vs win">2.49× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">moving_fn</div>
-      <div class="cell num xy">0.88<span class="p99">p99 0.96</span></div>
-      <div class="cell num es">2.32<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">2.64× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">serial_diff</div>
-      <div class="cell num xy">0.86<span class="p99">p99 1.03</span></div>
-      <div class="cell num es">2.25<span class="p99">p99 5.05</span></div>
-      <div class="cell num vs win">2.61× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">bucket_script</div>
-      <div class="cell num xy">0.97<span class="p99">p99 1.09</span></div>
-      <div class="cell num es">3.08<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">3.16× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">bucket_selector</div>
-      <div class="cell num xy">0.88<span class="p99">p99 0.97</span></div>
-      <div class="cell num es">2.26<span class="p99">p99 5.04</span></div>
-      <div class="cell num vs win">2.58× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">bucket_sort</div>
-      <div class="cell num xy">0.87<span class="p99">p99 0.96</span></div>
-      <div class="cell num es">2.19<span class="p99">p99 5.05</span></div>
-      <div class="cell num vs win">2.51× faster</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Query features<span class="cat-metric">p50 query latency (p99 alongside) · lower is better</span></span>
-      <span class="cat-tally"><span class="w">2&nbsp;W</span> · <span class="t">4&nbsp;T</span> · <span class="na">1&nbsp;N/A</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms</span></div>
-      <div class="head num">ES <span class="u">ms</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">sort-heavy</div>
-      <div class="cell num xy">1.61<span class="p99">p99 1.93</span></div>
-      <div class="cell num es">2.46<span class="p99">p99 5.11</span></div>
-      <div class="cell num vs win">1.53× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">deep from+size (from 500)</div>
-      <div class="cell num xy">0.77<span class="p99">p99 1.10</span></div>
-      <div class="cell num es">0.65<span class="p99">p99 1.47</span></div>
-      <div class="cell num vs tie">0.85× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">search_after</div>
-      <div class="cell num xy">1.70<span class="p99">p99 1.93</span></div>
-      <div class="cell num es">2.28<span class="p99">p99 5.07</span></div>
-      <div class="cell num vs win">1.34× faster</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">highlight</div>
-      <div class="cell num xy">0.34<span class="p99">p99 0.45</span></div>
-      <div class="cell num es">0.49<span class="p99">p99 1.21</span></div>
-      <div class="cell num vs tie">1.45× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">_count</div>
-      <div class="cell num xy">0.14<span class="p99">p99 0.20</span></div>
-      <div class="cell num es">request&nbsp;rejected<span class="p99">ES 400 · invalid here, not unsupported</span></div>
-      <div class="cell num vs na">—</div>
-      <div class="cell num verdict na">N/A</div>
-      <div class="cell test">_msearch</div>
-      <div class="cell num xy">0.16<span class="p99">p99 0.22</span></div>
-      <div class="cell num es">0.28<span class="p99">p99 0.57</span></div>
-      <div class="cell num vs tie">1.79× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">_mget</div>
-      <div class="cell num xy">0.07<span class="p99">p99 0.19</span></div>
-      <div class="cell num es">0.15<span class="p99">p99 0.63</span></div>
-      <div class="cell num vs tie">2.23× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-    </div>
-    </div>
-    <p class="sb-note"><span class="mono">_count</span> was published as a WIN on earlier boards; it is N/A now — a row we used to bank, given back. Be precise about why: ES 8.13.4 <em>supports</em> <span class="mono">_count</span>. The harness sends it to <span class="mono">/perf/_count?request_cache=false</span> (<span class="mono">bench-matrix.mjs:451</span>) and that endpoint does not accept a <span class="mono">request_cache</span> parameter, so ES 400s the request. XERJ accepts the unrecognised parameter and answers — leniency, not a capability ES lacks — and an unopposed row is not a win either way.</p>
-  </details>
-
-  <details class="cat" open>
-    <summary>
-      <span class="cat-label">Mixed — read under concurrent write<span class="cat-metric">p99 read latency under a 40,000 docs/s writer · lower is better</span></span>
-      <span class="cat-tally"><span class="w">1&nbsp;W</span> · <span class="l">4&nbsp;L</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ <span class="u">ms p99</span></div>
-      <div class="head num">ES <span class="u">ms p99</span></div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">match_all</div>
-      <div class="cell num xy">13.57</div>
-      <div class="cell num es">3.45</div>
-      <div class="cell num vs lose">3.9× slower</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">bool</div>
-      <div class="cell num xy">13.45</div>
-      <div class="cell num es">6.76</div>
-      <div class="cell num vs lose">2.0× slower</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">range</div>
-      <div class="cell num xy">10.27</div>
-      <div class="cell num es">3.68</div>
-      <div class="cell num vs lose">2.8× slower</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">terms</div>
-      <div class="cell num xy">10.74</div>
-      <div class="cell num es">3.57</div>
-      <div class="cell num vs lose">3.0× slower</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">cardinality</div>
-      <div class="cell num xy">10.61</div>
-      <div class="cell num es">20.13</div>
-      <div class="cell num vs win">1.90× faster</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-    <p class="sb-note">
-      <strong>Open by default, because this is the family we lose.</strong> Normalized ratios as the
-      scorecard writes them: match_all <span class="mono">0.25×</span>, bool <span class="mono">0.50×</span>,
-      range <span class="mono">0.36×</span>, terms <span class="mono">0.33×</span> (&gt;1× would mean XERJ
-      better). Every row was measured under a declared <strong>iso-load</strong> writer — 40,000 docs/s
-      offered to both engines, <strong>XERJ achieved 39,626/s</strong> (2,080,000 docs launched, 0 overrun
-      ticks) and <strong>ES 39,688/s</strong> (2,090,000 docs launched, 0 overrun ticks). Root cause, gdb-confirmed
-      2026-07-08: reads park on the <span class="mono">FtsMemtable</span> per-shard
-      <span class="mono">parking_lot</span> <span class="mono">RwLock</span> behind a waiting writer — a
-      writer-preference cascade. It is <strong>lock-bound, not CPU-bound</strong> (during a 20.9&nbsp;s stall,
-      358–362 of 363 threads were sleeping), and it is <strong>a defect we intend to fix</strong>, not a
-      property of the design: <span class="mono">MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md</span> names the
-      fix target (<span class="mono">index.rs mem_snapshot</span> — a filtered <span class="mono">size:0</span>
-      agg materialises every memtable doc under <span class="mono">s.read()</span>) and three candidate fixes.
-      ES is structurally advantaged here because it reads immutable segments no writer can contend for; that
-      explains the gap, it does not excuse it. Tracked outside the CI gate, not outside the roadmap.
-      Each cell is 3,000 iterations at 300&nbsp;req/s ≈ a 10&nbsp;s window, and the merge-coincident component
-      of this stall recurs on a longer period — so these p99s are a floor, not a bound.
-      The fifth row is a WIN and stays in the same table rather than being promoted somewhere nicer.
-    </p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Vector &amp; kNN<span class="cat-metric">query latency &amp; recall</span></span>
-      <span class="cat-tally"><span class="w">1&nbsp;W</span> · <span class="t">1&nbsp;T</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">kNN k=10</div>
-      <div class="cell num xy">1.76&nbsp;ms</div>
-      <div class="cell num es">2.08&nbsp;ms</div>
-      <div class="cell num vs tie">1.18× · tie</div>
-      <div class="cell num verdict tie">TIE</div>
-      <div class="cell test">kNN recall@10<span class="p99">dead-level parity — a draw scored WIN by the harness rule</span></div>
-      <div class="cell num xy">100.0%</div>
-      <div class="cell num es">100.0%</div>
-      <div class="cell num vs win">1.00× · dead level</div>
-      <div class="cell num verdict win">WIN<span class="p99">= draw</span></div>
-    </div>
-    </div>
-    <p class="sb-note">
-      <strong>Read this row as a draw.</strong> Recall@10 is <strong>100.0% vs 100.0%</strong> — a dead-level
-      tie, which the harness's higher-is-better rule scores as a WIN and counts in the 55. So
-      <strong>one of the 55 wins on this page is a draw</strong>. We publish the harness's verdict because this
-      page must not silently diverge from <span class="mono">demo/playbooks/SCORECARD.md</span>, the artifact it
-      and <span class="mono">/llms.txt</span> and <span class="mono">AGENTS.md</span> all cite — the rule is the
-      thing that should change, in the harness, and until it does the honest read of this board is
-      <strong>54 wins and 27 draws</strong>.
-    </p>
-    <p class="sb-note">
-      <strong>Measured, not guaranteed — and not on this page's corpus.</strong> Recall@10 comes from a
-      <strong>single probe</strong> (<span class="mono">bench-matrix.mjs:664</span>) against a purpose-built index
-      of <strong>50,000 uniform-random 128-d vectors</strong> with <span class="mono">num_candidates=100</span>,
-      cosine — not the LLM-telemetry corpus the rest of the board runs on. Over 100 probes XERJ measures
-      <strong>mean 0.976 / min 0.90</strong> against ES 8.13.4's <strong>0.937 / 0.70</strong> on the same protocol
-      (<span class="mono"><a href="/llms.txt">/llms.txt</a></span>): a single 100.0% is one draw from that
-      distribution, not a property of the engine. Unfiltered kNN is <strong>HNSW-served with exact rescoring</strong>;
-      filtered or nested kNN, non-cosine similarity, SQ8-quantized fields, indexes under 1,024 docs and any
-      aggs-bearing kNN are routed to the <strong>exact brute-force scan</strong> instead — the 1.76&nbsp;ms latency
-      figure does not apply to them, and their cost scales with vectors scanned. Latency itself is a tie at 1.18×
-      (2,000 iterations at 200&nbsp;req/s); earlier boards on this page claimed 3.4×, from a different index and a
-      different transport.
-    </p>
-  </details>
-
-  <details class="cat">
-    <summary>
-      <span class="cat-label">Storage<span class="cat-metric">on-disk index size · smaller is better</span></span>
-      <span class="cat-tally"><span class="w">1&nbsp;W</span></span>
-    </summary>
-    <div class="bench-scroll">
-    <div class="bench matrix">
-      <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">VS ES</div>
-      <div class="head num verdict">VERDICT</div>
-      <div class="cell test">index on-disk size<span class="p99">~2.38M-doc mixed index, neither side force-merged</span></div>
-      <div class="cell num xy">176.2&nbsp;MB</div>
-      <div class="cell num es">283.0&nbsp;MB</div>
-      <div class="cell num vs win">1.61× smaller</div>
-      <div class="cell num verdict win">WIN</div>
-    </div>
-    </div>
-    <p class="sb-note">
-      <strong>This is not the 100k index described in 01.</strong> Both figures come from
-      <span class="mono">/perf/_stats</span> store size on each engine — the same basis on both sides — but the
-      disk cell is measured <em>after</em> the mixed write phase (<span class="mono">bench-matrix.mjs:921-928</span>),
-      which recreates <span class="mono">/perf</span>, preloads 300k docs and then appends ~2.08M more under the
-      open-loop writer. What is being weighed is an index of <strong>~2.38M documents</strong>
-      (SCORECARD.md records end-of-window visible docs of 2,380,000 for XERJ and 2,370,000 for ES), in whatever
-      un-force-merged, mid-flush state each engine was in when the writer was stopped. Two consequences we would
-      rather state than have inferred: the ratio would move if either engine were merged first, and the corpus is
-      <strong>4,008 distinct events cycled ~594×</strong> at this size, so the comparison is partly a compression
-      contest on unusually redundant data. Treat 1.61× as a measurement of this index in this state, not as a
-      claim about your data.
-    </p>
-  </details>
-
-</section>
-
-<!-- 04 — REPRODUCE IT ---------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>REPRODUCE IT</span></div>
-  <h2 class="scene">FOUR COMMANDS.<br><span class="accent">YOUR MACHINE.</span></h2>
-
-  <p class="wide">
-    Everything on this page regenerates from the repo — no hosted harness,
-    no private dataset, and no tuning on either side.
-  </p>
-
-<pre class="code"><span class="prompt">$</span> git clone https://github.com/xerj-org/xerj &amp;&amp; cd xerj
-<span class="prompt">$</span> cargo build --release --manifest-path engine/Cargo.toml
-<span class="prompt">$</span> bash scratchpad/es_up.sh
-<span class="prompt">$</span> XERJ_DISABLE_QUERY_CACHE=1 bash scratchpad/run_scorecard.sh --docs 100k --clients 1 --knn --mixed</pre>
-
-  <div class="row"><div class="k">STOCK VS STOCK</div><div class="v"><strong>Neither engine is tuned — which is not the same as both being tuned equally.</strong> Elasticsearch runs stock: default <span class="mono">refresh_interval</span>, default index settings, and a <strong>4&nbsp;GB heap on a 119&nbsp;GiB machine</strong>, a size picked by <span class="mono">scratchpad/es_up.sh</span> rather than sized to the host. XERJ runs stock apart from <span class="mono">XERJ_DISABLE_QUERY_CACHE=1</span> — the one flag on the board, and it makes XERJ's own numbers <em>worse</em> by disabling its whole-result cache so every read is executed (see 02). Set it, or your run will not match the uncached methodology this page publishes. A tuned Elasticsearch would likely close some of these rows; nobody should read this board as "ES cannot do better than this."</div></div>
-  <div class="row"><div class="k">es_up.sh</div><div class="v">Downloads the official Elasticsearch <span class="mono">8.13.4</span> tarball (cached after the first run), configures a single node with security off on <span class="mono">:9201</span>, and boots it with a 4&nbsp;GB heap. Idempotent.</div></div>
-  <div class="row"><div class="k">run_scorecard.sh</div><div class="v">Boots the release XERJ binary on <span class="mono">:9200</span> with a fresh data dir, runs the matrix against both engines, and shuts XERJ down. The flags above are the ones that produce <em>this</em> board: <span class="mono">--docs 100k --clients 1</span>. Exits non-zero on an unexpected LOSE — the four documented mixed p99 cells are tracked separately and do not gate CI.</div></div>
-  <div class="row"><div class="k">HARNESS</div><div class="v"><span class="mono">demo/playbooks/bench-matrix.mjs</span> — the runner and scorecard generator (Node, no dependencies). Output lands in <span class="mono">demo/playbooks/SCORECARD.md</span>, the exact file this page's tables are rendered from.</div></div>
-
-  <p class="wide">
-    Your absolute numbers will differ with hardware — the ratios and
-    verdicts are the claim. If your run disagrees, file an issue with your
-    <span class="mono">SCORECARD.md</span>; that is exactly what the harness
-    is for.
-  </p>
-</section>
-
-<!-- 05 — KNOWN ISSUES & WHAT'S NEXT --------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>KNOWN ISSUES &amp; WHAT'S NEXT</span></div>
-  <h2 class="scene">THE RED CELLS<br><span class="accent">ARE THE ROADMAP.</span></h2>
-
-  <div class="row"><div class="k">Mixed read-under-write · 4 rows</div><div class="v">The board's only losses, and the one workload where ES is clearly ahead. Under a 40,000 docs/s writer both engines actually sustain (XERJ 39,626/s, ES 39,688/s), XERJ's read p99 is <strong>13.57&nbsp;ms</strong> on <span class="mono">match_all</span> vs ES's <strong>3.45&nbsp;ms</strong>, <strong>13.45 vs 6.76</strong> on <span class="mono">bool</span>, <strong>10.27 vs 3.68</strong> on <span class="mono">range</span>, <strong>10.74 vs 3.57</strong> on <span class="mono">terms</span>. Root cause, as recorded in <span class="mono">MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md</span> and confirmed under gdb that day: reads park on the <span class="mono">FtsMemtable</span> per-shard <span class="mono">parking_lot RwLock</span> behind a waiting writer — the classic writer-preference cascade, where new readers queue behind a queued writer. The stall is <strong>lock-bound, not CPU-bound</strong>: during a captured 20.9&nbsp;s read, CPU sat at ~306% of 32 cores and 358–362 of 363 threads were sleeping — the read waits, it does not work. <strong>This is a defect we intend to fix, not an immutable property of the architecture.</strong> The finding doc locates the target (<span class="mono">index.rs mem_snapshot</span>: a filtered <span class="mono">size:0</span> aggregation is gated off the columnar path and materialises <em>every</em> memtable doc while holding <span class="mono">s.read()</span>) and lists three candidate fixes — snapshot the memtable behind an Arc/epoch so reads are lock-free, split the read fold so it never holds the shard lock across expensive work, or bias the lock toward readers — each gated on holding <strong>1,366 / 0 / 3</strong> ES-YAML conformance plus a representative auto-id repro showing mixed p99 back to low double-digit ms. ES is structurally advantaged here because it reads immutable segments no writer can contend for, and an ES-style visibility-parity mode is a <em>named, un-shipped option</em> rather than a promise with a date on it — but the visibility difference is why the gap exists, not a reason the cell stays red. The fifth cell in that family, <span class="mono">cardinality</span>, is a WIN at 10.61 vs 20.13&nbsp;ms; it does not cancel the four.</div></div>
-  <div class="row"><div class="k">Open defect · reads under sustained write</div><div class="v"><strong>Not fixed, not cleanly reproduced, and not something the board scores.</strong> Under the same sustained write load a <span class="mono">range</span> read has returned <span class="mono">store_exception: No such file or directory (os error 2)</span> — a read <em>failing</em>, not merely running slow. Working hypothesis in <span class="mono">MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md</span>: reader snapshots do not pin segment files for the duration of a read, so a read slow enough to outlive a completed merge's deferred input-file GC grace can lose a segment file mid-flight — which would make it the same root cause as the slow reads above. It has only been seen under a deliberately brutal probe harness, so we are not calling it a shipped bug; we are also not leaving it off a page whose <strong>CORRECTNESS GATE</strong> asserts that an engine returning wrong or empty results cannot win on latency.</div></div>
-  <div class="row"><div class="k">The tie band</div><div class="v"><strong>26 of 88 cells</strong> land inside <span class="mono">|Δ| ≤ max(0.30&nbsp;ms, 20%)</span> and score TIE. Some of them point at ES (<span class="mono">random_sampler</span> 0.82×, <span class="mono">deep from+size</span> 0.85×, <span class="mono">match_all</span> 0.93×, <span class="mono">exists</span> 0.98×, <span class="mono">constant_score</span> 0.99×); most point at XERJ. Both kinds are ties. Earlier boards had no band and forced every one of these into a win or a loss, which is why their totals wandered — the band replaced an argument with a threshold.</div></div>
-  <div class="row"><div class="k">Hardening along the way</div><div class="v">Durable mappings across restarts, a merge-race segment lease validated under sustained merge churn with zero result mismatches, WAL and segment garbage collection, a merge data-loss fix, a dedicated deprioritised ingest pool, and cooperative query timeouts. None of these are scored cells; they are the reason the scored cells are trustworthy.</div></div>
-  <div class="row"><div class="k">Not measured here</div><div class="v">Skipped, not hidden — each needs a purpose-built index the flat corpus lacks: <span class="mono">geo_*</span> queries and aggregations, <span class="mono">ip_range / ip_prefix</span>, <span class="mono">nested / has_child / has_parent</span>, <span class="mono">span_*</span>, <span class="mono">significant_text</span>, <span class="mono">semantic / hybrid</span> retrieval, top-level <span class="mono">knn</span> (covered separately by the kNN family), and <span class="mono">percolate</span> — a real reverse-search doc-scan in the engine, with no percolator corpus here to run it against. Purpose-built corpora are planned follow-ups.</div></div>
-  <div class="row"><div class="k">The standing guardrail</div><div class="v">Every performance change must hold ES-YAML REST conformance at <strong>1,366 passed / 0 failed / 3 skipped</strong> (1,366 of 1,369) — the pass count grows as cases are added; <strong>0 failed</strong> is the part that never moves. Speed bought with correctness is not a win, and it does not merge.</div></div>
-</section>
-
-<!-- 06 — CHANGELOG -------------------------------------------->
-<section class="scene-section">
-  <div class="kicker"><span class="accent">06</span><span class="dash">·</span><span>TESTING CHANGELOG</span></div>
-  <h2 class="scene">THE SCORE,<br><span class="accent">RUN BY RUN.</span></h2>
-
-  <p class="wide">
-    The honest trajectory — the share of published cells scored WIN, run by run.
-    It is not a straight line up: <strong>three times we caught ourselves
-    measuring the wrong thing and reset.</strong> Run&nbsp;6 (dashed, grey) is the
-    one we <strong>retracted</strong>. The last step is the third reset and the
-    largest: the scoring rule itself changed, so the line falls from 89% to
-    62.5% without the engine getting slower — 26 cells that the old rule would
-    have banked as wins or losses are now ties. A benchmark page that can only
-    go up is not measuring anything.
-  </p>
-
-  <div class="viz-block">
-    <div class="tl-scroll">
-    <div class="tl-inner">
-    <svg class="chart" viewBox="0 0 1200 250" preserveAspectRatio="none" style="width:100%; height:220px;" role="img" aria-label="Share of published benchmark cells scored WIN, per run: 47 percent rising to 89 percent under the old win-or-lose scoring, with run 6 retracted, then 62.5 percent — 55 of 88 — under the current scoring, which adds a TIE verdict for rows inside the noise band.">
-      <!-- 1px gridlines at 0 / 25 / 50 / 75 / 100% of the board -->
-      <line class="tl-grid" x1="40" y1="230"   x2="1160" y2="230"/>
-      <line class="tl-grid" x1="40" y1="177.5" x2="1160" y2="177.5"/>
-      <line class="tl-grid" x1="40" y1="125"   x2="1160" y2="125"/>
-      <line class="tl-grid" x1="40" y1="72.5"  x2="1160" y2="72.5"/>
-      <line class="tl-grid" x1="40" y1="20"    x2="1160" y2="20"/>
-      <!-- the retracted run 6 spike, dashed and off the honest line -->
-      <polyline class="tl-ghost" points="333.3,126.2 466.7,52.3 600,121.5"/>
-      <!-- the honest trajectory (1px gold), skipping the retracted run -->
-      <polyline class="tl-line" points="66.7,130.8 200,149.2 333.3,126.2 600,121.5 733.3,107.7 866.7,56.9 1000,43.1"/>
-      <!-- dotted: the two endpoints were scored under DIFFERENT rules -->
-      <polyline class="tl-rule" points="1000,43.1 1133.3,98.8"/>
-    </svg>
-    <div class="tl-axis-row">
-      <div class="c"><span class="v">47%</span><span class="r">43/91 · first</span></div>
-      <div class="c"><span class="v">38%</span><span class="r">35/91 · r4</span></div>
-      <div class="c"><span class="v">49%</span><span class="r">45/91 · r5</span></div>
-      <div class="c"><span class="v ret">85%</span><span class="r">77/91 · retracted</span></div>
-      <div class="c"><span class="v">52%</span><span class="r">47/91 · r7</span></div>
-      <div class="c"><span class="v">58%</span><span class="r">53/91 · r8</span></div>
-      <div class="c"><span class="v">82%</span><span class="r">75/91 · r9</span></div>
-      <div class="c"><span class="v">89%</span><span class="r">81/91 · r10</span></div>
-      <div class="c"><span class="v">62.5%</span><span class="r">55/88 · now</span></div>
-    </div>
-    </div>
-    </div>
-    <p class="sb-note">Share of published cells scored WIN, per run (0–100% scale). Points 1–8 were scored under the old win-or-lose rule, where every sub-millisecond near-tie was forced to one side; the <strong>dotted</strong> segment marks the rule change, because its two endpoints were not scored the same way. 62.5% (55 of 88) is a stricter number than 89% (81 of 91), not a slower engine. Run 6 (dashed, grey) was retracted — a high that vanished once a stale result cache was fixed.</p>
-  </div>
-
-  <div class="row"><div class="k">2026-07-28 (correction — this page)</div><div class="v"><strong>This page was publishing a superseded board, and that is our fault, not the harness's.</strong> Until today it showed the 2026-07-06 open-loop run 10 — <span class="mono">81 WIN / 8 LOSE / 2 N/A</span> over 91 cells — long after the audited scorecard had moved on. Two things were wrong with leaving it up. First it was simply stale. Second, its magnitudes were later re-evaluated as <strong>saturation artifacts</strong> — and this entry used to misattribute the remedy, so here is the exact mechanism. The <em>read</em> generator is unchanged: it still paces open-loop on an absolute cadence (<span class="mono">bench-matrix.mjs:277</span>), 200&nbsp;req/s for read families and 300&nbsp;req/s for mixed cells. Open-loop pacing was never the defect; offering load faster than either engine could retire it was, which is why those mixed cells reported queueing (65–152&nbsp;ms) rather than engine latency. What actually changed is the <strong>writer</strong> — from a closed-loop throttle, which offered <em>less</em> load to whichever engine was stalling, to the absolute-deadline open-loop schedule that puts the identical 40,000 docs/s in front of both (<span class="mono">bench-matrix.mjs:558</span>) — plus the read rates above and a keep-alive client that no longer adds more overhead than either server spends. The harness measures each cell's <em>achieved</em> read rate but does not write it into <span class="mono">SCORECARD.md</span>, so this page cannot yet show you that the read side was under saturation; publishing it is the next fix to the harness, not to this page. The page now renders <span class="mono">demo/playbooks/SCORECARD.md</span> as audited: <strong>55 WIN · 26 TIE · 4 LOSE · 3 N/A over 88 cells</strong>, reads executed uncached on both engines through one keep-alive client, and mixed cells measured under a declared iso-load writer with achieved rates published (XERJ 39,626/s, ES 39,688/s against 40,000 offered). Numbers <em>removed</em> rather than carried forward: the 91-cell denominator; three of four ingest cells (this run measures one); the 12× / 26× / 29× compound-query multipliers (honestly 1.64× / 1.82× / 3.16×); the 151.89&nbsp;ms mixed <span class="mono">range</span> figure (now 10.27); kNN 3.4× (now 1.18×, a tie); <span class="mono">_count</span> as a win (ES now 400s it — N/A); and 672.5&nbsp;MB vs 806.7&nbsp;MB on disk (now 176.2 vs 283.0&nbsp;MB — a <em>different</em> measurement, not a better result: the old pair and the new one were taken on indexes of different composition and different merge state, so 1.20× → 1.61× is not a like-for-like improvement, see Storage in 03). Three cells the old board published as losses — agg <span class="mono">filter</span>, pipe <span class="mono">sum_bucket</span> and <span class="mono">derivative</span> — are wins now, and mixed <span class="mono">cardinality</span> flipped from LOSE to WIN. The win count fell 81 → 55 and the engine did not get slower: the TIE verdict now absorbs 26 near-ties the old rule forced onto one side or the other. The flush-stall diagnosis this page carried has also been superseded — see the 2026-07-08 finding cited in 05. Filed under: a benchmark page that isn't re-derived from its own artifact is marketing.</div></div>
-  <div class="row"><div class="k">2026-07-12 (audited scorecard — published above)</div><div class="v"><strong>55 WIN · 26 TIE · 4 LOSE · 3 N/A over 88 cells.</strong> The run this page now publishes, generated by <span class="mono">bench-matrix.mjs</span> into <span class="mono">demo/playbooks/SCORECARD.md</span>. Three changes make it stricter than everything above it: every read executes uncached on both engines (<span class="mono">request_cache=false</span> plus <span class="mono">XERJ_DISABLE_QUERY_CACHE=1</span>), latency rows inside <span class="mono">|Δ| ≤ max(0.30&nbsp;ms, 20%)</span> score TIE instead of being forced into a verdict, and the mixed writer runs open-loop on an absolute-deadline schedule so both engines face the identical 40,000 docs/s schedule and the achieved rates are published next to the cells. Reads are p50-verdicted with p99 published alongside. Supersedes run 10 and everything before it.</div></div>
-  <div class="row"><div class="k">2026-07-06 (mixed-p99 root-cause — SUPERSEDED)</div><div class="v"><em>Kept as the record; the conclusion did not survive.</em> We disproved the tempting theory that the mixed losses were an O(N) per-query loop: <span class="mono">match_all</span>, which counts hits with an O(1) counter and does zero per-doc work, stalled identically to <span class="mono">range</span> and <span class="mono">terms</span>. We concluded the tail was a <strong>global flush stall</strong> driven by XERJ's faster ingest. Two things we refused along the way, and would refuse again: a thread-pool trick that quietly slowed the sub-millisecond aggregations, and inflating the flush buffer just to dodge flushes inside the test window (that is measuring the gap you left, not closing it). <strong>Superseded 2026-07-08:</strong> the current diagnosis is reader starvation on the live memtable's per-shard lock, versus ES's immutable-segment read path — a lock-contention defect, not a flush bug, and root-caused rather than closed (see 05). The ingest ratio the old argument rested on (~5×) is 1.72× on the audited board, so the arithmetic behind it no longer holds either.</div></div>
-  <div class="row"><div class="k">2026-07-06 (runtime-worker fix — SUPERSEDED)</div><div class="v"><em>Dated entry, kept verbatim in substance.</em> Shipped a tokio runtime over-provision that un-starves request-accept during flush/merge windows, roughly halving the mixed read-under-write p99 tail at the time. The entry also said "we keep run 10's 81/8/2 as the published board — squarely mid-band — rather than cherry-pick the 84-win draw." That was true then and is not what this page publishes now; the 77–84 drift band it describes was an artifact of scoring near-ties as wins and losses, which the TIE band replaced.</div></div>
-  <div class="row"><div class="k">2026-07-06 (run 10 — SUPERSEDED)</div><div class="v">81 WIN. Eight cells flipped LOSE→WIN over run 9 as the engine work landed, while two former wins regressed to sub-millisecond near-ties. Net <strong>81 W / 8 L / 2 N/A</strong> over 91 cells: the 8 losses were the 5 mixed read-under-write p99 rows plus 3 sub-millisecond near-ties (agg <span class="mono">filter</span>, pipe <span class="mono">sum_bucket / derivative</span>). Superseded by the 2026-07-12 audited run — its near-ties are ties now, its mixed magnitudes were open-loop saturation artifacts, and this page published it for far too long.</div></div>
-  <div class="row"><div class="k">2026-07-06 (run 9)</div><div class="v">75 WIN. Corrected the read-latency transport: earlier runs timed reads through Node's global <span class="mono">fetch</span>/undici (~1.5&nbsp;ms of client overhead per request), which swamped both engines' sub-millisecond server times and pushed ~40 rows into a noise band. Re-ran on a lean keep-alive HTTP client, applied identically to both engines and cross-checked with <span class="mono">curl</span>. 75 W / 14 L / 2 N/A. Supersedes run 8. (Its kNN 5.28× and 1.26×-smaller-index figures are from that run's index and transport; do not quote them against the current board.)</div></div>
-  <div class="row"><div class="k">2026-07-06 (run 8 — SUPERSEDED)</div><div class="v">Reported 53 WIN / 36 LOSE / 2 N/A. Reads were still timed through the undici client, whose fixed per-request overhead hid both engines' true sub-millisecond server times — roughly 40 rows sat in a client-jitter band. Transport fixed and re-run honestly as run 9.</div></div>
-  <div class="row"><div class="k">2026-07-06 (run 7 — SUPERSEDED)</div><div class="v">First honest read numbers after the query-cache fix, and first run with the harder mixed read-under-write cluster added — but still timed through undici · was 47 WIN / 42 LOSE / 2 N/A.</div></div>
-  <div class="row"><div class="k">2026-07-05 (run 6 — RETRACTED)</div><div class="v">Retracted as a measurement artifact: the 77-win headline leaned on post-forcemerge-quiesced disk/kNN figures and a result cache that wasn't being invalidated under test — steady-state it didn't hold. Fixed and re-run as runs 7–9 · was 77 WIN / 12 LOSE / 2 N/A.</div></div>
-  <div class="row"><div class="k">2026-07-05 (run 5)</div><div class="v">Agg-hang cluster eliminated, text queries fixed, board clean (no collapses / mismatches); mixed-tail + request-overhead + c8 flush fixes in flight · 45 WIN / 41 LOSE / 5 N/A.</div></div>
-  <div class="row"><div class="k">2026-07-04 (late, run 4)</div><div class="v">Clean rerun after the round-1 fixes. c1 ingest and search_after flip to WIN; agg-hang cluster isolated (~27 rows, fix in flight) · 35 WIN / 47 LOSE / 9 N/A.</div></div>
-  <div class="row"><div class="k">2026-07-04</div><div class="v">First public full-matrix publication. XERJ v1.0.0-rc.1 vs Elasticsearch 8.13.4 · 91 dimensions · 43 WIN / 33 LOSE / 15 N/A · run truncated by a search_after OOM defect, since fixed.</div></div>
-  <div class="row"><div class="k">2026-07-01</div><div class="v">The query-cache mirage — our favourite bug to have caught before anyone else did. An early head-to-head had XERJ winning reads by a suspiciously cheerful margin; turned out the harness was replaying the <em>same</em> query against a <em>static</em> index, and our result cache was happily serving every call after the first — so we were benchmarking the cache, not the engine. Uncached, a <span class="mono">match_all size:10</span> actually took ~2.28&nbsp;s, because hit materialization scanned every match instead of the top <span class="mono">from+size</span>. We fixed that path from O(N) to O(from+size), taught the harness to invalidate and to flag result-signal mismatches, and re-ran honestly. Filed under: if the numbers look too good, they are.</div></div>
-  <div class="row"><div class="k">earlier · pre-public</div><div class="v">Development runs. Many un-numbered iterations shaking out the harness and the engine before any of this was fit to publish — the usual loop of find a bug, fix it, and distrust the result until it holds up.</div></div>
-</section>
-
-<!-- seo:footer-begin — generated by scripts/seo/fix_links.py · do not hand-edit -->
-<nav class="footer-map" aria-label="Site map">
-  <div class="fm-col">
-    <span class="fm-h">PRODUCT</span>
-    <a href="/product">PRODUCT</a>
-    <a href="/architecture/">ARCHITECTURE</a>
-    <a href="/benchmarks/">BENCHMARKS</a>
-    <a href="/pricing/">PRICING</a>
-    <a href="/security/">SECURITY</a>
-    <a href="/playground">DASHBOARDS</a>
-    <a href="/demo/">REAL-DATA DEMO</a>
-    <a href="/aise-demo">PRODUCT TOUR</a>
-  </div>
-  <div class="fm-col">
-    <span class="fm-h">SOLUTIONS</span>
-    <a href="/solutions/">SOLUTIONS</a>
-    <a href="/use-cases">USE CASES</a>
-    <a href="/case-studies">CASE STUDIES</a>
-    <a href="/industries/">INDUSTRIES</a>
-    <a href="/industries/finserv">FINANCIAL SERVICES</a>
-    <a href="/industries/public-sector">PUBLIC SECTOR</a>
-    <a href="/industries/healthcare">HEALTHCARE</a>
-    <a href="/industries/retail">RETAIL</a>
-    <a href="/use-cases/code-security-audit">AI CODE-SECURITY AUDIT</a>
-    <a href="/use-cases/semantic-analytics">SEMANTIC ANALYTICS</a>
-  </div>
-  <div class="fm-col">
-    <span class="fm-h">DOCS</span>
-    <a href="/docs/">DOCUMENTATION</a>
-    <a href="/docs/quickstart">QUICKSTART</a>
-    <a href="/docs/install">INSTALL</a>
-    <a href="/docs/migration-from-es">MIGRATE FROM ELASTICSEARCH</a>
-    <a href="/docs/recipes/">RECIPES</a>
-    <a href="/docs/agents/">DOCS FOR AI</a>
-    <a href="/for-agents">FOR AI AGENTS</a>
-    <a href="/agent-search/">AGENTIC SEARCH DEMO</a>
-    <a href="/answers/">ANSWERS</a>
-    <a href="/compare/">COMPARISONS</a>
-  </div>
-  <div class="fm-col">
-    <span class="fm-h">RESOURCES</span>
-    <a href="/resources/">SALES KIT</a>
-    <a href="/brand">BRAND</a>
-    <a href="/brandbook/">BRAND BOOK</a>
-    <a href="/llms.txt">LLMS.TXT</a>
-    <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
-  </div>
+<nav class="uc-subnav" aria-label="Sections">
+  <a href="#performance">PERFORMANCE</a>
+  <a href="#retrieval">RETRIEVAL</a>
+  <a href="#tokens">TOKEN SAVINGS</a>
+  <a href="#zta">ZERO-TOKEN ARCHITECTURE</a>
 </nav>
-<!-- seo:footer-end -->
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="stat-band">
+    <div class="stat"><div class="v">6.5×</div><div class="k">cheaper agent runs</div>
+      <div class="s">$21.90 → $3.38 across 21 unfamiliar-API tasks, same Claude Code — <a href="/case-studies/reference-coding">reference-coding case study</a></div></div>
+    <div class="stat"><div class="v">21 / 21</div><div class="k">tasks solved with retrieval</div>
+      <div class="s">against 1 / 21 from model memory alone; hidden-test verdicts, real token accounting</div></div>
+    <div class="stat"><div class="v">55 W · 26 T · 4 L</div><div class="k">vs Elasticsearch, 88 cells</div>
+      <div class="s">audited board, cache-off, iso-load; every verdict shown — <a href="/benchmarks/elasticsearch">the full scorecard</a></div></div>
+    <div class="stat"><div class="v">251% → 44%</div><div class="k">idle CPU, one release</div>
+      <div class="s">3,617-index node, rc.15 → rc.71; the remaining 44% has a published bill of materials (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>)</div></div>
+  </div>
+</section>
+
+<!-- ============================ PERFORMANCE ============================ -->
+<section class="scene-section" id="performance">
+  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>PERFORMANCE · ENGINE + RESOURCES</span></div>
+  <h2 class="scene" style="font-size:var(--fs-56);">FAST WHERE IT'S USED,<br><span class="accent">QUIET WHERE IT ISN'T.</span></h2>
+  <p class="wide">Two performance stories matter for an engine that lives next to your agents: how fast a query
+  comes back, and what the process costs when nobody is asking. Both are measured; neither is extrapolated.</p>
+
+  <div class="vt-wrap">
+  <table class="vt">
+    <thead><tr><th>Measurement</th><th>XERJ</th><th>Comparison</th><th>Verdict</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>88-cell query board vs Elasticsearch 8.x — reads, aggs, pipelines, mixed, kNN, storage</td>
+        <td class="n w">55 wins</td><td class="n">26 ties · 4 losses · 3 n/a</td>
+        <td class="w">WIN</td><td><a href="/benchmarks/elasticsearch">scorecard</a> — one win is honestly a draw; the page says which</td></tr>
+      <tr><td>Server round-trip, <code class="inline">size:0</code> over 300k docs, keep-alive client</td>
+        <td class="n w">0.126 ms</td><td class="n">ES 0.283 ms</td>
+        <td class="w">2.2×</td><td><a href="/benchmarks/elasticsearch">scorecard · read transport</a></td></tr>
+      <tr><td>Bulk ingest, identical corpus and box</td>
+        <td class="n w">1.72× higher</td><td class="n">ES baseline</td>
+        <td class="w">WIN</td><td><a href="/benchmarks/elasticsearch">scorecard</a></td></tr>
+      <tr><td>On-disk size, same docs</td>
+        <td class="n w">176.2 MB</td><td class="n">ES 283.0 MB</td>
+        <td class="w">1.61× smaller</td><td><a href="/benchmarks/elasticsearch">scorecard · storage caveats apply</a></td></tr>
+      <tr><td>kNN k=10, HNSW-served with exact rescoring</td>
+        <td class="n">1.76 ms</td><td class="n">ES 2.08 ms</td>
+        <td class="t">TIE (1.18×, inside noise)</td><td><a href="/benchmarks/elasticsearch">scorecard</a> — recall is measured, never assumed</td></tr>
+      <tr><td>Identifier lookup, one index, 15-repo code corpus (p50 of 21)</td>
+        <td class="n w">11.7 ms</td><td class="n">trigram code-search engine 15.3 ms · cold grep 260 ms</td>
+        <td class="w">WIN per-index</td><td>2026-08-29 session, same box, released rc.70 binary</td></tr>
+      <tr><td>Mixed read-under-write p99, 40k docs/s iso-load writer</td>
+        <td class="n l">10.3–13.6 ms</td><td class="n">ES 3.5–6.8 ms</td>
+        <td class="l">4 LOSSES</td><td><a href="/benchmarks/elasticsearch">scorecard · root-caused to a lock, fix targeted</a></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="viz-block">
+    <div class="kicker"><span>RESOURCE TRAJECTORY · SAME 3,617-INDEX NODE · IDLE, ZERO REQUESTS</span></div>
+    <div class="vchart">
+      <div class="vc-groups">
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">251%</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:17.6%"><span class="vc-v">44.2%</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>rc.15</span>
+            <span>rc.71<span class="sub win">5.7× less idle CPU</span></span>
+          </div>
+          <div class="vc-title"><b>Idle CPU</b> — % of one core</div>
+        </div>
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">3,950</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:8.6%"><span class="vc-v">340</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>rc.15</span>
+            <span>rc.71<span class="sub win">flat with index count</span></span>
+          </div>
+          <div class="vc-title"><b>Threads</b> — event-driven WAL fsync</div>
+        </div>
+      </div>
+      <p class="vc-note">Measured 2026-08-29 on this project's own reference-coding node (3,617 autoindexed
+      indices). The remaining idle cost is not hand-waved away: its two mechanisms are located at
+      <code class="inline">file:line</code> and filed with a budget — idle CPU under 0.5% of one core independent
+      of index count (<a href="https://github.com/xerj-org/xerj/issues/871" rel="external">#871</a>,
+      <a href="https://github.com/xerj-org/xerj/issues/872" rel="external">#872</a>,
+      <a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>).</p>
+    </div>
+  </div>
+
+  <div class="loss"><strong>The losses, on purpose.</strong> Four cells on the Elasticsearch board — read p99
+  under a 40,000 docs/s writer — are red, and the scorecard root-causes them to reader starvation on a live
+  memtable lock, with the candidate fixes and the conformance gate any fix must hold. The 2026-08-29 resource
+  session filed six more issues against our own idle and merge behaviour the same day it measured them
+  (<a href="https://github.com/xerj-org/xerj/issues/871" rel="external">#871</a>–<a href="https://github.com/xerj-org/xerj/issues/876" rel="external">#876</a>).
+  That is the deal this page offers: you get the red cells with the same precision as the green ones.</div>
+</section>
+
+<!-- ============================ RETRIEVAL ============================ -->
+<section class="scene-section" id="retrieval">
+  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>RETRIEVAL · CODE THE MODEL DOESN'T KNOW</span></div>
+  <h2 class="scene" style="font-size:var(--fs-56);">CORRECT WHERE<br><span class="accent">MEMORY FAILS.</span></h2>
+  <p class="wide">The retrieval claim is not "search is nice" — it is that retrieval makes the <em>same model</em>
+  correct on APIs it has never memorised. Measured across 13 purpose-built libraries in 5 languages (unfamiliar
+  by construction, so the model cannot bluff), with hidden-test verdicts and real token accounting from
+  <code class="inline">claude -p</code>.</p>
+
+  <div class="viz-block">
+    <div class="kicker"><span>TASKS SOLVED · 21 RUNS · UNFAMILIAR CONTRACT DOMAINS</span></div>
+    <div class="vchart">
+      <div class="vc-legend">
+        <b class="bare">bare — model memory only</b>
+        <b class="xerj">XERJ — reference retrieved</b>
+      </div>
+      <div class="vc-groups">
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:4.8%"><span class="vc-v">1 / 21</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:100%"><span class="vc-v">21 / 21</span></span></div>
+          </div>
+          <div class="vc-axis"><span>bare</span><span>XERJ</span></div>
+          <div class="vc-title"><b>Unfamiliar APIs</b> — compiles + passes a hidden test</div>
+        </div>
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:3px"><span class="vc-v">0 / 9</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:100%"><span class="vc-v">9 / 9</span></span></div>
+          </div>
+          <div class="vc-axis"><span>bare</span><span>XERJ</span></div>
+          <div class="vc-title"><b>Hardest single library</b> (sift, streaming sketch)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="deep">
+    <li><strong>AST-aware indexing, built in.</strong> <code class="inline">xerj autoindex</code> parses source
+      through tree-sitter grammars in 13 languages and emits every symbol with its kind and line, a searchable
+      <code class="inline">defs</code> field, and the full body — so an identifier query ranks the definition
+      first. No ctags, no sidecar toolchain: one binary. Extraction throughput is measured and published
+      (~1,500 files/s single-thread on a 6,113-file Lucene checkout), and an unchanged re-index skips the parse
+      for byte-identical files (~100× on the edit-and-rerun path, shipped in rc.71).</li>
+    <li><strong>A passage, not a context dump.</strong> Grep-driven agents recover by pulling files into the
+      model's context — up to <strong>1.06M input tokens</strong> on one corpus in the measured study. A
+      retrieval answer is the definition with its <code class="inline">file:line</code>: a few hundred tokens
+      carrying the one thing a compiler can never leak, the runtime contract.</li>
+    <li><strong>Where retrieval is worth nothing — said out loud.</strong> On popular public code the model has
+      memorised, bare is cheapest and retrieval is overhead. The case study measures that boundary instead of
+      hiding it; the value is gated by memorisation, which is why it is largest on your private code.</li>
+  </ul>
+  <p class="src">Method, per-library table, and every per-run record:
+    <a href="/case-studies/reference-coding">the reference-coding case study</a> ·
+    <a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/reference-coding" rel="external">docs/case-studies/reference-coding</a></p>
+</section>
+
+<!-- ============================ TOKEN SAVINGS ============================ -->
+<section class="scene-section" id="tokens">
+  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>TOKEN SAVINGS · REAL ACCOUNTING, NO API KEY REQUIRED</span></div>
+  <h2 class="scene" style="font-size:var(--fs-56);">THE TOKENS YOU<br><span class="accent">DON'T SPEND.</span></h2>
+  <p class="wide">Output tokens are the expensive kind — priced roughly 5× above input on Claude models — and
+  retry loops on unknown APIs burn exactly those. Three arms of the same agent on the same tasks: memory only,
+  grep-driven, retrieval-injected. Every figure from <code class="inline">claude -p --output-format json</code>.</p>
+
+  <div class="viz-block">
+    <div class="kicker"><span>8 TASKS × PYTHON / JS / C / JAVA · 16 RUNS PER ARM</span></div>
+    <div class="vchart">
+      <div class="vc-legend">
+        <b class="bare">bare — memory only</b>
+        <b class="native">native — greps the source</b>
+        <b class="xerj">XERJ — reference retrieved</b>
+      </div>
+      <div class="vc-groups">
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">260,916</span></span></div>
+            <div class="vc-col native"><span class="vc-bar" style="height:10.1%"><span class="vc-v">26,477</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:3.8%"><span class="vc-v">9,982</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span><span>native</span>
+            <span>XERJ<span class="sub win">2.7× fewer than native</span></span>
+          </div>
+          <div class="vc-title"><b>Output tokens to solve</b> — lower is better</div>
+        </div>
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">$11.18</span></span></div>
+            <div class="vc-col native"><span class="vc-bar" style="height:29.2%"><span class="vc-v">$3.27</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:14.1%"><span class="vc-v">$1.58</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span><span>native</span>
+            <span>XERJ<span class="sub win">7.1× cheaper than bare</span></span>
+          </div>
+          <div class="vc-title"><b>Cost per matrix</b> — real per-run pricing</div>
+        </div>
+      </div>
+      <p class="vc-note">The per-language medians run 6.7× (JavaScript) to 278× (Java) fewer output tokens than
+      answering from memory. An independent 12-question dev-QA measurement on the engine's own reference corpora
+      lands at 1.65× fewer output tokens and 1.47× cheaper — smaller, because it includes questions where the
+      model already knew the answer; both numbers are published.</p>
+    </div>
+  </div>
+
+  <div class="pain-solve">
+    <div class="pain">
+      <h3>WHERE TOKENS GO WITHOUT RETRIEVAL</h3>
+      <ul>
+        <li><strong>Retry loops.</strong> Invent a method name, fail to compile, loop — output tokens on every lap. Measured worst case: 27,108 tokens and a failing test.</li>
+        <li><strong>Context stuffing.</strong> Grep recovery pulled up to 1.06M input tokens of source into context for one corpus.</li>
+        <li><strong>Compiler archaeology.</strong> "Did you mean" recovers a name at 20–150× the tokens — and never a runtime rule.</li>
+      </ul>
+    </div>
+    <div class="solve">
+      <h3>WHERE THEY GO WITH IT</h3>
+      <ul>
+        <li><strong>One query.</strong> A <code class="inline">multi_match</code> over <code class="inline">defs</code>/<code class="inline">body</code>/<code class="inline">title</code>, ~10 ms server-side.</li>
+        <li><strong>One passage.</strong> The definition, its contract, its <code class="inline">file:line</code> — hundreds of tokens, not hundreds of thousands.</li>
+        <li><strong>Measured floor.</strong> The same Java task that burned 27,108 tokens from memory: <strong>98 tokens</strong> with the reference in hand. 278× fewer.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ ZTA ============================ -->
+<section class="scene-section" id="zta">
+  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>ZTA · THE DESIGN BEHIND THE NUMBERS</span></div>
+  <h2 class="scene" style="font-size:var(--fs-56);">ZERO-TOKEN<br><span class="accent">ARCHITECTURE.</span></h2>
+  <p class="wide">The cheapest token is the one your model never generates. <strong>ZTA is the design rule that
+  produced every number above:</strong> spend compute once, at index time, so agents stop spending inference
+  tokens — the metered, per-request, 5×-priced resource — re-deriving what the index already knows. It is an
+  architecture target with measured proxies, not a certification; here are its four principles and the number
+  that keeps each one honest.</p>
+
+  <div class="zta">
+    <div class="zp">
+      <div class="zh"><span class="zn">ZTA-1</span><h3>UNDERSTAND AT INDEX TIME</h3><span class="zm">proxy: ~1,500 files/s extract · ~100× unchanged re-index</span></div>
+      <p>Parse the AST once — 13 languages, every symbol with kind and line, a ranked
+      <code class="inline">defs</code> field — instead of letting every future question re-derive structure with
+      tokens. Index-time compute is bought once; token-time compute is bought on every question, forever.</p>
+    </div>
+    <div class="zp">
+      <div class="zh"><span class="zn">ZTA-2</span><h3>ANSWER WITH THE PASSAGE, NOT THE CORPUS</h3><span class="zm">proxy: 98-token solve vs 27,108 · 1.06M-token grep avoided</span></div>
+      <p>The unit of answer is the definition with its contract and <code class="inline">file:line</code> —
+      never "here are eleven files, good luck." Small answers keep the agent's context small, which compounds:
+      every later turn re-pays for everything already in the window.</p>
+    </div>
+    <div class="zp">
+      <div class="zh"><span class="zn">ZTA-3</span><h3>THE AGENT SETS ITSELF UP</h3><span class="zm">proxy: one pasted line → verified end-to-end run</span></div>
+      <p>Setup instructions live at <a href="/llms.txt">llms.txt</a> in machine order: install, start, index,
+      query, retrieval discipline. One pasted sentence turns it on — tested verbatim, transcript published. Zero
+      tokens spent negotiating with documentation written for humans.</p>
+    </div>
+    <div class="zp">
+      <div class="zh"><span class="zn">ZTA-4</span><h3>IDLE COSTS NOTHING</h3><span class="zm">proxy: 251% → 44.2% idle CPU in one release · budget &lt; 0.5% published</span></div>
+      <p>An always-on corpus next to your agents must not tax the machine they work on. The event-driven WAL
+      scheduler shipped that principle for fsync (3,950 → 340 threads); the remaining idle mechanisms are
+      located, filed, and budgeted in public (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>) —
+      the rule going forward is <em>no per-index periodic work, ever</em>.</p>
+    </div>
+  </div>
+
+  <p class="wide" style="margin-top:var(--sp-8);"><strong>Why this is the sales pitch and not a slogan:</strong>
+  infrastructure used to compete on latency; agent infrastructure competes on your inference bill. A retrieval
+  that answers in 10 ms and a few hundred tokens replaces a 15,000-token retry loop every time it fires — the
+  $21.90 → $3.38 delta above is that substitution, measured 21 times over. ZTA is the commitment that every
+  future XERJ feature is judged by the same question: <em>how many tokens does it stop your model from
+  spending?</em></p>
+</section>
+
+<!-- CTA -->
+<section class="scene-section" style="text-align:center;">
+  <h2 class="scene" style="font-size:var(--fs-56);">RUN THE NUMBERS ON <span class="accent">YOUR</span> CODE.</h2>
+  <div style="margin-top:var(--sp-6); display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+    <a class="btn btn-primary" href="/benchmarks/elasticsearch">THE FULL ES SCORECARD &rarr;</a>
+    <a class="btn" href="/case-studies/reference-coding">THE TOKEN CASE STUDY</a>
+    <a class="btn" href="/docs/install">GET XERJ</a>
+  </div>
+</section>
+
 <footer class="footer">
-  <span>XERJ.AI · V0.1 · 2026</span>
-  <span>SEARCH FOR THE AGENT ERA</span>
-  <span><a href="/product">PRODUCT</a> · <a href="/docs/">DOCS</a> · <a href="/brand">BRAND</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+  <div class="foot-links"><a href="/">HOME</a><a href="/case-studies">CASE STUDIES</a><a href="/for-agents">FOR AGENTS</a><a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a></div>
+  <p class="foot-fine">Sources: the audited 88-cell board (<a href="/benchmarks/elasticsearch">benchmarks/elasticsearch</a>, harness + raw scorecard in-repo), the reference-coding study (<a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/reference-coding" rel="external">docs/case-studies/reference-coding</a>), and the 2026-08-29 resource session (issues <a href="https://github.com/xerj-org/xerj/issues/871" rel="external">#871</a>–<a href="https://github.com/xerj-org/xerj/issues/876" rel="external">#876</a>). Default embedder is lexical feature-hashing — retrieval wins here are lexical + AST ranking, not neural claims. Measure on your own workload.</p>
 </footer>
 
-<script>
-  (function () {
-    const root = document.documentElement;
-    for (const btn of document.querySelectorAll('[data-theme]')) {
-      btn.addEventListener('click', () => {
-        const t = btn.getAttribute('data-theme');
-        root.setAttribute('data-theme', t);
-        for (const b of document.querySelectorAll('[data-theme]')) {
-          b.classList.toggle('active', b.getAttribute('data-theme') === t);
-        }
-      });
-    }
-  })();
-</script>
-
+<script src="/interact.js" defer></script>
+<style>
+  ul.deep { list-style:none; padding:0; max-width:920px; }
+  ul.deep li { margin:14px 0; line-height:1.65; color:var(--z-mute); font-size:15px; }
+  ul.deep li strong { color:var(--z-ink); }
+  ul.deep code.inline { color:var(--z-ink); }
+</style>
 </body>
 </html>

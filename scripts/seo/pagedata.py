@@ -72,6 +72,11 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "benchmarks/index.html": dict(
         label="Benchmarks", kind="software",
+        title="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA",
+        description="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.",
+    ),
+    "benchmarks/elasticsearch.html": dict(
+        label="ES scorecard", kind="software",
         title="XERJ vs Elasticsearch — reproducible benchmarks",
         description="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.",
     ),
