@@ -117,6 +117,34 @@ jobs:
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
 
+  # #474: the rc.18 release PR (#460) shipped three note-vs-tree contradictions
+  # with the branch 16/16 green every time - a fix credited with more than it
+  # did (#361), ROADMAP.md contradicting the CHANGELOG in the same commit, and
+  # a note reverted by a later merge in the same release (#472 vs #457). The
+  # notes were cut at time T and described main at time T; main kept moving and
+  # nothing re-checked the notes at merge time. This job re-checks them on
+  # every push to a release/* PR: ROADMAP/CHANGELOG issue states against the
+  # live tracker, merge coverage since the previous tag, and freshness against
+  # the base. It checks out the PR HEAD, not the merge ref, because on the
+  # merge ref "behind base" is unobservable by construction.
+  release-notes-gate:
+    name: Release notes match the tree
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Notes vs tree (#474)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          bash .github/scripts/release-notes-gate.sh
+
   lint:
     name: Format + Clippy
     runs-on: ubuntu-latest
