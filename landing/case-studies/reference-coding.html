@@ -63,7 +63,7 @@
              letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
   .vc-axis { min-height:46px; }
   .vc-axis span { min-width:0; }
-  .vc-axis em { display:block; font-style:normal; letter-spacing:.03em;
+  .vc-axis .sub { display:block; font-style:normal; letter-spacing:.03em;
                 text-transform:none; opacity:.72; margin-top:3px; }
   .vc-axis .win { color:var(--z-accent); opacity:1; }
   .vc-title { margin-top:var(--sp-4); padding-top:var(--sp-3);
@@ -266,7 +266,7 @@
           <div class="vc-axis">
             <span>bare</span>
             <span>native</span>
-            <span>XERJ<em class="win">2.7× fewer than native</em></span>
+            <span>XERJ<span class="sub win">2.7× fewer than native</span></span>
           </div>
           <div class="vc-title"><b>Output tokens to solve</b> — lower is better · shared scale</div>
         </div>
@@ -389,9 +389,9 @@
           <div class="vc-col xerj"><span class="vc-bar" style="height:15.4%"><span class="vc-v">$3.38</span></span></div>
         </div>
         <div class="vc-axis">
-          <span>bare<em>1 / 21 solved</em></span>
-          <span>native<em>21 / 21 solved</em></span>
-          <span>XERJ<em class="win">21 / 21 solved</em></span>
+          <span>bare<span class="sub">1 / 21 solved</span></span>
+          <span>native<span class="sub">21 / 21 solved</span></span>
+          <span>XERJ<span class="sub win">21 / 21 solved</span></span>
         </div>
       </div>
       <p style="margin-top:10px; font-size:11.5px; color:var(--z-mute); font-family:var(--font-data);">RETRIEVAL WINS: correct where memory fails, 6.5× cheaper than bare, 1.3× cheaper than native.</p>
@@ -405,9 +405,9 @@
           <div class="vc-col xerj"><span class="vc-bar" style="height:48.1%"><span class="vc-v">$4.40</span></span></div>
         </div>
         <div class="vc-axis">
-          <span>bare<em>6 / 6 solved</em></span>
-          <span>native<em>6 / 6 solved</em></span>
-          <span>XERJ<em>5 / 6 solved</em></span>
+          <span>bare<span class="sub">6 / 6 solved</span></span>
+          <span>native<span class="sub">6 / 6 solved</span></span>
+          <span>XERJ<span class="sub">5 / 6 solved</span></span>
         </div>
       </div>
       <p style="margin-top:10px; font-size:11.5px; color:var(--z-mute); font-family:var(--font-data);">RETRIEVAL LOSES: the model knows the protocol, so pure memory is cheapest; searching or injecting a reference is overhead.</p>
@@ -434,7 +434,7 @@
           </div>
           <div class="vc-axis">
             <span>bare</span>
-            <span>XERJ<em class="win">69× fewer</em></span>
+            <span>XERJ<span class="sub win">69× fewer</span></span>
           </div>
           <div class="vc-title"><b>Python</b> — LRU cache (warden)</div>
         </div>
@@ -446,7 +446,7 @@
           </div>
           <div class="vc-axis">
             <span>bare</span>
-            <span>XERJ<em class="win">6.7× fewer</em></span>
+            <span>XERJ<span class="sub win">6.7× fewer</span></span>
           </div>
           <div class="vc-title"><b>JavaScript</b> — prefix trie (garner)</div>
         </div>
@@ -458,7 +458,7 @@
           </div>
           <div class="vc-axis">
             <span>bare</span>
-            <span>XERJ<em class="win">19× fewer</em></span>
+            <span>XERJ<span class="sub win">19× fewer</span></span>
           </div>
           <div class="vc-title"><b>C</b> — generational allocator (arena)</div>
         </div>
@@ -470,7 +470,7 @@
           </div>
           <div class="vc-axis">
             <span>bare</span>
-            <span>XERJ<em class="win">278× fewer</em></span>
+            <span>XERJ<span class="sub win">278× fewer</span></span>
           </div>
           <div class="vc-title"><b>Java</b> — append-only log (ledger)</div>
         </div>
