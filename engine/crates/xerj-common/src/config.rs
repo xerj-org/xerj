@@ -1449,7 +1449,13 @@ pub struct LimitsConfig {
     /// `cluster.routing.allocation.disk.watermark.flood_stage`. This
     /// prevents the engine from writing until `ENOSPC`, which poisons the
     /// WAL. The block clears automatically once usage drops back below the
-    /// threshold. Set to `0` to disable the disk watermark.
+    /// threshold. Set to `0` to disable the disk watermark. This threshold
+    /// can also be raised or lowered at runtime, no restart required, via
+    /// `PUT _cluster/settings` on the `cluster.routing.allocation.disk.watermark.flood_stage`
+    /// persistent (or transient) key — e.g. `{"persistent":
+    /// {"cluster.routing.allocation.disk.watermark.flood_stage": "97%"}}` —
+    /// matching ES's own recovery flow; that override cannot re-enable the
+    /// watermark if this config value is `0`.
     pub disk_flood_stage_percent: u8,
     /// Ceiling on the machine size every other memory budget is derived FROM,
     /// in MiB. **Omitted / default = AUTO** ([`AUTO_PROCESS_MEMORY_MB`]): XERJ
