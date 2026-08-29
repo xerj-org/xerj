@@ -398,6 +398,19 @@ fn predicates_hold(query: &Query, m: &tree_sitter::QueryMatch, text: &str) -> bo
     })
 }
 
+/// #852: does `node` have an ancestor of the given tree-sitter kind? Used to
+/// reject captures nested inside a `compound_statement` (a function body).
+fn has_ancestor_kind(node: tree_sitter::Node, kind: &str) -> bool {
+    let mut cur = node.parent();
+    while let Some(n) = cur {
+        if n.kind() == kind {
+            return true;
+        }
+        cur = n.parent();
+    }
+    false
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
@@ -419,6 +432,17 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
                 continue; // predicate-only capture (`@_kw`), not a symbol
             }
             let node = cap.node;
+            // #852: every C++ pattern targets file/namespace/class-scope API
+            // symbols — none intends to capture a function-local definition. A
+            // type/class/struct/enum or its enumerators DEFINED INSIDE a
+            // function body (e.g. `void f(){ struct S{ enum E{A}; }; }`) still
+            // matched the unanchored `@class`/`@struct`/`@enum` patterns and the
+            // `field_declaration_list` enum-const anchor, leaking locals as
+            // symbols. tree-sitter has no negative-ancestor test, so drop any
+            // C++ capture nested under a `compound_statement` (a function body).
+            if def.name == "cpp" && has_ancestor_kind(node, "compound_statement") {
+                continue;
+            }
             let name = text.get(node.byte_range()).unwrap_or("").trim();
             if name.is_empty() || name.len() > 200 {
                 continue;
@@ -2001,6 +2025,33 @@ mod tests {
         assert!(!has(&s, "LB", "const"), "got {s:?}");
         assert!(!has(&s, "LTA", "const"), "got {s:?}");
         assert!(!has(&s, "LVA", "const"), "got {s:?}");
+    }
+
+    /// #852: an enum that is a member of a struct/class DEFINED INSIDE a function
+    /// still matched the `field_declaration_list` enum-const anchor (and the
+    /// unanchored `@struct`/`@class` name patterns), leaking the local type's
+    /// enumerators AND its name. A `compound_statement`-ancestor post-filter
+    /// drops every C++ capture inside a function body.
+    #[test]
+    fn cpp_enum_in_function_local_type_does_not_leak() {
+        let s = syms(
+            "cpp",
+            "enum Top { TA };\n\
+             struct FileStruct { enum FE { FSA }; };\n\
+             void s() { struct LocalStruct { enum E { LSA }; }; }\n\
+             void c() { class LocalClass { enum E2 { LCA }; }; }\n",
+        );
+        // A file-scope enum and a file-scope struct's member enum stay captured,
+        // as does the file-scope struct name.
+        assert!(has(&s, "TA", "const"), "got {s:?}");
+        assert!(has(&s, "FSA", "const"), "got {s:?}");
+        assert!(has(&s, "FileStruct", "struct"), "got {s:?}");
+        // The function-local struct/class, their member enums, and those enums'
+        // values must all stay out.
+        assert!(!has(&s, "LSA", "const"), "got {s:?}");
+        assert!(!has(&s, "LCA", "const"), "got {s:?}");
+        assert!(!has(&s, "LocalStruct", "struct"), "got {s:?}");
+        assert!(!has(&s, "LocalClass", "class"), "got {s:?}");
     }
 
     #[test]
