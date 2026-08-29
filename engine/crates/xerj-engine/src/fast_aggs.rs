@@ -3067,7 +3067,9 @@ impl<'a> FastCtx<'a> {
 
         let mut buckets: Vec<Value> = Vec::with_capacity(candidates.len());
         for (key, st) in candidates {
-            let (typed_key, key_as_string) = typed_term_key(&key);
+            // #864: a keyword column's keys are strings (`is_bool` marks the
+            // boolean-column case, which still renders true/false → 1/0).
+            let (typed_key, key_as_string) = typed_term_key(&key, !is_bool);
             let mut bucket = Map::new();
             bucket.insert("key".to_string(), typed_key);
             if let Some(kas) = key_as_string {
@@ -3178,7 +3180,9 @@ impl<'a> FastCtx<'a> {
         let buckets: Vec<Value> = entries
             .into_iter()
             .map(|(key, count)| {
-                let (typed_key, key_as_string) = typed_term_key(&key);
+                // #864: exec_rare_terms is keyword-only (guarded above), so the
+                // keys are always strings.
+                let (typed_key, key_as_string) = typed_term_key(&key, true);
                 let mut b = Map::new();
                 b.insert("key".to_string(), typed_key);
                 if let Some(kas) = key_as_string {

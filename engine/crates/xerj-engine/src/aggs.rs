@@ -3494,6 +3494,13 @@ fn run_terms(
             None => return json!({"buckets": []}),
         },
     };
+    // #864: type bucket keys by the field's source shape — a keyword value that
+    // looks numeric ("007") must stay a string. Scripts have no field mapping,
+    // so keep the legacy content-based coercion for them.
+    let source_is_string = match &field_or_script {
+        FieldOrScript::Field(f) => field_source_is_string(docs, f),
+        FieldOrScript::Script { .. } => false,
+    };
     // ES semantics: size=0 means "return all buckets" (no cap).
     // Any other value caps the result; the default is 10.
     let size_opt: Option<usize> = params
@@ -3777,7 +3784,7 @@ fn run_terms(
             let _ = &bucket_docs; // silence unused when neither sub nor `count` needs it
             let (key, count, precomputed_sub) = (key, count, sub_res);
 
-            let (typed_key, key_as_string) = typed_term_key(&key);
+            let (typed_key, key_as_string) = typed_term_key(&key, source_is_string);
 
             let mut bucket = json!({
                 "key": typed_key,
@@ -3874,9 +3881,52 @@ pub(crate) fn apply_terms_size_pipeline<T>(
 /// a string.  `key_as_string` is only added when it carries extra
 /// information that the numeric key can't: booleans and dates.
 ///
+/// #864: `source_is_string` reflects whether the field's source values are
+/// JSON STRINGS (keyword / text / date-family) rather than JSON numbers or
+/// bools. ES types a bucket key by the field's MAPPING, so a keyword value
+/// that merely LOOKS numeric (`"007"`) must stay the string `"007"`, not the
+/// number 7 — the string branch skips i64/f64 coercion but still surfaces an
+/// ISO date as epoch millis (a genuine `date` field's values are strings).
+///
 /// Shared by `run_terms` and the doc-values fast-agg path so bucket
 /// key shaping is byte-identical between the two.
-pub(crate) fn typed_term_key(key: &str) -> (Value, Option<String>) {
+/// #864: does this field hold JSON STRING values (keyword / text / date) rather
+/// than JSON numbers or bools? Inspects the raw source of `docs` — the first
+/// present scalar value's JSON type decides (ES types the whole field by its
+/// mapping). No values / all null → `false` (there are no keys to shape anyway).
+fn field_source_is_string(docs: &[Value], field: &str) -> bool {
+    fn scalar_is_string(v: &Value) -> Option<bool> {
+        match v {
+            Value::String(_) => Some(true),
+            Value::Number(_) | Value::Bool(_) => Some(false),
+            Value::Array(a) => a.iter().find_map(scalar_is_string),
+            _ => None,
+        }
+    }
+    for doc in docs {
+        if let Some(v) = crate::index::get_field_value(doc, field) {
+            if let Some(is_str) = scalar_is_string(&v) {
+                return is_str;
+            }
+        }
+    }
+    false
+}
+
+pub(crate) fn typed_term_key(key: &str, source_is_string: bool) -> (Value, Option<String>) {
+    if source_is_string {
+        // Keyword/text/date-family: a numeric-looking value ("007") stays a
+        // string. A GENUINE ISO date string still surfaces as epoch millis — but
+        // NOT a bare number (`parse_date_ms` treats "007" as epoch 7 via its
+        // integer fallback, which would defeat the whole point).
+        let is_bare_number = key.parse::<i64>().is_ok() || key.parse::<f64>().is_ok();
+        if !is_bare_number {
+            if let Some(epoch_ms) = parse_date_ms(&Value::String(key.to_string())) {
+                return (json!(epoch_ms), Some(epoch_ms_to_iso8601_utc(epoch_ms)));
+            }
+        }
+        return (json!(key), None);
+    }
     let mut key_as_string: Option<String> = None;
     let typed_key: Value = if key == "true" || key == "false" {
         key_as_string = Some(key.to_string());
