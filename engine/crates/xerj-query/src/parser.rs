@@ -851,6 +851,8 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
             _ => crate::ast::Fuzziness::Auto,
         });
+        // #848: `match` accepts `prefix_length` alongside `fuzziness`.
+        let prefix_length = parse_prefix_length(obj);
         let raw_tokens: Vec<String> = if analyzer_opt.as_deref() == Some("keyword") {
             vec![query.to_string()]
         } else {
@@ -895,6 +897,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                         value: tok.to_string(),
                         fuzziness: fz,
                         case_insensitive: false,
+                        prefix_length,
                     }
                 } else {
                     QueryNode::Match {
@@ -2209,6 +2212,7 @@ fn parse_fuzzy(params: &Value) -> Result<QueryNode> {
             value: value.to_string(),
             fuzziness: Fuzziness::Auto,
             case_insensitive: false,
+            prefix_length: 0,
         });
     }
 
@@ -2242,12 +2246,24 @@ fn parse_fuzzy(params: &Value) -> Result<QueryNode> {
         .get("case_insensitive")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let prefix_length = parse_prefix_length(inner);
     Ok(QueryNode::Fuzzy {
         field,
         value,
         fuzziness,
         case_insensitive,
+        prefix_length,
     })
+}
+
+/// #848: read ES `prefix_length` off a fuzzy/match parameter object. Accepts a
+/// non-negative number or its string spelling; defaults to `0` (no constraint).
+fn parse_prefix_length(obj: &serde_json::Map<String, Value>) -> usize {
+    match obj.get("prefix_length") {
+        Some(Value::Number(n)) => n.as_u64().unwrap_or(0) as usize,
+        Some(Value::String(s)) => s.parse::<usize>().unwrap_or(0),
+        _ => 0,
+    }
 }
 
 fn parse_regexp(params: &Value) -> Result<QueryNode> {
@@ -4232,40 +4248,47 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
     let field = field.clone();
 
     // Long-form accepts the same options as `match` + `operator` + mm.
-    let (query_str, mm, operator_and, analyzer, fuzziness) = if let Some(s) = raw.as_str() {
-        (s.to_string(), None, false, None, None)
-    } else {
-        let inner = raw
-            .as_object()
-            .ok_or_else(|| qerr("`match_bool_prefix` field value must be a string or object"))?;
-        let q = string_field(inner, "query")?;
-        let mm_val = inner
-            .get("minimum_should_match")
-            .and_then(|v| parse_min_should_match(v).ok());
-        let op_and = matches!(
-            inner
-                .get("operator")
+    let (query_str, mm, operator_and, analyzer, fuzziness, prefix_length) =
+        if let Some(s) = raw.as_str() {
+            (s.to_string(), None, false, None, None, 0usize)
+        } else {
+            let inner = raw.as_object().ok_or_else(|| {
+                qerr("`match_bool_prefix` field value must be a string or object")
+            })?;
+            let q = string_field(inner, "query")?;
+            // #846: go through the shared `minimum_should_match` parser so
+            // negative / negative-% / combination specs reach the evaluator
+            // from this site too. It used to inline a number/percentage-only
+            // subset, which silently dropped every other spec to `None` (=
+            // plain OR) instead of honouring it.
+            let mm_val = inner
+                .get("minimum_should_match")
+                .and_then(|v| parse_min_should_match(v).ok());
+            let op_and = matches!(
+                inner
+                    .get("operator")
+                    .and_then(Value::as_str)
+                    .map(|s| s.to_ascii_lowercase())
+                    .as_deref(),
+                Some("and")
+            );
+            let analyzer = inner
+                .get("analyzer")
                 .and_then(Value::as_str)
-                .map(|s| s.to_ascii_lowercase())
-                .as_deref(),
-            Some("and")
-        );
-        let analyzer = inner
-            .get("analyzer")
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let fuzziness = inner.get("fuzziness").map(|v| match v {
-            Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
-            Value::String(s) => s
-                .parse::<u32>()
-                .ok()
-                .map(crate::ast::Fuzziness::Fixed)
-                .unwrap_or(crate::ast::Fuzziness::Auto),
-            Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
-            _ => crate::ast::Fuzziness::Auto,
-        });
-        (q, mm_val, op_and, analyzer, fuzziness)
-    };
+                .map(str::to_string);
+            let fuzziness = inner.get("fuzziness").map(|v| match v {
+                Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
+                Value::String(s) => s
+                    .parse::<u32>()
+                    .ok()
+                    .map(crate::ast::Fuzziness::Fixed)
+                    .unwrap_or(crate::ast::Fuzziness::Auto),
+                Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
+                _ => crate::ast::Fuzziness::Auto,
+            });
+            let prefix_length = parse_prefix_length(inner);
+            (q, mm_val, op_and, analyzer, fuzziness, prefix_length)
+        };
 
     // Analyzer semantics: "whitespace" preserves case, "keyword" treats
     // input as single token, default/standard lowercases. We approximate
@@ -4313,6 +4336,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
                 value: folded,
                 fuzziness: fz,
                 case_insensitive: true,
+                prefix_length,
             }
         } else {
             QueryNode::Match {

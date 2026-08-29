@@ -25,9 +25,10 @@
 //! the RSS / memtable / disk atomics every ~250 ms, so the hot-path
 //! admission checks are relaxed atomic loads — never syscalls.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, OnceLock};
 
+use serde_json::Value;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use xerj_common::config::Config;
 use xerj_common::XerjError;
@@ -92,8 +93,18 @@ pub struct ResourceGovernor {
     max_concurrent_bulks: usize,
 
     // ── item 3: disk flood-stage write block ────────────────────────────
-    /// Used-percentage watermark that engages the write block. `0` = off.
-    disk_flood_pct: u8,
+    /// Configured used-percentage watermark from startup config. `0` = the
+    /// watermark is disabled and stays disabled — [`Self::set_disk_flood_pct_override`]
+    /// is a no-op in that case, so a runtime cluster-settings override can
+    /// only re-tune an already-active watermark, never turn the feature on.
+    disk_flood_pct_default: u8,
+    /// Effective used-percentage watermark that engages the write block —
+    /// `disk_flood_pct_default` unless overridden at runtime via the
+    /// `cluster.routing.allocation.disk.watermark.flood_stage` persistent
+    /// cluster setting (see [`Self::set_disk_flood_pct_override`]), which
+    /// lets an operator clear/relax the block without a restart, matching
+    /// ES's `PUT _cluster/settings` recovery flow.
+    disk_flood_pct: AtomicU8,
     /// Latched: the data-dir filesystem is at/over the flood-stage watermark.
     disk_blocked: AtomicBool,
     /// Last sampled used-percentage of the data-dir filesystem.
@@ -145,11 +156,28 @@ impl ResourceGovernor {
                 format!(
                     "read_only_allow_delete (disk usage {}% exceeded flood-stage watermark [{}%])",
                     self.disk_used_pct.load(Ordering::Relaxed),
-                    self.disk_flood_pct,
+                    self.disk_flood_pct.load(Ordering::Relaxed),
                 ),
             ));
         }
         Ok(())
+    }
+
+    /// Applies (or clears) a runtime override of the disk flood-stage
+    /// percent, read each sampler tick from the
+    /// `cluster.routing.allocation.disk.watermark.flood_stage` persistent
+    /// cluster setting (parsed by [`parse_flood_stage_pct`]) — see
+    /// `Engine::spawn_resource_sampler`. `None` reverts to the config
+    /// default. A no-op when the watermark was disabled at startup
+    /// (`disk_flood_stage_percent = 0`): this only re-tunes an
+    /// already-active watermark without a restart, the way ES's
+    /// `PUT _cluster/settings` does — it doesn't turn the feature on.
+    pub fn set_disk_flood_pct_override(&self, override_pct: Option<u8>) {
+        if self.disk_flood_pct_default == 0 {
+            return;
+        }
+        let effective = override_pct.unwrap_or(self.disk_flood_pct_default).min(100);
+        self.disk_flood_pct.store(effective, Ordering::Relaxed);
     }
 
     /// Per-query memory guard for `max_query_memory_mb` (item 1). Rejects a
@@ -235,7 +263,7 @@ impl ResourceGovernor {
     /// SEPARATELY so a contended memtable read can never delay the memory
     /// admission update (see `Engine::spawn_resource_sampler`).
     pub fn refresh(&self, memtable_used: u64, rss: u64, disk_used_pct: u64) {
-        self.refresh_memory_disk(rss, disk_used_pct);
+        self.refresh_memory_disk(rss, disk_used_pct, 0);
         self.refresh_memtable(memtable_used);
     }
 
@@ -243,7 +271,14 @@ impl ResourceGovernor {
     /// NOTHING but two syscalls — never blocks on an engine lock — so the
     /// parent memory breaker stays responsive even while a turbo batch holds
     /// every memtable shard's write lock.
-    pub fn refresh_memory_disk(&self, rss: u64, disk_used_pct: u64) {
+    ///
+    /// `disk_avail_bytes` is the raw free-space figure from the same
+    /// `statvfs` sample as `disk_used_pct` — carried through purely so the
+    /// crossing WARN below can print an absolute free-space figure
+    /// alongside the percentage, matching ES's flood-stage log line. Pass
+    /// `0` when it isn't available (e.g. from the [`Self::refresh`] test
+    /// wrapper); it only affects that one log line, never admission.
+    pub fn refresh_memory_disk(&self, rss: u64, disk_used_pct: u64, disk_avail_bytes: u64) {
         // ── RSS watermark ──
         self.rss_bytes.store(rss, Ordering::Relaxed);
         let mem_next = self.memory_watermark_bytes != 0 && rss >= self.memory_watermark_bytes;
@@ -263,20 +298,22 @@ impl ResourceGovernor {
         }
 
         // ── disk flood stage (1% release hysteresis to avoid flapping) ──
-        if self.disk_flood_pct != 0 {
+        let flood_pct = self.disk_flood_pct.load(Ordering::Relaxed);
+        if flood_pct != 0 {
             self.disk_used_pct.store(disk_used_pct, Ordering::Relaxed);
             let cur = self.disk_blocked.load(Ordering::Relaxed);
-            let release_pct = (self.disk_flood_pct as u64).saturating_sub(1);
+            let release_pct = (flood_pct as u64).saturating_sub(1);
             let next = if cur {
                 disk_used_pct >= release_pct
             } else {
-                disk_used_pct >= self.disk_flood_pct as u64
+                disk_used_pct >= flood_pct as u64
             };
             if next != cur {
                 if next {
                     tracing::warn!(
                         used_pct = disk_used_pct,
-                        flood_pct = self.disk_flood_pct,
+                        flood_pct = flood_pct,
+                        free = %human_bytes(disk_avail_bytes),
                         "disk flood-stage watermark crossed — engaging read_only_allow_delete write block"
                     );
                 } else {
@@ -331,7 +368,7 @@ impl ResourceGovernor {
             memory_watermark_bytes: self.memory_watermark_bytes,
             memory_tripped: self.memory_tripped.load(Ordering::Relaxed),
             disk_used_pct: self.disk_used_pct.load(Ordering::Relaxed),
-            disk_flood_pct: self.disk_flood_pct,
+            disk_flood_pct: self.disk_flood_pct.load(Ordering::Relaxed),
             disk_blocked: self.disk_blocked.load(Ordering::Relaxed),
             max_concurrent_searches: self.max_concurrent_searches,
             search_inflight: self.search_inflight.load(Ordering::Relaxed),
@@ -794,7 +831,8 @@ fn build(config: &Config) -> ResourceGovernor {
         search_inflight_peak: Arc::new(AtomicU64::new(0)),
         bulk_pool: Arc::new(Semaphore::new(max_concurrent_bulks)),
         max_concurrent_bulks,
-        disk_flood_pct: limits.disk_flood_stage_percent.min(100),
+        disk_flood_pct_default: limits.disk_flood_stage_percent.min(100),
+        disk_flood_pct: AtomicU8::new(limits.disk_flood_stage_percent.min(100)),
         disk_blocked: AtomicBool::new(false),
         disk_used_pct: AtomicU64::new(0),
     }
@@ -1004,13 +1042,41 @@ pub fn disk_stats(_path: &str) -> Option<(u64, u64)> {
 /// `total - avail` over `total`, matching ES's disk-watermark accounting.
 /// Returns 0 when `statvfs` is unavailable (the disk block never trips).
 pub fn disk_used_pct(path: &str) -> u64 {
+    disk_used_pct_and_avail(path).0
+}
+
+/// `(used_pct, avail_bytes)` for the filesystem backing `path` — the same
+/// `statvfs` sample as [`disk_used_pct`], plus the raw free-byte figure the
+/// flood-stage crossing WARN prints alongside it. Returns `(0, 0)` when
+/// `statvfs` is unavailable (the disk block never trips in that case).
+pub fn disk_used_pct_and_avail(path: &str) -> (u64, u64) {
     match disk_stats(path) {
         Some((total, avail)) if total > 0 => {
             let used = total.saturating_sub(avail);
-            ((used as u128 * 100) / total as u128) as u64
+            (((used as u128 * 100) / total as u128) as u64, avail)
         }
-        _ => 0,
+        _ => (0, 0),
     }
+}
+
+/// Parses a disk flood-stage percent override from a
+/// `cluster.routing.allocation.disk.watermark.flood_stage` cluster-settings
+/// value. Accepts the ES-style percentage string (`"95%"`), a bare numeric
+/// string (`"95"`), or a JSON number; the value is clamped to `0..=100`.
+/// Returns `None` for anything else — notably, ES's byte-size form
+/// (`"500mb"`) isn't supported, only the percentage form.
+pub fn parse_flood_stage_pct(v: &Value) -> Option<u8> {
+    let pct = match v {
+        Value::Number(n) => n.as_u64()?,
+        Value::String(s) => s
+            .trim()
+            .strip_suffix('%')
+            .unwrap_or(s.trim())
+            .parse()
+            .ok()?,
+        _ => return None,
+    };
+    Some(pct.min(100) as u8)
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1534,6 +1600,50 @@ mod tests {
         assert!(g.check_disk_block("i").is_err());
         g.refresh(0, 0, 90); // clearly recovered
         assert!(g.check_disk_block("i").is_ok());
+    }
+
+    #[test]
+    fn disk_flood_pct_override_retunes_without_restart() {
+        let mut cfg = Config::default();
+        cfg.limits.disk_flood_stage_percent = 95;
+        let g = build(&cfg);
+        g.refresh(0, 0, 96); // over the configured 95% default
+        assert!(g.check_disk_block("i").is_err());
+
+        // A runtime override raising the threshold clears the block on the
+        // next sample, the way `PUT _cluster/settings` does in ES — no
+        // restart needed. 95, not 96, to clear the raised threshold's own
+        // release-hysteresis band (release_pct = 97 - 1 = 96).
+        g.set_disk_flood_pct_override(Some(97));
+        g.refresh(0, 0, 95);
+        assert!(g.check_disk_block("i").is_ok());
+
+        // Clearing the override (`None`) reverts to the config default.
+        g.set_disk_flood_pct_override(None);
+        g.refresh(0, 0, 96);
+        assert!(g.check_disk_block("i").is_err());
+    }
+
+    #[test]
+    fn disk_flood_pct_override_is_noop_when_disabled_at_startup() {
+        let mut cfg = Config::default();
+        cfg.limits.disk_flood_stage_percent = 0; // feature off
+        let g = build(&cfg);
+        g.set_disk_flood_pct_override(Some(1)); // must not turn it on
+        g.refresh(0, 0, 99);
+        assert!(g.check_disk_block("i").is_ok());
+    }
+
+    #[test]
+    fn parse_flood_stage_pct_accepts_es_shapes() {
+        assert_eq!(parse_flood_stage_pct(&Value::from("95%")), Some(95));
+        assert_eq!(parse_flood_stage_pct(&Value::from("95")), Some(95));
+        assert_eq!(parse_flood_stage_pct(&Value::from(95)), Some(95));
+        // Clamped, not rejected, past 100.
+        assert_eq!(parse_flood_stage_pct(&Value::from("150%")), Some(100));
+        // ES's byte-size form isn't supported — no silent misinterpretation.
+        assert_eq!(parse_flood_stage_pct(&Value::from("500mb")), None);
+        assert_eq!(parse_flood_stage_pct(&Value::Null), None);
     }
 
     #[test]

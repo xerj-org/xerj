@@ -398,6 +398,19 @@ fn predicates_hold(query: &Query, m: &tree_sitter::QueryMatch, text: &str) -> bo
     })
 }
 
+/// #852: does `node` have an ancestor of the given tree-sitter kind? Used to
+/// reject captures nested inside a `compound_statement` (a function body).
+fn has_ancestor_kind(node: tree_sitter::Node, kind: &str) -> bool {
+    let mut cur = node.parent();
+    while let Some(n) = cur {
+        if n.kind() == kind {
+            return true;
+        }
+        cur = n.parent();
+    }
+    false
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
@@ -419,6 +432,17 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
                 continue; // predicate-only capture (`@_kw`), not a symbol
             }
             let node = cap.node;
+            // #852: every C++ pattern targets file/namespace/class-scope API
+            // symbols — none intends to capture a function-local definition. A
+            // type/class/struct/enum or its enumerators DEFINED INSIDE a
+            // function body (e.g. `void f(){ struct S{ enum E{A}; }; }`) still
+            // matched the unanchored `@class`/`@struct`/`@enum` patterns and the
+            // `field_declaration_list` enum-const anchor, leaking locals as
+            // symbols. tree-sitter has no negative-ancestor test, so drop any
+            // C++ capture nested under a `compound_statement` (a function body).
+            if def.name == "cpp" && has_ancestor_kind(node, "compound_statement") {
+                continue;
+            }
             let name = text.get(node.byte_range()).unwrap_or("").trim();
             if name.is_empty() || name.len() > 200 {
                 continue;
@@ -1215,6 +1239,67 @@ mod tests {
         s.iter().any(|(n, k, _, _)| n == name && k == kind)
     }
 
+    /// Opt-in extraction-throughput harness (perf analysis, NOT part of CI).
+    /// Runs the real in-process code extractor over every source file the
+    /// registry claims under a corpus dir and reports files/s + MB/s. No-op
+    /// (returns immediately) unless `XERJ_EXTRACT_BENCH` is set, so it costs the
+    /// normal test run nothing:
+    ///   `XERJ_EXTRACT_BENCH=/path/to/repo cargo test -p xerj-autoindex \
+    ///       extract_bench -- --nocapture --ignored`
+    #[test]
+    #[ignore = "opt-in perf harness; set XERJ_EXTRACT_BENCH"]
+    fn extract_bench() {
+        let Ok(root) = std::env::var("XERJ_EXTRACT_BENCH") else {
+            return;
+        };
+        let mut files: Vec<std::path::PathBuf> = Vec::new();
+        let mut stack = vec![std::path::PathBuf::from(&root)];
+        while let Some(dir) = stack.pop() {
+            let Ok(rd) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in rd.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .is_some_and(is_code_ext)
+                {
+                    files.push(p);
+                }
+            }
+        }
+        let mut total_bytes = 0u64;
+        let mut parsed = 0usize;
+        let start = std::time::Instant::now();
+        for path in &files {
+            let Ok(bytes) = std::fs::read(path) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(&bytes);
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let Some(def) = registry().iter().find(|d| d.exts.contains(&ext.as_str())) else {
+                continue;
+            };
+            let _ = parse_symbols(def, &text);
+            total_bytes += bytes.len() as u64;
+            parsed += 1;
+        }
+        let secs = start.elapsed().as_secs_f64().max(1e-9);
+        eprintln!(
+            "extract_bench: {parsed} files, {:.1} MB in {secs:.2}s -> {:.0} files/s, {:.1} MB/s",
+            total_bytes as f64 / 1e6,
+            parsed as f64 / secs,
+            total_bytes as f64 / 1e6 / secs,
+        );
+    }
+
     #[test]
     fn all_queries_compile() {
         // registry() builds every Query; a malformed query panics here.
@@ -1940,6 +2025,33 @@ mod tests {
         assert!(!has(&s, "LB", "const"), "got {s:?}");
         assert!(!has(&s, "LTA", "const"), "got {s:?}");
         assert!(!has(&s, "LVA", "const"), "got {s:?}");
+    }
+
+    /// #852: an enum that is a member of a struct/class DEFINED INSIDE a function
+    /// still matched the `field_declaration_list` enum-const anchor (and the
+    /// unanchored `@struct`/`@class` name patterns), leaking the local type's
+    /// enumerators AND its name. A `compound_statement`-ancestor post-filter
+    /// drops every C++ capture inside a function body.
+    #[test]
+    fn cpp_enum_in_function_local_type_does_not_leak() {
+        let s = syms(
+            "cpp",
+            "enum Top { TA };\n\
+             struct FileStruct { enum FE { FSA }; };\n\
+             void s() { struct LocalStruct { enum E { LSA }; }; }\n\
+             void c() { class LocalClass { enum E2 { LCA }; }; }\n",
+        );
+        // A file-scope enum and a file-scope struct's member enum stay captured,
+        // as does the file-scope struct name.
+        assert!(has(&s, "TA", "const"), "got {s:?}");
+        assert!(has(&s, "FSA", "const"), "got {s:?}");
+        assert!(has(&s, "FileStruct", "struct"), "got {s:?}");
+        // The function-local struct/class, their member enums, and those enums'
+        // values must all stay out.
+        assert!(!has(&s, "LSA", "const"), "got {s:?}");
+        assert!(!has(&s, "LCA", "const"), "got {s:?}");
+        assert!(!has(&s, "LocalStruct", "struct"), "got {s:?}");
+        assert!(!has(&s, "LocalClass", "class"), "got {s:?}");
     }
 
     #[test]

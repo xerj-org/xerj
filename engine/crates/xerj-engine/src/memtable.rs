@@ -1236,6 +1236,64 @@ impl ShardedFtsMemtable {
         self.search_text_boosted_inner(query, fields, limit, usize::MAX, field_boosts, stats)
     }
 
+    /// `dis_max` over single-field text subs, each scored through the SAME
+    /// per-field BM25 path a standalone `match` takes (#834): every
+    /// `(field, query, boost)` sub runs UNCAPPED (a doc outside one sub's
+    /// page can still win the max via another sub, and a capped sub list
+    /// would silently drop its contribution), the per-doc scores combine as
+    /// `max + tie_breaker × (Σ − max)` — mirroring the segment's
+    /// `FtsSearcher::execute_dis_max` — and only the COMBINED result is
+    /// page-key sorted and truncated to `limit`.  A doc lives in exactly
+    /// one shard, so its `seq_no` is identical across subs and the first
+    /// contributing sub's value is authoritative.
+    pub fn search_dis_max_boosted_with_total_using(
+        &self,
+        subs: &[(&str, &str, f32)],
+        tie_breaker: f32,
+        limit: usize,
+        stats: Option<&xerj_fts::CollectionStats>,
+    ) -> (Vec<MemtableHit>, u64) {
+        // Per-doc (max, sum, seq_no) accumulator over sub scores — the same
+        // f32 (max, sum) pair `execute_dis_max` keeps.
+        let acc: std::collections::HashMap<String, (f32, f32, u64)> = subs.iter().fold(
+            std::collections::HashMap::new(),
+            |acc, &(field, query, boost)| {
+                let boosts: std::collections::HashMap<String, f32> =
+                    std::iter::once((field.to_string(), boost)).collect();
+                let (hits, _) = self.search_text_boosted_inner(
+                    query,
+                    &[field],
+                    usize::MAX,
+                    usize::MAX,
+                    &boosts,
+                    stats,
+                );
+                hits.into_iter().fold(acc, |mut acc, h| {
+                    let e = acc
+                        .entry(h.doc_id)
+                        .or_insert((f32::NEG_INFINITY, 0.0, h.seq_no));
+                    if h.score > e.0 {
+                        e.0 = h.score;
+                    }
+                    e.1 += h.score;
+                    acc
+                })
+            },
+        );
+        let mut all: Vec<MemtableHit> = acc
+            .into_iter()
+            .map(|(doc_id, (max, sum, seq_no))| MemtableHit {
+                doc_id,
+                score: max + tie_breaker * (sum - max),
+                seq_no,
+            })
+            .collect();
+        sort_hits_by_page_key(&mut all);
+        let total = all.len() as u64;
+        all.truncate(limit);
+        (all, total)
+    }
+
     /// This memtable's contribution to the index-wide BM25 collection
     /// statistics (#188): per-field `FieldStats` and per-(field, term)
     /// doc_freq for the analysed `query` tokens, restricted to `fields`

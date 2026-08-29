@@ -16556,6 +16556,39 @@ impl Index {
                     let extra = total.saturating_sub(ids.len() as u64);
                     MemSnapshot::AllDocIds(ids, extra)
                 }
+            } else if let Some((dm_subs, dm_tie)) = dis_max_mem_fts_subs(query) {
+                // #834: a `dis_max` of single-field text `match` subs used
+                // to fall through to the stored-doc scan, whose scorer has
+                // no DisMax arm — every buffered match took the flat-1.0
+                // catch-all, so a doc matching MORE disjuncts tied with
+                // single-disjunct docs and the ranking changed at flush.
+                // Score each sub through the SAME memtable BM25 path a
+                // standalone `match` takes and combine per doc as
+                // max + tie_breaker·Σ(rest), mirroring the segment's
+                // `execute_dis_max`.  GHOST WINDOW: same complete-hit-list
+                // widening as the single-`Match` arm below — the consume
+                // arm's liveness filter needs every hit.
+                let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                    usize::MAX
+                } else {
+                    fetch_limit
+                };
+                let mem_stats = collection_stats();
+                let (hits, mem_total) = mem.search_dis_max_boosted_with_total_using(
+                    &dm_subs,
+                    dm_tie,
+                    mem_limit,
+                    mem_stats.as_deref(),
+                );
+                if hits.is_empty() {
+                    MemSnapshot::Empty
+                } else {
+                    let uncollected = mem_total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::FtsHits(
+                        hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                        uncollected,
+                    )
+                }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
                 // `try_doc_values_query` because the DV-term path walks
@@ -23425,18 +23458,22 @@ impl Index {
                 value,
                 max_edits,
                 case_insensitive,
+                prefix_length,
                 ..
             } => {
                 // #423/#406: case-sensitive keyword fuzzy (the ES default)
                 // compares the RAW term; case_insensitive folds both sides.
                 let ci = *case_insensitive;
+                let pl = *prefix_length;
                 let q_ref = if ci {
                     value.to_lowercase()
                 } else {
                     value.clone()
                 };
                 let term_matches = |cmp: &str| -> bool {
-                    if levenshtein_distance(cmp, &q_ref) <= *max_edits {
+                    if fuzzy_prefix_ok(cmp, &q_ref, pl)
+                        && levenshtein_distance(cmp, &q_ref) <= *max_edits
+                    {
                         return true;
                     }
                     // #423/#406: the sub-token fallback is a FOLD-path leniency
@@ -23454,7 +23491,10 @@ impl Index {
                     }
                     cmp.split(|c: char| !c.is_alphanumeric())
                         .filter(|t| !t.is_empty())
-                        .any(|tok| levenshtein_distance(tok, &q_ref) <= *max_edits)
+                        .any(|tok| {
+                            fuzzy_prefix_ok(tok, &q_ref, pl)
+                                && levenshtein_distance(tok, &q_ref) <= *max_edits
+                        })
                 };
                 let mut map: HashMap<String, (usize, u64)> = HashMap::new();
                 for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
@@ -35526,11 +35566,13 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => QueryNode::Fuzzy {
             field: strip(field),
             value: value.clone(),
             fuzziness: *fuzziness,
             case_insensitive: *case_insensitive,
+            prefix_length: *prefix_length,
         },
         QueryNode::Regexp { field, pattern } => QueryNode::Regexp {
             field: strip(field),
@@ -36620,6 +36662,49 @@ fn extract_query_text(q: &QueryNode) -> Option<String> {
         }
         QueryNode::QueryString { query, .. } => Some(query.clone()),
         // MultiMatch and MatchPhrase are handled by doc scanning (is_doc_scan_query).
+        _ => None,
+    }
+}
+
+/// The per-sub `(field, query, boost)` triples and the `tie_breaker` of a
+/// `dis_max` whose EVERY sub is a single-field `Match` the memtable BM25
+/// path can score — the same shapes the standalone-`Match` FTS arm serves,
+/// minus the carve-outs `is_doc_scan_query` routes to the doc-scan
+/// (wildcard field, `operator: and`, `minimum_should_match`, date-shaped
+/// query text).  Any other sub shape answers `None` so the query keeps its
+/// existing doc-scan route — in particular the keyword-rewrite
+/// `DisMax{[Term, MultiMatch]}` shape (#572) stays untouched: those subs
+/// score through paths this arm cannot reproduce, and changing only the
+/// combine step would move that query's score without moving its
+/// standalone sub scores.
+fn dis_max_mem_fts_subs(q: &QueryNode) -> Option<(Vec<(&str, &str, f32)>, f32)> {
+    match q {
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } if !queries.is_empty() => queries
+            .iter()
+            .map(|sub| match sub {
+                QueryNode::Match {
+                    field,
+                    query,
+                    operator,
+                    minimum_should_match,
+                    boost,
+                    ..
+                } if field != "*"
+                    && !field.ends_with('*')
+                    && !matches!(operator, xerj_query::ast::BoolOperator::And)
+                    && minimum_should_match.is_none()
+                    && !(crate::aggs::parse_date_ms(&Value::String(query.clone())).is_some()
+                        && query.chars().any(|c| c == '-' || c == '/' || c == 'T')) =>
+                {
+                    Some((field.as_str(), query.as_str(), boost.unwrap_or(1.0)))
+                }
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|subs| (subs, *tie_breaker)),
         _ => None,
     }
 }
@@ -38221,11 +38306,13 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             value: query_value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(query_value),
                 Fuzziness::Fixed(n) => *n as usize,
             };
+            let prefix_length = *prefix_length;
             // ES's Fuzzy query matches at the TERM level with an UNANALYZED
             // query term. For keyword fields the indexed term is the whole
             // field value, so first compare the full string against the query —
@@ -38246,16 +38333,22 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             let q_lower = query_value.to_lowercase();
             let token_match = |s: &str| -> bool {
                 if keyword_case_sensitive {
-                    return levenshtein_distance(s, query_value.as_str()) <= max_edits;
+                    return fuzzy_prefix_ok(s, query_value.as_str(), prefix_length)
+                        && levenshtein_distance(s, query_value.as_str()) <= max_edits;
                 }
                 let s_lower = s.to_lowercase();
-                if levenshtein_distance(&s_lower, &q_lower) <= max_edits {
+                if fuzzy_prefix_ok(&s_lower, &q_lower, prefix_length)
+                    && levenshtein_distance(&s_lower, &q_lower) <= max_edits
+                {
                     return true;
                 }
                 s_lower
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|t| !t.is_empty())
-                    .any(|tok| levenshtein_distance(tok, &q_lower) <= max_edits)
+                    .any(|tok| {
+                        fuzzy_prefix_ok(tok, &q_lower, prefix_length)
+                            && levenshtein_distance(tok, &q_lower) <= max_edits
+                    })
             };
             get_field_value(source, field)
                 .and_then(|v| match v {
@@ -39936,6 +40029,49 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             let tokens = intervals_tokenise(&text);
             let dl = tokens.len().max(1) as f32;
             1.0 / dl.sqrt()
+        }
+        // #836: a (lexical) nested query rolls the matching CHILDREN's scores
+        // into the parent score per `score_mode` (ES default `avg`), instead of
+        // a flat 1.0. Mirrors the Nested matching arm: strip the path prefix so
+        // the inner query resolves against a child object, score each MATCHING
+        // child, then combine. Same source-based path on memtable and segment,
+        // so the ranking is flush-invariant.
+        QueryNode::Nested {
+            path,
+            query,
+            score_mode,
+        } => {
+            let inner = strip_nested_path_in_query(query, path);
+            let child_scores: Vec<f32> = match get_field_value(source, path) {
+                Some(Value::Array(arr)) => arr
+                    .iter()
+                    .filter(|elem| doc_matches_query_typed(&inner, elem, schema))
+                    .map(|elem| score_query_against_doc(&inner, elem, schema))
+                    .collect(),
+                Some(elem @ Value::Object(_)) => {
+                    if doc_matches_query_typed(&inner, &elem, schema) {
+                        vec![score_query_against_doc(&inner, &elem, schema)]
+                    } else {
+                        Vec::new()
+                    }
+                }
+                _ => Vec::new(),
+            };
+            if child_scores.is_empty() {
+                return 0.0;
+            }
+            match score_mode.as_deref().unwrap_or("avg") {
+                "max" => child_scores
+                    .iter()
+                    .copied()
+                    .fold(f32::NEG_INFINITY, f32::max),
+                "min" => child_scores.iter().copied().fold(f32::INFINITY, f32::min),
+                "sum" => child_scores.iter().sum(),
+                // `none`: children scores are ignored — keep the flat contribution.
+                "none" => 1.0,
+                // `avg` (ES default) and any unrecognised mode.
+                _ => child_scores.iter().sum::<f32>() / child_scores.len() as f32,
+            }
         }
         other => {
             if doc_matches_query_typed(other, source, schema) {
@@ -41716,6 +41852,21 @@ fn wildcard_match_inner(text: &[char], pattern: &[char]) -> bool {
     }
 }
 
+/// #848: ES `prefix_length` guard — the first `prefix_length` characters of the
+/// query and a candidate term must be IDENTICAL (not subject to edits) before
+/// Levenshtein distance is consulted. `prefix_length == 0` (ES default) imposes
+/// no constraint. Compare the SAME (already case-folded, where applicable)
+/// strings that the distance call uses. Kept in lock-step with the copy in
+/// `xerj-fts/src/search.rs`.
+#[inline]
+fn fuzzy_prefix_ok(candidate: &str, query: &str, prefix_length: usize) -> bool {
+    prefix_length == 0
+        || candidate
+            .chars()
+            .take(prefix_length)
+            .eq(query.chars().take(prefix_length))
+}
+
 /// Compute Levenshtein edit distance between two strings.
 fn levenshtein_distance(a: &str, b: &str) -> usize {
     // Damerau-Levenshtein (with transposition) — ES `fuzzy` queries default
@@ -43061,6 +43212,7 @@ fn query_node_to_fts_with_keyword_fields(
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } => {
             // `fuzzy` on a KEYWORD field: expand the keyword FST term dictionary
             // to every term within `max_edits` Damerau-Levenshtein distance and
@@ -43085,6 +43237,7 @@ fn query_node_to_fts_with_keyword_fields(
                     // keyword FST route is case-SENSITIVE (ES default); a
                     // query_string/term-ci fuzzy sets it true and keeps folding.
                     case_insensitive: *case_insensitive,
+                    prefix_length: *prefix_length,
                 }));
             }
             // TEXT field: expand the term dictionary within `max_edits`
@@ -43104,6 +43257,7 @@ fn query_node_to_fts_with_keyword_fields(
                     max_edits,
                     boost: 1.0,
                     case_insensitive: false,
+                    prefix_length: *prefix_length,
                 }));
             }
             None
@@ -43798,6 +43952,8 @@ enum ScoredPlan {
         /// #423/#406: fold both sides when true; case-sensitive raw-term match
         /// when false (standalone keyword fuzzy, ES default).
         case_insensitive: bool,
+        /// #848: leading characters that must match exactly (ES default 0).
+        prefix_length: usize,
     },
 }
 
@@ -44407,6 +44563,7 @@ fn scored_fast_plan(
             value,
             fuzziness,
             case_insensitive,
+            prefix_length,
         } if fs.kw.contains(field) => {
             let max_edits = match fuzziness {
                 Fuzziness::Auto => auto_fuzziness(value),
@@ -44418,6 +44575,7 @@ fn scored_fast_plan(
                 max_edits,
                 boost: 1.0,
                 case_insensitive: *case_insensitive,
+                prefix_length: *prefix_length,
             })
         }
         // Filter-only bool: ES scores filter context 0.0 (the brute path's
@@ -46335,6 +46493,7 @@ mod fts_projection_tests {
             value: "runbok".into(),
             fuzziness: Fuzziness::Fixed(1),
             case_insensitive: false,
+            prefix_length: 0,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text fuzzy projects") {
             FtsQuery::Fuzzy(f) => {

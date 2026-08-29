@@ -117,6 +117,34 @@ jobs:
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
 
+  # #474: the rc.18 release PR (#460) shipped three note-vs-tree contradictions
+  # with the branch 16/16 green every time - a fix credited with more than it
+  # did (#361), ROADMAP.md contradicting the CHANGELOG in the same commit, and
+  # a note reverted by a later merge in the same release (#472 vs #457). The
+  # notes were cut at time T and described main at time T; main kept moving and
+  # nothing re-checked the notes at merge time. This job re-checks them on
+  # every push to a release/* PR: ROADMAP/CHANGELOG issue states against the
+  # live tracker, merge coverage since the previous tag, and freshness against
+  # the base. It checks out the PR HEAD, not the merge ref, because on the
+  # merge ref "behind base" is unobservable by construction.
+  release-notes-gate:
+    name: Release notes match the tree
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Notes vs tree (#474)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: origin/${{ github.base_ref }}
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          bash .github/scripts/release-notes-gate.sh
+
   lint:
     name: Format + Clippy
     runs-on: ubuntu-latest
@@ -269,13 +297,16 @@ jobs:
     # bounds the one documented hang (step 6, default parallelism) precisely and
     # fast. This job-level cap is defense-in-depth: it bounds ANY hang in the job
     # (setup, cache, a future test race the step timeout would not cover) to
-    # 50 min instead of the 6h default. It is deliberately generous because
+    # 60 min instead of the 6h default. It is deliberately generous because
     # step 5 (build + threads=2 tests) can legitimately take ~36 min on a loaded
     # 2-4 vCPU runner — a slow compile, not a hang (measured: step 5 built for
     # ~36 min then step 6 ran and passed) — so a tighter cap would false-fail
-    # slow-but-healthy runs. Neither cap fixes the root race (#751 stays open for
-    # the bisect + port/fixture serialisation).
-    timeout-minutes: 50
+    # slow-but-healthy runs. #770 measured the legitimate worst case at ~43-46 min
+    # against the old 50-min cap (setup + ~36-min step 5 + ~2.3-min step 6 +
+    # cache-save) — too thin a margin on a loaded runner — so this was bumped to
+    # 60 min. Neither cap fixes the root race (#751 stays open for the bisect +
+    # port/fixture serialisation).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 

@@ -349,6 +349,24 @@ than left out. Results, methodology and the harness are at
 [`demo/playbooks`](./demo/playbooks), so you can rerun them yourself. Treat any number you
 cannot reproduce with skepticism, including ours.
 
+### Code indexing
+
+Source files are parsed with tree-sitter and indexed AST-aware — symbols plus full text — so an
+agent retrieves a function, not a line. On an Apache Lucene checkout (6,113 source files, 51 MB)
+single-threaded in-process extraction runs at **~1,500 files/s (13 MB/s)**; the tree-sitter
+parse is ~72% of that and is the per-file floor. Reproduce it with:
+
+```sh
+XERJ_EXTRACT_BENCH=/path/to/repo cargo test -p xerj-autoindex --release \
+  extract_bench -- --nocapture --ignored
+```
+
+Re-indexing is **incremental**: a file whose content is byte-identical to the last indexed
+generation skips the parse entirely and carries its committed result forward, so a re-run after
+editing a handful of files does work proportional to what changed, not to the whole repo — the
+common edit-and-rerun / CI case, typically over 95% unchanged. The full content hash still runs
+to detect changes, so total re-index time is floored by hashing, not parsing.
+
 ## Build from source
 
 You need a stable Rust toolchain.

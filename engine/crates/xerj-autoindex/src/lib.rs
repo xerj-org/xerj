@@ -340,9 +340,35 @@ fn project_reconcile_plan(
         inventory
             .files
             .par_iter()
+            .zip(inventory.keys.par_iter())
             .zip(inventory.digests.par_iter())
-            .map(|(file, digest)| {
+            .map(|((file, content_id), digest)| {
                 let _in_flight = pr.file(&file.rel, file.size);
+                // Incremental re-index fast path: a file whose content is
+                // byte-identical to the committed generation (its content_id is
+                // present AND its freshly-hashed digest matches the committed
+                // one) needs no fresh scan — `reconcile_plan` carries the
+                // committed assignment forward untouched. The tree-sitter parse
+                // is the dominant per-file cost, so skipping it turns an
+                // unchanged re-index from O(corpus) into O(changed). Correctness
+                // authority is the identical digest check in `reconcile_plan`:
+                // if this ever skipped a *changed* file, that fast path declines
+                // and the run fails closed on empty sketches rather than
+                // carrying stale docs forward.
+                let unchanged = base_plan
+                    .files
+                    .get(content_id.as_str())
+                    .and_then(|o| o.content_digest.as_deref())
+                    == Some(digest.as_str());
+                if unchanged {
+                    return FileScan {
+                        sniffed: None,
+                        sketches: Vec::new(),
+                        junk: None,
+                        pdf_spool: None,
+                        pdf_spool_fallbacks: Vec::new(),
+                    };
+                }
                 scan_file(
                     &file.path,
                     file.size,
@@ -1330,6 +1356,13 @@ struct PhaseAContext<'a> {
     meter: &'a estimate::Meter,
 }
 
+/// Count of files that actually ran the Phase-A scan/parse. The incremental
+/// re-index fast path skips this for byte-identical files, so a test can assert
+/// that an unchanged re-run parses zero files. `Relaxed` — a single counter per
+/// scanned file, negligible against the parse it guards.
+pub(crate) static SCAN_FILE_PARSED: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
 fn scan_file(
     path: &Path,
     size: u64,
@@ -1339,6 +1372,7 @@ fn scan_file(
     max_file_gb: u64,
     stub: bool,
 ) -> FileScan {
+    SCAN_FILE_PARSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let state_dir = ctx.state_dir;
     let pdf_spool_budget = ctx.budget;
     let mut out = FileScan {

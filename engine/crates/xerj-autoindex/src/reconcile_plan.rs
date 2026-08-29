@@ -107,6 +107,41 @@ pub(crate) fn reconcile_plan(
         .zip(&inventory.digests)
         .zip(scans)
     {
+        // Incremental fast path: content byte-identical to the committed plan
+        // (content_id present AND its freshly-hashed digest matches the
+        // committed one) carries its committed assignment forward verbatim — no
+        // fresh scan required. This is the correctness authority for the
+        // scan-skip in `project_reconcile_plan`: because the digest is the hash
+        // of the CURRENT bytes, a match proves byte identity; a changed file
+        // whose scan was (wrongly) skipped mismatches here, falls through to the
+        // normal path, and fails closed on empty sketches rather than carrying
+        // stale docs forward. A legacy plan without a committed digest
+        // (`content_digest: None`) never matches, so it re-scans safely.
+        if let Some(owner) = previous.files.get(content_id) {
+            if owner.content_digest.as_deref() == Some(content_digest.as_str()) {
+                let mut assignments = owner.assignments.clone();
+                assignments.sort();
+                assignments.dedup();
+                let replaced = files.insert(
+                    content_id.clone(),
+                    FileAssignment {
+                        rel: file.rel.clone(),
+                        path_id: file.rel_id.clone(),
+                        is_symlink: Some(file.is_symlink),
+                        family: owner.family.clone(),
+                        gzip: owner.gzip,
+                        content_digest: Some(content_digest.clone()),
+                        assignments,
+                        as_document: owner.as_document,
+                    },
+                );
+                anyhow::ensure!(
+                    replaced.is_none(),
+                    "byte-verified inventory contains duplicate content identity {content_id}"
+                );
+                continue;
+            }
+        }
         if let Some((status, reason)) = scan.junk {
             junk_files.push(JunkFile {
                 file_key: content_id.clone(),
