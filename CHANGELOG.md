@@ -96,6 +96,149 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   field named in either still sorts silently wrong rather than erroring.
   Tracked as a follow-up.
 
+## [1.0.0-rc.71] - 2026-08-29
+
+An Elasticsearch-compatibility correctness release: query, aggregation, API and
+autoindex semantics defects, a ~100x incremental re-index, and two metrics
+counters that had been registered but never incremented.
+
+Note on scope: releases rc.19 through rc.70 shipped without CHANGELOG sections.
+This entry covers only rc.70..rc.71 and does not attempt to reconstruct that
+gap. The three entries still under `[Unreleased]` above describe work that
+shipped in rc.70 or earlier and are deliberately left there rather than
+silently reattributed.
+
+### Fixed — query semantics
+
+- **`match` honors `minimum_should_match`** ([#832](https://github.com/xerj-org/xerj/issues/832)).
+  It was ignored outright, so every `match` behaved as a pure OR.
+- **`minimum_should_match` honors negative and combination specs**
+  ([#846](https://github.com/xerj-org/xerj/issues/846)). `-2`, `-25%` and
+  `"3<90%"` now resolve against the should-clause count instead of degrading to
+  OR. The `MinShouldMatch` `Serialize` impl is now hand-written: an untagged
+  derive emitted `Negative(2)`, `Percentage(2)` and `Fixed(2)` all as the bare
+  number `2`, so the query cache — which hashes the serialized request —
+  conflated three semantically different queries into one entry
+  ([#860](https://github.com/xerj-org/xerj/issues/860)).
+- **`dis_max` over memtable documents scores through the real per-field BM25
+  path** ([#834](https://github.com/xerj-org/xerj/issues/834)). Buffered matches
+  took a flat-1.0 catch-all, so a document matching more disjuncts tied with
+  single-disjunct documents and the ranking changed at flush.
+- **A `nested` query scores parents by the child `score_mode`**
+  ([#836](https://github.com/xerj-org/xerj/issues/836)) — `avg` (the ES default),
+  `max`, `min`, `sum`, `none` — instead of contributing a flat 1.0.
+- **`fuzzy` and `match` honor `prefix_length`**
+  ([#848](https://github.com/xerj-org/xerj/issues/848)), on the doc-scan and
+  segment paths and through nested-path rewriting.
+- **A `must_not`-only `bool` no longer projects to a pure-negative FTS bool**
+  ([#797](https://github.com/xerj-org/xerj/issues/797)).
+- **A `term` on a date field matches by instant across every path**
+  ([#788](https://github.com/xerj-org/xerj/issues/788)), and `terms` on date/ip
+  fields normalizes values the same way a single `term` does
+  ([#799](https://github.com/xerj-org/xerj/issues/799),
+  [#801](https://github.com/xerj-org/xerj/issues/801)).
+- **`exists` requires a non-null value, not merely key presence**
+  ([#792](https://github.com/xerj-org/xerj/issues/792)).
+- **A keyword `prefix`/`wildcard` inside `bool.must_not` stays case-sensitive
+  after flush** ([#794](https://github.com/xerj-org/xerj/issues/794)).
+- **A CIDR `term` survives flush** — rewritten to a range on an `ip` field
+  ([#782](https://github.com/xerj-org/xerj/issues/782)) and routed to the source
+  scan when schemaless ([#786](https://github.com/xerj-org/xerj/issues/786)).
+- **`function_score` per-function filters are schema-aware**
+  ([#802](https://github.com/xerj-org/xerj/issues/802)) — the last schemaless
+  `doc_matches_query` caller in production code.
+- **`sort` on a multi-valued field reduces to a min/max representative**
+  ([#826](https://github.com/xerj-org/xerj/issues/826)).
+
+### Fixed — aggregations
+
+- **Metric aggregations fold ALL values of a multi-valued field**
+  ([#842](https://github.com/xerj-org/xerj/issues/842)), instead of the first.
+- **`terms` `include`/`exclude` regexes are fully anchored**
+  ([#837](https://github.com/xerj-org/xerj/issues/837)) — they matched as
+  substrings.
+- **`terms` bucket keys are typed by the field's source shape, not by content**
+  ([#864](https://github.com/xerj-org/xerj/issues/864)). A keyword value that
+  merely looks numeric (`"007"`) stayed a string instead of being coerced to 7.
+- **`terms` `_key` ordering is numeric on numeric fields**
+  ([#839](https://github.com/xerj-org/xerj/issues/839)).
+- **`missing` counts empty and only-null arrays as missing**
+  ([#844](https://github.com/xerj-org/xerj/issues/844)) and resolves presence
+  via the `exists` resolver ([#847](https://github.com/xerj-org/xerj/issues/847)).
+- **`filters` supports `other_bucket` / `other_bucket_key`**
+  ([#856](https://github.com/xerj-org/xerj/issues/856)).
+
+### Fixed — API
+
+- **`mget` honors a per-item `_source`**
+  ([#855](https://github.com/xerj-org/xerj/issues/855)) — `false`, an includes
+  list, or `{"includes":[..],"excludes":[..]}`.
+- **`GET /_doc` `_source_includes`/`_source_excludes` honor nested paths**
+  ([#850](https://github.com/xerj-org/xerj/issues/850)).
+- **`_field_caps` `fields` filtering honors full globs**
+  ([#853](https://github.com/xerj-org/xerj/issues/853)).
+- **A partial `_update` deep-merges nested objects**
+  ([#821](https://github.com/xerj-org/xerj/issues/821)) — it was shallow and
+  dropped sibling keys.
+
+### Fixed — autoindex
+
+- **C++ symbols defined inside a function body are no longer indexed**
+  ([#852](https://github.com/xerj-org/xerj/issues/852)) — a function-local
+  `struct`/`class` and its enumerators leaked as file-scope API symbols.
+- **Top-level constants are indexed as symbols across 7 languages**
+  ([#500](https://github.com/xerj-org/xerj/issues/500)).
+
+### Fixed — observability
+
+- **`xerj_bytes_written_total` is wired to the flush and merge segment writes**
+  ([#804](https://github.com/xerj-org/xerj/issues/804)) and
+  **`xerj_bytes_read_total` to validated segment opens**
+  ([#819](https://github.com/xerj-org/xerj/issues/819)). Both counters were
+  registered but never incremented, so each read a flat zero regardless of load.
+- **The disk flood-stage log reports free space, and the watermark can be
+  retuned at runtime** ([#823](https://github.com/xerj-org/xerj/issues/823))
+  via `PUT _cluster/settings`, matching ES's recovery flow without a restart. An
+  override cannot enable the watermark when it is disabled in config.
+
+### Performance
+
+- **Incremental re-index skips the Phase-A parse for byte-identical files**
+  ([#868](https://github.com/xerj-org/xerj/issues/868)). The tree-sitter parse
+  is ~72% of extraction cost (~57 ns/byte, measured), and an unchanged re-index
+  re-parsed the whole corpus to rebuild sketches. Gating on the committed
+  content digest turns that from O(corpus) into O(changed) — roughly 100x on the
+  edit-and-rerun and CI paths. The digest check in `reconcile_plan` remains the
+  correctness authority: a changed file whose scan was wrongly skipped
+  mismatches there and fails closed rather than carrying stale documents.
+
+  Known limitation: the fast path is keyed on file content only. It carries no
+  extractor version, so upgrading to a release that extracts *more* symbols does
+  not re-extract unchanged files until their content changes.
+
+### Changed
+
+- **Release PRs are gated on their notes matching the tree**
+  ([#474](https://github.com/xerj-org/xerj/issues/474)) — issue states against
+  the live tracker, merge coverage since the previous tag, and freshness against
+  the base.
+- **The Build+Test job timeout is 60 minutes** (was 50)
+  ([#770](https://github.com/xerj-org/xerj/issues/770)). This is defense in
+  depth, not a fix: [#751](https://github.com/xerj-org/xerj/issues/751), the
+  intermittent hang in the default-parallelism workspace test step, is still
+  open and still bounded by that step's own 12-minute cap.
+- **`llms.txt` no longer hardcodes the current release version**
+  ([#796](https://github.com/xerj-org/xerj/pull/796)) — it drifted behind every
+  release and handed agents the wrong version.
+
+### Documentation
+
+- The reference-coding case study's charts are rebuilt as vertical comparison
+  bars, and its colours now resolve in both themes (the page referenced CSS
+  variables that do not exist, so every chart fell back to night-only values).
+- `match_phrase` `slop` is documented as in-order only, not transpositions
+  ([#830](https://github.com/xerj-org/xerj/issues/830)).
+
 ## [1.0.0-rc.18] - 2026-08-18
 
 ### Security
