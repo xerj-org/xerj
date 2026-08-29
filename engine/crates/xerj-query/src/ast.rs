@@ -90,7 +90,12 @@ pub enum Fuzziness {
 ///
 /// Not `Copy`/`Eq` because the `Script` variant carries an owned source
 /// string and a free-form params object (`serde_json::Value` is not `Eq`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// NOTE: `Serialize` is HAND-WRITTEN below (not derived). The query cache hashes
+// the serialized request (index.rs `body_hash`), and an untagged derive would
+// serialize `Negative(2)`/`Percentage(2)` as the bare number `2` — identical to
+// `Fixed(2)` — conflating semantically different specs into one cache entry
+// (#860). The manual impl gives every spec a distinct wire form.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum MinShouldMatch {
     /// Exact number of `should` clauses that must match.
@@ -99,6 +104,18 @@ pub enum MinShouldMatch {
     /// `>100` requires more matches than there are clauses, so the clause set
     /// is unsatisfiable (the parser applies no upper cap).
     Percentage(u32),
+    /// #846: negative integer `-N` — `required = should_count - N` (floored at
+    /// 0). Stores the absolute value `N`. e.g. `-1` requires all-but-one.
+    Negative(u32),
+    /// #846: negative percentage `-P%` — `required = should_count -
+    /// floor(should_count * P/100)`. Stores `P`. Distinct from `Percentage`
+    /// because the two round differently (ES treats "at most P% may be
+    /// missing", not "P% must match").
+    NegativePercentage(u32),
+    /// #846: combination spec `pivot<spec [pivot<spec ...]` — the spec of the
+    /// highest pivot strictly below `should_count` applies; if `should_count`
+    /// is `<=` every pivot, all clauses are required.
+    Combination(Vec<CombCond>),
     /// `terms_set.minimum_should_match_field`: the required count is read
     /// per-document from this numeric field.
     Field(String),
@@ -109,6 +126,109 @@ pub enum MinShouldMatch {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         params: Option<serde_json::Value>,
     },
+}
+
+/// One `pivot<spec` condition of a [`MinShouldMatch::Combination`] spec.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CombCond {
+    /// If `should_count > pivot`, this condition's `spec` is a candidate.
+    pub pivot: u32,
+    /// The spec to apply (a `Fixed`, `Percentage`, `Negative`, or
+    /// `NegativePercentage` — never nested `Combination`/`Field`/`Script`).
+    pub spec: Box<MinShouldMatch>,
+}
+
+impl MinShouldMatch {
+    /// Resolve the concrete required `should`-clause count against the number of
+    /// `should` clauses (`should_count`), applying ES `minimum_should_match`
+    /// semantics. Returns `None` for the per-document `Field`/`Script` variants,
+    /// which the caller must resolve against each document.
+    pub fn required(&self, should_count: usize) -> Option<usize> {
+        let n = should_count;
+        match self {
+            MinShouldMatch::Fixed(k) => Some(*k as usize),
+            // floor(n * pct/100), min 1 — matches the legacy resolver.
+            MinShouldMatch::Percentage(pct) => {
+                Some(((n as f32) * (*pct as f32 / 100.0)).floor().max(1.0) as usize)
+            }
+            // required = n - k, floored at 0.
+            MinShouldMatch::Negative(k) => Some(n.saturating_sub(*k as usize)),
+            // required = n - floor(n * pct/100).
+            MinShouldMatch::NegativePercentage(pct) => {
+                let missing = ((n as f32) * (*pct as f32 / 100.0)).floor() as usize;
+                Some(n.saturating_sub(missing))
+            }
+            // The applicable condition is the one with the HIGHEST pivot that is
+            // still strictly below `n`; if `n <= every pivot`, all are required.
+            MinShouldMatch::Combination(conds) => {
+                let applicable = conds
+                    .iter()
+                    .filter(|c| (c.pivot as usize) < n)
+                    .max_by_key(|c| c.pivot)
+                    .map(|c| c.spec.as_ref());
+                match applicable {
+                    Some(spec) => spec.required(n),
+                    None => Some(n),
+                }
+            }
+            MinShouldMatch::Field(_) | MinShouldMatch::Script { .. } => None,
+        }
+    }
+
+    /// The canonical ES string spelling of a SCALAR spec (`Fixed`/`Percentage`/
+    /// `Negative`/`NegativePercentage`). Used inside `Combination` and by the
+    /// custom `Serialize` so distinct specs never share a wire form. `None` for
+    /// the non-scalar `Combination`/`Field`/`Script`.
+    fn spec_token(&self) -> Option<String> {
+        match self {
+            MinShouldMatch::Fixed(n) => Some(n.to_string()),
+            MinShouldMatch::Percentage(p) => Some(format!("{p}%")),
+            MinShouldMatch::Negative(n) => Some(format!("-{n}")),
+            MinShouldMatch::NegativePercentage(p) => Some(format!("-{p}%")),
+            _ => None,
+        }
+    }
+}
+
+impl Serialize for MinShouldMatch {
+    // Distinct wire form per spec so the request hash (query cache) never
+    // conflates two specs (#860). Only feeds the opaque cache hash — no client
+    // response echoes this — so the exact spelling is free to choose.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            // A plain count stays a JSON number.
+            MinShouldMatch::Fixed(n) => serializer.serialize_u32(*n),
+            // Percentage / negative / negative-% serialize as their distinct ES
+            // string spelling ("50%", "-1", "-25%") — NOT bare numbers.
+            MinShouldMatch::Percentage(_)
+            | MinShouldMatch::Negative(_)
+            | MinShouldMatch::NegativePercentage(_) => {
+                serializer.serialize_str(&self.spec_token().expect("scalar spec has a token"))
+            }
+            // Combination as its "pivot<spec ..." spelling.
+            MinShouldMatch::Combination(conds) => {
+                let s = conds
+                    .iter()
+                    .map(|c| format!("{}<{}", c.pivot, c.spec.spec_token().unwrap_or_default()))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                serializer.serialize_str(&s)
+            }
+            MinShouldMatch::Field(f) => serializer.serialize_str(f),
+            MinShouldMatch::Script { source, params } => {
+                use serde::ser::SerializeMap;
+                let mut m = serializer.serialize_map(None)?;
+                m.serialize_entry("source", source)?;
+                if let Some(p) = params {
+                    m.serialize_entry("params", p)?;
+                }
+                m.end()
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

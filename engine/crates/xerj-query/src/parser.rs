@@ -838,17 +838,9 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                 .as_deref(),
             Some("and")
         );
-        let mm_ms = obj.get("minimum_should_match").and_then(|v| match v {
-            Value::Number(n) => n.as_u64().map(|i| MinShouldMatch::Fixed(i as u32)),
-            Value::String(s) => {
-                if let Some(p) = s.strip_suffix('%') {
-                    p.parse::<u32>().ok().map(MinShouldMatch::Percentage)
-                } else {
-                    s.parse::<u32>().ok().map(MinShouldMatch::Fixed)
-                }
-            }
-            _ => None,
-        });
+        let mm_ms = obj
+            .get("minimum_should_match")
+            .and_then(|v| parse_min_should_match(v).ok());
         let fuzziness_opt = obj.get("fuzziness").map(|v| match v {
             Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
             Value::String(s) => s
@@ -2397,17 +2389,9 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
         .unwrap_or("or")
         .to_lowercase();
 
-    let mm: Option<MinShouldMatch> = obj.get("minimum_should_match").and_then(|v| match v {
-        Value::Number(n) => n.as_u64().map(|i| MinShouldMatch::Fixed(i as u32)),
-        Value::String(s) => {
-            if let Some(stripped) = s.strip_suffix('%') {
-                stripped.parse::<u32>().ok().map(MinShouldMatch::Percentage)
-            } else {
-                s.parse::<u32>().ok().map(MinShouldMatch::Fixed)
-            }
-        }
-        _ => None,
-    });
+    let mm: Option<MinShouldMatch> = obj
+        .get("minimum_should_match")
+        .and_then(|v| parse_min_should_match(v).ok());
 
     // Tokenize the query: split on whitespace; leading +/-/| signal per-term operators.
     let mut must: Vec<QueryNode> = Vec::new();
@@ -3399,33 +3383,73 @@ fn qerr(msg: impl Into<String>) -> QueryError {
 /// Parse a `minimum_should_match` value.
 fn parse_min_should_match(v: &Value) -> Result<MinShouldMatch> {
     match v {
+        // #846: a negative JSON integer (`-1`) is "all but N", not an error.
         Value::Number(n) => {
-            let i = n
-                .as_u64()
-                .ok_or_else(|| qerr("`minimum_should_match` must be non-negative"))?;
-            Ok(MinShouldMatch::Fixed(i as u32))
-        }
-        Value::String(s) => {
-            let s = s.trim();
-            if let Some(pct) = s.strip_suffix('%') {
-                let pct: i64 = pct.trim().parse().map_err(|_| {
-                    qerr(format!("invalid `minimum_should_match` percentage: `{s}`"))
-                })?;
-                let pct = if pct < 0 {
-                    (100 + pct).max(0) as u32
-                } else {
-                    pct as u32
-                };
-                Ok(MinShouldMatch::Percentage(pct))
+            if let Some(i) = n.as_u64() {
+                Ok(MinShouldMatch::Fixed(i as u32))
+            } else if let Some(neg) = n.as_i64().filter(|x| *x < 0) {
+                Ok(MinShouldMatch::Negative(neg.unsigned_abs() as u32))
             } else {
-                let n: u32 = s
-                    .parse()
-                    .map_err(|_| qerr(format!("invalid `minimum_should_match` value: `{s}`")))?;
-                Ok(MinShouldMatch::Fixed(n))
+                Err(qerr("`minimum_should_match` must be an integer"))
             }
         }
+        Value::String(s) => parse_min_should_match_str(s.trim()),
         _ => invalid("`minimum_should_match` must be a number or string"),
     }
+}
+
+/// Parse the string spelling of `minimum_should_match`: a plain or negative
+/// integer, a plain or negative percentage, or a `pivot<spec [pivot<spec ...]`
+/// combination (#846). Combination specs recurse (their `spec` is any of the
+/// non-combination forms).
+fn parse_min_should_match_str(s: &str) -> Result<MinShouldMatch> {
+    let s = s.trim();
+    // Combination: whitespace-separated `pivot<spec` conditions.
+    if s.contains('<') {
+        let mut conds = Vec::new();
+        for tok in s.split_whitespace() {
+            let (pivot, spec) = tok.split_once('<').ok_or_else(|| {
+                qerr(format!("invalid `minimum_should_match` combination: `{s}`"))
+            })?;
+            let pivot: u32 = pivot
+                .trim()
+                .parse()
+                .map_err(|_| qerr(format!("invalid `minimum_should_match` pivot in `{tok}`")))?;
+            let spec = parse_min_should_match_str(spec.trim())?;
+            conds.push(crate::ast::CombCond {
+                pivot,
+                spec: Box::new(spec),
+            });
+        }
+        return Ok(MinShouldMatch::Combination(conds));
+    }
+    // Percentage, possibly negative.
+    if let Some(pct) = s.strip_suffix('%') {
+        let pct = pct.trim();
+        if let Some(neg) = pct.strip_prefix('-') {
+            let p: u32 = neg
+                .trim()
+                .parse()
+                .map_err(|_| qerr(format!("invalid `minimum_should_match` percentage: `{s}`")))?;
+            return Ok(MinShouldMatch::NegativePercentage(p));
+        }
+        let p: u32 = pct
+            .parse()
+            .map_err(|_| qerr(format!("invalid `minimum_should_match` percentage: `{s}`")))?;
+        return Ok(MinShouldMatch::Percentage(p));
+    }
+    // Plain integer, possibly negative.
+    if let Some(neg) = s.strip_prefix('-') {
+        let k: u32 = neg
+            .trim()
+            .parse()
+            .map_err(|_| qerr(format!("invalid `minimum_should_match` value: `{s}`")))?;
+        return Ok(MinShouldMatch::Negative(k));
+    }
+    let n: u32 = s
+        .parse()
+        .map_err(|_| qerr(format!("invalid `minimum_should_match` value: `{s}`")))?;
+    Ok(MinShouldMatch::Fixed(n))
 }
 
 fn parse_bool_operator(v: Option<&Value>) -> Result<BoolOperator> {
@@ -4232,17 +4256,14 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
                 qerr("`match_bool_prefix` field value must be a string or object")
             })?;
             let q = string_field(inner, "query")?;
-            let mm_val = inner.get("minimum_should_match").and_then(|v| match v {
-                Value::Number(n) => n.as_u64().map(|i| MinShouldMatch::Fixed(i as u32)),
-                Value::String(s) => {
-                    if let Some(p) = s.strip_suffix('%') {
-                        p.parse::<u32>().ok().map(MinShouldMatch::Percentage)
-                    } else {
-                        s.parse::<u32>().ok().map(MinShouldMatch::Fixed)
-                    }
-                }
-                _ => None,
-            });
+            // #846: go through the shared `minimum_should_match` parser so
+            // negative / negative-% / combination specs reach the evaluator
+            // from this site too. It used to inline a number/percentage-only
+            // subset, which silently dropped every other spec to `None` (=
+            // plain OR) instead of honouring it.
+            let mm_val = inner
+                .get("minimum_should_match")
+                .and_then(|v| parse_min_should_match(v).ok());
             let op_and = matches!(
                 inner
                     .get("operator")
@@ -4637,6 +4658,87 @@ mod tests {
 
     fn q(j: serde_json::Value) -> QueryNode {
         parse_query(&j).expect("parse failed")
+    }
+
+    // ── #846: minimum_should_match negative / combination specs ───────────────
+
+    #[test]
+    fn msm_parses_negative_and_combination_specs() {
+        use crate::ast::CombCond;
+        let p = |v: serde_json::Value| parse_min_should_match(&v).expect("parse msm");
+
+        // Negative integer (number AND string spellings) — before #846 the
+        // number errored ("must be non-negative") and the string dropped to
+        // Fixed-parse failure; both are now Negative(N) = all-but-N.
+        assert_eq!(p(json!(-1)), MinShouldMatch::Negative(1));
+        assert_eq!(p(json!("-2")), MinShouldMatch::Negative(2));
+        // Plain forms unchanged.
+        assert_eq!(p(json!(3)), MinShouldMatch::Fixed(3));
+        assert_eq!(p(json!("75%")), MinShouldMatch::Percentage(75));
+        // Negative percentage — distinct from Percentage (they round differently).
+        assert_eq!(p(json!("-25%")), MinShouldMatch::NegativePercentage(25));
+        // Combination — single and multiple conditions.
+        assert_eq!(
+            p(json!("3<90%")),
+            MinShouldMatch::Combination(vec![CombCond {
+                pivot: 3,
+                spec: Box::new(MinShouldMatch::Percentage(90)),
+            }])
+        );
+        assert_eq!(
+            p(json!("2<-25% 9<-3")),
+            MinShouldMatch::Combination(vec![
+                CombCond {
+                    pivot: 2,
+                    spec: Box::new(MinShouldMatch::NegativePercentage(25)),
+                },
+                CombCond {
+                    pivot: 9,
+                    spec: Box::new(MinShouldMatch::Negative(3)),
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn msm_required_resolves_es_semantics() {
+        // Negative: required = n - N (floored at 0).
+        assert_eq!(MinShouldMatch::Negative(1).required(4), Some(3));
+        assert_eq!(MinShouldMatch::Negative(9).required(4), Some(0));
+        // Negative percentage: required = n - floor(n*P/100); differs from the
+        // same-looking Percentage on non-divisible counts.
+        assert_eq!(MinShouldMatch::NegativePercentage(25).required(5), Some(4));
+        assert_eq!(MinShouldMatch::Percentage(75).required(5), Some(3));
+        // Combination: n <= every pivot ⇒ all required; else highest pivot < n.
+        let c = MinShouldMatch::Combination(vec![
+            crate::ast::CombCond {
+                pivot: 2,
+                spec: Box::new(MinShouldMatch::NegativePercentage(25)),
+            },
+            crate::ast::CombCond {
+                pivot: 9,
+                spec: Box::new(MinShouldMatch::Negative(3)),
+            },
+        ]);
+        assert_eq!(c.required(2), Some(2)); // n <= smallest pivot → all
+        assert_eq!(c.required(5), Some(4)); // pivot 2 applies: 5 - floor(1.25)
+        assert_eq!(c.required(10), Some(7)); // pivot 9 applies: 10 - 3
+    }
+
+    #[test]
+    fn msm_negative_survives_through_bool_parse() {
+        // End-to-end: a bool with `minimum_should_match: -1` no longer errors
+        // or drops — it lands as Negative(1) on the AST.
+        match q(json!({"bool": {"should": [
+            {"term": {"a": "x"}}, {"term": {"b": "y"}}, {"term": {"c": "z"}}
+        ], "minimum_should_match": -1}}))
+        {
+            QueryNode::Bool {
+                minimum_should_match,
+                ..
+            } => assert_eq!(minimum_should_match, Some(MinShouldMatch::Negative(1))),
+            other => panic!("expected Bool, got {other:?}"),
+        }
     }
 
     // ── match_all ─────────────────────────────────────────────────────────────
