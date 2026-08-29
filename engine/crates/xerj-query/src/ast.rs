@@ -274,6 +274,13 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
+/// serde `skip_serializing_if` helper: omit a `usize` field when it is `0`
+/// (the ES default for `prefix_length`) so query round-trips stay byte-identical.
+#[inline]
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
 /// A single node in the query tree.
 ///
 /// All query types — leaf and compound — are variants of this one enum.
@@ -554,6 +561,13 @@ pub enum QueryNode {
         /// against the term dictionary). Ignored for `text` fields.
         #[serde(default, skip_serializing_if = "is_false")]
         case_insensitive: bool,
+        /// #848: the number of leading characters that must match EXACTLY
+        /// (not subject to edits) before Levenshtein applies. ES default `0`
+        /// (no constraint). `N > 0` requires the query and each candidate term
+        /// to share their first `N` characters — pruning fuzzy expansions that
+        /// differ in the prefix.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        prefix_length: usize,
     },
 
     /// Regular expression match against a field value.
