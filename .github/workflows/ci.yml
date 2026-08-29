@@ -297,13 +297,16 @@ jobs:
     # bounds the one documented hang (step 6, default parallelism) precisely and
     # fast. This job-level cap is defense-in-depth: it bounds ANY hang in the job
     # (setup, cache, a future test race the step timeout would not cover) to
-    # 50 min instead of the 6h default. It is deliberately generous because
+    # 60 min instead of the 6h default. It is deliberately generous because
     # step 5 (build + threads=2 tests) can legitimately take ~36 min on a loaded
     # 2-4 vCPU runner — a slow compile, not a hang (measured: step 5 built for
     # ~36 min then step 6 ran and passed) — so a tighter cap would false-fail
-    # slow-but-healthy runs. Neither cap fixes the root race (#751 stays open for
-    # the bisect + port/fixture serialisation).
-    timeout-minutes: 50
+    # slow-but-healthy runs. #770 measured the legitimate worst case at ~43-46 min
+    # against the old 50-min cap (setup + ~36-min step 5 + ~2.3-min step 6 +
+    # cache-save) — too thin a margin on a loaded runner — so this was bumped to
+    # 60 min. Neither cap fixes the root race (#751 stays open for the bisect +
+    # port/fixture serialisation).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
