@@ -11,31 +11,104 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
 <link rel="stylesheet" href="/style.css?v=if9">
 <style>
-  /* three-arm bars — self-contained, robust to the shared 2-col grid */
-  .arm3 { margin: 12px 0 6px; }
-  .arm3 .metric { font-family: var(--font-data); font-size: 12px; letter-spacing:.06em; color: var(--z-mute); text-transform: uppercase; margin: 18px 0 8px; }
-  .arm3 .row { display: grid; grid-template-columns: 118px 1fr auto; align-items: center; gap: 12px; margin: 6px 0; }
-  .arm3 .nm { font-family: var(--font-data); font-size: 13px; letter-spacing:.04em; }
-  .arm3 .track { height: 14px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; }
-  .arm3 .fill { height: 100%; border-radius: 3px; display:block; }
-  .arm3 .val { font-family: var(--font-data); font-size: 13px; font-weight: 700; white-space: nowrap; }
-  .arm3 .bare .fill  { background: #e8536b; } .arm3 .native .fill{ background: var(--z-cmp, #6aa3ff); } .arm3 .xerj .fill  { background: var(--accent, #ffc400); }
-  .arm3 .xerj .nm, .arm3 .xerj .val { color: var(--accent, #ffc400); }
-  .fail { color:#e8536b; font-weight:700; }
-  /* opener prompt block */
-  .opener { margin: 8px 0 4px; border:1px solid rgba(255,196,0,.35); border-radius:12px; background:rgba(255,196,0,.04); padding:20px 22px; }
-  .opener .lbl { font-family:var(--font-data); font-size:12px; letter-spacing:.08em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; }
-  .opener pre { margin:0; white-space:pre-wrap; font-family:var(--font-data); font-size:13.5px; line-height:1.6; color:var(--z-fg, #e9e9ec); }
-  .opener .hint { margin-top:12px; font-size:12px; color:var(--z-mute); font-family:var(--font-data); letter-spacing:.03em; }
+  /* ---------------------------------------------------------------
+     Page-local tokens. The design system has no negative colour, and
+     this page needs one for the "answering from memory" arm. Both
+     themes are defined — the previous version of this page used bare
+     `--accent` / `--z-fg` (neither exists in style.css) and literal
+     #e8536b / #ffc400, so every chart fell back to night-only colours
+     and went unreadable the moment a reader hit the DAY toggle.
+     ---------------------------------------------------------------- */
+  :root                  { --z-neg: #d9575f; }
+  html[data-theme='day'] { --z-neg: #a32b2e; }
+
+  /* ---------------------------------------------------------------
+     Vertical comparison chart. Arms stand side by side on one shared
+     baseline inside each group, so the three bars are read against
+     each other directly — which is the whole claim of this study.
+     (It replaces a horizontal track-and-fill layout where each arm
+     sat on its own row and nothing lined up.)
+     ---------------------------------------------------------------- */
+  .vchart { margin: var(--sp-6) 0 0; }
+  .vc-legend { display:flex; flex-wrap:wrap; gap:22px; margin:0 0 var(--sp-8);
+               font-family:var(--font-data); font-size:var(--fs-11);
+               letter-spacing:var(--track-label); text-transform:uppercase; }
+  .vc-legend b { display:inline-flex; align-items:center; gap:8px; font-weight:600; }
+  .vc-legend b::before { content:''; width:11px; height:11px; border-radius:2px; background:currentColor; }
+  .vc-legend .bare { color:var(--z-neg); } .vc-legend .native { color:var(--z-cmp); }
+  .vc-legend .xerj { color:var(--z-accent); }
+
+  .vc-groups { display:grid; gap:var(--sp-10) var(--sp-12);
+               grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); }
+  .vc-group  { min-width:0; }
+  /* border-box + padding-top reserves the strip the value labels sit in,
+     so a 100% bar tops out flush with the plot instead of overflowing. */
+  .vc-plot { box-sizing:border-box; height:268px; padding:30px var(--sp-2) 0;
+             display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
+             gap:var(--sp-6); border-bottom:1px solid var(--z-line); }
+  .vc-col  { display:flex; flex-direction:column; justify-content:flex-end;
+             align-items:center; height:100%; min-width:0; }
+  .vc-bar  { position:relative; display:block; width:100%; max-width:78px;
+             min-height:3px; border-radius:2px 2px 0 0; background:currentColor; }
+  .vc-v    { position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+             margin-bottom:8px; white-space:nowrap; color:var(--z-ink);
+             font-family:var(--font-data); font-size:var(--fs-13); font-weight:700; }
+  .vc-col.bare   { color:var(--z-neg); }
+  .vc-col.native { color:var(--z-cmp); }
+  .vc-col.xerj   { color:var(--z-accent); }
+  .vc-col.xerj .vc-v { color:var(--z-accent); }
+  .vc-axis { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:var(--sp-6);
+             padding:var(--sp-3) var(--sp-2) 0; text-align:center;
+             font-family:var(--font-data); font-size:var(--fs-11);
+             letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
+  .vc-axis { min-height:46px; }
+  .vc-axis span { min-width:0; }
+  .vc-axis em { display:block; font-style:normal; letter-spacing:.03em;
+                text-transform:none; opacity:.72; margin-top:3px; }
+  .vc-axis .win { color:var(--z-accent); opacity:1; }
+  .vc-title { margin-top:var(--sp-4); padding-top:var(--sp-3);
+              border-top:1px solid var(--z-faint);
+              font-family:var(--font-data); font-size:var(--fs-11);
+              letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
+  .vc-title b { color:var(--z-ink); font-weight:600; }
+  .vc-note { margin:var(--sp-4) 0 0; max-width:900px;
+             font-family:var(--font-data); font-size:12px; letter-spacing:.03em;
+             color:var(--z-mute); }
+  @media (max-width:620px) {
+    .vc-plot { height:212px; gap:var(--sp-3); padding-top:26px; }
+    .vc-axis { gap:var(--sp-3); }
+    .vc-v { font-size:11px; }
+  }
+
+  .fail { color:var(--z-neg); font-weight:700; }
+  /* Opener. No box: .prompt-card paints its own animated gradient border and
+     a blurred halo at inset:-26px, and a container border cut straight
+     through it. Just give the halo room to breathe and hang the note below. */
+  .opener { margin: 0; padding: 26px 0 0; }
+  .opener .hint { max-width:900px; margin:var(--sp-8) auto 0; font-size:12px; line-height:1.7;
+                  color:var(--z-mute); font-family:var(--font-data); letter-spacing:.03em; }
+  /* the long-form prompt this study actually measured — archived, folded away,
+     and parked next to the reproduce steps rather than shouting "HISTORICAL"
+     directly underneath the prompt readers are meant to copy. */
+  .hist { margin-top:var(--sp-6); border:1px solid var(--z-line); border-radius:10px; max-width:900px; }
+  .hist summary { cursor:pointer; padding:14px 18px; list-style:none;
+                  font-family:var(--font-data); font-size:var(--fs-11);
+                  letter-spacing:var(--track-label); text-transform:uppercase; color:var(--z-mute); }
+  .hist summary::-webkit-details-marker { display:none; }
+  .hist summary::before { content:'+'; color:var(--z-accent); margin-right:10px; font-weight:700; }
+  .hist[open] summary::before { content:'\2212'; }
+  .hist summary:hover { color:var(--z-ink); }
+  .hist pre { margin:0; padding:0 18px 18px; white-space:pre-wrap; overflow-x:auto;
+              font-family:var(--font-data); font-size:13px; line-height:1.65; color:var(--z-mute); }
   /* built-table */
   .built { width:100%; border-collapse:collapse; margin-top:var(--sp-6); font-family:var(--font-data); font-size:12.5px; }
-  .built th, .built td { text-align:left; padding:9px 10px; border-bottom:1px solid rgba(255,255,255,.08); vertical-align:top; }
+  .built th, .built td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--z-faint); vertical-align:top; }
   .built th { color:var(--z-mute); text-transform:uppercase; letter-spacing:.05em; font-size:11px; font-weight:600; }
-  .built .ok { color:var(--accent); font-weight:700; } .built .no { color:#e8536b; font-weight:700; }
+  .built .ok { color:var(--z-accent); font-weight:700; } .built .no { color:var(--z-neg); font-weight:700; }
   .built .mut { color:var(--z-mute); }
   .built-wrap { overflow-x:auto; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; } @media(max-width:760px){ .grid2{grid-template-columns:1fr;} .arm3 .row{grid-template-columns:80px 1fr auto;gap:8px;} }
-  pre.code { overflow:auto; background:rgba(255,255,255,.03); padding:14px; border-radius:8px; font-family:var(--font-data); font-size:12.5px; line-height:1.5; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-8); } @media(max-width:760px){ .grid2{grid-template-columns:1fr;} }
+  pre.code { overflow:auto; border:1px solid var(--z-faint); padding:14px; border-radius:8px; font-family:var(--font-data); font-size:12.5px; line-height:1.5; }
   ol.steps { font-family:var(--font-data); font-size:13.5px; line-height:1.7; } ol.steps code { font-size:12.5px; }
 </style>
 <!-- seo:begin — generated by scripts/seo/fix_heads.py · do not hand-edit -->
@@ -160,35 +233,15 @@
 <!-- OPENER PROMPT -->
 <section class="scene-section" style="border-top:0; padding-top:0;">
   <div class="opener">
-    <div class="prompt-stage" id="prompt" style="max-width:880px; margin:0 auto 18px;">
+    <div class="prompt-stage" id="prompt">
       <div class="prompt-card">
         <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
         <code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code>
         <button type="button" class="prompt-copy" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">COPY THE PROMPT</button>
       </div>
     </div>
-    <div class="lbl" style="margin-top:18px;">◆ HISTORICAL · the long-form prompt this study measured — kept verbatim for reproducibility, not current instructions</div>
-    <pre>Set me up for reference-coding with XERJ and then use it automatically for the
-rest of our work, so I stop burning output tokens re-deriving APIs I could just
-look up.
 
-1. Make sure a local XERJ instance is running and the `xerj-code` skill is
-   available. If XERJ isn't installed, get it from https://xerj.org/get
-   (curl -fsSL https://xerj.org/get | sh) and start it.
-2. Look at this project — its dependencies, the domains its code touches — and
-   decide which well-known open-source libraries already solve those problems.
-   Clone them into a reference corpus with the skill's xc-corpus.sh, grouped by
-   problem domain, not by language.
-3. Index that corpus with xc-index.sh (it runs `xerj autoindex`).
-4. From now on, for every coding task this session: before writing non-trivial
-   code against an unfamiliar or external API, first run
-   xc.py &lt;corpus&gt; "&lt;what you need&gt;" to retrieve the real implementation, read the
-   returned definition, and adapt it — cite file:line, check the licence. If
-   retrieval returns nothing relevant, say so and fall back to normal work.
-5. Re-index whenever the references change.
-
-Do this proactively for the rest of the session without me asking again.</pre>
-    <div class="hint">We tested this exact prompt end-to-end — see <a href="#verified" style="color:var(--accent);">Verified: the prompt works</a> below. Full text: <a href="https://github.com/xerj-org/xerj/blob/main/docs/case-studies/reference-coding/OPENER_PROMPT.md" rel="external" style="color:var(--accent);">OPENER_PROMPT.md &rarr;</a>. It drove the loop through <code class="inline">xc-corpus.sh</code> / <code class="inline">xc-index.sh</code> / <code class="inline">xc.py</code> — at the time, internal wrappers from the maintainers' own agent skill. They now ship at <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--accent);">tools/xerj-code/</a>, but nothing requires them: they are thin shells around <code class="inline">git clone --depth 1</code>, <code class="inline">xerj autoindex</code>, and one <code class="inline">multi_match</code> query, and <a href="#reproduce" style="color:var(--accent);">Do it yourself</a> below runs the same method with plain commands.</div>
+    <div class="hint">We tested this exact prompt end-to-end — see <a href="#verified" style="color:var(--z-accent);">Verified: the prompt works</a> below. Full text: <a href="https://github.com/xerj-org/xerj/blob/main/docs/case-studies/reference-coding/OPENER_PROMPT.md" rel="external" style="color:var(--z-accent);">OPENER_PROMPT.md &rarr;</a>. It drove the loop through <code class="inline">xc-corpus.sh</code> / <code class="inline">xc-index.sh</code> / <code class="inline">xc.py</code> — at the time, internal wrappers from the maintainers' own agent skill. They now ship at <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-accent);">tools/xerj-code/</a>, but nothing requires them: they are thin shells around <code class="inline">git clone --depth 1</code>, <code class="inline">xerj autoindex</code>, and one <code class="inline">multi_match</code> query, and <a href="#reproduce" style="color:var(--z-accent);">Do it yourself</a> below runs the same method with plain commands.</div>
   </div>
 </section>
 
@@ -196,17 +249,45 @@ Do this proactively for the rest of the session without me asking again.</pre>
 <section class="scene-section" style="padding-top:0;">
   <div class="viz-block">
     <div class="kicker"><span>MEASURED · 8 TASKS × PYTHON / JS / C / JAVA · 16 RUNS PER ARM · REAL OUTPUT TOKENS FROM claude -p</span></div>
-    <div class="arm3">
-      <div class="metric">Output tokens to solve — lower is better</div>
-      <div class="row bare"><span class="nm">bare (memory)</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">260,916</span></div>
-      <div class="row native"><span class="nm">native CC</span><span class="track"><span class="fill" style="width:9.1%"></span></span><span class="val">26,477</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:3.4%"></span></span><span class="val">9,982 · 2.7× &lt; native</span></div>
-      <div class="metric">Tasks solved (compiles + passes a hidden test) — higher is better</div>
-      <div class="row bare"><span class="nm">bare</span><span class="track"><span class="fill" style="width:61.9%"></span></span><span class="val">11 / 16</span></div>
-      <div class="row native"><span class="nm">native CC</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">16 / 16</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">16 / 16</span></div>
+    <div class="vchart">
+      <div class="vc-legend">
+        <b class="bare">bare — memory only</b>
+        <b class="native">native Claude Code — greps the source</b>
+        <b class="xerj">XERJ — reference retrieved</b>
+      </div>
+      <div class="vc-groups">
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">260,916</span></span></div>
+            <div class="vc-col native"><span class="vc-bar" style="height:10.1%"><span class="vc-v">26,477</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:3.8%"><span class="vc-v">9,982</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>native</span>
+            <span>XERJ<em class="win">2.7× fewer than native</em></span>
+          </div>
+          <div class="vc-title"><b>Output tokens to solve</b> — lower is better · shared scale</div>
+        </div>
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:68.8%"><span class="vc-v">11</span></span></div>
+            <div class="vc-col native"><span class="vc-bar" style="height:100%"><span class="vc-v">16</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:100%"><span class="vc-v">16</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>native</span>
+            <span>XERJ</span>
+          </div>
+          <div class="vc-title"><b>Tasks solved</b> — compiles + passes a hidden test · out of 16</div>
+        </div>
+
+      </div>
     </div>
-    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">bare = Claude Code with tools off (memory only) · native CC = Claude Code as-is, greps the source · XERJ = the SAME agent, reference retrieved and injected · cost $11.18 / $3.27 / $1.58 · NOT A LATENCY BENCHMARK</p>
+    <p class="vc-note" style="max-width:none; margin-top:var(--sp-6); padding-top:var(--sp-4); border-top:1px solid var(--z-faint);">bare = Claude Code with tools off (memory only) · native CC = Claude Code as-is, greps the source · XERJ = the SAME agent, reference retrieved and injected · cost $11.18 / $3.27 / $1.58 · NOT A LATENCY BENCHMARK</p>
   </div>
 </section>
 
@@ -301,19 +382,33 @@ Do this proactively for the rest of the session without me asking again.</pre>
   <div class="grid2" style="margin-top:var(--sp-6);">
     <div class="viz-block">
       <div class="kicker"><span>UNFAMILIAR · 7 CONTRACT DOMAINS · 21 RUNS · TOTAL COST</span></div>
-      <div class="arm3">
-        <div class="row bare"><span class="nm">bare · 1/21</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">$21.90</span></div>
-        <div class="row native"><span class="nm">native · 21/21</span><span class="track"><span class="fill" style="width:17.5%"></span></span><span class="val">$4.26</span></div>
-        <div class="row xerj"><span class="nm">XERJ · 21/21</span><span class="track"><span class="fill" style="width:13.9%"></span></span><span class="val">$3.38</span></div>
+      <div class="vchart">
+        <div class="vc-plot">
+          <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">$21.90</span></span></div>
+          <div class="vc-col native"><span class="vc-bar" style="height:19.5%"><span class="vc-v">$4.26</span></span></div>
+          <div class="vc-col xerj"><span class="vc-bar" style="height:15.4%"><span class="vc-v">$3.38</span></span></div>
+        </div>
+        <div class="vc-axis">
+          <span>bare<em>1 / 21 solved</em></span>
+          <span>native<em>21 / 21 solved</em></span>
+          <span>XERJ<em class="win">21 / 21 solved</em></span>
+        </div>
       </div>
       <p style="margin-top:10px; font-size:11.5px; color:var(--z-mute); font-family:var(--font-data);">RETRIEVAL WINS: correct where memory fails, 6.5× cheaper than bare, 1.3× cheaper than native.</p>
     </div>
     <div class="viz-block">
       <div class="kicker"><span>MEMORISED · valkey + memcached · 6 RUNS · TOTAL COST</span></div>
-      <div class="arm3">
-        <div class="row bare"><span class="nm">bare · 6/6</span><span class="track"><span class="fill" style="width:16.3%"></span></span><span class="val">$1.49</span></div>
-        <div class="row native"><span class="nm">native · 6/6</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">$9.14</span></div>
-        <div class="row xerj"><span class="nm">XERJ · 5/6</span><span class="track"><span class="fill" style="width:43.3%"></span></span><span class="val">$4.40</span></div>
+      <div class="vchart">
+        <div class="vc-plot">
+          <div class="vc-col bare"><span class="vc-bar" style="height:16.3%"><span class="vc-v">$1.49</span></span></div>
+          <div class="vc-col native"><span class="vc-bar" style="height:100%"><span class="vc-v">$9.14</span></span></div>
+          <div class="vc-col xerj"><span class="vc-bar" style="height:48.1%"><span class="vc-v">$4.40</span></span></div>
+        </div>
+        <div class="vc-axis">
+          <span>bare<em>6 / 6 solved</em></span>
+          <span>native<em>6 / 6 solved</em></span>
+          <span>XERJ<em>5 / 6 solved</em></span>
+        </div>
       </div>
       <p style="margin-top:10px; font-size:11.5px; color:var(--z-mute); font-family:var(--font-data);">RETRIEVAL LOSES: the model knows the protocol, so pure memory is cheapest; searching or injecting a reference is overhead.</p>
     </div>
@@ -325,19 +420,65 @@ Do this proactively for the rest of the session without me asking again.</pre>
   <h2 class="scene" style="font-size:var(--fs-56);">EVERY LANGUAGE, <span class="accent">SAME SHAPE.</span></h2>
   <p class="wide">Median output tokens to solve, XERJ vs answering from memory. Verdict is the real toolchain in each language (<code class="inline">python3</code>, <code class="inline">node</code>, <code class="inline">cc</code>, <code class="inline">javac</code>).</p>
   <div class="viz-block" style="margin-top:var(--sp-6);">
-    <div class="arm3">
-      <div class="metric">Python — LRU cache (warden)</div>
-      <div class="row bare"><span class="nm">bare</span><span class="track"><span class="fill" style="width:54%"></span></span><span class="val">14,752</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:0.8%"></span></span><span class="val">214 · 69× fewer</span></div>
-      <div class="metric">JavaScript — prefix trie (garner)</div>
-      <div class="row bare"><span class="nm">bare</span><span class="track"><span class="fill" style="width:16%"></span></span><span class="val">4,300</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:2.4%"></span></span><span class="val">646 · 6.7× fewer</span></div>
-      <div class="metric">C — generational allocator (arena)</div>
-      <div class="row bare"><span class="nm">bare</span><span class="track"><span class="fill" style="width:69%"></span></span><span class="val">18,792</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:3.6%"></span></span><span class="val">988 · 19× fewer</span></div>
-      <div class="metric">Java — append-only log (ledger)</div>
-      <div class="row bare"><span class="nm">bare</span><span class="track"><span class="fill" style="width:90%"></span></span><span class="val">27,108</span></div>
-      <div class="row xerj"><span class="nm">XERJ</span><span class="track"><span class="fill" style="width:0.3%"></span></span><span class="val">98 · 278× fewer</span></div>
+    <div class="vchart">
+      <div class="vc-legend">
+        <b class="bare">bare — memory only</b>
+        <b class="xerj">XERJ — reference retrieved</b>
+      </div>
+      <div class="vc-groups">
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">14,752</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:1.5%"><span class="vc-v">214</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>XERJ<em class="win">69× fewer</em></span>
+          </div>
+          <div class="vc-title"><b>Python</b> — LRU cache (warden)</div>
+        </div>
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">4,300</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:15.0%"><span class="vc-v">646</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>XERJ<em class="win">6.7× fewer</em></span>
+          </div>
+          <div class="vc-title"><b>JavaScript</b> — prefix trie (garner)</div>
+        </div>
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">18,792</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:5.3%"><span class="vc-v">988</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>XERJ<em class="win">19× fewer</em></span>
+          </div>
+          <div class="vc-title"><b>C</b> — generational allocator (arena)</div>
+        </div>
+
+        <div class="vc-group">
+          <div class="vc-plot">
+            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">27,108</span></span></div>
+            <div class="vc-col xerj"><span class="vc-bar" style="height:0.4%"><span class="vc-v">98</span></span></div>
+          </div>
+          <div class="vc-axis">
+            <span>bare</span>
+            <span>XERJ<em class="win">278× fewer</em></span>
+          </div>
+          <div class="vc-title"><b>Java</b> — append-only log (ledger)</div>
+        </div>
+
+      </div>
+      <p class="vc-note">Each pair is drawn against its own <em>bare</em> baseline, because the four
+        libraries differ by two orders of magnitude in absolute cost — the comparison that matters here
+        is within a language, not across them. Absolute medians are printed on every bar.</p>
     </div>
   </div>
 </section>
@@ -356,7 +497,7 @@ Do this proactively for the rest of the session without me asking again.</pre>
     </div>
     <div>
       <div class="kicker"><span class="accent">XERJ · 4 LINES · 103 TOKENS · PASSED</span></div>
-      <pre class="code" style="background:rgba(255,196,0,.05);">public static Ledger upTo(long[] vals, long seq) {
+      <pre class="code" style="border-color:var(--z-accent);">public static Ledger upTo(long[] vals, long seq) {
     Ledger l = Ledger.open();
     for (long v : vals) l.append(v);
     l.checkpoint(seq);   // keep 0..seq
@@ -389,9 +530,34 @@ Do this proactively for the rest of the session without me asking again.</pre>
         "query":"graceful shutdown with a broadcast channel",
         "fields":["defs^3","body","title"]}}}'</pre>
       <code class="inline">defs</code>, <code class="inline">symbols</code>, <code class="inline">body</code>, <code class="inline">title</code> and <code class="inline">language</code> are the fields <code class="inline">autoindex</code> writes for source files. <code class="inline">ax-*</code> matches every dataset on the node, your own project included — check <code class="inline">GET /_cat/indices</code> after each index run and narrow the pattern to the reference datasets when you want your own code kept out of the results.</li>
-    <li><strong>Or let the wrappers do it.</strong> <code class="inline">xc-corpus.sh</code> / <code class="inline">xc-index.sh</code> / <code class="inline">xc.py</code> ship in the repo at <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--accent);">tools/xerj-code/</a> and wrap exactly the four steps above. They add a corpus definition: <code class="inline">xc-corpus.sh --from hub/xerj-search.json</code> rebuilds a corpus someone already vetted — URLs, pinned commit SHAs and licences; no source, so nothing to redistribute, and the same file gives two machines the same bytes.</li>
-    <li><strong>Measure it honestly.</strong> Three arms of the same agent — memory only, grep-driven, retrieval-injected — one hidden-test verdict, real tokens from <code class="inline">claude -p --output-format json</code>, no API key. The numbers and every per-run record are in <a href="https://github.com/xerj-org/xerj/blob/main/docs/case-studies/reference-coding/CASE_STUDY.md" rel="external" style="color:var(--accent);">CASE_STUDY.md</a>; the harness itself is not shipped.</li>
+    <li><strong>Or let the wrappers do it.</strong> <code class="inline">xc-corpus.sh</code> / <code class="inline">xc-index.sh</code> / <code class="inline">xc.py</code> ship in the repo at <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-accent);">tools/xerj-code/</a> and wrap exactly the four steps above. They add a corpus definition: <code class="inline">xc-corpus.sh --from hub/xerj-search.json</code> rebuilds a corpus someone already vetted — URLs, pinned commit SHAs and licences; no source, so nothing to redistribute, and the same file gives two machines the same bytes.</li>
+    <li><strong>Measure it honestly.</strong> Three arms of the same agent — memory only, grep-driven, retrieval-injected — one hidden-test verdict, real tokens from <code class="inline">claude -p --output-format json</code>, no API key. The numbers and every per-run record are in <a href="https://github.com/xerj-org/xerj/blob/main/docs/case-studies/reference-coding/CASE_STUDY.md" rel="external" style="color:var(--z-accent);">CASE_STUDY.md</a>; the harness itself is not shipped.</li>
   </ol>
+
+  <details class="hist">
+    <summary>Archive · the long-form opener this study measured, verbatim</summary>
+    <pre>Set me up for reference-coding with XERJ and then use it automatically for the
+rest of our work, so I stop burning output tokens re-deriving APIs I could just
+look up.
+
+1. Make sure a local XERJ instance is running and the `xerj-code` skill is
+   available. If XERJ isn't installed, get it from https://xerj.org/get
+   (curl -fsSL https://xerj.org/get | sh) and start it.
+2. Look at this project — its dependencies, the domains its code touches — and
+   decide which well-known open-source libraries already solve those problems.
+   Clone them into a reference corpus with the skill's xc-corpus.sh, grouped by
+   problem domain, not by language.
+3. Index that corpus with xc-index.sh (it runs `xerj autoindex`).
+4. From now on, for every coding task this session: before writing non-trivial
+   code against an unfamiliar or external API, first run
+   xc.py &lt;corpus&gt; "&lt;what you need&gt;" to retrieve the real implementation, read the
+   returned definition, and adapt it — cite file:line, check the licence. If
+   retrieval returns nothing relevant, say so and fall back to normal work.
+5. Re-index whenever the references change.
+
+Do this proactively for the rest of the session without me asking again.</pre>
+  </details>
+  <p style="margin-top:12px; font-size:12px; color:var(--z-mute); font-family:var(--font-data);">Kept for reproducibility, not as current instructions — the one-line prompt at the top of this page is what to use today.</p>
 </section>
 
 <!-- Honest laws -->
