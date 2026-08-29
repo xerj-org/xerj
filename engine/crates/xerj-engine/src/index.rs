@@ -40016,6 +40016,49 @@ fn score_query_against_doc(q: &QueryNode, source: &Value, schema: &Schema) -> f3
             let dl = tokens.len().max(1) as f32;
             1.0 / dl.sqrt()
         }
+        // #836: a (lexical) nested query rolls the matching CHILDREN's scores
+        // into the parent score per `score_mode` (ES default `avg`), instead of
+        // a flat 1.0. Mirrors the Nested matching arm: strip the path prefix so
+        // the inner query resolves against a child object, score each MATCHING
+        // child, then combine. Same source-based path on memtable and segment,
+        // so the ranking is flush-invariant.
+        QueryNode::Nested {
+            path,
+            query,
+            score_mode,
+        } => {
+            let inner = strip_nested_path_in_query(query, path);
+            let child_scores: Vec<f32> = match get_field_value(source, path) {
+                Some(Value::Array(arr)) => arr
+                    .iter()
+                    .filter(|elem| doc_matches_query_typed(&inner, elem, schema))
+                    .map(|elem| score_query_against_doc(&inner, elem, schema))
+                    .collect(),
+                Some(elem @ Value::Object(_)) => {
+                    if doc_matches_query_typed(&inner, &elem, schema) {
+                        vec![score_query_against_doc(&inner, &elem, schema)]
+                    } else {
+                        Vec::new()
+                    }
+                }
+                _ => Vec::new(),
+            };
+            if child_scores.is_empty() {
+                return 0.0;
+            }
+            match score_mode.as_deref().unwrap_or("avg") {
+                "max" => child_scores
+                    .iter()
+                    .copied()
+                    .fold(f32::NEG_INFINITY, f32::max),
+                "min" => child_scores.iter().copied().fold(f32::INFINITY, f32::min),
+                "sum" => child_scores.iter().sum(),
+                // `none`: children scores are ignored — keep the flat contribution.
+                "none" => 1.0,
+                // `avg` (ES default) and any unrecognised mode.
+                _ => child_scores.iter().sum::<f32>() / child_scores.len() as f32,
+            }
+        }
         other => {
             if doc_matches_query_typed(other, source, schema) {
                 1.0
