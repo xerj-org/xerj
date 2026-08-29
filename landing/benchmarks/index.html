@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA</title>
-<meta name="description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
+<meta name="description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured head-to-head against Zoekt and ripgrep, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -105,7 +105,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
 <meta property="og:title" content="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA">
-<meta property="og:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
+<meta property="og:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured head-to-head against Zoekt and ripgrep, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <meta property="og:url" content="https://xerj.org/benchmarks/">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -114,7 +114,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA">
-<meta name="twitter:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
+<meta name="twitter:description" content="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured head-to-head against Zoekt and ripgrep, 6.5x cheaper agent runs, and the zero-token architecture behind them.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -153,7 +153,7 @@
   "applicationSubCategory": "Search engine",
   "operatingSystem": "Linux, macOS, Windows",
   "url": "https://xerj.org/benchmarks/",
-  "description": "Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured against grep and a trigram engine, 6.5x cheaper agent runs, and the zero-token architecture behind them.",
+  "description": "Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured head-to-head against Zoekt and ripgrep, 6.5x cheaper agent runs, and the zero-token architecture behind them.",
   "image": "https://xerj.org/og/xerj-card.png",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "isAccessibleForFree": true,
@@ -231,8 +231,8 @@
       <div class="s">against 1 / 21 from model memory alone; hidden-test verdicts, real token accounting</div></div>
     <div class="stat"><div class="v">55 W · 26 T · 4 L</div><div class="k">vs Elasticsearch, 88 cells</div>
       <div class="s">audited board, cache-off, iso-load; every verdict shown — <a href="/benchmarks/elasticsearch">the full scorecard</a></div></div>
-    <div class="stat"><div class="v">251% → 44%</div><div class="k">idle CPU, one release</div>
-      <div class="s">3,617-index node, rc.15 → rc.71; the remaining 44% has a published bill of materials (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>)</div></div>
+    <div class="stat"><div class="v">11.7 ms</div><div class="k">identifier lookup — code index</div>
+      <div class="s">vs 15.3 ms for Sourcegraph's Zoekt and 260 ms for cold ripgrep, same 15-repo corpus, same box</div></div>
   </div>
 </section>
 
@@ -263,7 +263,7 @@
         <td class="n">1.76 ms</td><td class="n">ES 2.08 ms</td>
         <td class="t">TIE (1.18×, inside noise)</td><td><a href="/benchmarks/elasticsearch">scorecard</a> — recall is measured, never assumed</td></tr>
       <tr><td>Identifier lookup, one index, 15-repo code corpus (p50 of 21)</td>
-        <td class="n w">11.7 ms</td><td class="n">trigram code-search engine 15.3 ms · cold grep 260 ms</td>
+        <td class="n w">11.7 ms</td><td class="n">Zoekt (Sourcegraph) 15.3 ms · ripgrep cold 260 ms</td>
         <td class="w">WIN per-index</td><td>2026-08-29 session, same box, released rc.70 binary</td></tr>
       <tr><td>Mixed read-under-write p99, 40k docs/s iso-load writer</td>
         <td class="n l">10.3–13.6 ms</td><td class="n">ES 3.5–6.8 ms</td>
@@ -273,47 +273,60 @@
   </div>
 
   <div class="viz-block">
-    <div class="kicker"><span>RESOURCE TRAJECTORY · SAME 3,617-INDEX NODE · IDLE, ZERO REQUESTS</span></div>
-    <div class="vchart">
-      <div class="vc-groups">
-        <div class="vc-group">
-          <div class="vc-plot">
-            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">251%</span></span></div>
-            <div class="vc-col xerj"><span class="vc-bar" style="height:17.6%"><span class="vc-v">44.2%</span></span></div>
-          </div>
-          <div class="vc-axis">
-            <span>rc.15</span>
-            <span>rc.71<span class="sub win">5.7× less idle CPU</span></span>
-          </div>
-          <div class="vc-title"><b>Idle CPU</b> — % of one core</div>
-        </div>
-        <div class="vc-group">
-          <div class="vc-plot">
-            <div class="vc-col bare"><span class="vc-bar" style="height:100%"><span class="vc-v">3,950</span></span></div>
-            <div class="vc-col xerj"><span class="vc-bar" style="height:8.6%"><span class="vc-v">340</span></span></div>
-          </div>
-          <div class="vc-axis">
-            <span>rc.15</span>
-            <span>rc.71<span class="sub win">flat with index count</span></span>
-          </div>
-          <div class="vc-title"><b>Threads</b> — event-driven WAL fsync</div>
-        </div>
-      </div>
-      <p class="vc-note">Measured 2026-08-29 on this project's own reference-coding node (3,617 autoindexed
-      indices). The remaining idle cost is not hand-waved away: its two mechanisms are located at
-      <code class="inline">file:line</code> and filed with a budget — idle CPU under 0.5% of one core independent
-      of index count (<a href="https://github.com/xerj-org/xerj/issues/871" rel="external">#871</a>,
-      <a href="https://github.com/xerj-org/xerj/issues/872" rel="external">#872</a>,
-      <a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>).</p>
+    <div class="kicker"><span>HEAD-TO-HEAD · THE TOOLS A DEV MACHINE ACTUALLY RUNS · 15 REPOS · 154 MB · SAME BOX, SAME HOUR</span></div>
+    <div class="vt-wrap">
+    <table class="vt">
+      <thead><tr><th>Dimension</th><th>XERJ rc.70/71</th><th>Zoekt (Sourcegraph)</th><th>ripgrep</th><th>What it means for you</th></tr></thead>
+      <tbody>
+        <tr><td class="rowh">Identifier search, p50</td>
+          <td class="n w">11.7 ms (one index)</td><td class="n">15.3 ms</td><td class="n">260 ms cold</td>
+          <td>An agent that retrieves 50 times in a session waits ~0.6 s total, not 13 s — retrieval stops being the
+          slow step in the loop.</td></tr>
+        <tr><td class="n">— across all 41 datasets today</td>
+          <td class="n l">701 ms</td><td class="n w">15.3 ms</td><td class="n">260 ms</td>
+          <td>Our multi-index fan-out is serial today — measured, filed, fix scoped
+          (<a href="https://github.com/xerj-org/xerj/issues/875" rel="external">#875</a>: expected ~20–30 ms).</td></tr>
+        <tr><td class="rowh">Exact phrase, p50</td>
+          <td class="n">829 ms (fan-out)</td><td class="n w">37.9 ms</td><td class="n">200 ms</td>
+          <td>Same #875 fan-out defect; the per-index engine is competitive once the query reaches it.</td></tr>
+        <tr><td class="rowh">Regex over source</td>
+          <td class="n">not offered</td><td class="n">870 ms</td><td class="n w">180 ms</td>
+          <td>Nobody owns this today — Zoekt's regex loses to cold grep at this corpus size. A trigram side-car is on
+          our roadmap precisely because the category is open.</td></tr>
+        <tr><td class="rowh">Index 15 repos</td>
+          <td class="n l">676 s + merge tail</td><td class="n w">302 s</td><td class="n w">0 s (no index)</td>
+          <td>XERJ's indexer does strictly more work — AST symbols in 13 languages and graph edges, not just trigrams —
+          but the merge tail is a defect, not a feature
+          (<a href="https://github.com/xerj-org/xerj/issues/876" rel="external">#876</a>).</td></tr>
+        <tr><td class="rowh">Idle daemon, this corpus</td>
+          <td class="n l">8% CPU · 8.3 GB</td><td class="n w">0.03% · 119 MB</td><td class="n w">none</td>
+          <td>Today's honest loss. Root-caused to three mechanisms with a published budget — idle under 0.5% of one
+          core at any index count (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>).</td></tr>
+        <tr><td class="rowh">Symbol / definition ranking</td>
+          <td class="n w">built in, 13 languages</td><td class="n">needs universal-ctags installed</td><td class="n">none</td>
+          <td>One binary gives your agent definition-first ranking with no sidecar toolchain to install or keep in
+          sync.</td></tr>
+        <tr><td class="rowh">Beyond code search</td>
+          <td class="n w">ES wire · aggregations · kNN vectors · agent memory</td><td class="n">code search only</td><td class="n">grep only</td>
+          <td>The same daemon that answers your agent's code lookups holds its logs, vectors and memory — one thing to
+          run instead of three.</td></tr>
+      </tbody>
+    </table>
     </div>
+    <p class="vc-note">Method: released XERJ binaries, Zoekt built from source at HEAD, ripgrep 14.1.1; identical
+    15-repo corpus (memcached, valkey, tantivy, regex, zstd, CRoaring, …), p50 of 21 requests per cell, CPU and RSS
+    from <code class="inline">/proc</code>. Zoekt indexed serially per its defaults; XERJ's indexer also extracts AST
+    symbols and graph edges, which Zoekt does not attempt — stated so the wall-clock rows are read fairly. Result
+    <em>quality</em> (ranking, symbol precision) is not scored here.</p>
   </div>
 
   <div class="loss"><strong>The losses, on purpose.</strong> Four cells on the Elasticsearch board — read p99
-  under a 40,000 docs/s writer — are red, and the scorecard root-causes them to reader starvation on a live
-  memtable lock, with the candidate fixes and the conformance gate any fix must hold. The 2026-08-29 resource
-  session filed six more issues against our own idle and merge behaviour the same day it measured them
+  under a 40,000 docs/s writer — are red, root-caused on the scorecard to reader starvation on a live memtable
+  lock. Against Zoekt, today's red cells are multi-repo fan-out, indexing wall-clock, and idle footprint — every
+  one measured above, filed the same day with the mechanism at <code class="inline">file:line</code>
   (<a href="https://github.com/xerj-org/xerj/issues/871" rel="external">#871</a>–<a href="https://github.com/xerj-org/xerj/issues/876" rel="external">#876</a>).
-  That is the deal this page offers: you get the red cells with the same precision as the green ones.</div>
+  That is the deal this page offers: competitors are named, the red cells get the same precision as the green
+  ones, and each red cell links to its fix.</div>
 </section>
 
 <!-- ============================ RETRIEVAL ============================ -->
@@ -472,11 +485,12 @@
       tokens spent negotiating with documentation written for humans.</p>
     </div>
     <div class="zp">
-      <div class="zh"><span class="zn">ZTA-4</span><h3>IDLE COSTS NOTHING</h3><span class="zm">proxy: 251% → 44.2% idle CPU in one release · budget &lt; 0.5% published</span></div>
-      <p>An always-on corpus next to your agents must not tax the machine they work on. The event-driven WAL
-      scheduler shipped that principle for fsync (3,950 → 340 threads); the remaining idle mechanisms are
-      located, filed, and budgeted in public (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>) —
-      the rule going forward is <em>no per-index periodic work, ever</em>.</p>
+      <div class="zh"><span class="zn">ZTA-4</span><h3>IDLE COSTS NOTHING</h3><span class="zm">proxy: budget &lt; 0.5% of a core at any index count, published (#874)</span></div>
+      <p>An always-on corpus next to your agents must not tax the machine they work on. Zoekt sets the bar at
+      0.03% — the head-to-head above shows we are not there yet, and instead of hiding that, the remaining idle
+      mechanisms are located, filed, and budgeted in public
+      (<a href="https://github.com/xerj-org/xerj/issues/874" rel="external">#874</a>). The rule the codebase now
+      enforces: <em>no per-index periodic work, ever</em>.</p>
     </div>
   </div>
 
