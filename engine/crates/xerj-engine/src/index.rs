@@ -13612,6 +13612,137 @@ impl Index {
         })
     }
 
+    /// #825: execute one `Knn` clause standalone and return a replacement
+    /// sub-tree that pins its top-k results as per-document constant scores:
+    /// `bool.should = [Constant{score, Ids{[id]}}, …]` (or `MatchNone` when
+    /// the leg returns nothing). The generic matcher/scorer has no `Knn`
+    /// arm, so this is what lets a `knn` clause inside a compound `bool`
+    /// contribute at all — and it reproduces ES's hybrid contract exactly:
+    /// the knn side contributes the GLOBAL top-k neighbours, a document in
+    /// both halves scores the SUM (Bool sums clause scores), and every
+    /// request feature (aggs over the union, sort, collapse, highlight,
+    /// rescore, min_score) applies through the normal path afterwards.
+    ///
+    /// The leg runs on the SAME executors as the single-clause peel in
+    /// `search_inner`: HNSW only for the plain case (exact-rescored scores,
+    /// but `aggs` on the OUTER request forces exact brute force — the rc.6
+    /// rule that ANN approximation must not leak into agg buckets), brute
+    /// force otherwise. Boost and the raw-similarity cutoff are applied by
+    /// those executors before the scores reach the pinned constants.
+    async fn pin_knn_clause(
+        &self,
+        request: &SearchRequest,
+        deadline: std::time::Instant,
+        knn: &QueryNode,
+    ) -> Result<QueryNode> {
+        if let QueryNode::Knn {
+            field,
+            vector,
+            k,
+            num_candidates,
+            filter,
+            boost,
+            similarity: min_similarity,
+        } = knn
+        {
+            let similarity = {
+                let schema = self.schema.read().await;
+                lookup_vector_similarity(&schema.schema, field)
+            };
+            // The leg needs the FULL top-k regardless of the caller's page:
+            // ES unions the global k nearest into the candidate set even when
+            // `size` is smaller, so pagination happens after the merge.
+            let sub_request = SearchRequest {
+                query: knn.clone(),
+                from: 0,
+                size: *k,
+                sort: Vec::new(),
+                search_after: None,
+                aggs: None,
+                explain: false,
+                source: request.source.clone(),
+                timeout_ms: request.timeout_ms,
+                highlight: None,
+                track_total_hits: request.track_total_hits,
+                script_fields: None,
+                fields: Vec::new(),
+                profile: false,
+                collapse: None,
+                rescore: Vec::new(),
+                min_score: None,
+                leaf_ts_field: None,
+                savings: request.savings,
+            };
+            let plain = filter.is_none()
+                && boost.is_none()
+                && min_similarity.is_none()
+                && request.aggs.is_none();
+            let hnsw = if plain {
+                self.run_knn_hnsw(
+                    &sub_request,
+                    deadline,
+                    field,
+                    vector,
+                    *k,
+                    *num_candidates,
+                    &similarity,
+                )
+                .await
+            } else {
+                None
+            };
+            let leg = match hnsw {
+                Some(result) => result,
+                None => {
+                    self.run_knn_brute_force_with_deadline(
+                        &sub_request,
+                        deadline,
+                        field,
+                        vector,
+                        *k,
+                        filter.clone(),
+                        &similarity,
+                        *boost,
+                        *min_similarity,
+                    )
+                    .await?
+                }
+            };
+            // Same execution-truth check as the single-knn and multi-knn
+            // arms (#498): an empty leg on an unanswerable field must fail
+            // loud, not degrade to lexical-only.
+            if leg.hits.is_empty() && !leg.timed_out {
+                self.reject_unanswerable_knn_field(field).await?;
+            }
+            let pinned: Vec<QueryNode> = leg
+                .hits
+                .iter()
+                .map(|hit| QueryNode::Constant {
+                    score: hit.score,
+                    query: Box::new(QueryNode::Ids {
+                        values: vec![hit.id.clone()],
+                    }),
+                })
+                .collect();
+            Ok(if pinned.is_empty() {
+                QueryNode::MatchNone
+            } else {
+                QueryNode::Bool {
+                    must: Vec::new(),
+                    should: pinned,
+                    filter: Vec::new(),
+                    must_not: Vec::new(),
+                    minimum_should_match: None,
+                }
+            })
+        } else {
+            // Caller contract: `knn` is a `QueryNode::Knn` (see
+            // `compound_bool_direct_knn`). Anything else passes through
+            // untouched rather than panicking.
+            Ok(knn.clone())
+        }
+    }
+
     /// `field` is the full dotted path as the ES query provides it
     /// (e.g. `nested.vector`). The element inside the nested array is
     /// the sub-field after the path prefix (`vector`).
@@ -15783,6 +15914,28 @@ impl Index {
                 .run_hybrid_with_deadline(request, search_deadline, sub_queries, fusion)
                 .await;
         }
+
+        // ── #825: `knn` clause inside a compound `bool` ────────────────────────
+        // Every vector-aware short-circuit above has declined by now, so a
+        // `Knn` node still in the tree is about to hit the generic path,
+        // where it matches nothing and scores 0.0 (silent drop). The ES 8.x
+        // canonical hybrid — a top-level `knn` beside a `query`, folded by
+        // the compat layer into exactly this `bool.should` — lands here for
+        // EVERY request since the #458 hybrid_safe fold was retired, and
+        // previously landed here whenever aggs/sort/collapse/rescore/… were
+        // present. Pre-execute the knn leg and splice its top-k back in as
+        // pinned per-document constants; the generic path then serves the
+        // union with summed scores and full feature support (see
+        // `pin_knn_clause`).
+        let pinned_query = if let Some(knn_clause) = compound_bool_direct_knn(query) {
+            let pinned = self
+                .pin_knn_clause(request, search_deadline, knn_clause)
+                .await?;
+            Some(replace_direct_knn_with_pinned(query, &pinned))
+        } else {
+            None
+        };
+        let query = pinned_query.as_ref().unwrap_or(query);
 
         // ── Max result window enforcement ──────────────────────────────────────
         // Default max_result_window is 10,000 (matches ES default).
@@ -33059,6 +33212,72 @@ fn peel_multi_knn_query(q: &QueryNode) -> Option<Vec<PeeledKnn>> {
             Some(out)
         }
         _ => None,
+    }
+}
+
+/// #825: locate the single direct `Knn` clause inside a compound `bool`.
+///
+/// `peel_knn_query` serves the one-scoring-clause wrapper shapes; a `Knn`
+/// beside OTHER clauses falls through to the generic path, whose
+/// matcher/scorer has no `Knn` arm (`doc_matches_query_typed` answers
+/// `false`, `score_query_against_doc` contributes `0.0`) — so the ES-compat
+/// fold of a top-level `knn` beside a `query` silently returned the lexical
+/// half alone whenever the request was not routed elsewhere (#395/#458).
+///
+/// Returns the clause only when the bool carries EXACTLY ONE direct `Knn`
+/// child (in `must` or `should`). Several sibling `Knn` clauses would each
+/// need their own pinned executor pass, and no supported request shape
+/// produces that tree: the ES-compat layer answers 400 to a `knn` array
+/// beside a `query` before folding, and the pure `knn` array form is served
+/// by `peel_multi_knn_query` above. Deeper-nested `Knn` clauses keep the
+/// pre-existing (dropped) behaviour.
+fn compound_bool_direct_knn(q: &QueryNode) -> Option<&QueryNode> {
+    if let QueryNode::Bool { must, should, .. } = q {
+        let mut knns = must
+            .iter()
+            .chain(should.iter())
+            .filter(|clause| matches!(clause, QueryNode::Knn { .. }));
+        let first = knns.next();
+        let surplus = knns.next();
+        first.filter(|_| surplus.is_none())
+    } else {
+        None
+    }
+}
+
+/// #825: rebuild the compound bool with its direct `Knn` clause(s) swapped
+/// for the pre-executed pinned sub-tree. Pure shape surgery — every other
+/// clause, the filters, and `minimum_should_match` pass through unchanged.
+fn replace_direct_knn_with_pinned(q: &QueryNode, pinned: &QueryNode) -> QueryNode {
+    if let QueryNode::Bool {
+        must,
+        should,
+        filter,
+        must_not,
+        minimum_should_match,
+    } = q
+    {
+        let swap = |clauses: &[QueryNode]| -> Vec<QueryNode> {
+            clauses
+                .iter()
+                .map(|clause| {
+                    if matches!(clause, QueryNode::Knn { .. }) {
+                        pinned.clone()
+                    } else {
+                        clause.clone()
+                    }
+                })
+                .collect()
+        };
+        QueryNode::Bool {
+            must: swap(must),
+            should: swap(should),
+            filter: filter.clone(),
+            must_not: must_not.clone(),
+            minimum_should_match: minimum_should_match.clone(),
+        }
+    } else {
+        q.clone()
     }
 }
 
