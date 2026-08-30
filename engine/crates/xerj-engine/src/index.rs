@@ -3189,14 +3189,16 @@ mod merge_publication_transaction_tests {
         config
     }
 
-    /// Open an engine plus one index with the background merge loop already
+    /// Open an engine plus one index with background merge scheduling already
     /// stopped, for a test that drives every merge itself.
     ///
-    /// `Index::create` (index.rs:6191) and `Index::open` (index.rs:6554) both
-    /// start a 5-second merge pass, and with this module's
-    /// `min_merge_count = max_merge_count = 2` a single tick rewrites the
+    /// `Index::create` and `Index::open` wire the store's segments-changed
+    /// hook (#871), so every flush a test performs arms a debounced
+    /// background merge check — and with this module's
+    /// `min_merge_count = max_merge_count = 2` one check rewrites the
     /// segment set two segments at a time.  Every test here calls
-    /// `run_merge_once()` by hand, so that tick is pure interference with two
+    /// `run_merge_once()` by hand, so that background pass is pure
+    /// interference with two
     /// distinct failure shapes: it can win the `merge_in_progress` CAS and turn
     /// the test's own `run_merge_once()` into `Ok(0)` (the flake `fixture`
     /// already guarded against), and it can collapse fixture segments before the
@@ -3231,11 +3233,13 @@ mod merge_publication_transaction_tests {
         (engine, index)
     }
 
-    /// Reopen `name` from `dir` with the background merge loop already stopped.
+    /// Reopen `name` from `dir` with background merge scheduling already
+    /// stopped.
     ///
     /// Same contract as `hand_driven_index`: the restart half of these tests
-    /// asserts on a recovered segment set, and `Index::open` starts its own
-    /// merge pass too (`spawn_merge_task(5)`, index.rs:6554).
+    /// asserts on a recovered segment set, and `Index::open` schedules its
+    /// own open-time merge check too (`request_merge_check`, #871 — an
+    /// opened index may carry pre-existing merge debt).
     fn reopen_hand_driven(dir: &TempDir, name: &str) -> (Engine, Arc<Index>) {
         let engine = Engine::new(config(dir)).unwrap();
         let index = engine.get_index(name).unwrap();
@@ -3817,13 +3821,14 @@ mod merge_publication_transaction_tests {
         );
     }
 
-    /// Regression for #372: a background merge tick must not be able to move a
+    /// Regression for #372: a background merge pass must not be able to move a
     /// hand-driven fixture's segment set.
     ///
     /// `start_paused` is what makes this deterministic instead of a 5-second
     /// sleep: with tokio's clock paused the runtime auto-advances to the next
     /// timer deadline whenever it goes idle, so the `sleep` below fires exactly
-    /// the merge tick that `spawn_merge_task` scheduled — the tick that, on a
+    /// the debounced merge check each flush would arm (#871; historically, the
+    /// 5-s tick `spawn_merge_task` scheduled) — the pass that, on a
     /// real clock, only lands when a full-parallelism run stretches a test body
     /// past five seconds.  Without `hand_driven_index`'s
     /// `abort_background_tasks()` this collapses two of the four segments and
@@ -3855,6 +3860,69 @@ mod merge_publication_transaction_tests {
             index.store.snapshot().segments.len(),
             4,
             "a background merge tick rewrote a fixture that drives its own merges"
+        );
+    }
+
+    /// #871 — merge scheduling must be event-driven: after an index's merge
+    /// work settles, ZERO further merge-policy evaluations may run until the
+    /// segment set changes again.
+    ///
+    /// On the pre-fix code this fails at the flat-counter assertion: every
+    /// index owns a tokio task that wakes every 5 s forever and evaluates the
+    /// merge policy (CAS + `SizeTieredMergePolicy` + registry snapshot) with
+    /// no writes — 93 wakeups/s at the customer-reported 464 indices. Same
+    /// paused-clock technique as the #372 guard above: auto-advance fires
+    /// exactly the timers that are scheduled, so an idle 60-minute window
+    /// runs every evaluation the scheduler would ever run.
+    #[tokio::test(start_paused = true)]
+    async fn idle_index_schedules_no_merge_evaluations_without_segment_changes() {
+        let dir = TempDir::new().unwrap();
+        // Deliberately NOT `hand_driven_index`: the background scheduler is
+        // the subject under test, so it must stay running.
+        let engine = Engine::new(config(&dir)).unwrap();
+        engine.create_index("idle-871", Schema::empty()).unwrap();
+        let index = engine.get_index("idle-871").unwrap();
+        for id in ["a", "b", "c", "d"] {
+            index
+                .index_document(Some(id.into()), serde_json::json!({"value": id}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        // Let the scheduled checks and their cascading merges run to
+        // quiescence (min/max_merge_count = 2 collapses two at a time).
+        for _ in 0..8 {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::task::yield_now().await;
+        }
+        let settled = index.merge_evaluation_count();
+        assert!(
+            settled >= 1,
+            "background merge scheduling never evaluated the index"
+        );
+        // IDLE: a full hour of clock with zero segment-set changes.
+        for _ in 0..60 {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            index.merge_evaluation_count(),
+            settled,
+            "merge evaluations ran on an idle index (#871 per-index tick)"
+        );
+        // A segment-set change (flush publishes a segment) wakes it back up.
+        index
+            .index_document(Some("e".into()), serde_json::json!({"value": "e"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        for _ in 0..8 {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::task::yield_now().await;
+        }
+        assert!(
+            index.merge_evaluation_count() > settled,
+            "a published segment no longer schedules a merge check"
         );
     }
 
@@ -7124,17 +7192,41 @@ pub struct Index {
     /// the response.
     pub external_versions: Arc<dashmap::DashMap<String, u64>>,
 
-    /// Handle to the per-Index merge background task.  Held so the
-    /// shutdown path (`Engine::flush_all_force` → SIGTERM exit) can
-    /// abort the task explicitly — without it the tokio runtime stays
-    /// alive after axum has stopped accepting connections, because
-    /// `tokio::spawn` keeps the runtime non-empty while the task's
-    /// 5-s `tokio::time::sleep` is pending.  The bench at 2026-04-25
-    /// caught this as a SIGTERM hang regression introduced by B-2b.
+    /// Handle to the currently armed debounced merge-check task, if any
+    /// (#871 — armed by [`Index::request_merge_check`] when the segment
+    /// set changes; an idle index holds `None`).  Held so the shutdown
+    /// path (`Engine::flush_all_force` → SIGTERM exit) can abort the task
+    /// explicitly — without it the tokio runtime stays alive after axum
+    /// has stopped accepting connections, because a spawned task keeps
+    /// the runtime non-empty while its debounce `tokio::time::sleep` is
+    /// pending.  The bench at 2026-04-25 caught this as a SIGTERM hang
+    /// regression introduced by B-2b (against the old always-on tick
+    /// task; the contract is unchanged).
     /// `parking_lot::Mutex` (sync, no async, no `.await`) is fine
     /// because we only ever take/replace under it, never hold across
     /// any awaits.
     pub(crate) merge_task: Arc<parking_lot::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// #871 — true while a debounced merge check is scheduled (armed).
+    /// Set by [`Index::request_merge_check`], cleared by the check task
+    /// when it quiesces; makes arming idempotent so any number of
+    /// segment-set changes inside one debounce window cost one task.
+    merge_check_armed: std::sync::atomic::AtomicBool,
+    /// #871 — count of segment-set change events (flush published a
+    /// segment, merge applied, tombstone-only segment persisted). The
+    /// debounced check task compares this epoch before/after a pass to
+    /// decide whether to run another cycle or quiesce.
+    merge_events: AtomicU64,
+    /// #871 — once true, no further merge checks are ever scheduled.
+    /// Set by [`Index::abort_background_tasks`] (SIGTERM shutdown and
+    /// hand-driven test fixtures). Matches the old semantics where the
+    /// aborted per-index tick task was never respawned.
+    merge_scheduling_stopped: std::sync::atomic::AtomicBool,
+    /// #871 — number of merge-policy evaluations actually run (passes
+    /// that won the `merge_in_progress` flag and snapshotted the segment
+    /// registry). Observability for the idle-cost contract: on an idle
+    /// index this counter must stay flat — see
+    /// `idle_index_schedules_no_merge_evaluations_without_segment_changes`.
+    merge_evaluations: AtomicU64,
     /// Failed writes of `schema.json` during dynamic-mapping evolution.
     /// See [`Index::persist_evolved_schema`] (issue #204).
     schema_persist_failures: AtomicU64,
@@ -7497,12 +7589,26 @@ impl Index {
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
+            merge_check_armed: std::sync::atomic::AtomicBool::new(false),
+            merge_events: AtomicU64::new(0),
+            merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_evaluations: AtomicU64::new(0),
             schema_persist_failures: AtomicU64::new(0),
         });
-        // Kick off the background merge pass.  5 s cadence is aggressive
-        // enough to collapse a burst of flushes quickly without burning a
-        // core — every pass is cheap when there's nothing to merge.
-        index.spawn_merge_task(5);
+        // #871 — event-driven merge scheduling: the store fires this hook on
+        // every segment-set change (flush publication, merge application,
+        // tombstone-only segment, orphan recovery) and the debounced check
+        // task does the rest — see `request_merge_check`. No per-index tick
+        // task: a fresh index has no segments and costs no timer and no
+        // wakeup until its first flush publishes one.
+        let merge_hook_index = Arc::downgrade(&index);
+        index
+            .store
+            .set_segments_changed_hook(Some(Arc::new(move || {
+                if let Some(idx) = merge_hook_index.upgrade() {
+                    idx.on_segments_changed();
+                }
+            })));
         Ok(index)
     }
 
@@ -7862,9 +7968,28 @@ impl Index {
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
+            merge_check_armed: std::sync::atomic::AtomicBool::new(false),
+            merge_events: AtomicU64::new(0),
+            merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_evaluations: AtomicU64::new(0),
             schema_persist_failures: AtomicU64::new(0),
         });
-        index.spawn_merge_task(5);
+        // #871 — event-driven merge scheduling (see `Index::create` and
+        // `request_merge_check`): wire the store's segments-changed hook.
+        let merge_hook_index = Arc::downgrade(&index);
+        index
+            .store
+            .set_segments_changed_hook(Some(Arc::new(move || {
+                if let Some(idx) = merge_hook_index.upgrade() {
+                    idx.on_segments_changed();
+                }
+            })));
+        // An opened index can carry pre-existing merge debt — a crash
+        // mid-cascade, or merge config lowered since the segments were
+        // written — that no future event would pay off on a read-only
+        // index. Schedule one debounced check now; it quiesces after a
+        // single evaluation when there is nothing to do.
+        index.request_merge_check();
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
         // full graph-maintenance cost while the ANN path never served).
@@ -9830,9 +9955,25 @@ impl Index {
     ///
     /// Returns the number of merge batches that succeeded.
     ///
-    /// This is called from a background task (see `spawn_merge_task`) and may
-    /// also be invoked explicitly by tests.
+    /// This is called from the debounced background merge check (see
+    /// `request_merge_check`, #871) and may also be invoked explicitly by
+    /// tests.
     pub async fn run_merge_once(&self) -> Result<usize> {
+        match self.try_run_merge_once().await {
+            Some(result) => result,
+            // Another pass holds the merge flag — same "skip" contract the
+            // public signature always had.
+            None => Ok(0),
+        }
+    }
+
+    /// [`Self::run_merge_once`], but a lost `merge_in_progress` race is
+    /// distinguishable from "evaluated, nothing to merge": `None` means the
+    /// flag was held by another pass (background or `_forcemerge`) and NO
+    /// policy evaluation happened. The #871 debounced check task needs the
+    /// distinction — on `None` it must retry a cycle later instead of
+    /// quiescing with a possibly-unevaluated segment set.
+    pub(crate) async fn try_run_merge_once(&self) -> Option<Result<usize>> {
         use std::sync::atomic::Ordering as AtomicOrdering;
 
         // Serialise merges with ourselves (skip if another pass is running).
@@ -9841,7 +9982,7 @@ impl Index {
             .compare_exchange(false, true, AtomicOrdering::AcqRel, AtomicOrdering::Relaxed)
             .is_err()
         {
-            return Ok(0);
+            return None;
         }
         // Ensure we clear the flag on every exit path.
         let _clear = MergeFlagClear(&self.merge_in_progress);
@@ -9857,7 +9998,7 @@ impl Index {
                 }
             }
         }
-        result
+        Some(result)
     }
 
     /// True while a merge pass (background or forced) holds the merge flag.
@@ -9866,6 +10007,15 @@ impl Index {
     pub fn is_merge_in_progress(&self) -> bool {
         self.merge_in_progress
             .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// #871 — how many merge-policy evaluations have run on this index
+    /// (background debounced checks, hand-driven `run_merge_once`, and
+    /// `_forcemerge` passes all count). The idle-cost contract is that this
+    /// stays flat while the segment set does not change.
+    pub fn merge_evaluation_count(&self) -> u64 {
+        self.merge_evaluations
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// ES-style `_forcemerge`: run SYNCHRONOUSLY until the index has at
@@ -9944,6 +10094,13 @@ impl Index {
         use xerj_fts::index::FtsIndexWriter;
         use xerj_storage::merge::{MergePolicy, SizeTieredMergePolicy};
         use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
+
+        // #871 idle-cost observability: every pass that reaches this point
+        // builds a merge policy and snapshots the segment registry — that IS
+        // the per-tick idle cost the event-driven scheduler exists to remove,
+        // so it is exactly what the counter measures. Background debounced
+        // checks, hand-driven `run_merge_once`, and `_forcemerge` all count.
+        self.merge_evaluations.fetch_add(1, AtomicOrdering::Relaxed);
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -11017,62 +11174,172 @@ impl Index {
         Ok(merged_batches)
     }
 
-    /// Spawn a background tokio task that runs the merge pass every
-    /// `interval` seconds until the index is dropped.
-    ///
-    /// Uses a Weak pointer so the task exits naturally when the last Arc to
-    /// the index is released — no explicit shutdown plumbing needed for the
-    /// happy path.  The returned `JoinHandle` is stored in `self.merge_task`
-    /// so the SIGTERM path can call `abort_background_tasks` to break the
-    /// 5-second `tokio::time::sleep` and let the runtime exit promptly
-    /// (otherwise tokio waits for the sleep to wake before noticing the
-    /// engine has been dropped — that is the bench-found shutdown hang).
-    pub fn spawn_merge_task(self: &Arc<Self>, interval_secs: u64) {
-        let weak = Arc::downgrade(self);
-        // Allow override via env for benchmarks / battle tests so merges
-        // don't interfere with ingest-rate measurements.
-        let effective = std::env::var("XERJ_MERGE_INTERVAL_SECS")
+    /// #871 — the debounce window between a segment-set change and the
+    /// merge check it schedules. `XERJ_MERGE_INTERVAL_SECS` keeps its
+    /// historical meaning (benchmarks push it up so merges don't pollute
+    /// ingest-rate measurements): it is now the debounce delay instead of a
+    /// free-running tick period. Default 5 s — the old tick cadence, so a
+    /// burst of flushes still collapses on the same schedule as before.
+    fn merge_check_delay() -> std::time::Duration {
+        let secs = std::env::var("XERJ_MERGE_INTERVAL_SECS")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(interval_secs);
-        let interval = std::time::Duration::from_secs(effective.max(1));
-        let handle = tokio::spawn(async move {
-            tracing::info!(interval_secs, "merge background task started");
+            .unwrap_or(5);
+        std::time::Duration::from_secs(secs.max(1))
+    }
+
+    /// #871 — the segment set changed (the [`IndexStore`
+    /// segments-changed hook](xerj_storage::index_store::IndexStore::set_segments_changed_hook)
+    /// lands here): bump the event epoch, then make sure a debounced merge
+    /// check is scheduled.
+    fn on_segments_changed(self: &Arc<Self>) {
+        self.merge_events
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.request_merge_check();
+    }
+
+    /// #871 — schedule a debounced merge-policy check for this index.
+    ///
+    /// Replaces the per-index tick task (`spawn_merge_task`) that gave
+    /// EVERY index a tokio timer waking every 5 s forever, writes or no
+    /// writes — measured 93 wakeups/s and 15-27% of a core at the
+    /// customer-reported 464 idle indices. Merge scheduling is now
+    /// event-driven, mirroring the #334 WAL-fsync scheduler
+    /// (`xerj-storage/src/wal_fsync.rs`): the storage layer fires its
+    /// segments-changed hook on every segment-set change — flush
+    /// publication, merge application, tombstone-only segment, orphan
+    /// recovery: the only events that can create a merge candidate — and
+    /// that hook lands here via [`Self::on_segments_changed`]. Lucene's
+    /// writer works the same way: `IndexWriter.maybeMerge` runs on flush
+    /// (IndexWriter.java:706,:3681 — MergeTrigger.FULL_FLUSH) and on merge
+    /// completion (IndexWriter.java:2452 — MERGE_FINISHED), never on a
+    /// clock (lucene corpus, Apache-2.0; design mirrored, no code copied).
+    ///
+    /// Contract:
+    /// * Arming is idempotent — any number of events inside one debounce
+    ///   window cost one task (`merge_check_armed` swap).
+    /// * The armed task sleeps [`Self::merge_check_delay`], evaluates once,
+    ///   and loops only while there is a reason to: the pass lost the merge
+    ///   flag to `_forcemerge` (`try_run_merge_once` → `None`, nothing was
+    ///   evaluated), the pass errored (the same every-pass retry the old
+    ///   tick gave a damaged segment — see the LOSS FIREWALL note in
+    ///   `merge_pass_locked`), or the segment set changed since the cycle
+    ///   started (`merge_events` epoch). Otherwise it disarms and EXITS —
+    ///   an idle index holds zero tasks, zero timers, zero wakeups.
+    /// * Merge cascades need no special case: applying a merge fires the
+    ///   hook, so the follow-up evaluation schedules itself.
+    /// * The disarm race (an event between the epoch check and the disarm
+    ///   observed `armed == true` and spawned nothing) is closed by
+    ///   re-checking the epoch after the disarm and re-arming on the
+    ///   event's behalf.
+    ///
+    /// The task handle is stored in `self.merge_task` so the SIGTERM path
+    /// (`abort_background_tasks`, via `Engine::flush_all_force`) can break
+    /// the debounce `tokio::time::sleep` — the same shutdown-hang contract
+    /// the tick task had; `merge_scheduling_stopped` then keeps any later
+    /// event from re-arming.
+    pub fn request_merge_check(self: &Arc<Self>) {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+        if self.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+            return;
+        }
+        // Resolve the runtime BEFORE arming: if there is nowhere to spawn,
+        // leaving `armed` set would eat the next event's arm. The hook can
+        // fire from a blocking-pool thread (flush finalize), where
+        // `try_current` still resolves; the coord's cached handle covers
+        // any path outside every runtime context.
+        let rt = match tokio::runtime::Handle::try_current() {
+            Ok(handle) => handle,
+            Err(_) => match self.flush_signal.runtime() {
+                Some(handle) => handle.clone(),
+                None => return, // no runtime; the next event retries
+            },
+        };
+        if self.merge_check_armed.swap(true, AtomicOrdering::SeqCst) {
+            return; // already scheduled — debounced
+        }
+        let weak = Arc::downgrade(self);
+        let delay = Self::merge_check_delay();
+        let handle = rt.spawn(async move {
             loop {
-                tokio::time::sleep(interval).await;
-                let idx = match weak.upgrade() {
-                    Some(a) => a,
-                    None => {
-                        tracing::info!("merge background task exiting (index dropped)");
-                        return;
+                // Epoch BEFORE the sleep: any event after this read either
+                // re-runs this loop (epoch mismatch below) or re-arms after
+                // the exit path's disarm.
+                let seen = match weak.upgrade() {
+                    Some(idx) => idx.merge_events.load(AtomicOrdering::SeqCst),
+                    None => return,
+                };
+                tokio::time::sleep(delay).await;
+                let Some(idx) = weak.upgrade() else { return };
+                if idx.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+                    idx.merge_check_armed.store(false, AtomicOrdering::SeqCst);
+                    return;
+                }
+                let outcome = idx.try_run_merge_once().await;
+                let retry = match &outcome {
+                    // Lost the flag to `_forcemerge`/another pass: nothing
+                    // was evaluated, so we still owe the arming event a
+                    // pass.
+                    None => true,
+                    Some(Err(e)) => {
+                        tracing::warn!("merge pass failed: {e}");
+                        true
+                    }
+                    Some(Ok(n)) => {
+                        if *n > 0 {
+                            tracing::debug!(batches = n, "merge pass ran");
+                        }
+                        false
                     }
                 };
-                match idx.run_merge_once().await {
-                    Ok(0) => {}
-                    Ok(n) => tracing::debug!(batches = n, "merge pass ran"),
-                    Err(e) => tracing::warn!("merge pass failed: {e}"),
+                if retry || idx.merge_events.load(AtomicOrdering::SeqCst) != seen {
+                    continue;
                 }
+                idx.merge_check_armed.store(false, AtomicOrdering::SeqCst);
+                if idx.merge_events.load(AtomicOrdering::SeqCst) != seen {
+                    // An event slipped in between the epoch check and the
+                    // disarm: it saw `armed` and spawned nothing. Re-arm on
+                    // its behalf.
+                    idx.request_merge_check();
+                }
+                return;
             }
         });
-        // Replace any previous handle and abort it (defensive — should be
-        // None at first construction; only matters if a caller ever calls
-        // spawn_merge_task twice on the same Index).
-        let mut slot = self.merge_task.lock();
-        if let Some(prev) = slot.replace(handle) {
-            prev.abort();
+        // Replace the previous handle. It is either None or a task on its
+        // way out (a new arm is only possible after the old task disarmed,
+        // i.e. past its last await) — dropping it detaches those final
+        // instructions, never a pending sleep.
+        *self.merge_task.lock() = Some(handle);
+        if self.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+            // Lost a race with `abort_background_tasks` between the check at
+            // the top and the handle store above: finish the abort's job so
+            // no debounce sleep outlives shutdown.
+            if let Some(handle) = self.merge_task.lock().take() {
+                handle.abort();
+            }
+            self.merge_check_armed.store(false, AtomicOrdering::SeqCst);
         }
     }
 
-    /// Abort the merge background task spawned by `spawn_merge_task`.
+    /// Stop this index's background merge scheduling permanently and abort
+    /// the armed check task, if any.
     ///
     /// Idempotent and safe to call from a signal handler.  After this
-    /// returns, the merge task is no longer holding the tokio runtime
-    /// alive, so once axum's listeners stop and the final flush completes,
-    /// the runtime exits cleanly instead of waiting up to 5 s for the
-    /// merge sleep to wake on its own.  The aborted task itself is still
-    /// being unwound, so ingest-side callers MUST NOT rely on the merge
-    /// loop running after this.  Called from `Engine::flush_all_force`.
+    /// returns, no merge task is holding the tokio runtime alive, so once
+    /// axum's listeners stop and the final flush completes, the runtime
+    /// exits cleanly instead of waiting up to the debounce delay for a
+    /// `tokio::time::sleep` to wake on its own (the bench-found SIGTERM
+    /// hang).  `merge_scheduling_stopped` is set FIRST so a segments-changed
+    /// hook firing concurrently (e.g. from the shutdown flush that follows
+    /// in `Engine::flush_all_force`) cannot re-arm after the abort; the
+    /// re-check at the end of `request_merge_check` closes the remaining
+    /// interleaving.  The aborted task itself is still being unwound, so
+    /// ingest-side callers MUST NOT rely on merges running after this.
+    /// Called from `Engine::flush_all_force` and by hand-driven test
+    /// fixtures that drive every merge themselves.
     pub fn abort_background_tasks(&self) {
+        self.merge_scheduling_stopped
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         if let Some(handle) = self.merge_task.lock().take() {
             handle.abort();
         }
