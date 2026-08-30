@@ -257,6 +257,31 @@ impl fmt::Display for FieldType {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Date precision
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Declared resolution of a [`FieldType::Date`] field.
+///
+/// XERJ collapses ES `date` AND `date_nanos` onto the single native type
+/// [`FieldType::Date`], so before #790 the engine had no way to tell them
+/// apart and had to *guess* a value's scale from the value itself (">= 4
+/// fractional-second digits means nanoseconds"). That guess is per-VALUE, so
+/// one column could hold both millisecond and nanosecond keys — six orders of
+/// magnitude apart — and no single comparison could be right against both.
+///
+/// Recording the mapping's declared precision makes the scale a property of
+/// the FIELD, which is what every date-ordered path needs to agree on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DatePrecision {
+    /// ES `date` — millisecond resolution. Sub-millisecond digits truncate,
+    /// exactly as ES does.
+    Millis,
+    /// ES `date_nanos` — nanosecond resolution.
+    Nanos,
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Field options
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -311,6 +336,16 @@ pub struct FieldOptions {
     /// exact default shape ES emits (`ignore_above: 256`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ignore_above: Option<u32>,
+    /// Declared resolution of a `Date` field (#790).
+    ///
+    /// `Some(Millis)` for an ES `date`, `Some(Nanos)` for an ES `date_nanos`.
+    /// `None` means "the mapping predates this flag" — a schema.json written
+    /// by an older build. Query-time date normalisation treats `None` (and,
+    /// for now, `Nanos`) as the legacy per-value guess so that upgrading a
+    /// data dir cannot silently change how its dates sort; see
+    /// `xerj-engine`'s `DateScale`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_precision: Option<DatePrecision>,
     /// Allow the field to appear more than once in a document (always `true` for arrays).
     #[serde(default = "bool_true")]
     pub multi_value: bool,
@@ -340,6 +375,7 @@ impl Default for FieldOptions {
             quantization: None,
             null_value: None,
             ignore_above: None,
+            date_precision: None,
             multi_value: true,
             boost: 1.0,
         }
@@ -393,11 +429,22 @@ pub struct FieldConfig {
 
 impl FieldConfig {
     /// Create a simple field with default options.
+    ///
+    /// A `Date` field created through the native API is an ES `date`:
+    /// millisecond resolution. `date_nanos` has no native type of its own and
+    /// only ever arrives as an ES mapping string, so the ES-compat mapping
+    /// paths override `options.date_precision` for it (#790). Anything that
+    /// forgets to therefore lands on `Millis`, which is the ES default — never
+    /// on a silently different scale.
     pub fn new(name: impl Into<String>, field_type: FieldType) -> Self {
+        let mut options = FieldOptions::default();
+        if field_type == FieldType::Date {
+            options.date_precision = Some(DatePrecision::Millis);
+        }
         Self {
             name: name.into(),
             field_type,
-            options: FieldOptions::default(),
+            options,
             embedding: None,
             fields: Vec::new(),
         }

@@ -1413,6 +1413,222 @@ mod flush_publication_recovery_tests {
         assert_eq!(result.hits[0].id, "survivor");
     }
 
+    /// Build a one-date-field index whose `ts` field carries `precision`.
+    async fn date_index(
+        engine: &crate::Engine,
+        name: &str,
+        precision: Option<xerj_common::types::DatePrecision>,
+        docs: &[(&str, &str)],
+    ) -> std::sync::Arc<crate::Index> {
+        let mut ts = FieldConfig::new("ts", FieldType::Date);
+        ts.options.date_precision = precision;
+        let mut schema = Schema::empty();
+        schema.add_field(ts).unwrap();
+        engine.create_index(name, schema).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        for (id, v) in docs {
+            idx.index_document(Some((*id).into()), json!({ "ts": v }))
+                .await
+                .unwrap();
+        }
+        idx
+    }
+
+    async fn sort_ids(idx: &std::sync::Arc<crate::Index>, order: &str) -> Vec<String> {
+        let req = xerj_query::parse_request(
+            &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": order}]}),
+        )
+        .unwrap();
+        idx.search(&req)
+            .await
+            .unwrap()
+            .hits
+            .iter()
+            .map(|h| h.id.clone())
+            .collect()
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_mixed_precision_sorts_and_ranges_consistently() {
+        // #790: the sort-shadow, the per-hit sort keys and a range's bounds all
+        // guessed a date's epoch scale from the VALUE — >= 4 fractional-second
+        // digits meant nanoseconds, anything coarser meant milliseconds. A
+        // `date` column mixing the two therefore held keys six orders of
+        // magnitude apart: doc `s` (2020, sub-millisecond) got ~1.59e18 while
+        // doc `w` (2025, whole-second) got ~1.75e12, so `s` sorted LAST despite
+        // being the earlier instant, and a millisecond-scale range bound could
+        // not reach it. With the scale resolved from the MAPPING (an ES `date`
+        // is millisecond-precision), one column is one scale and both agree.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        // true chronological order: e(2019) < s(2020, sub-ms) < w(2025).
+        let idx = date_index(
+            &engine,
+            "date-mixed",
+            Some(xerj_common::types::DatePrecision::Millis),
+            &[
+                ("w", "2025-01-01T00:00:00Z"),
+                ("s", "2020-06-06T06:06:06.123456Z"),
+                ("e", "2019-01-01T00:00:00Z"),
+            ],
+        )
+        .await;
+        let range_count = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": body, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_ids(&idx, "asc").await,
+                vec!["e".to_string(), "s".to_string(), "w".to_string()],
+                "#790 {phase}: a mixed-precision date column must sort by instant"
+            );
+            assert_eq!(
+                sort_ids(&idx, "desc").await,
+                vec!["w".to_string(), "s".to_string(), "e".to_string()],
+                "#790 {phase}: desc must be the exact reverse"
+            );
+            // The reported symptom: a range whose bound is the sub-millisecond
+            // doc's OWN stored value returned the doc before flush and nothing
+            // after it, because the ms bound sat 6 orders of magnitude below
+            // the nanosecond shadow key the segment had built.
+            assert_eq!(
+                range_count(
+                    idx.clone(),
+                    json!({"range": {"ts": {"gte": "2020-06-06T06:06:06.123456Z",
+                                           "lte": "2020-06-06T06:06:06.123456Z"}}})
+                )
+                .await,
+                (1u64, vec!["s".to_string()]),
+                "#790 {phase}: a range on the sub-ms doc's own value must find it"
+            );
+            assert_eq!(
+                range_count(idx.clone(), json!({"range": {"ts": {"gte": "2021-01-01"}}})).await,
+                (1u64, vec!["w".to_string()]),
+                "#790 {phase}: gte 2021 keeps only w"
+            );
+            assert_eq!(
+                range_count(idx.clone(), json!({"range": {"ts": {"lt": "2021-01-01"}}})).await,
+                (2u64, vec!["e".to_string(), "s".to_string()]),
+                "#790 {phase}: lt 2021 keeps e and s"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_nanos_field_keeps_nanosecond_sort_values() {
+        // The guard on the #790 fix. XERJ maps BOTH `date` and `date_nanos`
+        // onto `FieldType::Date`, and before the `date_precision` flag the
+        // per-VALUE guess was the only thing giving a `date_nanos` field its
+        // nanosecond sort values (`search/240_date_nanos.yml` asserts them
+        // exactly). Narrowing every date to milliseconds is what sank the
+        // first attempt at this fix (PR #791), so a field the mapping declares
+        // `date_nanos` must keep the guess — and therefore its nanosecond
+        // keys — before AND after flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let idx = date_index(
+            &engine,
+            "date-ns",
+            Some(xerj_common::types::DatePrecision::Nanos),
+            &[
+                ("first", "2018-10-29T12:12:12.123456789Z"),
+                ("second", "2018-10-29T12:12:12.987654321Z"),
+            ],
+        )
+        .await;
+        let sort_values = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": "asc"}]}),
+            )
+            .unwrap();
+            idx.search(&req)
+                .await
+                .unwrap()
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.sort.clone()))
+                .collect::<Vec<_>>()
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_values(idx.clone()).await,
+                vec![
+                    ("first".to_string(), vec![json!(1540815132123456789i64)]),
+                    ("second".to_string(), vec![json!(1540815132987654321i64)]),
+                ],
+                "#790 {phase}: a date_nanos field must keep nanosecond sort values"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn date_scale_follows_the_declared_mapping() {
+        // The whole point of #790: the scale is a property of the FIELD.
+        use xerj_common::types::DatePrecision;
+        let mut schema = Schema::empty();
+        // The native API means ES `date` — `FieldConfig::new` pins it.
+        schema
+            .add_field(FieldConfig::new("plain", FieldType::Date))
+            .unwrap();
+        let mut ns = FieldConfig::new("ns", FieldType::Date);
+        ns.options.date_precision = Some(DatePrecision::Nanos);
+        schema.add_field(ns).unwrap();
+        // A mapping written before the flag existed: no silent change of scale.
+        let mut legacy = FieldConfig::new("legacy", FieldType::Date);
+        legacy.options.date_precision = None;
+        schema.add_field(legacy).unwrap();
+        schema
+            .add_field(FieldConfig::new("word", FieldType::Keyword))
+            .unwrap();
+        let scale = |name: &str| {
+            declared_field(&schema, name)
+                .map(date_scale_of_config)
+                .unwrap_or(DateScale::PerValue)
+        };
+        assert_eq!(scale("plain"), DateScale::Millis);
+        assert_eq!(scale("ns"), DateScale::PerValue);
+        assert_eq!(scale("legacy"), DateScale::PerValue);
+        assert_eq!(scale("word"), DateScale::PerValue);
+        assert_eq!(scale("undeclared"), DateScale::PerValue);
+        assert_eq!(
+            millis_date_fields(&schema),
+            ["plain".to_string()].into_iter().collect()
+        );
+        // A millisecond field truncates sub-millisecond digits; the per-value
+        // scale keeps them, which is the whole ms-vs-ns split.
+        let sub = "2020-06-06T06:06:06.123456Z";
+        assert_eq!(
+            date_string_to_epoch(sub, DateScale::Millis),
+            Some(json!(1591423566123i64))
+        );
+        assert_eq!(
+            date_string_to_epoch(sub, DateScale::PerValue),
+            Some(json!(1591423566123456000i64))
+        );
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn date_term_normalizes_formats_and_epoch_ms_across_flush() {
         // #788: a `term` on a date field must match by instant, not by raw
@@ -6928,7 +7144,17 @@ pub struct Index {
     /// these fields' shadows for every new segment so the first sorted
     /// query after a flush/merge doesn't pay the O(n log n) build inside
     /// its own latency.
-    sort_shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+    sort_shadow_fields: Arc<dashmap::DashMap<String, DateScale>>,
+    /// Sync-readable mirror of every `date`-mapped field that normalises on
+    /// the MILLISECOND scale (#790).
+    ///
+    /// The mapping lives in `self.schema`, behind an async `RwLock`; the
+    /// paths that must agree on a date's epoch scale — `compute_sort_values`
+    /// (per hit), `build_sort_shadow` / `shadow_range_bounds` (per segment),
+    /// `sort_epoch_memo` (per buffered memtable doc) — are all sync and on the
+    /// scan path. The snapshot is swapped wholesale on every schema write
+    /// (`save_schema`) so a reader always sees one consistent set.
+    millis_date_fields: Arc<parking_lot::RwLock<Arc<std::collections::HashSet<String>>>>,
     /// Per-segment single-flight guard for the `stored_slices_for` miss
     /// arm: without it, every in-flight query racing the same cold
     /// segment (up to the 64-permit cap) ran its own full stored-section
@@ -7365,6 +7591,7 @@ impl Index {
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
         let passage_chunk_fields_init = passage_chunk_fields_from_schema(&managed.schema);
+        let millis_date_fields_snapshot = millis_date_fields(&managed.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(managed)),
@@ -7473,6 +7700,9 @@ impl Index {
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
+                millis_date_fields_snapshot,
+            ))),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
@@ -7735,6 +7965,7 @@ impl Index {
             .iter()
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
+        let millis_date_fields_snapshot = millis_date_fields(&schema.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(schema)),
@@ -7838,6 +8069,9 @@ impl Index {
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
+                millis_date_fields_snapshot,
+            ))),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
@@ -15919,8 +16153,15 @@ impl Index {
                 vals.iter()
                     .enumerate()
                     .map(|(i, v)| {
-                        let fmt = request.sort.get(i).and_then(|s| s.format.as_deref());
-                        normalize_search_after_value(v, fmt)
+                        let sf = request.sort.get(i);
+                        let fmt = sf.and_then(|s| s.format.as_deref());
+                        // The cursor is compared against `compute_sort_values`
+                        // output, so it must be normalised on the SAME field
+                        // scale those keys use (#790).
+                        let scale = sf
+                            .map(|s| self.date_scale(&s.field))
+                            .unwrap_or(DateScale::PerValue);
+                        normalize_search_after_value(v, fmt, scale)
                     })
                     .collect(),
             ),
@@ -16528,11 +16769,15 @@ impl Index {
                         {
                             return None;
                         }
+                        // The memo is per-FIELD-scale (#790): this cut has to
+                        // rank on the same epoch numbers `compute_sort_values`
+                        // emits for this field, not on a per-value guess.
+                        let scale = self.date_scale(&sf.field);
                         mem.sort_candidates_numeric(
                             &sf.field,
                             sf.order == SortOrder::Desc,
                             materialisation_limit,
-                            &sort_epoch_memo,
+                            &|v: &str| sort_epoch_memo(v, scale),
                         )
                     })();
                     match bounded {
@@ -21236,7 +21481,41 @@ impl Index {
         let path = self.data_dir.join("schema.json");
         let bytes = serde_json::to_vec_pretty(schema)?;
         write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
+        // Every schema mutation funnels through here (`add_fields` for an
+        // explicit mapping update, `persist_evolved_schema` for dynamic
+        // evolution), so this is the one place the sync-readable date-scale
+        // mirror has to be refreshed (#790). Swapped as a whole `Arc` so a
+        // concurrent reader never observes a half-rebuilt set.
+        let next = Arc::new(millis_date_fields(&schema.schema));
+        let changed = {
+            let mut cur = self.millis_date_fields.write();
+            let changed = **cur != *next;
+            *cur = next;
+            changed
+        };
+        if changed {
+            // A field that just moved between scales has cached shadows and
+            // range prefilters keyed on the OLD one. Leaving them would put
+            // the shadow keys and a fresh bound back on different scales —
+            // the exact divergence #790 is about. They rebuild on demand.
+            self.sort_shadow_cache.clear();
+            self.sort_shadow_fields.clear();
+            self.range_prefilter_cache.clear();
+        }
         Ok(())
+    }
+
+    /// The epoch scale `field`'s dates normalise on (#790).
+    ///
+    /// Read off the sync mirror of the mapping; an undeclared field, or one
+    /// whose mapping predates the `date_precision` flag, keeps the legacy
+    /// per-value guess.
+    fn date_scale(&self, field: &str) -> DateScale {
+        if self.millis_date_fields.read().contains(field) {
+            DateScale::Millis
+        } else {
+            DateScale::PerValue
+        }
     }
 
     async fn fill_memtable_sources(&self, hits: Vec<Hit>) -> Vec<Hit> {
@@ -22179,6 +22458,7 @@ impl Index {
                             gt.as_ref(),
                             lte.as_ref(),
                             lt.as_ref(),
+                            self.date_scale(field_str),
                         )?;
                         seg_matches = seg_matches.saturating_add(shadow_range_count(
                             shadow, slo, shi, slo_incl, shi_incl,
@@ -24908,7 +25188,8 @@ impl Index {
                 let shadow =
                     self.sorted_shadow_for(segments_dir, segment_id, field, seg_doc_count)?;
                 let shadow = shadow.value().as_ref()?;
-                let (slo, slo_incl, shi, shi_incl) = shadow_range_bounds(gte, gt, lte, lt)?;
+                let (slo, slo_incl, shi, shi_incl) =
+                    shadow_range_bounds(gte, gt, lte, lt, self.date_scale(field))?;
                 // Same selectivity precheck on the shadow scale.
                 if shadow_range_count(shadow, slo, shi, slo_incl, shi_incl) as usize > cap {
                     return None;
@@ -25344,8 +25625,11 @@ impl Index {
         }
         // Register the field so the publish-time warm pre-builds this
         // shadow for every FUTURE segment (bounded registry).
+        // The recorded value is the field's date scale, so `warm_segment_at_publish`
+        // (which has no schema access) rebuilds the same keys this path would (#790).
+        let scale = self.date_scale(field);
         if self.sort_shadow_fields.len() < 16 && !self.sort_shadow_fields.contains_key(field) {
-            self.sort_shadow_fields.insert(field.to_string(), ());
+            self.sort_shadow_fields.insert(field.to_string(), scale);
         }
         let key = format!("{segment_id}\u{1}{field}");
         if let Some(entry) = self.sort_shadow_cache.get(&key) {
@@ -25360,7 +25644,7 @@ impl Index {
         // disabled the bounded path for that segment: every subsequent
         // sorted read full-scanned it until a merge retired it.
         let cols = self.dv_columns_for(segments_dir, segment_id)?;
-        let built = build_sort_shadow(&cols, field, seg_doc_count);
+        let built = build_sort_shadow(&cols, field, seg_doc_count, scale);
         let bytes = cache_estimates::sort_shadow_bytes(
             &key,
             std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
@@ -40756,6 +41040,7 @@ fn build_sort_shadow(
     cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
     field: &str,
     seg_doc_count: u64,
+    scale: DateScale,
 ) -> Option<Arc<Vec<(i64, u32)>>> {
     use xerj_storage::doc_values::Column;
     match cols.get(field) {
@@ -40781,7 +41066,7 @@ fn build_sort_shadow(
             // heap would rank raw strings, not epochs).
             let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
             for t in &k.terms {
-                keys.push(sort_date_normalize(t)?.as_f64()?);
+                keys.push(sort_date_normalize(t, scale)?.as_f64()?);
             }
             let mut sorted: Vec<(i64, u32)> = k
                 .ords
@@ -40816,13 +41101,14 @@ fn shadow_range_bounds(
     gt: Option<&Value>,
     lte: Option<&Value>,
     lt: Option<&Value>,
+    scale: DateScale,
 ) -> Option<(f64, bool, f64, bool)> {
     let key = |v: Option<&Value>| -> Option<Option<f64>> {
         match v {
             None => Some(None),
             Some(Value::Number(n)) => Some(n.as_f64()),
             Some(Value::String(s)) => {
-                if let Some(f) = sort_date_normalize(s).and_then(|x| x.as_f64()) {
+                if let Some(f) = sort_date_normalize(s, scale).and_then(|x| x.as_f64()) {
                     Some(Some(f))
                 } else if let Ok(f) = s.parse::<f64>() {
                     Some(Some(f))
@@ -40917,7 +41203,7 @@ struct PublishWarmCaches {
     slices: Arc<dashmap::DashMap<String, Resident<StoredSlices>>>,
     dv: Arc<dashmap::DashMap<String, Resident<DocValueMap>>>,
     shadow: Arc<dashmap::DashMap<String, Resident<Option<Arc<Vec<(i64, u32)>>>>>>,
-    shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+    shadow_fields: Arc<dashmap::DashMap<String, DateScale>>,
     lifecycle: Arc<parking_lot::RwLock<()>>,
     budget: Arc<SegmentHydrationBudget>,
     stored_values: Arc<dashmap::DashMap<String, Resident<Vec<Value>>>>,
@@ -41122,7 +41408,7 @@ fn warm_segment_at_publish(
             let field = e.key();
             let key = format!("{seg_id}\u{1}{field}");
             if !caches.shadow.contains_key(&key) {
-                let built = build_sort_shadow(&cols, field, expect_docs);
+                let built = build_sort_shadow(&cols, field, expect_docs, *e.value());
                 let bytes = cache_estimates::sort_shadow_bytes(
                     &key,
                     std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
@@ -41242,7 +41528,7 @@ const SHORTCUT_COUNT_CACHE_MAX: usize = 65_536;
 /// ES format pattern, tried first for custom formats like
 /// `yyyy-MM-dd | HH:mm:ss.SSS` whose cursor strings the default date
 /// detectors below don't recognize.  Non-date values pass through unchanged.
-fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
+fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>, scale: DateScale) -> Value {
     if let Some(s) = v.as_str() {
         if let Some(fmt) = fmt_hint {
             if let Some(epoch) = es_format_to_epoch_ms(s, fmt) {
@@ -41257,11 +41543,7 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
             && bytes[3].is_ascii_digit()
             && bytes[4] == b'-';
         if looks_date {
-            let frac_digits = s
-                .rsplit_once('.')
-                .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-                .unwrap_or(0);
-            let is_nanos = frac_digits >= 4;
+            let is_nanos = scale.is_nanos(s);
             let s_utc = s.replace(' ', "T");
             let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
                 s_utc
@@ -41309,6 +41591,101 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
 // (`sorted_shadow_for`) — the two MUST agree exactly on how a date-shaped
 // string maps to an epoch number, or candidate selection would diverge from
 // the heap's ordering.
+/// The epoch scale one date FIELD is normalised on (#790).
+///
+/// Every date-ordered path — the per-hit sort keys (`compute_sort_values`),
+/// the segment sort/range shadow (`build_sort_shadow`), a range's shadow
+/// bounds (`shadow_range_bounds`), the memtable pre-clone rejection
+/// (`sort_epoch_memo`) and a `search_after` cursor
+/// (`normalize_search_after_value`) — has to turn a date string into the SAME
+/// number, or they compare across scales and disagree. Resolving the scale
+/// from the mapping instead of from each value is what makes that possible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateScale {
+    /// ES `date`: epoch MILLISECONDS for every value, sub-millisecond digits
+    /// truncated (what ES itself stores). Set for any field the mapping
+    /// declares `type: date`, and for a `FieldType::Date` created through the
+    /// native API.
+    Millis,
+    /// The pre-#790 per-VALUE guess: >= 4 fractional-second digits means
+    /// epoch-nanoseconds, anything coarser means epoch-milliseconds.
+    ///
+    /// Kept for two kinds of field:
+    ///   * a `date_nanos` mapping — the guess is the only thing that gives it
+    ///     nanosecond sort values today, and pinning it to nanos for EVERY
+    ///     value would change how it compares against a plain `date` field in
+    ///     a cross-index sort, which the conformance suite pins
+    ///     (`search/90_search_after.yml`, "Format sort values": a `date_nanos`
+    ///     field whose values are `dd/MM/yyyy` slash-dates interleaves
+    ///     chronologically with a `date` field's, i.e. on the millisecond
+    ///     scale). Making `date_nanos` uniformly nanosecond-scaled is the
+    ///     remaining half of the mixed-scale problem, tracked separately.
+    ///   * a field whose mapping predates the `date_precision` flag (a
+    ///     schema.json written by an older build) — upgrading an existing
+    ///     index must not silently change how its dates sort.
+    PerValue,
+}
+
+impl DateScale {
+    /// Should `s` be encoded as epoch-NANOSECONDS?
+    #[inline]
+    fn is_nanos(self, s: &str) -> bool {
+        match self {
+            DateScale::Millis => false,
+            DateScale::PerValue => {
+                s.rsplit_once('.')
+                    .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+                    .unwrap_or(0)
+                    >= 4
+            }
+        }
+    }
+}
+
+/// Every `Millis` field in `schema`, as the sync-readable mirror the scan
+/// path consults (`Index::millis_date_fields`). The schema itself lives
+/// behind an ASYNC `RwLock`, while `compute_sort_values`,
+/// `build_sort_shadow` and `shadow_range_bounds` are sync and run per hit
+/// and per segment.
+fn millis_date_fields(schema: &Schema) -> std::collections::HashSet<String> {
+    fn walk(fields: &[FieldConfig], prefix: &str, out: &mut std::collections::HashSet<String>) {
+        for fc in fields {
+            let path = if prefix.is_empty() {
+                fc.name.clone()
+            } else {
+                format!("{prefix}.{}", fc.name)
+            };
+            if date_scale_of_config(fc) == DateScale::Millis {
+                out.insert(path.clone());
+            }
+            if !fc.fields.is_empty() {
+                walk(&fc.fields, &path, out);
+            }
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    walk(&schema.fields, "", &mut out);
+    out
+}
+
+/// The `DateScale` one declared field asks for — the single rule, so nothing
+/// can drift from it.
+///
+/// Anything that is not a `Date` carrying `DatePrecision::Millis` — a
+/// `date_nanos`, a mapping written before the flag existed, a non-date type,
+/// an undeclared/dynamic field — stays on `PerValue`, i.e. exactly the
+/// pre-#790 behaviour. The flag only ever *narrows* a field to `Millis`, so a
+/// path that forgets to consult the mapping cannot land on a new scale.
+fn date_scale_of_config(fc: &FieldConfig) -> DateScale {
+    if fc.field_type == FieldType::Date
+        && fc.options.date_precision == Some(xerj_common::types::DatePrecision::Millis)
+    {
+        DateScale::Millis
+    } else {
+        DateScale::PerValue
+    }
+}
+
 // When a field sort pulls a date-shaped string out of the source we emit
 // epoch-ms (or epoch-ns for nanosecond-precision inputs) instead of the
 // raw string, to match ES sort-value semantics.  Heuristic: the value must
@@ -41357,12 +41734,8 @@ fn slash_date_to_epoch(s: &str) -> Option<Value> {
     }
     None
 }
-fn date_string_to_epoch(s: &str) -> Option<Value> {
-    let frac_digits = s
-        .rsplit_once('.')
-        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-        .unwrap_or(0);
-    let is_nanos = frac_digits >= 4;
+fn date_string_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
+    let is_nanos = scale.is_nanos(s);
     let s_utc = s.replace(' ', "T");
     let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
         s_utc
@@ -41417,9 +41790,13 @@ fn date_string_to_epoch(s: &str) -> Option<Value> {
 /// Normalise a string sort value the way `compute_sort_values` does:
 /// date-shaped strings become epoch-ms / epoch-ns numbers, everything else
 /// returns `None` (caller keeps the raw string).
-fn sort_date_normalize(s: &str) -> Option<Value> {
+///
+/// `scale` is the FIELD's scale, resolved once from the mapping — every
+/// caller on a given field must pass the same one, or the sort-shadow keys,
+/// the heap's sort keys and a range's bounds stop being comparable (#790).
+fn sort_date_normalize(s: &str, scale: DateScale) -> Option<Value> {
     if looks_like_date(s) {
-        date_string_to_epoch(s)
+        date_string_to_epoch(s, scale)
     } else if looks_like_slash_date(s) {
         slash_date_to_epoch(s)
     } else {
@@ -41487,7 +41864,7 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
     };
     let v = match raw {
         Value::Number(n) => n.as_f64(),
-        Value::String(s) => sort_epoch_memo(s),
+        Value::String(s) => sort_epoch_memo(s, idx.date_scale(&sf.field)),
         _ => None,
     };
     match v {
@@ -41503,15 +41880,26 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
 /// raw strings in the heap — `primary_f64_rejects` can never reject those,
 /// so callers correctly admit).  Insertion stops at 65 536 entries; misses
 /// beyond that just re-parse (pure function of the string, index-agnostic).
-fn sort_epoch_memo(s: &str) -> Option<f64> {
-    static MEMO: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+fn sort_epoch_memo(s: &str, scale: DateScale) -> Option<f64> {
+    // One memo per scale, not one keyed by `(scale, s)`: the same string
+    // normalises to a DIFFERENT epoch on the two scales (#790), and a shared
+    // map would hand a millisecond field a nanosecond key cached by some
+    // other index's per-value field. Separate statics also keep the hit path
+    // a borrowed `&str` lookup with no key allocation.
+    static MEMO_MILLIS: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
         std::sync::LazyLock::new(dashmap::DashMap::new);
-    if let Some(e) = MEMO.get(s) {
+    static MEMO_PER_VALUE: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+        std::sync::LazyLock::new(dashmap::DashMap::new);
+    let memo = match scale {
+        DateScale::Millis => &*MEMO_MILLIS,
+        DateScale::PerValue => &*MEMO_PER_VALUE,
+    };
+    if let Some(e) = memo.get(s) {
         return *e.value();
     }
-    let v = sort_date_normalize(s).and_then(|x| x.as_f64());
-    if MEMO.len() < 65_536 {
-        MEMO.insert(s.to_string(), v);
+    let v = sort_date_normalize(s, scale).and_then(|x| x.as_f64());
+    if memo.len() < 65_536 {
+        memo.insert(s.to_string(), v);
     }
     v
 }
@@ -41586,7 +41974,7 @@ fn compute_sort_values(
             let raw = xerj_query::sort::reduce_sort_value(&raw, sf.order, sf.mode);
             match raw {
                 Value::String(ref s) if looks_like_date(s) => {
-                    date_string_to_epoch(s).unwrap_or(raw)
+                    date_string_to_epoch(s, idx.date_scale(&sf.field)).unwrap_or(raw)
                 }
                 Value::String(ref s) if looks_like_slash_date(s) => {
                     slash_date_to_epoch(s).unwrap_or(raw)

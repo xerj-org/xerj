@@ -16557,6 +16557,21 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
 
         let native_type = es_type_to_native(es_type);
         let mut fc = FieldConfig::new(field_name.clone(), native_type);
+
+        // #790 — remember `date` vs `date_nanos`. Both collapse onto
+        // `FieldType::Date`, and without this flag the engine had to guess a
+        // date's scale from the value ("4+ fractional digits means nanos"),
+        // which mixed millisecond and nanosecond keys inside a single `date`
+        // column and broke both its sort order and its ranges. `FieldConfig::new`
+        // already defaults a `Date` to `Millis`; the override is what keeps a
+        // declared `date_nanos` on its own precision.
+        if native_type == FieldType::Date {
+            fc.options.date_precision = Some(if es_type == "date_nanos" {
+                xerj_common::types::DatePrecision::Nanos
+            } else {
+                xerj_common::types::DatePrecision::Millis
+            });
+        }
         if let Some(sub_props) = field_def.get("properties") {
             fc.fields = es_properties_to_fields(sub_props)?;
         }
@@ -16756,6 +16771,49 @@ fn es_type_to_native(es_type: &str) -> FieldType {
         "binary" => FieldType::Binary,
         "nested" => FieldType::Nested,
         _ => FieldType::Object,
+    }
+}
+
+#[cfg(test)]
+mod date_precision_mapping_tests {
+    use super::*;
+    use xerj_common::types::DatePrecision;
+
+    /// #790: `date` and `date_nanos` both collapse onto `FieldType::Date`, so
+    /// the mapping is the only place the distinction can be recorded. Without
+    /// it the engine has to guess a date's epoch scale from each value, which
+    /// mixes millisecond and nanosecond keys inside one `date` column.
+    #[test]
+    fn date_and_date_nanos_record_their_declared_precision() {
+        let fields = es_properties_to_fields(&json!({
+            "when": { "type": "date" },
+            "when_ns": { "type": "date_nanos" },
+            "name": { "type": "keyword" },
+            "nested": { "type": "object", "properties": { "at": { "type": "date_nanos" } } }
+        }))
+        .expect("valid mapping");
+        let by_name = |n: &str| {
+            fields
+                .iter()
+                .find(|f| f.name == n)
+                .unwrap_or_else(|| panic!("{n} missing"))
+        };
+        assert_eq!(by_name("when").field_type, FieldType::Date);
+        assert_eq!(
+            by_name("when").options.date_precision,
+            Some(DatePrecision::Millis)
+        );
+        assert_eq!(
+            by_name("when_ns").options.date_precision,
+            Some(DatePrecision::Nanos)
+        );
+        // Non-date fields carry nothing, so the flag never widens the
+        // persisted mapping for the rest of the schema.
+        assert_eq!(by_name("name").options.date_precision, None);
+        // Sub-properties go through the same recursion.
+        let inner = &by_name("nested").fields[0];
+        assert_eq!(inner.name, "at");
+        assert_eq!(inner.options.date_precision, Some(DatePrecision::Nanos));
     }
 }
 
