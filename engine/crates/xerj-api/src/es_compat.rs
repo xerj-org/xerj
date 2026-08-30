@@ -7455,6 +7455,14 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
 /// `boost`/`_name` is an inline leaf param, not a wrapper key, so nothing
 /// dispatching is missed.
 ///
+/// The `knn` arm inherits exactly that one known divergence and no other. A
+/// one-clause `bool` is erased before the engine reads the tree (#399), so
+/// descending through a sole candidate into a compound bool tracks
+/// `compound_bool_direct_knn` faithfully — except in the same contrived
+/// `bool{should:[bool{should:[knn, match]}], filter:[…]}` shape, where the
+/// wrapper is not erased, the engine does NOT pin, and this over-suppresses.
+/// Same class, same contrivance, no new one.
+///
 /// Contrast [`vector_query_fields`], which collects every mention regardless of
 /// shape and is right only for the top-level `knn` block (which always dispatches).
 fn dispatching_vector_fields(q: &Value, out: &mut Vec<String>) {
