@@ -3255,6 +3255,45 @@ mod merge_publication_transaction_tests {
             "empty memtable never idle-flushes"
         );
 
+        // The reviewer's trace on PR #878, reproduced exactly. It needs its
+        // OWN index: the collision requires the post-flush memtable to
+        // reproduce the SAME (doc_count, bytes) pair the pre-flush one had,
+        // which cannot happen above where the memtable held two docs at
+        // flush time. One doc in, aged, flushed; then one identically-shaped
+        // doc — the ordinary uniform-trickle workload (heartbeats,
+        // fixed-shape audit records, a periodic re-sync of the same batch).
+        let dir3 = TempDir::new().unwrap();
+        let mut cfg3 = config(&dir3);
+        cfg3.storage.flush_idle_secs = 5;
+        let (_e3, idx3) = hand_driven_index_with_config(cfg3, "idle-recur", Schema::empty());
+        idx3.index_document(Some("aa".into()), serde_json::json!({"m": "tiny"}))
+            .await
+            .unwrap();
+        assert!(!idx3.needs_flush().await, "arm");
+        idx3.rewind_idle_probe_for_test(6_000);
+        assert!(idx3.needs_flush().await, "ages and flushes once");
+        idx3.flush().await.unwrap();
+        assert_eq!(idx3.memtable_bytes(), 0);
+        // Same doc id, same body => same (doc_count, bytes) as before the
+        // flush. Without the drained-arm reset this matches the STALE
+        // fingerprint, skips the re-arm, and is compared against the
+        // pre-flush stamp that is already older than flush_idle_secs — so
+        // needs_flush returns true immediately and would do so on every
+        // probe forever, a flush every flush_interval_secs on an idle node.
+        idx3.index_document(Some("aa".into()), serde_json::json!({"m": "tiny"}))
+            .await
+            .unwrap();
+        assert!(
+            !idx3.needs_flush().await,
+            "a recurring fingerprint after a flush must arm a FRESH timer, not \
+             inherit the pre-flush stamp and flush on the very next probe"
+        );
+        idx3.rewind_idle_probe_for_test(6_000);
+        assert!(
+            idx3.needs_flush().await,
+            "and then ages normally from that fresh stamp"
+        );
+
         // Disabled: 0 means the old threshold-only behaviour.
         let dir2 = TempDir::new().unwrap();
         let mut cfg2 = config(&dir2);
@@ -20155,6 +20194,22 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(self: &Arc<Self>) -> Result<()> {
+        // #873: this flush is about to take whatever the memtable holds, so
+        // every idle-probe observation about it is stale from here on. Clear
+        // the pair at the ONE coordinator every flush path runs through
+        // (user `_flush`, the periodic sweep, a threshold-driven flush,
+        // shutdown) rather than lazily in `needs_flush`: a lazy reset only
+        // fires if a probe happens to land while the memtable is empty, and
+        // nothing schedules a probe between a flush and the next write. A
+        // write arriving first would then match the pre-flush fingerprint,
+        // skip the re-arm, and be judged against a stamp already older than
+        // `flush_idle_secs` — flushing on the very next probe, every probe,
+        // forever. The regression test walks exactly that sequence.
+        {
+            use std::sync::atomic::Ordering;
+            self.idle_probe_fingerprint.store(0, Ordering::Relaxed);
+            self.idle_probe_at_ms.store(0, Ordering::Relaxed);
+        }
         let (field_configs, excluded_fts_fields, dv_skip) = {
             let schema = self.schema.read().await;
             (
@@ -20298,16 +20353,35 @@ impl Index {
         // stamping. A fingerprint collision (delete+insert of identical
         // sizes inside one probe interval) at worst flushes an active index
         // once, which is always safe.
-        if self.flush_idle_secs == 0 || docs == 0 {
+        if self.flush_idle_secs == 0 {
+            return false;
+        }
+        if docs == 0 {
+            // An empty memtable is not idle, it is done — and leaving the
+            // previous fingerprint standing here is a live defect, not a
+            // cosmetic one. After a flush drains the memtable, a later write
+            // that happens to reproduce the same (doc_count, bytes) pair —
+            // a uniform trickle of fixed-shape records is the ordinary case,
+            // not a contrived one — would match the stale `seen`, skip the
+            // re-arm, and be compared against a timestamp already older than
+            // `flush_idle_secs`. The very next probe would then flush, and
+            // the state would return here unchanged: a stable 10x-cadence
+            // loop (a flush every `flush_interval_secs`) on a node the
+            // operator believes is idle, which is precisely the background
+            // churn this change exists to remove. Clearing the pair makes
+            // the next write arm fresh.
+            self.idle_probe_fingerprint.store(0, Ordering::Relaxed);
+            self.idle_probe_at_ms.store(0, Ordering::Relaxed);
             return false;
         }
         let fp = (docs as u64) ^ (bytes as u64).rotate_left(32);
         let now = Self::coarse_now_ms();
         let seen = self.idle_probe_fingerprint.load(Ordering::Relaxed);
         let seen_at = self.idle_probe_at_ms.load(Ordering::Relaxed);
-        // Arming needs no at==0 sentinel: for a non-empty memtable `fp` is
-        // never 0 (the low 32 bits are the doc count), so the initial
-        // fingerprint of 0 always mismatches and arms on the first probe.
+        // `fp` is never 0 for a non-empty memtable (its low 32 bits are the
+        // doc count), so a cleared pair — initial state, or reset by the
+        // drained arm above — always mismatches and arms with a current
+        // stamp. That is what makes the reset above sufficient.
         if fp != seen {
             self.idle_probe_fingerprint.store(fp, Ordering::Relaxed);
             self.idle_probe_at_ms.store(now, Ordering::Relaxed);
