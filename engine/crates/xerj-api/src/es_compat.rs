@@ -7426,15 +7426,24 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
 }
 
 /// Fields whose vector clause reaches the vector for this query, approximating
-/// the engine's `peel_semantic_query` / `peel_knn_query` dispatch (index.rs) for
-/// the shapes that can co-exist with a lexical `semantic_text` clause. A
-/// `semantic`/`knn` clause consults the vector only as the whole query, as the
-/// SOLE `must`/`should` candidate of a `bool` with no `must_not`, or inside a
-/// `hybrid` (which fuses and runs every branch). A `semantic`/`knn` clause
-/// sitting BESIDE a sibling in a multi-clause `bool` falls through to the lexical
-/// path and never consults the vector (#394) — so it must NOT count as "reached
-/// the vector" here, or the hint gets suppressed on a query that ran BM25-only,
+/// the engine's `peel_semantic_query` / `peel_knn_query` /
+/// `compound_bool_direct_knn` dispatch (index.rs) for the shapes that can
+/// co-exist with a lexical `semantic_text` clause.
+///
+/// A `semantic` clause consults the vector only as the whole query, as the SOLE
+/// `must`/`should` candidate of a `bool` with no `must_not`, or inside a
+/// `hybrid` (which fuses and runs every branch). A `semantic` clause sitting
+/// BESIDE a sibling in a multi-clause `bool` falls through to the lexical path
+/// and never consults the vector (#394) — so it must NOT count as "reached the
+/// vector" here, or the hint gets suppressed on a query that ran BM25-only,
 /// reintroducing the exact silence the hint exists to break.
+///
+/// A `knn` clause is no longer bound by that (#825). A `knn` that is a DIRECT
+/// child of a compound bool's scoring lists is pre-executed by the engine and
+/// its top-k pinned into the tree, so it dispatches whatever its siblings are —
+/// and that is precisely the tree this module's `knn`-beside-`query` fold
+/// emits, so the hand-rolled ES hybrid must not be nagged for running BM25
+/// "only".
 ///
 /// This is NOT a byte-exact mirror of `peel`, and does not need to be (#777):
 /// where it diverges the shapes are contrived or carry no lexical clause, so none
@@ -7479,27 +7488,48 @@ fn dispatching_vector_fields(q: &Value, out: &mut Vec<String>) {
     if let Some(inner) = o.get("constant_score").and_then(|c| c.get("filter")) {
         dispatching_vector_fields(inner, out);
     }
-    // `bool` reaches its vector clause ONLY in the single-`must`/`should`
+    // `bool` reaches a `semantic` clause ONLY in the single-`must`/`should`
     // candidate, no-`must_not` shape the engine peels; every other bool falls
     // through to the lexical path and consults no vector.
+    //
+    // `knn` is no longer bound by that (#825): a `knn` clause sitting DIRECTLY
+    // in a compound bool's SCORING lists is now pre-executed by the engine and
+    // its top-k pinned into the tree (`compound_bool_direct_knn` /
+    // `pin_knn_clause` in xerj-engine), so it genuinely dispatches however many
+    // siblings it has — which is exactly the tree this module's own
+    // `knn`-beside-`query` fold emits. Mirror the engine's gate: exactly one
+    // direct `Knn` child across `must` + `should`, `must_not`/`filter`
+    // irrelevant. `semantic` keeps the #394 rule, which still holds for it.
     if let Some(Value::Object(b)) = o.get("bool") {
+        let mut scoring: Vec<&Value> = Vec::new();
+        for key in ["must", "should"] {
+            match b.get(key) {
+                Some(Value::Array(a)) => scoring.extend(a.iter()),
+                Some(Value::Null) | None => {}
+                Some(other) => scoring.push(other),
+            }
+        }
+        let mut direct_knn = scoring.iter().filter(|c| c.get("knn").is_some());
+        if let (Some(clause), None) = (direct_knn.next(), direct_knn.next()) {
+            if let Some(spec) = clause.get("knn") {
+                let specs: Vec<&Value> = match spec {
+                    Value::Array(a) => a.iter().collect(),
+                    single => vec![single],
+                };
+                for spec in specs {
+                    if let Some(f) = spec.get("field").and_then(Value::as_str) {
+                        out.push(f.to_string());
+                    }
+                }
+            }
+        }
         let must_not_empty = match b.get("must_not") {
             None | Some(Value::Null) => true,
             Some(Value::Array(a)) => a.is_empty(),
             Some(_) => false,
         };
-        if must_not_empty {
-            let mut candidates: Vec<&Value> = Vec::new();
-            for key in ["must", "should"] {
-                match b.get(key) {
-                    Some(Value::Array(a)) => candidates.extend(a.iter()),
-                    Some(Value::Null) | None => {}
-                    Some(other) => candidates.push(other),
-                }
-            }
-            if candidates.len() == 1 {
-                dispatching_vector_fields(candidates[0], out);
-            }
+        if must_not_empty && scoring.len() == 1 {
+            dispatching_vector_fields(scoring[0], out);
         }
     }
 }
