@@ -689,9 +689,9 @@ def primary_nav() -> str:
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
   <span class="spacer"></span>
   <span class="theme">
-    <button type="button" data-theme="day">DAY</button>
+    <button type="button" data-theme="day" class="active">DAY</button>
     <span class="dash">·</span>
-    <button type="button" data-theme="night" class="active">NIGHT</button>
+    <button type="button" data-theme="night">NIGHT</button>
   </span>
 </nav>"""
 
@@ -761,7 +761,7 @@ def _head(title: str, description: str, rel: str, block: str,
     alternate = (f'<link rel="alternate" type="text/markdown" href="{esc_attr(alternate_markdown)}">\n'
                  if alternate_markdown else "")
     return f'''<!DOCTYPE html>
-<html lang="en" data-theme="night">
+<html lang="en" data-theme="day">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="night">
+<html lang="en" data-theme="day">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -47,7 +47,7 @@
     font-family:var(--font-mono);font-size:var(--fs-11);font-weight:600;white-space:nowrap;
     font-variant-numeric:tabular-nums}
   .zt-fill.read{width:100%;background:var(--z-cmp);color:var(--z-bg)}
-  .zt-fill.xerj{width:74px;background:var(--z-accent);color:#0b0b0d}
+  .zt-fill.xerj{width:74px;background:var(--z-accent);color:var(--z-bg)}
   .zt-note{font-family:var(--font-data);font-size:var(--fs-11);color:var(--z-mute);margin-top:var(--sp-3);
     letter-spacing:.01em}
   .zt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap-x);margin-top:var(--sp-6)}
@@ -165,9 +165,9 @@
   <a href="/playground">DASHBOARDS</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
   <span class="theme">
-    <button type="button" data-theme="day">DAY</button>
+    <button type="button" data-theme="day" class="active">DAY</button>
     <span class="dash">·</span>
-    <button type="button" data-theme="night" class="active">NIGHT</button>
+    <button type="button" data-theme="night">NIGHT</button>
   </span>
 </nav>
 
@@ -175,8 +175,12 @@
   <a href="/use-cases">ALL USE CASES</a>
   <a href="/use-cases/zero-token-ai-search" class="active">ZERO-TOKEN SEARCH</a>
   <a href="/use-cases/ai-search-retrieval">AI SEARCH</a>
-  <a href="/use-cases/second-brain">SECOND BRAIN</a>
-  <a href="/use-cases/code-security-audit">CODE AUDIT</a>
+  <a href="/use-cases/second-brain">SECOND BRAIN &middot; MCP</a>
+  <a href="/use-cases/semantic-analytics">SEMANTIC ANALYTICS</a>
+  <a href="/use-cases/code-security-audit">AI SECURITY REVIEW</a>
+  <a href="/use-cases/security-analytics">SECURITY ANALYTICS</a>
+  <a href="/use-cases/operational-intelligence">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/unified-observability">OBSERVABILITY</a>
   <a href="/use-cases/elasticsearch-replacement">ES REPLACEMENT</a>
 </nav>
 
