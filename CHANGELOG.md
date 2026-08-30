@@ -39,6 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fidelity here), and the index-level `index.mapping.coerce` setting is not
   read, only the field-level parameter.
 
+  Because that canonicalisation moves a declared `boolean` from the string
+  spelling to a real JSON boolean in `_source`, the **query** side now runs
+  `term` / `terms` values on a `boolean` field through the same predicate —
+  ES parses a query value with the same `Booleans` its field mapper uses, so
+  `"true"` and `true` name one term. Without it, `terms {"b":["true"]}` found
+  nothing on a doc-values-only boolean field while the equivalent `term` still
+  matched. The `_source` scan comparator relates the two spellings in both
+  directions, so documents written before this release — which still hold the
+  string — keep matching either way.
+
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
   `{"bool":{"must":[X]}}` and bare `X` are the same query — Lucene's
