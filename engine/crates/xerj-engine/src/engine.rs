@@ -3877,8 +3877,9 @@ impl Engine {
             });
 
         // ── Thread B: summed memtable budget ─────────────────────────────
-        // Reads a lock on every memtable shard, so it may briefly block under
-        // a turbo batch — that is fine here, isolated from the memory breaker.
+        // Each per-index `size_bytes()` is one relaxed atomic load of the
+        // aggregate the shards maintain incrementally — no shard locks, so
+        // this never blocks under a turbo batch (#872).
         let weak_b = Arc::downgrade(self);
         let _ = std::thread::Builder::new()
             .name("xerj-memtable-sampler".to_string())
