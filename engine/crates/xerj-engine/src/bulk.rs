@@ -1201,19 +1201,33 @@ pub async fn process_bulk_with_opts(
     // bytes in place right here and lets the action stay on turbo. The gate
     // exists so an index with no numeric or boolean field never pays for the
     // parse at all.
-    let mut index_needs_type_check: HashMap<String, bool> = HashMap::new();
-    let index_has_typed_numeric = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
-        if let Some(b) = cache.get(target) {
-            return *b;
-        }
-        let has = engine
-            .index_mappings
-            .get(target)
-            .map(|m| xerj_common::field_coercion::mapping_has_enforced_types(&m))
-            .unwrap_or(false);
-        cache.insert(target.to_string(), has);
-        has
-    };
+    //
+    // The cache carries the PROPERTIES MAP, not just the boolean gate:
+    // `mapping_properties(...).cloned()` deep-copies the whole properties
+    // blob, and reading it per action would put an O(mapping) copy on the HTTP
+    // worker for every document in the batch — the cost M5.11 took off this
+    // path. Behind an `Arc` the per-action price is a refcount bump, and both
+    // enforcement sites (partition loop and per-item loop) share the one
+    // cache. `None` means "this index needs no check" — an unmapped index, or
+    // one whose mapping declares no numeric/boolean field.
+    type CoerceProps = Option<std::sync::Arc<serde_json::Map<String, Value>>>;
+    let mut index_type_check_props: HashMap<String, CoerceProps> = HashMap::new();
+    let typed_numeric_props =
+        |target: &str, cache: &mut HashMap<String, CoerceProps>| -> CoerceProps {
+            if let Some(p) = cache.get(target) {
+                return p.clone();
+            }
+            let props: CoerceProps = engine.index_mappings.get(target).and_then(|m| {
+                if !xerj_common::field_coercion::mapping_has_enforced_types(&m) {
+                    return None;
+                }
+                xerj_common::field_coercion::mapping_properties(&m)
+                    .cloned()
+                    .map(std::sync::Arc::new)
+            });
+            cache.insert(target.to_string(), props.clone());
+            props
+        };
 
     for mut action in parsed {
         // ── Numeric / boolean type enforcement (issue #781) ──────────────
@@ -1230,14 +1244,8 @@ pub async fn process_bulk_with_opts(
         // runs the pipeline before parsing the document, so those are
         // checked after their pipeline in the per-item loop instead.
         // `update` merges into a doc that was already validated on write.
-        if matches!(action.action_type.as_str(), "index" | "create")
-            && action.pipeline.is_none()
-            && index_has_typed_numeric(&action.target_index, &mut index_needs_type_check)
-        {
-            let props = engine
-                .index_mappings
-                .get(&action.target_index)
-                .and_then(|m| xerj_common::field_coercion::mapping_properties(&m).cloned());
+        if matches!(action.action_type.as_str(), "index" | "create") && action.pipeline.is_none() {
+            let props = typed_numeric_props(&action.target_index, &mut index_type_check_props);
             if let Some(props) = props {
                 // `index` actions defer the JSON parse to the turbo path, so
                 // the body may not be built yet — parse it here, and only
@@ -2105,10 +2113,7 @@ pub async fn process_bulk_with_opts(
         // single-document `_doc` / `_create` handlers in `xerj-api`, so the
         // two write paths cannot drift apart.
         if matches!(action_type.as_str(), "index" | "create") {
-            let mapping_props = engine
-                .index_mappings
-                .get(&target_index)
-                .and_then(|m| xerj_common::field_coercion::mapping_properties(&m).cloned());
+            let mapping_props = typed_numeric_props(&target_index, &mut index_type_check_props);
             if let Some(props) = mapping_props {
                 if let Some(body) = doc_body.as_mut().and_then(Value::as_object_mut) {
                     if let Err(bad) = xerj_common::field_coercion::coerce_document(body, &props) {

@@ -37,18 +37,53 @@
 //! declared-integer field returned different hits than ES. Coercing at ingest
 //! is what makes the indexed value and the declared type agree.
 //!
+//! ## Rewriting `_source` moves the stored spelling — the query side pairs
+//!
+//! ES keeps `_source` byte-verbatim and coerces only the *indexed* value.
+//! XERJ indexes from the stored source, so agreeing with ES on **hits** costs
+//! source fidelity: ES returns `1.9` from `_source` where XERJ now returns
+//! `1`, and a document written `{"b": "false"}` is stored `{"b": false}`.
+//!
+//! Two consequences, both handled — do not undo either half without the
+//! other:
+//!
+//! 1. **A query operand written in the pre-coercion spelling must still
+//!    match.** ES accepts `terms {b: ["false"]}` against a `boolean` field
+//!    (`search/390_doc_values_search.yml` asserts exactly that), and once the
+//!    stored value is a real `false` an exact-JSON comparison stops finding
+//!    it. So `xerj_engine::index::rewrite_query_aliases` runs a `term`/`terms`
+//!    value on a declared `boolean` through [`coerce_value`] — THIS predicate,
+//!    on the read side — before any path sees it. The first cut of this module
+//!    shipped without that and regressed the conformance suite from 0 failed
+//!    to 1.
+//! 2. **An index can hold BOTH representations.** Documents written before
+//!    this change keep `"true"` / `"5"`; documents written after hold `true` /
+//!    `5`; `_update` (deliberately not re-validated) can still merge the old
+//!    spelling into a new document. Canonicalising the operand alone would
+//!    then miss the older half, so `xerj_engine::index::json_scalar_equal`
+//!    also relates a boolean to its string spelling in BOTH directions —
+//!    for a scalar and for an element of a multi-valued field — alongside the
+//!    number/string pair it already had. Terms aggregations already bucket the
+//!    two spellings together. A reindex is still the way to make an index
+//!    uniform, but nothing breaks without one.
+//!
 //! ## Known, deliberate narrowing
 //!
-//! * A coerced value is rewritten **in `_source`**. ES keeps `_source`
-//!   byte-verbatim and truncates only the *indexed* value, so ES returns
-//!   `1.9` from `_source` where XERJ now returns `1`. XERJ indexes from the
-//!   stored source, so agreeing with ES on query results costs source
-//!   fidelity here; wrong hits are the worse of the two divergences.
 //! * An empty string is left alone rather than dropped. ES treats `""` in a
 //!   numeric field as "no value"; dropping it would rewrite `_source` for a
 //!   case that is not a wrong-results bug.
 //! * Only the field-level `"coerce": false` is honoured, not the index-level
 //!   `index.mapping.coerce` setting.
+//! * `scaled_float` is range-checked as a `double` and **not** quantised by
+//!   its `scaling_factor`. ES indexes `Math.round(value * scaling_factor)`;
+//!   reproducing that here would rewrite `_source` into the quantised value,
+//!   which loses information the caller sent for no wrong-results gain.
+//! * `_update` is not re-validated: it merges into a document that was already
+//!   checked on write, matching how the existing date check scopes itself to
+//!   `index` / `create`.
+//! * Enforcement applies only to **declared** mappings. `index_mappings` is
+//!   written by index-create-with-mappings and `PUT /_mapping` only, never by
+//!   dynamic inference, so a schemaless index is untouched.
 //!
 //! Elasticsearch is referenced for semantics only. It is AGPL-3.0/SSPL-1.0/
 //! Elastic-2.0 licensed and no code from it is reproduced here.
@@ -163,19 +198,33 @@ fn not_a_number(ftype: &str) -> Coercion {
     ))
 }
 
-/// The JSON number for `f` truncated toward zero.
+/// The JSON number for an integral value the caller has already clamped into
+/// its declared width's bounds, so it fits `i64` or `u64` exactly.
 ///
 /// `as i64` alone would be wrong for `unsigned_long`, whose range runs past
 /// `i64::MAX`: a saturating cast turns `1e19` into `i64::MAX` — a silently
 /// different value, which is the class of bug this whole module exists to
-/// close. The caller has already range-checked `f` against the target width.
-fn truncated_number(f: f64) -> Value {
-    let t = f.trunc();
-    if t >= 0.0 && t > i64::MAX as f64 {
-        Value::Number(Number::from(t as u64))
+/// close.
+fn number_from_i128(i: i128) -> Value {
+    if i > i64::MAX as i128 {
+        Value::Number(Number::from(i as u64))
     } else {
-        Value::Number(Number::from(t as i64))
+        Value::Number(Number::from(i as i64))
     }
+}
+
+/// The exact integer part of the finite float `f`, and that value clamped into
+/// a field's inclusive `lo..=hi` bounds.
+///
+/// Rust's float-to-int `as` saturates, so `f.trunc() as i128` is exact for
+/// every value any of these widths can hold — no UB, no wraparound — and the
+/// `clamp` then reproduces the Java narrowing cast ES applies after its own
+/// (double-widened) range check. The caller compares the two: equal means the
+/// float already IS the integer ES would index, different means ES's cast
+/// changed it.
+fn truncate_into(f: f64, lo: i128, hi: i128) -> (i128, i128) {
+    let exact = f.trunc() as i128;
+    (exact, exact.clamp(lo, hi))
 }
 
 /// Coerce one scalar (non-array) value for an integral field.
@@ -205,18 +254,33 @@ fn coerce_integral(ftype: &str, coerce: bool, v: &Value) -> Coercion {
                 if f < lo as f64 || f > hi as f64 {
                     return out_of_range(ftype, v);
                 }
-                if f.fract() == 0.0 {
+                // That range check is ES's own — and it is WIDER than the
+                // declared width, because Java widens `Long.MAX_VALUE` to the
+                // `double` 2^63 to make the comparison. So the float token
+                // `9223372036854775808.0` survives it, and ES's `(long)` cast
+                // then saturates the value to `Long.MAX_VALUE`. The
+                // integer-token branch above is exact (`i128` bounds); this
+                // branch has to reproduce BOTH halves of ES's behaviour, or a
+                // bare `fract() == 0` shortcut stores a value the declared
+                // width cannot hold — the residual leniency the `i128` bound
+                // alone did not close.
+                let (exact, clamped) = truncate_into(f, lo, hi);
+                // Compare in the INTEGER domain. `clamped as f64 == f.trunc()`
+                // would be fooled by the very rounding this guards against:
+                // `i64::MAX as f64` is 2^63, so the two sides agree on exactly
+                // the value that must not pass.
+                if f.fract() == 0.0 && exact == clamped {
                     // `2.0` already equals the integer ES would index; leave
                     // `_source` alone rather than churn it to `2`.
                     return Coercion::AsIs;
                 }
-                if !coerce {
+                if f.fract() != 0.0 && !coerce {
                     return Coercion::Reject(format!(
                         "Cannot coerce NUMBER to {} — value [{}] has a decimal part",
                         ftype, f
                     ));
                 }
-                Coercion::Rewrite(truncated_number(f))
+                Coercion::Rewrite(number_from_i128(clamped))
             }
         }
         Value::String(s) => {
@@ -238,14 +302,17 @@ fn coerce_integral(ftype: &str, coerce: bool, v: &Value) -> Coercion {
             // ES runs a string through `Double.parseDouble` and truncates, so
             // `"1.9"` lands on 1 exactly as the bare number would. Prefer the
             // exact integer parse when it succeeds, so a `long` beyond f64's
-            // 2^53 exact range keeps every digit.
-            if let Ok(i) = s.trim().parse::<i64>() {
-                return Coercion::Rewrite(Value::Number(Number::from(i)));
+            // 2^53 exact range keeps every digit — and range-check THAT parse
+            // in `i128`, not the `f64` above: `"9223372036854775808"` rounds to
+            // exactly `i64::MAX as f64` and so slips through the float bound,
+            // while ES's `Numbers.toLong` throws on it.
+            if let Ok(i) = s.trim().parse::<i128>() {
+                if i < lo || i > hi {
+                    return out_of_range(ftype, v);
+                }
+                return Coercion::Rewrite(number_from_i128(i));
             }
-            if let Ok(u) = s.trim().parse::<u64>() {
-                return Coercion::Rewrite(Value::Number(Number::from(u)));
-            }
-            Coercion::Rewrite(truncated_number(f))
+            Coercion::Rewrite(number_from_i128(truncate_into(f, lo, hi).1))
         }
         Value::Bool(_) | Value::Object(_) | Value::Array(_) => not_a_number(ftype),
         Value::Null => Coercion::AsIs,
@@ -254,9 +321,26 @@ fn coerce_integral(ftype: &str, coerce: bool, v: &Value) -> Coercion {
 
 /// Coerce one scalar value for a floating-point field.
 fn coerce_floating(ftype: &str, coerce: bool, v: &Value) -> Coercion {
-    let narrow = matches!(ftype, "float" | "half_float");
+    // ES range-checks a `float` by requiring the value to survive the cast to
+    // 32-bit finitely, and a `half_float` by requiring it to survive the round
+    // trip through 16-bit precision. 65504 is the largest half-float, but
+    // round-to-nearest maps everything below 65520 back onto it — ES accepts
+    // 65510 and rejects 65520 — so the boundary is 65520, not 65504. A plain
+    // `f as f32` check (what the first cut used for both) accepts up to
+    // 3.4e38 — 33 decimal orders of magnitude past where a `half_float`
+    // actually overflows.
+    const HALF_FLOAT_OVERFLOWS_AT: f64 = 65_520.0;
+    let overflows = |f: f64| -> bool {
+        match ftype {
+            "float" => !(f as f32).is_finite(),
+            "half_float" => f.abs() >= HALF_FLOAT_OVERFLOWS_AT,
+            // `scaled_float` is deliberately NOT quantised by
+            // `scaling_factor` here — see the module header.
+            _ => false,
+        }
+    };
     let check = |f: f64, rewritten: bool| -> Coercion {
-        if !f.is_finite() || (narrow && !(f as f32).is_finite()) {
+        if !f.is_finite() || overflows(f) {
             return not_finite(ftype);
         }
         if rewritten {
@@ -383,6 +467,14 @@ fn coerce_in(
         let Some(spec) = props.get(&field) else {
             continue;
         };
+        // `"enabled": false` — ES does not parse, index or validate ANYTHING
+        // inside such an object; it is stored in `_source` and otherwise
+        // ignored. The object recursion below keys off `properties`, and a
+        // disabled object is still allowed to declare typed sub-properties, so
+        // without this guard those would be enforced where ES ignores them.
+        if spec.get("enabled").and_then(Value::as_bool) == Some(false) {
+            continue;
+        }
         let full = if prefix.is_empty() {
             field.clone()
         } else {
@@ -537,11 +629,22 @@ mod tests {
             Coercion::Reject(_)
         ));
         // A u64 beyond i64::MAX must not pass as a `long`; an f64 bound would
-        // have rounded i64::MAX up and let this through.
+        // have rounded i64::MAX up and let this through. The same value must
+        // be refused in every SPELLING it can arrive in — bare integer token,
+        // string, and float token (which ES's own check admits and its cast
+        // then saturates).
         assert!(matches!(
             coerced("long", json!(9223372036854775808u64)),
             Coercion::Reject(_)
         ));
+        assert!(matches!(
+            coerced("long", json!("9223372036854775808")),
+            Coercion::Reject(_)
+        ));
+        assert_eq!(
+            coerced("long", json!("9223372036854775807")),
+            Coercion::Rewrite(json!(9223372036854775807i64))
+        );
         assert_eq!(
             coerced("long", json!(9223372036854775807i64)),
             Coercion::AsIs
@@ -617,6 +720,71 @@ mod tests {
             Coercion::Reject(_)
         ));
         assert!(matches!(coerced("boolean", json!(1)), Coercion::Reject(_)));
+    }
+
+    /// The `i128` bound closes the INTEGER token. The float token has a second
+    /// hole: ES compares the raw double against a bound Java widened to
+    /// `double`, so `Long.MAX_VALUE` becomes 2^63 and `9223372036854775808.0`
+    /// passes the check — ES's `(long)` cast then saturates it. Storing the
+    /// float verbatim (what a bare `fract() == 0` shortcut does) leaves a
+    /// value no `long` can hold sitting in a `long` field.
+    #[test]
+    fn a_float_token_past_the_width_is_saturated_the_way_es_casts_it() {
+        assert_eq!(
+            coerced("long", json!(9223372036854775808.0f64)),
+            Coercion::Rewrite(json!(9223372036854775807i64))
+        );
+        assert_eq!(
+            coerced("integer", json!(-2147483649.0f64)),
+            Coercion::Reject("Value [-2147483649.0] is out of range for a[n] integer".to_string())
+        );
+        // Inside the width, an integral float is still left alone.
+        assert_eq!(
+            coerced("long", json!(9223372036854775807.0f64)),
+            Coercion::Rewrite(json!(9223372036854775807i64))
+        );
+        assert_eq!(coerced("long", json!(1234.0)), Coercion::AsIs);
+    }
+
+    /// ES round-trips a `half_float` through 16-bit precision and rejects what
+    /// comes back infinite. 65504 is the largest half-float and
+    /// round-to-nearest maps everything under 65520 onto it, so the boundary
+    /// is 65520 — an `f32` finiteness check (which accepts 3.4e38) is ~2^128
+    /// too wide.
+    #[test]
+    fn half_float_is_bounded_at_the_half_precision_overflow() {
+        assert_eq!(coerced("half_float", json!(65504.0)), Coercion::AsIs);
+        assert_eq!(coerced("half_float", json!(65510.0)), Coercion::AsIs);
+        assert!(matches!(
+            coerced("half_float", json!(65520.0)),
+            Coercion::Reject(_)
+        ));
+        assert!(matches!(
+            coerced("half_float", json!(1.0e38)),
+            Coercion::Reject(_)
+        ));
+        // `float` keeps its own, wider bound.
+        assert_eq!(coerced("float", json!(1.0e38)), Coercion::AsIs);
+    }
+
+    /// `"enabled": false` tells ES not to parse anything inside the object.
+    /// The recursion keys off `properties`, which a disabled object may still
+    /// declare, so it needs its own guard.
+    #[test]
+    fn a_disabled_object_is_not_walked() {
+        let props = json!({
+            "meta": {
+                "enabled": false,
+                "properties": {"n": {"type": "integer"}}
+            }
+        });
+        let mut doc = json!({"meta": {"n": "not a number at all"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(!coerce_document(&mut doc, props.as_object().unwrap())
+            .expect("a disabled object must not be rejected"));
+        assert_eq!(doc["meta"]["n"], json!("not a number at all"));
     }
 
     #[test]

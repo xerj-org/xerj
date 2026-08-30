@@ -125,6 +125,21 @@ async fn put_doc(app: &axum::Router, index: &str, id: &str, doc: Value) -> (Stat
     json_req(app, "PUT", &format!("/{index}/_doc/{id}"), doc).await
 }
 
+/// Flush the memtable into a segment.
+///
+/// This matters for the query-side tests at the bottom of this file: while a
+/// document is memtable-resident, `term`/`terms` are answered by the doc-values
+/// fast path, which compares STRINGIFIED values and so is blind to the
+/// boolean-versus-`"boolean"` spelling. It is the flushed segment path — a
+/// doc-values prefilter refined by an exact re-test of `_source` — that
+/// distinguishes them, which is why the ES-YAML case that caught this
+/// (`search/390_doc_values_search.yml`) does `indices.refresh` before it
+/// queries. A test that skips the refresh passes on the broken code.
+async fn refresh(app: &axum::Router, index: &str) {
+    let (status, body) = json_req(app, "POST", &format!("/{index}/_refresh"), json!({})).await;
+    assert_eq!(status, StatusCode::OK, "refresh should succeed: {body}");
+}
+
 async fn search(app: &axum::Router, index: &str, query: Value) -> Value {
     let (status, body) = json_req(
         app,
@@ -482,4 +497,118 @@ async fn an_index_with_no_numeric_mapping_is_untouched() {
     assert_eq!(status, StatusCode::CREATED);
     let (_, doc) = get(&app, "/plain/_doc/1").await;
     assert_eq!(doc["_source"]["n"], json!("abc"), "unmapped stays verbatim");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The query side of the same coercion. Rewriting `_source` moves the STORED
+// spelling, so a query operand written the pre-coercion way has to keep
+// matching — this is the case CI caught in
+// `tests/es-compat-yaml/yaml/search/390_doc_values_search.yml`, and the reason
+// the first cut of this change regressed conformance from 0 failed to 1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A document written `{"b": "true"}` is now STORED as `{"b": true}`. ES accepts
+/// either spelling in a `term`/`terms` operand against a `boolean` field
+/// (`terms {b: ["true"]}` is literally what the ES YAML suite asserts), so both
+/// must still find it. Pre-fix, `terms` with the string operand found nothing:
+/// `terms` verifies each admitted doc with exact JSON equality, and `true` is
+/// not `"true"`.
+#[tokio::test]
+async fn a_query_in_the_pre_coercion_spelling_still_matches_the_coerced_document() {
+    let (app, _dir) = typed_index("t").await;
+
+    let (status, _) = put_doc(&app, "t", "1", json!({ "b": "true", "i": "5" })).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (_, doc) = get(&app, "/t/_doc/1").await;
+    assert_eq!(
+        doc["_source"]["b"],
+        json!(true),
+        "ingest coerced the spelling"
+    );
+    assert_eq!(doc["_source"]["i"], json!(5));
+    refresh(&app, "t").await;
+
+    for query in [
+        json!({ "terms": { "b": ["true"] } }),
+        json!({ "terms": { "b": [true] } }),
+        json!({ "term": { "b": "true" } }),
+        json!({ "term": { "b": true } }),
+        json!({ "terms": { "b": ["false", "true"] } }),
+        json!({ "terms": { "i": ["5"] } }),
+        json!({ "terms": { "i": [5] } }),
+    ] {
+        let body = search(&app, "t", query.clone()).await;
+        assert_eq!(
+            hit_count(&body),
+            1,
+            "both spellings of {query} must find the coerced document: {body}"
+        );
+    }
+
+    // Tolerance, not blindness: the other boolean still must not match.
+    for query in [
+        json!({ "terms": { "b": ["false"] } }),
+        json!({ "term": { "b": false } }),
+        json!({ "terms": { "b": ["yes"] } }),
+        json!({ "terms": { "i": ["6"] } }),
+    ] {
+        let body = search(&app, "t", query.clone()).await;
+        assert_eq!(hit_count(&body), 0, "{query} must not match: {body}");
+    }
+}
+
+/// An index that spans the upgrade holds BOTH representations of the same
+/// logical value: documents written before this change keep `"true"` / `"5"`,
+/// documents written after hold `true` / `5`. One query must not silently see
+/// half the index. `_update` is the shortest way to plant the old spelling —
+/// it merges into a document that was already validated on write and is
+/// deliberately not re-validated, which is exactly the shape a pre-upgrade
+/// document has.
+#[tokio::test]
+async fn an_index_holding_both_spellings_answers_every_query_with_both_docs() {
+    let (app, _dir) = typed_index("t").await;
+
+    // Post-upgrade document: coerced on the way in.
+    let (status, _) = put_doc(&app, "t", "new", json!({ "b": "true", "i": "5" })).await;
+    assert_eq!(status, StatusCode::CREATED);
+
+    // Pre-upgrade document: the raw spelling, planted past the check.
+    let (status, _) = put_doc(&app, "t", "legacy", json!({ "k": "a" })).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/t/_update/legacy",
+        json!({ "doc": { "b": "true", "i": "5" } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "update should apply: {body}");
+
+    refresh(&app, "t").await;
+
+    let (_, legacy) = get(&app, "/t/_doc/legacy").await;
+    let (_, fresh) = get(&app, "/t/_doc/new").await;
+    assert_eq!(
+        legacy["_source"]["b"],
+        json!("true"),
+        "the legacy spelling is what makes this test meaningful"
+    );
+    assert_eq!(fresh["_source"]["b"], json!(true));
+
+    for query in [
+        json!({ "terms": { "b": ["true"] } }),
+        json!({ "terms": { "b": [true] } }),
+        json!({ "term": { "b": "true" } }),
+        json!({ "term": { "b": true } }),
+        json!({ "terms": { "i": ["5"] } }),
+        json!({ "terms": { "i": [5] } }),
+        json!({ "term": { "i": 5 } }),
+    ] {
+        let body = search(&app, "t", query.clone()).await;
+        assert_eq!(
+            hit_count(&body),
+            2,
+            "{query} must see both spellings in one index: {body}"
+        );
+    }
 }

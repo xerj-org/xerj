@@ -41913,33 +41913,43 @@ fn json_to_str(v: &Value) -> String {
 fn json_values_equal(doc_val: &Option<Value>, query_val: &Value) -> bool {
     match doc_val {
         None => false,
-        Some(dv) => {
-            // Direct equality check.
-            if dv == query_val {
-                return true;
-            }
-            // Cross-type: number stored as string or vice versa.
-            match (dv, query_val) {
-                (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
-                (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
-                // Cross-type: a boolean and its string spelling name the same
-                // value. ES parses a query value through the same `Booleans`
-                // the field mapper uses, so `"true"` and `true` are one term;
-                // both directions matter here because since #781 ingest
-                // canonicalises a declared `boolean` to a real JSON boolean in
-                // `_source` while documents written BEFORE that still hold the
-                // string. Without this the two spellings split across the
-                // upgrade boundary — the doc-values fast paths already agree
-                // (they stringify a boolean needle before the lookup), so the
-                // `_source` scan was the one comparator that disagreed.
-                (Value::Bool(b), Value::String(s)) | (Value::String(s), Value::Bool(b)) => {
-                    matches!((s.as_str(), *b), ("true", true) | ("false", false))
-                }
-                // Array field: any element matches.
-                (Value::Array(arr), _) => arr.iter().any(|elem| elem == query_val),
-                _ => false,
-            }
+        Some(dv) => json_scalar_equal(dv, query_val),
+    }
+}
+
+/// The cross-type equality of one stored value against one query operand.
+///
+/// Split out of [`json_values_equal`] so the array arm can recurse through it.
+/// An element of a MULTI-valued field has to be compared with the same
+/// tolerance a scalar gets, or the same document answers differently depending
+/// on whether its field happens to hold one value or several: with a bare
+/// `elem == query_val`, `{"b": "true"}` matches `term {b: true}` (via the
+/// boolean arm below) while `{"b": ["true"]}` does not.
+fn json_scalar_equal(dv: &Value, query_val: &Value) -> bool {
+    // Direct equality check.
+    if dv == query_val {
+        return true;
+    }
+    // Cross-type: number stored as string or vice versa.
+    match (dv, query_val) {
+        (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
+        (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
+        // Cross-type: a boolean and its string spelling name the same
+        // value. ES parses a query value through the same `Booleans`
+        // the field mapper uses, so `"true"` and `true` are one term;
+        // both directions matter here because since #781 ingest
+        // canonicalises a declared `boolean` to a real JSON boolean in
+        // `_source` while documents written BEFORE that still hold the
+        // string. Without this the two spellings split across the
+        // upgrade boundary — the doc-values fast paths already agree
+        // (they stringify a boolean needle before the lookup), so the
+        // `_source` scan was the one comparator that disagreed.
+        (Value::Bool(b), Value::String(s)) | (Value::String(s), Value::Bool(b)) => {
+            matches!((s.as_str(), *b), ("true", true) | ("false", false))
         }
+        // Array field: any element matches, under the same tolerance.
+        (Value::Array(arr), _) => arr.iter().any(|elem| json_scalar_equal(elem, query_val)),
+        _ => false,
     }
 }
 

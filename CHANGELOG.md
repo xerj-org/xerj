@@ -32,22 +32,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `"ignore_malformed": true` still wins: that field's bad values are
   dropped into `_ignored` rather than failing the document.
 
-  Two deliberate narrowings, both documented in
-  `xerj_common::field_coercion`: a coerced value is rewritten in `_source`
-  (ES keeps `_source` verbatim and truncates only the indexed value — XERJ
-  indexes from the stored source, so matching ES's *hits* costs source
-  fidelity here), and the index-level `index.mapping.coerce` setting is not
-  read, only the field-level parameter.
+  **What this changes about stored data, and what it means on upgrade.** A
+  coerced value is rewritten in `_source`: ES keeps `_source` verbatim and
+  coerces only the indexed value, but XERJ indexes from the stored source, so
+  matching ES's *hits* costs source fidelity here. A document written
+  `{"i": 1.9, "b": "false"}` now reads back `{"i": 1, "b": false}`. An index
+  that spans this upgrade therefore holds **both** spellings of the same
+  logical value — documents written before hold `"false"` / `"5"`, documents
+  written after hold `false` / `5` — and no reindex is performed for you.
 
-  Because that canonicalisation moves a declared `boolean` from the string
-  spelling to a real JSON boolean in `_source`, the **query** side now runs
-  `term` / `terms` values on a `boolean` field through the same predicate —
-  ES parses a query value with the same `Booleans` its field mapper uses, so
-  `"true"` and `true` name one term. Without it, `terms {"b":["true"]}` found
-  nothing on a doc-values-only boolean field while the equivalent `term` still
-  matched. The `_source` scan comparator relates the two spellings in both
-  directions, so documents written before this release — which still hold the
-  string — keep matching either way.
+  That mixed index still answers correctly, and closing that gap is part of
+  this change. Because the canonicalisation moves a declared `boolean` from
+  the string spelling to a real JSON boolean in `_source`, the **query** side
+  now runs `term` / `terms` values on a `boolean` field through the same
+  predicate — ES parses a query value with the same `Booleans` its field
+  mapper uses, so `"true"` and `true` name one term. Without it,
+  `terms {"b":["true"]}` found nothing on a doc-values-only boolean field
+  while the equivalent `term` still matched. The `_source` scan comparator
+  relates the two spellings in both directions (as it already did for a number
+  and its string spelling), for single- and multi-valued fields alike, and a
+  `terms` aggregation buckets them together — so one query sees the whole
+  index rather than half of it. **Reindex** if you want a uniform `_source`;
+  nothing breaks if you do not.
+
+  Also narrowed deliberately, all documented in `xerj_common::field_coercion`:
+  the index-level `index.mapping.coerce` setting is not read (only the
+  field-level parameter), `scaled_float` is range-checked but not quantised by
+  its `scaling_factor`, an empty string is left alone rather than dropped, and
+  `_update` is not re-validated — it merges into a document already checked on
+  write.
 
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
