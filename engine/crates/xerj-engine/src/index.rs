@@ -37217,11 +37217,21 @@ fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], 
 /// them to `xerj_fts::search::phrase_positions_match` — the SAME function
 /// the segment positional clause runs over postings positions.  Sharing the
 /// evaluator (rather than mirroring it) is deliberate, and stronger than the
-/// previous arrangement of two hand-synchronised walks: the arms cannot
-/// drift, so the hit set is flush-invariant by construction (#218/#222/#230
-/// regression class), and the #830 fix — Lucene `SloppyPhraseMatcher`
-/// distance semantics, where slop admits transpositions at cost 2 instead
-/// of the old in-order-only gap walk — lands in both arms at once.
+/// previous arrangement of two hand-synchronised walks: slop cannot be
+/// evaluated differently on the two sides (#218/#222/#230 regression class),
+/// and the #830 fix — Lucene `SloppyPhraseMatcher` distance semantics, where
+/// slop admits transpositions at cost 2 instead of the old in-order-only gap
+/// walk — lands in both arms at once.
+///
+/// What is shared is the EVALUATOR, not the position model, so this is not
+/// flush-invariance "by construction": this arm re-analyses stored text with
+/// the standard analyzer and feeds token INDICES, while the segment arm
+/// feeds indexed postings positions.  A custom analyzer (synonym
+/// co-location, `position_increment_gap`) can therefore still hand the two
+/// arms different position lists; multi-valued fields are handled per
+/// element (#332).  The tests in
+/// `tests/match_phrase_slop_transposition.rs` pin the agreement for the
+/// standard-analyzer cases that this planner actually routes both ways.
 fn phrase_walk(
     field_tokens: &[String],
     query_tokens: &[String],

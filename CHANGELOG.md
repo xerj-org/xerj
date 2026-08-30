@@ -19,14 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now the Lucene move-distance semantics — pick one document position per
   phrase term; the distance is the span of the positions after subtracting
   each term's query offset — implemented once
-  (`xerj_fts::search::phrase_positions_match`) and shared by the segment
-  positional clause AND the engine's memtable/stored-scan walk
-  (`phrase_walk`), so the hit set is flush-invariant by construction.
-  In-order matches are unaffected (for them the span telescopes to the old
-  summed-gaps value); `match_phrase_prefix` and `multi_match`
-  phrase/phrase_prefix go through the same walk and gain the same behavior.
-  A repeated phrase term must still land on distinct document positions
-  (`"a a"` does not match a doc holding one `a`).
+  (`xerj_fts::search::phrase_positions_match`) and called by both the segment
+  positional clause and the engine's memtable/stored-scan walk
+  (`phrase_walk`), so slop is evaluated identically on either side of a
+  flush. `match_phrase_prefix` and `multi_match` phrase/phrase_prefix go
+  through the same evaluator and gain the same behavior. Documents that
+  matched before still match — an in-order pick has strictly increasing
+  positions, so its span telescopes to exactly the old summed-gaps value —
+  and that is checked rather than assumed, by an exhaustive test over every
+  document of length <= 5 and every phrase of length <= 3 from a 3-symbol
+  alphabet at slop 0..3, comparing against both the old walk and a
+  brute-force reference. A repeated phrase term still needs as many DISTINCT
+  document positions as it has slots (`"a a"` does not match a doc holding
+  one `a`).
 
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
