@@ -169,13 +169,15 @@ impl TermQuery {
     }
 }
 
-/// An ordered phrase — terms must appear in the given order with adjacent positions.
+/// A phrase — terms must appear with adjacent positions in the given order
+/// (`slop == 0`, the default), or within `slop` under Lucene move-distance
+/// semantics (transpositions cost 2; see `phrase_positions_match`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhraseQuery {
     pub field: String,
     /// Pre-analyzed phrase terms in order.
     pub terms: Vec<String>,
-    /// Allowed number of intervening positions (slop).
+    /// Allowed Lucene move-distance (slop).
     #[serde(default)]
     pub slop: u32,
     #[serde(default = "default_boost")]
@@ -753,10 +755,10 @@ impl FtsSearcher {
         'doc: for &doc_id in term_maps[min_idx].0.keys() {
             // Gather each term's positions for this doc, in TERM ORDER (raw —
             // no offset games; the matcher below handles adjacency + slop).
-            let mut all_positions: Vec<&Vec<u32>> = Vec::with_capacity(pq.terms.len());
+            let mut all_positions: Vec<&[u32]> = Vec::with_capacity(pq.terms.len());
             for (map, _) in &term_maps {
                 match map.get(&doc_id) {
-                    Some((_, positions)) => all_positions.push(positions),
+                    Some((_, positions)) => all_positions.push(positions.as_slice()),
                     None => continue 'doc, // term absent from this doc
                 }
             }
@@ -1479,18 +1481,48 @@ pub fn search_segments(
 // ── Phrase matching helper ────────────────────────────────────────────────────
 
 /// Returns `true` if the per-term **raw** position lists (in TERM ORDER)
-/// contain an in-order occurrence of the phrase within `slop`.
+/// contain an occurrence of the phrase within `slop` — Lucene sloppy-phrase
+/// semantics, transpositions included.
 ///
 /// `all_positions[i]` is the ascending list of positions at which the i-th
 /// phrase term occurs in one document.
 ///
 /// - `slop == 0`: exact adjacency.  There must be a start `p` such that term i
 ///   occupies exactly `p + i` for every i (start-position intersection).
-/// - `slop > 0`: greedy in-order walk — each next term is matched at the
-///   earliest position `> ` the previous match, and the summed gaps between
-///   adjacent matched terms must not exceed `slop` (the semantics the engine's
-///   stored-scan `MatchPhrase` uses).
-fn phrase_positions_match(all_positions: &[&Vec<u32>], slop: u32) -> bool {
+/// - `slop > 0`: Lucene `SloppyPhraseMatcher` semantics.  Slop is an edit
+///   distance in single-position term MOVES: pick one document position per
+///   phrase term, and the match distance is the span of the ADJUSTED
+///   positions (document position minus the term's query offset), i.e.
+///   `max(p_i - i) - min(p_i - i)`; the phrase matches when some choice keeps
+///   that distance `<= slop`.  For in-order matches this equals the summed
+///   gaps between consecutive matched terms (the previous semantics: for
+///   increasing `p_i`, `p_i - i` is non-decreasing, so the span telescopes to
+///   `(p_last - p_first) - (n-1)`).  Unlike the previous in-order-only walk
+///   it also admits REORDERED terms — an out-of-order pair costs at least 2,
+///   so `"a b"~2` matches a document reading `b a` (Lucene's class javadoc
+///   example: for query `"a b"~2`, document `x a b a y` matches once at
+///   distance 0 and once, as `b a`, at distance 2).  Issue #830.
+///
+/// Adapted (algorithm, not code) from Lucene's `SloppyPhraseMatcher`
+/// (lucene/core/src/java/org/apache/lucene/search/SloppyPhraseMatcher.java,
+/// Apache-2.0): `nextMatch` (:205-:237) pops the minimum `PhrasePositions`
+/// from a priority queue ordered by adjusted position (`pp.position` is set
+/// to `position - offset` in PhrasePositions.java `nextPosition`, :53-:59)
+/// and measures `matchLength = end - pp.position` — max minus min adjusted
+/// position — advancing the popped minimum until some list is exhausted.
+/// That is the classic minimal k-list window sweep, implemented below with
+/// plain pointers instead of a pq (phrase term counts are small).  Lucene
+/// resolves repeated-term collisions by advancing one of the colliding
+/// positions (`advanceRpts`, :317); here the same constraint — one document
+/// token cannot satisfy two phrase slots — is enforced by rejecting any
+/// window in which two slots sit at the same document position.
+///
+/// This is THE phrase-slop evaluator for both arms: the segment positional
+/// clause calls it with real postings positions, and the engine's
+/// stored-scan/memtable arm (`phrase_walk` in xerj-engine's `index.rs`)
+/// materialises token-index lists and calls it too, so the two arms cannot
+/// drift and the hit set is flush-invariant by construction.
+pub fn phrase_positions_match(all_positions: &[&[u32]], slop: u32) -> bool {
     if all_positions.iter().any(|p| p.is_empty()) {
         return false;
     }
@@ -1517,29 +1549,47 @@ fn phrase_positions_match(all_positions: &[&Vec<u32>], slop: u32) -> bool {
         return false;
     }
 
-    // Sloppy phrase: greedy earliest-match walk, accumulating the gaps.
-    'outer: for &start_pos in all_positions[0] {
-        let mut current_pos = start_pos;
-        let mut total_gaps: u32 = 0;
-        for positions in &all_positions[1..] {
-            // Earliest position strictly after the previous matched term.
-            match positions.iter().copied().find(|&p| p > current_pos) {
-                Some(next_pos) => {
-                    total_gaps += next_pos - current_pos - 1;
-                    if total_gaps > slop {
-                        continue 'outer;
-                    }
-                    current_pos = next_pos;
-                }
-                None => continue 'outer,
+    // Sloppy phrase: minimal-window sweep over adjusted positions.  One
+    // pointer per term list; the window is [min, max] of the adjusted
+    // positions under the pointers, and advancing the minimum each round
+    // enumerates every locally-minimal window — the same frontier Lucene's
+    // pq walk visits.
+    let n = all_positions.len();
+    let mut ptr = vec![0usize; n];
+    loop {
+        let mut min_i = 0usize;
+        let mut min_adj = i64::MAX;
+        let mut max_adj = i64::MIN;
+        for (i, positions) in all_positions.iter().enumerate() {
+            let adj = positions[ptr[i]] as i64 - i as i64;
+            if adj < min_adj {
+                min_adj = adj;
+                min_i = i;
+            }
+            if adj > max_adj {
+                max_adj = adj;
             }
         }
-        if total_gaps <= slop {
-            return true;
+        if max_adj - min_adj <= slop as i64 {
+            // One document token cannot fill two phrase slots: a repeated
+            // query term must match at as many DISTINCT positions as it
+            // occurs in the phrase ("a a" must not match a doc holding one
+            // `a`).  Distinct terms never share a document position (one
+            // token per position), so pairwise doc-position equality is
+            // exactly the repeat-collision check.
+            let collides = (0..n)
+                .any(|i| (i + 1..n).any(|j| all_positions[i][ptr[i]] == all_positions[j][ptr[j]]));
+            if !collides {
+                return true;
+            }
+        }
+        // Advance the pointer holding the minimum adjusted position; once
+        // its list is exhausted no window can shrink further — no match.
+        ptr[min_i] += 1;
+        if ptr[min_i] >= all_positions[min_i].len() {
+            return false;
         }
     }
-
-    false
 }
 
 // ── Query builder helpers ─────────────────────────────────────────────────────
@@ -2020,6 +2070,99 @@ mod tests {
         assert!(
             hits.iter().all(|h| h.doc_id != 0),
             "'quick dog' is not an adjacent phrase in doc0"
+        );
+    }
+
+    /// #830: `slop` is Lucene `SloppyPhraseMatcher` move-distance, so a
+    /// transposed pair matches at slop >= 2 — the old walk was in-order-only
+    /// and never matched a reordering at ANY slop.
+    #[test]
+    fn sloppy_phrase_transposition_semantics() {
+        // Doc reading "brown quick" (brown@0, quick@1), query "quick brown".
+        let quick: &[u32] = &[1];
+        let brown: &[u32] = &[0];
+        assert!(!phrase_positions_match(&[quick, brown], 0));
+        assert!(
+            !phrase_positions_match(&[quick, brown], 1),
+            "a transposition costs 2, not 1"
+        );
+        assert!(
+            phrase_positions_match(&[quick, brown], 2),
+            "a transposition must match at slop 2"
+        );
+        assert!(phrase_positions_match(&[quick, brown], 3));
+
+        // In-order forward gap still costs its width ("quick lazy brown").
+        let quick_gap: &[u32] = &[0];
+        let brown_gap: &[u32] = &[2];
+        assert!(!phrase_positions_match(&[quick_gap, brown_gap], 0));
+        assert!(phrase_positions_match(&[quick_gap, brown_gap], 1));
+
+        // Lucene's class-javadoc example doc "x a b a y" (a@[1,3], b@2):
+        // "a b" matches exactly at slop 0, and "b a" (b@2 → a@3) at slop 0
+        // too via the in-order pair; both trivially within slop 2.
+        let a: &[u32] = &[1, 3];
+        let b: &[u32] = &[2];
+        assert!(phrase_positions_match(&[a, b], 0));
+        assert!(phrase_positions_match(&[b, a], 2));
+
+        // Adjacent transposed pair inside a 3-term phrase: doc "one three
+        // two" for query "one two three" — one@0, two@2, three@1 → adjusted
+        // span (2-1) - (1-2) = 2.
+        let one: &[u32] = &[0];
+        let two: &[u32] = &[2];
+        let three: &[u32] = &[1];
+        assert!(!phrase_positions_match(&[one, two, three], 1));
+        assert!(phrase_positions_match(&[one, two, three], 2));
+    }
+
+    /// A repeated phrase term must land on DISTINCT document positions —
+    /// one document token cannot fill two phrase slots, however large the
+    /// slop (Lucene's repeat-collision rule).
+    #[test]
+    fn sloppy_phrase_repeat_needs_distinct_positions() {
+        let a_once: &[u32] = &[3];
+        assert!(
+            !phrase_positions_match(&[a_once, a_once], 10),
+            "\"a a\" must not match a doc holding a single 'a'"
+        );
+        let a_gap: &[u32] = &[3, 5];
+        assert!(
+            !phrase_positions_match(&[a_gap, a_gap], 0),
+            "'a x a' is not an adjacent \"a a\""
+        );
+        assert!(phrase_positions_match(&[a_gap, a_gap], 1));
+        let a_adj: &[u32] = &[3, 4];
+        assert!(phrase_positions_match(&[a_adj, a_adj], 0));
+    }
+
+    /// #830 segment arm end-to-end: a sloppy `PhraseQuery` admits the
+    /// transposed pair at slop 2 and still rejects it at slop 0/1.  Docs 0
+    /// and 1 read "… quick brown …"; the query asks for "brown quick".
+    #[test]
+    fn phrase_query_slop_transposition() {
+        let dir = TempDir::new().unwrap();
+        let searcher = setup_searcher(dir.path());
+
+        let mk = |slop: u32| {
+            let mut q = PhraseQuery::new("body", vec!["brown".to_owned(), "quick".to_owned()]);
+            q.slop = slop;
+            Query::Phrase(q)
+        };
+        assert!(searcher.search(&mk(0), 10, false).unwrap().is_empty());
+        assert!(
+            searcher.search(&mk(1), 10, false).unwrap().is_empty(),
+            "transposition costs 2 — slop 1 must not admit it"
+        );
+        let ids: Vec<u32> = searcher
+            .search(&mk(2), 10, false)
+            .unwrap()
+            .iter()
+            .map(|h| h.doc_id)
+            .collect();
+        assert!(
+            ids.contains(&0) && ids.contains(&1),
+            "docs with 'quick brown' must match the reversed query at slop 2, got {ids:?}"
         );
     }
 

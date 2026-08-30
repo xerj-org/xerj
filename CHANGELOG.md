@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`match_phrase` `slop` now admits transposed terms at Lucene's cost of 2**
+  ([#830](https://github.com/xerj-org/xerj/issues/830)). The sloppy-phrase
+  walk was in-order only — each next term matched strictly after the
+  previous one — so a reordered pair never matched at ANY slop:
+  `{"match_phrase":{"t":{"query":"quick brown","slop":2}}}` returned zero
+  hits on a document reading `brown quick`, where Lucene/ES match it at
+  distance 2 (`SloppyPhraseMatcher`'s own javadoc example). The evaluator is
+  now the Lucene move-distance semantics — pick one document position per
+  phrase term; the distance is the span of the positions after subtracting
+  each term's query offset — implemented once
+  (`xerj_fts::search::phrase_positions_match`) and shared by the segment
+  positional clause AND the engine's memtable/stored-scan walk
+  (`phrase_walk`), so the hit set is flush-invariant by construction.
+  In-order matches are unaffected (for them the span telescopes to the old
+  summed-gaps value); `match_phrase_prefix` and `multi_match`
+  phrase/phrase_prefix go through the same walk and gain the same behavior.
+  A repeated phrase term must still land on distinct document positions
+  (`"a a"` does not match a doc holding one `a`).
+
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
   `{"bool":{"must":[X]}}` and bare `X` are the same query — Lucene's
