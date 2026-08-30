@@ -41,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     anything with `aggs`/`sort`/`collapse`/`rescore` — already took the scan
     and cost about a quarter more (476 ms → 605 ms with a terms agg),
     but they now return the right documents. Restoring an indexed route is
-    tracked as follow-up work; correctness landed first.
+    tracked as [#892](https://github.com/xerj-org/xerj/issues/892);
+    correctness landed first.
 
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
