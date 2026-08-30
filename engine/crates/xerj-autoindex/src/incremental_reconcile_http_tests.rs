@@ -2703,6 +2703,185 @@ fn sweep_excluded_groups_invalidates_inbound_edges() {
     );
 }
 
+/// #736 (replacement half): a run that SUPERSEDES a file's anchor node must
+/// soft-invalidate the edges pointing AT the old anchor, not only the edges the
+/// old generation taught.
+///
+/// The reachable trigger is `--fresh`. An ordinary resume maps every file back
+/// onto its planned key (`select_resume_plan_keys`), so an in-place edit keeps
+/// its `file_key` and its anchor id — nothing is superseded and the inbound
+/// edges keep pointing at a live node. `--fresh` discards the plan and rebuilds
+/// every key from current content, so an edited file gets a NEW key and a NEW
+/// anchor, while `cleanup_required` (the journal's record of what is live) has
+/// just been wiped with the journal — so before this fix the run invalidated
+/// nothing at all, and every edge a surviving file taught into the old anchor
+/// stayed live and searchable, pointing at a superseded node.
+///
+/// Fail-before: with the superseded-anchor invalidation reverted, the two
+/// `a.md → old b anchor` edges come back with no `invalid_at` and the first
+/// assertion fires.
+#[test]
+fn fresh_run_invalidates_inbound_edges_to_a_superseded_anchor() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("a.md"),
+        "# A\n\nSee [[b]] for the details of the target document.\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.path().join("b.md"),
+        "# B\n\nThe target document says one thing.\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.no_graph = false;
+    config.brain = Some("testbrain".into());
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let edges_index = detect::edges_index_name("testbrain");
+
+    // Anchor ids are read off the published file cards (`ax_locator: "file"`),
+    // so the test never has to recompute `ids::doc_id` itself.
+    let anchors_of = |path: &str| -> Vec<String> {
+        let st = endpoint.state.lock().unwrap();
+        let mut ids: Vec<String> = st
+            .docs
+            .iter()
+            .filter(|((index, _), doc)| {
+                index != catalog::CATALOG_INDEX
+                    && doc.get("ax_locator").and_then(Value::as_str) == Some("file")
+                    && doc.get("ax_path").and_then(Value::as_str) == Some(path)
+            })
+            .map(|((_, id), _)| id.clone())
+            .collect();
+        ids.sort();
+        ids
+    };
+    let edges_of = |predicate: &dyn Fn(&Value) -> bool| -> Vec<(String, Value)> {
+        let st = endpoint.state.lock().unwrap();
+        let mut rows: Vec<(String, Value)> = st
+            .docs
+            .iter()
+            .filter(|((index, _), doc)| *index == edges_index && predicate(doc))
+            .map(|((_, id), doc)| (id.clone(), doc.clone()))
+            .collect();
+        rows.sort_by(|left, right| left.0.cmp(&right.0));
+        rows
+    };
+
+    let old_b_anchor = {
+        let mut found = anchors_of("b.md");
+        assert_eq!(found.len(), 1, "run 1 publishes exactly one b.md file card");
+        found.pop().unwrap()
+    };
+    // The inbound edges the fix has to reach: taught by the SURVIVING file a.md,
+    // pointing at b.md's anchor. Asserted before the change so a corpus that
+    // stopped producing them could never make this test vacuously pass.
+    let inbound_before = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) == Some(old_b_anchor.as_str())
+    });
+    assert!(
+        !inbound_before.is_empty(),
+        "#736: the fixture must actually teach a.md → b.md edges"
+    );
+    // a.md's other edges (its own card → section chain) must survive untouched:
+    // a.md is byte-identical across the two runs, and #868's skip means an
+    // unchanged file must neither re-teach nor lose its edges.
+    let a_internal_before: Vec<String> = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) != Some(old_b_anchor.as_str())
+    })
+    .into_iter()
+    .map(|(id, _)| id)
+    .collect();
+    assert!(
+        !a_internal_before.is_empty(),
+        "#736: the fixture must have edges that the sweep MUST NOT touch"
+    );
+
+    // Edit b.md, then rebuild in place with --fresh: b.md's content key, and so
+    // its anchor node id, is superseded.
+    fs::write(
+        corpus.path().join("b.md"),
+        "# B\n\nThe target document now says something completely different today.\n",
+    )
+    .unwrap();
+    let mut fresh = config.clone();
+    fresh.fresh = true;
+    assert_eq!(run_index(fresh).unwrap(), 0);
+
+    let new_b_anchor = {
+        let found = anchors_of("b.md");
+        let fresh_ids: Vec<&String> = found.iter().filter(|id| **id != old_b_anchor).collect();
+        assert_eq!(
+            fresh_ids.len(),
+            1,
+            "--fresh must publish a new b.md file card after the edit, got {found:?}"
+        );
+        fresh_ids[0].clone()
+    };
+    assert_ne!(
+        new_b_anchor, old_b_anchor,
+        "the fixture must actually supersede b.md's anchor"
+    );
+
+    // The bug: every live edge pointing at the superseded anchor.
+    let inbound_after =
+        edges_of(&|doc| doc.get("dst").and_then(Value::as_str) == Some(old_b_anchor.as_str()));
+    assert_eq!(
+        inbound_after.len(),
+        inbound_before.len(),
+        "#736: prior edges are soft-invalidated, never deleted — the bi-temporal \
+         record must still be there for `as_of`"
+    );
+    for (id, doc) in &inbound_after {
+        assert!(
+            doc.get("invalid_at").is_some(),
+            "#736: edge {id} still points at b.md's superseded anchor {old_b_anchor} \
+             and was left live: {doc}"
+        );
+    }
+    // The old generation's own outbound edges go too — same root cause, same
+    // pass: `src_file == b.md` was never invalidated under --fresh either.
+    for (id, doc) in
+        edges_of(&|doc| doc.get("src").and_then(Value::as_str) == Some(old_b_anchor.as_str()))
+    {
+        assert!(
+            doc.get("invalid_at").is_some(),
+            "#736: edge {id} is taught BY b.md's superseded anchor and was left live: {doc}"
+        );
+    }
+
+    // …and the graph is still a graph: a.md links to the NEW anchor, live.
+    let inbound_new = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) == Some(new_b_anchor.as_str())
+            && doc.get("invalid_at").is_none()
+    });
+    assert!(
+        !inbound_new.is_empty(),
+        "#736: the re-run must re-teach a.md → b.md against the new anchor"
+    );
+    // #868: the unchanged file's unrelated edges are untouched.
+    for id in &a_internal_before {
+        let st = endpoint.state.lock().unwrap();
+        let doc = st
+            .docs
+            .get(&(edges_index.clone(), id.clone()))
+            .unwrap_or_else(|| panic!("#868: a.md's edge {id} must survive the re-run"));
+        assert!(
+            doc.get("invalid_at").is_none(),
+            "#868: byte-identical a.md's own edge {id} must stay live: {doc}"
+        );
+    }
+}
+
 /// #585 (case 1): a pending (uncommitted) `--no-graph` generation must NOT be
 /// resumed and committed on the default graph path — doing so silently commits
 /// a no-graph generation under a graph authority (the #584 hazard, but for a

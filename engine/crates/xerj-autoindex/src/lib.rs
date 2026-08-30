@@ -3447,6 +3447,40 @@ fn graph_edges_index(cfg: &IndexCfg) -> Option<String> {
         .map(|()| detect::edges_index_name(&brain))
 }
 
+/// #736: every graph ANCHOR node a plan owns — `ids::doc_id(slug, file_key,
+/// FILE_CARD_LOCATOR)` for each dataset the file is assigned to — paired with
+/// that file's `rel`. Sorted and deduped so two calls are directly comparable.
+///
+/// The anchor is the node every cross-file edge points AT (`EdgeDraft::dst` is
+/// `CorpusFile::anchor_doc_id` in every detector that links two files), so the
+/// anchor set is exactly the set of edge endpoints a plan can own.
+///
+/// The graph phase compares the PRIOR plan's anchors against this run's. An
+/// anchor the prior plan owned and this one does not is SUPERSEDED — its node
+/// belongs to a generation this run replaced — so the edges pointing at it
+/// (`dst`) and the edges that generation taught (`src_file`) must both be
+/// soft-invalidated. A file whose key and dataset assignments are unchanged
+/// appears in both sets and is therefore never touched, which is what keeps the
+/// #868 byte-identical skip honest: an unchanged file neither re-teaches nor
+/// loses its edges.
+fn plan_anchor_nodes(plan: &Plan) -> Vec<(String, String)> {
+    let mut anchors: Vec<(String, String)> = plan
+        .files
+        .iter()
+        .flat_map(|(key, assignment)| {
+            assignment.assignments.iter().map(move |(_, slug)| {
+                (
+                    crate::ids::doc_id(slug, key, detect::FILE_CARD_LOCATOR),
+                    assignment.rel.clone(),
+                )
+            })
+        })
+        .collect();
+    anchors.sort();
+    anchors.dedup();
+    anchors
+}
+
 /// Catalog doc id for a time correlation, corpus-prefix-scoped (#673): the
 /// `autoindex-catalog` index is shared across corpora, so a time correlation
 /// keyed only by dataset slugs would overwrite the same-slug correlation from
@@ -4121,6 +4155,18 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .context("sweep newly-excluded content groups")?;
         }
     }
+    // #736: snapshot the PRIOR plan's anchor nodes HERE, before the journal is
+    // opened. `--fresh` deletes `journal.ndjson` inside `open_after_preflight`,
+    // taking the prior plan with it — and `--fresh` is precisely the path that
+    // supersedes a changed file's anchor, because it rebuilds every key from
+    // current content instead of mapping each file onto its planned key the way
+    // `select_resume_plan_keys` does on an ordinary resume. Only a run that can
+    // write edges has any to invalidate, so `--no-graph` (and an unusable brain
+    // name) pays nothing here.
+    let prior_anchor_nodes: Vec<(String, String)> = match preflight.plan.as_ref() {
+        Some(prior) if graph_edges_index(&cfg).is_some() => plan_anchor_nodes(prior),
+        _ => Vec::new(),
+    };
     let mut journal = state::Journal::open_after_preflight(
         preflight,
         &root_str,
@@ -4969,12 +5015,49 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 .filter(|&&i| cleanup_required.contains(&keys[i]))
                 .map(|&i| files[i].rel.as_str())
                 .collect();
+            // #736: `cleanup_required` is the journal's own record of what is
+            // already live, so it is EMPTY after `--fresh` wiped the journal —
+            // and `--fresh` is the one path that gives a content-changed file a
+            // new `file_key`, hence a new anchor node. Nothing above notices, so
+            // the prior generation's edges stayed live: the ones the old anchor
+            // taught (`src_file`) AND the ones a surviving file taught pointing
+            // AT it (`dst`), which is the inbound half #736 was filed for. An
+            // ordinary resume supersedes no anchor (`select_resume_plan_keys`
+            // preserves the planned key across an in-place edit), so this set is
+            // empty there and the resume behaviour is unchanged.
+            let live_anchors: std::collections::HashSet<String> = plan_anchor_nodes(&plan)
+                .into_iter()
+                .map(|(anchor, _)| anchor)
+                .collect();
+            let superseded: Vec<&(String, String)> = prior_anchor_nodes
+                .iter()
+                .filter(|(anchor, _)| !live_anchors.contains(anchor))
+                .collect();
+            replaced_rels.extend(superseded.iter().map(|(_, rel)| rel.as_str()));
             replaced_rels.sort_unstable();
             replaced_rels.dedup();
             for rel in replaced_rels {
                 invalidated +=
                     detect::invalidate_prior_edges(&es, &edges_index, rel, created_at_ms)
                         .with_context(|| format!("invalidate prior edges taught by {rel}"))?;
+            }
+            // The inbound half. Keyed on the SUPERSEDED anchor only — never on a
+            // surviving file — so an unchanged file's edges are left exactly as
+            // they are (#868). This runs before any edge this run writes, and
+            // this run's edges name the NEW anchor, so it can only ever match
+            // prior generations. Same soft-invalidate as the src side: the
+            // bi-temporal record survives for `as_of` time travel.
+            for (anchor, rel) in superseded {
+                invalidated += detect::invalidate_edges_by_field(
+                    &es,
+                    &edges_index,
+                    "dst",
+                    anchor,
+                    created_at_ms,
+                )
+                .with_context(|| {
+                    format!("invalidate inbound edges to the superseded anchor node of {rel}")
+                })?;
             }
         }
 
