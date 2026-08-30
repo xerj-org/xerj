@@ -15927,10 +15927,18 @@ impl Index {
         // pinned per-document constants; the generic path then serves the
         // union with summed scores and full feature support (see
         // `pin_knn_clause`).
+        //
+        // `pinned_knn_scores` is the id → knn-score map of the clauses we
+        // just spliced in. Everything downstream that RE-WRITES `_score`
+        // rather than reading it has to add the vector half back, or the
+        // sum contract is lost exactly where it was hardest to see — see
+        // the IDF heuristic rescore further down.
+        let mut pinned_knn_scores: HashMap<String, f32> = HashMap::new();
         let pinned_query = if let Some(knn_clause) = compound_bool_direct_knn(query) {
             let pinned = self
                 .pin_knn_clause(request, search_deadline, knn_clause)
                 .await?;
+            collect_pinned_knn_scores(&pinned, &mut pinned_knn_scores);
             Some(replace_direct_knn_with_pinned(query, &pinned))
         } else {
             None
@@ -19425,7 +19433,27 @@ impl Index {
                         }
                     }
                     if score > 0.0 {
-                        hit.score = score;
+                        // #825: this pass derives a score from term
+                        // frequencies ALONE, so on a #825-pinned tree it
+                        // would overwrite the summed `query_score +
+                        // knn_score` with the lexical half only — silently
+                        // dropping the vector contribution for exactly the
+                        // documents reached by BOTH halves, while a
+                        // vector-only doc (tf 0, heuristic 0) keeps its knn
+                        // score and can then outrank them. `query_uses_bool_text`
+                        // above cannot see the difference: the user's inner
+                        // bool supplies the ≥2 text clauses and the pinned
+                        // sub-tree contributes 0 text children, so it neither
+                        // disqualifies nor suppresses. Add the pinned constant
+                        // back rather than suppressing the rescore, so the
+                        // lexical half still gets its IDF weighting.
+                        // (Empty map — the overwhelmingly common case — costs
+                        // one hash lookup that always misses.)
+                        hit.score = score
+                            + pinned_knn_scores
+                                .get(hit.id.as_str())
+                                .copied()
+                                .unwrap_or(0.0);
                     }
                 }
                 // Re-sort by the new scores (#270 — full page-order key, so
@@ -33242,6 +33270,31 @@ fn compound_bool_direct_knn(q: &QueryNode) -> Option<&QueryNode> {
         first.filter(|_| surplus.is_none())
     } else {
         None
+    }
+}
+
+/// #825: read the id → knn-score map back out of the sub-tree
+/// `pin_knn_clause` just produced (`Bool{should:[Constant{score,
+/// Ids{[id]}}, …]}`, or `MatchNone` for an empty leg).
+///
+/// Deliberately scoped to that exact shape and called ONLY on
+/// `pin_knn_clause`'s own output, never on the user's tree: a
+/// user-supplied `constant_score{filter:{ids}}` is an ordinary scoring
+/// clause whose interaction with the heuristic rescore is pre-existing
+/// behaviour, and folding it in here would change it.
+fn collect_pinned_knn_scores(pinned: &QueryNode, out: &mut HashMap<String, f32>) {
+    if let QueryNode::Bool { should, .. } = pinned {
+        for clause in should {
+            if let QueryNode::Constant { score, query } = clause {
+                if let QueryNode::Ids { values } = query.as_ref() {
+                    for id in values {
+                        // A document can be pinned once only (the leg
+                        // returns distinct ids), so `insert` is total.
+                        out.insert(id.clone(), *score);
+                    }
+                }
+            }
+        }
     }
 }
 

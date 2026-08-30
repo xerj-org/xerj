@@ -335,3 +335,97 @@ async fn knn_beside_query_with_rescore_keeps_the_vector_contribution() {
         "the lexical (and rescored) match must still be present: hits={ids:?} body={body}"
     );
 }
+
+/// #825 (review follow-up): the summed-score contract must also hold when the
+/// lexical half is itself a `bool` carrying two or more scoring text clauses —
+/// the shape that reaches the post-scan IDF heuristic rescore, whose gate
+/// `query_uses_bool_text` counts the user's inner bool and is blind to the
+/// pinned kNN sub-tree. That pass rewrites `hit.score` from term frequencies
+/// alone, so run blind it discards the vector contribution for exactly the
+/// documents reached by BOTH halves — the same silent drop #825 exists to
+/// close, one layer down. A bare `match`/`term` query half returns
+/// text_children = 1 and never reaches it, which is why every other test here
+/// misses this.
+///
+/// The two documents carry identical lexical content (identical tf and field
+/// lengths, so identical BM25 *and* identical heuristic scores) and differ
+/// only in their vector: the one whose vector IS the query vector must rank
+/// strictly above the other. `near` is indexed SECOND, so if the scores
+/// collapsed to a tie the arrival-order tie-break would put it last.
+#[tokio::test]
+async fn knn_beside_bool_query_keeps_the_vector_contribution() {
+    let (app, _dir) = app().await;
+
+    let (st, b) = json_req(
+        &app,
+        "PUT",
+        "/bq",
+        json!({ "mappings": { "properties": {
+            "title": { "type": "text" },
+            "body": { "type": "text" },
+            "v": { "type": "dense_vector", "dims": 3 }
+        } } }),
+    )
+    .await;
+    assert!(st.is_success(), "create index: {st} {b}");
+
+    for (id, vec) in [("far", [1.0_f32, 0.0, 0.0]), ("near", [0.1_f32, 0.2, 0.3])] {
+        let (st, b) = json_req(
+            &app,
+            "POST",
+            &format!("/bq/_doc/{id}"),
+            json!({ "title": "alpha", "body": "beta", "v": vec }),
+        )
+        .await;
+        assert!(st.is_success(), "index {id}: {st} {b}");
+    }
+    let (_s, _b) = json_req(&app, "POST", "/bq/_refresh", json!({})).await;
+
+    let (status, body) = json_req(
+        &app,
+        "POST",
+        "/bq/_search",
+        json!({
+            "query": { "bool": { "must": [
+                { "match": { "title": "alpha" } },
+                { "match": { "body": "beta" } }
+            ] } },
+            "knn": { "field": "v", "query_vector": [0.1, 0.2, 0.3], "k": 2, "num_candidates": 10 }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "_search status: {status} {body}");
+
+    let hits: Vec<(String, f64)> = body
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .map(|hits| {
+            hits.iter()
+                .filter_map(|h| {
+                    h.get("_id")
+                        .and_then(Value::as_str)
+                        .map(String::from)
+                        .zip(h.get("_score").and_then(Value::as_f64))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let score = |wanted: &str| {
+        hits.iter()
+            .filter(|(id, _)| id == wanted)
+            .map(|(_, s)| *s)
+            .next()
+    };
+    let (near, far) = (score("near"), score("far"));
+    assert!(
+        near.zip(far).is_some_and(|(n, f)| n > f),
+        "#825: with a multi-clause bool as the lexical half the kNN score must still be \
+         summed in — the post-scan IDF rescore must not overwrite the pinned vector \
+         contribution: near={near:?} far={far:?} {body}"
+    );
+    assert_eq!(
+        hits.first().map(|(id, _)| id.as_str()),
+        Some("near"),
+        "#825: the better vector match must lead the page: hits={hits:?} {body}"
+    );
+}
