@@ -13727,12 +13727,33 @@ impl Index {
             Ok(if pinned.is_empty() {
                 QueryNode::MatchNone
             } else {
+                // The `filter` is a REDUNDANT accelerator, not semantics: it
+                // holds exactly the union of the `should` clauses' ids, so
+                // `filter ∧ (≥1 should)` and `(≥1 should)` have the same match
+                // set, and `filter` contributes nothing to `_score` (only
+                // must/should are summed — `BooleanClause.isScoring()`).
+                // What it buys is the shape of the DOC-SCAN cost. The scan
+                // evaluates must/must_not/filter BEFORE should, so a document
+                // outside the top-k is now rejected by ONE `_id` lookup plus a
+                // memcmp sweep, instead of recursing into all k
+                // `Constant{Ids}` clauses and re-reading `_id` from the source
+                // map k times. Measured on a 100 k-doc index, together with
+                // the `should` short-circuit in `doc_matches_query_typed`
+                // (see the PR's measurement table): hybrid k=1000
+                // 2309 ms → 385 ms, k=10000 24 437 ms → 5 071 ms.
+                // `minimum_should_match: 1` is written out rather than left
+                // implicit: with a non-empty `filter` the default would fall
+                // to 0 ("filter alone decides"), which is the same match set
+                // here but is NOT the same statement, and any other reader of
+                // this tree should see the disjunction that was meant.
                 QueryNode::Bool {
                     must: Vec::new(),
                     should: pinned,
-                    filter: Vec::new(),
+                    filter: vec![QueryNode::Ids {
+                        values: leg.hits.iter().map(|hit| hit.id.clone()).collect(),
+                    }],
                     must_not: Vec::new(),
-                    minimum_should_match: None,
+                    minimum_should_match: Some(MinShouldMatch::Fixed(1)),
                 }
             })
         } else {
@@ -33257,8 +33278,17 @@ fn peel_multi_knn_query(q: &QueryNode) -> Option<Vec<PeeledKnn>> {
 /// need their own pinned executor pass, and no supported request shape
 /// produces that tree: the ES-compat layer answers 400 to a `knn` array
 /// beside a `query` before folding, and the pure `knn` array form is served
-/// by `peel_multi_knn_query` above. Deeper-nested `Knn` clauses keep the
-/// pre-existing (dropped) behaviour.
+/// by `peel_multi_knn_query` above.
+///
+/// Everything else keeps the pre-existing (dropped) behaviour: a `Knn`
+/// nested deeper than a direct child, AND a `Knn` sitting directly in
+/// `filter` or `must_not` — only the SCORING lists are scanned here, and
+/// `replace_direct_knn_with_pinned` likewise only swaps those two. That is
+/// exact rather than tidy: `filter`/`must_not` are the non-scoring lists
+/// (`BooleanClause.isScoring()` is `MUST || SHOULD`), a pinned constant
+/// there would contribute nothing anyway, and no supported request shape
+/// produces such a tree — the ES-compat fold only ever emits
+/// `bool.should[query, knn]`.
 fn compound_bool_direct_knn(q: &QueryNode) -> Option<&QueryNode> {
     if let QueryNode::Bool { must, should, .. } = q {
         let mut knns = must
@@ -38089,11 +38119,28 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                     }
                 };
                 if min > 0 {
-                    let matched = should
-                        .iter()
-                        .filter(|q| doc_matches_query_typed(q, source, schema))
-                        .count();
-                    if matched < min {
+                    // Stop as soon as the requirement is met. The old
+                    // `.filter(…).count()` evaluated EVERY should-clause on
+                    // EVERY document even when the first one already settled
+                    // it — O(clauses) per doc with no upside. That is free
+                    // ordinarily and expensive on a #825-pinned tree, whose
+                    // should-list is one clause per pinned kNN neighbour:
+                    // a document the lexical clause already matched no longer
+                    // walks the pinned sub-tree at all. Semantics are
+                    // unchanged — `matched >= min` is the same predicate,
+                    // reached without counting past `min`.
+                    let mut matched = 0usize;
+                    let mut satisfied = false;
+                    for q in should {
+                        if doc_matches_query_typed(q, source, schema) {
+                            matched += 1;
+                            if matched >= min {
+                                satisfied = true;
+                                break;
+                            }
+                        }
+                    }
+                    if !satisfied {
                         return false;
                     }
                 }
