@@ -761,6 +761,18 @@ pub struct StorageConfig {
     pub flush_size_mb: u64,
     /// Maximum time between flushes regardless of buffer size (default: `30` s).
     pub flush_interval_secs: u64,
+    /// #873: flush a NON-EMPTY memtable whose contents have not changed for
+    /// this many seconds, regardless of size (default: `300` s; `0` disables).
+    /// Without it a dataset below the size thresholds never reached a
+    /// segment: its documents stayed memtable-resident for the process
+    /// lifetime, pinned their WAL generations, and replayed on every boot —
+    /// measured at 100,001 docs held in RAM 30+ minutes after ingest on an
+    /// idle node. 300 s matches Elasticsearch's
+    /// `indices.memory.shard_inactive_time` default. Detection is a probe on
+    /// the periodic flusher (`flush_interval_secs`), so worst-case latency is
+    /// `flush_idle_secs + flush_interval_secs` and the write path pays
+    /// nothing.
+    pub flush_idle_secs: u64,
 
     // ── Object-store backend (compute-storage separation) ─────────────────────
     /// Storage backend: `"local"` or `"s3"` (default: `"local"`).
@@ -790,6 +802,7 @@ impl Default for StorageConfig {
             wal_max_size_mb: 1024,
             flush_size_mb: 512,
             flush_interval_secs: 30,
+            flush_idle_secs: 300,
             backend: StorageBackendType::Local,
             s3_bucket: String::new(),
             s3_prefix: "xerj/".into(),

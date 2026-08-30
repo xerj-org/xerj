@@ -3212,6 +3212,65 @@ mod merge_publication_transaction_tests {
         hand_driven_index_with_config(config(dir), name, schema)
     }
 
+    /// #873: a non-empty memtable BELOW the size thresholds flushes once its
+    /// contents have sat unchanged for `flush_idle_secs`. Idleness is
+    /// crossed via the test rewind hook, never a sleep. Also proves the two
+    /// negative arms: a fingerprint change re-arms the timer, and
+    /// `flush_idle_secs = 0` disables the path entirely.
+    #[tokio::test]
+    async fn small_idle_memtable_flushes_by_age_not_size() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = config(&dir);
+        cfg.storage.flush_idle_secs = 5;
+        let (_engine, index) = hand_driven_index_with_config(cfg, "idle-age", Schema::empty());
+        index
+            .index_document(Some("d1".into()), serde_json::json!({"m": "tiny"}))
+            .await
+            .unwrap();
+        // Probe 1 records the fingerprint; probe 2 is unchanged but unaged.
+        assert!(!index.needs_flush().await, "first probe must only arm");
+        assert!(
+            !index.needs_flush().await,
+            "unaged idle memtable must not flush"
+        );
+        // Cross the idle threshold without sleeping.
+        index.rewind_idle_probe_for_test(6_000);
+        assert!(index.needs_flush().await, "aged idle memtable must flush");
+        // A write re-arms: fingerprint changes, timer restarts.
+        index
+            .index_document(Some("d2".into()), serde_json::json!({"m": "tiny2"}))
+            .await
+            .unwrap();
+        assert!(
+            !index.needs_flush().await,
+            "activity must re-arm the idle timer"
+        );
+        index.rewind_idle_probe_for_test(6_000);
+        assert!(index.needs_flush().await);
+        // The flush the periodic sweeper would now run empties the memtable.
+        index.flush().await.unwrap();
+        assert_eq!(index.memtable_bytes(), 0, "flush must drain the memtable");
+        assert!(
+            !index.needs_flush().await,
+            "empty memtable never idle-flushes"
+        );
+
+        // Disabled: 0 means the old threshold-only behaviour.
+        let dir2 = TempDir::new().unwrap();
+        let mut cfg2 = config(&dir2);
+        cfg2.storage.flush_idle_secs = 0;
+        let (_e2, idx2) = hand_driven_index_with_config(cfg2, "idle-off", Schema::empty());
+        idx2.index_document(Some("d1".into()), serde_json::json!({"m": "tiny"}))
+            .await
+            .unwrap();
+        assert!(!idx2.needs_flush().await);
+        idx2.rewind_idle_probe_for_test(600_000);
+        assert!(
+            !idx2.needs_flush().await,
+            "flush_idle_secs=0 must disable idle flush"
+        );
+    }
+
     /// `hand_driven_index` for the fixture that needs a knob `config()` does
     /// not set.
     ///
@@ -6685,6 +6744,24 @@ pub struct Index {
     flush_doc_threshold: usize,
     /// Byte threshold for auto-flush (from config flush_size_mb).
     flush_byte_threshold: usize,
+    /// #873: seconds a non-empty memtable may sit unchanged before it is
+    /// flushed regardless of size (`storage.flush_idle_secs`; 0 = disabled).
+    /// Below the thresholds a small dataset otherwise NEVER flushed: its
+    /// documents stayed memtable-resident for the whole process lifetime and
+    /// its WAL generations replayed on every boot. Elasticsearch flushes a
+    /// shard idle past `indices.memory.shard_inactive_time` (default 5m) via
+    /// a periodic controller (IndexingMemoryController.java:76-78 →
+    /// IndexShard.flushOnIdle, IndexShard.java:2787-2790; AGPL — approach
+    /// only, implementation ours): idleness is detected by a probe, not by
+    /// stamping the write path.
+    flush_idle_secs: u64,
+    /// #873: last memtable fingerprint `needs_flush` observed (doc_count ^
+    /// rotated size). A changed fingerprint = write activity since the last
+    /// probe; an unchanged one ages toward the idle flush.
+    idle_probe_fingerprint: std::sync::atomic::AtomicU64,
+    /// #873: coarse ms timestamp (process-monotonic) of the probe that last
+    /// saw the fingerprint change.
+    idle_probe_at_ms: std::sync::atomic::AtomicU64,
     /// Index-level settings (e.g. number_of_shards, number_of_replicas).
     settings: Arc<RwLock<Value>>,
     /// Cached schema hash for skipping schema evolution on unchanged docs.
@@ -7317,6 +7394,7 @@ impl Index {
         // log workloads.  Both are env-overridable — see resolve_flush_thresholds.
         let (flush_doc_threshold, flush_byte_threshold) =
             Self::resolve_flush_thresholds(config.storage.flush_size_mb);
+        let flush_idle_secs = config.storage.flush_idle_secs;
 
         // Warn if >1 shard requested (we only support single-shard).
         if let Some(n) = settings
@@ -7401,6 +7479,9 @@ impl Index {
             data_dir: index_dir,
             flush_doc_threshold,
             flush_byte_threshold,
+            flush_idle_secs,
+            idle_probe_fingerprint: std::sync::atomic::AtomicU64::new(0),
+            idle_probe_at_ms: std::sync::atomic::AtomicU64::new(0),
             settings: Arc::new(RwLock::new(settings)),
             schema_hash_cache: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             schema_hash_epoch: Arc::new(AtomicU64::new(0)),
@@ -7651,6 +7732,7 @@ impl Index {
         // See create_with_settings — doc count is a sanity cap, byte threshold drives flushes.
         let (flush_doc_threshold, flush_byte_threshold) =
             Self::resolve_flush_thresholds(config.storage.flush_size_mb);
+        let flush_idle_secs = config.storage.flush_idle_secs;
 
         // Try to reload a previously-persisted HNSW snapshot. If both
         // graph.bin and ids.json exist, validate, and the pinned field is
@@ -7802,6 +7884,9 @@ impl Index {
             data_dir: index_dir,
             flush_doc_threshold,
             flush_byte_threshold,
+            flush_idle_secs,
+            idle_probe_fingerprint: std::sync::atomic::AtomicU64::new(0),
+            idle_probe_at_ms: std::sync::atomic::AtomicU64::new(0),
             settings: Arc::new(RwLock::new(settings)),
             schema_hash_cache: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             schema_hash_epoch: Arc::new(AtomicU64::new(0)),
@@ -20197,8 +20282,62 @@ impl Index {
 
     /// Check if the memtable exceeds the configured thresholds.
     pub async fn needs_flush(&self) -> bool {
+        use std::sync::atomic::Ordering;
         let mem = &*self.memtable;
-        mem.doc_count() >= self.flush_doc_threshold || mem.size_bytes() >= self.flush_byte_threshold
+        let docs = mem.doc_count();
+        let bytes = mem.size_bytes();
+        if docs >= self.flush_doc_threshold || bytes >= self.flush_byte_threshold {
+            return true;
+        }
+        // #873: idle-age flush. The periodic flusher probes every index on
+        // `flush_interval_secs`; a non-empty memtable whose fingerprint has
+        // not changed for `flush_idle_secs` flushes regardless of size, so a
+        // small dataset reaches a segment, releases its WAL generations, and
+        // stops replaying on every boot. Observing change here keeps the
+        // write hot path untouched — the ES-controller shape, not per-write
+        // stamping. A fingerprint collision (delete+insert of identical
+        // sizes inside one probe interval) at worst flushes an active index
+        // once, which is always safe.
+        if self.flush_idle_secs == 0 || docs == 0 {
+            return false;
+        }
+        let fp = (docs as u64) ^ (bytes as u64).rotate_left(32);
+        let now = Self::coarse_now_ms();
+        let seen = self.idle_probe_fingerprint.load(Ordering::Relaxed);
+        let seen_at = self.idle_probe_at_ms.load(Ordering::Relaxed);
+        // Arming needs no at==0 sentinel: for a non-empty memtable `fp` is
+        // never 0 (the low 32 bits are the doc count), so the initial
+        // fingerprint of 0 always mismatches and arms on the first probe.
+        if fp != seen {
+            self.idle_probe_fingerprint.store(fp, Ordering::Relaxed);
+            self.idle_probe_at_ms.store(now, Ordering::Relaxed);
+            return false;
+        }
+        now.saturating_sub(seen_at) >= self.flush_idle_secs.saturating_mul(1000)
+    }
+
+    /// Milliseconds since the first call — a process-monotonic coarse clock
+    /// for the idle probe (wall-clock jumps cannot move it backwards).
+    fn coarse_now_ms() -> u64 {
+        static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        // Based a day up so early-process probes have room below them — the
+        // test rewind hook subtracts, and a floor at 0 near process start
+        // would silently pin the stamp instead of aging it.
+        86_400_000
+            + START
+                .get_or_init(std::time::Instant::now)
+                .elapsed()
+                .as_millis() as u64
+    }
+
+    /// #873 test hook: rewind the idle probe so a test can cross
+    /// `flush_idle_secs` without sleeping.
+    #[cfg(test)]
+    pub(crate) fn rewind_idle_probe_for_test(&self, ms: u64) {
+        use std::sync::atomic::Ordering;
+        let at = self.idle_probe_at_ms.load(Ordering::Relaxed);
+        self.idle_probe_at_ms
+            .store(at.saturating_sub(ms), Ordering::Relaxed);
     }
 
     pub fn memtable_bytes(&self) -> usize {
