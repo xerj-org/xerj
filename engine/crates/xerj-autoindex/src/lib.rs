@@ -186,7 +186,7 @@ pub(crate) fn generation_contract_identities(plan: &Plan) -> Result<(String, Str
     ))
 }
 
-pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan) -> Result<()> {
+pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan, pr: &Progress) -> Result<()> {
     for dataset in &plan.datasets {
         let mut create_body = build_mapping(&dataset.specs);
         create_body["mappings"]["properties"]["ax_paths"] = json!({"type": "keyword"});
@@ -204,34 +204,117 @@ pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan) -> Result<()> {
         "properties": catalog_create_body["mappings"]["properties"].clone()
     });
     es.ensure_index(catalog::CATALOG_INDEX, &catalog_create_body)?;
-    es.update_mapping(catalog::CATALOG_INDEX, &catalog_update_body)
-        .map_err(|e| explain_legacy_catalog_mapping_conflict(catalog::CATALOG_INDEX, e))
+    install_catalog_mapping(es, &catalog_update_body, pr)
         .context("install generation catalog mapping")
 }
 
-/// The generated catalog declares its fields as `keyword` (exact corpus-scoped
-/// exclusion sweeps depend on it; #737 added `prefix`). A catalog created by an
-/// older build can hold one of those fields dynamically mapped as `text`, and
-/// Elasticsearch cannot change a field's type in place, so the additive
-/// `update_mapping` fails with an opaque `mapper_parsing_exception` naming
-/// whichever field it checked first. Name the cause and the (operator-driven,
-/// data-preserving) recovery instead of surfacing the raw type conflict.
+/// Install the catalog mapping without letting a legacy field type abort the
+/// run (#755).
 ///
-/// An automatic reindex is deliberately NOT done here: the catalog is global
-/// across every corpus and its scoping drives deletions, so migrating it is a
-/// maintainer decision, not a silent side effect of a run.
-fn explain_legacy_catalog_mapping_conflict(index: &str, err: anyhow::Error) -> anyhow::Error {
-    let msg = format!("{err:#}");
-    if let Some(field) = legacy_text_field_in_conflict(&msg) {
-        return err.context(format!(
-            "the global `{index}` was created by an older build: its `{field}` is mapped as text, \
-             but this version needs the catalog fields as keyword (corpus-scoped sweeps depend on \
-             exact matching) and Elasticsearch cannot change a field's type in place. Reindex \
-             `{index}` into an index with the current mapping (create a fresh index with the \
-             keyword mapping, `_reindex` into it, then swap), and retry"
-        ));
+/// The global `autoindex-catalog` is shared by every corpus on the node and it
+/// outlives releases, so it can already hold a field whose dynamically inferred
+/// type disagrees with what this build declares — and Elasticsearch cannot
+/// change a field's type in place. The concrete instance this exists for:
+/// v1.0.0-rc.15 (`61b31ef3`) began writing `prefix` on the catalog's run
+/// document while `catalog::catalog_mapping` still did not declare it, so every
+/// catalog written by rc.15..rc.67 inferred `prefix` as **text**; #737 (rc.68)
+/// then declared it `keyword` and installed it with a hard `update_mapping`.
+/// The result was a 400 `mapper_parsing_exception` on *every* subsequent
+/// autoindex run against that node — an upgrade that bricks the tool.
+///
+/// A run must never abort because of a mapping an *earlier* release left
+/// behind. Elasticsearch reports one conflicting field per request, so this
+/// drops the named field and retries, which converges in at most one attempt
+/// per declared property: every field this build *can* install gets installed,
+/// including `catalog::CORPUS_SCOPE_FIELD` — a field no release ever wrote, so
+/// it is always accepted as `keyword` and carries the corpus scope the #737
+/// sweeps need even on a catalog whose `prefix` is text.
+///
+/// What is tolerated is a *narrower* mapping, never a wrong result: every
+/// catalog query is conjunctive, so a term against a leftover analyzed field
+/// matches fewer documents, never documents belonging to another corpus. The
+/// operator is warned, with the reindex that retires the legacy field.
+///
+/// An automatic reindex is deliberately still NOT done here: the catalog is
+/// global across every corpus and its scoping drives deletions, so rewriting it
+/// wholesale is a maintainer decision, not a silent side effect of a run.
+fn install_catalog_mapping(es: &Es, body: &Value, pr: &Progress) -> Result<()> {
+    let mut properties = body
+        .get("properties")
+        .and_then(Value::as_object)
+        .cloned()
+        .context("catalog mapping update body has no `properties` object")?;
+    // One removal per iteration, so the loop is bounded by the declared field
+    // count; the extra turn is the (empty-properties) fixed point.
+    let attempts = properties.len() + 1;
+    let mut legacy: Vec<String> = Vec::new();
+    for _ in 0..attempts {
+        let err = match es.update_mapping(
+            catalog::CATALOG_INDEX,
+            &json!({"properties": Value::Object(properties.clone())}),
+        ) {
+            Ok(()) => {
+                if !legacy.is_empty() {
+                    pr.warn(&legacy_catalog_mapping_warning(
+                        catalog::CATALOG_INDEX,
+                        &legacy,
+                    ));
+                }
+                return Ok(());
+            }
+            Err(err) => err,
+        };
+        // Anything that is not a legacy type conflict — a 503, a refused
+        // connection, an unrelated 400 — is a real failure and still aborts.
+        let Some(field) = legacy_text_field_in_conflict(&format!("{err:#}")) else {
+            return Err(err);
+        };
+        // The conflict names a field this request did not declare: dropping it
+        // cannot make progress, so surface the error rather than spin. The
+        // warning's "the run continues" wording would be a lie here, so this
+        // says only what is true.
+        if properties.remove(&field).is_none() {
+            return Err(err.context(format!(
+                "`{}` reports a type conflict on `{field}`, which this mapping update does not \
+                 declare — there is nothing to give up, so the conflict cannot be worked around \
+                 here. Reindex `{}` into an index created with the current mapping",
+                catalog::CATALOG_INDEX,
+                catalog::CATALOG_INDEX,
+            )));
+        }
+        legacy.push(field);
     }
-    err
+    anyhow::bail!(
+        "`{}` mapping install did not converge after {attempts} attempts (legacy fields: {})",
+        catalog::CATALOG_INDEX,
+        legacy.join(", ")
+    )
+}
+
+/// The operator-facing account of a legacy-mapped global catalog: which fields
+/// an older build left as `text`, what the run did about it, and the
+/// data-preserving reindex that retires them.
+fn legacy_catalog_mapping_warning(index: &str, legacy: &[String]) -> String {
+    let named = legacy
+        .iter()
+        .map(|field| format!("`{field}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let (is, it) = if legacy.len() == 1 {
+        ("is", "that field")
+    } else {
+        ("are", "those fields")
+    };
+    format!(
+        "autoindex: the global `{index}` was created by an older build — {named} {is} mapped as \
+         text, and Elasticsearch cannot change a field's type in place. The run CONTINUES: every \
+         other catalog field was installed as declared, and corpus scoping travels on the keyword \
+         `{scope}` field that every catalog document this build writes carries. Documents an older \
+         build left behind keep the legacy type, so a scoped sweep can still miss them — to retire \
+         {it}, reindex `{index}` into an index created with the current mapping (fresh index with \
+         the keyword mapping, `_reindex` into it, then swap)",
+        scope = catalog::CORPUS_SCOPE_FIELD,
+    )
 }
 
 /// Pull the field name out of an ES `field [X] already exists as [text], …`
@@ -246,56 +329,56 @@ fn legacy_text_field_in_conflict(msg: &str) -> Option<String> {
 
 #[cfg(test)]
 mod catalog_mapping_conflict_tests {
-    use super::explain_legacy_catalog_mapping_conflict;
+    use super::{legacy_catalog_mapping_warning, legacy_text_field_in_conflict};
 
     #[test]
-    fn legacy_text_prefix_conflict_is_explained_not_opaque() {
-        let raw = anyhow::anyhow!(
-            "PUT /autoindex-catalog/_mapping failed: 400 Bad Request \
-             field [prefix] already exists as [text], cannot add [keyword]"
+    fn the_conflicting_field_is_pulled_out_of_the_mapper_exception() {
+        let raw = "PUT /autoindex-catalog/_mapping failed: 400 Bad Request \
+                   field [prefix] already exists as [text], cannot add [keyword]";
+        assert_eq!(
+            legacy_text_field_in_conflict(raw).as_deref(),
+            Some("prefix")
         );
-        let explained = format!(
-            "{:#}",
-            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
-        );
-        assert!(
-            explained.contains("older build")
-                && explained.contains("Reindex")
-                && explained.contains("`prefix`"),
-            "conflict must be explained with the field + migration path, got: {explained}"
-        );
-        // The original opaque reason is preserved in the chain.
-        assert!(explained.contains("already exists as [text]"));
     }
 
     #[test]
     fn a_different_legacy_text_field_is_named() {
         // Not just prefix: a fully-dynamic legacy catalog conflicts on whatever
         // field the server checks first (e.g. doc_kind).
-        let raw =
-            anyhow::anyhow!("field [doc_kind] already exists as [text], cannot add [keyword]");
-        let explained = format!(
-            "{:#}",
-            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
-        );
-        assert!(
-            explained.contains("`doc_kind`") && explained.contains("Reindex"),
-            "must name the actual conflicting field, got: {explained}"
+        let raw = "field [doc_kind] already exists as [text], cannot add [keyword]";
+        assert_eq!(
+            legacy_text_field_in_conflict(raw).as_deref(),
+            Some("doc_kind")
         );
     }
 
     #[test]
-    fn unrelated_mapping_errors_pass_through_unchanged() {
-        let raw = anyhow::anyhow!("PUT /autoindex-catalog/_mapping failed: 503 unavailable");
-        let out = format!(
-            "{:#}",
-            explain_legacy_catalog_mapping_conflict("autoindex-catalog", raw)
+    fn unrelated_mapping_errors_are_not_read_as_a_legacy_conflict() {
+        // A 503 must abort the run, so it must not look like a droppable field.
+        let raw = "PUT /autoindex-catalog/_mapping failed: 503 unavailable";
+        assert_eq!(legacy_text_field_in_conflict(raw), None);
+    }
+
+    #[test]
+    fn the_warning_names_every_legacy_field_the_scope_field_and_the_reindex() {
+        let warning = legacy_catalog_mapping_warning(
+            "autoindex-catalog",
+            &["prefix".to_string(), "doc_kind".to_string()],
         );
         assert!(
-            !out.contains("older build"),
-            "must not annotate unrelated errors: {out}"
+            warning.contains("`prefix`") && warning.contains("`doc_kind`"),
+            "must name every tolerated field: {warning}"
         );
-        assert!(out.contains("503 unavailable"));
+        assert!(
+            warning.contains("older build")
+                && warning.contains("run CONTINUES")
+                && warning.contains("_reindex"),
+            "must say what happened and how to retire the legacy fields: {warning}"
+        );
+        assert!(
+            warning.contains(crate::catalog::CORPUS_SCOPE_FIELD),
+            "must name the field corpus scoping moved to: {warning}"
+        );
     }
 }
 
@@ -3339,14 +3422,33 @@ fn sweep_excluded_groups(
         // docs owned by a still-live SIBLING corpus (`current_keys` only guards
         // the same corpus). The `prefix` keyword field (written by `file_doc`/
         // `duplicate_file_doc`) makes the scope term-queryable.
-        es.delete_by_query(
-            catalog::CATALOG_INDEX,
-            &json!({"bool": {"filter": [
-                {"term": {"prefix": prefix}},
-                {"term": {"path": entry.path}},
-            ]}}),
-        )
-        .with_context(|| format!("sweep catalog entry for newly-excluded {}", entry.path))?;
+        //
+        // #755: each scoped delete runs TWICE, once per scope field. `prefix`
+        // is only a `keyword` on a catalog this build (or #737's) created — on
+        // an install upgraded from rc.15..rc.67 it is dynamically inferred
+        // `text`, where a `term` does not match the raw scope value and the
+        // sweep silently no-ops. `catalog::CORPUS_SCOPE_FIELD` carries the same
+        // value on a field no older release ever wrote, so it is `keyword`
+        // everywhere; `prefix` stays for documents written by rc.68..this
+        // release, which do not carry the new field. Two conjunctive deletes
+        // rather than one `should` disjunction: each is a query shape the
+        // engine and this crate already exercise, and running both can only
+        // widen the match WITHIN this corpus — neither one drops the scope.
+        for scope_field in [catalog::CORPUS_SCOPE_FIELD, "prefix"] {
+            es.delete_by_query(
+                catalog::CATALOG_INDEX,
+                &json!({"bool": {"filter": [
+                    {"term": {scope_field: prefix}},
+                    {"term": {"path": entry.path}},
+                ]}}),
+            )
+            .with_context(|| {
+                format!(
+                    "sweep catalog entry ({scope_field}-scoped) for newly-excluded {}",
+                    entry.path
+                )
+            })?;
+        }
         // #693: also purge the file's `file-alias:` duplicate catalog docs
         // (`catalog::duplicate_file_doc`). Each carries the DUPLICATE's own
         // `path`, so the `path` term above misses them, leaving an excluded
@@ -3356,14 +3458,22 @@ fn sweep_excluded_groups(
         // (`UnsupportedInventoryDelta::between`: the `current_keys` guard), so a
         // `file_key` term cannot strand a still-live byte-identical duplicate in
         // the same corpus; the `prefix` filter (#737) guards the cross-corpus axis.
-        es.delete_by_query(
-            catalog::CATALOG_INDEX,
-            &json!({"bool": {"filter": [
-                {"term": {"prefix": prefix}},
-                {"term": {"file_key": entry.file_key}},
-            ]}}),
-        )
-        .with_context(|| format!("sweep catalog aliases for newly-excluded {}", entry.path))?;
+        // #755: both scope fields, for the reason given on the delete above.
+        for scope_field in [catalog::CORPUS_SCOPE_FIELD, "prefix"] {
+            es.delete_by_query(
+                catalog::CATALOG_INDEX,
+                &json!({"bool": {"filter": [
+                    {"term": {scope_field: prefix}},
+                    {"term": {"file_key": entry.file_key}},
+                ]}}),
+            )
+            .with_context(|| {
+                format!(
+                    "sweep catalog aliases ({scope_field}-scoped) for newly-excluded {}",
+                    entry.path
+                )
+            })?;
+        }
         // #739: the two scoped deletes above match only docs that carry the
         // `prefix` field, which was added in #737 — a `file:` doc written by a
         // pre-#737 binary has no `prefix` value and would survive the sweep on
@@ -3776,7 +3886,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .clone();
         pin_pending_embedding_identity(&es, &mut journal, &pending)?;
         pr.phase("replay", 0, 0);
-        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        let mut backend =
+            sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         // Through the progress surface, never a bare `eprintln!`: stderr
         // belongs to that surface, so `--progress none` stays silent and
@@ -3991,7 +4102,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &pr,
             plan,
         )?;
-        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        let mut backend =
+            sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
@@ -4657,7 +4769,8 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             &pr,
             plan,
         )?;
-        let mut backend = sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20);
+        let mut backend =
+            sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
         sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
@@ -4714,6 +4827,18 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         }}),
     )
     .context("upgrade autoindex catalog mapping")?;
+    // #755: `prefix` is deliberately absent from the additive upgrade above for
+    // exactly the `started` reason — rc.15..rc.67 inferred it as TEXT from the
+    // run document, so declaring it `keyword` here would 400 and abort this
+    // path too. `catalog::CORPUS_SCOPE_FIELD` is the way out: no release ever
+    // wrote it, so it is always installable, and it gives this path the same
+    // exact corpus scope the generated path gets. Separate from the PUT above
+    // so a pre-existing conflict in one of those fields cannot take it down.
+    es.update_mapping(
+        catalog::CATALOG_INDEX,
+        &json!({"properties": {catalog::CORPUS_SCOPE_FIELD: {"type": "keyword"}}}),
+    )
+    .context("install autoindex catalog corpus-scope mapping")?;
     // A replacement transaction starts before the effective new plan is
     // persisted and before live visibility changes. If the process dies at
     // any later boundary, journal replay removes the older file_done and

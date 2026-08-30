@@ -8,6 +8,26 @@ use serde_json::{json, Value};
 
 pub const CATALOG_INDEX: &str = "autoindex-catalog";
 
+/// The corpus-scope field the #737/#693 exclusion sweeps term-query (#755).
+///
+/// It exists because `prefix` cannot be relied on to be a `keyword` on an
+/// upgraded install. v1.0.0-rc.15 (`61b31ef3`) started writing `prefix` on the
+/// catalog's run document while [`catalog_mapping`] still did not declare it,
+/// so every catalog touched by rc.15..rc.67 has `prefix` **dynamically inferred
+/// as `text`** — and a `term` query against an analyzed field does not match a
+/// raw scope value. #737 (rc.68) then declared `prefix` as `keyword` and
+/// installed it with a hard `update_mapping`, which is the 400 that aborted
+/// every run on those installs.
+///
+/// This field is the migration: no release before this one ever wrote it, so no
+/// existing catalog can hold a conflicting inferred type for it, and declaring
+/// it `keyword` is always accepted. Every catalog document that carries
+/// `prefix` carries `corpus_scope` with the same value, and the sweeps query
+/// both — `prefix` for documents written by rc.68..this release on a catalog
+/// where it really is a keyword, `corpus_scope` for everything written from
+/// here on.
+pub const CORPUS_SCOPE_FIELD: &str = "corpus_scope";
+
 /// Explicit mapping for a **freshly created** catalog index.
 ///
 /// Tripwire — `started` is bimodal across installs, on purpose. This function
@@ -114,6 +134,9 @@ pub fn catalog_mapping() -> Value {
     // sibling corpus would otherwise be caught by an unscoped `file_key`/`path`
     // sweep. Written by `file_doc`/`duplicate_file_doc` (the sweep's targets).
     properties.insert("prefix".into(), json!({"type": "keyword"}));
+    // #755: the keyword scope field that survives a legacy catalog whose
+    // `prefix` is text. See `CORPUS_SCOPE_FIELD`.
+    properties.insert(CORPUS_SCOPE_FIELD.into(), json!({"type": "keyword"}));
     mapping
 }
 
@@ -200,6 +223,9 @@ pub fn file_doc(
         json!({
             "doc_kind": "file",
             "prefix": prefix, // #737: corpus scope for a scoped exclusion sweep
+            // #755: the same scope on a field that is `keyword` even on a
+            // catalog whose `prefix` an older build left inferred as `text`.
+            CORPUS_SCOPE_FIELD: prefix,
             "file_key": file_key,
             "path": path,
             "format": format,
@@ -228,6 +254,8 @@ pub fn duplicate_file_doc(
         json!({
             "doc_kind": "file",
             "prefix": prefix, // #737: corpus scope for a scoped exclusion sweep
+            // #755: keyword-safe scope, see `file_doc`.
+            CORPUS_SCOPE_FIELD: prefix,
             "file_key": file_key,
             "path": path,
             "format": "duplicate",

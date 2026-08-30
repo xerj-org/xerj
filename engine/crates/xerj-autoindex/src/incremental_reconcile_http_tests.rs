@@ -32,12 +32,23 @@ struct HttpState {
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
     saw_catalog_mapping_update: bool,
-    /// Opt-in (#755/#760): make the catalog `_mapping` PUT fail with the exact
-    /// `field [X] already exists as [text]` conflict an older-build catalog
-    /// produces, so a test can prove the run surfaces the ENRICHED error rather
-    /// than the opaque mapper_parsing_exception. Off by default — every other
-    /// test's faithful-accept behaviour is unchanged.
-    catalog_mapping_conflict: bool,
+    /// Opt-in (#755/#760): the fields this catalog already holds as `text`,
+    /// standing in for an older-build (v1.0.0-rc.15..rc.67) catalog. A catalog
+    /// `_mapping` PUT that still declares one of them fails with the exact
+    /// `field [X] already exists as [text]` conflict a real engine produces;
+    /// a PUT that no longer declares any of them is acknowledged, exactly like
+    /// the engine. Empty by default — every other test's faithful-accept
+    /// behaviour is unchanged.
+    legacy_text_catalog_fields: Vec<String>,
+    /// Opt-in (#755): fail the catalog `_mapping` PUT with a 503 instead. Not a
+    /// type conflict, so it must still abort the run.
+    catalog_mapping_unavailable: bool,
+    /// The `properties` object of the last catalog `_mapping` PUT the endpoint
+    /// ACKNOWLEDGED — what a legacy catalog actually ends up declaring.
+    installed_catalog_properties: Option<Value>,
+    /// How many catalog `_mapping` PUTs were attempted (the drop-and-retry
+    /// loop's cost).
+    catalog_mapping_puts: usize,
 }
 
 struct HttpEndpoint {
@@ -93,6 +104,28 @@ impl HttpEndpoint {
 
     fn data_bulk_requests(&self) -> usize {
         self.state.lock().unwrap().data_bulk_requests
+    }
+
+    /// #755: the catalog mapping the endpoint finally acknowledged.
+    fn installed_catalog_properties(&self) -> Value {
+        self.state
+            .lock()
+            .unwrap()
+            .installed_catalog_properties
+            .clone()
+            .expect("no catalog _mapping PUT was acknowledged")
+    }
+
+    /// #755: every catalog document the run published.
+    fn catalog_docs(&self) -> Vec<Value> {
+        self.state
+            .lock()
+            .unwrap()
+            .docs
+            .iter()
+            .filter(|((index, _), _)| index == catalog::CATALOG_INDEX)
+            .map(|(_, doc)| doc.clone())
+            .collect()
     }
 }
 
@@ -185,13 +218,26 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
     } else if method == "PUT" {
         let value: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         let mut locked = state.lock().unwrap();
-        let mut inject_catalog_conflict = false;
+        // #755: the first still-declared field this catalog already holds as
+        // `text`, if any — the engine reports one conflict per request.
+        let mut conflict: Option<String> = None;
+        let mut unavailable = false;
         if path.ends_with("/_mapping") {
             assert!(value.get("properties").is_some());
             assert!(value.get("mappings").is_none());
             if path.starts_with(&format!("/{}/", catalog::CATALOG_INDEX)) {
                 locked.saw_catalog_mapping_update = true;
-                inject_catalog_conflict = locked.catalog_mapping_conflict;
+                locked.catalog_mapping_puts += 1;
+                unavailable = locked.catalog_mapping_unavailable;
+                let declared = value["properties"].as_object().cloned().unwrap_or_default();
+                conflict = locked
+                    .legacy_text_catalog_fields
+                    .iter()
+                    .find(|field| declared.contains_key(field.as_str()))
+                    .cloned();
+                if conflict.is_none() && !unavailable {
+                    locked.installed_catalog_properties = Some(Value::Object(declared));
+                }
             } else {
                 locked.saw_dataset_mapping_update = true;
             }
@@ -199,8 +245,13 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
             assert!(value.pointer("/mappings/properties").is_some());
             assert!(value.get("properties").is_none());
         }
-        if inject_catalog_conflict {
-            let reason = "field [prefix] already exists as [text], cannot add [keyword]";
+        if unavailable {
+            (
+                503,
+                json!({"error": {"type": "unavailable_shards_exception", "reason": "no node"}}),
+            )
+        } else if let Some(field) = conflict {
+            let reason = format!("field [{field}] already exists as [text], cannot add [keyword]");
             (
                 400,
                 json!({
@@ -226,6 +277,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         match status {
             200 => "OK",
             400 => "Bad Request",
+            503 => "Service Unavailable",
             _ => "Internal Server Error",
         },
         bytes.len(),
@@ -560,36 +612,154 @@ fn final_snapshot_count(state_dir: &Path) -> usize {
         .unwrap_or(0)
 }
 
-/// #755/#760: an older-build global catalog holds a field mapped as `text`, so
-/// the generation's keyword `_mapping` update conflicts. The run must surface
-/// the ENRICHED, actionable error (name the field + reindex recovery), not the
-/// opaque `mapper_parsing_exception`. This exercises the `.map_err` wiring end to
-/// end — the helper's own unit tests pass even if that wiring is dropped, so
-/// this is what actually guards it (evidence lens, #756 review).
+/// #755: an older-build global catalog holds `prefix` (and, on a fully dynamic
+/// catalog, `doc_kind`) mapped as `text`, so the generation's keyword `_mapping`
+/// update conflicts. Before this fix the whole run aborted — and because
+/// `autoindex-catalog` is ONE index shared by every corpus on the node, that
+/// bricked `xerj autoindex` outright for anyone upgrading from v1.0.0-rc.15..67.
+///
+/// An upgrade must never abort a run over a mapping an earlier release left
+/// behind: the run has to complete, every field the engine will accept has to be
+/// installed, and corpus scoping has to keep working — which it does by moving
+/// onto `catalog::CORPUS_SCOPE_FIELD`, a keyword field no older release wrote.
+///
+/// End-to-end on purpose (#760): `install_catalog_mapping`'s own unit tests pass
+/// even if the wiring at the catalog `update_mapping` is dropped, so this is what
+/// actually guards it.
 #[test]
-fn a_legacy_text_mapped_catalog_surfaces_the_actionable_error() {
+fn a_legacy_text_mapped_catalog_completes_the_run_instead_of_aborting() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let corpus = tempfile::tempdir().unwrap();
     let state_dir = tempfile::tempdir().unwrap();
     fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
     let endpoint = HttpEndpoint::start();
-    endpoint.state.lock().unwrap().catalog_mapping_conflict = true;
+    endpoint.state.lock().unwrap().legacy_text_catalog_fields =
+        vec!["prefix".into(), "doc_kind".into()];
     let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
 
-    let error = run_index(config).unwrap_err();
-    let msg = format!("{error:#}");
+    // The run COMPLETES. This is the whole bug: it used to abort here.
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(endpoint.data_docs().len(), 1);
+
+    // Exactly the two legacy fields were given up, and nothing else.
+    let installed = endpoint.installed_catalog_properties();
+    let installed = installed.as_object().expect("properties object");
     assert!(
-        msg.contains("older build") && msg.contains("Reindex"),
-        "expected the enriched migration error, got: {msg}"
+        !installed.contains_key("prefix") && !installed.contains_key("doc_kind"),
+        "a field the catalog already holds as text cannot be re-declared: {installed:?}"
     );
-    // The named field and the raw reason are both preserved in the chain.
+    assert_eq!(
+        installed["path"]["type"], "keyword",
+        "every non-conflicting field must still be installed: {installed:?}"
+    );
+    // …including the keyword field corpus scoping moved onto. No release ever
+    // wrote it, so a legacy catalog cannot be holding it as text.
+    assert_eq!(
+        installed[catalog::CORPUS_SCOPE_FIELD]["type"],
+        "keyword",
+        "the corpus-scope field must survive the legacy conflict: {installed:?}"
+    );
+
+    // And the published catalog documents carry the scope on that field, so the
+    // #737/#693 scoped sweeps stay exact on this node.
+    let scoped = endpoint
+        .catalog_docs()
+        .into_iter()
+        .filter(|doc| doc.get("doc_kind").and_then(Value::as_str) == Some("file"))
+        .collect::<Vec<_>>();
+    assert!(!scoped.is_empty(), "the run published no file catalog docs");
+    for doc in &scoped {
+        assert_eq!(
+            doc[catalog::CORPUS_SCOPE_FIELD],
+            "incremental-http",
+            "every file catalog doc must carry the keyword corpus scope: {doc}"
+        );
+    }
+}
+
+/// #755: the conflict tolerance is narrow on purpose. A catalog `_mapping` PUT
+/// that fails for any reason OTHER than a legacy field type — an unreachable
+/// node, a 503, an unrelated 400 — is a real failure and must still abort,
+/// rather than being retried into a silently narrower catalog mapping.
+#[test]
+fn an_unavailable_catalog_mapping_still_aborts_the_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().catalog_mapping_unavailable = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let msg = format!("{:#}", run_index(config).unwrap_err());
     assert!(
-        msg.contains("`prefix`"),
-        "must name the conflicting field: {msg}"
+        msg.contains("install generation catalog mapping") && msg.contains("503"),
+        "an unrelated mapping failure must abort with its own reason: {msg}"
+    );
+    assert_eq!(
+        endpoint.state.lock().unwrap().catalog_mapping_puts,
+        1,
+        "a non-conflict failure must not be retried: {msg}"
+    );
+}
+
+/// #755: tolerating the legacy mapping is not the same as hiding it. Documents
+/// an older build already wrote keep the legacy type, so a scoped sweep can
+/// still miss them — the operator has to be told, through the progress surface
+/// that owns stderr (#241), with the reindex that retires the field.
+#[test]
+fn a_legacy_text_mapped_catalog_warns_through_the_progress_surface() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().legacy_text_catalog_fields = vec!["prefix".into()];
+    let es = Es::with_bulk_timeout(&endpoint.url, None, 30).expect("es client");
+    let (pr, sink) = progress::Progress::capture(
+        progress::Surface::Plain,
+        std::time::Duration::from_secs(3600),
+    );
+
+    ensure_generation_mappings(&es, &Plan::default(), &pr).expect("legacy catalog must not abort");
+
+    let text = String::from_utf8(sink.lock().unwrap().clone()).unwrap();
+    assert!(
+        text.contains("older build") && text.contains("`prefix`"),
+        "the operator must be told which field is legacy: {text}"
     );
     assert!(
-        msg.contains("already exists as [text]"),
-        "must preserve the raw reason: {msg}"
+        text.contains("run CONTINUES") && text.contains("_reindex"),
+        "…and what happened plus how to retire it: {text}"
+    );
+    assert!(
+        text.contains(catalog::CORPUS_SCOPE_FIELD),
+        "…and where corpus scoping moved to: {text}"
+    );
+}
+
+/// #755: a healthy catalog is untouched — one `_mapping` PUT, nothing dropped.
+#[test]
+fn a_current_catalog_installs_its_mapping_in_a_single_put() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let endpoint = HttpEndpoint::start();
+    let es = Es::with_bulk_timeout(&endpoint.url, None, 30).expect("es client");
+    let (pr, sink) = progress::Progress::capture(
+        progress::Surface::Plain,
+        std::time::Duration::from_secs(3600),
+    );
+
+    ensure_generation_mappings(&es, &Plan::default(), &pr).expect("fresh catalog");
+
+    assert_eq!(endpoint.state.lock().unwrap().catalog_mapping_puts, 1);
+    assert_eq!(
+        endpoint.installed_catalog_properties()["prefix"]["type"],
+        "keyword",
+        "a catalog with no legacy field keeps the full declared mapping"
+    );
+    assert!(
+        String::from_utf8(sink.lock().unwrap().clone())
+            .unwrap()
+            .is_empty(),
+        "a healthy catalog must not warn"
     );
 }
 
@@ -2479,6 +2649,93 @@ fn sweep_excluded_groups_does_not_delete_a_sibling_corpus_catalog_doc() {
             "file:bx:sibling".to_string()
         )),
         "#737: a sibling corpus's byte-identical catalog doc must NOT be swept"
+    );
+}
+
+/// #755: the scope the sweep actually relies on is `corpus_scope`, not
+/// `prefix`. On a catalog upgraded from v1.0.0-rc.15..rc.67, `prefix` is
+/// dynamically mapped `text`, so a `term` against it does not match the raw
+/// scope value and the #737/#693 scoped deletes silently no-op — an alias doc
+/// that the frozen plan does not name is then left searchable, which is exactly
+/// the #439 exposure #589 exists to close. The docs seeded here carry ONLY the
+/// keyword scope field, standing in for a catalog whose `prefix` cannot be
+/// term-matched; the sweep must still find this corpus's docs and must still
+/// leave the live sibling corpus's alone.
+///
+/// Fail-before: with only the `prefix`-scoped deletes (pre-#755), the `ax` alias
+/// doc below survives the sweep.
+#[test]
+fn sweep_excluded_groups_scopes_on_the_keyword_corpus_scope_field() {
+    let ep = HttpEndpoint::start();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // An alias doc the frozen plan does not name, so ONLY the term-scoped
+        // `file_key` delete can reach it — the `_id` sweep cannot.
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file-alias:ax:unlisted".into(),
+            ),
+            json!({
+                "doc_kind": "file",
+                catalog::CORPUS_SCOPE_FIELD: "ax",
+                "file_key": "shared-key",
+                "path": "vendor/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+        // A live sibling corpus's byte-identical doc under its own scope.
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file-alias:bx:sibling".into(),
+            ),
+            json!({
+                "doc_kind": "file",
+                catalog::CORPUS_SCOPE_FIELD: "bx",
+                "file_key": "shared-key",
+                "path": "vendor/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "shared-key".into(),
+        path: "vendor/LICENSE".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    assert!(
+        !st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file-alias:ax:unlisted".to_string()
+        )),
+        "#755: an excluded file's catalog doc must be swept on the keyword scope \
+         field, not only on a `prefix` an upgraded catalog holds as text"
+    );
+    assert!(
+        st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file-alias:bx:sibling".to_string()
+        )),
+        "#755: the keyword scope must still bound the sweep to THIS corpus"
     );
 }
 

@@ -79,6 +79,10 @@ struct MockState {
     response_delay_ms: u64,
     catalog_preexists: bool,
     catalog_mapping_upgraded: bool,
+    /// #755: whether a catalog `_mapping` PUT declared the keyword corpus-scope
+    /// field. On this legacy path it arrives in its own PUT, because `prefix`
+    /// cannot be re-declared on a catalog that already holds it as `text`.
+    catalog_corpus_scope_mapped: bool,
     catalog_bulk_before_upgrade: bool,
     /// Set if the additive mapping upgrade ever asks for `started`. This is
     /// the executable half of `catalog::catalog_mapping`'s tripwire: against a
@@ -256,6 +260,10 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 .and_then(Value::as_str)
                 .is_some()
         });
+        let corpus_scope_requested = mapping
+            .pointer(&format!("/properties/{}/type", catalog::CORPUS_SCOPE_FIELD))
+            .and_then(Value::as_str)
+            == Some("keyword");
         let mut locked = state.lock().unwrap();
         locked.started_mapping_requested |= started_requested;
         if locked.catalog_preexists && started_requested {
@@ -288,7 +296,12 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 }),
             )
         } else {
-            locked.catalog_mapping_upgraded = upgraded;
+            // #755: the additive upgrade and the corpus-scope field arrive in
+            // SEPARATE PUTs now, so this accumulates rather than overwrites —
+            // the flag means "the additive upgrade has landed", and the guard
+            // that new run metadata must not precede it depends on that.
+            locked.catalog_mapping_upgraded |= upgraded;
+            locked.catalog_corpus_scope_mapped |= corpus_scope_requested;
             (200, json!({"acknowledged": true}))
         }
     } else if method == "POST" && path == "/_bulk" {
@@ -1686,6 +1699,14 @@ fn existing_catalog_is_upgraded_before_new_run_metadata_is_written() {
     );
     let state = endpoint.state.lock().unwrap();
     assert!(state.catalog_mapping_upgraded);
+    assert!(
+        state.catalog_corpus_scope_mapped,
+        "#755: the legacy path must also install the keyword `{}` field — `prefix` is not \
+         re-declarable on a catalog that already holds it as text (rc.15..rc.67 inferred it \
+         from the run document), so the #737/#693 scoped sweeps have nothing exact to match \
+         on without it",
+        catalog::CORPUS_SCOPE_FIELD
+    );
     assert!(
         !state.started_mapping_requested,
         "the additive upgrade asked a legacy catalog for `started`; a real v1.0.0-rc.4 catalog \

@@ -212,15 +212,26 @@ pub struct EsSyncBackend<'a> {
     es: &'a crate::esclient::Es,
     state_dir: &'a Path,
     bulk_bytes: usize,
+    /// #755: the run's progress surface, so a legacy-catalog mapping warning
+    /// reaches the operator through the surface that owns stderr (#241) rather
+    /// than a bare `eprintln!` that `--progress none` cannot silence and
+    /// `--progress json` cannot parse.
+    pr: &'a crate::progress::Progress,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
 impl<'a> EsSyncBackend<'a> {
-    pub fn new(es: &'a crate::esclient::Es, state_dir: &'a Path, bulk_bytes: usize) -> Self {
+    pub fn new(
+        es: &'a crate::esclient::Es,
+        state_dir: &'a Path,
+        bulk_bytes: usize,
+        pr: &'a crate::progress::Progress,
+    ) -> Self {
         Self {
             es,
             state_dir,
             bulk_bytes: bulk_bytes.max(64 * 1024),
+            pr,
         }
     }
 
@@ -535,7 +546,7 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             execution.index_identity == index_identity,
             "desired generation index identity disagrees with its frozen mappings"
         );
-        crate::ensure_generation_mappings(self.es, &desired.plan)
+        crate::ensure_generation_mappings(self.es, &desired.plan, self.pr)
     }
 
     fn apply(
@@ -2565,7 +2576,11 @@ mod tests {
 
         let es = crate::esclient::Es::new("http://127.0.0.1:1", None).unwrap();
         let state = tempfile::tempdir().unwrap();
-        let _backend = EsSyncBackend::new(&es, state.path(), 1);
+        let (pr, _sink) = crate::progress::Progress::capture(
+            crate::progress::Surface::Silent,
+            std::time::Duration::from_secs(3600),
+        );
+        let _backend = EsSyncBackend::new(&es, state.path(), 1, &pr);
     }
 
     #[test]
