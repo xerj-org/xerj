@@ -763,6 +763,144 @@ fn a_current_catalog_installs_its_mapping_in_a_single_put() {
     );
 }
 
+/// Rewrite a journal so every generation in it carries the `index_identity` the
+/// PREVIOUSLY SHIPPED release froze for the same plan — the exact on-disk state
+/// of an install that is being upgraded.
+///
+/// The digests that bind the log are recomputed with it (`desired_manifest_digest`
+/// on the begin/validate/commit records, and the next generation's
+/// `base_manifest_digest`), so the journal stays internally valid and the only
+/// thing that has moved is the frozen contract identity. Returns the identity
+/// written in (previous release) and the one this build had written (this
+/// build); while the contract holds they are equal and the rewrite is a
+/// byte-for-byte no-op — that is the property under test.
+fn freeze_journal_identities_as_previous_release(state_dir: &Path) -> (String, String) {
+    let path = state_dir.join("journal.ndjson");
+    let raw = fs::read_to_string(&path).unwrap();
+    let mut previous_release = None;
+    let mut this_build = None;
+    let mut committed_digest: Option<String> = None;
+    let mut pending_digest: Option<String> = None;
+    let mut out = String::new();
+    for line in raw.lines() {
+        let Ok(mut record) = serde_json::from_str::<Value>(line) else {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        };
+        match record.get("kind").and_then(Value::as_str) {
+            Some("sync_begin") => {
+                if let Some(digest) = &committed_digest {
+                    record["base_manifest_digest"] = json!(digest);
+                }
+                let plan: Plan = serde_json::from_value(record["desired"]["plan"].clone()).unwrap();
+                let frozen = frozen_contract::index_identity(&plan);
+                this_build = record["desired"]["execution"]["index_identity"]
+                    .as_str()
+                    .map(str::to_owned);
+                record["desired"]["execution"]["index_identity"] = json!(frozen);
+                previous_release = Some(frozen);
+                let manifest: crate::sync::GenerationManifest =
+                    serde_json::from_value(record["desired"].clone()).unwrap();
+                let digest = crate::sync::manifest_digest(&manifest).unwrap();
+                record["desired_manifest_digest"] = json!(digest);
+                pending_digest = Some(digest);
+            }
+            Some("sync_validated") | Some("sync_abort") => {
+                record["desired_manifest_digest"] = json!(pending_digest.clone().unwrap());
+            }
+            Some("sync_commit") => {
+                let digest = pending_digest.clone().unwrap();
+                record["desired_manifest_digest"] = json!(digest);
+                committed_digest = Some(digest);
+            }
+            _ => {}
+        }
+        out.push_str(&serde_json::to_string(&record).unwrap());
+        out.push('\n');
+    }
+    fs::write(&path, out).unwrap();
+    (
+        previous_release.expect("the journal has a sync_begin"),
+        this_build.expect("the sync_begin carries an execution identity"),
+    )
+}
+
+/// #755 upgrade path, end to end: generations frozen by the PREVIOUS RELEASE
+/// must still be reconcilable by this build.
+///
+/// `index_identity` is hashed out of `catalog::catalog_mapping()` and frozen in
+/// the journal's execution record, and two hard `ensure!`s then demand equality
+/// against it: `provision_generation` when a pending (mid-commit) generation is
+/// replayed ("desired generation index identity disagrees with its frozen
+/// mappings"), and the incremental-reconcile no-change arm ("autoindex
+/// execution configuration changed since the committed generation") — which
+/// writes no new generation, so a mismatch there never heals. Declaring one
+/// extra catalog property would therefore trade #755's abort for a different
+/// abort against the very same upgrading population.
+///
+/// Both arms run here over a journal rewritten to the previous release's
+/// identity: an unchanged corpus first (the no-change arm), then a generation
+/// left pending mid-commit (the replay).
+/// `catalog_mapping_is_the_frozen_on_disk_contract` pins the contract itself;
+/// this test pins the wiring that consumes it.
+#[test]
+fn a_generation_frozen_by_the_previous_release_still_reconciles() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("a.csv");
+    fs::write(&source, "id,value\n1,committed\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    // One committed generation, aged to the previous release's contract.
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let (previous_release, this_build) =
+        freeze_journal_identities_as_previous_release(state_dir.path());
+
+    // Unchanged corpus → the no-change arm's ensure!. This is the permanent
+    // one: it commits no new generation, so a mismatch here never heals.
+    let unchanged = run_index(config.clone()).unwrap_or_else(|error| {
+        panic!(
+            "an unchanged corpus committed by the previous release must reconcile, not abort \
+             (previous release froze {previous_release}, this build computes {this_build}): \
+             {error:#}"
+        )
+    });
+    assert_eq!(unchanged, 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    // Now a generation left pending mid-commit, aged the same way.
+    fs::write(&source, "id,value\n1,sealed-pending\n2,sealed-second\n").unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = true;
+    assert!(run_index(config.clone()).is_err());
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 2);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    let (previous_release, this_build) =
+        freeze_journal_identities_as_previous_release(state_dir.path());
+
+    // Replay of that pending generation → `provision_generation`'s ensure!.
+    let resumed = run_index(config).unwrap_or_else(|error| {
+        panic!(
+            "a pending generation frozen by the previous release must replay, not abort \
+             (previous release froze {previous_release}, this build computes {this_build}): \
+             {error:#}"
+        )
+    });
+    assert_eq!(resumed, 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+    assert_eq!(endpoint.data_docs().len(), 2);
+    assert_eq!(
+        previous_release, this_build,
+        "this build must compute the identity the previous release froze; the catalog mapping \
+         is hashed into it, so a property added there aborts every upgraded state dir"
+    );
+}
+
 #[test]
 fn genesis_recovers_after_snapshot_budget_failure_before_sync_begin() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());

@@ -26,6 +26,12 @@ pub const CATALOG_INDEX: &str = "autoindex-catalog";
 /// both — `prefix` for documents written by rc.68..this release on a catalog
 /// where it really is a keyword, `corpus_scope` for everything written from
 /// here on.
+///
+/// It is installed **additively**, by `ensure_generation_mappings` on the
+/// generated path and by its own tolerant install on the legacy graph path —
+/// deliberately not by [`catalog_mapping`], whose value is a frozen digest an
+/// already-committed generation is compared against. See that function's second
+/// tripwire.
 pub const CORPUS_SCOPE_FIELD: &str = "corpus_scope";
 
 /// Explicit mapping for a **freshly created** catalog index.
@@ -63,6 +69,20 @@ pub const CORPUS_SCOPE_FIELD: &str = "corpus_scope";
 /// server-side range query, `sort`, or date aggregation on `started` must first
 /// migrate legacy catalogs by reindexing them — not by adding `started` to the
 /// additive upgrade, which is exactly the abort above.
+///
+/// Second tripwire — **this value is a frozen on-disk contract** (#755). It is
+/// hashed into `index_identity` by `generation_contract_identities`, and that
+/// digest is written into every committed generation's execution record in the
+/// journal. Two live comparisons then demand equality against a record an
+/// *older binary* froze: the incremental-reconcile no-change arm, and
+/// `provision_generation`'s replay of a pending generation. So adding or
+/// removing a property here does not "plan a fresh generation" — it makes the
+/// next run of every existing state dir abort, permanently on the no-change arm
+/// because that arm writes no new generation. A field the catalog needs but the
+/// contract does not can be installed additively in `ensure_generation_mappings`
+/// (`duplicate_of`, `CORPUS_SCOPE_FIELD`) instead. `catalog_mapping_is_the_frozen_on_disk_contract`
+/// pins the current value; changing it deliberately means also giving the
+/// identity comparisons an upgrade path.
 pub fn catalog_mapping() -> Value {
     // The trailing run-metadata fields are inserted after the literal rather
     // than written inside it: `serde_json::json!` recurses once per key, and at
@@ -134,9 +154,12 @@ pub fn catalog_mapping() -> Value {
     // sibling corpus would otherwise be caught by an unscoped `file_key`/`path`
     // sweep. Written by `file_doc`/`duplicate_file_doc` (the sweep's targets).
     properties.insert("prefix".into(), json!({"type": "keyword"}));
-    // #755: the keyword scope field that survives a legacy catalog whose
-    // `prefix` is text. See `CORPUS_SCOPE_FIELD`.
-    properties.insert(CORPUS_SCOPE_FIELD.into(), json!({"type": "keyword"}));
+    // #755: `CORPUS_SCOPE_FIELD` is deliberately NOT declared here. This
+    // function's value is hashed into `index_identity` (see the frozen-digest
+    // tripwire on this function), so declaring it would move the digest and
+    // abort every already-committed state dir on upgrade. It is installed
+    // additively in `ensure_generation_mappings`, the same way `duplicate_of`
+    // is, which is outside the hash.
     mapping
 }
 
