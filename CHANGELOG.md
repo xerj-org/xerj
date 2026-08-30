@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A field mapped `integer`, `long`, `float` or `boolean` now enforces that
+  type on write** ([#781](https://github.com/xerj-org/xerj/issues/781)). The
+  declared type was enforced for nothing: `1.9` into an `integer` field was
+  stored as `1.9`, `9999999999` was kept exact, `"abc"` was stored as a
+  string, `"yes"` went into a `boolean`, and — per the issue's follow-up — an
+  entire nested object `{"bad":"x"}` was indexed into an `integer`. Every one
+  of those answered `201 created`.
+
+  The consequence was wrong hits, not just leniency. With `1.9` sitting in an
+  `integer` field, `range {"i":{"gte":1.5}}` **matched** in XERJ and would not
+  in ES (which indexes the truncated `1`), while `term {"i":1}` matched in ES
+  and returned nothing here — the same query, over the same document, under
+  the same mapping, giving different answers.
+
+  Ingest now applies ES 8.x's own rules (`coerce` defaults to `true`): `1.9`
+  → `1`, `"5"` → `5`, `"1.9"` → `1`, `"true"` → `true`; out-of-range for the
+  declared width, an unparseable string, an object, an array element that is
+  none of those, and anything but `true`/`false` in a `boolean` are refused
+  with a 400 `document_parsing_exception` — a per-item 400 under `_bulk`. An
+  explicit `"coerce": false` additionally refuses a decimal part and a string,
+  and `"ignore_malformed": true` still wins: that field's bad values are
+  dropped into `_ignored` rather than failing the document.
+
+  Two deliberate narrowings, both documented in
+  `xerj_common::field_coercion`: a coerced value is rewritten in `_source`
+  (ES keeps `_source` verbatim and truncates only the indexed value — XERJ
+  indexes from the stored source, so matching ES's *hits* costs source
+  fidelity here), and the index-level `index.mapping.coerce` setting is not
+  read, only the field-level parameter.
+
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
   `{"bool":{"must":[X]}}` and bare `X` are the same query — Lucene's

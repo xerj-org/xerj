@@ -1195,7 +1195,94 @@ pub async fn process_bulk_with_opts(
         has
     };
 
-    for action in parsed {
+    // Same gate for numeric / boolean field types (issue #781). Unlike the
+    // three above this does NOT divert to the slow path — that would cost
+    // every mapped-numeric index the turbo batch — it coerces the raw doc
+    // bytes in place right here and lets the action stay on turbo. The gate
+    // exists so an index with no numeric or boolean field never pays for the
+    // parse at all.
+    let mut index_needs_type_check: HashMap<String, bool> = HashMap::new();
+    let index_has_typed_numeric = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
+        if let Some(b) = cache.get(target) {
+            return *b;
+        }
+        let has = engine
+            .index_mappings
+            .get(target)
+            .map(|m| xerj_common::field_coercion::mapping_has_enforced_types(&m))
+            .unwrap_or(false);
+        cache.insert(target.to_string(), has);
+        has
+    };
+
+    for mut action in parsed {
+        // ── Numeric / boolean type enforcement (issue #781) ──────────────
+        //
+        // A field mapped `integer` used to keep whatever arrived — `1.9`,
+        // `9999999999`, `"abc"`, even an object — so `range {gte: 1.5}`
+        // matched a doc that ES stores as `1` and `term {i: 1}` missed it.
+        // Values ES coerces are coerced here (`1.9` → `1`, `"5"` → `5`,
+        // `"true"` → `true`); values ES refuses become a per-item 400
+        // `document_parsing_exception`, like the date-format check below.
+        //
+        // Runs at partition time so it covers the turbo batch path as well
+        // as the per-item loop. Actions carrying a pipeline are skipped: ES
+        // runs the pipeline before parsing the document, so those are
+        // checked after their pipeline in the per-item loop instead.
+        // `update` merges into a doc that was already validated on write.
+        if matches!(action.action_type.as_str(), "index" | "create")
+            && action.pipeline.is_none()
+            && index_has_typed_numeric(&action.target_index, &mut index_needs_type_check)
+        {
+            let props = engine
+                .index_mappings
+                .get(&action.target_index)
+                .and_then(|m| xerj_common::field_coercion::mapping_properties(&m).cloned());
+            if let Some(props) = props {
+                // `index` actions defer the JSON parse to the turbo path, so
+                // the body may not be built yet — parse it here, and only
+                // pay the re-serialize when a value actually changed.
+                let parsed_body = match action.doc_body.take() {
+                    Some(Value::Object(o)) => Some(o),
+                    Some(other) => {
+                        action.doc_body = Some(other);
+                        None
+                    }
+                    None => match serde_json::from_slice::<Value>(&action.doc_bytes) {
+                        Ok(Value::Object(o)) => Some(o),
+                        _ => None,
+                    },
+                };
+                if let Some(mut body) = parsed_body {
+                    match xerj_common::field_coercion::coerce_document(&mut body, &props) {
+                        Ok(changed) => {
+                            // Serialize from the map itself, not a clone of
+                            // it — `preserve_order` is on workspace-wide, so
+                            // the caller's `_source` key order survives.
+                            if changed {
+                                if let Ok(bytes) = serde_json::to_vec(&body) {
+                                    action.doc_bytes = std::sync::Arc::from(bytes.as_slice());
+                                }
+                            }
+                            action.doc_body = Some(Value::Object(body));
+                        }
+                        Err(bad) => {
+                            items[action.item_index] = Some(BulkItemResult {
+                                action: action.action_type.clone(),
+                                index: action.target_index.clone(),
+                                id: action.doc_id.clone().unwrap_or_default(),
+                                status: 400,
+                                result: None,
+                                error: Some(bad.reason(&action.doc_id.clone().unwrap_or_default())),
+                                get_source: None,
+                            });
+                            errors = true;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
         // `index` with no `if_seq_no` / `routing` goes through the
         // turbo batch path. Actions that carry CAS or routing metadata
         // must be executed individually so we can honor them — route
@@ -1997,6 +2084,41 @@ pub async fn process_bulk_with_opts(
                             status: 400,
                             result: None,
                             error: Some(reason),
+                            get_source: None,
+                        });
+                        errors = true;
+                        continue;
+                    }
+                }
+            }
+        }
+        // Numeric / boolean type enforcement (issue #781). A field mapped
+        // `integer` used to keep whatever arrived — `1.9`, `9999999999`,
+        // `"abc"`, even an object — so the same query over the same declared
+        // -integer field returned different hits than ES. Values ES coerces
+        // are coerced here (`1.9` → `1`, `"5"` → `5`, `"true"` → `true`) and
+        // values ES refuses become a per-item 400 `document_parsing_exception`,
+        // exactly like the date-format check above. `index` / `create` only:
+        // an `update` merges into a doc that was already validated on write.
+        //
+        // The rules live in `xerj_common::field_coercion`, shared with the
+        // single-document `_doc` / `_create` handlers in `xerj-api`, so the
+        // two write paths cannot drift apart.
+        if matches!(action_type.as_str(), "index" | "create") {
+            let mapping_props = engine
+                .index_mappings
+                .get(&target_index)
+                .and_then(|m| xerj_common::field_coercion::mapping_properties(&m).cloned());
+            if let Some(props) = mapping_props {
+                if let Some(body) = doc_body.as_mut().and_then(Value::as_object_mut) {
+                    if let Err(bad) = xerj_common::field_coercion::coerce_document(body, &props) {
+                        items[item_idx] = Some(BulkItemResult {
+                            action: action_type.to_string(),
+                            index: target_index.clone(),
+                            id: error_id.clone(),
+                            status: 400,
+                            result: None,
+                            error: Some(bad.reason(&doc_id.clone().unwrap_or_default())),
                             get_source: None,
                         });
                         errors = true;

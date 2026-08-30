@@ -17,6 +17,8 @@
 //! - [`feedback`] — the bug/UX-report invitation shared by every `--help`
 //! - [`error`]   — Unified error type ([`XerjError`])
 //! - [`types`]   — Core domain types (documents, fields, IDs)
+//! - [`field_coercion`] — ES-faithful ingest-time coercion/enforcement for
+//!   numeric and boolean fields (the one predicate every write path shares)
 //! - [`schema`]  — Index schema management and mapping evolution
 //! - [`metrics`] — Prometheus counters, histograms, and gauges
 //! - [`net`]     — Network trust primitives (trusted-proxy CIDR matching)
@@ -25,6 +27,7 @@
 pub mod config;
 pub mod error;
 pub mod feedback;
+pub mod field_coercion;
 pub mod fsio;
 pub mod metrics;
 pub mod net;

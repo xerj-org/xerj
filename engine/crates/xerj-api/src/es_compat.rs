@@ -2831,6 +2831,13 @@ pub async fn index_doc_auto(
         doc
     };
 
+    // Declared numeric/boolean types are enforced after the pipeline has run,
+    // so a pipeline-produced value is held to the same rules as a caller's.
+    let doc = match enforce_field_types(&state, &index, "", doc) {
+        Ok(d) => d,
+        Err(resp) => return resp,
+    };
+
     let idx = match state.engine.get_or_create_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -2959,6 +2966,13 @@ pub async fn index_doc(
     };
     // ?refresh=true|wait_for — accepted silently; memtable is immediately visible.
 
+    // Declared numeric/boolean types are enforced after the pipeline has run,
+    // so a pipeline-produced value is held to the same rules as a caller's.
+    let doc = match enforce_field_types(&state, &index, &id, doc) {
+        Ok(d) => d,
+        Err(resp) => return resp,
+    };
+
     let idx = match state.engine.get_or_create_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -3083,6 +3097,13 @@ pub async fn create_doc(
         }
     } else {
         doc
+    };
+
+    // `_create` skipped every mapping-aware validation stage; the declared
+    // numeric/boolean types are now enforced here too (issue #781).
+    let doc = match enforce_field_types(&state, &index, &id, doc) {
+        Ok(d) => d,
+        Err(resp) => return resp,
     };
 
     let idx = match state.engine.get_or_create_index(&index) {
@@ -35378,6 +35399,62 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         out.push('\n');
     }
     out
+}
+
+/// The 400 envelope ES sends when a document cannot be parsed against the
+/// mapping — the same shape the range/`copy_to` rejection above emits, with
+/// the specific `caused_by` sentence ES attaches underneath.
+fn document_parsing_error(reason: &str, caused_by: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "document_parsing_exception", "reason": reason }],
+                "type": "document_parsing_exception",
+                "reason": reason,
+                "caused_by": { "type": "illegal_argument_exception", "reason": caused_by }
+            },
+            "status": 400
+        })),
+    )
+        .into_response()
+}
+
+/// Enforce the declared type of every numeric/boolean field on a single-doc
+/// write (issue #781).
+///
+/// Returns the document with ES's coercions applied (`1.9` → `1` in an
+/// `integer` field, `"5"` → `5`, `"true"` → `true`), or the 400
+/// `document_parsing_exception` ES answers for a value no coercion can
+/// rescue — an unparseable string, an out-of-range integer, an object where a
+/// number belongs, `"yes"` in a boolean.
+///
+/// The rules live in [`xerj_common::field_coercion`], shared with the
+/// per-item `_bulk` loop in `xerj_engine::bulk`, so the two write paths cannot
+/// drift apart the way the date validators once did.
+pub(crate) fn enforce_field_types(
+    state: &AppState,
+    index: &str,
+    doc_id: &str,
+    doc: Value,
+) -> Result<Value, Response> {
+    let Some(mapping) = state.engine.index_mappings.get(index).map(|v| v.clone()) else {
+        return Ok(doc);
+    };
+    // Borrow the properties out of the cloned blob rather than cloning them
+    // again — one clone per write is what `apply_ignore_malformed` already
+    // pays to keep the DashMap shard lock off the coercion walk.
+    let Some(props) = xerj_common::field_coercion::mapping_properties(&mapping) else {
+        return Ok(doc);
+    };
+    let mut obj = match doc {
+        Value::Object(o) => o,
+        other => return Ok(other),
+    };
+    match xerj_common::field_coercion::coerce_document(&mut obj, props) {
+        Ok(_) => Ok(Value::Object(obj)),
+        Err(bad) => Err(document_parsing_error(&bad.reason(doc_id), &bad.detail)),
+    }
 }
 
 pub(crate) fn apply_ignore_malformed(state: &AppState, index: &str, doc: Value) -> Value {
