@@ -13,15 +13,21 @@
 //! a strictly stronger claim than equal search results; the search comparison
 //! is kept anyway because it is the claim the issue actually makes.
 //!
-//! `.fst`, `.post` and `.meta` are compared byte for byte.  `.norms` is
-//! compared for the content a reader can observe, because it is knowingly NOT
-//! byte-identical: byte 0 spells both "field absent" and "field length <= 1",
-//! `load_norms` drops byte-0 entries on read, so a replayed merge cannot
-//! reproduce a trailing run of them and writes a SHORTER dense array.  The
-//! `colour` field in the fixture below is single-token precisely so that case
-//! is exercised on every run instead of being accidentally avoided; the exact
-//! divergence, and the fact that nothing a query reads moves with it, are
-//! pinned by `a_single_token_field_replays_an_equivalent_shorter_norms_array`.
+//! `.fst`, `.post` and `.meta` are compared byte for byte.  (`.meta` holds
+//! `total_term_frequency`, which a docs-only field DOES diverge on when a
+//! document repeats the same value — no fixture document does, so the byte
+//! comparison is sound here, and that divergence has its own test:
+//! `a_docs_only_field_carries_its_length_but_not_its_term_frequency`.)
+//!
+//! `.norms` is compared for the content a reader can observe, because it is
+//! knowingly NOT byte-identical: byte 0 spells both "field absent" and "field
+//! length <= 1", `load_norms` drops byte-0 entries on read, so a replayed
+//! merge cannot reproduce a trailing run of them and writes a SHORTER dense
+//! array.  The `colour` field in the fixture below is single-token precisely
+//! so that case is exercised on every run instead of being accidentally
+//! avoided; the exact divergence, and the fact that nothing a query reads
+//! moves with it, are pinned by
+//! `a_single_token_field_replays_an_equivalent_shorter_norms_array`.
 
 use std::collections::HashMap;
 use std::path::Path;

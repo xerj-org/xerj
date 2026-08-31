@@ -31,9 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Everything a query can read out of a merged segment is identical to what
   the old path wrote — every posting list, `doc_freq`, norm byte, `_score`
-  and `field_length` — and the `.fst`, `.post` and `.meta` side-cars are
-  byte-for-byte identical. Two on-disk representations differ without any
-  query being able to tell:
+  and `field_length` — and the `.fst` and `.post` side-cars are byte-for-byte
+  identical. Two on-disk representations differ without any query being able
+  to tell:
 
   - The `.norms` array may be SHORTER. Byte 0 spells both "field absent" and
     "field length <= 1", and the reader drops byte-0 entries, so a trailing
@@ -41,10 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     last non-zero document instead of at the last document carrying the
     field. A single-token `keyword` field is entirely byte 0, so its `.norms`
     shrinks to its header. Both files load to the same norms table.
-  - For a docs-only (`keyword`) field, a document that repeats the same value
-    merges with `total_term_frequency = doc_frequency`, because that format
-    never stored a per-document frequency and its reader synthesises 1.
-    Nothing outside `xerj-fts` reads `total_term_frequency`.
+  - `.meta`'s `total_term_frequency` for a docs-only (`keyword`) field: a
+    document that repeats the same value merges with
+    `total_term_frequency = doc_frequency`, because that format never stored
+    a per-document frequency and its reader synthesises 1. Nothing outside
+    `xerj-fts` reads `total_term_frequency`; `.meta` is otherwise identical,
+    `total_field_length` included, so `avgdl` still counts the repeat.
 
   Two further edges exist only when a merge also DROPS documents: a dropped
   document whose value analysed to zero tokens leaves no trace to reclaim its
