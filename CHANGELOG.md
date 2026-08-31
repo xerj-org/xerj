@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **Merge copies posting lists instead of re-analysing every document it
+  merges** ([#876](https://github.com/xerj-org/xerj/issues/876)). A merged
+  segment's postings ARE its inputs' postings with the document ids remapped —
+  nothing about them depends on the source text — but the merge rebuilt each
+  side-car by walking back to every surviving document's stored `_source`,
+  re-extracting its field values and re-running the whole analyzer chain.
+  Under size-tiered levelling that re-analyses every document once per level,
+  which is why a post-index merge tail could rival the index itself. The merge
+  now streams each input's term dictionary, replays the decoded posting lists
+  with the doc ids remapped and tombstoned documents skipped, and carries the
+  norms and field statistics across.
+
+  Measured on a 100 MiB text corpus force-merged to one segment (2 000
+  documents, 32-core box, median of four runs per arm): the merged segment's
+  FTS side-car build drops from **3.15 s to 0.85 s (~3.7x)**, and peak RSS
+  over the whole force-merge from ~2.8 GiB to ~2.4 GiB. End-to-end force-merge
+  time moves less, ~41 s to ~32 s, and is noisy — because after this change the
+  merge is dominated by the doc-values column build (7-12 s per batch against
+  0.85 s for FTS), which this change does not touch.
+
+  Everything a query can read out of a merged segment is identical to what
+  the old path wrote — every posting list, `doc_freq`, norm byte, `_score`
+  and `field_length` — and the `.fst` and `.post` side-cars are byte-for-byte
+  identical. Two on-disk representations differ without any query being able
+  to tell:
+
+  - The `.norms` array may be SHORTER. Byte 0 spells both "field absent" and
+    "field length <= 1", and the reader drops byte-0 entries, so a trailing
+    run of such documents cannot be replayed and the dense array stops at the
+    last non-zero document instead of at the last document carrying the
+    field. A single-token `keyword` field is entirely byte 0, so its `.norms`
+    shrinks to its header. Both files load to the same norms table.
+  - `.meta`'s `total_term_frequency` for a docs-only (`keyword`) field: a
+    document that repeats the same value merges with
+    `total_term_frequency = doc_frequency`, because that format never stored
+    a per-document frequency and its reader synthesises 1. Nothing outside
+    `xerj-fts` reads `total_term_frequency`; `.meta` is otherwise identical,
+    `total_field_length` included, so `avgdl` still counts the repeat.
+
+  Two further edges exist only when a merge also DROPS documents: a dropped
+  document whose value analysed to zero tokens leaves no trace to reclaim its
+  `total_docs` seat, and a dropped docs-only document's length is recovered
+  from the quantised norm byte, exact to length 7.
+
+  This also changes one behaviour worth stating plainly: because postings are
+  now preserved as written, a merge no longer re-analyses old segments under a
+  changed mapping. Editing an analyzer and running `_forcemerge` used to
+  rewrite the old documents' terms as a side effect; it no longer does — that
+  needs a reindex. A change to a field's POSITION setting is still detected
+  and still falls back to the rebuild; an analyzer-only change is not
+  detectable and is not re-applied. This matches Lucene's semantics.
+
+  A merge falls back to the old rebuild — same output, old cost — when the
+  replay cannot be proved equivalent: an input whose side-cars will not open
+  or enumerate, an input carrying documents but no FTS data, or a field whose
+  stored position setting disagrees with what the merge would write.
+  `Index::merge_reanalysed_document_count()` reports how many documents took
+  that fallback, `XERJ_PROF=1` prints a per-batch `merge-batch` phase
+  breakdown, and `XERJ_MERGE_FTS_REANALYZE=1` forces every merge back onto the
+  old path.
+
 - **`--embed-mode neural`: a long passage no longer pads a whole batch up to
   its own length** ([#366](https://github.com/xerj-org/xerj/issues/366)). The
   built-in Candle encoder tokenized every call with `PaddingStrategy::

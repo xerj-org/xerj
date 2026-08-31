@@ -7723,6 +7723,14 @@ pub struct Index {
     /// Failed writes of `schema.json` during dynamic-mapping evolution.
     /// See [`Index::persist_evolved_schema`] (issue #204).
     schema_persist_failures: AtomicU64,
+    /// #876 — documents a merge re-analysed instead of merging their
+    /// postings. Merging is supposed to replay the inputs' posting lists,
+    /// which costs nothing per document; this counts the documents that took
+    /// the fallback (an input the preflight refused, or
+    /// `XERJ_MERGE_FTS_REANALYZE=1`). An index whose merges are silently
+    /// paying the old O(text) cost shows it here and nowhere else.
+    /// `Arc` because the merge encode runs in `spawn_blocking`.
+    merge_fts_reanalysed_docs: Arc<AtomicU64>,
 }
 
 impl Index {
@@ -8094,6 +8102,7 @@ impl Index {
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
             merge_evaluations: AtomicU64::new(0),
+            merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             schema_persist_failures: AtomicU64::new(0),
         });
         // #871 — event-driven merge scheduling: the store fires this hook on
@@ -8481,6 +8490,7 @@ impl Index {
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
             merge_evaluations: AtomicU64::new(0),
+            merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             schema_persist_failures: AtomicU64::new(0),
         });
         // #871 — event-driven merge scheduling (see `Index::create` and
@@ -10527,6 +10537,21 @@ impl Index {
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    /// #876 — how many documents this index's merges have re-analysed
+    /// rather than merging their postings.
+    ///
+    /// Merging replays the input segments' posting lists, so the expected
+    /// value is zero: a document's postings are built once, at flush, and
+    /// every later merge copies them. A non-zero count means some batch fell
+    /// back to the old rebuild — an input whose side-cars the preflight in
+    /// [`fts_merge_readers`] would not vouch for, or the
+    /// `XERJ_MERGE_FTS_REANALYZE` escape hatch — and that index is paying
+    /// analysis cost proportional to (corpus size x merge levels).
+    pub fn merge_reanalysed_document_count(&self) -> u64 {
+        self.merge_fts_reanalysed_docs
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// ES-style `_forcemerge`: run SYNCHRONOUSLY until the index has at
     /// most `max_num_segments` segments.
     ///
@@ -10668,13 +10693,30 @@ impl Index {
         // Resolve per-field analyzer configs once for FTS rebuild.  See
         // `build_fts_field_configs` — keyword/numeric fields must use the
         // `keyword` analyzer or the FST drops their values to stop-words.
-        let (field_configs, excluded_fts_fields) = {
+        let (field_configs, excluded_fts_fields, mapped_field_names) = {
             let schema = self.schema.read().await;
             (
                 build_fts_field_configs(&schema.schema),
                 crate::memtable::fts_excluded_fields(&schema.schema),
+                // #876 — a side-car whose field name is not a portable
+                // filename is stored under a SHA-256 digest. Enumerating a
+                // source segment's fields needs the names back, and the
+                // mapping is where they live.
+                schema
+                    .schema
+                    .fields
+                    .iter()
+                    .map(|field| field.name.clone())
+                    .collect::<Vec<String>>(),
             )
         };
+        // #876 escape hatch, matching `XERJ_MERGE_PARALLELISM`'s precedent:
+        // force every merge back onto the re-analysing FTS rebuild. Exists so
+        // an operator (and the A/B measurement in the PR) can pin the old
+        // behaviour without a rebuild.
+        let reanalyse_fts_on_merge = std::env::var("XERJ_MERGE_FTS_REANALYZE")
+            .ok()
+            .is_some_and(|value| value != "0");
         // Kept for the legacy "if !text_fields.is_empty()" branch — empty
         // here because the merge path now indexes ALL source fields, not
         // just declared text fields.  See the merge FTS rebuild block.
@@ -10786,6 +10828,8 @@ impl Index {
             let registry_for_task = Arc::clone(&self.registry);
             let field_configs_for_task = field_configs.clone();
             let excluded_fts_fields_for_task = excluded_fts_fields.clone();
+            let mapped_field_names_for_task = mapped_field_names.clone();
+            let reanalysed_docs_for_task = Arc::clone(&self.merge_fts_reanalysed_docs);
             let segments_dir_for_task = segments_dir.clone();
             let dv_skip_for_merge = dv_skip.clone();
             // #318 — the operator's `compression.level`, resolved once per
@@ -10845,6 +10889,40 @@ impl Index {
                         seq_no: u64,
                     }
 
+                    // #876 — decide BEFORE the stored-document pass whether this
+                    // batch's FTS side-car can be MERGED (replay the inputs'
+                    // posting lists) rather than REBUILT (re-analyse every
+                    // surviving document). The rebuild needs that pass to collect
+                    // `fts_input`; the merge does not, and skipping it is most of
+                    // the win — a merged document's postings are already on disk
+                    // and already correct, and size-tiered levelling re-derives
+                    // them O(log N) times.
+                    //
+                    // Anything the postings merge cannot reproduce exactly puts
+                    // the batch back on the rebuild: an unresolvable digest
+                    // filename component, a segment whose side-cars will not
+                    // open, a doc-carrying input with no FTS data at all, or a
+                    // field whose stored shape (positions vs docs-only)
+                    // contradicts what this writer would emit for it.
+                    let merge_readers: Option<Vec<xerj_fts::index::FtsIndexReader>> =
+                        if reanalyse_fts_on_merge {
+                            None
+                        } else {
+                            fts_merge_readers(
+                                &segments_dir_for_task,
+                                &metas_for_task,
+                                &field_configs_for_task,
+                                &excluded_fts_fields_for_task,
+                                &mapped_field_names_for_task,
+                            )
+                        };
+                    let merge_postings = merge_readers.is_some();
+
+                    // Per-phase attribution of one merge batch, gated on
+                    // XERJ_PROF, matching the flush path's `XERJ_PROF
+                    // flush-sidecar` line. The #876 A/B is read off `fts_us`.
+                    let prof = std::env::var_os("XERJ_PROF").is_some();
+
                     let mut min_seq = u64::MAX;
                     let mut max_seq = 0u64;
 
@@ -10898,7 +10976,17 @@ impl Index {
                     // `merged_json_buf` (drained into it below), so the peak
                     // stays ~1× stored size + the fts_input Values, unchanged
                     // from the M5.22 profile.
-                    let mut survivors: Vec<(u64, String, String)> = Vec::new();
+                    // #876 adds the source coordinates: `(input index, that
+                    // input's own document ordinal)`. The postings merge needs to
+                    // know where each surviving document CAME FROM to remap its
+                    // doc ids, and the global `_seq_no` sort below scrambles the
+                    // per-input order, so the pair has to ride along.
+                    let mut survivors: Vec<(u64, String, String, u32, u32)> = Vec::new();
+                    // One entry per document in each input segment, in that
+                    // segment's own ordinal order: the merged ordinal it becomes,
+                    // or `None` if it does not survive.
+                    let mut doc_maps: Vec<Vec<Option<u32>>> =
+                        vec![Vec::new(); metas_for_task.len()];
 
                     // RC4 W2 #14 — union of the inputs' SEQ-AWARE tombstone
                     // sections (ZTB2), max seq per doc.  A load-bearing
@@ -10909,7 +10997,7 @@ impl Index {
                     // resurrect the older copy.
                     let mut tomb_union: HashMap<String, u64> = HashMap::new();
 
-                    for meta in &metas_for_task {
+                    for (source_index, meta) in metas_for_task.iter().enumerate() {
                         min_seq = min_seq.min(meta.min_seq_no);
                         max_seq = max_seq.max(meta.max_seq_no);
                         let seg_path = segments_dir_for_task.join(&meta.seg_path);
@@ -11048,7 +11136,11 @@ impl Index {
                                 }
                             };
 
-                        for raw in &raw_docs {
+                        // The FTS/doc-values ordinal space of a segment is the
+                        // order of its stored documents, so the map is exactly as
+                        // long as this vector.
+                        doc_maps[source_index] = vec![None; raw_docs.len()];
+                        for (source_ordinal, raw) in raw_docs.iter().enumerate() {
                             let raw_str = raw.get();
                             let id_seq: IdSeq = match serde_json::from_str(raw_str) {
                                 Ok(v) => v,
@@ -11082,6 +11174,8 @@ impl Index {
                                 id_seq.seq_no,
                                 id_seq.id.to_string(),
                                 raw_str.to_string(),
+                                source_index as u32,
+                                source_ordinal as u32,
                             ));
                         }
                         // raw_docs + stored_bytes drop here — segment RAM reclaimed.
@@ -11090,31 +11184,57 @@ impl Index {
                     // Global insertion-order (_seq_no) sort — see the B1 note
                     // above.  seq_nos are unique per surviving doc (stale /
                     // duplicate copies were filtered by the version map).
-                    survivors.sort_unstable_by_key(|(seq, _, _)| *seq);
+                    survivors.sort_unstable_by_key(|(seq, _, _, _, _)| *seq);
 
                     // Single sorted stream → all four outputs.  `into_iter`
                     // frees each raw String right after its bytes are copied
                     // into `merged_json_buf`, keeping peak memory ~1× stored.
-                    for (seq_no, id_str, raw_str) in survivors {
+                    for (seq_no, id_str, raw_str, source_index, source_ordinal) in survivors {
                         if !first_doc {
                             merged_json_buf.push(b',');
                         }
                         first_doc = false;
                         merged_json_buf.extend_from_slice(raw_str.as_bytes());
                         live_doc_count += 1;
-                        // Pushed BEFORE the per-doc Value parse that can
-                        // `continue` — the .ids side-car must cover every
-                        // stored doc (alignment invariant, see above).
+                        // The .ids side-car must cover every stored doc
+                        // (alignment invariant, see above).
                         ids_pairs.push((seq_no, id_str.clone()));
 
                         // Per-doc Value parse for FTS / DV builders.
-                        let doc_value: Value = match serde_json::from_str(&raw_str) {
-                            Ok(v) => v,
-                            Err(_) => continue,
-                        };
+                        //
+                        // A document whose stored bytes will not re-parse still
+                        // takes its seat in `fts_input`. These bytes already
+                        // parsed as a `RawValue` above, so reaching the fallback
+                        // is close to impossible — but `continue`-ing out of the
+                        // push (which is what this did) shifts every LATER
+                        // document's FTS and doc-values ordinal one place off its
+                        // stored ordinal, and that alignment is what every reader
+                        // addresses a document by. An empty `_source` indexes and
+                        // columnises nothing for it, which is the same as the
+                        // skip minus the shift.
+                        let doc_value: Value =
+                            serde_json::from_str(&raw_str).unwrap_or_else(|error| {
+                                tracing::warn!(
+                                    doc = %id_str,
+                                    "merge: surviving doc failed its re-parse, indexing it empty: {error}"
+                                );
+                                Value::Null
+                            });
                         let source = doc_value.get("_source").cloned().unwrap_or(Value::Null);
-                        let fields =
-                            extract_fts_fields_excluding(&source, &excluded_fts_fields_for_task);
+                        // The merged FTS/doc-values ordinal is this document's
+                        // index in `fts_input`.
+                        doc_maps[source_index as usize][source_ordinal as usize] =
+                            Some(fts_input.len() as u32);
+                        // The re-analysis input. `merge_postings` replays the
+                        // inputs' posting lists instead, so it needs no field
+                        // values at all — only the `_source` the doc-values
+                        // builder reads below. An empty `HashMap` allocates
+                        // nothing.
+                        let fields = if merge_postings {
+                            HashMap::new()
+                        } else {
+                            extract_fts_fields_excluding(&source, &excluded_fts_fields_for_task)
+                        };
                         fts_input.push((id_str, fields, source));
                     }
 
@@ -11132,10 +11252,12 @@ impl Index {
                             return None;
                         }
                     };
+                    let stored_timer = std::time::Instant::now();
                     let encoded = xerj_storage::stored_codec::encode_stored_v2_at_level(
                         &merged_json_buf,
                         merge_zstd_level,
                     );
+                    let stored_us = stored_timer.elapsed().as_micros();
                     drop(merged_json_buf);
                     if let Err(e) = writer.add_section(SectionType::Stored, &encoded) {
                         tracing::error!("merge ABORTED: failed to add section: {e}");
@@ -11192,6 +11314,7 @@ impl Index {
                         m.record_bytes_written(merged_meta.size_bytes);
                     }
 
+                    let fts_timer = std::time::Instant::now();
                     // Build FTS side-cars using the parallel per-field builder.
                     // We pre-built `fts_input` during the byte-copy pass above,
                     // so this is just one rayon `add_documents_parallel` call.
@@ -11214,8 +11337,34 @@ impl Index {
                             // every bulk request (see `crate::merge_pool`).
                             // Same-pool install here is a no-op re-entry —
                             // the whole batch already runs inside merge_pool.
-                            crate::merge_pool().install(|| {
-                                fts_writer.add_documents_parallel(&fts_input);
+                            let built = crate::merge_pool()
+                                .install(|| -> std::result::Result<(), String> {
+                                match merge_readers.as_ref() {
+                                    // #876 — replay the inputs' postings.
+                                    Some(readers) => {
+                                        let sources: Vec<xerj_fts::index::FtsMergeSource<'_>> =
+                                            readers
+                                                .iter()
+                                                .zip(doc_maps.iter())
+                                                .map(|(reader, doc_map)| {
+                                                    xerj_fts::index::FtsMergeSource {
+                                                        reader,
+                                                        doc_map: doc_map.as_slice(),
+                                                    }
+                                                })
+                                                .collect();
+                                        fts_writer
+                                            .merge_from_segments(&sources)
+                                            .map_err(|e| e.to_string())?;
+                                    }
+                                    None => {
+                                        reanalysed_docs_for_task.fetch_add(
+                                            fts_input.len() as u64,
+                                            Ordering::Relaxed,
+                                        );
+                                        fts_writer.add_documents_parallel(&fts_input)
+                                    }
+                                }
                                 if fts_writer.uses_encoded_field_filename_components() {
                                     if let Err(e) = store_for_task
                                         .ensure_fts_encoded_field_component_format()
@@ -11223,7 +11372,7 @@ impl Index {
                                         tracing::warn!(
                                             "merge: encoded FTS filename format preflight failed: {e}"
                                         );
-                                        return;
+                                        return Ok(());
                                     }
                                     if let Err(e) =
                                         fts_writer.publish_encoded_filename_layout()
@@ -11231,15 +11380,37 @@ impl Index {
                                         tracing::warn!(
                                             "merge: FTS filename-layout publication failed: {e}"
                                         );
-                                        return;
+                                        return Ok(());
                                     }
                                 }
                                 if let Err(e) = fts_writer.finish() {
                                     tracing::warn!("merge: FTS build failed: {e}");
                                 }
+                                Ok(())
                             });
+                            // LOSS FIREWALL: the preflight already refused every
+                            // input it could not reproduce exactly, so a failure
+                            // here means an input's own side-cars contradict
+                            // themselves. Committing a merged segment whose FTS
+                            // data is missing would silently stop its documents
+                            // matching, so abort the batch — the inputs stay
+                            // live and untouched, exactly as for an unreadable
+                            // stored section.
+                            if let Err(message) = built {
+                                tracing::error!(
+                                    "merge ABORTED: postings merge failed (inputs \
+                                     preserved): {message}"
+                                );
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
                         }
                     }
+
+                    let fts_us = fts_timer.elapsed().as_micros();
+                    // Release the inputs' decompressed postings before the
+                    // doc-values build, which is now the batch's memory peak.
+                    drop(merge_readers);
 
                     // Update version_map so doc → segment_id points to the
                     // merged segment, using each doc's REAL seq_no from
@@ -11273,6 +11444,7 @@ impl Index {
 
                     // Doc-values side-car — reuse the same `Value`s we
                     // stashed in fts_input above (M5.22).
+                    let dv_timer = std::time::Instant::now();
                     {
                         let columns = build_doc_value_columns(
                             fts_input.iter().map(|(_, _, v)| Some(v)),
@@ -11288,6 +11460,16 @@ impl Index {
                                 tracing::warn!("merge: doc-values write failed: {e}");
                             }
                         }
+                    }
+
+                    let dv_us = dv_timer.elapsed().as_micros();
+                    if prof {
+                        eprintln!(
+                            "XERJ_PROF merge-batch inputs={} docs={live_doc_count} \
+                             fts={} stored_us={stored_us} fts_us={fts_us} dv_us={dv_us}",
+                            metas_for_task.len(),
+                            if merge_postings { "replayed" } else { "reanalysed" },
+                        );
                     }
 
                     Some((
@@ -22764,6 +22946,107 @@ fn build_fts_field_configs(schema: &Schema) -> HashMap<String, xerj_fts::index::
         );
     }
     out
+}
+
+/// Open a full FTS reader over every input segment of a merge batch, or
+/// `None` when this batch has to fall back to re-analysing its documents.
+///
+/// #876. A merge's output postings ARE its inputs' postings with the doc ids
+/// remapped — nothing about them depends on the source text — so the merge
+/// should read `.fst`/`.post`/`.meta`/`.norms` rather than re-run the
+/// analyzer chain over every surviving document. This is the gate on that
+/// path. It says no, and accepts the slow rebuild, whenever the replay could
+/// not be proved equivalent:
+///
+/// * a side-car filename component that is a SHA-256 digest of a field name
+///   nobody in the mapping owns — silently omitting the field would drop its
+///   postings and stop its terms matching;
+/// * an input whose side-cars will not open;
+/// * an input that carries documents but has no FTS data to merge (its
+///   postings are not on disk, so the only way to give the output an index is
+///   to build one);
+/// * a field stored with a different position setting than this merge would
+///   write for it — a re-encode, not a merge.
+///
+/// The returned readers hold each input's decompressed postings for the rest
+/// of the batch. That is a real allocation, but it replaces `fts_input`'s
+/// per-document `FieldValues` — a second copy of every indexed field's TEXT —
+/// so the batch's peak working set falls rather than rises.
+fn fts_merge_readers(
+    segments_dir: &std::path::Path,
+    metas: &[xerj_storage::segment::SegmentMeta],
+    field_configs: &HashMap<String, xerj_fts::index::FieldIndexConfig>,
+    excluded: &std::collections::HashSet<String>,
+    mapped_field_names: &[String],
+) -> Option<Vec<xerj_fts::index::FtsIndexReader>> {
+    let default_store_positions = xerj_fts::index::FieldIndexConfig::default().store_positions;
+    // ONE directory scan for the whole batch: a converging index keeps tens of
+    // thousands of side-car files here, and this runs per merge batch.
+    let segment_ids: Vec<&str> = metas.iter().map(|meta| meta.id.as_str()).collect();
+    let per_segment_fields = match xerj_fts::index::segments_indexed_field_names(
+        segments_dir,
+        &segment_ids,
+        mapped_field_names,
+    ) {
+        Ok(names) => names,
+        Err(error) => {
+            tracing::info!("merge: cannot enumerate FTS fields, re-analysing this batch: {error}");
+            return None;
+        }
+    };
+    let mut readers = Vec::with_capacity(metas.len());
+    for (meta, names) in metas.iter().zip(per_segment_fields) {
+        // An excluded field (a `dense_vector`, say) must not be resurrected
+        // from an older segment that predates the exclusion — the rebuild
+        // would not have written it either.
+        let names: Vec<String> = names
+            .into_iter()
+            .filter(|name| !excluded.contains(name))
+            .collect();
+        if names.is_empty() && meta.doc_count > 0 {
+            tracing::info!(
+                segment = %meta.id,
+                doc_count = meta.doc_count,
+                "merge: input segment has documents but no FTS side-cars, re-analysing \
+                 this batch"
+            );
+            return None;
+        }
+        let refs: Vec<&str> = names.iter().map(|name| name.as_str()).collect();
+        let reader =
+            match xerj_fts::index::FtsIndexReader::open(segments_dir, meta.id.as_str(), &refs) {
+                Ok(reader) => reader,
+                Err(error) => {
+                    tracing::info!(
+                        segment = %meta.id,
+                        "merge: cannot open FTS side-cars, re-analysing this batch: {error}"
+                    );
+                    return None;
+                }
+            };
+        let mismatch = reader
+            .indexed_fields()
+            .into_iter()
+            .find(|field| {
+                let expected = field_configs
+                    .get(*field)
+                    .map(|config| config.store_positions)
+                    .unwrap_or(default_store_positions);
+                reader.field_has_positions(field) != expected
+            })
+            .map(|field| field.to_owned());
+        if let Some(field) = mismatch {
+            tracing::info!(
+                segment = %meta.id,
+                field,
+                "merge: field is stored with a different position setting than this merge \
+                 would write, re-analysing this batch"
+            );
+            return None;
+        }
+        readers.push(reader);
+    }
+    Some(readers)
 }
 
 /// FTS input extraction for the MERGE path.
