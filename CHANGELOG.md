@@ -282,14 +282,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to 17:03, and the seven main pushes that landed behind it were all discarded
   with **zero jobs run**; a normal ~37-minute run would have let at least four
   of them through, since the gaps between them were 48, 62, 38 and 150 minutes.
-  Every job now carries a cap sized in three tiers from the
-  measured durations of every non-cancelled run of 2026-08-24..31 (63 CI runs,
-  10 release runs): 15 min for jobs that install no toolchain (measured max
-  0.9 min), 30 min for jobs that install Rust but compile no workspace member
-  (max 3.3 min), 60 min for jobs that compile workspace crates (max 48.2 min,
-  `Build + Test`), and 75 min for `release.yml`'s cross-compile matrix (max
-  33.5 min, `x86_64-pc-windows-msvc`). Worst-case slot starvation drops from
-  360 minutes to 60 (CI on `main`), 20 (`pages-deploy`) and 75 (a release tag).
+  Every job now carries a cap sized in tiers from the measured duration of every
+  job execution across the last ~245 CI runs (3 873 executions) and 27 release
+  runs: 15 min for jobs that install no toolchain (measured max 2.3 min), 30 min
+  for jobs that install a toolchain but compile no workspace member (max
+  3.8 min), 60 min for jobs that compile workspace crates (max 48.3 min,
+  `Build + Test`), and 75 min for the two jobs with the heaviest tails —
+  `autoindex-fd-smoke`, whose `windows-latest` leg runs 18.8 min at the median
+  but 49.6 at the maximum, and `release.yml`'s cross-compile matrix (max
+  38.3 min, `aarch64-pc-windows-msvc`). Worst-case slot starvation drops from
+  360 minutes to 75 (CI on `main`), 20 (`pages-deploy`) and 75 (a release tag).
   A new `.github/scripts/workflow-timeout-guard.py` keeps it true for jobs added
   later. This bounds the blast radius of the next hang; it is not itself a fix
   for any hang, and #899 remains what fixed #751's.

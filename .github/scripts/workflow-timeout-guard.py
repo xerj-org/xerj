@@ -55,11 +55,11 @@ import sys
 from pathlib import Path
 
 # GitHub's own default is 360. Nothing in this repo has ever legitimately needed
-# more than ~48 min (`Build + Test`, the whole workspace compiled and tested at
-# --test-threads=2) or ~34 min (the Windows cross-compile in release.yml), both
-# measured over every non-cancelled run of 2026-08-24..31. 90 leaves room for a
-# cold dependency cache on the heaviest job while still being 4x below the
-# default.
+# more than ~50 min: over 3 873 job executions across the last ~245 CI runs the
+# two heaviest are `Autoindex FD smoke (windows-latest)` at 49.6 and
+# `Build + Test` at 48.3, and release.yml's slowest cross-compile leg is 38.3
+# over 27 runs. 90 leaves room for a cold dependency cache on the heaviest job
+# while still being 4x below the default.
 MAX_TIMEOUT = 90
 
 # A job id: exactly two spaces of indent, a key, nothing else on the line.
