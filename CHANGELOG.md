@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **`--embed-mode neural`: a long passage no longer pads a whole batch up to
+  its own length** ([#366](https://github.com/xerj-org/xerj/issues/366)). The
+  built-in Candle encoder tokenized every call with `PaddingStrategy::
+  BatchLongest` and ran one rectangular forward pass over it, so a window that
+  held one 512-character chunk beside sixty short lines cost `61 × long`
+  instead of `long + 60 × short` — the model did the work, the attention
+  tensors were allocated, and the padding contributed nothing. The encoder now
+  sorts a call's passages by token length and cuts batches at 64 rows or a 4096
+  `rows × padded_sequence_length` budget (`xerj-ai/src/microbatch.rs`, shared
+  with the experimental ONNX backend), pads each batch to its own longest row,
+  and restores input order. This affects the opt-in neural backend only; the
+  default embedder is unchanged lexical feature-hashing.
+
+  Measured on this repo's 32-core x86_64 box with MiniLM-L6 (median of three
+  interleaved runs each, box shared with other builds — the spread is wide, so
+  the medians are quoted, not the best runs):
+
+  | shape | before | after |
+  |---|---|---|
+  | one 210 KB source file (504 chunks, one call) | 46.2–57.8 s, 8.97 GB peak RSS | 19.9 s, 0.42 GB peak RSS |
+  | 45 files of `apache/lucene`, chunked as ingest chunks them (1214 passages) | 8.9 passages/s | 12.1 passages/s |
+  | synthetic window of 4 long chunks + 60 short lines | 40.2 passages/s | 145.7 passages/s |
+  | uniform short documents, window of 64 | 171.0 passages/s | 175.6 passages/s |
+  | one passage per call | 68.9 passages/s | 72.8 passages/s |
+
+  Padding waste (`rows × padded_sequence_length` ÷ real tokens) on the Lucene
+  corpus fell from 1.50 to 1.13, and on the synthetic mixed window from 2.66 to
+  1.00.
+
+  The first row is the other half of #366 — "each of those two files held the
+  run for 30+ seconds" on 200 KB C++ headers. `semantic_embedding_window_end`
+  always admits a whole document even past the scheduling window, so every
+  chunk of a large field reached the model as one forward pass whose attention
+  tensors scaled with the document: 8.97 GB of resident memory for a single
+  210 KB file, which is an OOM on a laptop rather than a slowdown. The row cap
+  bounds it.
+
+  **What this does not fix, stated plainly:** #366 reported ~15 documents/s on
+  short uniform strings and read it as per-document inference. That reading
+  does not hold — HTTP `_bulk` already batches (`bulk.rs` collects the whole
+  request, `index.rs` windows 64 passages across documents), and the last two
+  rows above show that shape is unchanged by this work. On uniform short
+  documents ~15 docs/s is the cost of CPU transformer inference, and moving it
+  needs quantization, a GPU provider or a smaller model. What was genuinely
+  broken was mixed-length work, which is what pointing `autoindex` at a real
+  folder produces. Binary-protocol `_bulk` still embeds one document per
+  inference call (`xerj-api/src/binary_protocol.rs`); the HTTP path this
+  release measures does not.
+
 ### Fixed
 
 - **The exclusion sweep can no longer delete a sibling corpus's catalog
