@@ -31,6 +31,7 @@ jobs:
   snapshot:
     name: Snapshot release download counts
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Scheduled workflows run on forks too; a fork has nothing to snapshot.
     if: github.repository == 'xerj-org/xerj'
     steps:

@@ -841,7 +841,10 @@ pub fn gc_snapshots(state_dir: &Path, journal: &Journal) -> Result<()> {
     let entries = match std::fs::read_dir(&root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(error.into()),
+        Err(error) => {
+            return Err(anyhow::Error::from(error)
+                .context(format!("list snapshot directory {}", root.display())));
+        }
     };
     let mut entries = entries.collect::<std::io::Result<Vec<_>>>()?;
     entries.sort_by_key(|entry| entry.file_name());
@@ -855,7 +858,6 @@ pub fn gc_snapshots(state_dir: &Path, journal: &Journal) -> Result<()> {
             entry.path().display()
         );
     }
-    let directory = File::open(&root)?;
     for entry in entries.into_iter().take(SNAPSHOT_GC_BATCH_SIZE) {
         let metadata = entry.file_type()?;
         if !metadata.is_dir() {
@@ -874,16 +876,23 @@ pub fn gc_snapshots(state_dir: &Path, journal: &Journal) -> Result<()> {
                 "snapshot tombstone already exists: {}",
                 tombstone.display()
             );
-            std::fs::rename(entry.path(), &tombstone)?;
-            directory.sync_all()?;
+            std::fs::rename(entry.path(), &tombstone).with_context(|| {
+                format!(
+                    "rename snapshot {} to tombstone {}",
+                    entry.path().display(),
+                    tombstone.display()
+                )
+            })?;
+            sync_dir(&root)?;
             #[cfg(test)]
             if GC_FAIL_AFTER_RENAME.swap(false, std::sync::atomic::Ordering::SeqCst) {
                 anyhow::bail!("injected snapshot GC crash after durable tombstone rename");
             }
             tombstone
         };
-        std::fs::remove_dir_all(&tombstone)?;
-        directory.sync_all()?;
+        std::fs::remove_dir_all(&tombstone)
+            .with_context(|| format!("remove snapshot tombstone {}", tombstone.display()))?;
+        sync_dir(&root)?;
     }
     Ok(())
 }
@@ -1762,9 +1771,22 @@ fn write_synced_json(path: &Path, value: &impl Serialize) -> Result<()> {
     Ok(())
 }
 
+/// fsync a directory so the entries created or renamed inside it survive
+/// power loss.
+///
+/// #482: this used to be `File::open(path)?.sync_all()?` — a Unix-only idiom.
+/// On Windows `File::open` on a *directory* fails with `ERROR_ACCESS_DENIED`
+/// (os error 5) on **every** call, because `std` cannot pass
+/// `FILE_FLAG_BACKUP_SEMANTICS`, so sealing a source snapshot aborted the
+/// whole `--no-graph` run before a single document was indexed. Exactly the
+/// same mistake had already been found and fixed once in
+/// [`xerj_common::fsio::fsync_dir`]; route through it instead of re-deriving
+/// it here. Its Windows body is a documented no-op that makes no durability
+/// claim — which costs Windows nothing, because the code it replaces flushed
+/// nothing either: it returned `Err` and killed the run.
 fn sync_dir(path: &Path) -> Result<()> {
-    File::open(path)?.sync_all()?;
-    Ok(())
+    xerj_common::fsio::fsync_dir(path)
+        .with_context(|| format!("fsync snapshot directory {}", path.display()))
 }
 
 #[cfg(test)]
@@ -2918,5 +2940,91 @@ mod tests {
         assert_eq!(backend.validations, 0);
         assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 0);
         assert!(journal.pending_sync.is_some());
+    }
+}
+
+/// Issue #482 regression guard.
+///
+/// The durable-snapshot path (`--no-graph`) fsyncs four directories per seal
+/// plus two per GC step. `File::open` applied to a *directory* is a Unix-only
+/// idiom: on Windows it returns `ERROR_ACCESS_DENIED` (os error 5) for every
+/// call, because `std` cannot pass `FILE_FLAG_BACKUP_SEMANTICS`. Each of
+/// those sites was therefore an unconditional abort of the whole run on that
+/// platform. The engine had already learned this once —
+/// `xerj_common::fsio::fsync_dir` carries the `#[cfg(windows)]` shim and the
+/// write-up — and this module re-derived the broken form anyway.
+///
+/// The fix is `#[cfg(windows)]`-shaped, so no behavioural test compiled for
+/// Unix can tell fixed code from unfixed. The behavioural coverage is the
+/// windows-latest `autoindex-fd-smoke` job, which since this change runs the
+/// reported `--no-graph` flow. This guard is what keeps the idiom from coming
+/// back on the platform the unit suite is never compiled for.
+#[cfg(test)]
+mod windows_directory_open_guard {
+    /// The body of the `fn` whose signature line starts with `header`,
+    /// brace-matched out of this file's own source at compile time.
+    fn function_body(source: &str, header: &str) -> String {
+        let start = source
+            .find(header)
+            .unwrap_or_else(|| panic!("signature moved: {header}"))
+            + header.len();
+        let mut depth = 1usize;
+        for (offset, ch) in source[start..].char_indices() {
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return source[start..start + offset].to_string();
+                    }
+                }
+                _ => {}
+            }
+        }
+        panic!("unbalanced braces after {header}");
+    }
+
+    /// Every directory this module makes durable, named by the binding the
+    /// code passes around. None of them may reach `File::open`.
+    const DIRECTORY_BINDINGS: [&str; 6] = [
+        "&root",
+        "&staging",
+        "&blobs",
+        "&prepared_dir",
+        "&final_dir",
+        "&snapshot_dir",
+    ];
+
+    #[test]
+    fn no_directory_is_opened_as_a_file() {
+        const SRC: &str = include_str!("sync_executor.rs");
+        for binding in DIRECTORY_BINDINGS {
+            // Assembled, never written out literally, so this test's own
+            // source can never satisfy the search it performs.
+            let forbidden = format!("File::open({binding})");
+            assert!(
+                !SRC.contains(&forbidden),
+                "#482: `{forbidden}` opens a directory as a file. That call returns \
+                 ERROR_ACCESS_DENIED (os error 5) on Windows every single time and \
+                 aborts the run. Use `sync_dir`, which routes through \
+                 `xerj_common::fsio::fsync_dir`."
+            );
+        }
+    }
+
+    #[test]
+    fn sync_dir_delegates_to_the_platform_aware_shim() {
+        const SRC: &str = include_str!("sync_executor.rs");
+        let body = function_body(SRC, "fn sync_dir(path: &Path) -> Result<()> {");
+        assert!(
+            body.contains("xerj_common::fsio::fsync_dir(path)"),
+            "#482: `sync_dir` must delegate to `xerj_common::fsio::fsync_dir`, whose \
+             Windows body is a documented no-op; body was:\n{body}"
+        );
+        assert!(
+            !body.contains("File::open"),
+            "#482: `sync_dir` re-derived the Unix-only `File::open(dir).sync_all()` \
+             idiom, which fails with os error 5 on every Windows call; body was:\n{body}"
+        );
     }
 }
