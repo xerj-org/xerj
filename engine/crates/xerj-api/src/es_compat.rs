@@ -4036,8 +4036,12 @@ fn format_sort_value(raw: &Value, format: Option<&str>) -> Value {
         return raw.clone();
     };
     // Numeric sort value → treat as epoch; need to decide ms vs ns by
-    // magnitude. Values above ~2 * 10^13 are nanoseconds (more than 600
-    // years past epoch in ms); everything else is milliseconds.
+    // magnitude. The split is 2 * 10^15: above it the number is read as
+    // nanoseconds, below it as milliseconds. That is right for every
+    // NANOSECOND instant from 1970-01-24 on (2e15 ns = 2e6 s = 23.1 days) and
+    // every MILLISECOND instant below 2e15 ms (~63,000 years past the epoch),
+    // so only a pre-1970-01-24 nanosecond instant reads as milliseconds.
+    // (The comment used to say ~2 * 10^13, which is not the constant below.)
     let n = match raw {
         Value::Number(n) => n.as_i64(),
         _ => return raw.clone(),

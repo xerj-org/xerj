@@ -266,6 +266,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     slash dates (`dd/MM/yyyy HH:mm:ss.SSS`), which previously had no nanosecond
     branch at all and would have re-introduced the mixed-scale split by a
     different route.
+  - **A NUMERIC date bound is epoch-MILLISECONDS and is converted at the
+    bound, not at the value.** That is ES's own rule — a `date_nanos` field's
+    default format is `strict_date_optional_time_nanos||epoch_millis`, so a
+    bare number is parsed as milliseconds and only then moved to the field's
+    resolution. Moving a `date_nanos` column to nanosecond keys therefore had
+    to move every numeric bound with it: the segment sort-shadow's bounds
+    (`shadow_range_bounds`, which serves both the range doc-values pre-filter
+    and the `_count` shortcut) took a numeric bound verbatim, six orders of
+    magnitude below the keys it bisects. Two shapes reach it — the #788
+    `term`-on-a-date rewrite, which lowers a `term` to the degenerate
+    `range [epoch_ms, epoch_ms]`, and a user-written numeric bound — so on a
+    flushed `date_nanos` index a `term` and a numeric range both matched
+    nothing while the same query answered correctly from the memtable. Bound
+    and key are now on one scale in both directions, and the flush-invariance
+    of both shapes is pinned by a test that asserts pre- AND post-flush.
+  - **One format ladder for both scales.** `date_string_to_epoch` had a
+    separate nanosecond branch that stopped after RFC3339 and
+    `%Y-%m-%dT%H:%M:%S%.f`; the `%Y-%m-%d` date-only fallback existed only in
+    the millisecond branch. A DATE-ONLY value ("2021-01-01") in a `date_nanos`
+    field therefore normalised to nothing at all and was emitted as a raw
+    JSON STRING among i64 epoch keys, where the sort comparator's string arm
+    puts `"` below every digit and the document sorted FIRST ascending
+    whatever its instant — and the segment's sort/range shadow refused to
+    build on that term. Because `numeric_type` forces the nanosecond scale on
+    every participating index, an ordinary `date` field holding a date-only
+    value hit the same hole under a cross-index sort. The ladder is now walked
+    once and the accepted instant rendered on the requested scale at the end,
+    so a format either parses on both scales or on neither. The `search_after`
+    cursor normaliser, which carried a hand-copied second copy of the same
+    ladder whose fallbacks returned milliseconds even on a nanosecond field,
+    now calls the one function.
   - **Legacy indices are back-filled at open.** `date_precision` is recorded
     when a field is mapped, so an index created by an older build comes back
     with no precision at all and every date field falls back to the per-value
@@ -283,14 +314,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     the raw blob was present). The GET → PUT round trip every reindex helper
     performs no longer silently downgrades the field.
 
-  **Not fixed, stated plainly:** an index whose `schema.json` predates the flag
-  AND which has no `es_mapping.json` (an index that never went through the
-  ES-compat mapping path) still has no record of `date` vs `date_nanos`, so its
-  date fields keep the legacy per-value guess. Inventing a default there is the
-  silent downgrade this change exists to avoid. Sort-value FORMATTING still
-  infers milliseconds vs nanoseconds from the magnitude of the epoch number
-  rather than from the resolved scale; that is unchanged by this work and is
-  correct for any instant between 1970-01-24 and the year 65378.
+  **Not fixed, stated plainly:**
+
+  - An index whose `schema.json` predates the flag AND which has no
+    `es_mapping.json` (an index that never went through the ES-compat mapping
+    path) still has no record of `date` vs `date_nanos`, so its date fields
+    keep the legacy per-value guess. Inventing a default there is the silent
+    downgrade this change exists to avoid.
+  - The back-fill reads `{"properties": …}` and `{"mappings": {"properties":
+    …}}`, which is what the mapping API persists. An ES-6-style type wrapper
+    (`{"_doc": {"properties": …}}`) is skipped, and that field then keeps the
+    legacy per-value guess — the same safe fallback, not a new failure mode.
+  - Only STRING-shaped date values move onto the field's scale. A numeric
+    source value (`{"ts": 1591423566123}`) in a `date_nanos` field stays a raw
+    millisecond number in its doc-values column; ES would convert it. A
+    segment holding both shapes ships no column at all and falls to the
+    correct full scan, but two segments that each hold one shape still mix
+    scales in a sort.
+  - `numeric_type` values other than `date`/`date_nanos`/`long`/`double` are
+    lower-cased and then ignored where ES answers 400, and `numeric_type` on a
+    non-numeric field is accepted where ES rejects it.
+  - Sort-value FORMATTING still infers milliseconds vs nanoseconds from the
+    magnitude of the epoch number rather than from the resolved scale
+    (`format_sort_value`, threshold `2 * 10^15`). Unchanged by this work: it
+    reads correctly for every nanosecond instant from 1970-01-24 on
+    (2e15 ns = 2e6 s = 23.1 days) and every millisecond instant below 2e15 ms
+    (~63,000 years past the epoch).
 
 - **`xerj autoindex --no-graph` no longer aborts with `Access denied
   (os error 5)` on Windows**

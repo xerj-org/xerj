@@ -2099,6 +2099,242 @@ mod flush_publication_recovery_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_nanos_term_and_epoch_millis_bound_survive_flush() {
+        // #889 regression. Pinning `date_nanos` to `DateScale::Nanos` moved the
+        // segment sort-shadow's keys to epoch-NANOSECONDS, but the bound
+        // derivation that feeds the shadow (`shadow_range_bounds`, used by the
+        // range dv pre-filter and by the `try_shortcut_count` Range arm) still
+        // took a NUMERIC bound verbatim as epoch-milliseconds. Six orders of
+        // magnitude apart, the bisect matched nothing, so the pre-filter came
+        // back `Some(empty)` — which the scan loop treats as PROOF that no doc
+        // in the segment can contribute a hit or a count — and the segment was
+        // skipped whole.
+        //
+        // Two shapes reach that code with a numeric bound:
+        //   * the #788 `term`-on-a-date rewrite, which turns a `term` into the
+        //     degenerate `range [epoch_ms, epoch_ms]` from `parse_date_ms`, and
+        //   * a user-supplied numeric bound, which ES reads as epoch-MILLIS on
+        //     a `date_nanos` field too (its default format is
+        //     `strict_date_optional_time_nanos||epoch_millis`) — so the
+        //     conversion belongs at the BOUND, not at the value.
+        //
+        // Both answered correctly PRE-flush (the memtable compares ms-to-ms via
+        // `parse_date_ms` on both sides) and returned 0 hits POST-flush, which
+        // is the flush-invariance break this pins shut.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let idx = date_index(
+            &engine,
+            "date-ns-term",
+            Some(xerj_common::types::DatePrecision::Nanos),
+            &[
+                ("sub", "2020-06-06T06:06:06.123456Z"),
+                ("late", "2025-01-01T00:00:00Z"),
+            ],
+        )
+        .await;
+        let run = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 10, "track_total_hits": true
+            }))
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        let count0 = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(&json!({
+                "query": body, "size": 0, "track_total_hits": true
+            }))
+            .unwrap();
+            idx.search(&req).await.unwrap().total.value
+        };
+        // `late` is 1735689600000 ms = 1735689600000000000 ns;
+        // `sub`  is 1591423566123 ms = 1591423566123456000 ns.
+        let cases: Vec<(serde_json::Value, u64, Vec<&str>)> = vec![
+            // The #788 term rewrite, on the whole-second value the old
+            // per-value guess used to key in milliseconds.
+            (
+                json!({"term": {"ts": "2025-01-01T00:00:00Z"}}),
+                1,
+                vec!["late"],
+            ),
+            // The same instant spelled as a bare date and as epoch-millis.
+            (json!({"term": {"ts": "2025-01-01"}}), 1, vec!["late"]),
+            (json!({"term": {"ts": 1735689600000i64}}), 1, vec!["late"]),
+            // A user-supplied numeric bound is epoch-MILLIS on `date_nanos`.
+            (
+                json!({"range": {"ts": {"gte": 1735689600000i64}}}),
+                1,
+                vec!["late"],
+            ),
+            // …and it must still DISCRIMINATE, not merely match everything:
+            // this window opens 456µs before `sub` and closes on `late`.
+            (
+                json!({"range": {"ts": {"gte": 1591423566123i64, "lte": 1735689600000i64}}}),
+                2,
+                vec!["late", "sub"],
+            ),
+            // A window that closes before `late` excludes it.
+            (
+                json!({"range": {"ts": {"lt": 1735689600000i64}}}),
+                1,
+                vec!["sub"],
+            ),
+            // The equivalent STRING bound already agreed with the shadow;
+            // pinned here so the numeric fix cannot drift away from it.
+            (
+                json!({"range": {"ts": {"gte": "2025-01-01T00:00:00Z"}}}),
+                1,
+                vec!["late"],
+            ),
+        ];
+        for phase in ["pre-flush", "post-flush"] {
+            for (body, total, ids) in &cases {
+                let want = (
+                    *total,
+                    ids.iter().map(|s| (*s).to_string()).collect::<Vec<_>>(),
+                );
+                assert_eq!(
+                    run(idx.clone(), body.clone()).await,
+                    want,
+                    "#889 {phase}: {body} on a date_nanos field"
+                );
+                assert_eq!(
+                    count0(idx.clone(), body.clone()).await,
+                    *total,
+                    "#889 {phase}: {body} size:0 count must agree with the hit scan"
+                );
+            }
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+                assert!(!idx.store.snapshot().segments.is_empty());
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_only_value_on_the_nanosecond_scale_is_still_an_epoch() {
+        // #889 regression. `date_string_to_epoch`'s nanosecond branch tried
+        // only RFC3339 and `%Y-%m-%dT%H:%M:%S%.f`; the `%Y-%m-%d` NaiveDate
+        // fallback existed solely in the millisecond branch. `looks_like_date`
+        // accepts "2021-01-01", so a date-only value in a `date_nanos` field
+        // routed into the nanosecond branch and came back `None` — and
+        // `compute_sort_values` does `.unwrap_or(raw)`, so the hit's `sort`
+        // value became the JSON STRING "2021-01-01" sitting among i64 epochs.
+        // `compare_values` then falls to its string arm, where '"' (0x22) sorts
+        // below every digit, so the doc came FIRST ascending whatever its
+        // instant. `build_sort_shadow` also `?`s out on that term, silently
+        // disabling the segment prefilter for the whole field.
+        //
+        // Both scales now share ONE ladder of accepted formats, so a format
+        // either parses on both or on neither.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let idx = date_index(
+            &engine,
+            "date-ns-dateonly",
+            Some(xerj_common::types::DatePrecision::Nanos),
+            &[
+                ("day", "2021-01-01"),
+                ("sub", "2020-06-06T06:06:06.123456Z"),
+            ],
+        )
+        .await;
+        let sort_values = |idx: std::sync::Arc<crate::Index>, nt: Option<&'static str>| async move {
+            let sort = match nt {
+                Some(t) => json!([{"ts": {"order": "asc", "numeric_type": t}}]),
+                None => json!([{"ts": "asc"}]),
+            };
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": sort}),
+            )
+            .unwrap();
+            idx.search(&req)
+                .await
+                .unwrap()
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.sort.clone()))
+                .collect::<Vec<_>>()
+        };
+        let range_ids = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": body, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_values(idx.clone(), None).await,
+                vec![
+                    ("sub".to_string(), vec![json!(1591423566123456000i64)]),
+                    ("day".to_string(), vec![json!(1609459200000000000i64)]),
+                ],
+                "#889 {phase}: a date-only value in a date_nanos field is an \
+                 epoch-nanosecond number, not the raw string"
+            );
+            // The instant, not the lexicographic accident: 2021 is LATER.
+            assert_eq!(
+                sort_ids(&idx, "asc").await,
+                vec!["sub".to_string(), "day".to_string()],
+                "#889 {phase}: asc must order by instant"
+            );
+            assert_eq!(
+                range_ids(idx.clone(), json!({"range": {"ts": {"gte": "2021-01-01"}}})).await,
+                (1u64, vec!["day".to_string()]),
+                "#889 {phase}: gte 2021-01-01 keeps only day"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+
+        // The same hole on this change's own headline feature: `numeric_type`
+        // forces `DateScale::Nanos` on EVERY participating index, so an
+        // ordinary `date` field holding a date-only value went down the very
+        // same branch and returned a raw string under a cross-index sort.
+        let ms = date_index(
+            &engine,
+            "date-ms-dateonly",
+            Some(xerj_common::types::DatePrecision::Millis),
+            &[
+                ("day", "2021-01-01"),
+                ("sub", "2020-06-06T06:06:06.123456Z"),
+            ],
+        )
+        .await;
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_values(ms.clone(), Some("date_nanos")).await,
+                vec![
+                    ("sub".to_string(), vec![json!(1591423566123456000i64)]),
+                    ("day".to_string(), vec![json!(1609459200000000000i64)]),
+                ],
+                "#889 {phase}: numeric_type date_nanos re-scales a date-only \
+                 value on a `date` field instead of emitting the raw string"
+            );
+            if phase == "pre-flush" {
+                ms.flush().await.unwrap();
+                assert_eq!(ms.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn flush_increments_the_bytes_written_metric() {
         // #804: `xerj_bytes_written_total` was registered but nothing ever
         // incremented it, so it stayed 0 regardless of write volume. The
@@ -43049,16 +43285,52 @@ fn build_sort_shadow(
     }
 }
 
+/// A NUMERIC range bound on a date field is epoch-MILLISECONDS — on a
+/// `date_nanos` field too — put onto the shadow's own scale (#889).
+///
+/// This is the ES rule, not a xerj convention: a `date_nanos` field's default
+/// format is `strict_date_optional_time_nanos||epoch_millis`, so a bare number
+/// is parsed by `epoch_millis` and only THEN converted to the field's
+/// resolution. Every numeric bound that reaches this code is already in
+/// milliseconds — `parse_date_ms` produced it for the #788 `term`-on-a-date
+/// rewrite, or the user wrote it — while a `Nanos` shadow's keys are
+/// nanoseconds, six orders of magnitude away. Left verbatim, the bisect matched
+/// nothing, the prefilter came back `Some(∅)`, and the scan loop took that as
+/// proof the segment holds no match and skipped it whole: a `term` on a
+/// `date_nanos` field matched pre-flush and vanished post-flush.
+///
+/// `Millis` and `PerValue` keep the bound exactly as it was — a raw epoch-ms
+/// against an epoch-ms column — so nothing outside `date_nanos` moves.
+///
+/// The multiply is done in `i64` when the bound is a whole millisecond count so
+/// it is EXACT: `f64` cannot represent every nanosecond epoch, and the shadow's
+/// own key for that instant is `i64 as f64`. Both sides then round the same
+/// real number the same way, and the bisect stays exact.
+#[inline]
+fn epoch_ms_bound_on_scale(ms: f64, scale: DateScale) -> f64 {
+    if scale != DateScale::Nanos {
+        return ms;
+    }
+    if ms.fract() == 0.0 && ms.abs() < 9.0e15 {
+        if let Some(ns) = (ms as i64).checked_mul(1_000_000) {
+            return ns as f64;
+        }
+    }
+    ms * 1e6
+}
+
 /// Re-derive a `Range` query's `[lo,hi]` bounds on the sort-shadow's epoch
-/// scale for the date-shaped-Keyword fallback in `build_range_prefilter_cached`.
+/// scale for the date-shaped-Keyword fallback in `build_range_prefilter_cached`
+/// and the `try_shortcut_count` Range arm.
 ///
 /// The shadow's per-doc key is `sort_date_normalize(value).as_f64()`, so a
 /// string bound is normalised with the SAME `sort_date_normalize` function —
 /// bound and key are then byte-identical functions of their date string, and
-/// the bisect is exact for any consistent-precision date field. A numeric bound
-/// is taken verbatim (a raw epoch against an epoch column). Returns `None` for a
-/// bound shape neither date-parseable nor numeric → caller bails to the full
-/// scan (still correct).
+/// the bisect is exact for any consistent-precision date field. A NUMERIC bound
+/// (or a numeric-looking string) is epoch-milliseconds by ES's rules and is
+/// converted onto the shadow's scale by `epoch_ms_bound_on_scale`, which is a
+/// no-op off `Nanos`. Returns `None` for a bound shape neither date-parseable
+/// nor numeric → caller bails to the full scan (still correct).
 fn shadow_range_bounds(
     gte: Option<&Value>,
     gt: Option<&Value>,
@@ -43069,12 +43341,13 @@ fn shadow_range_bounds(
     let key = |v: Option<&Value>| -> Option<Option<f64>> {
         match v {
             None => Some(None),
-            Some(Value::Number(n)) => Some(n.as_f64()),
+            Some(Value::Number(n)) => Some(n.as_f64().map(|ms| epoch_ms_bound_on_scale(ms, scale))),
             Some(Value::String(s)) => {
                 if let Some(f) = sort_date_normalize(s, scale).and_then(|x| x.as_f64()) {
+                    // Already produced ON the shadow's scale — never rescale.
                     Some(Some(f))
                 } else if let Ok(f) = s.parse::<f64>() {
-                    Some(Some(f))
+                    Some(Some(epoch_ms_bound_on_scale(f, scale)))
                 } else {
                     None // unparseable bound → bail to brute
                 }
@@ -43515,47 +43788,15 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>, scale: DateSc
                 return Value::Number(serde_json::Number::from(epoch));
             }
         }
-        let bytes = s.as_bytes();
-        let looks_date = bytes.len() >= 5
-            && bytes[0].is_ascii_digit()
-            && bytes[1].is_ascii_digit()
-            && bytes[2].is_ascii_digit()
-            && bytes[3].is_ascii_digit()
-            && bytes[4] == b'-';
-        if looks_date {
-            let is_nanos = scale.is_nanos(s);
-            let s_utc = s.replace(' ', "T");
-            let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
-                s_utc
-            } else {
-                format!("{}Z", s_utc)
-            };
-            if is_nanos {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                    let secs = dt.timestamp();
-                    let nanos = dt.timestamp_subsec_nanos() as i64;
-                    if let Some(ns) = secs
-                        .checked_mul(1_000_000_000)
-                        .and_then(|x| x.checked_add(nanos))
-                    {
-                        return Value::Number(serde_json::Number::from(ns));
-                    }
-                }
-            }
-            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                return Value::Number(serde_json::Number::from(dt.timestamp_millis()));
-            }
-            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
-                s_utc.trim_end_matches('Z'),
-                "%Y-%m-%dT%H:%M:%S%.f",
-            ) {
-                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
-            }
-            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
-                s_utc.trim_end_matches('Z'),
-                "%Y-%m-%dT%H:%M:%S",
-            ) {
-                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
+        // A date-shaped cursor resolves through the SAME ladder
+        // `compute_sort_values` used to produce the keys it is compared
+        // against — `date_string_to_epoch`, on the sort's scale. It used to be
+        // a hand-copied second ladder here whose two `NaiveDateTime` fallbacks
+        // returned `timestamp_millis()` even at `Nanos` (#889); one function
+        // means the cursor and the keys cannot drift apart again.
+        if looks_like_date(s) {
+            if let Some(epoch) = date_string_to_epoch(s, scale) {
+                return epoch;
             }
         }
     }
@@ -43749,6 +43990,38 @@ fn slash_date_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
     }
     None
 }
+/// One already-parsed instant, rendered on `scale`'s units.
+///
+/// `secs` + `subsec_nanos` is chrono's own decomposition (`timestamp()` is the
+/// FLOOR second and `timestamp_subsec_nanos()` is always non-negative), so
+/// `secs * 1_000 + subsec_nanos / 1_000_000` reproduces `timestamp_millis()`
+/// exactly, negatives included, and `secs * 1_000_000_000 + subsec_nanos`
+/// reproduces `timestamp_nanos_opt()` — but over chrono's full range rather
+/// than only 1677..2262, which is why the multiplication is spelled out here.
+#[inline]
+fn epoch_value_on_scale(secs: i64, subsec_nanos: u32, is_nanos: bool) -> Option<Value> {
+    let n = if is_nanos {
+        secs.checked_mul(1_000_000_000)?
+            .checked_add(subsec_nanos as i64)?
+    } else {
+        secs.checked_mul(1_000)?
+            .checked_add((subsec_nanos / 1_000_000) as i64)?
+    };
+    Some(Value::Number(serde_json::Number::from(n)))
+}
+
+/// A date-shaped string as an epoch number on the FIELD's scale (#790/#889).
+///
+/// The format ladder is walked ONCE and the accepted instant is rendered on
+/// the requested scale at the end — the two scales cannot accept different
+/// sets of strings. They used to: the nanosecond branch was a separate ladder
+/// that stopped after RFC3339 and `%Y-%m-%dT%H:%M:%S%.f`, so a DATE-ONLY value
+/// ("2021-01-01") in a `date_nanos` field — or in any field a `numeric_type`
+/// sort re-scales to nanoseconds — fell out as `None`. `compute_sort_values`
+/// then kept the raw string, which `compare_values` orders lexicographically
+/// (`'"'` below every digit, so the doc sorted FIRST ascending whatever its
+/// instant), and `build_sort_shadow` refused the whole segment's prefilter on
+/// the same term (#889).
 fn date_string_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
     let is_nanos = scale.is_nanos(s);
     let s_utc = s.replace(' ', "T");
@@ -43757,47 +44030,21 @@ fn date_string_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
     } else {
         format!("{}Z", s_utc)
     };
-    if is_nanos {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-            let secs = dt.timestamp();
-            let nanos = dt.timestamp_subsec_nanos() as i64;
-            let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(nanos)?;
-            return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-        }
-        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
-            s_utc.trim_end_matches('Z'),
-            "%Y-%m-%dT%H:%M:%S%.f",
-        ) {
-            let subsec_nanos = dt.and_utc().timestamp_subsec_nanos() as i64;
-            let secs = dt.and_utc().timestamp();
-            let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(subsec_nanos)?;
-            return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-        }
-        return None;
-    }
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-        return Some(Value::Number(serde_json::Number::from(
-            dt.timestamp_millis(),
-        )));
+        return epoch_value_on_scale(dt.timestamp(), dt.timestamp_subsec_nanos(), is_nanos);
     }
-    if let Ok(dt) =
-        chrono::NaiveDateTime::parse_from_str(s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S%.f")
-    {
-        return Some(Value::Number(serde_json::Number::from(
-            dt.and_utc().timestamp_millis(),
-        )));
+    let naive = s_utc.trim_end_matches('Z');
+    for pat in ["%Y-%m-%dT%H:%M:%S%.f", "%Y-%m-%dT%H:%M:%S"] {
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(naive, pat) {
+            let dt = dt.and_utc();
+            return epoch_value_on_scale(dt.timestamp(), dt.timestamp_subsec_nanos(), is_nanos);
+        }
     }
-    if let Ok(dt) =
-        chrono::NaiveDateTime::parse_from_str(s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S")
-    {
-        return Some(Value::Number(serde_json::Number::from(
-            dt.and_utc().timestamp_millis(),
-        )));
-    }
-    if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        return Some(Value::Number(serde_json::Number::from(
-            dt.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis(),
-        )));
+    // Date-only. Parsed off the ORIGINAL `s`: `s_utc` has a `Z` appended that
+    // `%Y-%m-%d` would reject as trailing input.
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        let dt = d.and_hms_opt(0, 0, 0)?.and_utc();
+        return epoch_value_on_scale(dt.timestamp(), dt.timestamp_subsec_nanos(), is_nanos);
     }
     None
 }
