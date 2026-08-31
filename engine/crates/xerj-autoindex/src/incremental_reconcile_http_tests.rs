@@ -999,12 +999,16 @@ fn initial_generation_and_noop_are_end_to_end_idempotent() {
 /// Incremental re-index must NOT re-run the Phase-A scan/parse for files whose
 /// content is byte-identical to the committed generation — that is the ~100x
 /// win for the edit-and-rerun / CI workflow, since the tree-sitter parse
-/// dominates per-file cost. Proven directly with the `SCAN_FILE_PARSED` counter
+/// dominates per-file cost. Proven directly with the run's own `ScanTally`
 /// (0 on an unchanged re-run, exactly the changed count when one file changes),
 /// and the committed index stays byte-identical.
+///
+/// #891: each measurement uses a tally created for THAT run. The counter used
+/// to be a process-global `static`, which meant this test read whatever every
+/// other test in the binary happened to parse in the same window — see
+/// `another_runs_parses_never_land_in_this_runs_tally` below.
 #[test]
 fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
-    use std::sync::atomic::Ordering;
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
         .lock()
@@ -1022,15 +1026,21 @@ fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
     let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
 
     // Genesis: everything is parsed.
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let genesis = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &genesis).unwrap(), 0);
+    assert_eq!(
+        genesis.files_parsed(),
+        2,
+        "genesis has no committed generation to skip against: both files are parsed"
+    );
     let first_docs = endpoint.data_docs();
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
 
     // Re-index with NOTHING changed → zero files parsed, index byte-identical.
-    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let unchanged = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &unchanged).unwrap(), 0);
     assert_eq!(
-        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        unchanged.files_parsed(),
         0,
         "unchanged re-index must parse zero files"
     );
@@ -1048,12 +1058,108 @@ fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
         "def add(a, b):\n    return a + b + 1\n",
     )
     .unwrap();
-    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let one_changed = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &one_changed).unwrap(), 0);
     assert_eq!(
-        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        one_changed.files_parsed(),
         1,
         "only the one changed file must be parsed; the unchanged file stays skipped"
+    );
+}
+
+/// #891: a parse measurement must describe the run that made it, and nothing
+/// else the process is doing.
+///
+/// The counter above used to be one process-global `static`. `cargo test` runs
+/// this lib test binary multi-threaded, the measuring test only holds
+/// `HTTP_E2E_LOCK`, and every other test that parses files — those under
+/// `FAILPOINT_TEST_LOCK`, `generation_catalog_http_tests`, plain unit tests —
+/// added to the same number. Both assertions above could therefore read a total
+/// that was not theirs: 2 of 6 and then 1 of 6 local suite runs on the branch
+/// that found it (#886) went red here with no code change between them. It is a
+/// scheduling race, so plain `main` can also sit clean for twenty consecutive
+/// runs — which is exactly why the proof below does not rely on luck.
+///
+/// This reproduces that interference deterministically instead of waiting for
+/// the scheduler to reproduce it: a SECOND, unrelated corpus is indexed inside
+/// the first run's measurement window — after its run finishes, before its
+/// number is read. That is the event the flake needed, sequenced rather than
+/// raced; a genuinely concurrent second run would trade this flake for a new
+/// one, since these fixtures are serialised by `HTTP_E2E_LOCK` for reasons of
+/// their own. Against the old global counter the unchanged re-index reads the
+/// interfering run's 2 parses instead of its own 0; against a per-run tally
+/// each run reads only its own work.
+#[test]
+fn another_runs_parses_never_land_in_this_runs_tally() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+
+    // The measured corpus, indexed once so that its re-index has something to
+    // skip.
+    let measured_corpus = tempfile::tempdir().unwrap();
+    let measured_state = tempfile::tempdir().unwrap();
+    fs::write(
+        measured_corpus.path().join("main.py"),
+        "def add(a, b):\n    return a + b\n",
+    )
+    .unwrap();
+    fs::write(
+        measured_corpus.path().join("a.csv"),
+        "id,value\n1,alpha\n2,beta\n",
+    )
+    .unwrap();
+    let measured_endpoint = HttpEndpoint::start();
+    let measured_config = cfg(
+        measured_corpus.path(),
+        measured_state.path(),
+        &measured_endpoint.url,
+        false,
+    );
+    assert_eq!(
+        run_index_tallied(measured_config.clone(), &crate::ScanTally::default()).unwrap(),
+        0
+    );
+
+    // An unrelated corpus, standing in for whatever else the test binary is
+    // running. Its own genesis parses two files.
+    let other_corpus = tempfile::tempdir().unwrap();
+    let other_state = tempfile::tempdir().unwrap();
+    fs::write(
+        other_corpus.path().join("other.py"),
+        "def mul(a, b):\n    return a * b\n",
+    )
+    .unwrap();
+    fs::write(
+        other_corpus.path().join("other.csv"),
+        "id,value\n7,gamma\n8,delta\n",
+    )
+    .unwrap();
+    let other_endpoint = HttpEndpoint::start();
+    let other_config = cfg(
+        other_corpus.path(),
+        other_state.path(),
+        &other_endpoint.url,
+        false,
+    );
+
+    // The measurement window: measure, let the other run happen, then read.
+    let measured = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(measured_config, &measured).unwrap(), 0);
+    let other = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(other_config, &other).unwrap(), 0);
+
+    assert_eq!(
+        other.files_parsed(),
+        2,
+        "the interfering run really did parse files — otherwise this proves nothing"
+    );
+    assert_eq!(
+        measured.files_parsed(),
+        0,
+        "an unchanged re-index parses nothing; another run's parses must not be \
+         added to this run's tally (#891)"
     );
 }
 

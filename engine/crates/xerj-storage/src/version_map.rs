@@ -244,7 +244,11 @@ impl VersionMap {
     /// Create an empty version map.
     pub fn new() -> Self {
         Self {
-            inner: DashMap::new(),
+            // #873 — one of these exists per open index, and dashmap's default
+            // shard array is sized from the host core count (128 shards ×
+            // 128 B on a 32-core box, resident from construction). Cap it: the
+            // concurrency this map sees is the write concurrency on ONE index.
+            inner: DashMap::with_shard_amount(xerj_common::resource::per_index_map_shards()),
             live: AtomicI64::new(0),
             ghost_events: std::sync::atomic::AtomicU64::new(0),
         }

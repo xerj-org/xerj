@@ -1049,14 +1049,46 @@ pub struct AnalyzerRegistry {
     analyzers: std::collections::HashMap<String, Arc<AnalyzerPipeline>>,
 }
 
-impl AnalyzerRegistry {
-    /// Creates a registry pre-populated with all built-in analyzers.
-    pub fn with_defaults() -> Self {
-        let mut registry = Self {
-            analyzers: std::collections::HashMap::new(),
+/// The built-in analyzer pipelines, constructed once for the whole process
+/// (#873).
+///
+/// Every open index owns an `AnalyzerRegistry`, and building the built-ins per
+/// registry meant every index got its own copy of the English stop-word set,
+/// the Snowball stemmers, the e-commerce synonym table and the rest —
+/// **92.7 KB of heap per registry, measured** (500 registries, RSS delta,
+/// x86-64 release), duplicated across every index on the node for data that is
+/// immutable and identical in all of them. That was the second-largest term in
+/// the #873 idle-RSS floor after the per-index concurrent maps.
+///
+/// The pipelines are pure immutable trait objects behind `Arc`s (no interior
+/// mutability anywhere in this module), and `register` replaces a *map entry*
+/// rather than mutating a pipeline, so sharing them across registries is
+/// invisible: a registry that overrides `standard` from its index settings
+/// still gets its own entry, and no other index sees it.
+fn builtin_analyzers() -> &'static HashMap<String, Arc<AnalyzerPipeline>> {
+    static BUILTINS: std::sync::OnceLock<HashMap<String, Arc<AnalyzerPipeline>>> =
+        std::sync::OnceLock::new();
+    BUILTINS.get_or_init(|| {
+        let mut registry = AnalyzerRegistry {
+            analyzers: HashMap::new(),
         };
         registry.register_defaults();
-        registry
+        registry.analyzers
+    })
+}
+
+impl AnalyzerRegistry {
+    /// Creates a registry pre-populated with all built-in analyzers.
+    ///
+    /// The built-ins themselves are process-wide (see [`builtin_analyzers`]);
+    /// what this allocates per registry is the name → `Arc` table, so a
+    /// registry that adds nothing costs a few hundred bytes rather than the
+    /// ~92 KB of stop-word sets, stemmers and synonym tables it used to
+    /// rebuild (#873).
+    pub fn with_defaults() -> Self {
+        Self {
+            analyzers: builtin_analyzers().clone(),
+        }
     }
 
     fn register_defaults(&mut self) {
@@ -2525,6 +2557,63 @@ const ENGLISH_STOP_WORDS: &[&str] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #873 - two registries must SHARE their built-in pipelines rather than
+    /// each build its own copy of the stop-word sets, stemmers and synonym
+    /// tables. One registry is built per open index, and rebuilding the
+    /// built-ins per registry measured 92.7 KB of heap each.
+    ///
+    /// Pointer identity is the property, not a byte count: it is what makes
+    /// the cost O(1) in the number of indices instead of O(n). The negative
+    /// arm matters just as much - an index that overrides a built-in from its
+    /// own settings must get its own pipeline and must not disturb anyone
+    /// else's.
+    #[test]
+    fn built_in_analyzers_are_shared_between_registries_not_rebuilt() {
+        let a = AnalyzerRegistry::with_defaults();
+        let b = AnalyzerRegistry::with_defaults();
+        assert!(
+            !a.analyzers.is_empty(),
+            "fixture: the registry must have built-ins to share"
+        );
+        for (name, pipeline) in &a.analyzers {
+            let other = b
+                .get_analyzer(name)
+                .unwrap_or_else(|| panic!("{name} missing from the second registry"));
+            assert!(
+                Arc::ptr_eq(pipeline, &other),
+                "built-in analyzer `{name}` was rebuilt instead of shared"
+            );
+        }
+
+        // Overriding one is local to the registry that did it.
+        let mut c = AnalyzerRegistry::with_defaults();
+        c.register(
+            "standard",
+            AnalyzerPipeline::new(vec![], Arc::new(WhitespaceTokenizer), vec![]),
+        );
+        assert!(
+            !Arc::ptr_eq(
+                &c.get_analyzer("standard").unwrap(),
+                &a.get_analyzer("standard").unwrap()
+            ),
+            "an override must replace this registry's entry"
+        );
+        assert!(
+            Arc::ptr_eq(
+                &a.get_analyzer("standard").unwrap(),
+                &b.get_analyzer("standard").unwrap()
+            ),
+            "and must not disturb any other registry"
+        );
+        // The shared built-in still analyzes exactly as it did.
+        assert_eq!(
+            a.get_analyzer("standard")
+                .unwrap()
+                .analyze_to_terms("Hello, World!"),
+            vec!["hello".to_string(), "world".to_string()]
+        );
+    }
 
     #[test]
     fn standard_tokenizer_splits_unicode_words() {

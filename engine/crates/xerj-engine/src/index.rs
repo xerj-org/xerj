@@ -3515,6 +3515,72 @@ mod merge_publication_transaction_tests {
         hand_driven_index_with_config(config(dir), name, schema)
     }
 
+    /// #873: an index that is not being written to holds NO WAL file
+    /// descriptors and no WAL write buffers, whatever its ingest-shard count.
+    ///
+    /// The two states that matter are the ones a quiet node is actually in:
+    /// freshly opened, and freshly flushed. Both are covered here, either side
+    /// of a write that proves the descriptors do appear when they are needed.
+    /// Pre-fix every shard opened a file and a 64 KiB buffer at
+    /// `IndexStore::open` and kept both for the process lifetime — 8 of them
+    /// on a 16-core laptop, 16 here, multiplied by every open index, which is
+    /// what made a few hundred idle autoindex datasets expensive.
+    #[tokio::test]
+    async fn an_index_that_is_not_being_written_to_holds_no_wal_descriptors() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = config(&dir);
+        // Pin well above 1: the default is a fraction of the host core count,
+        // so on a 1- or 2-core runner this test would assert nothing.
+        cfg.engine.ingest_shards = 8;
+        let (_engine, index) = hand_driven_index_with_config(cfg, "idle-wal", Schema::empty());
+        assert_eq!(
+            index.store.wal_shard_count(),
+            8,
+            "fixture must actually open 8 shards"
+        );
+        assert_eq!(
+            index.store.materialized_wal_shards(),
+            0,
+            "a freshly opened index must hold no WAL descriptors"
+        );
+
+        // Enough documents to spread across shards (routing is
+        // `xxh3(doc_id) & (shards - 1)`), so this is not a one-shard result.
+        for i in 0..64 {
+            index
+                .index_document(Some(format!("d{i}")), serde_json::json!({"m": i}))
+                .await
+                .unwrap();
+        }
+        assert!(
+            index.store.materialized_wal_shards() > 1,
+            "writes must materialize the shards they route to (got {})",
+            index.store.materialized_wal_shards()
+        );
+
+        // The flush path (`force_wal_maintenance` → `force_rotate` per shard)
+        // freezes every written generation and leaves an empty one active.
+        index.flush().await.unwrap();
+        assert_eq!(
+            index.store.materialized_wal_shards(),
+            0,
+            "a flushed index must hand every WAL descriptor and buffer back"
+        );
+
+        // And the data is still there, through the memtable drain and the
+        // released descriptors.
+        let hits = index
+            .search(
+                &xerj_query::parse_request(&serde_json::json!({
+                    "query": {"match_all": {}}, "size": 0
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hits.total.value, 64);
+    }
+
     /// #873: a non-empty memtable BELOW the size thresholds flushes once its
     /// contents have sat unchanged for `flush_idle_secs`. Idleness is
     /// crossed via the test rewind hook, never a sleep. Also proves the two
@@ -5447,8 +5513,8 @@ mod semantic_deadline_regression_tests {
             "request waited for detached cold load instead of its deadline"
         );
 
-        // `spawn_blocking` is deliberately not aborted: the immutable load
-        // completes and warms the cache for a later request.
+        // The detached decode is deliberately not cancelled: the immutable
+        // load completes and warms the cache for a later request.
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
             while idx.stored_value_cache.is_empty() {
                 tokio::task::yield_now().await;
@@ -7994,35 +8060,35 @@ impl Index {
             embedding_config: config.embedding.clone(),
             max_fields_per_index: config.limits.max_fields_per_index,
             embedder: Arc::new(RwLock::new(effective_embedder)),
-            dv_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            dv_cache: Arc::new(per_index_map()),
+            sort_shadow_cache: Arc::new(per_index_map()),
+            sort_shadow_fields: Arc::new(per_index_map()),
             millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
                 millis_date_fields_snapshot,
             ))),
-            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
-            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
-            id_pos_cache: Arc::new(dashmap::DashMap::new()),
-            row_seq_cache: Arc::new(dashmap::DashMap::new()),
-            stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(per_index_map()),
+            range_prefilter_cache: Arc::new(per_index_map()),
+            id_pos_cache: Arc::new(per_index_map()),
+            row_seq_cache: Arc::new(per_index_map()),
+            stored_value_cache: Arc::new(per_index_map()),
             segment_cache_lifecycle: Arc::new(parking_lot::RwLock::new(())),
             segment_hydration_budget,
-            stored_value_loads: Arc::new(dashmap::DashMap::new()),
+            stored_value_loads: Arc::new(per_index_map()),
             stored_value_load_semaphore: Arc::new(Semaphore::new(4)),
-            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
-            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
-            fts_reader_cache: Arc::new(dashmap::DashMap::new()),
-            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
-            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
-            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
-            query_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(per_index_map()),
+            decoded_stored_cache: Arc::new(per_index_map()),
+            fts_reader_cache: Arc::new(per_index_map()),
+            shortcut_count_cache: Arc::new(per_index_map()),
+            ghost_positions_cache: Arc::new(per_index_map()),
+            regexp_expand_cache: Arc::new(per_index_map()),
+            fast_date_cache: Arc::new(per_index_map()),
+            fast_date_sorted_cache: Arc::new(per_index_map()),
+            query_cache: Arc::new(per_index_map()),
             dataset_version: Arc::new(AtomicU64::new(0)),
-            query_inflight: Arc::new(dashmap::DashMap::new()),
+            query_inflight: Arc::new(per_index_map()),
             metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
-            external_versions: Arc::new(dashmap::DashMap::new()),
+            external_versions: Arc::new(per_index_map()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
@@ -8381,35 +8447,35 @@ impl Index {
             embedding_config: config.embedding.clone(),
             max_fields_per_index: config.limits.max_fields_per_index,
             embedder: Arc::new(RwLock::new(effective_embedder)),
-            dv_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            dv_cache: Arc::new(per_index_map()),
+            sort_shadow_cache: Arc::new(per_index_map()),
+            sort_shadow_fields: Arc::new(per_index_map()),
             millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
                 millis_date_fields_snapshot,
             ))),
-            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
-            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
-            id_pos_cache: Arc::new(dashmap::DashMap::new()),
-            row_seq_cache: Arc::new(dashmap::DashMap::new()),
-            stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(per_index_map()),
+            range_prefilter_cache: Arc::new(per_index_map()),
+            id_pos_cache: Arc::new(per_index_map()),
+            row_seq_cache: Arc::new(per_index_map()),
+            stored_value_cache: Arc::new(per_index_map()),
             segment_cache_lifecycle: Arc::new(parking_lot::RwLock::new(())),
             segment_hydration_budget,
-            stored_value_loads: Arc::new(dashmap::DashMap::new()),
+            stored_value_loads: Arc::new(per_index_map()),
             stored_value_load_semaphore: Arc::new(Semaphore::new(4)),
-            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
-            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
-            fts_reader_cache: Arc::new(dashmap::DashMap::new()),
-            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
-            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
-            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
-            query_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(per_index_map()),
+            decoded_stored_cache: Arc::new(per_index_map()),
+            fts_reader_cache: Arc::new(per_index_map()),
+            shortcut_count_cache: Arc::new(per_index_map()),
+            ghost_positions_cache: Arc::new(per_index_map()),
+            regexp_expand_cache: Arc::new(per_index_map()),
+            fast_date_cache: Arc::new(per_index_map()),
+            fast_date_sorted_cache: Arc::new(per_index_map()),
+            query_cache: Arc::new(per_index_map()),
             dataset_version: Arc::new(AtomicU64::new(0)),
-            query_inflight: Arc::new(dashmap::DashMap::new()),
+            query_inflight: Arc::new(per_index_map()),
             metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
-            external_versions: Arc::new(dashmap::DashMap::new()),
+            external_versions: Arc::new(per_index_map()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
@@ -25735,11 +25801,17 @@ impl Index {
     /// worker. Cache hits stay on the caller because they are only a DashMap
     /// lookup and `Arc` clone.
     ///
-    /// `spawn_blocking` tasks cannot be cancelled once started. A timed-out or
-    /// dropped request therefore leaves the load running to completion, which
-    /// is useful: it warms the immutable segment for the next request. The
-    /// segment-current check prevents such a detached completion from
-    /// resurrecting a cache entry that a concurrent merge already retired.
+    /// The decode runs on the engine's own rayon maintenance pool, never on
+    /// tokio's blocking pool: a search already parks a blocking-pool thread
+    /// inside `block_in_place` for its whole duration, so queueing this work
+    /// there is a circular wait (issue #751, and the rule stated on
+    /// `await_publication_barrier`).
+    ///
+    /// The submitted decode is never cancelled. A timed-out or dropped request
+    /// therefore leaves the load running to completion, which is useful: it
+    /// warms the immutable segment for the next request. The segment-current
+    /// check prevents such a detached completion from resurrecting a cache
+    /// entry that a concurrent merge already retired.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
@@ -25776,7 +25848,42 @@ impl Index {
                             loads.remove(&segment_id);
                             return;
                         };
-                        let blocking = tokio::task::spawn_blocking(move || {
+                        // #751 — the decode runs on the engine's own rayon
+                        // maintenance pool, NOT on tokio's blocking pool.
+                        //
+                        // `Index::search` wraps its whole body in
+                        // `block_in_place(|| Handle::current().block_on(..))`
+                        // on multi-thread runtimes (M5.21). `block_in_place`
+                        // hands the worker's core to a tokio BLOCKING-pool
+                        // thread — which then runs `worker::run` for the rest
+                        // of the runtime's life — and parks the calling thread,
+                        // itself a blocking-pool thread, for the whole search.
+                        // An aggregation with no columnar path assembles the
+                        // full corpus from inside that park, so a `spawn_blocking`
+                        // here would queue work on the very pool the waiter is
+                        // holding a thread of. tokio grows that pool only when
+                        // it observes zero idle threads at push time, so the
+                        // core hand-off and this submission can both see the
+                        // same idle thread, both merely `notify_one()`, and the
+                        // one woken thread takes the core and never comes back.
+                        // The decode is then queued behind threads that are all
+                        // permanently running worker cores: the search waits for
+                        // a task that can never be scheduled. Live-reproduced as
+                        // the CI hang in issue #751 (12-min step timeout, 12/60
+                        // runs on a 4-cpu mask) and pinned deterministically by
+                        // `tests/agg_corpus_hydration_deadlock.rs`.
+                        //
+                        // The maintenance pool's threads exist for the process
+                        // lifetime and are never consumed by tokio, so the wait
+                        // cannot be circular. It is the read-side twin of the
+                        // work already on this pool (flush side-car builds,
+                        // segment finalisation); the cost is that a cold
+                        // hydration a search is waiting on now runs at the
+                        // pool's `nice(10)`, which only bites when every core is
+                        // already saturated.
+                        let (decoded_tx, decoded_rx) =
+                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
+                        let decode = move || -> Option<Resident<Vec<Value>>> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -25837,8 +25944,21 @@ impl Index {
                                 }
                             };
                             Some(resident)
+                        };
+                        crate::background_pool().spawn(move || {
+                            // Preserve the pre-#751 failure semantics: a panic
+                            // in the decode used to surface as a `JoinError`
+                            // and leave the waiter with `None` (the caller then
+                            // reports the segment unreadable). rayon's default
+                            // is to abort the process instead, so catch it here.
+                            // Under `panic = "abort"` (the shipped profile) this
+                            // is a no-op, exactly as before.
+                            let decoded =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(decode))
+                                    .unwrap_or(None);
+                            let _ = decoded_tx.send(decoded);
                         });
-                        if let Ok(Some(value)) = blocking.await {
+                        if let Ok(Some(value)) = decoded_rx.await {
                             let _ = sender.send(Some(value));
                         }
                         drop(permit);
@@ -32768,6 +32888,82 @@ fn wal_shards_override_from_settings(settings: &Value) -> Option<usize> {
 /// is a create-time fd exhaustion — the exact failure this setting exists to
 /// prevent.
 const MAX_PER_INDEX_WAL_SHARDS: u64 = 256;
+
+/// A concurrent map that exists **once per index** (#873).
+///
+/// `DashMap::new()` sizes its shard array from the host core count —
+/// `(cores * 4).next_power_of_two()`, 128 shards on a 32-core box — and each
+/// shard is a `CachePadded<RwLock<HashMap>>`: 128 bytes on x86_64, written at
+/// construction, resident for the life of the index whether or not the map
+/// ever holds an entry. An `Index` builds 20 of these, so the default cost
+/// ~328 KiB of resident memory per open index on a 32-core host *before* its
+/// first document — measured (300 tiny indices, restarted, idle) as the
+/// dominant term of the #873 idle floor: 641 KB/index at 32 cores against
+/// 270 KB/index with the same build pinned to 4 cores.
+///
+/// [`per_index_map_shards`] caps that at 16 shards, and never raises it above
+/// what dashmap would have chosen. Per-index concurrency is bounded by the
+/// traffic on one index and these maps are read-dominated (hydration inserts
+/// are rare; readers share the shard lock), so the striping that is lost was
+/// not doing work.
+///
+/// [`per_index_map_shards`]: xerj_common::resource::per_index_map_shards
+fn per_index_map<K: Eq + std::hash::Hash, V>() -> dashmap::DashMap<K, V> {
+    dashmap::DashMap::with_shard_amount(xerj_common::resource::per_index_map_shards())
+}
+
+#[cfg(test)]
+mod per_index_map_tests {
+    use xerj_common::resource::{per_index_map_shards, MAX_PER_INDEX_MAP_SHARDS};
+
+    /// #873 - the maps an `Index` builds must be capped, not striped by the
+    /// host core count.
+    ///
+    /// `dashmap::DashMap::new()` allocates
+    /// `(cores * 4).next_power_of_two()` shards, each a
+    /// `CachePadded<RwLock<HashMap>>` written at construction: 128 shards x
+    /// 128 B = 16 KiB per map on a 32-core host, and an `Index` builds 20 of
+    /// them. Measured end to end (300 tiny indices, restart, idle) that was
+    /// the largest term of the #873 floor.
+    ///
+    /// The strict-inequality arm is guarded on the host actually being wide
+    /// enough for the cap to bite, so this cannot report a false green on a
+    /// 2-core runner - the class of blind spot that has produced green CI over
+    /// real breakage in this repo before.
+    #[test]
+    fn a_per_index_cache_is_capped_not_striped_by_host_cores() {
+        let capped: dashmap::DashMap<String, u32> = super::per_index_map();
+        let dashmap_default: dashmap::DashMap<String, u32> = dashmap::DashMap::new();
+
+        assert_eq!(
+            capped.shards().len(),
+            per_index_map_shards(),
+            "the Index constructor helper must use the capped shard count"
+        );
+        assert!(
+            capped.shards().len() <= MAX_PER_INDEX_MAP_SHARDS,
+            "a per-index map must never exceed the cap"
+        );
+        assert!(
+            capped.shards().len() <= dashmap_default.shards().len(),
+            "and must never stripe wider than the default it replaced"
+        );
+        if dashmap_default.shards().len() > MAX_PER_INDEX_MAP_SHARDS {
+            assert!(
+                capped.shards().len() < dashmap_default.shards().len(),
+                "on a host wide enough for the cap to bite it must actually bite: \
+                 capped={} default={}",
+                capped.shards().len(),
+                dashmap_default.shards().len()
+            );
+        }
+
+        // Still a working map.
+        capped.insert("k".to_string(), 7);
+        assert_eq!(*capped.get("k").unwrap(), 7);
+        assert_eq!(capped.len(), 1);
+    }
+}
 
 fn store_config_from(config: &Config, wal_shards_override: Option<usize>) -> IndexStoreConfig {
     let sync_mode = match config.storage.wal_sync {
