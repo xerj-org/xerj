@@ -707,16 +707,20 @@ const ALIAS_SWEEP_CHUNK: usize = 1_024;
 /// `terms` here takes a plain value array — never the `{index, id, path}`
 /// lookup form, which `_delete_by_query` does not resolve.
 ///
-/// KNOWN, NOT FIXED HERE (#905): this query carries **no corpus scope**, and
-/// `path` is a logical path inside a corpus rather than a node-unique key, so a
-/// run over one corpus can delete another corpus's `status: duplicate` catalog
-/// documents at the same path. Unlike #890 that needs no legacy mapping, and
-/// unlike #890 it takes only alias documents, which the sibling rewrites on its
-/// next run. It is not a scope filter away: this sweep deliberately reaches
-/// documents whose ids follow HISTORICAL identity schemes, some of which carry
-/// no corpus evidence at all — see #905 for the shape a fix has to take, and for
-/// why [`delete_catalog_docs_scoped`]'s recheck is the pattern that makes one
-/// possible.
+/// It carries **no corpus scope**, and it must not grow one (#905). `path` is a
+/// logical path inside a corpus rather than a node-unique key and
+/// `autoindex-catalog` is global across every corpus on the node, so this query
+/// on its own reaches a SIBLING corpus's `status: duplicate` documents at the
+/// same path. It stays a candidate FILTER: [`sweep_duplicate_aliases`] decides
+/// per hit which corpus each candidate belongs to and deletes only this
+/// corpus's, by `_id`.
+///
+/// A scope filter here instead would have been wrong in the other direction:
+/// this sweep exists to reach documents whose ids follow HISTORICAL identity
+/// schemes, and the oldest of those (pre-#416) carry no corpus field and no
+/// prefix in their `_id` — a server-side `corpus_scope`/`prefix` term would
+/// simply stop matching them and strand them. See
+/// [`catalog_doc_corpus`] for how attribution is decided instead.
 fn alias_sweep_query(paths: &[&str]) -> Value {
     json!({
         "bool": {
@@ -726,6 +730,162 @@ fn alias_sweep_query(paths: &[&str]) -> Value {
             ]
         }
     })
+}
+
+/// Read a string field out of a search hit's `_source`.
+///
+/// Raw `_source`, never a server-side `term`: the whole point of the per-hit
+/// re-check both catalog sweeps do is that the catalog's MAPPING cannot be
+/// trusted to make a `term` byte-exact (#890).
+fn source_str<'a>(hit: &'a Value, field: &str) -> Option<&'a str> {
+    hit.pointer("/_source")
+        .and_then(|source| source.get(field))
+        .and_then(Value::as_str)
+}
+
+/// Which corpus a catalog hit belongs to, decided from the document itself
+/// (#905).
+///
+/// `autoindex-catalog` is global across every corpus on the node, so before
+/// deleting anything out of it a sweep has to answer this. Three layers of
+/// evidence, newest first, because the catalog outlives releases and a
+/// document written years of release-numbers ago carries less of it:
+///
+/// 1. `catalog::CORPUS_SCOPE_FIELD` — #755 (v1.0.0-rc.72), `keyword` on every
+///    catalog by construction, since no earlier release ever wrote the field.
+/// 2. `prefix` — #737 (rc.68). Read from raw `_source`, never term-queried: on
+///    a catalog an rc.15..rc.67 build touched it is dynamically-inferred
+///    `text`, and that is exactly the #890 over-match.
+/// 3. the `_id` — #416 (rc.57) put the corpus prefix into it
+///    (`file-alias:{prefix}:{body}`). The prefix is a `sanitize_slug` output,
+///    so it holds no `:`, and the body is `ids::doc_id`'s 32 hex characters,
+///    which hold none either: the split is unambiguous.
+///
+/// Below that — an alias document written by rc.10..rc.56 — there is no corpus
+/// evidence anywhere in the document, and [`CatalogDocCorpus::Anonymous`] says
+/// so rather than guessing. What the caller does with that is the caller's
+/// decision to make out loud; see [`sweep_duplicate_aliases`].
+enum CatalogDocCorpus<'a> {
+    /// The document names its corpus, in a field or in its `_id`.
+    Named(&'a str),
+    /// The document names no corpus at all.
+    Anonymous,
+}
+
+fn catalog_doc_corpus<'a>(id: &'a str, hit: &'a Value) -> CatalogDocCorpus<'a> {
+    if let Some(scope) = source_str(hit, catalog::CORPUS_SCOPE_FIELD) {
+        return CatalogDocCorpus::Named(scope);
+    }
+    if let Some(prefix) = source_str(hit, "prefix") {
+        return CatalogDocCorpus::Named(prefix);
+    }
+    if let Some((prefix, _)) = id
+        .strip_prefix(catalog::ALIAS_ID_PREFIX)
+        .and_then(|body| body.split_once(':'))
+    {
+        return CatalogDocCorpus::Named(prefix);
+    }
+    CatalogDocCorpus::Anonymous
+}
+
+/// Delete THIS corpus's `status: duplicate` catalog documents at `paths`
+/// (#905).
+///
+/// [`alias_sweep_query`] selects the candidates and cannot be scoped (see its
+/// comment); the scope is applied here, per hit, by [`catalog_doc_corpus`].
+/// A candidate the query returns that belongs to a sibling corpus is left
+/// alone — an unscoped `_delete_by_query` took it, which is the data loss this
+/// exists to stop.
+///
+/// THE ANONYMOUS CASE, DECIDED ON PURPOSE. A pre-#416 alias document names no
+/// corpus, so "is this ours?" cannot be read off it. Neither blanket answer is
+/// acceptable: deleting every anonymous hit keeps the whole cross-corpus reach
+/// for exactly the catalogs most likely to hold such documents, and keeping
+/// every anonymous hit strands the stale alias this sweep exists to remove —
+/// the trade the issue warned a naive scope filter would silently make.
+///
+/// So neither is taken. The caller passes the ids this corpus ITSELF would
+/// have written under the pre-#416 scheme, reconstructed from its own frozen
+/// plan and current inventory by
+/// [`catalog::unprefixed_duplicate_file_ids`] — the same reconstruct-the-id
+/// move #739 already makes for legacy `file:`/`file-alias:` documents. An
+/// anonymous hit whose `_id` is one of those is ours and is deleted; any other
+/// anonymous hit is left in place and NAMED, so an operator can see the one
+/// residual rather than discover it in `xerj autoindex map`.
+///
+/// The residual is bounded and it is honest to state it: a pre-#416 id is
+/// `doc_id("duplicate-file", file_key, path|path_id)` with no corpus in it, so
+/// two corpora holding a byte-identical file at the same logical path wrote
+/// the SAME `_id` — one document, whichever ran last. Deleting it on a
+/// reconstructed-id match therefore removes a document that was never uniquely
+/// the sibling's, and both corpora rewrite their own prefix-scoped alias on
+/// their next run. What is NOT claimed: that this recovers every pre-#416
+/// alias. One whose `file_key` changed since (its content was edited) cannot be
+/// reconstructed, and it is reported stranded rather than deleted.
+fn sweep_duplicate_aliases(
+    es: &Es,
+    prefix: &str,
+    paths: &[&str],
+    own_unprefixed_ids: &HashSet<String>,
+    stranded: &mut Vec<String>,
+) -> Result<()> {
+    let query = alias_sweep_query(paths);
+    let label = format!(
+        "corpus={prefix}, status=duplicate, {} path(s) from `{}`",
+        paths.len(),
+        paths.first().copied().unwrap_or("")
+    );
+    delete_catalog_hits_where(es, &query, &label, |id, hit| {
+        match catalog_doc_corpus(id, hit) {
+            CatalogDocCorpus::Named(owner) => owner == prefix,
+            CatalogDocCorpus::Anonymous if own_unprefixed_ids.contains(id) => true,
+            CatalogDocCorpus::Anonymous => {
+                stranded.push(match source_str(hit, "path") {
+                    Some(path) => format!("{path} ({id})"),
+                    None => id.to_string(),
+                });
+                false
+            }
+        }
+    })
+}
+
+/// What a run says about the alias documents the sweep deliberately did not
+/// delete.
+///
+/// Loud for the same reason [`alias_sweep_notes`] is: the cost is real. A
+/// stale pre-#416 alias left in the catalog makes `xerj autoindex map` report
+/// a duplicate path twice, and the operator can only act on it if they are
+/// told. It is NOT an error — the alternative was deleting a document this run
+/// cannot prove is its own, and this file's whole subject is that a delete is
+/// not recoverable.
+///
+/// Same listing cap and one-note-per-line rule as every other human-facing
+/// listing here ([`REFUSAL_LIST_CAP`], [`progress::Progress::note`]).
+fn stranded_alias_notes(stranded: &[String]) -> Vec<String> {
+    if stranded.is_empty() {
+        return Vec::new();
+    }
+    let mut notes = vec![format!(
+        "note: {} catalog alias document(s) at this corpus's duplicate path(s) carry no corpus \
+         in the document and none in their `_id` either — the id scheme v1.0.0-rc.10..rc.56 \
+         wrote — and none matched an id this corpus would have written, so they were LEFT IN \
+         PLACE rather than deleted: another corpus on this node may own them. `xerj autoindex \
+         map` can therefore report a duplicate path twice. Reindex `{}` to retire them.",
+        stranded.len(),
+        catalog::CATALOG_INDEX,
+    )];
+    notes.extend(
+        stranded
+            .iter()
+            .take(REFUSAL_LIST_CAP)
+            .map(|doc| format!("  alias left in place: {doc}")),
+    );
+    let remaining = stranded.len().saturating_sub(REFUSAL_LIST_CAP);
+    if remaining > 0 {
+        notes.push(format!("  … and {remaining} more"));
+    }
+    notes
 }
 
 /// The `reason` a run finishes with when every document is indexed but the
@@ -3602,6 +3762,43 @@ fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
         .iter()
         .map(|(field, value)| json!({"term": {*field: *value}}))
         .collect::<Vec<Value>>()}});
+    let label = scope
+        .iter()
+        .map(|(field, value)| format!("{field}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    delete_catalog_hits_where(es, &query, &label, |_id, hit| {
+        // The re-check. A hit whose stored scope value is not byte-equal to
+        // what the caller asked for belongs to something else — a sibling
+        // corpus, or another file — and is left alone.
+        scope.iter().all(|(field, value)| {
+            hit.pointer("/_source")
+                .and_then(|source| source.get(*field))
+                .and_then(Value::as_str)
+                == Some(*value)
+        })
+    })
+}
+
+/// The page walk both scoped catalog sweeps share: read the candidate set
+/// `query` selects, ask `accept` about every hit, and delete by `_id` exactly
+/// the hits it accepts — nothing at all, if it accepts nothing.
+///
+/// Split out of [`delete_catalog_docs_scoped`] for #905, which needs the same
+/// walk under a different per-hit decision (corpus attribution rather than a
+/// byte-exact `_source` compare) and must not carry a second copy of the paging
+/// rules: the off-by-one those rules encode was a real defect once already (the
+/// #890 review follow-up), and one copy of it is enough.
+///
+/// `accept` is `FnMut` so a caller can record what it declined as it goes.
+/// #905's does, because a candidate it cannot attribute to a corpus is one it
+/// deliberately leaves behind and therefore has to be able to name.
+fn delete_catalog_hits_where(
+    es: &Es,
+    query: &Value,
+    scope_label: &str,
+    mut accept: impl FnMut(&str, &Value) -> bool,
+) -> Result<()> {
     let mut ids: Vec<String> = Vec::new();
     let mut from = 0usize;
     for _ in 0..SCOPED_SWEEP_MAX_PAGES {
@@ -3615,19 +3812,11 @@ fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
             .cloned()
             .unwrap_or_default();
         for hit in &hits {
-            // The re-check. A hit whose stored scope value is not byte-equal to
-            // what the caller asked for belongs to something else — a sibling
-            // corpus, or another file — and is left alone.
-            let exact = scope.iter().all(|(field, value)| {
-                hit.pointer("/_source")
-                    .and_then(|source| source.get(*field))
-                    .and_then(Value::as_str)
-                    == Some(*value)
-            });
-            if exact {
-                if let Some(id) = hit.get("_id").and_then(Value::as_str) {
-                    ids.push(id.to_string());
-                }
+            let Some(id) = hit.get("_id").and_then(Value::as_str) else {
+                continue;
+            };
+            if accept(id, hit) {
+                ids.push(id.to_string());
             }
         }
         from += hits.len();
@@ -3666,14 +3855,9 @@ fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
     // is the one the legacy-catalog warning already gives.
     Err(anyhow::anyhow!(
         "scoped sweep of `{}` still had candidates after {SCOPED_SWEEP_MAX_PAGES} pages of \
-         {SCOPED_SWEEP_PAGE} for scope [{}]; refusing to report a partial removal — reindex `{}` \
-         into an index created with the current mapping",
+         {SCOPED_SWEEP_PAGE} for scope [{scope_label}]; refusing to report a partial removal — \
+         reindex `{}` into an index created with the current mapping",
         catalog::CATALOG_INDEX,
-        scope
-            .iter()
-            .map(|(field, value)| format!("{field}={value}"))
-            .collect::<Vec<_>>()
-            .join(", "),
         catalog::CATALOG_INDEX,
     ))
 }
@@ -4644,6 +4828,13 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     let mut content_changed = std::collections::HashSet::new();
     let mut stale_alias_ids = Vec::new();
     let mut alias_paths_to_replace = std::collections::HashSet::new();
+    // #905: the same aliases, under the pre-#416 id scheme that carries no
+    // corpus prefix. The path sweep below cannot attribute such a document from
+    // the document itself, so it attributes it by reconstructing the ids THIS
+    // corpus would have written. Kept in lockstep with `alias_paths_to_replace`
+    // — both are extended from `previous_aliases` here and from
+    // `inventory.duplicates` after this block.
+    let mut own_unprefixed_alias_ids: HashSet<String> = HashSet::new();
     let mut plan_changed = journal.plan.is_none();
     // Preserve legacy document IDs while upgrading old plans with full digests.
     // A later same-size/tail mutation is then detected and reindexed.
@@ -4651,6 +4842,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         let needs_alias_path_migration = !plan.alias_paths_indexed;
         let previous_aliases = plan.duplicate_files.clone();
         alias_paths_to_replace.extend(previous_aliases.iter().map(|alias| alias.rel.clone()));
+        own_unprefixed_alias_ids.extend(previous_aliases.iter().flat_map(|alias| {
+            catalog::unprefixed_duplicate_file_ids(&alias.file_key, &alias.rel, &alias.path_id)
+        }));
         stale_alias_ids.extend(plan.duplicate_files.iter().map(|old| {
             catalog::duplicate_file_id(&cfg.prefix, &old.file_key, &old.rel, &old.path_id)
         }));
@@ -4763,6 +4957,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         plan.duplicate_files = inventory.duplicates.clone();
     }
     alias_paths_to_replace.extend(inventory.duplicates.iter().map(|alias| alias.rel.clone()));
+    own_unprefixed_alias_ids.extend(inventory.duplicates.iter().flat_map(|alias| {
+        catalog::unprefixed_duplicate_file_ids(&alias.file_key, &alias.rel, &alias.path_id)
+    }));
     let files = inventory.files.clone();
     let keys = inventory.keys.clone();
     let digests = inventory.digests.clone();
@@ -6473,8 +6670,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // ── catalog write ────────────────────────────────────────────────────
     // Alias IDs changed as identity evolved. Remove by logical path first so
     // catalogs created by any previous identity scheme cannot survive beside
-    // the one current alias document. One request per CHUNK of paths — see
-    // [`alias_sweep_query`].
+    // the one current alias document. One CHUNK of paths per candidate walk —
+    // see [`alias_sweep_query`] for why the query stays unscoped, and
+    // [`sweep_duplicate_aliases`] for where the corpus scope is applied instead.
     let mut alias_sweep_paths: Vec<&str> =
         alias_paths_to_replace.iter().map(String::as_str).collect();
     // Sorted so the chunk boundaries — and the failure report below — are the
@@ -6486,6 +6684,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // and for the two things that keep the downgrade honest.
     let mut alias_sweep_failed: Vec<&str> = Vec::new();
     let mut alias_sweep_error: Option<String> = None;
+    // #905: candidates at this corpus's duplicate paths that name no corpus and
+    // are not this corpus's own reconstructed ids. Left in place, and reported.
+    let mut stranded_aliases: Vec<String> = Vec::new();
     for chunk in alias_sweep_chunks {
         let _delete = pr.file(
             &match chunk {
@@ -6495,7 +6696,13 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
             },
             0,
         );
-        if let Err(error) = es.delete_by_query(catalog::CATALOG_INDEX, &alias_sweep_query(chunk)) {
+        if let Err(error) = sweep_duplicate_aliases(
+            &es,
+            &cfg.prefix,
+            chunk,
+            &own_unprefixed_alias_ids,
+            &mut stranded_aliases,
+        ) {
             alias_sweep_failed.extend_from_slice(chunk);
             alias_sweep_error.get_or_insert_with(|| format!("{error:#}"));
         }
@@ -6507,6 +6714,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         for note in alias_sweep_notes(&alias_sweep_failed, error) {
             pr.note(&note);
         }
+    }
+    for note in stranded_alias_notes(&stranded_aliases) {
+        pr.note(&note);
     }
     let mut cat_buf: Vec<u8> = Vec::new();
     let push_doc = |id: &str, doc: &Value, buf: &mut Vec<u8>| {

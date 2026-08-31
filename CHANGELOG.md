@@ -234,6 +234,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     separate work: it has to prove the #825 union/sum contract with tombstones
     present, and is not attempted here.
 
+- **`autoindex`: a run no longer deletes a sibling corpus's duplicate-alias
+  catalog documents** ([#905](https://github.com/xerj-org/xerj/issues/905)).
+  Data loss, and the second of the two holes the #890 review found.
+  `autoindex-catalog` is one index shared by every corpus on the node, but the
+  duplicate-alias sweep issued at the end of a run was
+  `{"bool": {"filter": [{"term": {"status": "duplicate"}}, {"terms": {"path":
+  [...]}}]}}` with **no corpus scope at all** — and `path` is a logical path
+  inside a corpus, not a node-unique key. Two checkouts on one node that each
+  carry `LICENSE` and `vendor/LICENSE` is the ordinary shape of that, and a
+  delete is not recoverable. Unlike #890 this needed no legacy mapping: it was
+  unscoped on a current `keyword` catalog too.
+
+  The query still selects the candidates — it is what keeps the candidate set
+  small — but the scope is now applied per hit and the deletes go by `_id`, the
+  pattern #890's `delete_catalog_docs_scoped` introduced (both sweeps share one
+  page walk now, so there is one copy of its paging rules rather than two). A
+  simple scope filter would have traded one defect for another, which is why
+  this was split out of #896 rather than folded into it: the sweep exists
+  *because* alias ids changed as identity evolved, and its oldest targets
+  (v1.0.0-rc.10..rc.56, before #416 put the corpus prefix into the `_id`) carry
+  no corpus field and no prefix in their id, so a server-side
+  `corpus_scope`/`prefix` term would simply stop matching them. Attribution is
+  therefore layered: `corpus_scope` (#755), else `prefix` (#737) read from raw
+  `_source`, else the prefix in the `_id` (#416). Below that the document names
+  no corpus at all, and rather than guess in either direction the sweep deletes
+  such a hit only when its `_id` is one this corpus itself would have written
+  under the pre-#416 scheme — the reconstruct-the-id move #739 already makes —
+  and otherwise leaves it in place and says so, by path and id, in a new
+  non-fatal note. The sweep stays non-fatal (#345) throughout.
+
+  Scope, stated rather than implied: this is the legacy (graph) run path only.
+  A `--no-graph` run returns from the generated path long before this sweep and
+  retires stale catalog documents by their prefix-scoped `_id`
+  (`generation_catalog::managed_non_run_ids`), which was never unscoped.
+
 - **`--embed-mode neural`: re-indexing an unchanged corpus no longer fails,
   and the identity can now tell one model from another**
   ([#487](https://github.com/xerj-org/xerj/issues/487),
