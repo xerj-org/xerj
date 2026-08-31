@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **116 settings** versus
+//! Configuration is intentionally minimal: **117 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -97,7 +97,7 @@ pub struct Config {
     pub wal_tap: WalTapConfig,
 }
 
-// 21 sub-configs, 116 leaf settings in total. Do not maintain that sum by hand
+// 21 sub-configs, 117 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -436,7 +436,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (116 user-facing settings total; counted by
+// Sub-configs  (117 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -725,7 +725,7 @@ pub struct TlsConfig {
 
 /// Write-ahead log, flush, and object-store settings.
 ///
-/// **10 settings** (5 WAL/flush + 5 object-store).
+/// **11 settings** (6 WAL/flush + 5 object-store).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StorageConfig {
@@ -761,6 +761,18 @@ pub struct StorageConfig {
     pub flush_size_mb: u64,
     /// Maximum time between flushes regardless of buffer size (default: `30` s).
     pub flush_interval_secs: u64,
+    /// #873: flush a NON-EMPTY memtable whose contents have not changed for
+    /// this many seconds, regardless of size (default: `300` s; `0` disables).
+    /// Without it a dataset below the size thresholds never reached a
+    /// segment: its documents stayed memtable-resident for the process
+    /// lifetime, pinned their WAL generations, and replayed on every boot —
+    /// measured at 100,001 docs held in RAM 30+ minutes after ingest on an
+    /// idle node. 300 s matches Elasticsearch's
+    /// `indices.memory.shard_inactive_time` default. Detection is a probe on
+    /// the periodic flusher (`flush_interval_secs`), so worst-case latency is
+    /// `flush_idle_secs + flush_interval_secs` and the write path pays
+    /// nothing.
+    pub flush_idle_secs: u64,
 
     // ── Object-store backend (compute-storage separation) ─────────────────────
     /// Storage backend: `"local"` or `"s3"` (default: `"local"`).
@@ -790,6 +802,7 @@ impl Default for StorageConfig {
             wal_max_size_mb: 1024,
             flush_size_mb: 512,
             flush_interval_secs: 30,
+            flush_idle_secs: 300,
             backend: StorageBackendType::Local,
             s3_bucket: String::new(),
             s3_prefix: "xerj/".into(),
@@ -2358,7 +2371,7 @@ mod tests {
             drift.join("\n  ")
         );
 
-        // …and the file's own header quotes how many of the 116 it sets. That
+        // …and the file's own header quotes how many of the 117 it sets. That
         // number was 38, then 56, and never once the truth (#207), so count the
         // assignments instead of trusting the sentence.
         let set_here = toml_src
@@ -2795,7 +2808,7 @@ mod tests {
         ("auth", 3),
         ("cors", 2),
         ("tls", 4),
-        ("storage", 10),
+        ("storage", 11),
         ("merge", 8),
         ("compression", 3),
         ("fts", 1),
@@ -2854,7 +2867,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 116,
+            total, 117,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

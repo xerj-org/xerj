@@ -77,6 +77,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_update` is not re-validated — it merges into a document already checked on
   write.
 
+- **A top-level `knn` beside a `query` now scores as a sum over the union of
+  both halves, aggregations included**
+  ([#825](https://github.com/xerj-org/xerj/issues/825)). ES 8.x defines this
+  shape as a disjunction: the hit set is the union of the lexical matches and
+  the global top-`k` neighbours, each document scores `query_score +
+  knn_score`, and aggregations are computed over that union. XERJ folded the
+  request to `bool.should[query, knn]` but the generic matcher/scorer has no
+  `knn` arm, so a vector-only document vanished and a lexical match lost its
+  vector score — silently, with `_shards.failed: 0`. The
+  [#458](https://github.com/xerj-org/xerj/issues/458) carve-out covered one
+  narrow shape with RRF rank fusion (itself a scoring divergence from ES) and
+  left every request carrying `aggs`, `sort`, `collapse` or `rescore` on the
+  silent drop. The engine now pre-executes the `knn` leg and pins its top-`k`
+  into the tree as per-document constant scores, so one path serves the union
+  with summed scores and every request feature applies to it.
+
+  Two behaviour changes worth knowing before you upgrade:
+
+  - `{query, knn:{field: <not a vector field>}, aggs}` now answers **400**
+    (`the field is not answerable by knn`), matching ES and the existing
+    [#498](https://github.com/xerj-org/xerj/issues/498) rule. It previously
+    answered 200 with lexical-only hits — the wrong answer, quietly.
+  - **This shape is slower.** A pinned tree contains `ids` clauses, which the
+    FTS projection cannot lift, so the request is answered by a stored-document
+    scan instead of the inverted index. Measured on 100 000 documents (`text` +
+    8-dim `dense_vector`, ~10 % lexical selectivity, closed-loop, fresh query
+    vector per request): `query` + `knn` k=10 goes from 2.5 ms (the old RRF
+    route, which returned ES-divergent scores) to ~208 ms; k=1000 to ~385 ms;
+    k=10000 to ~5.1 s. The shapes that previously carried the silent drop —
+    anything with `aggs`/`sort`/`collapse`/`rescore` — already took the scan
+    and cost about a quarter more (476 ms → 605 ms with a terms agg),
+    but they now return the right documents. Restoring an indexed route is
+    tracked as [#892](https://github.com/xerj-org/xerj/issues/892);
+    correctness landed first.
+
 - **`match_phrase` `slop` now admits transposed terms at Lucene's cost of 2**
   ([#830](https://github.com/xerj-org/xerj/issues/830)). The sloppy-phrase
   walk was in-order only — each next term matched strictly after the

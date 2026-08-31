@@ -1,0 +1,82 @@
+setup:
+
+  - do:
+      indices.create:
+        index: knn_union_test
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              title:
+                type: text
+              category:
+                type: keyword
+              vector:
+                type: dense_vector
+                dims: 3
+                index: true
+                similarity: cosine
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{ "index": { "_index": "knn_union_test", "_id": "1" } }'
+          - '{ "title": "quick brown fox", "category": "a", "vector": [0.9, 0.1, 0.0] }'
+          - '{ "index": { "_index": "knn_union_test", "_id": "2" } }'
+          - '{ "title": "quick brown dog", "category": "a", "vector": [0.0, 1.0, 0.0] }'
+          - '{ "index": { "_index": "knn_union_test", "_id": "3" } }'
+          - '{ "title": "zzz qqq", "category": "z", "vector": [1.0, 0.0, 0.0] }'
+
+---
+"knn beside query with aggs returns the union and buckets over it":
+
+  # Issue #825: the knn contribution must not be dropped when aggs are
+  # present. The hit set is the union of both halves (ES 8.x semantics)
+  # and the aggregations run over that union.
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: knn_union_test
+        body:
+          size: 10
+          query:
+            match:
+              title: "quick"
+          knn:
+            field: vector
+            query_vector: [1.0, 0.0, 0.0]
+            k: 2
+            num_candidates: 10
+          aggs:
+            by_category:
+              terms:
+                field: category
+
+  - match: { hits.total: 3 }
+  - length: { aggregations.by_category.buckets: 2 }
+  - match: { aggregations.by_category.buckets.0.key: "a" }
+  - match: { aggregations.by_category.buckets.0.doc_count: 2 }
+  - match: { aggregations.by_category.buckets.1.key: "z" }
+  - match: { aggregations.by_category.buckets.1.doc_count: 1 }
+
+---
+"knn beside query without aggs is the same union":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: knn_union_test
+        body:
+          size: 10
+          query:
+            match:
+              title: "quick"
+          knn:
+            field: vector
+            query_vector: [1.0, 0.0, 0.0]
+            k: 2
+            num_candidates: 10
+
+  - match: { hits.total: 3 }
