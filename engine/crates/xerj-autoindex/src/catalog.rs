@@ -296,10 +296,42 @@ pub fn duplicate_file_doc(
 pub fn duplicate_file_id(prefix: &str, file_key: &str, path: &str, path_id: &str) -> String {
     let identity = if path_id.is_empty() { path } else { path_id };
     format!(
-        "file-alias:{}:{}",
+        "{ALIAS_ID_PREFIX}{}:{}",
         prefix,
         crate::ids::doc_id("duplicate-file", file_key, identity)
     )
+}
+
+/// The `file-alias:` prefix every alias id has carried since v1.0.0-rc.10.
+pub const ALIAS_ID_PREFIX: &str = "file-alias:";
+
+/// Every `_id` a **pre-#416** build could have written for this alias.
+///
+/// #416 (v1.0.0-rc.57) put the corpus prefix into the id —
+/// `file-alias:{prefix}:{body}`. Before it, from rc.10 (`c529e604`) onwards,
+/// the id was `file-alias:{body}` with the identical body, and the document
+/// carried no corpus field either (`prefix` arrived with #737/rc.68,
+/// [`CORPUS_SCOPE_FIELD`] with #755). Such a document therefore names no
+/// corpus anywhere, which is why #905's sweep reconstructs the ids its OWN
+/// corpus would have written instead of guessing from the document.
+///
+/// Two candidates, not one, because `path_id` is `#[serde(default)]` on
+/// `state::DuplicateFile`: a plan written before this alias's `path_id` was
+/// recorded produced `identity = path`, and the same plan today produces
+/// `identity = path_id`. The two coincide when `path_id` is empty, and the
+/// caller collects them into a set.
+pub fn unprefixed_duplicate_file_ids(file_key: &str, path: &str, path_id: &str) -> Vec<String> {
+    let mut ids = vec![format!(
+        "{ALIAS_ID_PREFIX}{}",
+        crate::ids::doc_id("duplicate-file", file_key, path)
+    )];
+    if !path_id.is_empty() {
+        ids.push(format!(
+            "{ALIAS_ID_PREFIX}{}",
+            crate::ids::doc_id("duplicate-file", file_key, path_id)
+        ));
+    }
+    ids
 }
 
 /// Build the five ready-to-send query classes for a dataset.

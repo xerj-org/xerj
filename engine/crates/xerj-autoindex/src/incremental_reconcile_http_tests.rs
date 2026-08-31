@@ -417,6 +417,11 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
     // `prefix` + `path`/`file_key` bool filter). A doc is deleted iff it
     // matches EVERY collected term.
     let mut terms: Vec<(String, Value)> = Vec::new();
+    // #905: and every `/query/bool/filter[].terms` value ARRAY too — the
+    // duplicate-alias sweep's path list is one of those, and an endpoint that
+    // dropped it deleted at every path instead of at the named ones, which
+    // makes a delete look wider than the engine's.
+    let mut any_of: Vec<(String, Vec<Value>)> = Vec::new();
     if let Some((field, value)) = query
         .pointer("/query/term")
         .and_then(Value::as_object)
@@ -435,6 +440,16 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
                 .and_then(|term| term.iter().next())
             {
                 terms.push((field.clone(), value.clone()));
+            }
+            if let Some((field, values)) = filter
+                .pointer("/terms")
+                .and_then(Value::as_object)
+                .and_then(|terms| terms.iter().next())
+            {
+                any_of.push((
+                    field.clone(),
+                    values.as_array().cloned().unwrap_or_default(),
+                ));
             }
         }
     }
@@ -458,19 +473,25 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
             // ids query: delete iff this doc's _id is listed (nothing else).
             return !ids.contains(id);
         }
-        if terms.is_empty() {
+        if terms.is_empty() && any_of.is_empty() {
             return false; // no constraint: a match-all delete
         }
+        let legacy: &[String] = if candidate == catalog::CATALOG_INDEX {
+            &legacy_text
+        } else {
+            &[]
+        };
         // Retain (do NOT delete) unless the doc matches every term — #890: on
-        // the catalog's legacy text fields, "matches" means the analyzed tokens.
-        !terms.iter().all(|(field, expected)| {
-            let legacy: &[String] = if candidate == catalog::CATALOG_INDEX {
-                &legacy_text
-            } else {
-                &[]
-            };
-            term_matches(doc, field, expected, legacy)
-        })
+        // the catalog's legacy text fields, "matches" means the analyzed tokens
+        // — and lands inside every `terms` value list (#905).
+        !(terms
+            .iter()
+            .all(|(field, expected)| term_matches(doc, field, expected, legacy))
+            && any_of.iter().all(|(field, values)| {
+                values
+                    .iter()
+                    .any(|value| term_matches(doc, field, value, legacy))
+            }))
     });
     before - locked.docs.len()
 }
@@ -3306,6 +3327,281 @@ fn the_scoped_catalog_sweep_pages_to_the_exact_end_of_its_candidate_set() {
              it lands ({candidates} candidates)"
         );
     }
+}
+
+/// #905 (data loss), end to end through the real finalize: a run over one
+/// corpus must not delete a SIBLING corpus's duplicate-alias catalog document.
+///
+/// `autoindex-catalog` is global across every corpus on the node and `path` is
+/// a logical path INSIDE a corpus, so the duplicate-alias sweep's
+/// `{status: duplicate} + {path: [...]}` query reaches every corpus that has a
+/// duplicate at the same relative path. Two checkouts that each carry
+/// `LICENSE.csv` and `docs/LICENSE.csv` is the ordinary shape of that, not a
+/// contrived one — and unlike #890 it needs no legacy mapping: this fixture's
+/// catalog is the current `keyword` one.
+///
+/// The corpus next door is the one in
+/// `a_file_shared_with_another_corpus_on_the_same_node_is_not_a_fatal_condition`
+/// with ONE line added: its own duplicate at the same relative path. That is
+/// what puts `docs/LICENSE.csv` into the second run's alias-sweep list and
+/// makes the sweep reach next door.
+///
+/// Both runs take the DEFAULT graph path (`no_graph: false`), because that is
+/// where this sweep lives: a `--no-graph` run returns from the generated path
+/// several thousand lines earlier and retires stale catalog documents by their
+/// prefix-scoped `_id` instead (`generation_catalog::managed_non_run_ids`),
+/// which was never unscoped. That is the honest blast radius of #905.
+///
+/// FAIL-BEFORE, measured: with the body of `sweep_duplicate_aliases` replaced
+/// by the `es.delete_by_query(CATALOG_INDEX, &alias_sweep_query(paths))` this
+/// PR removes — i.e. the code as it stands on `main` — the run ends with ONE
+/// alias document instead of two: the second corpus swept the first corpus's
+/// away and then wrote its own.
+#[test]
+fn this_corpus_finalize_leaves_a_sibling_corpus_alias_document_alone() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let shared = "id,value\n1,apache-2.0\n2,copied-verbatim\n";
+    let endpoint = HttpEndpoint::start();
+
+    let first = tempfile::tempdir().unwrap();
+    let first_state = tempfile::tempdir().unwrap();
+    fs::create_dir(first.path().join("docs")).unwrap();
+    fs::write(first.path().join("LICENSE.csv"), shared).unwrap();
+    fs::write(first.path().join("docs").join("LICENSE.csv"), shared).unwrap();
+    let mut config = cfg(first.path(), first_state.path(), &endpoint.url, false);
+    config.no_graph = false;
+    config.brain = Some("testbrain".into());
+    let (code, summary) = run_index_report(config).expect("the first corpus indexes");
+    let summary = summary.expect("the first corpus reports");
+    assert_eq!(code, 0);
+    assert_eq!(
+        summary["duplicate_files"], 1,
+        "the first corpus must publish one alias document, or there is nothing \
+         next door for the second run to reach: {summary}"
+    );
+
+    // The second corpus: its own state dir and its own --prefix, exactly the
+    // isolation the CLI's refusals recommend — and its own duplicate at the
+    // SAME relative path, which is what the first corpus's alias sits at.
+    let second = tempfile::tempdir().unwrap();
+    let second_state = tempfile::tempdir().unwrap();
+    fs::create_dir(second.path().join("docs")).unwrap();
+    fs::write(second.path().join("LICENSE.csv"), shared).unwrap();
+    fs::write(second.path().join("docs").join("LICENSE.csv"), shared).unwrap();
+    let mut config = cfg(second.path(), second_state.path(), &endpoint.url, false);
+    config.prefix = "incremental-http-second".into();
+    config.no_graph = false;
+    config.brain = Some("testbrain-second".into());
+    let (code, summary) = run_index_report(config).expect("the second corpus indexes");
+    let summary = summary.expect("the second corpus reports");
+    assert_eq!(code, 0, "the second corpus is a clean run: {summary}");
+    assert_eq!(
+        summary["duplicate_files"], 1,
+        "the second corpus publishes its own alias at the same path: {summary}"
+    );
+
+    let aliases: Vec<(String, String)> = {
+        let st = endpoint.state.lock().unwrap();
+        let mut aliases: Vec<(String, String)> = st
+            .docs
+            .iter()
+            .filter(|((index, _), doc)| {
+                index == catalog::CATALOG_INDEX
+                    && doc.get("status").and_then(Value::as_str) == Some("duplicate")
+            })
+            .map(|((_, id), doc)| {
+                (
+                    id.clone(),
+                    doc.get(catalog::CORPUS_SCOPE_FIELD)
+                        .and_then(Value::as_str)
+                        .unwrap_or("<no corpus_scope>")
+                        .to_string(),
+                )
+            })
+            .collect();
+        aliases.sort();
+        aliases
+    };
+    // Sorted by corpus, not by `_id`: the two ids share a body and differ only
+    // in their prefix, where `-` sorts before `:`.
+    let mut scopes: Vec<&str> = aliases.iter().map(|(_, scope)| scope.as_str()).collect();
+    scopes.sort_unstable();
+    assert_eq!(
+        scopes,
+        vec!["incremental-http", "incremental-http-second"],
+        "#905: both corpora must keep their own duplicate-alias document — the \
+         second corpus's sweep is scoped to itself, not to the logical path. \
+         Aliases: {aliases:?}"
+    );
+}
+
+/// #905, at the sweep itself: every identity scheme the catalog can still hold.
+///
+/// The end-to-end test above proves the wiring on documents this build wrote.
+/// This one proves the part a naive scope filter would have broken. The sweep
+/// exists BECAUSE alias ids changed as identity evolved, so it has to keep
+/// reaching this corpus's older documents while stopping at the corpus
+/// boundary — and the older a document is, the less corpus evidence it carries:
+///
+/// * current (`_source.corpus_scope`, #755/rc.72)
+/// * `_source.prefix` only (#737/rc.68)
+/// * neither, but a prefix-scoped `_id` (#416/rc.57)
+/// * neither, and an `_id` with no prefix in it either (rc.10..rc.56) — the
+///   case the issue calls out, decided by reconstructing the ids THIS corpus
+///   would have written rather than by guessing.
+///
+/// The last document is the honest residual: anonymous, and NOT one of this
+/// corpus's reconstructions (a different `file_key`). It is left in place —
+/// deleting a document that names no owner is the reach this fix removes — and
+/// it is reported, non-fatally, by `stranded_alias_notes`.
+///
+/// FAIL-BEFORE, measured: with `sweep_duplicate_aliases`'s body replaced by the
+/// unscoped `delete_by_query` this PR removes, all four of the sibling's and
+/// the anonymous stranger's documents are deleted too — `Survivors: []`.
+#[test]
+fn the_duplicate_alias_sweep_scopes_every_identity_scheme_to_this_corpus() {
+    let ep = HttpEndpoint::start();
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    // The logical path both corpora hold a duplicate at.
+    let path = "docs/LICENSE.csv";
+    let key = "shared-key";
+    let path_id = "pid-docs-license";
+
+    // This corpus ("ax"), one document per scheme. All of these must be swept.
+    let ax_current = catalog::duplicate_file_id("ax", key, path, path_id);
+    let ax_prefix_field = "file-alias:ax:00000000000000000000000000000737".to_string();
+    let ax_id_only = "file-alias:ax:00000000000000000000000000000416".to_string();
+    let ax_anonymous = catalog::unprefixed_duplicate_file_ids(key, path, path_id);
+    // The sibling ("bx"), the same three attributable schemes. All must survive.
+    let bx_current = catalog::duplicate_file_id("bx", key, path, path_id);
+    let bx_prefix_field = "file-alias:bx:00000000000000000000000000000737".to_string();
+    let bx_id_only = "file-alias:bx:00000000000000000000000000000416".to_string();
+    // Anonymous, and not reconstructible as ours: a different `file_key`, so a
+    // pre-#416 build of SOME corpus wrote it and nothing says which.
+    let anonymous_stranger =
+        catalog::unprefixed_duplicate_file_ids("someone-elses-key", path, "")[0].clone();
+
+    let alias_doc = |scope: Option<&str>, prefix: Option<&str>| {
+        let mut doc = json!({
+            "doc_kind": "file",
+            "file_key": key,
+            "path": path,
+            "format": "duplicate",
+            "status": "duplicate",
+        });
+        if let Some(scope) = scope {
+            doc[catalog::CORPUS_SCOPE_FIELD] = json!(scope);
+        }
+        if let Some(prefix) = prefix {
+            doc["prefix"] = json!(prefix);
+        }
+        doc
+    };
+    let mut seeded: Vec<String> = vec![
+        ax_current.clone(),
+        ax_prefix_field.clone(),
+        ax_id_only.clone(),
+        bx_current.clone(),
+        bx_prefix_field.clone(),
+        bx_id_only.clone(),
+        anonymous_stranger.clone(),
+    ];
+    seeded.extend(ax_anonymous.iter().cloned());
+    {
+        let mut st = ep.state.lock().unwrap();
+        let mut put = |id: &String, doc: Value| {
+            st.docs
+                .insert((catalog::CATALOG_INDEX.to_string(), id.clone()), doc);
+        };
+        put(&ax_current, alias_doc(Some("ax"), Some("ax")));
+        put(&ax_prefix_field, alias_doc(None, Some("ax")));
+        put(&ax_id_only, alias_doc(None, None));
+        for id in &ax_anonymous {
+            put(id, alias_doc(None, None));
+        }
+        put(&bx_current, alias_doc(Some("bx"), Some("bx")));
+        put(&bx_prefix_field, alias_doc(None, Some("bx")));
+        put(&bx_id_only, alias_doc(None, None));
+        put(&anonymous_stranger, alias_doc(None, None));
+    }
+
+    // What the finalize passes: the ids THIS corpus would have written for its
+    // own aliases under the pre-#416 scheme, reconstructed from its plan.
+    let own: HashSet<String> = catalog::unprefixed_duplicate_file_ids(key, path, path_id)
+        .into_iter()
+        .collect();
+    let mut stranded: Vec<String> = Vec::new();
+    let swept = sweep_duplicate_aliases(&es, "ax", &[path], &own, &mut stranded);
+
+    // Read every verdict out and RELEASE the endpoint's lock before asserting:
+    // an assert that fires while holding it poisons the mutex the server thread
+    // also takes, and the panic-in-a-destructor that follows aborts the whole
+    // test binary instead of failing this one test. This test is written to
+    // fail on unfixed code, so its failure mode has to stay clean.
+    let (survivors, alive): (String, Vec<String>) = {
+        let st = ep.state.lock().unwrap();
+        let mut alive: Vec<String> = seeded
+            .iter()
+            .filter(|id| {
+                st.docs
+                    .contains_key(&(catalog::CATALOG_INDEX.to_string(), (*id).clone()))
+            })
+            .cloned()
+            .collect();
+        alive.sort();
+        (format!("{alive:?}"), alive)
+    };
+    swept.expect("the sweep completes");
+
+    for (id, what) in [
+        (&ax_current, "current-scheme"),
+        (&ax_prefix_field, "#737 `prefix`-field"),
+        (&ax_id_only, "#416 prefix-in-id"),
+    ] {
+        assert!(
+            !alive.contains(id),
+            "#905: this corpus's own {what} alias must still be swept — the scope is \
+             applied per hit, not by narrowing the query. Survivors: {survivors}"
+        );
+    }
+    for id in &ax_anonymous {
+        assert!(
+            !alive.contains(id),
+            "#905: this corpus's pre-#416 alias carries no corpus anywhere, so it is swept \
+             on a reconstructed id — not stranded. Survivors: {survivors}"
+        );
+    }
+    for (id, what) in [
+        (&bx_current, "current-scheme"),
+        (&bx_prefix_field, "#737 `prefix`-field"),
+        (&bx_id_only, "#416 prefix-in-id"),
+    ] {
+        assert!(
+            alive.contains(id),
+            "#905: a sibling corpus's {what} alias at the same logical path must survive — \
+             deleting it is the data loss. Survivors: {survivors}"
+        );
+    }
+    assert!(
+        alive.contains(&anonymous_stranger),
+        "#905: an alias that names no corpus and is not one of this corpus's own \
+         reconstructions is left in place, not deleted on a guess. Survivors: {survivors}"
+    );
+
+    // …and it is reported. Silently stranding it would be the other half of the
+    // trade the issue warned about.
+    assert_eq!(stranded.len(), 1, "{stranded:?}");
+    assert!(stranded[0].contains(path), "{stranded:?}");
+    let notes = stranded_alias_notes(&stranded).join("\n");
+    assert!(notes.contains("LEFT IN PLACE"), "{notes}");
+    assert!(notes.contains(&anonymous_stranger), "{notes}");
+    assert!(
+        stranded_alias_notes(&[]).is_empty(),
+        "an ordinary corpus with nothing stranded says nothing"
+    );
 }
 
 /// #739: a `file:` catalog doc written by a pre-#737 binary has NO `prefix`
