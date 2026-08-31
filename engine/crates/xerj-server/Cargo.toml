@@ -97,5 +97,10 @@ protox = { workspace = true }
 # HTTPS round-trip test against the in-process rustls listener.
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+# HTTP/2 *as a client*, so `tests/http2_small_data_frames.rs` can choose the
+# DATA-frame size — the one thing no ordinary HTTP client exposes, and the
+# whole subject of #485. It also pins the workspace floor at the h2 release
+# whose small-frame budget scales with the connection window.
+h2 = { workspace = true }
 flate2 = "1"
 tokio-stream = "0.1"

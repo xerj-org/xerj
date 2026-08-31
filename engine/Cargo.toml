@@ -31,6 +31,19 @@ authors = ["xerj Contributors"]
 tokio = { version = "1", features = ["full"] }
 # HTTP
 axum = { version = "0.7", features = ["macros"] }
+# `h2` is the HTTP/2 implementation under every listener (hyper for REST +
+# ES-compat, tonic for gRPC) and under `reqwest` on the client side. Nothing in
+# this workspace calls it directly outside the `xerj-server` regression test,
+# but the floor is declared here on purpose: 0.4.16-0.4.18 size the small-DATA-
+# frame budget (the RUSTSEC-2026-0258 mitigation) at a fixed 25,600 bytes,
+# which a legitimate authenticated request chunked below ~200 bytes exhausts —
+# the client is answered `GOAWAY ENHANCE_YOUR_CALM` (#485). 0.4.19 scales the
+# budget with the configured connection window instead (half of it, floor
+# 25,600), so hyper's 1 MiB server window yields 512 KiB of headroom while the
+# empty-DATA-frame vector the advisory was filed for stays capped at 100 frames
+# by a separate counter. Declaring the floor here means `cargo update` cannot
+# resolve back to a version with the fixed budget.
+h2 = "0.4.19"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace", "limit", "decompression-gzip"] }
 # Serialization
