@@ -219,6 +219,80 @@ impl PostingsWriter {
         );
     }
 
+    /// Append a whole run of already-decoded postings for `term`.
+    ///
+    /// This is the merge path's ingest entry point.  `add_occurrence` is the
+    /// INDEXING entry point: it takes one token at a time because that is
+    /// what an analyzer produces.  A merge has no analyzer — it has one
+    /// [`DecodedPosting`] per (term, document) straight out of a source
+    /// segment's posting list — so replaying it occurrence by occurrence
+    /// would pay a `BTreeMap<String, _>` descent per TOKEN.  Taking the run
+    /// in one call pays one descent per (term, source segment) instead:
+    /// measured at roughly half the replay's CPU on a 100 MiB corpus, and it
+    /// also moves each posting's position vector in rather than copying it.
+    ///
+    /// Positions are dropped when this writer omits them.  `term_freq` is
+    /// stored as given — the `.post` format records the frequency and the
+    /// position count as separate fields, and a merge must reproduce both
+    /// exactly as the source segment had them.
+    ///
+    /// Two obligations on the caller, both of which a merge satisfies by
+    /// construction:
+    ///
+    /// * a document may appear at most ONCE per term across every run (each
+    ///   merged ordinal comes from exactly one source document, and a posting
+    ///   list holds one entry per document), because this appends without
+    ///   coalescing equal doc ids;
+    /// * runs may arrive out of doc order — a merged segment interleaves its
+    ///   inputs' documents — so [`Self::sort_postings_by_doc`] MUST run before
+    ///   `encode_term`.
+    pub fn extend_postings(&mut self, term: &str, run: Vec<DecodedPosting>) {
+        if run.is_empty() {
+            return;
+        }
+        let store_positions = self.store_positions;
+        let convert = move |posting: DecodedPosting| RawPosting {
+            doc_id: posting.doc_id,
+            term_freq: posting.term_freq,
+            positions: if store_positions {
+                posting.positions
+            } else {
+                Vec::new()
+            },
+        };
+        match self.postings.get_mut(term) {
+            Some(list) => {
+                list.reserve(run.len());
+                list.extend(run.into_iter().map(convert));
+            }
+            None => {
+                self.postings
+                    .insert(term.to_owned(), run.into_iter().map(convert).collect());
+            }
+        }
+    }
+
+    /// Restore the ascending-doc-id invariant every posting list must hold
+    /// before it is encoded.
+    ///
+    /// The indexing path never needs this: it walks documents in ordinal
+    /// order, so each list is built ascending.  The merge path replays
+    /// several source segments whose surviving documents interleave in the
+    /// merged ordinal space, so a shared term's list arrives as k ascending
+    /// runs.  `encode_block_doc_ids` delta-encodes with a plain `-`, which
+    /// would underflow on an out-of-order pair.
+    ///
+    /// `sort_by_key` is the stable, run-detecting sort, so k concatenated
+    /// ascending runs cost O(n log k), not O(n log n); lists that are already
+    /// ordered are detected by the scan below and never sorted at all.
+    pub fn sort_postings_by_doc(&mut self) {
+        for list in self.postings.values_mut() {
+            if list.windows(2).any(|pair| pair[0].doc_id > pair[1].doc_id) {
+                list.sort_by_key(|posting| posting.doc_id);
+            }
+        }
+    }
+
     /// Direct `(doc_frequency, total_term_frequency)` lookup for ONE term.
     ///
     /// O(log T + postings(term)) — use this in per-term loops.  The segment

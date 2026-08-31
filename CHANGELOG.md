@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **Merge copies posting lists instead of re-analysing every document it
+  merges** ([#876](https://github.com/xerj-org/xerj/issues/876)). A merged
+  segment's postings ARE its inputs' postings with the document ids remapped —
+  nothing about them depends on the source text — but the merge rebuilt each
+  side-car by walking back to every surviving document's stored `_source`,
+  re-extracting its field values and re-running the whole analyzer chain.
+  Under size-tiered levelling that re-analyses every document once per level,
+  which is why a post-index merge tail could rival the index itself. The merge
+  now streams each input's term dictionary, replays the decoded posting lists
+  with the doc ids remapped and tombstoned documents skipped, and carries the
+  norms and field statistics across.
+
+  Measured on a 100 MiB text corpus force-merged to one segment (2 000
+  documents, 32-core box, median of four runs per arm): the merged segment's
+  FTS side-car build drops from **3.15 s to 0.85 s (~3.7x)**, and peak RSS
+  over the whole force-merge from ~2.8 GiB to ~2.4 GiB. End-to-end force-merge
+  time moves less, ~41 s to ~32 s, and is noisy — because after this change the
+  merge is dominated by the doc-values column build (7-12 s per batch against
+  0.85 s for FTS), which this change does not touch.
+
+  A merged segment is byte-for-byte the segment the old path wrote, with one
+  documented exception: for a docs-only (`keyword`) field, a document that
+  repeats the same value merges with `total_term_frequency = doc_frequency`,
+  because that format never stored a per-document frequency and its reader
+  synthesises 1. No hit, no `_score`, no `doc_freq` and no field-length
+  statistic changes. Two further edges exist only when a merge also DROPS
+  documents: a dropped document whose value analysed to zero tokens leaves no
+  trace to reclaim its `total_docs` seat, and a dropped docs-only document's
+  length is recovered from the quantised norm byte, exact to length 7.
+
+  A merge falls back to the old rebuild — same output, old cost — when the
+  replay cannot be proved equivalent: an input whose side-cars will not open
+  or enumerate, an input carrying documents but no FTS data, or a field whose
+  stored position setting disagrees with what the merge would write.
+  `Index::merge_reanalysed_document_count()` reports how many documents took
+  that fallback, `XERJ_PROF=1` prints a per-batch `merge-batch` phase
+  breakdown, and `XERJ_MERGE_FTS_REANALYZE=1` forces every merge back onto the
+  old path.
+
 ## [1.0.0-rc.72] - 2026-08-31
 
 The idle-cost release. A 2026-08-29 measurement session found XERJ was not

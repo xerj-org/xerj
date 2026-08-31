@@ -672,9 +672,10 @@ fn index_field_values<'a>(
         field_len += tokens.len() as u64;
     }
 
-    field_data
-        .norms
-        .push((doc_ord, field_len.min(u16::MAX as u64) as u16));
+    field_data.norms.push((
+        doc_ord,
+        norm_u16_to_u8(field_len.min(u16::MAX as u64) as u16),
+    ));
     field_data.stats.total_docs += 1;
     field_data.stats.total_field_length += field_len;
 }
@@ -709,8 +710,16 @@ struct FieldData {
     config: FieldIndexConfig,
     postings: PostingsWriter,
     stats: FieldStats,
-    /// (doc_id, field_length) in insertion order
-    norms: Vec<(u32, u16)>,
+    /// `(doc_id, quantised norm byte)` in insertion order.
+    ///
+    /// The quantisation happens HERE rather than in `write_field_static` so
+    /// that the merge path can carry a source segment's norm byte through
+    /// verbatim.  [`norm_u8_to_u16`] is NOT the inverse of
+    /// [`norm_u16_to_u8`] — byte 9 dequantises to length 8, which
+    /// re-quantises to byte 8 — so a merge that read lengths back out of a
+    /// source segment and re-quantised them would silently change BM25
+    /// length normalisation for every merged document.
+    norms: Vec<(u32, u8)>,
 }
 
 impl FtsIndexWriter {
@@ -969,6 +978,93 @@ impl FtsIndexWriter {
         }
     }
 
+    /// Build every field of this segment by REPLAYING the source segments'
+    /// postings, instead of re-analysing their documents.
+    ///
+    /// This is the merge path.  `write_field_static` has always taken a
+    /// `PostingsWriter`, and `PostingsWriter`'s ingest unit has always been a
+    /// (term, doc, position) occurrence — never a document — so nothing in
+    /// the segment writer needs an analyzer.  The engine's merge nevertheless
+    /// walked back to each surviving document's stored JSON, re-extracted its
+    /// field values and re-ran the whole analyzer chain, recomputing postings
+    /// that were already on disk and already correct.  Under size-tiered
+    /// levelling that re-analyses every document O(log N) times (#876).
+    ///
+    /// What this reproduces exactly, and what it does not:
+    ///
+    /// * **postings** — doc ids (remapped), term frequencies and positions
+    ///   are replayed verbatim from the source `.post` blobs, so `doc_freq`
+    ///   and every posting list are identical to a re-analysed merge.
+    /// * **norms** — the source's *quantised* byte is carried through
+    ///   untouched.  It cannot be recomputed from `field_length`, because
+    ///   `norm_u16_to_u8` is lossy and is not invertible.
+    /// * **field statistics** — `total_docs` / `total_field_length` are
+    ///   carried from the source `.meta` and reduced by the dropped
+    ///   documents' contribution.  With no dropped documents (the ordinary
+    ///   merge) they are exact.  Two blind spots when documents ARE dropped:
+    ///   a dropped document whose value analysed to zero tokens leaves no
+    ///   trace in either the postings or the norms, so its `total_docs` seat
+    ///   is not reclaimed; and for a docs-only field a dropped document's
+    ///   length is read back from the quantised norm byte, which is exact
+    ///   only up to length 7.
+    /// * **`total_term_frequency`** of a docs-only field becomes its doc
+    ///   frequency, because the docs-only `.post` format never stored a
+    ///   per-document frequency — its reader synthesises `term_freq = 1`.
+    ///   That is the value every reader of the source segment already sees,
+    ///   and nothing outside this crate reads `total_term_frequency`.
+    ///
+    /// Returns `Err` (leaving the writer untouched) when the inputs cannot be
+    /// merged this way — a field whose sources disagree about positions, or
+    /// whose on-disk shape contradicts the merge-time configuration.  The
+    /// caller is expected to fall back to re-analysis rather than to fail the
+    /// merge.
+    pub fn merge_from_segments(&mut self, sources: &[FtsMergeSource<'_>]) -> Result<()> {
+        use rayon::prelude::*;
+
+        let mut field_names: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for source in sources {
+            for field in source.reader.indexed_fields() {
+                if seen.insert(field) {
+                    field_names.push(field.to_owned());
+                }
+            }
+        }
+        drop(seen);
+        // Deterministic field order keeps a merge reproducible run to run.
+        field_names.sort_unstable();
+
+        // Snapshot the configs before the parallel pass so the closure never
+        // borrows `self.fields` while the results are being inserted.
+        let configs: Vec<FieldIndexConfig> = field_names
+            .iter()
+            .map(|field| {
+                self.fields
+                    .get(field)
+                    .map(|data| data.config.clone())
+                    .unwrap_or_default()
+            })
+            .collect();
+
+        let built: Vec<Result<FieldData>> = field_names
+            .par_iter()
+            .zip(configs.par_iter())
+            .map(|(field, config)| merge_field_from_segments(field, config, sources))
+            .collect();
+
+        // Collect every field before mutating anything: a failure must leave
+        // the writer exactly as the caller configured it, so the fallback
+        // path starts from a clean slate.
+        let mut merged: Vec<(String, FieldData)> = Vec::with_capacity(field_names.len());
+        for (field, data) in field_names.into_iter().zip(built) {
+            merged.push((field, data?));
+        }
+        for (field, data) in merged {
+            self.fields.insert(field, data);
+        }
+        Ok(())
+    }
+
     /// Flush all data to disk and return field stats for the segment manifest.
     ///
     /// Field writes run in parallel via Rayon — each thread owns one field's
@@ -1206,8 +1302,8 @@ impl FtsIndexWriter {
         let max_doc_id: u32 = norms.last().map(|(d, _)| *d).unwrap_or(0);
         let dense_len = (max_doc_id as usize).saturating_add(1);
         let mut dense: Vec<u8> = vec![0u8; dense_len];
-        for (doc_id, norm) in &norms {
-            dense[*doc_id as usize] = norm_u16_to_u8(*norm);
+        for (doc_id, norm_byte) in &norms {
+            dense[*doc_id as usize] = *norm_byte;
         }
 
         // Try LZ4 when the dense array is big enough for compression
@@ -1234,6 +1330,288 @@ impl FtsIndexWriter {
     }
 }
 
+/// One input segment of a postings-level merge.
+///
+/// See [`FtsIndexWriter::merge_from_segments`].
+pub struct FtsMergeSource<'a> {
+    /// A full (NOT `open_stats_only`) reader over the source segment.
+    pub reader: &'a FtsIndexReader,
+    /// Source document ordinal → merged document ordinal, `None` for a
+    /// document the merge drops.  Exactly one entry per document in the
+    /// source segment, in that segment's own ordinal order — which is the
+    /// order its stored section holds, the same alignment the doc-values
+    /// side-car already relies on.
+    pub doc_map: &'a [Option<u32>],
+}
+
+/// Build one merged field by replaying every source segment's postings.
+fn merge_field_from_segments(
+    field: &str,
+    config: &FieldIndexConfig,
+    sources: &[FtsMergeSource<'_>],
+) -> Result<FieldData> {
+    let inputs: Vec<&FtsMergeSource<'_>> = sources
+        .iter()
+        .filter(|source| source.reader.field_stats(field).is_some())
+        .collect();
+
+    let Some(first) = inputs.first() else {
+        return Ok(FieldData {
+            config: config.clone(),
+            postings: if config.store_positions {
+                PostingsWriter::new()
+            } else {
+                PostingsWriter::new_no_positions()
+            },
+            stats: FieldStats::default(),
+            norms: Vec::new(),
+        });
+    };
+
+    // A posting list's on-disk shape decides how it decodes, so every input
+    // must agree with every other AND with what this writer would emit.
+    // Anything else would be a re-encode, not a merge — the caller
+    // re-analyses instead.
+    let has_positions = first.reader.field_has_positions(field);
+    for source in &inputs {
+        if source.reader.field_has_positions(field) != has_positions {
+            bail!("FTS merge: sources disagree on positions for field '{field}'");
+        }
+    }
+    if has_positions != config.store_positions {
+        bail!(
+            "FTS merge: field '{field}' is stored with store_positions={has_positions} but the \
+             merge configuration asks for {}",
+            config.store_positions
+        );
+    }
+
+    let mut postings = if has_positions {
+        PostingsWriter::new()
+    } else {
+        PostingsWriter::new_no_positions()
+    };
+    let mut norms: Vec<(u32, u8)> = Vec::new();
+    let mut stats = FieldStats::default();
+
+    for source in &inputs {
+        let source_stats = source
+            .reader
+            .field_stats(field)
+            .expect("filtered to the sources that carry this field")
+            .clone();
+        let doc_count = source.doc_map.len();
+        // One flag per source document: which documents the postings mention.
+        // A dropped document that no posting mentions had zero tokens, and
+        // its `total_docs` seat is unreclaimable — see the method docs.
+        let mut had_posting = vec![false; doc_count];
+        let mut dropped_token_count: u64 = 0;
+        let mut failure: Option<String> = None;
+
+        source.reader.for_each_term(field, |term| {
+            let Some(term_postings) = source.reader.lookup_term(field, term) else {
+                failure = Some(format!(
+                    "term '{term}' of field '{field}' is in the FST but not in the .meta"
+                ));
+                return false;
+            };
+            let Some(data) = source.reader.postings_data(field, &term_postings) else {
+                failure = Some(format!(
+                    "field '{field}' has no postings bytes for term '{term}' (a stats-only \
+                     reader cannot be merged)"
+                ));
+                return false;
+            };
+            let mut decoded = crate::postings::PostingsReader::new_with_positions(
+                data,
+                term_postings.doc_frequency,
+                has_positions,
+            );
+            // One run per (source, term), handed to the writer in one call:
+            // a per-occurrence hand-off would re-descend the term BTreeMap
+            // for every token in the corpus.
+            let mut run: Vec<crate::postings::DecodedPosting> =
+                Vec::with_capacity(term_postings.doc_frequency as usize);
+            while let Some(mut posting) = decoded.next() {
+                let ordinal = posting.doc_id as usize;
+                if ordinal >= doc_count {
+                    failure = Some(format!(
+                        "field '{field}' has a posting for doc {ordinal}, past the {doc_count} \
+                         documents the caller mapped"
+                    ));
+                    return false;
+                }
+                had_posting[ordinal] = true;
+                match source.doc_map[ordinal] {
+                    Some(merged) => {
+                        posting.doc_id = merged;
+                        run.push(posting);
+                    }
+                    None => dropped_token_count += posting.term_freq as u64,
+                }
+            }
+            postings.extend_postings(term, run);
+            true
+        });
+        if let Some(message) = failure {
+            bail!("FTS merge: {message}");
+        }
+        // An input that maps no documents puts nothing into the output, so it
+        // contributes no statistics either.  Any input that DOES have
+        // postings while mapping no documents was already refused above.
+        if doc_count == 0 {
+            continue;
+        }
+
+        let mut norm_bytes = vec![0u8; doc_count];
+        for (doc_id, byte) in source.reader.field_norm_bytes(field) {
+            let ordinal = doc_id as usize;
+            if ordinal >= doc_count {
+                bail!(
+                    "FTS merge: field '{field}' has a norm for doc {ordinal}, past the \
+                     {doc_count} documents the caller mapped"
+                );
+            }
+            norm_bytes[ordinal] = byte;
+        }
+
+        let mut dropped_docs: u64 = 0;
+        let mut dropped_quantised_length: u64 = 0;
+        for (ordinal, &byte) in norm_bytes.iter().enumerate() {
+            match source.doc_map[ordinal] {
+                // Byte 0 is how the dense norms array spells BOTH "field
+                // absent" and "field length 1", so skipping it reproduces the
+                // array a re-analysing writer would have built.
+                Some(merged) => {
+                    if byte != 0 {
+                        norms.push((merged, byte));
+                    }
+                }
+                None => {
+                    if had_posting[ordinal] {
+                        dropped_docs += 1;
+                        dropped_quantised_length += norm_u8_to_u16(byte) as u64;
+                    }
+                }
+            }
+        }
+
+        stats.total_docs += source_stats.total_docs.saturating_sub(dropped_docs);
+        // A positioned field knows each dropped document's exact token count
+        // (the sum of its term frequencies).  A docs-only field does not —
+        // its `.post` never stored one — so its dropped length comes from the
+        // quantised norm byte, which is exact up to length 7.
+        let dropped_length = if has_positions {
+            dropped_token_count
+        } else {
+            dropped_quantised_length
+        };
+        stats.total_field_length += source_stats
+            .total_field_length
+            .saturating_sub(dropped_length);
+    }
+
+    // The inputs' surviving documents interleave in the merged ordinal space,
+    // so a term shared by several of them arrives as several ascending runs.
+    postings.sort_postings_by_doc();
+
+    Ok(FieldData {
+        config: config.clone(),
+        postings,
+        stats,
+        norms,
+    })
+}
+
+/// Every field name each of `segment_ids` holds FTS side-cars for, in the same
+/// order as `segment_ids`.
+///
+/// A segment's field set is whatever its documents happened to carry, so it is
+/// not derivable from the mapping; the merge path needs it to know which
+/// readers to open.  A portable field name IS its own filename component and
+/// reads straight back; a digest-encoded component is resolved against
+/// `known_fields`, and an unresolvable one is an error rather than a silent
+/// omission — dropping a field here would drop its postings from the merged
+/// segment and silently stop its terms matching.
+///
+/// Takes the whole batch at once because it costs ONE directory scan. A
+/// converging index keeps thousands of segments in this directory (tens of
+/// thousands of side-car files), and a merge batch has up to sixteen inputs:
+/// scanning per input would re-walk that directory sixteen times per batch.
+pub fn segments_indexed_field_names(
+    segment_dir: &Path,
+    segment_ids: &[&str],
+    known_fields: &[String],
+) -> Result<Vec<Vec<String>>> {
+    let mut encoded: HashMap<String, &str> = HashMap::new();
+    for name in known_fields {
+        if let Cow::Owned(component) = field_file_component(name) {
+            encoded.insert(component, name.as_str());
+        }
+    }
+
+    let prefixes: Vec<String> = segment_ids.iter().map(|id| format!("{id}.")).collect();
+    let mut per_segment: Vec<Vec<String>> = vec![Vec::new(); segment_ids.len()];
+    let mut seen: Vec<std::collections::HashSet<String>> =
+        vec![std::collections::HashSet::new(); segment_ids.len()];
+
+    let entries = fs::read_dir(segment_dir)
+        .with_context(|| format!("listing segment dir {:?}", segment_dir))?;
+    for entry in entries {
+        let entry = entry.with_context(|| format!("reading segment dir {:?}", segment_dir))?;
+        let file_name = entry.file_name();
+        let Some(file_name) = file_name.to_str() else {
+            continue;
+        };
+        for (index, prefix) in prefixes.iter().enumerate() {
+            let Some(rest) = file_name.strip_prefix(prefix.as_str()) else {
+                continue;
+            };
+            // Only the FST is enumerated: it is the file `FtsIndexReader::open`
+            // gates a field's existence on, and taking one extension keeps a
+            // four-file family from being counted four times.  `.fst.tmp`
+            // leftovers fall out here too — their final component is `tmp`.
+            let Some((component, extension)) = rest.rsplit_once('.') else {
+                break;
+            };
+            if extension != "fst" || component.is_empty() {
+                break;
+            }
+            let name = if component.starts_with(ENCODED_FIELD_COMPONENT_PREFIX) {
+                match encoded.get(component) {
+                    Some(name) => (*name).to_owned(),
+                    None => bail!(
+                        "segment {} has an FTS side-car component that no known field name \
+                         digests to: {component}",
+                        segment_ids[index]
+                    ),
+                }
+            } else {
+                component.to_owned()
+            };
+            if seen[index].insert(name.clone()) {
+                per_segment[index].push(name);
+            }
+            break;
+        }
+    }
+
+    for names in &mut per_segment {
+        names.sort_unstable();
+    }
+    Ok(per_segment)
+}
+
+/// [`segments_indexed_field_names`] for a single segment.
+pub fn segment_indexed_field_names(
+    segment_dir: &Path,
+    segment_id: &str,
+    known_fields: &[String],
+) -> Result<Vec<String>> {
+    let mut names = segments_indexed_field_names(segment_dir, &[segment_id], known_fields)?;
+    Ok(names.pop().unwrap_or_default())
+}
+
 const NORMS_MAGIC: &[u8; 4] = b"ZNM1";
 
 /// Lucene-style logarithmic norm quantisation: maps a u16 field length
@@ -1256,7 +1634,6 @@ fn norm_u16_to_u8(len: u16) -> u8 {
 }
 
 #[inline]
-#[allow(dead_code)]
 fn norm_u8_to_u16(b: u8) -> u16 {
     if b < 8 {
         return (b + 1) as u16;
@@ -1336,8 +1713,15 @@ struct LoadedField {
     post_data: PostData,
     /// Pre-parsed metadata (term postings, field stats) — small, stays owned.
     meta: FieldMeta,
-    /// doc_id → field_length lookup (sorted by doc_id).
-    norms: Vec<(u32, u16)>,
+    /// `(doc_id, field_length, quantised norm byte)`, sorted by doc_id.
+    ///
+    /// The raw byte rides along beside the dequantised length because the
+    /// merge path must reproduce the source segment's norms file byte for
+    /// byte: `norm_u16_to_u8(norm_u8_to_u16(b)) != b` for most `b`, so
+    /// re-quantising the length would move BM25's length normalisation on
+    /// every merged document.  `(u32, u16, u8)` still occupies 8 bytes
+    /// after padding, so this costs no memory over the old `(u32, u16)`.
+    norms: Vec<(u32, u16, u8)>,
 }
 
 impl FtsIndexReader {
@@ -1574,7 +1958,7 @@ impl FtsIndexReader {
         Ok(mmap)
     }
 
-    fn load_norms(path: &Path) -> Result<Vec<(u32, u16)>> {
+    fn load_norms(path: &Path) -> Result<Vec<(u32, u16, u8)>> {
         let bytes = fs::read(path).with_context(|| format!("opening norms {:?}", path))?;
         // V4 M4.7 compact format starts with `NORMS_MAGIC`; legacy starts
         // with a raw u32 count (whose first byte almost never matches 'Z').
@@ -1605,7 +1989,7 @@ impl FtsIndexReader {
             let mut norms = Vec::new();
             for (doc_id, &b) in dense.iter().enumerate() {
                 if b != 0 {
-                    norms.push((doc_id as u32, norm_u8_to_u16(b)));
+                    norms.push((doc_id as u32, norm_u8_to_u16(b), b));
                 }
             }
             Ok(norms)
@@ -1617,7 +2001,9 @@ impl FtsIndexReader {
             for _ in 0..count {
                 let doc_id = cur.read_u32::<LittleEndian>()?;
                 let norm = cur.read_u16::<LittleEndian>()?;
-                norms.push((doc_id, norm));
+                // The pre-M4.7 format stored an unquantised length; the byte a
+                // writer would emit for it is what a merge must carry forward.
+                norms.push((doc_id, norm, norm_u16_to_u8(norm)));
             }
             Ok(norms)
         }
@@ -1755,9 +2141,26 @@ impl FtsIndexReader {
         // Binary search by doc_id
         loaded
             .norms
-            .binary_search_by_key(&doc_id, |(id, _)| *id)
+            .binary_search_by_key(&doc_id, |(id, _, _)| *id)
             .ok()
             .map(|idx| loaded.norms[idx].1)
+    }
+
+    /// Every `(doc_id, quantised norm byte)` this field records, ascending by
+    /// doc id.  Docs whose norm byte is zero are absent — the dense on-disk
+    /// array cannot tell "field missing" from "field length 1" (both encode
+    /// as byte 0), and neither can this.
+    ///
+    /// Exists for the merge path: a merged segment must write the SAME norm
+    /// byte the source segment holds, and [`Self::field_length`]'s
+    /// dequantised `u16` cannot be re-quantised back to it.
+    pub fn field_norm_bytes(&self, field: &str) -> impl Iterator<Item = (u32, u8)> + '_ {
+        self.fields.get(field).into_iter().flat_map(|loaded| {
+            loaded
+                .norms
+                .iter()
+                .map(|(doc_id, _, byte)| (*doc_id, *byte))
+        })
     }
 
     /// Stream every term of `field` through `f` in lexicographic order,
