@@ -1303,10 +1303,19 @@ impl Engine {
                             .iter()
                             .any(|f| &f.name == field_name)
                         {
-                            let fc = xerj_common::types::FieldConfig::new(
+                            let mut fc = xerj_common::types::FieldConfig::new(
                                 field_name.clone(),
                                 native_type,
                             );
+                            // #790: a template's `date_nanos` keeps nanosecond
+                            // precision; `FieldConfig::new` already made a
+                            // plain `date` millisecond-scaled.
+                            if native_type == xerj_common::types::FieldType::Date
+                                && es_type == "date_nanos"
+                            {
+                                fc.options.date_precision =
+                                    Some(xerj_common::types::DatePrecision::Nanos);
+                            }
                             let _ = effective_schema.add_field(fc);
                         }
                     }
