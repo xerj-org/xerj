@@ -60,6 +60,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`knn` beside a `query` is answered from the inverted index again — and its
+  page no longer drops the documents matched by both halves**
+  ([#892](https://github.com/xerj-org/xerj/issues/892)). This closes the
+  regression rc.72 shipped knowingly: the
+  [#825](https://github.com/xerj-org/xerj/issues/825) fix pre-executes the
+  vector leg and pins its top-`k` into the query tree as `constant_score{ids}`
+  clauses, `_id` is not in the FTS term dictionary, so the projection declined
+  the whole tree and every segment fell to a stored-document scan.
+
+  That route was not only slow. The scan admits documents in stored-layout
+  order and stops materialising once it reaches the page cap — no score
+  comparison — so on any index with more lexical matches than that cap, the
+  documents reached by BOTH halves, the ones ES scores `query_score +
+  knn_score` and ranks first, never entered the page. `hits.total` was right;
+  the page was not. Live-verified on 100 000 documents: for a `match` + `knn`
+  k=10 request whose vector top-10 held exactly two lexical matches, rc.72's
+  top 20 was twenty lexical-only documents tied at 1.693 and neither
+  both-halves document appeared at all. They now rank 1 and 2, at 3.153 and
+  3.144.
+
+  The projection now lifts the pinned disjunct to an FTS leaf carrying
+  `(doc_id, score)` pairs, resolved per segment through the same `_id` →
+  stored-position index that `ids` queries and `_mget` already use. The
+  lexical half keeps the inverted index and exact BM25, the vector half keeps
+  its own scores, and the `bool` sums them exactly as before.
+
+  Measured on that corpus (`text` + 8-dim `dense_vector`, ~10 % lexical
+  selectivity, bulk-loaded once and never updated — which is the only state in
+  which this route engages, see the scope note below — closed-loop, fresh query
+  vector per request so the query cache cannot answer twice, medians of 2
+  rounds × 7 requests, on a shared build machine — the two control rows bound
+  the noise):
+
+  | request | rc.72 | with this fix |
+  |---|---|---|
+  | `query` alone (control) | 0.45 ms | 0.52 ms |
+  | `knn` alone, k=10 (control) | 1.99 ms | 2.12 ms |
+  | `query` + `knn` k=10 | 265.9 ms | **6.4 ms** |
+  | `query` + `knn` k=100 | 326.9 ms | **8.4 ms** |
+  | `query` + `knn` k=1000 | 505.0 ms | **27.5 ms** |
+  | `query` + `knn` + `aggs` k=10 | 784.1 ms | **534.4 ms** |
+
+  `hits.total`, the aggregation buckets and the field-sorted page came back
+  identical across the two arms — one request shape per column, compared as
+  JSON — and so did `query`-alone and `knn`-alone. The agg row keeps most of
+  its cost because a `terms` agg over this shape still materialises the whole
+  corpus — a different path, untouched here.
+
+  Two things to know:
+
+  - **`_score` values change for this shape.** The lexical half is now scored
+    by exact BM25 — the same number the identical query returns *without* a
+    `knn` beside it — instead of the stored scan's heuristic. Ordering follows
+    the #825 contract as before; absolute values move, so a `min_score` tuned
+    against rc.72's hybrid needs revisiting.
+  - **The indexed route applies only to an index that has never taken an
+    overwrite or a delete** — that is the scope of every number above, and it
+    is a one-way door, not a transient window. The gate is the one the `ids`
+    pre-filter already applies: the per-segment `_id` index keeps one position
+    per id, so a segment physically holding a document twice (an overwrite
+    flushed alongside its predecessor) could hand back the superseded copy. It
+    reads `VersionMap::ghost_events`, which is **monotonic by design** — it
+    counts overwrite and delete events for the life of the open index and is
+    never decremented, not even by the merge that purges the superseded copies.
+    One `PUT` over an existing `_id`, or one `DELETE`, therefore turns this
+    route off for that index until it is re-opened, and it stays off across
+    that re-open while superseded copies remain on disk. An index that takes
+    updates or deletes keeps rc.72's stored scan for `knn` beside `query` —
+    still correct, and no slower than it was, but with none of the speedups
+    above. Append-only indexes — bulk load, reindex-and-swap, log and event
+    corpora — get them. Widening the route to ghost-bearing indexes is
+    separate work: it has to prove the #825 union/sum contract with tombstones
+    present, and is not attempted here.
+
 - **A code symbol's retrievable unit is the whole declaration, not the single
   physical line the name sits on**
   ([#500](https://github.com/xerj-org/xerj/issues/500)). Promoting each
