@@ -195,6 +195,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     separate work: it has to prove the #825 union/sum contract with tombstones
     present, and is not attempted here.
 
+- **A `date_nanos` field no longer guesses its epoch scale value by value, and
+  an index written before that flag existed recovers its scale instead of
+  guessing** ([#889](https://github.com/xerj-org/xerj/issues/889), follow-up to
+  [#790](https://github.com/xerj-org/xerj/issues/790)). #790 made a date
+  field's epoch scale a property of the MAPPING and pinned a declared `date` to
+  milliseconds, but deliberately left `date_nanos` on the old per-VALUE guess
+  (">= 4 fractional-second digits means nanoseconds"). The defect #790
+  describes therefore survived inside `date_nanos`: a column holding both
+  `2020-06-06T06:06:06.123456Z` and `2025-01-01T00:00:00Z` gave the first a
+  nanosecond key (~1.59e18) and the second a millisecond one (~1.74e12), six
+  orders of magnitude apart, so 2025 sorted before 2020 and a range bound could
+  not reach both.
+
+  Pinning `date_nanos` to nanoseconds is not safe on its own — it moves a
+  `date_nanos` field six orders of magnitude away from a `date` field in a
+  cross-index sort — so the prerequisite landed with it:
+
+  - **ES `numeric_type` on a field sort** (`numeric_type: date` /
+    `date_nanos`). It forces the epoch scale every participating index produces
+    sort values on, which is the only way a sort over a field mapped `date`
+    here and `date_nanos` there compares chronologically. The `search_after`
+    cursor is normalised on the same forced scale, so paging works in that one
+    space. `long`/`double` are parsed and ignored (xerj already compares
+    numeric sort keys as `f64`), and unlike ES, xerj does not reject
+    `numeric_type` on a non-numeric field. Without `numeric_type` the raw longs
+    are compared, exactly as ES does and as
+    `tests/es-compat-yaml/yaml/search/240_date_nanos.yml` asserts — that
+    default is unchanged and is pinned by a test.
+  - **`date_nanos` is now uniformly nanosecond-scaled**, including day-first
+    slash dates (`dd/MM/yyyy HH:mm:ss.SSS`), which previously had no nanosecond
+    branch at all and would have re-introduced the mixed-scale split by a
+    different route.
+  - **Legacy indices are back-filled at open.** `date_precision` is recorded
+    when a field is mapped, so an index created by an older build comes back
+    with no precision at all and every date field falls back to the per-value
+    guess. `schema.json` cannot tell `date` from `date_nanos` — but the raw ES
+    mapping blob beside it (`es_mapping.json`) still carries the original type
+    string, and `Index::open` now recovers the flag from there. Both directions
+    are covered: a legacy `date_nanos` comes back nanosecond-scaled (a blanket
+    default would have silently downgraded it to millisecond resolution) and a
+    legacy `date` comes back millisecond-scaled, i.e. it inherits the #790 fix
+    without a reindex. Nothing on disk is rewritten and no data is reindexed:
+    the epoch keys were always derived at read time from the stored value, so
+    correcting the scale is enough.
+  - **`GET _mapping` reports a `date_nanos` field as `date_nanos`** where the
+    mapping is derived from the schema (it already round-tripped correctly when
+    the raw blob was present). The GET → PUT round trip every reindex helper
+    performs no longer silently downgrades the field.
+
+  **Not fixed, stated plainly:** an index whose `schema.json` predates the flag
+  AND which has no `es_mapping.json` (an index that never went through the
+  ES-compat mapping path) still has no record of `date` vs `date_nanos`, so its
+  date fields keep the legacy per-value guess. Inventing a default there is the
+  silent downgrade this change exists to avoid. Sort-value FORMATTING still
+  infers milliseconds vs nanoseconds from the magnitude of the epoch number
+  rather than from the resolved scale; that is unchanged by this work and is
+  correct for any instant between 1970-01-24 and the year 65378.
+
 - **A code symbol's retrievable unit is the whole declaration, not the single
   physical line the name sits on**
   ([#500](https://github.com/xerj-org/xerj/issues/500)). Promoting each

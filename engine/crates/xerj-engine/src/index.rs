@@ -1668,6 +1668,273 @@ mod flush_publication_recovery_tests {
         }
     }
 
+    /// Strip `date_precision` from an index's persisted `schema.json`, which
+    /// is byte-for-byte the shape a build older than #790 wrote: the field is
+    /// `skip_serializing_if = "Option::is_none"`, so an old schema simply has
+    /// no such key. This is the legacy fixture — everything about the index is
+    /// current except the one record #790 added.
+    fn strip_date_precision(index_dir: &std::path::Path) {
+        let path = index_dir.join("schema.json");
+        let mut v: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        fn walk(fields: &mut serde_json::Value) {
+            let Some(arr) = fields.as_array_mut() else {
+                return;
+            };
+            for f in arr {
+                if let Some(o) = f.get_mut("options").and_then(|o| o.as_object_mut()) {
+                    o.remove("date_precision");
+                }
+                if let Some(sub) = f.get_mut("fields") {
+                    walk(sub);
+                }
+            }
+        }
+        walk(&mut v["schema"]["fields"]);
+        assert!(
+            !String::from_utf8(serde_json::to_vec(&v).unwrap())
+                .unwrap()
+                .contains("date_precision"),
+            "the legacy fixture must carry no precision record at all"
+        );
+        std::fs::write(&path, serde_json::to_vec_pretty(&v).unwrap()).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_nanos_column_is_one_scale_whatever_the_value() {
+        // #889 part 1. #790 pinned a declared `date` to milliseconds but left
+        // `date_nanos` on the per-VALUE guess (">= 4 fractional-second digits
+        // means nanoseconds"), so the very defect #790 describes survived
+        // inside `date_nanos`: doc `sub` (2020, sub-millisecond) got a
+        // NANOSECOND key ~1.59e18 while doc `late` (2025, whole-second) got a
+        // MILLISECOND key ~1.74e12 — six orders of magnitude apart in one
+        // column — and 2025 therefore sorted BEFORE 2020. A `date_nanos` field
+        // is now uniformly nanosecond-scaled, so one column is one scale.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let idx = date_index(
+            &engine,
+            "date-ns-mixed",
+            Some(xerj_common::types::DatePrecision::Nanos),
+            &[
+                ("sub", "2020-06-06T06:06:06.123456Z"),
+                ("late", "2025-01-01T00:00:00Z"),
+            ],
+        )
+        .await;
+        let range_count = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": body, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        let sort_values = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": "asc"}]}),
+            )
+            .unwrap();
+            idx.search(&req)
+                .await
+                .unwrap()
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.sort.clone()))
+                .collect::<Vec<_>>()
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_values(idx.clone()).await,
+                vec![
+                    ("sub".to_string(), vec![json!(1591423566123456000i64)]),
+                    ("late".to_string(), vec![json!(1735689600000000000i64)]),
+                ],
+                "#889 {phase}: every value of a date_nanos field is epoch-nanoseconds, \
+                 including the whole-second one the old guess called milliseconds"
+            );
+            assert_eq!(
+                sort_ids(&idx, "desc").await,
+                vec!["late".to_string(), "sub".to_string()],
+                "#889 {phase}: desc must be the exact reverse"
+            );
+            // A range bound is normalised on the same field scale, so a
+            // whole-second bound reaches the whole-second doc and nothing else.
+            assert_eq!(
+                range_count(idx.clone(), json!({"range": {"ts": {"gte": "2021-01-01"}}})).await,
+                (1u64, vec!["late".to_string()]),
+                "#889 {phase}: gte 2021 keeps only late"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn legacy_index_backfills_date_precision_from_es_mapping() {
+        // #889 part 2. `date_precision` is written when a field is MAPPED, so
+        // an index created by a build older than #790 comes back with no
+        // precision at all and every date field falls back to the per-value
+        // guess — the #790 defect, still live, on exactly the data dirs that
+        // already exist. The raw ES mapping blob beside `schema.json` still
+        // says `date` or `date_nanos`, so the flag is recoverable at open.
+        //
+        // Both directions are checked: a legacy `date_nanos` must come back
+        // nanosecond-scaled (a blanket default would silently downgrade it to
+        // milliseconds), and a legacy `date` must come back millisecond-scaled
+        // (i.e. it inherits the #790 fix instead of waiting for a reindex).
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+
+        // Same two documents in both indices: `sub` is the EARLIER instant, so
+        // the per-value guess (which scales them differently) reverses them.
+        let docs = [
+            ("sub", "2020-06-06T06:06:06.123456Z"),
+            ("late", "2025-01-01T00:00:00Z"),
+        ];
+        let mut index_dirs = Vec::new();
+        for (name, es_type, precision) in [
+            (
+                "legacy-ns",
+                "date_nanos",
+                xerj_common::types::DatePrecision::Nanos,
+            ),
+            (
+                "legacy-ms",
+                "date",
+                xerj_common::types::DatePrecision::Millis,
+            ),
+        ] {
+            let idx = date_index(&engine, name, Some(precision), &docs).await;
+            engine
+                .put_index_mapping(name, json!({"properties": {"ts": {"type": es_type}}}))
+                .unwrap();
+            idx.flush().await.unwrap();
+            assert!(idx.data_dir.join("es_mapping.json").is_file());
+            index_dirs.push(idx.data_dir.clone());
+            drop(idx);
+        }
+        drop(engine);
+        // Age the schemas only once the engine that owns them is gone, so
+        // nothing rewrites `schema.json` behind the fixture on shutdown.
+        for dir in &index_dirs {
+            strip_date_precision(dir);
+        }
+
+        let restarted = crate::Engine::new(config).unwrap();
+        for (name, expected) in [
+            (
+                "legacy-ns",
+                vec![json!(1591423566123456000i64), json!(1735689600000000000i64)],
+            ),
+            (
+                "legacy-ms",
+                vec![json!(1591423566123i64), json!(1735689600000i64)],
+            ),
+        ] {
+            let idx = restarted.get_index(name).unwrap();
+            idx.abort_background_tasks();
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": "asc"}]}),
+            )
+            .unwrap();
+            let hits = idx.search(&req).await.unwrap().hits;
+            let got: Vec<(String, Vec<serde_json::Value>)> = hits
+                .iter()
+                .map(|h| (h.id.clone(), h.sort.clone()))
+                .collect();
+            assert_eq!(
+                got,
+                vec![
+                    ("sub".to_string(), vec![expected[0].clone()]),
+                    ("late".to_string(), vec![expected[1].clone()]),
+                ],
+                "#889 {name}: an index whose schema.json predates date_precision must \
+                 recover its scale from es_mapping.json, not guess it per value"
+            );
+        }
+    }
+
+    #[test]
+    fn backfill_only_fills_what_the_mapping_actually_says() {
+        // The back-fill is a pure widening: it never overwrites a precision the
+        // current build already recorded, and it never invents one for a field
+        // the ES mapping does not describe as a date — leaving those on the
+        // legacy guess is the whole reason a blanket default was rejected.
+        use xerj_common::types::DatePrecision;
+        let mut fields = vec![
+            FieldConfig::new("declared_ms", FieldType::Date),
+            {
+                let mut f = FieldConfig::new("legacy_ns", FieldType::Date);
+                f.options.date_precision = None;
+                f
+            },
+            {
+                let mut f = FieldConfig::new("legacy_ms", FieldType::Date);
+                f.options.date_precision = None;
+                f
+            },
+            {
+                let mut f = FieldConfig::new("unmentioned", FieldType::Date);
+                f.options.date_precision = None;
+                f
+            },
+            {
+                let mut f = FieldConfig::new("not_a_date_in_mapping", FieldType::Date);
+                f.options.date_precision = None;
+                f
+            },
+            {
+                let mut parent = FieldConfig::new("obj", FieldType::Object);
+                let mut child = FieldConfig::new("when", FieldType::Date);
+                child.options.date_precision = None;
+                parent.fields = vec![child];
+                parent
+            },
+        ];
+        // `declared_ms` is mapped `date_nanos` here on purpose: the current
+        // build already classified it, so the back-fill must not touch it.
+        let props = json!({
+            "declared_ms": {"type": "date_nanos"},
+            "legacy_ns": {"type": "date_nanos"},
+            "legacy_ms": {"type": "date"},
+            "not_a_date_in_mapping": {"type": "keyword"},
+            "obj": {"properties": {"when": {"type": "date_nanos"}}}
+        });
+        assert_eq!(backfill_date_precision(&mut fields, &props), 3);
+        let by_name = |n: &str| {
+            fields
+                .iter()
+                .find(|f| f.name == n)
+                .unwrap()
+                .options
+                .date_precision
+        };
+        assert_eq!(by_name("declared_ms"), Some(DatePrecision::Millis));
+        assert_eq!(by_name("legacy_ns"), Some(DatePrecision::Nanos));
+        assert_eq!(by_name("legacy_ms"), Some(DatePrecision::Millis));
+        assert_eq!(by_name("unmentioned"), None);
+        assert_eq!(by_name("not_a_date_in_mapping"), None);
+        assert_eq!(
+            fields.iter().find(|f| f.name == "obj").unwrap().fields[0]
+                .options
+                .date_precision,
+            Some(DatePrecision::Nanos)
+        );
+        // Idempotent: a second pass classifies nothing new.
+        assert_eq!(backfill_date_precision(&mut fields, &props), 0);
+    }
+
     #[test]
     fn date_scale_follows_the_declared_mapping() {
         // The whole point of #790: the scale is a property of the FIELD.
@@ -1693,13 +1960,20 @@ mod flush_publication_recovery_tests {
                 .unwrap_or(DateScale::PerValue)
         };
         assert_eq!(scale("plain"), DateScale::Millis);
-        assert_eq!(scale("ns"), DateScale::PerValue);
+        // #889: a DECLARED `date_nanos` is uniformly nanosecond-scaled — it no
+        // longer re-derives its scale from each value.
+        assert_eq!(scale("ns"), DateScale::Nanos);
         assert_eq!(scale("legacy"), DateScale::PerValue);
         assert_eq!(scale("word"), DateScale::PerValue);
         assert_eq!(scale("undeclared"), DateScale::PerValue);
         assert_eq!(
-            millis_date_fields(&schema),
-            ["plain".to_string()].into_iter().collect()
+            date_field_scales(&schema),
+            [
+                ("plain".to_string(), DateScale::Millis),
+                ("ns".to_string(), DateScale::Nanos),
+            ]
+            .into_iter()
+            .collect()
         );
         // A millisecond field truncates sub-millisecond digits; the per-value
         // scale keeps them, which is the whole ms-vs-ns split.
@@ -1711,6 +1985,32 @@ mod flush_publication_recovery_tests {
         assert_eq!(
             date_string_to_epoch(sub, DateScale::PerValue),
             Some(json!(1591423566123456000i64))
+        );
+        assert_eq!(
+            date_string_to_epoch(sub, DateScale::Nanos),
+            Some(json!(1591423566123456000i64))
+        );
+        // #889, the defect itself: a WHOLE-SECOND value in a `date_nanos`
+        // column. The per-value guess called it milliseconds — six orders of
+        // magnitude below the same column's sub-millisecond keys, so it sorted
+        // as if it were 1970. `Nanos` puts it on the column's one scale.
+        let whole = "2020-06-06T06:06:06Z";
+        assert_eq!(
+            date_string_to_epoch(whole, DateScale::PerValue),
+            Some(json!(1591423566000i64))
+        );
+        assert_eq!(
+            date_string_to_epoch(whole, DateScale::Nanos),
+            Some(json!(1591423566000000000i64))
+        );
+        // Same for the slash-date shape, which had no nanosecond branch at all.
+        assert_eq!(
+            sort_date_normalize("06/06/2020 06:06:06.123", DateScale::PerValue),
+            Some(json!(1591423566123i64))
+        );
+        assert_eq!(
+            sort_date_normalize("06/06/2020 06:06:06.123", DateScale::Nanos),
+            Some(json!(1591423566123000000i64))
         );
     }
 
@@ -7480,8 +7780,9 @@ pub struct Index {
     /// query after a flush/merge doesn't pay the O(n log n) build inside
     /// its own latency.
     sort_shadow_fields: Arc<dashmap::DashMap<String, DateScale>>,
-    /// Sync-readable mirror of every `date`-mapped field that normalises on
-    /// the MILLISECOND scale (#790).
+    /// Sync-readable mirror of every date-mapped field whose epoch scale the
+    /// mapping DECLARES — `Millis` for an ES `date`, `Nanos` for an ES
+    /// `date_nanos` (#790, #889).
     ///
     /// The mapping lives in `self.schema`, behind an async `RwLock`; the
     /// paths that must agree on a date's epoch scale — `compute_sort_values`
@@ -7489,7 +7790,7 @@ pub struct Index {
     /// `sort_epoch_memo` (per buffered memtable doc) — are all sync and on the
     /// scan path. The snapshot is swapped wholesale on every schema write
     /// (`save_schema`) so a reader always sees one consistent set.
-    millis_date_fields: Arc<parking_lot::RwLock<Arc<std::collections::HashSet<String>>>>,
+    date_field_scales: Arc<parking_lot::RwLock<Arc<std::collections::HashMap<String, DateScale>>>>,
     /// Per-segment single-flight guard for the `stored_slices_for` miss
     /// arm: without it, every in-flight query racing the same cold
     /// segment (up to the 64-permit cap) ran its own full stored-section
@@ -7959,7 +8260,7 @@ impl Index {
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
         let passage_chunk_fields_init = passage_chunk_fields_from_schema(&managed.schema);
-        let millis_date_fields_snapshot = millis_date_fields(&managed.schema);
+        let date_field_scales_snapshot = date_field_scales(&managed.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(managed)),
@@ -8071,8 +8372,8 @@ impl Index {
             dv_cache: Arc::new(per_index_map()),
             sort_shadow_cache: Arc::new(per_index_map()),
             sort_shadow_fields: Arc::new(per_index_map()),
-            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
-                millis_date_fields_snapshot,
+            date_field_scales: Arc::new(parking_lot::RwLock::new(Arc::new(
+                date_field_scales_snapshot,
             ))),
             stored_slices_build_locks: Arc::new(per_index_map()),
             range_prefilter_cache: Arc::new(per_index_map()),
@@ -8151,7 +8452,15 @@ impl Index {
         // pre-persistence index legitimately has no schema.json). Present but
         // unparseable → refuse: the explicit mapping is gone and every field
         // type would be silently re-inferred from the next writes (#202).
-        let schema = load_schema(&index_dir)?.unwrap_or_else(ManagedSchema::dynamic);
+        let mut schema = load_schema(&index_dir)?.unwrap_or_else(ManagedSchema::dynamic);
+        // #889 — an index written before the `date_precision` flag existed has
+        // no record of `date` vs `date_nanos` in `schema.json`, so every date
+        // field would come back on the per-VALUE epoch guess #790 removed for
+        // new indices. The raw ES mapping blob beside it still says which is
+        // which; recover the flag from there before anything can read the
+        // schema, so an upgraded data dir sorts and ranges the same way a
+        // freshly created one does.
+        backfill_date_precision_from_disk(&index_dir, &mut schema, name.as_str());
         validate_embedding_identity(
             &index_dir,
             &schema.schema,
@@ -8352,7 +8661,7 @@ impl Index {
             .iter()
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
-        let millis_date_fields_snapshot = millis_date_fields(&schema.schema);
+        let date_field_scales_snapshot = date_field_scales(&schema.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(schema)),
@@ -8459,8 +8768,8 @@ impl Index {
             dv_cache: Arc::new(per_index_map()),
             sort_shadow_cache: Arc::new(per_index_map()),
             sort_shadow_fields: Arc::new(per_index_map()),
-            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
-                millis_date_fields_snapshot,
+            date_field_scales: Arc::new(parking_lot::RwLock::new(Arc::new(
+                date_field_scales_snapshot,
             ))),
             stored_slices_build_locks: Arc::new(per_index_map()),
             range_prefilter_cache: Arc::new(per_index_map()),
@@ -16533,6 +16842,7 @@ impl Index {
                     missing: xerj_query::sort::SortMissing::default(),
                     format: None,
                     unmapped_type: None,
+                    numeric_type: None,
                 }];
                 r.leaf_ts_field = None;
                 Some(r)
@@ -17065,7 +17375,7 @@ impl Index {
                         // output, so it must be normalised on the SAME field
                         // scale those keys use (#790).
                         let scale = sf
-                            .map(|s| self.date_scale(&s.field))
+                            .map(|s| self.date_scale_for_sort(s))
                             .unwrap_or(DateScale::PerValue);
                         normalize_search_after_value(v, fmt, scale)
                     })
@@ -17758,8 +18068,10 @@ impl Index {
                         }
                         // The memo is per-FIELD-scale (#790): this cut has to
                         // rank on the same epoch numbers `compute_sort_values`
-                        // emits for this field, not on a per-value guess.
-                        let scale = self.date_scale(&sf.field);
+                        // emits for this field, not on a per-value guess — and
+                        // on the scale THIS SORT asked for, which `numeric_type`
+                        // can override (#889).
+                        let scale = self.date_scale_for_sort(sf);
                         mem.sort_candidates_numeric(
                             &sf.field,
                             sf.order == SortOrder::Desc,
@@ -22592,9 +22904,9 @@ impl Index {
         // evolution), so this is the one place the sync-readable date-scale
         // mirror has to be refreshed (#790). Swapped as a whole `Arc` so a
         // concurrent reader never observes a half-rebuilt set.
-        let next = Arc::new(millis_date_fields(&schema.schema));
+        let next = Arc::new(date_field_scales(&schema.schema));
         let changed = {
-            let mut cur = self.millis_date_fields.write();
+            let mut cur = self.date_field_scales.write();
             let changed = **cur != *next;
             *cur = next;
             changed
@@ -22614,13 +22926,29 @@ impl Index {
     /// The epoch scale `field`'s dates normalise on (#790).
     ///
     /// Read off the sync mirror of the mapping; an undeclared field, or one
-    /// whose mapping predates the `date_precision` flag, keeps the legacy
-    /// per-value guess.
+    /// whose mapping predates the `date_precision` flag and whose index has no
+    /// `es_mapping.json` to back-fill it from, keeps the legacy per-value
+    /// guess.
     fn date_scale(&self, field: &str) -> DateScale {
-        if self.millis_date_fields.read().contains(field) {
-            DateScale::Millis
-        } else {
-            DateScale::PerValue
+        self.date_field_scales
+            .read()
+            .get(field)
+            .copied()
+            .unwrap_or(DateScale::PerValue)
+    }
+
+    /// The epoch scale ONE SORT wants `sf.field`'s dates on (#889).
+    ///
+    /// Normally the field's own mapped scale. ES `numeric_type` overrides it,
+    /// which is the only way a cross-index sort over a field mapped `date`
+    /// here and `date_nanos` there can compare at all: every participating
+    /// index is asked for keys on the same scale. `long`/`double` are not date
+    /// conversions and leave the field's scale alone.
+    fn date_scale_for_sort(&self, sf: &xerj_query::sort::SortField) -> DateScale {
+        match sf.numeric_type.as_deref() {
+            Some("date") => DateScale::Millis,
+            Some("date_nanos") => DateScale::Nanos,
+            _ => self.date_scale(&sf.field),
         }
     }
 
@@ -26951,6 +27279,17 @@ impl Index {
         ))
     }
 
+    /// Is the segment sort shadow — built once per (segment, field) on the
+    /// field's MAPPED scale and cached under that key — usable for this sort?
+    ///
+    /// It is not when `numeric_type` re-scales the field (#889): the heap would
+    /// rank on epoch numbers the shadow was not built from, so the candidate
+    /// cut and the ranking would disagree. Rare enough to simply decline —
+    /// the sort still runs, unaccelerated and correct.
+    fn shadow_scale_matches_sort(&self, sf: &xerj_query::sort::SortField) -> bool {
+        self.date_scale_for_sort(sf) == self.date_scale(&sf.field)
+    }
+
     fn build_sort_candidates_prefilter(
         &self,
         segments_dir: &std::path::Path,
@@ -26962,7 +27301,7 @@ impl Index {
         use xerj_query::sort::SortOrder;
 
         let sf = topk.fields.first()?;
-        if sf.is_score() || sf.is_doc_order() {
+        if sf.is_score() || sf.is_doc_order() || !self.shadow_scale_matches_sort(sf) {
             return None;
         }
         let shadow = self.sorted_shadow_for(segments_dir, segment_id, &sf.field, seg_doc_count)?;
@@ -27176,7 +27515,7 @@ impl Index {
     ) -> Option<SortCandidates> {
         use xerj_query::sort::SortOrder;
         let sf = topk.fields.first()?;
-        if sf.is_score() || sf.is_doc_order() {
+        if sf.is_score() || sf.is_doc_order() || !self.shadow_scale_matches_sort(sf) {
             return None;
         }
         let shadow = self.sorted_shadow_for(segments_dir, segment_id, &sf.field, seg_doc_count)?;
@@ -33492,6 +33831,96 @@ fn load_sidecar<T: serde::de::DeserializeOwned>(index_dir: &Path, file: &str) ->
 
 fn load_schema(index_dir: &Path) -> Result<Option<ManagedSchema>> {
     load_sidecar(index_dir, "schema.json")
+}
+
+/// Back-fill `options.date_precision` on a schema written before that flag
+/// existed, reading the index's OWN persisted `es_mapping.json` (#889).
+///
+/// `schema.json` collapses ES `date` and `date_nanos` onto one
+/// `FieldType::Date` and, before #790, recorded nothing that tells them apart —
+/// so an index created by an older build comes back with `date_precision:
+/// None` on every date field and every date-ordered path falls back to the
+/// per-VALUE epoch guess #790 was filed to remove. `es_mapping.json` is the
+/// raw user mapping and still carries the original `"type": "date_nanos"`
+/// string, which is exactly the missing bit.
+///
+/// Only `None` is ever overwritten: a field the current build already
+/// classified keeps its classification, so this is a pure widening and is
+/// idempotent across restarts. A field the ES mapping does not mention (a
+/// dynamically-added date, an index that never had a mapping blob) is left on
+/// `None` — a blanket default here would silently downgrade a real
+/// `date_nanos` column to millisecond resolution, which is the outcome the
+/// legacy guess exists to avoid.
+///
+/// Returns the number of fields it classified.
+fn backfill_date_precision(fields: &mut [FieldConfig], props: &Value) -> usize {
+    use xerj_common::types::DatePrecision;
+    let Some(obj) = props.as_object() else {
+        return 0;
+    };
+    let mut filled = 0;
+    for fc in fields.iter_mut() {
+        let Some(def) = obj.get(&fc.name) else {
+            continue;
+        };
+        if fc.field_type == FieldType::Date && fc.options.date_precision.is_none() {
+            match def.get("type").and_then(Value::as_str) {
+                Some("date_nanos") => {
+                    fc.options.date_precision = Some(DatePrecision::Nanos);
+                    filled += 1;
+                }
+                Some("date") => {
+                    fc.options.date_precision = Some(DatePrecision::Millis);
+                    filled += 1;
+                }
+                // A type the mapping renders as something else entirely means
+                // the two are out of step; do not guess from a disagreement.
+                _ => {}
+            }
+        }
+        // Object/nested children live under `properties`; ES multi-fields
+        // under `fields`. `FieldConfig::fields` holds both, keyed off the
+        // parent's own type, so follow whichever the mapping supplies.
+        if !fc.fields.is_empty() {
+            if let Some(sub) = def.get("properties").or_else(|| def.get("fields")) {
+                filled += backfill_date_precision(&mut fc.fields, sub);
+            }
+        }
+    }
+    filled
+}
+
+/// Read `es_mapping.json` out of `index_dir` and back-fill `schema` from it.
+///
+/// Deliberately best-effort: an unreadable or unparseable mapping blob is
+/// already a hard failure in `Engine::load_persisted_es_mapping` (#202), which
+/// runs on the same file moments later and quarantines the index. Failing here
+/// too would only turn one clear error into two, and the fallback — every date
+/// field stays on the legacy guess — is precisely the pre-#889 behaviour.
+fn backfill_date_precision_from_disk(index_dir: &Path, schema: &mut ManagedSchema, name: &str) {
+    let path = index_dir.join("es_mapping.json");
+    let Ok(bytes) = std::fs::read(&path) else {
+        return;
+    };
+    let Ok(mapping) = serde_json::from_slice::<Value>(&bytes) else {
+        return;
+    };
+    let Some(props) = mapping
+        .get("properties")
+        .or_else(|| mapping.get("mappings").and_then(|m| m.get("properties")))
+    else {
+        return;
+    };
+    let filled = backfill_date_precision(&mut schema.schema.fields, props);
+    if filled > 0 {
+        info!(
+            index = name,
+            fields = filled,
+            "back-filled date precision from es_mapping.json (index predates the \
+             date_precision flag); its date fields no longer guess their epoch \
+             scale per value"
+        );
+    }
 }
 
 fn load_settings(index_dir: &Path) -> Result<Option<Value>> {
@@ -43032,7 +43461,24 @@ const SHORTCUT_COUNT_CACHE_MAX: usize = 65_536;
 fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>, scale: DateScale) -> Value {
     if let Some(s) = v.as_str() {
         if let Some(fmt) = fmt_hint {
-            if let Some(epoch) = es_format_to_epoch_ms(s, fmt) {
+            if let Some(epoch_ms) = es_format_to_epoch_ms(s, fmt) {
+                // `es_format_to_epoch_ms` is millisecond-resolution by
+                // construction. On a nanosecond-scaled field the hits' keys are
+                // epoch-NANOSECONDS, so a cursor left in milliseconds sits ~9
+                // orders of magnitude below every key and the page boundary is
+                // meaningless (#889). Widen it onto the field's own scale.
+                // Sub-millisecond digits in the cursor string are still lost —
+                // the format parser has no nanosecond path — so the boundary
+                // can be up to 1 ms early, which re-emits at most the docs
+                // inside that millisecond rather than losing any.
+                let epoch = if scale == DateScale::Nanos {
+                    match epoch_ms.checked_mul(1_000_000) {
+                        Some(ns) => ns,
+                        None => return v.clone(),
+                    }
+                } else {
+                    epoch_ms
+                };
                 return Value::Number(serde_json::Number::from(epoch));
             }
         }
@@ -43108,22 +43554,30 @@ enum DateScale {
     /// declares `type: date`, and for a `FieldType::Date` created through the
     /// native API.
     Millis,
+    /// ES `date_nanos`: epoch NANOSECONDS for every value, whatever its
+    /// fractional-second width (#889). Set for any field the mapping declares
+    /// `type: date_nanos`, either at create time or back-filled at open from
+    /// the index's persisted `es_mapping.json`.
+    ///
+    /// Uniform nanoseconds is what stops a `date_nanos` column mixing scales:
+    /// under the old per-value guess `2020-06-06T06:06:06.123456Z` became a
+    /// nanosecond key and `2020-06-06T06:06:06Z` a millisecond one, six orders
+    /// of magnitude apart in the same column.
+    ///
+    /// Pinning it is only safe because a sort can now name the scale it wants
+    /// across indices (`numeric_type`, `Index::date_scale_for_sort`) — without
+    /// that, a cross-index sort over a `date` and a `date_nanos` field had no
+    /// way to compare them.
+    Nanos,
     /// The pre-#790 per-VALUE guess: >= 4 fractional-second digits means
     /// epoch-nanoseconds, anything coarser means epoch-milliseconds.
     ///
-    /// Kept for two kinds of field:
-    ///   * a `date_nanos` mapping — the guess is the only thing that gives it
-    ///     nanosecond sort values today, and pinning it to nanos for EVERY
-    ///     value would change how it compares against a plain `date` field in
-    ///     a cross-index sort, which the conformance suite pins
-    ///     (`search/90_search_after.yml`, "Format sort values": a `date_nanos`
-    ///     field whose values are `dd/MM/yyyy` slash-dates interleaves
-    ///     chronologically with a `date` field's, i.e. on the millisecond
-    ///     scale). Making `date_nanos` uniformly nanosecond-scaled is the
-    ///     remaining half of the mixed-scale problem, tracked separately.
-    ///   * a field whose mapping predates the `date_precision` flag (a
-    ///     schema.json written by an older build) — upgrading an existing
-    ///     index must not silently change how its dates sort.
+    /// Reached only by a field whose scale is genuinely unknown: an
+    /// undeclared/dynamic field, a non-date type, or a `Date` field whose
+    /// mapping predates the `date_precision` flag AND whose index has no
+    /// persisted `es_mapping.json` to back-fill it from (#889). Upgrading such
+    /// an index must not silently change how its dates sort, so the guess
+    /// stays — it is the only description of that column anyone has.
     PerValue,
 }
 
@@ -43133,6 +43587,7 @@ impl DateScale {
     fn is_nanos(self, s: &str) -> bool {
         match self {
             DateScale::Millis => false,
+            DateScale::Nanos => true,
             DateScale::PerValue => {
                 s.rsplit_once('.')
                     .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
@@ -43143,28 +43598,39 @@ impl DateScale {
     }
 }
 
-/// Every `Millis` field in `schema`, as the sync-readable mirror the scan
-/// path consults (`Index::millis_date_fields`). The schema itself lives
-/// behind an ASYNC `RwLock`, while `compute_sort_values`,
-/// `build_sort_shadow` and `shadow_range_bounds` are sync and run per hit
-/// and per segment.
-fn millis_date_fields(schema: &Schema) -> std::collections::HashSet<String> {
-    fn walk(fields: &[FieldConfig], prefix: &str, out: &mut std::collections::HashSet<String>) {
+/// Every field in `schema` whose date scale is DECLARED (`Millis` or
+/// `Nanos`), as the sync-readable mirror the scan path consults
+/// (`Index::date_field_scales`). The schema itself lives behind an ASYNC
+/// `RwLock`, while `compute_sort_values`, `build_sort_shadow` and
+/// `shadow_range_bounds` are sync and run per hit and per segment.
+///
+/// A field absent from the map has no declared scale and falls back to
+/// `PerValue`, so a path that never consults the map behaves exactly as it did
+/// before #790.
+fn date_field_scales(schema: &Schema) -> std::collections::HashMap<String, DateScale> {
+    fn walk(
+        fields: &[FieldConfig],
+        prefix: &str,
+        out: &mut std::collections::HashMap<String, DateScale>,
+    ) {
         for fc in fields {
             let path = if prefix.is_empty() {
                 fc.name.clone()
             } else {
                 format!("{prefix}.{}", fc.name)
             };
-            if date_scale_of_config(fc) == DateScale::Millis {
-                out.insert(path.clone());
+            match date_scale_of_config(fc) {
+                DateScale::PerValue => {}
+                declared => {
+                    out.insert(path.clone(), declared);
+                }
             }
             if !fc.fields.is_empty() {
                 walk(&fc.fields, &path, out);
             }
         }
     }
-    let mut out = std::collections::HashSet::new();
+    let mut out = std::collections::HashMap::new();
     walk(&schema.fields, "", &mut out);
     out
 }
@@ -43172,18 +43638,19 @@ fn millis_date_fields(schema: &Schema) -> std::collections::HashSet<String> {
 /// The `DateScale` one declared field asks for — the single rule, so nothing
 /// can drift from it.
 ///
-/// Anything that is not a `Date` carrying `DatePrecision::Millis` — a
-/// `date_nanos`, a mapping written before the flag existed, a non-date type,
-/// an undeclared/dynamic field — stays on `PerValue`, i.e. exactly the
-/// pre-#790 behaviour. The flag only ever *narrows* a field to `Millis`, so a
-/// path that forgets to consult the mapping cannot land on a new scale.
+/// A `Date` carrying an explicit precision gets that precision's scale:
+/// `Millis` for an ES `date`, `Nanos` for an ES `date_nanos` (#889). Anything
+/// else — a non-date type, an undeclared/dynamic field, or a `Date` whose
+/// mapping predates the flag and could not be back-filled at open — stays on
+/// `PerValue`, i.e. exactly the pre-#790 behaviour.
 fn date_scale_of_config(fc: &FieldConfig) -> DateScale {
-    if fc.field_type == FieldType::Date
-        && fc.options.date_precision == Some(xerj_common::types::DatePrecision::Millis)
-    {
-        DateScale::Millis
-    } else {
-        DateScale::PerValue
+    if fc.field_type != FieldType::Date {
+        return DateScale::PerValue;
+    }
+    match fc.options.date_precision {
+        Some(xerj_common::types::DatePrecision::Millis) => DateScale::Millis,
+        Some(xerj_common::types::DatePrecision::Nanos) => DateScale::Nanos,
+        None => DateScale::PerValue,
     }
 }
 
@@ -43213,7 +43680,25 @@ fn looks_like_slash_date(s: &str) -> bool {
         && parts[2].len() == 4
         && parts[2].bytes().all(|b| b.is_ascii_digit())
 }
-fn slash_date_to_epoch(s: &str) -> Option<Value> {
+/// A day-first / month-first slash date on the FIELD's epoch scale (#889).
+///
+/// `scale` matters here for the same reason it matters in
+/// `date_string_to_epoch`: a `date_nanos` field whose values happen to be
+/// slash-dates must produce keys on the SAME scale as its RFC3339 values, or
+/// the column mixes scales again by a different route. `Millis`/`PerValue`
+/// keep the legacy behaviour exactly — the old function had no nanosecond
+/// branch at all, so every slash date was milliseconds.
+fn slash_date_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
+    let out = |dt: chrono::DateTime<chrono::Utc>| -> Option<Value> {
+        if scale == DateScale::Nanos {
+            dt.timestamp_nanos_opt()
+                .map(|ns| Value::Number(serde_json::Number::from(ns)))
+        } else {
+            Some(Value::Number(serde_json::Number::from(
+                dt.timestamp_millis(),
+            )))
+        }
+    };
     for pat in [
         "%d/%m/%Y %H:%M:%S%.f",
         "%d/%m/%Y %H:%M:%S",
@@ -43221,16 +43706,12 @@ fn slash_date_to_epoch(s: &str) -> Option<Value> {
         "%m/%d/%Y %H:%M:%S",
     ] {
         if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, pat) {
-            return Some(Value::Number(serde_json::Number::from(
-                dt.and_utc().timestamp_millis(),
-            )));
+            return out(dt.and_utc());
         }
     }
     for pat in ["%d/%m/%Y", "%m/%d/%Y"] {
         if let Ok(d) = chrono::NaiveDate::parse_from_str(s, pat) {
-            return d.and_hms_opt(0, 0, 0).map(|dt| {
-                Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()))
-            });
+            return d.and_hms_opt(0, 0, 0).and_then(|dt| out(dt.and_utc()));
         }
     }
     None
@@ -43299,7 +43780,7 @@ fn sort_date_normalize(s: &str, scale: DateScale) -> Option<Value> {
     if looks_like_date(s) {
         date_string_to_epoch(s, scale)
     } else if looks_like_slash_date(s) {
-        slash_date_to_epoch(s)
+        slash_date_to_epoch(s, scale)
     } else {
         None
     }
@@ -43365,7 +43846,7 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
     };
     let v = match raw {
         Value::Number(n) => n.as_f64(),
-        Value::String(s) => sort_epoch_memo(s, idx.date_scale(&sf.field)),
+        Value::String(s) => sort_epoch_memo(s, idx.date_scale_for_sort(sf)),
         _ => None,
     };
     match v {
@@ -43389,10 +43870,13 @@ fn sort_epoch_memo(s: &str, scale: DateScale) -> Option<f64> {
     // a borrowed `&str` lookup with no key allocation.
     static MEMO_MILLIS: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
         std::sync::LazyLock::new(dashmap::DashMap::new);
+    static MEMO_NANOS: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+        std::sync::LazyLock::new(dashmap::DashMap::new);
     static MEMO_PER_VALUE: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
         std::sync::LazyLock::new(dashmap::DashMap::new);
     let memo = match scale {
         DateScale::Millis => &*MEMO_MILLIS,
+        DateScale::Nanos => &*MEMO_NANOS,
         DateScale::PerValue => &*MEMO_PER_VALUE,
     };
     if let Some(e) = memo.get(s) {
@@ -43475,10 +43959,10 @@ fn compute_sort_values(
             let raw = xerj_query::sort::reduce_sort_value(&raw, sf.order, sf.mode);
             match raw {
                 Value::String(ref s) if looks_like_date(s) => {
-                    date_string_to_epoch(s, idx.date_scale(&sf.field)).unwrap_or(raw)
+                    date_string_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
                 }
                 Value::String(ref s) if looks_like_slash_date(s) => {
-                    slash_date_to_epoch(s).unwrap_or(raw)
+                    slash_date_to_epoch(s, idx.date_scale_for_sort(sf)).unwrap_or(raw)
                 }
                 other => other,
             }

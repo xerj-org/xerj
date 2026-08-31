@@ -41,6 +41,22 @@ pub struct SortField {
     /// survive a schema that predates the field) is not rejected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unmapped_type: Option<String>,
+    /// ES `numeric_type`: force the numeric type the sort VALUES are produced
+    /// in, independently of how the field is mapped in each index.
+    ///
+    /// This is what makes a cross-index sort over a field mapped `date` in one
+    /// index and `date_nanos` in another comparable at all: without it ES (and
+    /// xerj) compares the raw longs, so an epoch-nanosecond key always sorts
+    /// above every epoch-millisecond key rather than interleaving with it
+    /// (`search/240_date_nanos.yml` pins exactly that default). xerj implements
+    /// the two date values — `date` pins the sort to epoch-MILLISECONDS,
+    /// `date_nanos` to epoch-NANOSECONDS, for every participating index (#889).
+    ///
+    /// `long` / `double` are parsed and then ignored: xerj already compares
+    /// numeric sort keys as `f64`, so there is nothing to convert. Unlike ES,
+    /// xerj does not reject `numeric_type` on a non-numeric field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub numeric_type: Option<String>,
 }
 
 impl SortField {
@@ -53,6 +69,7 @@ impl SortField {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }
     }
 
@@ -65,6 +82,7 @@ impl SortField {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }
     }
 
@@ -373,6 +391,7 @@ mod tests {
             missing: SortMissing::Last,
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }];
         let a = vec![json!(1)];
         let b = vec![json!(2)];
@@ -388,6 +407,7 @@ mod tests {
             missing: SortMissing::Last,
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }];
         let a = vec![json!(2)];
         let b = vec![json!(1)];
@@ -403,6 +423,7 @@ mod tests {
             missing: SortMissing::Last,
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }];
         // null sorts after non-null
         assert_eq!(
@@ -420,6 +441,7 @@ mod tests {
             missing: SortMissing::First,
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         }];
         assert_eq!(
             compare_sort_keys(&[json!(null)], &[json!(1)], &fields),
@@ -437,6 +459,7 @@ mod tests {
                 missing: SortMissing::Last,
                 format: None,
                 unmapped_type: None,
+                numeric_type: None,
             },
             SortField {
                 field: "name".to_string(),
@@ -445,6 +468,7 @@ mod tests {
                 missing: SortMissing::Last,
                 format: None,
                 unmapped_type: None,
+                numeric_type: None,
             },
         ];
         // Same date, "alice" < "bob"
