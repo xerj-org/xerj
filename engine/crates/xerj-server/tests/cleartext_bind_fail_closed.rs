@@ -16,15 +16,76 @@
 //! any listener exists, and the ports handed to it are free either way.
 
 use std::io::Read;
-use std::net::TcpListener;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 
-/// Three distinct free ports, held simultaneously so they cannot collide,
-/// then released for the child. `Config::validate` requires all three listener
-/// ports to differ; free ports also mean a regressed (serving) binary binds
-/// cleanly and keeps running instead of dying on an unrelated bind error,
-/// which would masquerade as a pass.
+/// Lowest port any supported platform hands out for an *ephemeral* bind:
+/// Linux defaults to 32768-60999, macOS and Windows to 49152-65535.
+///
+/// Ports for a child process must come from BELOW this line — see
+/// [`next_free_port`].
+const EPHEMERAL_FLOOR: u16 = 32_768;
+
+/// Start of the private band these tests allocate from. 15 000 is above the
+/// registered-service crowd and well below [`EPHEMERAL_FLOOR`].
+const BAND_START: u16 = 15_000;
+/// Width of the band: `15_000..31_000`.
+const BAND_LEN: u16 = 16_000;
+
+/// A port that is free on both loopback families, taken from a band no
+/// ephemeral bind can be handed.
+///
+/// This used to be `TcpListener::bind("127.0.0.1:0")`, read the port, drop the
+/// listener, hand the number to a child. That is a race, not an allocation:
+/// the kernel is free to hand the very same ephemeral port to the next
+/// `bind(":0")` anywhere in the process, and several tests in this file start
+/// a real server and keep it alive for seconds, so at `cargo test`'s default
+/// parallelism they overlap. CI run 33359300573 failed exactly that way —
+/// `default_and_loopback_binds_start_normally` died with
+/// `gRPC: bind [::1]:46843 ... Address already in use (os error 98)` against a
+/// port a sibling test's child had already taken. (Issue #751's other half:
+/// "serialise its port/fixture access".)
+///
+/// Two things make the number safe to hand over:
+///
+/// * it comes from outside the ephemeral range, so no `bind(":0")` — ours or
+///   anyone else's — can compete for it, and a process-strided cursor keeps
+///   two concurrent `cargo test` runs apart;
+/// * it is probe-bound on 127.0.0.1 **and** ::1. A port free on 127.0.0.1 can
+///   still be taken on ::1, which is precisely how the CI failure happened,
+///   so probing one family would not have caught it.
+fn next_free_port() -> u16 {
+    static CURSOR: std::sync::LazyLock<AtomicU16> =
+        std::sync::LazyLock::new(|| AtomicU16::new((std::process::id() % BAND_LEN as u32) as u16));
+    for _ in 0..BAND_LEN {
+        let offset = CURSOR.fetch_add(1, Ordering::Relaxed) % BAND_LEN;
+        let port = BAND_START + offset;
+        if loopback_port_is_free(port) {
+            return port;
+        }
+    }
+    panic!("no free port in {BAND_START}..{}", BAND_START + BAND_LEN);
+}
+
+/// True when `port` can be bound on every loopback address a child here might
+/// use. A host with no IPv6 at all fails the ::1 probe for a reason other than
+/// `AddrInUse`, and that must not disqualify the port.
+fn loopback_port_is_free(port: u16) -> bool {
+    if TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, port))).is_err() {
+        return false;
+    }
+    match TcpListener::bind(SocketAddr::from((Ipv6Addr::LOCALHOST, port))) {
+        Ok(_) => true,
+        Err(e) => e.kind() != std::io::ErrorKind::AddrInUse,
+    }
+}
+
+/// Three distinct free ports for the child. `Config::validate` requires all
+/// three listener ports to differ; free ports also mean a regressed (serving)
+/// binary binds cleanly and keeps running instead of dying on an unrelated
+/// bind error, which would masquerade as a pass.
 fn three_free_ports() -> (u16, u16, u16) {
     let (a, b, c, _) = four_free_ports();
     (a, b, c)
@@ -32,14 +93,34 @@ fn three_free_ports() -> (u16, u16, u16) {
 
 /// As above plus a fourth for the cluster transport.
 fn four_free_ports() -> (u16, u16, u16, u16) {
-    let held: Vec<TcpListener> = (0..4)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+    (
+        next_free_port(),
+        next_free_port(),
+        next_free_port(),
+        next_free_port(),
+    )
+}
+
+/// The guard for the CI flake above. It pins the two properties that make a
+/// handed-over port safe, and both fail on the old `bind(":0")` helper: that
+/// one returns ephemeral ports by construction, and two concurrent callers can
+/// be handed the same one.
+#[test]
+fn handed_over_ports_are_non_ephemeral_and_never_repeat() {
+    let threads: Vec<_> = (0..8)
+        .map(|_| std::thread::spawn(|| (0..8).map(|_| next_free_port()).collect::<Vec<_>>()))
         .collect();
-    let p: Vec<u16> = held
-        .iter()
-        .map(|l| l.local_addr().unwrap().port())
-        .collect();
-    (p[0], p[1], p[2], p[3])
+    let mut seen = std::collections::HashSet::new();
+    for t in threads {
+        for port in t.join().expect("port thread") {
+            assert!(
+                port < EPHEMERAL_FLOOR,
+                "port {port} is inside the ephemeral range, so any concurrent \
+                 bind(\":0\") can be handed it before the child binds it"
+            );
+            assert!(seen.insert(port), "port {port} was handed out twice");
+        }
+    }
 }
 
 /// TOML-safe rendering of a temp path (Windows backslashes would be escape
