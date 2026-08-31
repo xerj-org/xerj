@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 54 of XERJ's 116 user-facing settings to their
+# This file sets 55 of XERJ's 117 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -154,7 +154,7 @@ key_path = ""
 # opt-out. Ignored entirely when enabled = false.
 allow_insecure_grpc_h2c = false
 
-# ── Storage & WAL (5 of 10 settings) ──────────────────────────────────────────
+# ── Storage & WAL (6 of 11 settings) ──────────────────────────────────────────
 
 [storage]
 
@@ -193,6 +193,16 @@ flush_size_mb = 512
 # Maximum time between flushes, regardless of buffer size (seconds).
 # Ensures data is durable even during low-write periods.
 flush_interval_secs = 30
+
+# Flush a NON-EMPTY memtable whose contents have not changed for this many
+# seconds, regardless of how small it is (0 disables). Without this, a dataset
+# that never reaches flush_size_mb stays in memory for the life of the process,
+# pins its WAL generations on disk, and replays them on every start — the cost
+# is largest when one node holds many small indices, which is exactly what
+# `xerj autoindex` produces. Detection rides the flush_interval_secs sweep, so
+# worst-case latency is flush_idle_secs + flush_interval_secs and writes pay
+# nothing.
+flush_idle_secs = 300
 
 # ── Segment Merging (8 settings) ──────────────────────────────────────────────
 #
