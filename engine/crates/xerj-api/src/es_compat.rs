@@ -7486,15 +7486,24 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
 }
 
 /// Fields whose vector clause reaches the vector for this query, approximating
-/// the engine's `peel_semantic_query` / `peel_knn_query` dispatch (index.rs) for
-/// the shapes that can co-exist with a lexical `semantic_text` clause. A
-/// `semantic`/`knn` clause consults the vector only as the whole query, as the
-/// SOLE `must`/`should` candidate of a `bool` with no `must_not`, or inside a
-/// `hybrid` (which fuses and runs every branch). A `semantic`/`knn` clause
-/// sitting BESIDE a sibling in a multi-clause `bool` falls through to the lexical
-/// path and never consults the vector (#394) — so it must NOT count as "reached
-/// the vector" here, or the hint gets suppressed on a query that ran BM25-only,
+/// the engine's `peel_semantic_query` / `peel_knn_query` /
+/// `compound_bool_direct_knn` dispatch (index.rs) for the shapes that can
+/// co-exist with a lexical `semantic_text` clause.
+///
+/// A `semantic` clause consults the vector only as the whole query, as the SOLE
+/// `must`/`should` candidate of a `bool` with no `must_not`, or inside a
+/// `hybrid` (which fuses and runs every branch). A `semantic` clause sitting
+/// BESIDE a sibling in a multi-clause `bool` falls through to the lexical path
+/// and never consults the vector (#394) — so it must NOT count as "reached the
+/// vector" here, or the hint gets suppressed on a query that ran BM25-only,
 /// reintroducing the exact silence the hint exists to break.
+///
+/// A `knn` clause is no longer bound by that (#825). A `knn` that is a DIRECT
+/// child of a compound bool's scoring lists is pre-executed by the engine and
+/// its top-k pinned into the tree, so it dispatches whatever its siblings are —
+/// and that is precisely the tree this module's `knn`-beside-`query` fold
+/// emits, so the hand-rolled ES hybrid must not be nagged for running BM25
+/// "only".
 ///
 /// This is NOT a byte-exact mirror of `peel`, and does not need to be (#777):
 /// where it diverges the shapes are contrived or carry no lexical clause, so none
@@ -7505,6 +7514,14 @@ fn vector_query_fields(q: &Value, out: &mut Vec<String>) {
 /// as the prior blanket walk did — not a regression); and a query-level
 /// `boost`/`_name` is an inline leaf param, not a wrapper key, so nothing
 /// dispatching is missed.
+///
+/// The `knn` arm inherits exactly that one known divergence and no other. A
+/// one-clause `bool` is erased before the engine reads the tree (#399), so
+/// descending through a sole candidate into a compound bool tracks
+/// `compound_bool_direct_knn` faithfully — except in the same contrived
+/// `bool{should:[bool{should:[knn, match]}], filter:[…]}` shape, where the
+/// wrapper is not erased, the engine does NOT pin, and this over-suppresses.
+/// Same class, same contrivance, no new one.
 ///
 /// Contrast [`vector_query_fields`], which collects every mention regardless of
 /// shape and is right only for the top-level `knn` block (which always dispatches).
@@ -7539,27 +7556,48 @@ fn dispatching_vector_fields(q: &Value, out: &mut Vec<String>) {
     if let Some(inner) = o.get("constant_score").and_then(|c| c.get("filter")) {
         dispatching_vector_fields(inner, out);
     }
-    // `bool` reaches its vector clause ONLY in the single-`must`/`should`
+    // `bool` reaches a `semantic` clause ONLY in the single-`must`/`should`
     // candidate, no-`must_not` shape the engine peels; every other bool falls
     // through to the lexical path and consults no vector.
+    //
+    // `knn` is no longer bound by that (#825): a `knn` clause sitting DIRECTLY
+    // in a compound bool's SCORING lists is now pre-executed by the engine and
+    // its top-k pinned into the tree (`compound_bool_direct_knn` /
+    // `pin_knn_clause` in xerj-engine), so it genuinely dispatches however many
+    // siblings it has — which is exactly the tree this module's own
+    // `knn`-beside-`query` fold emits. Mirror the engine's gate: exactly one
+    // direct `Knn` child across `must` + `should`, `must_not`/`filter`
+    // irrelevant. `semantic` keeps the #394 rule, which still holds for it.
     if let Some(Value::Object(b)) = o.get("bool") {
+        let mut scoring: Vec<&Value> = Vec::new();
+        for key in ["must", "should"] {
+            match b.get(key) {
+                Some(Value::Array(a)) => scoring.extend(a.iter()),
+                Some(Value::Null) | None => {}
+                Some(other) => scoring.push(other),
+            }
+        }
+        let mut direct_knn = scoring.iter().filter(|c| c.get("knn").is_some());
+        if let (Some(clause), None) = (direct_knn.next(), direct_knn.next()) {
+            if let Some(spec) = clause.get("knn") {
+                let specs: Vec<&Value> = match spec {
+                    Value::Array(a) => a.iter().collect(),
+                    single => vec![single],
+                };
+                for spec in specs {
+                    if let Some(f) = spec.get("field").and_then(Value::as_str) {
+                        out.push(f.to_string());
+                    }
+                }
+            }
+        }
         let must_not_empty = match b.get("must_not") {
             None | Some(Value::Null) => true,
             Some(Value::Array(a)) => a.is_empty(),
             Some(_) => false,
         };
-        if must_not_empty {
-            let mut candidates: Vec<&Value> = Vec::new();
-            for key in ["must", "should"] {
-                match b.get(key) {
-                    Some(Value::Array(a)) => candidates.extend(a.iter()),
-                    Some(Value::Null) | None => {}
-                    Some(other) => candidates.push(other),
-                }
-            }
-            if candidates.len() == 1 {
-                dispatching_vector_fields(candidates[0], out);
-            }
+        if must_not_empty && scoring.len() == 1 {
+            dispatching_vector_fields(scoring[0], out);
         }
     }
 }
@@ -9558,61 +9596,25 @@ async fn search_impl(
         };
         let merged_query = if let Some(ref existing_q) = body.query {
             // ES 8.x canonical hybrid: a top-level `knn` block beside a
-            // `query`. This used to fold to `{"bool":{"should":[query, knn]}}`
-            // — and the engine never dispatched it to the vector path, because
-            // `peel_knn_query` only peels a bool holding exactly ONE clause.
-            // Two clauses, so it fell through to the generic lexical path and
-            // the kNN half contributed NOTHING: the request answered 200 with
-            // the purely lexical result set, `_shards.failed: 0`, no warning
-            // (#395). Measured on a 3-document index: `query` alone returned
-            // documents 0 and 2, `knn` alone returned 0, 1 and 2, and the two
-            // together returned exactly 0 and 2 — the lexical answer wearing a
-            // hybrid request's clothes, which is a wire-compat divergence from
-            // ES 8.x and not merely an internal limitation.
+            // `query` folds to `{"bool":{"should":[query, knn]}}` — a
+            // disjunction, which is exactly ES's documented contract for the
+            // shape: the knn side contributes the global top-k neighbours,
+            // the hit set is the union of both halves, a document reached by
+            // both scores the SUM `query_score + knn_score` (`boost`
+            // weighting each side), and aggregations run over the union.
             //
-            // `hybrid` is the shape this engine actually combines (it fans each
-            // sub-query out and RRF-fuses the ranked lists), so it dispatches
-            // the kNN half correctly. BUT the hybrid executor REJECTS
-            // aggregations (returns 400) and ignores sort/collapse/search_after.
-            // Folding EVERY knn-beside-query request to hybrid would therefore
-            // turn a valid faceted request (knn + query + aggs) from 200 into a
-            // 400, and silently drop a caller's sort/collapse — trading one
-            // wrong answer for another. So fold to `hybrid` only when the
-            // request carries none of those; otherwise keep the lexical
-            // `bool.should`. Its kNN-dropped hits are the PRE-EXISTING behaviour
-            // (strictly no worse than before this fix), and it still honours
-            // aggs/sort/collapse and returns 200. In the hybrid case scores are
-            // RRF, not a BM25 sum — a visible, documented difference, still
-            // better than silently returning the wrong documents.
-            let hybrid_safe = body.aggs.is_none()
-                && body.aggregations.is_none()
-                && body.sort.is_none()
-                && body.collapse.is_none()
-                && body.search_after.is_none()
-                // The fusion executor also hard-drops rescore and highlight and
-                // ignores explain/profile (run_hybrid_with_deadline zeroes them on
-                // every sub-query) — keep bool.should when any is present so they
-                // are honoured rather than silently dropped (#458).
-                && body.rescore.is_none()
-                && body.highlight.is_none()
-                && !body.explain
-                && !body.profile
-                // A BM25-tuned `min_score` (e.g. 2.0) applied post-fusion to RRF
-                // micro-scores (~1/61) would drop EVERY hit — keep bool.should,
-                // where min_score compares against the BM25 sum it was tuned for.
-                && body.min_score.is_none();
-            if hybrid_safe {
-                json!({
-                    "hybrid": {
-                        "queries": [
-                            { "query": existing_q },
-                            { "query": knn_query_json }
-                        ]
-                    }
-                })
-            } else {
-                json!({ "bool": { "should": [existing_q, knn_query_json] } })
-            }
+            // The engine pre-executes a `knn` clause it finds inside a
+            // compound bool and pins its top-k documents into the tree
+            // (#825, `pin_knn_clause` in xerj-engine), so this fold carries
+            // BOTH halves through the NORMAL search path — aggs, sort,
+            // collapse, search_after, rescore, highlight, explain, profile
+            // and min_score all apply to the union. That retires the #458
+            // `hybrid_safe` special case, which routed the no-extras case to
+            // the XERJ-native `hybrid` (RRF) executor — itself a scoring
+            // divergence from ES (RRF fuses ranks; ES sums raw scores) — and
+            // kept the kNN-dropped lexical `bool.should` whenever any of
+            // those features was present (#395's silent drop).
+            json!({ "bool": { "should": [existing_q, knn_query_json] } })
         } else {
             knn_query_json
         };
