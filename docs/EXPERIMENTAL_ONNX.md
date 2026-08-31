@@ -202,6 +202,13 @@ These controls do not select a smaller or quantized model. Model choice remains
 the operator's responsibility through the explicit ONNX assets (or another
 embedding backend).
 
+The built-in Candle backend (`--embed-mode neural`) shares the same
+length-aware batching rule, but its limits are compiled-in constants — 64 rows
+and a 4096 `rows × padded_sequence_length` budget — not settings.
+`onnx_max_batch` and `onnx_padded_token_budget` apply to the ONNX backend only,
+so there is no operator lever for the neural backend's batch size.
+`onnx_scheduling_window` does bound the caller-side window for either encoder.
+
 ## Admission and errors
 
 One bounded ONNX Runtime session pool is shared per complete model
