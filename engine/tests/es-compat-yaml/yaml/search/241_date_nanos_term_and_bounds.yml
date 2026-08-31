@@ -1,0 +1,174 @@
+setup:
+
+  - do:
+      indices.create:
+          index: date_ns_bounds
+          body:
+            settings:
+              number_of_shards: 1
+            mappings:
+              properties:
+                ts:
+                  type: date_nanos
+                name:
+                  type: keyword
+
+  - do:
+      bulk:
+        refresh: true
+        index: date_ns_bounds
+        body:
+          - '{ "index" : { "_id" : "sub" } }'
+          # 1591423566123 ms -> 1591423566123456000 ns
+          - '{ "ts" : "2020-06-06T06:06:06.123456Z", "name" : "sub" }'
+          - '{ "index" : { "_id" : "late" } }'
+          # whole-second: 1735689600000 ms -> 1735689600000000000 ns
+          - '{ "ts" : "2025-01-01T00:00:00Z", "name" : "late" }'
+          - '{ "index" : { "_id" : "day" } }'
+          # date-only: 1609459200000 ms -> 1609459200000000000 ns
+          - '{ "ts" : "2021-01-01", "name" : "day" }'
+
+  # The regressions these cases pin are invisible until the values live in a
+  # SEGMENT: the pre-flush memtable answers a date comparison in milliseconds
+  # on both sides and gets the right answer, while the segment's doc-values
+  # pre-filter works on the field's own epoch scale. Flush explicitly so every
+  # assertion below is answered by the segment path.
+  - do:
+      indices.flush:
+        index: date_ns_bounds
+
+---
+"a term on a date_nanos field matches by instant in every spelling":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            term:
+              ts: "2025-01-01T00:00:00Z"
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "late" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            term:
+              ts: "2025-01-01"
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "late" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            term:
+              ts: 1735689600000
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "late" }
+
+  - do:
+      count:
+        index: date_ns_bounds
+        body:
+          query:
+            term:
+              ts: "2025-01-01T00:00:00Z"
+
+  - match: { count: 1 }
+
+---
+"a numeric range bound on a date_nanos field is epoch millis":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            range:
+              ts:
+                gte: 1735689600000
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "late" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          sort: [ { "ts": "asc" } ]
+          query:
+            range:
+              ts:
+                gte: 1591423566123
+                lte: 1735689600000
+
+  - match: { hits.total: 3 }
+  - match: { hits.hits.0._id: "sub" }
+  - match: { hits.hits.1._id: "day" }
+  - match: { hits.hits.2._id: "late" }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            range:
+              ts:
+                lt: 1609459200000
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "sub" }
+
+  - do:
+      count:
+        index: date_ns_bounds
+        body:
+          query:
+            range:
+              ts:
+                gte: 1735689600000
+
+  - match: { count: 1 }
+
+---
+"a date-only value in a date_nanos field sorts as a nanosecond epoch":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          sort: [ { "ts": "asc" } ]
+
+  - match: { hits.total: 3 }
+  - match: { hits.hits.0._id: "sub" }
+  - match: { hits.hits.0.sort: [1591423566123456000] }
+  - match: { hits.hits.1._id: "day" }
+  - match: { hits.hits.1.sort: [1609459200000000000] }
+  - match: { hits.hits.2._id: "late" }
+  - match: { hits.hits.2.sort: [1735689600000000000] }
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: date_ns_bounds
+        body:
+          query:
+            range:
+              ts:
+                gte: "2021-01-01"
+
+  - match: { hits.total: 2 }

@@ -4036,8 +4036,12 @@ fn format_sort_value(raw: &Value, format: Option<&str>) -> Value {
         return raw.clone();
     };
     // Numeric sort value → treat as epoch; need to decide ms vs ns by
-    // magnitude. Values above ~2 * 10^13 are nanoseconds (more than 600
-    // years past epoch in ms); everything else is milliseconds.
+    // magnitude. The split is 2 * 10^15: above it the number is read as
+    // nanoseconds, below it as milliseconds. That is right for every
+    // NANOSECOND instant from 1970-01-24 on (2e15 ns = 2e6 s = 23.1 days) and
+    // every MILLISECOND instant below 2e15 ms (~63,000 years past the epoch),
+    // so only a pre-1970-01-24 nanosecond instant reads as milliseconds.
+    // (The comment used to say ~2 * 10^13, which is not the constant below.)
     let n = match raw {
         Value::Number(n) => n.as_i64(),
         _ => return raw.clone(),
@@ -6561,17 +6565,19 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                         missing: SortMissing::default(),
                         format: None,
                         unmapped_type: None,
+                        numeric_type: None,
                     },
                 };
                 fields.push(sf);
             }
             Value::Object(obj) => {
                 for (field_name, spec) in obj {
-                    let (order, mode, missing, format, unmapped_type) = match spec {
+                    let (order, mode, missing, format, unmapped_type, numeric_type) = match spec {
                         Value::String(ord) => (
                             parse_sort_order(ord),
                             SortMode::default(),
                             SortMissing::default(),
+                            None,
                             None,
                             None,
                         ),
@@ -6600,12 +6606,22 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                                 .get("unmapped_type")
                                 .and_then(Value::as_str)
                                 .map(String::from);
-                            (order, mode, missing, format, unmapped_type)
+                            // #889: `numeric_type` forces the scale the sort
+                            // values are produced on, so a `date` field in one
+                            // index and a `date_nanos` field in another are
+                            // compared on ONE epoch scale instead of as raw
+                            // longs six orders of magnitude apart.
+                            let numeric_type = opts
+                                .get("numeric_type")
+                                .and_then(Value::as_str)
+                                .map(|s| s.to_ascii_lowercase());
+                            (order, mode, missing, format, unmapped_type, numeric_type)
                         }
                         _ => (
                             SortOrder::Asc,
                             SortMode::default(),
                             SortMissing::default(),
+                            None,
                             None,
                             None,
                         ),
@@ -6618,6 +6634,7 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                             missing,
                             format,
                             unmapped_type,
+                            numeric_type,
                         },
                         "_doc" => SortField {
                             field: "_doc".to_string(),
@@ -6626,6 +6643,7 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                             missing,
                             format,
                             unmapped_type,
+                            numeric_type,
                         },
                         other => SortField {
                             field: other.to_string(),
@@ -6634,6 +6652,7 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                             missing,
                             format,
                             unmapped_type,
+                            numeric_type,
                         },
                     };
                     fields.push(sf);
@@ -16920,6 +16939,256 @@ mod date_precision_mapping_tests {
 }
 
 #[cfg(test)]
+mod date_nanos_cross_index_sort_tests {
+    use super::*;
+    use axum::{
+        body::{to_bytes, Body},
+        http::Request,
+    };
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn request_json(
+        state: &AppState,
+        method: &str,
+        path: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let response = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("route response");
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json = serde_json::from_slice(&bytes).unwrap_or_else(|error| {
+            panic!(
+                "{method} {path} returned non-JSON ({error}): {}",
+                String::from_utf8_lossy(&bytes)
+            )
+        });
+        (status, json)
+    }
+
+    /// `index`, mapped with a single `timestamp` field of `es_type`, holding
+    /// `docs` as `(id, value)`.
+    async fn build(state: &AppState, index: &str, es_type: &str, docs: &[(&str, &str)]) {
+        let (status, body) = request_json(
+            state,
+            "PUT",
+            &format!("/{index}"),
+            json!({"mappings": {"properties": {"timestamp": {"type": es_type}}}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (id, value) in docs {
+            let (status, body) = request_json(
+                state,
+                "PUT",
+                &format!("/{index}/_doc/{id}"),
+                json!({"timestamp": value}),
+            )
+            .await;
+            assert!(status.is_success(), "{body}");
+        }
+        state
+            .engine
+            .get_index(index)
+            .expect("index")
+            .refresh()
+            .await
+            .expect("refresh");
+    }
+
+    fn ids(json: &Value) -> Vec<String> {
+        json["hits"]["hits"]
+            .as_array()
+            .expect("hits")
+            .iter()
+            .map(|h| h["_id"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// Two indices whose `timestamp` is mapped `date` in one and `date_nanos`
+    /// in the other, with instants that INTERLEAVE chronologically.
+    async fn two_scaled_indices(state: &AppState) {
+        build(
+            state,
+            "nt-ms",
+            "date",
+            &[
+                ("ms-feb", "2021-02-11T08:30:04.828Z"),
+                ("ms-jun", "2021-06-11T04:30:04.828Z"),
+            ],
+        )
+        .await;
+        build(
+            state,
+            "nt-ns",
+            "date_nanos",
+            &[
+                ("ns-apr", "2021-04-15T06:30:04.821123456Z"),
+                ("ns-aug", "2021-08-21T03:30:04.732123456Z"),
+            ],
+        )
+        .await;
+    }
+
+    /// #889: `numeric_type` is what makes a cross-index sort over a `date` and
+    /// a `date_nanos` field comparable at all. Without it both sides emit keys
+    /// on their own scale — epoch-ms ~1.6e12 against epoch-ns ~1.6e18 — and no
+    /// comparison of the raw longs is chronological. `numeric_type` names one
+    /// scale and every participating index produces keys on it.
+    #[tokio::test]
+    async fn numeric_type_date_nanos_interleaves_a_date_and_a_date_nanos_index() {
+        let state = test_state();
+        two_scaled_indices(&state).await;
+        let (status, body) = request_json(
+            &state,
+            "POST",
+            "/nt-*/_search",
+            json!({
+                "size": 4,
+                "sort": [{"timestamp": {"order": "asc", "numeric_type": "date_nanos"}}]
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            ids(&body),
+            vec!["ms-feb", "ns-apr", "ms-jun", "ns-aug"],
+            "#889: numeric_type date_nanos must order both indices by instant: {body}"
+        );
+        // Every sort value is on the requested scale, so the caller can page
+        // with `search_after` in that one space.
+        let sorts: Vec<i64> = body["hits"]["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["sort"][0].as_i64().unwrap())
+            .collect();
+        assert!(
+            sorts.iter().all(|v| *v > 1_000_000_000_000_000),
+            "#889: numeric_type date_nanos must emit epoch-NANOSECOND sort values, got {sorts:?}"
+        );
+        assert!(sorts.windows(2).all(|w| w[0] < w[1]), "{sorts:?}");
+    }
+
+    #[tokio::test]
+    async fn numeric_type_date_interleaves_on_the_millisecond_scale() {
+        let state = test_state();
+        two_scaled_indices(&state).await;
+        let (status, body) = request_json(
+            &state,
+            "POST",
+            "/nt-*/_search",
+            json!({
+                "size": 4,
+                "sort": [{"timestamp": {"order": "asc", "numeric_type": "date"}}]
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            ids(&body),
+            vec!["ms-feb", "ns-apr", "ms-jun", "ns-aug"],
+            "#889: numeric_type date must order both indices by instant: {body}"
+        );
+        let sorts: Vec<i64> = body["hits"]["hits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["sort"][0].as_i64().unwrap())
+            .collect();
+        assert!(
+            sorts.iter().all(|v| *v < 1_000_000_000_000_000),
+            "#889: numeric_type date must emit epoch-MILLISECOND sort values, got {sorts:?}"
+        );
+        assert!(sorts.windows(2).all(|w| w[0] < w[1]), "{sorts:?}");
+        // …and paging through that space works, because the cursor is
+        // normalised on the same forced scale.
+        let (status, page2) = request_json(
+            &state,
+            "POST",
+            "/nt-*/_search",
+            json!({
+                "size": 2,
+                "sort": [{"timestamp": {"order": "asc", "numeric_type": "date"}}],
+                "search_after": [sorts[1]]
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{page2}");
+        assert_eq!(ids(&page2), vec!["ms-jun", "ns-aug"], "{page2}");
+    }
+
+    /// The documented DEFAULT, kept honest: with no `numeric_type` ES compares
+    /// the raw longs, so every epoch-nanosecond key outranks every
+    /// epoch-millisecond one regardless of instant. `search/240_date_nanos.yml`
+    /// ("doc value fields are working as expected across date and date_nanos
+    /// fields") asserts exactly that — a `date_nanos` doc at …12.123456789
+    /// sorts above a `date` doc at …12.987 on `desc`. This test pins that the
+    /// #889 change did not quietly turn the default into a conversion.
+    #[tokio::test]
+    async fn without_numeric_type_the_two_scales_do_not_interleave() {
+        let state = test_state();
+        two_scaled_indices(&state).await;
+        let (status, body) = request_json(
+            &state,
+            "POST",
+            "/nt-*/_search",
+            json!({"size": 4, "sort": [{"timestamp": "asc"}]}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            ids(&body),
+            vec!["ms-feb", "ms-jun", "ns-apr", "ns-aug"],
+            "#889: without numeric_type the raw longs are compared, ms block first: {body}"
+        );
+    }
+
+    /// #889 "related, also unfixed": `date` and `date_nanos` share one native
+    /// type, so a schema-derived mapping reported every `date_nanos` field as
+    /// `date`. A client that reads a mapping and writes it back — the GET → PUT
+    /// round trip every reindex helper performs — silently downgraded the field
+    /// to millisecond resolution.
+    #[test]
+    fn schema_derived_mapping_reports_date_nanos_as_date_nanos() {
+        let mut ns = FieldConfig::new("when_ns", FieldType::Date);
+        ns.options.date_precision = Some(xerj_common::types::DatePrecision::Nanos);
+        let schema = Schema {
+            fields: vec![FieldConfig::new("when", FieldType::Date), ns],
+            version: 0,
+            updated_at: Utc::now(),
+        };
+        let props = schema_to_es_properties(&schema);
+        assert_eq!(props["when"]["type"], json!("date"));
+        assert_eq!(props["when_ns"]["type"], json!("date_nanos"));
+    }
+}
+
+#[cfg(test)]
 mod semantic_companion_schema_tests {
     use super::*;
 
@@ -17738,7 +18007,16 @@ mod semantic_companion_hnsw_api_tests {
 pub fn schema_to_es_properties(schema: &Schema) -> serde_json::Map<String, Value> {
     let mut props = serde_json::Map::new();
     for field in &schema.fields {
-        let es_type = native_type_to_es(&field.field_type);
+        // #889 — `date` and `date_nanos` both live as `FieldType::Date`, so
+        // rendering the native type alone reported every `date_nanos` field as
+        // a plain `date`. A client that reads a mapping and writes it back
+        // (the GET → PUT round trip Kibana and every reindex helper performs)
+        // then silently downgraded the field to millisecond resolution. Now
+        // that the declared precision is recorded, report it.
+        let es_type = match (&field.field_type, field.options.date_precision) {
+            (FieldType::Date, Some(xerj_common::types::DatePrecision::Nanos)) => "date_nanos",
+            (ft, _) => native_type_to_es(ft),
+        };
         let mut field_obj = serde_json::Map::new();
         field_obj.insert("type".to_string(), Value::String(es_type.to_string()));
         if let Some(n) = field.options.ignore_above {

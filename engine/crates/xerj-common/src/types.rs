@@ -336,14 +336,18 @@ pub struct FieldOptions {
     /// exact default shape ES emits (`ignore_above: 256`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ignore_above: Option<u32>,
-    /// Declared resolution of a `Date` field (#790).
+    /// Declared resolution of a `Date` field (#790, #889).
     ///
-    /// `Some(Millis)` for an ES `date`, `Some(Nanos)` for an ES `date_nanos`.
-    /// `None` means "the mapping predates this flag" — a schema.json written
-    /// by an older build. Query-time date normalisation treats `None` (and,
-    /// for now, `Nanos`) as the legacy per-value guess so that upgrading a
-    /// data dir cannot silently change how its dates sort; see
-    /// `xerj-engine`'s `DateScale`.
+    /// `Some(Millis)` for an ES `date`, `Some(Nanos)` for an ES `date_nanos`;
+    /// query-time date normalisation pins the whole column to that scale (see
+    /// `xerj-engine`'s `DateScale`).
+    ///
+    /// `None` means "the mapping predates this flag" — a schema.json written by
+    /// an older build. `Index::open` back-fills it from the index's persisted
+    /// `es_mapping.json`, which still carries the original type string (#889);
+    /// what survives as `None` is a field no mapping blob describes, and that
+    /// keeps the legacy per-value guess rather than being defaulted to a scale
+    /// nobody declared.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_precision: Option<DatePrecision>,
     /// Allow the field to appear more than once in a document (always `true` for arrays).

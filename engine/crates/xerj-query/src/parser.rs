@@ -3242,6 +3242,7 @@ fn parse_sort_field_str(s: &str) -> SortField {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         },
         "_doc" => SortField {
             field: "_doc".to_string(),
@@ -3250,6 +3251,7 @@ fn parse_sort_field_str(s: &str) -> SortField {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         },
         other => SortField {
             field: other.to_string(),
@@ -3258,6 +3260,7 @@ fn parse_sort_field_str(s: &str) -> SortField {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         },
     }
 }
@@ -3272,6 +3275,7 @@ fn parse_sort_field_spec(field: &str, spec: &Value) -> Result<SortField> {
             missing: SortMissing::default(),
             format: None,
             unmapped_type: None,
+            numeric_type: None,
         });
     }
 
@@ -3305,6 +3309,13 @@ fn parse_sort_field_spec(field: &str, spec: &Value) -> Result<SortField> {
         .get("unmapped_type")
         .and_then(|v| v.as_str())
         .map(String::from);
+    // ES `numeric_type` (#889): force the epoch scale this sort's values are
+    // produced on, so a field mapped `date` in one index and `date_nanos` in
+    // another compares on one scale instead of as raw longs.
+    let numeric_type = obj
+        .get("numeric_type")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_ascii_lowercase());
 
     Ok(SortField {
         field: field.to_string(),
@@ -3313,6 +3324,7 @@ fn parse_sort_field_spec(field: &str, spec: &Value) -> Result<SortField> {
         missing,
         format,
         unmapped_type,
+        numeric_type,
     })
 }
 
