@@ -195,6 +195,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     separate work: it has to prove the #825 union/sum contract with tombstones
     present, and is not attempted here.
 
+- **`xerj autoindex --no-graph` no longer aborts with `Access denied
+  (os error 5)` on Windows**
+  ([#482](https://github.com/xerj-org/xerj/issues/482)). The durable-snapshot
+  path fsynced the directories it had just published with
+  `File::open(dir)?.sync_all()?`. That is a Unix-only idiom: on Windows
+  `File::open` on a *directory* returns `ERROR_ACCESS_DENIED` (os error 5) on
+  every call, because `std` cannot pass `FILE_FLAG_BACKUP_SEMANTICS`. So the
+  first such call — sealing the source snapshot, immediately after the journal
+  was written and before a single document was indexed — killed the run with a
+  context-free, locale-dependent io error (`Acceso denegado. (os error 5)` in
+  the report). A second, unconditional open of the same kind in snapshot GC
+  then failed *every later run* over that state directory, whether or not
+  `--no-graph` was passed again. `xerj-autoindex` now routes directory
+  durability through `xerj_common::fsio::fsync_dir`, which has carried the
+  documented `#[cfg(windows)]` shim since the same mistake stopped the server
+  creating any index at boot; the surrounding filesystem calls also carry
+  context now, so a future failure names the operation instead of only its
+  errno. This costs Windows no durability it had: the code it replaces flushed
+  nothing there — it returned `Err` and ended the run. Windows keeps the
+  engine-wide posture that directory-namespace changes carry no durability
+  claim; file contents inside a snapshot are still fsynced. The
+  windows-latest `autoindex-fd-smoke` CI job now runs the reported
+  `--no-graph` flow twice over one state directory, which is what would have
+  caught this: the job existed, but only ever ran the default graph path,
+  which never touches `sync-snapshots/`.
+
 - **A code symbol's retrievable unit is the whole declaration, not the single
   physical line the name sits on**
   ([#500](https://github.com/xerj-org/xerj/issues/500)). Promoting each
