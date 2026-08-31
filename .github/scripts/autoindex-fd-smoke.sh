@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# Per-platform regression guard for the autoindex "Too many open files" crash.
+# Per-platform runtime gate for `xerj autoindex`. Two regressions live here:
+#
+#   1. the "Too many open files" (EMFILE) crash — described below;
+#   2. #482, the `--no-graph` ERROR_ACCESS_DENIED abort on Windows — described
+#      at its own section further down.
+#
+# Both exist because nothing in CI used to RUN the binary on macOS/Windows.
 #
 # The crash: `xerj autoindex` on a large repo infers hundreds of datasets =>
 # hundreds of indices. Before the fix each index pinned one WAL file descriptor
@@ -93,10 +99,66 @@ if [ "${CREATED:-0}" -lt 300 ]; then
   FAIL=1
 fi
 
+# ── the `--no-graph` generated path (#482) ─────────────────────────────────
+# The default (graph) path above never touches `sync-snapshots/`. `--no-graph`
+# does: it seals a durable source snapshot under the state directory and
+# fsyncs the directories it just published. Sealing used `File::open(dir)
+# .sync_all()`, a Unix-only idiom that returns ERROR_ACCESS_DENIED (os error
+# 5) on EVERY Windows call, so `xerj autoindex <folder> --no-graph` aborted on
+# Windows right after the journal was written, before one document was
+# indexed — reported against rc.17 and invisible to this job because it only
+# ever ran the graph path.
+#
+# Two runs, on purpose. The first exercises the seal (create_snapshot_inner);
+# the second exercises snapshot GC over an existing `sync-snapshots/`
+# directory, which was a second, unconditional open of the same kind — so
+# once a Windows user had run `--no-graph` once, EVERY later run over that
+# state directory died too.
+NG_CORPUS="$ROOT/nograph"
+mkdir -p "$NG_CORPUS"
+printf '# beacon report\n\nA short markdown note mentioning a trojan.\n' > "$NG_CORPUS/t.md"
+printf 'ng_id,ng_name,ng_val\n1,alpha,10\n2,beta,20\n' > "$NG_CORPUS/rows.csv"
+NG_STATE="$ROOT/nograph-state"
+
+for attempt in 1 2; do
+  "$BIN" autoindex "$NG_CORPUS" --no-graph --max-minutes 0 \
+    --state-dir "$NG_STATE" --prefix ng > "$DATA/ng-$attempt.log" 2>&1
+  NGRC=$?
+  echo "autoindex --no-graph (run $attempt) exit=$NGRC"
+  tail -20 "$DATA/ng-$attempt.log" || true
+  if [ "$NGRC" != "0" ] && [ "$NGRC" != "3" ]; then
+    echo "::error::--no-graph autoindex run $attempt exited $NGRC (expected 0 or 3) on $(uname -s)"
+    FAIL=1
+  fi
+  # The localised Windows message ("Acceso denegado", "Zugriff verweigert", …)
+  # is why this matches the os error NUMBER and not the text.
+  if grep -qiE 'os error 5([^0-9]|$)' "$DATA/ng-$attempt.log" "$DATA/server.log"; then
+    echo "::error::--no-graph run $attempt hit os error 5 (ACCESS_DENIED) — #482 regression"
+    FAIL=1
+  fi
+done
+
+# A silent no-op must not pass. The seal is the operation that aborted, so
+# assert its output exists: a sealed snapshot directory holding a manifest.
+SEALED="$(find "$NG_STATE/sync-snapshots" -name manifest.json 2>/dev/null | head -1)"
+if [ -z "$SEALED" ]; then
+  echo "::error::--no-graph sealed no snapshot manifest under $NG_STATE/sync-snapshots"
+  FAIL=1
+else
+  echo "sealed snapshot manifest: $SEALED"
+fi
+NG_CREATED="$(curl -s 'localhost:9200/_cat/indices?h=index' 2>/dev/null | grep -cE '(^|[[:space:]])ng-' || true)"
+echo "ng-* indices created: $NG_CREATED"
+if [ "${NG_CREATED:-0}" -lt 1 ]; then
+  echo "::error::--no-graph created no ng-* index"
+  FAIL=1
+fi
+
 kill "$SPID" 2>/dev/null || true
 if [ "$FAIL" = 0 ]; then
-  echo "AUTOINDEX FD SMOKE PASSED on $(uname -s) ($CREATED datasets, no EMFILE)"
+  echo "AUTOINDEX SMOKE PASSED on $(uname -s) ($CREATED datasets, no EMFILE; \
+--no-graph sealed and reconciled, no ACCESS_DENIED)"
 else
-  echo "AUTOINDEX FD SMOKE FAILED on $(uname -s)"
+  echo "AUTOINDEX SMOKE FAILED on $(uname -s)"
   exit 1
 fi
