@@ -540,10 +540,10 @@ pub enum QueryNode {
         minimum_should_match: Option<MinShouldMatch>,
     },
 
-    /// Ordered phrase match with optional slop. `slop` admits forward gaps
-    /// between the in-order tokens ONLY — it does NOT admit transpositions
-    /// (reorderings), a known divergence from Lucene's SloppyPhraseMatcher
-    /// (see #830 and `index.rs::phrase_walk`).
+    /// Ordered phrase match with optional slop. `slop` is Lucene
+    /// SloppyPhraseMatcher move-distance: forward gaps cost their width and
+    /// transpositions (reorderings) cost 2 — `"a b"~2` matches a doc reading
+    /// `b a` (#830; evaluator: `xerj_fts::search::phrase_positions_match`).
     MatchPhrase {
         field: String,
         query: String,

@@ -549,6 +549,16 @@ pub struct IndexStore {
     /// is already unlinked at retire time, so `recover_orphaned_segments`
     /// can never resurrect them as duplicates).
     retired_segments: Mutex<Vec<SegmentId>>,
+    /// #871 — fired after every `self.snapshot` swap that changes the
+    /// segment set: flush publication, merge application, tombstone-only
+    /// segment persistence, orphan recovery. These are the only events
+    /// that can create a merge candidate, so the engine installs a hook
+    /// here that debounce-schedules a merge-policy check — mirroring the
+    /// #334 wal_fsync design (work is scheduled by the event that creates
+    /// it; an idle index costs no timer and no wakeup). `None` (e.g.
+    /// storage-crate unit tests) is a no-op. The hook is cloned out of the
+    /// mutex before it runs, so it never executes under a store lock.
+    segments_changed_hook: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
     /// Delete-durability fix (2026-07): `doc_id → (delete seq_no, wal
     /// shard)` for every acknowledged delete whose ONLY durable record
     /// is still its `WalEntry::Delete` in the WAL.
@@ -723,6 +733,7 @@ impl IndexStore {
             last_wal_maintenance_ms: AtomicU64::new(0),
             read_leases: std::sync::atomic::AtomicUsize::new(0),
             retired_segments: Mutex::new(Vec::new()),
+            segments_changed_hook: Mutex::new(None),
             pending_deletes: Mutex::new(std::collections::HashMap::new()),
             wal_prune_cache: Mutex::new(std::collections::HashMap::new()),
             #[cfg(test)]
@@ -1052,6 +1063,7 @@ impl IndexStore {
             new_snap = new_snap.with_new_segment(meta.clone());
         }
         self.snapshot.store(Arc::new(new_snap));
+        self.notify_segments_changed();
         // Persist immediately so a second restart doesn't need to re-recover.
         self.save_snapshot()?;
 
@@ -2242,6 +2254,9 @@ impl IndexStore {
                     segment_id,
                     "post-publication panic caught; maintenance deferred"
                 );
+                // #871 — the segment IS in the snapshot; merge scheduling
+                // must hear about it even on this degraded path.
+                self.notify_segments_changed();
                 return Ok(FlushFinalizeOutcome::Published {
                     meta,
                     maintenance_deferred: true,
@@ -2256,6 +2271,11 @@ impl IndexStore {
             ));
             return Err(self.abandon_unpublished_segment(&segment_id, publication_error));
         }
+        // #871 — the rcu above published a new segment: fire the segment-set
+        // change hook so the engine debounce-schedules a merge check. This is
+        // the flush-side analogue of Lucene's maybeMerge-on-flush
+        // (IndexWriter.java:706, MergeTrigger.FULL_FLUSH).
+        self.notify_segments_changed();
         if prof {
             eprintln!(
                 "XERJ_PROF finalize docs={} ser_us={} encode_us={} writer_finish_us={} post_finish_us={} vm_us={} total_so_far_us={}",
@@ -2417,6 +2437,31 @@ impl IndexStore {
         }
     }
 
+    /// #871 — install (or clear) the segment-set change hook. See the
+    /// `segments_changed_hook` field docs; the engine wires this to its
+    /// debounced merge-check scheduler right after constructing an index.
+    pub fn set_segments_changed_hook(&self, hook: Option<Arc<dyn Fn() + Send + Sync>>) {
+        *self
+            .segments_changed_hook
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = hook;
+    }
+
+    /// Fire the #871 segment-set change hook, if installed. Called on every
+    /// path that swaps `self.snapshot` with a different segment list. The
+    /// hook is cloned out first so it never runs under this store's locks
+    /// (it may spawn a tokio task).
+    fn notify_segments_changed(&self) {
+        let hook = self
+            .segments_changed_hook
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        if let Some(hook) = hook {
+            hook();
+        }
+    }
+
     /// Return the current WAL sequence number (the next value that
     /// `wal_append_batch` would assign).  Used by `Index::flush` to
     /// write a global checkpoint covering ALL shards after a
@@ -2538,6 +2583,9 @@ impl IndexStore {
         // Publish so the caller's save_snapshot() registers it on disk.
         self.snapshot
             .rcu(|old| Arc::new(old.with_new_segment(meta.clone())));
+        // #871 — a tombstone-only segment is a segment-set change (and a
+        // merge candidate: merges are what fold tombstones away).
+        self.notify_segments_changed();
 
         info!(
             segment_id = meta.id.as_str(),
@@ -3751,6 +3799,14 @@ impl IndexStore {
         // segment swap. rcu retries on contention.
         self.snapshot
             .rcu(|old| Arc::new(old.replace_segments(merged_ids, new_meta.clone())));
+        // #871 — merge application changed the segment set: fire the hook so
+        // a cascading follow-up merge schedules itself (Lucene's
+        // MergeTrigger.MERGE_FINISHED, IndexWriter.java:2452). Fired before
+        // the fallible persistence below because the in-memory set HAS
+        // changed on every path from here — including the rollback, which
+        // swaps it twice more; a spurious debounced policy check is cheap,
+        // a missed one strands merge debt until the next event.
+        self.notify_segments_changed();
         if let Err(error) = self.save_snapshot() {
             // Publication changed memory before manifest persistence. Restore
             // the exact inputs only while this output remains authoritative;

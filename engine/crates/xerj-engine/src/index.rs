@@ -1413,6 +1413,222 @@ mod flush_publication_recovery_tests {
         assert_eq!(result.hits[0].id, "survivor");
     }
 
+    /// Build a one-date-field index whose `ts` field carries `precision`.
+    async fn date_index(
+        engine: &crate::Engine,
+        name: &str,
+        precision: Option<xerj_common::types::DatePrecision>,
+        docs: &[(&str, &str)],
+    ) -> std::sync::Arc<crate::Index> {
+        let mut ts = FieldConfig::new("ts", FieldType::Date);
+        ts.options.date_precision = precision;
+        let mut schema = Schema::empty();
+        schema.add_field(ts).unwrap();
+        engine.create_index(name, schema).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        for (id, v) in docs {
+            idx.index_document(Some((*id).into()), json!({ "ts": v }))
+                .await
+                .unwrap();
+        }
+        idx
+    }
+
+    async fn sort_ids(idx: &std::sync::Arc<crate::Index>, order: &str) -> Vec<String> {
+        let req = xerj_query::parse_request(
+            &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": order}]}),
+        )
+        .unwrap();
+        idx.search(&req)
+            .await
+            .unwrap()
+            .hits
+            .iter()
+            .map(|h| h.id.clone())
+            .collect()
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_mixed_precision_sorts_and_ranges_consistently() {
+        // #790: the sort-shadow, the per-hit sort keys and a range's bounds all
+        // guessed a date's epoch scale from the VALUE — >= 4 fractional-second
+        // digits meant nanoseconds, anything coarser meant milliseconds. A
+        // `date` column mixing the two therefore held keys six orders of
+        // magnitude apart: doc `s` (2020, sub-millisecond) got ~1.59e18 while
+        // doc `w` (2025, whole-second) got ~1.75e12, so `s` sorted LAST despite
+        // being the earlier instant, and a millisecond-scale range bound could
+        // not reach it. With the scale resolved from the MAPPING (an ES `date`
+        // is millisecond-precision), one column is one scale and both agree.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        // true chronological order: e(2019) < s(2020, sub-ms) < w(2025).
+        let idx = date_index(
+            &engine,
+            "date-mixed",
+            Some(xerj_common::types::DatePrecision::Millis),
+            &[
+                ("w", "2025-01-01T00:00:00Z"),
+                ("s", "2020-06-06T06:06:06.123456Z"),
+                ("e", "2019-01-01T00:00:00Z"),
+            ],
+        )
+        .await;
+        let range_count = |idx: std::sync::Arc<crate::Index>, body: serde_json::Value| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": body, "size": 10, "track_total_hits": true}),
+            )
+            .unwrap();
+            let r = idx.search(&req).await.unwrap();
+            let mut ids: Vec<_> = r.hits.iter().map(|h| h.id.clone()).collect();
+            ids.sort();
+            (r.total.value, ids)
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_ids(&idx, "asc").await,
+                vec!["e".to_string(), "s".to_string(), "w".to_string()],
+                "#790 {phase}: a mixed-precision date column must sort by instant"
+            );
+            assert_eq!(
+                sort_ids(&idx, "desc").await,
+                vec!["w".to_string(), "s".to_string(), "e".to_string()],
+                "#790 {phase}: desc must be the exact reverse"
+            );
+            // The reported symptom: a range whose bound is the sub-millisecond
+            // doc's OWN stored value returned the doc before flush and nothing
+            // after it, because the ms bound sat 6 orders of magnitude below
+            // the nanosecond shadow key the segment had built.
+            assert_eq!(
+                range_count(
+                    idx.clone(),
+                    json!({"range": {"ts": {"gte": "2020-06-06T06:06:06.123456Z",
+                                           "lte": "2020-06-06T06:06:06.123456Z"}}})
+                )
+                .await,
+                (1u64, vec!["s".to_string()]),
+                "#790 {phase}: a range on the sub-ms doc's own value must find it"
+            );
+            assert_eq!(
+                range_count(idx.clone(), json!({"range": {"ts": {"gte": "2021-01-01"}}})).await,
+                (1u64, vec!["w".to_string()]),
+                "#790 {phase}: gte 2021 keeps only w"
+            );
+            assert_eq!(
+                range_count(idx.clone(), json!({"range": {"ts": {"lt": "2021-01-01"}}})).await,
+                (2u64, vec!["e".to_string(), "s".to_string()]),
+                "#790 {phase}: lt 2021 keeps e and s"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn date_nanos_field_keeps_nanosecond_sort_values() {
+        // The guard on the #790 fix. XERJ maps BOTH `date` and `date_nanos`
+        // onto `FieldType::Date`, and before the `date_precision` flag the
+        // per-VALUE guess was the only thing giving a `date_nanos` field its
+        // nanosecond sort values (`search/240_date_nanos.yml` asserts them
+        // exactly). Narrowing every date to milliseconds is what sank the
+        // first attempt at this fix (PR #791), so a field the mapping declares
+        // `date_nanos` must keep the guess — and therefore its nanosecond
+        // keys — before AND after flush.
+        let _fault_test = FLUSH_FAULT_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let idx = date_index(
+            &engine,
+            "date-ns",
+            Some(xerj_common::types::DatePrecision::Nanos),
+            &[
+                ("first", "2018-10-29T12:12:12.123456789Z"),
+                ("second", "2018-10-29T12:12:12.987654321Z"),
+            ],
+        )
+        .await;
+        let sort_values = |idx: std::sync::Arc<crate::Index>| async move {
+            let req = xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 10, "sort": [{"ts": "asc"}]}),
+            )
+            .unwrap();
+            idx.search(&req)
+                .await
+                .unwrap()
+                .hits
+                .iter()
+                .map(|h| (h.id.clone(), h.sort.clone()))
+                .collect::<Vec<_>>()
+        };
+        for phase in ["pre-flush", "post-flush"] {
+            assert_eq!(
+                sort_values(idx.clone()).await,
+                vec![
+                    ("first".to_string(), vec![json!(1540815132123456789i64)]),
+                    ("second".to_string(), vec![json!(1540815132987654321i64)]),
+                ],
+                "#790 {phase}: a date_nanos field must keep nanosecond sort values"
+            );
+            if phase == "pre-flush" {
+                idx.flush().await.unwrap();
+                assert_eq!(idx.memtable.doc_count(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn date_scale_follows_the_declared_mapping() {
+        // The whole point of #790: the scale is a property of the FIELD.
+        use xerj_common::types::DatePrecision;
+        let mut schema = Schema::empty();
+        // The native API means ES `date` — `FieldConfig::new` pins it.
+        schema
+            .add_field(FieldConfig::new("plain", FieldType::Date))
+            .unwrap();
+        let mut ns = FieldConfig::new("ns", FieldType::Date);
+        ns.options.date_precision = Some(DatePrecision::Nanos);
+        schema.add_field(ns).unwrap();
+        // A mapping written before the flag existed: no silent change of scale.
+        let mut legacy = FieldConfig::new("legacy", FieldType::Date);
+        legacy.options.date_precision = None;
+        schema.add_field(legacy).unwrap();
+        schema
+            .add_field(FieldConfig::new("word", FieldType::Keyword))
+            .unwrap();
+        let scale = |name: &str| {
+            declared_field(&schema, name)
+                .map(date_scale_of_config)
+                .unwrap_or(DateScale::PerValue)
+        };
+        assert_eq!(scale("plain"), DateScale::Millis);
+        assert_eq!(scale("ns"), DateScale::PerValue);
+        assert_eq!(scale("legacy"), DateScale::PerValue);
+        assert_eq!(scale("word"), DateScale::PerValue);
+        assert_eq!(scale("undeclared"), DateScale::PerValue);
+        assert_eq!(
+            millis_date_fields(&schema),
+            ["plain".to_string()].into_iter().collect()
+        );
+        // A millisecond field truncates sub-millisecond digits; the per-value
+        // scale keeps them, which is the whole ms-vs-ns split.
+        let sub = "2020-06-06T06:06:06.123456Z";
+        assert_eq!(
+            date_string_to_epoch(sub, DateScale::Millis),
+            Some(json!(1591423566123i64))
+        );
+        assert_eq!(
+            date_string_to_epoch(sub, DateScale::PerValue),
+            Some(json!(1591423566123456000i64))
+        );
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn date_term_normalizes_formats_and_epoch_ms_across_flush() {
         // #788: a `term` on a date field must match by instant, not by raw
@@ -3189,14 +3405,16 @@ mod merge_publication_transaction_tests {
         config
     }
 
-    /// Open an engine plus one index with the background merge loop already
+    /// Open an engine plus one index with background merge scheduling already
     /// stopped, for a test that drives every merge itself.
     ///
-    /// `Index::create` (index.rs:6191) and `Index::open` (index.rs:6554) both
-    /// start a 5-second merge pass, and with this module's
-    /// `min_merge_count = max_merge_count = 2` a single tick rewrites the
+    /// `Index::create` and `Index::open` wire the store's segments-changed
+    /// hook (#871), so every flush a test performs arms a debounced
+    /// background merge check — and with this module's
+    /// `min_merge_count = max_merge_count = 2` one check rewrites the
     /// segment set two segments at a time.  Every test here calls
-    /// `run_merge_once()` by hand, so that tick is pure interference with two
+    /// `run_merge_once()` by hand, so that background pass is pure
+    /// interference with two
     /// distinct failure shapes: it can win the `merge_in_progress` CAS and turn
     /// the test's own `run_merge_once()` into `Ok(0)` (the flake `fixture`
     /// already guarded against), and it can collapse fixture segments before the
@@ -3231,11 +3449,13 @@ mod merge_publication_transaction_tests {
         (engine, index)
     }
 
-    /// Reopen `name` from `dir` with the background merge loop already stopped.
+    /// Reopen `name` from `dir` with background merge scheduling already
+    /// stopped.
     ///
     /// Same contract as `hand_driven_index`: the restart half of these tests
-    /// asserts on a recovered segment set, and `Index::open` starts its own
-    /// merge pass too (`spawn_merge_task(5)`, index.rs:6554).
+    /// asserts on a recovered segment set, and `Index::open` schedules its
+    /// own open-time merge check too (`request_merge_check`, #871 — an
+    /// opened index may carry pre-existing merge debt).
     fn reopen_hand_driven(dir: &TempDir, name: &str) -> (Engine, Arc<Index>) {
         let engine = Engine::new(config(dir)).unwrap();
         let index = engine.get_index(name).unwrap();
@@ -3817,13 +4037,14 @@ mod merge_publication_transaction_tests {
         );
     }
 
-    /// Regression for #372: a background merge tick must not be able to move a
+    /// Regression for #372: a background merge pass must not be able to move a
     /// hand-driven fixture's segment set.
     ///
     /// `start_paused` is what makes this deterministic instead of a 5-second
     /// sleep: with tokio's clock paused the runtime auto-advances to the next
     /// timer deadline whenever it goes idle, so the `sleep` below fires exactly
-    /// the merge tick that `spawn_merge_task` scheduled — the tick that, on a
+    /// the debounced merge check each flush would arm (#871; historically, the
+    /// 5-s tick `spawn_merge_task` scheduled) — the pass that, on a
     /// real clock, only lands when a full-parallelism run stretches a test body
     /// past five seconds.  Without `hand_driven_index`'s
     /// `abort_background_tasks()` this collapses two of the four segments and
@@ -3855,6 +4076,69 @@ mod merge_publication_transaction_tests {
             index.store.snapshot().segments.len(),
             4,
             "a background merge tick rewrote a fixture that drives its own merges"
+        );
+    }
+
+    /// #871 — merge scheduling must be event-driven: after an index's merge
+    /// work settles, ZERO further merge-policy evaluations may run until the
+    /// segment set changes again.
+    ///
+    /// On the pre-fix code this fails at the flat-counter assertion: every
+    /// index owns a tokio task that wakes every 5 s forever and evaluates the
+    /// merge policy (CAS + `SizeTieredMergePolicy` + registry snapshot) with
+    /// no writes — 93 wakeups/s at the customer-reported 464 indices. Same
+    /// paused-clock technique as the #372 guard above: auto-advance fires
+    /// exactly the timers that are scheduled, so an idle 60-minute window
+    /// runs every evaluation the scheduler would ever run.
+    #[tokio::test(start_paused = true)]
+    async fn idle_index_schedules_no_merge_evaluations_without_segment_changes() {
+        let dir = TempDir::new().unwrap();
+        // Deliberately NOT `hand_driven_index`: the background scheduler is
+        // the subject under test, so it must stay running.
+        let engine = Engine::new(config(&dir)).unwrap();
+        engine.create_index("idle-871", Schema::empty()).unwrap();
+        let index = engine.get_index("idle-871").unwrap();
+        for id in ["a", "b", "c", "d"] {
+            index
+                .index_document(Some(id.into()), serde_json::json!({"value": id}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        // Let the scheduled checks and their cascading merges run to
+        // quiescence (min/max_merge_count = 2 collapses two at a time).
+        for _ in 0..8 {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::task::yield_now().await;
+        }
+        let settled = index.merge_evaluation_count();
+        assert!(
+            settled >= 1,
+            "background merge scheduling never evaluated the index"
+        );
+        // IDLE: a full hour of clock with zero segment-set changes.
+        for _ in 0..60 {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            index.merge_evaluation_count(),
+            settled,
+            "merge evaluations ran on an idle index (#871 per-index tick)"
+        );
+        // A segment-set change (flush publishes a segment) wakes it back up.
+        index
+            .index_document(Some("e".into()), serde_json::json!({"value": "e"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        for _ in 0..8 {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tokio::task::yield_now().await;
+        }
+        assert!(
+            index.merge_evaluation_count() > settled,
+            "a published segment no longer schedules a merge check"
         );
     }
 
@@ -6928,7 +7212,17 @@ pub struct Index {
     /// these fields' shadows for every new segment so the first sorted
     /// query after a flush/merge doesn't pay the O(n log n) build inside
     /// its own latency.
-    sort_shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+    sort_shadow_fields: Arc<dashmap::DashMap<String, DateScale>>,
+    /// Sync-readable mirror of every `date`-mapped field that normalises on
+    /// the MILLISECOND scale (#790).
+    ///
+    /// The mapping lives in `self.schema`, behind an async `RwLock`; the
+    /// paths that must agree on a date's epoch scale — `compute_sort_values`
+    /// (per hit), `build_sort_shadow` / `shadow_range_bounds` (per segment),
+    /// `sort_epoch_memo` (per buffered memtable doc) — are all sync and on the
+    /// scan path. The snapshot is swapped wholesale on every schema write
+    /// (`save_schema`) so a reader always sees one consistent set.
+    millis_date_fields: Arc<parking_lot::RwLock<Arc<std::collections::HashSet<String>>>>,
     /// Per-segment single-flight guard for the `stored_slices_for` miss
     /// arm: without it, every in-flight query racing the same cold
     /// segment (up to the 64-permit cap) ran its own full stored-section
@@ -7124,17 +7418,41 @@ pub struct Index {
     /// the response.
     pub external_versions: Arc<dashmap::DashMap<String, u64>>,
 
-    /// Handle to the per-Index merge background task.  Held so the
-    /// shutdown path (`Engine::flush_all_force` → SIGTERM exit) can
-    /// abort the task explicitly — without it the tokio runtime stays
-    /// alive after axum has stopped accepting connections, because
-    /// `tokio::spawn` keeps the runtime non-empty while the task's
-    /// 5-s `tokio::time::sleep` is pending.  The bench at 2026-04-25
-    /// caught this as a SIGTERM hang regression introduced by B-2b.
+    /// Handle to the currently armed debounced merge-check task, if any
+    /// (#871 — armed by [`Index::request_merge_check`] when the segment
+    /// set changes; an idle index holds `None`).  Held so the shutdown
+    /// path (`Engine::flush_all_force` → SIGTERM exit) can abort the task
+    /// explicitly — without it the tokio runtime stays alive after axum
+    /// has stopped accepting connections, because a spawned task keeps
+    /// the runtime non-empty while its debounce `tokio::time::sleep` is
+    /// pending.  The bench at 2026-04-25 caught this as a SIGTERM hang
+    /// regression introduced by B-2b (against the old always-on tick
+    /// task; the contract is unchanged).
     /// `parking_lot::Mutex` (sync, no async, no `.await`) is fine
     /// because we only ever take/replace under it, never hold across
     /// any awaits.
     pub(crate) merge_task: Arc<parking_lot::Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// #871 — true while a debounced merge check is scheduled (armed).
+    /// Set by [`Index::request_merge_check`], cleared by the check task
+    /// when it quiesces; makes arming idempotent so any number of
+    /// segment-set changes inside one debounce window cost one task.
+    merge_check_armed: std::sync::atomic::AtomicBool,
+    /// #871 — count of segment-set change events (flush published a
+    /// segment, merge applied, tombstone-only segment persisted). The
+    /// debounced check task compares this epoch before/after a pass to
+    /// decide whether to run another cycle or quiesce.
+    merge_events: AtomicU64,
+    /// #871 — once true, no further merge checks are ever scheduled.
+    /// Set by [`Index::abort_background_tasks`] (SIGTERM shutdown and
+    /// hand-driven test fixtures). Matches the old semantics where the
+    /// aborted per-index tick task was never respawned.
+    merge_scheduling_stopped: std::sync::atomic::AtomicBool,
+    /// #871 — number of merge-policy evaluations actually run (passes
+    /// that won the `merge_in_progress` flag and snapshotted the segment
+    /// registry). Observability for the idle-cost contract: on an idle
+    /// index this counter must stay flat — see
+    /// `idle_index_schedules_no_merge_evaluations_without_segment_changes`.
+    merge_evaluations: AtomicU64,
     /// Failed writes of `schema.json` during dynamic-mapping evolution.
     /// See [`Index::persist_evolved_schema`] (issue #204).
     schema_persist_failures: AtomicU64,
@@ -7365,6 +7683,7 @@ impl Index {
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
         let passage_chunk_fields_init = passage_chunk_fields_from_schema(&managed.schema);
+        let millis_date_fields_snapshot = millis_date_fields(&managed.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(managed)),
@@ -7473,6 +7792,9 @@ impl Index {
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
+                millis_date_fields_snapshot,
+            ))),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
@@ -7497,12 +7819,26 @@ impl Index {
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
+            merge_check_armed: std::sync::atomic::AtomicBool::new(false),
+            merge_events: AtomicU64::new(0),
+            merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_evaluations: AtomicU64::new(0),
             schema_persist_failures: AtomicU64::new(0),
         });
-        // Kick off the background merge pass.  5 s cadence is aggressive
-        // enough to collapse a burst of flushes quickly without burning a
-        // core — every pass is cheap when there's nothing to merge.
-        index.spawn_merge_task(5);
+        // #871 — event-driven merge scheduling: the store fires this hook on
+        // every segment-set change (flush publication, merge application,
+        // tombstone-only segment, orphan recovery) and the debounced check
+        // task does the rest — see `request_merge_check`. No per-index tick
+        // task: a fresh index has no segments and costs no timer and no
+        // wakeup until its first flush publishes one.
+        let merge_hook_index = Arc::downgrade(&index);
+        index
+            .store
+            .set_segments_changed_hook(Some(Arc::new(move || {
+                if let Some(idx) = merge_hook_index.upgrade() {
+                    idx.on_segments_changed();
+                }
+            })));
         Ok(index)
     }
 
@@ -7735,6 +8071,7 @@ impl Index {
             .iter()
             .any(|f| matches!(f.field_type, FieldType::Date));
         let segment_hydration_budget = index_segment_hydration_budget(config);
+        let millis_date_fields_snapshot = millis_date_fields(&schema.schema);
         let index = Arc::new(Self {
             name,
             schema: Arc::new(RwLock::new(schema)),
@@ -7838,6 +8175,9 @@ impl Index {
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
+                millis_date_fields_snapshot,
+            ))),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
@@ -7862,9 +8202,28 @@ impl Index {
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
+            merge_check_armed: std::sync::atomic::AtomicBool::new(false),
+            merge_events: AtomicU64::new(0),
+            merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_evaluations: AtomicU64::new(0),
             schema_persist_failures: AtomicU64::new(0),
         });
-        index.spawn_merge_task(5);
+        // #871 — event-driven merge scheduling (see `Index::create` and
+        // `request_merge_check`): wire the store's segments-changed hook.
+        let merge_hook_index = Arc::downgrade(&index);
+        index
+            .store
+            .set_segments_changed_hook(Some(Arc::new(move || {
+                if let Some(idx) = merge_hook_index.upgrade() {
+                    idx.on_segments_changed();
+                }
+            })));
+        // An opened index can carry pre-existing merge debt — a crash
+        // mid-cascade, or merge config lowered since the segments were
+        // written — that no future event would pay off on a read-only
+        // index. Schedule one debounced check now; it quiesces after a
+        // single evaluation when there is nothing to do.
+        index.request_merge_check();
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
         // full graph-maintenance cost while the ANN path never served).
@@ -9830,9 +10189,25 @@ impl Index {
     ///
     /// Returns the number of merge batches that succeeded.
     ///
-    /// This is called from a background task (see `spawn_merge_task`) and may
-    /// also be invoked explicitly by tests.
+    /// This is called from the debounced background merge check (see
+    /// `request_merge_check`, #871) and may also be invoked explicitly by
+    /// tests.
     pub async fn run_merge_once(&self) -> Result<usize> {
+        match self.try_run_merge_once().await {
+            Some(result) => result,
+            // Another pass holds the merge flag — same "skip" contract the
+            // public signature always had.
+            None => Ok(0),
+        }
+    }
+
+    /// [`Self::run_merge_once`], but a lost `merge_in_progress` race is
+    /// distinguishable from "evaluated, nothing to merge": `None` means the
+    /// flag was held by another pass (background or `_forcemerge`) and NO
+    /// policy evaluation happened. The #871 debounced check task needs the
+    /// distinction — on `None` it must retry a cycle later instead of
+    /// quiescing with a possibly-unevaluated segment set.
+    pub(crate) async fn try_run_merge_once(&self) -> Option<Result<usize>> {
         use std::sync::atomic::Ordering as AtomicOrdering;
 
         // Serialise merges with ourselves (skip if another pass is running).
@@ -9841,7 +10216,7 @@ impl Index {
             .compare_exchange(false, true, AtomicOrdering::AcqRel, AtomicOrdering::Relaxed)
             .is_err()
         {
-            return Ok(0);
+            return None;
         }
         // Ensure we clear the flag on every exit path.
         let _clear = MergeFlagClear(&self.merge_in_progress);
@@ -9857,7 +10232,7 @@ impl Index {
                 }
             }
         }
-        result
+        Some(result)
     }
 
     /// True while a merge pass (background or forced) holds the merge flag.
@@ -9866,6 +10241,15 @@ impl Index {
     pub fn is_merge_in_progress(&self) -> bool {
         self.merge_in_progress
             .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// #871 — how many merge-policy evaluations have run on this index
+    /// (background debounced checks, hand-driven `run_merge_once`, and
+    /// `_forcemerge` passes all count). The idle-cost contract is that this
+    /// stays flat while the segment set does not change.
+    pub fn merge_evaluation_count(&self) -> u64 {
+        self.merge_evaluations
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// ES-style `_forcemerge`: run SYNCHRONOUSLY until the index has at
@@ -9944,6 +10328,13 @@ impl Index {
         use xerj_fts::index::FtsIndexWriter;
         use xerj_storage::merge::{MergePolicy, SizeTieredMergePolicy};
         use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
+
+        // #871 idle-cost observability: every pass that reaches this point
+        // builds a merge policy and snapshots the segment registry — that IS
+        // the per-tick idle cost the event-driven scheduler exists to remove,
+        // so it is exactly what the counter measures. Background debounced
+        // checks, hand-driven `run_merge_once`, and `_forcemerge` all count.
+        self.merge_evaluations.fetch_add(1, AtomicOrdering::Relaxed);
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -11017,62 +11408,172 @@ impl Index {
         Ok(merged_batches)
     }
 
-    /// Spawn a background tokio task that runs the merge pass every
-    /// `interval` seconds until the index is dropped.
-    ///
-    /// Uses a Weak pointer so the task exits naturally when the last Arc to
-    /// the index is released — no explicit shutdown plumbing needed for the
-    /// happy path.  The returned `JoinHandle` is stored in `self.merge_task`
-    /// so the SIGTERM path can call `abort_background_tasks` to break the
-    /// 5-second `tokio::time::sleep` and let the runtime exit promptly
-    /// (otherwise tokio waits for the sleep to wake before noticing the
-    /// engine has been dropped — that is the bench-found shutdown hang).
-    pub fn spawn_merge_task(self: &Arc<Self>, interval_secs: u64) {
-        let weak = Arc::downgrade(self);
-        // Allow override via env for benchmarks / battle tests so merges
-        // don't interfere with ingest-rate measurements.
-        let effective = std::env::var("XERJ_MERGE_INTERVAL_SECS")
+    /// #871 — the debounce window between a segment-set change and the
+    /// merge check it schedules. `XERJ_MERGE_INTERVAL_SECS` keeps its
+    /// historical meaning (benchmarks push it up so merges don't pollute
+    /// ingest-rate measurements): it is now the debounce delay instead of a
+    /// free-running tick period. Default 5 s — the old tick cadence, so a
+    /// burst of flushes still collapses on the same schedule as before.
+    fn merge_check_delay() -> std::time::Duration {
+        let secs = std::env::var("XERJ_MERGE_INTERVAL_SECS")
             .ok()
             .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(interval_secs);
-        let interval = std::time::Duration::from_secs(effective.max(1));
-        let handle = tokio::spawn(async move {
-            tracing::info!(interval_secs, "merge background task started");
+            .unwrap_or(5);
+        std::time::Duration::from_secs(secs.max(1))
+    }
+
+    /// #871 — the segment set changed (the [`IndexStore`
+    /// segments-changed hook](xerj_storage::index_store::IndexStore::set_segments_changed_hook)
+    /// lands here): bump the event epoch, then make sure a debounced merge
+    /// check is scheduled.
+    fn on_segments_changed(self: &Arc<Self>) {
+        self.merge_events
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.request_merge_check();
+    }
+
+    /// #871 — schedule a debounced merge-policy check for this index.
+    ///
+    /// Replaces the per-index tick task (`spawn_merge_task`) that gave
+    /// EVERY index a tokio timer waking every 5 s forever, writes or no
+    /// writes — measured 93 wakeups/s and 15-27% of a core at the
+    /// customer-reported 464 idle indices. Merge scheduling is now
+    /// event-driven, mirroring the #334 WAL-fsync scheduler
+    /// (`xerj-storage/src/wal_fsync.rs`): the storage layer fires its
+    /// segments-changed hook on every segment-set change — flush
+    /// publication, merge application, tombstone-only segment, orphan
+    /// recovery: the only events that can create a merge candidate — and
+    /// that hook lands here via [`Self::on_segments_changed`]. Lucene's
+    /// writer works the same way: `IndexWriter.maybeMerge` runs on flush
+    /// (IndexWriter.java:706,:3681 — MergeTrigger.FULL_FLUSH) and on merge
+    /// completion (IndexWriter.java:2452 — MERGE_FINISHED), never on a
+    /// clock (lucene corpus, Apache-2.0; design mirrored, no code copied).
+    ///
+    /// Contract:
+    /// * Arming is idempotent — any number of events inside one debounce
+    ///   window cost one task (`merge_check_armed` swap).
+    /// * The armed task sleeps [`Self::merge_check_delay`], evaluates once,
+    ///   and loops only while there is a reason to: the pass lost the merge
+    ///   flag to `_forcemerge` (`try_run_merge_once` → `None`, nothing was
+    ///   evaluated), the pass errored (the same every-pass retry the old
+    ///   tick gave a damaged segment — see the LOSS FIREWALL note in
+    ///   `merge_pass_locked`), or the segment set changed since the cycle
+    ///   started (`merge_events` epoch). Otherwise it disarms and EXITS —
+    ///   an idle index holds zero tasks, zero timers, zero wakeups.
+    /// * Merge cascades need no special case: applying a merge fires the
+    ///   hook, so the follow-up evaluation schedules itself.
+    /// * The disarm race (an event between the epoch check and the disarm
+    ///   observed `armed == true` and spawned nothing) is closed by
+    ///   re-checking the epoch after the disarm and re-arming on the
+    ///   event's behalf.
+    ///
+    /// The task handle is stored in `self.merge_task` so the SIGTERM path
+    /// (`abort_background_tasks`, via `Engine::flush_all_force`) can break
+    /// the debounce `tokio::time::sleep` — the same shutdown-hang contract
+    /// the tick task had; `merge_scheduling_stopped` then keeps any later
+    /// event from re-arming.
+    pub fn request_merge_check(self: &Arc<Self>) {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+        if self.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+            return;
+        }
+        // Resolve the runtime BEFORE arming: if there is nowhere to spawn,
+        // leaving `armed` set would eat the next event's arm. The hook can
+        // fire from a blocking-pool thread (flush finalize), where
+        // `try_current` still resolves; the coord's cached handle covers
+        // any path outside every runtime context.
+        let rt = match tokio::runtime::Handle::try_current() {
+            Ok(handle) => handle,
+            Err(_) => match self.flush_signal.runtime() {
+                Some(handle) => handle.clone(),
+                None => return, // no runtime; the next event retries
+            },
+        };
+        if self.merge_check_armed.swap(true, AtomicOrdering::SeqCst) {
+            return; // already scheduled — debounced
+        }
+        let weak = Arc::downgrade(self);
+        let delay = Self::merge_check_delay();
+        let handle = rt.spawn(async move {
             loop {
-                tokio::time::sleep(interval).await;
-                let idx = match weak.upgrade() {
-                    Some(a) => a,
-                    None => {
-                        tracing::info!("merge background task exiting (index dropped)");
-                        return;
+                // Epoch BEFORE the sleep: any event after this read either
+                // re-runs this loop (epoch mismatch below) or re-arms after
+                // the exit path's disarm.
+                let seen = match weak.upgrade() {
+                    Some(idx) => idx.merge_events.load(AtomicOrdering::SeqCst),
+                    None => return,
+                };
+                tokio::time::sleep(delay).await;
+                let Some(idx) = weak.upgrade() else { return };
+                if idx.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+                    idx.merge_check_armed.store(false, AtomicOrdering::SeqCst);
+                    return;
+                }
+                let outcome = idx.try_run_merge_once().await;
+                let retry = match &outcome {
+                    // Lost the flag to `_forcemerge`/another pass: nothing
+                    // was evaluated, so we still owe the arming event a
+                    // pass.
+                    None => true,
+                    Some(Err(e)) => {
+                        tracing::warn!("merge pass failed: {e}");
+                        true
+                    }
+                    Some(Ok(n)) => {
+                        if *n > 0 {
+                            tracing::debug!(batches = n, "merge pass ran");
+                        }
+                        false
                     }
                 };
-                match idx.run_merge_once().await {
-                    Ok(0) => {}
-                    Ok(n) => tracing::debug!(batches = n, "merge pass ran"),
-                    Err(e) => tracing::warn!("merge pass failed: {e}"),
+                if retry || idx.merge_events.load(AtomicOrdering::SeqCst) != seen {
+                    continue;
                 }
+                idx.merge_check_armed.store(false, AtomicOrdering::SeqCst);
+                if idx.merge_events.load(AtomicOrdering::SeqCst) != seen {
+                    // An event slipped in between the epoch check and the
+                    // disarm: it saw `armed` and spawned nothing. Re-arm on
+                    // its behalf.
+                    idx.request_merge_check();
+                }
+                return;
             }
         });
-        // Replace any previous handle and abort it (defensive — should be
-        // None at first construction; only matters if a caller ever calls
-        // spawn_merge_task twice on the same Index).
-        let mut slot = self.merge_task.lock();
-        if let Some(prev) = slot.replace(handle) {
-            prev.abort();
+        // Replace the previous handle. It is either None or a task on its
+        // way out (a new arm is only possible after the old task disarmed,
+        // i.e. past its last await) — dropping it detaches those final
+        // instructions, never a pending sleep.
+        *self.merge_task.lock() = Some(handle);
+        if self.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
+            // Lost a race with `abort_background_tasks` between the check at
+            // the top and the handle store above: finish the abort's job so
+            // no debounce sleep outlives shutdown.
+            if let Some(handle) = self.merge_task.lock().take() {
+                handle.abort();
+            }
+            self.merge_check_armed.store(false, AtomicOrdering::SeqCst);
         }
     }
 
-    /// Abort the merge background task spawned by `spawn_merge_task`.
+    /// Stop this index's background merge scheduling permanently and abort
+    /// the armed check task, if any.
     ///
     /// Idempotent and safe to call from a signal handler.  After this
-    /// returns, the merge task is no longer holding the tokio runtime
-    /// alive, so once axum's listeners stop and the final flush completes,
-    /// the runtime exits cleanly instead of waiting up to 5 s for the
-    /// merge sleep to wake on its own.  The aborted task itself is still
-    /// being unwound, so ingest-side callers MUST NOT rely on the merge
-    /// loop running after this.  Called from `Engine::flush_all_force`.
+    /// returns, no merge task is holding the tokio runtime alive, so once
+    /// axum's listeners stop and the final flush completes, the runtime
+    /// exits cleanly instead of waiting up to the debounce delay for a
+    /// `tokio::time::sleep` to wake on its own (the bench-found SIGTERM
+    /// hang).  `merge_scheduling_stopped` is set FIRST so a segments-changed
+    /// hook firing concurrently (e.g. from the shutdown flush that follows
+    /// in `Engine::flush_all_force`) cannot re-arm after the abort; the
+    /// re-check at the end of `request_merge_check` closes the remaining
+    /// interleaving.  The aborted task itself is still being unwound, so
+    /// ingest-side callers MUST NOT rely on merges running after this.
+    /// Called from `Engine::flush_all_force` and by hand-driven test
+    /// fixtures that drive every merge themselves.
     pub fn abort_background_tasks(&self) {
+        self.merge_scheduling_stopped
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         if let Some(handle) = self.merge_task.lock().take() {
             handle.abort();
         }
@@ -16101,8 +16602,15 @@ impl Index {
                 vals.iter()
                     .enumerate()
                     .map(|(i, v)| {
-                        let fmt = request.sort.get(i).and_then(|s| s.format.as_deref());
-                        normalize_search_after_value(v, fmt)
+                        let sf = request.sort.get(i);
+                        let fmt = sf.and_then(|s| s.format.as_deref());
+                        // The cursor is compared against `compute_sort_values`
+                        // output, so it must be normalised on the SAME field
+                        // scale those keys use (#790).
+                        let scale = sf
+                            .map(|s| self.date_scale(&s.field))
+                            .unwrap_or(DateScale::PerValue);
+                        normalize_search_after_value(v, fmt, scale)
                     })
                     .collect(),
             ),
@@ -16710,11 +17218,15 @@ impl Index {
                         {
                             return None;
                         }
+                        // The memo is per-FIELD-scale (#790): this cut has to
+                        // rank on the same epoch numbers `compute_sort_values`
+                        // emits for this field, not on a per-value guess.
+                        let scale = self.date_scale(&sf.field);
                         mem.sort_candidates_numeric(
                             &sf.field,
                             sf.order == SortOrder::Desc,
                             materialisation_limit,
-                            &sort_epoch_memo,
+                            &|v: &str| sort_epoch_memo(v, scale),
                         )
                     })();
                     match bounded {
@@ -21438,7 +21950,41 @@ impl Index {
         let path = self.data_dir.join("schema.json");
         let bytes = serde_json::to_vec_pretty(schema)?;
         write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
+        // Every schema mutation funnels through here (`add_fields` for an
+        // explicit mapping update, `persist_evolved_schema` for dynamic
+        // evolution), so this is the one place the sync-readable date-scale
+        // mirror has to be refreshed (#790). Swapped as a whole `Arc` so a
+        // concurrent reader never observes a half-rebuilt set.
+        let next = Arc::new(millis_date_fields(&schema.schema));
+        let changed = {
+            let mut cur = self.millis_date_fields.write();
+            let changed = **cur != *next;
+            *cur = next;
+            changed
+        };
+        if changed {
+            // A field that just moved between scales has cached shadows and
+            // range prefilters keyed on the OLD one. Leaving them would put
+            // the shadow keys and a fresh bound back on different scales —
+            // the exact divergence #790 is about. They rebuild on demand.
+            self.sort_shadow_cache.clear();
+            self.sort_shadow_fields.clear();
+            self.range_prefilter_cache.clear();
+        }
         Ok(())
+    }
+
+    /// The epoch scale `field`'s dates normalise on (#790).
+    ///
+    /// Read off the sync mirror of the mapping; an undeclared field, or one
+    /// whose mapping predates the `date_precision` flag, keeps the legacy
+    /// per-value guess.
+    fn date_scale(&self, field: &str) -> DateScale {
+        if self.millis_date_fields.read().contains(field) {
+            DateScale::Millis
+        } else {
+            DateScale::PerValue
+        }
     }
 
     async fn fill_memtable_sources(&self, hits: Vec<Hit>) -> Vec<Hit> {
@@ -22381,6 +22927,7 @@ impl Index {
                             gt.as_ref(),
                             lte.as_ref(),
                             lt.as_ref(),
+                            self.date_scale(field_str),
                         )?;
                         seg_matches = seg_matches.saturating_add(shadow_range_count(
                             shadow, slo, shi, slo_incl, shi_incl,
@@ -25110,7 +25657,8 @@ impl Index {
                 let shadow =
                     self.sorted_shadow_for(segments_dir, segment_id, field, seg_doc_count)?;
                 let shadow = shadow.value().as_ref()?;
-                let (slo, slo_incl, shi, shi_incl) = shadow_range_bounds(gte, gt, lte, lt)?;
+                let (slo, slo_incl, shi, shi_incl) =
+                    shadow_range_bounds(gte, gt, lte, lt, self.date_scale(field))?;
                 // Same selectivity precheck on the shadow scale.
                 if shadow_range_count(shadow, slo, shi, slo_incl, shi_incl) as usize > cap {
                     return None;
@@ -25546,8 +26094,11 @@ impl Index {
         }
         // Register the field so the publish-time warm pre-builds this
         // shadow for every FUTURE segment (bounded registry).
+        // The recorded value is the field's date scale, so `warm_segment_at_publish`
+        // (which has no schema access) rebuilds the same keys this path would (#790).
+        let scale = self.date_scale(field);
         if self.sort_shadow_fields.len() < 16 && !self.sort_shadow_fields.contains_key(field) {
-            self.sort_shadow_fields.insert(field.to_string(), ());
+            self.sort_shadow_fields.insert(field.to_string(), scale);
         }
         let key = format!("{segment_id}\u{1}{field}");
         if let Some(entry) = self.sort_shadow_cache.get(&key) {
@@ -25562,7 +26113,7 @@ impl Index {
         // disabled the bounded path for that segment: every subsequent
         // sorted read full-scanned it until a merge retired it.
         let cols = self.dv_columns_for(segments_dir, segment_id)?;
-        let built = build_sort_shadow(&cols, field, seg_doc_count);
+        let built = build_sort_shadow(&cols, field, seg_doc_count, scale);
         let bytes = cache_estimates::sort_shadow_bytes(
             &key,
             std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
@@ -37494,20 +38045,15 @@ fn phrase_tokens(text: &str) -> Vec<String> {
         .analyze_to_terms(text)
 }
 
-/// True when `query_tokens` occur in `field_tokens` in order with at most
-/// `slop` intervening positions in total — the stored-scan twin of
-/// `xerj_fts::search`'s `phrase_positions_match`, which evaluates the same
+/// True when `query_tokens` occur in `field_tokens` within `slop` under
+/// Lucene sloppy-phrase semantics — the stored-scan twin of
+/// `xerj_fts::search::phrase_positions_match`, which evaluates the same
 /// predicate over the segment's real term positions.
 ///
-/// `slop == 0` is exact adjacency (a window compare); `slop > 0` anchors on
-/// EVERY occurrence of the first term and walks each later term to its
-/// earliest position after the previous match, summing the gaps — the same
-/// greedy walk `phrase_positions_match` runs over segment positions.
-///
-/// Anchoring on every occurrence is load-bearing: the previous stored-scan
-/// walk anchored only on the FIRST occurrence of the leading term, so
-/// `[a, x, x, x, a, b]` rejected the slop-1 phrase `a b` that both ES and
-/// the segment path accept (anchor at the second `a`).
+/// `slop == 0` is exact adjacency; `slop > 0` is an edit distance in
+/// single-position term moves (transpositions cost 2 — `"a b"~2` matches a
+/// doc reading `b a`; see `phrase_positions_match`, which closed #830's
+/// in-order-only divergence for both arms at once).
 fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], slop: u32) -> bool {
     phrase_walk(field_tokens, query_tokens, slop, false)
 }
@@ -37520,23 +38066,25 @@ fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], 
 /// query per expansion, and "some expansion term sits here" is the same
 /// predicate as "this token starts with the prefix".
 ///
-/// Keeping one walk (rather than two look-alike ones) is deliberate: the
-/// two evaluators must not be able to drift apart the way the slop-0-only
-/// prefix walk had already drifted from the sloppy phrase walk.
+/// It materialises one token-index position list per query slot and hands
+/// them to `xerj_fts::search::phrase_positions_match` — the SAME function
+/// the segment positional clause runs over postings positions.  Sharing the
+/// evaluator (rather than mirroring it) is deliberate, and stronger than the
+/// previous arrangement of two hand-synchronised walks: slop cannot be
+/// evaluated differently on the two sides (#218/#222/#230 regression class),
+/// and the #830 fix — Lucene `SloppyPhraseMatcher` distance semantics, where
+/// slop admits transpositions at cost 2 instead of the old in-order-only gap
+/// walk — lands in both arms at once.
 ///
-/// KNOWN DIVERGENCE FROM ES, not closed by #230: this walk is **in-order
-/// only**.  Lucene's sloppy phrase admits a transposition at a distance
-/// cost — its own javadoc: «for query "a b"~2, a document "x a b a y" can
-/// be matched twice: once for "a b" (distance=0), and once for "b a"
-/// (distance=2)» (`lucene/core/.../search/SloppyPhraseMatcher.java`, class
-/// javadoc; Apache-2.0) — so ES answers `match_phrase {"query": "policy
-/// merge", "slop": 2}` on a document reading `merge policy`, and XERJ
-/// answers it with zero hits.  That is the pre-existing semantics of
-/// `xerj_fts::search::phrase_positions_match`, which the segment side has
-/// always used and which this walk deliberately mirrors: matching ES here
-/// means changing BOTH evaluators together, and mirroring the existing one
-/// is what keeps the hit set flush-invariant today.  Measured, not assumed
-/// (5-doc index, `"policy merge"` slop 2 and slop 3 → `[]` in both states).
+/// What is shared is the EVALUATOR, not the position model, so this is not
+/// flush-invariance "by construction": this arm re-analyses stored text with
+/// the standard analyzer and feeds token INDICES, while the segment arm
+/// feeds indexed postings positions.  A custom analyzer (synonym
+/// co-location, `position_increment_gap`) can therefore still hand the two
+/// arms different position lists; multi-valued fields are handled per
+/// element (#332).  The tests in
+/// `tests/match_phrase_slop_transposition.rs` pin the agreement for the
+/// standard-analyzer cases that this planner actually routes both ways.
 fn phrase_walk(
     field_tokens: &[String],
     query_tokens: &[String],
@@ -37550,56 +38098,30 @@ fn phrase_walk(
         return false;
     }
     let n = query_tokens.len();
-    let matches_at = |idx: usize, qi: usize| -> bool {
-        let ft = &field_tokens[idx];
-        if last_is_prefix && qi == n - 1 {
-            ft.starts_with(query_tokens[qi].as_str())
-        } else {
-            ft == &query_tokens[qi]
-        }
-    };
-    // Exact-adjacency fast path for the whole-term case (the common one).
-    if slop == 0 && !last_is_prefix {
-        return field_tokens.windows(n).any(|w| w == query_tokens);
-    }
-    for start in 0..field_tokens.len() {
-        if !matches_at(start, 0) {
-            continue;
-        }
-        let mut current = start;
-        let mut total_gaps: u32 = 0;
-        let mut ok = true;
-        for qi in 1..n {
-            // Earliest match after `current` minimises the running gap sum,
-            // so the greedy walk is optimal for an in-order phrase — the
-            // same walk `xerj_fts::search::phrase_positions_match` runs over
-            // segment positions.
-            match (current + 1..field_tokens.len()).find(|&i| matches_at(i, qi)) {
-                Some(next) => {
-                    total_gaps += (next - current - 1) as u32;
-                    if total_gaps > slop {
-                        ok = false;
-                        break;
-                    }
-                    current = next;
-                }
-                None => {
-                    ok = false;
-                    break;
-                }
+    // Per-query-slot ascending token-index lists — the memtable analogue of
+    // the segment's per-term postings position lists.
+    let mut positions: Vec<Vec<u32>> = vec![Vec::new(); n];
+    for (idx, ft) in field_tokens.iter().enumerate() {
+        for (qi, qt) in query_tokens.iter().enumerate() {
+            let hit = if last_is_prefix && qi == n - 1 {
+                ft.starts_with(qt.as_str())
+            } else {
+                ft == qt
+            };
+            if hit {
+                positions[qi].push(idx as u32);
             }
         }
-        if ok {
-            return true;
-        }
     }
-    false
+    let lists: Vec<&[u32]> = positions.iter().map(|v| v.as_slice()).collect();
+    xerj_fts::search::phrase_positions_match(&lists, slop)
 }
 
-/// True when the leading `query_tokens[..n-1]` form an in-order phrase whose
+/// True when the leading `query_tokens[..n-1]` form a phrase whose
 /// next position starts with `query_tokens[n-1]`, with at most `slop`
-/// intervening positions in total — ES `match_phrase_prefix` semantics over
-/// the token stream. A single token degrades to "any token starts with it".
+/// (Lucene move-distance semantics) — ES `match_phrase_prefix` semantics
+/// over the token stream. A single token degrades to "any token starts
+/// with it".
 ///
 /// This is TERM-level, not substring-level: `merge poli` matches the token
 /// stream `[merge, policy]` (so it matches raw text `merge, policy` too),
@@ -41075,6 +41597,7 @@ fn build_sort_shadow(
     cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
     field: &str,
     seg_doc_count: u64,
+    scale: DateScale,
 ) -> Option<Arc<Vec<(i64, u32)>>> {
     use xerj_storage::doc_values::Column;
     match cols.get(field) {
@@ -41100,7 +41623,7 @@ fn build_sort_shadow(
             // heap would rank raw strings, not epochs).
             let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
             for t in &k.terms {
-                keys.push(sort_date_normalize(t)?.as_f64()?);
+                keys.push(sort_date_normalize(t, scale)?.as_f64()?);
             }
             let mut sorted: Vec<(i64, u32)> = k
                 .ords
@@ -41135,13 +41658,14 @@ fn shadow_range_bounds(
     gt: Option<&Value>,
     lte: Option<&Value>,
     lt: Option<&Value>,
+    scale: DateScale,
 ) -> Option<(f64, bool, f64, bool)> {
     let key = |v: Option<&Value>| -> Option<Option<f64>> {
         match v {
             None => Some(None),
             Some(Value::Number(n)) => Some(n.as_f64()),
             Some(Value::String(s)) => {
-                if let Some(f) = sort_date_normalize(s).and_then(|x| x.as_f64()) {
+                if let Some(f) = sort_date_normalize(s, scale).and_then(|x| x.as_f64()) {
                     Some(Some(f))
                 } else if let Ok(f) = s.parse::<f64>() {
                     Some(Some(f))
@@ -41236,7 +41760,7 @@ struct PublishWarmCaches {
     slices: Arc<dashmap::DashMap<String, Resident<StoredSlices>>>,
     dv: Arc<dashmap::DashMap<String, Resident<DocValueMap>>>,
     shadow: Arc<dashmap::DashMap<String, Resident<Option<Arc<Vec<(i64, u32)>>>>>>,
-    shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+    shadow_fields: Arc<dashmap::DashMap<String, DateScale>>,
     lifecycle: Arc<parking_lot::RwLock<()>>,
     budget: Arc<SegmentHydrationBudget>,
     stored_values: Arc<dashmap::DashMap<String, Resident<Vec<Value>>>>,
@@ -41441,7 +41965,7 @@ fn warm_segment_at_publish(
             let field = e.key();
             let key = format!("{seg_id}\u{1}{field}");
             if !caches.shadow.contains_key(&key) {
-                let built = build_sort_shadow(&cols, field, expect_docs);
+                let built = build_sort_shadow(&cols, field, expect_docs, *e.value());
                 let bytes = cache_estimates::sort_shadow_bytes(
                     &key,
                     std::mem::size_of::<CacheResident<Option<Arc<Vec<(i64, u32)>>>>>(),
@@ -41561,7 +42085,7 @@ const SHORTCUT_COUNT_CACHE_MAX: usize = 65_536;
 /// ES format pattern, tried first for custom formats like
 /// `yyyy-MM-dd | HH:mm:ss.SSS` whose cursor strings the default date
 /// detectors below don't recognize.  Non-date values pass through unchanged.
-fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
+fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>, scale: DateScale) -> Value {
     if let Some(s) = v.as_str() {
         if let Some(fmt) = fmt_hint {
             if let Some(epoch) = es_format_to_epoch_ms(s, fmt) {
@@ -41576,11 +42100,7 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
             && bytes[3].is_ascii_digit()
             && bytes[4] == b'-';
         if looks_date {
-            let frac_digits = s
-                .rsplit_once('.')
-                .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-                .unwrap_or(0);
-            let is_nanos = frac_digits >= 4;
+            let is_nanos = scale.is_nanos(s);
             let s_utc = s.replace(' ', "T");
             let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
                 s_utc
@@ -41628,6 +42148,101 @@ fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
 // (`sorted_shadow_for`) — the two MUST agree exactly on how a date-shaped
 // string maps to an epoch number, or candidate selection would diverge from
 // the heap's ordering.
+/// The epoch scale one date FIELD is normalised on (#790).
+///
+/// Every date-ordered path — the per-hit sort keys (`compute_sort_values`),
+/// the segment sort/range shadow (`build_sort_shadow`), a range's shadow
+/// bounds (`shadow_range_bounds`), the memtable pre-clone rejection
+/// (`sort_epoch_memo`) and a `search_after` cursor
+/// (`normalize_search_after_value`) — has to turn a date string into the SAME
+/// number, or they compare across scales and disagree. Resolving the scale
+/// from the mapping instead of from each value is what makes that possible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateScale {
+    /// ES `date`: epoch MILLISECONDS for every value, sub-millisecond digits
+    /// truncated (what ES itself stores). Set for any field the mapping
+    /// declares `type: date`, and for a `FieldType::Date` created through the
+    /// native API.
+    Millis,
+    /// The pre-#790 per-VALUE guess: >= 4 fractional-second digits means
+    /// epoch-nanoseconds, anything coarser means epoch-milliseconds.
+    ///
+    /// Kept for two kinds of field:
+    ///   * a `date_nanos` mapping — the guess is the only thing that gives it
+    ///     nanosecond sort values today, and pinning it to nanos for EVERY
+    ///     value would change how it compares against a plain `date` field in
+    ///     a cross-index sort, which the conformance suite pins
+    ///     (`search/90_search_after.yml`, "Format sort values": a `date_nanos`
+    ///     field whose values are `dd/MM/yyyy` slash-dates interleaves
+    ///     chronologically with a `date` field's, i.e. on the millisecond
+    ///     scale). Making `date_nanos` uniformly nanosecond-scaled is the
+    ///     remaining half of the mixed-scale problem, tracked separately.
+    ///   * a field whose mapping predates the `date_precision` flag (a
+    ///     schema.json written by an older build) — upgrading an existing
+    ///     index must not silently change how its dates sort.
+    PerValue,
+}
+
+impl DateScale {
+    /// Should `s` be encoded as epoch-NANOSECONDS?
+    #[inline]
+    fn is_nanos(self, s: &str) -> bool {
+        match self {
+            DateScale::Millis => false,
+            DateScale::PerValue => {
+                s.rsplit_once('.')
+                    .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+                    .unwrap_or(0)
+                    >= 4
+            }
+        }
+    }
+}
+
+/// Every `Millis` field in `schema`, as the sync-readable mirror the scan
+/// path consults (`Index::millis_date_fields`). The schema itself lives
+/// behind an ASYNC `RwLock`, while `compute_sort_values`,
+/// `build_sort_shadow` and `shadow_range_bounds` are sync and run per hit
+/// and per segment.
+fn millis_date_fields(schema: &Schema) -> std::collections::HashSet<String> {
+    fn walk(fields: &[FieldConfig], prefix: &str, out: &mut std::collections::HashSet<String>) {
+        for fc in fields {
+            let path = if prefix.is_empty() {
+                fc.name.clone()
+            } else {
+                format!("{prefix}.{}", fc.name)
+            };
+            if date_scale_of_config(fc) == DateScale::Millis {
+                out.insert(path.clone());
+            }
+            if !fc.fields.is_empty() {
+                walk(&fc.fields, &path, out);
+            }
+        }
+    }
+    let mut out = std::collections::HashSet::new();
+    walk(&schema.fields, "", &mut out);
+    out
+}
+
+/// The `DateScale` one declared field asks for — the single rule, so nothing
+/// can drift from it.
+///
+/// Anything that is not a `Date` carrying `DatePrecision::Millis` — a
+/// `date_nanos`, a mapping written before the flag existed, a non-date type,
+/// an undeclared/dynamic field — stays on `PerValue`, i.e. exactly the
+/// pre-#790 behaviour. The flag only ever *narrows* a field to `Millis`, so a
+/// path that forgets to consult the mapping cannot land on a new scale.
+fn date_scale_of_config(fc: &FieldConfig) -> DateScale {
+    if fc.field_type == FieldType::Date
+        && fc.options.date_precision == Some(xerj_common::types::DatePrecision::Millis)
+    {
+        DateScale::Millis
+    } else {
+        DateScale::PerValue
+    }
+}
+
 // When a field sort pulls a date-shaped string out of the source we emit
 // epoch-ms (or epoch-ns for nanosecond-precision inputs) instead of the
 // raw string, to match ES sort-value semantics.  Heuristic: the value must
@@ -41676,12 +42291,8 @@ fn slash_date_to_epoch(s: &str) -> Option<Value> {
     }
     None
 }
-fn date_string_to_epoch(s: &str) -> Option<Value> {
-    let frac_digits = s
-        .rsplit_once('.')
-        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-        .unwrap_or(0);
-    let is_nanos = frac_digits >= 4;
+fn date_string_to_epoch(s: &str, scale: DateScale) -> Option<Value> {
+    let is_nanos = scale.is_nanos(s);
     let s_utc = s.replace(' ', "T");
     let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
         s_utc
@@ -41736,9 +42347,13 @@ fn date_string_to_epoch(s: &str) -> Option<Value> {
 /// Normalise a string sort value the way `compute_sort_values` does:
 /// date-shaped strings become epoch-ms / epoch-ns numbers, everything else
 /// returns `None` (caller keeps the raw string).
-fn sort_date_normalize(s: &str) -> Option<Value> {
+///
+/// `scale` is the FIELD's scale, resolved once from the mapping — every
+/// caller on a given field must pass the same one, or the sort-shadow keys,
+/// the heap's sort keys and a range's bounds stop being comparable (#790).
+fn sort_date_normalize(s: &str, scale: DateScale) -> Option<Value> {
     if looks_like_date(s) {
-        date_string_to_epoch(s)
+        date_string_to_epoch(s, scale)
     } else if looks_like_slash_date(s) {
         slash_date_to_epoch(s)
     } else {
@@ -41806,7 +42421,7 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
     };
     let v = match raw {
         Value::Number(n) => n.as_f64(),
-        Value::String(s) => sort_epoch_memo(s),
+        Value::String(s) => sort_epoch_memo(s, idx.date_scale(&sf.field)),
         _ => None,
     };
     match v {
@@ -41822,15 +42437,26 @@ fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value, id: &str, idx: 
 /// raw strings in the heap — `primary_f64_rejects` can never reject those,
 /// so callers correctly admit).  Insertion stops at 65 536 entries; misses
 /// beyond that just re-parse (pure function of the string, index-agnostic).
-fn sort_epoch_memo(s: &str) -> Option<f64> {
-    static MEMO: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+fn sort_epoch_memo(s: &str, scale: DateScale) -> Option<f64> {
+    // One memo per scale, not one keyed by `(scale, s)`: the same string
+    // normalises to a DIFFERENT epoch on the two scales (#790), and a shared
+    // map would hand a millisecond field a nanosecond key cached by some
+    // other index's per-value field. Separate statics also keep the hit path
+    // a borrowed `&str` lookup with no key allocation.
+    static MEMO_MILLIS: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
         std::sync::LazyLock::new(dashmap::DashMap::new);
-    if let Some(e) = MEMO.get(s) {
+    static MEMO_PER_VALUE: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+        std::sync::LazyLock::new(dashmap::DashMap::new);
+    let memo = match scale {
+        DateScale::Millis => &*MEMO_MILLIS,
+        DateScale::PerValue => &*MEMO_PER_VALUE,
+    };
+    if let Some(e) = memo.get(s) {
         return *e.value();
     }
-    let v = sort_date_normalize(s).and_then(|x| x.as_f64());
-    if MEMO.len() < 65_536 {
-        MEMO.insert(s.to_string(), v);
+    let v = sort_date_normalize(s, scale).and_then(|x| x.as_f64());
+    if memo.len() < 65_536 {
+        memo.insert(s.to_string(), v);
     }
     v
 }
@@ -41905,7 +42531,7 @@ fn compute_sort_values(
             let raw = xerj_query::sort::reduce_sort_value(&raw, sf.order, sf.mode);
             match raw {
                 Value::String(ref s) if looks_like_date(s) => {
-                    date_string_to_epoch(s).unwrap_or(raw)
+                    date_string_to_epoch(s, idx.date_scale(&sf.field)).unwrap_or(raw)
                 }
                 Value::String(ref s) if looks_like_slash_date(s) => {
                     slash_date_to_epoch(s).unwrap_or(raw)

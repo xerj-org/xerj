@@ -6,6 +6,7 @@
 //! store for O(N) term/range/agg queries without JSON parsing per document.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::OnceLock;
 
@@ -764,6 +765,9 @@ const DEFAULT_ENGINE_MEMTABLE_SHARDS: usize = 16;
 pub struct ShardedFtsMemtable {
     shards: Vec<parking_lot::RwLock<FtsMemtable>>,
     shard_mask: usize,
+    /// Shared aggregate of all shards' `total_bytes` for this index — every
+    /// shard mirrors its deltas here so the sampler reads one atomic.
+    aggregate_bytes: Arc<AtomicUsize>,
 }
 
 impl Default for ShardedFtsMemtable {
@@ -784,12 +788,19 @@ impl ShardedFtsMemtable {
 
     pub fn with_registry_and_shards(registry: Arc<AnalyzerRegistry>, num_shards: usize) -> Self {
         let n = num_shards.max(1).next_power_of_two();
+        let aggregate_bytes = Arc::new(AtomicUsize::new(0));
         let shards = (0..n)
-            .map(|_| parking_lot::RwLock::new(FtsMemtable::with_registry(Arc::clone(&registry))))
+            .map(|_| {
+                parking_lot::RwLock::new(FtsMemtable::with_registry_and_aggregate(
+                    Arc::clone(&registry),
+                    Arc::clone(&aggregate_bytes),
+                ))
+            })
             .collect();
         Self {
             shards,
             shard_mask: n - 1,
+            aggregate_bytes,
         }
     }
 
@@ -836,9 +847,11 @@ impl ShardedFtsMemtable {
         self.shards.iter().map(|s| s.read().doc_count()).sum()
     }
 
-    /// Total approximate byte size across all shards.
+    /// Total approximate byte size across all shards.  Lock-free: a single
+    /// relaxed load of the shared aggregate the shards maintain
+    /// incrementally at every `total_bytes` update — no shard locks taken.
     pub fn size_bytes(&self) -> usize {
-        self.shards.iter().map(|s| s.read().size_bytes()).sum()
+        self.aggregate_bytes.load(Ordering::Relaxed)
     }
 
     /// Drop a doc from whichever shard owns it.
@@ -2148,6 +2161,8 @@ impl ShardedFtsMemtable {
             let dead_afl = std::mem::take(&mut g.avg_field_lengths);
             let dead_dii = std::mem::take(&mut g.doc_id_index);
             g.total_bytes = 0;
+            g.aggregate_bytes
+                .fetch_sub(removed_bytes, Ordering::Relaxed);
             // Created while the authoritative shard lock is still held so
             // the drained lifetime includes detached-map handoff and parsing.
             // Periodic active-vs-drained snapshots remain best-effort because
@@ -2256,6 +2271,8 @@ impl FtsMemtable {
             .collect();
         self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
+        self.aggregate_bytes
+            .fetch_sub(self.total_bytes, Ordering::Relaxed);
         self.total_bytes = 0;
         self.field_lengths = FxHashMap::default();
         self.avg_field_lengths = FxHashMap::default();
@@ -2282,6 +2299,8 @@ impl FtsMemtable {
             .collect();
         self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
+        self.aggregate_bytes
+            .fetch_sub(self.total_bytes, Ordering::Relaxed);
         self.total_bytes = 0;
         self.field_lengths = FxHashMap::default();
         self.avg_field_lengths = FxHashMap::default();
@@ -2366,6 +2385,9 @@ pub struct FtsMemtable {
     pub doc_values: DocValues,
     /// Total accumulated byte size.
     total_bytes: usize,
+    /// Shared aggregate across all shards of one index — mirrors every
+    /// `total_bytes` delta so the sampler reads one atomic.
+    aggregate_bytes: Arc<AtomicUsize>,
     /// Analyzer registry.
     registry: Arc<AnalyzerRegistry>,
     /// Precomputed field lengths for BM25 scoring: field → {doc_id → token_count}
@@ -2396,19 +2418,10 @@ pub struct FtsMemtable {
 impl FtsMemtable {
     /// Create a new empty memtable with the default analyzer registry.
     pub fn new() -> Self {
-        Self {
-            docs: Vec::new(),
-            index: FxHashMap::default(),
-            doc_values: DocValues::default(),
-            total_bytes: 0,
-            registry: Arc::new(AnalyzerRegistry::default()),
-            field_lengths: FxHashMap::default(),
-            avg_field_lengths: FxHashMap::default(),
-            doc_id_index: FxHashMap::default(),
-            ghost_docs: 0,
-            ghost_field_len: FxHashMap::default(),
-            ghost_doc_freq: FxHashMap::default(),
-        }
+        Self::with_registry_and_aggregate(
+            Arc::new(AnalyzerRegistry::default()),
+            Arc::new(AtomicUsize::new(0)),
+        )
     }
 
     /// Create a memtable using a shared custom analyzer registry.
@@ -2417,11 +2430,24 @@ impl FtsMemtable {
     /// configured in the index settings so that indexing and query expansion
     /// use the same pipeline.
     pub fn with_registry(registry: Arc<AnalyzerRegistry>) -> Self {
+        Self::with_registry_and_aggregate(registry, Arc::new(AtomicUsize::new(0)))
+    }
+
+    /// Create a memtable mirroring its `total_bytes` deltas into
+    /// `aggregate_bytes`, the counter shared by every shard of one index —
+    /// this is what lets `ShardedFtsMemtable::size_bytes` read one atomic
+    /// instead of read-locking every shard.  A standalone memtable
+    /// (via `new` / `with_registry`) gets its own fresh counter.
+    fn with_registry_and_aggregate(
+        registry: Arc<AnalyzerRegistry>,
+        aggregate_bytes: Arc<AtomicUsize>,
+    ) -> Self {
         Self {
             docs: Vec::new(),
             index: FxHashMap::default(),
             doc_values: DocValues::default(),
             total_bytes: 0,
+            aggregate_bytes,
             registry,
             field_lengths: FxHashMap::default(),
             avg_field_lengths: FxHashMap::default(),
@@ -2514,6 +2540,7 @@ impl FtsMemtable {
         }
 
         self.total_bytes += size;
+        self.aggregate_bytes.fetch_add(size, Ordering::Relaxed);
 
         // Populate the columnar DocValues store BEFORE pushing to docs so that
         // the doc_index equals the current length (i.e. the slot we're about to fill).
@@ -2573,6 +2600,7 @@ impl FtsMemtable {
         // predictable.
         let estimated = 800usize;
         self.total_bytes += estimated;
+        self.aggregate_bytes.fetch_add(estimated, Ordering::Relaxed);
 
         let doc_index = self.docs.len();
         self.doc_id_index
@@ -2598,6 +2626,7 @@ impl FtsMemtable {
     pub fn insert_raw_bytes_fresh(&mut self, seq_no: u64, doc_id: String, source_bytes: Arc<[u8]>) {
         let estimated = 800usize;
         self.total_bytes += estimated;
+        self.aggregate_bytes.fetch_add(estimated, Ordering::Relaxed);
 
         let doc_index = self.docs.len();
         self.doc_id_index
@@ -2658,6 +2687,7 @@ impl FtsMemtable {
         // for log data and keeps back-pressure within 2× of truth.
         let estimated = 800usize;
         self.total_bytes += estimated;
+        self.aggregate_bytes.fetch_add(estimated, Ordering::Relaxed);
 
         let doc_index = self.docs.len();
         self.doc_id_index
@@ -2731,6 +2761,7 @@ impl FtsMemtable {
         let raw_size = source.to_string().len() + doc_id.len();
         let size = raw_size * 3 + 64;
         self.total_bytes += size;
+        self.aggregate_bytes.fetch_add(size, Ordering::Relaxed);
 
         let doc_index = self.docs.len();
         // Pass a reference through the Arc — DocValues reads without cloning source.
@@ -2812,7 +2843,9 @@ impl FtsMemtable {
         // Remove from docs list AND the parallel DocValues columns.
         if let Some(pos) = self.doc_id_index.remove(doc_id) {
             let entry = self.docs.remove(pos);
-            self.total_bytes = self.total_bytes.saturating_sub(entry.size_bytes);
+            let removed = self.total_bytes.min(entry.size_bytes);
+            self.total_bytes -= removed;
+            self.aggregate_bytes.fetch_sub(removed, Ordering::Relaxed);
             self.doc_values.remove_at(pos);
             // Shift all indices above pos down by 1.
             for idx in self.doc_id_index.values_mut() {
@@ -3171,6 +3204,8 @@ impl FtsMemtable {
             .collect();
         self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
+        self.aggregate_bytes
+            .fetch_sub(self.total_bytes, Ordering::Relaxed);
         self.total_bytes = 0;
         self.field_lengths = FxHashMap::default();
         self.avg_field_lengths = FxHashMap::default();
@@ -3220,6 +3255,8 @@ impl FtsMemtable {
         // never shrinks between flushes.
         self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
+        self.aggregate_bytes
+            .fetch_sub(self.total_bytes, Ordering::Relaxed);
         self.total_bytes = 0;
         self.field_lengths = FxHashMap::default();
         self.avg_field_lengths = FxHashMap::default();
@@ -5684,5 +5721,154 @@ mod external_scalar_n_ghost_tests {
                 n.score
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod aggregate_bytes_tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    /// #872 — the sampler thread calls `size_bytes()` every 100 ms; it must
+    /// never block on a shard write lock held by a turbo batch.  Pre-fix the
+    /// sum read-locked every shard, so a held write lock stalled it and this
+    /// test's `recv_timeout` expired.
+    #[test]
+    fn size_bytes_does_not_take_shard_locks() {
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mem = ShardedFtsMemtable::with_registry_and_shards(registry, 4);
+        mem.insert(
+            "doc-1".to_string(),
+            &json!({"body": "buffered text"}),
+            &Schema::default(),
+            1,
+        );
+
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let (size_tx, size_rx) = mpsc::channel();
+        std::thread::scope(|scope| {
+            let mem_ref = &mem;
+            let holder = scope.spawn(move || {
+                mem_ref.with_shard_mut(0, |_| {
+                    locked_tx.send(()).unwrap();
+                    // Bounded hold: release on our own after 4 s even if the
+                    // release signal never arrives, so a lock-summing
+                    // `size_bytes` makes this test FAIL (timeout above) rather
+                    // than deadlock the scope join.
+                    let _ = release_rx.recv_timeout(Duration::from_secs(4));
+                });
+            });
+            locked_rx.recv().unwrap();
+            let reader = scope.spawn(move || {
+                size_tx.send(mem_ref.size_bytes()).unwrap();
+            });
+            let size = size_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("size_bytes must not block on a held shard write lock");
+            assert!(size > 0, "one buffered doc must report a non-zero size");
+            // Best-effort: the holder also self-releases on its 4 s bound.
+            let _ = release_tx.send(());
+            holder.join().unwrap();
+            reader.join().unwrap();
+        });
+    }
+
+    /// The invariant `#872` rests on: the shared aggregate equals a full
+    /// per-shard recount after every mutator that touches `total_bytes`.
+    fn recount(mem: &ShardedFtsMemtable) -> usize {
+        (0..mem.shard_count())
+            .map(|i| mem.with_shard(i, |m| m.size_bytes()))
+            .sum()
+    }
+
+    #[test]
+    fn aggregate_bytes_matches_full_recount_after_every_mutator() {
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mem = ShardedFtsMemtable::with_registry_and_shards(registry, 4);
+        let schema = Schema::default();
+        let check = |step: &str| {
+            assert_eq!(
+                mem.size_bytes(),
+                recount(&mem),
+                "aggregate diverged from full recount after {step}"
+            );
+        };
+
+        (0..8u64).for_each(|i| {
+            mem.insert(
+                format!("doc-{i}"),
+                &json!({"body": format!("buffered text {i}")}),
+                &schema,
+                i + 1,
+            );
+            check("insert");
+        });
+
+        mem.insert_pretokenized_with_seq(
+            9,
+            "pretok-1".to_string(),
+            Arc::new(json!({"body": "pretokenized doc"})),
+            &[],
+        );
+        check("insert_pretokenized_with_seq");
+
+        mem.insert_raw_bytes_with_seq(
+            10,
+            "raw-1".to_string(),
+            Arc::from(&b"{\"body\":\"raw doc\"}"[..]),
+        );
+        check("insert_raw_bytes_with_seq");
+
+        // Turbo bypass shape: fresh raw insert under one held shard lock.
+        mem.with_shard_mut(0, |m| {
+            m.insert_raw_bytes_fresh(
+                11,
+                "fresh-1".to_string(),
+                Arc::from(&b"{\"body\":\"f\"}"[..]),
+            )
+        });
+        check("insert_raw_bytes_fresh");
+
+        mem.remove("doc-0");
+        check("remove of an existing doc");
+        mem.remove("no-such-doc");
+        check("remove of a missing doc");
+
+        let _ = mem.drain_shard(0);
+        check("drain_shard(0)");
+        let _ = mem.drain_shard_raw(1);
+        check("drain_shard_raw(1)");
+        let _ = mem.drain_shard_accounted(2, false);
+        check("drain_shard_accounted(2)");
+        let _ = mem.drain_for_flush();
+        check("drain_for_flush");
+
+        (0..4u64).for_each(|i| {
+            mem.insert(
+                format!("redoc-{i}"),
+                &json!({"body": format!("second wave {i}")}),
+                &schema,
+                20 + i,
+            );
+            check("re-insert");
+        });
+        let _ = mem.drain();
+        check("drain");
+
+        (0..4u64).for_each(|i| {
+            mem.insert(
+                format!("tridoc-{i}"),
+                &json!({"body": format!("third wave {i}")}),
+                &schema,
+                30 + i,
+            );
+            check("re-insert");
+        });
+        let _ = mem.drain_with_sources();
+        check("drain_with_sources");
+        assert_eq!(mem.size_bytes(), 0, "fully drained memtable must read 0");
     }
 }

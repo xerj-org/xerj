@@ -285,26 +285,18 @@ async fn phrase_slop_is_honoured() {
     .await;
 }
 
-/// PINS A KNOWN DIVERGENCE FROM ES, so nothing in this PR can be read as
-/// claiming it away: XERJ's sloppy phrase is **in-order only**, at every
-/// entry point and in both states.
-///
-/// Lucene's is not. `SloppyPhraseMatcher`'s class javadoc: «for query "a
-/// b"~2, a document "x a b a y" can be matched twice: once for "a b"
-/// (distance=0), and once for "b a" (distance=2)» — so ES answers
-/// `{"query": "policy merge", "slop": 2}` with docs 1 and 2, and XERJ
-/// answers with none. That is the pre-existing behaviour of
-/// `xerj_fts::search::phrase_positions_match` (which single-field
-/// `match_phrase` has always used) and the stored-scan walk added by #230
-/// mirrors it deliberately, because the two evaluators disagreeing is the
-/// flush-variance class this PR exists to remove.
-///
-/// It is NOT a regression: before #230 the `multi_match` phrase arms tested
-/// raw-substring containment, which does not match a transposition either.
-/// When the walk learns transpositions, both evaluators change together and
-/// this test flips — that is the point of pinning it.
+/// The former in-order-only divergence pin, FLIPPED by the #830 fix — its
+/// own doc said «when the walk learns transpositions, both evaluators
+/// change together and this test flips».  XERJ's sloppy phrase now follows
+/// Lucene `SloppyPhraseMatcher` move-distance: `SloppyPhraseMatcher`'s
+/// class javadoc — «for query "a b"~2, a document "x a b a y" can be
+/// matched twice: once for "a b" (distance=0), and once for "b a"
+/// (distance=2)» — so ES answers `{"query": "policy merge", "slop": 2}`
+/// with docs 1 and 2 (both read `merge policy`), and XERJ now gives the
+/// same answer, at every entry point and in both states.  The dedicated
+/// slop-1 negative cases live in `match_phrase_slop_transposition.rs`.
 #[tokio::test]
-async fn sloppy_phrase_is_in_order_only_unlike_lucene() {
+async fn sloppy_phrase_admits_transpositions_like_lucene() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
     let idx = seed(&engine, "mmpp_inorder").await;
@@ -315,16 +307,16 @@ async fn sloppy_phrase_is_in_order_only_unlike_lucene() {
             (
                 json!({"multi_match": {"query": "policy merge", "fields": ["body"],
                                        "type": "phrase", "slop": 2}}),
-                &[],
-                "transposed phrase, slop 2: ES matches, XERJ does not",
+                &["1", "2"],
+                "transposed phrase, slop 2: matches like ES (cost 2)",
             ),
             (
                 json!({"match_phrase": {"body": {"query": "policy merge", "slop": 3}}}),
-                &[],
+                &["1", "2"],
                 "transposed phrase, slop 3, single-field spelling: same answer",
             ),
-            // The in-order control, so the case above cannot pass by
-            // accident (e.g. if slop stopped being honoured at all).
+            // The in-order control at the same slop, so the cases above
+            // cannot pass by slop being ignored altogether.
             (
                 json!({"multi_match": {"query": "log policy", "fields": ["body"],
                                        "type": "phrase", "slop": 2}}),

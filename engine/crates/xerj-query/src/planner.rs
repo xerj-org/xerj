@@ -62,8 +62,9 @@ pub enum ExecutionPlan {
         field: String,
         tokens: Vec<String>,
         require_all: bool,
-        /// Phrase mode — tokens must appear IN ORDER, with `slop` forward gaps
-        /// permitted between them (NOT transpositions/reorderings; see #830).
+        /// Phrase mode — tokens must appear within `slop` under Lucene
+        /// move-distance semantics: forward gaps cost their width,
+        /// transpositions/reorderings cost 2 (#830).
         phrase: bool,
         slop: u32,
         cost: f64,
