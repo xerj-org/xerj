@@ -26,7 +26,7 @@ use serde_json::{Map, Value};
 use std::path::Path;
 use std::sync::OnceLock;
 use streaming_iterator::StreamingIterator;
-use tree_sitter::{Language, Parser, Query, QueryCursor};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
 /// Skip machine-generated giants (minified bundles, generated parsers) — past a
 /// couple MB a single "file" is not human code and only bloats the index.
@@ -344,17 +344,524 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
     Ok(stats)
 }
 
-/// (name, kind, 1-based line, declaration line text)
+/// One captured declaration — the unit #500 made independently retrievable.
 ///
-/// `code` is the single source line the declaration starts on — for a
-/// constant/field/`#define`/signature that IS the whole declaration (~40–80 B),
-/// so #500 can promote each declaration to its own retrievable document instead
-/// of only reaching it inside the ~2–3 KB enclosing class/method body. (A
-/// multi-line body's `code` is its signature line; the full body stays in the
-/// file document's `body`.) Language-agnostic on purpose: the capture depth of
-/// the name node varies per grammar, so a tree-walk to the declaration node is
-/// unreliable, whereas the start line is always exact.
-type Symbol = (String, String, usize, String);
+/// `code` is the DECLARATION: from its first token (leading attributes
+/// included) through the end of its signature, stopping where the body begins.
+/// For a constant / field / `#define` / signature-only entry that is the whole
+/// declaration (~40–80 B); for a method or class it is the complete signature,
+/// which is the half #500 still had wrong — the field used to be *whichever
+/// single physical line the NAME node happened to sit on*, so every declaration
+/// that wraps returned a fragment (`public void configure(`) instead of an
+/// answer.
+///
+/// "Stopping where the body begins" needs the grammar to say where that is, and
+/// a few do not: tree-sitter-haskell names no body node, no `body:` field and no
+/// terminator, so a Haskell equation's slice IS the equation. Measured on the
+/// four corpora in `decl_bench`, a slice that covers its symbol's whole span
+/// (i.e. carries the implementation) is 1.5 % of Lucene, 2.5 % of valkey +
+/// memcached, 1.2 % of tantivy and 5.9 % of a 914 k-symbol Go + C tree — small,
+/// but not zero, and `DECL_CAP` is what bounds it.
+///
+/// The implementation is not thrown away: the file document keeps the whole
+/// source in `body`, and `line`..`end_line` says exactly which lines the body
+/// occupies, so a caller that wants it can slice it instead of guessing the
+/// span from where the next symbol starts.
+#[derive(Debug)]
+struct Symbol {
+    name: String,
+    kind: String,
+    /// 1-based line the NAME sits on — the grep-equivalent citation line.
+    /// `code` may begin one or two lines above it (a C++ `static void\nfoo()`,
+    /// a Rust `#[inline]`), which is why the slice is not derived from it.
+    line: usize,
+    /// 1-based last line of the declaration INCLUDING its body.
+    end_line: usize,
+    /// The declaration, signature only — see the type docs.
+    code: String,
+}
+
+/// Chars a stored `code` slice may occupy. Unchanged from the single-line
+/// version on purpose: the declaration slice must not be able to cost more than
+/// the fragment it replaces, so a pathological declaration is bounded, never
+/// unbounded.
+const DECL_CAP: usize = 400;
+/// Attribute siblings a declaration may absorb before the walk gives up.
+const ATTR_MAX_HOPS: usize = 8;
+/// Levels the walk from the captured name up to its declaration may climb, and
+/// nodes the body search may visit. Both are just runaway guards.
+const DECL_MAX_DEPTH: usize = 12;
+const BODY_SCAN_BUDGET: usize = 4096;
+/// Nodes the "does a previous sibling hold an implementation?" look may visit,
+/// summed over one symbol's whole climb.
+const SIBLING_SCAN_BUDGET: usize = 256;
+/// Bytes a raw slice may occupy before it is copied and dedented. A slice this
+/// long cannot survive `DECL_CAP` anyway (400 chars is at most 1 600 bytes plus
+/// the indentation `dedent` removes), so this only stops the COPY from being
+/// O(symbols x file) on a grammar whose scope this heuristic still climbs past.
+const SLICE_MAX_BYTES: usize = DECL_CAP * 32;
+
+/// Does this node kind hold a declaration's IMPLEMENTATION rather than its
+/// signature? 34 grammars spell that node ~20 ways (`block`, `statement_block`,
+/// `compound_statement`, `class_body`, `body_statement`, `function_body`,
+/// `declaration_list`, `field_declaration_list`, `do_block`, `suite`, …), so
+/// match the shape rather than enumerate them. A spelling this misses only
+/// makes the slice longer, and `DECL_CAP` then bounds it.
+///
+/// A spelling this WRONGLY matches is not symmetric, though: it ends the slice
+/// early and stores a mid-signature fragment — the exact defect the slice
+/// exists to remove — so the kinds that merely contain one of those words while
+/// living inside the SIGNATURE have to be named and rejected:
+///   * `block_parameter` / `block_argument`: tree-sitter-ruby declares these
+///     inside `method_parameters`, so `def each(&blk)` otherwise stores
+///     `def each(`;
+///   * `block_pointer_declarator` / `abstract_block_pointer_declarator`: the
+///     Objective-C block-typed parameter, `- (void)run:(void (^)(int))cb`;
+///   * `block_comment`: a `/* … */` between the name and the body, in
+///     tree-sitter rust, java, kotlin, scala, dart, groovy, julia and fsharp.
+fn is_body_kind(kind: &str) -> bool {
+    if kind.contains("parameter")
+        || kind.contains("argument")
+        || kind.contains("declarator")
+        || kind.contains("comment")
+    {
+        return false;
+    }
+    kind.contains("body")
+        || kind.contains("block")
+        || kind.ends_with("declaration_list")
+        || kind == "compound_statement"
+        || kind == "suite"
+}
+
+/// Kinds that hold MANY declarations — the scope a declaration lives in, and so
+/// where the climb from a captured name must stop. Every body is a container;
+/// these are the extra spellings for scopes that are not bodies (Haskell's
+/// `declarations`, a nested module).
+///
+/// Missing one is NOT free, which is why the list below is long and every entry
+/// was read off a real ancestor chain rather than guessed: the climb runs past
+/// the declaration into the enclosing scope, so `code` starts at
+/// `@implementation` / `#ifdef` / `const api = {` and `end_line` becomes the
+/// last line of the whole class, the `#endif` or the object literal instead of
+/// the symbol's own.
+fn is_container_kind(lang: &str, kind: &str) -> bool {
+    if is_body_kind(kind)
+        || kind.ends_with("declarations")
+        || kind.ends_with("statements")
+        || kind.ends_with("statement_list")
+    {
+        return true;
+    }
+    if matches!(
+        kind,
+        "source"
+            | "source_file"
+            | "translation_unit"
+            | "program"
+            | "module"
+            | "compilation_unit"
+            | "source_code"
+    ) {
+        return true;
+    }
+    matches!(
+        kind,
+        // Objective-C: `@interface` holds its method DECLARATIONS as direct
+        // children, and `@implementation` holds an `implementation_definition`
+        // that holds the method definitions. (`class_implementation` itself is
+        // deliberately NOT here: it is the class's own declaration node.)
+        "class_interface"
+            | "category_interface"
+            | "protocol_declaration"
+            | "implementation_definition"
+            // C / C++ / Objective-C conditional compilation. A `#ifdef`-guarded
+            // function's parent is the whole guarded region, the functions
+            // before it and their bodies included.
+            | "preproc_if"
+            | "preproc_ifdef"
+            | "preproc_ifndef"
+            | "preproc_else"
+            | "preproc_elif"
+            | "preproc_elifdef"
+            | "preproc_elifndef"
+            // JavaScript / TypeScript: the methods of an object literal.
+            | "object"
+            // MATLAB `classdef` sections.
+            | "methods"
+            | "properties"
+            | "events"
+            // Fortran's `contains` section.
+            | "internal_procedures"
+            | "module_procedures"
+            // Nix attribute set.
+            | "binding_set"
+            // Go's parenthesised `var ( … )` group. (Its `const ( … )` twin has
+            // no list node — see `is_container`.)
+            | "var_spec_list"
+            | "const_spec_list"
+    ) || (lang == "zig"
+        // Zig spells its scopes `*_declaration`, which in C# is a DECLARATION of
+        // a type rather than a scope (C#'s `struct_declaration` has a
+        // `declaration_list` body, already a container above). So this group has
+        // to be language-scoped, or a C# struct loses its modifiers.
+        && matches!(
+            kind,
+            "struct_declaration"
+                | "enum_declaration"
+                | "union_declaration"
+                | "opaque_declaration"
+                | "error_set_declaration"
+                | "container_declaration"
+        ))
+}
+
+/// `is_container_kind` for the cases where the KIND alone cannot say. Go spells
+/// `const X = 1` and `const ( X = 1\n Y = 2 )` with the same node — and the same
+/// again for `var` and `type` — so what separates a declaration from a scope
+/// there is the parenthesis, not the node's name.
+fn is_container(lang: &str, n: Node<'_>) -> bool {
+    if is_container_kind(lang, n.kind()) {
+        return true;
+    }
+    if lang != "go"
+        || !matches!(
+            n.kind(),
+            "const_declaration" | "var_declaration" | "type_declaration"
+        )
+    {
+        return false;
+    }
+    let mut cur = n.walk();
+    for child in n.children(&mut cur) {
+        if child.kind() == "(" {
+            return true;
+        }
+    }
+    false
+}
+
+/// Is this node, or anything under it, an implementation? Bounded, and used
+/// only to tell a SIBLING DECLARATION (which has a body) apart from the
+/// `modifiers` / return-type / attribute siblings that are part of the
+/// declaration being sliced (which do not).
+fn holds_body(node: Node<'_>, budget: &mut usize) -> bool {
+    let mut stack = vec![node];
+    while let Some(n) = stack.pop() {
+        if *budget == 0 {
+            return false; // fail open: `DECL_CAP` bounds the slice anyway
+        }
+        *budget -= 1;
+        if is_body_kind(n.kind()) {
+            return true;
+        }
+        let mut cur = n.walk();
+        for child in n.children(&mut cur) {
+            stack.push(child);
+        }
+    }
+    false
+}
+
+/// Attribute/annotation/decorator nodes that sit BESIDE a declaration rather
+/// than inside it (Rust `#[inline]`, C# `[Obsolete]`) — part of the
+/// declaration for a reader, so part of the slice. Java annotations and Python
+/// decorators are already children of the declaration node and need no help.
+fn is_attribute_kind(kind: &str) -> bool {
+    // tree-sitter-erlang spells `-module(m).` / `-export([f/0]).` as
+    // `module_attribute`: a complete declaration of its own that happens to
+    // carry the word, not a modifier of whatever follows it.
+    kind != "module_attribute"
+        && (kind.contains("attribute") || kind.contains("annotation") || kind.contains("decorator"))
+}
+
+/// The declaration node a captured NAME belongs to: climb until the parent is a
+/// scope container (a body/block/list) or the tree root. Shape-based because
+/// the capture depth of the name differs per grammar — Rust captures the
+/// `identifier` directly under `function_item`, Java goes
+/// `field_declaration > variable_declarator > identifier`, TypeScript
+/// `export_statement > lexical_declaration > variable_declarator > identifier`.
+fn declaration_node<'t>(lang: &str, name: Node<'t>) -> Node<'t> {
+    let mut decl = name;
+    let mut budget = SIBLING_SCAN_BUDGET;
+    for _ in 0..DECL_MAX_DEPTH {
+        let Some(parent) = decl.parent() else { break };
+        // Stop *below* the container: the container's other children are the
+        // sibling declarations, which are emphatically not part of this one.
+        if parent.parent().is_none() || is_container(lang, parent) {
+            // A scope that is ALSO this declaration: Objective-C's
+            // `@interface Foo : NSObject` holds its method declarations as
+            // direct children, so the class name's own parent is the scope.
+            // Stopping below it would slice the class down to the bare name.
+            if decl.id() == name.id() && parent.parent().is_some() {
+                decl = parent;
+            }
+            break;
+        }
+        // The same stop, for a scope shape `is_container_kind` was never told
+        // about: a parent in which something BEFORE us already carries an
+        // implementation is a scope whatever it is called, and climbing into it
+        // would start this symbol's slice inside the previous symbol's body.
+        if std::iter::successors(decl.prev_sibling(), |n| n.prev_sibling())
+            .any(|p| holds_body(p, &mut budget))
+        {
+            break;
+        }
+        decl = parent;
+    }
+    decl
+}
+
+/// The first token of the declaration, attributes included: walk back over
+/// contiguous attribute siblings so `#[inline]\npub fn f()` is one declaration.
+fn declaration_head<'t>(decl: Node<'t>, text: &str) -> Node<'t> {
+    let mut head = decl;
+    for _ in 0..ATTR_MAX_HOPS {
+        let Some(prev) = head.prev_sibling() else {
+            break;
+        };
+        if !is_attribute_kind(prev.kind())
+            || !gap_is_blank(text, prev.end_byte(), head.start_byte())
+        {
+            break;
+        }
+        head = prev;
+    }
+    head
+}
+
+/// Is everything between two byte offsets whitespace, and at most one newline?
+/// One newline = "the line directly above"; two = a blank line between them,
+/// which in every language convention means the two are not one declaration.
+fn gap_is_blank(text: &str, from: usize, to: usize) -> bool {
+    let Some(gap) = text.get(from..to) else {
+        return false;
+    };
+    gap.chars().all(char::is_whitespace) && gap.matches('\n').count() <= 1
+}
+
+/// Where the declaration's implementation starts, as a byte offset: the first
+/// body-shaped node inside `decl` that begins at or after the captured name —
+/// or, for the grammars that name no body node at all, the `body:` FIELD, and
+/// failing that the terminator of an `end`-delimited definition. Document
+/// order, so a lambda nested deeper in the body can never win over the body
+/// itself.
+fn body_start(lang: &str, decl: Node<'_>, after: usize) -> Option<usize> {
+    body_by_kind(lang, decl, after)
+        .or_else(|| body_by_field(decl, after).map(|b| b.start_byte()))
+        .or_else(|| end_delimited_head(decl))
+}
+
+/// Where a scope's HEAD ends: the first child that begins on a row BELOW the
+/// scope's own first row. `@interface Foo : NSObject`, `const S = struct {`,
+/// `classdef A` + its `methods` opener are all this shape — the members start
+/// on the next line, so everything above them is the head.
+fn container_head_end(n: Node<'_>) -> Option<usize> {
+    let row = n.start_position().row;
+    let mut cur = n.walk();
+    for child in n.children(&mut cur) {
+        if child.start_position().row > row {
+            return Some(child.start_byte());
+        }
+    }
+    None
+}
+
+/// A parameter or argument list is part of the SIGNATURE, so nothing inside one
+/// is this declaration's implementation — the `block` in `sort(xs, (a, b) -> {
+/// … })` and the `body:` of `Comparator.comparingInt(d -> d.doc)` both belong to
+/// a lambda that is an argument, and stopping at either cuts the declaration in
+/// half. Neither body search descends into one.
+fn is_signature_scope(kind: &str) -> bool {
+    kind.contains("argument") || kind.contains("parameter")
+}
+
+/// Does this node kind DEFINE something, so that its `body:` field is an
+/// implementation rather than a value? `function_definition` (r), `let_binding`
+/// (ocaml), `function_or_value_defn` (fsharp), `function_expression` (nix) and
+/// `arrow_function` (js/ts) do; `composite_literal` (go) and
+/// `lambda_expression` (java) do not.
+fn is_definition_kind(kind: &str) -> bool {
+    kind.contains("definition")
+        || kind.contains("declaration")
+        || kind.contains("binding")
+        || kind.contains("defn")
+        || kind.contains("function")
+        || kind.contains("method")
+}
+
+/// Fortran and Julia name no body node and no `body:` field: a definition is a
+/// signature, then statements, then a terminator (`end`, `end subroutine f`).
+/// Recognising that terminator is what separates them from a WRAPPED
+/// declaration with no body at all (a two-line C prototype), where the first
+/// child on the next row is still part of the signature.
+fn end_delimited_head(decl: Node<'_>) -> Option<usize> {
+    let last = decl.child(u32::try_from(decl.child_count().checked_sub(1)?).ok()?)?;
+    if last.kind() == "end" || last.kind().starts_with("end_") {
+        container_head_end(decl)
+    } else {
+        None
+    }
+}
+
+/// The `body:` field, for the grammars that name no body NODE: tree-sitter r
+/// (`function_definition body: braced_expression`), nix (`function_expression
+/// body:`), ocaml (`let_binding body:`) and fsharp (`function_or_value_defn
+/// body:`) all mark it this way. Without it those languages have no stopping
+/// point at all and `code` runs to the end of the whole definition.
+///
+/// A `body:` child of the same kind as its parent is a CURRIED lambda
+/// (`f = a: b: a + b` in Nix) — stopping there would cut the signature in half,
+/// so keep descending through those.
+///
+/// And the parent has to BE a definition. Go's `composite_literal` marks its
+/// `{ … }` with `body:` too, so without this a `var Config = map[string]int{…}`
+/// would store `Config = map[string]int` and drop the value it declares.
+fn body_by_field<'t>(decl: Node<'t>, after: usize) -> Option<Node<'t>> {
+    let mut best: Option<Node<'t>> = None;
+    let mut stack: Vec<Node<'t>> = vec![decl];
+    let mut budget = BODY_SCAN_BUDGET;
+    while let Some(n) = stack.pop() {
+        if budget == 0 {
+            break;
+        }
+        budget -= 1;
+        if n.end_byte() <= after || best.is_some_and(|b| n.start_byte() >= b.start_byte()) {
+            continue;
+        }
+        let mut cur = n.walk();
+        if !cur.goto_first_child() {
+            continue;
+        }
+        loop {
+            let child = cur.node();
+            if cur.field_name() == Some("body")
+                && child.start_byte() >= after
+                && child.kind() != n.kind()
+                && is_definition_kind(n.kind())
+                && best.is_none_or(|b| child.start_byte() < b.start_byte())
+            {
+                best = Some(child); // never descend INTO a body
+            } else if !is_signature_scope(child.kind()) {
+                stack.push(child);
+            }
+            if !cur.goto_next_sibling() {
+                break;
+            }
+        }
+    }
+    best
+}
+
+/// The body-shaped node, or the multi-line SCOPE, that ends the declaration.
+///
+/// A scope counts because several grammars put the members straight inside one
+/// with no body node around them — Zig's `const S = struct { … }`, an
+/// Objective-C `@interface`, a MATLAB `methods` section, a JavaScript object
+/// literal. The slice then stops at that scope's first member rather than at
+/// the scope's own first byte, so `const S = struct {` keeps its `struct {`.
+/// Only a MULTI-ROW scope qualifies: an inline `{ a: 1 }` default argument is a
+/// one-row `object`, and stopping there would truncate the signature.
+fn body_by_kind(lang: &str, decl: Node<'_>, after: usize) -> Option<usize> {
+    let mut best: Option<(usize, usize)> = None; // (node start, slice end)
+    let mut stack: Vec<Node<'_>> = vec![decl];
+    let mut budget = BODY_SCAN_BUDGET;
+    while let Some(n) = stack.pop() {
+        if budget == 0 {
+            break;
+        }
+        budget -= 1;
+        // Prune: entirely before the name, or already beaten.
+        if n.end_byte() <= after || best.is_some_and(|(b, _)| n.start_byte() >= b) {
+            continue;
+        }
+        if n.id() != decl.id() && n.start_byte() >= after {
+            if is_body_kind(n.kind()) {
+                best = Some((n.start_byte(), n.start_byte()));
+                continue; // never descend INTO a body
+            }
+            if is_container(lang, n) && n.end_position().row > n.start_position().row {
+                let end = container_head_end(n).unwrap_or_else(|| n.start_byte());
+                best = Some((n.start_byte(), end));
+                continue; // nor into someone else's scope
+            }
+        }
+        let mut cur = n.walk();
+        for child in n.children(&mut cur) {
+            if !is_signature_scope(child.kind()) {
+                stack.push(child);
+            }
+        }
+    }
+    // `decl` is itself the scope holding the members (an Objective-C
+    // `@interface`, whose class name is a direct child of it).
+    best.map(|(_, end)| end).or_else(|| {
+        is_container(lang, decl)
+            .then(|| container_head_end(decl))
+            .flatten()
+    })
+}
+
+/// Trim a multi-line slice for storage: drop blank edge lines, strip trailing
+/// whitespace, and remove the indentation the whole block shares, so a method
+/// nested four levels deep does not pay for 16 leading spaces per line.
+fn dedent(slice: &str) -> String {
+    let lines: Vec<&str> = slice.lines().map(str::trim_end).collect();
+    let (Some(first), Some(last)) = (
+        lines.iter().position(|l| !l.is_empty()),
+        lines.iter().rposition(|l| !l.is_empty()),
+    ) else {
+        return String::new();
+    };
+    let block = &lines[first..=last];
+    // CHAR count of the shared leading whitespace, not a byte count. A byte
+    // count is what `l.len() - l.trim_start().len()` gives, and `trim_start`
+    // trims Unicode whitespace, so a block mixing ASCII indentation with U+00A0
+    // or U+3000 could put the minimum mid-character and blank that line out.
+    // Skipping N chars is on a boundary by construction.
+    let indent = block
+        .iter()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.chars().take_while(|c| c.is_whitespace()).count())
+        .min()
+        .unwrap_or(0);
+    block
+        .iter()
+        .map(|l| {
+            let mut cs = l.chars();
+            for _ in 0..indent {
+                cs.next();
+            }
+            cs.as_str()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Cap at a char (never byte) boundary, preferring the last whole line that
+/// fits so a truncated slice is still readable code.
+fn cap_chars(text: String, cap: usize) -> String {
+    if text.chars().count() <= cap {
+        return text;
+    }
+    let cut: String = text.chars().take(cap).collect();
+    match cut.rfind('\n') {
+        Some(nl) if nl > cap / 2 => cut[..nl].to_string(),
+        _ => cut,
+    }
+}
+
+/// Extend a byte offset back over the whitespace indenting its line, so a
+/// multi-line slice arrives at `dedent` as a whole block (without this the
+/// first line carries no indentation and the shared-indent minimum is 0).
+fn snap_to_indent(text: &str, start: usize) -> usize {
+    let bytes = text.as_bytes();
+    let mut at = start;
+    while at > 0 && (bytes[at - 1] == b' ' || bytes[at - 1] == b'\t') {
+        at -= 1;
+    }
+    at
+}
 
 /// Evaluate a pattern's text predicates against one match. The core library
 /// exposes `#eq?`/`#any-of?` (and their `not-` forms) as *general* predicates
@@ -448,14 +955,40 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
                 continue;
             }
             let row = node.start_position().row;
-            // The declaration's start line, trimmed of indentation and capped
-            // so a minified/pathological line can't bloat the per-symbol doc.
-            let mut code = lines.get(row).copied().unwrap_or("").trim().to_string();
-            if code.len() > 400 {
-                // Char-boundary-safe cap (String::truncate would panic mid-char).
-                code = code.chars().take(400).collect();
+            // #500, second half: slice the DECLARATION, not the physical line
+            // the name sits on. `public HnswGraphBuilder(\n    int M, int
+            // beamWidth, …)` used to be stored as `public HnswGraphBuilder(` —
+            // a fragment that answers nothing — and a declaration whose
+            // modifiers precede the name (`static void\nfoo()`) stored the
+            // wrong line entirely. Slice [declaration head .. body start), so
+            // the unit is the complete signature rather than a fragment of it.
+            let decl = declaration_node(def.name, node);
+            let head = declaration_head(decl, text);
+            let from = snap_to_indent(text, head.start_byte());
+            let to = body_start(def.name, decl, node.end_byte()).unwrap_or_else(|| decl.end_byte());
+            // Size the slice BEFORE copying it: `dedent` allocates, and a slice
+            // this long cannot survive `DECL_CAP`, so there is nothing to gain
+            // by copying it first.
+            let mut code = if to.saturating_sub(from) > SLICE_MAX_BYTES {
+                String::new()
+            } else {
+                text.get(from..to.max(from)).map(dedent).unwrap_or_default()
+            };
+            if code.is_empty() || code.chars().count() > DECL_CAP {
+                // Over the cap (a lookup-table constant, a minified line, or a
+                // grammar whose body node `is_body_kind` does not recognise):
+                // fall back to the single start line. Bounded either way — the
+                // slice can never cost more than the fragment it replaced.
+                code = lines.get(row).copied().unwrap_or("").trim().to_string();
             }
-            out.push((name.to_string(), kind.to_string(), row + 1, code));
+            let code = cap_chars(code, DECL_CAP);
+            out.push(Symbol {
+                name: name.to_string(),
+                kind: kind.to_string(),
+                line: row + 1,
+                end_line: decl.end_position().row + 1,
+                code,
+            });
             if out.len() >= 5000 {
                 return Some(out); // pathological generated file — enough
             }
@@ -488,17 +1021,23 @@ fn emit_code_doc(
         let mut seen = std::collections::HashSet::new();
         let defs: Vec<String> = symbols
             .iter()
-            .filter(|(n, k, _, _)| seen.insert((k.clone(), n.clone())))
-            .map(|(n, k, _, _)| format!("{k} {n}"))
+            .filter(|s| seen.insert((s.kind.clone(), s.name.clone())))
+            .map(|s| format!("{} {}", s.kind, s.name))
             .collect();
         fields.insert("defs".into(), Value::String(defs.join("\n")));
         let arr: Vec<Value> = symbols
             .iter()
-            .map(|(n, k, line, _)| {
+            .map(|s| {
                 let mut m = Map::new();
-                m.insert("name".into(), Value::String(n.clone()));
-                m.insert("kind".into(), Value::String(k.clone()));
-                m.insert("line".into(), Value::Number((*line as u64).into()));
+                m.insert("name".into(), Value::String(s.name.clone()));
+                m.insert("kind".into(), Value::String(s.kind.clone()));
+                m.insert("line".into(), Value::Number((s.line as u64).into()));
+                // #500: a client that wants the IMPLEMENTATION can now slice
+                // exactly `line`..`end_line` out of `body`. Without it the only
+                // way to bound a symbol was "up to where the next one starts",
+                // which returns a whole class for a class and the rest of the
+                // file for the last symbol — the coarse unit this issue is about.
+                m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
                 Value::Object(m)
             })
             .collect();
@@ -543,10 +1082,11 @@ fn emit_code_doc(
     // So dedup by locator here, BEFORE counting/emitting — do not rely on the
     // downstream `_id` overwrite (which fixes the doc but not the count).
     let mut emitted_locators = std::collections::HashSet::new();
-    for (name, kind, line, code) in symbols {
-        if code.is_empty() {
+    for s in symbols {
+        if s.code.is_empty() {
             continue;
         }
+        let (name, line) = (&s.name, s.line);
         let locator = format!("code:{line}:{name}");
         if !emitted_locators.insert(locator.clone()) {
             continue;
@@ -559,9 +1099,16 @@ fn emit_code_doc(
         sf.insert("path".into(), Value::String(file_path.clone()));
         sf.insert("language".into(), Value::String(language.to_string()));
         sf.insert("name".into(), Value::String(name.clone()));
-        sf.insert("kind".into(), Value::String(kind.clone()));
-        sf.insert("line".into(), Value::Number((*line as u64).into()));
-        sf.insert("code".into(), Value::String(code.clone()));
+        sf.insert("kind".into(), Value::String(s.kind.clone()));
+        sf.insert("line".into(), Value::Number((line as u64).into()));
+        sf.insert("code".into(), Value::String(s.code.clone()));
+        // No field beyond the five #579 froze: a NEW scalar field on this
+        // document would make `reconcile_plan::ensure_compatible` (see
+        // reconcile_plan.rs, "field {name} is absent from frozen dataset")
+        // abort the next incremental run over an index an older binary froze.
+        // `end_line` therefore rides in the file document's `symbols` array,
+        // which that check exempts because an array carries no scalar
+        // observations (the #580/#581 rule).
         stats.records += 1;
         if !sink(RawRecord {
             fields: sf,
@@ -1236,7 +1783,7 @@ mod tests {
         parse_symbols(def, src).unwrap()
     }
     fn has(s: &[Symbol], name: &str, kind: &str) -> bool {
-        s.iter().any(|(n, k, _, _)| n == name && k == kind)
+        s.iter().any(|s| s.name == name && s.kind == kind)
     }
 
     /// Opt-in extraction-throughput harness (perf analysis, NOT part of CI).
@@ -1298,6 +1845,364 @@ mod tests {
             parsed as f64 / secs,
             total_bytes as f64 / 1e6 / secs,
         );
+    }
+
+    /// Opt-in DECLARATION-SLICE measurement harness for #500 (NOT part of CI).
+    /// Runs the real extractor over a corpus and reports, for the pre-fix
+    /// name-line slice and the declaration slice side by side, what the
+    /// retrievable unit costs in bytes and how often it was wrong — TRUNCATED
+    /// mid-signature (unbalanced brackets), WRAPPED past one line, OVERRAN by a
+    /// line that does not stop where the declaration does, or COVERS THE WHOLE
+    /// SPAN, meaning the grammar named nothing to stop at and the
+    /// implementation is in the slice. The byte and quality claims for this
+    /// change are measured here, not asserted.
+    ///   `XERJ_DECL_BENCH=/path/to/repo cargo test --release -p xerj-autoindex \
+    ///       --lib decl_bench -- --nocapture --ignored`
+    /// `XERJ_DECL_EXT=java` restricts it to one extension, and `XERJ_DECL_DUMP=1`
+    /// prints every truncated slice with its file and line — which is how the
+    /// residual is diagnosed rather than guessed at. Two caveats the numbers
+    /// carry: `unbalanced()` counts a `)` inside a string literal or a comment
+    /// (`// long enough ;)`) as a truncation, and the WHOLE SPAN count is a
+    /// lower bound because `dedent` drops blank edge lines.
+    #[test]
+    #[ignore = "opt-in measurement harness; set XERJ_DECL_BENCH"]
+    fn decl_bench() {
+        let Ok(root) = std::env::var("XERJ_DECL_BENCH") else {
+            return;
+        };
+        let only = std::env::var("XERJ_DECL_EXT").ok();
+        let mut files: Vec<std::path::PathBuf> = Vec::new();
+        let mut stack = vec![std::path::PathBuf::from(&root)];
+        while let Some(dir) = stack.pop() {
+            let Ok(rd) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in rd.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    stack.push(p);
+                    continue;
+                }
+                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
+                if !is_code_ext(ext) {
+                    continue;
+                }
+                if only.as_deref().is_some_and(|x| x != ext) {
+                    continue;
+                }
+                files.push(p);
+            }
+        }
+        files.sort();
+        // Three units per symbol, measured side by side in ONE pass so the
+        // before/after is the same corpus, the same parse and the same symbol
+        // set: `was` is the pre-fix slice (verbatim: the single physical line
+        // the name sits on, trimmed and capped), `now` is the declaration
+        // slice, and `span` is the symbol's whole `line..end_line` extent — the
+        // class/method body a client gets when it cannot ask for less.
+        let (mut was, mut now, mut span) = (Vec::new(), Vec::new(), Vec::new());
+        let (mut was_cut, mut now_cut) = (0usize, 0usize);
+        let (mut wrapped, mut overran, mut whole) = (0usize, 0usize, 0usize);
+        let mut per_kind: std::collections::BTreeMap<String, (usize, usize, usize, usize)> =
+            std::collections::BTreeMap::new();
+        let mut file_bytes_total = 0u64;
+        let mut nfiles = 0usize;
+        for path in &files {
+            let Ok(bytes) = std::fs::read(path) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(&bytes);
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let Some(def) = registry().iter().find(|d| d.exts.contains(&ext.as_str())) else {
+                continue;
+            };
+            let Some(syms) = parse_symbols(def, &text) else {
+                continue;
+            };
+            if syms.is_empty() {
+                continue;
+            }
+            nfiles += 1;
+            file_bytes_total += bytes.len() as u64;
+            let lines: Vec<&str> = text.lines().collect();
+            for sym in &syms {
+                // Exactly what this field held before the declaration slice.
+                let old: String = lines
+                    .get(sym.line - 1)
+                    .copied()
+                    .unwrap_or("")
+                    .trim()
+                    .chars()
+                    .take(DECL_CAP)
+                    .collect();
+                let body: usize = lines
+                    .get(sym.line - 1..sym.end_line.min(lines.len()))
+                    .map(|ls| ls.iter().map(|l| l.len() + 1).sum())
+                    .unwrap_or(0);
+                was.push(old.len());
+                now.push(sym.code.len());
+                span.push(body);
+                was_cut += usize::from(unbalanced(&old));
+                now_cut += usize::from(unbalanced(&sym.code));
+                if unbalanced(&sym.code) && std::env::var("XERJ_DECL_DUMP").is_ok() {
+                    eprintln!(
+                        "CUT {}:{} [{}] {:?}",
+                        path.display(),
+                        sym.line,
+                        sym.kind,
+                        sym.code
+                    );
+                }
+                // The two ways the name-line slice was wrong. WRAPPED: the
+                // declaration spans more than one line, so one line could only
+                // ever be a fragment of it. OVERRAN: the declaration fits on one
+                // line but the line does not stop with it — a trailing `{` in the
+                // ordinary case, the whole body when the body shares the line
+                // (`void m(){ int local = 1; }`).
+                wrapped += usize::from(sym.code.contains('\n'));
+                overran += usize::from(!sym.code.contains('\n') && old.len() > sym.code.len());
+                // The slice INCLUDES THE IMPLEMENTATION when it covers the
+                // symbol's whole span — the grammar named nothing to stop at.
+                // A lower bound: `dedent` drops blank edge lines, so a slice
+                // ending on one is not counted here.
+                let span_lines = sym.end_line.saturating_sub(sym.line) + 1;
+                whole += usize::from(span_lines > 1 && sym.code.lines().count() >= span_lines);
+                let e = per_kind.entry(sym.kind.clone()).or_insert((0, 0, 0, 0));
+                e.0 += 1;
+                e.1 += sym.code.len();
+                e.2 += usize::from(unbalanced(&old));
+                e.3 += usize::from(unbalanced(&sym.code));
+            }
+        }
+        let n = was.len().max(1);
+        let stat = |v: &mut Vec<usize>| {
+            v.sort_unstable();
+            (
+                v.get(v.len() / 2).copied().unwrap_or(0),
+                v.iter().sum::<usize>() as f64 / n as f64,
+            )
+        };
+        let (was_med, was_mean) = stat(&mut was);
+        let (now_med, now_mean) = stat(&mut now);
+        let (span_med, span_mean) = stat(&mut span);
+        eprintln!(
+            "decl_bench: {nfiles} files ({:.1} MB), {n} symbols\n  \
+             retrievable unit    median  mean     truncated mid-signature\n  \
+             was (name line)     {was_med:<7} {was_mean:<8.1} {was_cut} ({:.1}%)\n  \
+             now (declaration)   {now_med:<7} {now_mean:<8.1} {now_cut} ({:.1}%)\n  \
+             span (line..end)    {span_med:<7} {span_mean:<8.1} -\n  \
+             declaration WRAPPED past one line: {wrapped} ({:.1}%)\n  \
+             one-line slice OVERRAN the declaration: {overran} ({:.1}%)\n  \
+             slice COVERS THE WHOLE SPAN (implementation included): {whole} ({:.1}%)",
+            file_bytes_total as f64 / 1e6,
+            100.0 * was_cut as f64 / n as f64,
+            100.0 * now_cut as f64 / n as f64,
+            100.0 * wrapped as f64 / n as f64,
+            100.0 * overran as f64 / n as f64,
+            100.0 * whole as f64 / n as f64,
+        );
+        for (k, (cnt, b, tw, tn)) in per_kind {
+            eprintln!(
+                "    {k:<10} n={cnt:<6} mean={:<7.1} truncated was={tw} now={tn}",
+                b as f64 / cnt as f64,
+            );
+        }
+    }
+
+    /// A declaration slice ending on an unclosed bracket did not survive to the
+    /// end of its signature — the agent is handed `public void configure(`.
+    fn unbalanced(code: &str) -> bool {
+        let (mut round, mut square) = (0i32, 0i32);
+        for c in code.chars() {
+            match c {
+                '(' => round += 1,
+                ')' => round -= 1,
+                '[' => square += 1,
+                ']' => square -= 1,
+                _ => {}
+            }
+        }
+        round != 0 || square != 0
+    }
+
+    /// A node kind that merely CONTAINS a body word, inside the SIGNATURE.
+    /// Matching any kind containing "block" ended the slice on it, which is the
+    /// mid-signature fragment the declaration slice exists to remove — and, on
+    /// the Ruby case, a strict regression on what the name-line slice stored.
+    #[test]
+    fn a_body_shaped_name_inside_the_signature_does_not_end_the_declaration() {
+        // tree-sitter-ruby declares `block_parameter` under `method_parameters`,
+        // so `&blk` was the earliest "body" after the name: `def each(`.
+        let s = syms(
+            "ruby",
+            "class C\n  def each(&blk)\n    yield 1\n  end\nend\n",
+        );
+        let f = s.iter().find(|x| x.name == "each").unwrap();
+        assert_eq!(f.code, "def each(&blk)", "{f:?}");
+        assert_eq!(f.end_line, 4, "{f:?}");
+
+        // `block_comment` between the name and the body — tree-sitter rust,
+        // java, kotlin, scala, dart, groovy, julia and fsharp all spell it so.
+        let s = syms(
+            "rust",
+            "pub fn scan(input: &str) /* n */ -> usize {\n    0\n}\n",
+        );
+        let f = s.iter().find(|x| x.name == "scan").unwrap();
+        assert_eq!(f.code, "pub fn scan(input: &str) /* n */ -> usize", "{f:?}");
+
+        // Objective-C's block-typed parameter is `block_pointer_declarator`,
+        // and it is the dominant Objective-C callback idiom.
+        let s = syms(
+            "objc",
+            "@implementation Foo\n- (void)run:(void (^)(int))cb {\n  int x = 1;\n}\n@end\n",
+        );
+        let f = s.iter().find(|x| x.name == "run").unwrap();
+        assert_eq!(f.code, "- (void)run:(void (^)(int))cb", "{f:?}");
+    }
+
+    /// `end_line` is the symbol's own last line and `code` starts at the
+    /// symbol's own first token — in the grammars whose scope node is spelled
+    /// nothing like a body, where the climb used to run past the declaration
+    /// into the enclosing `@implementation` / `#ifdef` / object literal.
+    #[test]
+    fn end_line_and_slice_are_the_symbol_not_its_enclosing_scope() {
+        // C: the parent of a `#ifdef`-guarded function is the guarded REGION,
+        // so `b`'s slice began at `#ifdef` and swallowed `a`'s whole body.
+        let s = syms(
+            "c",
+            "#ifdef HAVE_X\nstatic void a(void)\n{\n  int i = 0;\n}\nstatic void b(void)\n{\n  int j = 0;\n}\n#endif\n",
+        );
+        let a = s.iter().find(|x| x.name == "a").unwrap();
+        assert_eq!(a.code, "static void a(void)", "{a:?}");
+        assert_eq!(a.end_line, 5, "{a:?}");
+        let b = s.iter().find(|x| x.name == "b").unwrap();
+        assert_eq!(b.code, "static void b(void)", "{b:?}");
+        assert_eq!(b.end_line, 9, "{b:?}"); // 10 is the `#endif`
+
+        // JavaScript / TypeScript: a method of an object literal.
+        let s = syms(
+            "javascript",
+            "const api = {\n  greet(name) {\n    return name;\n  },\n  farewell(name) {\n    return name;\n  },\n};\n",
+        );
+        let f = s.iter().find(|x| x.name == "farewell").unwrap();
+        assert_eq!(f.code, "farewell(name)", "{f:?}");
+        assert_eq!(f.end_line, 7, "{f:?}"); // 8 is the end of the literal
+
+        // Objective-C: `@interface` holds method declarations and
+        // `@implementation` an `implementation_definition`, both as direct
+        // children — and the class name is a direct child of the scope itself.
+        let s = syms(
+            "objc",
+            "@interface Foo : NSObject\n- (void)doIt:(int)n;\n@end\n@implementation Foo\n- (void)doIt:(int)n {\n  int x = 1;\n}\n- (void)other {\n}\n@end\n",
+        );
+        let f = s.iter().find(|x| x.name == "other").unwrap();
+        assert_eq!(f.code, "- (void)other", "{f:?}");
+        assert_eq!(f.end_line, 9, "{f:?}"); // 10 is the `@end`
+        let c = s.iter().find(|x| x.kind == "class" && x.line == 1).unwrap();
+        assert_eq!(c.code, "@interface Foo : NSObject", "{c:?}");
+        let c = s.iter().find(|x| x.kind == "class" && x.line == 4).unwrap();
+        assert_eq!(c.code, "@implementation Foo", "{c:?}");
+
+        // Zig: the scope is a `struct_declaration`, which in C# is a type's own
+        // declaration instead — so that one name is language-scoped.
+        let s = syms(
+            "zig",
+            "const S = struct {\n    pub fn one() u8 {\n        return 1;\n    }\n    pub fn two() u8 {\n        return 2;\n    }\n};\n",
+        );
+        let f = s.iter().find(|x| x.name == "two").unwrap();
+        assert_eq!(f.code, "pub fn two() u8", "{f:?}");
+        assert_eq!(f.end_line, 7, "{f:?}");
+        let s = syms(
+            "csharp",
+            "namespace N {\n  public struct Point {\n    public int X;\n  }\n}\n",
+        );
+        let f = s.iter().find(|x| x.name == "Point").unwrap();
+        assert_eq!(f.code, "public struct Point", "{f:?}");
+
+        // MATLAB `classdef` sections and Fortran's `contains`.
+        let s = syms(
+            "matlab",
+            "classdef A\n  methods\n    function r = one(obj)\n      r = 1;\n    end\n    function r = two(obj)\n      r = 2;\n    end\n  end\nend\n",
+        );
+        let f = s.iter().find(|x| x.name == "two").unwrap();
+        assert_eq!(f.code, "function r = two(obj)", "{f:?}");
+        assert_eq!(f.end_line, 8, "{f:?}");
+        let s = syms(
+            "fortran",
+            "module m\ncontains\n  subroutine one()\n  end subroutine one\n  subroutine two()\n  end subroutine two\nend module m\n",
+        );
+        let f = s.iter().find(|x| x.name == "two").unwrap();
+        assert_eq!(f.code, "subroutine two()", "{f:?}");
+
+        // PowerShell: two functions in one `statement_list`.
+        let s = syms(
+            "powershell",
+            "function One {\n  1\n}\nfunction Two {\n  2\n}\n",
+        );
+        let f = s.iter().find(|x| x.name == "One").unwrap();
+        assert_eq!(f.end_line, 3, "{f:?}");
+
+        // Go's parenthesised groups. The node kind is the same one it uses for
+        // a lone `const X = 1`, so the parenthesis is what tells them apart —
+        // get it wrong and every generated `.pb.go` enum table reports the whole
+        // `var ( … )` block as one symbol's span.
+        let s = syms("go", "const (\n\tOne = 1\n\tTwo = 2\n)\n");
+        let f = s.iter().find(|x| x.name == "Two").unwrap();
+        assert_eq!(f.code, "Two = 2", "{f:?}");
+        assert_eq!(f.end_line, 3, "{f:?}");
+        let s = syms("go", "const One = 1\n");
+        let f = s.iter().find(|x| x.name == "One").unwrap();
+        assert_eq!(f.code, "const One = 1", "{f:?}");
+
+        // …and a Go composite literal marks its `{ … }` with the `body:` field,
+        // which must NOT end the slice: the value is what the var declares.
+        let s = syms(
+            "go",
+            "var (\n\tA_name = map[int32]string{\n\t\t0: \"x\",\n\t}\n\tA_value = map[string]int32{\n\t\t\"x\": 0,\n\t}\n)\n",
+        );
+        let f = s.iter().find(|x| x.name == "A_value").unwrap();
+        assert!(f.code.starts_with("A_value = map[string]int32{"), "{f:?}");
+        assert_eq!(f.end_line, 7, "{f:?}");
+    }
+
+    /// Six registered grammars name no body-shaped NODE for a function, so the
+    /// slice would otherwise run to the end of the whole definition. Four of
+    /// them mark the body with a `body:` FIELD and two delimit it with `end`;
+    /// Haskell does neither, and that limit is asserted here rather than
+    /// claimed away.
+    #[test]
+    fn grammars_that_name_no_body_node_still_stop_before_the_implementation() {
+        let s = syms("r", "myfun <- function(a, b) {\n  a + b\n}\n");
+        let f = s.iter().find(|x| x.name == "myfun").unwrap();
+        assert_eq!(f.code, "myfun <- function(a, b)", "{f:?}");
+
+        let s = syms("ocaml", "let add a b =\n  a + b\n");
+        let f = s.iter().find(|x| x.name == "add").unwrap();
+        assert_eq!(f.code, "let add a b =", "{f:?}");
+
+        let s = syms("fsharp", "let add a b =\n    a + b\n");
+        let f = s.iter().find(|x| x.name == "add").unwrap();
+        assert_eq!(f.code, "let add a b =", "{f:?}");
+
+        // A curried lambda's `body:` is another lambda; stopping at the first
+        // one would cut the signature in half (`f = a:`).
+        let s = syms("nix", "{ f = a: b: a + b; }\n");
+        let f = s.iter().find(|x| x.name == "f").unwrap();
+        assert_eq!(f.code, "f = a: b:", "{f:?}");
+
+        let s = syms("julia", "function add(a, b)\n    a + b\nend\n");
+        let f = s.iter().find(|x| x.name == "add").unwrap();
+        assert_eq!(f.code, "function add(a, b)", "{f:?}");
+
+        // The residual: tree-sitter-haskell has no body node, no `body:` field
+        // and no `end` terminator, so an equation's slice is the equation.
+        let s = syms("haskell", "module M where\nadd a b = a + b\n");
+        let f = s.iter().find(|x| x.line == 2).unwrap();
+        assert_eq!(f.code, "add a b = a + b", "{f:?}");
     }
 
     #[test]
@@ -1377,6 +2282,141 @@ mod tests {
                 .any(|r| r.fields.get("name").is_some_and(|n| n == "Button")),
             "Button must still be its own symbol document"
         );
+    }
+
+    /// #500, remaining half: the retrievable declaration must be the WHOLE
+    /// signature, must stop dead where the implementation begins, and the file
+    /// document must say where that implementation ends.
+    ///
+    /// Proven to fail on the pre-fix extractor, which stored "whichever single
+    /// physical line the NAME node sits on": `code` for `configure` came back as
+    /// `public void configure(` — a fragment that answers nothing.
+    #[test]
+    fn symbol_document_is_the_whole_declaration_and_the_body_is_addressable() {
+        let src = r#"class Conn {
+  /** Default number of maximum connections per node */
+  public static final int DEFAULT_MAX_CONN = 16;
+
+  public void configure(
+      Map<String, String> options,
+      boolean strict) {
+    int unrelatedBodyToken = 1;
+  }
+}
+"#;
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("Conn.java");
+        std::fs::write(&f, src).unwrap();
+        let sn = crate::sniff::sniff_with_name(&f, Path::new("Conn.java")).unwrap();
+        let mut records: Vec<RawRecord> = Vec::new();
+        extract(&f, &sn, &mut |record| {
+            records.push(record);
+            true
+        })
+        .unwrap();
+        let sym = |n: &str| {
+            records
+                .iter()
+                .find(|r| r.fields.get("name").is_some_and(|v| v == n))
+                .unwrap_or_else(|| panic!("no symbol document for {n}"))
+        };
+
+        let m = sym("configure");
+        let code = m.fields["code"].as_str().unwrap();
+        assert!(
+            code.contains("boolean strict)"),
+            "the declaration must survive to the END of its signature, not stop on \
+             the line the name happens to sit on (#500): {code:?}"
+        );
+        assert!(
+            !code.contains("unrelatedBodyToken"),
+            "…and must still stop where the body begins (#500): {code:?}"
+        );
+        assert_eq!(m.fields["line"], 5);
+
+        let c = sym("DEFAULT_MAX_CONN");
+        assert_eq!(
+            c.fields["code"],
+            "public static final int DEFAULT_MAX_CONN = 16;"
+        );
+
+        // The body is addressable rather than returned: the file document's
+        // `symbols` sidecar carries the exact `line`..`end_line` span, so a
+        // caller that wants the implementation never has to guess it from where
+        // the NEXT symbol starts — the guess that hands back a whole class for a
+        // class and the rest of the file for the last symbol.
+        let file_doc = records
+            .iter()
+            .find(|r| r.locator == "code")
+            .expect("file document");
+        let entry = file_doc.fields["symbols"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["name"] == "configure")
+            .unwrap_or_else(|| panic!("{:?}", file_doc.fields["symbols"]));
+        assert_eq!(entry["line"], 5);
+        assert_eq!(entry["end_line"], 9);
+    }
+
+    /// The declaration slice is shape-based, not per-language, so the shapes
+    /// that differ most are what is worth pinning: the name captured directly
+    /// under its declaration (Rust), the modifiers on the line ABOVE the name
+    /// (C — invisible to the old name-line slice), the body nested two levels
+    /// below the declaration node (an arrow-valued TS export), and a wrapped
+    /// signature closed by a `:` rather than a brace (Python).
+    #[test]
+    fn declaration_slice_holds_across_grammar_shapes() {
+        let s = syms(
+            "rust",
+            "#[inline]\npub fn scan(\n    input: &str,\n) -> usize {\n    input.len()\n}\n",
+        );
+        let f = s.iter().find(|x| x.name == "scan").unwrap();
+        assert!(f.code.starts_with("#[inline]"), "{:?}", f.code);
+        assert!(f.code.contains(") -> usize"), "{:?}", f.code);
+        assert!(!f.code.contains("input.len()"), "{:?}", f.code);
+        assert_eq!(f.end_line, 6, "{f:?}");
+
+        let s = syms(
+            "c",
+            "static unsigned long\nhash_bytes(const char *p, size_t n)\n{\n    return 0;\n}\n",
+        );
+        let f = s.iter().find(|x| x.name == "hash_bytes").unwrap();
+        assert!(f.code.starts_with("static unsigned long"), "{:?}", f.code);
+        assert!(!f.code.contains("return 0"), "{:?}", f.code);
+
+        let s = syms(
+            "typescript",
+            "export const build = (n: number): string => {\n  return String(n);\n};\n",
+        );
+        let f = s.iter().find(|x| x.name == "build").unwrap();
+        assert!(f.code.contains("(n: number): string =>"), "{:?}", f.code);
+        assert!(!f.code.contains("String(n)"), "{:?}", f.code);
+
+        let s = syms(
+            "python",
+            "def scan(\n        text,\n        strict=False):\n    \"\"\"Count the bytes.\"\"\"\n    return len(text)\n",
+        );
+        let f = s.iter().find(|x| x.name == "scan").unwrap();
+        assert!(f.code.contains("strict=False):"), "{:?}", f.code);
+        assert!(!f.code.contains("return len"), "{:?}", f.code);
+    }
+
+    /// The declaration slice must never cost more than the fragment it replaced:
+    /// past the cap it degrades to the start line. A lookup-table constant is
+    /// the case that would otherwise pull a whole array into the symbol doc.
+    #[test]
+    fn oversized_declaration_degrades_to_the_start_line() {
+        let body = "    0,".repeat(200);
+        let src = format!("pub const TABLE: [u8; 200] = [\n{body}\n];\n");
+        let s = syms("rust", &src);
+        let c = s.iter().find(|x| x.name == "TABLE").unwrap();
+        assert!(
+            c.code.chars().count() <= DECL_CAP,
+            "{} chars",
+            c.code.chars().count()
+        );
+        assert_eq!(c.code, "pub const TABLE: [u8; 200] = [");
     }
 
     /// #295 acceptance criterion: every registered grammar must instantiate
@@ -1785,12 +2825,12 @@ mod tests {
         // the declaration span (~46 B) — NOT the multi-line parent class body.
         let c = s
             .iter()
-            .find(|(n, k, _, _)| n == "DEFAULT_MAX_CONN" && k == "const")
+            .find(|s| s.name == "DEFAULT_MAX_CONN" && s.kind == "const")
             .unwrap_or_else(|| panic!("a static class constant must be a symbol (#500): {s:?}"));
         assert!(
-            c.3.contains("DEFAULT_MAX_CONN = 16") && c.3.len() < 120,
+            c.code.contains("DEFAULT_MAX_CONN = 16") && c.code.len() < 120,
             "code must be the declaration span, not the ~KB parent class (#500): {:?}",
-            c.3
+            c.code
         );
         // A Java interface field is an implicitly-static constant (constant_declaration).
         assert!(
