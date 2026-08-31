@@ -8,6 +8,8 @@
 //! - [`embed`]   — Embedding proxy: async HTTP client for OpenAI-compatible embedding APIs
 //! - [`local`]   — Built-in zero-config deterministic text embedder (feature hashing)
 //! - [`neural`]  — Built-in neural BERT sentence embedder via candle (feature `neural`)
+//! - `microbatch` — Length-aware batching shared by the two in-process
+//!   encoders, so one long passage cannot pad a whole window up to its length
 //! - `onnx`      — Experimental MiniLM-compatible FP32 ONNX backend
 //!   (feature `onnx-experimental`; server feature + explicit runtime selection required)
 //! - [`chunker`] — Text chunking with sentence-aware splitting and overlap
@@ -22,6 +24,8 @@ pub mod chunker;
 pub mod embed;
 pub mod embedder;
 pub mod local;
+#[cfg(any(feature = "neural", feature = "onnx-experimental"))]
+pub mod microbatch;
 #[cfg(feature = "neural")]
 pub mod neural;
 #[cfg(feature = "onnx-experimental")]

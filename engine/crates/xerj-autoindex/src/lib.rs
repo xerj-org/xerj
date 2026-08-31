@@ -308,8 +308,11 @@ pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan, pr: &Progress) ->
 ///   value (`ax`) also matches a sibling corpus whose scope is `ax-2` (tokens
 ///   `[ax, 2]`) — wider, not narrower, and across the corpus boundary #737 drew.
 ///   That is precisely why the scope moved to `CORPUS_SCOPE_FIELD` instead of
-///   being left on a possibly-text `prefix`; see the sweep comment in
-///   `sweep_excluded_groups` for what the `prefix` pass can still reach.
+///   being left on a possibly-text `prefix`. The widening is no longer load-
+///   bearing on the delete path either: since #890 the sweeps go through
+///   [`delete_catalog_docs_scoped`], which re-checks each hit's raw scope value
+///   before deleting it by `_id`, so a legacy analyzed field can cost this
+///   catalog *coverage* but can no longer cost a sibling corpus its documents.
 /// * The loop gives up whatever field the engine names, and the safety of doing
 ///   so is not uniform across fields. It holds for the conjunctive scope filters
 ///   above; it does not hold for the `ensure!`-guarded exact reads built on
@@ -532,6 +535,7 @@ fn project_reconcile_plan(
     state_dir: &Path,
     pr: &Progress,
     meter: &estimate::Meter,
+    tally: &ScanTally,
 ) -> Result<Plan> {
     let budget = extract::pdf::ExtractionSpoolBudget::new(0, 0);
     let ctx = PhaseAContext {
@@ -540,6 +544,7 @@ fn project_reconcile_plan(
         capacity_warning: None,
         progress: pr,
         meter,
+        tally,
     };
     pr.phase(
         "scan",
@@ -701,6 +706,17 @@ const ALIAS_SWEEP_CHUNK: usize = 1_024;
 /// `path` and `status` are both `keyword` in [`catalog::catalog_mapping`], and
 /// `terms` here takes a plain value array — never the `{index, id, path}`
 /// lookup form, which `_delete_by_query` does not resolve.
+///
+/// KNOWN, NOT FIXED HERE (#905): this query carries **no corpus scope**, and
+/// `path` is a logical path inside a corpus rather than a node-unique key, so a
+/// run over one corpus can delete another corpus's `status: duplicate` catalog
+/// documents at the same path. Unlike #890 that needs no legacy mapping, and
+/// unlike #890 it takes only alias documents, which the sibling rewrites on its
+/// next run. It is not a scope filter away: this sweep deliberately reaches
+/// documents whose ids follow HISTORICAL identity schemes, some of which carry
+/// no corpus evidence at all — see #905 for the shape a fix has to take, and for
+/// why [`delete_catalog_docs_scoped`]'s recheck is the pattern that makes one
+/// possible.
 fn alias_sweep_query(paths: &[&str]) -> Value {
     json!({
         "bool": {
@@ -1566,14 +1582,45 @@ struct PhaseAContext<'a> {
     /// every file; timing that parse is the only way to price the run on the
     /// machine it will actually run on rather than on ours.
     meter: &'a estimate::Meter,
+    /// How much phase-A work THIS run did. Owned by the run, not by the
+    /// process — see [`ScanTally`].
+    tally: &'a ScanTally,
 }
 
-/// Count of files that actually ran the Phase-A scan/parse. The incremental
-/// re-index fast path skips this for byte-identical files, so a test can assert
-/// that an unchanged re-run parses zero files. `Relaxed` — a single counter per
-/// scanned file, negligible against the parse it guards.
-pub(crate) static SCAN_FILE_PARSED: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
+/// Files that actually ran the Phase-A scan/parse, counted **per run**.
+///
+/// The incremental re-index fast path skips the parse for byte-identical
+/// files, so this is how a test proves an unchanged re-run parses zero files.
+///
+/// It used to be a process-global `static`, which made that proof unsound
+/// (#891): `cargo test` runs one lib test binary multi-threaded, every
+/// concurrent run added to the same number, and a test reading it after its own
+/// run got a total that included whatever the other tests parsed in the
+/// meantime — a false red measured at 2 of 6 and 1 of 6 local suite runs on the
+/// branch that found it (#886). One tally is created per `run_index_report`
+/// invocation and reaches phase A through [`PhaseAContext`], so cross-run
+/// interference is now unrepresentable rather than merely unlikely.
+///
+/// `Relaxed`: one increment per scanned file, ordered against nothing — the
+/// cost has to stay negligible against the parse it counts, and readers only
+/// look after their run has joined every phase-A thread.
+#[derive(Debug, Default)]
+pub(crate) struct ScanTally {
+    parsed: std::sync::atomic::AtomicUsize,
+}
+
+impl ScanTally {
+    fn record_parse(&self) {
+        self.parsed
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Files this run ran the Phase-A scan/parse for.
+    #[cfg(test)]
+    pub(crate) fn files_parsed(&self) -> usize {
+        self.parsed.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
 
 fn scan_file(
     path: &Path,
@@ -1584,7 +1631,7 @@ fn scan_file(
     max_file_gb: u64,
     stub: bool,
 ) -> FileScan {
-    SCAN_FILE_PARSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    ctx.tally.record_parse();
     let state_dir = ctx.state_dir;
     let pdf_spool_budget = ctx.budget;
     let mut out = FileScan {
@@ -1791,6 +1838,7 @@ mod clustering_key_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         scan_file(&path, size, "d0", &ctx, 500, 2, false)
     }
@@ -1930,6 +1978,7 @@ mod phase_a_grouping_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         build_phase_a(
             root,
@@ -3503,6 +3552,132 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
     Ok(summary)
 }
 
+/// One search page of [`delete_catalog_docs_scoped`], and its page budget.
+/// `from + PAGE` stays inside the default `max_result_window` (10k) at the cap,
+/// so no page is refused. Named at module scope so the boundary test walks the
+/// same numbers the sweep does rather than its own copy of them.
+const SCOPED_SWEEP_PAGE: usize = 1_000;
+const SCOPED_SWEEP_MAX_PAGES: usize = 10;
+
+/// Delete the `autoindex-catalog` documents whose `_source` matches EVERY
+/// `(field, value)` pair **exactly**, whatever type this catalog's mapping
+/// gives those fields (#890).
+///
+/// A plain scoped `_delete_by_query` cannot promise that on this index. The
+/// catalog is global across every corpus on the node and it outlives releases,
+/// so a field it holds is not necessarily the type this build declares:
+/// v1.0.0-rc.15 began writing `prefix` before `catalog::catalog_mapping`
+/// declared it, so any catalog an rc.15..rc.67 build wrote to before that
+/// mapping landed holds `prefix` as dynamically-inferred **`text`** — which
+/// includes catalogs first created by an EARLIER release and only later touched
+/// by one of those (see [`install_catalog_mapping`] for that history). A `term`
+/// query is not analyzed, but the FIELD is: against
+/// `text` it matches when one of the stored value's analyzed TOKENS equals the
+/// term. So `{"term": {"prefix": "ax"}}` also reaches a document whose prefix is
+/// `ax-2` (tokens `[ax, 2]`) — a **sibling corpus's** document, which is exactly
+/// the cross-corpus over-delete #737 drew the scope to prevent, and a delete is
+/// not recoverable.
+///
+/// The scope therefore cannot rest on the query alone. The server-side query
+/// stays — it is what keeps the candidate set small — but it is treated as a
+/// *filter*, not as the decision: every returned hit is re-checked against the
+/// raw scope values here, and only the exact ones are deleted, by `_id`. That is
+/// mapping-independent by construction, so it holds on a keyword catalog and on
+/// a legacy text one alike, and it holds for the `path`/`file_key` conjunct as
+/// well as for the corpus scope. Where the field really is a keyword the result
+/// is identical to the delete this replaces, up to the page budget below: past
+/// [`SCOPED_SWEEP_MAX_PAGES`] * [`SCOPED_SWEEP_PAGE`] candidates for one scope
+/// conjunction this refuses where the old `_delete_by_query` would have kept
+/// going.
+///
+/// It cannot invent coverage the query does not return: on a legacy catalog an
+/// analyzed field can also match FEWER documents than it should (a multi-token
+/// value like `vendor/LICENSE` produces no token equal to itself, so a `term`
+/// finds nothing), and no client-side check can recover a hit the server never
+/// sent. That under-match is #755's subject, answered by
+/// `catalog::CORPUS_SCOPE_FIELD` and by the by-`_id` sweep in the caller; this
+/// function is only about never deleting more than the scope names.
+fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
+    let query = json!({"bool": {"filter": scope
+        .iter()
+        .map(|(field, value)| json!({"term": {*field: *value}}))
+        .collect::<Vec<Value>>()}});
+    let mut ids: Vec<String> = Vec::new();
+    let mut from = 0usize;
+    for _ in 0..SCOPED_SWEEP_MAX_PAGES {
+        let page = es.search(
+            catalog::CATALOG_INDEX,
+            &json!({"query": query.clone(), "from": from, "size": SCOPED_SWEEP_PAGE}),
+        )?;
+        let hits = page
+            .pointer("/hits/hits")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for hit in &hits {
+            // The re-check. A hit whose stored scope value is not byte-equal to
+            // what the caller asked for belongs to something else — a sibling
+            // corpus, or another file — and is left alone.
+            let exact = scope.iter().all(|(field, value)| {
+                hit.pointer("/_source")
+                    .and_then(|source| source.get(*field))
+                    .and_then(Value::as_str)
+                    == Some(*value)
+            });
+            if exact {
+                if let Some(id) = hit.get("_id").and_then(Value::as_str) {
+                    ids.push(id.to_string());
+                }
+            }
+        }
+        from += hits.len();
+        // The candidate set is exhausted on a short page — and ALSO once the
+        // hits seen reach an EXACT `hits.total`. Both rules are needed: at
+        // exactly `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` candidates every
+        // page comes back full, so the short-page rule alone falls out of the
+        // loop and refuses while already holding the complete, re-checked set.
+        //
+        // `relation: "gte"` is an honest LOWER bound rather than a count (a
+        // capped hybrid sub-list, a timed-out scan), so it is never trusted to
+        // end the walk; that case falls back to the short-page rule alone.
+        let total_is_exact =
+            page.pointer("/hits/total/relation").and_then(Value::as_str) != Some("gte");
+        let total = page.pointer("/hits/total/value").and_then(Value::as_u64);
+        let exhausted = hits.len() < SCOPED_SWEEP_PAGE
+            || (total_is_exact && total.is_some_and(|total| from as u64 >= total));
+        if exhausted {
+            // The whole candidate set has been seen. Delete the exact ones, in
+            // requests that stay requests — the same bound, and for the same
+            // reason, as the duplicate-alias sweep's [`ALIAS_SWEEP_CHUNK`].
+            for chunk in ids.chunks(ALIAS_SWEEP_CHUNK) {
+                es.delete_by_query(catalog::CATALOG_INDEX, &json!({"ids": {"values": chunk}}))?;
+            }
+            return Ok(());
+        }
+    }
+    // Refusing beats deleting a prefix of the set and reporting success: an
+    // exclusion that only partly removes data is the #439 exposure. Reaching
+    // here needs MORE than `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` (10k)
+    // catalog documents matching one file's scope conjunction. A keyword
+    // catalog CAN produce that — one content group of 10k+ byte-identical
+    // files, each carrying its own alias doc — so this is a real, if narrow,
+    // narrowing of the `_delete_by_query` it replaces, which repeated
+    // 10k-document passes of its own. It fails CLOSED, and the remedy it names
+    // is the one the legacy-catalog warning already gives.
+    Err(anyhow::anyhow!(
+        "scoped sweep of `{}` still had candidates after {SCOPED_SWEEP_MAX_PAGES} pages of \
+         {SCOPED_SWEEP_PAGE} for scope [{}]; refusing to report a partial removal — reindex `{}` \
+         into an index created with the current mapping",
+        catalog::CATALOG_INDEX,
+        scope
+            .iter()
+            .map(|(field, value)| format!("{field}={value}"))
+            .collect::<Vec<_>>()
+            .join(", "),
+        catalog::CATALOG_INDEX,
+    ))
+}
+
 /// #589: sweep the documents an exclusion left behind. A file still on disk
 /// that a widened ignore/hidden/`.xerjignore` rule now skips must have its
 /// already-published documents removed — an exclusion that cannot remove data
@@ -3564,32 +3739,23 @@ fn sweep_excluded_groups(
         // engine and this crate already exercise, and neither drops its scope
         // term.
         //
-        // Honest bound on the `prefix` pass, inherited from #737 and NOT fixed
-        // here: it is exactly scoped only where `prefix` really is a keyword. On
-        // a legacy catalog that holds it as `text`, a `term` matches the
-        // analyzed TOKENS, so a single-token scope value (`ax`) also matches a
-        // sibling corpus whose prefix is `ax-2` (tokens `[ax, 2]`) — the
-        // cross-corpus over-delete #737 exists to prevent. The conjunction
-        // bounds it: only a sibling doc that ALSO carries this file's exact
-        // `path`/`file_key` is reachable, i.e. a byte-identical file shared with
-        // that sibling, and a multi-token prefix (`xc-ml-libs`) can never match
-        // an analyzed field at all. The `_reindex` in the legacy-catalog warning
-        // is what retires it; #890 tracks skipping this pass outright once the
-        // mapping install has established that `prefix` is legacy text.
+        // #890: neither pass may be a bare `delete_by_query`. On a catalog
+        // upgraded from rc.15..rc.67 `prefix` is `text`, and a `term` against an
+        // analyzed field matches TOKENS — `prefix: "ax"` also reaches a sibling
+        // corpus whose prefix is `ax-2` (tokens `[ax, 2]`), deleting ITS catalog
+        // documents for a byte-identical file. `delete_catalog_docs_scoped`
+        // keeps the same query as the candidate filter and then re-checks every
+        // scope value against the returned `_source` before deleting by `_id`,
+        // so the scope is exact whatever the catalog's mapping says — for the
+        // `path`/`file_key` conjunct as much as for the corpus scope.
         for scope_field in [catalog::CORPUS_SCOPE_FIELD, "prefix"] {
-            es.delete_by_query(
-                catalog::CATALOG_INDEX,
-                &json!({"bool": {"filter": [
-                    {"term": {scope_field: prefix}},
-                    {"term": {"path": entry.path}},
-                ]}}),
-            )
-            .with_context(|| {
-                format!(
-                    "sweep catalog entry ({scope_field}-scoped) for newly-excluded {}",
-                    entry.path
-                )
-            })?;
+            delete_catalog_docs_scoped(es, &[(scope_field, prefix), ("path", &entry.path)])
+                .with_context(|| {
+                    format!(
+                        "sweep catalog entry ({scope_field}-scoped) for newly-excluded {}",
+                        entry.path
+                    )
+                })?;
         }
         // #693: also purge the file's `file-alias:` duplicate catalog docs
         // (`catalog::duplicate_file_doc`). Each carries the DUPLICATE's own
@@ -3601,20 +3767,16 @@ fn sweep_excluded_groups(
         // `file_key` term cannot strand a still-live byte-identical duplicate in
         // the same corpus; the `prefix` filter (#737) guards the cross-corpus axis.
         // #755: both scope fields, for the reason given on the delete above.
+        // #890: and both through the exact scoped delete, for the reason given
+        // there — an alias sweep runs on the same cross-corpus axis.
         for scope_field in [catalog::CORPUS_SCOPE_FIELD, "prefix"] {
-            es.delete_by_query(
-                catalog::CATALOG_INDEX,
-                &json!({"bool": {"filter": [
-                    {"term": {scope_field: prefix}},
-                    {"term": {"file_key": entry.file_key}},
-                ]}}),
-            )
-            .with_context(|| {
-                format!(
-                    "sweep catalog aliases ({scope_field}-scoped) for newly-excluded {}",
-                    entry.path
-                )
-            })?;
+            delete_catalog_docs_scoped(es, &[(scope_field, prefix), ("file_key", &entry.file_key)])
+                .with_context(|| {
+                    format!(
+                        "sweep catalog aliases ({scope_field}-scoped) for newly-excluded {}",
+                        entry.path
+                    )
+                })?;
         }
         // #739: the two scoped deletes above match only docs that carry the
         // `prefix` field, which was added in #737 — a `file:` doc written by a
@@ -3772,6 +3934,14 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
 
+/// `run_index` with the caller's own phase-A tally, so a test can measure the
+/// work of *its* run and nothing else's (#891). Production has no reason to
+/// look at the number, which is why the public entry points own a throwaway.
+#[cfg(test)]
+fn run_index_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<i32> {
+    run_index_report_tallied(cfg, tally).map(|(code, _)| code)
+}
+
 /// #381/#759: the per-file record cap dropped these files' tails. Name them (up
 /// to a bound) so a truncated document is identifiable on a multi-file corpus,
 /// not merely counted — the "never silent" guarantee is only useful if the user
@@ -3848,6 +4018,18 @@ mod truncation_note_tests {
 /// `None` when the run ended before a plan produced one (empty folder,
 /// `--dry-run`).
 pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
+    run_index_report_tallied(cfg, &ScanTally::default())
+}
+
+/// The body of [`run_index_report`], with the run's phase-A tally supplied by
+/// the caller instead of created here.
+///
+/// The tally is per-invocation on purpose: it replaced a process-global counter
+/// that every concurrent run in the process wrote to (#891). Every phase-A
+/// route this function can take — the legacy `build_phase_a` scan and the
+/// generated route's `project_reconcile_plan` — is handed this one tally, so
+/// "files parsed by this run" is exactly what it holds.
+fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
@@ -4156,8 +4338,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 .committed_manifest
                 .as_ref()
                 .context("branch guard proved a committed manifest")?;
-            let plan =
-                project_reconcile_plan(&inventory, &base.plan, &cfg, &state_dir, &pr, &scan_meter)?;
+            let plan = project_reconcile_plan(
+                &inventory,
+                &base.plan,
+                &cfg,
+                &state_dir,
+                &pr,
+                &scan_meter,
+                tally,
+            )?;
             let unchanged = serde_json::to_value(&plan)? == serde_json::to_value(&base.plan)?;
             println!("{}", serde_json::to_string_pretty(&plan)?);
             // stdout is the RESULT, stderr is PROGRESS: the projection above is
@@ -4213,8 +4402,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .as_ref()
             .context("generated journal lost its committed manifest")?
             .clone();
-        let plan =
-            project_reconcile_plan(&inventory, &base.plan, &cfg, &state_dir, &pr, &scan_meter)?;
+        let plan = project_reconcile_plan(
+            &inventory,
+            &base.plan,
+            &cfg,
+            &state_dir,
+            &pr,
+            &scan_meter,
+            tally,
+        )?;
         // Say out loud that the decision gate is not on this route. It is an
         // incremental reconcile of an already-committed generation, so the work
         // is the *changed* set and is published from a sealed snapshot rather
@@ -4625,6 +4821,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         capacity_warning: pdf_spool_capacity_warning.as_deref(),
         progress: &pr,
         meter: &scan_meter,
+        tally,
     };
     let mut plan: Plan = if let Some(p) = journal.plan.clone().filter(|_| !genesis_recovery) {
         p
@@ -8618,6 +8815,7 @@ mod unity_pipeline_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         let mut cfg = super::phase_a_grouping_tests::cfg_for(root);
         cfg.sample = sample;

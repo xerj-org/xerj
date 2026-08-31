@@ -7,6 +7,267 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **`--embed-mode neural`: a long passage no longer pads a whole batch up to
+  its own length** ([#366](https://github.com/xerj-org/xerj/issues/366)). The
+  built-in Candle encoder tokenized every call with `PaddingStrategy::
+  BatchLongest` and ran one rectangular forward pass over it, so a window that
+  held one 512-character chunk beside sixty short lines cost `61 × long`
+  instead of `long + 60 × short` — the model did the work, the attention
+  tensors were allocated, and the padding contributed nothing. The encoder now
+  sorts a call's passages by token length and cuts batches at 64 rows or a 4096
+  `rows × padded_sequence_length` budget (`xerj-ai/src/microbatch.rs`, shared
+  with the experimental ONNX backend), pads each batch to its own longest row,
+  and restores input order. This affects the opt-in neural backend only; the
+  default embedder is unchanged lexical feature-hashing.
+
+  Measured on this repo's 32-core x86_64 box with MiniLM-L6 (median of three
+  interleaved runs each, box shared with other builds — the spread is wide, so
+  the medians are quoted, not the best runs):
+
+  | shape | before | after |
+  |---|---|---|
+  | one 210 KB source file (504 chunks, one call) | 46.2–57.8 s, 8.97 GB peak RSS | 19.9 s, 0.42 GB peak RSS |
+  | 45 files of `apache/lucene`, chunked as ingest chunks them (1214 passages) | 8.9 passages/s | 12.1 passages/s |
+  | synthetic window of 4 long chunks + 60 short lines | 40.2 passages/s | 145.7 passages/s |
+  | uniform short documents, window of 64 | 171.0 passages/s | 175.6 passages/s |
+  | one passage per call | 68.9 passages/s | 72.8 passages/s |
+
+  Padding waste (`rows × padded_sequence_length` ÷ real tokens) on the Lucene
+  corpus fell from 1.50 to 1.13, and on the synthetic mixed window from 2.66 to
+  1.00.
+
+  The first row is the other half of #366 — "each of those two files held the
+  run for 30+ seconds" on 200 KB C++ headers. `semantic_embedding_window_end`
+  always admits a whole document even past the scheduling window, so every
+  chunk of a large field reached the model as one forward pass whose attention
+  tensors scaled with the document: 8.97 GB of resident memory for a single
+  210 KB file, which is an OOM on a laptop rather than a slowdown. The row cap
+  bounds it.
+
+  **What this does not fix, stated plainly:** #366 reported ~15 documents/s on
+  short uniform strings and read it as per-document inference. That reading
+  does not hold — HTTP `_bulk` already batches (`bulk.rs` collects the whole
+  request, `index.rs` windows 64 passages across documents), and the last two
+  rows above show that shape is unchanged by this work. On uniform short
+  documents ~15 docs/s is the cost of CPU transformer inference, and moving it
+  needs quantization, a GPU provider or a smaller model. What was genuinely
+  broken was mixed-length work, which is what pointing `autoindex` at a real
+  folder produces. Binary-protocol `_bulk` still embeds one document per
+  inference call (`xerj-api/src/binary_protocol.rs`); the HTTP path this
+  release measures does not.
+
+### Fixed
+
+- **`knn` beside a `query` is answered from the inverted index again — and its
+  page no longer drops the documents matched by both halves**
+  ([#892](https://github.com/xerj-org/xerj/issues/892)). This closes the
+  regression rc.72 shipped knowingly: the
+  [#825](https://github.com/xerj-org/xerj/issues/825) fix pre-executes the
+  vector leg and pins its top-`k` into the query tree as `constant_score{ids}`
+  clauses, `_id` is not in the FTS term dictionary, so the projection declined
+  the whole tree and every segment fell to a stored-document scan.
+
+  That route was not only slow. The scan admits documents in stored-layout
+  order and stops materialising once it reaches the page cap — no score
+  comparison — so on any index with more lexical matches than that cap, the
+  documents reached by BOTH halves, the ones ES scores `query_score +
+  knn_score` and ranks first, never entered the page. `hits.total` was right;
+  the page was not. Live-verified on 100 000 documents: for a `match` + `knn`
+  k=10 request whose vector top-10 held exactly two lexical matches, rc.72's
+  top 20 was twenty lexical-only documents tied at 1.693 and neither
+  both-halves document appeared at all. They now rank 1 and 2, at 3.153 and
+  3.144.
+
+  The projection now lifts the pinned disjunct to an FTS leaf carrying
+  `(doc_id, score)` pairs, resolved per segment through the same `_id` →
+  stored-position index that `ids` queries and `_mget` already use. The
+  lexical half keeps the inverted index and exact BM25, the vector half keeps
+  its own scores, and the `bool` sums them exactly as before.
+
+  Measured on that corpus (`text` + 8-dim `dense_vector`, ~10 % lexical
+  selectivity, bulk-loaded once and never updated — which is the only state in
+  which this route engages, see the scope note below — closed-loop, fresh query
+  vector per request so the query cache cannot answer twice, medians of 2
+  rounds × 7 requests, on a shared build machine — the two control rows bound
+  the noise):
+
+  | request | rc.72 | with this fix |
+  |---|---|---|
+  | `query` alone (control) | 0.45 ms | 0.52 ms |
+  | `knn` alone, k=10 (control) | 1.99 ms | 2.12 ms |
+  | `query` + `knn` k=10 | 265.9 ms | **6.4 ms** |
+  | `query` + `knn` k=100 | 326.9 ms | **8.4 ms** |
+  | `query` + `knn` k=1000 | 505.0 ms | **27.5 ms** |
+  | `query` + `knn` + `aggs` k=10 | 784.1 ms | **534.4 ms** |
+
+  `hits.total`, the aggregation buckets and the field-sorted page came back
+  identical across the two arms — one request shape per column, compared as
+  JSON — and so did `query`-alone and `knn`-alone. The agg row keeps most of
+  its cost because a `terms` agg over this shape still materialises the whole
+  corpus — a different path, untouched here.
+
+  Two things to know:
+
+  - **`_score` values change for this shape.** The lexical half is now scored
+    by exact BM25 — the same number the identical query returns *without* a
+    `knn` beside it — instead of the stored scan's heuristic. Ordering follows
+    the #825 contract as before; absolute values move, so a `min_score` tuned
+    against rc.72's hybrid needs revisiting.
+  - **The indexed route applies only to an index that has never taken an
+    overwrite or a delete** — that is the scope of every number above, and it
+    is a one-way door, not a transient window. The gate is the one the `ids`
+    pre-filter already applies: the per-segment `_id` index keeps one position
+    per id, so a segment physically holding a document twice (an overwrite
+    flushed alongside its predecessor) could hand back the superseded copy. It
+    reads `VersionMap::ghost_events`, which is **monotonic by design** — it
+    counts overwrite and delete events for the life of the open index and is
+    never decremented, not even by the merge that purges the superseded copies.
+    One `PUT` over an existing `_id`, or one `DELETE`, therefore turns this
+    route off for that index until it is re-opened, and it stays off across
+    that re-open while superseded copies remain on disk. An index that takes
+    updates or deletes keeps rc.72's stored scan for `knn` beside `query` —
+    still correct, and no slower than it was, but with none of the speedups
+    above. Append-only indexes — bulk load, reindex-and-swap, log and event
+    corpora — get them. Widening the route to ghost-bearing indexes is
+    separate work: it has to prove the #825 union/sum contract with tombstones
+    present, and is not attempted here.
+
+- **A code symbol's retrievable unit is the whole declaration, not the single
+  physical line the name sits on**
+  ([#500](https://github.com/xerj-org/xerj/issues/500)). Promoting each
+  declaration to its own document
+  ([#579](https://github.com/xerj-org/xerj/pull/579)) closed the
+  constant-and-field half of that issue. The stored `code` was still literally
+  `lines[name_row]`, so anything that did not fit on that one line came back
+  wrong: a wrapped signature returned `public void configure(`; a declaration
+  whose modifiers sit above the name (`static unsigned long\nhash_bytes(…)`,
+  `#[inline]\npub fn scan(…)`) returned the wrong line entirely; and a
+  declaration sharing its line with the body (`void m(){ int local = 1; }`)
+  returned implementation nobody asked for. `code` is now sliced from the
+  declaration's first token — leading attributes included — to where its body
+  begins, so the unit is a complete signature rather than a fragment of one.
+
+  Measured with the `decl_bench` harness added here (`XERJ_DECL_BENCH=<repo>
+  cargo test --release -p xerj-autoindex --lib decl_bench -- --ignored
+  --nocapture`), which computes the old unit and the new one side by side in one
+  pass over the same parse and the same symbol set:
+
+  | corpus | slice ending mid-signature, was → now | median bytes, was → now | the symbol's whole `line..end_line` span |
+  |---|---|---|---|
+  | Lucene — 5 627 Java files, 79 102 declarations | 4 137 (5.2 %) → 18 (0.02 %) | 49 → 52 (mean 50.5 → 60.7) | median 229, mean 1 046 |
+  | valkey + memcached — 981 C files, 28 347 | 1 444 (5.1 %) → 54 (0.2 %) | 48 → 49 (mean 51.6 → 58.8) | median 123, mean 454 |
+  | tantivy — 434 Rust files, 8 970 | 851 (9.5 %) → 27 (0.3 %) | 41 → 50 (mean 44.2 → 60.9) | median 218, mean 721 |
+  | cilium + dpdk + vpp-agent + xdp-tools — 26 357 Go/C files, 914 561 | 87 267 (9.5 %) → 1 678 (0.2 %) | 49 → 53 (mean 54.6 → 67.4) | median 102, mean 387 |
+
+  So the unit costs 7–17 bytes more on average and is a complete declaration
+  instead of a fragment — still 1.9–4.4× smaller than that symbol's own span at
+  the median and 5.7–17× smaller at the mean. 39.6 % of Lucene declarations wrap
+  past one line (the single-line slice could only ever return a fragment of
+  those) and 51.5 % have a name line that does not stop where the declaration
+  does.
+
+  Extraction is not free: medians of five interleaved runs over the same
+  6 106-file Lucene tree, one box, `extract_bench` — 1 600 files/s before this
+  change, 1 455 after. About 9 %, for an ancestor climb bounded at 12 levels and
+  a pruned body search bounded at 4 096 nodes.
+
+  Two honest limits. The cap is unchanged at 400 characters and a declaration
+  that overruns it still falls back to the start line, so the WORST case per
+  symbol is what it always was — but an individual document can grow, since a
+  45-character name line may now store a 400-character signature. And "stops
+  where the body begins" needs the grammar to say where that is: for a Haskell
+  equation nothing marks it, so the slice is the whole equation. Corpus-wide
+  that is 1.2–5.9 % of symbols whose slice covers their entire span, which
+  `decl_bench` now reports as its own column rather than leaving to assertion.
+
+  The file document's `symbols` sidecar gains `end_line`, so a caller that
+  wants the implementation can address exactly `line`..`end_line` instead of
+  guessing "up to where the next symbol starts" — the guess that returns a
+  whole class for a class and the rest of the file for the last symbol.
+
+  Upgrading does not rewrite what is already indexed: `xerj sync` reconciles by
+  content digest, so an unchanged file produces no operation and its symbol
+  documents keep the old single-line `code` and carry no `end_line`. An index
+  upgraded to this release is a mixture until the files change or it is rebuilt
+  from scratch.
+
+- **The exclusion sweep can no longer delete a sibling corpus's catalog
+  documents on a catalog an older build left `text`-mapped**
+  ([#890](https://github.com/xerj-org/xerj/issues/890)). `autoindex-catalog` is
+  shared by every corpus on the node, so when a widened ignore rule excludes a
+  file, the sweep that removes its already-published documents is scoped to the
+  corpus's `prefix`. On any catalog a v1.0.0-rc.15..rc.67 build wrote to before
+  the mapping declared that field — which includes catalogs first created by an
+  earlier release — it is dynamically inferred **`text`**, and a `term` query
+  against an analyzed field matches the field's *tokens*: `prefix: "ax"` also
+  reached documents whose prefix is `ax-2` (tokens `[ax, 2]`). Conjoined with
+  the `path`/`file_key` a
+  byte-identical file (a LICENSE, a lockfile) shares between corpora, the sweep
+  deleted the **sibling corpus's live catalog documents** — the cross-corpus
+  over-delete the scope was added in
+  [#737](https://github.com/xerj-org/xerj/issues/737) to prevent, and a delete
+  is not recoverable. Present since v1.0.0-rc.68.
+
+  Both scoped catalog deletes now go through an exact scoped delete: the same
+  query still selects candidates server-side, but every hit's raw scope values
+  are re-checked against `_source` before it is deleted by `_id`. That is
+  independent of the catalog's mapping, so it holds on a keyword catalog and a
+  legacy text one alike, and it covers the `path`/`file_key` conjunct as well as
+  the corpus scope. Coverage of the excluding corpus's own documents is
+  unchanged, including alias documents the frozen plan does not name, which only
+  this pass can reach. The candidate walk is bounded at ten pages of 1,000, and
+  it ends on an exact `hits.total` as well as on a short page, so the boundary
+  case of exactly 10,000 candidates completes rather than refusing. Past that
+  bound it fails *closed* — it refuses with a `_reindex` remedy rather than
+  reporting a removal it only partly made.
+
+  Not fixed here: on a legacy catalog an analyzed field can also match *fewer*
+  documents than it should, so a scoped sweep can still miss a document an older
+  build wrote. That is the under-match
+  [#755](https://github.com/xerj-org/xerj/issues/755) answers with the keyword
+  `corpus_scope` field, and the run already warns with the `_reindex` that
+  retires the legacy mapping.
+
+- **CI's default-parallelism test step no longer races itself for a port**
+  ([#751](https://github.com/xerj-org/xerj/issues/751), the second half). With
+  the deadlock above fixed, the same step then failed on a real port race that
+  the hang had been masking: `xerj-server`'s cleartext-bind tests allocated a
+  port by binding `127.0.0.1:0`, reading the number, releasing it, and handing
+  it to a child process that binds it later. The kernel is free to hand that
+  same ephemeral port to the next `bind(":0")`, and several tests in that file
+  keep a real server alive for seconds, so at default parallelism they
+  overlapped — `gRPC: bind [::1]:46843 ... Address already in use`. Ports now
+  come from a band below every platform's ephemeral range, strided per process
+  and probe-bound on both `127.0.0.1` and `::1` (a port free on one family can
+  be taken on the other, which is exactly how it failed). Test-only change.
+
+- **A search that aggregates over a cold segment could deadlock forever**
+  ([#751](https://github.com/xerj-org/xerj/issues/751)). On a multi-thread
+  runtime `Index::search` runs its whole body inside
+  `block_in_place(|| Handle::current().block_on(..))`: that hands the worker's
+  core to a tokio *blocking-pool* thread — which then runs the scheduler loop
+  for the life of the runtime — and parks the calling thread, itself a
+  blocking-pool thread, for the entire search. An aggregation with no columnar
+  fast path assembles the full corpus from inside that park, and the cold
+  segment hydration it needs (`stored_values_for_async`) queued its decode with
+  `spawn_blocking` — onto the very pool the waiter was holding a thread of.
+  tokio grows that pool only when it observes zero idle threads at push time,
+  so the core hand-off and the decode submission could both see the same idle
+  thread, both merely notify, and the one thread that woke took the core and
+  never returned. The decode was then queued behind threads that were all
+  permanently running worker cores: the search waited for a task that could
+  never be scheduled. The decode now runs on the engine's own rayon maintenance
+  pool, whose threads are never consumed by tokio, so the wait cannot be
+  circular. This is what made CI's default-parallelism workspace-test step hang
+  on hosted runners and leave `main` with no verdict for hours. Measured on a
+  4-cpu affinity mask with the reported test binary: 12 hangs in 60 runs before,
+  0 in 200 after (and 0 in 100 on a 2-cpu mask). One consequence worth knowing:
+  a cold hydration a search is waiting on now runs at the maintenance pool's
+  `nice(10)` instead of a `nice(0)` blocking thread, which is only observable
+  when every core is already saturated.
+
 ## [1.0.0-rc.72] - 2026-08-31
 
 The idle-cost release. A 2026-08-29 measurement session found XERJ was not

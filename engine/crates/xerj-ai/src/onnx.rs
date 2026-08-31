@@ -350,6 +350,11 @@ impl OnnxEmbedder {
 
 /// Plan length-aware microbatches. Indices are sorted for inference efficiency;
 /// callers must use them to restore original order.
+///
+/// The grouping itself is [`crate::microbatch::group_by_padded_cost`], shared
+/// with the Candle backend. What stays here is the ONNX-specific contract:
+/// backpressure past `max_pending`, and refusing a single input the budget
+/// cannot fit rather than silently running it alone.
 pub fn plan_microbatches(
     token_lengths: &[usize],
     config: MicrobatchConfig,
@@ -362,35 +367,27 @@ pub fn plan_microbatches(
             config.max_pending
         ));
     }
-    let mut order = (0..token_lengths.len()).collect::<Vec<_>>();
-    order.sort_by_key(|&i| token_lengths[i].min(MAX_TOKENS));
-    let mut batches = Vec::new();
-    let mut batch = Vec::new();
-    let mut longest = 0;
-    for i in order {
-        let length = token_lengths[i].min(MAX_TOKENS);
-        if length > config.padded_token_budget {
-            return Err(anyhow!(
-                "padded_token_budget={} cannot fit one {}-token input",
-                config.padded_token_budget,
-                length
-            ));
-        }
-        let next_longest = longest.max(length);
-        if !batch.is_empty()
-            && (batch.len() == config.max_batch
-                || next_longest * (batch.len() + 1) > config.padded_token_budget)
-        {
-            batches.push(std::mem::take(&mut batch));
-            longest = 0;
-        }
-        longest = longest.max(length);
-        batch.push(i);
+    let clamped = token_lengths
+        .iter()
+        .map(|length| (*length).min(MAX_TOKENS))
+        .collect::<Vec<_>>();
+    if let Some(length) = clamped
+        .iter()
+        .copied()
+        .filter(|length| *length > config.padded_token_budget)
+        .min()
+    {
+        return Err(anyhow!(
+            "padded_token_budget={} cannot fit one {}-token input",
+            config.padded_token_budget,
+            length
+        ));
     }
-    if !batch.is_empty() {
-        batches.push(batch);
-    }
-    Ok(batches)
+    Ok(crate::microbatch::group_by_padded_cost(
+        &clamped,
+        config.max_batch,
+        config.padded_token_budget,
+    ))
 }
 
 #[cfg(test)]

@@ -3515,6 +3515,72 @@ mod merge_publication_transaction_tests {
         hand_driven_index_with_config(config(dir), name, schema)
     }
 
+    /// #873: an index that is not being written to holds NO WAL file
+    /// descriptors and no WAL write buffers, whatever its ingest-shard count.
+    ///
+    /// The two states that matter are the ones a quiet node is actually in:
+    /// freshly opened, and freshly flushed. Both are covered here, either side
+    /// of a write that proves the descriptors do appear when they are needed.
+    /// Pre-fix every shard opened a file and a 64 KiB buffer at
+    /// `IndexStore::open` and kept both for the process lifetime — 8 of them
+    /// on a 16-core laptop, 16 here, multiplied by every open index, which is
+    /// what made a few hundred idle autoindex datasets expensive.
+    #[tokio::test]
+    async fn an_index_that_is_not_being_written_to_holds_no_wal_descriptors() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = config(&dir);
+        // Pin well above 1: the default is a fraction of the host core count,
+        // so on a 1- or 2-core runner this test would assert nothing.
+        cfg.engine.ingest_shards = 8;
+        let (_engine, index) = hand_driven_index_with_config(cfg, "idle-wal", Schema::empty());
+        assert_eq!(
+            index.store.wal_shard_count(),
+            8,
+            "fixture must actually open 8 shards"
+        );
+        assert_eq!(
+            index.store.materialized_wal_shards(),
+            0,
+            "a freshly opened index must hold no WAL descriptors"
+        );
+
+        // Enough documents to spread across shards (routing is
+        // `xxh3(doc_id) & (shards - 1)`), so this is not a one-shard result.
+        for i in 0..64 {
+            index
+                .index_document(Some(format!("d{i}")), serde_json::json!({"m": i}))
+                .await
+                .unwrap();
+        }
+        assert!(
+            index.store.materialized_wal_shards() > 1,
+            "writes must materialize the shards they route to (got {})",
+            index.store.materialized_wal_shards()
+        );
+
+        // The flush path (`force_wal_maintenance` → `force_rotate` per shard)
+        // freezes every written generation and leaves an empty one active.
+        index.flush().await.unwrap();
+        assert_eq!(
+            index.store.materialized_wal_shards(),
+            0,
+            "a flushed index must hand every WAL descriptor and buffer back"
+        );
+
+        // And the data is still there, through the memtable drain and the
+        // released descriptors.
+        let hits = index
+            .search(
+                &xerj_query::parse_request(&serde_json::json!({
+                    "query": {"match_all": {}}, "size": 0
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hits.total.value, 64);
+    }
+
     /// #873: a non-empty memtable BELOW the size thresholds flushes once its
     /// contents have sat unchanged for `flush_idle_secs`. Idleness is
     /// crossed via the test rewind hook, never a sleep. Also proves the two
@@ -5447,8 +5513,8 @@ mod semantic_deadline_regression_tests {
             "request waited for detached cold load instead of its deadline"
         );
 
-        // `spawn_blocking` is deliberately not aborted: the immutable load
-        // completes and warms the cache for a later request.
+        // The detached decode is deliberately not cancelled: the immutable
+        // load completes and warms the cache for a later request.
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
             while idx.stored_value_cache.is_empty() {
                 tokio::task::yield_now().await;
@@ -7994,35 +8060,35 @@ impl Index {
             embedding_config: config.embedding.clone(),
             max_fields_per_index: config.limits.max_fields_per_index,
             embedder: Arc::new(RwLock::new(effective_embedder)),
-            dv_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            dv_cache: Arc::new(per_index_map()),
+            sort_shadow_cache: Arc::new(per_index_map()),
+            sort_shadow_fields: Arc::new(per_index_map()),
             millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
                 millis_date_fields_snapshot,
             ))),
-            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
-            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
-            id_pos_cache: Arc::new(dashmap::DashMap::new()),
-            row_seq_cache: Arc::new(dashmap::DashMap::new()),
-            stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(per_index_map()),
+            range_prefilter_cache: Arc::new(per_index_map()),
+            id_pos_cache: Arc::new(per_index_map()),
+            row_seq_cache: Arc::new(per_index_map()),
+            stored_value_cache: Arc::new(per_index_map()),
             segment_cache_lifecycle: Arc::new(parking_lot::RwLock::new(())),
             segment_hydration_budget,
-            stored_value_loads: Arc::new(dashmap::DashMap::new()),
+            stored_value_loads: Arc::new(per_index_map()),
             stored_value_load_semaphore: Arc::new(Semaphore::new(4)),
-            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
-            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
-            fts_reader_cache: Arc::new(dashmap::DashMap::new()),
-            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
-            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
-            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
-            query_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(per_index_map()),
+            decoded_stored_cache: Arc::new(per_index_map()),
+            fts_reader_cache: Arc::new(per_index_map()),
+            shortcut_count_cache: Arc::new(per_index_map()),
+            ghost_positions_cache: Arc::new(per_index_map()),
+            regexp_expand_cache: Arc::new(per_index_map()),
+            fast_date_cache: Arc::new(per_index_map()),
+            fast_date_sorted_cache: Arc::new(per_index_map()),
+            query_cache: Arc::new(per_index_map()),
             dataset_version: Arc::new(AtomicU64::new(0)),
-            query_inflight: Arc::new(dashmap::DashMap::new()),
+            query_inflight: Arc::new(per_index_map()),
             metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
-            external_versions: Arc::new(dashmap::DashMap::new()),
+            external_versions: Arc::new(per_index_map()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
@@ -8381,35 +8447,35 @@ impl Index {
             embedding_config: config.embedding.clone(),
             max_fields_per_index: config.limits.max_fields_per_index,
             embedder: Arc::new(RwLock::new(effective_embedder)),
-            dv_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
-            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            dv_cache: Arc::new(per_index_map()),
+            sort_shadow_cache: Arc::new(per_index_map()),
+            sort_shadow_fields: Arc::new(per_index_map()),
             millis_date_fields: Arc::new(parking_lot::RwLock::new(Arc::new(
                 millis_date_fields_snapshot,
             ))),
-            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
-            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
-            id_pos_cache: Arc::new(dashmap::DashMap::new()),
-            row_seq_cache: Arc::new(dashmap::DashMap::new()),
-            stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(per_index_map()),
+            range_prefilter_cache: Arc::new(per_index_map()),
+            id_pos_cache: Arc::new(per_index_map()),
+            row_seq_cache: Arc::new(per_index_map()),
+            stored_value_cache: Arc::new(per_index_map()),
             segment_cache_lifecycle: Arc::new(parking_lot::RwLock::new(())),
             segment_hydration_budget,
-            stored_value_loads: Arc::new(dashmap::DashMap::new()),
+            stored_value_loads: Arc::new(per_index_map()),
             stored_value_load_semaphore: Arc::new(Semaphore::new(4)),
-            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
-            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
-            fts_reader_cache: Arc::new(dashmap::DashMap::new()),
-            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
-            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
-            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_cache: Arc::new(dashmap::DashMap::new()),
-            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
-            query_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(per_index_map()),
+            decoded_stored_cache: Arc::new(per_index_map()),
+            fts_reader_cache: Arc::new(per_index_map()),
+            shortcut_count_cache: Arc::new(per_index_map()),
+            ghost_positions_cache: Arc::new(per_index_map()),
+            regexp_expand_cache: Arc::new(per_index_map()),
+            fast_date_cache: Arc::new(per_index_map()),
+            fast_date_sorted_cache: Arc::new(per_index_map()),
+            query_cache: Arc::new(per_index_map()),
             dataset_version: Arc::new(AtomicU64::new(0)),
-            query_inflight: Arc::new(dashmap::DashMap::new()),
+            query_inflight: Arc::new(per_index_map()),
             metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
-            external_versions: Arc::new(dashmap::DashMap::new()),
+            external_versions: Arc::new(per_index_map()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
@@ -17280,6 +17346,86 @@ impl Index {
         // is a transient undercount during an in-flight flush — the
         // pre-existing, self-healing behaviour.
         let snap = self.store.snapshot();
+        // F1 correctness gate (hoisted to the snapshot so the scan-early-stop
+        // decision, the post-loop `total_count` overwrite and the #892 pinned-kNN
+        // projection gate below can all see it): the doc-values/FST
+        // `shortcut_count` is DELETE-BLIND (counts physical postings, not live
+        // docs), whereas the stored-doc scan it lets us skip filters tombstones.
+        // The shortcut may only stand in for the EXACT `hits.total` when the
+        // index has no deleted/superseded docs. Conservative O(segments) signal:
+        // any flushed tombstone, OR live_count < physical (updates + deletes
+        // inflate the per-segment/memtable physical tally above the version-map
+        // live count). MatchAll is unaffected — overwritten with the
+        // delete-aware live_doc_count() regardless of this flag.
+        // EXACT ghost signal (see `VersionMap::ghost_events`): flushed
+        // tombstones OR any overwrite/delete event ever recorded.  The old
+        // `live_count() < seg_physical + mem_physical` arithmetic also
+        // tripped on unrelated physical-count drift — live-verified: two
+        // duplicate docs per merged segment turned the gate permanently ON
+        // for a pure append-only corpus, disabling the F1 bounded scan and
+        // forcing every size>0 term/range/bool into a full O(N) stored
+        // scan.  That was the dominant per-query cost in the
+        // read-under-write collapse.
+        //
+        // #892 hoist, stated because the binding moved and so did its READ
+        // TIME: `ghost_events()` is a live counter, and this read now happens
+        // ~850 lines and two `.await` points earlier than it used to. The two
+        // pre-existing F1 consumers (the scan early-stop and the post-loop
+        // `total_count` overwrite) therefore see a marginally staler value —
+        // a delete landing mid-search is slightly less likely to be observed
+        // by them. That race pre-dates this change (the counter was always
+        // read once and reused across awaits); the hoist widens the window,
+        // it does not create it. The consequence is the pre-existing one: a
+        // delete that lands after this read can leave that single request's
+        // `hits.total` served by the delete-blind shortcut. The #892 gate
+        // itself is unaffected — it is paired with `snap`, taken on the line
+        // above, so the route it admits reads a consistent segment set.
+        let deletes_present: bool = snap.segments.iter().any(|m| m.has_tombstones)
+            || self.store.version_map.ghost_events() > 0;
+
+        // ── #892: the #825 pinned kNN disjunct takes the INDEXED route ────
+        //
+        // `pin_knn_clause` names its top-k documents by `_id`, and `_id` is not
+        // in the FTS term dictionary — so the projection `?`-aborted on the
+        // pinned `should` clause, `fts_query` came back `None`, and EVERY
+        // `knn`-beside-`query` request fell to a full stored-document scan of
+        // every segment. Resolving those ids to each segment's stored positions
+        // (`id_pos_map_for`, the index `ids` queries and `_mget` already use)
+        // turns the disjunct into an ordinary FTS leaf, so the lexical half
+        // keeps the inverted index and the `bool` serves the same union with
+        // the same summed scores.
+        //
+        // `Probe` is the shape-only answer for the callers that have no segment
+        // in hand — `query_needs_fts` and the index-wide BM25 statistics
+        // pre-pass, both of which only need "does this project at all?". The
+        // real per-segment map is resolved inside the segment loop.
+        //
+        // GATED ON `!deletes_present`, exactly like `build_ids_prefilter_cached`
+        // gates the `ids` prefilter: `id_pos_map_for` keeps ONE position per
+        // `_id`, so a segment physically holding two copies of a document (an
+        // overwrite flushed alongside its predecessor) can hand back the
+        // superseded one — and an FTS leaf, unlike the stored scan, never
+        // re-reads `_id` per position to notice. With ghosts present the
+        // request keeps the #879 scan: correct, and no slower than it was.
+        //
+        // SCOPE, stated plainly because it is easy to read this gate as a
+        // transient one: `ghost_events` is MONOTONIC (version_map.rs — never
+        // decremented, not even by the merge that purges the superseded
+        // copies), so this is a one-way door per open index, not an in-flight
+        // window. A single overwrite or delete anywhere in the index's history
+        // disables this route for the life of the open index; at re-open it
+        // re-arms only while `live < physical` still holds on disk. Only
+        // append-only indexes take the indexed route today. Widening it to
+        // ghost-bearing indexes means proving the #825 union/sum contract with
+        // tombstones present — the per-segment `map.len() == expect_docs`
+        // guard in `id_pos_map_for` already rejects a duplicate-bearing
+        // segment, but a tombstoned-yet-present row still resolves to a
+        // position, so that proof is a separate piece of work.
+        let pinned_probe: Option<PinnedIds<'_>> = if pinned_query.is_some() && !deletes_present {
+            Some(PinnedIds::Probe)
+        } else {
+            None
+        };
         // Exact memtable match total captured by the fused DV walk below and
         // threaded into `try_shortcut_count`, whose bool-conjunction arm
         // then skips its DUPLICATE memtable walk (mixed-RUW Fix 1: the
@@ -17361,6 +17507,7 @@ impl Index {
                         &exact_fields,
                         &kw_fields,
                         mem_doc_count,
+                        pinned_probe,
                     )
                     .map(Arc::new)
                 })
@@ -18053,9 +18200,25 @@ impl Index {
         // and materialises only the top prefix, so the F1 bounded-scan / count
         // overwrite must NOT touch FTS queries — it only applies to the
         // non-FTS stored-doc scan (match_all / term-on-keyword / range).
-        let query_needs_fts: bool =
-            query_node_to_fts_with_keyword_fields(query, &text_fields, &exact_fields, &kw_fields)
-                .is_some();
+        //
+        // #892 note: this flips false → true for a pinned `knn`-beside-`query`
+        // (it is the whole point of the change), so the three branches gated on
+        // `!query_needs_fts` are RE-EVALUATED for that shape, not bypassed —
+        // the `size:0` columnar agg fast path below, `count_authoritative`, and
+        // the F1 `total_count` overwrite after the segment loop. All three are
+        // inert here: the fast path additionally needs `is_match_all ||
+        // agg_filter.is_some()` and `query_node_to_agg_filter` declines a
+        // `should` bool, and the other two only ever REMOVE a bounded-count
+        // shortcut, leaving the FTS path's own authoritative `seg_hits.len()`
+        // tally. Outcome unchanged; the gates themselves are not.
+        let query_needs_fts: bool = query_node_to_fts_projected(
+            query,
+            &text_fields,
+            &exact_fields,
+            &kw_fields,
+            pinned_probe,
+        )
+        .is_some();
 
         // ── Precomputed segment agg fast path (M2 G2) ─────────────────────
         //
@@ -18125,28 +18288,6 @@ impl Index {
                 }
             }
         }
-
-        // F1 correctness gate (hoisted so both the scan-early-stop decision and
-        // the post-loop `total_count` overwrite can see it): the doc-values/FST
-        // `shortcut_count` is DELETE-BLIND (counts physical postings, not live
-        // docs), whereas the stored-doc scan it lets us skip filters tombstones.
-        // The shortcut may only stand in for the EXACT `hits.total` when the
-        // index has no deleted/superseded docs. Conservative O(segments) signal:
-        // any flushed tombstone, OR live_count < physical (updates + deletes
-        // inflate the per-segment/memtable physical tally above the version-map
-        // live count). MatchAll is unaffected — overwritten with the
-        // delete-aware live_doc_count() regardless of this flag.
-        // EXACT ghost signal (see `VersionMap::ghost_events`): flushed
-        // tombstones OR any overwrite/delete event ever recorded.  The old
-        // `live_count() < seg_physical + mem_physical` arithmetic also
-        // tripped on unrelated physical-count drift — live-verified: two
-        // duplicate docs per merged segment turned the gate permanently ON
-        // for a pure append-only corpus, disabling the F1 bounded scan and
-        // forcing every size>0 term/range/bool into a full O(N) stored
-        // scan.  That was the dominant per-query cost in the
-        // read-under-write collapse.
-        let deletes_present: bool = snap.segments.iter().any(|m| m.has_tombstones)
-            || self.store.version_map.ghost_events() > 0;
 
         // LOSS_BATTLE_PLAN B6 — page-cap materialisation.  The +100/256
         // hydration slack in `materialisation_limit` buys headroom against
@@ -18316,11 +18457,12 @@ impl Index {
             // entirely — that call eagerly reads .fst/.meta/.post/.norms
             // for every text field, which costs ~50 MB per segment and is
             // wasted work when the query is a stored-doc scan.
-            let fts_query_probe = query_node_to_fts_with_keyword_fields(
+            let fts_query_probe = query_node_to_fts_projected(
                 query,
                 &text_fields,
                 &exact_fields,
                 &kw_fields,
+                pinned_probe,
             );
             let needs_fts = fts_query_probe.is_some();
             // #361: a bool with a non-projectable non-scoring (`filter`/`must_not`)
@@ -18335,6 +18477,7 @@ impl Index {
                     &text_fields,
                     &exact_fields,
                     &kw_fields,
+                    pinned_probe,
                 );
             // A `query_string` whose projection DECLINED still has to be
             // answered by the stored-doc scan — an over-cap `tokens × fields`
@@ -18547,11 +18690,21 @@ impl Index {
                             // document happens to sit in.  `None` keeps this
                             // segment's own stats (single-arm gate).
                             .with_collection_stats(collection_stats());
-                    let fts_query = query_node_to_fts_with_keyword_fields(
+                    // #892 — resolve the pinned kNN ids to THIS segment's
+                    // stored positions. `None` (no pinned tree, ghosts present,
+                    // or a segment whose id index is incomplete) leaves the
+                    // projection exactly as it was: it declines, and this
+                    // segment alone falls through to the stored-doc scan below.
+                    let pinned_positions = pinned_probe
+                        .and_then(|_| self.id_pos_map_for(seg_id.as_str(), meta.doc_count));
+                    let fts_query = query_node_to_fts_projected(
                         query,
                         &text_fields,
                         &exact_fields,
                         &kw_fields,
+                        pinned_positions
+                            .as_ref()
+                            .map(|map| PinnedIds::Positions(map)),
                     );
 
                     // Count-only fast path for single-term FTS queries:
@@ -18689,6 +18842,8 @@ impl Index {
                                 // way for count-only and size>0 so the fall-through
                                 // decision (and thus the count) agrees.
                                 fts_handled = true;
+                                #[cfg(test)]
+                                SEG_FTS_HANDLED.with(|c| c.set(c.get() + 1));
                                 // #361 — this segment's hits carry exact BM25.
                                 fts_scored_applied = true;
                                 // #361 — residual membership gate. This bool has a
@@ -19359,6 +19514,8 @@ impl Index {
                 // returns correct results (just slower).
                 let scan_stored = scan_stored || (needs_fts && !fts_handled);
                 if !fts_handled && scan_stored {
+                    #[cfg(test)]
+                    SEG_STORED_SCANS.with(|c| c.set(c.get() + 1));
                     // #361 — this segment's hits are scored by
                     // `score_query_against_doc` (no IDF, no length norm), so
                     // the page mixes score scales and the IDF rescore below
@@ -24129,6 +24286,11 @@ impl Index {
     /// gate's (and re-paid the 16-shard lock fan-out the capture exists to
     /// avoid).  The stats CONTENT still reads the live shards — exactly like
     /// the memtable search arm it feeds, which holds no snapshot either.
+    // One argument over clippy's default: `pinned` (#892) joins the field
+    // sets, the snapshot and the memtable count that this pre-pass already
+    // needs, and they are all borrowed from `search_inner`'s frame — bundling
+    // them into a struct would only move the same list one level out.
+    #[allow(clippy::too_many_arguments)]
     fn build_collection_stats(
         &self,
         snap: &xerj_storage::index_store::IndexSnapshot,
@@ -24137,6 +24299,10 @@ impl Index {
         exact_fields: &HashSet<String>,
         keyword_fields: &HashSet<String>,
         mem_doc_count: usize,
+        // #892: same projection the segment loop will run, so a pinned kNN
+        // hybrid resolves its lexical leaves here too instead of declining and
+        // silently reverting every segment to per-segment BM25 statistics.
+        pinned: Option<PinnedIds<'_>>,
     ) -> Option<xerj_fts::CollectionStats> {
         // Widest (field × term) pre-pass we will pay for.  A field-less
         // `query_string` over a wide mapping can project hundreds of leaves;
@@ -24146,12 +24312,8 @@ impl Index {
         // convention as `MAX_QS_CROSS_PRODUCT`).
         const MAX_STATS_PROBES: usize = 4096;
 
-        let fq = query_node_to_fts_with_keyword_fields(
-            query,
-            text_fields,
-            exact_fields,
-            keyword_fields,
-        )?;
+        let fq =
+            query_node_to_fts_projected(query, text_fields, exact_fields, keyword_fields, pinned)?;
         let mut fields: Vec<String> = Vec::new();
         collect_fts_query_fields(&fq, &mut fields);
         if fields.is_empty() {
@@ -25735,11 +25897,17 @@ impl Index {
     /// worker. Cache hits stay on the caller because they are only a DashMap
     /// lookup and `Arc` clone.
     ///
-    /// `spawn_blocking` tasks cannot be cancelled once started. A timed-out or
-    /// dropped request therefore leaves the load running to completion, which
-    /// is useful: it warms the immutable segment for the next request. The
-    /// segment-current check prevents such a detached completion from
-    /// resurrecting a cache entry that a concurrent merge already retired.
+    /// The decode runs on the engine's own rayon maintenance pool, never on
+    /// tokio's blocking pool: a search already parks a blocking-pool thread
+    /// inside `block_in_place` for its whole duration, so queueing this work
+    /// there is a circular wait (issue #751, and the rule stated on
+    /// `await_publication_barrier`).
+    ///
+    /// The submitted decode is never cancelled. A timed-out or dropped request
+    /// therefore leaves the load running to completion, which is useful: it
+    /// warms the immutable segment for the next request. The segment-current
+    /// check prevents such a detached completion from resurrecting a cache
+    /// entry that a concurrent merge already retired.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
@@ -25776,7 +25944,42 @@ impl Index {
                             loads.remove(&segment_id);
                             return;
                         };
-                        let blocking = tokio::task::spawn_blocking(move || {
+                        // #751 — the decode runs on the engine's own rayon
+                        // maintenance pool, NOT on tokio's blocking pool.
+                        //
+                        // `Index::search` wraps its whole body in
+                        // `block_in_place(|| Handle::current().block_on(..))`
+                        // on multi-thread runtimes (M5.21). `block_in_place`
+                        // hands the worker's core to a tokio BLOCKING-pool
+                        // thread — which then runs `worker::run` for the rest
+                        // of the runtime's life — and parks the calling thread,
+                        // itself a blocking-pool thread, for the whole search.
+                        // An aggregation with no columnar path assembles the
+                        // full corpus from inside that park, so a `spawn_blocking`
+                        // here would queue work on the very pool the waiter is
+                        // holding a thread of. tokio grows that pool only when
+                        // it observes zero idle threads at push time, so the
+                        // core hand-off and this submission can both see the
+                        // same idle thread, both merely `notify_one()`, and the
+                        // one woken thread takes the core and never comes back.
+                        // The decode is then queued behind threads that are all
+                        // permanently running worker cores: the search waits for
+                        // a task that can never be scheduled. Live-reproduced as
+                        // the CI hang in issue #751 (12-min step timeout, 12/60
+                        // runs on a 4-cpu mask) and pinned deterministically by
+                        // `tests/agg_corpus_hydration_deadlock.rs`.
+                        //
+                        // The maintenance pool's threads exist for the process
+                        // lifetime and are never consumed by tokio, so the wait
+                        // cannot be circular. It is the read-side twin of the
+                        // work already on this pool (flush side-car builds,
+                        // segment finalisation); the cost is that a cold
+                        // hydration a search is waiting on now runs at the
+                        // pool's `nice(10)`, which only bites when every core is
+                        // already saturated.
+                        let (decoded_tx, decoded_rx) =
+                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
+                        let decode = move || -> Option<Resident<Vec<Value>>> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -25837,8 +26040,21 @@ impl Index {
                                 }
                             };
                             Some(resident)
+                        };
+                        crate::background_pool().spawn(move || {
+                            // Preserve the pre-#751 failure semantics: a panic
+                            // in the decode used to surface as a `JoinError`
+                            // and leave the waiter with `None` (the caller then
+                            // reports the segment unreadable). rayon's default
+                            // is to abort the process instead, so catch it here.
+                            // Under `panic = "abort"` (the shipped profile) this
+                            // is a no-op, exactly as before.
+                            let decoded =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(decode))
+                                    .unwrap_or(None);
+                            let _ = decoded_tx.send(decoded);
                         });
-                        if let Ok(Some(value)) = blocking.await {
+                        if let Ok(Some(value)) = decoded_rx.await {
                             let _ = sender.send(Some(value));
                         }
                         drop(permit);
@@ -32769,6 +32985,82 @@ fn wal_shards_override_from_settings(settings: &Value) -> Option<usize> {
 /// prevent.
 const MAX_PER_INDEX_WAL_SHARDS: u64 = 256;
 
+/// A concurrent map that exists **once per index** (#873).
+///
+/// `DashMap::new()` sizes its shard array from the host core count —
+/// `(cores * 4).next_power_of_two()`, 128 shards on a 32-core box — and each
+/// shard is a `CachePadded<RwLock<HashMap>>`: 128 bytes on x86_64, written at
+/// construction, resident for the life of the index whether or not the map
+/// ever holds an entry. An `Index` builds 20 of these, so the default cost
+/// ~328 KiB of resident memory per open index on a 32-core host *before* its
+/// first document — measured (300 tiny indices, restarted, idle) as the
+/// dominant term of the #873 idle floor: 641 KB/index at 32 cores against
+/// 270 KB/index with the same build pinned to 4 cores.
+///
+/// [`per_index_map_shards`] caps that at 16 shards, and never raises it above
+/// what dashmap would have chosen. Per-index concurrency is bounded by the
+/// traffic on one index and these maps are read-dominated (hydration inserts
+/// are rare; readers share the shard lock), so the striping that is lost was
+/// not doing work.
+///
+/// [`per_index_map_shards`]: xerj_common::resource::per_index_map_shards
+fn per_index_map<K: Eq + std::hash::Hash, V>() -> dashmap::DashMap<K, V> {
+    dashmap::DashMap::with_shard_amount(xerj_common::resource::per_index_map_shards())
+}
+
+#[cfg(test)]
+mod per_index_map_tests {
+    use xerj_common::resource::{per_index_map_shards, MAX_PER_INDEX_MAP_SHARDS};
+
+    /// #873 - the maps an `Index` builds must be capped, not striped by the
+    /// host core count.
+    ///
+    /// `dashmap::DashMap::new()` allocates
+    /// `(cores * 4).next_power_of_two()` shards, each a
+    /// `CachePadded<RwLock<HashMap>>` written at construction: 128 shards x
+    /// 128 B = 16 KiB per map on a 32-core host, and an `Index` builds 20 of
+    /// them. Measured end to end (300 tiny indices, restart, idle) that was
+    /// the largest term of the #873 floor.
+    ///
+    /// The strict-inequality arm is guarded on the host actually being wide
+    /// enough for the cap to bite, so this cannot report a false green on a
+    /// 2-core runner - the class of blind spot that has produced green CI over
+    /// real breakage in this repo before.
+    #[test]
+    fn a_per_index_cache_is_capped_not_striped_by_host_cores() {
+        let capped: dashmap::DashMap<String, u32> = super::per_index_map();
+        let dashmap_default: dashmap::DashMap<String, u32> = dashmap::DashMap::new();
+
+        assert_eq!(
+            capped.shards().len(),
+            per_index_map_shards(),
+            "the Index constructor helper must use the capped shard count"
+        );
+        assert!(
+            capped.shards().len() <= MAX_PER_INDEX_MAP_SHARDS,
+            "a per-index map must never exceed the cap"
+        );
+        assert!(
+            capped.shards().len() <= dashmap_default.shards().len(),
+            "and must never stripe wider than the default it replaced"
+        );
+        if dashmap_default.shards().len() > MAX_PER_INDEX_MAP_SHARDS {
+            assert!(
+                capped.shards().len() < dashmap_default.shards().len(),
+                "on a host wide enough for the cap to bite it must actually bite: \
+                 capped={} default={}",
+                capped.shards().len(),
+                dashmap_default.shards().len()
+            );
+        }
+
+        // Still a working map.
+        capped.insert("k".to_string(), 7);
+        assert_eq!(*capped.get("k").unwrap(), 7);
+        assert_eq!(capped.len(), 1);
+    }
+}
+
 fn store_config_from(config: &Config, wal_shards_override: Option<usize>) -> IndexStoreConfig {
     let sync_mode = match config.storage.wal_sync {
         xerj_common::config::WalSync::Sync => SyncMode::Strict,
@@ -35146,8 +35438,8 @@ fn lower_lexically_typeless_clauses(
             // THIS `retain` IS THE ONE WIRE-VISIBLE SCORE CHANGE in the pass.
             // It does not move a hit COUNT — `doc_matches_query` never counts a
             // `MatchNone` as a satisfied `should` — but the shrunken bool is
-            // projectable through `query_node_to_fts_with_keyword_fields` where
-            // the original was not, so BM25 scores it instead of
+            // projectable through `query_node_to_fts_projected` where the
+            // original was not, so BM25 scores it instead of
             // `score_query_against_doc`. On the 300-doc fixture
             // `bool{should:[term emb, term cat:"even"]}` keeps its 150 hits and
             // goes `_score` 0.008402659 → 0.6931471 (exactly what
@@ -35190,8 +35482,8 @@ fn lower_lexically_typeless_clauses(
         // ("bubble up MatchNoDocsQuery") and `BoostQuery.java:87`. It is exact
         // — neither wrapper can make a non-matching inner query match — and it
         // matters here because `Constant` is the ONLY wrapper with an arm in
-        // `query_node_to_fts_with_keyword_fields`: left as
-        // `Constant{MatchNone}` it projects to `None`, and `Constant` is in
+        // `query_node_to_fts_projected`: left as `Constant{MatchNone}` it
+        // projects to `None`, and `Constant` is in
         // `is_doc_scan_query`, so `{"constant_score":{"filter":{"term":
         // {"emb":…}}}}` would trade an inverted-index lookup for a full
         // stored-doc scan.
@@ -35332,8 +35624,8 @@ fn lower_lexically_typeless_clauses(
 /// is what decides whether the query then runs on the inverted index or on the
 /// stored-doc scan. The distinction is not cosmetic: `Bool{must_not:[MatchNone]}`
 /// and `Bool{}` give the same hits, but only the second projects through
-/// `query_node_to_fts_with_keyword_fields` — the first `?`s out on its
-/// `must_not` child and falls to a full corpus walk.
+/// `query_node_to_fts_projected` — the first `?`s out on its `must_not`
+/// child and falls to a full corpus walk.
 #[cfg(test)]
 mod lexically_typeless_lowering_tests {
     use super::*;
@@ -35789,8 +36081,8 @@ mod lexically_typeless_lowering_tests {
     // ── Wrappers ─────────────────────────────────────────────────────────
 
     /// `Constant` is the only wrapper with an arm in
-    /// `query_node_to_fts_with_keyword_fields`, so it is the only one where
-    /// failing to bubble up costs an inverted-index lookup.
+    /// `query_node_to_fts_projected`, so it is the only one where failing to
+    /// bubble up costs an inverted-index lookup.
     #[test]
     fn constant_score_and_boost_bubble_up_match_none() {
         assert!(lower(&QueryNode::Constant {
@@ -35928,8 +36220,8 @@ fn rewrite_keyword_full_text_to_term(q: &QueryNode, schema: &Schema) -> QueryNod
                 // keyword `Term`(s) and the text `multi_match` combine by MAX
                 // (+ tie_breaker 0.0), not the SUM a `Bool.should` gives. This
                 // mirrors the all-text per-field combination in
-                // `query_node_to_fts_with_keyword_fields`, so a doc matching
-                // both halves scores `max(keyword, text)` as ES does, not the
+                // `query_node_to_fts_projected`, so a doc matching both
+                // halves scores `max(keyword, text)` as ES does, not the
                 // sum. `most_fields` stays a `should` (ES sums it), and
                 // `cross_fields`/phrase variants are a separate concern (#572).
                 QueryNode::DisMax {
@@ -43525,6 +43817,10 @@ fn collect_fts_query_fields(q: &FtsQuery, out: &mut Vec<String>) {
                 collect_fts_query_fields(sub, out);
             }
         }
+        // #892: caller-supplied `(doc_id, score)` pairs — no field, so
+        // nothing to add and nothing for the "segment has FTS data for every
+        // queried field" gate to check.
+        FtsQuery::DocScores(_) => {}
         FtsQuery::MatchAll => {}
     }
 }
@@ -43560,7 +43856,13 @@ fn collect_fts_query_terms(q: &FtsQuery, out: &mut Vec<(String, String)>) {
                 push(&p.field, term, out);
             }
         }
-        FtsQuery::Prefix(_) | FtsQuery::Wildcard(_) | FtsQuery::Fuzzy(_) | FtsQuery::MatchAll => {}
+        // #892 `DocScores`: no term, and no `doc_freq` to unify — its
+        // scores are the vector leg's, already final.
+        FtsQuery::Prefix(_)
+        | FtsQuery::Wildcard(_)
+        | FtsQuery::Fuzzy(_)
+        | FtsQuery::MatchAll
+        | FtsQuery::DocScores(_) => {}
         FtsQuery::Bool(b) => {
             // `filter` is non-scoring, so its df never reaches a `_score`;
             // it is collected anyway because the clause is still EXECUTED
@@ -43712,15 +44014,131 @@ fn query_node_to_fts(
     // The projection tests below pass the exact-field set as their keyword
     // subset. The search path uses the schema-aware helper so IP/date/numeric
     // terms retain their source/DV semantics.
-    query_node_to_fts_with_keyword_fields(q, text_fields, exact_fields, exact_fields)
+    query_node_to_fts_projected(q, text_fields, exact_fields, exact_fields, None)
 }
 
-fn query_node_to_fts_with_keyword_fields(
+/// #892: how the projection may resolve a #825-pinned kNN disjunct.
+///
+/// The pinned sub-tree `pin_knn_clause` splices in names documents by `_id`,
+/// and `_id` is not in the FTS term dictionary — so without this the whole
+/// projection `?`-aborts and the request falls to a stored-document scan of
+/// every segment. Resolving the ids to the segment's stored positions turns
+/// the disjunct into an ordinary FTS leaf ([`FtsQuery::DocScores`]).
+///
+/// `Copy` and `Sync`, so it can be held across the `await`s in `search_inner`
+/// without making that future non-`Send`.
+#[derive(Clone, Copy)]
+enum PinnedIds<'a> {
+    /// Shape probe: no segment in hand, so no id resolves. The projection
+    /// still SUCCEEDS, with an empty leaf — which is what the callers that
+    /// only ask "does this project at all?" (the needs-FTS probe, the
+    /// index-wide BM25 statistics pre-pass) need to hear.
+    Probe,
+    /// One segment's `_id` → stored-position map (`id_pos_map_for`), the same
+    /// index `ids` queries and `_mget` resolve through.
+    Positions(&'a std::collections::HashMap<String, u32>),
+}
+
+impl PinnedIds<'_> {
+    fn position(&self, id: &str) -> Option<u32> {
+        match self {
+            PinnedIds::Probe => None,
+            PinnedIds::Positions(map) => map.get(id).copied(),
+        }
+    }
+}
+
+/// #892: recognise EXACTLY the sub-tree `pin_knn_clause` emits — a
+/// disjunction of `Constant{score, Ids{…}}` clauses, optionally gated by its
+/// redundant `filter: [Ids{union}]` accelerator — and return the
+/// `(id, score)` pairs it pins.
+///
+/// Deliberately narrow. It is a *shape* match, not an identity check, so a
+/// hand-written query of the same shape would also be recognised; that is
+/// sound (the answer is the same set of documents with the same constant
+/// scores) but the search path only ever offers it a tree it pinned itself.
+///
+/// Declines when:
+///   * the bool carries `must`/`must_not`, a `minimum_should_match` other
+///     than the implicit/explicit 1, or a `filter` that is not a single
+///     `Ids` — anything that is not the emitted shape;
+///   * a `should` child is not `Constant{Ids}`;
+///   * an id is pinned twice. `pin_knn_clause` never does that (the leg
+///     returns distinct ids), and a duplicate would be counted twice by the
+///     FTS bool's `should` tally.
+///
+/// The `filter` is an intersection, so ids outside it are dropped — which is
+/// exactly what the doc-scan does with the same tree.
+fn pinned_constant_ids_pairs(q: &QueryNode) -> Option<Vec<(&str, f32)>> {
+    let QueryNode::Bool {
+        must,
+        should,
+        filter,
+        must_not,
+        minimum_should_match,
+    } = q
+    else {
+        return None;
+    };
+    if !must.is_empty() || !must_not.is_empty() || should.is_empty() {
+        return None;
+    }
+    match minimum_should_match {
+        None => {}
+        Some(MinShouldMatch::Fixed(1)) => {}
+        Some(_) => return None,
+    }
+    let gate: Option<std::collections::HashSet<&str>> = match filter.as_slice() {
+        [] => None,
+        [QueryNode::Ids { values }] => Some(values.iter().map(String::as_str).collect()),
+        _ => return None,
+    };
+    let mut out: Vec<(&str, f32)> = Vec::with_capacity(should.len());
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for clause in should {
+        let QueryNode::Constant { score, query } = clause else {
+            return None;
+        };
+        let QueryNode::Ids { values } = query.as_ref() else {
+            return None;
+        };
+        for id in values {
+            if !seen.insert(id.as_str()) {
+                return None;
+            }
+            if gate.as_ref().is_none_or(|g| g.contains(id.as_str())) {
+                out.push((id.as_str(), *score));
+            }
+        }
+    }
+    Some(out)
+}
+
+/// The projection proper. `pinned` is `None` everywhere except the #825
+/// kNN-beside-`query` route (#892), where it lets the pinned disjunct become
+/// an FTS leaf instead of aborting the projection.
+fn query_node_to_fts_projected(
     q: &QueryNode,
     text_fields: &[String],
     exact_fields: &std::collections::HashSet<String>,
     keyword_fields: &std::collections::HashSet<String>,
+    pinned: Option<PinnedIds<'_>>,
 ) -> Option<FtsQuery> {
+    // #892: the pinned kNN disjunct, resolved to this segment's positions.
+    // Checked before the `match` because the sub-tree IS a `Bool` and would
+    // otherwise be walked clause by clause — where `Ids` projects to `None`
+    // and takes the whole request with it.
+    if let Some(pinned) = pinned {
+        if let Some(pairs) = pinned_constant_ids_pairs(q) {
+            let docs: Vec<(u32, f32)> = pairs
+                .into_iter()
+                .filter_map(|(id, score)| pinned.position(id).map(|pos| (pos, score)))
+                .collect();
+            return Some(FtsQuery::DocScores(xerj_fts::search::DocScoresQuery::new(
+                docs,
+            )));
+        }
+    }
     match q {
         QueryNode::MatchAll => {
             // Return None; MatchAll is handled separately by reading stored docs.
@@ -43733,7 +44151,7 @@ fn query_node_to_fts_with_keyword_fields(
         // keyword-schema shape is served bit-exactly by `scored_columnar`
         // before this projection is ever consulted).
         QueryNode::Constant { query, .. } => {
-            query_node_to_fts_with_keyword_fields(query, text_fields, exact_fields, keyword_fields)
+            query_node_to_fts_projected(query, text_fields, exact_fields, keyword_fields, pinned)
         }
         QueryNode::Match {
             field,
@@ -44073,11 +44491,12 @@ fn query_node_to_fts_with_keyword_fields(
             let children: Vec<FtsQuery> = queries
                 .iter()
                 .filter_map(|c| {
-                    query_node_to_fts_with_keyword_fields(
+                    query_node_to_fts_projected(
                         c,
                         text_fields,
                         exact_fields,
                         keyword_fields,
+                        pinned,
                     )
                 })
                 .collect();
@@ -44160,11 +44579,12 @@ fn query_node_to_fts_with_keyword_fields(
             // None in that case so the caller falls back to stored-scan,
             // which handles all child shapes correctly.
             for sub in must {
-                let fq = query_node_to_fts_with_keyword_fields(
+                let fq = query_node_to_fts_projected(
                     sub,
                     text_fields,
                     exact_fields,
                     keyword_fields,
+                    pinned,
                 )?;
                 bool_q = bool_q.must(fq);
                 projected_positive = true;
@@ -44191,11 +44611,12 @@ fn query_node_to_fts_with_keyword_fields(
                 // `residual_gate` pass in `search` (a `doc_matches_query` sweep
                 // over the original query; the shape is detected up-front by
                 // `bool_has_nonprojectable_nonscoring`).
-                if let Some(fq) = query_node_to_fts_with_keyword_fields(
+                if let Some(fq) = query_node_to_fts_projected(
                     sub,
                     text_fields,
                     exact_fields,
                     keyword_fields,
+                    pinned,
                 ) {
                     bool_q = bool_q.filter(fq);
                     projected_positive = true;
@@ -44207,11 +44628,12 @@ fn query_node_to_fts_with_keyword_fields(
                 // dropped — dropping it makes the bool LESS permissive and
                 // loses docs that match only via that clause. Fall back to
                 // the stored-doc scan, which handles every child shape.
-                let fq = query_node_to_fts_with_keyword_fields(
+                let fq = query_node_to_fts_projected(
                     sub,
                     text_fields,
                     exact_fields,
                     keyword_fields,
+                    pinned,
                 )?;
                 bool_q = bool_q.should(fq);
                 projected_positive = true;
@@ -44223,11 +44645,12 @@ fn query_node_to_fts_with_keyword_fields(
                 // non-scoring residual — skip it (don't `?`-abort); the
                 // `residual_gate` pass in `search` re-excludes it via
                 // `doc_matches_query` over the original query.
-                if let Some(fq) = query_node_to_fts_with_keyword_fields(
+                if let Some(fq) = query_node_to_fts_projected(
                     sub,
                     text_fields,
                     exact_fields,
                     keyword_fields,
+                    pinned,
                 ) {
                     bool_q = bool_q.must_not(fq);
                 }
@@ -44607,8 +45030,8 @@ fn query_node_to_fts_with_keyword_fields(
 /// projected to FTS (e.g. `exists`, non-numeric `range`, `script`)?
 ///
 /// Such a non-scoring child is skipped from the FTS bool by the projection
-/// (`query_node_to_fts_with_keyword_fields`) so the scoring subtree keeps exact
-/// BM25 — but it is then absent from the FTS match set, so membership must be
+/// (`query_node_to_fts_projected`) so the scoring subtree keeps exact BM25 —
+/// but it is then absent from the FTS match set, so membership must be
 /// re-applied by a `doc_matches_query` gate over the original query, and the
 /// count/materialisation fast path (which assumes the FTS bool IS the exact
 /// match set) must be switched off for the segment.
@@ -44617,7 +45040,17 @@ fn bool_has_nonprojectable_nonscoring(
     text_fields: &[String],
     exact_fields: &std::collections::HashSet<String>,
     keyword_fields: &std::collections::HashSet<String>,
+    pinned: Option<PinnedIds<'_>>,
 ) -> bool {
+    // #892: the #825 pinned sub-tree projects WHOLE (to a `DocScores` leaf),
+    // so its internal `filter: [Ids{…}]` accelerator is never consulted by the
+    // projection and must not arm the residual gate here. Without this the
+    // gate fires on every pinned hybrid, forcing `fts_cap = usize::MAX` plus an
+    // O(matches) `doc_matches_query` sweep — the scan this fix removes, one
+    // layer down.
+    if pinned.is_some() && pinned_constant_ids_pairs(q).is_some() {
+        return false;
+    }
     match q {
         QueryNode::Bool {
             must,
@@ -44627,11 +45060,12 @@ fn bool_has_nonprojectable_nonscoring(
             ..
         } => {
             for sub in filter.iter().chain(must_not.iter()) {
-                if query_node_to_fts_with_keyword_fields(
+                if query_node_to_fts_projected(
                     sub,
                     text_fields,
                     exact_fields,
                     keyword_fields,
+                    pinned,
                 )
                 .is_none()
                 {
@@ -44643,12 +45077,22 @@ fn bool_has_nonprojectable_nonscoring(
                 .chain(filter.iter())
                 .chain(must_not.iter())
                 .any(|c| {
-                    bool_has_nonprojectable_nonscoring(c, text_fields, exact_fields, keyword_fields)
+                    bool_has_nonprojectable_nonscoring(
+                        c,
+                        text_fields,
+                        exact_fields,
+                        keyword_fields,
+                        pinned,
+                    )
                 })
         }
-        QueryNode::Constant { query, .. } => {
-            bool_has_nonprojectable_nonscoring(query, text_fields, exact_fields, keyword_fields)
-        }
+        QueryNode::Constant { query, .. } => bool_has_nonprojectable_nonscoring(
+            query,
+            text_fields,
+            exact_fields,
+            keyword_fields,
+            pinned,
+        ),
         _ => false,
     }
 }
@@ -50573,6 +51017,15 @@ thread_local! {
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+    /// #892 fail-before instrument: how many segments the search answered
+    /// from the inverted index (`fts_handled`) and how many it answered by
+    /// parsing their stored section. Which route a request took is invisible
+    /// from the response — the hits, the total and the ordering contract are
+    /// the same either way — so this is what a test can assert on.
+    pub(crate) static SEG_FTS_HANDLED: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
+    pub(crate) static SEG_STORED_SCANS: std::cell::Cell<usize> =
+        const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -50634,6 +51087,248 @@ mod residual_gate_trim_577_tests {
         assert!(
             peak <= 513,
             "residual survivors must stay O(page cap), not O(matches): peak={peak} (N={N})"
+        );
+    }
+}
+
+#[cfg(test)]
+mod pinned_knn_fts_892_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #892: a `knn` clause beside a `query` must be answered from the
+    /// INVERTED INDEX, not by parsing every stored document of every segment.
+    ///
+    /// #825/#879 made this shape CORRECT by pre-executing the vector leg and
+    /// splicing its top-k back in as `Constant{score, Ids{[id]}}` pinned
+    /// clauses. `Ids` has no FTS projection — `_id` is not a term — so the
+    /// projection's `should` loop `?`-aborted, `fts_query` came back `None`,
+    /// and every segment fell to `scan_stored_section_into`.
+    ///
+    /// That route is not merely slow, and this test asserts the part that is
+    /// USER-VISIBLE. The stored scan admits documents in STORED-LAYOUT order
+    /// and, once `all_hits` reaches `materialisation_limit`, materialises
+    /// nothing further — it `continue`s to keep counting, with no score
+    /// comparison (see the cap in `scan_stored_section_into`). So on a corpus
+    /// with more lexical matches than the page cap, the documents reached by
+    /// BOTH halves — the ones the #825 contract scores `query_score +
+    /// knn_score` and puts at the top — never enter the page at all if they
+    /// sit late in the segment. `hits.total` stays exact; the page is wrong.
+    ///
+    /// FAIL-BEFORE (watched): with `pinned_probe` forced to `None` in
+    /// `search_inner` — the pre-#892 behaviour — the page is 10 lexical-only
+    /// documents and the assertion below reports the both-halves documents
+    /// missing. `hits.total` is 407 either way.
+    #[tokio::test]
+    async fn pinned_knn_hybrid_is_answered_from_the_inverted_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        let mut vector = FieldConfig::new("v", FieldType::Vector);
+        vector.options.dimensions = Some(2);
+        schema.add_field(vector).unwrap();
+        engine.create_index("hy892", schema).unwrap();
+        let idx = engine.get_index("hy892").unwrap();
+
+        // 1200 documents. Every third carries the lexical probe term with
+        // IDENTICAL text (same tf, same field length → identical BM25), so
+        // 400 lexical matches — comfortably more than the page cap, which is
+        // what makes the stored scan's layout-ordered admission observable.
+        // Vectors fan from [0,1] to [1,0], so the query vector [1,0] puts the
+        // LAST ten (d1190..d1199) in the k=10 neighbourhood; three of those
+        // are also lexical matches (1191, 1194, 1197) and must lead the page
+        // in vector order, 1197 first.
+        const N: usize = 1200;
+        for i in 0..N {
+            let body = if i % 3 == 0 {
+                "alpha filler"
+            } else {
+                "beta filler"
+            };
+            let t = i as f32 / N as f32;
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({ "body": body, "v": [t, 1.0 - t] }),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+
+        SEG_FTS_HANDLED.with(|c| c.set(0));
+        SEG_STORED_SCANS.with(|c| c.set(0));
+        let req = xerj_query::parse_request(&json!({
+            "size": 10,
+            "track_total_hits": true,
+            "query": {"bool": {"should": [
+                {"match": {"body": "alpha"}},
+                {"knn": {"field": "v", "query_vector": [1.0, 0.0], "k": 10,
+                         "num_candidates": 100}}
+            ]}}
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+
+        // The union: 400 lexical matches ∪ 10 neighbours, overlapping in
+        // three documents. Exact on BOTH routes — the page is what differs.
+        assert_eq!(
+            res.total.value, 407,
+            "hits.total must be the UNION of the lexical half (400) and the \
+             vector top-10, which share d1191/d1194/d1197: got {:?}",
+            res.total
+        );
+
+        let page: Vec<(&str, f32)> = res.hits.iter().map(|h| (h.id.as_str(), h.score)).collect();
+        let ids: Vec<&str> = page.iter().map(|(id, _)| *id).collect();
+        assert_eq!(
+            &ids[..3],
+            &["d1197", "d1194", "d1191"],
+            "#825/#892: the documents reached by BOTH halves score \
+             `query_score + knn_score` and must lead the page, ordered by \
+             their vector scores — the stored-doc scan drops them because it \
+             admits in layout order and stops materialising at the page cap: \
+             page={page:?}"
+        );
+        assert!(
+            page[2].1 > page[3].1,
+            "the last both-halves document must still outrank the best \
+             lexical-only one: {page:?}"
+        );
+
+        // And it came from the index, on every segment.
+        let fts = SEG_FTS_HANDLED.with(|c| c.get());
+        let scans = SEG_STORED_SCANS.with(|c| c.get());
+        assert!(
+            fts > 0 && scans == 0,
+            "the pinned kNN hybrid must be served by the FTS path on every \
+             segment: fts={fts} stored_scans={scans}"
+        );
+    }
+
+    /// The projection arm in isolation: `pin_knn_clause`'s output lifts to a
+    /// `DocScores` leaf carrying the resolved positions and the pinned
+    /// scores, and the ids the segment does not hold are simply absent.
+    #[test]
+    fn pinned_sub_tree_projects_to_a_doc_scores_leaf() {
+        let pinned = QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![
+                QueryNode::Constant {
+                    score: 0.75,
+                    query: Box::new(QueryNode::Ids {
+                        values: vec!["a".into()],
+                    }),
+                },
+                QueryNode::Constant {
+                    score: 0.25,
+                    query: Box::new(QueryNode::Ids {
+                        values: vec!["elsewhere".into()],
+                    }),
+                },
+            ],
+            filter: vec![QueryNode::Ids {
+                values: vec!["a".into(), "elsewhere".into()],
+            }],
+            must_not: Vec::new(),
+            minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+        };
+        let text_fields: Vec<String> = vec!["body".into()];
+        let empty: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // Without a resolver the projection declines exactly as it did before
+        // #892 — `Ids` is not a term.
+        assert!(
+            query_node_to_fts_projected(&pinned, &text_fields, &empty, &empty, None).is_none(),
+            "no resolver ⇒ the pinned sub-tree must still decline"
+        );
+
+        let mut positions: std::collections::HashMap<String, u32> =
+            std::collections::HashMap::new();
+        positions.insert("a".into(), 7);
+        let projected = query_node_to_fts_projected(
+            &pinned,
+            &text_fields,
+            &empty,
+            &empty,
+            Some(PinnedIds::Positions(&positions)),
+        )
+        .expect("a resolvable pinned sub-tree must project");
+        match projected {
+            FtsQuery::DocScores(ds) => assert_eq!(
+                ds.docs,
+                vec![(7u32, 0.75f32)],
+                "only the id this segment holds, at its stored position, with \
+                 the vector leg's score"
+            ),
+            other => panic!("expected a DocScores leaf, got {other:?}"),
+        }
+    }
+
+    /// Guard rails on the shape match: anything that is not what
+    /// `pin_knn_clause` emits must NOT be lifted, because the arm skips the
+    /// clause-by-clause walk that would otherwise check it.
+    #[test]
+    fn only_the_pinned_shape_is_lifted() {
+        let ids = |v: &str| QueryNode::Ids {
+            values: vec![v.into()],
+        };
+        let pinned_child = |v: &str| QueryNode::Constant {
+            score: 1.0,
+            query: Box::new(ids(v)),
+        };
+        // A `must` alongside the pinned disjuncts is not the emitted shape.
+        assert!(pinned_constant_ids_pairs(&QueryNode::Bool {
+            must: vec![ids("a")],
+            should: vec![pinned_child("a")],
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            minimum_should_match: None,
+        })
+        .is_none());
+        // A `minimum_should_match` other than 1 changes the match set.
+        assert!(pinned_constant_ids_pairs(&QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![pinned_child("a"), pinned_child("b")],
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            minimum_should_match: Some(MinShouldMatch::Fixed(2)),
+        })
+        .is_none());
+        // A duplicate id would be tallied twice by the FTS `should` counter.
+        assert!(pinned_constant_ids_pairs(&QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![pinned_child("a"), pinned_child("a")],
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            minimum_should_match: None,
+        })
+        .is_none());
+        // A non-`Constant` disjunct is an ordinary scoring clause.
+        assert!(pinned_constant_ids_pairs(&QueryNode::Bool {
+            must: Vec::new(),
+            should: vec![ids("a")],
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            minimum_should_match: None,
+        })
+        .is_none());
+        // The emitted shape itself IS lifted.
+        assert_eq!(
+            pinned_constant_ids_pairs(&QueryNode::Bool {
+                must: Vec::new(),
+                should: vec![pinned_child("a"), pinned_child("b")],
+                filter: vec![QueryNode::Ids {
+                    values: vec!["a".into(), "b".into()]
+                }],
+                must_not: Vec::new(),
+                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+            }),
+            Some(vec![("a", 1.0f32), ("b", 1.0f32)])
         );
     }
 }

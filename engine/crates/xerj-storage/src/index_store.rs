@@ -729,7 +729,11 @@ impl IndexStore {
             seq_counter,
             memtable_shards,
             memtable_bytes: AtomicU64::new(0),
-            seg_reader_cache: dashmap::DashMap::new(),
+            // #873 — per-index map: capped shard array, see
+            // `xerj_common::resource::per_index_map_shards`.
+            seg_reader_cache: dashmap::DashMap::with_shard_amount(
+                xerj_common::resource::per_index_map_shards(),
+            ),
             last_wal_maintenance_ms: AtomicU64::new(0),
             read_leases: std::sync::atomic::AtomicUsize::new(0),
             retired_segments: Mutex::new(Vec::new()),
@@ -2886,6 +2890,25 @@ impl IndexStore {
             .collect()
     }
 
+    /// Number of WAL shards this store opened — the routing modulus for both
+    /// the WAL and the storage memtable.
+    pub fn wal_shard_count(&self) -> usize {
+        self.wal_shards.len()
+    }
+
+    /// How many of this store's WAL shards currently hold an open file
+    /// descriptor and a `WAL_BUF_CAP` userspace write buffer (#873).
+    ///
+    /// Instrumentation for the property the laziness exists to provide, so it
+    /// can be asserted rather than argued: a store that has not been written
+    /// to since its last flush must report `0`, whatever its shard count.
+    pub fn materialized_wal_shards(&self) -> usize {
+        self.wal_shards
+            .iter()
+            .filter(|s| s.lock().unwrap().is_materialized())
+            .count()
+    }
+
     /// Unconditionally run verified WAL maintenance across all shards.
     /// Bypasses the `WAL_MAINTENANCE_INTERVAL_MS` gate that
     /// `finalize_flush_with_publisher` uses on the hot flush path.
@@ -4327,15 +4350,30 @@ impl IndexStore {
 mod tests {
     use super::*;
 
-    /// Structural bound: 16 empty indices × 8 WAL shards each must retain
-    /// exactly `128 × 64 KiB` of userspace buffer capacity — not the old
-    /// `128 × 8 MiB` reservation.  Asserts `buffer_capacity()` (deterministic)
-    /// rather than process RSS.
+    /// Structural bound: idle WAL shards retain NO userspace buffer at all,
+    /// and a written store retains one buffer per shard it actually wrote to
+    /// (#873).
+    ///
+    /// The previous version of this test pinned the bound at
+    /// `16 indices × 8 shards × 64 KiB` — 8 MiB of buffers held by 16 indices
+    /// holding nothing, which is the cost the #873 field reports were paying
+    /// (`(cpus/2).next_power_of_two()` shards per index × every open index).
+    /// Buffers are now materialized by the first append to a shard and handed
+    /// back by the flush-time `force_rotate`, so the idle total is zero and
+    /// the old ceiling survives only as the *materialized* bound.  Asserts
+    /// `buffer_capacity()` (deterministic) rather than process RSS.
     #[test]
     fn empty_multi_index_wal_buffers_have_a_bounded_total_capacity() {
         let root = tempfile::tempdir().unwrap();
         let mut stores = Vec::new();
-        let mut total_capacity = 0usize;
+
+        let total_capacity = |stores: &Vec<Arc<IndexStore>>| -> usize {
+            stores
+                .iter()
+                .flat_map(|s| s.wal_shards.iter())
+                .map(|writer| writer.lock().unwrap().buffer_capacity())
+                .sum()
+        };
 
         for index in 0..16 {
             let store = IndexStore::open(
@@ -4349,19 +4387,46 @@ mod tests {
             )
             .unwrap();
             assert_eq!(store.wal_shards.len(), 8);
-            total_capacity += store
-                .wal_shards
-                .iter()
-                .map(|writer| writer.lock().unwrap().buffer_capacity())
-                .sum::<usize>();
+            assert_eq!(
+                store.materialized_wal_shards(),
+                0,
+                "an index that has not been written to must hold no WAL \
+                 descriptors"
+            );
             stores.push(store);
         }
 
         assert_eq!(stores.len(), 16);
-        assert_eq!(total_capacity, 16 * 8 * 64 * 1024);
+        assert_eq!(
+            total_capacity(&stores),
+            0,
+            "128 idle WAL shards must retain no buffers at all"
+        );
+
+        // One batch per store. A batch routes to exactly ONE shard, so each
+        // store materializes exactly one of its eight.
+        for store in &stores {
+            let validated = IndexStore::validate_raw_batch(vec![(
+                "d1".to_owned(),
+                Arc::<[u8]>::from(br#"{"m":"tiny"}"#.as_slice()),
+            )])
+            .unwrap();
+            store.wal_append_batch_raw(&validated).unwrap();
+            assert_eq!(
+                store.materialized_wal_shards(),
+                1,
+                "a write must materialize the shard it routed to, and only it"
+            );
+        }
+        assert_eq!(
+            total_capacity(&stores),
+            16 * 64 * 1024,
+            "a written shard holds exactly one WAL_BUF_CAP buffer"
+        );
         assert!(
-            total_capacity <= 8 * 1024 * 1024,
-            "128 idle WAL shards retained {total_capacity} bytes of buffers"
+            total_capacity(&stores) <= 8 * 1024 * 1024,
+            "128 WAL shards retained {} bytes of buffers",
+            total_capacity(&stores)
         );
     }
 
