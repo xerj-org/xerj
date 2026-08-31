@@ -115,9 +115,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents ~15 docs/s is the cost of CPU transformer inference, and moving it
   needs quantization, a GPU provider or a smaller model. What was genuinely
   broken was mixed-length work, which is what pointing `autoindex` at a real
-  folder produces. Binary-protocol `_bulk` still embeds one document per
-  inference call (`xerj-api/src/binary_protocol.rs`); the HTTP path this
-  release measures does not.
+  folder produces. Binary-protocol `_bulk` embedded one document per inference
+  call when this was written (`xerj-api/src/binary_protocol.rs`); that half is
+  the entry below.
+
+- **Binary-protocol `_bulk` shares one embedding pass across the batch instead
+  of one inference call per document**
+  ([#903](https://github.com/xerj-org/xerj/issues/903), split out of #366).
+  `handle_bulk` looped `index_document` per document, and `index_document`
+  embeds its own `semantic_text` fields — so a 64-document bulk cost 64
+  inference calls of one passage each. It now collects the batch and hands it
+  to `Index::index_documents_batched`, which routes it through the same
+  `apply_semantic_embeddings_batch` entry the HTTP `_bulk` path uses: passages
+  are windowed at `embedding.onnx_scheduling_window` (default 64) across
+  documents, publication stays per document, and one document's failure still
+  fails only that document. There is no second batching rule.
+
+  Measured end to end over a real TCP connection through the handler with the
+  harness added here (`cargo run --release -p xerj-api --features neural
+  --example binary_bulk_throughput -- <documents> <per-bulk>`), on this repo's
+  32-core x86_64 box with `--embed-mode neural` (built-in Candle backend,
+  `sentence-transformers/all-MiniLM-L6-v2`). Corpus: 1 000 lines of
+  `apache/lucene`'s `lucene/CHANGES.txt`, 40–400 bytes each so every document
+  is exactly one passage. Medians of interleaved runs; the box was shared with
+  other builds, so the spread is wide and the medians are quoted, not the best
+  runs:
+
+  | documents per bulk | before | after |
+  |---|---|---|
+  | 16 (n=3) | 60.7 docs/s | 82.6 docs/s |
+  | 64 (n=5) | 64.0 docs/s | 102.7 docs/s |
+  | 256 (n=3) | 84.3 docs/s | 124.9 docs/s |
+
+  **Bounds, stated plainly.** The win is a short-document win. A document long
+  enough to fill a scheduling window on its own already got its own inference
+  call: `semantic_embedding_window_end` admits a whole document even past the
+  window (`index.rs`), so before and after are the same call for it. On the
+  default lexical feature-hashing embedder there is no inference to batch and
+  no change was measured — 872 → 865 docs/s (medians of n=7 interleaved,
+  ranges fully overlapping). And the module this fixes is a library entry
+  point: `serve_binary_protocol` is not bound by any listener in `xerj-server`
+  (`xerj-engine/src/index_guard.rs` says so, and nothing in the tree calls
+  it), so no shipped-server ingest path changes speed with this release.
 
 ### Fixed
 
