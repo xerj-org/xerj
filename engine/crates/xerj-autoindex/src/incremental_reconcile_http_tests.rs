@@ -32,12 +32,23 @@ struct HttpState {
     embedding_identity_sha256: String,
     saw_dataset_mapping_update: bool,
     saw_catalog_mapping_update: bool,
-    /// Opt-in (#755/#760): make the catalog `_mapping` PUT fail with the exact
-    /// `field [X] already exists as [text]` conflict an older-build catalog
-    /// produces, so a test can prove the run surfaces the ENRICHED error rather
-    /// than the opaque mapper_parsing_exception. Off by default — every other
-    /// test's faithful-accept behaviour is unchanged.
-    catalog_mapping_conflict: bool,
+    /// Opt-in (#755/#760): the fields this catalog already holds as `text`,
+    /// standing in for an older-build (v1.0.0-rc.15..rc.67) catalog. A catalog
+    /// `_mapping` PUT that still declares one of them fails with the exact
+    /// `field [X] already exists as [text]` conflict a real engine produces;
+    /// a PUT that no longer declares any of them is acknowledged, exactly like
+    /// the engine. Empty by default — every other test's faithful-accept
+    /// behaviour is unchanged.
+    legacy_text_catalog_fields: Vec<String>,
+    /// Opt-in (#755): fail the catalog `_mapping` PUT with a 503 instead. Not a
+    /// type conflict, so it must still abort the run.
+    catalog_mapping_unavailable: bool,
+    /// The `properties` object of the last catalog `_mapping` PUT the endpoint
+    /// ACKNOWLEDGED — what a legacy catalog actually ends up declaring.
+    installed_catalog_properties: Option<Value>,
+    /// How many catalog `_mapping` PUTs were attempted (the drop-and-retry
+    /// loop's cost).
+    catalog_mapping_puts: usize,
 }
 
 struct HttpEndpoint {
@@ -93,6 +104,28 @@ impl HttpEndpoint {
 
     fn data_bulk_requests(&self) -> usize {
         self.state.lock().unwrap().data_bulk_requests
+    }
+
+    /// #755: the catalog mapping the endpoint finally acknowledged.
+    fn installed_catalog_properties(&self) -> Value {
+        self.state
+            .lock()
+            .unwrap()
+            .installed_catalog_properties
+            .clone()
+            .expect("no catalog _mapping PUT was acknowledged")
+    }
+
+    /// #755: every catalog document the run published.
+    fn catalog_docs(&self) -> Vec<Value> {
+        self.state
+            .lock()
+            .unwrap()
+            .docs
+            .iter()
+            .filter(|((index, _), _)| index == catalog::CATALOG_INDEX)
+            .map(|(_, doc)| doc.clone())
+            .collect()
     }
 }
 
@@ -185,13 +218,26 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
     } else if method == "PUT" {
         let value: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         let mut locked = state.lock().unwrap();
-        let mut inject_catalog_conflict = false;
+        // #755: the first still-declared field this catalog already holds as
+        // `text`, if any — the engine reports one conflict per request.
+        let mut conflict: Option<String> = None;
+        let mut unavailable = false;
         if path.ends_with("/_mapping") {
             assert!(value.get("properties").is_some());
             assert!(value.get("mappings").is_none());
             if path.starts_with(&format!("/{}/", catalog::CATALOG_INDEX)) {
                 locked.saw_catalog_mapping_update = true;
-                inject_catalog_conflict = locked.catalog_mapping_conflict;
+                locked.catalog_mapping_puts += 1;
+                unavailable = locked.catalog_mapping_unavailable;
+                let declared = value["properties"].as_object().cloned().unwrap_or_default();
+                conflict = locked
+                    .legacy_text_catalog_fields
+                    .iter()
+                    .find(|field| declared.contains_key(field.as_str()))
+                    .cloned();
+                if conflict.is_none() && !unavailable {
+                    locked.installed_catalog_properties = Some(Value::Object(declared));
+                }
             } else {
                 locked.saw_dataset_mapping_update = true;
             }
@@ -199,8 +245,13 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
             assert!(value.pointer("/mappings/properties").is_some());
             assert!(value.get("properties").is_none());
         }
-        if inject_catalog_conflict {
-            let reason = "field [prefix] already exists as [text], cannot add [keyword]";
+        if unavailable {
+            (
+                503,
+                json!({"error": {"type": "unavailable_shards_exception", "reason": "no node"}}),
+            )
+        } else if let Some(field) = conflict {
+            let reason = format!("field [{field}] already exists as [text], cannot add [keyword]");
             (
                 400,
                 json!({
@@ -226,6 +277,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         match status {
             200 => "OK",
             400 => "Bad Request",
+            503 => "Service Unavailable",
             _ => "Internal Server Error",
         },
         bytes.len(),
@@ -560,36 +612,292 @@ fn final_snapshot_count(state_dir: &Path) -> usize {
         .unwrap_or(0)
 }
 
-/// #755/#760: an older-build global catalog holds a field mapped as `text`, so
-/// the generation's keyword `_mapping` update conflicts. The run must surface
-/// the ENRICHED, actionable error (name the field + reindex recovery), not the
-/// opaque `mapper_parsing_exception`. This exercises the `.map_err` wiring end to
-/// end — the helper's own unit tests pass even if that wiring is dropped, so
-/// this is what actually guards it (evidence lens, #756 review).
+/// #755: an older-build global catalog holds `prefix` (and, on a fully dynamic
+/// catalog, `doc_kind`) mapped as `text`, so the generation's keyword `_mapping`
+/// update conflicts. Before this fix the whole run aborted — and because
+/// `autoindex-catalog` is ONE index shared by every corpus on the node, that
+/// bricked `xerj autoindex` outright for anyone upgrading from v1.0.0-rc.15..67.
+///
+/// An upgrade must never abort a run over a mapping an earlier release left
+/// behind: the run has to complete, every field the engine will accept has to be
+/// installed, and corpus scoping has to keep working — which it does by moving
+/// onto `catalog::CORPUS_SCOPE_FIELD`, a keyword field no older release wrote.
+///
+/// End-to-end on purpose (#760): `install_catalog_mapping`'s own unit tests pass
+/// even if the wiring at the catalog `update_mapping` is dropped, so this is what
+/// actually guards it.
 #[test]
-fn a_legacy_text_mapped_catalog_surfaces_the_actionable_error() {
+fn a_legacy_text_mapped_catalog_completes_the_run_instead_of_aborting() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let corpus = tempfile::tempdir().unwrap();
     let state_dir = tempfile::tempdir().unwrap();
     fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
     let endpoint = HttpEndpoint::start();
-    endpoint.state.lock().unwrap().catalog_mapping_conflict = true;
+    endpoint.state.lock().unwrap().legacy_text_catalog_fields =
+        vec!["prefix".into(), "doc_kind".into()];
     let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
 
-    let error = run_index(config).unwrap_err();
-    let msg = format!("{error:#}");
+    // The run COMPLETES. This is the whole bug: it used to abort here.
+    assert_eq!(run_index(config).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(endpoint.data_docs().len(), 1);
+
+    // Exactly the two legacy fields were given up, and nothing else.
+    let installed = endpoint.installed_catalog_properties();
+    let installed = installed.as_object().expect("properties object");
     assert!(
-        msg.contains("older build") && msg.contains("Reindex"),
-        "expected the enriched migration error, got: {msg}"
+        !installed.contains_key("prefix") && !installed.contains_key("doc_kind"),
+        "a field the catalog already holds as text cannot be re-declared: {installed:?}"
     );
-    // The named field and the raw reason are both preserved in the chain.
+    assert_eq!(
+        installed["path"]["type"], "keyword",
+        "every non-conflicting field must still be installed: {installed:?}"
+    );
+    // …including the keyword field corpus scoping moved onto. No release ever
+    // wrote it, so a legacy catalog cannot be holding it as text.
+    assert_eq!(
+        installed[catalog::CORPUS_SCOPE_FIELD]["type"],
+        "keyword",
+        "the corpus-scope field must survive the legacy conflict: {installed:?}"
+    );
+
+    // And the published catalog documents carry the scope on that field, so the
+    // #737/#693 scoped sweeps stay exact on this node.
+    let scoped = endpoint
+        .catalog_docs()
+        .into_iter()
+        .filter(|doc| doc.get("doc_kind").and_then(Value::as_str) == Some("file"))
+        .collect::<Vec<_>>();
+    assert!(!scoped.is_empty(), "the run published no file catalog docs");
+    for doc in &scoped {
+        assert_eq!(
+            doc[catalog::CORPUS_SCOPE_FIELD],
+            "incremental-http",
+            "every file catalog doc must carry the keyword corpus scope: {doc}"
+        );
+    }
+}
+
+/// #755: the conflict tolerance is narrow on purpose. A catalog `_mapping` PUT
+/// that fails for any reason OTHER than a legacy field type — an unreachable
+/// node, a 503, an unrelated 400 — is a real failure and must still abort,
+/// rather than being retried into a silently narrower catalog mapping.
+#[test]
+fn an_unavailable_catalog_mapping_still_aborts_the_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().catalog_mapping_unavailable = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let msg = format!("{:#}", run_index(config).unwrap_err());
     assert!(
-        msg.contains("`prefix`"),
-        "must name the conflicting field: {msg}"
+        msg.contains("install generation catalog mapping") && msg.contains("503"),
+        "an unrelated mapping failure must abort with its own reason: {msg}"
+    );
+    assert_eq!(
+        endpoint.state.lock().unwrap().catalog_mapping_puts,
+        1,
+        "a non-conflict failure must not be retried: {msg}"
+    );
+}
+
+/// #755: tolerating the legacy mapping is not the same as hiding it. Documents
+/// an older build already wrote keep the legacy type, so a scoped sweep can
+/// still miss them — the operator has to be told, through the progress surface
+/// that owns stderr (#241), with the reindex that retires the field.
+#[test]
+fn a_legacy_text_mapped_catalog_warns_through_the_progress_surface() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().legacy_text_catalog_fields = vec!["prefix".into()];
+    let es = Es::with_bulk_timeout(&endpoint.url, None, 30).expect("es client");
+    let (pr, sink) = progress::Progress::capture(
+        progress::Surface::Plain,
+        std::time::Duration::from_secs(3600),
+    );
+
+    ensure_generation_mappings(&es, &Plan::default(), &pr).expect("legacy catalog must not abort");
+
+    let text = String::from_utf8(sink.lock().unwrap().clone()).unwrap();
+    assert!(
+        text.contains("older build") && text.contains("`prefix`"),
+        "the operator must be told which field is legacy: {text}"
     );
     assert!(
-        msg.contains("already exists as [text]"),
-        "must preserve the raw reason: {msg}"
+        text.contains("run CONTINUES") && text.contains("_reindex"),
+        "…and what happened plus how to retire it: {text}"
+    );
+    assert!(
+        text.contains(catalog::CORPUS_SCOPE_FIELD),
+        "…and where corpus scoping moved to: {text}"
+    );
+}
+
+/// #755: a healthy catalog is untouched — one `_mapping` PUT, nothing dropped.
+#[test]
+fn a_current_catalog_installs_its_mapping_in_a_single_put() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let endpoint = HttpEndpoint::start();
+    let es = Es::with_bulk_timeout(&endpoint.url, None, 30).expect("es client");
+    let (pr, sink) = progress::Progress::capture(
+        progress::Surface::Plain,
+        std::time::Duration::from_secs(3600),
+    );
+
+    ensure_generation_mappings(&es, &Plan::default(), &pr).expect("fresh catalog");
+
+    assert_eq!(endpoint.state.lock().unwrap().catalog_mapping_puts, 1);
+    assert_eq!(
+        endpoint.installed_catalog_properties()["prefix"]["type"],
+        "keyword",
+        "a catalog with no legacy field keeps the full declared mapping"
+    );
+    assert!(
+        String::from_utf8(sink.lock().unwrap().clone())
+            .unwrap()
+            .is_empty(),
+        "a healthy catalog must not warn"
+    );
+}
+
+/// Rewrite a journal so every generation in it carries the `index_identity` the
+/// PREVIOUSLY SHIPPED release froze for the same plan — the exact on-disk state
+/// of an install that is being upgraded.
+///
+/// The digests that bind the log are recomputed with it (`desired_manifest_digest`
+/// on the begin/validate/commit records, and the next generation's
+/// `base_manifest_digest`), so the journal stays internally valid and the only
+/// thing that has moved is the frozen contract identity. Returns the identity
+/// written in (previous release) and the one this build had written (this
+/// build); while the contract holds they are equal and the rewrite is a
+/// byte-for-byte no-op — that is the property under test.
+fn freeze_journal_identities_as_previous_release(state_dir: &Path) -> (String, String) {
+    let path = state_dir.join("journal.ndjson");
+    let raw = fs::read_to_string(&path).unwrap();
+    let mut previous_release = None;
+    let mut this_build = None;
+    let mut committed_digest: Option<String> = None;
+    let mut pending_digest: Option<String> = None;
+    let mut out = String::new();
+    for line in raw.lines() {
+        let Ok(mut record) = serde_json::from_str::<Value>(line) else {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        };
+        match record.get("kind").and_then(Value::as_str) {
+            Some("sync_begin") => {
+                if let Some(digest) = &committed_digest {
+                    record["base_manifest_digest"] = json!(digest);
+                }
+                let plan: Plan = serde_json::from_value(record["desired"]["plan"].clone()).unwrap();
+                let frozen = frozen_contract::index_identity(&plan);
+                this_build = record["desired"]["execution"]["index_identity"]
+                    .as_str()
+                    .map(str::to_owned);
+                record["desired"]["execution"]["index_identity"] = json!(frozen);
+                previous_release = Some(frozen);
+                let manifest: crate::sync::GenerationManifest =
+                    serde_json::from_value(record["desired"].clone()).unwrap();
+                let digest = crate::sync::manifest_digest(&manifest).unwrap();
+                record["desired_manifest_digest"] = json!(digest);
+                pending_digest = Some(digest);
+            }
+            Some("sync_validated") | Some("sync_abort") => {
+                record["desired_manifest_digest"] = json!(pending_digest.clone().unwrap());
+            }
+            Some("sync_commit") => {
+                let digest = pending_digest.clone().unwrap();
+                record["desired_manifest_digest"] = json!(digest);
+                committed_digest = Some(digest);
+            }
+            _ => {}
+        }
+        out.push_str(&serde_json::to_string(&record).unwrap());
+        out.push('\n');
+    }
+    fs::write(&path, out).unwrap();
+    (
+        previous_release.expect("the journal has a sync_begin"),
+        this_build.expect("the sync_begin carries an execution identity"),
+    )
+}
+
+/// #755 upgrade path, end to end: generations frozen by the PREVIOUS RELEASE
+/// must still be reconcilable by this build.
+///
+/// `index_identity` is hashed out of `catalog::catalog_mapping()` and frozen in
+/// the journal's execution record, and two hard `ensure!`s then demand equality
+/// against it: `provision_generation` when a pending (mid-commit) generation is
+/// replayed ("desired generation index identity disagrees with its frozen
+/// mappings"), and the incremental-reconcile no-change arm ("autoindex
+/// execution configuration changed since the committed generation") — which
+/// writes no new generation, so a mismatch there never heals. Declaring one
+/// extra catalog property would therefore trade #755's abort for a different
+/// abort against the very same upgrading population.
+///
+/// Both arms run here over a journal rewritten to the previous release's
+/// identity: an unchanged corpus first (the no-change arm), then a generation
+/// left pending mid-commit (the replay).
+/// `catalog_mapping_is_the_frozen_on_disk_contract` pins the contract itself;
+/// this test pins the wiring that consumes it.
+#[test]
+fn a_generation_frozen_by_the_previous_release_still_reconciles() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let source = corpus.path().join("a.csv");
+    fs::write(&source, "id,value\n1,committed\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    // One committed generation, aged to the previous release's contract.
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let (previous_release, this_build) =
+        freeze_journal_identities_as_previous_release(state_dir.path());
+
+    // Unchanged corpus → the no-change arm's ensure!. This is the permanent
+    // one: it commits no new generation, so a mismatch here never heals.
+    let unchanged = run_index(config.clone()).unwrap_or_else(|error| {
+        panic!(
+            "an unchanged corpus committed by the previous release must reconcile, not abort \
+             (previous release froze {previous_release}, this build computes {this_build}): \
+             {error:#}"
+        )
+    });
+    assert_eq!(unchanged, 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    // Now a generation left pending mid-commit, aged the same way.
+    fs::write(&source, "id,value\n1,sealed-pending\n2,sealed-second\n").unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = true;
+    assert!(run_index(config.clone()).is_err());
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 2);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    let (previous_release, this_build) =
+        freeze_journal_identities_as_previous_release(state_dir.path());
+
+    // Replay of that pending generation → `provision_generation`'s ensure!.
+    let resumed = run_index(config).unwrap_or_else(|error| {
+        panic!(
+            "a pending generation frozen by the previous release must replay, not abort \
+             (previous release froze {previous_release}, this build computes {this_build}): \
+             {error:#}"
+        )
+    });
+    assert_eq!(resumed, 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+    assert_eq!(endpoint.data_docs().len(), 2);
+    assert_eq!(
+        previous_release, this_build,
+        "this build must compute the identity the previous release froze; the catalog mapping \
+         is hashed into it, so a property added there aborts every upgraded state dir"
     );
 }
 
@@ -2482,6 +2790,93 @@ fn sweep_excluded_groups_does_not_delete_a_sibling_corpus_catalog_doc() {
     );
 }
 
+/// #755: the scope the sweep actually relies on is `corpus_scope`, not
+/// `prefix`. On a catalog upgraded from v1.0.0-rc.15..rc.67, `prefix` is
+/// dynamically mapped `text`, so a `term` against it does not match the raw
+/// scope value and the #737/#693 scoped deletes silently no-op — an alias doc
+/// that the frozen plan does not name is then left searchable, which is exactly
+/// the #439 exposure #589 exists to close. The docs seeded here carry ONLY the
+/// keyword scope field, standing in for a catalog whose `prefix` cannot be
+/// term-matched; the sweep must still find this corpus's docs and must still
+/// leave the live sibling corpus's alone.
+///
+/// Fail-before: with only the `prefix`-scoped deletes (pre-#755), the `ax` alias
+/// doc below survives the sweep.
+#[test]
+fn sweep_excluded_groups_scopes_on_the_keyword_corpus_scope_field() {
+    let ep = HttpEndpoint::start();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // An alias doc the frozen plan does not name, so ONLY the term-scoped
+        // `file_key` delete can reach it — the `_id` sweep cannot.
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file-alias:ax:unlisted".into(),
+            ),
+            json!({
+                "doc_kind": "file",
+                catalog::CORPUS_SCOPE_FIELD: "ax",
+                "file_key": "shared-key",
+                "path": "vendor/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+        // A live sibling corpus's byte-identical doc under its own scope.
+        st.docs.insert(
+            (
+                catalog::CATALOG_INDEX.to_string(),
+                "file-alias:bx:sibling".into(),
+            ),
+            json!({
+                "doc_kind": "file",
+                catalog::CORPUS_SCOPE_FIELD: "bx",
+                "file_key": "shared-key",
+                "path": "vendor/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "shared-key".into(),
+        path: "vendor/LICENSE".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    let st = ep.state.lock().unwrap();
+    assert!(
+        !st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file-alias:ax:unlisted".to_string()
+        )),
+        "#755: an excluded file's catalog doc must be swept on the keyword scope \
+         field, not only on a `prefix` an upgraded catalog holds as text"
+    );
+    assert!(
+        st.docs.contains_key(&(
+            catalog::CATALOG_INDEX.to_string(),
+            "file-alias:bx:sibling".to_string()
+        )),
+        "#755: the keyword scope must still bound the sweep to THIS corpus"
+    );
+}
+
 /// #739: a `file:` catalog doc written by a pre-#737 binary has NO `prefix`
 /// field, so the #737 prefix-scoped sweep misses it on the first upgraded run.
 /// The by-`_id` delete catches it (the id encodes the prefix), while a sibling
@@ -2701,6 +3096,185 @@ fn sweep_excluded_groups_invalidates_inbound_edges() {
         other.get("invalid_at").is_none(),
         "#736: an edge to a different node must NOT be invalidated"
     );
+}
+
+/// #736 (replacement half): a run that SUPERSEDES a file's anchor node must
+/// soft-invalidate the edges pointing AT the old anchor, not only the edges the
+/// old generation taught.
+///
+/// The reachable trigger is `--fresh`. An ordinary resume maps every file back
+/// onto its planned key (`select_resume_plan_keys`), so an in-place edit keeps
+/// its `file_key` and its anchor id — nothing is superseded and the inbound
+/// edges keep pointing at a live node. `--fresh` discards the plan and rebuilds
+/// every key from current content, so an edited file gets a NEW key and a NEW
+/// anchor, while `cleanup_required` (the journal's record of what is live) has
+/// just been wiped with the journal — so before this fix the run invalidated
+/// nothing at all, and every edge a surviving file taught into the old anchor
+/// stayed live and searchable, pointing at a superseded node.
+///
+/// Fail-before: with the superseded-anchor invalidation reverted, the two
+/// `a.md → old b anchor` edges come back with no `invalid_at` and the first
+/// assertion fires.
+#[test]
+fn fresh_run_invalidates_inbound_edges_to_a_superseded_anchor() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("a.md"),
+        "# A\n\nSee [[b]] for the details of the target document.\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.path().join("b.md"),
+        "# B\n\nThe target document says one thing.\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.no_graph = false;
+    config.brain = Some("testbrain".into());
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let edges_index = detect::edges_index_name("testbrain");
+
+    // Anchor ids are read off the published file cards (`ax_locator: "file"`),
+    // so the test never has to recompute `ids::doc_id` itself.
+    let anchors_of = |path: &str| -> Vec<String> {
+        let st = endpoint.state.lock().unwrap();
+        let mut ids: Vec<String> = st
+            .docs
+            .iter()
+            .filter(|((index, _), doc)| {
+                index != catalog::CATALOG_INDEX
+                    && doc.get("ax_locator").and_then(Value::as_str) == Some("file")
+                    && doc.get("ax_path").and_then(Value::as_str) == Some(path)
+            })
+            .map(|((_, id), _)| id.clone())
+            .collect();
+        ids.sort();
+        ids
+    };
+    let edges_of = |predicate: &dyn Fn(&Value) -> bool| -> Vec<(String, Value)> {
+        let st = endpoint.state.lock().unwrap();
+        let mut rows: Vec<(String, Value)> = st
+            .docs
+            .iter()
+            .filter(|((index, _), doc)| *index == edges_index && predicate(doc))
+            .map(|((_, id), doc)| (id.clone(), doc.clone()))
+            .collect();
+        rows.sort_by(|left, right| left.0.cmp(&right.0));
+        rows
+    };
+
+    let old_b_anchor = {
+        let mut found = anchors_of("b.md");
+        assert_eq!(found.len(), 1, "run 1 publishes exactly one b.md file card");
+        found.pop().unwrap()
+    };
+    // The inbound edges the fix has to reach: taught by the SURVIVING file a.md,
+    // pointing at b.md's anchor. Asserted before the change so a corpus that
+    // stopped producing them could never make this test vacuously pass.
+    let inbound_before = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) == Some(old_b_anchor.as_str())
+    });
+    assert!(
+        !inbound_before.is_empty(),
+        "#736: the fixture must actually teach a.md → b.md edges"
+    );
+    // a.md's other edges (its own card → section chain) must survive untouched:
+    // a.md is byte-identical across the two runs, and #868's skip means an
+    // unchanged file must neither re-teach nor lose its edges.
+    let a_internal_before: Vec<String> = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) != Some(old_b_anchor.as_str())
+    })
+    .into_iter()
+    .map(|(id, _)| id)
+    .collect();
+    assert!(
+        !a_internal_before.is_empty(),
+        "#736: the fixture must have edges that the sweep MUST NOT touch"
+    );
+
+    // Edit b.md, then rebuild in place with --fresh: b.md's content key, and so
+    // its anchor node id, is superseded.
+    fs::write(
+        corpus.path().join("b.md"),
+        "# B\n\nThe target document now says something completely different today.\n",
+    )
+    .unwrap();
+    let mut fresh = config.clone();
+    fresh.fresh = true;
+    assert_eq!(run_index(fresh).unwrap(), 0);
+
+    let new_b_anchor = {
+        let found = anchors_of("b.md");
+        let fresh_ids: Vec<&String> = found.iter().filter(|id| **id != old_b_anchor).collect();
+        assert_eq!(
+            fresh_ids.len(),
+            1,
+            "--fresh must publish a new b.md file card after the edit, got {found:?}"
+        );
+        fresh_ids[0].clone()
+    };
+    assert_ne!(
+        new_b_anchor, old_b_anchor,
+        "the fixture must actually supersede b.md's anchor"
+    );
+
+    // The bug: every live edge pointing at the superseded anchor.
+    let inbound_after =
+        edges_of(&|doc| doc.get("dst").and_then(Value::as_str) == Some(old_b_anchor.as_str()));
+    assert_eq!(
+        inbound_after.len(),
+        inbound_before.len(),
+        "#736: prior edges are soft-invalidated, never deleted — the bi-temporal \
+         record must still be there for `as_of`"
+    );
+    for (id, doc) in &inbound_after {
+        assert!(
+            doc.get("invalid_at").is_some(),
+            "#736: edge {id} still points at b.md's superseded anchor {old_b_anchor} \
+             and was left live: {doc}"
+        );
+    }
+    // The old generation's own outbound edges go too — same root cause, same
+    // pass: `src_file == b.md` was never invalidated under --fresh either.
+    for (id, doc) in
+        edges_of(&|doc| doc.get("src").and_then(Value::as_str) == Some(old_b_anchor.as_str()))
+    {
+        assert!(
+            doc.get("invalid_at").is_some(),
+            "#736: edge {id} is taught BY b.md's superseded anchor and was left live: {doc}"
+        );
+    }
+
+    // …and the graph is still a graph: a.md links to the NEW anchor, live.
+    let inbound_new = edges_of(&|doc| {
+        doc.get("src_file").and_then(Value::as_str) == Some("a.md")
+            && doc.get("dst").and_then(Value::as_str) == Some(new_b_anchor.as_str())
+            && doc.get("invalid_at").is_none()
+    });
+    assert!(
+        !inbound_new.is_empty(),
+        "#736: the re-run must re-teach a.md → b.md against the new anchor"
+    );
+    // #868: the unchanged file's unrelated edges are untouched.
+    for id in &a_internal_before {
+        let st = endpoint.state.lock().unwrap();
+        let doc = st
+            .docs
+            .get(&(edges_index.clone(), id.clone()))
+            .unwrap_or_else(|| panic!("#868: a.md's edge {id} must survive the re-run"));
+        assert!(
+            doc.get("invalid_at").is_none(),
+            "#868: byte-identical a.md's own edge {id} must stay live: {doc}"
+        );
+    }
 }
 
 /// #585 (case 1): a pending (uncommitted) `--no-graph` generation must NOT be

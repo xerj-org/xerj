@@ -84,5 +84,6 @@ pub use postings::{
 };
 
 pub use search::{
-    search_segments, BoolQuery, FtsSearcher, PhraseQuery, PrefixQuery, Query, ScoredHit, TermQuery,
+    phrase_positions_match, search_segments, BoolQuery, FtsSearcher, PhraseQuery, PrefixQuery,
+    Query, ScoredHit, TermQuery,
 };

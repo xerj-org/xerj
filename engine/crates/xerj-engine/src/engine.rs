@@ -1303,10 +1303,19 @@ impl Engine {
                             .iter()
                             .any(|f| &f.name == field_name)
                         {
-                            let fc = xerj_common::types::FieldConfig::new(
+                            let mut fc = xerj_common::types::FieldConfig::new(
                                 field_name.clone(),
                                 native_type,
                             );
+                            // #790: a template's `date_nanos` keeps nanosecond
+                            // precision; `FieldConfig::new` already made a
+                            // plain `date` millisecond-scaled.
+                            if native_type == xerj_common::types::FieldType::Date
+                                && es_type == "date_nanos"
+                            {
+                                fc.options.date_precision =
+                                    Some(xerj_common::types::DatePrecision::Nanos);
+                            }
                             let _ = effective_schema.add_field(fc);
                         }
                     }
@@ -3506,18 +3515,21 @@ impl Engine {
     /// startup — and if startup index-discovery doesn't pick the index up
     /// (e.g. WAL-only indexes), the data is lost.
     ///
-    /// First aborts every index's per-Index merge background task — those
-    /// tasks are spawned via `tokio::spawn` and use a `tokio::time::sleep`
-    /// loop, which keeps the tokio runtime alive even after axum has
-    /// stopped accepting connections.  Without aborting them up-front,
-    /// the process stays at 100% CPU until the next sleep wake notices
-    /// the index is dropped (or a merge fires post-shutdown — either way
-    /// SIGTERM hangs).  See bench `engine/reports/2026-04-25T03-30-00`
-    /// for the captured regression introduced by B-2b (commit 605ac7b).
+    /// First stops every index's background merge scheduling (#871:
+    /// event-driven debounced checks; historically a per-index tick task)
+    /// and aborts any armed check task — a pending debounce
+    /// `tokio::time::sleep` keeps the tokio runtime alive even after axum
+    /// has stopped accepting connections.  Without stopping them up-front,
+    /// the process waits for the sleep to wake (or a merge fires
+    /// post-shutdown — either way SIGTERM hangs).  Stopping FIRST also
+    /// guarantees the shutdown flushes below cannot arm new checks through
+    /// the segments-changed hook.  See bench
+    /// `engine/reports/2026-04-25T03-30-00` for the captured regression
+    /// introduced by B-2b (commit 605ac7b).
     pub async fn flush_all_force(&self) {
-        // 1. Stop all background merges so the runtime can exit once the
-        //    flush is done.  Aborts are non-blocking; the spawned task is
-        //    unwound by tokio without us needing to await it.
+        // 1. Stop all background merge scheduling so the runtime can exit
+        //    once the flush is done.  Aborts are non-blocking; the armed
+        //    task is unwound by tokio without us needing to await it.
         for entry in self.indices.iter() {
             entry.value().abort_background_tasks();
         }
@@ -3877,8 +3889,9 @@ impl Engine {
             });
 
         // ── Thread B: summed memtable budget ─────────────────────────────
-        // Reads a lock on every memtable shard, so it may briefly block under
-        // a turbo batch — that is fine here, isolated from the memory breaker.
+        // Each per-index `size_bytes()` is one relaxed atomic load of the
+        // aggregate the shards maintain incrementally — no shard locks, so
+        // this never blocks under a turbo batch (#872).
         let weak_b = Arc::downgrade(self);
         let _ = std::thread::Builder::new()
             .name("xerj-memtable-sampler".to_string())

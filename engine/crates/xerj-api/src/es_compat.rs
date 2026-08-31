@@ -6936,7 +6936,7 @@ type PendingSearchSignals = (
 );
 #[cfg(test)]
 static TEST_PENDING_SEARCH_SIGNALS: std::sync::OnceLock<
-    std::sync::Mutex<Option<PendingSearchSignals>>,
+    std::sync::Mutex<Vec<PendingSearchSignals>>,
 > = std::sync::OnceLock::new();
 
 #[cfg(test)]
@@ -7030,10 +7030,11 @@ mod search_task_lifetime_tests {
         let app = crate::router::build_es_compat_router(state);
         let (started_tx, started_rx) = tokio::sync::oneshot::channel();
         let (dropped_tx, dropped_rx) = tokio::sync::oneshot::channel();
-        *TEST_PENDING_SEARCH_SIGNALS
-            .get_or_init(|| std::sync::Mutex::new(None))
+        TEST_PENDING_SEARCH_SIGNALS
+            .get_or_init(|| std::sync::Mutex::new(Vec::new()))
             .lock()
-            .unwrap() = Some((started_tx, dropped_tx));
+            .unwrap()
+            .push((started_tx, dropped_tx));
 
         let request = tokio::spawn(
             app.oneshot(
@@ -7053,6 +7054,65 @@ mod search_task_lifetime_tests {
             .await
             .expect("route-owned child did not drain after request drop")
             .expect("drop signal");
+    }
+
+    /// #875: a wildcard search over N indices must run its per-index searches
+    /// CONCURRENTLY, not one at a time. Proven without timing: two indices
+    /// whose injected search futures signal `started` and then pend forever.
+    /// Under the old serial loop the second search never even started — the
+    /// loop was parked awaiting the first — so its `started` signal never
+    /// fired and this test times out. Under the two-phase fan-out both
+    /// searches start while neither has completed.
+    #[tokio::test]
+    async fn wildcard_fanout_runs_per_index_searches_concurrently() {
+        let state = test_state();
+        for name in ["test-pending-search-task", "test-pending-search-task2"] {
+            state
+                .engine
+                .create_index(name, xerj_common::types::Schema::empty())
+                .unwrap();
+        }
+        let app = crate::router::build_es_compat_router(state);
+        let (started_tx_a, started_rx_a) = tokio::sync::oneshot::channel();
+        let (dropped_tx_a, dropped_rx_a) = tokio::sync::oneshot::channel();
+        let (started_tx_b, started_rx_b) = tokio::sync::oneshot::channel();
+        let (dropped_tx_b, dropped_rx_b) = tokio::sync::oneshot::channel();
+        {
+            let mut slot = TEST_PENDING_SEARCH_SIGNALS
+                .get_or_init(|| std::sync::Mutex::new(Vec::new()))
+                .lock()
+                .unwrap();
+            slot.push((started_tx_a, dropped_tx_a));
+            slot.push((started_tx_b, dropped_tx_b));
+        }
+
+        let request = tokio::spawn(
+            app.oneshot(
+                Request::post("/test-pending-search-task*/_search")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(r#"{"query":{"match_all":{}}}"#))
+                    .unwrap(),
+            ),
+        );
+        // BOTH per-index searches must start while NEITHER can complete —
+        // exactly what a serial fan-out cannot do. The generous timeout only
+        // bounds the failure mode; a passing run signals immediately.
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            started_rx_a.await.expect("first start signal");
+            started_rx_b.await.expect("second start signal");
+        })
+        .await
+        .expect("both fan-out searches must start concurrently (#875)");
+
+        // Dropping the request aborts every spawned per-index search.
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            dropped_rx_a.await.expect("first drop signal");
+            dropped_rx_b.await.expect("second drop signal");
+        })
+        .await
+        .expect("aborting the request must abort all fan-out searches");
     }
 
     #[tokio::test]
@@ -11131,6 +11191,17 @@ async fn search_impl(
         .map(|v| v == "true")
         .unwrap_or(search_selector_has_wildcard);
 
+    // #875: this fan-out used to execute serially — spawn one search task,
+    // await it, merge, then move to the next index — so a wildcard search
+    // over N datasets cost ~N × single-index latency (measured: 701 ms over
+    // 41 autoindex datasets vs 11.7 ms against one of them). Phase 1 below
+    // spawns every per-index search up front; per-index request prep stays
+    // serial because it is sync map lookups. Actual concurrency is bounded
+    // by the engine's global search permit (`Index::search` acquires
+    // `governor.acquire_search`, sized by `limits.max_concurrent_searches`),
+    // and excess searches queue on that semaphore deadline-aware exactly as
+    // they did when this loop issued them one at a time.
+    let mut spawned_searches = Vec::with_capacity(index_names.len());
     for idx_name in &index_names {
         let idx = match state.engine.get_index(idx_name) {
             Ok(i) => i,
@@ -11216,8 +11287,8 @@ async fn search_impl(
         #[cfg(test)]
         let inject_task_panic = *idx_name == "test-panic-search-task";
         #[cfg(test)]
-        let inject_pending_task = *idx_name == "test-pending-search-task";
-        let mut search_task = AbortOnDrop(tokio::spawn(async move {
+        let inject_pending_task = idx_name.starts_with("test-pending-search-task");
+        let search_task = AbortOnDrop(tokio::spawn(async move {
             #[cfg(test)]
             if inject_task_panic {
                 panic!("injected search task panic");
@@ -11225,10 +11296,10 @@ async fn search_impl(
             #[cfg(test)]
             if inject_pending_task {
                 let (started, dropped) = TEST_PENDING_SEARCH_SIGNALS
-                    .get_or_init(|| std::sync::Mutex::new(None))
+                    .get_or_init(|| std::sync::Mutex::new(Vec::new()))
                     .lock()
                     .expect("pending-search signals lock")
-                    .take()
+                    .pop()
                     .expect("pending-search signals");
                 let _ = started.send(());
                 let _drop_signal = SignalOnDrop(Some(dropped));
@@ -11236,6 +11307,14 @@ async fn search_impl(
             }
             idx.search(&req_clone).await
         }));
+        spawned_searches.push((idx_name, search_task));
+    }
+
+    // #875 phase 2 — await and merge in the SAME deterministic index order
+    // the serial loop used, so hit ordering and agg-merge order are
+    // unchanged. An early error return drops the remaining `AbortOnDrop`
+    // handles, aborting their still-running searches.
+    for (idx_name, mut search_task) in spawned_searches {
         let search_result = (&mut search_task.0).await;
 
         match search_result {
@@ -16578,6 +16657,21 @@ fn es_properties_to_fields(properties: &Value) -> Result<Vec<FieldConfig>, Strin
 
         let native_type = es_type_to_native(es_type);
         let mut fc = FieldConfig::new(field_name.clone(), native_type);
+
+        // #790 — remember `date` vs `date_nanos`. Both collapse onto
+        // `FieldType::Date`, and without this flag the engine had to guess a
+        // date's scale from the value ("4+ fractional digits means nanos"),
+        // which mixed millisecond and nanosecond keys inside a single `date`
+        // column and broke both its sort order and its ranges. `FieldConfig::new`
+        // already defaults a `Date` to `Millis`; the override is what keeps a
+        // declared `date_nanos` on its own precision.
+        if native_type == FieldType::Date {
+            fc.options.date_precision = Some(if es_type == "date_nanos" {
+                xerj_common::types::DatePrecision::Nanos
+            } else {
+                xerj_common::types::DatePrecision::Millis
+            });
+        }
         if let Some(sub_props) = field_def.get("properties") {
             fc.fields = es_properties_to_fields(sub_props)?;
         }
@@ -16777,6 +16871,49 @@ fn es_type_to_native(es_type: &str) -> FieldType {
         "binary" => FieldType::Binary,
         "nested" => FieldType::Nested,
         _ => FieldType::Object,
+    }
+}
+
+#[cfg(test)]
+mod date_precision_mapping_tests {
+    use super::*;
+    use xerj_common::types::DatePrecision;
+
+    /// #790: `date` and `date_nanos` both collapse onto `FieldType::Date`, so
+    /// the mapping is the only place the distinction can be recorded. Without
+    /// it the engine has to guess a date's epoch scale from each value, which
+    /// mixes millisecond and nanosecond keys inside one `date` column.
+    #[test]
+    fn date_and_date_nanos_record_their_declared_precision() {
+        let fields = es_properties_to_fields(&json!({
+            "when": { "type": "date" },
+            "when_ns": { "type": "date_nanos" },
+            "name": { "type": "keyword" },
+            "nested": { "type": "object", "properties": { "at": { "type": "date_nanos" } } }
+        }))
+        .expect("valid mapping");
+        let by_name = |n: &str| {
+            fields
+                .iter()
+                .find(|f| f.name == n)
+                .unwrap_or_else(|| panic!("{n} missing"))
+        };
+        assert_eq!(by_name("when").field_type, FieldType::Date);
+        assert_eq!(
+            by_name("when").options.date_precision,
+            Some(DatePrecision::Millis)
+        );
+        assert_eq!(
+            by_name("when_ns").options.date_precision,
+            Some(DatePrecision::Nanos)
+        );
+        // Non-date fields carry nothing, so the flag never widens the
+        // persisted mapping for the rest of the schema.
+        assert_eq!(by_name("name").options.date_precision, None);
+        // Sub-properties go through the same recursion.
+        let inner = &by_name("nested").fields[0];
+        assert_eq!(inner.name, "at");
+        assert_eq!(inner.options.date_precision, Some(DatePrecision::Nanos));
     }
 }
 
