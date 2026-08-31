@@ -532,6 +532,7 @@ fn project_reconcile_plan(
     state_dir: &Path,
     pr: &Progress,
     meter: &estimate::Meter,
+    tally: &ScanTally,
 ) -> Result<Plan> {
     let budget = extract::pdf::ExtractionSpoolBudget::new(0, 0);
     let ctx = PhaseAContext {
@@ -540,6 +541,7 @@ fn project_reconcile_plan(
         capacity_warning: None,
         progress: pr,
         meter,
+        tally,
     };
     pr.phase(
         "scan",
@@ -1566,14 +1568,45 @@ struct PhaseAContext<'a> {
     /// every file; timing that parse is the only way to price the run on the
     /// machine it will actually run on rather than on ours.
     meter: &'a estimate::Meter,
+    /// How much phase-A work THIS run did. Owned by the run, not by the
+    /// process — see [`ScanTally`].
+    tally: &'a ScanTally,
 }
 
-/// Count of files that actually ran the Phase-A scan/parse. The incremental
-/// re-index fast path skips this for byte-identical files, so a test can assert
-/// that an unchanged re-run parses zero files. `Relaxed` — a single counter per
-/// scanned file, negligible against the parse it guards.
-pub(crate) static SCAN_FILE_PARSED: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
+/// Files that actually ran the Phase-A scan/parse, counted **per run**.
+///
+/// The incremental re-index fast path skips the parse for byte-identical
+/// files, so this is how a test proves an unchanged re-run parses zero files.
+///
+/// It used to be a process-global `static`, which made that proof unsound
+/// (#891): `cargo test` runs one lib test binary multi-threaded, every
+/// concurrent run added to the same number, and a test reading it after its own
+/// run got a total that included whatever the other tests parsed in the
+/// meantime — a false red measured at 2 of 6 and 1 of 6 local suite runs on the
+/// branch that found it (#886). One tally is created per `run_index_report`
+/// invocation and reaches phase A through [`PhaseAContext`], so cross-run
+/// interference is now unrepresentable rather than merely unlikely.
+///
+/// `Relaxed`: one increment per scanned file, ordered against nothing — the
+/// cost has to stay negligible against the parse it counts, and readers only
+/// look after their run has joined every phase-A thread.
+#[derive(Debug, Default)]
+pub(crate) struct ScanTally {
+    parsed: std::sync::atomic::AtomicUsize,
+}
+
+impl ScanTally {
+    fn record_parse(&self) {
+        self.parsed
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Files this run ran the Phase-A scan/parse for.
+    #[cfg(test)]
+    pub(crate) fn files_parsed(&self) -> usize {
+        self.parsed.load(std::sync::atomic::Ordering::Relaxed)
+    }
+}
 
 fn scan_file(
     path: &Path,
@@ -1584,7 +1617,7 @@ fn scan_file(
     max_file_gb: u64,
     stub: bool,
 ) -> FileScan {
-    SCAN_FILE_PARSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    ctx.tally.record_parse();
     let state_dir = ctx.state_dir;
     let pdf_spool_budget = ctx.budget;
     let mut out = FileScan {
@@ -1791,6 +1824,7 @@ mod clustering_key_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         scan_file(&path, size, "d0", &ctx, 500, 2, false)
     }
@@ -1930,6 +1964,7 @@ mod phase_a_grouping_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         build_phase_a(
             root,
@@ -3772,6 +3807,14 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
     run_index_report(cfg).map(|(code, _)| code)
 }
 
+/// `run_index` with the caller's own phase-A tally, so a test can measure the
+/// work of *its* run and nothing else's (#891). Production has no reason to
+/// look at the number, which is why the public entry points own a throwaway.
+#[cfg(test)]
+fn run_index_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<i32> {
+    run_index_report_tallied(cfg, tally).map(|(code, _)| code)
+}
+
 /// #381/#759: the per-file record cap dropped these files' tails. Name them (up
 /// to a bound) so a truncated document is identifiable on a multi-file corpus,
 /// not merely counted — the "never silent" guarantee is only useful if the user
@@ -3848,6 +3891,18 @@ mod truncation_note_tests {
 /// `None` when the run ended before a plan produced one (empty folder,
 /// `--dry-run`).
 pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
+    run_index_report_tallied(cfg, &ScanTally::default())
+}
+
+/// The body of [`run_index_report`], with the run's phase-A tally supplied by
+/// the caller instead of created here.
+///
+/// The tally is per-invocation on purpose: it replaced a process-global counter
+/// that every concurrent run in the process wrote to (#891). Every phase-A
+/// route this function can take — the legacy `build_phase_a` scan and the
+/// generated route's `project_reconcile_plan` — is handed this one tally, so
+/// "files parsed by this run" is exactly what it holds.
+fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
@@ -4156,8 +4211,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 .committed_manifest
                 .as_ref()
                 .context("branch guard proved a committed manifest")?;
-            let plan =
-                project_reconcile_plan(&inventory, &base.plan, &cfg, &state_dir, &pr, &scan_meter)?;
+            let plan = project_reconcile_plan(
+                &inventory,
+                &base.plan,
+                &cfg,
+                &state_dir,
+                &pr,
+                &scan_meter,
+                tally,
+            )?;
             let unchanged = serde_json::to_value(&plan)? == serde_json::to_value(&base.plan)?;
             println!("{}", serde_json::to_string_pretty(&plan)?);
             // stdout is the RESULT, stderr is PROGRESS: the projection above is
@@ -4213,8 +4275,15 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             .as_ref()
             .context("generated journal lost its committed manifest")?
             .clone();
-        let plan =
-            project_reconcile_plan(&inventory, &base.plan, &cfg, &state_dir, &pr, &scan_meter)?;
+        let plan = project_reconcile_plan(
+            &inventory,
+            &base.plan,
+            &cfg,
+            &state_dir,
+            &pr,
+            &scan_meter,
+            tally,
+        )?;
         // Say out loud that the decision gate is not on this route. It is an
         // incremental reconcile of an already-committed generation, so the work
         // is the *changed* set and is published from a sealed snapshot rather
@@ -4625,6 +4694,7 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         capacity_warning: pdf_spool_capacity_warning.as_deref(),
         progress: &pr,
         meter: &scan_meter,
+        tally,
     };
     let mut plan: Plan = if let Some(p) = journal.plan.clone().filter(|_| !genesis_recovery) {
         p
@@ -8618,6 +8688,7 @@ mod unity_pipeline_tests {
             capacity_warning: None,
             progress: &progress,
             meter: &meter,
+            tally: &ScanTally::default(),
         };
         let mut cfg = super::phase_a_grouping_tests::cfg_for(root);
         cfg.sample = sample;
