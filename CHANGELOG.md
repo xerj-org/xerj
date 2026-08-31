@@ -22,35 +22,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration sharing its line with the body (`void m(){ int local = 1; }`)
   returned implementation nobody asked for. `code` is now sliced from the
   declaration's first token — leading attributes included — to where its body
-  begins, so it is the complete signature and still never the body.
+  begins, so the unit is a complete signature rather than a fragment of one.
 
   Measured with the `decl_bench` harness added here (`XERJ_DECL_BENCH=<repo>
-  cargo test -p xerj-autoindex decl_bench -- --ignored --nocapture`), over
-  Apache Lucene (5 627 Java files, 79 102 declarations), valkey + memcached
-  (981 C files, 28 347) and tantivy (434 Rust files, 8 970):
+  cargo test --release -p xerj-autoindex --lib decl_bench -- --ignored
+  --nocapture`), over Apache Lucene (5 627 Java files, 79 102 declarations),
+  valkey + memcached (981 C files, 28 347) and tantivy (434 Rust files, 8 970):
 
   | corpus | slice ending mid-signature, was → now | median bytes, was → now | the symbol's whole `line..end_line` span |
   |---|---|---|---|
-  | Lucene | 4 137 (5.2 %) → 27 (0.03 %) | 49 → 53 (mean 50.5 → 60.6) | median 229, mean 1 046 |
-  | valkey + memcached | 1 444 (5.1 %) → 490 (1.7 %) | 48 → 50 (mean 51.6 → 60.6) | median 476, mean 9 836 |
-  | tantivy | 851 (9.5 %) → 34 (0.4 %) | 41 → 50 (mean 44.2 → 60.8) | median 218, mean 721 |
+  | Lucene | 4 137 (5.2 %) → 18 (0.02 %) | 49 → 52 (mean 50.5 → 60.7) | median 229, mean 1 046 |
+  | valkey + memcached | 1 444 (5.1 %) → 57 (0.2 %) | 48 → 49 (mean 51.6 → 58.5) | median 123, mean 454 |
+  | tantivy | 851 (9.5 %) → 27 (0.3 %) | 41 → 50 (mean 44.2 → 60.6) | median 218, mean 721 |
 
-  So the unit costs about 10 bytes more on average and is a complete
-  declaration instead of a fragment — on Lucene it is still 4× smaller than
-  that symbol's own span at the median and 17× smaller at the mean. 39.6 % of
-  Lucene declarations wrap past one line (the single-line slice could only ever
-  return a fragment of those) and 51.5 % have a name line that does not stop
-  where the declaration does. Extraction throughput is unchanged: 1 159 files/s
-  before, 1 164 and 1 109 files/s over two runs after, on the same 6 106-file
-  Lucene tree.
+  So the unit costs 7–16 bytes more on average and is a complete declaration
+  instead of a fragment — still 2.5–4.4× smaller than that symbol's own span at
+  the median, and 8–17× smaller at the mean. 39.6 % of Lucene declarations wrap
+  past one line (the single-line slice could only ever return a fragment of
+  those) and 51.5 % have a name line that does not stop where the declaration
+  does. Extraction cost is not free: over the same 6 106-file Lucene tree,
+  three runs each, extraction ran at 1 580 files/s before this change and
+  1 476 files/s after — about 7 % slower for the ancestor climb and the body
+  search (the earlier "unchanged" reading was taken on a loaded box). The
+  measurement is `extract_bench`, not `decl_bench`.
 
-  The slice keeps the same 400-character cap the single-line version had and
-  falls back to the start line when a declaration overruns it, so no symbol
-  document can cost more than it did before. The file document's `symbols`
-  sidecar gains `end_line`, so a caller that wants the implementation can
-  address exactly `line`..`end_line` instead of guessing "up to where the next
-  symbol starts" — the guess that returns a whole class for a class and the
-  rest of the file for the last symbol.
+  Two honest limits. The cap is unchanged at 400 characters and a declaration
+  that overruns it still falls back to the start line, so the WORST case per
+  symbol is what it always was — but an individual document can grow, since a
+  45-character name line may now store a 400-character signature. And "stops
+  where the body begins" needs the grammar to say where that is: for a Haskell
+  equation nothing marks it, so the slice is the whole equation. Corpus-wide
+  that is 1.5 % of Lucene, 2.3 % of valkey + memcached and 0.8 % of tantivy
+  symbols whose slice covers their entire span, which `decl_bench` now reports
+  as its own column rather than leaving to assertion.
+
+  The file document's `symbols` sidecar gains `end_line`, so a caller that
+  wants the implementation can address exactly `line`..`end_line` instead of
+  guessing "up to where the next symbol starts" — the guess that returns a
+  whole class for a class and the rest of the file for the last symbol.
+
+  Upgrading does not rewrite what is already indexed: `xerj sync` reconciles by
+  content digest, so an unchanged file produces no operation and its symbol
+  documents keep the old single-line `code` and carry no `end_line`. An index
+  upgraded to this release is a mixture until the files change or it is rebuilt
+  from scratch.
+
 - **CI's default-parallelism test step no longer races itself for a port**
   ([#751](https://github.com/xerj-org/xerj/issues/751), the second half). With
   the deadlock above fixed, the same step then failed on a real port race that
