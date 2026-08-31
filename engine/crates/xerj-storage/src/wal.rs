@@ -320,7 +320,31 @@ impl Write for WalFile {
 pub struct WalWriter {
     dir: PathBuf,
     generation: u64,
-    writer: BufWriter<WalFile>,
+    /// The active generation's file handle and its `WAL_BUF_CAP` userspace
+    /// buffer — **materialized on demand** (#873).
+    ///
+    /// `None` means the active generation is EMPTY: the file exists on disk
+    /// (created by `open`/`rotate`, exactly as before) but holds nothing past
+    /// its 16-byte header, so no append, replay, prune, checkpoint or tap path
+    /// has anything to read from it. Holding an open descriptor and a 64 KiB
+    /// buffer for that state is pure resident overhead, and it is the *normal*
+    /// state of an idle index: every index opens with it, and every flush
+    /// returns to it (`wal_maintain_all_verified` → `force_rotate`). With one
+    /// shard per ingest shard — `(cpus/2).next_power_of_two()`, so 8 on a
+    /// 16-core laptop and 16 here — that overhead is multiplied by the shard
+    /// count and again by the number of open indices, which is what made a
+    /// few hundred idle autoindex datasets cost hundreds of MB (#873).
+    ///
+    /// [`ensure_materialized`](Self::ensure_materialized) reopens the file for
+    /// append at the first write; `rotate` drops it again. Nothing on disk
+    /// changes: the file set, the generation numbering and the header bytes are
+    /// byte-for-byte what they were before this became lazy.
+    writer: Option<BufWriter<WalFile>>,
+    /// Append position in the active generation. Always exactly
+    /// `WAL_HEADER_LEN` while `writer` is `None` — that equality *is* the
+    /// unmaterialized invariant, and it is what makes `checkpoint`,
+    /// `force_rotate` and `rotate_if_large` no-op on an unmaterialized shard
+    /// through the offset guards they already had.
     current_offset: u64,
     max_size_bytes: u64,
     sync_mode: SyncMode,
@@ -368,11 +392,60 @@ pub struct WalWriter {
 impl WalWriter {
     /// Userspace `BufWriter` capacity for this writer (test/instrumentation).
     ///
-    /// Always equals [`WAL_BUF_CAP`] after open, rotate, truncate-reseat, and
-    /// fresh-generation recovery.  Does not grow with record size.
+    /// Always equals [`WAL_BUF_CAP`] once materialized — after the first
+    /// append, and after rotate, truncate-reseat and fresh-generation
+    /// recovery.  Does not grow with record size.  `0` while the shard is
+    /// unmaterialized (#873): an empty active generation holds no buffer at
+    /// all, which is the property the size bound now rests on.
     #[cfg(test)]
     pub(crate) fn buffer_capacity(&self) -> usize {
-        self.writer.capacity()
+        self.writer.as_ref().map_or(0, |w| w.capacity())
+    }
+
+    /// Whether this shard currently holds an open file descriptor and a
+    /// userspace buffer for its active generation (#873).
+    ///
+    /// Exposed so the resident-cost property is assertable rather than
+    /// argued: an index that has not been written to since its last flush
+    /// must report `false` on every shard.
+    pub fn is_materialized(&self) -> bool {
+        self.writer.is_some()
+    }
+
+    /// Open the active generation's file for append and allocate its buffer,
+    /// if that has not happened yet (#873). Idempotent.
+    ///
+    /// The file is expected to exist — `open` and `rotate` both create it —
+    /// so the normal path is one `open(2)` in append mode. It is created here
+    /// only as a defensive fallback (an operator deleting WAL files under a
+    /// live node), which is strictly better than the alternative of failing an
+    /// acknowledged write.
+    fn ensure_materialized(&mut self) -> Result<()> {
+        if self.writer.is_some() {
+            return Ok(());
+        }
+        let path = wal_path(&self.dir, self.generation);
+        let file = if path.exists() {
+            OpenOptions::new().append(true).open(&path)?
+        } else {
+            warn!(
+                generation = self.generation,
+                "WAL active generation file was missing at first append — recreating it"
+            );
+            create_wal_file(&path, self.generation)?
+        };
+        self.writer = Some(BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file)));
+        Ok(())
+    }
+
+    /// The materialized writer. Every caller reaches this only after
+    /// [`ensure_materialized`](Self::ensure_materialized) on the same
+    /// `&mut self`, which is why it can be infallible.
+    #[inline]
+    fn writer(&mut self) -> &mut BufWriter<WalFile> {
+        self.writer
+            .as_mut()
+            .expect("WAL writer materialized before use")
     }
 
     /// Open (or create) the WAL in `dir`.
@@ -467,10 +540,22 @@ impl WalWriter {
             (generation, f, WAL_HEADER_LEN)
         };
 
+        // #873 — an active generation that holds nothing past its header is
+        // the state every index opens in and every flush returns to. Drop the
+        // descriptor and skip the 64 KiB buffer for it; the first append
+        // reopens the same file for append at the same offset. The file itself
+        // was created above exactly as before, so nothing on disk differs.
+        let writer = if current_offset == WAL_HEADER_LEN {
+            drop(file);
+            None
+        } else {
+            Some(BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file)))
+        };
+
         Ok(Self {
             dir,
             generation,
-            writer: BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file)),
+            writer,
             current_offset,
             max_size_bytes,
             sync_mode,
@@ -608,11 +693,12 @@ impl WalWriter {
         let crc = hasher.finalize();
 
         let entry_len = payload.len() as u32;
-        self.writer.write_u32::<LittleEndian>(entry_len)?;
-        self.writer.write_u64::<LittleEndian>(seq_no)?;
-        self.writer.write_u8(op_code)?;
-        self.writer.write_all(payload)?;
-        self.writer.write_u32::<LittleEndian>(crc)?;
+        let w = self.writer();
+        w.write_u32::<LittleEndian>(entry_len)?;
+        w.write_u64::<LittleEndian>(seq_no)?;
+        w.write_u8(op_code)?;
+        w.write_all(payload)?;
+        w.write_u32::<LittleEndian>(crc)?;
 
         let written = WAL_FRAME_OVERHEAD as u64 + payload.len() as u64;
         self.current_offset += written;
@@ -626,7 +712,7 @@ impl WalWriter {
             // Skips fsync(2) — bytes survive process death (kernel keeps
             // the page cache) but not power loss until the next sync().
             // Mirrors what `wal_append_batch` does after its frame write.
-            self.writer.flush()?;
+            self.writer().flush()?;
         }
         Ok(())
     }
@@ -725,13 +811,13 @@ impl WalWriter {
         }
         let frame_start = self.current_offset;
         let res: Result<()> = (|| {
-            self.writer.write_all(frames)?;
+            self.writer().write_all(frames)?;
             self.current_offset += total_written;
             self.mark_dirty();
             if self.sync_mode == SyncMode::Strict {
                 self.sync()?;
             } else {
-                self.writer.flush()?;
+                self.writer().flush()?;
             }
             Ok(())
         })();
@@ -819,13 +905,13 @@ impl WalWriter {
         // roll the WAL back to the batch boundary and NACK the batch.
         let frame_start = self.current_offset;
         let res: Result<()> = (|| {
-            self.writer.write_all(&out)?;
+            self.writer().write_all(&out)?;
             self.current_offset += written_total;
             self.mark_dirty();
             if self.sync_mode == SyncMode::Strict {
                 self.sync()?;
             } else {
-                self.writer.flush()?;
+                self.writer().flush()?;
             }
             Ok(())
         })();
@@ -837,9 +923,18 @@ impl WalWriter {
     }
 
     /// Flush the write buffer and call `fsync`.
+    ///
+    /// A no-op on an unmaterialized shard (#873): its active generation holds
+    /// nothing past the header it was created with and already fsynced, and
+    /// there is no buffer to drain — so there is nothing an fsync could make
+    /// durable that is not durable already.
     pub fn sync(&mut self) -> Result<()> {
-        self.writer.flush()?;
-        self.writer.get_ref().file().sync_all()?;
+        let Some(w) = self.writer.as_mut() else {
+            self.dirty = false;
+            return Ok(());
+        };
+        w.flush()?;
+        w.get_ref().file().sync_all()?;
         self.dirty = false;
         Ok(())
     }
@@ -853,7 +948,13 @@ impl WalWriter {
     /// instead of writing after a torn frame.
     fn ensure_writable(&mut self) -> Result<()> {
         if !self.poisoned {
-            return Ok(());
+            // #873 — the one chokepoint every append path already goes
+            // through, which is why materialization is armed here rather than
+            // in each append method: a future append path cannot forget to
+            // open its own file. `rotate` deliberately re-seats the writer
+            // itself, so the rotate-on-size check that follows every call to
+            // this gate cannot leave the writer unmaterialized.
+            return self.ensure_materialized();
         }
         if self.try_reseat_fresh_generation() {
             warn!(
@@ -884,7 +985,14 @@ impl WalWriter {
     ///    keep re-trying step 2 via `ensure_writable`).
     fn recover_after_write_error(&mut self, frame_start: u64, cause: &StorageError) {
         let reseat: io::Result<WalFile> = (|| {
-            let dup = self.writer.get_ref().file().try_clone()?;
+            // Only reachable from a failed append, which materialized the
+            // writer before it wrote (#873) — but recovery is the last thing
+            // that should panic, so an unmaterialized shard falls through to
+            // the fresh-generation heal below instead.
+            let Some(w) = self.writer.as_ref() else {
+                return Err(io::Error::other("WAL writer not materialized"));
+            };
+            let dup = w.get_ref().file().try_clone()?;
             // Defensive min(): under the drain-per-append invariant the
             // file can only be AT or PAST the boundary; never extend it
             // (set_len past EOF would zero-fill — manufactured garbage).
@@ -896,12 +1004,13 @@ impl WalWriter {
         })();
         match reseat {
             Ok(fresh) => {
-                let old = std::mem::replace(
-                    &mut self.writer,
-                    BufWriter::with_capacity(WAL_BUF_CAP, fresh),
-                );
+                let old = self
+                    .writer
+                    .replace(BufWriter::with_capacity(WAL_BUF_CAP, fresh));
                 // Discard buffered torn bytes WITHOUT flushing them.
-                let _ = old.into_parts();
+                if let Some(old) = old {
+                    let _ = old.into_parts();
+                }
                 self.current_offset = frame_start;
                 self.poisoned = false;
                 warn!(
@@ -944,11 +1053,12 @@ impl WalWriter {
         match create_wal_file(&wal_path(&self.dir, next), next) {
             Ok(f) => {
                 self.generation = next;
-                let old = std::mem::replace(
-                    &mut self.writer,
-                    BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(f)),
-                );
-                let _ = old.into_parts();
+                let old = self
+                    .writer
+                    .replace(BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(f)));
+                if let Some(old) = old {
+                    let _ = old.into_parts();
+                }
                 self.current_offset = WAL_HEADER_LEN;
                 self.poisoned = false;
                 true
@@ -962,7 +1072,9 @@ impl WalWriter {
     /// filling disk.  `None` clears the fault.
     #[cfg(test)]
     pub(crate) fn inject_write_fault(&mut self, budget: Option<u64>) {
-        self.writer.get_mut().fail_after = budget;
+        self.ensure_materialized()
+            .expect("materialize WAL for fault injection");
+        self.writer().get_mut().fail_after = budget;
     }
 
     /// True when bytes were appended since the last `fsync`.  Consumed by
@@ -984,7 +1096,10 @@ impl WalWriter {
     /// the committed `.seg` file, so acknowledged-and-flushed
     /// documents are still durable.
     pub fn soft_flush(&mut self) -> Result<()> {
-        self.writer.flush()?;
+        // Unmaterialized ⇒ no buffer, nothing to drain (#873).
+        if let Some(w) = self.writer.as_mut() {
+            w.flush()?;
+        }
         Ok(())
     }
 
@@ -1150,6 +1265,14 @@ impl WalWriter {
         Ok(removed)
     }
 
+    /// Close the active generation and start the next one, seated and ready
+    /// to be appended to.
+    ///
+    /// This one deliberately leaves the writer MATERIALIZED (#873): its
+    /// size-driven callers are mid-append and write into the new generation
+    /// immediately. Releasing an empty generation is
+    /// [`force_rotate`](Self::force_rotate)'s job — that is the post-flush
+    /// path, where no write follows.
     fn rotate(&mut self) -> Result<()> {
         self.sync()?;
         // Bump the generation only AFTER the new file exists: bumping
@@ -1160,7 +1283,7 @@ impl WalWriter {
         let path = wal_path(&self.dir, next);
         let file = create_wal_file(&path, next)?;
         self.generation = next;
-        self.writer = BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file));
+        self.writer = Some(BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file)));
         self.current_offset = WAL_HEADER_LEN;
         debug!(
             generation = self.generation,
@@ -1206,7 +1329,30 @@ impl WalWriter {
         if self.current_offset > WAL_HEADER_LEN {
             self.rotate()?;
         }
+        // #873 — this is the post-flush path (`wal_maintain_all_verified`
+        // calls it on every shard of every flushed index), so the generation
+        // it leaves active is empty by construction. Release its descriptor
+        // and its 64 KiB buffer: an index that stops being written to must
+        // stop paying for a write buffer, which — multiplied by the ingest
+        // shard count and by hundreds of small indices — is a large part of
+        // the resident floor a quiet node was carrying.
+        self.release_if_empty();
         Ok(())
+    }
+
+    /// Drop the active generation's descriptor and userspace buffer when that
+    /// generation holds nothing past its header (#873).
+    ///
+    /// Safe to call at any quiescent point: `current_offset == WAL_HEADER_LEN`
+    /// means no frame has been appended to this generation, and every append
+    /// drains the buffer before it returns, so there is nothing buffered to
+    /// lose. The file stays on disk; [`ensure_materialized`](Self::ensure_materialized)
+    /// reopens it for append at the same offset.
+    fn release_if_empty(&mut self) {
+        if self.current_offset == WAL_HEADER_LEN {
+            self.writer = None;
+            self.dirty = false;
+        }
     }
 }
 
@@ -2476,6 +2622,89 @@ mod tests {
         .unwrap()
     }
 
+    /// #873 — an EMPTY active generation holds no file descriptor and no
+    /// 64 KiB buffer, and nothing about the on-disk log changes.
+    ///
+    /// This is the state every index opens in and every flush returns to
+    /// (`wal_maintain_all_verified` → `force_rotate`), multiplied by the
+    /// ingest-shard count and again by the number of open indices — so the
+    /// property under test is "an index that is not being written to stops
+    /// paying for a write buffer", not a micro-optimisation of one shard.
+    #[test]
+    fn an_empty_wal_generation_holds_no_descriptor_and_no_buffer() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut w = make_writer(dir.path());
+
+        // Fresh shard: unmaterialized, but the generation-0 file was created
+        // on disk exactly as before — the laziness is in memory only.
+        assert!(
+            !w.is_materialized(),
+            "a fresh WAL shard must not hold a descriptor"
+        );
+        assert_eq!(w.buffer_capacity(), 0, "and must not allocate a buffer");
+        assert!(
+            wal_path(dir.path(), 0).exists(),
+            "the active generation file must still be created on disk"
+        );
+        assert_eq!(
+            fs::metadata(wal_path(dir.path(), 0)).unwrap().len(),
+            WAL_HEADER_LEN,
+            "an empty generation is exactly its header"
+        );
+
+        // The first append materializes it.
+        w.append(&doc("d1")).unwrap();
+        assert!(w.is_materialized(), "an append must materialize the shard");
+        assert_eq!(w.buffer_capacity(), WAL_BUF_CAP);
+
+        // The post-flush path hands the buffer back: `force_rotate` freezes
+        // the generation it wrote and leaves an empty one active.
+        w.force_rotate().unwrap();
+        assert!(
+            !w.is_materialized(),
+            "force_rotate must release the descriptor of the empty generation \
+             it leaves active"
+        );
+        assert_eq!(w.buffer_capacity(), 0);
+        assert_eq!(w.active_generation(), 1);
+
+        // A write after the release re-materializes and lands correctly.
+        w.append(&doc("d2")).unwrap();
+        assert!(w.is_materialized());
+        drop(w);
+
+        // Reopening a shard whose active generation is empty stays lazy, and
+        // every entry ever written is still replayable.
+        let mut reopened = make_writer(dir.path());
+        assert!(
+            reopened.is_materialized(),
+            "gen 1 has data, so it is opened"
+        );
+        reopened.force_rotate().unwrap();
+        drop(reopened);
+        let reopened = make_writer(dir.path());
+        assert!(
+            !reopened.is_materialized(),
+            "a cleanly rotated shard reopens without a descriptor or a buffer"
+        );
+        assert_eq!(reopened.buffer_capacity(), 0);
+        drop(reopened);
+
+        let ids: Vec<String> = WalReader::new(dir.path())
+            .replay()
+            .unwrap()
+            .map(|e| match e.unwrap().entry {
+                WalEntry::Index { doc_id, .. } => doc_id,
+                other => panic!("unexpected entry {other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["d1".to_string(), "d2".to_string()],
+            "laziness must not cost a single acknowledged entry"
+        );
+    }
+
     #[test]
     fn round_trip_index_entry() {
         let dir = tempfile::tempdir().unwrap();
@@ -2911,7 +3140,9 @@ mod tests {
             Arc::clone(&seq_counter),
         )
         .unwrap();
-        assert_eq!(writer.buffer_capacity(), WAL_BUF_CAP);
+        // #873 — a shard with an empty active generation holds no buffer at
+        // all; the bound below is what the first append allocates.
+        assert_eq!(writer.buffer_capacity(), 0);
 
         let first = WalEntry::Index {
             doc_id: "before-rotate".into(),
@@ -2958,7 +3189,7 @@ mod tests {
             Arc::clone(&seq_counter),
         )
         .unwrap();
-        assert_eq!(writer.buffer_capacity(), WAL_BUF_CAP);
+        assert_eq!(writer.buffer_capacity(), 0, "empty generation, no buffer");
 
         // High-entropy printable so LZ4 cannot collapse oversized payloads
         // back under the buffer capacity.
@@ -3002,7 +3233,9 @@ mod tests {
             }
         }
         writer.force_rotate().unwrap();
-        assert_eq!(writer.buffer_capacity(), WAL_BUF_CAP);
+        // #873 — force_rotate leaves an EMPTY generation active and hands the
+        // buffer back, which is what keeps a flushed index from holding one.
+        assert_eq!(writer.buffer_capacity(), 0);
 
         // One more append after rotate to prove the new generation is live.
         let final_id = "post-rotate".to_string();
@@ -3022,6 +3255,8 @@ mod tests {
             Arc::clone(&seq_counter),
         )
         .unwrap();
+        // The post-rotate append above left data in the active generation, so
+        // the reopen materializes it — at the same bounded capacity (#873).
         assert_eq!(reopened.buffer_capacity(), WAL_BUF_CAP);
         drop(reopened);
 
@@ -3059,7 +3294,7 @@ mod tests {
             handles.push(thread::spawn(move || {
                 let mut w =
                     WalWriter::open(&dir, 64 * 1024 * 1024, SyncMode::Batched, seq).unwrap();
-                assert_eq!(w.buffer_capacity(), WAL_BUF_CAP);
+                assert_eq!(w.buffer_capacity(), 0, "fresh shard holds no buffer");
                 barrier.wait();
                 for i in 0..50 {
                     let pad = if i % 10 == 0 {

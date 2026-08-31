@@ -40,6 +40,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `corpus_scope` field, and the run already warns with the `_reindex` that
   retires the legacy mapping.
 
+- **CI's default-parallelism test step no longer races itself for a port**
+  ([#751](https://github.com/xerj-org/xerj/issues/751), the second half). With
+  the deadlock above fixed, the same step then failed on a real port race that
+  the hang had been masking: `xerj-server`'s cleartext-bind tests allocated a
+  port by binding `127.0.0.1:0`, reading the number, releasing it, and handing
+  it to a child process that binds it later. The kernel is free to hand that
+  same ephemeral port to the next `bind(":0")`, and several tests in that file
+  keep a real server alive for seconds, so at default parallelism they
+  overlapped — `gRPC: bind [::1]:46843 ... Address already in use`. Ports now
+  come from a band below every platform's ephemeral range, strided per process
+  and probe-bound on both `127.0.0.1` and `::1` (a port free on one family can
+  be taken on the other, which is exactly how it failed). Test-only change.
+
+- **A search that aggregates over a cold segment could deadlock forever**
+  ([#751](https://github.com/xerj-org/xerj/issues/751)). On a multi-thread
+  runtime `Index::search` runs its whole body inside
+  `block_in_place(|| Handle::current().block_on(..))`: that hands the worker's
+  core to a tokio *blocking-pool* thread — which then runs the scheduler loop
+  for the life of the runtime — and parks the calling thread, itself a
+  blocking-pool thread, for the entire search. An aggregation with no columnar
+  fast path assembles the full corpus from inside that park, and the cold
+  segment hydration it needs (`stored_values_for_async`) queued its decode with
+  `spawn_blocking` — onto the very pool the waiter was holding a thread of.
+  tokio grows that pool only when it observes zero idle threads at push time,
+  so the core hand-off and the decode submission could both see the same idle
+  thread, both merely notify, and the one thread that woke took the core and
+  never returned. The decode was then queued behind threads that were all
+  permanently running worker cores: the search waited for a task that could
+  never be scheduled. The decode now runs on the engine's own rayon maintenance
+  pool, whose threads are never consumed by tokio, so the wait cannot be
+  circular. This is what made CI's default-parallelism workspace-test step hang
+  on hosted runners and leave `main` with no verdict for hours. Measured on a
+  4-cpu affinity mask with the reported test binary: 12 hangs in 60 runs before,
+  0 in 200 after (and 0 in 100 on a 2-cpu mask). One consequence worth knowing:
+  a cold hydration a search is waiting on now runs at the maintenance pool's
+  `nice(10)` instead of a `nice(0)` blocking thread, which is only observable
+  when every core is already saturated.
+
 ## [1.0.0-rc.72] - 2026-08-31
 
 The idle-cost release. A 2026-08-29 measurement session found XERJ was not
