@@ -21,6 +21,7 @@ use anyhow::{anyhow, Context, Result};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokenizers::{Encoding, Tokenizer, TruncationParams};
 
@@ -31,7 +32,11 @@ pub const DEFAULT_MODEL_ID: &str = "sentence-transformers/all-MiniLM-L6-v2";
 
 /// Cap on tokens per passage. MiniLM's positional table is 512; passages are
 /// already chunked upstream, so this is a safety clamp, not the usual path.
-const MAX_TOKENS: usize = 512;
+///
+/// Public because it is part of this backend's *output* contract: truncating
+/// at a different length gives a different vector for a long passage, so it
+/// travels in the execution identity ([`asset_identity`]'s callers).
+pub const MAX_TOKENS: usize = 512;
 
 /// Rows in one forward pass. Measured on CPU with MiniLM
 /// (`examples/neural_throughput.rs`): throughput climbs steeply to 64 rows and
@@ -295,16 +300,221 @@ impl NeuralEmbedder {
     }
 }
 
+/// How [`NeuralEmbedder::embed_blocking`] turns per-token hidden states into
+/// one vector. Part of the identity: the same weights pooled differently are a
+/// different embedder.
+pub const POOLING: &str = "attention-mask-mean+l2-normalize";
+
+/// Content address of the three files a [`NeuralEmbedder`] is built from.
+///
+/// A *configured model id* cannot identify an embedder: `all-MiniLM-L6-v2`
+/// names a mutable hub pointer, and [`NeuralConfig::local_dir`] names a
+/// directory whose contents can be swapped underneath a running server. The
+/// bytes can, which is how Lucene decides whether a replicated file may be
+/// reused — `ReplicaNode.fileIsIdentical` compares length + header id +
+/// checksum rather than trusting the name
+/// (`lucene/replicator/src/java/org/apache/lucene/replicator/nrt/ReplicaNode.java:855`),
+/// on top of `CodecUtil.checkIndexHeaderID` / `retrieveChecksum`
+/// (`lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java:364`, `:526`).
+/// APPROACH ONLY — nothing is copied; the digest below is our own.
+///
+/// # What is deliberately NOT in here
+///
+/// Only inputs that can move a vector belong in an execution identity; an
+/// identity that moves without the vectors moving is exactly the false
+/// "identity changed" this replaces (#487). So these are excluded on purpose:
+///
+///   * **the model id and the resolved file paths** — two hosts holding the
+///     same bytes under different names or directories must be able to resume
+///     each other's generation, and a path would also leak into the wire
+///     identity, which is documented as privacy-safe;
+///   * **`MAX_BATCH_ROWS` / `PADDED_TOKEN_BUDGET`** ([`crate::microbatch`]) —
+///     they decide how rows are grouped into forward passes, not what any row
+///     computes. Padded positions carry attention-mask 0 and are dropped by
+///     the masked mean, so regrouping the same passages returns the same
+///     vectors. #366 retuned this batching with no vector change, and an
+///     identity that folded it in would have failed every resume across that
+///     release for nothing;
+///   * **thread count, device, host CPU features** — same reason, and they are
+///     not stable across the machines that must agree on one corpus.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetIdentity {
+    /// sha256 of `model.safetensors` — the weights.
+    pub model_sha256: String,
+    /// sha256 of `tokenizer.json` — the vocabulary and pre-tokenizer.
+    pub tokenizer_sha256: String,
+    /// sha256 of `config.json`. Hashed whole rather than field-by-field: it
+    /// parameterises the architecture candle instantiates, and enumerating the
+    /// fields that matter would silently miss any new one. The cost is that a
+    /// whitespace-only edit to a hand-managed `local_model_dir` copy moves the
+    /// identity even though the vectors do not — over-strict (fail-closed) on
+    /// a file that is byte-stable when it comes from the hub cache.
+    pub config_sha256: String,
+    /// `hidden_size` from the resolved `config.json` — the width of every
+    /// vector this embedder produces, and the same value
+    /// [`NeuralEmbedder::dims`] reports, read here without loading the model.
+    pub dimensions: usize,
+}
+
+/// Why a neural model could not be content-addressed, split in two on purpose.
+///
+/// `EmbeddingExecutionIdentity` is documented as never carrying model paths or
+/// model names across the API boundary, and a resolution failure is precisely
+/// where a filesystem path would otherwise escape into
+/// `non_resumable_reason` — the failure text is the one part of the identity
+/// that is not a digest. So the caller reports [`Self::asset`] on the wire and
+/// logs [`Self::detail`] locally.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetIdentityError {
+    /// What could not be read, as a bare asset name. Contains no path, no
+    /// directory and no model id, so it is safe to return to a remote client.
+    pub asset: &'static str,
+    /// The same failure with everything useful for an operator in it —
+    /// resolved paths, the configured model id, the underlying io error. For
+    /// this server's own log, never for a response body.
+    pub detail: String,
+}
+
+impl AssetIdentityError {
+    fn new(asset: &'static str, detail: impl std::fmt::Display) -> Self {
+        Self {
+            asset,
+            detail: detail.to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for AssetIdentityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.detail)
+    }
+}
+
+impl std::error::Error for AssetIdentityError {}
+
+/// Content-address the assets `cfg` resolves to.
+///
+/// Resolution takes exactly the path [`NeuralEmbedder::load`] takes (local
+/// directory when set, hub cache otherwise), so a server that is able to embed
+/// is always able to state what it embeds with, and one that cannot resolve its
+/// assets reports *which asset* failed instead of a fabricated identity.
+///
+/// `ApiRepo::get` consults the local cache before the network (hf-hub 0.4
+/// `api/sync.rs:709`), so a warm cache resolves offline; a cold one downloads
+/// the same ~90 MB the first embed would have downloaded anyway.
+///
+/// Memoised per [`NeuralConfig`] for the process lifetime — the digest reads
+/// ~90 MB and the caller is a request path (measured on this box: 71–77 ms on
+/// the first call for MiniLM, 0 ms after). That memo is also what makes the
+/// identity *stable within a process*: assets swapped under a running server
+/// are not noticed until restart, which is the same bargain the ONNX arm makes
+/// with its `runtime_onnx_assets` cell.
+pub fn asset_identity(
+    cfg: &NeuralConfig,
+) -> std::result::Result<AssetIdentity, AssetIdentityError> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    type Memo = HashMap<NeuralConfig, std::result::Result<AssetIdentity, AssetIdentityError>>;
+    static IDENTITIES: OnceLock<Mutex<Memo>> = OnceLock::new();
+
+    let identities = IDENTITIES.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(cached) = identities
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(cfg)
+    {
+        return cached.clone();
+    }
+    // Computed outside the lock: hashing is seconds of I/O on a cold cache and
+    // must not serialise every other configuration behind it. Two threads
+    // racing the same config compute the same answer, so the double insert is
+    // harmless.
+    let computed = compute_asset_identity(cfg);
+    identities
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(cfg.clone(), computed.clone());
+    computed
+}
+
+fn compute_asset_identity(
+    cfg: &NeuralConfig,
+) -> std::result::Result<AssetIdentity, AssetIdentityError> {
+    let (config_path, tokenizer_path, weights_path) = match &cfg.local_dir {
+        Some(dir) => resolve_local_assets(dir)?,
+        None => resolve_from_hub(&cfg.model_id, cfg.cache_dir.as_deref())
+            // The hub error names the model id and the cache path; neither may
+            // reach a client, so only the generic label travels.
+            .map_err(|e| AssetIdentityError::new("the model download", format!("{e:#}")))?,
+    };
+    let config_json = std::fs::read(&config_path).map_err(|e| {
+        AssetIdentityError::new(
+            "config.json",
+            format!("read model config {}: {e}", config_path.display()),
+        )
+    })?;
+    let config: Config = serde_json::from_slice(&config_json).map_err(|e| {
+        AssetIdentityError::new(
+            "config.json",
+            format!("parse model config {}: {e}", config_path.display()),
+        )
+    })?;
+    Ok(AssetIdentity {
+        model_sha256: file_sha256(&weights_path, "model.safetensors")?,
+        tokenizer_sha256: file_sha256(&tokenizer_path, "tokenizer.json")?,
+        config_sha256: format!("{:x}", Sha256::digest(&config_json)),
+        dimensions: config.hidden_size,
+    })
+}
+
+/// Streamed sha256 — the weights are ~90 MB and must not be held in memory
+/// just to be digested.
+fn file_sha256(
+    path: &Path,
+    asset: &'static str,
+) -> std::result::Result<String, AssetIdentityError> {
+    use std::io::Read;
+
+    let fail = |e: std::io::Error| {
+        AssetIdentityError::new(
+            asset,
+            format!("read embedding asset {}: {e}", path.display()),
+        )
+    };
+    let mut file = std::fs::File::open(path).map_err(fail)?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let read = file.read(&mut buf).map_err(fail)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buf[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 /// Resolve the three model files from a local directory (air-gapped).
 fn resolve_local(dir: &Path) -> Result<(PathBuf, PathBuf, PathBuf)> {
+    // `load` wants the operator-facing text, paths and all; only the identity
+    // endpoint has to keep the path off the wire.
+    resolve_local_assets(dir).map_err(|e| anyhow!("{}", e.detail))
+}
+
+/// [`resolve_local`], keeping the failing asset separable from the path it was
+/// looked for at — see [`AssetIdentityError`].
+fn resolve_local_assets(
+    dir: &Path,
+) -> std::result::Result<(PathBuf, PathBuf, PathBuf), AssetIdentityError> {
     let config = dir.join("config.json");
     let tokenizer = dir.join("tokenizer.json");
     let weights = find_local_weights(dir)?;
-    for (label, p) in [("config.json", &config), ("tokenizer.json", &tokenizer)] {
+    for (asset, p) in [("config.json", &config), ("tokenizer.json", &tokenizer)] {
         if !p.exists() {
-            return Err(anyhow!(
-                "local model dir {} is missing {label}",
-                dir.display()
+            return Err(AssetIdentityError::new(
+                asset,
+                format!("local model dir {} is missing {asset}", dir.display()),
             ));
         }
     }
@@ -312,15 +522,18 @@ fn resolve_local(dir: &Path) -> Result<(PathBuf, PathBuf, PathBuf)> {
 }
 
 /// Prefer `model.safetensors`; candle cannot read PyTorch `.bin` weights.
-fn find_local_weights(dir: &Path) -> Result<PathBuf> {
+fn find_local_weights(dir: &Path) -> std::result::Result<PathBuf, AssetIdentityError> {
     let st = dir.join("model.safetensors");
     if st.exists() {
         return Ok(st);
     }
-    Err(anyhow!(
-        "local model dir {} has no model.safetensors (candle requires safetensors, \
-         not pytorch_model.bin)",
-        dir.display()
+    Err(AssetIdentityError::new(
+        "model.safetensors",
+        format!(
+            "local model dir {} has no model.safetensors (candle requires safetensors, \
+             not pytorch_model.bin)",
+            dir.display()
+        ),
     ))
 }
 

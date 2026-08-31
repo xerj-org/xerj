@@ -38,7 +38,7 @@ sha2 = { version = "0.10", optional = true }
 [features]
 default = []
 # Bundles the neural BERT embedder. Adds ~candle + tokenizers to the build.
-neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub"]
+neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub", "dep:sha2"]
 # Experimental local ONNX backend; xerj-server exposes it only when the
 # feature is propagated and explicitly selected at runtime.
 onnx-experimental = ["dep:ort", "dep:tokenizers", "dep:sha2"]

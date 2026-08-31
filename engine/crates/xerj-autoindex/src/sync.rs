@@ -121,9 +121,10 @@ pub struct ExecutionIdentity {
     pub embedding_identity_sha256: String,
     pub embedding_backend: String,
     /// Vector width, exactly as the server reported it. `None` is the honest
-    /// record for a backend whose width the server does not pin (`neural`,
-    /// `proxy` — see `esclient::EmbeddingExecutionIdentity::dimensions`) and
-    /// for the synthetic `disabled` identity a no-semantic plan pins. It must
+    /// record for a backend whose width the server does not pin (`proxy`, and
+    /// a `neural` node whose assets it could not resolve — see
+    /// `esclient::EmbeddingExecutionIdentity::dimensions`) and for the
+    /// synthetic `disabled` identity a no-semantic plan pins. It must
     /// never be coerced to a number: a generation that recorded "unknown" and
     /// one that recorded 384 are different execution spaces.
     #[serde(default)]

@@ -269,6 +269,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retires stale catalog documents by their prefix-scoped `_id`
   (`generation_catalog::managed_non_run_ids`), which was never unscoped.
 
+- **`--embed-mode neural`: re-indexing an unchanged corpus no longer fails,
+  and the identity can now tell one model from another**
+  ([#487](https://github.com/xerj-org/xerj/issues/487),
+  [#367](https://github.com/xerj-org/xerj/issues/367)). The neural arm of the
+  embedding execution identity hashed the configured model *name*
+  (`neural-unpinned.v1;configured-model=…`) and reported `resumable: false`
+  unconditionally. Two consequences, both reproduced on the released rc.71
+  binary before the change:
+
+  - every neural node on earth emitted the same `identity_sha256`
+    (`6e51e5ce3e46…`), so the check that exists to catch a swapped model could
+    not see one; and
+  - the five `resumable` gates in `xerj-autoindex` all fired. `xerj autoindex`
+    against a neural node was **one-shot**: the graph path completed
+    generation 1 (`exit=0`) and then refused the *identical* command over an
+    *unchanged* corpus (`exit=1`, "server embedding backend cannot safely
+    resume semantic indexing"), and the `--no-graph` path refused even the
+    first run at the generation cutover. That is the whole reference-coding
+    loop — index a peer repo, pick up its commits later — so it mattered more
+    than a bookkeeping error looks.
+
+  The identity is now the streamed sha256 of `model.safetensors`,
+  `tokenizer.json` and `config.json` plus the model's own `hidden_size`,
+  pooling and truncation limit, resolved by exactly the path
+  `NeuralEmbedder::load` takes (`xerj-ai/src/neural.rs`) — the same thing the
+  ONNX arm already did. `resumable` is then honestly `true`, `dimensions` is
+  reported instead of omitted, and a genuinely swapped model is refused where
+  before nothing was. Assets that cannot be resolved still fail closed, but the
+  reason names the file rather than blaming a configuration change that never
+  happened.
+
+  Measured on this box, 20-file corpus, `--embed-mode neural` (MiniLM from the
+  local HuggingFace cache):
+
+  | run | rc.71 | this change |
+  |---|---|---|
+  | graph path, run 1 | `exit=0` | `exit=0` |
+  | graph path, run 2 — identical command, unchanged corpus | `exit=1` | `exit=0` |
+  | graph path, run 3 — one file edited | not reachable | `exit=0` |
+  | `--no-graph`, run 1 | `exit=1` | `exit=0` |
+  | `--no-graph`, run 2 — unchanged corpus | `exit=1` | `exit=0` |
+
+  The pre-fix identity was already *deterministic* — the same digest on every
+  call and every host — so this was never a hashing-stability bug; the flag was
+  simply hardcoded. Batch shape (`MAX_BATCH_ROWS`, `PADDED_TOKEN_BUDGET`),
+  thread count, device and the resolved file paths are deliberately **not** in
+  the digest: they change how rows are grouped, not what any row computes, so
+  folding them in would have reintroduced the false "identity changed" one
+  layer down.
+
+  On-disk migration: `embedding_execution.json` moves to version 3, so the
+  first reopen of a populated neural index after upgrading is grandfathered and
+  re-baselined instead of refused — the same handling #533 gave the proxy
+  endpoint change. `proxy` is unchanged and still reports `resumable: false`:
+  a remote provider attests nothing about its model's bytes, and probing it
+  with fixed inputs would hash floats that no provider guarantees to be
+  reproducible — which is the bug in this issue, one layer down.
+
 - **A frontmatter block's body is judged as YAML by whether it parses, not only
   by how its lines look**
   ([#587](https://github.com/xerj-org/xerj/issues/587)). The `---` lookahead
