@@ -203,8 +203,9 @@ impl Default for MergeConfig {
 /// **Not part of the supported public API — the server does NOT use this.**
 ///
 /// The running engine merges through its own path
-/// (`xerj-engine::index::Index::merge_pass_locked`, driven by
-/// `spawn_merge_task`); `MergeExecutor` is a legacy, storage-crate-only
+/// (`xerj-engine::index::Index::merge_pass_locked`, driven by the
+/// event-driven debounced checks of `Index::request_merge_check`, #871);
+/// `MergeExecutor` is a legacy, storage-crate-only
 /// helper kept solely as a convenience for in-crate unit tests. It is
 /// `#[doc(hidden)]` and no longer re-exported at the crate root because it
 /// has two footguns that make it unsafe to call on a real index:
