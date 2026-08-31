@@ -35,15 +35,21 @@ const MAX_TOKENS: usize = 512;
 
 /// Rows in one forward pass. Measured on CPU with MiniLM
 /// (`examples/neural_throughput.rs`): throughput climbs steeply to 64 rows and
-/// then flattens and falls back — 32 rows ran at 139 passages/s, 64 at 155,
-/// 128 at 151, 256 at 132. 64 is also what the ONNX backend uses.
+/// then flattens and falls back. Two runs of that sweep on this shared box
+/// disagree on absolute throughput — 32/64/128/256 rows read 139/155/151/132
+/// passages/s in one and 179.1/199.9/198.7/166.2 in the other (the second is
+/// the run published with this change) — but agree on where the knee is. 64 is
+/// also what the ONNX backend uses.
 const MAX_BATCH_ROWS: usize = 64;
 
 /// Ceiling on `rows × padded_sequence_length` for one forward pass. Bounds the
 /// activation memory a single call can allocate (BERT's attention tensor grows
 /// with `rows × heads × seq²`) and stops a long passage from being batched with
 /// many others at its own length. 4096 leaves a full 64-row batch of ~64-token
-/// passages intact, which is the ingest path's common shape.
+/// passages intact; on real ingest chunks (512 *characters*, so roughly
+/// 110–130 tokens of prose and up to ~400 for dense code) it is usually the
+/// budget rather than the row cap that binds — about 32 rows for prose, ~9 for
+/// code.
 const PADDED_TOKEN_BUDGET: usize = 4_096;
 
 /// BERT's `[PAD]` id. Padded positions carry attention-mask 0, so the id only
