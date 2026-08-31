@@ -214,6 +214,52 @@ pub const fn threads_for_cores(workload: Workload, cores: usize) -> usize {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Per-index concurrent-map sharding
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Ceiling on the shard count of a **per-index** concurrent map (#873).
+///
+/// `dashmap`'s own default is `(available_parallelism * 4).next_power_of_two()`,
+/// which is the right answer for a map there is ONE of per process and the
+/// wrong answer for a map there is one of per index: the shard array is
+/// `Box<[CachePadded<RwLock<HashMap>>]>`, 128 bytes per shard on x86_64,
+/// written at construction and therefore resident forever. Every open index
+/// carries ~23 of these maps, so on a 32-core host the default cost 128 × 128 B
+/// × 23 ≈ 368 KiB per index before a single document existed — measured as the
+/// largest single term in the idle-RSS floor of #873.
+///
+/// 16 is a ceiling, not a target: a machine whose dashmap default is already
+/// smaller keeps that smaller value. Striping wider than this buys nothing here
+/// because the contention these maps see is bounded by the concurrency on ONE
+/// index, and it is read-dominated — hydration inserts are rare, and readers
+/// share the shard lock.
+pub const MAX_PER_INDEX_MAP_SHARDS: usize = 16;
+
+/// Shard count for a concurrent map that exists once per index.
+///
+/// Never larger than the `dashmap` default this replaced, so no machine ends up
+/// with *more* striping than before; capped at [`MAX_PER_INDEX_MAP_SHARDS`] so
+/// a 64-core host does not pay 256-way striping on every cache of every open
+/// index. Must stay a power of two — `DashMap::with_shard_amount` panics
+/// otherwise.
+pub fn per_index_map_shards() -> usize {
+    static SHARDS: OnceLock<usize> = OnceLock::new();
+    *SHARDS.get_or_init(|| per_index_map_shards_for(cores()))
+}
+
+/// Pure rule behind [`per_index_map_shards`] — the tested half.
+pub const fn per_index_map_shards_for(cores: usize) -> usize {
+    let cores = if cores == 0 { 1 } else { cores };
+    // `dashmap::default_shard_amount()`, then capped.
+    let dashmap_default = (cores * 4).next_power_of_two();
+    if dashmap_default < MAX_PER_INDEX_MAP_SHARDS {
+        dashmap_default
+    } else {
+        MAX_PER_INDEX_MAP_SHARDS
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Thread priority
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -541,6 +587,41 @@ mod tests {
         let (n, note) = resolve_cores(None, None, None);
         assert_eq!(n, 4);
         assert!(note.is_some(), "an undetectable machine must say so");
+    }
+
+    /// #873 - a per-index concurrent map must not stripe with the machine.
+    ///
+    /// The rule is asserted at explicit core counts rather than at the host's,
+    /// because a 2-core CI runner would otherwise agree with the unfixed
+    /// behaviour and report a green that means nothing.
+    #[test]
+    fn a_per_index_map_is_capped_and_never_wider_than_the_dashmap_default() {
+        // The value this replaced, restated so the comparison is explicit.
+        let dashmap_default = |cores: usize| (cores * 4).next_power_of_two();
+        for cores in [1usize, 2, 3, 4, 8, 12, 16, 32, 64, 128] {
+            let n = per_index_map_shards_for(cores);
+            assert!(n.is_power_of_two(), "cores={cores} n={n} must be pow2");
+            assert!(n >= 1, "cores={cores}");
+            assert!(
+                n <= MAX_PER_INDEX_MAP_SHARDS,
+                "cores={cores} n={n} exceeds the cap"
+            );
+            assert!(
+                n <= dashmap_default(cores),
+                "cores={cores}: must never stripe WIDER than dashmap would have"
+            );
+        }
+        // Below the cap the machine still decides; above it, it does not.
+        assert_eq!(per_index_map_shards_for(1), 4);
+        assert_eq!(per_index_map_shards_for(2), 8);
+        assert_eq!(per_index_map_shards_for(4), 16);
+        assert_eq!(per_index_map_shards_for(8), 16);
+        assert_eq!(per_index_map_shards_for(64), 16);
+        // A machine that reports zero cores must not produce a zero shard
+        // count: `DashMap::with_shard_amount(0)` panics.
+        assert_eq!(per_index_map_shards_for(0), 4);
+        // The cached host answer obeys the same rule.
+        assert_eq!(per_index_map_shards(), per_index_map_shards_for(cores()));
     }
 
     #[test]
