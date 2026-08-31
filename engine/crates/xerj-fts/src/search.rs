@@ -432,6 +432,43 @@ impl DisMaxQuery {
     }
 }
 
+/// A leaf whose match set and per-document scores are supplied by the
+/// CALLER, already resolved to this segment's stored positions
+/// (#892).
+///
+/// Every other leaf in this enum resolves its documents through the term
+/// dictionary. Some match sets cannot be expressed that way — the engine's
+/// `_id` primary keys are not indexed as FTS terms — yet they still have to
+/// take part in an inverted-index query instead of forcing the whole request
+/// onto a stored-document scan. The engine's kNN-beside-`query` hybrid is
+/// exactly that shape: the vector leg has already run, so its top-k documents
+/// and their scores are known facts, and this node carries them into the same
+/// `BoolQuery` combination as the lexical half.
+///
+/// Contract for the caller:
+///   * `docs` holds `(doc_id, score)` pairs for ONE segment — the doc ids are
+///     that segment's stored positions, exactly what the postings lists use.
+///   * ids that do not live in this segment are simply absent; the segment's
+///     own projection is responsible for resolving them.
+///   * duplicates are the caller's business (scores are emitted verbatim).
+///
+/// Liveness is NOT applied here — like every other leaf, this one reports
+/// physical positions and the engine filters tombstones/superseded copies
+/// during materialisation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocScoresQuery {
+    /// `(doc_id, score)`, ascending by `doc_id` so the emitted hits keep the
+    /// ascending-doc_id order every other leaf produces.
+    pub docs: Vec<(u32, f32)>,
+}
+
+impl DocScoresQuery {
+    pub fn new(mut docs: Vec<(u32, f32)>) -> Self {
+        docs.sort_unstable_by_key(|&(doc_id, _)| doc_id);
+        Self { docs }
+    }
+}
+
 /// Top-level query enum.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -445,6 +482,8 @@ pub enum Query {
     Bool(Box<BoolQuery>),
     DisMax(Box<DisMaxQuery>),
     MatchAll,
+    /// Caller-supplied `(doc_id, score)` set — see [`DocScoresQuery`].
+    DocScores(DocScoresQuery),
 }
 
 // ── FtsSearcher ───────────────────────────────────────────────────────────────
@@ -618,6 +657,20 @@ impl FtsSearcher {
             Query::Bool(bq) => self.execute_bool(bq, explain),
             Query::DisMax(dq) => self.execute_dis_max(dq, explain),
             Query::MatchAll => self.execute_match_all(),
+            // #892: the pairs are already this segment's answer — no term
+            // dictionary, no postings decode, no scorer. `explain` produces
+            // no breakdown because there is no term-level derivation to
+            // show; the engine never asks this leaf to explain (its FTS
+            // calls all pass `explain: false`).
+            Query::DocScores(ds) => Ok(ds
+                .docs
+                .iter()
+                .map(|&(doc_id, score)| ScoredHit {
+                    doc_id,
+                    score,
+                    explanation: None,
+                })
+                .collect()),
         }
     }
 
