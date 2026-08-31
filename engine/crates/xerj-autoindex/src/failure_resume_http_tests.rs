@@ -109,6 +109,11 @@ struct MockState {
     /// with a 500 whose body names the condition. Scoped to the one call so
     /// the fixture proves the sweep is what wedged the run (#345), not that a
     /// server which 500s everything fails.
+    ///
+    /// #905: the sweep is a candidate `_search` followed by a by-`_id` delete
+    /// now, not one `_delete_by_query`, so the fault is injected on the search.
+    /// It is still the first and only server call the sweep makes, which is
+    /// what the fixture needs.
     fail_alias_sweep: bool,
     /// One entry per alias-sweep request, holding the paths it named. The
     /// sweep used to be one round trip per duplicate path, so the batching is
@@ -316,10 +321,53 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
             .pointer("/query/term/file_key")
             .and_then(Value::as_str)
             .map(str::to_owned);
+        // #905: the scoped catalog sweeps delete by exact `_id` now — the
+        // corpus scope is decided client-side, per hit, so the delete carries
+        // no predicate at all beyond the id list.
+        let ids: Vec<String> = query
+            .pointer("/query/ids/values")
+            .and_then(Value::as_array)
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut locked = state.lock().unwrap();
+        locked.delete_calls += 1;
+        if let Some(key) = ax_file {
+            locked
+                .docs
+                .retain(|_, doc| doc.get("ax_file").and_then(Value::as_str) != Some(key.as_str()));
+        }
+        if let Some(key) = file_key {
+            locked
+                .catalog_docs
+                .retain(|_, doc| doc.get("file_key").and_then(Value::as_str) != Some(key.as_str()));
+        }
+        // Catalog only: every by-`_id` delete this client issues names
+        // `catalog::CATALOG_INDEX`.
+        for id in &ids {
+            locked.catalog_docs.remove(id);
+        }
+        (200, json!({"deleted": ids.len(), "failures": []}))
+    } else if method == "GET" && path.ends_with("/_count") {
+        (200, json!({"count": state.lock().unwrap().docs.len()}))
+    } else if method == "POST" && path.ends_with("/_search") {
+        // Report the REAL number of stored docs: `run_index` verifies live
+        // counts against the journal (#195), so a mock that always answered 0
+        // hits would (rightly) fail every successful run. The generated path
+        // additionally reads back per-file and per-catalog projections, so the
+        // count is filtered by whichever identity the query names.
+        let query: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         // The catalog's duplicate-alias sweep. Recognised by SHAPE — a
         // `status: duplicate` filter beside a `path` terms list — because
         // since #345 one request carries a whole chunk of paths rather than
-        // one path per round trip.
+        // one path per round trip. #905 moved it from `_delete_by_query` to a
+        // candidate `_search`: the query is the same, and it is still one
+        // request per chunk, which is what the batching assertion measures.
         let filter = query
             .pointer("/query/bool/filter")
             .and_then(Value::as_array)
@@ -343,85 +391,83 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                     })
                     .unwrap_or_default()
             });
-        let mut locked = state.lock().unwrap();
-        locked.delete_calls += 1;
-        if let Some(key) = ax_file {
-            locked
-                .docs
-                .retain(|_, doc| doc.get("ax_file").and_then(Value::as_str) != Some(key.as_str()));
-        }
-        if let Some(key) = file_key {
-            locked
-                .catalog_docs
-                .retain(|_, doc| doc.get("file_key").and_then(Value::as_str) != Some(key.as_str()));
-        }
-        // Recorded before the fault so a refused sweep is counted too — the
-        // point of the batching assertion is how many round trips the run
-        // made, not how many of them succeeded.
-        if let Some(swept) = &alias_sweep {
+        if let Some(swept) = alias_sweep {
+            let mut locked = state.lock().unwrap();
+            // Recorded before the fault so a refused sweep is counted too —
+            // the point of the batching assertion is how many round trips the
+            // run made, not how many of them succeeded.
             locked.alias_sweep_batches.push(swept.clone());
-        }
-        match alias_sweep {
-            Some(_) if locked.fail_alias_sweep => (
+            if locked.fail_alias_sweep {
                 // What a poisoned catalog collection really answers: a 500
                 // whose BODY names the condition. The client used to keep the
                 // status and discard the body, which is the whole reason #345
                 // was filed "not investigated".
-                500,
-                json!({
-                    "error": {
-                        "type": "internal_server_error_exception",
-                        "reason": "collection publication was interrupted; reopen the index \
-                                   so WAL recovery can rebuild a consistent searchable state"
-                    },
-                    "status": 500
-                }),
-            ),
-            Some(swept) => {
-                locked.catalog_docs.retain(|_, doc| {
-                    doc.get("status").and_then(Value::as_str) != Some("duplicate")
-                        || !swept
-                            .iter()
-                            .any(|path| doc.get("path").and_then(Value::as_str) == Some(path))
-                });
-                (200, json!({"deleted": 0, "failures": []}))
+                (
+                    500,
+                    json!({
+                        "error": {
+                            "type": "internal_server_error_exception",
+                            "reason": "collection publication was interrupted; reopen the index \
+                                       so WAL recovery can rebuild a consistent searchable state"
+                        },
+                        "status": 500
+                    }),
+                )
+            } else {
+                let mut hits: Vec<Value> = locked
+                    .catalog_docs
+                    .iter()
+                    .filter(|(_, doc)| {
+                        doc.get("status").and_then(Value::as_str) == Some("duplicate")
+                            && swept.iter().any(|path| {
+                                doc.get("path").and_then(Value::as_str) == Some(path.as_str())
+                            })
+                    })
+                    .map(|(id, doc)| json!({"_id": id, "_source": doc}))
+                    .collect();
+                // Deterministic order, so a page boundary is never `HashMap`
+                // iteration order.
+                hits.sort_by(|left, right| left["_id"].as_str().cmp(&right["_id"].as_str()));
+                (
+                    200,
+                    json!({
+                        "hits": {
+                            "total": {"value": hits.len(), "relation": "eq"},
+                            "hits": hits
+                        },
+                        "aggregations": {}
+                    }),
+                )
             }
-            None => (200, json!({"deleted": 0, "failures": []})),
-        }
-    } else if method == "GET" && path.ends_with("/_count") {
-        (200, json!({"count": state.lock().unwrap().docs.len()}))
-    } else if method == "POST" && path.ends_with("/_search") {
-        // Report the REAL number of stored docs: `run_index` verifies live
-        // counts against the journal (#195), so a mock that always answered 0
-        // hits would (rightly) fail every successful run. The generated path
-        // additionally reads back per-file and per-catalog projections, so the
-        // count is filtered by whichever identity the query names.
-        let query: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-        let ax_file = query
-            .pointer("/query/term/ax_file")
-            .or_else(|| query.pointer("/query/bool/must/0/term/ax_file"))
-            .and_then(Value::as_str);
-        let file_key = query
-            .pointer("/query/term/file_key")
-            .and_then(Value::as_str);
-        let locked = state.lock().unwrap();
-        let documents = if file_key.is_some() {
-            &locked.catalog_docs
         } else {
-            &locked.docs
-        };
-        let count = documents
-            .values()
-            .filter(|doc| {
-                ax_file.is_none_or(|key| doc.get("ax_file").and_then(Value::as_str) == Some(key))
-                    && file_key
-                        .is_none_or(|key| doc.get("file_key").and_then(Value::as_str) == Some(key))
-            })
-            .count();
-        (
-            200,
-            json!({"hits":{"total":{"value":count},"hits":[]},"aggregations":{}}),
-        )
+            let ax_file = query
+                .pointer("/query/term/ax_file")
+                .or_else(|| query.pointer("/query/bool/must/0/term/ax_file"))
+                .and_then(Value::as_str);
+            let file_key = query
+                .pointer("/query/term/file_key")
+                .and_then(Value::as_str);
+            let locked = state.lock().unwrap();
+            let documents = if file_key.is_some() {
+                &locked.catalog_docs
+            } else {
+                &locked.docs
+            };
+            let count = documents
+                .values()
+                .filter(|doc| {
+                    ax_file
+                        .is_none_or(|key| doc.get("ax_file").and_then(Value::as_str) == Some(key))
+                        && file_key.is_none_or(|key| {
+                            doc.get("file_key").and_then(Value::as_str) == Some(key)
+                        })
+                })
+                .count();
+            (
+                200,
+                json!({"hits":{"total":{"value":count},"hits":[]},"aggregations":{}}),
+            )
+        }
     } else {
         // ping, index creation/mapping, refresh, and catalog operations
         (200, json!({"acknowledged": true}))

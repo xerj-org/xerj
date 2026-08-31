@@ -341,6 +341,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (2e15 ns = 2e6 s = 23.1 days) and every millisecond instant below 2e15 ms
     (~63,000 years past the epoch).
 
+- **`autoindex`: a run no longer deletes a sibling corpus's duplicate-alias
+  catalog documents** ([#905](https://github.com/xerj-org/xerj/issues/905)).
+  Data loss, and the second of the two holes the #890 review found.
+  `autoindex-catalog` is one index shared by every corpus on the node, but the
+  duplicate-alias sweep issued at the end of a run was
+  `{"bool": {"filter": [{"term": {"status": "duplicate"}}, {"terms": {"path":
+  [...]}}]}}` with **no corpus scope at all** — and `path` is a logical path
+  inside a corpus, not a node-unique key. Two checkouts on one node that each
+  carry `LICENSE` and `vendor/LICENSE` is the ordinary shape of that, and a
+  delete is not recoverable. Unlike #890 this needed no legacy mapping: it was
+  unscoped on a current `keyword` catalog too.
+
+  The query still selects the candidates — it is what keeps the candidate set
+  small — but the scope is now applied per hit and the deletes go by `_id`, the
+  pattern #890's `delete_catalog_docs_scoped` introduced (both sweeps share one
+  page walk now, so there is one copy of its paging rules rather than two). A
+  simple scope filter would have traded one defect for another, which is why
+  this was split out of #896 rather than folded into it: the sweep exists
+  *because* alias ids changed as identity evolved, and its oldest targets
+  (v1.0.0-rc.10..rc.56, before #416 put the corpus prefix into the `_id`) carry
+  no corpus field and no prefix in their id, so a server-side
+  `corpus_scope`/`prefix` term would simply stop matching them. Attribution is
+  therefore layered: `corpus_scope` (#755), else `prefix` (#737) read from raw
+  `_source`, else the prefix in the `_id` (#416). Below that the document names
+  no corpus at all, and rather than guess in either direction the sweep deletes
+  such a hit only when its `_id` is one this corpus itself would have written
+  under the pre-#416 scheme — the reconstruct-the-id move #739 already makes —
+  and otherwise leaves it in place and says so, by path and id, in a new
+  non-fatal note. The sweep stays non-fatal (#345) throughout.
+
+  Scope, stated rather than implied: this is the legacy (graph) run path only.
+  A `--no-graph` run returns from the generated path long before this sweep and
+  retires stale catalog documents by their prefix-scoped `_id`
+  (`generation_catalog::managed_non_run_ids`), which was never unscoped.
+
+- **`--embed-mode neural`: re-indexing an unchanged corpus no longer fails,
+  and the identity can now tell one model from another**
+  ([#487](https://github.com/xerj-org/xerj/issues/487),
+  [#367](https://github.com/xerj-org/xerj/issues/367)). The neural arm of the
+  embedding execution identity hashed the configured model *name*
+  (`neural-unpinned.v1;configured-model=…`) and reported `resumable: false`
+  unconditionally. Two consequences, both reproduced on the released rc.71
+  binary before the change:
+
+  - every neural node on earth emitted the same `identity_sha256`
+    (`6e51e5ce3e46…`), so the check that exists to catch a swapped model could
+    not see one; and
+  - the five `resumable` gates in `xerj-autoindex` all fired. `xerj autoindex`
+    against a neural node was **one-shot**: the graph path completed
+    generation 1 (`exit=0`) and then refused the *identical* command over an
+    *unchanged* corpus (`exit=1`, "server embedding backend cannot safely
+    resume semantic indexing"), and the `--no-graph` path refused even the
+    first run at the generation cutover. That is the whole reference-coding
+    loop — index a peer repo, pick up its commits later — so it mattered more
+    than a bookkeeping error looks.
+
+  The identity is now the streamed sha256 of `model.safetensors`,
+  `tokenizer.json` and `config.json` plus the model's own `hidden_size`,
+  pooling and truncation limit, resolved by exactly the path
+  `NeuralEmbedder::load` takes (`xerj-ai/src/neural.rs`) — the same thing the
+  ONNX arm already did. `resumable` is then honestly `true`, `dimensions` is
+  reported instead of omitted, and a genuinely swapped model is refused where
+  before nothing was. Assets that cannot be resolved still fail closed, but the
+  reason names the file rather than blaming a configuration change that never
+  happened.
+
+  Measured on this box, 20-file corpus, `--embed-mode neural` (MiniLM from the
+  local HuggingFace cache):
+
+  | run | rc.71 | this change |
+  |---|---|---|
+  | graph path, run 1 | `exit=0` | `exit=0` |
+  | graph path, run 2 — identical command, unchanged corpus | `exit=1` | `exit=0` |
+  | graph path, run 3 — one file edited | not reachable | `exit=0` |
+  | `--no-graph`, run 1 | `exit=1` | `exit=0` |
+  | `--no-graph`, run 2 — unchanged corpus | `exit=1` | `exit=0` |
+
+  The pre-fix identity was already *deterministic* — the same digest on every
+  call and every host — so this was never a hashing-stability bug; the flag was
+  simply hardcoded. Batch shape (`MAX_BATCH_ROWS`, `PADDED_TOKEN_BUDGET`),
+  thread count, device and the resolved file paths are deliberately **not** in
+  the digest: they change how rows are grouped, not what any row computes, so
+  folding them in would have reintroduced the false "identity changed" one
+  layer down.
+
+  On-disk migration: `embedding_execution.json` moves to version 3, so the
+  first reopen of a populated neural index after upgrading is grandfathered and
+  re-baselined instead of refused — the same handling #533 gave the proxy
+  endpoint change. `proxy` is unchanged and still reports `resumable: false`:
+  a remote provider attests nothing about its model's bytes, and probing it
+  with fixed inputs would hash floats that no provider guarantees to be
+  reproducible — which is the bug in this issue, one layer down.
+
 - **A frontmatter block's body is judged as YAML by whether it parses, not only
   by how its lines look**
   ([#587](https://github.com/xerj-org/xerj/issues/587)). The `---` lookahead
