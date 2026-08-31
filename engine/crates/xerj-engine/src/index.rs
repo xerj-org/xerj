@@ -37476,20 +37476,15 @@ fn phrase_tokens(text: &str) -> Vec<String> {
         .analyze_to_terms(text)
 }
 
-/// True when `query_tokens` occur in `field_tokens` in order with at most
-/// `slop` intervening positions in total — the stored-scan twin of
-/// `xerj_fts::search`'s `phrase_positions_match`, which evaluates the same
+/// True when `query_tokens` occur in `field_tokens` within `slop` under
+/// Lucene sloppy-phrase semantics — the stored-scan twin of
+/// `xerj_fts::search::phrase_positions_match`, which evaluates the same
 /// predicate over the segment's real term positions.
 ///
-/// `slop == 0` is exact adjacency (a window compare); `slop > 0` anchors on
-/// EVERY occurrence of the first term and walks each later term to its
-/// earliest position after the previous match, summing the gaps — the same
-/// greedy walk `phrase_positions_match` runs over segment positions.
-///
-/// Anchoring on every occurrence is load-bearing: the previous stored-scan
-/// walk anchored only on the FIRST occurrence of the leading term, so
-/// `[a, x, x, x, a, b]` rejected the slop-1 phrase `a b` that both ES and
-/// the segment path accept (anchor at the second `a`).
+/// `slop == 0` is exact adjacency; `slop > 0` is an edit distance in
+/// single-position term moves (transpositions cost 2 — `"a b"~2` matches a
+/// doc reading `b a`; see `phrase_positions_match`, which closed #830's
+/// in-order-only divergence for both arms at once).
 fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], slop: u32) -> bool {
     phrase_walk(field_tokens, query_tokens, slop, false)
 }
@@ -37502,23 +37497,25 @@ fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], 
 /// query per expansion, and "some expansion term sits here" is the same
 /// predicate as "this token starts with the prefix".
 ///
-/// Keeping one walk (rather than two look-alike ones) is deliberate: the
-/// two evaluators must not be able to drift apart the way the slop-0-only
-/// prefix walk had already drifted from the sloppy phrase walk.
+/// It materialises one token-index position list per query slot and hands
+/// them to `xerj_fts::search::phrase_positions_match` — the SAME function
+/// the segment positional clause runs over postings positions.  Sharing the
+/// evaluator (rather than mirroring it) is deliberate, and stronger than the
+/// previous arrangement of two hand-synchronised walks: slop cannot be
+/// evaluated differently on the two sides (#218/#222/#230 regression class),
+/// and the #830 fix — Lucene `SloppyPhraseMatcher` distance semantics, where
+/// slop admits transpositions at cost 2 instead of the old in-order-only gap
+/// walk — lands in both arms at once.
 ///
-/// KNOWN DIVERGENCE FROM ES, not closed by #230: this walk is **in-order
-/// only**.  Lucene's sloppy phrase admits a transposition at a distance
-/// cost — its own javadoc: «for query "a b"~2, a document "x a b a y" can
-/// be matched twice: once for "a b" (distance=0), and once for "b a"
-/// (distance=2)» (`lucene/core/.../search/SloppyPhraseMatcher.java`, class
-/// javadoc; Apache-2.0) — so ES answers `match_phrase {"query": "policy
-/// merge", "slop": 2}` on a document reading `merge policy`, and XERJ
-/// answers it with zero hits.  That is the pre-existing semantics of
-/// `xerj_fts::search::phrase_positions_match`, which the segment side has
-/// always used and which this walk deliberately mirrors: matching ES here
-/// means changing BOTH evaluators together, and mirroring the existing one
-/// is what keeps the hit set flush-invariant today.  Measured, not assumed
-/// (5-doc index, `"policy merge"` slop 2 and slop 3 → `[]` in both states).
+/// What is shared is the EVALUATOR, not the position model, so this is not
+/// flush-invariance "by construction": this arm re-analyses stored text with
+/// the standard analyzer and feeds token INDICES, while the segment arm
+/// feeds indexed postings positions.  A custom analyzer (synonym
+/// co-location, `position_increment_gap`) can therefore still hand the two
+/// arms different position lists; multi-valued fields are handled per
+/// element (#332).  The tests in
+/// `tests/match_phrase_slop_transposition.rs` pin the agreement for the
+/// standard-analyzer cases that this planner actually routes both ways.
 fn phrase_walk(
     field_tokens: &[String],
     query_tokens: &[String],
@@ -37532,56 +37529,30 @@ fn phrase_walk(
         return false;
     }
     let n = query_tokens.len();
-    let matches_at = |idx: usize, qi: usize| -> bool {
-        let ft = &field_tokens[idx];
-        if last_is_prefix && qi == n - 1 {
-            ft.starts_with(query_tokens[qi].as_str())
-        } else {
-            ft == &query_tokens[qi]
-        }
-    };
-    // Exact-adjacency fast path for the whole-term case (the common one).
-    if slop == 0 && !last_is_prefix {
-        return field_tokens.windows(n).any(|w| w == query_tokens);
-    }
-    for start in 0..field_tokens.len() {
-        if !matches_at(start, 0) {
-            continue;
-        }
-        let mut current = start;
-        let mut total_gaps: u32 = 0;
-        let mut ok = true;
-        for qi in 1..n {
-            // Earliest match after `current` minimises the running gap sum,
-            // so the greedy walk is optimal for an in-order phrase — the
-            // same walk `xerj_fts::search::phrase_positions_match` runs over
-            // segment positions.
-            match (current + 1..field_tokens.len()).find(|&i| matches_at(i, qi)) {
-                Some(next) => {
-                    total_gaps += (next - current - 1) as u32;
-                    if total_gaps > slop {
-                        ok = false;
-                        break;
-                    }
-                    current = next;
-                }
-                None => {
-                    ok = false;
-                    break;
-                }
+    // Per-query-slot ascending token-index lists — the memtable analogue of
+    // the segment's per-term postings position lists.
+    let mut positions: Vec<Vec<u32>> = vec![Vec::new(); n];
+    for (idx, ft) in field_tokens.iter().enumerate() {
+        for (qi, qt) in query_tokens.iter().enumerate() {
+            let hit = if last_is_prefix && qi == n - 1 {
+                ft.starts_with(qt.as_str())
+            } else {
+                ft == qt
+            };
+            if hit {
+                positions[qi].push(idx as u32);
             }
         }
-        if ok {
-            return true;
-        }
     }
-    false
+    let lists: Vec<&[u32]> = positions.iter().map(|v| v.as_slice()).collect();
+    xerj_fts::search::phrase_positions_match(&lists, slop)
 }
 
-/// True when the leading `query_tokens[..n-1]` form an in-order phrase whose
+/// True when the leading `query_tokens[..n-1]` form a phrase whose
 /// next position starts with `query_tokens[n-1]`, with at most `slop`
-/// intervening positions in total — ES `match_phrase_prefix` semantics over
-/// the token stream. A single token degrades to "any token starts with it".
+/// (Lucene move-distance semantics) — ES `match_phrase_prefix` semantics
+/// over the token stream. A single token degrades to "any token starts
+/// with it".
 ///
 /// This is TERM-level, not substring-level: `merge poli` matches the token
 /// stream `[merge, policy]` (so it matches raw text `merge, policy` too),
