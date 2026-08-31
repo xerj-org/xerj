@@ -533,6 +533,37 @@ mod collection_publication_fail_closed_tests {
         );
     }
 
+    /// A field that is TYPE-mixed inside one segment must ship NO doc-values
+    /// column. Only one column can carry a name, so the keyword pass would
+    /// overwrite the numeric one and file every number/boolean doc as null —
+    /// a column consumers treat as exact, which then hides those docs from the
+    /// `term`/`terms` prefilter entirely.
+    ///
+    /// #781 made this reachable in ordinary use: ingest coercion canonicalises
+    /// `"true"` to `true`, so an index written across the upgrade holds both
+    /// spellings, and a flush that lands them in ONE segment (the 2-core CI
+    /// shape) built the lying column — `terms {b:["true"]}` then returned the
+    /// pre-upgrade document and silently dropped the coerced one.
+    #[test]
+    fn build_doc_value_columns_ships_nothing_for_a_type_mixed_field() {
+        let legacy = json!({"b": "true", "n": "5", "ok": "kw"});
+        let coerced = json!({"b": true, "n": 5, "ok": "kw"});
+        let skip = std::collections::HashSet::new();
+        let cols =
+            super::build_doc_value_columns([Some(&legacy), Some(&coerced)].into_iter(), &skip);
+        assert!(
+            !cols.contains_key("b") && !cols.contains_key("n"),
+            "a type-mixed field must ship no column (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+        // Not vacuous: a field that stayed one type still gets its column.
+        assert!(
+            cols.contains_key("ok"),
+            "a single-typed field must still be shadowed (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+    }
+
     async fn assert_flush_publication_blocks_reader_then_finishes(inject_error: bool) {
         let dir = tempfile::tempdir().unwrap();
         let mut config = Config::default();
@@ -21464,6 +21495,31 @@ fn build_doc_value_columns<'a>(
     // Drop every column whose field was multi-valued anywhere in the
     // segment (see `multi_valued` above) — no column beats a lying one.
     for f in &multi_valued {
+        numeric.remove(f);
+        keyword.remove(f);
+    }
+
+    // Same rule for a field that arrived TYPE-mixed inside one segment — some
+    // docs numeric/boolean, others a string. Each kind was collected into its
+    // own map, and only one column can carry the name: the `keyword` loop below
+    // runs second and would overwrite the numeric column, leaving every
+    // number/boolean doc filed as NULL in a column consumers trust as exact.
+    // `build_term_prefilter_cached` then returns a set that is not a superset
+    // and the scan never sees the dropped docs — a confident wrong count, the
+    // same failure shape the multi-valued poisoning above exists to prevent.
+    //
+    // This is exactly what #781's ingest coercion makes reachable: an index
+    // written across that upgrade holds `"true"` in one doc and `true` in the
+    // next, and a flush that lands both in ONE segment (the 2-core CI shape;
+    // a many-core box scatters them and each segment stays homogeneous) built
+    // the lying column. Ship no column instead; consumers take the
+    // abandon-to-scan path they already take for an absent field.
+    let mixed_type: Vec<String> = numeric
+        .keys()
+        .filter(|f| keyword.contains_key(*f))
+        .cloned()
+        .collect();
+    for f in &mixed_type {
         numeric.remove(f);
         keyword.remove(f);
     }
