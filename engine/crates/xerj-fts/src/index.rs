@@ -997,7 +997,14 @@ impl FtsIndexWriter {
     ///   and every posting list are identical to a re-analysed merge.
     /// * **norms** — the source's *quantised* byte is carried through
     ///   untouched.  It cannot be recomputed from `field_length`, because
-    ///   `norm_u16_to_u8` is lossy and is not invertible.
+    ///   `norm_u16_to_u8` is lossy and is not invertible.  Every byte a
+    ///   reader can observe is the byte re-analysis would have written, but
+    ///   the dense array may be SHORTER: byte 0 spells both "field absent"
+    ///   and "field length <= 1", `load_norms` drops it on read, so a
+    ///   trailing run of byte-0 documents cannot be replayed and the array
+    ///   stops at the last non-zero document.  A single-token keyword field
+    ///   is entirely byte 0, so its `.norms` shrinks to its header.  Nothing
+    ///   a query reads changes — both files load to the identical table.
     /// * **field statistics** — `total_docs` / `total_field_length` are
     ///   carried from the source `.meta` and reduced by the dropped
     ///   documents' contribution.  With no dropped documents (the ordinary
@@ -1480,8 +1487,22 @@ fn merge_field_from_segments(
         for (ordinal, &byte) in norm_bytes.iter().enumerate() {
             match source.doc_map[ordinal] {
                 // Byte 0 is how the dense norms array spells BOTH "field
-                // absent" and "field length 1", so skipping it reproduces the
-                // array a re-analysing writer would have built.
+                // absent" and "field length 1", and `load_norms` drops it on
+                // read, so a byte-0 entry cannot be recovered here and is not
+                // pushed.  Every byte a reader can observe is therefore the
+                // byte a re-analysing writer would have written — but NOT the
+                // array's length: re-analysis pushes an entry for every doc
+                // that CARRIES the field, byte 0 included, and
+                // `write_field_static` sizes the dense array from the last
+                // entry.  When the highest-ordinal doc carrying the field
+                // quantises to 0 (field length <= 1: every single-token
+                // keyword field), the replayed `.norms` stops at the last
+                // NON-zero doc and is shorter, with the difference being
+                // trailing zeros only.  `load_norms` filters `b != 0`, so both
+                // files load to the identical norms table and no hit, score or
+                // `field_length` moves.  Pinned by
+                // `merge_postings_equivalence.rs::
+                // a_single_token_field_replays_an_equivalent_shorter_norms_array`.
                 Some(merged) => {
                     if byte != 0 {
                         norms.push((merged, byte));
@@ -2031,7 +2052,7 @@ impl FtsIndexReader {
                 total += m.as_fst().as_bytes().len() as u64;
             }
             total += f.meta.flat_records.len() as u64;
-            // `norms` is Vec<(u32, u16)>, which pads to 8 bytes per element.
+            // `norms` is Vec<(u32, u16, u8)>, which pads to 8 bytes per element.
             total += (f.norms.len() as u64) * 8;
             // Legacy ZFM1/ZFM2 keep per-term metadata in a HashMap instead of
             // the flat array; approximate it rather than walking every entry.

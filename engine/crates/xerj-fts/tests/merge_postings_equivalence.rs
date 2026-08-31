@@ -8,11 +8,20 @@
 //! every test here builds the SAME merged segment twice, once each way, and
 //! compares the two.
 //!
-//! The comparison is deliberately at the byte level of the four side-car
-//! files.  Hits and BM25 scores are a pure function of those bytes, so equal
-//! files are a strictly stronger claim than equal search results; the search
-//! comparison is kept anyway because it is the claim the issue actually
-//! makes.
+//! The comparison is deliberately at the byte level of the side-car files.
+//! Hits and BM25 scores are a pure function of those bytes, so equal files are
+//! a strictly stronger claim than equal search results; the search comparison
+//! is kept anyway because it is the claim the issue actually makes.
+//!
+//! `.fst`, `.post` and `.meta` are compared byte for byte.  `.norms` is
+//! compared for the content a reader can observe, because it is knowingly NOT
+//! byte-identical: byte 0 spells both "field absent" and "field length <= 1",
+//! `load_norms` drops byte-0 entries on read, so a replayed merge cannot
+//! reproduce a trailing run of them and writes a SHORTER dense array.  The
+//! `colour` field in the fixture below is single-token precisely so that case
+//! is exercised on every run instead of being accidentally avoided; the exact
+//! divergence, and the fact that nothing a query reads moves with it, are
+//! pinned by `a_single_token_field_replays_an_equivalent_shorter_norms_array`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,8 +34,11 @@ use xerj_fts::index::{
 };
 use xerj_fts::search::{FtsSearcher, PhraseQuery, Query, TermQuery};
 
-const FIELDS: [&str; 3] = ["body", "tags", "title"];
-const EXTENSIONS: [&str; 4] = ["fst", "post", "meta", "norms"];
+const FIELDS: [&str; 4] = ["body", "colour", "tags", "title"];
+/// The side-cars a replayed merge must reproduce byte for byte.  `.norms` is
+/// excluded on purpose and checked by `assert_norms_equivalent` instead — see
+/// the module comment.
+const EXTENSIONS: [&str; 3] = ["fst", "post", "meta"];
 
 fn registry() -> Arc<AnalyzerRegistry> {
     Arc::new(AnalyzerRegistry::default())
@@ -53,6 +65,19 @@ fn configure(writer: &mut FtsIndexWriter) {
     // frequency nor a position, which is the shape the merge has to preserve.
     writer.configure_field(
         "tags",
+        FieldIndexConfig {
+            analyzer: "keyword".to_owned(),
+            store_positions: false,
+            store_term_vectors: false,
+        },
+    );
+    // A SINGLE-TOKEN keyword field.  `norm_u16_to_u8` maps length 1 to byte 0,
+    // the same byte it uses for "field absent", and the reader drops byte-0
+    // entries — so every document's norm here is unrecoverable by a replay and
+    // this field's `.norms` is the one side-car the merge cannot reproduce byte
+    // for byte.  It is in the fixture so that gap is measured, not dodged.
+    writer.configure_field(
+        "colour",
         FieldIndexConfig {
             analyzer: "keyword".to_owned(),
             store_positions: false,
@@ -96,6 +121,14 @@ fn document(index: usize) -> HashMap<String, FieldValues> {
             format!("tag-{}", index % 11),
             format!("colour-{}", COLOURS[index % COLOURS.len()]),
         ]),
+    );
+
+    // Exactly one keyword token, on EVERY document — so this field's norm is
+    // byte 0 for the highest merged ordinal, which is what makes the replayed
+    // `.norms` shorter than the re-analysed one.
+    fields.insert(
+        "colour".to_owned(),
+        FieldValues::One(COLOURS[index % COLOURS.len()].to_owned()),
     );
 
     // Present on only a third of the documents, so the merged segment has a
@@ -230,6 +263,52 @@ fn assert_sidecars_identical(dir: &Path, expected: &str, actual: &str, extension
     }
 }
 
+/// The declared length of a `.norms` dense array, straight out of the ZNM1
+/// header (`"ZNM1"`, u8 encoding, u32 dense_len, u32 payload_len).
+fn norms_dense_len(dir: &Path, segment_id: &str, field: &str) -> u32 {
+    let bytes = sidecar(dir, segment_id, field, "norms");
+    assert!(
+        bytes.len() >= 13 && &bytes[..4] == b"ZNM1",
+        "{segment_id}.{field}.norms is not in the ZNM1 format this test reads"
+    );
+    u32::from_le_bytes(bytes[5..9].try_into().unwrap())
+}
+
+/// `.norms` is the one side-car a replay cannot reproduce byte for byte, so it
+/// is compared for what a reader can actually see instead.
+///
+/// The replayed array is allowed to be SHORTER — byte 0 means both "absent"
+/// and "length <= 1", `load_norms` drops those entries, so the replay stops at
+/// the last non-zero document — but every norm byte, every dequantised
+/// `field_length` and the field statistics behind `avgdl` must match exactly.
+/// A shorter array with an identical live table differs only in trailing
+/// zeros, which is precisely what no query can observe.
+fn assert_norms_equivalent(dir: &Path, expected: &str, actual: &str, doc_count: u32) {
+    let want_reader = FtsIndexReader::open(dir, expected, &FIELDS).unwrap();
+    let got_reader = FtsIndexReader::open(dir, actual, &FIELDS).unwrap();
+    for field in FIELDS {
+        let want: Vec<(u32, u8)> = want_reader.field_norm_bytes(field).collect();
+        let got: Vec<(u32, u8)> = got_reader.field_norm_bytes(field).collect();
+        assert_eq!(
+            want, got,
+            "field '{field}': the norm bytes a reader loads differ between the              re-analysed merge and the replayed merge"
+        );
+        for doc_id in 0..doc_count {
+            assert_eq!(
+                want_reader.field_length(field, doc_id),
+                got_reader.field_length(field, doc_id),
+                "field '{field}': length of merged doc {doc_id} differs"
+            );
+        }
+        let want_len = norms_dense_len(dir, expected, field);
+        let got_len = norms_dense_len(dir, actual, field);
+        assert!(
+            got_len <= want_len,
+            "field '{field}': the replayed .norms dense array ({got_len}) may be              shorter than the re-analysed one ({want_len}) but never longer — a              longer one would mean the replay invented a document"
+        );
+    }
+}
+
 fn hits(dir: &Path, segment_id: &str, query: &Query) -> Vec<(u32, u32)> {
     let reader = Arc::new(FtsIndexReader::open(dir, segment_id, &FIELDS).unwrap());
     let searcher = FtsSearcher::new(reader, registry());
@@ -259,6 +338,9 @@ fn queries() -> Vec<Query> {
         )),
         Query::Term(TermQuery::new("tags", "tag-3")),
         Query::Term(TermQuery::new("tags", "colour-cobalt")),
+        // The single-token field whose `.norms` the replay cannot reproduce:
+        // its hits and its BM25 scores must be identical anyway.
+        Query::Term(TermQuery::new("colour", "cobalt")),
         Query::Term(TermQuery::new("title", "survey")),
         Query::MatchAll,
     ]
@@ -276,8 +358,10 @@ fn assert_searches_identical(dir: &Path, expected: &str, actual: &str) {
     }
 }
 
+/// `.fst`, `.post` and `.meta` byte for byte; `.norms` for everything a
+/// reader can observe (see `assert_norms_equivalent`).
 #[test]
-fn a_merge_with_no_deletes_is_byte_identical_to_re_analysis() {
+fn a_merge_with_no_deletes_reproduces_the_re_analysed_segment() {
     let (fixture, survivors) = Fixture::build(|_| true);
     assert_eq!(survivors.len(), DOC_COUNT);
 
@@ -290,11 +374,18 @@ fn a_merge_with_no_deletes_is_byte_identical_to_re_analysis() {
         "merged-replayed",
         &EXTENSIONS,
     );
+    assert_norms_equivalent(
+        fixture.path(),
+        "merged-reanalysed",
+        "merged-replayed",
+        survivors.len() as u32,
+    );
     assert_searches_identical(fixture.path(), "merged-reanalysed", "merged-replayed");
 }
 
+/// Same comparison as above, with a fifth of the documents gone.
 #[test]
-fn a_merge_that_drops_documents_is_byte_identical_to_re_analysis() {
+fn a_merge_that_drops_documents_reproduces_the_re_analysed_segment() {
     // Every fifth document is deleted or superseded, so the merge must skip
     // it, close the ordinal gap it leaves, and reclaim its share of the
     // field-length statistics.
@@ -309,6 +400,12 @@ fn a_merge_that_drops_documents_is_byte_identical_to_re_analysis() {
         "dropped-reanalysed",
         "dropped-replayed",
         &EXTENSIONS,
+    );
+    assert_norms_equivalent(
+        fixture.path(),
+        "dropped-reanalysed",
+        "dropped-replayed",
+        survivors.len() as u32,
     );
     assert_searches_identical(fixture.path(), "dropped-reanalysed", "dropped-replayed");
 }
@@ -483,5 +580,103 @@ fn a_docs_only_field_carries_its_length_but_not_its_term_frequency() {
         1,
         "a replayed docs-only posting can only report the frequency its \
          on-disk format kept, which is one per document"
+    );
+}
+
+#[test]
+fn a_single_token_field_replays_an_equivalent_shorter_norms_array() {
+    // The SECOND place a replayed merge is knowingly not byte-identical,
+    // pinned so it cannot drift and so it cannot silently stop being covered.
+    //
+    // `norm_u16_to_u8` returns byte 0 for length 0 AND for length 1, and
+    // `load_norms` treats byte 0 as "no entry".  Re-analysis pushes a norm for
+    // every document that CARRIES the field - byte 0 included - and
+    // `write_field_static` sizes the dense array from the last such entry, so
+    // it writes one byte per document up to the highest one carrying the
+    // field.  A replay has no byte-0 entries to push, so its array stops at
+    // the last NON-zero document; for a field that is single-token everywhere
+    // that is no document at all, and the array collapses to one byte.
+    //
+    // The difference is trailing zeros.  Both files load to the same (empty)
+    // norms table, so `field_length`, `_score` and the hit list are unchanged
+    // - which is what `assert_norms_equivalent` and `assert_searches_identical`
+    // check on every merge test above.  This test states the mechanism
+    // directly: the fixture really is byte-0 throughout, the replayed array
+    // really is shorter, and nothing observable moves.
+    let (fixture, survivors) = Fixture::build(|_| true);
+    fixture.reanalysed(&survivors, "norms-reanalysed");
+    fixture.replayed(&survivors, "norms-replayed");
+
+    // Precondition: `colour` really is the byte-0 case.  If a future fixture
+    // change gave it two tokens, this assertion fails rather than quietly
+    // turning the test into a no-op - which is exactly how this case escaped
+    // the original suite.
+    let source = FtsIndexReader::open(fixture.path(), "seg-0", &FIELDS).unwrap();
+    assert_eq!(
+        source.field_norm_bytes("colour").count(),
+        0,
+        "'colour' must analyse to one token per document (norm byte 0) for this \
+         test to be testing anything"
+    );
+    assert!(
+        source.field_stats("colour").unwrap().total_docs > 0,
+        "'colour' must actually be indexed in the source segment"
+    );
+
+    // The divergence, stated exactly: re-analysis sizes the array from the
+    // last document carrying the field, the replay from the last non-zero one.
+    let reanalysed_len = norms_dense_len(fixture.path(), "norms-reanalysed", "colour");
+    let replayed_len = norms_dense_len(fixture.path(), "norms-replayed", "colour");
+    assert_eq!(
+        reanalysed_len,
+        survivors.len() as u32,
+        "re-analysis writes one norm byte per document carrying the field"
+    );
+    assert_eq!(
+        replayed_len, 1,
+        "a replay with no non-zero norm has nothing to size the array from"
+    );
+
+    // ...and nothing a reader can see moves with it.
+    let expected = FtsIndexReader::open(fixture.path(), "norms-reanalysed", &FIELDS).unwrap();
+    let actual = FtsIndexReader::open(fixture.path(), "norms-replayed", &FIELDS).unwrap();
+    assert_eq!(expected.field_norm_bytes("colour").count(), 0);
+    assert_eq!(actual.field_norm_bytes("colour").count(), 0);
+    for doc_id in 0..survivors.len() as u32 {
+        assert_eq!(
+            expected.field_length("colour", doc_id),
+            actual.field_length("colour", doc_id),
+            "merged doc {doc_id} field length diverged"
+        );
+    }
+    assert_eq!(
+        expected.field_stats("colour").unwrap().total_docs,
+        actual.field_stats("colour").unwrap().total_docs,
+    );
+    assert_eq!(
+        expected.field_stats("colour").unwrap().total_field_length,
+        actual.field_stats("colour").unwrap().total_field_length,
+    );
+    // The other three side-cars stay byte for byte identical for this field.
+    for extension in EXTENSIONS {
+        assert_eq!(
+            sidecar(fixture.path(), "norms-reanalysed", "colour", extension),
+            sidecar(fixture.path(), "norms-replayed", "colour", extension),
+            "single-token keyword .{extension} must survive the merge byte for byte"
+        );
+    }
+    assert_eq!(
+        hits(
+            fixture.path(),
+            "norms-reanalysed",
+            &Query::Term(TermQuery::new("colour", "cobalt"))
+        ),
+        hits(
+            fixture.path(),
+            "norms-replayed",
+            &Query::Term(TermQuery::new("colour", "cobalt"))
+        ),
+        "hits and scores over a single-token field must be identical despite \
+         the shorter .norms"
     );
 }

@@ -29,15 +29,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   merge is dominated by the doc-values column build (7-12 s per batch against
   0.85 s for FTS), which this change does not touch.
 
-  A merged segment is byte-for-byte the segment the old path wrote, with one
-  documented exception: for a docs-only (`keyword`) field, a document that
-  repeats the same value merges with `total_term_frequency = doc_frequency`,
-  because that format never stored a per-document frequency and its reader
-  synthesises 1. No hit, no `_score`, no `doc_freq` and no field-length
-  statistic changes. Two further edges exist only when a merge also DROPS
-  documents: a dropped document whose value analysed to zero tokens leaves no
-  trace to reclaim its `total_docs` seat, and a dropped docs-only document's
-  length is recovered from the quantised norm byte, exact to length 7.
+  Everything a query can read out of a merged segment is identical to what
+  the old path wrote — every posting list, `doc_freq`, norm byte, `_score`
+  and `field_length` — and the `.fst`, `.post` and `.meta` side-cars are
+  byte-for-byte identical. Two on-disk representations differ without any
+  query being able to tell:
+
+  - The `.norms` array may be SHORTER. Byte 0 spells both "field absent" and
+    "field length <= 1", and the reader drops byte-0 entries, so a trailing
+    run of such documents cannot be replayed and the dense array stops at the
+    last non-zero document instead of at the last document carrying the
+    field. A single-token `keyword` field is entirely byte 0, so its `.norms`
+    shrinks to its header. Both files load to the same norms table.
+  - For a docs-only (`keyword`) field, a document that repeats the same value
+    merges with `total_term_frequency = doc_frequency`, because that format
+    never stored a per-document frequency and its reader synthesises 1.
+    Nothing outside `xerj-fts` reads `total_term_frequency`.
+
+  Two further edges exist only when a merge also DROPS documents: a dropped
+  document whose value analysed to zero tokens leaves no trace to reclaim its
+  `total_docs` seat, and a dropped docs-only document's length is recovered
+  from the quantised norm byte, exact to length 7.
+
+  This also changes one behaviour worth stating plainly: because postings are
+  now preserved as written, a merge no longer re-analyses old segments under a
+  changed mapping. Editing an analyzer and running `_forcemerge` used to
+  rewrite the old documents' terms as a side effect; it no longer does — that
+  needs a reindex. A change to a field's POSITION setting is still detected
+  and still falls back to the rebuild; an analyzer-only change is not
+  detectable and is not re-applied. This matches Lucene's semantics.
 
   A merge falls back to the old rebuild — same output, old cost — when the
   replay cannot be proved equivalent: an input whose side-cars will not open
