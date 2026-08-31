@@ -186,6 +186,60 @@ mod collection_publication_fail_closed_tests {
         ));
     }
 
+    #[test]
+    fn boolean_term_and_terms_spellings_normalise_to_the_indexed_value() {
+        // #781 follow-up: ingest coercion canonicalises `"true"`/`"false"` to
+        // real JSON booleans in `_source`, so a query still spelling them as
+        // strings named a value no document held. On a doc-values-only boolean
+        // (`390_doc_values_search.yml`) that meant `terms` returned 0 while the
+        // equivalent `term` still found the doc. Both arms now run the query
+        // value through the SAME `field_coercion` predicate the write path uses.
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("flag", FieldType::Boolean))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("name", FieldType::Keyword))
+            .unwrap();
+
+        let term = |f: &str, v: serde_json::Value| QueryNode::Term {
+            field: f.into(),
+            value: v,
+            boost: None,
+        };
+        let terms = |f: &str, v: Vec<serde_json::Value>| QueryNode::Terms {
+            field: f.into(),
+            values: v,
+            boost: None,
+        };
+
+        match rewrite_query_aliases(&term("flag", json!("false")), &schema) {
+            QueryNode::Term { field, value, .. } => {
+                assert_eq!(field, "flag");
+                assert_eq!(value, json!(false), "string spelling names the boolean");
+            }
+            other => panic!("boolean term must stay a Term, got {other:?}"),
+        }
+        match rewrite_query_aliases(&terms("flag", vec![json!("false"), json!(true)]), &schema) {
+            QueryNode::Terms { field, values, .. } => {
+                assert_eq!(field, "flag");
+                assert_eq!(values, vec![json!(false), json!(true)]);
+            }
+            other => panic!("boolean terms must stay a Terms, got {other:?}"),
+        }
+        // A value the ingest predicate refuses is left alone — a search must
+        // not 400 on it; it simply matches nothing, exactly as before.
+        match rewrite_query_aliases(&terms("flag", vec![json!("yes"), json!(1)]), &schema) {
+            QueryNode::Terms { values, .. } => assert_eq!(values, vec![json!("yes"), json!(1)]),
+            other => panic!("unparseable boolean values must survive, got {other:?}"),
+        }
+        // A NON-boolean field keeps its literal string — `"true"` is a keyword.
+        match rewrite_query_aliases(&term("name", json!("true")), &schema) {
+            QueryNode::Term { value, .. } => assert_eq!(value, json!("true")),
+            other => panic!("keyword term must be untouched, got {other:?}"),
+        }
+    }
+
     async fn assert_active_reader_waits_for_commit<F, Fut>(
         idx: &Arc<Index>,
         id: &'static str,
@@ -475,6 +529,37 @@ mod collection_publication_fail_closed_tests {
         assert!(
             cols.contains_key("title") && cols.contains_key("count"),
             "user fields must be shadowed into columns (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+    }
+
+    /// A field that is TYPE-mixed inside one segment must ship NO doc-values
+    /// column. Only one column can carry a name, so the keyword pass would
+    /// overwrite the numeric one and file every number/boolean doc as null —
+    /// a column consumers treat as exact, which then hides those docs from the
+    /// `term`/`terms` prefilter entirely.
+    ///
+    /// #781 made this reachable in ordinary use: ingest coercion canonicalises
+    /// `"true"` to `true`, so an index written across the upgrade holds both
+    /// spellings, and a flush that lands them in ONE segment (the 2-core CI
+    /// shape) built the lying column — `terms {b:["true"]}` then returned the
+    /// pre-upgrade document and silently dropped the coerced one.
+    #[test]
+    fn build_doc_value_columns_ships_nothing_for_a_type_mixed_field() {
+        let legacy = json!({"b": "true", "n": "5", "ok": "kw"});
+        let coerced = json!({"b": true, "n": 5, "ok": "kw"});
+        let skip = std::collections::HashSet::new();
+        let cols =
+            super::build_doc_value_columns([Some(&legacy), Some(&coerced)].into_iter(), &skip);
+        assert!(
+            !cols.contains_key("b") && !cols.contains_key("n"),
+            "a type-mixed field must ship no column (got {:?})",
+            cols.keys().collect::<Vec<_>>()
+        );
+        // Not vacuous: a field that stayed one type still gets its column.
+        assert!(
+            cols.contains_key("ok"),
+            "a single-typed field must still be shadowed (got {:?})",
             cols.keys().collect::<Vec<_>>()
         );
     }
@@ -22375,6 +22460,31 @@ fn build_doc_value_columns<'a>(
         keyword.remove(f);
     }
 
+    // Same rule for a field that arrived TYPE-mixed inside one segment — some
+    // docs numeric/boolean, others a string. Each kind was collected into its
+    // own map, and only one column can carry the name: the `keyword` loop below
+    // runs second and would overwrite the numeric column, leaving every
+    // number/boolean doc filed as NULL in a column consumers trust as exact.
+    // `build_term_prefilter_cached` then returns a set that is not a superset
+    // and the scan never sees the dropped docs — a confident wrong count, the
+    // same failure shape the multi-valued poisoning above exists to prevent.
+    //
+    // This is exactly what #781's ingest coercion makes reachable: an index
+    // written across that upgrade holds `"true"` in one doc and `true` in the
+    // next, and a flush that lands both in ONE segment (the 2-core CI shape;
+    // a many-core box scatters them and each segment stays homogeneous) built
+    // the lying column. Ship no column instead; consumers take the
+    // abandon-to-scan path they already take for an absent field.
+    let mixed_type: Vec<String> = numeric
+        .keys()
+        .filter(|f| keyword.contains_key(*f))
+        .cloned()
+        .collect();
+    for f in &mixed_type {
+        numeric.remove(f);
+        keyword.remove(f);
+    }
+
     // Pad every column to total_docs so position == doc_id.
     for col in numeric.values_mut() {
         pad_with_none(col, total_docs);
@@ -36277,6 +36387,30 @@ fn date_string_has_subms(s: &str) -> bool {
         >= 4
 }
 
+/// Does the schema declare `field` a `boolean`?
+fn field_is_boolean(schema: &Schema, field: &str) -> bool {
+    declared_field(schema, field).is_some_and(|fc| matches!(fc.field_type, FieldType::Boolean))
+}
+
+/// Normalise one `term`/`terms` value on a `boolean` field to the value the
+/// WRITE path stores for it, using the same predicate the write path uses.
+///
+/// ES's `BooleanFieldMapper` parses a query value through `Booleans` exactly as
+/// it parses an indexed one, so `"true"` and `true` name the same term. XERJ
+/// indexes from the stored `_source`, and since #781 the ingest coercion
+/// canonicalises `"true"`/`"false"` to real JSON booleans there — so a query
+/// still spelling the value as a string names something no document holds.
+/// Running the query value through `field_coercion::coerce_value` is what keeps
+/// the two sides on one representation; a value the predicate refuses (`"yes"`,
+/// `1`) is left untouched and simply matches nothing, because a search must not
+/// 400 on a value ingest would have rejected.
+fn normalize_boolean_query_value(v: &Value) -> Value {
+    match xerj_common::field_coercion::coerce_value("boolean", true, v) {
+        xerj_common::field_coercion::Coercion::Rewrite(canonical) => canonical,
+        _ => v.clone(),
+    }
+}
+
 /// Rewrite a query by resolving any field aliases to their canonical field names.
 ///
 /// Traverses the query tree, replacing alias field names with their target paths.
@@ -36288,6 +36422,15 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             boost,
         } => {
             let resolved = resolve_field_alias(schema, field);
+            // A `term` on a `boolean` field names the boolean, however it is
+            // spelled — see `normalize_boolean_query_value`.
+            if field_is_boolean(schema, &resolved) {
+                return QueryNode::Term {
+                    field: resolved,
+                    value: normalize_boolean_query_value(value),
+                    boost: *boost,
+                };
+            }
             // A CIDR `term` on an `ip` field means the whole subnet. The
             // source-scan matcher expands it (`ip_matches_cidr`), but the
             // segment term-dictionary lookup can't, so it silently returned 0
@@ -36380,6 +36523,19 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
             // single-term gate), plain (non-CIDR) ips, and any value that does
             // not parse. Only fires on a declared `date`/`ip` field with >=1
             // rewritable value; otherwise the plain `terms` is returned as-is.
+            //
+            //   boolean: a `terms` spelling its values `"true"`/`"false"` must
+            //     name the same term the single `term` arm does, or `terms`
+            //     misses what `term` finds — the #781 ingest coercion stores a
+            //     real JSON boolean, so the string spelling matched nothing on
+            //     a doc-values-only field (`390_doc_values_search.yml`).
+            if field_is_boolean(schema, &resolved) {
+                return QueryNode::Terms {
+                    field: resolved,
+                    values: values.iter().map(normalize_boolean_query_value).collect(),
+                    boost: *boost,
+                };
+            }
             let ft_is_date = declared_field(schema, &resolved)
                 .is_some_and(|fc| matches!(fc.field_type, FieldType::Date));
             let ft_is_ip = declared_field(schema, &resolved)
@@ -42971,20 +43127,43 @@ fn json_to_str(v: &Value) -> String {
 fn json_values_equal(doc_val: &Option<Value>, query_val: &Value) -> bool {
     match doc_val {
         None => false,
-        Some(dv) => {
-            // Direct equality check.
-            if dv == query_val {
-                return true;
-            }
-            // Cross-type: number stored as string or vice versa.
-            match (dv, query_val) {
-                (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
-                (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
-                // Array field: any element matches.
-                (Value::Array(arr), _) => arr.iter().any(|elem| elem == query_val),
-                _ => false,
-            }
+        Some(dv) => json_scalar_equal(dv, query_val),
+    }
+}
+
+/// The cross-type equality of one stored value against one query operand.
+///
+/// Split out of [`json_values_equal`] so the array arm can recurse through it.
+/// An element of a MULTI-valued field has to be compared with the same
+/// tolerance a scalar gets, or the same document answers differently depending
+/// on whether its field happens to hold one value or several: with a bare
+/// `elem == query_val`, `{"b": "true"}` matches `term {b: true}` (via the
+/// boolean arm below) while `{"b": ["true"]}` does not.
+fn json_scalar_equal(dv: &Value, query_val: &Value) -> bool {
+    // Direct equality check.
+    if dv == query_val {
+        return true;
+    }
+    // Cross-type: number stored as string or vice versa.
+    match (dv, query_val) {
+        (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
+        (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
+        // Cross-type: a boolean and its string spelling name the same
+        // value. ES parses a query value through the same `Booleans`
+        // the field mapper uses, so `"true"` and `true` are one term;
+        // both directions matter here because since #781 ingest
+        // canonicalises a declared `boolean` to a real JSON boolean in
+        // `_source` while documents written BEFORE that still hold the
+        // string. Without this the two spellings split across the
+        // upgrade boundary — the doc-values fast paths already agree
+        // (they stringify a boolean needle before the lookup), so the
+        // `_source` scan was the one comparator that disagreed.
+        (Value::Bool(b), Value::String(s)) | (Value::String(s), Value::Bool(b)) => {
+            matches!((s.as_str(), *b), ("true", true) | ("false", false))
         }
+        // Array field: any element matches, under the same tolerance.
+        (Value::Array(arr), _) => arr.iter().any(|elem| json_scalar_equal(elem, query_val)),
+        _ => false,
     }
 }
 

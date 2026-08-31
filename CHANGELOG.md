@@ -9,6 +9,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A field holding both numbers and strings in one segment no longer loses the
+  numeric documents from `term` / `terms`.** The doc-values builder collects a
+  segment's values into a numeric map (numbers and booleans) and a keyword map
+  (strings), then writes both into one column set — so a *type-mixed* field had
+  its numeric column silently overwritten by the keyword one, leaving every
+  number/boolean document filed as null in a column the query prefilter treats
+  as exact. Those documents were then dropped from the result with no error.
+  Such a field now ships **no** doc-values column at all, exactly as a
+  multi-valued field already does, and every consumer falls back to the
+  stored-source scan: correct, at scan cost rather than column speed. Reindex
+  onto a single type to get the column back. Whether it bit you depended on
+  core count — a many-core host scatters a flush across shards and each segment
+  stays single-typed, so this reproduced only where documents of both kinds
+  landed in one segment.
+
+- **A field mapped `integer`, `long`, `float` or `boolean` now enforces that
+  type on write** ([#781](https://github.com/xerj-org/xerj/issues/781)). The
+  declared type was enforced for nothing: `1.9` into an `integer` field was
+  stored as `1.9`, `9999999999` was kept exact, `"abc"` was stored as a
+  string, `"yes"` went into a `boolean`, and — per the issue's follow-up — an
+  entire nested object `{"bad":"x"}` was indexed into an `integer`. Every one
+  of those answered `201 created`.
+
+  The consequence was wrong hits, not just leniency. With `1.9` sitting in an
+  `integer` field, `range {"i":{"gte":1.5}}` **matched** in XERJ and would not
+  in ES (which indexes the truncated `1`), while `term {"i":1}` matched in ES
+  and returned nothing here — the same query, over the same document, under
+  the same mapping, giving different answers.
+
+  Ingest now applies ES 8.x's own rules (`coerce` defaults to `true`): `1.9`
+  → `1`, `"5"` → `5`, `"1.9"` → `1`, `"true"` → `true`; out-of-range for the
+  declared width, an unparseable string, an object, an array element that is
+  none of those, and anything but `true`/`false` in a `boolean` are refused
+  with a 400 `document_parsing_exception` — a per-item 400 under `_bulk`. An
+  explicit `"coerce": false` additionally refuses a decimal part and a string,
+  and `"ignore_malformed": true` still wins: that field's bad values are
+  dropped into `_ignored` rather than failing the document.
+
+  **What this changes about stored data, and what it means on upgrade.** A
+  coerced value is rewritten in `_source`: ES keeps `_source` verbatim and
+  coerces only the indexed value, but XERJ indexes from the stored source, so
+  matching ES's *hits* costs source fidelity here. A document written
+  `{"i": 1.9, "b": "false"}` now reads back `{"i": 1, "b": false}`. An index
+  that spans this upgrade therefore holds **both** spellings of the same
+  logical value — documents written before hold `"false"` / `"5"`, documents
+  written after hold `false` / `5` — and no reindex is performed for you.
+
+  That mixed index still answers correctly, and closing that gap is part of
+  this change. Because the canonicalisation moves a declared `boolean` from
+  the string spelling to a real JSON boolean in `_source`, the **query** side
+  now runs `term` / `terms` values on a `boolean` field through the same
+  predicate — ES parses a query value with the same `Booleans` its field
+  mapper uses, so `"true"` and `true` name one term. Without it,
+  `terms {"b":["true"]}` found nothing on a doc-values-only boolean field
+  while the equivalent `term` still matched. The `_source` scan comparator
+  relates the two spellings in both directions (as it already did for a number
+  and its string spelling), for single- and multi-valued fields alike, and a
+  `terms` aggregation buckets them together — so one query sees the whole
+  index rather than half of it. **Reindex** if you want a uniform `_source`;
+  nothing breaks if you do not.
+
+  Also narrowed deliberately, all documented in `xerj_common::field_coercion`:
+  the index-level `index.mapping.coerce` setting is not read (only the
+  field-level parameter), `scaled_float` is range-checked but not quantised by
+  its `scaling_factor`, an empty string is left alone rather than dropped, and
+  `_update` is not re-validated — it merges into a document already checked on
+  write.
+
 - **A top-level `knn` beside a `query` now scores as a sum over the union of
   both halves, aggregations included**
   ([#825](https://github.com/xerj-org/xerj/issues/825)). ES 8.x defines this
