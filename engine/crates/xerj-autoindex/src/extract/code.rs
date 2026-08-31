@@ -358,10 +358,10 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
 /// "Stopping where the body begins" needs the grammar to say where that is, and
 /// a few do not: tree-sitter-haskell names no body node, no `body:` field and no
 /// terminator, so a Haskell equation's slice IS the equation. Measured on the
-/// three corpora in `decl_bench`, a slice that covers its symbol's whole span
-/// (i.e. carries the implementation) is 1.5 % of Lucene, 2.3 % of valkey +
-/// memcached and 0.8 % of tantivy — small, but not zero, and `DECL_CAP` is what
-/// bounds it.
+/// four corpora in `decl_bench`, a slice that covers its symbol's whole span
+/// (i.e. carries the implementation) is 1.5 % of Lucene, 2.5 % of valkey +
+/// memcached, 1.2 % of tantivy and 5.9 % of a 914 k-symbol Go + C tree — small,
+/// but not zero, and `DECL_CAP` is what bounds it.
 ///
 /// The implementation is not thrown away: the file document keeps the whole
 /// source in `body`, and `line`..`end_line` says exactly which lines the body
@@ -496,6 +496,10 @@ fn is_container_kind(lang: &str, kind: &str) -> bool {
             | "module_procedures"
             // Nix attribute set.
             | "binding_set"
+            // Go's parenthesised `var ( … )` group. (Its `const ( … )` twin has
+            // no list node — see `is_container`.)
+            | "var_spec_list"
+            | "const_spec_list"
     ) || (lang == "zig"
         // Zig spells its scopes `*_declaration`, which in C# is a DECLARATION of
         // a type rather than a scope (C#'s `struct_declaration` has a
@@ -510,6 +514,31 @@ fn is_container_kind(lang: &str, kind: &str) -> bool {
                 | "error_set_declaration"
                 | "container_declaration"
         ))
+}
+
+/// `is_container_kind` for the cases where the KIND alone cannot say. Go spells
+/// `const X = 1` and `const ( X = 1\n Y = 2 )` with the same node — and the same
+/// again for `var` and `type` — so what separates a declaration from a scope
+/// there is the parenthesis, not the node's name.
+fn is_container(lang: &str, n: Node<'_>) -> bool {
+    if is_container_kind(lang, n.kind()) {
+        return true;
+    }
+    if lang != "go"
+        || !matches!(
+            n.kind(),
+            "const_declaration" | "var_declaration" | "type_declaration"
+        )
+    {
+        return false;
+    }
+    let mut cur = n.walk();
+    for child in n.children(&mut cur) {
+        if child.kind() == "(" {
+            return true;
+        }
+    }
+    false
 }
 
 /// Is this node, or anything under it, an implementation? Bounded, and used
@@ -559,7 +588,7 @@ fn declaration_node<'t>(lang: &str, name: Node<'t>) -> Node<'t> {
         let Some(parent) = decl.parent() else { break };
         // Stop *below* the container: the container's other children are the
         // sibling declarations, which are emphatically not part of this one.
-        if parent.parent().is_none() || is_container_kind(lang, parent.kind()) {
+        if parent.parent().is_none() || is_container(lang, parent) {
             // A scope that is ALSO this declaration: Objective-C's
             // `@interface Foo : NSObject` holds its method declarations as
             // direct children, so the class name's own parent is the scope.
@@ -647,6 +676,20 @@ fn is_signature_scope(kind: &str) -> bool {
     kind.contains("argument") || kind.contains("parameter")
 }
 
+/// Does this node kind DEFINE something, so that its `body:` field is an
+/// implementation rather than a value? `function_definition` (r), `let_binding`
+/// (ocaml), `function_or_value_defn` (fsharp), `function_expression` (nix) and
+/// `arrow_function` (js/ts) do; `composite_literal` (go) and
+/// `lambda_expression` (java) do not.
+fn is_definition_kind(kind: &str) -> bool {
+    kind.contains("definition")
+        || kind.contains("declaration")
+        || kind.contains("binding")
+        || kind.contains("defn")
+        || kind.contains("function")
+        || kind.contains("method")
+}
+
 /// Fortran and Julia name no body node and no `body:` field: a definition is a
 /// signature, then statements, then a terminator (`end`, `end subroutine f`).
 /// Recognising that terminator is what separates them from a WRAPPED
@@ -670,6 +713,10 @@ fn end_delimited_head(decl: Node<'_>) -> Option<usize> {
 /// A `body:` child of the same kind as its parent is a CURRIED lambda
 /// (`f = a: b: a + b` in Nix) — stopping there would cut the signature in half,
 /// so keep descending through those.
+///
+/// And the parent has to BE a definition. Go's `composite_literal` marks its
+/// `{ … }` with `body:` too, so without this a `var Config = map[string]int{…}`
+/// would store `Config = map[string]int` and drop the value it declares.
 fn body_by_field<'t>(decl: Node<'t>, after: usize) -> Option<Node<'t>> {
     let mut best: Option<Node<'t>> = None;
     let mut stack: Vec<Node<'t>> = vec![decl];
@@ -691,6 +738,7 @@ fn body_by_field<'t>(decl: Node<'t>, after: usize) -> Option<Node<'t>> {
             if cur.field_name() == Some("body")
                 && child.start_byte() >= after
                 && child.kind() != n.kind()
+                && is_definition_kind(n.kind())
                 && best.is_none_or(|b| child.start_byte() < b.start_byte())
             {
                 best = Some(child); // never descend INTO a body
@@ -732,7 +780,7 @@ fn body_by_kind(lang: &str, decl: Node<'_>, after: usize) -> Option<usize> {
                 best = Some((n.start_byte(), n.start_byte()));
                 continue; // never descend INTO a body
             }
-            if is_container_kind(lang, n.kind()) && n.end_position().row > n.start_position().row {
+            if is_container(lang, n) && n.end_position().row > n.start_position().row {
                 let end = container_head_end(n).unwrap_or_else(|| n.start_byte());
                 best = Some((n.start_byte(), end));
                 continue; // nor into someone else's scope
@@ -748,7 +796,7 @@ fn body_by_kind(lang: &str, decl: Node<'_>, after: usize) -> Option<usize> {
     // `decl` is itself the scope holding the members (an Objective-C
     // `@interface`, whose class name is a direct child of it).
     best.map(|(_, end)| end).or_else(|| {
-        is_container_kind(lang, decl.kind())
+        is_container(lang, decl)
             .then(|| container_head_end(decl))
             .flatten()
     })
@@ -2097,6 +2145,28 @@ mod tests {
         );
         let f = s.iter().find(|x| x.name == "One").unwrap();
         assert_eq!(f.end_line, 3, "{f:?}");
+
+        // Go's parenthesised groups. The node kind is the same one it uses for
+        // a lone `const X = 1`, so the parenthesis is what tells them apart —
+        // get it wrong and every generated `.pb.go` enum table reports the whole
+        // `var ( … )` block as one symbol's span.
+        let s = syms("go", "const (\n\tOne = 1\n\tTwo = 2\n)\n");
+        let f = s.iter().find(|x| x.name == "Two").unwrap();
+        assert_eq!(f.code, "Two = 2", "{f:?}");
+        assert_eq!(f.end_line, 3, "{f:?}");
+        let s = syms("go", "const One = 1\n");
+        let f = s.iter().find(|x| x.name == "One").unwrap();
+        assert_eq!(f.code, "const One = 1", "{f:?}");
+
+        // …and a Go composite literal marks its `{ … }` with the `body:` field,
+        // which must NOT end the slice: the value is what the var declares.
+        let s = syms(
+            "go",
+            "var (\n\tA_name = map[int32]string{\n\t\t0: \"x\",\n\t}\n\tA_value = map[string]int32{\n\t\t\"x\": 0,\n\t}\n)\n",
+        );
+        let f = s.iter().find(|x| x.name == "A_value").unwrap();
+        assert!(f.code.starts_with("A_value = map[string]int32{"), "{f:?}");
+        assert_eq!(f.end_line, 7, "{f:?}");
     }
 
     /// Six registered grammars name no body-shaped NODE for a function, so the
