@@ -5447,8 +5447,8 @@ mod semantic_deadline_regression_tests {
             "request waited for detached cold load instead of its deadline"
         );
 
-        // `spawn_blocking` is deliberately not aborted: the immutable load
-        // completes and warms the cache for a later request.
+        // The detached decode is deliberately not cancelled: the immutable
+        // load completes and warms the cache for a later request.
         tokio::time::timeout(std::time::Duration::from_secs(1), async {
             while idx.stored_value_cache.is_empty() {
                 tokio::task::yield_now().await;
@@ -25735,11 +25735,17 @@ impl Index {
     /// worker. Cache hits stay on the caller because they are only a DashMap
     /// lookup and `Arc` clone.
     ///
-    /// `spawn_blocking` tasks cannot be cancelled once started. A timed-out or
-    /// dropped request therefore leaves the load running to completion, which
-    /// is useful: it warms the immutable segment for the next request. The
-    /// segment-current check prevents such a detached completion from
-    /// resurrecting a cache entry that a concurrent merge already retired.
+    /// The decode runs on the engine's own rayon maintenance pool, never on
+    /// tokio's blocking pool: a search already parks a blocking-pool thread
+    /// inside `block_in_place` for its whole duration, so queueing this work
+    /// there is a circular wait (issue #751, and the rule stated on
+    /// `await_publication_barrier`).
+    ///
+    /// The submitted decode is never cancelled. A timed-out or dropped request
+    /// therefore leaves the load running to completion, which is useful: it
+    /// warms the immutable segment for the next request. The segment-current
+    /// check prevents such a detached completion from resurrecting a cache
+    /// entry that a concurrent merge already retired.
     async fn stored_values_for_async(&self, segment_id: &str) -> Option<Resident<Vec<Value>>> {
         if let Some(entry) = self.stored_value_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
@@ -25776,7 +25782,42 @@ impl Index {
                             loads.remove(&segment_id);
                             return;
                         };
-                        let blocking = tokio::task::spawn_blocking(move || {
+                        // #751 — the decode runs on the engine's own rayon
+                        // maintenance pool, NOT on tokio's blocking pool.
+                        //
+                        // `Index::search` wraps its whole body in
+                        // `block_in_place(|| Handle::current().block_on(..))`
+                        // on multi-thread runtimes (M5.21). `block_in_place`
+                        // hands the worker's core to a tokio BLOCKING-pool
+                        // thread — which then runs `worker::run` for the rest
+                        // of the runtime's life — and parks the calling thread,
+                        // itself a blocking-pool thread, for the whole search.
+                        // An aggregation with no columnar path assembles the
+                        // full corpus from inside that park, so a `spawn_blocking`
+                        // here would queue work on the very pool the waiter is
+                        // holding a thread of. tokio grows that pool only when
+                        // it observes zero idle threads at push time, so the
+                        // core hand-off and this submission can both see the
+                        // same idle thread, both merely `notify_one()`, and the
+                        // one woken thread takes the core and never comes back.
+                        // The decode is then queued behind threads that are all
+                        // permanently running worker cores: the search waits for
+                        // a task that can never be scheduled. Live-reproduced as
+                        // the CI hang in issue #751 (12-min step timeout, 12/60
+                        // runs on a 4-cpu mask) and pinned deterministically by
+                        // `tests/agg_corpus_hydration_deadlock.rs`.
+                        //
+                        // The maintenance pool's threads exist for the process
+                        // lifetime and are never consumed by tokio, so the wait
+                        // cannot be circular. It is the read-side twin of the
+                        // work already on this pool (flush side-car builds,
+                        // segment finalisation); the cost is that a cold
+                        // hydration a search is waiting on now runs at the
+                        // pool's `nice(10)`, which only bites when every core is
+                        // already saturated.
+                        let (decoded_tx, decoded_rx) =
+                            tokio::sync::oneshot::channel::<Option<Resident<Vec<Value>>>>();
+                        let decode = move || -> Option<Resident<Vec<Value>>> {
                             #[cfg(test)]
                             {
                                 load_count.fetch_add(1, Ordering::Relaxed);
@@ -25837,8 +25878,21 @@ impl Index {
                                 }
                             };
                             Some(resident)
+                        };
+                        crate::background_pool().spawn(move || {
+                            // Preserve the pre-#751 failure semantics: a panic
+                            // in the decode used to surface as a `JoinError`
+                            // and leave the waiter with `None` (the caller then
+                            // reports the segment unreadable). rayon's default
+                            // is to abort the process instead, so catch it here.
+                            // Under `panic = "abort"` (the shipped profile) this
+                            // is a no-op, exactly as before.
+                            let decoded =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(decode))
+                                    .unwrap_or(None);
+                            let _ = decoded_tx.send(decoded);
                         });
-                        if let Ok(Some(value)) = blocking.await {
+                        if let Ok(Some(value)) = decoded_rx.await {
                             let _ = sender.send(Some(value));
                         }
                         drop(permit);
