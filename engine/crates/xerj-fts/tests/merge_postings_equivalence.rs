@@ -297,7 +297,8 @@ fn assert_norms_equivalent(dir: &Path, expected: &str, actual: &str, doc_count: 
         let got: Vec<(u32, u8)> = got_reader.field_norm_bytes(field).collect();
         assert_eq!(
             want, got,
-            "field '{field}': the norm bytes a reader loads differ between the              re-analysed merge and the replayed merge"
+            "field '{field}': the norm bytes a reader loads differ between the \
+             re-analysed merge and the replayed merge"
         );
         for doc_id in 0..doc_count {
             assert_eq!(
@@ -310,7 +311,9 @@ fn assert_norms_equivalent(dir: &Path, expected: &str, actual: &str, doc_count: 
         let got_len = norms_dense_len(dir, actual, field);
         assert!(
             got_len <= want_len,
-            "field '{field}': the replayed .norms dense array ({got_len}) may be              shorter than the re-analysed one ({want_len}) but never longer — a              longer one would mean the replay invented a document"
+            "field '{field}': the replayed .norms dense array ({got_len}) may be \
+             shorter than the re-analysed one ({want_len}) but never longer — \
+             a longer one would mean the replay invented a document"
         );
     }
 }
