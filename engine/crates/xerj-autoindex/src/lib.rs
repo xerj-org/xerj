@@ -706,6 +706,17 @@ const ALIAS_SWEEP_CHUNK: usize = 1_024;
 /// `path` and `status` are both `keyword` in [`catalog::catalog_mapping`], and
 /// `terms` here takes a plain value array — never the `{index, id, path}`
 /// lookup form, which `_delete_by_query` does not resolve.
+///
+/// KNOWN, NOT FIXED HERE (#905): this query carries **no corpus scope**, and
+/// `path` is a logical path inside a corpus rather than a node-unique key, so a
+/// run over one corpus can delete another corpus's `status: duplicate` catalog
+/// documents at the same path. Unlike #890 that needs no legacy mapping, and
+/// unlike #890 it takes only alias documents, which the sibling rewrites on its
+/// next run. It is not a scope filter away: this sweep deliberately reaches
+/// documents whose ids follow HISTORICAL identity schemes, some of which carry
+/// no corpus evidence at all — see #905 for the shape a fix has to take, and for
+/// why [`delete_catalog_docs_scoped`]'s recheck is the pattern that makes one
+/// possible.
 fn alias_sweep_query(paths: &[&str]) -> Value {
     json!({
         "bool": {
@@ -3541,6 +3552,13 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
     Ok(summary)
 }
 
+/// One search page of [`delete_catalog_docs_scoped`], and its page budget.
+/// `from + PAGE` stays inside the default `max_result_window` (10k) at the cap,
+/// so no page is refused. Named at module scope so the boundary test walks the
+/// same numbers the sweep does rather than its own copy of them.
+const SCOPED_SWEEP_PAGE: usize = 1_000;
+const SCOPED_SWEEP_MAX_PAGES: usize = 10;
+
 /// Delete the `autoindex-catalog` documents whose `_source` matches EVERY
 /// `(field, value)` pair **exactly**, whatever type this catalog's mapping
 /// gives those fields (#890).
@@ -3549,9 +3567,11 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// catalog is global across every corpus on the node and it outlives releases,
 /// so a field it holds is not necessarily the type this build declares:
 /// v1.0.0-rc.15 began writing `prefix` before `catalog::catalog_mapping`
-/// declared it, and every catalog written by rc.15..rc.67 therefore holds
-/// `prefix` as dynamically-inferred **`text`** (see [`install_catalog_mapping`]
-/// for that history). A `term` query is not analyzed, but the FIELD is: against
+/// declared it, so any catalog an rc.15..rc.67 build wrote to before that
+/// mapping landed holds `prefix` as dynamically-inferred **`text`** — which
+/// includes catalogs first created by an EARLIER release and only later touched
+/// by one of those (see [`install_catalog_mapping`] for that history). A `term`
+/// query is not analyzed, but the FIELD is: against
 /// `text` it matches when one of the stored value's analyzed TOKENS equals the
 /// term. So `{"term": {"prefix": "ax"}}` also reaches a document whose prefix is
 /// `ax-2` (tokens `[ax, 2]`) — a **sibling corpus's** document, which is exactly
@@ -3565,7 +3585,10 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// mapping-independent by construction, so it holds on a keyword catalog and on
 /// a legacy text one alike, and it holds for the `path`/`file_key` conjunct as
 /// well as for the corpus scope. Where the field really is a keyword the result
-/// is identical to the delete this replaces.
+/// is identical to the delete this replaces, up to the page budget below: past
+/// [`SCOPED_SWEEP_MAX_PAGES`] * [`SCOPED_SWEEP_PAGE`] candidates for one scope
+/// conjunction this refuses where the old `_delete_by_query` would have kept
+/// going.
 ///
 /// It cannot invent coverage the query does not return: on a legacy catalog an
 /// analyzed field can also match FEWER documents than it should (a multi-token
@@ -3575,21 +3598,16 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
 /// `catalog::CORPUS_SCOPE_FIELD` and by the by-`_id` sweep in the caller; this
 /// function is only about never deleting more than the scope names.
 fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
-    // One search page, and the page budget. `from + PAGE` stays inside the
-    // default `max_result_window` (10k) at the cap, so no page is refused.
-    const PAGE: usize = 1_000;
-    const MAX_PAGES: usize = 10;
-
     let query = json!({"bool": {"filter": scope
         .iter()
         .map(|(field, value)| json!({"term": {*field: *value}}))
         .collect::<Vec<Value>>()}});
     let mut ids: Vec<String> = Vec::new();
     let mut from = 0usize;
-    for _ in 0..MAX_PAGES {
+    for _ in 0..SCOPED_SWEEP_MAX_PAGES {
         let page = es.search(
             catalog::CATALOG_INDEX,
-            &json!({"query": query.clone(), "from": from, "size": PAGE}),
+            &json!({"query": query.clone(), "from": from, "size": SCOPED_SWEEP_PAGE}),
         )?;
         let hits = page
             .pointer("/hits/hits")
@@ -3612,7 +3630,22 @@ fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
                 }
             }
         }
-        if hits.len() < PAGE {
+        from += hits.len();
+        // The candidate set is exhausted on a short page — and ALSO once the
+        // hits seen reach an EXACT `hits.total`. Both rules are needed: at
+        // exactly `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` candidates every
+        // page comes back full, so the short-page rule alone falls out of the
+        // loop and refuses while already holding the complete, re-checked set.
+        //
+        // `relation: "gte"` is an honest LOWER bound rather than a count (a
+        // capped hybrid sub-list, a timed-out scan), so it is never trusted to
+        // end the walk; that case falls back to the short-page rule alone.
+        let total_is_exact =
+            page.pointer("/hits/total/relation").and_then(Value::as_str) != Some("gte");
+        let total = page.pointer("/hits/total/value").and_then(Value::as_u64);
+        let exhausted = hits.len() < SCOPED_SWEEP_PAGE
+            || (total_is_exact && total.is_some_and(|total| from as u64 >= total));
+        if exhausted {
             // The whole candidate set has been seen. Delete the exact ones, in
             // requests that stay requests — the same bound, and for the same
             // reason, as the duplicate-alias sweep's [`ALIAS_SWEEP_CHUNK`].
@@ -3621,16 +3654,20 @@ fn delete_catalog_docs_scoped(es: &Es, scope: &[(&str, &str)]) -> Result<()> {
             }
             return Ok(());
         }
-        from += hits.len();
     }
     // Refusing beats deleting a prefix of the set and reporting success: an
     // exclusion that only partly removes data is the #439 exposure. Reaching
-    // here needs more than 10k catalog documents matching one file's scope
-    // conjunction, which a keyword catalog cannot produce.
+    // here needs MORE than `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` (10k)
+    // catalog documents matching one file's scope conjunction. A keyword
+    // catalog CAN produce that — one content group of 10k+ byte-identical
+    // files, each carrying its own alias doc — so this is a real, if narrow,
+    // narrowing of the `_delete_by_query` it replaces, which repeated
+    // 10k-document passes of its own. It fails CLOSED, and the remedy it names
+    // is the one the legacy-catalog warning already gives.
     Err(anyhow::anyhow!(
-        "scoped sweep of `{}` still had candidates after {MAX_PAGES} pages of {PAGE} for scope \
-         [{}]; refusing to report a partial removal — reindex `{}` into an index created with \
-         the current mapping",
+        "scoped sweep of `{}` still had candidates after {SCOPED_SWEEP_MAX_PAGES} pages of \
+         {SCOPED_SWEEP_PAGE} for scope [{}]; refusing to report a partial removal — reindex `{}` \
+         into an index created with the current mapping",
         catalog::CATALOG_INDEX,
         scope
             .iter()

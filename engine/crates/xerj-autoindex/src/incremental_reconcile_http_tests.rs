@@ -3194,6 +3194,120 @@ fn sweep_excluded_groups_cannot_reach_a_sibling_corpus_on_a_text_mapped_prefix()
     );
 }
 
+/// #890 (review follow-up): the scoped sweep's page walk must end on the
+/// candidate set it actually has, not on a short page it may never be sent.
+///
+/// `delete_catalog_docs_scoped` reads `SCOPED_SWEEP_PAGE` hits at a time for at
+/// most `SCOPED_SWEEP_MAX_PAGES` pages. Its first version ended the walk ONLY
+/// on a short page, so a scope conjunction matching exactly
+/// `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` documents — every page full,
+/// the last one included — fell out of the loop and returned the "refusing to
+/// report a partial removal" error while `ids` already held the complete,
+/// re-checked set: a run aborted on an answer the function was holding. That
+/// off-by-one is unreachable from the four-document fixture above, which is why
+/// this walks the boundary the way
+/// `the_alias_sweep_partitions_its_paths_exactly_across_the_chunk_boundary`
+/// walks `ALIAS_SWEEP_CHUNK`: 0 / 1 / PAGE-1 / PAGE / PAGE+1 / MAX*PAGE, plus
+/// the one candidate over the cap, which must still refuse AND still delete
+/// nothing.
+///
+/// Every case includes one sibling-corpus document, and it sorts LAST, so the
+/// per-hit re-check is proven on the final page of a multi-page walk rather
+/// than only inside the first page. `prefix` is legacy `text` here for the
+/// reason it is in the test above: that is what makes the sibling a candidate
+/// the server returns and the client has to drop.
+#[test]
+fn the_scoped_catalog_sweep_pages_to_the_exact_end_of_its_candidate_set() {
+    let ep = HttpEndpoint::start();
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    // Sorts after every `file-alias:` id below (`-` < `:`), so it is the last
+    // hit of the last page.
+    let sibling = "file:ax-2:shared-key".to_string();
+    let cap = SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE;
+
+    for candidates in [
+        0,
+        1,
+        SCOPED_SWEEP_PAGE - 1,
+        SCOPED_SWEEP_PAGE,
+        SCOPED_SWEEP_PAGE + 1,
+        cap,
+        cap + 1,
+    ] {
+        // `candidates` counts what the QUERY returns. One of them is the
+        // sibling; the rest are this corpus's own documents, all of which the
+        // sweep must remove.
+        let own = candidates.saturating_sub(1);
+        {
+            let mut st = ep.state.lock().unwrap();
+            st.docs.clear();
+            st.legacy_text_catalog_fields = vec!["prefix".into()];
+            for n in 0..own {
+                st.docs.insert(
+                    (
+                        catalog::CATALOG_INDEX.to_string(),
+                        format!("file-alias:ax:{n:06}"),
+                    ),
+                    json!({"doc_kind": "file", "prefix": "ax", "path": "LICENSE"}),
+                );
+            }
+            if candidates > 0 {
+                st.docs.insert(
+                    (catalog::CATALOG_INDEX.to_string(), sibling.clone()),
+                    json!({"doc_kind": "file", "prefix": "ax-2", "path": "LICENSE"}),
+                );
+            }
+        }
+
+        let swept = delete_catalog_docs_scoped(&es, &[("prefix", "ax"), ("path", "LICENSE")]);
+
+        // Read every verdict out and RELEASE the endpoint's lock before
+        // asserting, for the reason the test above gives: an assert that fires
+        // while holding it poisons the mutex the server thread also takes.
+        let (survivors, sibling_kept) = {
+            let st = ep.state.lock().unwrap();
+            let survivors = st
+                .docs
+                .keys()
+                .filter(|(index, _)| index == catalog::CATALOG_INDEX)
+                .count();
+            let sibling_kept = st
+                .docs
+                .contains_key(&(catalog::CATALOG_INDEX.to_string(), sibling.clone()));
+            (survivors, sibling_kept)
+        };
+
+        if candidates > cap {
+            assert!(
+                swept.is_err(),
+                "#890: past {cap} candidates the sweep must refuse rather than report a \
+                 partial removal ({candidates} candidates)"
+            );
+            assert_eq!(
+                survivors, candidates,
+                "#890: a refusal must delete NOTHING — a partial sweep reported as a failure \
+                 is still a partial sweep ({candidates} candidates)"
+            );
+            continue;
+        }
+
+        swept.unwrap_or_else(|err| {
+            panic!("#890: {candidates} candidates is inside the page budget, not past it: {err}")
+        });
+        assert_eq!(
+            survivors,
+            usize::from(candidates > 0),
+            "#890: every one of this corpus's {own} documents must be swept, across page \
+             boundaries as much as inside one page ({candidates} candidates)"
+        );
+        assert!(
+            sibling_kept || candidates == 0,
+            "#890: the sibling corpus's document must survive the re-check on whichever page \
+             it lands ({candidates} candidates)"
+        );
+    }
+}
+
 /// #739: a `file:` catalog doc written by a pre-#737 binary has NO `prefix`
 /// field, so the #737 prefix-scoped sweep misses it on the first upgraded run.
 /// The by-`_id` delete catches it (the id encodes the prefix), while a sibling
