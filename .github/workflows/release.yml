@@ -36,6 +36,14 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    # Tier 3 with extra room: this matrix cross-compiles (zigbuild, musl,
+    # Windows MSVC + vendored OpenSSL) and its cache key includes the
+    # target, so a Cargo.lock change makes every leg fully cold. Over the
+    # last 27 runs the slowest leg is aarch64-pc-windows-msvc at 38.3 min
+    # (median 18.9); 75 is 1.96x that and still 4.8x below GitHub's 360-min
+    # default. A tag run cannot rely on `cancel-in-progress` to clear a
+    # hang -- the tag ref is immutable, so no later push supersedes it.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -235,6 +243,7 @@ jobs:
     name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download all build artifacts
