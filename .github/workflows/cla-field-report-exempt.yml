@@ -47,6 +47,7 @@ jobs:
   field-report-exempt:
     name: Field-report CLA exemption
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # Trusted base code ONLY — never the PR head. This runs under the elevated
       # pull_request_target token and must not execute untrusted contributor code.

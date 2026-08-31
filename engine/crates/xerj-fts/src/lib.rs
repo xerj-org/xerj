@@ -76,7 +76,8 @@ pub use bm25::{
 };
 
 pub use index::{
-    FieldIndexConfig, FieldValues, FtsIndexReader, FtsIndexWriter, POSITION_INCREMENT_GAP,
+    segment_indexed_field_names, segments_indexed_field_names, FieldIndexConfig, FieldValues,
+    FtsIndexReader, FtsIndexWriter, FtsMergeSource, POSITION_INCREMENT_GAP,
 };
 
 pub use postings::{

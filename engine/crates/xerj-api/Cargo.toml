@@ -6,6 +6,10 @@ license.workspace = true
 authors.workspace = true
 
 [features]
+# Built-in Candle neural embedder, for the `binary_bulk_throughput`
+# example (#903) and for anyone linking this crate directly. The shipped
+# binary turns it on through `xerj-server`'s own `neural` feature.
+neural = ["xerj-engine/neural"]
 onnx-experimental = ["xerj-engine/onnx-experimental"]
 
 [dependencies]
