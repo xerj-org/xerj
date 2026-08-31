@@ -292,6 +292,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with fixed inputs would hash floats that no provider guarantees to be
   reproducible — which is the bug in this issue, one layer down.
 
+- **A legitimate authenticated request whose body arrived in small HTTP/2 DATA
+  frames could be cut off with `GOAWAY ENHANCE_YOUR_CALM`**
+  ([#485](https://github.com/xerj-org/xerj/issues/485)). The rc.18 `h2` bump for
+  RUSTSEC-2026-0258 — described at length in that release's notes below — added
+  a per-connection budget for small DATA frames: a frame under 256 bytes
+  consumes `256 - payload_len`, a frame of 256 or more replenishes, and the
+  refund for a small frame lands only when the application *reads* it. In `h2`
+  0.4.16 that budget was a fixed 25,600 bytes however large a window the server
+  had advertised, while hyper advertises a 1 MiB HTTP/2 connection window — so a
+  well-behaved client could have 40× the budget in flight before the handler was
+  ever scheduled. Any client that chunks small (a streaming JSON encoder, a
+  per-document flush, a gRPC stream of small messages) lost its whole
+  *connection* on a request that would otherwise have returned 200.
+
+  `h2` is now floored at 0.4.19 in `[workspace.dependencies]`
+  (`engine/Cargo.toml`), where the budget is half the configured connection
+  window with 25,600 bytes as the minimum — 512 KiB against hyper's 1 MiB
+  window — and the empty-DATA-frame flood the advisory was actually filed about
+  is capped by its own counter (100 frames per connection) rather than out of
+  the byte budget. The mitigation is not disabled or weakened here, and no
+  XERJ-side window or budget knob was changed; the floor sits in the workspace
+  manifest so `cargo update` cannot resolve back to a fixed-budget release.
+
+  Measured on this box, same harness on both sides (`axum::serve`, hyper 1.9.0,
+  a handler that reads the whole body, one DATA frame per chunk queued
+  back-to-back with no pause), bisecting for the largest body that completes.
+  The boundary is not a constant — it is a race between arriving charges and
+  the refunds a reading handler returns — so these are the min–max of three
+  bisections each, not thresholds to design against:
+
+  | DATA frame size | before (h2 0.4.16) | after (h2 0.4.19) |
+  |---|---|---|
+  | 64 B | 9.3–16.5 KB (145–258 frames) | 262 KB–6.4 MB (4,095–99,793 frames) |
+  | 100 B | 18.9–27.2 KB (189–272 frames) | 410 KB–4.4 MB (4,095–43,561 frames) |
+  | 128 B | 29.3–36.6 KB (229–286 frames) | 2.1–4.7 MB (16,127–36,628 frames) |
+  | 200 B | 141–419 KB (703–2,094 frames) | no cut-off up to 52 MB |
+  | 256 B | no cut-off up to 8 MB | no cut-off (never charges) |
+
+  Where the safe line now sits, exactly: with a budget of half the window, a
+  frame of **171 bytes or more** cannot exhaust it even if the application never
+  reads a byte — at most `window / size` frames can be in flight, each charging
+  `256 - size`, and `(256 - size) ≤ size / 2` from 171 up. That is why the
+  200 B row has no ceiling at all. Below 171 bytes there is still a ceiling and
+  it still depends on how fast the handler drains; it is now one to two orders
+  of magnitude further out. A frame of 256 bytes or more never charges, before
+  or after. The rc.18 note advising clients to chunk at 256 bytes or above is
+  no longer needed for ordinary bodies.
+
+  Deliberately abusive traffic is still refused, and that is asserted rather
+  than assumed: a flood of empty DATA frames still ends in `GOAWAY
+  ENHANCE_YOUR_CALM` (upstream's 100-frame cap, unchanged), and a flood of
+  1-byte frames is still cut off — on this harness the client saw the
+  connection go at roughly frame 4,600 instead of roughly frame 100.
+
+  What was measured where. The table above comes from a standalone harness
+  pinned to this workspace's own axum/hyper/h2 versions, not from the `xerj`
+  binary. The binary itself is covered by
+  `engine/crates/xerj-server/tests/http2_small_data_frames.rs`, which spawns the
+  real server with authentication on and drives a 40 KB authenticated `_bulk`
+  at 100 bytes per DATA frame (401 frames) through the ES-compat listener over
+  prior-knowledge h2c, asserting a 200 with every document indexed. Against the
+  unfixed dependency that same test is answered
+  `GOAWAY ENHANCE_YOUR_CALM (too_many_data_frames)` mid-body, which is how it
+  was checked. A second test holds the empty-frame guard in place. The TLS
+  listener and the gRPC listener sit on the same `h2` and take the same fix,
+  but neither is exercised by these tests.
+
 - **`xerj autoindex --no-graph` no longer aborts with `Access denied
   (os error 5)` on Windows**
   ([#482](https://github.com/xerj-org/xerj/issues/482)). The durable-snapshot
@@ -1029,7 +1096,9 @@ silently reattributed.
   drains — measurements on two machines differed in both directions, so treat
   the hazard as real and the frequency as unpredictable rather than as a rate.
   Tracked as [#485](https://github.com/xerj-org/xerj/issues/485).
-  If you control the client, chunk at 256 bytes or above.
+  If you control the client, chunk at 256 bytes or above. **On this release
+  only** — see the Unreleased entry for #485 above, where the `h2` floor moves
+  to 0.4.19 and the budget starts scaling with the connection window.
 
   XERJ has such a path: `auth_middleware` is an axum layer, so a request that
   fails authentication is answered `401` without the handler ever extracting its
