@@ -115,9 +115,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents ~15 docs/s is the cost of CPU transformer inference, and moving it
   needs quantization, a GPU provider or a smaller model. What was genuinely
   broken was mixed-length work, which is what pointing `autoindex` at a real
-  folder produces. Binary-protocol `_bulk` still embeds one document per
-  inference call (`xerj-api/src/binary_protocol.rs`); the HTTP path this
-  release measures does not.
+  folder produces. Binary-protocol `_bulk` embedded one document per inference
+  call when this was written (`xerj-api/src/binary_protocol.rs`); that half is
+  the entry below.
+
+- **Binary-protocol `_bulk` shares one embedding pass across the batch instead
+  of one inference call per document**
+  ([#903](https://github.com/xerj-org/xerj/issues/903), split out of #366).
+  `handle_bulk` looped `index_document` per document, and `index_document`
+  embeds its own `semantic_text` fields — so a 64-document bulk cost 64
+  inference calls of one passage each. It now collects the batch and hands it
+  to `Index::index_documents_batched`, which routes it through the same
+  `apply_semantic_embeddings_batch` entry the HTTP `_bulk` path uses: passages
+  are windowed at `embedding.onnx_scheduling_window` (default 64) across
+  documents, publication stays per document, and one document's failure still
+  fails only that document. There is no second batching rule.
+
+  Measured end to end over a real TCP connection through the handler with the
+  harness added here (`cargo run --release -p xerj-api --features neural
+  --example binary_bulk_throughput -- <documents> <per-bulk>`), on this repo's
+  32-core x86_64 box with `--embed-mode neural` (built-in Candle backend,
+  `sentence-transformers/all-MiniLM-L6-v2`). Corpus: 1 000 lines of
+  `apache/lucene`'s `lucene/CHANGES.txt`, 40–400 bytes each so every document
+  is exactly one passage. Medians of interleaved runs; the box was shared with
+  other builds, so the spread is wide and the medians are quoted, not the best
+  runs:
+
+  | documents per bulk | before | after |
+  |---|---|---|
+  | 16 (n=3) | 60.7 docs/s | 82.6 docs/s |
+  | 64 (n=5) | 64.0 docs/s | 102.7 docs/s |
+  | 256 (n=3) | 84.3 docs/s | 124.9 docs/s |
+
+  **Bounds, stated plainly.** The win is a short-document win. A document long
+  enough to fill a scheduling window on its own already got its own inference
+  call: `semantic_embedding_window_end` admits a whole document even past the
+  window (`index.rs`), so before and after are the same call for it. On the
+  default lexical feature-hashing embedder there is no inference to batch and
+  no change was measured — 872 → 865 docs/s (medians of n=7 interleaved,
+  ranges fully overlapping). And the module this fixes is a library entry
+  point: `serve_binary_protocol` is not bound by any listener in `xerj-server`
+  (`xerj-engine/src/index_guard.rs` says so, and nothing in the tree calls
+  it), so no shipped-server ingest path changes speed with this release.
 
 ### Fixed
 
@@ -223,6 +262,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whose one-line body the YAML extractor was discarding. No markdown file moved
   into `Yaml`. (Extensions are never consulted by the sniffer, so they are an
   independent check on the direction of each change.)
+
+- **`xerj autoindex --no-graph` no longer aborts with `Access denied
+  (os error 5)` on Windows**
+  ([#482](https://github.com/xerj-org/xerj/issues/482)). The durable-snapshot
+  path fsynced the directories it had just published with
+  `File::open(dir)?.sync_all()?`. That is a Unix-only idiom: on Windows
+  `File::open` on a *directory* returns `ERROR_ACCESS_DENIED` (os error 5) on
+  every call, because `std` cannot pass `FILE_FLAG_BACKUP_SEMANTICS`. So the
+  first such call — sealing the source snapshot, immediately after the journal
+  was written and before a single document was indexed — killed the run with a
+  context-free, locale-dependent io error (`Acceso denegado. (os error 5)` in
+  the report). A second, unconditional open of the same kind in snapshot GC
+  then failed *every later run* over that state directory, whether or not
+  `--no-graph` was passed again. `xerj-autoindex` now routes directory
+  durability through `xerj_common::fsio::fsync_dir`, which has carried the
+  documented `#[cfg(windows)]` shim since the same mistake stopped the server
+  creating any index at boot; the surrounding filesystem calls also carry
+  context now, so a future failure names the operation instead of only its
+  errno. This costs Windows no durability it had: the code it replaces flushed
+  nothing there — it returned `Err` and ended the run. Windows keeps the
+  engine-wide posture that directory-namespace changes carry no durability
+  claim; file contents inside a snapshot are still fsynced. The
+  windows-latest `autoindex-fd-smoke` CI job now runs the reported
+  `--no-graph` flow twice over one state directory, which is what would have
+  caught this: the job existed, but only ever ran the default graph path,
+  which never touches `sync-snapshots/`.
 
 - **A code symbol's retrievable unit is the whole declaration, not the single
   physical line the name sits on**
@@ -357,6 +422,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a cold hydration a search is waiting on now runs at the maintenance pool's
   `nice(10)` instead of a `nice(0)` blocking thread, which is only observable
   when every core is already saturated.
+
+- **CI: every workflow job is bounded, so one hang can no longer cost `main` an
+  afternoon of CI** ([#770](https://github.com/xerj-org/xerj/issues/770)). 22 of
+  this repo's 23 GitHub Actions jobs declared no `timeout-minutes` and so ran
+  against GitHub's 360-minute default. Three workflows serialise on a
+  concurrency group that never auto-cancels (`ci-CI-refs/heads/main`,
+  `pages-deploy`, `release-metrics`), so a single hung job holds that slot for
+  six hours while every later run queues behind it. That is measured, not
+  hypothetical. On 2026-08-25, before #767 capped `build-test`, the #751 hang
+  ran that job into the 360-minute default and was killed by it (run
+  32796557309, 01:21:28 → 07:21:44 — every other job in the same run finished
+  within 18 minutes). A second hang the same morning held the slot from 11:28
+  to 17:03, and the seven main pushes that landed behind it were all discarded
+  with **zero jobs run**; a normal ~37-minute run would have let at least four
+  of them through, since the gaps between them were 48, 62, 38 and 150 minutes.
+  Every job now carries a cap sized in tiers from the measured duration of every
+  job execution across the last ~245 CI runs (3 873 executions) and 27 release
+  runs: 15 min for jobs that install no toolchain (measured max 2.3 min), 30 min
+  for jobs that install a toolchain but compile no workspace member (max
+  3.8 min), 60 min for jobs that compile workspace crates (max 48.3 min,
+  `Build + Test`), and 75 min for the two jobs with the heaviest tails —
+  `autoindex-fd-smoke`, whose `windows-latest` leg runs 18.8 min at the median
+  but 49.6 at the maximum, and `release.yml`'s cross-compile matrix (max
+  38.3 min, `aarch64-pc-windows-msvc`). Worst-case slot starvation drops from
+  360 minutes to 75 (CI on `main`), 20 (`pages-deploy`) and 75 (a release tag).
+  A new `.github/scripts/workflow-timeout-guard.py` keeps it true for jobs added
+  later. This bounds the blast radius of the next hang; it is not itself a fix
+  for any hang, and #899 remains what fixed #751's.
 
 ## [1.0.0-rc.72] - 2026-08-31
 

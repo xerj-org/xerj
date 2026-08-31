@@ -8587,6 +8587,39 @@ impl Index {
             .await
     }
 
+    /// Index several documents, sharing ONE embedding pass across the batch.
+    ///
+    /// Publication is per document and identical to [`Index::index_document`];
+    /// the only difference is that `semantic_text` auto-embedding runs once for
+    /// the whole batch through `apply_semantic_embeddings_batch` — the same
+    /// entry the HTTP `_bulk` path uses — instead of once per document. With an
+    /// active backend that is one inference call per `onnx_scheduling_window`
+    /// of passages rather than one call per document (a single document whose
+    /// own passages exceed the window is still admitted whole, so it keeps its
+    /// own call — see `semantic_embedding_window_end`).
+    ///
+    /// The returned vector is position-aligned with `docs`: a document whose
+    /// embedding or publication failed carries its own error and does not
+    /// affect its neighbours.
+    pub async fn index_documents_batched(
+        &self,
+        docs: Vec<(Option<String>, Value)>,
+    ) -> Vec<Result<IndexResponse>> {
+        if docs.is_empty() {
+            return Vec::new();
+        }
+        let (ids, sources): (Vec<Option<String>>, Vec<Value>) = docs.into_iter().unzip();
+        let prepared = self.apply_semantic_embeddings_batch(sources).await;
+        let mut responses = Vec::with_capacity(ids.len());
+        for (id, prepared_source) in ids.into_iter().zip(prepared) {
+            responses.push(match prepared_source {
+                Ok(source) => self.index_document_prepared(id, source).await,
+                Err(e) => Err(e),
+            });
+        }
+        responses
+    }
+
     async fn index_document_with_version_inner(
         &self,
         id: Option<String>,

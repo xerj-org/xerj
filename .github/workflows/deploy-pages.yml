@@ -31,6 +31,11 @@ jobs:
   deploy:
     name: Publish landing/ to Cloudflare Pages
     runs-on: ubuntu-latest
+    # `pages-deploy` is a single non-cancelling slot shared by every deploy,
+    # so an upload that wedges blocks ALL later site deploys for as long as
+    # it runs. Measured max 0.7 min; 20 is generous for a network upload and
+    # turns a 6-hour block into a 20-minute one.
+    timeout-minutes: 20
     environment:
       name: production
       url: https://xerj.org
