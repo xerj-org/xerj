@@ -411,6 +411,34 @@ fn has_ancestor_kind(node: tree_sitter::Node, kind: &str) -> bool {
     false
 }
 
+/// #820 item 3: is the `declaration` enclosing this C++ `@const` capture
+/// actually immutable? `CPP_Q`'s `init_declarator` patterns capture every
+/// initialized top-level/namespace declaration alike — walk up to the
+/// nearest `declaration` ancestor and look for a `type_qualifier` child
+/// spelled `const`/`constexpr`/`consteval`/`constinit` (the grammar's
+/// `type_qualifier` choice, verified in node-types.json). `volatile`,
+/// `restrict`, `_Atomic`, `mutable`, etc. — and no qualifier at all — are
+/// equally non-constant. No `declaration` ancestor (an enumerator, a `static
+/// const` field member) is never reached by the caller — see the
+/// `has_ancestor_kind(.., "init_declarator")` guard at the call site.
+fn cpp_declarator_is_const_qualified(node: tree_sitter::Node, source: &[u8]) -> bool {
+    let mut cur = node.parent();
+    while let Some(n) = cur {
+        if n.kind() == "declaration" {
+            let mut walker = n.walk();
+            return n.children(&mut walker).any(|child| {
+                child.kind() == "type_qualifier"
+                    && matches!(
+                        child.utf8_text(source),
+                        Ok("const") | Ok("constexpr") | Ok("consteval") | Ok("constinit")
+                    )
+            });
+        }
+        cur = n.parent();
+    }
+    false
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
@@ -427,7 +455,7 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
             continue;
         }
         for cap in m.captures {
-            let kind = names[cap.index as usize]; // capture name == symbol kind
+            let mut kind = names[cap.index as usize]; // capture name == symbol kind
             if kind.starts_with('_') {
                 continue; // predicate-only capture (`@_kw`), not a symbol
             }
@@ -442,6 +470,18 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
             // C++ capture nested under a `compound_statement` (a function body).
             if def.name == "cpp" && has_ancestor_kind(node, "compound_statement") {
                 continue;
+            }
+            // #820 item 3: `CPP_Q`'s `init_declarator` patterns tag every
+            // initialized top-level/namespace declaration `@const`, mutable or
+            // not. The `init_declarator` ancestor is unique to those patterns
+            // (an enumerator or a `static const` field member never has one),
+            // so it also selects exactly the captures this relabel applies to.
+            if def.name == "cpp"
+                && kind == "const"
+                && has_ancestor_kind(node, "init_declarator")
+                && !cpp_declarator_is_const_qualified(node, text.as_bytes())
+            {
+                kind = "static";
             }
             let name = text.get(node.byte_range()).unwrap_or("").trim();
             if name.is_empty() || name.len() > 200 {
@@ -826,6 +866,15 @@ const C_Q: &str = r#"
 (declaration (storage_class_specifier "extern") declarator: (array_declarator declarator: (identifier) @static))
 "#;
 
+// #820 item 3: the four `init_declarator`-anchored patterns below (top-level
+// and namespace-scoped) match ANY initialized declaration, immutable or not —
+// so a plain mutable global (`int counter = 0;`) reaches the same `@const`
+// capture as `constexpr int MAX = 10;`. They stay tagged `@const` here for
+// recall (dropping the mutable ones would be the #170 regression in
+// reverse); `parse_symbols`' `cpp_declarator_is_const_qualified` check below
+// relabels the ones with no `const`/`constexpr`/`consteval`/`constinit`
+// qualifier to `static` — the kind `C_Q`, `GO_Q` and `RUST_Q` already use for
+// a named, mutable module-level binding.
 const CPP_Q: &str = r#"
 (function_definition declarator: (function_declarator declarator: (identifier) @function))
 (function_definition declarator: (function_declarator declarator: (field_identifier) @method))
@@ -915,15 +964,27 @@ const BASH_Q: &str = r#"
 // no `.h`-style split, and function-local `fun` is rare enough that the
 // unanchored function pattern is signal (local helpers are still named
 // definitions, as in Rust).
+//
+// #820 item 3: `property_declaration`'s grammar rule is `choice('val',
+// 'var')` — an anonymous token in a fixed position, the same technique the
+// "interface" pattern above already uses to tell `interface Foo` from `class
+// Foo`. Matching it here tells a `var` (mutable) binding from a `val`
+// (read-only) one, so file-/object-/companion-scoped `var` is labeled
+// `static` — the kind `C_Q`/`GO_Q`/`RUST_Q` use for a named, mutable
+// module-level binding — instead of being folded into `const` alongside a
+// real `val`.
 const KOTLIN_Q: &str = r#"
 (class_declaration "interface" name: (identifier) @interface)
 (class_declaration name: (identifier) @class)
 (object_declaration name: (identifier) @object)
 (function_declaration name: (identifier) @function)
 (type_alias type: (identifier) @type)
-(source_file (property_declaration (variable_declaration (identifier) @const)))
-(object_declaration (class_body (property_declaration (variable_declaration (identifier) @const))))
-(companion_object (class_body (property_declaration (variable_declaration (identifier) @const))))
+(source_file (property_declaration "val" (variable_declaration (identifier) @const)))
+(source_file (property_declaration "var" (variable_declaration (identifier) @static)))
+(object_declaration (class_body (property_declaration "val" (variable_declaration (identifier) @const))))
+(object_declaration (class_body (property_declaration "var" (variable_declaration (identifier) @static))))
+(companion_object (class_body (property_declaration "val" (variable_declaration (identifier) @const))))
+(companion_object (class_body (property_declaration "var" (variable_declaration (identifier) @static))))
 "#;
 
 // Adapted from tree-sitter-swift 0.7.3 queries/tags.scm (class_declaration /
@@ -934,6 +995,14 @@ const KOTLIN_Q: &str = r#"
 // method/property captures are dropped: methods are the same
 // function_declaration node captured below, and properties are the
 // locals-trap shape (#170).
+//
+// #820 item 3: a `property_declaration`'s `let`/`var` keyword lives on the
+// `mutability` field of its `value_binding_pattern` child (verified in
+// node-types.json), not on `property_declaration` itself — matched here to
+// tell a `var` (mutable) binding from a `let` (read-only) one, so top-level
+// and `static` `var` is labeled `static` — the kind `C_Q`/`GO_Q`/`RUST_Q` use
+// for a named, mutable module-level binding — instead of being folded into
+// `const` alongside a real `let`.
 const SWIFT_Q: &str = r#"
 (class_declaration declaration_kind: "class" name: (type_identifier) @class)
 (class_declaration declaration_kind: "struct" name: (type_identifier) @struct)
@@ -942,9 +1011,11 @@ const SWIFT_Q: &str = r#"
 (class_declaration declaration_kind: "extension" name: (user_type) @class)
 (protocol_declaration name: (type_identifier) @protocol)
 (function_declaration name: (simple_identifier) @function)
-(source_file (property_declaration (pattern (simple_identifier) @const)))
+(source_file (property_declaration (value_binding_pattern mutability: "let") (pattern (simple_identifier) @const)))
+(source_file (property_declaration (value_binding_pattern mutability: "var") (pattern (simple_identifier) @static)))
 (enum_entry name: (simple_identifier) @const)
-(property_declaration (modifiers (property_modifier) @_m) (pattern (simple_identifier) @const)) (#eq? @_m "static")
+(property_declaration (modifiers (property_modifier) @_m) (value_binding_pattern mutability: "let") (pattern (simple_identifier) @const)) (#eq? @_m "static")
+(property_declaration (modifiers (property_modifier) @_m) (value_binding_pattern mutability: "var") (pattern (simple_identifier) @static)) (#eq? @_m "static")
 "#;
 
 // Adapted from tree-sitter-scala 0.26.2 queries/tags.scm. `val`/`var`
@@ -1980,6 +2051,33 @@ mod tests {
         assert!(has(&s, "fn", "function"));
     }
 
+    /// #820 item 3: a plain initialized top-level/namespace global — no
+    /// `const`/`constexpr`/`consteval`/`constinit` qualifier — reaches the
+    /// same `init_declarator` capture as a real constant and used to be
+    /// labeled `const` too. It is mutable, so it is relabeled `static`: the
+    /// kind `C_Q`/`GO_Q`/`RUST_Q` already use for a named, mutable
+    /// module-level binding. `volatile` is equally non-constant.
+    #[test]
+    fn cpp_mutable_global_is_static_not_const() {
+        let s = syms(
+            "cpp",
+            "int counter = 0;\n\
+             volatile int flag = 1;\n\
+             const char* name = \"x\";\n\
+             namespace cfg { int level = 0; }\n\
+             constexpr int MAX = 10;\n",
+        );
+        assert!(has(&s, "counter", "static"), "got {s:?}");
+        assert!(has(&s, "flag", "static"), "got {s:?}");
+        assert!(has(&s, "level", "static"), "got {s:?}");
+        assert!(!has(&s, "counter", "const"), "got {s:?}");
+        assert!(!has(&s, "flag", "const"), "got {s:?}");
+        assert!(!has(&s, "level", "const"), "got {s:?}");
+        // Genuinely immutable globals keep their `const` kind.
+        assert!(has(&s, "name", "const"), "got {s:?}");
+        assert!(has(&s, "MAX", "const"), "got {s:?}");
+    }
+
     /// #820 item 2: the `enumerator` pattern must be anchored to file-scope
     /// (top-level / namespace / class / `extern "C"` linkage block) — a
     /// FUNCTION-LOCAL enum's values are not a cross-file symbol and must not
@@ -2226,6 +2324,28 @@ mod tests {
         assert!(has(&s, "f", "function"));
     }
 
+    /// #820 item 3: a top-level/object/companion `var` reached the same
+    /// capture as `val` and was labeled `const` too, even though it is
+    /// mutable. `val`/`var` are literal tokens in the grammar (like the
+    /// `class_declaration "interface"` pattern above), so `var` is matched
+    /// separately and labeled `static` — the kind `C_Q`/`GO_Q`/`RUST_Q` use
+    /// for a named, mutable module-level binding.
+    #[test]
+    fn kotlin_top_level_var_is_static_not_const() {
+        let s = syms(
+            "kotlin",
+            "var counter = 0\n\
+             object Cfg {\n  var level = 0\n}\n\
+             class Db {\n  companion object {\n    var attempts = 0\n  }\n}\n",
+        );
+        assert!(has(&s, "counter", "static"), "got {s:?}");
+        assert!(has(&s, "level", "static"), "got {s:?}");
+        assert!(has(&s, "attempts", "static"), "got {s:?}");
+        assert!(!has(&s, "counter", "const"), "got {s:?}");
+        assert!(!has(&s, "level", "const"), "got {s:?}");
+        assert!(!has(&s, "attempts", "const"), "got {s:?}");
+    }
+
     #[test]
     fn swift() {
         let s = syms(
@@ -2271,6 +2391,28 @@ mod tests {
         // Instance `let` (not static) and function-local `let` stay out.
         assert!(!has(&s, "instanceName", "const"), "got {s:?}");
         assert!(!has(&s, "local", "const"), "got {s:?}");
+    }
+
+    /// #820 item 3: a top-level or `static` Swift `var` reached the same
+    /// capture as `let` and was labeled `const` too, even though it is
+    /// mutable. The `let`/`var` keyword lives on the `mutability` field of
+    /// `value_binding_pattern` (verified in node-types.json), matched here so
+    /// `var` is labeled `static` — the kind `C_Q`/`GO_Q`/`RUST_Q` use for a
+    /// named, mutable module-level binding — instead of folding into `const`.
+    #[test]
+    fn swift_var_is_static_not_const() {
+        let s = syms(
+            "swift",
+            "var counter = 0\n\
+             enum K { static var attempts = 0 }\n\
+             struct S { static var level = 0 }\n",
+        );
+        assert!(has(&s, "counter", "static"), "got {s:?}");
+        assert!(has(&s, "attempts", "static"), "got {s:?}");
+        assert!(has(&s, "level", "static"), "got {s:?}");
+        assert!(!has(&s, "counter", "const"), "got {s:?}");
+        assert!(!has(&s, "attempts", "const"), "got {s:?}");
+        assert!(!has(&s, "level", "const"), "got {s:?}");
     }
 
     #[test]
