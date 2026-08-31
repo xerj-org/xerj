@@ -60,6 +60,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A code symbol's retrievable unit is the whole declaration, not the single
+  physical line the name sits on**
+  ([#500](https://github.com/xerj-org/xerj/issues/500)). Promoting each
+  declaration to its own document
+  ([#579](https://github.com/xerj-org/xerj/pull/579)) closed the
+  constant-and-field half of that issue. The stored `code` was still literally
+  `lines[name_row]`, so anything that did not fit on that one line came back
+  wrong: a wrapped signature returned `public void configure(`; a declaration
+  whose modifiers sit above the name (`static unsigned long\nhash_bytes(…)`,
+  `#[inline]\npub fn scan(…)`) returned the wrong line entirely; and a
+  declaration sharing its line with the body (`void m(){ int local = 1; }`)
+  returned implementation nobody asked for. `code` is now sliced from the
+  declaration's first token — leading attributes included — to where its body
+  begins, so the unit is a complete signature rather than a fragment of one.
+
+  Measured with the `decl_bench` harness added here (`XERJ_DECL_BENCH=<repo>
+  cargo test --release -p xerj-autoindex --lib decl_bench -- --ignored
+  --nocapture`), which computes the old unit and the new one side by side in one
+  pass over the same parse and the same symbol set:
+
+  | corpus | slice ending mid-signature, was → now | median bytes, was → now | the symbol's whole `line..end_line` span |
+  |---|---|---|---|
+  | Lucene — 5 627 Java files, 79 102 declarations | 4 137 (5.2 %) → 18 (0.02 %) | 49 → 52 (mean 50.5 → 60.7) | median 229, mean 1 046 |
+  | valkey + memcached — 981 C files, 28 347 | 1 444 (5.1 %) → 54 (0.2 %) | 48 → 49 (mean 51.6 → 58.8) | median 123, mean 454 |
+  | tantivy — 434 Rust files, 8 970 | 851 (9.5 %) → 27 (0.3 %) | 41 → 50 (mean 44.2 → 60.9) | median 218, mean 721 |
+  | cilium + dpdk + vpp-agent + xdp-tools — 26 357 Go/C files, 914 561 | 87 267 (9.5 %) → 1 678 (0.2 %) | 49 → 53 (mean 54.6 → 67.4) | median 102, mean 387 |
+
+  So the unit costs 7–17 bytes more on average and is a complete declaration
+  instead of a fragment — still 1.9–4.4× smaller than that symbol's own span at
+  the median and 5.7–17× smaller at the mean. 39.6 % of Lucene declarations wrap
+  past one line (the single-line slice could only ever return a fragment of
+  those) and 51.5 % have a name line that does not stop where the declaration
+  does.
+
+  Extraction is not free: medians of five interleaved runs over the same
+  6 106-file Lucene tree, one box, `extract_bench` — 1 600 files/s before this
+  change, 1 455 after. About 9 %, for an ancestor climb bounded at 12 levels and
+  a pruned body search bounded at 4 096 nodes.
+
+  Two honest limits. The cap is unchanged at 400 characters and a declaration
+  that overruns it still falls back to the start line, so the WORST case per
+  symbol is what it always was — but an individual document can grow, since a
+  45-character name line may now store a 400-character signature. And "stops
+  where the body begins" needs the grammar to say where that is: for a Haskell
+  equation nothing marks it, so the slice is the whole equation. Corpus-wide
+  that is 1.2–5.9 % of symbols whose slice covers their entire span, which
+  `decl_bench` now reports as its own column rather than leaving to assertion.
+
+  The file document's `symbols` sidecar gains `end_line`, so a caller that
+  wants the implementation can address exactly `line`..`end_line` instead of
+  guessing "up to where the next symbol starts" — the guess that returns a
+  whole class for a class and the rest of the file for the last symbol.
+
+  Upgrading does not rewrite what is already indexed: `xerj sync` reconciles by
+  content digest, so an unchanged file produces no operation and its symbol
+  documents keep the old single-line `code` and carry no `end_line`. An index
+  upgraded to this release is a mixture until the files change or it is rebuilt
+  from scratch.
+
 - **The exclusion sweep can no longer delete a sibling corpus's catalog
   documents on a catalog an older build left `text`-mapped**
   ([#890](https://github.com/xerj-org/xerj/issues/890)). `autoindex-catalog` is
