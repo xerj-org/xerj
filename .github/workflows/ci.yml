@@ -36,6 +36,7 @@ jobs:
   cla-config:
     name: CLA gate config
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
@@ -77,6 +78,7 @@ jobs:
   reference-coding:
     name: Reference-coding toolkit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -109,6 +111,7 @@ jobs:
   landing-constants-guard:
     name: Landing constants guard
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -116,6 +119,47 @@ jobs:
 
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
+
+  # #770. A job with no `timeout-minutes` runs against GitHub's 360-minute
+  # default, and 22 of this repo's 23 jobs had none. Three of its workflows
+  # serialise on a concurrency group that never auto-cancels
+  # (`ci-CI-refs/heads/main` here, `pages-deploy`, `release-metrics`), so one
+  # hung job holds that slot for hours and every later push queues behind it.
+  # Measured, not hypothetical: on 2026-08-25 the #751 hang ran `Build + Test`
+  # into the 360-minute default and was killed by it (run 32796557309,
+  # 01:21:28 -> 07:21:44; every other job in that run finished inside 18 min),
+  # and a second hang the same morning held the slot 11:28 -> 17:03 while seven
+  # consecutive main pushes were discarded having run ZERO jobs. #899 fixed that
+  # particular deadlock; the 6-hour exposure of every OTHER job is what #770 was
+  # still asking about, and these caps plus the guard below are what close it.
+  #
+  # The caps are sized in three tiers, from the measured durations of every
+  # non-cancelled run of 2026-08-24..31 (63 CI runs, 10 release runs):
+  #   15 min — installs no toolchain, compiles nothing  (max 0.9 min repo-wide)
+  #   30 min — installs a toolchain or a third-party
+  #            binary, compiles no workspace member      (max  3.3 min)
+  #   60 min — compiles workspace crates                 (max 48.2 min)
+  # (release.yml's cross-compile matrix carries its own 75-minute cap, sized and
+  # justified in that file.)
+  # The point is not to tune each job to its median — a cap that false-fails a
+  # slow-but-healthy run is worse than the hang it guards against, which is why
+  # #780 widened build-test's from 50 to 60. It is to put every job at least 4x
+  # below the 360-minute default so no single hang costs main an afternoon
+  # again. Job timeouts start when the job STARTS EXECUTING, so runner-slot
+  # queueing (measured p90 288 s, max 715 s across 485 jobs) does not eat into
+  # them and cannot turn a slow-but-healthy build into a false failure.
+  workflow-timeouts:
+    name: Workflow job-timeout guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Guard's own unit tests
+        run: python3 .github/scripts/workflow-timeout-guard.py --self-test
+
+      - name: Every workflow job declares a bounded timeout-minutes
+        run: python3 .github/scripts/workflow-timeout-guard.py
 
   # #474: the rc.18 release PR (#460) shipped three note-vs-tree contradictions
   # with the branch 16/16 green every time - a fix credited with more than it
@@ -130,6 +174,7 @@ jobs:
   release-notes-gate:
     name: Release notes match the tree
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -148,6 +193,7 @@ jobs:
   lint:
     name: Format + Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -184,6 +230,7 @@ jobs:
   workspace-resolves:
     name: Workspace resolves (links + lockfile)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -208,6 +255,7 @@ jobs:
   security-audit:
     name: Dependency advisory audit (cargo-audit)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -244,6 +292,7 @@ jobs:
   fuzz:
     name: Fuzz harnesses (cargo-fuzz)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -405,6 +454,7 @@ jobs:
   release-build:
     name: Release build (fat LTO, all members link)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -423,6 +473,7 @@ jobs:
   onnx-feature:
     name: ONNX feature compile + tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -455,6 +506,7 @@ jobs:
   api-checks:
     name: API smoke + liveness + benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -495,6 +547,7 @@ jobs:
   conformance:
     name: ES-compat YAML conformance
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -590,6 +643,7 @@ jobs:
   ux-tests:
     name: UX pipeline tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -612,6 +666,7 @@ jobs:
   usecase-smoke:
     name: Use-case harnesses (brain + MCP + autoindex)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -683,6 +738,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 

@@ -268,6 +268,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `nice(10)` instead of a `nice(0)` blocking thread, which is only observable
   when every core is already saturated.
 
+- **CI: every workflow job is bounded, so one hang can no longer cost `main` an
+  afternoon of CI** ([#770](https://github.com/xerj-org/xerj/issues/770)). 22 of
+  this repo's 23 GitHub Actions jobs declared no `timeout-minutes` and so ran
+  against GitHub's 360-minute default. Three workflows serialise on a
+  concurrency group that never auto-cancels (`ci-CI-refs/heads/main`,
+  `pages-deploy`, `release-metrics`), so a single hung job holds that slot for
+  six hours while every later run queues behind it. That is measured, not
+  hypothetical. On 2026-08-25, before #767 capped `build-test`, the #751 hang
+  ran that job into the 360-minute default and was killed by it (run
+  32796557309, 01:21:28 → 07:21:44 — every other job in the same run finished
+  within 18 minutes). A second hang the same morning held the slot from 11:28
+  to 17:03, and the seven main pushes that landed behind it were all discarded
+  with **zero jobs run**; a normal ~37-minute run would have let at least four
+  of them through, since the gaps between them were 48, 62, 38 and 150 minutes.
+  Every job now carries a cap sized in three tiers from the
+  measured durations of every non-cancelled run of 2026-08-24..31 (63 CI runs,
+  10 release runs): 15 min for jobs that install no toolchain (measured max
+  0.9 min), 30 min for jobs that install Rust but compile no workspace member
+  (max 3.3 min), 60 min for jobs that compile workspace crates (max 48.2 min,
+  `Build + Test`), and 75 min for `release.yml`'s cross-compile matrix (max
+  33.5 min, `x86_64-pc-windows-msvc`). Worst-case slot starvation drops from
+  360 minutes to 60 (CI on `main`), 20 (`pages-deploy`) and 75 (a release tag).
+  A new `.github/scripts/workflow-timeout-guard.py` keeps it true for jobs added
+  later. This bounds the blast radius of the next hang; it is not itself a fix
+  for any hang, and #899 remains what fixed #751's.
+
 ## [1.0.0-rc.72] - 2026-08-31
 
 The idle-cost release. A 2026-08-29 measurement session found XERJ was not
