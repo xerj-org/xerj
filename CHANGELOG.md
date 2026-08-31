@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The exclusion sweep can no longer delete a sibling corpus's catalog
+  documents on a catalog an older build left `text`-mapped**
+  ([#890](https://github.com/xerj-org/xerj/issues/890)). `autoindex-catalog` is
+  shared by every corpus on the node, so when a widened ignore rule excludes a
+  file, the sweep that removes its already-published documents is scoped to the
+  corpus's `prefix`. On any install upgraded from v1.0.0-rc.15..rc.67 that field
+  is dynamically inferred **`text`**, and a `term` query against an analyzed
+  field matches the field's *tokens*: `prefix: "ax"` also reached documents whose
+  prefix is `ax-2` (tokens `[ax, 2]`). Conjoined with the `path`/`file_key` a
+  byte-identical file (a LICENSE, a lockfile) shares between corpora, the sweep
+  deleted the **sibling corpus's live catalog documents** — the cross-corpus
+  over-delete the scope was added in
+  [#737](https://github.com/xerj-org/xerj/issues/737) to prevent, and a delete
+  is not recoverable. Present since v1.0.0-rc.68.
+
+  Both scoped catalog deletes now go through an exact scoped delete: the same
+  query still selects candidates server-side, but every hit's raw scope values
+  are re-checked against `_source` before it is deleted by `_id`. That is
+  independent of the catalog's mapping, so it holds on a keyword catalog and a
+  legacy text one alike, and it covers the `path`/`file_key` conjunct as well as
+  the corpus scope. Coverage of the excluding corpus's own documents is
+  unchanged, including alias documents the frozen plan does not name, which only
+  this pass can reach.
+
+  Not fixed here: on a legacy catalog an analyzed field can also match *fewer*
+  documents than it should, so a scoped sweep can still miss a document an older
+  build wrote. That is the under-match
+  [#755](https://github.com/xerj-org/xerj/issues/755) answers with the keyword
+  `corpus_scope` field, and the run already warns with the `_reindex` that
+  retires the legacy mapping.
+
 ## [1.0.0-rc.72] - 2026-08-31
 
 The idle-cost release. A 2026-08-29 measurement session found XERJ was not
