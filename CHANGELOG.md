@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A field holding both numbers and strings in one segment no longer loses the
+  numeric documents from `term` / `terms`.** The doc-values builder collects a
+  segment's values into a numeric map (numbers and booleans) and a keyword map
+  (strings), then writes both into one column set — so a *type-mixed* field had
+  its numeric column silently overwritten by the keyword one, leaving every
+  number/boolean document filed as null in a column the query prefilter treats
+  as exact. Those documents were then dropped from the result with no error.
+  Such a field now ships **no** doc-values column at all, exactly as a
+  multi-valued field already does, and every consumer falls back to the
+  stored-source scan: correct, at scan cost rather than column speed. Reindex
+  onto a single type to get the column back. Whether it bit you depended on
+  core count — a many-core host scatters a flush across shards and each segment
+  stays single-typed, so this reproduced only where documents of both kinds
+  landed in one segment.
+
 - **A field mapped `integer`, `long`, `float` or `boolean` now enforces that
   type on write** ([#781](https://github.com/xerj-org/xerj/issues/781)). The
   declared type was enforced for nothing: `1.9` into an `integer` field was
