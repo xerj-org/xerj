@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.72] - 2026-08-31
+
+The idle-cost release. A 2026-08-29 measurement session found XERJ was not
+quiet at rest: on a node holding 464 small indices — the shape `xerj autoindex`
+produces from a reference corpus — the process burned 15–27% of a core and 115
+wakeups per second with zero requests, and a 154 MB corpus spent 40+ minutes at
+~110% CPU merging after ingest "finished". Customers reported it as fans
+spinning on an idle laptop. Three of the four mechanisms are fixed here; the
+fourth ([#876](https://github.com/xerj-org/xerj/issues/876)) has a published
+design and is not yet implemented. The budget every fix is held to, and the
+remaining gap, are tracked in the open meta-issue
+[#874](https://github.com/xerj-org/xerj/issues/874).
+
+Alongside it, six Elasticsearch-compatibility and autoindex correctness fixes,
+each shipped with a test proven to fail on the unfixed code.
+
+### Performance
+
+- **An idle index no longer costs a timer, a thread or a wakeup**
+  ([#871](https://github.com/xerj-org/xerj/issues/871)). Every index ran its own
+  `tokio` task that woke every 5 seconds forever and evaluated merge policy
+  whether or not anything had been written — 464 indices meant 93 wakeups per
+  second and two runtime workers each burning ~10% of a core, on a node serving
+  nothing. Merge scheduling is now event-driven, the same shape the WAL fsync
+  scheduler adopted in rc.16 for the identical defect
+  ([#334](https://github.com/xerj-org/xerj/issues/334)): a segments-changed hook
+  fires on every snapshot swap that alters the segment set (flush publication,
+  merge application, tombstone-only segment, orphan recovery) and a debounced
+  request arms at most one check. `XERJ_MERGE_INTERVAL_SECS` keeps its meaning
+  as the debounce delay. Measured at the unit level with an evaluation counter:
+  768 evaluations across a simulated idle hour become 48.
+
+- **The resource sampler stopped walking every index × every shard lock**
+  ([#872](https://github.com/xerj-org/xerj/issues/872)). The memory breaker's
+  sampler summed memtable bytes every 100 ms by taking a read lock on all 16
+  shards of every index — 74,240 lock acquisitions per second at 464 indices, in
+  one thread, to compute a number that is almost always zero. The aggregate is
+  now maintained incrementally by the write paths that already compute the byte
+  delta, and the sampler is a single relaxed load. The breaker's
+  starvation-immunity property is unchanged: it still runs on a dedicated OS
+  thread, it just no longer does O(indices × shards) work to do it.
+
+- **A multi-index search runs its per-index searches concurrently**
+  ([#875](https://github.com/xerj-org/xerj/issues/875)). The fan-out awaited each
+  index before starting the next, so an `ax-*` query cost the SUM of its
+  per-index latencies instead of the maximum — the shape every reference-coding
+  retrieval uses. Hit ordering, aggregation merge order and the global search
+  permit that bounds concurrency are all unchanged.
+
+  Two behaviour changes worth knowing: `queries_by_index` now increments for
+  every resolvable index even when a later index errors the request (those
+  searches genuinely run now), and per-index deadlines all start at request time
+  rather than sequentially, so a search queued behind the permit pool can return
+  `timed_out: true` with partial results where the serial loop returned complete
+  results slowly.
+
 ### Fixed
 
 - **A field holding both numbers and strings in one segment no longer loses the
@@ -135,6 +191,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   brute-force reference. A repeated phrase term still needs as many DISTINCT
   document positions as it has slots (`"a a"` does not match a doc holding
   one `a`).
+
+
+- **A small index reaches a segment instead of living in memory forever**
+  ([#873](https://github.com/xerj-org/xerj/issues/873)). `needs_flush` was
+  threshold-only, so a dataset below the size thresholds never flushed: its
+  documents stayed memtable-resident for the life of the process, pinned their
+  WAL generations on disk, and replayed on every start. Measured on a real
+  corpus: a 100,001-document dataset with zero segments 30+ minutes after
+  ingest. New `storage.flush_idle_secs` (default 300 s, `0` disables) flushes a
+  non-empty memtable whose contents have not changed for that long, detected by
+  a probe on the existing periodic flusher so the write path pays nothing. This
+  matches Elasticsearch's `indices.memory.shard_inactive_time` default.
+
+- **`match_phrase` `slop` admits transposed terms at Lucene's cost of 2**
+  ([#830](https://github.com/xerj-org/xerj/issues/830)). The sloppy-phrase walk
+  was in-order only — each next term had to match strictly after the previous —
+  so `"quick brown"~2` never matched `brown quick`, diverging from Lucene's
+  `SloppyPhraseMatcher`. It is now a minimal-window sweep over adjusted
+  positions, shared by the memtable and segment arms so the answer does not
+  change at flush, and covering `match_phrase`, `match_phrase_prefix` and
+  `multi_match` phrase modes.
+
+- **A date field's epoch scale comes from its mapping, not from each value**
+  ([#790](https://github.com/xerj-org/xerj/issues/790)). The scale was guessed
+  per value — four or more fractional-second digits meant nanoseconds, coarser
+  meant milliseconds — so one column could hold both scales six orders of
+  magnitude apart. A sub-millisecond document matched a `range` or `term` before
+  flush and vanished after it, because the millisecond bound bisected to nothing
+  against a nanosecond sort key. Precision is now a property of the field
+  (`date` is milliseconds, a declared `date_nanos` is nanoseconds), threaded
+  through every sort and shadow-range site. No on-disk format change.
+
+- **Numeric and boolean fields enforce their declared type**
+  ([#781](https://github.com/xerj-org/xerj/issues/781)). A field mapped
+  `integer` accepted `1.9` and kept it, accepted values outside the type's
+  range, and accepted non-numeric strings. Writes now follow ES's `coerce`
+  semantics: `1.9` into an integer type stores `1`, `"5"` stores `5`, and
+  out-of-range or unparseable values are refused with a 400 instead of being
+  stored. A field-level `"coerce": false` is honoured, and `ignore_malformed`
+  keeps precedence.
+
+  **Upgrade note:** coercion rewrites the value in `_source`, so an index that
+  spans this upgrade can hold both spellings of the same logical value. `term`
+  and `terms` on a boolean field now normalise their operand the way `term`
+  already did, and the two spellings compare equal, so a query matches
+  documents written on either side of the upgrade.
+
+- **`knn` beside `query` scores as a sum over the union**
+  ([#825](https://github.com/xerj-org/xerj/issues/825)). The ES-native hybrid
+  body silently dropped the vector half whenever aggregations, sort, collapse,
+  rescore or highlight were present: the request answered 200 with a purely
+  lexical result set and no warning. The vector leg is now pre-executed and its
+  top-k pinned into the query tree, so the hit set is the union, a document
+  reached by both halves scores the sum, and every request feature applies.
+
+  **Known regression, measured and not hidden:** on the hybrid shape that
+  previously took the RRF route, this is substantially slower — the pinned
+  clauses cannot project to the full-text index, so the query falls back to a
+  stored-document scan (~208 ms vs ~2.5 ms on a 100k-document index at k=10).
+  Correct-and-slow was chosen over fast-and-wrong;
+  [#892](https://github.com/xerj-org/xerj/issues/892) carries the indexed-route
+  design that removes it.
+
+- **`autoindex` never aborts a run over a legacy global-catalog mapping**
+  ([#755](https://github.com/xerj-org/xerj/issues/755)). Upgrading onto a
+  catalog whose `prefix` field pre-existed as `text` aborted the entire
+  indexing run. An upgrade must never do that.
+
+- **Removing a file no longer leaves graph edges pointing at it**
+  ([#736](https://github.com/xerj-org/xerj/issues/736)). Deletion removed a
+  file's documents and its outbound edges but left inbound edges dangling, so
+  graph queries returned edges to nodes that no longer existed.
+
+### Recorded late
+
+These shipped in rc.70 or earlier and were never written down, because
+rc.19–rc.70 have no CHANGELOG sections at all. They are recorded here rather
+than left under an "Unreleased" heading that misdescribes them; closing the
+rest of that gap is a GA item in [ROADMAP.md](./ROADMAP.md).
 
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).

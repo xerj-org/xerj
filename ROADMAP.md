@@ -2,7 +2,7 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-08-30 (against `v1.0.0-rc.71` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
+Last reviewed: 2026-08-31 (against `v1.0.0-rc.72` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
 
 ## Follow the roadmap
 
@@ -21,7 +21,7 @@ These are implemented and exercised by real API requests / the test suite / benc
 - **Aggregations: <!-- generated:agg-type-count -->62<!-- /generated:agg-type-count --> types**, likewise generated from `xerj_engine::aggs::SUPPORTED_AGG_TYPES`, printed in [engine/README.md](./engine/README.md#aggregation-types-supported) and [llms-full.txt](https://xerj.org/llms-full.txt), and pinned by the same count test. This includes the full **pipeline family**. `weighted_avg` is **not** in `SUPPORTED_AGG_TYPES` — see *Known partials*.
   **Exactness, precisely.** No probabilistic sketch sits in the metric path: `cardinality` is a true distinct count rather than an HLL estimate, and `terms` `doc_count` is precise. Two deliberate exceptions, stated the same way in `engine/README.md` and `llms-full.txt`: (1) the **sampling family** is a sample by definition — `run_sampler` sorts the matched documents by `_score` and keeps the first `shard_size` (default **200**), so every sub-aggregation under `sampler`, `random_sampler` or `diversified_sampler` is computed over that slice rather than the whole match set, `diversified_sampler` additionally caps documents per `field` value, and `random_sampler` shares the `sampler` implementation and **ignores ES's `probability`** (an accepted-and-ignored input, #204); (2) `percentiles` with the `hdr` option returns HdrHistogram-quantized values, deliberately, so ES's own outputs reproduce — the default `tdigest` path sorts every value and interpolates instead.
 - **Dense-vector kNN** (`knn` query and ES 8.x top-level `knn`): unfiltered kNN on a full-precision cosine field (≥1,024 docs) is served by a **persisted HNSW graph with exact rescoring** — measured recall@10 1.00 on the official bench query, 100-probe mean 0.976 (ES 8.13.4 same protocol: 0.937); filtered/nested kNN, non-cosine similarity, SQ8 fields, and small indexes run the exact brute-force scan (cosine mapped to `(1+cos)/2`).
-- **Hybrid search** — BM25 + kNN combined in a single request via the `hybrid` **query type** with `rrf|linear` fusion, verified live. (`fusion: "learned"` is parsed and **rejected** with a 400 naming the supported values — it is not implemented.) (The ES-native top-level `{query, knn}` body does **not** fuse — see *Known partials*.)
+- **Hybrid search** — BM25 + kNN combined in a single request via the `hybrid` **query type** with `rrf|linear` fusion, verified live. (`fusion: "learned"` is parsed and **rejected** with a 400 naming the supported values — it is not implemented.) (The ES-native top-level `{query, knn}` body also unions both halves since rc.72 — see *Known partials* for its performance caveat.)
 - **Zero-config folder onboarding** — `xerj autoindex <folder>` sniffs files, infers datasets, and creates one index per dataset: tree-sitter AST extraction for 34 languages (symbols, defs, line numbers — the [#295](https://github.com/xerj-org/xerj/issues/295) expansion; still open: Clojure and source-SQL wait on usable grammar crates, Nim/Crystal have none, fixed-form Fortran is deliberately unclaimed), CSV/JSON/JSONL/XML/YAML/SQLite/PDF/DOCX/HTML/log formats, `.gitignore`/`.xerjignore` support, incremental re-runs, and a machine-parseable progress stream.
 - **Agent-memory REST API** (`/_memory/*`), **second-brain knowledge graph** (`/_graph`), **anomaly detection** (`_ml` with continuous datafeeds), **auto-embed on ingest** (default embedder is deterministic **lexical** feature-hashing — never described as neural; `--embed-mode neural` runs the in-binary BERT encoder, `--embed-mode proxy` an external endpoint).
 - **Columnar storage** — the ZBS2 columnar block with 9 domain-aware encodings, ZSTD/LZ4 codecs, and SQ8 vector quantization, wired into the segment write path.
@@ -30,44 +30,45 @@ These are implemented and exercised by real API requests / the test suite / benc
 
 The release-by-release record of how all of this landed is [CHANGELOG.md](./CHANGELOG.md) — this file no longer duplicates it. Be aware of a real gap in that record: rc.1–rc.18 and rc.71 have entries, **rc.19 through rc.70 do not**. Those 52 releases are reconstructable only from `git log` and the release list, and closing that gap is itself a GA item below.
 
-## Next release — [v1.0.0-rc.72](https://github.com/xerj-org/xerj/milestones)
+## Next release — [v1.0.0-rc.73](https://github.com/xerj-org/xerj/milestones)
 
-rc.71 was cut on 2026-08-29 — its full contents are the [CHANGELOG.md](./CHANGELOG.md)
-entry, not this file. It is an Elasticsearch-compatibility correctness release: 30 query,
-aggregation and API semantics fixes, a ~100x incremental re-index
-([#868](https://github.com/xerj-org/xerj/pull/868)), and two metrics counters that had been
-registered but never incremented ([#804](https://github.com/xerj-org/xerj/issues/804),
-[#819](https://github.com/xerj-org/xerj/issues/819)).
+rc.72 was cut on 2026-08-31 — its full contents are the [CHANGELOG.md](./CHANGELOG.md)
+entry, not this file. It is **the idle-cost release**: a measurement session found the
+process was not quiet at rest — 464 small indices (the shape `xerj autoindex` produces)
+cost 15-27% of a core and 115 wakeups/s with zero requests, and a 154 MB corpus spent
+40+ minutes at ~110% CPU merging after ingest "finished". Three of the four mechanisms
+are fixed ([#871](https://github.com/xerj-org/xerj/issues/871) event-driven merge
+scheduling, [#872](https://github.com/xerj-org/xerj/issues/872) an incremental memtable
+aggregate replacing 74,240 lock acquisitions per second,
+[#873](https://github.com/xerj-org/xerj/issues/873) an idle-age flush so a small dataset
+reaches a segment instead of living in RAM). It also carries six ES-compatibility and
+autoindex correctness fixes, each with a test proven to fail on the unfixed code.
 
-**In flight for rc.72**, all opened against measured evidence rather than intuition:
+**In flight for rc.73:**
 
-- **Idle resource cost** — a 2026-08-29 measurement session found that on a node holding many
-  small indices (what `xerj autoindex` produces from a reference corpus) the process is not
-  quiet at rest: 464 idle indices cost 15–27% of a core and 115 wakeups/s. Three mechanisms,
-  each located at `file:line` and budgeted in public under the
-  [#874](https://github.com/xerj-org/xerj/issues/874) meta-issue: the per-index 5-second merge
-  tick ([#871](https://github.com/xerj-org/xerj/issues/871)), a sampler walking every index ×
-  every shard lock at 10 Hz ([#872](https://github.com/xerj-org/xerj/issues/872)), and a
-  per-index resident floor ([#873](https://github.com/xerj-org/xerj/issues/873)). The budget
-  the fixes are held to: idle CPU under 0.5% of one core *independent of index count*.
-- **Merge re-analyzes documents instead of merging postings**
-  ([#876](https://github.com/xerj-org/xerj/issues/876)) — the post-ingest merge tail ran 40+
-  minutes at ~110% CPU on a 154 MB corpus and drove RSS into the write breaker. The segment
-  writer already accepts a `PostingsWriter` rather than text, so the fix reuses machinery that
-  exists rather than adding any.
-- **Multi-index search fan-out was serial**
-  ([#875](https://github.com/xerj-org/xerj/issues/875)) — an `ax-*` search cost the sum of its
-  per-index latencies instead of the maximum. This matters most for reference-coding, whose
-  documented retrieval queries `ax-*`.
-- **ES-compatibility semantics** — `knn` beside `query` silently dropping the vector half
-  ([#825](https://github.com/xerj-org/xerj/issues/825)), `match_phrase` slop rejecting
-  transpositions Lucene accepts ([#830](https://github.com/xerj-org/xerj/issues/830)),
-  sub-millisecond date bounds after flush ([#790](https://github.com/xerj-org/xerj/issues/790)),
-  and numeric/boolean fields not enforcing their declared type
-  ([#781](https://github.com/xerj-org/xerj/issues/781)).
-- **CI reliability** — [#751](https://github.com/xerj-org/xerj/issues/751), an intermittent hang
-  in the default-parallelism workspace test step, still bounded rather than fixed. A flaky gate
-  is a gate nobody trusts, and it stays on this list until the race is found.
+- **The fourth idle-cost mechanism** — merge re-analyzes every document instead of
+  merging postings ([#876](https://github.com/xerj-org/xerj/issues/876)). The segment
+  writer already accepts a `PostingsWriter` rather than text, so the fix reuses machinery
+  that exists; the design is published on the issue. The
+  [#874](https://github.com/xerj-org/xerj/issues/874) budget — idle CPU under 0.5% of one
+  core *independent of index count* — is not met until this and the remaining
+  [#873](https://github.com/xerj-org/xerj/issues/873) levers (adaptive WAL shards,
+  cold-index state) land.
+- **The regression rc.72 shipped knowingly** — `knn` beside `query` is now correct but is
+  answered by a stored-document scan ([#892](https://github.com/xerj-org/xerj/issues/892)).
+- **Retrieval quality** — the symbol index returns whole class and method bodies rather
+  than declarations, measured at 32-48x more bytes than grep for the same answer
+  ([#500](https://github.com/xerj-org/xerj/issues/500)). This one undercuts a claim the
+  project leads with, so it is a correctness issue about our own marketing as much as a
+  performance one.
+- **CI reliability** — [#751](https://github.com/xerj-org/xerj/issues/751) still hangs the
+  default-parallelism test step intermittently, and it was red on `main` repeatedly during
+  the rc.72 cut. The cost is not the failed run, it is that a red gate stops distinguishing
+  a real break from noise. [#891](https://github.com/xerj-org/xerj/issues/891) is a
+  confirmed instance of the same class (a process-global counter two tests share).
+- **Data-loss follow-up** — [#890](https://github.com/xerj-org/xerj/issues/890): the
+  prefix-scoped exclusion sweep can over-delete across corpora on a legacy text-mapped
+  catalog. Filed against code that shipped in rc.72.
 
 ## The road to [v1.0.0 GA](https://github.com/xerj-org/xerj/milestone/2)
 
@@ -105,7 +106,7 @@ Carried forward from the 2026-07-12 review, not re-verified live since:
 - **`span_term` / `span_or` / `span_not`** — return 0 hits **standalone**, while composite span queries (`span_near` / `span_first` / `span_containing`) using the same clauses return correct hits.
 - **`type`** — mapped to `MatchAll`.
 - **`combined_fields`** — mapped to `multi_match cross_fields`; scoring is not exact. `rank_feature` passes through on plain fields (no `rank_feature` field type).
-- **ES-native top-level `{query, knn}`** — does not union the kNN hits; one-request BM25+kNN fusion works only through the explicit `hybrid` query type. **Fix open as [#879](https://github.com/xerj-org/xerj/pull/879)** ([#825](https://github.com/xerj-org/xerj/issues/825)): it pre-executes the vector leg and pins its top-k so the union scores as ES's documented sum. This line stays until that merges — a roadmap describes what ships, not what is in review.
+- **ES-native top-level `{query, knn}` — RETIRED in rc.72.** It now unions both halves and scores a document reached by both as the sum, aggregations included ([#825](https://github.com/xerj-org/xerj/issues/825) via [#879](https://github.com/xerj-org/xerj/pull/879)). It is kept in this list for one release with its replacement caveat, which is a performance one rather than a correctness one: the pinned clauses cannot project to the full-text index, so this shape is answered by a stored-document scan and is substantially slower than the `hybrid` query type (~208 ms vs ~2.5 ms measured on 100k documents at k=10). [#892](https://github.com/xerj-org/xerj/issues/892) carries the indexed-route fix. Correct-and-slow was chosen deliberately over fast-and-wrong.
 
 ---
 
