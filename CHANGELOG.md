@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CI's default-parallelism test step no longer races itself for a port**
+  ([#751](https://github.com/xerj-org/xerj/issues/751), the second half). With
+  the deadlock above fixed, the same step then failed on a real port race that
+  the hang had been masking: `xerj-server`'s cleartext-bind tests allocated a
+  port by binding `127.0.0.1:0`, reading the number, releasing it, and handing
+  it to a child process that binds it later. The kernel is free to hand that
+  same ephemeral port to the next `bind(":0")`, and several tests in that file
+  keep a real server alive for seconds, so at default parallelism they
+  overlapped — `gRPC: bind [::1]:46843 ... Address already in use`. Ports now
+  come from a band below every platform's ephemeral range, strided per process
+  and probe-bound on both `127.0.0.1` and `::1` (a port free on one family can
+  be taken on the other, which is exactly how it failed). Test-only change.
+
 - **A search that aggregates over a cold segment could deadlock forever**
   ([#751](https://github.com/xerj-org/xerj/issues/751)). On a multi-thread
   runtime `Index::search` runs its whole body inside
