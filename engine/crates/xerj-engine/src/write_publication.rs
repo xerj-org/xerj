@@ -10,11 +10,23 @@ use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
-#[derive(Default)]
 pub(crate) struct WritePublicationCoordinator {
     locks: DashMap<String, Weak<Mutex<()>>>,
     #[cfg(test)]
     before_mutex_await: parking_lot::RwLock<Option<Arc<dyn Fn(&str) + Send + Sync + 'static>>>,
+}
+
+impl Default for WritePublicationCoordinator {
+    fn default() -> Self {
+        Self {
+            // #873 — one coordinator per index; dashmap's core-count-derived
+            // default shard array is resident from construction, so it is
+            // capped like every other per-index map.
+            locks: DashMap::with_shard_amount(xerj_common::resource::per_index_map_shards()),
+            #[cfg(test)]
+            before_mutex_await: parking_lot::RwLock::new(None),
+        }
+    }
 }
 
 pub(crate) struct WritePublicationGuard {

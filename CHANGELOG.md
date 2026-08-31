@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **`--embed-mode neural`: a long passage no longer pads a whole batch up to
+  its own length** ([#366](https://github.com/xerj-org/xerj/issues/366)). The
+  built-in Candle encoder tokenized every call with `PaddingStrategy::
+  BatchLongest` and ran one rectangular forward pass over it, so a window that
+  held one 512-character chunk beside sixty short lines cost `61 × long`
+  instead of `long + 60 × short` — the model did the work, the attention
+  tensors were allocated, and the padding contributed nothing. The encoder now
+  sorts a call's passages by token length and cuts batches at 64 rows or a 4096
+  `rows × padded_sequence_length` budget (`xerj-ai/src/microbatch.rs`, shared
+  with the experimental ONNX backend), pads each batch to its own longest row,
+  and restores input order. This affects the opt-in neural backend only; the
+  default embedder is unchanged lexical feature-hashing.
+
+  Measured on this repo's 32-core x86_64 box with MiniLM-L6 (median of three
+  interleaved runs each, box shared with other builds — the spread is wide, so
+  the medians are quoted, not the best runs):
+
+  | shape | before | after |
+  |---|---|---|
+  | one 210 KB source file (504 chunks, one call) | 46.2–57.8 s, 8.97 GB peak RSS | 19.9 s, 0.42 GB peak RSS |
+  | 45 files of `apache/lucene`, chunked as ingest chunks them (1214 passages) | 8.9 passages/s | 12.1 passages/s |
+  | synthetic window of 4 long chunks + 60 short lines | 40.2 passages/s | 145.7 passages/s |
+  | uniform short documents, window of 64 | 171.0 passages/s | 175.6 passages/s |
+  | one passage per call | 68.9 passages/s | 72.8 passages/s |
+
+  Padding waste (`rows × padded_sequence_length` ÷ real tokens) on the Lucene
+  corpus fell from 1.50 to 1.13, and on the synthetic mixed window from 2.66 to
+  1.00.
+
+  The first row is the other half of #366 — "each of those two files held the
+  run for 30+ seconds" on 200 KB C++ headers. `semantic_embedding_window_end`
+  always admits a whole document even past the scheduling window, so every
+  chunk of a large field reached the model as one forward pass whose attention
+  tensors scaled with the document: 8.97 GB of resident memory for a single
+  210 KB file, which is an OOM on a laptop rather than a slowdown. The row cap
+  bounds it.
+
+  **What this does not fix, stated plainly:** #366 reported ~15 documents/s on
+  short uniform strings and read it as per-document inference. That reading
+  does not hold — HTTP `_bulk` already batches (`bulk.rs` collects the whole
+  request, `index.rs` windows 64 passages across documents), and the last two
+  rows above show that shape is unchanged by this work. On uniform short
+  documents ~15 docs/s is the cost of CPU transformer inference, and moving it
+  needs quantization, a GPU provider or a smaller model. What was genuinely
+  broken was mixed-length work, which is what pointing `autoindex` at a real
+  folder produces. Binary-protocol `_bulk` still embeds one document per
+  inference call (`xerj-api/src/binary_protocol.rs`); the HTTP path this
+  release measures does not.
+
 ### Fixed
 
 - **A code symbol's retrievable unit is the whole declaration, not the single
@@ -67,6 +118,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents keep the old single-line `code` and carry no `end_line`. An index
   upgraded to this release is a mixture until the files change or it is rebuilt
   from scratch.
+
+- **The exclusion sweep can no longer delete a sibling corpus's catalog
+  documents on a catalog an older build left `text`-mapped**
+  ([#890](https://github.com/xerj-org/xerj/issues/890)). `autoindex-catalog` is
+  shared by every corpus on the node, so when a widened ignore rule excludes a
+  file, the sweep that removes its already-published documents is scoped to the
+  corpus's `prefix`. On any catalog a v1.0.0-rc.15..rc.67 build wrote to before
+  the mapping declared that field — which includes catalogs first created by an
+  earlier release — it is dynamically inferred **`text`**, and a `term` query
+  against an analyzed field matches the field's *tokens*: `prefix: "ax"` also
+  reached documents whose prefix is `ax-2` (tokens `[ax, 2]`). Conjoined with
+  the `path`/`file_key` a
+  byte-identical file (a LICENSE, a lockfile) shares between corpora, the sweep
+  deleted the **sibling corpus's live catalog documents** — the cross-corpus
+  over-delete the scope was added in
+  [#737](https://github.com/xerj-org/xerj/issues/737) to prevent, and a delete
+  is not recoverable. Present since v1.0.0-rc.68.
+
+  Both scoped catalog deletes now go through an exact scoped delete: the same
+  query still selects candidates server-side, but every hit's raw scope values
+  are re-checked against `_source` before it is deleted by `_id`. That is
+  independent of the catalog's mapping, so it holds on a keyword catalog and a
+  legacy text one alike, and it covers the `path`/`file_key` conjunct as well as
+  the corpus scope. Coverage of the excluding corpus's own documents is
+  unchanged, including alias documents the frozen plan does not name, which only
+  this pass can reach. The candidate walk is bounded at ten pages of 1,000, and
+  it ends on an exact `hits.total` as well as on a short page, so the boundary
+  case of exactly 10,000 candidates completes rather than refusing. Past that
+  bound it fails *closed* — it refuses with a `_reindex` remedy rather than
+  reporting a removal it only partly made.
+
+  Not fixed here: on a legacy catalog an analyzed field can also match *fewer*
+  documents than it should, so a scoped sweep can still miss a document an older
+  build wrote. That is the under-match
+  [#755](https://github.com/xerj-org/xerj/issues/755) answers with the keyword
+  `corpus_scope` field, and the run already warns with the `_reindex` that
+  retires the legacy mapping.
 
 - **CI's default-parallelism test step no longer races itself for a port**
   ([#751](https://github.com/xerj-org/xerj/issues/751), the second half). With

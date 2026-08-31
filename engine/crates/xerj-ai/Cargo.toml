@@ -49,3 +49,9 @@ tokio = { version = "1", features = ["full"] }
 [[example]]
 name = "onnx_experimental"
 required-features = ["onnx-experimental"]
+
+# Throughput harness for the Candle neural embedder (issue #366). Downloads
+# MiniLM on first run; not built unless `neural` is on.
+[[example]]
+name = "neural_throughput"
+required-features = ["neural"]

@@ -39,6 +39,10 @@ struct HttpState {
     /// a PUT that no longer declares any of them is acknowledged, exactly like
     /// the engine. Empty by default — every other test's faithful-accept
     /// behaviour is unchanged.
+    ///
+    /// #890: it also governs how a `term` on such a field MATCHES, in searches
+    /// and in delete-by-query alike. A legacy field is not merely undeclarable,
+    /// it is analyzed, and that is the whole defect — see [`term_matches`].
     legacy_text_catalog_fields: Vec<String>,
     /// Opt-in (#755): fail the catalog `_mapping` PUT with a 503 instead. Not a
     /// type conflict, so it must still abort the run.
@@ -374,6 +378,33 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
     (200, json!({"errors": false, "items": []}))
 }
 
+/// Does a `term` query for `expected` on `field` match `doc`, given the fields
+/// this catalog holds as legacy `text` (#890)?
+///
+/// A `term` query is NOT analyzed, but the FIELD is. On a `keyword` field the
+/// match is byte-exact, which is what every other test relies on. On a `text`
+/// field the term is compared against the stored value's analyzed TOKENS, so
+/// `{"term": {"prefix": "ax"}}` matches a document whose prefix is `ax-2`
+/// (standard-analyzer tokens `[ax, 2]`) — the cross-corpus reach #890 is about.
+/// Tokenisation here is the standard analyzer's shape for these values: split on
+/// non-alphanumerics, lowercased.
+fn term_matches(doc: &Value, field: &str, expected: &Value, legacy_text: &[String]) -> bool {
+    if doc.get(field) == Some(expected) {
+        return true;
+    }
+    if !legacy_text.iter().any(|legacy| legacy == field) {
+        return false;
+    }
+    let (Some(stored), Some(term)) = (doc.get(field).and_then(Value::as_str), expected.as_str())
+    else {
+        return false;
+    };
+    stored
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .any(|token| token.to_lowercase() == term)
+}
+
 fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize {
     let index = path
         .trim_start_matches('/')
@@ -417,6 +448,7 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
                 .collect()
         });
     let mut locked = state.lock().unwrap();
+    let legacy_text = locked.legacy_text_catalog_fields.clone();
     let before = locked.docs.len();
     locked.docs.retain(|(candidate, id), doc| {
         if candidate != index {
@@ -429,10 +461,16 @@ fn delete_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> usize 
         if terms.is_empty() {
             return false; // no constraint: a match-all delete
         }
-        // Retain (do NOT delete) unless the doc matches every term.
-        !terms
-            .iter()
-            .all(|(field, expected)| doc.get(field) == Some(expected))
+        // Retain (do NOT delete) unless the doc matches every term — #890: on
+        // the catalog's legacy text fields, "matches" means the analyzed tokens.
+        !terms.iter().all(|(field, expected)| {
+            let legacy: &[String] = if candidate == catalog::CATALOG_INDEX {
+                &legacy_text
+            } else {
+                &[]
+            };
+            term_matches(doc, field, expected, legacy)
+        })
     });
     before - locked.docs.len()
 }
@@ -468,13 +506,24 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .pointer("/query/bool/must_not/0/exists/field")
         .and_then(Value::as_str);
     let locked = state.lock().unwrap();
-    let matching: Vec<_> = locked
+    // #890: a catalog field an older build left as `text` is ANALYZED, so a
+    // `term` on it matches tokens, not the raw value. `legacy` is empty for
+    // every other index, which keeps every other search byte-exact.
+    let legacy_text = locked.legacy_text_catalog_fields.clone();
+    let legacy_for = |index: &str| -> &[String] {
+        if index == catalog::CATALOG_INDEX {
+            &legacy_text
+        } else {
+            &[]
+        }
+    };
+    let mut matching: Vec<_> = locked
         .docs
         .iter()
         .filter(|((index, _), doc)| {
             indices.contains(&index.as_str())
                 && term
-                    .map(|(field, value)| doc.get(field) == Some(value))
+                    .map(|(field, value)| term_matches(doc, field, value, legacy_for(index)))
                     .unwrap_or(true)
                 && terms
                     .map(|(field, values)| {
@@ -488,7 +537,9 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                         .get("term")
                         .and_then(Value::as_object)
                         .and_then(|term| term.iter().next())
-                        .is_none_or(|(field, value)| doc.get(field) == Some(value))
+                        .is_none_or(|(field, value)| {
+                            term_matches(doc, field, value, legacy_for(index))
+                        })
                         // A per-dataset read-back scopes `terms` on `ax_file`
                         // and `term` on `ax_dataset` in the same `bool.filter`,
                         // so an endpoint that honoured only the latter would
@@ -509,13 +560,29 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                     .unwrap_or(true)
         })
         .collect();
+    // #890: honour `from`/`size` when the request states them — the scoped
+    // catalog sweep pages, and a page has to be a page. A request that omits
+    // them still gets everything, which is what every older fixture assumes.
+    // Ordering is by `_id` so a page boundary is not `HashMap` iteration order.
+    matching.sort_by_key(|(key, _)| *key);
+    let total = matching.len();
+    let from = query
+        .get("from")
+        .and_then(Value::as_u64)
+        .map_or(0usize, |from| from as usize);
+    let size = query
+        .get("size")
+        .and_then(Value::as_u64)
+        .map_or(total, |size| size as usize);
     let hits = matching
         .iter()
+        .skip(from)
+        .take(size)
         .map(|((_, id), source)| json!({"_id": id, "_source": source}))
         .collect::<Vec<_>>();
     json!({
         "hits": {
-            "total": {"value": matching.len(), "relation": "eq"},
+            "total": {"value": total, "relation": "eq"},
             "hits": hits
         },
         "aggregations": {}
@@ -999,12 +1066,16 @@ fn initial_generation_and_noop_are_end_to_end_idempotent() {
 /// Incremental re-index must NOT re-run the Phase-A scan/parse for files whose
 /// content is byte-identical to the committed generation — that is the ~100x
 /// win for the edit-and-rerun / CI workflow, since the tree-sitter parse
-/// dominates per-file cost. Proven directly with the `SCAN_FILE_PARSED` counter
+/// dominates per-file cost. Proven directly with the run's own `ScanTally`
 /// (0 on an unchanged re-run, exactly the changed count when one file changes),
 /// and the committed index stays byte-identical.
+///
+/// #891: each measurement uses a tally created for THAT run. The counter used
+/// to be a process-global `static`, which meant this test read whatever every
+/// other test in the binary happened to parse in the same window — see
+/// `another_runs_parses_never_land_in_this_runs_tally` below.
 #[test]
 fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
-    use std::sync::atomic::Ordering;
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
         .lock()
@@ -1022,15 +1093,21 @@ fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
     let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
 
     // Genesis: everything is parsed.
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let genesis = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &genesis).unwrap(), 0);
+    assert_eq!(
+        genesis.files_parsed(),
+        2,
+        "genesis has no committed generation to skip against: both files are parsed"
+    );
     let first_docs = endpoint.data_docs();
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
 
     // Re-index with NOTHING changed → zero files parsed, index byte-identical.
-    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let unchanged = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &unchanged).unwrap(), 0);
     assert_eq!(
-        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        unchanged.files_parsed(),
         0,
         "unchanged re-index must parse zero files"
     );
@@ -1048,12 +1125,108 @@ fn unchanged_reindex_skips_the_parse_and_stays_byte_identical() {
         "def add(a, b):\n    return a + b + 1\n",
     )
     .unwrap();
-    crate::SCAN_FILE_PARSED.store(0, Ordering::Relaxed);
-    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let one_changed = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(config.clone(), &one_changed).unwrap(), 0);
     assert_eq!(
-        crate::SCAN_FILE_PARSED.load(Ordering::Relaxed),
+        one_changed.files_parsed(),
         1,
         "only the one changed file must be parsed; the unchanged file stays skipped"
+    );
+}
+
+/// #891: a parse measurement must describe the run that made it, and nothing
+/// else the process is doing.
+///
+/// The counter above used to be one process-global `static`. `cargo test` runs
+/// this lib test binary multi-threaded, the measuring test only holds
+/// `HTTP_E2E_LOCK`, and every other test that parses files — those under
+/// `FAILPOINT_TEST_LOCK`, `generation_catalog_http_tests`, plain unit tests —
+/// added to the same number. Both assertions above could therefore read a total
+/// that was not theirs: 2 of 6 and then 1 of 6 local suite runs on the branch
+/// that found it (#886) went red here with no code change between them. It is a
+/// scheduling race, so plain `main` can also sit clean for twenty consecutive
+/// runs — which is exactly why the proof below does not rely on luck.
+///
+/// This reproduces that interference deterministically instead of waiting for
+/// the scheduler to reproduce it: a SECOND, unrelated corpus is indexed inside
+/// the first run's measurement window — after its run finishes, before its
+/// number is read. That is the event the flake needed, sequenced rather than
+/// raced; a genuinely concurrent second run would trade this flake for a new
+/// one, since these fixtures are serialised by `HTTP_E2E_LOCK` for reasons of
+/// their own. Against the old global counter the unchanged re-index reads the
+/// interfering run's 2 parses instead of its own 0; against a per-run tally
+/// each run reads only its own work.
+#[test]
+fn another_runs_parses_never_land_in_this_runs_tally() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+
+    // The measured corpus, indexed once so that its re-index has something to
+    // skip.
+    let measured_corpus = tempfile::tempdir().unwrap();
+    let measured_state = tempfile::tempdir().unwrap();
+    fs::write(
+        measured_corpus.path().join("main.py"),
+        "def add(a, b):\n    return a + b\n",
+    )
+    .unwrap();
+    fs::write(
+        measured_corpus.path().join("a.csv"),
+        "id,value\n1,alpha\n2,beta\n",
+    )
+    .unwrap();
+    let measured_endpoint = HttpEndpoint::start();
+    let measured_config = cfg(
+        measured_corpus.path(),
+        measured_state.path(),
+        &measured_endpoint.url,
+        false,
+    );
+    assert_eq!(
+        run_index_tallied(measured_config.clone(), &crate::ScanTally::default()).unwrap(),
+        0
+    );
+
+    // An unrelated corpus, standing in for whatever else the test binary is
+    // running. Its own genesis parses two files.
+    let other_corpus = tempfile::tempdir().unwrap();
+    let other_state = tempfile::tempdir().unwrap();
+    fs::write(
+        other_corpus.path().join("other.py"),
+        "def mul(a, b):\n    return a * b\n",
+    )
+    .unwrap();
+    fs::write(
+        other_corpus.path().join("other.csv"),
+        "id,value\n7,gamma\n8,delta\n",
+    )
+    .unwrap();
+    let other_endpoint = HttpEndpoint::start();
+    let other_config = cfg(
+        other_corpus.path(),
+        other_state.path(),
+        &other_endpoint.url,
+        false,
+    );
+
+    // The measurement window: measure, let the other run happen, then read.
+    let measured = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(measured_config, &measured).unwrap(), 0);
+    let other = crate::ScanTally::default();
+    assert_eq!(run_index_tallied(other_config, &other).unwrap(), 0);
+
+    assert_eq!(
+        other.files_parsed(),
+        2,
+        "the interfering run really did parse files — otherwise this proves nothing"
+    );
+    assert_eq!(
+        measured.files_parsed(),
+        0,
+        "an unchanged re-index parses nothing; another run's parses must not be \
+         added to this run's tally (#891)"
     );
 }
 
@@ -2875,6 +3048,264 @@ fn sweep_excluded_groups_scopes_on_the_keyword_corpus_scope_field() {
         )),
         "#755: the keyword scope must still bound the sweep to THIS corpus"
     );
+}
+
+/// #890: the exclusion sweep must not reach ACROSS corpora on a catalog an
+/// older build left with `prefix` mapped `text`.
+///
+/// `autoindex-catalog` is global, and on any install upgraded from
+/// v1.0.0-rc.15..rc.67 `prefix` is dynamically inferred `text` (the #755 root
+/// cause). A `term` query is not analyzed but the field is, so
+/// `{"term": {"prefix": "ax"}}` matches the analyzed TOKENS of `ax-2`
+/// (`[ax, 2]`) — and conjoined with a `path`/`file_key` a byte-identical file
+/// shares, the #737 prefix-scoped `delete_by_query` deletes the SIBLING
+/// corpus's live catalog documents. A delete is not recoverable.
+///
+/// The endpoint models exactly that: `legacy_text_catalog_fields` now governs
+/// how a `term` matches on the catalog, not only which `_mapping` PUT is
+/// refused. Fail-before, measured rather than reasoned: with `lib.rs` reverted
+/// to the bare `delete_by_query` this replaces, the run reports
+/// `Survivors: []` — sweeping corpus `ax` deleted all FOUR catalog documents,
+/// both of corpus `ax-2`'s included.
+///
+/// The last two assertions are the other half, and they are why the fix is an
+/// exact-scope delete rather than skipping the `prefix` pass on a legacy
+/// catalog: corpus `ax`'s own documents — including an alias the frozen plan
+/// does not name, which ONLY the term-scoped pass can reach — must still be
+/// swept. Skipping the pass would leave that one searchable, which is the #439
+/// exposure #589 exists to close.
+#[test]
+fn sweep_excluded_groups_cannot_reach_a_sibling_corpus_on_a_text_mapped_prefix() {
+    let ep = HttpEndpoint::start();
+    // The excluding corpus and a sibling whose prefix shares its first token.
+    let ax_main = catalog::file_id("ax", "shared-key");
+    let ax_alias = "file-alias:ax:unlisted".to_string();
+    let sibling_main = catalog::file_id("ax-2", "shared-key");
+    let sibling_alias = "file-alias:ax-2:sibling".to_string();
+
+    {
+        let mut st = ep.state.lock().unwrap();
+        // A catalog written by rc.15..rc.67: `prefix` is text, and no document
+        // carries the keyword `corpus_scope` field, which no such release wrote.
+        st.legacy_text_catalog_fields = vec!["prefix".into()];
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), ax_main.clone()),
+            json!({"doc_kind": "file", "prefix": "ax", "file_key": "shared-key", "path": "LICENSE"}),
+        );
+        // An `ax` alias the FROZEN plan does not name, so the by-`_id` sweep
+        // (#739) cannot reach it — only the term-scoped `file_key` pass can.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), ax_alias.clone()),
+            json!({
+                "doc_kind": "file",
+                "prefix": "ax",
+                "file_key": "shared-key",
+                "path": "vendor/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+        // The live sibling corpus's byte-identical copies.
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), sibling_main.clone()),
+            json!({"doc_kind": "file", "prefix": "ax-2", "file_key": "shared-key", "path": "LICENSE"}),
+        );
+        st.docs.insert(
+            (catalog::CATALOG_INDEX.to_string(), sibling_alias.clone()),
+            json!({
+                "doc_kind": "file",
+                "prefix": "ax-2",
+                "file_key": "shared-key",
+                "path": "sibling/LICENSE",
+                "status": "duplicate",
+            }),
+        );
+    }
+
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    let mut plan = Plan::default();
+    plan.datasets.push(crate::state::PlanDataset {
+        slug: "ds".into(),
+        index: "incremental-http-ds".into(),
+        family: "csv".into(),
+        group: None,
+        specs: Vec::new(),
+        time_field: None,
+        semantic_field: None,
+        sampled_records: 1,
+        file_count: 1,
+    });
+    let excluded = vec![InventoryDeltaEntry {
+        file_key: "shared-key".into(),
+        path: "LICENSE".into(),
+    }];
+
+    sweep_excluded_groups(&es, "ax", &plan, &excluded, None, 0).expect("sweep");
+
+    // Read the four verdicts out and RELEASE the endpoint's lock before
+    // asserting: an assert that fires while holding it poisons the mutex the
+    // server thread also takes, and the resulting panic-in-a-destructor aborts
+    // the whole test binary instead of failing this one test. This test is
+    // written to fail on unfixed code, so its failure mode has to be clean.
+    let present = |id: &String| {
+        ep.state
+            .lock()
+            .unwrap()
+            .docs
+            .contains_key(&(catalog::CATALOG_INDEX.to_string(), id.clone()))
+    };
+    let (sibling_main_kept, sibling_alias_kept) = (present(&sibling_main), present(&sibling_alias));
+    let (ax_main_swept, ax_alias_swept) = (!present(&ax_main), !present(&ax_alias));
+    // Every message carries the full survivor set, so ONE failing run reports
+    // the whole before-picture rather than only the first verdict that broke.
+    let survivors = {
+        let mut ids: Vec<String> = ep
+            .state
+            .lock()
+            .unwrap()
+            .docs
+            .keys()
+            .filter(|(index, _)| index == catalog::CATALOG_INDEX)
+            .map(|(_, id)| id.clone())
+            .collect();
+        ids.sort();
+        format!("{ids:?}")
+    };
+
+    assert!(
+        sibling_main_kept,
+        "#890: a sibling corpus whose prefix shares an analyzed token must keep its \
+         catalog document — a text-mapped `prefix` is not a scope. Survivors: {survivors}"
+    );
+    assert!(
+        sibling_alias_kept,
+        "#890: the same holds for the sibling's alias doc, reached by `file_key`. \
+         Survivors: {survivors}"
+    );
+    assert!(
+        ax_main_swept,
+        "#890: the excluding corpus's own document must still be swept. \
+         Survivors: {survivors}"
+    );
+    assert!(
+        ax_alias_swept,
+        "#890: …including an alias the frozen plan does not name, which only the \
+         term-scoped pass reaches — the fix is an exact scope, not a skipped pass. \
+         Survivors: {survivors}"
+    );
+}
+
+/// #890 (review follow-up): the scoped sweep's page walk must end on the
+/// candidate set it actually has, not on a short page it may never be sent.
+///
+/// `delete_catalog_docs_scoped` reads `SCOPED_SWEEP_PAGE` hits at a time for at
+/// most `SCOPED_SWEEP_MAX_PAGES` pages. Its first version ended the walk ONLY
+/// on a short page, so a scope conjunction matching exactly
+/// `SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE` documents — every page full,
+/// the last one included — fell out of the loop and returned the "refusing to
+/// report a partial removal" error while `ids` already held the complete,
+/// re-checked set: a run aborted on an answer the function was holding. That
+/// off-by-one is unreachable from the four-document fixture above, which is why
+/// this walks the boundary the way
+/// `the_alias_sweep_partitions_its_paths_exactly_across_the_chunk_boundary`
+/// walks `ALIAS_SWEEP_CHUNK`: 0 / 1 / PAGE-1 / PAGE / PAGE+1 / MAX*PAGE, plus
+/// the one candidate over the cap, which must still refuse AND still delete
+/// nothing.
+///
+/// Every case includes one sibling-corpus document, and it sorts LAST, so the
+/// per-hit re-check is proven on the final page of a multi-page walk rather
+/// than only inside the first page. `prefix` is legacy `text` here for the
+/// reason it is in the test above: that is what makes the sibling a candidate
+/// the server returns and the client has to drop.
+#[test]
+fn the_scoped_catalog_sweep_pages_to_the_exact_end_of_its_candidate_set() {
+    let ep = HttpEndpoint::start();
+    let es = Es::with_bulk_timeout(&ep.url, None, 30).expect("es client");
+    // Sorts after every `file-alias:` id below (`-` < `:`), so it is the last
+    // hit of the last page.
+    let sibling = "file:ax-2:shared-key".to_string();
+    let cap = SCOPED_SWEEP_MAX_PAGES * SCOPED_SWEEP_PAGE;
+
+    for candidates in [
+        0,
+        1,
+        SCOPED_SWEEP_PAGE - 1,
+        SCOPED_SWEEP_PAGE,
+        SCOPED_SWEEP_PAGE + 1,
+        cap,
+        cap + 1,
+    ] {
+        // `candidates` counts what the QUERY returns. One of them is the
+        // sibling; the rest are this corpus's own documents, all of which the
+        // sweep must remove.
+        let own = candidates.saturating_sub(1);
+        {
+            let mut st = ep.state.lock().unwrap();
+            st.docs.clear();
+            st.legacy_text_catalog_fields = vec!["prefix".into()];
+            for n in 0..own {
+                st.docs.insert(
+                    (
+                        catalog::CATALOG_INDEX.to_string(),
+                        format!("file-alias:ax:{n:06}"),
+                    ),
+                    json!({"doc_kind": "file", "prefix": "ax", "path": "LICENSE"}),
+                );
+            }
+            if candidates > 0 {
+                st.docs.insert(
+                    (catalog::CATALOG_INDEX.to_string(), sibling.clone()),
+                    json!({"doc_kind": "file", "prefix": "ax-2", "path": "LICENSE"}),
+                );
+            }
+        }
+
+        let swept = delete_catalog_docs_scoped(&es, &[("prefix", "ax"), ("path", "LICENSE")]);
+
+        // Read every verdict out and RELEASE the endpoint's lock before
+        // asserting, for the reason the test above gives: an assert that fires
+        // while holding it poisons the mutex the server thread also takes.
+        let (survivors, sibling_kept) = {
+            let st = ep.state.lock().unwrap();
+            let survivors = st
+                .docs
+                .keys()
+                .filter(|(index, _)| index == catalog::CATALOG_INDEX)
+                .count();
+            let sibling_kept = st
+                .docs
+                .contains_key(&(catalog::CATALOG_INDEX.to_string(), sibling.clone()));
+            (survivors, sibling_kept)
+        };
+
+        if candidates > cap {
+            assert!(
+                swept.is_err(),
+                "#890: past {cap} candidates the sweep must refuse rather than report a \
+                 partial removal ({candidates} candidates)"
+            );
+            assert_eq!(
+                survivors, candidates,
+                "#890: a refusal must delete NOTHING — a partial sweep reported as a failure \
+                 is still a partial sweep ({candidates} candidates)"
+            );
+            continue;
+        }
+
+        swept.unwrap_or_else(|err| {
+            panic!("#890: {candidates} candidates is inside the page budget, not past it: {err}")
+        });
+        assert_eq!(
+            survivors,
+            usize::from(candidates > 0),
+            "#890: every one of this corpus's {own} documents must be swept, across page \
+             boundaries as much as inside one page ({candidates} candidates)"
+        );
+        assert!(
+            sibling_kept || candidates == 0,
+            "#890: the sibling corpus's document must survive the re-check on whichever page \
+             it lands ({candidates} candidates)"
+        );
+    }
 }
 
 /// #739: a `file:` catalog doc written by a pre-#737 binary has NO `prefix`

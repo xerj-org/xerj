@@ -79,6 +79,11 @@ stackprobe = []
 
 [dev-dependencies]
 xerj-storage = { path = "../xerj-storage", features = ["test-hooks"] }
+# `raw-api` exposes `DashMap::shards()`, which is the only way to assert what
+# #873 fixed: that a per-index cache's shard array is capped rather than sized
+# from the host core count. Dev-only: with resolver = "2" it never reaches the
+# release binary's graph.
+dashmap   = { workspace = true, features = ["raw-api"] }
 tempfile  = { workspace = true }
 # `test-util` is what lets a test pause tokio's clock (`start_paused = true`)
 # and step a background timer deterministically instead of sleeping through it.
