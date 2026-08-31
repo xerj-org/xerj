@@ -319,7 +319,9 @@ pub struct EmbeddingExecutionIdentity {
     pub backend: String,
     pub identity_sha256: String,
     /// Absent for backends whose vector width the server does not pin
-    /// (`neural`, `proxy`). An absent width must not be read as 384.
+    /// (`proxy`, and a `neural` node that could not resolve its model assets;
+    /// a resolved `neural` node reports its `config.json` `hidden_size` since
+    /// #487). An absent width must not be read as 384.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dimensions: Option<usize>,
     pub semantic_contract: String,
