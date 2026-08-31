@@ -1047,22 +1047,44 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
     // the YAML extractor, which keeps the frontmatter mapping and the first
     // paragraph and discards the rest of the body (#551, silent data loss). If
     // the file opens with `---`, has a matching closing `---`, and the body after
-    // it is majority non-YAML, classify by that body so the whole document is
+    // it is not itself YAML, classify by that body so the whole document is
     // indexed. A pure/multi-document YAML file keeps YAML: the content after its
-    // `---` document marker is still YAML-like (or too short to be called prose).
+    // `---` document marker is still YAML — judged on line shape first and, when
+    // that is inconclusive, by whether the body actually parses as a YAML stream
+    // (#587).
     let leads_with_marker = nonblank.first().map(|l| l.trim() == "---").unwrap_or(false);
     if leads_with_marker {
         if let Some(close_offset) = nonblank.iter().skip(1).position(|l| l.trim() == "---") {
             let body = &nonblank[close_offset + 2..];
-            if body.len() >= 2 && yaml_like_count(body) * 2 < body.len() {
-                // #587: classify the body by its real structured family
+            // #587 item 3: this guard used to demand `body.len() >= 2`, so a
+            // frontmatter file with a single non-blank body line still went to
+            // the YAML extractor, which keeps the frontmatter mapping and drops
+            // that line. One line is enough to judge on its shape.
+            if !body.is_empty() && yaml_like_count(body) * 2 < body.len() {
+                let body_text = body.join("\n");
+                // #587 item 1: classify the body by its real structured family
                 // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
                 // frontmatter-over-CSV/JSON body matches its frontmatter-less
-                // twin; fall to `txt_kind` only for a genuinely prose body.
-                // `classify_structured` never re-enters this YAML/frontmatter
-                // branch, so a recursive frontmatter parse cannot occur.
-                let body_text = body.join("\n");
-                return classify_structured(&body_text, body).unwrap_or_else(|| txt_kind(body));
+                // twin. `classify_structured` never re-enters this
+                // YAML/frontmatter branch, so a recursive frontmatter parse
+                // cannot occur. It runs before the parse tier below because
+                // JSON *is* valid YAML — measured over 36,936 real
+                // frontmatter-shaped files, putting the parse first pulled 341
+                // JSON bodies and one XML body back into `Yaml` and undid #587
+                // item 1 for them.
+                if let Some(family) = classify_structured(&body_text, body) {
+                    return family;
+                }
+                // #587 item 2: the line-shape test above is not enough on its
+                // own — a genuine multi-document YAML stream whose later
+                // document is dominated by block scalars, comments and
+                // continuation lines fails it and was re-classified as prose,
+                // losing its per-document key structure. Parse the body: a real
+                // stream parses, a markdown body does not (`parses_as_yaml_stream`).
+                if !parses_as_yaml_stream(&body_text) {
+                    return txt_kind(body);
+                }
+                // else: a real YAML stream — fall through to `Family::Yaml`.
             }
         }
     }
@@ -1194,6 +1216,62 @@ fn yaml_like_count(lines: &[&str]) -> usize {
             re.is_match(l) || (t.starts_with("- ") && !checkbox)
         })
         .count()
+}
+
+/// Does `text` parse as a YAML stream of structured documents — i.e. was the
+/// `---` a *document separator* in a multi-document stream rather than the
+/// closing fence of a markdown frontmatter block?
+///
+/// This is the second tier of the frontmatter lookahead's "is the body YAML?"
+/// question (#587 item 2). The first tier is line shape — a body whose lines
+/// are majority `key:` / `- item` is YAML, which is what real k8s/Ansible/
+/// OpenAPI streams look like. That tier alone mis-fired on a genuine stream
+/// whose later document is dominated by block scalars, comments and
+/// continuation lines: none of those lines are `key:`-shaped, so the body read
+/// as prose and the stream lost its per-document key structure. The
+/// discriminator that separates the two precisely is that
+/// markdown-with-frontmatter is *invalid* as a YAML stream — its body halts
+/// `serde_yaml`'s iterator, the same property `yaml_x.rs:19-25` relies on —
+/// while a real multi-document stream parses.
+///
+/// Every document must therefore parse (a scalar document, which is what a
+/// markdown paragraph decodes to, and any parse error both disqualify) and at
+/// least one must be a mapping or a sequence; an empty document is neutral.
+/// Observed with serde_yaml 0.9: a markdown body yields `String` then `did not
+/// find expected <document start>`; a markdown task list, table, fenced block
+/// or `**bold**` opener errors on the first document; a CSV or numbered-list
+/// body yields one `String`; a prose-heavy YAML document yields a `Mapping`.
+///
+/// The parse runs on at most the 8 KiB sniff prefix, only for a body the line
+/// tier already judged non-YAML, and only *after* `classify_structured` has had
+/// its say — JSON is valid YAML, so running it earlier would pull JSON bodies
+/// back into `Yaml` and undo #587 item 1 (measured: 341 files).
+///
+/// The loop cannot spin: `serde_yaml`'s multi-document iterator does not
+/// advance past a document that fails to parse, and this returns on the first
+/// error rather than continuing.
+///
+/// Residual, stated rather than hidden: a frontmatter body that is *literally*
+/// a YAML mapping written without `key:`-shaped lines (`Last updated: 2026-01-01`
+/// — a key containing a space fails the line-shape regex) parses, so it is
+/// called YAML. It has to parse cleanly end to end for that, which no markdown
+/// containing a list, a table, a fenced block, an emphasis opener or two
+/// consecutive paragraphs does.
+fn parses_as_yaml_stream(text: &str) -> bool {
+    use serde::Deserialize as _;
+    let mut structured = 0usize;
+    for de in serde_yaml::Deserializer::from_str(text) {
+        match serde_yaml::Value::deserialize(de) {
+            Ok(serde_yaml::Value::Mapping(_) | serde_yaml::Value::Sequence(_)) => structured += 1,
+            // `---` on its own, or a comment-only document: carries no
+            // evidence either way.
+            Ok(serde_yaml::Value::Null) => {}
+            // A scalar document is what prose decodes to; an error means this
+            // is not a YAML stream at all.
+            Ok(_) | Err(_) => return false,
+        }
+    }
+    structured > 0
 }
 
 fn txt_kind(nonblank: &[&str]) -> Family {
@@ -3255,6 +3333,100 @@ mod text_family_tests {
                      value: 2\n\
                      kind: config\n";
         assert_eq!(classify_full(multi), Family::Yaml);
+    }
+
+    /// #587 (item 2): the lookahead's only test for "is this body YAML?" was
+    /// the *line shape* of the body — majority `key:` / `- item`. A genuine
+    /// multi-document YAML stream whose second document is dominated by a
+    /// block scalar, comments and continuation lines fails that test (those
+    /// lines are not `key:`-shaped), so the whole stream was re-classified as
+    /// prose and lost its per-document key structure. `parses_as_yaml_stream`
+    /// separates the two: this body parses as a YAML mapping, whereas a
+    /// markdown body halts `serde_yaml`'s iterator.
+    #[test]
+    fn multi_document_yaml_with_a_prose_heavy_document_stays_yaml() {
+        let multi = "---\n\
+                     name: release-notes\n\
+                     version: 2.4.0\n\
+                     ---\n\
+                     # notes for the operators\n\
+                     summary: |\n\
+                     \x20 The sprocket pool was exhausted during the Tuesday deploy.\n\
+                     \x20 Raising the pool size from 4 to 16 restored throughput.\n\
+                     \x20 Watch the queue depth dashboard for the next 24 hours.\n\
+                     \x20 A follow-up ticket tracks the autoscaler change.\n";
+        // Guard the premise: the body really is majority non-`key:`-shaped, so
+        // the line-shape tier alone routes it away from YAML.
+        let body: Vec<&str> = multi
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .skip(4)
+            .collect();
+        assert!(
+            yaml_like_count(&body) * 2 < body.len(),
+            "premise: the prose-heavy document is not majority YAML-shaped"
+        );
+        assert_eq!(
+            classify_full(multi),
+            Family::Yaml,
+            "a multi-document YAML stream whose later document is prose-heavy must \
+             stay YAML — it parses as a YAML stream, unlike a markdown body (#587)"
+        );
+    }
+
+    /// #587 (item 3): the lookahead required `body.len() >= 2`, so a
+    /// frontmatter file whose body is a single non-blank line still went to
+    /// the YAML extractor, which keeps the frontmatter mapping and discards
+    /// that line — the #551 loss, on the smallest possible file.
+    #[test]
+    fn frontmatter_over_a_single_prose_line_is_classified_by_that_line() {
+        let note = "---\n\
+                    title: Standup note\n\
+                    date: 2026-02-03\n\
+                    ---\n\n\
+                    Deploy is blocked on the sprocket pool change.\n";
+        assert_eq!(
+            classify_full(note),
+            Family::TxtProse,
+            "a one-line prose body under frontmatter must be classified by that \
+             line, not handed to the YAML extractor that drops it (#587)"
+        );
+
+        // The other side of the same boundary: a one-line *YAML* body after a
+        // document separator is still YAML.
+        let yaml = "---\n\
+                    name: first\n\
+                    ---\n\
+                    name: second\n";
+        assert_eq!(classify_full(yaml), Family::Yaml);
+    }
+
+    /// Guardrail for the parse tier added in #587 item 2: it must not drag
+    /// ordinary markdown bodies back into YAML. Each of these is a real
+    /// markdown shape whose body is majority non-`key:`-shaped, so each one
+    /// reaches the parse; each must still come out prose.
+    #[test]
+    fn markdown_bodies_are_not_rescued_into_yaml_by_the_parse_tier() {
+        let bodies = [
+            // Task list — `- [ ] x` is invalid YAML (flow sequence then scalar).
+            "- [ ] drain the pool\n- [x] raise the limit\n- [ ] verify p99\n",
+            // Fenced code block.
+            "# How to\nRun this:\n```sh\nxerj autoindex .\n```\nThen read the catalog.\n",
+            // Table.
+            "| stage | owner |\n|---|---|\n| build | core |\n| ship | ops |\n",
+            // Headings and paragraphs.
+            "# Title\n## Section one\nSome text about the thing.\n## Section two\nMore text.\n",
+            // Emphasis opener — `*` is the YAML alias indicator.
+            "**Note**: the pool is small.\nRaise it before the next deploy.\n",
+        ];
+        for body in bodies {
+            let with_frontmatter = format!("---\ntitle: Note\nowner: ops\n---\n\n{body}");
+            assert_ne!(
+                classify_full(&with_frontmatter),
+                Family::Yaml,
+                "markdown body must not be classified YAML by the parse tier: {body:?}"
+            );
+        }
     }
 
     /// The record-stream side must be unaffected — these are what TxtLines is for.

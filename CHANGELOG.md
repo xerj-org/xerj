@@ -269,6 +269,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retires stale catalog documents by their prefix-scoped `_id`
   (`generation_catalog::managed_non_run_ids`), which was never unscoped.
 
+- **A frontmatter block's body is judged as YAML by whether it parses, not only
+  by how its lines look**
+  ([#587](https://github.com/xerj-org/xerj/issues/587)). The `---` lookahead
+  added for [#551](https://github.com/xerj-org/xerj/issues/551) decided "is the
+  text after the closing `---` YAML?" from line shape alone — a body was YAML
+  if most of its lines read as `key:` or `- item`. Two shapes fell through it.
+  A genuine multi-document YAML stream whose later document is dominated by
+  block scalars, comments and indented continuation lines has almost no
+  `key:`-shaped lines, so the whole stream was re-classified as a text family
+  and lost its per-document key structure; and the lookahead required a body of
+  at least two non-blank lines, so a document whose body was a single line
+  still went to the YAML extractor, which keeps the frontmatter mapping and
+  drops that line. `classify_text` now runs the body through
+  `classify_structured` first (JSON is valid YAML, so this ordering matters),
+  then asks whether the body actually parses as a YAML stream of mappings or
+  sequences — markdown-with-frontmatter does not parse as one, a real stream
+  does — and only falls to the prose families when it does not
+  (`xerj-autoindex/src/sniff.rs`).
+
+  Measured over the 36,936 files in this box's reference corpora and local
+  checkout whose first non-blank line is `---` (279 distinct by content
+  changed): 69 files moved into `Yaml` — every one of them a `.yml`/`.yaml`
+  file, including Elasticsearch's `yamlRestTest` specs and Cilium manifests
+  that had been demoted to line-records — and 205 moved out of `Yaml` into
+  prose plus 5 into `Json`, every one of them a `.md`, `.mdx` or `.snap` file
+  whose one-line body the YAML extractor was discarding. No markdown file moved
+  into `Yaml`. (Extensions are never consulted by the sniffer, so they are an
+  independent check on the direction of each change.)
+
 - **A legitimate authenticated request whose body arrived in small HTTP/2 DATA
   frames could be cut off with `GOAWAY ENHANCE_YOUR_CALM`**
   ([#485](https://github.com/xerj-org/xerj/issues/485)). The rc.18 `h2` bump for
