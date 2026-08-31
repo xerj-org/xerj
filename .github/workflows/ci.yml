@@ -36,6 +36,7 @@ jobs:
   cla-config:
     name: CLA gate config
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
@@ -77,6 +78,7 @@ jobs:
   reference-coding:
     name: Reference-coding toolkit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -109,6 +111,7 @@ jobs:
   landing-constants-guard:
     name: Landing constants guard
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -116,6 +119,54 @@ jobs:
 
       - name: Landing page constants agree with the newest release
         run: bash .github/scripts/landing-constants-guard.sh
+
+  # #770. A job with no `timeout-minutes` runs against GitHub's 360-minute
+  # default, and 22 of this repo's 23 jobs had none. Three of its workflows
+  # serialise on a concurrency group that never auto-cancels
+  # (`ci-CI-refs/heads/main` here, `pages-deploy`, `release-metrics`), so one
+  # hung job holds that slot for hours and every later push queues behind it.
+  # Measured, not hypothetical: on 2026-08-25 the #751 hang ran `Build + Test`
+  # into the 360-minute default and was killed by it (run 32796557309,
+  # 01:21:28 -> 07:21:44; every other job in that run finished inside 18 min),
+  # and a second hang the same morning held the slot 11:28 -> 17:03 while seven
+  # consecutive main pushes were discarded having run ZERO jobs. #899 fixed that
+  # particular deadlock; the 6-hour exposure of every OTHER job is what #770 was
+  # still asking about, and these caps plus the guard below are what close it.
+  #
+  # The caps are sized in three tiers, from the measured duration of every
+  # successful-or-failed job execution across the last ~245 CI runs (3 873 job
+  # executions) and 27 release runs:
+  #   15 min — installs no toolchain, compiles nothing  (max  2.3 min repo-wide)
+  #   30 min — installs a toolchain or a third-party
+  #            binary, compiles no workspace member      (max  3.8 min)
+  #   60 min — compiles workspace crates                 (max 48.3 min)
+  # Two jobs sit above their tier for measured reasons, each argued where it is
+  # set: `autoindex-fd-smoke` at 75 (its windows-latest leg has the heaviest
+  # tail here, max 49.6 min) and release.yml's cross-compile matrix at 75.
+  # The point is not to tune each job to its median — a cap that false-fails a
+  # slow-but-healthy run is worse than the hang it guards against, which is why
+  # #780 widened build-test's from 50 to 60. It is to put every job at least 4x
+  # below the 360-minute default so no single hang costs main an afternoon
+  # again. Job timeouts start when the job STARTS EXECUTING, not when it is
+  # queued, so runner-slot contention cannot spend any of the budget. That
+  # contention is real and larger than it looks -- over 2 835 job executions the
+  # wait from created to started is a 4-second median but a 417-second p90, a
+  # 1 661-second p99 and a 2 202-second max, with 27% of jobs waiting over a
+  # minute. It inflates a RUN's wall clock (which is what a reader mistakes for
+  # a hang) and never a job's timeout, so no cap here can false-fail because the
+  # runners were busy.
+  workflow-timeouts:
+    name: Workflow job-timeout guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Guard's own unit tests
+        run: python3 .github/scripts/workflow-timeout-guard.py --self-test
+
+      - name: Every workflow job declares a bounded timeout-minutes
+        run: python3 .github/scripts/workflow-timeout-guard.py
 
   # #474: the rc.18 release PR (#460) shipped three note-vs-tree contradictions
   # with the branch 16/16 green every time - a fix credited with more than it
@@ -130,6 +181,7 @@ jobs:
   release-notes-gate:
     name: Release notes match the tree
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/')
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -148,6 +200,7 @@ jobs:
   lint:
     name: Format + Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -184,6 +237,7 @@ jobs:
   workspace-resolves:
     name: Workspace resolves (links + lockfile)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -208,6 +262,7 @@ jobs:
   security-audit:
     name: Dependency advisory audit (cargo-audit)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -244,6 +299,7 @@ jobs:
   fuzz:
     name: Fuzz harnesses (cargo-fuzz)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -405,6 +461,7 @@ jobs:
   release-build:
     name: Release build (fat LTO, all members link)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -423,6 +480,7 @@ jobs:
   onnx-feature:
     name: ONNX feature compile + tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -455,6 +513,7 @@ jobs:
   api-checks:
     name: API smoke + liveness + benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -495,6 +554,7 @@ jobs:
   conformance:
     name: ES-compat YAML conformance
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -590,6 +650,7 @@ jobs:
   ux-tests:
     name: UX pipeline tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -612,6 +673,7 @@ jobs:
   usecase-smoke:
     name: Use-case harnesses (brain + MCP + autoindex)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -683,6 +745,14 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # Tier 3 plus 15 minutes, and the exception is measured rather than felt:
+    # the windows-latest leg has the widest spread of any job here — over 204
+    # runs, median 18.8 min, p95 37.6, max 49.6 (ubuntu 15.6, macOS 22.2). At
+    # 60 that is 1.21x its worst observed run, thinner than `Build + Test`'s
+    # 1.24x and on a much heavier tail, so a slow-but-healthy Windows runner
+    # could false-fail. 75 is 1.51x, and still 4.8x below the 360-min default
+    # that is what actually matters for slot starvation.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
