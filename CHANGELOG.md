@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`autoindex`'s run summary reports throughput as `docs/sec`**
+  ([#904](https://github.com/xerj-org/xerj/issues/904)). Split out of
+  [#366](https://github.com/xerj-org/xerj/issues/366), which asked for this
+  so an operator could see ingest throughput without timing the command by
+  hand or inferring it from the elapsed line; [#897](https://github.com/xerj-org/xerj/issues/897)
+  fixed that issue's neural-embedder batching defect but did not touch the
+  summary output. The rate is `records_total / wall` (0 when `wall` is
+  0.0, e.g. an all-resume no-op, rather than reporting `inf`), printed on
+  the `done in …` line and added to the `--json` run document as
+  `docs_per_sec`.
+
 ### Performance
 
 - **Merge copies posting lists instead of re-analysing every document it

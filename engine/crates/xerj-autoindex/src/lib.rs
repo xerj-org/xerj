@@ -6960,6 +6960,16 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     let (started, summary_generated_at) =
         invocation_report_timestamps(invocation_started, chrono::Utc::now());
     let total_records: u64 = ds_counts.values().sum();
+    // #904: ingest throughput, so the cost of a slow embedder (#366) is
+    // visible in the summary itself rather than something an operator has
+    // to derive by hand from the elapsed line. `wall` can be 0.0 on a
+    // sub-millisecond run (e.g. an all-resume no-op); reporting 0 docs/sec
+    // there is more honest than a divide-by-zero `inf`.
+    let docs_per_sec = if wall > 0.0 {
+        total_records as f64 / wall
+    } else {
+        0.0
+    };
     // Run-summary honesty (§6.6.4): what the detectors wrote AND what they
     // could not resolve — a dangling [[link]] is a fact about the corpus, not
     // something to swallow.
@@ -7038,6 +7048,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         "files_submitted_this_run": files_done.load(Ordering::Relaxed),
         "records_submitted_this_run": records_total.load(Ordering::Relaxed),
         "wall_seconds": (wall * 10.0).round() / 10.0,
+        "docs_per_sec": (docs_per_sec * 10.0).round() / 10.0,
         "workers": cfg.workers,
         // The whole resource decision, so a run can be explained after the
         // fact from its own summary rather than from the machine it ran on.
@@ -7138,7 +7149,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     if cfg.json {
         println!("{run_doc}");
     } else if !cfg.quiet {
-        println!("\ndone in {wall:.1}s — {} datasets, {} records live, {} duplicate aliases, {} junk records, {} junk/skipped files",
+        println!("\ndone in {wall:.1}s — {} datasets, {} records live, {} duplicate aliases, {} junk records, {} junk/skipped files ({docs_per_sec:.1} docs/sec)",
             plan.datasets.len(), total_records, plan.duplicate_files.len(), junk_total_records, junk_file_count);
         // Indexed-vs-submitted honesty line (#195): the live count against
         // what this run actually submitted, so a silent-rejection mismatch
