@@ -41,9 +41,11 @@ Or run it yourself:
 ```sh
 curl -fsSL https://xerj.org/get | sh
 xerj --insecure --data-dir ./data &
+xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
+xerj gain                                        # what it did for you — counted, not estimated
 ```
 
 Windows and a hand-verified install are under [Install by hand](#install-by-hand).
