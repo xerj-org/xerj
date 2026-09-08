@@ -323,7 +323,10 @@ fn initialize_result(msg: &Value) -> Value {
         },
         "instructions":
             "XERJ tools proxy to a running XERJ engine (ES-compatible). Use \
-             xerj_search for full-text/keyword/structured queries (ES query DSL), \
+             xerj_search for retrieval — pass `query` as a plain string for \
+             definition-first code search (ranks the defining file first, \
+             returns the matching passage instead of whole files), or as an \
+             ES query-DSL object for structured queries, \
              xerj_semantic_search for meaning-based recall over a semantic_text \
              field (embedding is server-side, no key), xerj_vector_search for \
              kNN over a dense_vector field, xerj_hybrid_search to fuse \
@@ -381,17 +384,19 @@ pub fn tool_specs() -> Value {
         {
             "name": "xerj_search",
             "description":
-                "Full-text / keyword / structured search over a XERJ index using \
-                 the Elasticsearch query DSL. Proxies POST /{index}/_search. \
-                 Provide `query` as an ES query object (e.g. {\"match\":{\"body\":\"rust\"}}, \
-                 {\"term\":{\"status\":\"open\"}}, or a bool clause). Omit `query` for match_all.",
+                "Full-text / keyword / structured search over a XERJ index. Proxies \
+                 POST /{index}/_search. Pass `query` as a PLAIN STRING for the \
+                 definition-first code search (ranks the file that defines a symbol \
+                 above files that merely mention it — the right default for code), \
+                 or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, \
+                 or a bool clause) for structured queries. Omit `query` for match_all.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "index": { "type": "string", "description": "Index name to search." },
                     "query": {
-                        "type": "object",
-                        "description": "ES query-DSL clause. Omit for match_all.",
+                        "type": ["object", "string"],
+                        "description": "Plain string (definition-first code search) or ES query-DSL clause. Omit for match_all.",
                     },
                     "size": { "type": "integer", "description": "Max hits to return (default engine value)." },
                     "from": { "type": "integer", "description": "Offset for pagination." },
@@ -795,7 +800,28 @@ fn opt_typed<'a, T>(
 fn build_search(args: &Value) -> Result<BuiltRequest, String> {
     let index = req_str(args, "index")?;
     let mut body = serde_json::Map::new();
+    let mut plain_string = false;
     match args.get("query") {
+        // A plain string gets the definition-first shape `xerj search` uses
+        // (measured 38%→94% correct-file-at-rank-1 on cross-file lookups vs a
+        // bare body match). Agents should never have to hand-write ES DSL for
+        // the common "find me this code" case; the DSL object path stays
+        // untouched for structured queries.
+        Some(Value::String(q)) if !q.trim().is_empty() => {
+            plain_string = true;
+            body.insert(
+                "query".into(),
+                json!({ "bool": { "should": [
+                    { "multi_match": {
+                        "query": q,
+                        "fields": ["name^4", "defs^3", "code^2", "body", "title"],
+                        "type": "most_fields"
+                    }},
+                    { "match_phrase": { "defs": { "query": q, "boost": 8 } } },
+                    { "term": { "name": { "value": q, "boost": 10 } } }
+                ]}}),
+            );
+        }
         Some(q) if !q.is_null() => {
             body.insert("query".into(), q.clone());
         }
@@ -805,6 +831,26 @@ fn build_search(args: &Value) -> Result<BuiltRequest, String> {
     }
     for k in ["size", "from", "sort", "_source"] {
         copy_opt(args, &mut body, k);
+    }
+    // String-mode defaults, only where the caller left them unset: project
+    // `_source` down to the citation fields and ask for `_passage` so the
+    // response is the matching snippet, not the whole file body (measured ~9x
+    // smaller for 3 code hits).
+    if plain_string {
+        body.entry("_source".to_string()).or_insert_with(|| {
+            json!([
+                "ax_path",
+                "path",
+                "line",
+                "start_line",
+                "language",
+                "kind",
+                "code",
+                "title"
+            ])
+        });
+        body.entry("fields".to_string())
+            .or_insert_with(|| json!(["_passage"]));
     }
     Ok((
         Method::Post,

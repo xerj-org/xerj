@@ -275,6 +275,8 @@ fn help_text(feedback: bool) -> String {
              xerj autoindex  map             print the discovered data map\n\
              xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
                                              query client, no wrapper scripts (see xerj search --help)\n\
+             xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
+                                             what is its signature (see xerj def --help)\n\
              xerj brain      <folder>        one command: index a folder into a running, browsable\n\
                                              second brain in your browser (see xerj brain --help)\n\
              xerj mcp        [opts]          Model Context Protocol stdio server: exposes 10 tools\n\
@@ -1925,6 +1927,12 @@ async fn async_main() -> Result<()> {
     }
     if matches!(argv1.as_deref(), Some("search")) {
         let code = tokio::task::spawn_blocking(xerj_autoindex::search::run_search_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("def")) {
+        let code = tokio::task::spawn_blocking(xerj_autoindex::def::run_def_cli)
             .await
             .unwrap_or(1);
         std::process::exit(code);

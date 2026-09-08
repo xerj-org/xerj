@@ -29,7 +29,37 @@ EXAMPLE:
     xerj --insecure -d ./.xerj-data &                 # a node, running
     xerj autoindex ref/sled                           # index once
     xerj search \"fsync the WAL segment on rotation\"    # one line in, a passage out
+
+SEE ALSO:
+    xerj def <symbol>    exact go-to-definition when you already know the name
 ";
+
+/// Extract the `_passage` snippet from a hit. The engine returns it under
+/// `fields._passage` as an array whose first element is either a plain string
+/// or an object carrying the text — tolerate both shapes rather than betting
+/// on one (the shape has already bitten one external client).
+pub(crate) fn passage_text(hit: &Value) -> Option<String> {
+    let first = hit.pointer("/fields/_passage/0")?;
+    match first {
+        Value::String(s) => Some(s.clone()),
+        Value::Object(o) => o
+            .get("text")
+            .or_else(|| o.get("passage"))
+            .or_else(|| o.get("snippet"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        _ => None,
+    }
+}
+
+/// True when the query looks like a single code identifier (`IOSIntfLine`,
+/// `euler_to_rotationmatrix`) rather than a plain-words phrase — the case
+/// where `xerj def` is the better tool.
+pub(crate) fn is_identifier(q: &str) -> bool {
+    !q.is_empty()
+        && !q.contains(char::is_whitespace)
+        && q.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
 
 /// Entry point for the `search` subcommand. Returns a process exit code.
 pub fn run_search_cli() -> i32 {
@@ -98,18 +128,30 @@ pub fn run_search_cli() -> i32 {
         return 2;
     }
 
-    // Bias toward the exact symbol name and its declaration `code`, then prose
-    // `body`, then `title`. A plain `xerj autoindex` of code writes symbol docs
-    // with `name`/`code`/`line` (issue #500); `defs` is kept for the older
-    // reference-coding wrapper schema (harmless when absent).
+    // Defs-first shape (same rationale as the catalog's suggested query, and
+    // measured on an 80-task cross-file benchmark: the phrase clause on `defs`
+    // is what ranks the file that DEFINES a symbol above files that merely
+    // mention it — 38%→94% correct-file-at-rank-1 vs the plain multi_match).
+    // The multi_match stays as the recall floor; the phrase clauses are
+    // self-gating (a multi-word conceptual query that matches no `defs` line
+    // simply contributes no score). `name` is a keyword field on symbol docs
+    // (issue #500), so the `term` clause fires only when the whole query IS
+    // the identifier — the strongest possible signal.
     let body = json!({
         "size": k,
-        "query": { "multi_match": {
-            "query": query,
-            "fields": ["name^4", "defs^3", "code^2", "body", "title"],
-            "type": "most_fields"
-        }},
-        "_source": ["ax_path", "line", "start_line", "language", "code", "body", "title"]
+        "query": { "bool": { "should": [
+            { "multi_match": {
+                "query": query,
+                "fields": ["name^4", "defs^3", "code^2", "body", "title"],
+                "type": "most_fields"
+            }},
+            { "match_phrase": { "defs": { "query": query, "boost": 8 } } },
+            { "term": { "name": { "value": query, "boost": 10 } } }
+        ]}},
+        // No `body` here: whole-file bodies are the token flood (measured ~9x
+        // the size of the matching passage). `_passage` carries the snippet.
+        "_source": ["ax_path", "line", "start_line", "language", "kind", "code", "title"],
+        "fields": ["_passage"]
     });
 
     let pattern = format!("{prefix}-*");
@@ -140,6 +182,9 @@ pub fn run_search_cli() -> i32 {
         .unwrap_or_default();
     if hits.is_empty() {
         println!("no match in {pattern} for: {query}");
+        if is_identifier(&query) {
+            println!("(looks like a symbol name — try: xerj def {query})");
+        }
         println!("(index a relevant repo first: xerj autoindex <folder>)");
         return 0;
     }
@@ -156,11 +201,21 @@ pub fn run_search_cli() -> i32 {
             Some(n) => format!("{path}:{n}"),
             None => path.to_string(),
         };
-        println!("\n─── {loc}  (score {score:.2})");
-        let passage = src
-            .get("code")
-            .or_else(|| src.get("body"))
-            .and_then(Value::as_str);
+        let kind = src.get("kind").and_then(Value::as_str).unwrap_or("");
+        let tag = if kind.is_empty() {
+            String::new()
+        } else {
+            format!("  [{kind}]")
+        };
+        println!("\n─── {loc}{tag}  (score {score:.2})");
+        // Passage-first: `_passage` is the engine's matching snippet (an
+        // array-wrapped object with a text payload); `code` is the symbol
+        // declaration. Never the whole file body — that is the 9x token flood
+        // this command exists to avoid.
+        let passage_owned = passage_text(h);
+        let passage = passage_owned
+            .as_deref()
+            .or_else(|| src.get("code").and_then(Value::as_str));
         if let Some(text) = passage {
             let snippet: String = text.chars().take(full).collect();
             for l in snippet.lines() {
