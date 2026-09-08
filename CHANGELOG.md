@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.73] - 2026-09-08
+
 ### Added
+
+- **`xerj search` now runs a definition-first query, and `xerj def` is
+  go-to-definition** ([#916](https://github.com/xerj-org/xerj/pull/916)).
+  The search CLI's single `multi_match` found the correct cross-file source
+  file at rank 1 only 38% of the time on an 80-task benchmark; a bool that
+  adds a phrase clause on the AST `defs` field plus an exact-symbol `term`
+  on `name` measures 94% on the same corpus, so that shape is now the
+  default. Results are passage-first — the matching snippet and the symbol
+  declaration, never whole file bodies (~9x fewer tokens across three code
+  hits) — and a zero-hit identifier-shaped query nudges toward the new
+  command. `xerj def "<symbol>"` answers the sharper question in one call:
+  where is this defined and what is its signature, as `file:line [kind]` +
+  declaration, with `--kind`/`--lang` filters; per-symbol documents
+  ([#500](https://github.com/xerj-org/xerj/issues/500)) first, a `defs`
+  phrase fallback for indexes that predate them. The MCP `xerj_search` tool
+  accepts a plain string `query` and applies the same shape and passage
+  projection (it previously rejected strings with an HTTP 400, forcing
+  agents to hand-write query DSL); DSL objects pass through unchanged.
 
 - **`autoindex`'s run summary reports throughput as `docs/sec`**
   ([#904](https://github.com/xerj-org/xerj/issues/904)). Split out of
