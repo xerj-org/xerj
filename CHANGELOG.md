@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.74] - 2026-09-08
+
+### Added
+
+- **`xerj init` wires XERJ into the project's coding agents in one command,
+  and `xerj gain` reports counted usage**
+  ([#917](https://github.com/xerj-org/xerj/pull/917)). `init` detects the
+  agent surfaces present and writes the minimal config for each — the MCP
+  server merged into `.mcp.json` (other servers kept, absolute binary path),
+  a ten-line skill for Claude Code, a `.cursor/rules` file when `.cursor/`
+  exists, and an `AGENTS.md` section — taking a `.bak` backup of any file it
+  edits, previewable with `--dry-run`, idempotent on re-run, and refusing to
+  touch an invalid `.mcp.json`. It deliberately does not rewrite prompts or
+  intercept commands: it only makes the tool visible. `gain` reads the
+  node's hash-chained audit log and prints what actually happened — searches
+  served, hit rate, p50/p95 latency, busiest indices, a recent-search strip —
+  with no estimated-savings arithmetic of any kind; it falls back to the
+  native listener (ES port + 1) where `/_audit/_search` is served.
+
 ## [1.0.0-rc.73] - 2026-09-08
 
 ### Added

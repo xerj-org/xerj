@@ -2,7 +2,7 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-09-08 (against `v1.0.0-rc.73` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
+Last reviewed: 2026-09-08 (against `v1.0.0-rc.74` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298).
 
 ## Follow the roadmap
 
@@ -30,7 +30,7 @@ These are implemented and exercised by real API requests / the test suite / benc
 
 The release-by-release record of how all of this landed is [CHANGELOG.md](./CHANGELOG.md) — this file no longer duplicates it. Be aware of a real gap in that record: rc.1–rc.18 and rc.71 have entries, **rc.19 through rc.70 do not**. Those 52 releases are reconstructable only from `git log` and the release list, and closing that gap is itself a GA item below.
 
-## Next release — [v1.0.0-rc.74](https://github.com/xerj-org/xerj/milestones)
+## Next release — [v1.0.0-rc.75](https://github.com/xerj-org/xerj/milestones)
 
 rc.72 was cut on 2026-08-31 — its full contents are the [CHANGELOG.md](./CHANGELOG.md)
 entry, not this file. It is **the idle-cost release**: a measurement session found the
