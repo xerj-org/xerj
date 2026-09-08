@@ -15,6 +15,7 @@ pub mod esclient;
 pub mod estimate;
 pub mod extract;
 pub mod feedback;
+pub mod gain;
 pub mod gate;
 mod generation_catalog;
 #[cfg(test)]
@@ -22,6 +23,7 @@ mod generation_catalog_http_tests;
 pub mod ids;
 pub mod ignore_rules;
 pub mod infer;
+pub mod init;
 pub mod order;
 pub mod pool;
 pub mod progress;

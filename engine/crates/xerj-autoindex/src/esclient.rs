@@ -547,6 +547,24 @@ impl Es {
         Ok(resp.status().as_u16())
     }
 
+    /// GET a JSON body. One attempt like [`Self::get_status`] — the callers
+    /// (`xerj gain` reading the audit log) are interactive CLI reads where a
+    /// transport error should surface immediately, not after backoff.
+    pub fn get_json(&self, path: &str) -> Result<Value> {
+        let resp = self
+            .req(reqwest::Method::GET, path)
+            .send()
+            .with_context(|| format!("no response from {}{}", self.base, path))?;
+        let status = resp.status();
+        let body: Value = resp
+            .json()
+            .with_context(|| format!("non-JSON response from {}{}", self.base, path))?;
+        if !status.is_success() {
+            anyhow::bail!("{}{} returned HTTP {}: {}", self.base, path, status, body);
+        }
+        Ok(body)
+    }
+
     /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s, 6 attempts.
     ///
     /// A 429 is also reported to the bulk admission window: sleeping is how
