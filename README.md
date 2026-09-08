@@ -42,6 +42,8 @@ Or run it yourself:
 curl -fsSL https://xerj.org/get | sh
 xerj --insecure --data-dir ./data &
 xerj autoindex ~/my-project
+xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
+xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 ```
 
 Windows and a hand-verified install are under [Install by hand](#install-by-hand).

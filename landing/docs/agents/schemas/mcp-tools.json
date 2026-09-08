@@ -2,130 +2,128 @@
   "tools": [
     {
       "name": "xerj_search",
-      "description": "Full-text / keyword / structured search over a XERJ index using the Elasticsearch query DSL. Proxies POST /{index}/_search. Provide `query` as an ES query object (e.g. {\"match\":{\"body\":\"rust\"}}, {\"term\":{\"status\":\"open\"}}, or a bool clause). Omit `query` for match_all.",
+      "description": "Full-text / keyword / structured search over a XERJ index. Proxies POST /{index}/_search. Pass `query` as a PLAIN STRING for the definition-first code search (ranks the file that defines a symbol above files that merely mention it — the right default for code), or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, or a bool clause) for structured queries. Omit `query` for match_all.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "_source": {
-            "description": "Source filtering (bool, field, or {includes,excludes})."
-          },
-          "from": {
-            "description": "Offset for pagination.",
-            "type": "integer"
-          },
           "index": {
-            "description": "Index name to search.",
-            "type": "string"
+            "type": "string",
+            "description": "Index name to search."
           },
           "query": {
-            "description": "ES query-DSL clause. Omit for match_all.",
-            "type": "object"
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Plain string (definition-first code search) or ES query-DSL clause. Omit for match_all."
           },
           "size": {
-            "description": "Max hits to return (default engine value).",
-            "type": "integer"
+            "type": "integer",
+            "description": "Max hits to return (default engine value)."
+          },
+          "from": {
+            "type": "integer",
+            "description": "Offset for pagination."
           },
           "sort": {
             "description": "ES sort clause (array or object)."
+          },
+          "_source": {
+            "description": "Source filtering (bool, field, or {includes,excludes})."
           }
         },
         "required": [
           "index"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_semantic_search",
       "description": "Meaning-based search over a `semantic_text` field. The query text is embedded SERVER-SIDE by XERJ's built-in lexical embedder (no external API key), then matched by vector similarity. Proxies POST /{index}/_search with {\"query\":{\"semantic\":{...}}}.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "field": {
-            "description": "Name of the semantic_text field.",
-            "type": "string"
-          },
-          "filter": {
-            "description": "Optional ES query clause applied as a pre-filter.",
-            "type": "object"
-          },
           "index": {
             "type": "string"
           },
-          "k": {
-            "description": "Number of nearest results (default 10).",
-            "type": "integer"
+          "field": {
+            "type": "string",
+            "description": "Name of the semantic_text field."
           },
           "query": {
-            "description": "Natural-language query text to embed and match.",
-            "type": "string"
+            "type": "string",
+            "description": "Natural-language query text to embed and match."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest results (default 10)."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause applied as a pre-filter."
           }
         },
         "required": [
           "index",
           "field",
           "query"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_vector_search",
       "description": "K-nearest-neighbour search over a `dense_vector` field, given a caller-supplied query vector. NOTE: unfiltered kNN is HNSW-served (approximate) with exact rescoring — measured recall@10 1.00 on the official bench query; num_candidates sets the beam width (floored at 800). Filtered kNN, non-cosine metrics, SQ8 fields, and small indexes run an exact brute-force scan. Proxies POST /{index}/_search with a top-level {\"knn\":{...}}.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "field": {
-            "description": "Name of the dense_vector field.",
-            "type": "string"
-          },
-          "filter": {
-            "description": "Optional ES query clause applied as a pre-filter.",
-            "type": "object"
-          },
           "index": {
             "type": "string"
           },
-          "k": {
-            "description": "Number of nearest neighbours (default 10).",
-            "type": "integer"
-          },
-          "num_candidates": {
-            "description": "Optional candidate pool size.",
-            "type": "integer"
+          "field": {
+            "type": "string",
+            "description": "Name of the dense_vector field."
           },
           "query_vector": {
-            "description": "Query embedding; length must match the field's dims.",
+            "type": "array",
             "items": {
               "type": "number"
             },
-            "type": "array"
+            "description": "Query embedding; length must match the field's dims."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest neighbours (default 10)."
+          },
+          "num_candidates": {
+            "type": "integer",
+            "description": "Optional candidate pool size."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause applied as a pre-filter."
           }
         },
         "required": [
           "index",
           "field",
           "query_vector"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_hybrid_search",
       "description": "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or `linear` (weighted). Proxies POST /{index}/_search with {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "fusion": {
-            "description": "Fusion strategy (default rrf).",
-            "enum": [
-              "rrf",
-              "linear"
-            ],
-            "type": "string"
-          },
           "index": {
             "type": "string"
           },
           "queries": {
+            "type": "array",
             "description": "Sub-queries to fuse. Each item is {\"query\": <ES query clause>, \"weight\": <number, optional>}.",
             "items": {
+              "type": "object",
               "properties": {
                 "query": {
                   "type": "object"
@@ -136,256 +134,262 @@
               },
               "required": [
                 "query"
-              ],
-              "type": "object"
-            },
-            "type": "array"
+              ]
+            }
+          },
+          "fusion": {
+            "type": "string",
+            "enum": [
+              "rrf",
+              "linear"
+            ],
+            "description": "Fusion strategy (default rrf)."
           },
           "size": {
-            "description": "Max fused hits to return.",
-            "type": "integer"
+            "type": "integer",
+            "description": "Max fused hits to return."
           }
         },
         "required": [
           "index",
           "queries"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_memory_store",
       "description": "Store a durable agent memory in a namespace. The text is BM25-indexed and (via a semantic_text field) auto-embedded so it can later be recalled by meaning. Proxies POST /_memory/{namespace}. Set `dedup:true` to skip writing a near-identical existing memory.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "dedup": {
-            "description": "Skip write if a near-duplicate exists.",
-            "type": "boolean"
-          },
-          "dedup_threshold": {
-            "description": "Similarity threshold for dedup.",
-            "type": "number"
-          },
-          "id": {
-            "description": "Optional explicit id (upsert).",
-            "type": "string"
-          },
-          "metadata": {
-            "description": "Optional structured metadata.",
-            "type": "object"
-          },
           "namespace": {
-            "description": "Memory namespace (isolates recall).",
-            "type": "string"
+            "type": "string",
+            "description": "Memory namespace (isolates recall)."
           },
           "text": {
-            "description": "Free text of the memory.",
-            "type": "string"
+            "type": "string",
+            "description": "Free text of the memory."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional structured metadata."
+          },
+          "id": {
+            "type": "string",
+            "description": "Optional explicit id (upsert)."
           },
           "vector": {
-            "description": "Optional precomputed embedding to enable vector recall.",
+            "type": "array",
             "items": {
               "type": "number"
             },
-            "type": "array"
+            "description": "Optional precomputed embedding to enable vector recall."
+          },
+          "dedup": {
+            "type": "boolean",
+            "description": "Skip write if a near-duplicate exists."
+          },
+          "dedup_threshold": {
+            "type": "number",
+            "description": "Similarity threshold for dedup."
           }
         },
         "required": [
           "namespace",
           "text"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_memory_recall",
       "description": "Recall the most relevant memories from a namespace. Default is BM25 text recall; set `semantic:true` to embed the query server-side and recall by meaning; supply `vector` for pure vector recall. Proxies POST /_memory/{namespace}/_recall.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "filter": {
-            "description": "Optional metadata pre-filter (ES query clause).",
-            "type": "object"
-          },
-          "graph": {
-            "description": "Optional graph coupling with the namespace's second-brain links (edges index `.xerj-memory-{ns}-edges`). `restrict` recalls only within graph reach of the seeds; `blend` lets graph proximity pull related memories up. Degrades gracefully (`no_edges_index:true` in the response) when the namespace has no links yet.",
-            "properties": {
-              "as_of": {
-                "description": "Bi-temporal cut: epoch-ms number or RFC3339 string (default now)."
-              },
-              "hops": {
-                "description": "1 (default) or 2.",
-                "type": "integer"
-              },
-              "mode": {
-                "enum": [
-                  "restrict",
-                  "blend"
-                ],
-                "type": "string"
-              },
-              "seeds": {
-                "description": "Seed node ids. Required for restrict; blend defaults to the top-5 base-recall hits.",
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "types": {
-                "description": "Link-type allowlist.",
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "weight": {
-                "description": "Blend weight in [0,1], default 0.3. Ignored for restrict.",
-                "type": "number"
-              }
-            },
-            "required": [
-              "mode"
-            ],
-            "type": "object"
-          },
-          "k": {
-            "description": "Number of memories to return (default 10).",
-            "type": "integer"
-          },
           "namespace": {
             "type": "string"
           },
           "query": {
-            "description": "Query text (BM25, or embedded when semantic:true).",
-            "type": "string"
-          },
-          "recency_weight": {
-            "description": "Blend relevance with recency in [0,1]; 0=pure relevance, 1=pure recency.",
-            "type": "number"
+            "type": "string",
+            "description": "Query text (BM25, or embedded when semantic:true)."
           },
           "semantic": {
-            "description": "Embed `query` server-side and recall by meaning.",
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Embed `query` server-side and recall by meaning."
           },
           "vector": {
-            "description": "Query embedding for pure vector recall (takes precedence).",
+            "type": "array",
             "items": {
               "type": "number"
             },
-            "type": "array"
+            "description": "Query embedding for pure vector recall (takes precedence)."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of memories to return (default 10)."
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional metadata pre-filter (ES query clause)."
+          },
+          "recency_weight": {
+            "type": "number",
+            "description": "Blend relevance with recency in [0,1]; 0=pure relevance, 1=pure recency."
+          },
+          "graph": {
+            "type": "object",
+            "description": "Optional graph coupling with the namespace's second-brain links (edges index `.xerj-memory-{ns}-edges`). `restrict` recalls only within graph reach of the seeds; `blend` lets graph proximity pull related memories up. Degrades gracefully (`no_edges_index:true` in the response) when the namespace has no links yet.",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "restrict",
+                  "blend"
+                ]
+              },
+              "seeds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Seed node ids. Required for restrict; blend defaults to the top-5 base-recall hits."
+              },
+              "hops": {
+                "type": "integer",
+                "description": "1 (default) or 2."
+              },
+              "types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Link-type allowlist."
+              },
+              "weight": {
+                "type": "number",
+                "description": "Blend weight in [0,1], default 0.3. Ignored for restrict."
+              },
+              "as_of": {
+                "description": "Bi-temporal cut: epoch-ms number or RFC3339 string (default now)."
+              }
+            },
+            "required": [
+              "mode"
+            ]
           }
         },
         "required": [
           "namespace"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_brain_ego",
       "description": "One node's annotated neighborhood in a second brain: every link with direction, hop, type, confidence, and the evidence that justified it, plus node previews and a `not_shown` accounting of anything clipped. Links are believed-since/retired (`valid_at`/`invalid_at`); pass `as_of` to replay a past moment. Hops cap at 2 by design — iterate from `reachable`. Proxies GET /_graph/{brain}/ego. Honesty: links come from deterministic lexical detection plus explicit assertions — not neural understanding. XERJ is a search engine with a graph-shaped index over its own documents, not a graph database.",
       "inputSchema": {
+        "type": "object",
         "properties": {
-          "as_of": {
-            "description": "Bi-temporal cut: epoch-ms number or RFC3339 string. Replays what the brain believed at that moment (default now)."
-          },
           "brain": {
-            "description": "Brain name (as created by `xerj brain <folder>` or the link tool).",
-            "type": "string"
+            "type": "string",
+            "description": "Brain name (as created by `xerj brain <folder>` or the link tool)."
+          },
+          "node": {
+            "type": "string",
+            "description": "Node id to expand from (a document _id in the brain's nodes index)."
+          },
+          "hops": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "description": "Neighborhood radius: 1 (default) or 2. Capped at 2 by design."
           },
           "direction": {
-            "description": "Which links to follow (default both).",
+            "type": "string",
             "enum": [
               "out",
               "in",
               "both"
             ],
-            "type": "string"
-          },
-          "hops": {
-            "description": "Neighborhood radius: 1 (default) or 2. Capped at 2 by design.",
-            "enum": [
-              1,
-              2
-            ],
-            "type": "integer"
-          },
-          "include_expired": {
-            "description": "Also return retired links; their `invalid_at` says when they stopped being believed (default false).",
-            "type": "boolean"
-          },
-          "include_nodes": {
-            "description": "Hydrate node title/preview summaries (default true here — the proxy sets it explicitly).",
-            "type": "boolean"
-          },
-          "limit": {
-            "description": "Max returned links; engine clamps to 1..=1000 (default 100). Clipped remainder is reported in `not_shown`.",
-            "type": "integer"
-          },
-          "node": {
-            "description": "Node id to expand from (a document _id in the brain's nodes index).",
-            "type": "string"
+            "description": "Which links to follow (default both)."
           },
           "types": {
-            "description": "Link-type allowlist (e.g. [\"references\"]); absent = all types.",
+            "type": "array",
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "description": "Link-type allowlist (e.g. [\"references\"]); absent = all types."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max returned links; engine clamps to 1..=1000 (default 100). Clipped remainder is reported in `not_shown`."
+          },
+          "as_of": {
+            "description": "Bi-temporal cut: epoch-ms number or RFC3339 string. Replays what the brain believed at that moment (default now)."
+          },
+          "include_expired": {
+            "type": "boolean",
+            "description": "Also return retired links; their `invalid_at` says when they stopped being believed (default false)."
+          },
+          "include_nodes": {
+            "type": "boolean",
+            "description": "Hydrate node title/preview summaries (default true here — the proxy sets it explicitly)."
           }
         },
         "required": [
           "brain",
           "node"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_brain_link",
       "description": "Assert a link between two nodes in a second brain, with the evidence that justifies it — pass the exact quote you are relying on. edge_id is deterministic over (src, type, dst, valid_at), so re-asserting the same fact is idempotent (`created:true/false`); `valid_at` defaults to server-now, so pass it explicitly when a retry must dedupe. Proxies POST /_graph/{brain}/link. Honesty: links come from deterministic lexical detection plus explicit assertions — not neural understanding. XERJ is a search engine with a graph-shaped index over its own documents, not a graph database.",
       "inputSchema": {
+        "type": "object",
         "properties": {
           "brain": {
-            "description": "Brain name. The edges index is created lazily on first link.",
-            "type": "string"
+            "type": "string",
+            "description": "Brain name. The edges index is created lazily on first link."
           },
-          "confidence": {
-            "description": "Assertion confidence in [0,1], default 1.0.",
-            "type": "number"
+          "src": {
+            "type": "string",
+            "description": "Source node id (a document _id)."
           },
           "dst": {
-            "description": "Destination node id. Must differ from `src` (no self-links).",
-            "type": "string"
+            "type": "string",
+            "description": "Destination node id. Must differ from `src` (no self-links)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Link type, e.g. references, mentions, contradicts."
           },
           "evidence": {
+            "type": "object",
             "description": "Why this link exists: {quote, source, offset} — the exact text relied on, where it came from, and its byte offset. Optional, but a link without evidence is shown as asserted-not-detected.",
             "properties": {
-              "offset": {
-                "type": "integer"
-              },
               "quote": {
                 "type": "string"
               },
               "source": {
                 "type": "string"
+              },
+              "offset": {
+                "type": "integer"
               }
-            },
-            "type": "object"
+            }
           },
-          "src": {
-            "description": "Source node id (a document _id).",
-            "type": "string"
+          "weight": {
+            "type": "number",
+            "description": "Link strength in [0,1], default 1.0."
           },
-          "type": {
-            "description": "Link type, e.g. references, mentions, contradicts.",
-            "type": "string"
+          "confidence": {
+            "type": "number",
+            "description": "Assertion confidence in [0,1], default 1.0."
           },
           "valid_at": {
             "description": "When the fact became true: epoch-ms number or RFC3339 string (default now). Part of the deterministic edge_id."
-          },
-          "weight": {
-            "description": "Link strength in [0,1], default 1.0.",
-            "type": "number"
           }
         },
         "required": [
@@ -393,22 +397,22 @@
           "src",
           "dst",
           "type"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_brain_unlink",
       "description": "Retire a link in a second brain — never delete: the edge is soft-invalidated and stays queryable at past `as_of` moments. Get `edge_id` from ego responses. Idempotent: retiring an already-retired link reports `already_invalid_at`. Proxies DELETE /_graph/{brain}/link/{edge_id}. Honesty: links come from deterministic lexical detection plus explicit assertions — not neural understanding. XERJ is a search engine with a graph-shaped index over its own documents, not a graph database.",
       "inputSchema": {
+        "type": "object",
         "properties": {
           "brain": {
-            "description": "Brain name.",
-            "type": "string"
+            "type": "string",
+            "description": "Brain name."
           },
           "edge_id": {
-            "description": "The link's id, from an ego response.",
-            "type": "string"
+            "type": "string",
+            "description": "The link's id, from an ego response."
           },
           "invalid_at": {
             "description": "When the fact stopped being true: epoch-ms number or RFC3339 string (default: server now). The server separately records when it learned this (`expired_at`)."
@@ -417,31 +421,30 @@
         "required": [
           "brain",
           "edge_id"
-        ],
-        "type": "object"
+        ]
       }
     },
     {
       "name": "xerj_brain_overview",
       "description": "Orientation call for a second brain: does it exist, live vs retired link counts, hub nodes (most linked), what taught it (per-detector counts), link types, and a created-over-time timeline. Cheap bounded aggregations, always current; pass `as_of` to summarize a past moment. Proxies GET /_graph/{brain}/overview. Honesty: links come from deterministic lexical detection plus explicit assertions — not neural understanding. XERJ is a search engine with a graph-shaped index over its own documents, not a graph database.",
       "inputSchema": {
+        "type": "object",
         "properties": {
+          "brain": {
+            "type": "string",
+            "description": "Brain name."
+          },
           "as_of": {
             "description": "Bi-temporal cut: epoch-ms number or RFC3339 string (default now)."
           },
-          "brain": {
-            "description": "Brain name.",
-            "type": "string"
-          },
           "top": {
-            "description": "Size of every top-N list; engine clamps to 1..=50 (default 10).",
-            "type": "integer"
+            "type": "integer",
+            "description": "Size of every top-N list; engine clamps to 1..=50 (default 10)."
           }
         },
         "required": [
           "brain"
-        ],
-        "type": "object"
+        ]
       }
     }
   ]

@@ -9,6 +9,7 @@ pub mod coerce;
 mod content;
 pub mod correlate;
 pub mod dataset;
+pub mod def;
 pub mod detect;
 pub mod esclient;
 pub mod estimate;

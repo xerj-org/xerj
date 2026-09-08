@@ -165,13 +165,20 @@
 $ git clone --depth 1 https://github.com/spacejam/sled ref/sled
 $ xerj autoindex ref/sled                        <span class="comment"># index once — tree-sitter AST fields</span>
 $ xerj search <span class="accent">"fsync the WAL segment on rotation"</span>
-→ the exact function, its file:line and contract — one plain-English line in, a passage to read out</pre>
+→ the exact function, its file:line and contract — one plain-English line in, a passage to read out
+$ xerj def <span class="accent">"euler_to_rotationmatrix"</span>
+→ where it is defined: file:line + signature — go-to-definition, one call</pre>
 
   <p class="wide" style="margin-top:var(--sp-3);">
     One binary, no wrapper scripts: <code class="inline">xerj search</code> is a
-    client — it detects the running node and queries it, ranking symbol
-    definitions first (<code class="inline">defs^3</code>) so you get the
-    function, not a grep list. For a whole team, the repeatable-corpus helpers
+    client — it detects the running node and queries it with a definition-first
+    query (an exact-symbol clause plus a phrase match on the AST
+    <code class="inline">defs</code> field) so you get the
+    function, not a grep list — measured at 94% correct-file-at-rank-1 on an
+    80-task cross-file benchmark, against 38% for body-text search. When you
+    already know the name, <code class="inline">xerj def</code> answers the
+    sharper question — where is this defined, what is its signature — in one
+    call. For a whole team, the repeatable-corpus helpers
     (<code class="inline">xc-corpus.sh</code> / <code class="inline">xc.py</code>)
     still ship under
     <a class="mono" href="https://github.com/xerj-org/xerj/tree/main/tools/xerj-code" rel="external" style="color:var(--z-mute);">tools/xerj-code/</a>:
