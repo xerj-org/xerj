@@ -841,10 +841,16 @@ fn parse_pattern_with(toks: &[PatTok], value: &str, text: TextMatch) -> Option<D
     if st.i != value.len() {
         return None; // ES: "unparsed text found at index N"
     }
-    if st.has_ampm && st.pm {
+    if st.has_ampm {
         if let Some(h) = st.parts.hour {
-            if h < 12 {
-                st.parts.hour = Some(h + 12);
+            if st.pm {
+                // PM: 12 o'clock stays 12; 1-11 shift to 13-23.
+                if h < 12 {
+                    st.parts.hour = Some(h + 12);
+                }
+            } else if h == 12 {
+                // AM: 12 o'clock is hour 0 (midnight); 1-11 are unchanged.
+                st.parts.hour = Some(0);
             }
         }
     }
@@ -2451,5 +2457,26 @@ mod ignored_metadata_field_oracle {
             crate::parse_request(&body).is_err(),
             "an unrepresentable range bound must be a 400, not an abort"
         );
+    }
+}
+
+#[cfg(test)]
+mod ampm_twelve_hour_tests {
+    use super::{compile_formats, resolve_date_bound_str};
+
+    fn resolve(value: &str) -> Option<String> {
+        let fmts = compile_formats("hh:mm a").unwrap();
+        resolve_date_bound_str(value, false, Some(&fmts)).unwrap()
+    }
+
+    #[test]
+    fn twelve_hour_clock_converts_to_24h_like_elasticsearch() {
+        // java.time `h` (clock-hour-of-am-pm) with the `a` marker:
+        // AM 12 -> 00, AM 1-11 unchanged, PM 12 -> 12, PM 1-11 -> +12.
+        assert_eq!(resolve("12:30 AM").as_deref(), Some("1970-01-01T00:30:00.000Z"));
+        assert_eq!(resolve("01:30 AM").as_deref(), Some("1970-01-01T01:30:00.000Z"));
+        assert_eq!(resolve("11:30 AM").as_deref(), Some("1970-01-01T11:30:00.000Z"));
+        assert_eq!(resolve("12:30 PM").as_deref(), Some("1970-01-01T12:30:00.000Z"));
+        assert_eq!(resolve("01:30 PM").as_deref(), Some("1970-01-01T13:30:00.000Z"));
     }
 }
