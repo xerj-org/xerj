@@ -19,6 +19,10 @@ pub enum Family {
     TxtProse,
     TxtLines,
     Pdf,
+    /// RFC 5322 / MIME email message (`.eml`, `message/rfc822`): headers parsed
+    /// into fields, MIME decoded, and each attachment indexed as its own
+    /// document (PDFs routed to the PDF extractor).
+    Eml,
     Docx,
     Sqlite,
     SqlDump,
@@ -55,6 +59,7 @@ impl Family {
             Family::TxtProse => "txt-prose",
             Family::TxtLines => "txt-lines",
             Family::Pdf => "pdf",
+            Family::Eml => "eml",
             Family::Docx => "docx",
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
@@ -68,7 +73,10 @@ impl Family {
     }
     /// Document-family formats produce one record per document/section.
     pub fn is_document(&self) -> bool {
-        matches!(self, Family::Pdf | Family::Docx | Family::TxtProse)
+        matches!(
+            self,
+            Family::Pdf | Family::Docx | Family::TxtProse | Family::Eml
+        )
     }
 }
 
@@ -1033,6 +1041,14 @@ pub fn decode_text(bytes: &[u8]) -> (String, &'static str) {
 }
 
 fn classify_text(text: &str, nonblank: &[&str]) -> Family {
+    // Email wins first: an RFC 5322 message opens with a header block whose lines
+    // (`From:`/`Date:`/`Message-ID:`/…) would otherwise be misread as prose or a
+    // key:value log. Gated on a STRONG header plus >=3 canonical headers so an
+    // ordinary `key: value` config or YAML never trips it.
+    if looks_like_email(nonblank) {
+        return Family::Eml;
+    }
+
     // Structured families (JSON/HTML/XML/logs/SQL/CSV) win first, for the whole
     // file and — via the #551 frontmatter lookahead below — for a frontmatter
     // body too.
@@ -1093,6 +1109,88 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
     }
 
     txt_kind(nonblank)
+}
+
+/// Header name of an RFC 5322 header line (`From`, `Content-Type`, `X-Mailer`),
+/// or `None` if the line is not `Name: …` with an RFC 822 field name.
+fn header_name(line: &str) -> Option<&str> {
+    let colon = line.find(':')?;
+    let name = &line[..colon];
+    if name.is_empty()
+        || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        || !name.as_bytes()[0].is_ascii_alphabetic()
+    {
+        return None;
+    }
+    Some(name)
+}
+
+/// Does this text open like an email? Requires the first line to be a header, a
+/// STRONG header (`From`/`Date`/`Message-ID`/`Received`/…) somewhere in the
+/// opening block, and at least three canonical email headers total — enough to
+/// separate a real message from a `key: value` config that merely uses colons.
+fn looks_like_email(nonblank: &[&str]) -> bool {
+    const STRONG: &[&str] = &[
+        "from",
+        "date",
+        "message-id",
+        "received",
+        "return-path",
+        "delivered-to",
+        "dkim-signature",
+    ];
+    const KNOWN: &[&str] = &[
+        "from",
+        "to",
+        "cc",
+        "bcc",
+        "subject",
+        "date",
+        "message-id",
+        "received",
+        "return-path",
+        "reply-to",
+        "in-reply-to",
+        "references",
+        "mime-version",
+        "content-type",
+        "content-transfer-encoding",
+        "content-disposition",
+        "delivered-to",
+        "dkim-signature",
+        "sender",
+        "list-id",
+        "authentication-results",
+        "x-mailer",
+    ];
+    if !nonblank
+        .first()
+        .map(|l| header_name(l).is_some())
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    let mut strong = false;
+    let mut known = 0usize;
+    for line in nonblank.iter().take(50) {
+        // Folded continuation lines (leading whitespace) are part of the header
+        // block; the first line that is neither a header nor a fold is the body.
+        let is_fold = line.starts_with(' ') || line.starts_with('\t');
+        match header_name(line) {
+            Some(name) => {
+                let n = name.to_ascii_lowercase();
+                if KNOWN.contains(&n.as_str()) {
+                    known += 1;
+                }
+                if STRONG.contains(&n.as_str()) {
+                    strong = true;
+                }
+            }
+            None if is_fold => {}
+            None => break,
+        }
+    }
+    strong && known >= 3
 }
 
 /// The structured-family branches of [`classify_text`] — JSON/JSONL, HTML/XML,
@@ -1478,6 +1576,30 @@ mod unity_sniff_tests {
         sniff_bytes(s.as_bytes(), Path::new(name), Path::new(name), false)
             .unwrap()
             .family
+    }
+
+    /// A real RFC 5322 message classifies as `Eml`; a `key: value` config or a
+    /// YAML file that merely uses colons must NOT (the detector is gated on a
+    /// strong header plus >=3 canonical email headers).
+    #[test]
+    fn email_is_detected_but_config_is_not() {
+        let email = "From: Dana Klein <dklein@amazon.com>\n\
+                     To: Alex Rivard <alex@xerj.org>\n\
+                     Subject: Acquisition next steps\n\
+                     Date: Tue, 15 Jul 2026 09:12:00 -0700\n\
+                     Message-ID: <deal-1@amazon.com>\n\
+                     MIME-Version: 1.0\n\n\
+                     Alex, let's move to a term sheet.\n";
+        assert_eq!(sniff_str(email, "m.eml"), Family::Eml);
+
+        // A config with colons — one weak match ("subject"? no), no strong header.
+        let config = "name: myapp\nversion: 1.2.3\nport: 8080\ndebug: true\n";
+        assert_ne!(sniff_str(config, "app.yml"), Family::Eml);
+
+        // Even a file that happens to have `to:`/`from:` keys but no strong
+        // header and <3 canonical headers stays out.
+        let sneaky = "to: the moon\nsubject: rockets\ncargo: fuel\n";
+        assert_ne!(sniff_str(sneaky, "notes.txt"), Family::Eml);
     }
 
     #[test]

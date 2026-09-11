@@ -120,6 +120,7 @@ pub fn exact_scan_bytes(
         | Family::TxtProse
         | Family::Code
         | Family::Docx
+        | Family::Eml
         | Family::Pdf => Some(size),
         // Streaming, byte-capped and record-capped.
         Family::Jsonl | Family::Csv | Family::Logs | Family::TxtLines => {

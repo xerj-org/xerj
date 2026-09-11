@@ -103,5 +103,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }  # DOC
 serde_yaml = "0.9"                               # YAML multi-doc
 # The one C dependency (bundled SQLite), isolated to this crate.
 rusqlite = { version = "0.32", features = ["bundled"] }
+mail-parser = "0.11.9"
 
 [dev-dependencies]
+base64 = "0.23.1"

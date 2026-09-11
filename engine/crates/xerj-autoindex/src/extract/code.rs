@@ -1195,6 +1195,13 @@ const PYTHON_Q: &str = r#"
 // as `arrow_function`, so `export const f = function () {}` carries both
 // `@function` and `@const`, where the TS equivalent only does so for arrows.
 // `defs` dedups on (kind, name), so each spelling still answers its own search.
+//
+// The `.bind`-valued declarator (last pattern) is the JS twin of the one in
+// TS_Q — see the rationale there. `const add = game.root.add.bind(game.root)` is
+// how a framework exposes its global API surface, and that binding is the name
+// consumers call. NOT the #170 90%-locals trap (that is `const x = 0`); a
+// `.bind()`-valued const is always a deliberately named bound callable, and it
+// is captured `@function` because that is what it is.
 const JS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (generator_function_declaration name: (identifier) @function)
@@ -1203,6 +1210,7 @@ const JS_Q: &str = r#"
 (variable_declarator name: (identifier) @function value: [(arrow_function) (function_expression)])
 (export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @function value: (arrow_function))))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
+(variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
 "#;
 
 // The last pattern is #170's failure mode in the language where it is most
@@ -1241,6 +1249,26 @@ const JS_Q: &str = r#"
 // file becomes reachable by both `function Button` and `const Button`, which is
 // what a caller searching for either would expect; suppressing one would mean
 // choosing which of the two true statements to hide.
+//
+// The last pattern (`.bind`-valued declarator) captures the re-binding idiom
+// `const tween = game.root.tween.bind(game.root)`. Whole libraries expose their
+// public API this way — a framework builds a context object of methods bound to
+// a root, and the ~40 lines `const add = ….add.bind(…)`, `const get = …`, `const
+// wait = …` ARE the global surface every consumer calls as `add(...)`,
+// `tween(...)`. Measured against kaplay (a game engine): before this, `def
+// "tween"` returned only the method form `tween<V>(this: GameObj<TimerComp>, …)`,
+// so an agent wrote `e.tween(...)` and crashed — the callable global was in the
+// index but unreachable by name. Captured `@function` because a bound method IS
+// a callable and `def --kind function` should reach it.
+//
+// This is the ONE unanchored variable capture in TS_Q, and it is NOT the
+// #170/#285 90%-locals trap the other patterns anchor away from: that trap is
+// `const x = 0` / `const el = query(...)` — every function-local binding. A
+// `.bind()`-valued declarator is never that; it is a deliberately named,
+// reusable bound callable, which is exactly why it is worth a symbol. Unanchored
+// ON PURPOSE — these bindings live INSIDE the context-builder function body,
+// where `program`-anchoring (used for the plain-const pattern above) would
+// exclude them.
 const TS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (class_declaration name: (type_identifier) @class)
@@ -1250,6 +1278,7 @@ const TS_Q: &str = r#"
 (enum_declaration name: (identifier) @enum)
 (variable_declarator name: (identifier) @function value: (arrow_function))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
+(variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
 "#;
 
 // `const_item` / `static_item` are captured because a file whose whole content
@@ -2781,6 +2810,54 @@ mod tests {
         let s = syms("typescript", "export const Button = () => 1;\n");
         assert!(has(&s, "Button", "function"), "got {s:?}");
         assert!(has(&s, "Button", "const"), "got {s:?}");
+    }
+
+    /// The `.bind()` re-binding idiom is how a framework exposes its global API:
+    /// `const tween = game.root.tween.bind(game.root)` inside a context builder.
+    /// That binding IS the callable name consumers use (`tween(...)`), so `def
+    /// "tween"` must reach it — before this, only the method form was a symbol
+    /// and an agent wrote the crashing `e.tween(...)`. This is kaplay's exact
+    /// core/context.ts shape, verbatim down to the function-body nesting.
+    #[test]
+    fn typescript_bound_global_is_captured() {
+        let s = syms(
+            "typescript",
+            "export const createContext = (e): Ctx => {\n\
+            \x20   const { game } = e;\n\
+            \x20   const add = game.root.add.bind(game.root);\n\
+            \x20   const tween = game.root.tween.bind(game.root);\n\
+            \x20   const spawnTimer = 0;\n\
+            \x20   return { add, tween };\n\
+             };\n",
+        );
+        // The bound globals are reachable by name, despite living inside the
+        // builder's function body (unexported, unanchored).
+        assert!(has(&s, "add", "function"), "got {s:?}");
+        assert!(has(&s, "tween", "function"), "got {s:?}");
+        // The #170 boundary holds: a plain function-local const is still NOT a
+        // symbol — only the `.bind()`-valued declarators are.
+        assert!(
+            !has(&s, "spawnTimer", "function") && !has(&s, "spawnTimer", "const"),
+            "reintroduced the 90%-locals trap: {s:?}"
+        );
+    }
+
+    /// Same idiom, JavaScript grammar (JS_Q's twin pattern).
+    #[test]
+    fn javascript_bound_global_is_captured() {
+        let s = syms(
+            "javascript",
+            "function make(root){\n\
+            \x20   const wait = root.wait.bind(root);\n\
+            \x20   const n = 0;\n\
+            \x20   return { wait };\n\
+             }\n",
+        );
+        assert!(has(&s, "wait", "function"), "got {s:?}");
+        assert!(
+            !has(&s, "n", "function") && !has(&s, "n", "const"),
+            "got {s:?}"
+        );
     }
 
     /// `.mts`/`.cts` are TypeScript's ESM/CJS file extensions, the exact
