@@ -14431,6 +14431,14 @@ impl Index {
         // the query with that same embedder and kNN against `target_field`.
         let (knn_field, dims, is_semantic_text, similarity) = {
             let schema = self.schema.read().await;
+            // Resolve a field alias to its concrete target first, so `semantic`
+            // respects field aliases the way `match`/`term` already do. A console
+            // or agent that queries `embedding` — aliased to the corpus's real
+            // semantic field (e.g. autoindex's `body`) — then finds that field's
+            // embedding config and kNNs against its companion vector, instead of
+            // falling through to treat the (aliased, vectorless) name as the
+            // vector field and matching nothing.
+            let field = &resolve_field_alias(&schema.schema, field);
             match schema.schema.field(field) {
                 Some(fc) if fc.embedding.is_some() => {
                     let emb = fc.embedding.as_ref().unwrap();
