@@ -181,9 +181,12 @@ pub fn band(rel: &str, family: Family) -> Band {
         return Band::Vendored;
     }
     match family {
-        Family::Code | Family::TxtProse | Family::Html | Family::Pdf | Family::Docx => {
-            Band::SourceAndDocs
-        }
+        Family::Code
+        | Family::TxtProse
+        | Family::Html
+        | Family::Pdf
+        | Family::Docx
+        | Family::Eml => Band::SourceAndDocs,
         Family::Yaml | Family::Json | Family::Xml => Band::Config,
         Family::Csv | Family::Jsonl | Family::Sqlite | Family::SqlDump => Band::Data,
         Family::Logs | Family::TxtLines => Band::Bulk,

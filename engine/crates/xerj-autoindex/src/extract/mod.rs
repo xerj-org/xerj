@@ -6,6 +6,7 @@ pub mod bvh;
 pub mod code;
 pub mod csv_x;
 pub mod docx;
+pub mod eml;
 pub mod html;
 pub mod json;
 pub mod jsonl;
@@ -201,6 +202,7 @@ pub fn extract(
         Family::TxtProse => txt::extract_prose(path, sn.gzip, sink),
         Family::TxtLines => txt::extract_lines(path, sn.gzip, limit_bytes, sink),
         Family::Pdf => pdf::extract(path, sink),
+        Family::Eml => eml::extract(path, sn.gzip, sink),
         Family::Docx => docx::extract(path, sink),
         Family::Sqlite => sqlite_x::extract(path, limit_bytes.map(|_| 500), sink),
         Family::SqlDump => sqldump::extract(path, sn.gzip, limit_bytes, sink),
