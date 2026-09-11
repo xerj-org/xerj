@@ -29,7 +29,8 @@ export const alerts = {
   render: ({ data, time }) => ({
     title: 'ALERTS',
     kicker: 'RULES · FIRES · CONNECTORS',
-    meta: [time, 'AS CODE · NO WATCHER APP'],
+    meta: [time, 'SAMPLE DATA'],
+    caption: 'Illustrative sample data — this view is not yet wired to your engine\'s alert rules. It shows the intended shape (rules as code, no separate Watcher app), not live fires.',
     caption: 'Alert rules as code, not YAML in a hidden app. Every rule is a JSON file under `xerj.rules.*` you can diff, review, and version. This view is the operator surface — active fires, rule health, connector status, and the corpus evidence that says Kibana got this wrong.',
     panels: [
 
