@@ -291,29 +291,14 @@ function bucketsToFacet(agg) {
 // mock; once a metrics-ingest adapter lands in v0.7.x we'll fill
 // the live shape from the same xerj indices the user is watching.
 async function liveSystem(baseUrl, ctx, signal) {
-  // We don't have a host-metrics agent today, but `_cluster/stats`
-  // gives us real numbers we can drop into the headline tiles.
-  let stats;
-  try {
-    const r = await fetch(baseUrl + '/_cluster/stats', { signal });
-    if (!r.ok) return null;
-    stats = await r.json();
-  } catch (_e) { return null; }
+  // Every panel this dashboard shows (CPU/mem/net, per-host, top-processes,
+  // failed logins) is SAMPLE data — XERJ has no host-metrics agent, and the old
+  // `_cluster/stats` overlay never ran anyway (it fetched the logical
+  // backendBaseUrl :9200, which isn't reachable, so it returned null → mock).
+  // Return the sample shape flagged `_sample` (never null) so query.js labels
+  // the pill an honest "SAMPLE DATA" rather than "MOCK FALLBACK". The engine's
+  // real cluster figures (documents / indices / store) live on the Data tab.
   const base = await loadMock('system', ctx);
-  const docs    = stats?.indices?.docs?.count   || 0;
-  const bytes   = stats?.indices?.store?.size_in_bytes || 0;
-  const idxN    = stats?.indices?.count          || 0;
-  const shardN  = stats?.indices?.shards?.total  || 0;
-  base.metrics = base.metrics || {};
-  base.metrics.cpu     = base.metrics.cpu     || { value: 0, formatted: '—' };
-  base.metrics.disk    = { value: bytes, formatted: (bytes / 1e9).toFixed(2) + ' GB', hint: 'live · xerj · stored' };
-  base.metrics.docs    = { value: docs,  formatted: docs.toLocaleString('en-US'), hint: 'live · xerj' };
-  base.metrics.indices = { value: idxN,  formatted: String(idxN), hint: `live · xerj · ${shardN} shards` };
-  base._live = { source: '_cluster/stats', docs, bytes, indices: idxN, shards: shardN };
-  // Cluster figures above are real; the host-metrics panels (CPU/mem/net,
-  // per-host, top-processes, auth) are sample data — XERJ has no host-metrics
-  // agent. Flag it so query.js labels the pill "LIVE + SAMPLE METRICS" instead
-  // of a flat LIVE, and the dashboard can disclose it.
   base._sample = true;
   return base;
 }
