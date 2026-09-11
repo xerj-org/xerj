@@ -440,7 +440,11 @@ function runSearchNow() {
       state.fetchMs   = res.meta?.durationMs ?? state.fetchMs;
       // The visible hits are live — reflect that in the pill for search-driven
       // views (discover, case-review), overriding any mock label.
-      if (res.meta?.sourceLabel) { state.sourceLabel = res.meta.sourceLabel; state.sourceKind = res.meta.sourceKind; }
+      // Only relabel if we're still on the search-driven view — a late search
+      // resolving after you've navigated away must not repaint the new view.
+      if (res.meta?.sourceLabel && (state.section === 'discover' || state.section === 'dashboards')) {
+        state.sourceLabel = res.meta.sourceLabel; state.sourceKind = res.meta.sourceKind;
+      }
       // Re-render the page so the table swaps mock → live without
       // requiring user interaction. Also covers the dashboards section, where
       // Case Review reads the same live hits.
@@ -1008,6 +1012,11 @@ async function render() {
   if (isDeclarative) {
     data = {};
     state.fetchErr = null;
+    // A user dashboard fetches per-panel (panel-query.js) and never touches the
+    // shared query() path, so stamp its own label here — otherwise navStatus
+    // would inherit the previously-viewed dashboard's pill.
+    state.sourceLabel = 'LIVE · XERJ · CUSTOM PANELS';
+    state.sourceKind = 'live';
     // NOTE: index priming happens in openBuilder(), NOT here — calling it
     // per-render would re-enter render() and loop.
   } else if (state.section === 'data' || state.section === 'settings') {
@@ -1020,6 +1029,11 @@ async function render() {
     } catch (err) {
       data = {};
       fetchErr = err;
+      // Surface the failure in the pill instead of leaving the prior view's
+      // label on a section that loaded nothing.
+      state.fetchErr = err.message || String(err);
+      state.sourceLabel = `${state.section.toUpperCase()}: LOAD FAILED`;
+      state.sourceKind = 'live-error';
     }
   } else {
     state.loading = true;
