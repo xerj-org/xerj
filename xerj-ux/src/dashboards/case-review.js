@@ -82,13 +82,16 @@ function reader(hit) {
 export const caseReview = {
   id:   'case-review',
   name: 'Case Review',
-  // Preset the shared search state the first time this dashboard is opened.
-  preset: { type: 'semantic', index: 'ai-kb' },
-  render: ({ search }) => {
+  // Preset the shared search TYPE the first time this dashboard is opened; the
+  // index is set by the shell (app.js) to the detected email corpus, so this
+  // dashboard aligns to whatever index the emails were autoindexed into.
+  preset: { type: 'semantic' },
+  render: ({ search, emailIndex }) => {
     const r = search?.result;
     const hits = r?.hits || [];
     const selectedId = search?.selectedId;
     const selected = hits.find(h => h._id === selectedId) || null;
+    const idx = search?.index || emailIndex || '*';
 
     return {
       title:  'CASE REVIEW',
@@ -101,8 +104,8 @@ export const caseReview = {
             value: search?.q ?? '',
             types: QUERY_TYPES,
             activeType: search?.type ?? 'semantic',
-            indices: ['ai-kb'],
-            activeIndex: search?.index ?? 'ai-kb',
+            indices: [idx],
+            activeIndex: idx,
             filters: {},
           }),
         },

@@ -33,7 +33,12 @@ export function mappingHasEmailCorpus(mapping) {
  * false on transport failure, non-OK status, or empty baseUrl.
  */
 export async function emailCorpusPresent(baseUrl, signal) {
-  const base = (baseUrl || '').replace(/\/+$/, '');
+  // Direct `_mapping` goes same-origin (the console serves ES-compat on its own
+  // origin). The logical `backendBaseUrl` ('http://localhost:9200') is a proxy
+  // id, not reachable, so prefer the window origin like data-sources.js does.
+  const base = (typeof window !== 'undefined' && window.location && window.location.origin)
+    ? window.location.origin
+    : (baseUrl || '').replace(/\/+$/, '');
   if (!base) return false;
 
   const hit = cache.get(base);

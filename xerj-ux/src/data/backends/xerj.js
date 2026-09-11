@@ -10,6 +10,7 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
+import { schemaForSearch, indexNames } from '../schema.js';
 
 // Aggregation materialisation bypass.
 //
@@ -137,14 +138,27 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
   const search = ctx.search || {};
   const q = search.q || '';
   const type = search.type || 'match';
-  const index = search.index === '*' ? '_all' : (search.index || '_all');
+  let index = search.index === '*' ? '_all' : (search.index || '_all');
 
-  const body = buildSearchBody(q, type, ctx);
+  // The console's panel-search proxy resolves a single exact index only —
+  // wildcard/_all/multi-index 501s. When the user picks "*"/_all, target the
+  // primary (first) real index so search runs against the indexed corpus
+  // instead of erroring. (For the common single-corpus install, "*" == it.)
+  if (index === '_all') {
+    const names = await indexNames(baseUrl, signal);
+    if (names.length) index = names[0];
+  }
+
+  // Align the query to the data: derive which fields to search / facet on from
+  // the real mapping, so `match`/`semantic`/`phrase` hit fields that exist.
+  const roles = await schemaForSearch(baseUrl, index, signal);
+
+  const body = buildSearchBody(q, type, ctx, roles);
   let response;
   try {
     response = await rawSearch(baseUrl, index, body, signal);
   } catch (e) {
-    return { error: String(e), hits: [], total: 0, took: 0, facets: {} };
+    return { error: String(e), hits: [], total: 0, took: 0, facets: {}, roles };
   }
 
   const total = response.hits?.total?.value ?? response.hits?.total ?? 0;
@@ -155,21 +169,27 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
     _source: h._source,
     '@timestamp': h._source?.['@timestamp'] || null,
   }));
-  const facets = {
-    by_level:   bucketsToFacet(response.aggregations?.by_level),
-    by_service: bucketsToFacet(response.aggregations?.by_service),
-    by_host:    bucketsToFacet(response.aggregations?.by_host),
-  };
+  // Facets follow the data too: one entry per derived keyword field, plus
+  // `_index`. The dashboard renders whatever fields come back.
+  const facets = { _index: bucketsToFacet(response.aggregations?.by__index) };
+  for (const f of roles.keywordFields.slice(0, 3)) {
+    facets[f] = bucketsToFacet(response.aggregations?.[`by_${f}`]);
+  }
   return {
     total,
     took: response.took ?? 0,
     hits,
     facets,
+    roles,
     raw: { query: body, response },
   };
 }
 
-function buildSearchBody(q, type, ctx) {
+function buildSearchBody(q, type, ctx, roles) {
+  // Field roles derived from the real mapping (schema.js). Fall back to the
+  // common autoindex/log defaults if a caller didn't pass them.
+  const textField = roles?.textField || 'body';
+  const semanticField = roles?.semanticField || textField;
   const inner = (() => {
     switch (type) {
       case 'term': {
@@ -183,21 +203,21 @@ function buildSearchBody(q, type, ctx) {
         const k = op === '>=' ? 'gte' : op === '<=' ? 'lte' : op === '>' ? 'gt' : 'lt';
         return { range: { [f]: { [k]: Number(v) } } };
       }
-      case 'prefix':   return q ? { prefix: { message: q } } : { match_all: {} };
-      case 'phrase':   return q ? { match_phrase: { message: q } } : { match_all: {} };
-      case 'semantic': return q ? { semantic: { field: 'embedding', query: q, k: 10 } }
+      case 'prefix':   return q ? { prefix: { [textField]: q } } : { match_all: {} };
+      case 'phrase':   return q ? { match_phrase: { [textField]: q } } : { match_all: {} };
+      case 'semantic': return q ? { semantic: { field: semanticField, query: q, k: 10 } }
                                 : { match_all: {} };
       case 'hybrid':   return q ? {
         hybrid: {
           queries: [
-            { query: { match: { message: q } }, weight: 1.0 },
-            { query: { semantic: { field: 'embedding', query: q, k: 10 } }, weight: 0.8 },
+            { query: { match: { [textField]: q } }, weight: 1.0 },
+            { query: { semantic: { field: semanticField, query: q, k: 10 } }, weight: 0.8 },
           ],
           fusion: { type: 'rrf', k: 60 },
         }
       } : { match_all: {} };
       case 'knn':      return { match_all: {} }; // raw knn needs vector input — UI shows DSL only
-      default:         return q ? { match: { message: q } } : { match_all: {} };
+      default:         return q ? { match: { [textField]: q } } : { match_all: {} };
     }
   })();
 
@@ -206,16 +226,13 @@ function buildSearchBody(q, type, ctx) {
     ? { bool: { must: inner, filter: filterList } }
     : inner;
 
-  return {
-    query,
-    size: 25,
-    track_total_hits: true,
-    aggs: {
-      by_level:   { terms: { field: 'level',   size: 8 } },
-      by_service: { terms: { field: 'service', size: 8 } },
-      by_host:    { terms: { field: 'host',    size: 8 } },
-    },
-  };
+  // Facet aggregations on the derived keyword fields (+ `_index` always).
+  const aggs = { by__index: { terms: { field: '_index', size: 8 } } };
+  for (const f of (roles?.keywordFields || []).slice(0, 3)) {
+    aggs[`by_${f}`] = { terms: { field: f, size: 8 } };
+  }
+
+  return { query, size: 25, track_total_hits: true, aggs };
 }
 
 function bucketsToFacet(agg) {
