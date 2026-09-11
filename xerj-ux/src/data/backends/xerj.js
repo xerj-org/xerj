@@ -10,6 +10,7 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
+import { schemaForSearch, indexNames, emailIndex } from '../schema.js';
 
 // Aggregation materialisation bypass.
 //
@@ -110,6 +111,7 @@ async function rawSearch(baseUrl, index, body, signal) {
 export async function search(baseUrl, dashId, ctx, signal) {
   switch (dashId) {
     case 'search-discover':       return liveSearchDiscover(baseUrl, ctx, signal);
+    case 'case-review':           return liveCaseReview(baseUrl, ctx, signal);
     case 'system':                return liveSystem(baseUrl, ctx, signal);
     case 'logs-overview':         return liveLogsOverview(baseUrl, ctx, signal);
     case 'data':                  return liveData(baseUrl, ctx, signal);
@@ -128,6 +130,46 @@ export async function search(baseUrl, dashId, ctx, signal) {
   }
 }
 
+// ── case-review ─────────────────────────────────────────────────────
+//
+// The Case Review dashboard renders its email/PDF cards + reader from the
+// shared SEARCH result (state.search.result, fed by runSearchNow), not from
+// this `data` object. But without a live adapter here, query.js would see a
+// null return, fetch UNUSED mock data, and stamp the nav status "MOCK FALLBACK"
+// on a page whose visible content is fully live — misleading the user into
+// thinking the whole console is fake. So return a real, non-null object: the
+// actual corpus counts from the engine (one round-trip), which also gives the
+// dashboard an honest "what's indexed" line.
+async function liveCaseReview(baseUrl, ctx, signal) {
+  const index = (await emailIndex(baseUrl, signal)) || 'inbox-docs';
+  try {
+    const resp = await rawSearch(baseUrl, index, {
+      size: 0,
+      track_total_hits: true,
+      query: { match_all: {} },
+      aggs: {
+        emails: { filter: { exists: { field: 'email_subject' } } },
+        attachments: { filter: { exists: { field: 'attachment_name' } } },
+      },
+    }, signal);
+    const total = resp.hits?.total?.value ?? resp.hits?.total ?? 0;
+    return {
+      corpus: {
+        index,
+        total,
+        emails: resp.aggregations?.emails?.doc_count ?? 0,
+        attachments: resp.aggregations?.attachments?.doc_count ?? 0,
+      },
+      _live: true,
+    };
+  } catch (e) {
+    // Engine reachable but the count query failed — still return a non-null
+    // live marker so the status reflects the live search the cards use, rather
+    // than falsely reading MOCK FALLBACK.
+    return { corpus: { index, total: 0, emails: 0, attachments: 0 }, _live: true };
+  }
+}
+
 // ── search-discover ────────────────────────────────────────────────
 //
 // The dashboard's `q` / `type` / `index` come in via ctx.search; we
@@ -137,14 +179,27 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
   const search = ctx.search || {};
   const q = search.q || '';
   const type = search.type || 'match';
-  const index = search.index === '*' ? '_all' : (search.index || '_all');
+  let index = search.index === '*' ? '_all' : (search.index || '_all');
 
-  const body = buildSearchBody(q, type, ctx);
+  // The console's panel-search proxy resolves a single exact index only —
+  // wildcard/_all/multi-index 501s. When the user picks "*"/_all, target the
+  // primary (first) real index so search runs against the indexed corpus
+  // instead of erroring. (For the common single-corpus install, "*" == it.)
+  if (index === '_all') {
+    const names = await indexNames(baseUrl, signal);
+    if (names.length) index = names[0];
+  }
+
+  // Align the query to the data: derive which fields to search / facet on from
+  // the real mapping, so `match`/`semantic`/`phrase` hit fields that exist.
+  const roles = await schemaForSearch(baseUrl, index, signal);
+
+  const body = buildSearchBody(q, type, ctx, roles);
   let response;
   try {
     response = await rawSearch(baseUrl, index, body, signal);
   } catch (e) {
-    return { error: String(e), hits: [], total: 0, took: 0, facets: {} };
+    return { error: String(e), hits: [], total: 0, took: 0, facets: {}, roles };
   }
 
   const total = response.hits?.total?.value ?? response.hits?.total ?? 0;
@@ -155,21 +210,27 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
     _source: h._source,
     '@timestamp': h._source?.['@timestamp'] || null,
   }));
-  const facets = {
-    by_level:   bucketsToFacet(response.aggregations?.by_level),
-    by_service: bucketsToFacet(response.aggregations?.by_service),
-    by_host:    bucketsToFacet(response.aggregations?.by_host),
-  };
+  // Facets follow the data too: one entry per derived keyword field, plus
+  // `_index`. The dashboard renders whatever fields come back.
+  const facets = { _index: bucketsToFacet(response.aggregations?.by__index) };
+  for (const f of roles.keywordFields.slice(0, 3)) {
+    facets[f] = bucketsToFacet(response.aggregations?.[`by_${f}`]);
+  }
   return {
     total,
     took: response.took ?? 0,
     hits,
     facets,
+    roles,
     raw: { query: body, response },
   };
 }
 
-function buildSearchBody(q, type, ctx) {
+function buildSearchBody(q, type, ctx, roles) {
+  // Field roles derived from the real mapping (schema.js). Fall back to the
+  // common autoindex/log defaults if a caller didn't pass them.
+  const textField = roles?.textField || 'body';
+  const semanticField = roles?.semanticField || textField;
   const inner = (() => {
     switch (type) {
       case 'term': {
@@ -183,21 +244,21 @@ function buildSearchBody(q, type, ctx) {
         const k = op === '>=' ? 'gte' : op === '<=' ? 'lte' : op === '>' ? 'gt' : 'lt';
         return { range: { [f]: { [k]: Number(v) } } };
       }
-      case 'prefix':   return q ? { prefix: { message: q } } : { match_all: {} };
-      case 'phrase':   return q ? { match_phrase: { message: q } } : { match_all: {} };
-      case 'semantic': return q ? { semantic: { field: 'embedding', query: q, k: 10 } }
+      case 'prefix':   return q ? { prefix: { [textField]: q } } : { match_all: {} };
+      case 'phrase':   return q ? { match_phrase: { [textField]: q } } : { match_all: {} };
+      case 'semantic': return q ? { semantic: { field: semanticField, query: q, k: 10 } }
                                 : { match_all: {} };
       case 'hybrid':   return q ? {
         hybrid: {
           queries: [
-            { query: { match: { message: q } }, weight: 1.0 },
-            { query: { semantic: { field: 'embedding', query: q, k: 10 } }, weight: 0.8 },
+            { query: { match: { [textField]: q } }, weight: 1.0 },
+            { query: { semantic: { field: semanticField, query: q, k: 10 } }, weight: 0.8 },
           ],
           fusion: { type: 'rrf', k: 60 },
         }
       } : { match_all: {} };
       case 'knn':      return { match_all: {} }; // raw knn needs vector input — UI shows DSL only
-      default:         return q ? { match: { message: q } } : { match_all: {} };
+      default:         return q ? { match: { [textField]: q } } : { match_all: {} };
     }
   })();
 
@@ -206,16 +267,13 @@ function buildSearchBody(q, type, ctx) {
     ? { bool: { must: inner, filter: filterList } }
     : inner;
 
-  return {
-    query,
-    size: 25,
-    track_total_hits: true,
-    aggs: {
-      by_level:   { terms: { field: 'level',   size: 8 } },
-      by_service: { terms: { field: 'service', size: 8 } },
-      by_host:    { terms: { field: 'host',    size: 8 } },
-    },
-  };
+  // Facet aggregations on the derived keyword fields (+ `_index` always).
+  const aggs = { by__index: { terms: { field: '_index', size: 8 } } };
+  for (const f of (roles?.keywordFields || []).slice(0, 3)) {
+    aggs[`by_${f}`] = { terms: { field: f, size: 8 } };
+  }
+
+  return { query, size: 25, track_total_hits: true, aggs };
 }
 
 function bucketsToFacet(agg) {
@@ -233,25 +291,15 @@ function bucketsToFacet(agg) {
 // mock; once a metrics-ingest adapter lands in v0.7.x we'll fill
 // the live shape from the same xerj indices the user is watching.
 async function liveSystem(baseUrl, ctx, signal) {
-  // We don't have a host-metrics agent today, but `_cluster/stats`
-  // gives us real numbers we can drop into the headline tiles.
-  let stats;
-  try {
-    const r = await fetch(baseUrl + '/_cluster/stats', { signal });
-    if (!r.ok) return null;
-    stats = await r.json();
-  } catch (_e) { return null; }
+  // Every panel this dashboard shows (CPU/mem/net, per-host, top-processes,
+  // failed logins) is SAMPLE data — XERJ has no host-metrics agent, and the old
+  // `_cluster/stats` overlay never ran anyway (it fetched the logical
+  // backendBaseUrl :9200, which isn't reachable, so it returned null → mock).
+  // Return the sample shape flagged `_sample` (never null) so query.js labels
+  // the pill an honest "SAMPLE DATA" rather than "MOCK FALLBACK". The engine's
+  // real cluster figures (documents / indices / store) live on the Data tab.
   const base = await loadMock('system', ctx);
-  const docs    = stats?.indices?.docs?.count   || 0;
-  const bytes   = stats?.indices?.store?.size_in_bytes || 0;
-  const idxN    = stats?.indices?.count          || 0;
-  const shardN  = stats?.indices?.shards?.total  || 0;
-  base.metrics = base.metrics || {};
-  base.metrics.cpu     = base.metrics.cpu     || { value: 0, formatted: '—' };
-  base.metrics.disk    = { value: bytes, formatted: (bytes / 1e9).toFixed(2) + ' GB', hint: 'live · xerj · stored' };
-  base.metrics.docs    = { value: docs,  formatted: docs.toLocaleString('en-US'), hint: 'live · xerj' };
-  base.metrics.indices = { value: idxN,  formatted: String(idxN), hint: `live · xerj · ${shardN} shards` };
-  base._live = { source: '_cluster/stats', docs, bytes, indices: idxN, shards: shardN };
+  base._sample = true;
   return base;
 }
 

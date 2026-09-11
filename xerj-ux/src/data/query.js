@@ -87,6 +87,12 @@ export async function query(ctx = {}) {
     // see "the backend is up but this query failed."
     _lastSourceKind = 'live-error';
     _lastSourceLabel = `${BACKENDS[backendId]?.meta?.label || backendId}: ${String(data.error).slice(0, 80)}`;
+  } else if (data._sample) {
+    // The shape carries fabricated/sample panels the engine can't produce
+    // (e.g. system host-metrics — no metrics agent). Never claim LIVE for it;
+    // label it SAMPLE so a demo panel is never mistaken for measured data.
+    _lastSourceKind = 'sample';
+    _lastSourceLabel = `${BACKENDS[backendId]?.meta?.label || backendId}: SAMPLE DATA`;
   } else {
     _lastSourceKind = 'live';
     _lastSourceLabel = `LIVE · ${BACKENDS[backendId]?.meta?.label || backendId} · ${baseUrl || ''}`;
@@ -108,6 +114,7 @@ export async function query(ctx = {}) {
       backendLabel: BACKENDS[backendId]?.meta?.label || backendId,
       baseUrl,
       sourceKind: _lastSourceKind,
+      sourceLabel: _lastSourceLabel,
       liveError,
     },
   };

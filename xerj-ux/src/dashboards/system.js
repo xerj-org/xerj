@@ -14,8 +14,9 @@ export const system = {
   name: 'System',
   render: ({ data, time }) => ({
     title:  'SYSTEM · OVERVIEW',
-    kicker: 'HOSTS · LOAD · AUTH',
-    meta:   [time, 'METRICBEAT + AUTH'],
+    kicker: 'HOST METRICS · SAMPLE',
+    meta:   [time, 'SAMPLE DATA'],
+    caption: 'Sample host-metrics layout. XERJ has no host-metrics agent, so every panel here — CPU, memory, network, per-host, top processes, failed logins — is illustrative, not measured. Point a collector (Metricbeat / OTLP) at the host to make them live. Your engine\'s real figures (documents, indices, store) are on the Data tab.',
     panels: [
       { id: 'hosts', eyebrow: 'HOSTS', cols: 3, type: 'metric',
         render: () => Num({

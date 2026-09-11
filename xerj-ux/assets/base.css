@@ -2274,3 +2274,26 @@ button.sb-grouphead { width: 100%; }
   .sb-focuscard { order: -1; }
   .sb-readhow { display: none; } /* what + why survive; the how is a detail */
 }
+
+/* ── Case Review (email/document reader) ─────────────────────────────── */
+.cr-list{display:flex;flex-direction:column;max-height:62vh;overflow-y:auto}
+.cr-card{padding:12px 4px;border-bottom:1px solid var(--z-faint);cursor:pointer}
+.cr-card:hover{background:rgba(255,255,255,.02)}
+.cr-card.sel{box-shadow:inset 3px 0 0 var(--z-accent);background:rgba(255,196,0,.05)}
+.cr-card__top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.cr-card__subj{font-weight:600;font-size:var(--fs-13);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-card__score{font-family:var(--font-data);font-size:var(--fs-11);color:var(--z-mute)}
+.cr-card__meta{color:var(--z-mute);font-size:var(--fs-11);font-family:var(--font-data);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-card__snip{color:var(--z-ink);opacity:.72;font-size:var(--fs-13);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cr-badge{font-family:var(--font-data);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:3px}
+.cr-badge.eml{color:var(--z-accent);border:1px solid rgba(255,196,0,.4)}
+.cr-badge.pdf{color:#0b0b0d;background:#ff9e57}
+.cr-read{padding:6px 8px 24px;max-height:66vh;overflow-y:auto}
+.cr-doc-eyebrow{font-family:var(--font-data);font-size:var(--fs-11);letter-spacing:.1em;color:#ff9e57;text-transform:uppercase;margin-bottom:8px}
+.cr-subj{font-family:var(--font-prose);font-weight:600;font-size:var(--fs-20);margin:0 0 16px;line-height:1.25}
+.cr-hdrs{border:1px solid var(--z-faint);border-radius:8px;padding:12px 14px;margin-bottom:18px}
+.cr-hdr{display:flex;gap:12px;font-size:var(--fs-13);padding:3px 0}
+.cr-hdr .cr-k{color:var(--z-mute);width:54px;flex-shrink:0;font-family:var(--font-data);font-size:var(--fs-11);text-transform:uppercase}
+.cr-hdr .cr-v{color:var(--z-ink)}
+.cr-body{white-space:pre-wrap;line-height:1.7;font-size:var(--fs-16);color:var(--z-ink);font-family:var(--font-prose)}
+.cr-empty{color:var(--z-mute);padding:36px 8px;font-size:var(--fs-16)}
