@@ -10,7 +10,7 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
-import { schemaForSearch, indexNames } from '../schema.js';
+import { schemaForSearch, indexNames, emailIndex } from '../schema.js';
 
 // Aggregation materialisation bypass.
 //
@@ -111,6 +111,7 @@ async function rawSearch(baseUrl, index, body, signal) {
 export async function search(baseUrl, dashId, ctx, signal) {
   switch (dashId) {
     case 'search-discover':       return liveSearchDiscover(baseUrl, ctx, signal);
+    case 'case-review':           return liveCaseReview(baseUrl, ctx, signal);
     case 'system':                return liveSystem(baseUrl, ctx, signal);
     case 'logs-overview':         return liveLogsOverview(baseUrl, ctx, signal);
     case 'data':                  return liveData(baseUrl, ctx, signal);
@@ -126,6 +127,46 @@ export async function search(baseUrl, dashId, ctx, signal) {
     case 'anomaly-detect':        return liveAnomalyDetect(baseUrl, ctx, signal);
     case 'ingest-pipeline':       return liveIngestPipeline(baseUrl, ctx, signal);
     default:                      return null; // signals "fall back to mock"
+  }
+}
+
+// ── case-review ─────────────────────────────────────────────────────
+//
+// The Case Review dashboard renders its email/PDF cards + reader from the
+// shared SEARCH result (state.search.result, fed by runSearchNow), not from
+// this `data` object. But without a live adapter here, query.js would see a
+// null return, fetch UNUSED mock data, and stamp the nav status "MOCK FALLBACK"
+// on a page whose visible content is fully live — misleading the user into
+// thinking the whole console is fake. So return a real, non-null object: the
+// actual corpus counts from the engine (one round-trip), which also gives the
+// dashboard an honest "what's indexed" line.
+async function liveCaseReview(baseUrl, ctx, signal) {
+  const index = (await emailIndex(baseUrl, signal)) || 'inbox-docs';
+  try {
+    const resp = await rawSearch(baseUrl, index, {
+      size: 0,
+      track_total_hits: true,
+      query: { match_all: {} },
+      aggs: {
+        emails: { filter: { exists: { field: 'email_subject' } } },
+        attachments: { filter: { exists: { field: 'attachment_name' } } },
+      },
+    }, signal);
+    const total = resp.hits?.total?.value ?? resp.hits?.total ?? 0;
+    return {
+      corpus: {
+        index,
+        total,
+        emails: resp.aggregations?.emails?.doc_count ?? 0,
+        attachments: resp.aggregations?.attachments?.doc_count ?? 0,
+      },
+      _live: true,
+    };
+  } catch (e) {
+    // Engine reachable but the count query failed — still return a non-null
+    // live marker so the status reflects the live search the cards use, rather
+    // than falsely reading MOCK FALLBACK.
+    return { corpus: { index, total: 0, emails: 0, attachments: 0 }, _live: true };
   }
 }
 
