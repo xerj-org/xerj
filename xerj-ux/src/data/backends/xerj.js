@@ -310,6 +310,11 @@ async function liveSystem(baseUrl, ctx, signal) {
   base.metrics.docs    = { value: docs,  formatted: docs.toLocaleString('en-US'), hint: 'live · xerj' };
   base.metrics.indices = { value: idxN,  formatted: String(idxN), hint: `live · xerj · ${shardN} shards` };
   base._live = { source: '_cluster/stats', docs, bytes, indices: idxN, shards: shardN };
+  // Cluster figures above are real; the host-metrics panels (CPU/mem/net,
+  // per-host, top-processes, auth) are sample data — XERJ has no host-metrics
+  // agent. Flag it so query.js labels the pill "LIVE + SAMPLE METRICS" instead
+  // of a flat LIVE, and the dashboard can disclose it.
+  base._sample = true;
   return base;
 }
 

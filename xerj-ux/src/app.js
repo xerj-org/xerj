@@ -383,9 +383,13 @@ function navStatus() {
   if (state.loading) return 'LOADING…';
   if (state.fetchErr) return 'ERROR · ' + state.fetchErr.slice(0, 40);
   const bits = [];
-  // dataSourceStatus is a function in v0.7+ (was a const string) so
-  // the nav reflects the live backend state instead of a fixed label.
-  bits.push(typeof dataSourceStatus === 'function' ? dataSourceStatus() : String(dataSourceStatus));
+  // Prefer the label of the CURRENTLY-RENDERED view (state.sourceLabel, set
+  // from that view's own fetch below). The module-global dataSourceStatus() is
+  // a last-writer-wins value that any background/other-dashboard query can
+  // overwrite — reading it here is what let a live page show a stale/other
+  // dashboard's "MOCK FALLBACK". Fall back to it only before the first fetch.
+  bits.push(state.sourceLabel
+    || (typeof dataSourceStatus === 'function' ? dataSourceStatus() : String(dataSourceStatus)));
   if (state.fetchedAt) bits.push('UPDATED ' + relTime(state.fetchedAt).toUpperCase());
   if (state.fetchMs != null) bits.push(state.fetchMs + 'MS');
   return bits.join(' · ');
@@ -434,6 +438,9 @@ function runSearchNow() {
       };
       state.fetchedAt = res.meta?.fetchedAt || Date.now();
       state.fetchMs   = res.meta?.durationMs ?? state.fetchMs;
+      // The visible hits are live — reflect that in the pill for search-driven
+      // views (discover, case-review), overriding any mock label.
+      if (res.meta?.sourceLabel) { state.sourceLabel = res.meta.sourceLabel; state.sourceKind = res.meta.sourceKind; }
       // Re-render the page so the table swaps mock → live without
       // requiring user interaction. Also covers the dashboards section, where
       // Case Review reads the same live hits.
@@ -1006,6 +1013,10 @@ async function render() {
   } else if (state.section === 'data' || state.section === 'settings') {
     try {
       data = await buildSectionData(state.section);
+      // DATA is built from the live index inventory (_cat/indices); SETTINGS is
+      // local browser state. Label the pill honestly for each.
+      state.sourceLabel = state.section === 'settings' ? 'LOCAL · SETTINGS' : 'LIVE · XERJ · INDEX INVENTORY';
+      state.sourceKind = state.section === 'settings' ? 'local' : 'live';
     } catch (err) {
       data = {};
       fetchErr = err;
@@ -1023,6 +1034,9 @@ async function render() {
       data = result.data;
       state.fetchedAt = result.meta.fetchedAt;
       state.fetchMs = result.meta.durationMs;
+      // Tie the nav pill to THIS dashboard's fetch, not a global last-writer.
+      state.sourceLabel = result.meta.sourceLabel;
+      state.sourceKind = result.meta.sourceKind;
       state.fetchErr = null;
     } catch (err) {
       state.fetchErr = err.message || String(err);

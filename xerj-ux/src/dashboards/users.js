@@ -26,8 +26,8 @@ export const users = {
   render: ({ data, time }) => ({
     title: 'USERS',
     kicker: 'IDENTITY · ACCESS · TOKENS',
-    meta: [time, 'RBAC'],
-    caption: 'No Spaces. No feature privileges matrix. No separate "role mapping" app. A user has a token. A role is a set of index prefixes and operations. A session is a token with an expiry. Everything else is hidden complexity we refuse to ship.',
+    meta: [time, 'SAMPLE DATA'],
+    caption: 'Illustrative sample data — not your engine\'s real users/tokens yet. It shows the intended model: no Spaces, no feature-privileges matrix, no separate "role mapping" app. A user has a token. A role is a set of index prefixes and operations. A session is a token with an expiry.',
     panels: [
 
       { id: 'users',     eyebrow: 'USERS',      cols: 3, type: 'metric',

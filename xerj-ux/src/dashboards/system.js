@@ -14,8 +14,9 @@ export const system = {
   name: 'System',
   render: ({ data, time }) => ({
     title:  'SYSTEM · OVERVIEW',
-    kicker: 'HOSTS · LOAD · AUTH',
-    meta:   [time, 'METRICBEAT + AUTH'],
+    kicker: 'CLUSTER · SAMPLE HOST METRICS',
+    meta:   [time, 'SAMPLE HOST METRICS'],
+    caption: 'Document, index and store figures are live from the engine. The host-metrics panels below (CPU, memory, network, per-host, top processes, failed logins) are SAMPLE data for layout — XERJ has no host-metrics agent. Point a collector (Metricbeat / OTLP) at the host to make them live.',
     panels: [
       { id: 'hosts', eyebrow: 'HOSTS', cols: 3, type: 'metric',
         render: () => Num({
