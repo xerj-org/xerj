@@ -26,6 +26,7 @@ import {
 import { sbBrainsPresent } from './data/brains-probe.js';
 import { dataFeaturesPresent, emptyDataFeatures } from './data/data-probe.js';
 import { emailCorpusPresent } from './data/email-probe.js';
+import { indexNames, emailIndex as detectEmailIndex } from './data/schema.js';
 import { activeBackendId, backendBaseUrl } from './data/backends/index.js';
 
 // ---------- state -----------------------------------------
@@ -97,6 +98,11 @@ const state = {
   // key here is true (fed by a probe against the live engine). Routes
   // and MANAGE are never filtered — a deep link must always resolve.
   liveFeatures: { brains: false, 'email-corpus': false, ...emptyDataFeatures() },
+  // Real index names on the engine (from the mapping), and the detected email
+  // corpus — both fed by the live probe so the search UI and Case Review align
+  // to what's actually indexed instead of a hardcoded demo list.
+  indices: [],
+  emailIndex: null,
 };
 // Merge any URL-seeded filters into the current dashboard's filter set.
 if (_urlState.filters) {
@@ -291,15 +297,30 @@ async function probeLiveFeatures() {
     // (chat-events, vector-ops, agent-memory, anomalies, logs-*). Each dashboard
     // gates its nav entry on its own key so a fresh / brain-only engine never
     // advertises a mock-filled telemetry dashboard.
-    const [brains, dataFeat, emailCorpus] = await Promise.all([
+    const [brains, dataFeat, emailCorpus, idxNames, emlIdx] = await Promise.all([
       sbBrainsPresent(base),
       dataFeaturesPresent(base),
       emailCorpusPresent(base),
+      indexNames(base),
+      detectEmailIndex(base),
     ]);
     const next = { brains, 'email-corpus': emailCorpus, ...dataFeat };
     let changed = false;
     for (const k of Object.keys(next)) {
       if (next[k] !== state.liveFeatures[k]) { state.liveFeatures[k] = next[k]; changed = true; }
+    }
+    // Real index list + detected email corpus. Re-render if either changed so
+    // the index picker and Case Review target actual data.
+    if (JSON.stringify(idxNames) !== JSON.stringify(state.indices)) { state.indices = idxNames || []; changed = true; }
+    if (emlIdx !== state.emailIndex) { state.emailIndex = emlIdx; changed = true; }
+    // If the selected index no longer exists (stale localStorage, renamed or
+    // deleted index), fall back to a real one so the console lands on actual
+    // data instead of an empty/erroring result. `*` is kept (backend resolves
+    // it to the primary index).
+    if (state.indices.length && state.search.index !== '*' && !state.indices.includes(state.search.index)) {
+      state.search.index = state.indices[0];
+      state.search.result = null;
+      changed = true;
     }
     if (changed) {
       // Same guards as the store/panel re-render hooks: never nuke an
@@ -408,6 +429,7 @@ function runSearchNow() {
         took: live.took,
         max_score: live.max_score,
         facets: live.facets || mock.facets,
+        roles: live.roles || mock.roles,
         _live: true,
       };
       state.fetchedAt = res.meta?.fetchedAt || Date.now();
@@ -955,10 +977,10 @@ async function render() {
   // open the moment the dashboard appears.
   if (dash.id === 'case-review' && !state.search._reviewInit) {
     state.search._reviewInit = true;
-    if (dash.preset) {
-      state.search.type = dash.preset.type;
-      state.search.index = dash.preset.index;
-    }
+    if (dash.preset) state.search.type = dash.preset.type;
+    // Target the index the engine actually holds the email corpus in — detected
+    // from the mapping, not a hardcoded name. Fall back to `*` (all indices).
+    state.search.index = state.emailIndex || '*';
     if (!state.search.q) state.search.q = 'what does the deal say about valuation and earnout';
     runSearchNow();
   }
@@ -1018,7 +1040,7 @@ async function render() {
     }
   }
 
-  const view = dash.render({ data, time: state.time, search: state.search });
+  const view = dash.render({ data, time: state.time, search: state.search, indices: state.indices, emailIndex: state.emailIndex });
   // Let a user rename override the scene title. User-cloned dashboards
   // always use the user-chosen name; defaults only override if the user
   // has explicitly set an xerj.dashboards.names entry.
