@@ -21,6 +21,7 @@ import { anomalyDetect }  from './anomaly-detect.js';
 import { ingestPipeline } from './ingest-pipeline.js';
 import { logsOverview }   from './logs-overview.js';
 import { system }         from './system.js';
+import { caseReview }     from './case-review.js';        // auto-activates for an EML/PDF corpus
 
 import { searchDiscover } from './search-discover.js';   // DISCOVER section
 import { alerts }         from './alerts.js';            // ALERTS section
@@ -35,6 +36,7 @@ import { settings }       from './settings.js';          // SETTINGS section
 // them into folders/dropdowns — handles screens that can't fit
 // the full dashboard list on one line.
 const DEFAULT_GROUP = {
+  'case-review':    'review',
   'ai-overview':    'ai',
   'rag-quality':    'ai',
   'vector-index':   'ai',
@@ -45,7 +47,7 @@ const DEFAULT_GROUP = {
   'ingest-pipeline':'logs',
   'system':         'infra',
 };
-for (const d of [aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain, anomalyDetect, ingestPipeline, logsOverview, system]) {
+for (const d of [caseReview, aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain, anomalyDetect, ingestPipeline, logsOverview, system]) {
   d.section = 'dashboards';
   d.group = DEFAULT_GROUP[d.id] || 'other';
 }
@@ -69,10 +71,15 @@ agentMemory.requiresLive    = 'agent-memory';
 anomalyDetect.requiresLive  = 'anomalies';
 ingestPipeline.requiresLive = 'logs-ingest-events';
 logsOverview.requiresLive   = 'logs';
+// Case Review appears only once the engine holds an email corpus (someone ran
+// `xerj autoindex` over a folder of .eml). Detected by data/email-probe.js.
+caseReview.requiresLive     = 'email-corpus';
 // Search-discover gets tagged as the DISCOVER section (promoted out of the dashboards list).
 searchDiscover.section = 'discover';
 
 const all = [
+  // Review — email/document corpora (auto-activates)
+  caseReview,
   // Dashboards section, ordered by group so the first member of each
   // group is the one the group tab lands on when clicked.
   //   AI:    ai-overview, rag-quality, vector-index, agent-memory, second-brain
@@ -111,9 +118,10 @@ export const SECTIONS = [
 // and collapsed to a label otherwise. Adding a new group is just a
 // DEFAULT_GROUP entry above + a row in this array.
 export const DASHBOARD_GROUPS = [
-  { id: 'ai',    label: 'AI'    },
-  { id: 'logs',  label: 'Logs'  },
-  { id: 'infra', label: 'Infra' },
+  { id: 'review', label: 'Review' },
+  { id: 'ai',     label: 'AI'     },
+  { id: 'logs',   label: 'Logs'   },
+  { id: 'infra',  label: 'Infra'  },
 ];
 
 /** Return dashboards belonging to a section. Used by the nav

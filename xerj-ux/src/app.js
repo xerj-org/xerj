@@ -25,6 +25,7 @@ import {
 } from './data/data-sources.js';
 import { sbBrainsPresent } from './data/brains-probe.js';
 import { dataFeaturesPresent, emptyDataFeatures } from './data/data-probe.js';
+import { emailCorpusPresent } from './data/email-probe.js';
 import { activeBackendId, backendBaseUrl } from './data/backends/index.js';
 
 // ---------- state -----------------------------------------
@@ -95,7 +96,7 @@ const state = {
   // `requiresLive: '<key>'` only appears in the NAV once the matching
   // key here is true (fed by a probe against the live engine). Routes
   // and MANAGE are never filtered — a deep link must always resolve.
-  liveFeatures: { brains: false, ...emptyDataFeatures() },
+  liveFeatures: { brains: false, 'email-corpus': false, ...emptyDataFeatures() },
 };
 // Merge any URL-seeded filters into the current dashboard's filter set.
 if (_urlState.filters) {
@@ -290,11 +291,12 @@ async function probeLiveFeatures() {
     // (chat-events, vector-ops, agent-memory, anomalies, logs-*). Each dashboard
     // gates its nav entry on its own key so a fresh / brain-only engine never
     // advertises a mock-filled telemetry dashboard.
-    const [brains, dataFeat] = await Promise.all([
+    const [brains, dataFeat, emailCorpus] = await Promise.all([
       sbBrainsPresent(base),
       dataFeaturesPresent(base),
+      emailCorpusPresent(base),
     ]);
-    const next = { brains, ...dataFeat };
+    const next = { brains, 'email-corpus': emailCorpus, ...dataFeat };
     let changed = false;
     for (const k of Object.keys(next)) {
       if (next[k] !== state.liveFeatures[k]) { state.liveFeatures[k] = next[k]; changed = true; }
@@ -411,8 +413,9 @@ function runSearchNow() {
       state.fetchedAt = res.meta?.fetchedAt || Date.now();
       state.fetchMs   = res.meta?.durationMs ?? state.fetchMs;
       // Re-render the page so the table swaps mock → live without
-      // requiring user interaction.
-      if (state.section === 'discover') render();
+      // requiring user interaction. Also covers the dashboards section, where
+      // Case Review reads the same live hits.
+      if (state.section === 'discover' || state.section === 'dashboards') render();
     })
     .catch(() => { /* leave the optimistic mock in place */ });
   // Persist the inputs (not the result — it rebuilds on demand)
@@ -947,6 +950,18 @@ async function render() {
   if (dash.id === 'search-discover' && !state.search.result) {
     runSearchNow();
   }
+  // Case Review reads an email corpus. On first entry, preset the shared search
+  // to SEMANTIC over the email index and run it, so the reader has emails to
+  // open the moment the dashboard appears.
+  if (dash.id === 'case-review' && !state.search._reviewInit) {
+    state.search._reviewInit = true;
+    if (dash.preset) {
+      state.search.type = dash.preset.type;
+      state.search.index = dash.preset.index;
+    }
+    if (!state.search.q) state.search.q = 'what does the deal say about valuation and earnout';
+    runSearchNow();
+  }
 
   const activeFilters = currentFilters();
   // A declarative (net-new) user dashboard runs a live query PER PANEL
@@ -1434,6 +1449,14 @@ document.addEventListener('click', (e) => {
     e.preventDefault();
     const id = dashA.getAttribute('data-dash');
     location.hash = '#/dashboards/' + id;
+    return;
+  }
+  // Case Review: open the clicked email / attachment in the reader pane.
+  const rvw = e.target.closest('[data-review-open]');
+  if (rvw) {
+    e.preventDefault();
+    state.search.selectedId = rvw.getAttribute('data-review-open');
+    render();
     return;
   }
   // Secondary nav: a collapsed group tab — switch groups by landing
