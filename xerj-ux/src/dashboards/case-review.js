@@ -86,17 +86,22 @@ export const caseReview = {
   // index is set by the shell (app.js) to the detected email corpus, so this
   // dashboard aligns to whatever index the emails were autoindexed into.
   preset: { type: 'semantic' },
-  render: ({ search, emailIndex }) => {
+  render: ({ search, emailIndex, data }) => {
     const r = search?.result;
     const hits = r?.hits || [];
     const selectedId = search?.selectedId;
     const selected = hits.find(h => h._id === selectedId) || null;
     const idx = search?.index || emailIndex || '*';
+    // Real corpus counts from the engine (data/backends/xerj.js liveCaseReview).
+    const c = data?.corpus;
+    const meta = c
+      ? [`${(c.emails || 0).toLocaleString('en-US')} EMAILS`, `${(c.attachments || 0).toLocaleString('en-US')} ATTACHMENTS`, 'SEMANTIC']
+      : ['SEMANTIC', 'EML + PDF'];
 
     return {
       title:  'CASE REVIEW',
       kicker: 'EMAIL + DOCUMENT REVIEW',
-      meta:   ['SEMANTIC', 'EML + PDF'],
+      meta,
       caption: 'Ask the case files in plain English. Results are emails and their attachments — open one to read the message or the document. Meaning-based ranking over the indexed inbox.',
       panels: [
         { id: 'searchbox', eyebrow: 'ASK THE CASE FILES', cols: 12, type: 'searchbox',
