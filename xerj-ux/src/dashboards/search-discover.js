@@ -21,7 +21,11 @@ const QUERY_TYPES = ['match', 'term', 'range', 'prefix', 'phrase', 'knn', 'seman
 const INDICES     = ['*', 'chat-events', 'logs-ssh-auth', 'agent-memory', 'vector-ops', 'anomalies', 'ai-kb'];
 
 // Build the XERJ.ai query DSL object matching the current SearchBox state.
-function buildDsl({ q, type, index, filters }) {
+// `roles` (from the live result) carries the fields derived from the real
+// mapping, so the previewed DSL targets fields that actually exist.
+function buildDsl({ q, type, index, filters }, roles) {
+  const tf = roles?.textField || 'body';
+  const sf = roles?.semanticField || tf;
   const filterList = Object.entries(filters || {}).map(([f, v]) => ({ term: { [f]: v } }));
   let inner;
   switch (type) {
@@ -39,19 +43,19 @@ function buildDsl({ q, type, index, filters }) {
       } else inner = { match_all: {} };
       break;
     }
-    case 'prefix':   inner = q ? { prefix: { message: q } } : { match_all: {} }; break;
-    case 'phrase':   inner = q ? { match_phrase: { message: q } } : { match_all: {} }; break;
-    case 'knn':      inner = { knn: { field: 'embedding', query_vector: '<inline>', k: 10, ef_search: 96 } }; break;
-    case 'semantic': inner = { semantic: { field: 'embedding', query: q || '*', model: 'text-embed-3' } }; break;
+    case 'prefix':   inner = q ? { prefix: { [tf]: q } } : { match_all: {} }; break;
+    case 'phrase':   inner = q ? { match_phrase: { [tf]: q } } : { match_all: {} }; break;
+    case 'knn':      inner = { knn: { field: `${sf}_vector`, query_vector: '<inline>', k: 10, ef_search: 96 } }; break;
+    case 'semantic': inner = { semantic: { field: sf, query: q || '*' } }; break;
     case 'hybrid':   inner = { hybrid: {
                         fusion: 'rrf',
                         queries: [
-                          { match: { message: q || '*' } },
-                          { knn: { field: 'embedding', query_vector: '<inline>', k: 20 } },
+                          { match: { [tf]: q || '*' } },
+                          { semantic: { field: sf, query: q || '*', k: 20 } },
                         ],
                         rank_constant: 60,
                       } }; break;
-    default:         inner = q ? { match: { message: q } } : { match_all: {} };
+    default:         inner = q ? { match: { [tf]: q } } : { match_all: {} };
   }
   const body = filterList.length
     ? { query: { bool: { must: inner, filter: filterList } } }
@@ -138,10 +142,13 @@ function buildPlan({ type, q, filters }, total) {
 export const searchDiscover = {
   id:   'search-discover',
   name: 'Search · Discover',
-  render: ({ data, time, search }) => {
+  render: ({ data, time, search, indices }) => {
     const r = search?.result;
-    const dsl = buildDsl(search);
+    const dsl = buildDsl(search, r?.roles);
     const plan = buildPlan(search, r?.total ?? 0);
+    // Index picker follows the engine: real index names, `*` for all. Fall
+    // back to the illustrative list only before the first mapping load.
+    const idxList = (indices && indices.length) ? ['*', ...indices] : INDICES;
 
     return {
       title:  'SEARCH · DISCOVER',
@@ -155,7 +162,7 @@ export const searchDiscover = {
             value: search?.q ?? '',
             types: QUERY_TYPES,
             activeType: search?.type ?? 'match',
-            indices: INDICES,
+            indices: idxList,
             activeIndex: search?.index ?? '*',
             filters: search?.filters ?? {},
           }),
@@ -176,12 +183,14 @@ export const searchDiscover = {
         },
 
         { id: 'facets', eyebrow: 'FACETS · CLICK TO FILTER', cols: 4, type: 'facet',
-          render: () => `
-            ${Facet({ field: 'level',   items: r?.facets.level   || [], active: search?.filters?.level })}
-            ${Facet({ field: 'service', items: r?.facets.service || [], active: search?.filters?.service })}
-            ${Facet({ field: '_index',  items: r?.facets._index  || [], active: search?.filters?._index })}
-            ${Facet({ field: 'host',    items: r?.facets.host    || [], active: search?.filters?.host })}
-          `,
+          // Facets follow the data: one block per keyword field the backend
+          // derived from the mapping (plus `_index`). No hardcoded level/host.
+          render: () => {
+            const f = r?.facets || {};
+            const keys = Object.keys(f).filter((k) => (f[k] || []).length);
+            if (!keys.length) return `${Facet({ field: '_index', items: f._index || [], active: search?.filters?._index })}`;
+            return keys.map((k) => Facet({ field: k, items: f[k] || [], active: search?.filters?.[k] })).join('');
+          },
         },
 
         { id: 'histogram', eyebrow: 'DATE_HISTOGRAM · INTERVAL=1H', cols: 8, type: 'bar',

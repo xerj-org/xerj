@@ -133,13 +133,25 @@ fn pd(
 /// with [`seed_specs`], so a reader had to guess which prose was current. Prose
 /// elsewhere links here instead of repeating the figure, and
 /// [`tests::seeds_every_registry_dashboard`] pins it to the actual list.
-pub const BUILTIN_DASHBOARD_COUNT: usize = 14;
+pub const BUILTIN_DASHBOARD_COUNT: usize = 15;
 
 /// The built-in dashboards ([`BUILTIN_DASHBOARD_COUNT`] of them), in registry
 /// order.  Titles are the panel `eyebrow` strings from the `.js` sources;
 /// dynamic eyebrows are captured as a stable static string.
 fn seed_specs() -> Vec<DashboardSpec> {
     vec![
+        // ── Review group (auto-activates for an autoindexed email corpus) ────
+        DashboardSpec {
+            registry_id: "case-review",
+            name: "Case Review",
+            section: Some("dashboards"),
+            group: Some("review"),
+            panels: vec![
+                p("searchbox", "searchbox", "ASK THE CASE FILES", 12),
+                p("cr-results", "markdown", "RESULTS · RANKED BY MEANING", 5),
+                p("cr-reader", "markdown", "READER", 7),
+            ],
+        },
         // ── AI group ────────────────────────────────────────────────────────
         DashboardSpec {
             registry_id: "ai-overview",

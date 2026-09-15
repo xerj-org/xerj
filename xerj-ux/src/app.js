@@ -25,6 +25,8 @@ import {
 } from './data/data-sources.js';
 import { sbBrainsPresent } from './data/brains-probe.js';
 import { dataFeaturesPresent, emptyDataFeatures } from './data/data-probe.js';
+import { emailCorpusPresent } from './data/email-probe.js';
+import { indexNames, emailIndex as detectEmailIndex } from './data/schema.js';
 import { activeBackendId, backendBaseUrl } from './data/backends/index.js';
 
 // ---------- state -----------------------------------------
@@ -95,7 +97,12 @@ const state = {
   // `requiresLive: '<key>'` only appears in the NAV once the matching
   // key here is true (fed by a probe against the live engine). Routes
   // and MANAGE are never filtered — a deep link must always resolve.
-  liveFeatures: { brains: false, ...emptyDataFeatures() },
+  liveFeatures: { brains: false, 'email-corpus': false, ...emptyDataFeatures() },
+  // Real index names on the engine (from the mapping), and the detected email
+  // corpus — both fed by the live probe so the search UI and Case Review align
+  // to what's actually indexed instead of a hardcoded demo list.
+  indices: [],
+  emailIndex: null,
 };
 // Merge any URL-seeded filters into the current dashboard's filter set.
 if (_urlState.filters) {
@@ -290,14 +297,30 @@ async function probeLiveFeatures() {
     // (chat-events, vector-ops, agent-memory, anomalies, logs-*). Each dashboard
     // gates its nav entry on its own key so a fresh / brain-only engine never
     // advertises a mock-filled telemetry dashboard.
-    const [brains, dataFeat] = await Promise.all([
+    const [brains, dataFeat, emailCorpus, idxNames, emlIdx] = await Promise.all([
       sbBrainsPresent(base),
       dataFeaturesPresent(base),
+      emailCorpusPresent(base),
+      indexNames(base),
+      detectEmailIndex(base),
     ]);
-    const next = { brains, ...dataFeat };
+    const next = { brains, 'email-corpus': emailCorpus, ...dataFeat };
     let changed = false;
     for (const k of Object.keys(next)) {
       if (next[k] !== state.liveFeatures[k]) { state.liveFeatures[k] = next[k]; changed = true; }
+    }
+    // Real index list + detected email corpus. Re-render if either changed so
+    // the index picker and Case Review target actual data.
+    if (JSON.stringify(idxNames) !== JSON.stringify(state.indices)) { state.indices = idxNames || []; changed = true; }
+    if (emlIdx !== state.emailIndex) { state.emailIndex = emlIdx; changed = true; }
+    // If the selected index no longer exists (stale localStorage, renamed or
+    // deleted index), fall back to a real one so the console lands on actual
+    // data instead of an empty/erroring result. `*` is kept (backend resolves
+    // it to the primary index).
+    if (state.indices.length && state.search.index !== '*' && !state.indices.includes(state.search.index)) {
+      state.search.index = state.indices[0];
+      state.search.result = null;
+      changed = true;
     }
     if (changed) {
       // Same guards as the store/panel re-render hooks: never nuke an
@@ -360,9 +383,13 @@ function navStatus() {
   if (state.loading) return 'LOADING…';
   if (state.fetchErr) return 'ERROR · ' + state.fetchErr.slice(0, 40);
   const bits = [];
-  // dataSourceStatus is a function in v0.7+ (was a const string) so
-  // the nav reflects the live backend state instead of a fixed label.
-  bits.push(typeof dataSourceStatus === 'function' ? dataSourceStatus() : String(dataSourceStatus));
+  // Prefer the label of the CURRENTLY-RENDERED view (state.sourceLabel, set
+  // from that view's own fetch below). The module-global dataSourceStatus() is
+  // a last-writer-wins value that any background/other-dashboard query can
+  // overwrite — reading it here is what let a live page show a stale/other
+  // dashboard's "MOCK FALLBACK". Fall back to it only before the first fetch.
+  bits.push(state.sourceLabel
+    || (typeof dataSourceStatus === 'function' ? dataSourceStatus() : String(dataSourceStatus)));
   if (state.fetchedAt) bits.push('UPDATED ' + relTime(state.fetchedAt).toUpperCase());
   if (state.fetchMs != null) bits.push(state.fetchMs + 'MS');
   return bits.join(' · ');
@@ -406,13 +433,22 @@ function runSearchNow() {
         took: live.took,
         max_score: live.max_score,
         facets: live.facets || mock.facets,
+        roles: live.roles || mock.roles,
         _live: true,
       };
       state.fetchedAt = res.meta?.fetchedAt || Date.now();
       state.fetchMs   = res.meta?.durationMs ?? state.fetchMs;
+      // The visible hits are live — reflect that in the pill for search-driven
+      // views (discover, case-review), overriding any mock label.
+      // Only relabel if we're still on the search-driven view — a late search
+      // resolving after you've navigated away must not repaint the new view.
+      if (res.meta?.sourceLabel && (state.section === 'discover' || state.section === 'dashboards')) {
+        state.sourceLabel = res.meta.sourceLabel; state.sourceKind = res.meta.sourceKind;
+      }
       // Re-render the page so the table swaps mock → live without
-      // requiring user interaction.
-      if (state.section === 'discover') render();
+      // requiring user interaction. Also covers the dashboards section, where
+      // Case Review reads the same live hits.
+      if (state.section === 'discover' || state.section === 'dashboards') render();
     })
     .catch(() => { /* leave the optimistic mock in place */ });
   // Persist the inputs (not the result — it rebuilds on demand)
@@ -947,6 +983,18 @@ async function render() {
   if (dash.id === 'search-discover' && !state.search.result) {
     runSearchNow();
   }
+  // Case Review reads an email corpus. On first entry, preset the shared search
+  // to SEMANTIC over the email index and run it, so the reader has emails to
+  // open the moment the dashboard appears.
+  if (dash.id === 'case-review' && !state.search._reviewInit) {
+    state.search._reviewInit = true;
+    if (dash.preset) state.search.type = dash.preset.type;
+    // Target the index the engine actually holds the email corpus in — detected
+    // from the mapping, not a hardcoded name. Fall back to `*` (all indices).
+    state.search.index = state.emailIndex || '*';
+    if (!state.search.q) state.search.q = 'what does the deal say about valuation and earnout';
+    runSearchNow();
+  }
 
   const activeFilters = currentFilters();
   // A declarative (net-new) user dashboard runs a live query PER PANEL
@@ -964,14 +1012,28 @@ async function render() {
   if (isDeclarative) {
     data = {};
     state.fetchErr = null;
+    // A user dashboard fetches per-panel (panel-query.js) and never touches the
+    // shared query() path, so stamp its own label here — otherwise navStatus
+    // would inherit the previously-viewed dashboard's pill.
+    state.sourceLabel = 'LIVE · XERJ · CUSTOM PANELS';
+    state.sourceKind = 'live';
     // NOTE: index priming happens in openBuilder(), NOT here — calling it
     // per-render would re-enter render() and loop.
   } else if (state.section === 'data' || state.section === 'settings') {
     try {
       data = await buildSectionData(state.section);
+      // DATA is built from the live index inventory (_cat/indices); SETTINGS is
+      // local browser state. Label the pill honestly for each.
+      state.sourceLabel = state.section === 'settings' ? 'LOCAL · SETTINGS' : 'LIVE · XERJ · INDEX INVENTORY';
+      state.sourceKind = state.section === 'settings' ? 'local' : 'live';
     } catch (err) {
       data = {};
       fetchErr = err;
+      // Surface the failure in the pill instead of leaving the prior view's
+      // label on a section that loaded nothing.
+      state.fetchErr = err.message || String(err);
+      state.sourceLabel = `${state.section.toUpperCase()}: LOAD FAILED`;
+      state.sourceKind = 'live-error';
     }
   } else {
     state.loading = true;
@@ -986,6 +1048,9 @@ async function render() {
       data = result.data;
       state.fetchedAt = result.meta.fetchedAt;
       state.fetchMs = result.meta.durationMs;
+      // Tie the nav pill to THIS dashboard's fetch, not a global last-writer.
+      state.sourceLabel = result.meta.sourceLabel;
+      state.sourceKind = result.meta.sourceKind;
       state.fetchErr = null;
     } catch (err) {
       state.fetchErr = err.message || String(err);
@@ -1003,7 +1068,7 @@ async function render() {
     }
   }
 
-  const view = dash.render({ data, time: state.time, search: state.search });
+  const view = dash.render({ data, time: state.time, search: state.search, indices: state.indices, emailIndex: state.emailIndex });
   // Let a user rename override the scene title. User-cloned dashboards
   // always use the user-chosen name; defaults only override if the user
   // has explicitly set an xerj.dashboards.names entry.
@@ -1434,6 +1499,14 @@ document.addEventListener('click', (e) => {
     e.preventDefault();
     const id = dashA.getAttribute('data-dash');
     location.hash = '#/dashboards/' + id;
+    return;
+  }
+  // Case Review: open the clicked email / attachment in the reader pane.
+  const rvw = e.target.closest('[data-review-open]');
+  if (rvw) {
+    e.preventDefault();
+    state.search.selectedId = rvw.getAttribute('data-review-open');
+    render();
     return;
   }
   // Secondary nav: a collapsed group tab — switch groups by landing
