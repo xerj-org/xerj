@@ -106,7 +106,14 @@ which. While a search is in flight the table says so; when one fails it shows
 the error and zero rows.
 
 `SEMANTIC` and `HYBRID` use the index's `semantic_text` field. With the default
-embedder that is lexical feature hashing, not a neural model.
+embedder that is lexical feature hashing, not a neural model. Two things the
+console does because of how the engine treats `hybrid`, both measured on a live
+node: a HYBRID search carries no aggregations (the engine answers `400` to
+`aggs` beside a fusion query), so Discover shows no facets or histogram under
+HYBRID and says why; and a facet filter is put inside each leg of the hybrid,
+because `bool{must: hybrid, filter}` returns 0 hits and `post_filter` is
+ignored, both without an error
+([#943](https://github.com/xerj-org/xerj/issues/943)).
 
 ## Guest mode
 

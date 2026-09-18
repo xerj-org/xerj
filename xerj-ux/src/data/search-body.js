@@ -77,12 +77,24 @@ export function buildSearchBody(q, type, filters, roles, opts = {}) {
     .map(([f, v]) => (Array.isArray(v)
       ? { terms: { [f]: v } }
       : { term: { [f]: v } }));
-  const query = filterList.length ? { bool: { must: inner, filter: filterList } } : inner;
+  // Filters ride INSIDE each leg of a hybrid query. Measured on a live node:
+  // `bool{must: hybrid, filter}` is accepted and returns 0 hits, and a
+  // top-level `post_filter` beside `hybrid` is accepted and ignored — both
+  // wrong without an error — while a filter in each leg filters (17 of 24
+  // hits for ax_format=eml in the recorded corpus).
+  let query;
+  if (!filterList.length) query = inner;
+  else if (isHybrid(inner)) {
+    query = { hybrid: { ...inner.hybrid, queries: inner.hybrid.queries.map((leg) => ({ ...leg, query: { bool: { must: leg.query, filter: filterList } } })) } };
+  } else query = { bool: { must: inner, filter: filterList } };
 
   const body = { query, size: opts.size ?? 25, track_total_hits: true };
   // The reader asks for hits only (`opts.aggs === false`); Discover also
-  // wants its facet sidebar and histogram.
-  if (opts.aggs !== false) {
+  // wants its facet sidebar and histogram — except under HYBRID: the engine
+  // refuses aggregations beside a fusion query ("aggregations are not
+  // supported with hybrid/fusion queries", HTTP 400, seen on a live node), so
+  // sending them would turn every hybrid search into an error.
+  if (opts.aggs !== false && !isHybrid(inner)) {
     const aggs = { by__index: { terms: { field: '_index', size: 8 } } };
     for (const f of (roles?.keywordFields || []).slice(0, FACET_FIELDS)) {
       aggs[`by_${f}`] = { terms: { field: f, size: 8 } };
@@ -97,6 +109,11 @@ export function buildSearchBody(q, type, filters, roles, opts = {}) {
     body.sort = [{ [sort.field]: sort.dir === 'asc' ? 'asc' : 'desc' }];
   }
   return body;
+}
+
+/** Is this clause a fusion query (no aggregations may ride along)? */
+export function isHybrid(clause) {
+  return !!(clause && typeof clause === 'object' && clause.hybrid);
 }
 
 /** The request line shown above the preview — the path the backend hits. */

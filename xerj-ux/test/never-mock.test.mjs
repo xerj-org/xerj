@@ -65,7 +65,7 @@ test('Discover: `*` over two indices runs on one and SAYS which', async () => {
     if (url.endsWith('/ax-inbox/search')) { sent = JSON.parse(init.body); return json(200, { took: 3, hits: { total: { value: 1 }, max_score: 1.5, hits: [{ _index: 'ax-inbox', _id: 'm1', _score: 1.5, _source: { body: 'x', email_date: '2026-09-01T00:00:00Z' } }] }, aggregations: { by__index: { buckets: [{ key: 'ax-inbox', doc_count: 1 }] }, by_email_from: { buckets: [{ key: 'a@b', doc_count: 1 }] }, by_date: { buckets: [{ key_as_string: '2026-09-01T00:00:00.000Z', doc_count: 1 }] } } }); }
     return json(404, {});
   };
-  const search = { q: 'term sheet', type: 'hybrid', index: '*', filters: { email_from: 'a@b' }, sort: { field: '_score', dir: 'desc' } };
+  const search = { q: 'term sheet', type: 'match', index: '*', filters: { email_from: 'a@b' }, sort: { field: '_score', dir: 'desc' } };
   const r = await query({ dashId: 'search-discover', search, filters: search.filters });
   assert.equal(r.data.resolvedIndex, 'ax-inbox');
   assert.equal(r.data.narrowed, true, 'two user indices → the page must say * was narrowed');
@@ -101,6 +101,22 @@ test('the query builder: real fields, an engine-accepted hybrid shape, no raw kN
   assert.deepEqual(buildQueryClause('email_from = a@b ', 'term', roles), { term: { email_from: 'a@b' } });
   assert.deepEqual(buildQueryClause('page>=3', 'range', roles), { range: { page: { gte: 3 } } });
   assert.deepEqual(buildQueryClause('email_date>2026-01-01', 'range', roles), { range: { email_date: { gt: '2026-01-01' } } });
+  // HYBRID carries no aggregations: a live node answers 400 "aggregations are
+  // not supported with hybrid/fusion queries" otherwise, so every Discover
+  // hybrid search used to fail.
+  assert.equal(buildSearchBody('earnout', 'hybrid', {}, roles, {}).aggs, undefined);
+  assert.ok(buildSearchBody('earnout', 'semantic', {}, roles, {}).aggs.by_email_from);
+  // …and a facet filter goes into EACH leg: `bool{must: hybrid, filter}` returns
+  // 0 hits on a live node and `post_filter` is ignored, both without an error.
+  const hf = buildSearchBody('earnout', 'hybrid', { ax_format: 'eml' }, roles, {});
+  assert.ok(hf.query.hybrid && !hf.query.bool && !hf.post_filter);
+  for (const leg of hf.query.hybrid.queries) {
+    assert.deepEqual(leg.query.bool.filter, [{ term: { ax_format: 'eml' } }]);
+    assert.ok(leg.query.bool.must.match || leg.query.bool.must.semantic);
+    assert.equal(typeof leg.weight, 'number');
+  }
+  assert.deepEqual(hf.query.hybrid.fusion, { type: 'rrf', k: 60 });
+  assert.ok(buildSearchBody('', 'hybrid', {}, roles, {}).aggs, 'an empty hybrid box is match_all and keeps its facets');
   // log-shaped engine: nothing is hardcoded to autoindex's names
   const logs = deriveRoles({ message: 'text', level: 'keyword', '@timestamp': 'date' });
   assert.deepEqual(buildQueryClause('timeout', 'match', logs), { match: { message: 'timeout' } });

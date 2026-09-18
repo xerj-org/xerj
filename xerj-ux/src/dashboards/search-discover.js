@@ -95,6 +95,9 @@ export const searchDiscover = {
           render: () => {
             const f = r?.facets || {};
             const keys = Object.keys(f).filter((k) => (f[k] || []).length);
+            if (!keys.length && r?.request && !r.request.aggs) {
+              return '<div class="mono faint">No facets or histogram under HYBRID: the engine does not run aggregations beside a fusion query. Switch to MATCH or SEMANTIC to see them.</div>';
+            }
             if (!keys.length) return '<div class="mono faint">No facets: this result has no keyword-field buckets.</div>';
             return keys.map((k) => Facet({ field: k, items: f[k] || [], active: search?.filters?.[k] })).join('');
           },
@@ -103,6 +106,7 @@ export const searchDiscover = {
         { id: 'histogram', eyebrow: `DATE_HISTOGRAM · ${r?.histogramField ? r.histogramField.toUpperCase() + ' · 1D' : 'NO DATE FIELD'}`, cols: 8, type: 'bar',
           render: () => {
             const buckets = Array.isArray(r?.histogram) ? r.histogram : [];
+            if (r?.request && !r.request.aggs) return '<div class="mono faint">No histogram under HYBRID (the engine does not run aggregations beside a fusion query).</div>';
             if (!r?.histogramField) return '<div class="mono faint">This index\'s mapping has no date field, so there is nothing to bucket by time.</div>';
             if (!buckets.length) return '<div class="mono faint">No dated records in this result.</div>';
             return VBar({ items: buckets.slice(-60), h: 140, unit: 'hits/day' });
