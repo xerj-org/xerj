@@ -1646,15 +1646,43 @@ impl Drop for SampleLimitOverride {
     }
 }
 
+/// Test-only crash injection for the replacement path: the boundary to fail
+/// at AND the state directory of the one run it is meant for.
+///
+/// This was a bare process-wide `AtomicU8` holding only the boundary, consumed
+/// by whichever run reached that boundary first. The tests that arm it
+/// serialize on `FAILPOINT_TEST_LOCK`, but every OTHER test that drives the
+/// legacy path passes the same boundaries under a different lock (or none), so
+/// a concurrent test could take the injected crash and fail with someone
+/// else's error while the arming test ran clean and failed its `unwrap_err`.
+/// Reproduced 2 runs out of 2 on a 32-core machine at load average 50:
+/// `this_corpus_finalize_leaves_a_sibling_corpus_alias_document_alone` died of
+/// "injected replacement crash boundary 4" and
+/// `resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done`
+/// got `Ok(0)`; both pass alone. A lock cannot fix that without naming every
+/// present and future consumer; keying the failpoint on the state directory —
+/// which every test owns as its own tempdir — makes it unstealable instead.
 #[cfg(test)]
-static REPLACEMENT_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static REPLACEMENT_FAILPOINT: Mutex<Option<(u8, std::path::PathBuf)>> = Mutex::new(None);
+
+/// Arm [`replacement_failpoint`] for the run that uses `state_dir`, once.
+#[cfg(test)]
+pub(crate) fn arm_replacement_failpoint(boundary: u8, state_dir: &Path) {
+    *REPLACEMENT_FAILPOINT
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = Some((boundary, state_dir.to_path_buf()));
+}
 
 #[cfg(test)]
-fn replacement_failpoint(boundary: u8) -> Result<()> {
-    if REPLACEMENT_FAILPOINT
-        .compare_exchange(boundary, 0, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
+fn replacement_failpoint(boundary: u8, state_dir: &Path) -> Result<()> {
+    let mut armed = REPLACEMENT_FAILPOINT
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    if armed
+        .as_ref()
+        .is_some_and(|(at, dir)| *at == boundary && dir == state_dir)
     {
+        *armed = None;
         anyhow::bail!("injected replacement crash boundary {boundary}");
     }
     Ok(())
@@ -1662,7 +1690,7 @@ fn replacement_failpoint(boundary: u8) -> Result<()> {
 
 #[cfg(not(test))]
 #[inline]
-fn replacement_failpoint(_boundary: u8) -> Result<()> {
+fn replacement_failpoint(_boundary: u8, _state_dir: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -5819,7 +5847,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     if plan_changed {
         journal.write_plan(&plan)?;
     }
-    replacement_failpoint(1).context("after durable replacement plan")?;
+    replacement_failpoint(1, &state_dir).context("after durable replacement plan")?;
 
     let unity_guid_map = build_unity_guid_map(&files, &plan, &pr);
     report_unity_guid_map(&unity_guid_map, &pr);
@@ -6620,7 +6648,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             }
                         }
                         if send_err.is_none() {
-                            if let Err(error) = replacement_failpoint(2) {
+                            if let Err(error) = replacement_failpoint(2, &state_dir) {
                                 send_err = Some(format!("{error:#}"));
                             }
                         }
@@ -6745,7 +6773,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                         }
                         continue;
                     }
-                    if let Err(error) = replacement_failpoint(4) {
+                    if let Err(error) = replacement_failpoint(4, &state_dir) {
                         let mut errors = bulk_errors.lock().unwrap();
                         if errors.len() < 5 {
                             errors.push(format!("{error:#}"));

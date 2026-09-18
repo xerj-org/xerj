@@ -16,6 +16,34 @@ use std::thread;
 
 static FAILPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
 
+/// #953: the replacement failpoint fires only in the run it was armed for.
+///
+/// It was a bare process-wide boundary number, so any concurrent test that
+/// drove the legacy path took the injected crash: that test failed with an
+/// error it had nothing to do with and the arming test ran clean. Keyed on the
+/// state directory, another run at the same boundary passes straight through,
+/// and so does the armed run at a different boundary. Holds
+/// `FAILPOINT_TEST_LOCK` because arming REPLACES whatever is armed.
+#[test]
+fn replacement_failpoint_cannot_be_taken_by_another_run() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let mine = tempfile::tempdir().unwrap();
+    let theirs = tempfile::tempdir().unwrap();
+    arm_replacement_failpoint(4, mine.path());
+
+    replacement_failpoint(4, theirs.path()).expect("another run at the armed boundary");
+    replacement_failpoint(2, mine.path()).expect("the armed run at another boundary");
+
+    let error = replacement_failpoint(4, mine.path()).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("injected replacement crash boundary 4"),
+        "{error:#}"
+    );
+    replacement_failpoint(4, mine.path()).expect("the failpoint is one-shot");
+}
+
 /// Owns the process-global PDF worker environment for the duration of one
 /// test. `XERJ_PDF_WORKER_BIN` is read inside `spawn_worker`, so a test that
 /// sets it silently rewrites what every concurrently running test in this
@@ -2234,7 +2262,7 @@ fn resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done() {
         assert_eq!(run_index(config.clone()).unwrap(), 0);
         fs::write(&path, csv.replace("old-", "new-")).unwrap();
 
-        REPLACEMENT_FAILPOINT.store(boundary, Ordering::SeqCst);
+        arm_replacement_failpoint(boundary, state_dir.path());
         let error = run_index(config.clone()).unwrap_err();
         assert!(
             format!("{error:#}").contains("injected replacement crash"),
@@ -2363,7 +2391,7 @@ fn pending_generation_b_is_superseded_when_source_changes_to_c() {
     assert_eq!(run_index(config.clone()).unwrap(), 0);
 
     fs::write(&path, "id,value\n0,generation-b\n1,generation-b\n").unwrap();
-    REPLACEMENT_FAILPOINT.store(2, Ordering::SeqCst);
+    arm_replacement_failpoint(2, state_dir.path());
     run_index(config.clone()).unwrap_err();
     let replay_b = state::Journal::open(
         state_dir.path(),
