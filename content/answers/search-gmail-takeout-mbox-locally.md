@@ -123,6 +123,10 @@ The mailbox splitter and the message extractor were tested against a generated m
 
 The Takeout layout rules have only seen that synthetic tree. They are not verified on a real Takeout export. Outlook PST/OST and Maildir have no extractor, and undeclared Cyrillic or CJK legacy encodings are not detected.
 
-**Server memory is the limit today.** On the 1 GB synthetic mailbox, `xerj autoindex` itself peaked at 296 MB and finished in 279 s with every planted needle found exactly once, but the node needed **68.5 GB** of peak RSS to get there, with its process cap lifted. Under the default cap on the same machine (16 GiB), the server sat at its memory watermark from 87 % of the mailbox on and the run aborted after ten minutes of waiting, with 82,422 of 106,581 documents indexed. A 16 GiB laptop's default cap is 8 GiB. This is the engine's ingest memory, filed as [#948](https://github.com/xerj-org/xerj/issues/948); until it is fixed, treat a mailbox of a few hundred MB as the practical ceiling on a laptop. That ceiling is an expectation from the 1 GB run, not a measurement.
+**Server memory is the limit today.** On the 1 GB synthetic mailbox, `xerj autoindex` itself peaked at 296 MB and finished in 279 s with every planted needle found exactly once. The node needed **68.5 GB** of peak RSS to get there, with its process cap lifted.
+
+Under the default cap on the same machine (16 GiB), the server sat at its memory watermark from 87 % of the mailbox on. The run aborted after ten minutes of waiting, with 82,422 of 106,581 documents indexed. A 16 GiB laptop's default cap is 8 GiB.
+
+This is the engine's memory while it indexes, filed as [#948](https://github.com/xerj-org/xerj/issues/948). Until it is fixed, treat a mailbox of a few hundred MB as the practical ceiling on a laptop. That ceiling is an expectation from the 1 GB run, not a measurement.
 
 Wall time, throughput, memory and index size for the 1 GB synthetic mailbox are in the repository's `benchmarks/mbox-ingest/README.md`, with the machine and the exact commands.
