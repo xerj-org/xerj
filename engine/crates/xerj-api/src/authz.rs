@@ -501,6 +501,9 @@ fn classify(path: &str) -> Target {
     if AUTH_EXEMPT_PATHS.contains(&path)
         || path == "/v1/metrics"
         || path == "/_security/_authenticate"
+        // `POST /_share/{id}/claim` is unauthenticated by design (the guest
+        // has no key yet) and names no index; the handler decides everything.
+        || crate::auth::is_share_claim_path(path)
     {
         return Target::Exempt;
     }

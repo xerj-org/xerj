@@ -161,6 +161,12 @@ fn classify(method: &Method, path: &str) -> Option<Audited> {
     if segs.first() == Some(&"_security") && segs.get(1) == Some(&"api_key") {
         return None;
     }
+    // Share links audit themselves with the outcome detail that matters
+    // (which share, wrong passcode vs exhausted vs throttled, the source
+    // address of an unauthenticated claim) — see `crate::share`.
+    if segs.first() == Some(&"_share") {
+        return None;
+    }
     // `/_xerj-console/*` is a separate application mounted at the server level
     // with its own `.xerj_audit` trail; the SPA's own traffic is not node data.
     if segs.first() == Some(&"_xerj-console") {

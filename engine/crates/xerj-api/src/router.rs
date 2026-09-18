@@ -29,7 +29,7 @@ use xerj_common::config::CorsConfig;
 
 use crate::{
     audit_mw, auth::auth_middleware, authz, es_compat, graph_api, ism_api, memory_api, native,
-    state::AppState, wal_tap_api,
+    share, state::AppState, wal_tap_api,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -889,6 +889,18 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route("/_memory/:namespace/_recall", post(memory_api::recall))
         .route("/_memory/:namespace/:id", delete(memory_api::forget_one))
+        // ── Share links ───────────────────────────────────────────────────────
+        // `xerj share`: hand one indexed corpus to a guest as a scoped,
+        // read-only, expiring key. Create/list/revoke are superuser-only in
+        // the handler; `claim` is the one unauthenticated route on this
+        // router (`auth::is_share_claim_path`) and is rate-limited instead.
+        // See `share.rs`.
+        .route(
+            "/_share",
+            post(share::create_share).get(share::list_shares),
+        )
+        .route("/_share/:id", delete(share::revoke_share))
+        .route("/_share/:id/claim", post(share::claim_share))
         // ── Second-Brain Graph API ─────────────────────────────────────────────
         // Edges are ordinary documents in reserved `.xerj-memory-{brain}-edges`
         // indices; traversal is a bounded columnar expansion

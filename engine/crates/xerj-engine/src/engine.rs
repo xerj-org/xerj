@@ -412,7 +412,7 @@ impl ApiKeyRecord {
 /// the secret is never briefly world-readable, then renamed over the target
 /// (the rename carries the 0600 inode). On non-unix, perms are left to the OS
 /// default. Mirrors `index::write_file_atomic` but hardens the mode.
-pub(crate) fn write_secret_file_atomic(
+pub fn write_secret_file_atomic(
     path: &std::path::Path,
     bytes: &[u8],
 ) -> std::io::Result<()> {

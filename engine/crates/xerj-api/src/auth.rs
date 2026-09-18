@@ -40,6 +40,23 @@ use crate::state::AppState;
 /// `"live"`/`"ready"` string), so leaving them open is safe.
 pub const AUTH_EXEMPT_PATHS: [&str; 2] = ["/health/live", "/health/ready"];
 
+/// Is `path` the share-claim route, `/_share/{id}/claim`?
+///
+/// The one unauthenticated route that hands out a credential: a guest who
+/// opens a share link has, by definition, no key yet. It is exempted the way
+/// `/v1/metrics` is for the scrape token — by exact shape, `POST` only (the
+/// method check is the caller's), never by prefix — and the handler
+/// (`crate::share::claim_share`) rate-limits per source address and per share
+/// and audits every outcome. Everything else under `/_share` stays behind
+/// authentication and is superuser-only in its handler.
+pub fn is_share_claim_path(path: &str) -> bool {
+    let mut segs = path.split('/').filter(|s| !s.is_empty());
+    matches!(
+        (segs.next(), segs.next(), segs.next(), segs.next()),
+        (Some("_share"), Some(id), Some("claim"), None) if !id.is_empty()
+    )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Principal
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,6 +179,12 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
     // low-privilege scrape credential that cannot read index data. The admin
     // key still works for metrics via the normal path below.
     if req.uri().path() == "/v1/metrics" && metrics_token_authorized(&state, &req) {
+        return next.run(req).await;
+    }
+
+    // A guest claiming a share link has no credential yet — that is the
+    // whole point of the route. See `is_share_claim_path`.
+    if req.method() == axum::http::Method::POST && is_share_claim_path(req.uri().path()) {
         return next.run(req).await;
     }
 
