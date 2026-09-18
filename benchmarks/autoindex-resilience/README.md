@@ -31,7 +31,8 @@ Nothing else was changed.
 | `before-rc74.stderr.txt` | v1.0.0-rc.74, full corpus, `--no-graph --progress plain`. #929 and #931 in one run. |
 | `after-fix.stderr.txt` | This branch, same command, same corpus. |
 | `results.json` | `summarize.py` over the two files above. |
-| `after-fix.small-repo.stderr.txt` | This branch, a 231-file repository, `--progress plain`: a complete stream that fits on a screen. |
+| `after-fix.small-repo.stderr.txt` | This branch, a 231-file repository, `--progress plain --progress-interval 1`: a complete stream that fits on a screen. |
+| `after-fix.resume-probe.stderr.txt` | This branch: resuming the full-corpus generation after it was interrupted. Stopped on purpose after 100 s. |
 | `after-fix.small-repo.tty.txt` | The same repository under a pseudo-terminal: what the TTY bar draws. |
 | `refusal-e2e.run1.stderr.txt`, `refusal-e2e.run1.stdout.txt` | A forced refusal on a throwaway node (see below). |
 | `refusal-e2e.run2-noop.stderr.txt` | A no-op re-run of the same command. |
@@ -88,16 +89,43 @@ forced end to end.
 
 ## After, small repository (this branch)
 
-`sonic`, 231 files after ignore rules.
+`sonic`, 231 files after ignore rules, on an otherwise idle node.
 
 - Phases reported, in order: `walk`, `hash`, `scan`, `prepare`, `snapshot`,
-  `index`, `finalize-catalog`, `finalize-verify`.
+  `index`, `finalize-catalog`, `finalize-refresh`, `finalize-verify`.
 - 0 lines read `scan` at `pct=100.0`.
-- `index` carried a denominator in both units:
-  `items=203/231 bytes=2159904/2301706 eta_s=0.6 eta_quality=good`.
-- Ended `xerj-done ok=true exit=3 reason=completed-with-junk wall=13.1s files=231 records=1663`.
-- Under a pseudo-terminal the bar drew the same eight phases; `index` reached
-  `96.8% | 221/231 items | 2.1MB/2.2MB | eta 1s`.
+- `index` carried a denominator in both units, 1.0 s into the phase:
+  `pct=81.7 items=169/231 bytes=1881018/2303369 eta_s=unknown`. The ETA is
+  `unknown` because the phase was one second old, which is the honest answer.
+- Ended `xerj-done ok=true exit=3 reason=completed-with-junk wall=3.9s files=231 records=1663`.
+- Under a pseudo-terminal the bar drew the same nine phases; `index` reached
+  `78.1% | 160/231 items | 1.7MB/2.2MB`.
+
+## After, a resumed run (this branch)
+
+The first full-corpus attempt on this branch was interrupted on purpose with
+12,890 of 47,444 operations committed (the binary was rebuilt after a review
+finding, and "verified" should mean the binary that ships). Resuming that
+generation with the final binary:
+
+- reported `starting` for about 13 s while the journal loaded, then `replay`,
+  then `index`;
+- never reported `scan` or `snapshot`;
+- opened `index` at `items=0/34554 bytes=0/805561870` — the 34,554 operations
+  still to apply, not all 47,444 and not pre-credited with the 12,890 an
+  earlier attempt wrote. The byte total dropped from 1,099,789,983 to match.
+
+## Probes taken while a full-corpus run was in flight
+
+Single ad-hoc measurements against the throwaway node, on a busy machine. They
+explain two decisions; they are not benchmarks.
+
+| Probe | Result | What it decided |
+| --- | --- | --- |
+| 60 x `POST /<index>/_refresh` on a node holding 1,526 datasets | 6.36 s, about 106 ms each; projects to about 160 s for all 1,526 | The pre-verify refresh loop became the `finalize-refresh` phase instead of holding `finalize-verify` at `0/N`. |
+| `POST /<index>/_delete_by_query` matching nothing, largest index (18,734 docs), 8 samples | 46-57 ms, the same with and without `?refresh=true` | Recorded in #933: the per-file pre-delete is about a third of each file's cost; the refresh flag is not the cost. |
+| `_bulk` of one small document, 5 samples | about 4 ms after the first | Recorded in #933: the bulk round trip is not the cost. |
+| journal-style append + `fsync`, 20 samples | 0.5 ms median | Recorded in #933: the journal is not the cost. |
 
 ## After, full corpus (this branch)
 

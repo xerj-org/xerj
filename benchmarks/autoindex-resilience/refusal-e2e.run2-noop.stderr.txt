@@ -1,4 +1,4 @@
-autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=79457 safe_zone_mib=61054]
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=60838 safe_zone_mib=45574]
 autoindex: bulk HTTP request timeout: 300s
 xerj-bar [????????????????????????] pct unknown | walk | eta unknown
 xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0

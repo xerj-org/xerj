@@ -1,7 +1,7 @@
 # TTY surface, captured under a pseudo-terminal (script -qfc). The terminal redraws one line in place;
 # each redraw is written here as its own line.
-Script started on 2026-09-18 10:24:16+02:00 [COMMAND="xerj autoindex ~/.xerj-code/corpora/xerj-search/sonic --url http://localhost:9540 --prefix tty-probe --no-graph --state-dir ./state-tty --yes" <not executed on terminal>]
-autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=71905 safe_zone_mib=56642]
+Script started on 2026-09-18 11:00:58+02:00 [COMMAND="xerj autoindex ~/.xerj-code/corpora/xerj-search/sonic --url http://localhost:9540 --prefix tty-probe --no-graph --state-dir ./state-tty --yes" <not executed on terminal>]
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=63807 safe_zone_mib=48544]
 autoindex: bulk HTTP request timeout: 300s
 walk [????????????]   ..%  | eta unknown
 autoindex: 234 files (1 MB) under ~/.xerj-code/corpora/xerj-search/sonic
@@ -14,12 +14,12 @@ autoindex: 2 byte-identical duplicate path(s) will reuse canonical content
 scan [------------]   0.0% | 0/232 items | 0B/1.2MB | eta unknown
 phase A: sniffing + sampling 232 files with 32 threads…
 phase A: 1 datasets inferred, 1 junk/skipped files
-estimate: at least 0.1 s–0.1 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
 estimate: basis — measured on this machine during phase A: 231 file(s) / 1.2 MB read end to end across 4 family/families, scheduled over 32 worker(s). Covers 1.2 MB of the 1.2 MB planned (100% of planned bytes). Client-side extraction only.
-  estimate: code         194 files  980.1 KB at 952.8 KB/s measured over 194 file(s) / 980.1 KB → 1.0 s
-  estimate: txt-prose     21 files  186.9 KB at 23.2 MB/s measured over 21 file(s) / 186.9 KB → 0.0 s
-  estimate: txt-lines     13 files   41.7 KB at 43.7 MB/s measured over 13 file(s) / 41.7 KB → 0.0 s
-  estimate: yaml           3 files    7.2 KB at 9.7 MB/s measured over 3 file(s) / 7.2 KB → 0.0 s
+  estimate: code         194 files  980.1 KB at 2.1 MB/s measured over 194 file(s) / 980.1 KB → 0.5 s
+  estimate: txt-prose     21 files  186.9 KB at 22.3 MB/s measured over 21 file(s) / 186.9 KB → 0.0 s
+  estimate: txt-lines     13 files   41.7 KB at 24.4 MB/s measured over 13 file(s) / 41.7 KB → 0.0 s
+  estimate: yaml           3 files    7.2 KB at 9.2 MB/s measured over 3 file(s) / 7.2 KB → 0.0 s
   estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
   estimate excludes: network round trips to the endpoint
   estimate excludes: relationship detection and edge writes (--no-graph removes these)
@@ -29,33 +29,16 @@ work order: source-and-docs (214 files, 1.1 MB) → config (3 files, 7.2 KB) →
   config           configuration and small structured trees — dense, high signal per byte
   bulk             logs and plain line files — voluminous, low signal per byte
   vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
-gate: not triggered — the measured extraction floor 0.1 s–0.1 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
 prepare [------------]   0.0% | 0/1 items | eta unknown
 snapshot [------------]   0.0% | 0/232 items | 0B/1.2MB | eta unknown
-snapshot [#####-------]  45.9% | 86/232 items | 558.2KB/1.2MB | 2.0MB/s | eta unknown | waiting on core/src/stopwords/hin.rs(4.4KB)
+snapshot [############] 100.0% | 232/232 items | 1.2MB/1.2MB | 2.2MB/s | eta unknown
 index [------------]   0.0% | 0/231 items | 0B/2.2MB | eta unknown
-index [------------]   4.5% | 11/231 items | 100.5KB/2.2MB | 193.8KB/s | eta unknown | waiting on core/src/stopwords/spa.rs(13.0KB)
-index [#-----------]  12.9% | 27/231 items | 289.1KB/2.2MB | 192.8KB/s | eta unknown | waiting on client/examples/raw.rs(988B)
-index [##----------]  21.1% | 41/231 items | 472.5KB/2.2MB | 190.9KB/s | eta unknown | waiting on core/src/stopwords/kor.rs(13.7KB)
-index [###---------]  26.2% | 57/231 items | 587.7KB/2.2MB | 175.7KB/s | eta unknown
-index [###---------]  30.7% | 71/231 items | 689.6KB/2.2MB | 161.0KB/s | eta unknown | waiting on config.cfg(3.2KB)
-index [####--------]  36.7% | 85/231 items | 823.6KB/2.2MB | 155.6KB/s | eta 9s | waiting on server/Taskfile.dist.yaml(4.3KB)
-index [#####-------]  42.1% | 99/231 items | 945.9KB/2.2MB | 148.9KB/s | eta 9s | waiting on Cargo.lock(117.6KB)
-index [######------]  51.4% | 113/231 items | 1.1MB/2.2MB | 160.6KB/s | eta 7s | waiting on core/src/stopwords/mod.rs(41.1KB)
-index [#######-----]  62.4% | 126/231 items | 1.4MB/2.2MB | 177.9KB/s | eta 6s | waiting on core/src/stopwords/sin.rs(1.2KB)
-index [########----]  72.0% | 140/231 items | 1.6MB/2.2MB | 185.4KB/s | eta 4s | waiting on core/src/stopwords/dan.rs(2.9KB)
-index [#########---]  75.5% | 153/231 items | 1.7MB/2.2MB | 163.9KB/s | eta 4s | waiting on core/src/stopwords/hye.rs(1.9KB)
-index [#########---]  79.2% | 165/231 items | 1.7MB/2.2MB | 147.8KB/s | eta 3s | waiting on client/examples/search_parallel_async.rs(7.4KB)
-index [##########--]  84.3% | 179/231 items | 1.8MB/2.2MB | 141.2KB/s | eta 3s | waiting on core/src/stopwords/kan.rs(3.2KB)
-index [##########--]  90.1% | 192/231 items | 2.0MB/2.2MB | 138.9KB/s | eta 2s | waiting on core/src/stopwords/mya.rs(11.2KB)
-index [###########-]  95.0% | 210/231 items | 2.1MB/2.2MB | 133.3KB/s | eta 2s | waiting on server/tests/README.md(519B)
-index [###########-]  96.8% | 221/231 items | 2.1MB/2.2MB | 114.7KB/s | eta 1s | waiting on core/src/stopwords/yid.rs(4.8KB)
+index [#########---]  78.1% | 160/231 items | 1.7MB/2.2MB | 1.7MB/s | eta unknown | waiting on CONTRIBUTING.md(2.4KB)
 finalize-catalog [------------]   0.0% | 0/1 items | eta unknown
-finalize-catalog [------------]   0.0% | 0/1 items | eta unknown
-finalize-catalog [############] 100.0% | 1/1 items | 0.8 items/s | eta unknown
+finalize-catalog [############] 100.0% | 1/1 items | 2.2 items/s | eta unknown
+finalize-refresh [------------]   0.0% | 0/2 items | eta unknown
 finalize-verify [------------]   0.0% | 0/231 items | eta unknown
-finalize-verify [#-----------]  13.0% | 30/231 items | 66.0 items/s | eta unknown | waiting on CODE_OF_CONDUCT.md
-finalize-verify [#######-----]  59.3% | 137/231 items | 74.2 items/s | eta unknown | waiting on client/src/search.rs
 generation 1 committed — 1 datasets, 1663 records live
-xerj-done ok=true exit=3 reason=completed-with-junk wall=21.8s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
-Script done on 2026-09-18 10:24:38+02:00 [COMMAND_EXIT_CODE="3"]
+xerj-done ok=true exit=3 reason=completed-with-junk wall=4.0s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
+Script done on 2026-09-18 11:01:02+02:00 [COMMAND_EXIT_CODE="3"]

@@ -26,7 +26,7 @@ links_out:
   - "check-codebase-index-is-complete"
   - "read-autoindex-progress"
 evidence:
-  - claim: "A forced refusal on a 3-file corpus: the csv dataset's 2 files were recorded as junk, the other dataset was indexed, and the run ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2."
+  - claim: "A forced refusal on a 3-file corpus: the csv dataset's 2 files were recorded as junk, the other dataset was indexed, and the run ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2."
     source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt"
   - claim: "The same run printed generation 1 committed with 1 datasets and 1 records live, then one REFUSED dataset line carrying the server's 400 response."
     source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stdout.txt"
@@ -77,7 +77,7 @@ autoindex: 1 of 2 dataset(s) refused, 2 of 3 file(s) not indexed — this run wi
 Then it finishes, and the terminal line counts the gap.
 
 ```text
-xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
 ```
 
 `datasets_refused` and `files_refused` appear only when something was refused. A corpus that lost nothing prints the line it always printed, so a corpus that lost a dataset cannot print the same one.

@@ -287,7 +287,7 @@
   <h2>Exit 3 can also mean a whole dataset is missing</h2>
   <p>The server can refuse the mapping of one dataset with an HTTP 400. That used to abort the entire run with exit 1 and index nothing. It now costs that one dataset: its files are recorded as junk with the server's reason, every other dataset is indexed, and the run exits 3.</p>
   <p>The terminal line says so, and only when it happened:</p>
-  <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+  <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
 </code></pre>
   <p>So an exit 3 is still a finished run, but it is not always a small gap. Read <code class="inline">datasets_refused</code> before you report a corpus as searchable. The <a href="/answers/autoindex-dataset-refused-by-server">refused-dataset page</a> covers what is recorded and how to recover.</p>
   <p>Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.</p>
@@ -344,7 +344,7 @@
   <ul>
     <li>EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — <code>engine/crates/xerj-autoindex/src/cli.rs:395</code></li>
     <li>Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — <code>engine/crates/xerj-autoindex/src/cli.rs:395</code></li>
-    <li>A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — <code>benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt</code></li>
+    <li>A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — <code>benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt</code></li>
     <li>Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either. — <code>engine/crates/xerj-autoindex/src/lib.rs:277</code></li>
   </ul>
   <h2>Related</h2>

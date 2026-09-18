@@ -85,9 +85,9 @@ A run passes through fixed phases, and the capture recorded all of them in this 
 
 A run that sits in `finalize-count` waits on the node, not on the disk. The captured line names the index it waits for, as `waiting_on=log16-logs`.
 
-## The 8 phases of a --no-graph run
+## The 9 phases of a --no-graph run
 
-`--no-graph` takes a different route. It seals every file into a snapshot first, then publishes from the snapshot. A capture of a 231-file repository recorded 8 phases in this order.
+`--no-graph` takes a different route. It seals every file into a snapshot first, then publishes from the snapshot. A capture of a 231-file repository recorded 9 phases in this order.
 
 | Phase | What it does | Counted in |
 | --- | --- | --- |
@@ -96,17 +96,24 @@ A run that sits in `finalize-count` waits on the node, not on the disk. The capt
 | `snapshot` | Verify, copy and extract every file into a sealed snapshot | source bytes |
 | `index` | Send the sealed bulk bytes to the node, one file at a time | sealed bulk bytes |
 | `finalize-catalog` | Publish the catalog and read it back | datasets |
+| `finalize-refresh` | Refresh every dataset index, so the read-back is exact | indices |
 | `finalize-verify` | Read every file's documents back from the node | files |
 
 The `index` phase names the file it is inside and carries a real denominator in both units:
 
 ```text
-xerj-progress phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 rate=241998.6 eta_s=0.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.9 elapsed_s=10.0 waiting_on=core/src/stopwords/zul.rs(1.6KB)
+xerj-progress phase=index basis=bytes pct=81.7 items=169/231 bytes=1881018/2303369 rate=1899235.6 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=1.0 elapsed_s=2.0 waiting_on=core/src/stopwords/ori.rs(1.2KB)
 ```
 
 The byte total of `index` is larger than the byte total of `snapshot`. That is correct. `snapshot` counts source bytes, and `index` counts the extracted NDJSON that is actually sent.
 
-A resumed run starts at `replay`. Its `index` phase counts only the operations still to apply, so it starts at 0% of what remains. It does not credit this run with an earlier run's writes.
+`eta_s` reads `unknown` there because the phase was 1.0 s old. That is the honest answer. The estimate appears once it has settled.
+
+`finalize-refresh` is a phase of its own for a reason. On a node holding 1,526 datasets, a probe of 60 refreshes took 6.36 s, about 106 ms each. That projects to about 160 seconds for all of them. It is a projection, not a timed run. Folded into `finalize-verify`, that time would have held the phase at zero with a climbing `since_progress_s`.
+
+A resumed run skips `walk`, `hash`, `scan` and `snapshot`. It reports `replay`, then `index`. Its `index` phase counts only the operations still to apply, so it starts at 0% of what remains. It does not credit this run with an earlier run's writes. In a capture of a full-corpus run interrupted with 12,890 of 47,444 operations committed, the resumed `index` phase opened at `items=0/34554`.
+
+Every run shows `phase=starting` until its first real phase opens. On that resumed run, with a large journal to load, `starting` lasted about 13 seconds.
 
 The `index` phase applies one file at a time, so it is the slow one on a large corpus. Read `eta_s` once `eta_quality` leaves `unknown`.
 
@@ -120,7 +127,7 @@ xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779
 
 The rc.74 capture holds 48 such lines, with `since_progress_s` climbing to 250.0. A real hang at the end of the scan prints exactly the same thing. Neither a person nor an agent could tell the two apart.
 
-On a current build each of those steps is a phase, and the same small-repository capture holds 0 lines that read `scan` at `pct=100.0`. If you are on rc.74 or earlier and see that line, check `_count` on the node before you conclude the run is hung.
+On a current build each of those steps is a phase, and the small-repository capture holds 0 lines that read `scan` at `pct=100.0`. If you are on rc.74 or earlier and see that line, check `_count` on the node before you conclude the run is hung.
 
 ## The line that ends the run
 
@@ -152,7 +159,7 @@ The percentage counts items, and one large file is one item. The captured 16 MB 
 
 ### Which phases does autoindex report?
 
-The default capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog. With `--no-graph` a capture recorded 8: walk, hash, scan, prepare, snapshot, index, finalize-catalog and finalize-verify.
+The default capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog. With `--no-graph` a capture recorded 9: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-refresh and finalize-verify.
 
 ### The progress says scan 100% and stalled. Is autoindex hung?
 
@@ -172,9 +179,11 @@ No. --quiet means no progress output, so the decision-JSON recipe and the progre
 
 ## Evidence
 
-- With --no-graph, a 231-file repository reported 8 phases in order: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-verify, with 0 progress lines reading scan at pct=100.0, and ended xerj-done ok=true exit=3 reason=completed-with-junk wall=13.1s files=231 records=1663. — `benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt`
-- The same run's index phase read phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 eta_s=0.6 eta_quality=good. — `benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt`
-- The terminal bar drew the same 8 phases under a pseudo-terminal, including index at 96.8% with 221/231 items, 2.1MB/2.2MB and eta 1s. — `benchmarks/autoindex-resilience/after-fix.small-repo.tty.txt`
+- With --no-graph, a 231-file repository reported 9 phases in order: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-refresh, finalize-verify, with 0 progress lines reading scan at pct=100.0, and ended xerj-done ok=true exit=3 reason=completed-with-junk wall=3.9s files=231 records=1663. — `benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt`
+- The same run's index phase read phase=index basis=bytes pct=81.7 items=169/231 bytes=1881018/2303369, 1.0 s into the phase, with eta_s=unknown. — `benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt`
+- The terminal bar drew the same 9 phases under a pseudo-terminal, including index at 78.1% with 160/231 items and 1.7MB/2.2MB. — `benchmarks/autoindex-resilience/after-fix.small-repo.tty.txt`
+- Resuming a full-corpus generation interrupted with 12,890 of 47,444 operations committed reported starting, then replay, then opened index at items=0/34554 bytes=0/805561870, and never reported scan or snapshot. — `benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt`
+- A probe of 60 index refreshes on a node holding 1,526 datasets took 6.36 s, about 106 ms each, which projects to about 160 seconds for all 1,526. — `benchmarks/autoindex-resilience/README.md`
 - On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus. — `benchmarks/autoindex-resilience/before-rc74.stderr.txt`
 
 ## Related

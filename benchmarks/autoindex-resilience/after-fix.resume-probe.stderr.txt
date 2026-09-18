@@ -1,0 +1,32 @@
+# This branch, final binary: resuming the real full-corpus generation after it was interrupted with 12,890 of 47,444
+# operations committed. Stopped on purpose after 100 s by `timeout`, so there is no xerj-done line.
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=58273 safe_zone_mib=43010]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | starting | eta unknown
+xerj-progress phase=starting basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=5.0 phase_elapsed_s=5.0 elapsed_s=5.0
+xerj-progress phase=starting basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=10.0 phase_elapsed_s=10.0 elapsed_s=10.0
+xerj-bar [????????????????????????] pct unknown | replay | eta unknown
+xerj-progress phase=replay basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=13.3
+xerj-progress phase=replay basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=1.7 phase_elapsed_s=1.7 elapsed_s=15.0
+xerj-progress phase=replay basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=6.7 phase_elapsed_s=6.7 elapsed_s=20.0
+xerj-bar [------------------------] 0.0% | index | 0/34554 items | eta unknown
+xerj-progress phase=index basis=bytes pct=0.0 items=0/34554 bytes=0/805561870 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=21.0
+xerj-progress phase=index basis=bytes pct=0.0 items=0/34554 bytes=0/805561870 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=4.0 phase_elapsed_s=4.0 elapsed_s=25.0 waiting_on=elasticsearch/x-pack/plugin/inference/src/test/java/org/elasticsearch/xpack/inference/highlight/SemanticFieldHighlighterTests.java(11.4KB)
+xerj-progress phase=index basis=bytes pct=0.0 items=0/34554 bytes=0/805561870 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=9.0 phase_elapsed_s=9.0 elapsed_s=30.0 waiting_on=elasticsearch/x-pack/plugin/inference/src/test/java/org/elasticsearch/xpack/inference/highlight/SemanticFieldHighlighterTests.java(11.4KB)
+xerj-progress phase=index basis=bytes pct=0.1 items=21/34554 bytes=640190/805561870 rate=45758.6 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=14.0 elapsed_s=35.0
+xerj-bar [------------------------] 0.2% | index | 63/34554 items | 60.9KB/s | eta unknown | waiting on …/xpack/ql/type/DateEsField.java(3.7KB)
+xerj-progress phase=index basis=bytes pct=0.2 items=63/34554 bytes=1284253/805561870 rate=62368.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=19.0 elapsed_s=40.0 waiting_on=elasticsearch/x-pack/plugin/ql/src/main/java/org/elasticsearch/xpack/ql/type/DateEsField.java(3.7KB)
+xerj-progress phase=index basis=bytes pct=0.2 items=104/34554 bytes=1733380/805561870 rate=67859.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=24.0 elapsed_s=45.0
+xerj-progress phase=index basis=bytes pct=0.3 items=142/34554 bytes=2575425/805561870 rate=87968.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=29.0 elapsed_s=50.0
+xerj-bar [------------------------] 0.4% | index | 170/34554 items | 85.4KB/s | eta unknown
+xerj-progress phase=index basis=bytes pct=0.4 items=170/34554 bytes=3001450/805561870 rate=87415.8 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=34.0 elapsed_s=55.0
+xerj-progress phase=index basis=bytes pct=0.4 items=197/34554 bytes=3431766/805561870 rate=87144.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=39.0 elapsed_s=60.0
+xerj-progress phase=index basis=bytes pct=0.5 items=227/34554 bytes=4090860/805561870 rate=96079.2 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=44.0 elapsed_s=65.0 waiting_on=elasticsearch/x-pack/plugin/inference/src/test/java/org/elasticsearch/xpack/inference/services/AbstractBuildModelFromConfigAndSecretsTests.java(20.5KB)
+xerj-bar [------------------------] 0.6% | index | 268/34554 items | 105.9KB/s | eta unknown | waiting on …amlPrepareAuthenticationAction.java(10.2KB)
+xerj-progress phase=index basis=bytes pct=0.6 items=268/34554 bytes=4880386/805561870 rate=108443.8 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=49.0 elapsed_s=70.0 waiting_on=elasticsearch/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/action/saml/TransportSamlPrepareAuthenticationAction.java(10.2KB)
+xerj-progress phase=index basis=bytes pct=0.7 items=308/34554 bytes=5552460/805561870 rate=113637.4 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=54.0 elapsed_s=75.0
+xerj-progress phase=index basis=bytes pct=0.8 items=348/34554 bytes=6272877/805561870 rate=119726.0 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=59.0 elapsed_s=80.0 waiting_on=elasticsearch/x-pack/plugin/old-lucene-versions/src/internalClusterTest/java/org/elasticsearch/xpack/lucene/bwc/ArchiveSettingValidationIntegTests.java(4.8KB)
+xerj-bar [------------------------] 0.9% | index | 388/34554 items | 117.0KB/s | eta unknown | waiting on …ExponentialHistogramAggregator.java(12.8KB)
+xerj-progress phase=index basis=bytes pct=0.9 items=388/34554 bytes=6874429/805561870 rate=119842.3 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=64.0 elapsed_s=85.0 waiting_on=elasticsearch/x-pack/plugin/esql/compute/src/main/java/org/elasticsearch/compute/aggregation/AnyExponentialHistogramAggregator.java(12.8KB)
+xerj-progress phase=index basis=bytes pct=1.0 items=426/34554 bytes=7861647/805561870 rate=135361.7 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=69.0 elapsed_s=90.0 waiting_on=elasticsearch/docs/reference/query-languages/esql/kibana/generated/x-pack-esql/definition/functions/to_counter.json(10.4KB)
+xerj-progress phase=index basis=bytes pct=1.0 items=464/34554 bytes=8287412/805561870 rate=125319.5 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=74.0 elapsed_s=95.0 waiting_on=elasticsearch/docs/reference/query-languages/esql/_snippets/commands/layout/registered_domain.md(3.3KB)

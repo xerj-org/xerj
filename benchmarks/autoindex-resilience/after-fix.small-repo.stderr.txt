@@ -1,4 +1,5 @@
-autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=72952 safe_zone_mib=57689]
+# xerj autoindex ~/.xerj-code/corpora/xerj-search/sonic --url http://localhost:9540 --prefix plain-probe2 --no-graph --state-dir ./state-plain2 --progress plain --progress-interval 1 --yes
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=60812 safe_zone_mib=45549]
 autoindex: bulk HTTP request timeout: 300s
 xerj-bar [????????????????????????] pct unknown | walk | eta unknown
 xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
@@ -14,10 +15,10 @@ phase A: sniffing + sampling 232 files with 32 threads…
 phase A: 1 datasets inferred, 1 junk/skipped files
 estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
 estimate: basis — measured on this machine during phase A: 231 file(s) / 1.2 MB read end to end across 4 family/families, scheduled over 32 worker(s). Covers 1.2 MB of the 1.2 MB planned (100% of planned bytes). Client-side extraction only.
-  estimate: code         194 files  980.1 KB at 2.0 MB/s measured over 194 file(s) / 980.1 KB → 0.5 s
-  estimate: txt-prose     21 files  186.9 KB at 41.4 MB/s measured over 21 file(s) / 186.9 KB → 0.0 s
-  estimate: txt-lines     13 files   41.7 KB at 27.9 MB/s measured over 13 file(s) / 41.7 KB → 0.0 s
-  estimate: yaml           3 files    7.2 KB at 9.0 MB/s measured over 3 file(s) / 7.2 KB → 0.0 s
+  estimate: code         194 files  980.1 KB at 1.8 MB/s measured over 194 file(s) / 980.1 KB → 0.5 s
+  estimate: txt-prose     21 files  186.9 KB at 12.3 MB/s measured over 21 file(s) / 186.9 KB → 0.0 s
+  estimate: yaml           3 files    7.2 KB at 5.7 MB/s measured over 3 file(s) / 7.2 KB → 0.0 s
+  estimate: txt-lines     13 files   41.7 KB at 43.7 MB/s measured over 13 file(s) / 41.7 KB → 0.0 s
   estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
   estimate excludes: network round trips to the endpoint
   estimate excludes: relationship detection and edge writes (--no-graph removes these)
@@ -28,13 +29,14 @@ work order: source-and-docs (214 files, 1.1 MB) → config (3 files, 7.2 KB) →
   bulk             logs and plain line files — voluminous, low signal per byte
   vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
 gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
-xerj-progress phase=prepare basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.4
+xerj-progress phase=prepare basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
 xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/232 bytes=0/1245548 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
-xerj-progress phase=index basis=bytes pct=0.0 items=0/231 bytes=0/2301706 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.1
-xerj-bar [#########---------------] 41.4% | index | 94/231 items | 236.4KB/s | eta unknown | waiting on server/tests/common/spawn_guard.rs(5.3KB)
-xerj-progress phase=index basis=bytes pct=41.4 items=94/231 bytes=952274/2301706 rate=242118.7 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=3.9 elapsed_s=5.0 waiting_on=server/tests/common/spawn_guard.rs(5.3KB)
-xerj-progress phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 rate=241998.6 eta_s=0.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.9 elapsed_s=10.0 waiting_on=core/src/stopwords/zul.rs(1.6KB)
+xerj-progress phase=snapshot basis=bytes pct=100.0 items=232/232 bytes=1245548/1245548 rate=2404109.7 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.5 elapsed_s=1.0
+xerj-progress phase=index basis=bytes pct=0.0 items=0/231 bytes=0/2303369 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.0
+xerj-progress phase=index basis=bytes pct=81.7 items=169/231 bytes=1881018/2303369 rate=1899235.6 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=1.0 elapsed_s=2.0 waiting_on=core/src/stopwords/ori.rs(1.2KB)
 xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1 items | eta unknown
-xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=11.2
-xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/231 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=12.0
-xerj-done ok=true exit=3 reason=completed-with-junk wall=13.1s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=2.5
+xerj-progress phase=finalize-catalog basis=items pct=100.0 items=1/1 bytes=0/0 rate=1.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.5 elapsed_s=3.0
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=3.1
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/231 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=3.1
+xerj-done ok=true exit=3 reason=completed-with-junk wall=3.9s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0

@@ -34,7 +34,7 @@ evidence:
     source: "engine/crates/xerj-autoindex/src/cli.rs:395"
   - claim: "Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel."
     source: "engine/crates/xerj-autoindex/src/cli.rs:395"
-  - claim: "A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed."
+  - claim: "A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed."
     source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt"
   - claim: "Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either."
     source: "engine/crates/xerj-autoindex/src/lib.rs:277"
@@ -90,7 +90,7 @@ The server can refuse the mapping of one dataset with an HTTP 400. That used to 
 The terminal line says so, and only when it happened:
 
 ```text
-xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
 ```
 
 So an exit 3 is still a finished run, but it is not always a small gap. Read `datasets_refused` before you report a corpus as searchable. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers what is recorded and how to recover.
