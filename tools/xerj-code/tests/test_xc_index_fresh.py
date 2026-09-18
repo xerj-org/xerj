@@ -20,6 +20,8 @@ The fix is a build-verify-swap in the wrapper. These tests pin its contract:
     as they were, and removes only what it created
   * a sibling corpus (`battle` vs `battle-terse`) is never touched
   * two --fresh runs inside one second cannot retire the build just verified
+  * an interrupted FIRST build (no index to fall back to) is kept, recorded as
+    salvaged with its real exit code, and resumed by a plain re-run
 
 Offline: a fake node (http.server) and a fake `xerj` binary that behaves like
 the real one where it matters — it refuses `--fresh` and refuses a legacy state
@@ -345,6 +347,41 @@ def main():
     code, out, err = rig.run("new", "--frsh")
     check("a mistyped flag is rejected (exit 2), not silently ignored", code == 2, "code=%s" % code)
     check("…and autoindex is not run", len(rig.argv()) == before)
+    rig.close()
+
+    # 8 ── an interrupted FIRST build: nothing to fall back to, so it is kept ─
+    # The complement of 5. autoindex exits 1 part-way through a large corpus
+    # when the node keeps rejecting writes (#944); with no working index to
+    # protect, throwing the partial build away would leave no corpus at all.
+    # It is kept, recorded for what it is, and a plain re-run RESUMES it: same
+    # prefix, same state directory, so autoindex picks its journal back up.
+    print("an interrupted first build is kept, labelled, and resumed by a plain re-run")
+    rig = Rig()
+    rig.corpus("cut")
+    rig.behave(rc=1, docs=7)
+    code, out, err = rig.run("cut", "--fresh")
+    check("the script does not fail the salvaged build", code == 0, "code=%s stderr=%s" % (code, err))
+    check("it says so loudly", "WARNING" in err and "exited 1" in err, err)
+    state = rig.state("cut")
+    built = state.get("index_prefix", "")
+    check("the ledger records the real exit code", state.get("autoindex_exit") == 1, str(state))
+    check("the ledger records it as salvaged", state.get("salvaged") is True, str(state))
+    check("the ledger still names the build", re.fullmatch(r"xc-cut-b\d{14}", built) is not None, str(state))
+    check("the partial build's indices are kept", rig.node.indices.get(built + "-docs") == 7, str(rig.node.indices))
+    check("nothing was deleted", not any(method == "DELETE" for method, _ in rig.node.log), str(rig.node.log))
+    kept_state = state.get("state_dir", "")
+    check("its state directory is kept for the resume",
+          os.path.isfile(os.path.join(kept_state, "journal.ndjson")), kept_state)
+    rig.behave(rc=0, docs=9)
+    code, out, err = rig.run("cut")
+    words = rig.argv()[-1]
+    check("a plain re-run exits 0", code == 0, err)
+    check("it re-runs autoindex under the SAME prefix", flag(words, "--prefix") == built, str(words))
+    check("…and the SAME state directory, so the journal resumes", flag(words, "--state-dir") == kept_state, str(words))
+    state = rig.state("cut")
+    check("a finished resume clears the salvaged mark",
+          state.get("salvaged") is False and state.get("autoindex_exit") == 0, str(state))
+    check("the build id did not change", state.get("index_prefix") == built, str(state))
     rig.close()
 
     print("\n%d passed, %d failed" % (passed, failed))

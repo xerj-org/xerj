@@ -81,6 +81,15 @@ bucket a repo is in; `hub/README.md` explains the three.
   outright once a corpus generation has committed — which is why `--fresh` used
   to fail on every corpus that had been indexed before
   ([#930](https://github.com/xerj-org/xerj/issues/930)).
+- **An interrupted FIRST build is kept, and `xc.py` says so.** When a build
+  fails after writing records and there is no working index to fall back to,
+  the script keeps it rather than leave no corpus at all, and records
+  `salvaged: true` plus the real `autoindex_exit` in the state file. Such a
+  build can be partial, so `xc.py` warns on stderr with every query that
+  coverage is INCOMPLETE — **a miss is then not evidence that the code is
+  absent** — and `xc.py --list` marks the corpus. A plain `xc-index.sh <corpus>`
+  resumes it (same prefix, same state directory) and clears the mark when it
+  finishes.
 - **A plain `xc-index.sh <corpus>` updates in place.** It re-runs autoindex
   against the recorded build's prefix and state directory, so additions,
   edits, deletions and renames reconcile incrementally.

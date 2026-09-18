@@ -97,7 +97,15 @@ If autoindex aborts, or exits 0 with zero records, the script removes only what 
 xc-index: the existing index was NOT touched and is still what xc.py serves.
 ```
 
-There is one case where a failed build is kept. autoindex can abort in finalisation after every document was written. If that happens and there is no working index to fall back to, the script records the build as indexed, stores the real exit code in `autoindex_exit`, and prints a warning that coverage is not guaranteed. It never swaps a working index out for a build that failed.
+There is one case where a failed build is kept: it wrote records, and there is no working index to fall back to. Throwing it away would leave no corpus at all. autoindex can abort in finalisation after every document was written, and it can also stop part-way through a large corpus, for example when the node keeps rejecting writes. The script cannot tell the two apart, so it treats both the same way. It records the build, stores the real exit code in `autoindex_exit` with `salvaged: true`, and prints a warning that coverage is not guaranteed. It never swaps a working index out for a build that failed.
+
+A kept build can be partial, so the reader is told. While the state file says `salvaged`, or records an exit code other than 0 or 3, `xc.py` prints this on stderr with every query, and `xc.py --list` marks the corpus `INCOMPLETE`:
+
+```text
+WARNING: the index for 'xerj-storage' was recorded from an autoindex run that exited 1 and did not finish. Coverage is INCOMPLETE: a miss here is not evidence that the code is absent. Re-run xc-index.sh xerj-storage to resume it.
+```
+
+A plain `xc-index.sh <corpus>` resumes it. The kept build has its own prefix and state directory, so the re-run passes both back to autoindex, which continues from its journal. When that run exits 0 or 3 the `salvaged` mark is cleared and the warning stops.
 
 ## Two prefixes in the state file
 
@@ -131,7 +139,9 @@ The old state directory of a corpus indexed before builds existed lives under `~
 
 The two error messages are captures from v1.0.0-rc.74, committed under `benchmarks/autoindex-resilience/`. Local paths in them were shortened; nothing else was changed.
 
-The new behaviour is pinned by `tools/xerj-code/tests/test_xc_index_fresh.py`: 46 offline checks against a fake node and a fake `xerj` binary that refuses what the real one refuses. The same test fails against the old script with the first error above.
+The new behaviour is pinned by `tools/xerj-code/tests/test_xc_index_fresh.py`: 59 offline checks against a fake node and a fake `xerj` binary that refuses what the real one refuses. The same test fails against the old script with the first error above.
+
+The warning and the `--list` mark are pinned by `tools/xerj-code/tests/test_state_ledger.py` (25 offline checks). Resuming a kept build was checked against the fake binary only: that the re-run passes the same prefix and state directory. autoindex resuming an interrupted generation from its journal is a separate capture, `benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt`. The two were not run together end to end.
 
 Writing that test found three defects in the first draft of the new script. An index listing that never reached its filter, a record count that read as zero when the node put a space after the colon, and two rebuilds inside one second retiring the build they had just verified. All three are fixed and covered.
 
@@ -157,6 +167,10 @@ No. The old index stays live until the replacement exited 0 or 3 and its record 
 
 No. `xerj autoindex --fresh` only discards the resume journal, never removes records, and is refused once a durable generation exists. The script's `--fresh` is a full rebuild under a new prefix and state directory.
 
+### What happens if the first build of a corpus is interrupted?
+
+With no working index to fall back to, the script keeps the partial build, records `salvaged: true` and the real exit code in the state file, and warns. `xc.py` then warns on every query that coverage is incomplete. A plain `xc-index.sh <corpus>` resumes the run under the same prefix and state directory.
+
 ### How much disk does a rebuild need?
 
 Room for the corpus twice. Both builds exist on the node from the start of the rebuild until the old one is retired. This was not measured; plan for double.
@@ -165,7 +179,8 @@ Room for the corpus twice. Both builds exist on the node from the start of the r
 
 - On v1.0.0-rc.74 a state directory written before the generation-v1 format aborted with exit 1: this state directory contains a legacy nonempty plan that cannot become generation authority. — `benchmarks/autoindex-resilience/fresh-before-rc74.legacy-state.txt`
 - On v1.0.0-rc.74 xerj autoindex --fresh over a committed generation aborted with exit 1: --fresh cannot discard committed corpus generation 1 under the same destination. — `benchmarks/autoindex-resilience/fresh-before-rc74.committed-generation.txt`
-- The --fresh contract is pinned by 46 offline checks: a new state directory and prefix, --fresh never forwarded to autoindex, nothing deleted before the replacement's count was read, deletes by exact name, a failed or empty build leaves the old index and state file untouched, and a sibling corpus is never touched. — `tools/xerj-code/tests/test_xc_index_fresh.py`
+- The --fresh contract is pinned by 59 offline checks: a new state directory and prefix, --fresh never forwarded to autoindex, nothing deleted before the replacement's count was read, deletes by exact name, a failed or empty build leaves the old index and state file untouched, a sibling corpus is never touched, and an interrupted first build is kept, recorded as salvaged with its real exit code, and resumed by a plain re-run under the same prefix and state directory. — `tools/xerj-code/tests/test_xc_index_fresh.py`
+- When the ledger records a salvaged build or an autoindex exit other than 0 or 3, xc.py prints a coverage-is-INCOMPLETE warning on stderr on every query, keeps --json stdout parseable, and marks the corpus INCOMPLETE in --list. Exit 3 is not reported as incomplete. — `tools/xerj-code/tests/test_state_ledger.py`
 - xc.py queries index_prefix, the one verified build, and never the bare namespace glob once a corpus has been rebuilt. — `tools/xerj-code/tests/test_state_ledger.py`
 
 ## Related

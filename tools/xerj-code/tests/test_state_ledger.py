@@ -210,6 +210,47 @@ def main():
     check("case5 no request addresses the bare namespace glob",
           not any(f"/{PREFIX}*" in u for u in addressed), repr(addressed))
 
+    # Case 6: xc-index.sh keeps a build whose autoindex run did not finish when
+    # the alternative is no corpus at all, and records `salvaged` and the exit
+    # code. The reader must be TOLD: a miss against a half-built index is not
+    # evidence of absence. On stderr, so `--json` stdout stays parseable.
+    with open(state_path) as fh:
+        partial = json.load(fh)
+    partial.update({"autoindex_exit": 1, "salvaged": True})
+    with open(state_path, "w") as fh:
+        json.dump(partial, fh)
+    live = [{"index": f"{build}-1"}]
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    check("case6 a salvaged index still answers (exit 0)", code == 0,
+          f"got {code} {out + err!r}")
+    check("case6 the reader is told coverage is incomplete",
+          "INCOMPLETE" in err and "exited 1" in err, repr(err))
+    check("case6 the warning names the command that resumes it",
+          f"xc-index.sh {CORPUS}" in err, repr(err))
+    check("case6 the warning is not on stdout", "INCOMPLETE" not in out, repr(out))
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way", "--json"])
+    try:
+        json.loads(out)
+        parseable = True
+    except ValueError:
+        parseable = False
+    check("case6 --json stdout is still one JSON document", parseable, repr(out))
+    check("case6 --json still warns on stderr", "INCOMPLETE" in err, repr(err))
+    code, out, err = run_query(mod, indices=live, search_hits=[], argv=["--list"])
+    check("case6 --list marks the corpus INCOMPLETE",
+          "INCOMPLETE (autoindex exit 1)" in out + err, repr(out + err))
+
+    # A finished run says nothing: exit 3 is completed-with-junk, not partial.
+    partial.update({"autoindex_exit": 3, "salvaged": False})
+    with open(state_path, "w") as fh:
+        json.dump(partial, fh)
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    check("case6 exit 3 (completed with junk) is not reported as incomplete",
+          code == 0 and "INCOMPLETE" not in out + err, repr(out + err))
+
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
 

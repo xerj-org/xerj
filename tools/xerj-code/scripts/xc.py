@@ -153,6 +153,31 @@ def require_loaded(state):
             f"match' — the corpus simply is not loaded on this server.)", code=3)
 
 
+def incomplete_coverage(state):
+    """The ledger's own word that this index came from a run that did not finish.
+
+    xc-index.sh keeps a build whose autoindex run exited non-zero when the only
+    alternative is no corpus at all, and records `salvaged: true` and the exit
+    code in the state file with the words "coverage is not guaranteed". Nothing
+    ever read them back, so the one party who needed to know — whoever is
+    querying — saw a normal index: a miss against a half-built corpus read
+    exactly like "this code does not exist", which is the false confidence the
+    staleness check exists to prevent. Exit 0 is clean and 3 is completed with
+    junk or refused datasets; anything else did not finish.
+
+    Returns the warning line, or None when the ledger records a finished run.
+    """
+    rc = state.get("autoindex_exit")
+    finished = rc in (None, 0, 3) or isinstance(rc, bool)
+    if finished and not state.get("salvaged"):
+        return None
+    name = state.get("corpus", "?")
+    return (f"WARNING: the index for '{name}' was recorded from an autoindex run "
+            f"that exited {rc} and did not finish. Coverage is INCOMPLETE: a miss "
+            f"here is not evidence that the code is absent. Re-run "
+            f"xc-index.sh {name} to resume it.")
+
+
 def check_fresh(state, stale_ok):
     """A stale index returns code that no longer exists, with false confidence."""
     stamp = state.get("indexed_at")
@@ -574,6 +599,9 @@ def list_corpora():
         else:
             loaded += 1
             status = f"loaded — {count} index(es)"
+            if incomplete_coverage(st):
+                status += (f" — INCOMPLETE (autoindex exit "
+                           f"{st.get('autoindex_exit')}); re-run xc-index.sh {name}")
         print(f"  {name:<18} {stamp}  {prefix:<18} {status}")
     print(f"\n{loaded} of {len(entries)} corpora are actually loaded on {URL}.")
 
@@ -643,6 +671,12 @@ def main():
     # "no passage matches" path, which reads as a bad query and sends the agent
     # off to guess. This is the fix for the state-ledger trust trap.
     require_loaded(state)
+    # Every time, like the mode note below: an incomplete index that answers
+    # silently is indistinguishable from a complete one. stderr, so `--json`
+    # output stays parseable.
+    warning = incomplete_coverage(state)
+    if warning:
+        print(warning, file=sys.stderr)
 
     note = None
     if args.mode == "hybrid":

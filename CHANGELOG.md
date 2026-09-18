@@ -50,7 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer forwards the flag to autoindex (which refuses it once a generation has
   committed): it builds a replacement beside the old index, verifies
   `_count > 0`, switches the state file atomically and only then retires the old
-  indices by exact name. Found while verifying the above on the full corpus
+  indices by exact name. A first build that is interrupted after writing
+  records is kept rather than leave no corpus, and `xc.py` now reads the
+  `salvaged` / `autoindex_exit` the script always recorded: it warns on every
+  query that coverage is INCOMPLETE, so a miss against a partial index cannot
+  read as "this code does not exist". Found while verifying the above on the full corpus
   ([#944](https://github.com/xerj-org/xerj/issues/944)): a per-item HTTP 429
   inside one bulk — the node's memory circuit breaker, which engages and
   releases within seconds — aborted the 48,533-file run at 60% after 85
