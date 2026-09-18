@@ -1343,6 +1343,10 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
         }
     };
 
+    if principal.is_share_guest() && guest_body_denied(shape, &body) {
+        return guest_forbidden(&principal, &path);
+    }
+
     if let Err(denied) = decide(&principal, &method, &segs, &target, shape, &body, &state) {
         return denied;
     }
@@ -1433,6 +1437,33 @@ fn guest_route_allowed(
             };
             shape_ok && !query_names_any(query, GUEST_DENIED_PARAMS)
         }
+    }
+}
+
+/// Does a guest's request body ask for something the route allow-list exists
+/// to keep shut?
+///
+/// One thing today: a point-in-time id. A guest cannot open a PIT (`_pit` is
+/// not on the allow-list), so any id it presents was opened by someone else —
+/// and a PIT, not the path, decides which index a search runs against:
+/// `POST /casefile/_search {"pit": {"id": <a PIT on private-diary>}}` searches
+/// `private-diary`. The engine's index funnel already refuses that for a
+/// guest (live-verified 2026-09-18: `404 no such index [private-diary]`), but
+/// that answer echoes the other index's name back, and the path-level decision
+/// above it authorized `casefile` for a request that was never going to read
+/// `casefile`. Refused here, by shape, for both spellings that carry a search
+/// body: `_search`-like bodies and `_msearch` body lines.
+fn guest_body_denied(shape: BodyShape, body: &[u8]) -> bool {
+    let has_pit = |v: &Value| v.as_object().is_some_and(|o| o.contains_key("pit"));
+    match shape {
+        BodyShape::Query => serde_json::from_slice::<Value>(body)
+            .map(|v| has_pit(&v))
+            .unwrap_or(false),
+        BodyShape::MsearchHeaders => body
+            .split(|b| *b == b'\n')
+            .filter_map(|line| serde_json::from_slice::<Value>(line).ok())
+            .any(|v| has_pit(&v)),
+        _ => false,
     }
 }
 
@@ -2173,6 +2204,38 @@ mod tests {
         let target = classify("/private-diary/_search");
         assert!(guest_route_allowed(&Method::POST, &segs, &target, None));
         assert!(!check(&guest(), Method::POST, "/private-diary/_search", ""));
+    }
+
+    #[test]
+    fn a_share_guest_cannot_ride_someone_elses_point_in_time() {
+        // A PIT decides the searched index in place of the path, and a guest
+        // can never have opened one.
+        assert!(guest_body_denied(
+            BodyShape::Query,
+            br#"{"query":{"match_all":{}},"pit":{"id":"abc","keep_alive":"1m"}}"#
+        ));
+        assert!(guest_body_denied(BodyShape::Query, br#"{"pit":null}"#));
+        assert!(guest_body_denied(
+            BodyShape::MsearchHeaders,
+            b"{}\n{\"query\":{\"match_all\":{}},\"pit\":{\"id\":\"abc\"}}\n"
+        ));
+        // An ordinary search is untouched — including one that merely
+        // mentions the word, or nests it where it is not the PIT clause.
+        assert!(!guest_body_denied(
+            BodyShape::Query,
+            br#"{"query":{"match":{"body":"pit"}}}"#
+        ));
+        assert!(!guest_body_denied(
+            BodyShape::Query,
+            br#"{"query":{"term":{"pit":"x"}}}"#
+        ));
+        assert!(!guest_body_denied(
+            BodyShape::MsearchHeaders,
+            b"{\"index\":\"casefile\"}\n{\"query\":{\"match_all\":{}}}\n"
+        ));
+        assert!(!guest_body_denied(BodyShape::Query, b"not json"));
+        assert!(!guest_body_denied(BodyShape::None, br#"{"pit":{"id":"x"}}"#));
+        assert!(!guest_body_denied(BodyShape::MgetDocs, br#"{"pit":{"id":"x"}}"#));
     }
 
     #[test]

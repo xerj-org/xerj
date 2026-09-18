@@ -36,8 +36,8 @@
   // search box by accident and mean nothing as markup, so a snippet is split on
   // them and rebuilt from text nodes. The engine's default `<em>` tags would
   // arrive glued to unescaped document text — unusable without parsing HTML.
-  const HL_PRE = '';
-  const HL_POST = '';
+  const HL_PRE = '\uE000';
+  const HL_POST = '\uE001';
   // Fields that usually hold the readable body, best first.
   const BODY_FIELDS = ['body', 'text', 'content', 'message', 'description', 'summary'];
   // Fields that usually name the document, best first.
@@ -328,16 +328,39 @@
     return undefined;
   }
 
+  /**
+   * The keyword leg. `multi_match` over the text fields the mapping listed,
+   * titles boosted. With no field list (the mapping could not be read) it is
+   * `simple_query_string`, which needs none — this engine refuses a
+   * `multi_match` without `fields`, and `simple_query_string` never throws on
+   * what a person types.
+   */
+  function lexicalQuery(plan, q) {
+    if (plan.fields.length) return { multi_match: { query: q, fields: plan.fields } };
+    return { simple_query_string: { query: q } };
+  }
+
   function queryFor(plan, q) {
-    if (plan.semanticField) {
-      return { hybrid: { queries: [
-        { query: { match: { [plan.semanticField]: q } }, weight: 1 },
-        { query: { semantic: { field: plan.semanticField, query: q } }, weight: 1 },
-      ] } };
-    }
-    const mm = { query: q };
-    if (plan.fields.length) mm.fields = plan.fields;
-    return { multi_match: mm };
+    if (!plan.semanticField) return lexicalQuery(plan, q);
+    return { hybrid: { queries: [
+      { query: lexicalQuery(plan, q), weight: 1 },
+      { query: { semantic: { field: plan.semanticField, query: q } }, weight: 1 },
+    ] } };
+  }
+
+  /**
+   * Named fields, never `*`: this engine's highlighter does not expand a field
+   * pattern, so a wildcard comes back with no highlight at all. The names are
+   * the ones being searched (boosts stripped); with no mapping, the usual
+   * body and title names.
+   */
+  function highlightFields(plan) {
+    const names = plan.fields.length
+      ? plan.fields.map((f) => f.replace(/\^.*$/, ''))
+      : [...BODY_FIELDS, ...TITLE_FIELDS];
+    const fields = {};
+    for (const name of names) fields[name] = {};
+    return fields;
   }
 
   function searchBody(plan, q, from) {
@@ -352,7 +375,7 @@
         post_tags: [HL_POST],
         fragment_size: 220,
         number_of_fragments: 1,
-        fields: { '*': {} },
+        fields: highlightFields(plan),
       },
     };
   }
@@ -402,9 +425,19 @@
     state.shown += merged.length;
     const anyFull = lists.some((l) => l.length === PAGE_SIZE);
     $('more').hidden = !(anyFull && state.shown < total);
-    setStatus(total === 0
-      ? `No documents match “${q}”.`
-      : `${total.toLocaleString()} matching ${total === 1 ? 'document' : 'documents'} · showing ${state.shown.toLocaleString()}`);
+    setStatus(total === 0 ? `No documents match “${q}”.` : countLine());
+  }
+
+  /**
+   * "N matching documents" is only true of a keyword search. The vector leg of
+   * a hybrid query scores every document it looks at, so there the count is
+   * how many were ranked, not how many contain the words.
+   */
+  function countLine() {
+    const n = state.total.toLocaleString();
+    const noun = state.total === 1 ? 'document' : 'documents';
+    const what = state.plans.some((p) => p.semanticField) ? `${n} ${noun} ranked, best first` : `${n} matching ${noun}`;
+    return `${what} · showing ${state.shown.toLocaleString()}`;
   }
 
   function firstString(source, names) {
@@ -454,6 +487,21 @@
     if (last < value.length) parent.appendChild(document.createTextNode(value.slice(last)));
   }
 
+  /** `size` characters of `text` around the first occurrence of any term. */
+  function windowAround(text, terms, size) {
+    const value = String(text).replace(/\s+/g, ' ').trim();
+    if (value.length <= size) return value;
+    const lower = value.toLowerCase();
+    let at = -1;
+    for (const t of terms) {
+      const i = lower.indexOf(t);
+      if (i >= 0 && (at < 0 || i < at)) at = i;
+    }
+    const start = at < 0 ? 0 : Math.max(0, at - Math.floor(size / 3));
+    const end = Math.min(value.length, start + size);
+    return `${start > 0 ? '…' : ''}${value.slice(start, end)}${end < value.length ? '…' : ''}`;
+  }
+
   function renderHit(hit) {
     const source = hit._source || {};
     const li = el('li');
@@ -466,14 +514,18 @@
       .slice(0, 3);
     if (meta.length) button.appendChild(el('span', 'hit-meta', meta.join(' · ').slice(0, 300)));
     const snippet = el('span', 'hit-snippet');
-    const fragments = hit.highlight && typeof hit.highlight === 'object'
-      ? Object.values(hit.highlight).flat().filter((f) => typeof f === 'string')
-      : [];
+    // A fragment of the body says more than a fragment of the title, which is
+    // already on the line above — so body-like fields first.
+    const hl = hit.highlight && typeof hit.highlight === 'object' ? hit.highlight : {};
+    const order = [...BODY_FIELDS.filter((f) => f in hl), ...Object.keys(hl).filter((f) => !BODY_FIELDS.includes(f) && !TITLE_FIELDS.includes(f)), ...TITLE_FIELDS.filter((f) => f in hl)];
+    const fragments = order.flatMap((f) => (Array.isArray(hl[f]) ? hl[f] : [])).filter((f) => typeof f === 'string');
     if (fragments.length) {
       appendHighlighted(snippet, fragments[0].slice(0, 600));
     } else {
+      // No highlight came back (the hybrid query returns none): cut a window
+      // around the first query term instead of always showing the opening.
       const body = firstString(source, BODY_FIELDS);
-      if (body) appendWithTerms(snippet, body.slice(0, 280) + (body.length > 280 ? '…' : ''), state.terms);
+      if (body) appendWithTerms(snippet, windowAround(body, state.terms, 280), state.terms);
     }
     if (snippet.firstChild) button.appendChild(snippet);
     button.addEventListener('click', () => openDoc(hit._index, hit._id));
@@ -552,7 +604,7 @@
   function closeDoc() {
     $('doc-pane').hidden = true;
     $('results-pane').hidden = false;
-    if (state.total) setStatus(`${state.total.toLocaleString()} matching ${state.total === 1 ? 'document' : 'documents'} · showing ${state.shown.toLocaleString()}`);
+    if (state.total) setStatus(countLine());
   }
 
   // ── sign-out, console hand-off ───────────────────────────────────────────

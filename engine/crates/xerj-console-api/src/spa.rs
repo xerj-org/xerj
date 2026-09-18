@@ -397,6 +397,16 @@ mod tests {
         // The one storage contract the console's guest mode depends on.
         assert!(code.contains("'xerj.share'"));
         assert!(code.contains("sessionStorage.setItem(SHARE_KEY"));
+        // The highlight delimiters are private-use code points, which are
+        // invisible in an editor and in review: they must be written as
+        // escapes, never as the characters themselves.
+        assert!(
+            !asset_text("share/share.js")
+                .chars()
+                .any(|c| ('\u{E000}'..='\u{F8FF}').contains(&c)),
+            "share.js contains a raw private-use character; write it as \\uE000"
+        );
+        assert!(code.contains("'\\uE000'") && code.contains("'\\uE001'"));
         // No request leaves the origin: every fetch target is a path.
         assert!(!code.contains("http://") && !code.contains("https://"));
     }

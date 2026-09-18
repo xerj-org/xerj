@@ -88,6 +88,11 @@ def hits_outside(resp, allowed):
 SECRET = "nobody else should ever read this"
 
 
+def nd(*lines):
+    """NDJSON body."""
+    return ("\n".join(json.dumps(l) for l in lines) + "\n").encode()
+
+
 def leaks(resp):
     """Does any part of a response carry the private document's text?"""
     return SECRET in json.dumps(resp)
@@ -106,8 +111,15 @@ bulk = (
 s, r, _ = call("POST", "/_bulk", bulk, ADMIN)
 ok("seed documents indexed", s == 200 and not r.get("errors"), (s, r))
 call("POST", "/casefile,private-diary/_refresh", None, ADMIN)
-s, r, _ = call("POST", "/_graph/case/link", {"src": "casefile/1", "dst": "casefile/2", "type": "mentions"}, ADMIN)
+s, r, _ = call("PUT", "/casefile-pdfs/_doc/1?refresh=true", {"subject": "Scanned lease", "body": "twelve month tenancy"}, ADMIN)
+ok("second shared index seeded", s in (200, 201), (s, r))
+s, r, _ = call("POST", "/_graph/case/link", {"src": "casefile/1", "dst": "casefile-pdfs/1", "type": "mentions"}, ADMIN)
 ok("brain 'case' has an edge", s in (200, 201), (s, r))
+# What `xerj brain <folder>` records for a folder with more than one dataset:
+# every index it built, comma-joined, in the brain's meta document.
+s, r, _ = call("PUT", "/.xerj-memory-case-edges/_doc/__xerj-brain-meta?refresh=true",
+               {"meta_version": 1, "brain": "case", "nodes_index": "casefile,casefile-pdfs", "created_at": 1}, ADMIN)
+ok("brain 'case' spans two indices", s in (200, 201), (s, r))
 s, r, _ = call("POST", "/_graph/other/link", {"src": "private-diary/1", "dst": "x/9", "type": "mentions"}, ADMIN)
 ok("brain 'other' has an edge", s in (200, 201), (s, r))
 s, r, _ = call("POST", "/_aliases", {"actions": [
@@ -120,7 +132,8 @@ ok("aliases created", s == 200, (s, r))
 
 # ─────────────────────────────────────────────────────────────────────────────
 section("management is superuser-only")
-want = {"index": "casefile", "brain": "case", "expires_in": "1h", "max_claims": 1, "label": "my lawyer"}
+want = {"index": ["casefile", "casefile-pdfs"], "brain": "case", "expires_in": "1h", "max_claims": 1, "label": "my lawyer"}
+SHARED = {"casefile", "casefile-pdfs", ".xerj-memory-case-edges"}  # everything the guest holds
 s, r, _ = call("POST", "/_share", want)
 ok("create without a key is refused", s in (401, 403), (s, r))
 s, r, h = call("POST", "/_share", want, ADMIN)
@@ -155,7 +168,7 @@ ok("claim response is never cached",
    dict(h))
 ok("claim response is the guest-page contract",
    all(k in g for k in ("api_key", "index", "brain", "expires_at", "label"))
-   and g["index"] == "casefile" and g["brain"] == "case" and g["label"] == "my lawyer", g)
+   and g["index"] == "casefile,casefile-pdfs" and g["brain"] == "case" and g["label"] == "my lawyer", g)
 GK = g.get("api_key")
 s, r, _ = call("POST", f"/_share/{SID}/claim", {"passcode": PW})
 ok("max_claims=1: second claim refused", s == 410, (s, r))
@@ -165,10 +178,10 @@ section("what the guest CAN do")
 s, r, _ = call("POST", "/casefile/_search", {"query": {"match": {"body": "deposit"}}}, GK)
 ok("search the shared index", s == 200 and r["hits"]["total"]["value"] == 1, (s, r))
 s, r, _ = call("POST", "/casefile/_search",
-               {"query": {"multi_match": {"query": "deposit"}},
-                "highlight": {"pre_tags": [""], "post_tags": [""], "fields": {"*": {}}}}, GK)
+               {"query": {"multi_match": {"query": "deposit", "fields": ["subject^2", "body"]}},
+                "highlight": {"pre_tags": ["\uE000"], "post_tags": ["\uE001"], "fields": {"subject": {}, "body": {}}}}, GK)
 ok("highlighted snippets with the page's private-use delimiters",
-   s == 200 and "" in json.dumps(r, ensure_ascii=False), (s, r))
+   s == 200 and "\uE000" in json.dumps(r, ensure_ascii=False), (s, r))
 s, r, _ = call("GET", "/casefile/_doc/1", None, GK)
 ok("read one document", s == 200 and r.get("found"), (s, r))
 s, r, _ = call("GET", "/casefile/_mapping", None, GK)
@@ -179,8 +192,15 @@ s, r, _ = call("POST", "/casefile/_mget", {"ids": ["1", "2"]}, GK)
 ok("_mget inside the shared index", s == 200 and len(r.get("docs", [])) == 2, (s, r))
 s, r, _ = call("GET", "/_graph/case/overview", None, GK)
 ok("walk the shared brain (overview)", s == 200, (s, r))
+ok("…and the overview counts notes across both shared indices", r.get("nodes", {}).get("total") == 3, r)
 s, r, _ = call("GET", "/_graph/case/ego?node=casefile/1", None, GK)
-ok("walk the shared brain (ego)", s == 200, (s, r))
+ok("walk the shared brain (ego)", s == 200 and len(r.get("edges", [])) == 1, (s, r))
+s, r, _ = call("GET", "/_graph/case/ego?node=casefile/1&include_nodes=true", None, GK)
+ok("…with the linked notes hydrated from both shared indices", s == 200 and not leaks(r), (s, r))
+s, r, _ = call("GET", "/_graph/case/ego?node=casefile/1&include_nodes=true&nodes_index=private-diary", None, GK)
+ok("…but nodes_index cannot redirect hydration at a private index", s == 403 and not leaks(r), (s, r))
+s, r, _ = call("GET", "/_graph/case/ego?node=casefile/1&include_nodes=true&nodes_index=casefile,private-diary", None, GK)
+ok("…not even as one name in a list", s == 403 and not leaks(r), (s, r))
 
 # ─────────────────────────────────────────────────────────────────────────────
 section("what the guest CANNOT reach: the cluster surface")
@@ -191,7 +211,7 @@ for method, path in [
     ("GET", "/_cluster/settings"), ("GET", "/_nodes"), ("GET", "/_nodes/stats"),
     ("GET", "/_snapshot"), ("GET", "/_snapshot/_all"), ("GET", "/_tasks"),
     ("GET", "/_stats"), ("GET", "/_mapping"), ("GET", "/_aliases"), ("GET", "/_alias"),
-    ("GET", "/_resolve/index/*"), ("GET", "/_all/_mapping"), ("GET", "/*/_mapping"),
+    ("GET", "/_resolve/index/*"),
     ("GET", "/_index_template"), ("GET", "/_ingest/pipeline"),
     ("GET", "/_security/api_key"), ("GET", "/_audit/_search"), ("GET", "/_audit/_verify"),
     ("GET", "/v1/metrics"), ("GET", "/v1/indices"), ("GET", "/v1/indices/casefile"),
@@ -199,6 +219,11 @@ for method, path in [
 ]:
     s, r, _ = call(method, path, None, GK)
     ok(f"{method} {path} → refused", s in (403, 404, 405) and "private-diary" not in json.dumps(r), (s, r))
+# A pattern is not refused: it is expanded over what the key HOLDS, so `_all`
+# means "all of yours". What matters is that it never means more than that.
+for path in ("/_all/_mapping", "/*/_mapping", "/case*,private*/_mapping"):
+    s, r, _ = call("GET", path, None, GK)
+    ok(f"GET {path} shows only what the guest holds", s == 200 and set(r) <= SHARED and "private-diary" not in r, (s, sorted(r)))
 s, r, _ = call("PUT", "/_snapshot/exfil", {"type": "fs", "settings": {"location": "/tmp/exfil"}}, GK)
 ok("cannot register a snapshot repository", s == 403, (s, r))
 s, r, _ = call("POST", "/_security/api_key", {"name": "upgrade-myself"}, GK)
@@ -226,9 +251,7 @@ for method, path, body in [
     ("POST", "/autoindex-catalog/_search", {"query": {"match_all": {}}}),
 ]:
     s, r, _ = call(method, path, body, GK)
-    ok(f"{method} {path} leaks nothing",
-       not leaks(r) and not hits_outside(r, {"casefile"}) and (s != 200 or "hits" in r or "count" in r or r == {}),
-       (s, r))
+    ok(f"{method} {path} leaks nothing", not leaks(r) and not hits_outside(r, SHARED), (s, r))
 s, r, _ = call("POST", "/private-diary/_search", {"query": {"match_all": {}}}, GK)
 ok("a named private index is a plain 403", s == 403, (s, r))
 
@@ -239,14 +262,13 @@ for alias in ("looks-harmless", "both"):
     s, r, _ = call("GET", f"/{alias}/_doc/1", None, GK)
     ok(f"alias `{alias}` cannot fetch a document", s in (403, 404) and not leaks(r), (s, r))
 s, r, _ = call("POST", "/case-alias/_search", {"query": {"match_all": {}}}, GK)
-ok("an alias onto the shared index itself still works", s == 200 and not hits_outside(r, {"casefile"}), (s, r))
+ok("an alias onto the shared index itself still works", s == 200 and not hits_outside(r, SHARED), (s, r))
 s, r, _ = call("POST", "/_aliases", {"actions": [{"add": {"index": "private-diary", "alias": "casefile-2"}}]}, GK)
 ok("cannot create an alias", s == 403, (s, r))
 s, r, _ = call("PUT", "/private-diary/_alias/mine", None, GK)
 ok("cannot create an alias (index route)", s == 403, (s, r))
 
 section("what the guest CANNOT reach: indices named in a body")
-nd = lambda *lines: ("\n".join(json.dumps(l) for l in lines) + "\n").encode()
 s, r, _ = call("POST", "/casefile/_msearch", nd({"index": "private-diary"}, {"query": {"match_all": {}}}), GK)
 ok("_msearch header naming another index", not leaks(r) and s in (200, 403), (s, r))
 s, r, _ = call("POST", "/casefile/_msearch", nd({"index": ["casefile", "private-diary"]}, {"query": {"match_all": {}}}), GK)
@@ -272,7 +294,7 @@ for name, query in [
     ("bool-wrapped terms lookup", {"bool": {"filter": [{"terms": {"body": {"index": "private-diary", "id": "1", "path": "body"}}}]}}),
 ]:
     s, r, _ = call("POST", "/casefile/_search", {"query": query}, GK)
-    ok(f"{name} cannot read private-diary", not leaks(r) and not hits_outside(r, {"casefile"}), (s, r))
+    ok(f"{name} cannot read private-diary", not leaks(r) and not hits_outside(r, SHARED), (s, r))
     # The probe that matters: a terms lookup on `tag` = "deposit" would match
     # casefile/1 if — and only if — the node fetched the private document.
     if name == "terms lookup":
@@ -299,9 +321,23 @@ for method, path, body in [
     ("POST", "/_esql/query", {"query": "FROM private-diary"}),
 ]:
     s, r, _ = call(method, path, body, GK)
-    ok(f"{method} {path} → 403", s == 403 and not leaks(r) and "_scroll_id" not in r and "id" not in r, (s, r))
-s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}, "pit": {"id": "x", "keep_alive": "1m"}}, GK)
-ok("a PIT id in the body opens nothing", not leaks(r) and s in (400, 403, 404), (s, r))
+    # 404 = this build has no such route at all (`_esql`, index-scoped `_sql`).
+    ok(f"{method} {path} → refused", s in (403, 404) and not leaks(r) and "_scroll_id" not in r and "id" not in r, (s, r))
+# Someone else's server-side context. A PIT — not the path — decides which index
+# a search runs against, so the owner's PIT on private-diary is the real probe.
+s, r, _ = call("POST", "/private-diary/_pit?keep_alive=5m", None, ADMIN)
+PIT = r.get("id")
+ok("(owner opens a PIT on the private index)", s == 200 and PIT, (s, r))
+s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}, "pit": {"id": PIT}}, ADMIN)
+ok("(and for the owner that PIT really does override the path index)", s == 200 and leaks(r), (s, r))
+s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}, "pit": {"id": PIT, "keep_alive": "1m"}}, GK)
+ok("a guest cannot ride it via _search", s == 403 and not leaks(r) and "private-diary" not in json.dumps(r), (s, r))
+s, r, _ = call("POST", "/casefile/_msearch", nd({}, {"query": {"match_all": {}}, "pit": {"id": PIT}}), GK)
+ok("…nor via an _msearch body line", s == 403 and not leaks(r) and "private-diary" not in json.dumps(r), (s, r))
+s, r, _ = call("POST", "/private-diary/_search?scroll=5m", {"size": 1, "query": {"match_all": {}}}, ADMIN)
+SCROLL = r.get("_scroll_id")
+s, r, _ = call("POST", "/_search/scroll", {"scroll": "1m", "scroll_id": SCROLL}, GK)
+ok("a guest cannot continue the owner's scroll", s == 403 and not leaks(r), (s, r))
 
 section("what the guest CANNOT reach: writes and index administration")
 for method, path, body in [
@@ -421,7 +457,9 @@ junk = [call("POST", f"/_share/{i:032x}/claim", {"passcode": "x"},
 if TRUSTS_LOOPBACK:
     ok("trusted loopback proxy: each forwarded address gets its own junk bucket", 429 not in junk, junk)
 else:
-    ok("junk ids are throttled per source (404 then 429)", junk[:9].count(404) == 9 and 429 in junk, junk)
+    first_429 = junk.index(429) if 429 in junk else len(junk)
+    ok("junk ids are throttled per source (404s, then nothing but 429)",
+       0 < first_429 < len(junk) and set(junk[:first_429]) == {404} and set(junk[first_429:]) == {429}, junk)
     ok("a rotating X-Forwarded-For from a direct client buys no fresh bucket", junk[-1] == 429, junk)
 # …and a real guest, from the same address, is not locked out by it.
 s, r, _ = call("POST", f"/_share/{sid3}/claim", {"passcode": pw3})
