@@ -30,13 +30,14 @@ const pwned = async (page, label, base = origin) => {
 
 // ---- what did `xerj brain` write? -------------------------------------
 const cat = await api('GET', '/_cat/indices?format=json');
-out.indices = (cat.json || []).map((i) => `${i.index}:${i['docs.count']}`);
+out.indices = (cat.json || []).map((i) => `${i.index}:${i['docs.count']}`).sort();
 const catalog = await api('POST', '/autoindex-catalog/_search', { query: { term: { doc_kind: 'dataset' } }, size: 50 });
 out.datasets = (catalog.json?.hits?.hits || []).map((h) => ({ index: h._source.index_name, records: h._source.record_count, formats: h._source.formats, semantic_field: h._source.semantic_field }));
 const emailIndex = out.datasets.find((d) => (d.formats || []).includes('eml'))?.index;
 if (!emailIndex) throw new Error('no email dataset in the catalog: ' + JSON.stringify(out.datasets));
 const hostile = await api('POST', `/${emailIndex}/_search`, { query: { term: { email_message_id: 'hostile-5@evil.example' } }, size: 10 } /* the extractor stores the id without its <> */);
-out.hostileRecords = (hostile.json?.hits?.hits || []).map((h) => ({ id: h._id, subject: h._source.email_subject, attachment: h._source.attachment_name, page: h._source.page }));
+const clip = (v, n) => (typeof v === 'string' ? v.slice(0, n) + '…' : v);
+out.hostileRecords = (hostile.json?.hits?.hits || []).map((h) => ({ id: h._id, subject: clip(h._source.email_subject, 48), attachment: clip(h._source.attachment_name, 32), page: h._source.page }));
 const hostileEmail = hostile.json.hits.hits.find((h) => !h._source.attachment_name);
 const hostileAtt = hostile.json.hits.hits.find((h) => h._source.attachment_name);
 if (!hostileEmail || !hostileAtt) throw new Error('hostile email/attachment not indexed: ' + hostile.text.slice(0, 400));

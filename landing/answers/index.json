@@ -192,6 +192,15 @@
       "summary": "XERJ autoindex indexes Markdown as the txt-prose family and answers the Elasticsearch API, but it maps no headings array and keeps the hash in the title."
     },
     {
+      "title": "How do I read email and PDFs after indexing a folder?",
+      "question": "I indexed a folder of email and PDFs. How do I actually read what it found?",
+      "canonical_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder",
+      "markdown_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder.md",
+      "cluster": "Files and formats",
+      "updated": "2026-09-18",
+      "summary": "xerj brain indexes the folder and the console opens any record: an email with its attachments, a PDF page, and the files it links to. Extracted text only."
+    },
+    {
       "title": "How do I run syntax-aware code search?",
       "question": "Is there a syntax-aware code search tool for refactoring?",
       "canonical_url": "https://xerj.org/answers/syntax-aware-code-search-refactoring",
