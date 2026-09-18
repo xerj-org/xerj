@@ -371,7 +371,9 @@ struct ParsedBulk {
 /// body, and re-sending on a guess could write the wrong records twice.
 fn select_bulk_actions(body: &[u8], keep: &[usize], expected_items: usize) -> Option<Vec<u8>> {
     let mut out = Vec::new();
-    let mut lines = body.split(|byte| *byte == b'\n').filter(|line| !line.is_empty());
+    let mut lines = body
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty());
     let mut position = 0usize;
     while let Some(action) = lines.next() {
         let verb = serde_json::from_slice::<Value>(action)
@@ -907,16 +909,17 @@ impl Es {
         let mut idle_since: Option<Instant> = None;
         let mut throttled_in_this_bulk = false;
         let outcome = loop {
-            let parsed = match self.bulk_attempt(body.clone()) {
-                Ok(parsed) => parsed,
-                // A failed bulk earns nothing back. If it failed *because* of
-                // a 429, `with_retry` has already shrunk the window.
-                Err(error) => return Err(error),
-            };
+            // A failed bulk earns nothing back. If it failed *because* of a
+            // 429, `with_retry` has already shrunk the window.
+            let parsed = self.bulk_attempt(body.clone())?;
             if parsed.throttled.is_empty() {
                 break parsed.outcome;
             }
+            // The same congestion signal wearing a different hat: shrink the
+            // window NOW, once per event, so the other workers offer less
+            // while this one waits — not after the wait is over.
             throttled_in_this_bulk = true;
+            self.admission.on_congestion();
             if !parsed.only_throttled {
                 break parsed.outcome;
             }
@@ -951,12 +954,9 @@ impl Es {
             delay = (delay * 2).min(self.retry_max_delay);
             body = retry_body;
         };
-        if throttled_in_this_bulk {
-            // The same congestion signal wearing a different hat: it must not
-            // be read as a clean bulk that earns concurrency back, even when
-            // the re-send eventually succeeded.
-            self.admission.on_congestion();
-        } else {
+        // A bulk that needed a re-send is never a clean bulk that earns
+        // concurrency back, even when the re-send eventually succeeded.
+        if !throttled_in_this_bulk {
             self.admission.on_success();
         }
         Ok(outcome)
@@ -1873,6 +1873,11 @@ mod tests {
 
     /// HTTP 200 whose *items* were rejected 429 is the same congestion
     /// signal, and must not be counted as a clean bulk.
+    ///
+    /// Zero patience: the stub answers exactly one request, and since #944
+    /// the client would otherwise re-send the rejected item. With no patience
+    /// the rejection is handed straight back, which is what this test is
+    /// about — the window, not the re-send (covered below).
     #[test]
     fn per_item_429_counts_as_congestion_not_as_a_clean_bulk() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1885,7 +1890,7 @@ mod tests {
                 br#"{"errors":true,"items":[{"index":{"status":429,"error":{"type":"es_rejected_execution_exception","reason":"rejected"}}}]}"#,
             );
         });
-        let es = client(address, 4);
+        let es = client(address, 4).with_backpressure_patience(Duration::ZERO);
         let outcome = es.bulk(BULK.to_vec()).unwrap();
         assert_eq!(outcome.server_errors, 1);
         assert_eq!(
@@ -2155,10 +2160,16 @@ mod tests {
         let requests_server = requests.clone();
         let server = std::thread::spawn(move || {
             let (mut first, _) = listener.accept().unwrap();
-            requests_server.lock().unwrap().push(read_request(&mut first));
+            requests_server
+                .lock()
+                .unwrap()
+                .push(read_request(&mut first));
             items_answered(&mut first, &[201, 429, 201, 429]);
             let (mut second, _) = listener.accept().unwrap();
-            requests_server.lock().unwrap().push(read_request(&mut second));
+            requests_server
+                .lock()
+                .unwrap()
+                .push(read_request(&mut second));
             items_answered(&mut second, &[201, 201]);
         });
         let es = client(address, 4);
@@ -2178,7 +2189,11 @@ mod tests {
             "only the two rejected actions are re-sent; the accepted ones are not written twice"
         );
         let delays = es.backoff_delays.lock().unwrap();
-        assert_eq!(delays.len(), 1, "exactly one backoff before the one re-send");
+        assert_eq!(
+            delays.len(),
+            1,
+            "exactly one backoff before the one re-send"
+        );
         assert!(delays[0].1 >= delays[0].0, "{:?}", delays[0]);
         assert_eq!(
             es.bulk_congestion_events(),
@@ -2252,7 +2267,10 @@ mod tests {
             "{outcome:?}"
         );
         let served = *served.lock().unwrap();
-        assert!(served >= 2, "at least one re-send before giving up, got {served}");
+        assert!(
+            served >= 2,
+            "at least one re-send before giving up, got {served}"
+        );
         assert_eq!(es.bulk_backpressure_retries() as usize, served - 1);
     }
 
@@ -2288,7 +2306,10 @@ mod tests {
             super::select_bulk_actions(&body, &[0], 3).unwrap(),
             PAIR_A.to_vec()
         );
-        assert_eq!(super::select_bulk_actions(&body, &[], 3).unwrap(), Vec::<u8>::new());
+        assert_eq!(
+            super::select_bulk_actions(&body, &[], 3).unwrap(),
+            Vec::<u8>::new()
+        );
     }
 
     /// A response the body cannot be mapped onto is never guessed at.
