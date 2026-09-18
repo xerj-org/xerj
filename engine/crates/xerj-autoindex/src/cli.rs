@@ -337,9 +337,10 @@ pub fn help_text_with(feedback: bool) -> String {
                  finalize-correlate, finalize-histogram, finalize-catalog\n\
                --no-graph path:      walk, hash, scan, prepare (install mappings),\n\
                  snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
-                 in-flight file named), finalize-catalog, finalize-verify\n\
-                 (one read-back per file). A resumed run starts at `replay` and\n\
-                 its `index` phase counts only the operations still to apply.\n\
+                 in-flight file named), finalize-catalog, finalize-refresh (one\n\
+                 refresh per dataset), finalize-verify (one read-back per\n\
+                 file). A resumed run starts at `replay` and its `index` phase\n\
+                 counts only the operations still to apply.\n\
          \n\
          ESTIMATE + DECISION GATE:\n\
              Phase A already reads and parses every file to sniff and sample it, so it\n\

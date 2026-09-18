@@ -45,12 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   eta_quality=stalled` for the whole time documents were landing (48 such lines
   in the rc.74 capture) — indistinguishable from a real hang; mapping install,
   sealing, indexing and the read-back barrier are now the `prepare`, `snapshot`,
-  `index`, `finalize-catalog` and `finalize-verify` phases with real
-  denominators. `tools/xerj-code/scripts/xc-index.sh --fresh` no longer forwards
-  the flag to autoindex (which refuses it once a generation has committed): it
-  builds a replacement beside the old index, verifies `_count > 0`, switches the
-  state file atomically and only then retires the old indices by exact name.
-  Captures: `benchmarks/autoindex-resilience/`.
+  `index`, `finalize-catalog`, `finalize-refresh` and `finalize-verify` phases
+  with real denominators. `tools/xerj-code/scripts/xc-index.sh --fresh` no
+  longer forwards the flag to autoindex (which refuses it once a generation has
+  committed): it builds a replacement beside the old index, verifies
+  `_count > 0`, switches the state file atomically and only then retires the old
+  indices by exact name. Captures: `benchmarks/autoindex-resilience/`.
 
 ## [1.0.0-rc.74] - 2026-09-08
 

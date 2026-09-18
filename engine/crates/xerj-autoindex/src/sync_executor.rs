@@ -725,16 +725,33 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()> {
-        // #931: the generation-wide barrier reads every group back — three
-        // queries per file, serially — so on a large corpus it is minutes of
-        // work. It reports as its own phase with the group count as its
-        // denominator instead of hiding behind whatever phase came before it.
-        self.pr
-            .phase("finalize-verify", desired.groups.len() as u64, 0);
+        // #931: the read-back barrier is only exact against refreshed indices,
+        // so every dataset is refreshed first — one request each, serially. On
+        // the 1,526-dataset corpus that produced #931 that measured ~106 ms a
+        // request, i.e. close to three minutes. Folded into `finalize-verify`
+        // it would hold that phase at `0/N` with `since_progress_s` climbing
+        // until it read `stalled`: the same lie this change removes, at a
+        // smaller scale. So it is a phase of its own, named like the legacy
+        // path's, counted in indices, with the index it is waiting on named.
+        self.pr.phase(
+            "finalize-refresh",
+            desired.plan.datasets.len() as u64 + 1,
+            0,
+        );
         for dataset in &desired.plan.datasets {
+            let _refreshing = self.pr.file(&dataset.index, 0);
             self.es.refresh(&dataset.index)?;
         }
-        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        {
+            let _refreshing = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
+            self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        }
+        // The generation-wide barrier reads every group back — three queries
+        // per file, serially — so on a large corpus it is minutes of work. It
+        // reports as its own phase with the group count as its denominator
+        // instead of hiding behind whatever phase came before it.
+        self.pr
+            .phase("finalize-verify", desired.groups.len() as u64, 0);
         for group in &desired.groups {
             let _verifying = self.pr.file(&group.canonical.rel, 0);
             anyhow::ensure!(

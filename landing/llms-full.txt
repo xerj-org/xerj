@@ -1187,7 +1187,8 @@ apply; if it does not, YOU are the gate — estimate, ask, and only then run.
     finalize-count, finalize-correlate, finalize-histogram, finalize-catalog`. `--no-graph`
     path: `walk, hash, scan, prepare` (install mappings, counted in datasets), `snapshot`
     (seal + extract, counted in source bytes), `index` (sealed bulk bytes, the in-flight
-    file in `waiting_on`), `finalize-catalog`, `finalize-verify` (one read-back per file).
+    file in `waiting_on`), `finalize-catalog`, `finalize-refresh` (one refresh per
+    dataset, the index named in `waiting_on`), `finalize-verify` (one read-back per file).
     A resumed run starts at `replay`, and its `index` phase counts only the operations
     still to apply. So a line that says `phase=scan pct=100.0` means scan. Through
     v1.0.0-rc.74 the `--no-graph` path printed exactly that, with `eta_quality=stalled`

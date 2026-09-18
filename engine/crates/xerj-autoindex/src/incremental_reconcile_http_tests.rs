@@ -63,6 +63,11 @@ struct HttpState {
     unavailable_dataset_mappings: Vec<String>,
     /// Every dataset index a `_mapping` PUT was attempted for, in order.
     dataset_mapping_puts: Vec<String>,
+    /// Opt-in (#931): fail the Nth data bulk (1-based) the way
+    /// `fail_next_data_bulk` fails the next one. Lets a replay be interrupted
+    /// AFTER some operations committed, which is the only state in which
+    /// "count what remains" differs from "count everything".
+    fail_data_bulk_number: Option<usize>,
 }
 
 struct HttpEndpoint {
@@ -350,7 +355,11 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
     let mut locked = state.lock().unwrap();
     if is_data {
         locked.data_bulk_requests += 1;
-        if std::mem::take(&mut locked.fail_next_data_bulk) {
+        let numbered = locked.fail_data_bulk_number == Some(locked.data_bulk_requests);
+        if numbered {
+            locked.fail_data_bulk_number = None;
+        }
+        if std::mem::take(&mut locked.fail_next_data_bulk) || numbered {
             return (
                 200,
                 json!({
@@ -4521,6 +4530,7 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
             "snapshot",
             "index",
             "finalize-catalog",
+            "finalize-refresh",
             "finalize-verify"
         ],
         "each long step of the generated route is its own phase, in order:\n{stream}"
@@ -4552,6 +4562,13 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
         total.parse::<u64>().unwrap() > 0,
         "the index phase counts sealed bulk bytes, got {index_opened:?}"
     );
+    // `finalize-refresh` is counted in indices: both datasets and the catalog.
+    // Without a phase of its own this step held `finalize-verify` at `0/N`.
+    let refresh_opened = lines
+        .iter()
+        .find(|line| line["phase"] == "finalize-refresh")
+        .unwrap();
+    assert_eq!(refresh_opened["items"], "0/3", "{refresh_opened:?}");
     // `snapshot` is denominated in the SOURCE bytes it copies and seals.
     let source_bytes: u64 = ["a.csv", "b.csv", "notes.md"]
         .iter()
@@ -4665,4 +4682,87 @@ fn refusing_every_dataset_commits_nothing_searchable_and_is_not_a_success() {
         "nothing was searchable to publish"
     );
     assert_eq!(endpoint.data_bulk_requests(), 0);
+}
+
+/// #931: a resumed run must not credit itself with an earlier attempt's writes.
+///
+/// The replay is interrupted after two of three operations committed. The
+/// resumed run then has to (a) open at `replay`, not at a `scan` it is not
+/// doing, and (b) size its `index` phase by what is LEFT — one operation — so
+/// it starts at 0% of the remaining work. Counting all three would open the
+/// phase at 0/3 and finish it at 1/3: a bar that stops at 33% on a run that
+/// completed. Counting the two committed ones as done would open it at 67% for
+/// work this invocation never did.
+#[test]
+fn a_resumed_replay_opens_at_replay_and_counts_only_what_remains() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().fail_data_bulk_number = Some(3);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let first = Arc::new(Mutex::new(Vec::new()));
+    {
+        let _sink = crate::progress::install_test_sink(&first);
+        run_index(config.clone()).expect_err("the third data bulk is refused");
+    }
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 1);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+    let first = String::from_utf8(first.lock().unwrap().clone()).unwrap();
+    assert!(
+        first
+            .lines()
+            .any(|line| line.starts_with("xerj-done ") && line.contains("ok=false")),
+        "the interrupted attempt closes its own stream as a failure:\n{first}"
+    );
+
+    let resumed = Arc::new(Mutex::new(Vec::new()));
+    let code = {
+        let _sink = crate::progress::install_test_sink(&resumed);
+        run_index(config).unwrap()
+    };
+    assert_eq!(code, 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(paths(&endpoint.data_docs()), ["a.csv", "b.csv", "notes.md"]);
+
+    let stream = String::from_utf8(resumed.lock().unwrap().clone()).unwrap();
+    let lines = progress_lines(&stream);
+    assert_eq!(
+        lines.first().map(|line| line["phase"].as_str()),
+        Some("replay"),
+        "a resumed run says it is replaying:\n{stream}"
+    );
+    assert!(
+        lines
+            .iter()
+            .all(|line| line["phase"] != "scan" && line["phase"] != "snapshot"),
+        "a resume re-scans and re-seals nothing, so it must not claim to:\n{stream}"
+    );
+    let index_lines: Vec<_> = lines
+        .iter()
+        .filter(|line| line["phase"] == "index")
+        .collect();
+    assert_eq!(
+        index_lines.first().map(|line| line["items"].as_str()),
+        Some("0/1"),
+        "two of three operations were already committed; one remains:\n{stream}"
+    );
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap();
+    assert!(
+        done.contains("ok=true") && done.contains("exit=0"),
+        "{done}"
+    );
 }

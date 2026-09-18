@@ -306,10 +306,11 @@ dataset, not just the first, and says to rebuild under a new `--state-dir` and
 Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
 `prepare` (install mappings, counted in datasets), `snapshot` (seal and extract
 every file, counted in source bytes), `index` (send the sealed bulk bytes, the
-in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-verify`
-(one read-back per file). A resumed run starts at `replay`, and its `index`
-phase counts only the operations still to apply, so it starts at 0% of what
-remains rather than crediting this run with an earlier one's writes.
+in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-refresh`
+(one refresh per dataset), `finalize-verify` (one read-back per file). A
+resumed run starts at `replay`, and its `index` phase counts only the
+operations still to apply, so it starts at 0% of what remains rather than
+crediting this run with an earlier one's writes.
 
 Before [#931](https://github.com/xerj-org/xerj/issues/931) this path reported
 none of those steps: the stream kept printing `phase=scan … pct=100.0 …
