@@ -4206,7 +4206,11 @@ fn two_dataset_indices() -> (String, String) {
     write_two_dataset_corpus(corpus.path());
     let endpoint = HttpEndpoint::start();
     let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
-    assert_eq!(run_index(config).unwrap(), 0, "the clean corpus indexes whole");
+    assert_eq!(
+        run_index(config).unwrap(),
+        0,
+        "the clean corpus indexes whole"
+    );
     let docs = endpoint.data_docs();
     let index_of = |path: &str| {
         docs.iter()
@@ -4310,8 +4314,9 @@ fn a_refused_dataset_mapping_costs_that_dataset_not_the_run() {
         junked.sort_unstable();
         assert_eq!(junked, lost, "catalog file documents for the refused files");
         assert!(
-            !catalog.iter().any(|doc| doc["doc_kind"] == "dataset"
-                && doc["index"] == refused_index.as_str()),
+            !catalog
+                .iter()
+                .any(|doc| doc["doc_kind"] == "dataset" && doc["index"] == refused_index.as_str()),
             "a refused dataset must not be published as a dataset document"
         );
 
@@ -4378,7 +4383,11 @@ fn a_refused_dataset_stays_refused_across_an_incremental_generation() {
     assert_eq!(run_index(config.clone()).unwrap(), 3);
     assert_eq!(paths(&endpoint.data_docs()), ["notes.md"]);
 
-    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n9,changed\n").unwrap();
+    fs::write(
+        corpus.path().join("a.csv"),
+        "id,value\n1,alpha\n2,beta\n9,changed\n",
+    )
+    .unwrap();
     fs::write(corpus.path().join("c.csv"), "id,value\n4,delta\n").unwrap();
     fs::write(
         corpus.path().join("more.md"),
@@ -4421,8 +4430,7 @@ fn a_refusal_of_an_already_committed_dataset_is_fatal_and_names_it() {
     assert_eq!(run_index(config.clone()).unwrap(), 0);
     let committed_docs = endpoint.data_docs();
 
-    endpoint.state.lock().unwrap().refused_dataset_mappings =
-        vec![tabular.clone(), prose.clone()];
+    endpoint.state.lock().unwrap().refused_dataset_mappings = vec![tabular.clone(), prose.clone()];
     fs::write(corpus.path().join("c.csv"), "id,value\n4,delta\n").unwrap();
 
     let error = run_index(config).unwrap_err();
@@ -4438,7 +4446,11 @@ fn a_refusal_of_an_already_committed_dataset_is_fatal_and_names_it() {
         );
     }
     assert!(rendered.contains("new --state-dir") && rendered.contains("new --prefix"));
-    assert_eq!(endpoint.data_docs(), committed_docs, "no document was published");
+    assert_eq!(
+        endpoint.data_docs(),
+        committed_docs,
+        "no document was published"
+    );
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
 }
 
@@ -4520,7 +4532,9 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
         .position(|line| line["phase"] == "prepare")
         .unwrap();
     assert!(
-        lines[left_scan..].iter().all(|line| line["phase"] != "scan"),
+        lines[left_scan..]
+            .iter()
+            .all(|line| line["phase"] != "scan"),
         "a line after `prepare` still claims the scan phase:\n{stream}"
     );
 
@@ -4556,7 +4570,11 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
         .filter(|line| line.starts_with("xerj-done "))
         .collect();
     assert_eq!(done.len(), 1, "{stream}");
-    assert!(done[0].contains("ok=true") && done[0].contains("exit=0"), "{}", done[0]);
+    assert!(
+        done[0].contains("ok=true") && done[0].contains("exit=0"),
+        "{}",
+        done[0]
+    );
 }
 
 /// #931 + #929 together: a refusal is announced on the progress surface (it is
@@ -4590,7 +4608,8 @@ fn a_refusal_is_on_the_progress_stream_and_the_terminal_line() {
     assert_eq!(code, 3);
     let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
     assert!(
-        stream.contains("REFUSED by the server") && stream.contains("every other dataset continues"),
+        stream.contains("REFUSED by the server")
+            && stream.contains("every other dataset continues"),
         "the refusal is announced while the run continues:\n{stream}"
     );
     let done = stream

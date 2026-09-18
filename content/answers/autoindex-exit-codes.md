@@ -28,11 +28,14 @@ links_out:
   - "estimate-autoindex-time-before-running"
   - "resume-interrupted-autoindex-run"
   - "why-autoindex-skipped-files"
+  - "autoindex-dataset-refused-by-server"
 evidence:
-  - claim: "EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal); 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition."
-    source: "engine/crates/xerj-autoindex/src/cli.rs:370"
+  - claim: "EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition."
+    source: "engine/crates/xerj-autoindex/src/cli.rs:395"
   - claim: "Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel."
-    source: "engine/crates/xerj-autoindex/src/cli.rs:370"
+    source: "engine/crates/xerj-autoindex/src/cli.rs:395"
+  - claim: "A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed."
+    source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt"
   - claim: "Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either."
     source: "engine/crates/xerj-autoindex/src/lib.rs:277"
 faq:
@@ -43,7 +46,7 @@ faq:
   - q: "Why did folder indexing stop and ask me to approve?"
     a: "The measured phase-A estimate for the indexing phase was longer than `--max-minutes` (default 10). With no `--approve` or `--yes`, nothing is indexed, a JSON decision request goes to stdout and the process exits 4."
   - q: "How do I tell a failed index from a completed one with junk files?"
-    a: "Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file. 1 is an endpoint or journal failure and nothing about it is a junk report."
+    a: "Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the `xerj-done` line carries `datasets_refused` and `files_refused`. 1 is an endpoint or journal failure and nothing about it is a junk report."
   - q: "Is exit 1 the code for any error?"
     a: "No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2."
   - q: "Does exit 0 always mean the folder was indexed?"
@@ -63,7 +66,7 @@ The list below is quoted from `xerj autoindex --help` on the installed binary. R
 | Exit | Name in `--help` | What it means for the corpus |
 | --- | --- | --- |
 | 0 | complete | The run finished and refused nothing. A gate answered with `--approve cancel` also exits 0. |
-| 3 | completed-with-junk | The run finished. At least one file was refused and recorded. Never fatal. |
+| 3 | completed-with-junk | The run finished. At least one file was refused and recorded. Never fatal. This includes a whole dataset whose mapping the server refused. |
 | 4 | NEEDS A DECISION | The estimate exceeded `--max-minutes`. Nothing was indexed. A JSON decision request is on stdout. |
 | 2 | usage | The command line was wrong. Nothing ran. |
 | 1 | endpoint/journal failure | The node or the resume journal failed, a corpus removal was refused, or an unsafe state transition was refused. |
@@ -79,6 +82,20 @@ A folder of real files almost always contains something XERJ will not parse. An 
 An agent that treats a non-zero exit as a failure will therefore throw away a perfectly good index. Branch on the specific value.
 
 The companion check is the refusal list, not the exit code: read `autoindex-catalog` and match each refused path to its reason. The [skipped-files page](/answers/why-autoindex-skipped-files) covers that query.
+
+## Exit 3 can also mean a whole dataset is missing
+
+The server can refuse the mapping of one dataset with an HTTP 400. That used to abort the entire run with exit 1 and index nothing. It now costs that one dataset: its files are recorded as junk with the server's reason, every other dataset is indexed, and the run exits 3.
+
+The terminal line says so, and only when it happened:
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+```
+
+So an exit 3 is still a finished run, but it is not always a small gap. Read `datasets_refused` before you report a corpus as searchable. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers what is recorded and how to recover.
+
+Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
 
 ## Exit 4 is a question, and nothing was written
 
@@ -119,7 +136,7 @@ Two cases print no terminal line at all. `--quiet` and `--progress none` print n
 | Exit | Corpus state | Next action |
 | --- | --- | --- |
 | 0 | indexed, nothing refused (or cancelled on purpose) | Read the terminal line, then query. |
-| 3 | indexed, something refused | Query, then read `autoindex-catalog` for the refusals. |
+| 3 | indexed, something refused | Read `datasets_refused` on the terminal line, query, then read `autoindex-catalog` for the refusals. |
 | 4 | untouched | Re-run the same command with `--approve proceed`, `fast` or `cancel`. |
 | 2 | untouched | Fix the command line. Do not retry unchanged. |
 | 1 | partial or untouched | Read the error, check the node and the journal, then decide. |
@@ -130,4 +147,4 @@ Pair this with the four-number reconciliation on the [completeness page](/answer
 
 The codes above were read from `xerj autoindex --help` on a built binary and cross-checked against the help string in `engine/crates/xerj-autoindex/src/cli.rs`. Both agree.
 
-No run was executed for this page to force each code, so there is no capture here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
+One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`. The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.

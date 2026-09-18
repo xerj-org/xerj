@@ -3799,7 +3799,10 @@ fn a_refused_dataset_on_the_graph_path_costs_that_dataset_not_the_run() {
     };
     assert_eq!(again, 3);
     let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
-    assert!(!stream.contains("appeared after the resume plan"), "{stream}");
+    assert!(
+        !stream.contains("appeared after the resume plan"),
+        "{stream}"
+    );
     let done = stream
         .lines()
         .find(|line| line.starts_with("xerj-done "))

@@ -26,6 +26,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
 
+### Fixed
+
+- **`xerj autoindex`: one dataset the server refuses no longer aborts the run,
+  `--no-graph` progress reports the phase it is in, and `xc-index.sh --fresh`
+  works on a corpus that was indexed before**
+  ([#929](https://github.com/xerj-org/xerj/issues/929),
+  [#931](https://github.com/xerj-org/xerj/issues/931),
+  [#930](https://github.com/xerj-org/xerj/issues/930)). On rc.74 a single HTTP
+  400 on one dataset's mapping ended a 48,533-file run with `exit=1
+  reason=aborted` and nothing indexed. A 400 on create-index / put-mapping is
+  now a refusal of *that dataset*: its files are recorded as junk with the
+  server's reason, every other dataset is indexed, the run exits 3, and
+  `xerj-done`, the catalog run document and `xerj autoindex map` all carry
+  `datasets_refused` / `files_refused`, so a generation that lacks a dataset
+  cannot read as a whole one. 401/403/404/408/429/5xx still abort. On the
+  `--no-graph` path the stream used to print `phase=scan pct=100.0
+  eta_quality=stalled` for the whole time documents were landing (48 such lines
+  in the rc.74 capture) — indistinguishable from a real hang; mapping install,
+  sealing, indexing and the read-back barrier are now the `prepare`, `snapshot`,
+  `index`, `finalize-catalog` and `finalize-verify` phases with real
+  denominators. `tools/xerj-code/scripts/xc-index.sh --fresh` no longer forwards
+  the flag to autoindex (which refuses it once a generation has committed): it
+  builds a replacement beside the old index, verifies `_count > 0`, switches the
+  state file atomically and only then retires the old indices by exact name.
+  Captures: `benchmarks/autoindex-resilience/`.
+
 ## [1.0.0-rc.74] - 2026-09-08
 
 ### Added

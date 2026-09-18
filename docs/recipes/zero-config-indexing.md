@@ -58,7 +58,8 @@ next: `xerj autoindex map --url http://localhost:9280` for the data map; search 
 
 The exit code is `3` — "completed with junk": the run finished, and the
 binary blob was recorded rather than crashing anything. `0` means a fully
-clean run; junk is *never* fatal.
+clean run; junk is *never* fatal. Exit 3 also covers a dataset whose mapping
+the server refused — see [section 7](#7-one-dataset-the-server-refuses-does-not-cost-you-the-run).
 
 ## 2. Ask the engine what it found
 
@@ -245,6 +246,78 @@ under a new `--state-dir`, `--prefix` and `--brain` (or `--no-graph`), validated
 you switch readers. The shared `autoindex-catalog` and the old target require explicit
 cleanup. A `--no-graph` state directory written before the generation format cannot be
 adopted in place and must be rebuilt the same way.
+
+## 7. One dataset the server refuses does not cost you the run
+
+`autoindex` infers a mapping per dataset and asks the server to install it. A
+server can refuse one: a field shape it does not support, a field-count limit,
+a conflict with a mapping an earlier release left behind. That is a statement
+about **one** dataset, so it costs one dataset
+([#929](https://github.com/xerj-org/xerj/issues/929)):
+
+- every other dataset is indexed as usual;
+- the refused dataset's files are recorded in `autoindex-catalog` as junk, each
+  carrying the server's own refusal text as its reason;
+- the run announces it while it is still running (`dataset … REFUSED by the
+  server — N file(s) recorded as junk and NOT indexed; every other dataset
+  continues`), and `--quiet` does not silence that line;
+- the run exits **3**, and the terminal line carries the counts:
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk … datasets_refused=1 files_refused=2
+```
+
+- the catalog's run document carries `datasets_refused`, `files_refused` and
+  `refused_datasets_json` (index, file count and the server's reason per
+  dataset), and `xerj autoindex map` prints a **Refused datasets — NOT
+  indexed** section *above* the dataset table, so a corpus that lacks a dataset
+  cannot read as a whole one.
+
+Only an HTTP **400** on create-index or put-mapping is treated this way. A 401
+or 403 is your credentials, a 404 a vanished index, and 408, 429 and 5xx are the
+endpoint: none of those says anything about the dataset being installed, so all
+of them still abort the run with exit 1. Routing around a 503 would publish a
+corpus that silently lacks data for a transient reason.
+
+Three limits, stated plainly:
+
+- **A refusal is decided once, when the corpus is first built.** On the
+  `--no-graph` path the refused dataset is frozen into the committed generation
+  along with the rest of the plan. A later run keeps reporting it (still exit 3)
+  and treats a new or changed file of the same shape as refused too. If you
+  upgrade the server so that it would now accept the mapping, rebuild under a
+  new `--state-dir` and a new `--prefix` to pick the dataset up.
+- **A file is dropped whole.** If one file feeds several datasets (a SQL dump
+  with many tables) and one of them is refused, the whole file is recorded as
+  refused, not just that table's rows.
+- **The refused dataset's index may be left behind empty.** The create call can
+  succeed before the mapping update is refused. `autoindex` does not delete an
+  index it cannot prove it created, so an empty `<prefix>-<dataset>` index may
+  remain. It holds no documents and does not affect search or counts.
+
+If the server starts refusing a dataset it accepted when the generation was
+built, that *is* fatal — a sealed generation cannot drop a dataset without its
+manifest, snapshot and catalog disagreeing — but the error names every refused
+dataset, not just the first, and says to rebuild under a new `--state-dir` and
+`--prefix`.
+
+## 8. Reading progress on the `--no-graph` path
+
+Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
+`prepare` (install mappings, counted in datasets), `snapshot` (seal and extract
+every file, counted in source bytes), `index` (send the sealed bulk bytes, the
+in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-verify`
+(one read-back per file). A resumed run starts at `replay`, and its `index`
+phase counts only the operations still to apply, so it starts at 0% of what
+remains rather than crediting this run with an earlier one's writes.
+
+Before [#931](https://github.com/xerj-org/xerj/issues/931) this path reported
+none of those steps: the stream kept printing `phase=scan … pct=100.0 …
+eta_quality=stalled` with a climbing `since_progress_s` for as long as documents
+were landing, which is byte for byte what a real hang at the end of the scan
+prints. A line that says `scan` at 100% now means scan. The before and after
+streams from the same 48,533-file corpus are in
+[`benchmarks/autoindex-resilience/`](../../benchmarks/autoindex-resilience/).
 
 ## Reproduce it yourself
 

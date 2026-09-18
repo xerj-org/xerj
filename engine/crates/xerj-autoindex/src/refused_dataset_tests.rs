@@ -70,7 +70,10 @@ fn plan() -> Plan {
     ] {
         plan.files.insert(key.into(), assignment(rel, &slugs));
     }
-    plan.duplicate_files = vec![alias("k-log-1", "copy/log1.jsonl"), alias("k-users", "u2.jsonl")];
+    plan.duplicate_files = vec![
+        alias("k-log-1", "copy/log1.jsonl"),
+        alias("k-users", "u2.jsonl"),
+    ];
     plan.junk_files.push(JunkFile {
         file_key: "k-binary".into(),
         rel: "blob.bin".into(),
@@ -114,7 +117,11 @@ fn a_refused_dataset_leaves_with_every_file_that_feeds_it() {
     refuse_datasets(&mut demoted, &[("logs".into(), reason.into())], &sizes());
 
     let slugs: Vec<&str> = demoted.datasets.iter().map(|d| d.slug.as_str()).collect();
-    assert_eq!(slugs, ["users", "orders"], "the accepted datasets keep their order");
+    assert_eq!(
+        slugs,
+        ["users", "orders"],
+        "the accepted datasets keep their order"
+    );
 
     // The dump feeds `users` too, and still leaves WHOLE: a partially assigned
     // file cannot be prepared (its `logs` records would have nowhere to go).
@@ -125,7 +132,10 @@ fn a_refused_dataset_leaves_with_every_file_that_feeds_it() {
     assert_eq!(demoted.refused_datasets.len(), 1);
     let refusal = &demoted.refused_datasets[0];
     assert_eq!(refusal.dataset.slug, "logs");
-    assert_eq!(refusal.dataset.index, "ax-logs", "the frozen definition rides along");
+    assert_eq!(
+        refusal.dataset.index, "ax-logs",
+        "the frozen definition rides along"
+    );
     assert_eq!(refusal.reason, reason);
     assert_eq!(
         refusal.file_keys,
@@ -146,13 +156,23 @@ fn a_refused_dataset_leaves_with_every_file_that_feeds_it() {
         assert_eq!(junk.reason, refusal.junk_reason());
         assert!(junk.reason.contains("dataset logs") && junk.reason.contains(reason));
     }
-    let bytes: HashMap<&str, u64> = lost.iter().map(|j| (j.file_key.as_str(), j.bytes)).collect();
+    let bytes: HashMap<&str, u64> = lost
+        .iter()
+        .map(|j| (j.file_key.as_str(), j.bytes))
+        .collect();
     assert_eq!(bytes, sizes());
-    assert!(demoted.junk_files.iter().any(|junk| junk.file_key == "k-binary"));
+    assert!(demoted
+        .junk_files
+        .iter()
+        .any(|junk| junk.file_key == "k-binary"));
 
     // Aliases of a dropped file go with it (#283: an alias must belong to a
     // live group); the alias of a surviving file stays.
-    let aliases: Vec<&str> = demoted.duplicate_files.iter().map(|a| a.rel.as_str()).collect();
+    let aliases: Vec<&str> = demoted
+        .duplicate_files
+        .iter()
+        .map(|a| a.rel.as_str())
+        .collect();
     assert_eq!(aliases, ["u2.jsonl"]);
 
     // Surviving datasets are recounted against the files that are left.
@@ -170,8 +190,14 @@ fn a_file_feeding_two_refused_datasets_is_attributed_once_deterministically() {
     // `HashMap` iteration order, because the incremental projection has to
     // reproduce this plan byte for byte.
     for refusals in [
-        vec![("users".to_owned(), "r-users".to_owned()), ("logs".to_owned(), "r-logs".to_owned())],
-        vec![("logs".to_owned(), "r-logs".to_owned()), ("users".to_owned(), "r-users".to_owned())],
+        vec![
+            ("users".to_owned(), "r-users".to_owned()),
+            ("logs".to_owned(), "r-logs".to_owned()),
+        ],
+        vec![
+            ("logs".to_owned(), "r-logs".to_owned()),
+            ("users".to_owned(), "r-users".to_owned()),
+        ],
     ] {
         let mut demoted = plan();
         refuse_datasets(&mut demoted, &refusals, &sizes());
@@ -181,14 +207,22 @@ fn a_file_feeding_two_refused_datasets_is_attributed_once_deterministically() {
             .map(|r| (r.dataset.slug.as_str(), r.file_keys.as_slice()))
             .collect();
         assert_eq!(
-            demoted.refused_datasets.iter().map(|r| r.dataset.slug.as_str()).collect::<Vec<_>>(),
+            demoted
+                .refused_datasets
+                .iter()
+                .map(|r| r.dataset.slug.as_str())
+                .collect::<Vec<_>>(),
             ["logs", "users"],
             "refusals are stored sorted by slug"
         );
         // `dump.sql` feeds both; it is counted under `logs` (first by slug) only.
         assert_eq!(by_slug["logs"], ["k-dump", "k-log-1", "k-log-2"]);
         assert_eq!(by_slug["users"], ["k-users"]);
-        let total: usize = demoted.refused_datasets.iter().map(|r| r.file_keys.len()).sum();
+        let total: usize = demoted
+            .refused_datasets
+            .iter()
+            .map(|r| r.file_keys.len())
+            .sum();
         assert_eq!(total, 4, "no file is counted twice");
         assert_eq!(demoted.files.keys().collect::<Vec<_>>(), ["k-orders"]);
     }
@@ -225,8 +259,14 @@ fn the_catalog_map_says_a_corpus_lacks_a_dataset_before_it_lists_the_rest() {
         .find("## Refused datasets — NOT indexed")
         .expect("the map names refused datasets");
     let datasets = rendered.find("## Datasets").unwrap();
-    assert!(refused < datasets, "the warning comes before the table it qualifies");
-    assert!(rendered.contains("`ax-logs` — 3 file(s): because"), "{rendered}");
+    assert!(
+        refused < datasets,
+        "the warning comes before the table it qualifies"
+    );
+    assert!(
+        rendered.contains("`ax-logs` — 3 file(s): because"),
+        "{rendered}"
+    );
 
     // A whole corpus renders no such section.
     let whole = catalog::render_map(Some(&json!({"doc_kind": "run"})), &[], &[], &[], &[], 0);

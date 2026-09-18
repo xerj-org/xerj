@@ -33,7 +33,8 @@ Then, from an unknown folder to an answered question: `xerj autoindex <folder>` 
 - [Zero-config autoindex recipe](https://xerj.org/docs/recipes/zero-config-autoindex): the flagship walkthrough plus the recorded verification runs — ground-truth scoring on a mixed-format corpus, throughput, flat client memory, `kill -9` resume convergence
 - [Estimate a run before you start it](https://xerj.org/answers/estimate-autoindex-time-before-running.md): indexing can occupy a person's laptop for minutes and they cannot see your tool output — estimate with `--dry-run`, tell them, ask if it is big, relay progress, report the real time. Also: the `--max-minutes` / `--approve` gate and which releases have it
 - [What the exit codes mean](https://xerj.org/answers/autoindex-exit-codes.md): `0` complete · **`3` completed-with-junk is SUCCESS** · `2` usage · `1` any error at all, so read the `error:` line first · `4` needs a decision, answered with `--approve`, never a retry
-- [Read autoindex progress](https://xerj.org/answers/read-autoindex-progress.md): the `xerj-bar` liveness line to relay verbatim and the `xerj-progress` machine line to parse — `pct`/`eta_s` can be the literal `unknown`, so never invent a number · [why files were skipped](https://xerj.org/answers/why-autoindex-skipped-files.md) (`.xerjignore`, `.gitignore`, the built-in list; hidden files always) · [resuming an interrupted run](https://xerj.org/answers/resume-interrupted-autoindex-run.md) (safe: the journal plus idempotent `_id`s mean a run never duplicates)
+- [A dataset was REFUSED by the server](https://xerj.org/answers/autoindex-dataset-refused-by-server.md): one dataset whose mapping the server answers HTTP 400 to costs THAT dataset, not the run — its files are recorded as junk with the server's reason, every other dataset is indexed, exit is `3`, and `xerj-done` carries `datasets_refused=N files_refused=M` (present only when it happened). **Read `datasets_refused` before you call a corpus searchable**, and do not retry: the refusal is part of the committed generation, so rebuild under a new `--prefix` and `--state-dir` after fixing the cause. A 401/403/404/408/429/5xx is NOT a refusal and still exits `1`
+- [Read autoindex progress](https://xerj.org/answers/read-autoindex-progress.md): the `xerj-bar` liveness line to relay verbatim and the `xerj-progress` machine line to parse — `pct`/`eta_s` can be the literal `unknown`, so never invent a number; on the `--no-graph` path the phases are `walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-verify`, so a line that still says `scan` at 100% means scan, never indexing · [why files were skipped](https://xerj.org/answers/why-autoindex-skipped-files.md) (`.xerjignore`, `.gitignore`, the built-in list; hidden files always) · [resuming an interrupted run](https://xerj.org/answers/resume-interrupted-autoindex-run.md) (safe: the journal plus idempotent `_id`s mean a run never duplicates)
 - [llms-full.txt §10](https://xerj.org/llms-full.txt): the full run-it-for-a-human protocol — the decision payload's exact keys, verbatim progress samples, the estimate's honesty rules, `--workers`/`--pdf-workers`, and the failure modes
 
 ## Caveats (read before you rely on a capability)
@@ -101,6 +102,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
 - **Code security**
   - [Audit a PHP codebase with an index, not grep](https://xerj.org/answers/audit-php-codebase-with-an-index.md): How do I search a large PHP repo for dangerous sinks without reading every file?
 - **Coding agents: reference retrieval**
+  - [How do I rebuild a reference-coding corpus index from scratch?](https://xerj.org/answers/rebuild-reference-corpus-index.md): How do I rebuild a reference-coding corpus index from scratch?
   - [Index a reference library for a coding agent](https://xerj.org/answers/index-reference-library-for-coding-agent.md): How do I set up reference coding so the agent retrieves a mechanism before writing code?
 - **Embeddings: cost**
   - [How do I reduce embedding API cost?](https://xerj.org/answers/reduce-embedding-api-cost.md): My embedding bill is too high
@@ -153,6 +155,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [Why does a folder search miss files on disk?](https://xerj.org/answers/why-autoindex-skipped-files.md): Why would a folder search miss files that I can see on disk?
 - **Operations: exit codes**
   - [What do the xerj autoindex exit codes mean?](https://xerj.org/answers/autoindex-exit-codes.md): What does indexer exit code 3 mean?
+  - [Why did xerj autoindex say a dataset was REFUSED?](https://xerj.org/answers/autoindex-dataset-refused-by-server.md): Why did xerj autoindex say a dataset was refused by the server?
 - **Operations: installation**
   - [Is there a single-binary local search engine?](https://xerj.org/answers/search-engine-without-docker.md): Is there a single-binary local search engine I can just run?
 - **Operations: low-volume logs**

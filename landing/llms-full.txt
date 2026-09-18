@@ -381,7 +381,14 @@ and the run says which rule it would have matched.
 
 Exit codes: 0 complete (also: the gate was answered `--approve cancel`) ·
 3 completed-with-junk (junk recorded, never fatal — this is SUCCESS, do not report
-it as a failure) · 2 usage · 1 endpoint/journal error, a refused corpus removal, or
+it as a failure; it INCLUDES a whole dataset whose mapping the server refused with an
+HTTP 400: that dataset's files are recorded as junk with the server's reason, every
+other dataset is indexed, and `xerj-done` carries `datasets_refused=N files_refused=M`
+— present only when it happened, so READ THEM before you call the corpus searchable,
+and do not retry: on `--no-graph` the refusal is part of the committed generation, so
+fix the cause and rebuild under a new `--prefix` and `--state-dir`. `xerj autoindex map`
+prints a "Refused datasets — NOT indexed" section above the dataset table. A
+401/403/404/408/429/5xx on the same request is NOT a refusal and still exits 1) · 2 usage · 1 endpoint/journal error, a refused corpus removal, or
 a refused unsafe corpus-state transition (1 is the catch-all for every real failure:
 read the `error:` line on stderr before acting) · 4 needs a decision — the estimate
 gate stopped the run before writing anything, the JSON decision request is on stdout
@@ -1175,6 +1182,17 @@ apply; if it does not, YOU are the gate — estimate, ask, and only then run.
   * THE DRAWN BAR IS HONEST TOO. No denominator yet → `[????????????????????????] pct
     unknown`, never an empty bar that reads as 0%. Filled cells are floored, and a
     completely filled bar appears only at a real 100% — 99.9% still shows an unfilled cell.
+  * THE PHASE NAME IS HONEST TOO. Every long step is a phase of its own. Default (graph)
+    path: `walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh,
+    finalize-count, finalize-correlate, finalize-histogram, finalize-catalog`. `--no-graph`
+    path: `walk, hash, scan, prepare` (install mappings, counted in datasets), `snapshot`
+    (seal + extract, counted in source bytes), `index` (sealed bulk bytes, the in-flight
+    file in `waiting_on`), `finalize-catalog`, `finalize-verify` (one read-back per file).
+    A resumed run starts at `replay`, and its `index` phase counts only the operations
+    still to apply. So a line that says `phase=scan pct=100.0` means scan. Through
+    v1.0.0-rc.74 the `--no-graph` path printed exactly that, with `eta_quality=stalled`
+    and a climbing `since_progress_s`, for the WHOLE time documents were landing — if you
+    see it on an older binary, check `_count` before you conclude the run is hung.
   * `pct` AND `eta_s` ARE HONEST OR ABSENT. Both can be the literal string `unknown` (JSON
     `null`) — before a denominator exists, before the estimate has settled, or when nothing
     has completed recently (`eta_quality=stalled`, meaning one big file is still
