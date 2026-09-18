@@ -83,7 +83,7 @@ export async function query(ctx = {}) {
   let data = null;
   let liveError = null;
   if (SELF_FETCHING.has(dashId)) {
-    data = { _live: true, _selfFetching: true };
+    data = { _selfFetching: true };
   } else if (backend && typeof backend.search === 'function') {
     try {
       data = await backend.search(baseUrl, dashId, { range, customRange, cluster, filters, search }, signal);
@@ -108,6 +108,12 @@ export async function query(ctx = {}) {
     // see "the backend is up but this query failed."
     _lastSourceKind = 'live-error';
     _lastSourceLabel = `${BACKENDS[backendId]?.meta?.label || backendId}: ${String(data.error).slice(0, 80)}`;
+  } else if (data._selfFetching) {
+    // The view fetches for itself and reports its own status once it has
+    // (ux/reader-view.js#onStatus). Nothing has been loaded here, so nothing
+    // is claimed.
+    _lastSourceKind = 'pending';
+    _lastSourceLabel = 'LOADING…';
   } else if (data._sample) {
     // The shape carries fabricated/sample panels the engine can't produce
     // (e.g. system host-metrics — no metrics agent). Never claim LIVE for it;

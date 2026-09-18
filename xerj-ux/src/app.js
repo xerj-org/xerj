@@ -1065,6 +1065,12 @@ async function render() {
       // Tie the nav pill to THIS dashboard's fetch, not a global last-writer.
       state.sourceLabel = result.meta.sourceLabel;
       state.sourceKind = result.meta.sourceKind;
+      // The Reader fetches for itself; between its searches the pill shows
+      // what IT last reported, not query()'s placeholder.
+      if (dash.id === 'reader' && readerView.lastStatus) {
+        state.sourceLabel = readerView.lastStatus.label;
+        state.sourceKind = readerView.lastStatus.kind;
+      }
       state.fetchErr = null;
     } catch (err) {
       state.fetchErr = err.message || String(err);

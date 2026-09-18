@@ -10,7 +10,7 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
-import { schemaForSearch, indexNames } from '../schema.js';
+import { schemaForSearch, indexNamesStrict } from '../schema.js';
 import { buildSearchBody } from '../search-body.js';
 import { CATALOG_INDEX, catalogQueryBody, parseCatalogHits } from '../catalog.js';
 import { listUserIndices, INTERNAL_INDICES } from '../console-index-api.js';
@@ -186,8 +186,13 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
   // "what I see is not what was indexed" bug (#923 review finding 3).
   let narrowed = false;
   if (index === '_all') {
-    const names = await indexNames(baseUrl, signal);
-    if (!names.length) return { error: 'no user index on this engine', hits: [], total: 0, took: 0, facets: {}, roles: null, resolvedIndex: null };
+    const none = (error) => ({ error, hits: [], total: 0, took: 0, facets: {}, roles: null, resolvedIndex: null });
+    let names;
+    try { names = await indexNamesStrict(signal); } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      return none(`could not read the index list (${String(e && e.message || e).slice(0, 80)})`);
+    }
+    if (!names.length) return none('nothing is indexed on this engine yet — run: xerj brain <folder>');
     index = names[0];
     narrowed = names.length > 1;
   }

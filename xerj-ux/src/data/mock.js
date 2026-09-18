@@ -562,186 +562,12 @@ const buildSystem = (rand, range) => {
   };
 };
 
-// ==========================================================
-// SEARCH CORPUS  — client-side fake index for the SEARCH dash
-// ==========================================================
-const CORPUS_INDICES = ['logs-prod', 'logs-stage', 'docs', 'metrics', 'traces', 'events'];
-
-const BODY_TEMPLATES = [
-  (r) => `GET /api/v2/catalog status=200 ms=${Math.round(12 + r() * 60)} client=203.0.113.${Math.floor(r() * 240)}`,
-  (r) => `POST /api/v2/checkout status=500 upstream_ms=${Math.round(1500 + r() * 2500)} error="upstream timeout"`,
-  (r) => `auth_login user=deploy src=10.0.${Math.floor(r() * 10)}.${Math.floor(r() * 240)} result=success`,
-  (r) => `auth_login user=root src=45.137.21.${Math.floor(r() * 240)} result=failure reason="invalid password"`,
-  (r) => `flush segment=seg-${Math.floor(r() * 999)} docs=${Math.floor(40000 + r() * 80000)} took_ms=${Math.round(180 + r() * 220)}`,
-  (r) => `merge segments=[seg-${Math.floor(r() * 99)},seg-${Math.floor(r() * 99)}] out=seg-${Math.floor(r() * 999)} ratio=${(0.42 + r() * 0.3).toFixed(2)}`,
-  (r) => `slow_query took_ms=${Math.round(820 + r() * 1800)} plan="BoolQuery(Must(Match(message)))" index="logs-prod"`,
-  (r) => `hnsw_recall k=10 recall=${(0.94 + r() * 0.05).toFixed(3)} ef_search=${Math.floor(32 + r() * 96)}`,
-  (r) => `agent_memory op=insert agent=oncall-triage key="cluster-reset" score=${(0.72 + r() * 0.25).toFixed(2)}`,
-  (r) => `ingest_batch index=logs-prod docs=${Math.floor(1000 + r() * 9000)} wal_lag_ms=${Math.round(2 + r() * 18)}`,
-  (r) => `oom_score=${Math.round(100 + r() * 800)} rss_mb=${Math.round(1200 + r() * 2600)} pid=${Math.floor(1000 + r() * 9000)}`,
-  (r) => `cache_hit route=/api/v2/search ratio=${(0.72 + r() * 0.22).toFixed(2)} ttl_s=${Math.floor(60 + r() * 540)}`,
-  (r) => `tool_use name=search success=true tokens_in=${Math.floor(200 + r() * 900)} tokens_out=${Math.floor(40 + r() * 240)}`,
-  (r) => `rag_answer grounding=${(0.78 + r() * 0.2).toFixed(2)} citations=${Math.floor(2 + r() * 5)} chunks=${Math.floor(3 + r() * 7)}`,
-];
-
-const SERVICES = ['api-gateway','auth-service','billing','checkout','search','catalog','ingest-worker','query-coordinator','embed-proxy','agent-memory'];
-const LEVELS   = ['INFO','WARN','ERROR','DEBUG','FATAL'];
-const HOSTS    = ['ip-10-0-1-17','ip-10-0-2-88','ip-10-0-3-54','ip-10-0-4-73','ip-10-0-5-91','ip-10-0-6-60'];
-
-function buildCorpus() {
-  const r = rng(0xFEEDFACE);
-  const docs = [];
-  for (let i = 0; i < 600; i++) {
-    const tpl = BODY_TEMPLATES[Math.floor(r() * BODY_TEMPLATES.length)];
-    const level = r() < 0.78 ? 'INFO' : r() < 0.93 ? 'WARN' : r() < 0.98 ? 'ERROR' : 'FATAL';
-    docs.push({
-      _index: CORPUS_INDICES[Math.floor(r() * CORPUS_INDICES.length)],
-      _id:    (1000000 + i).toString(16),
-      _ts:    new Date(Date.now() - Math.floor(r() * 86_400_000)).toISOString().slice(11, 19),
-      service: SERVICES[Math.floor(r() * SERVICES.length)],
-      level,
-      host:    HOSTS[Math.floor(r() * HOSTS.length)],
-      _source: tpl(r),
-    });
-  }
-  return docs;
-}
-let _corpus = null;
-const corpus = () => (_corpus ??= buildCorpus());
-
-/**
- * mockSearch — filter the in-memory corpus against a query.
- * Supports:
- *   type=match      — substring on _source
- *   type=term       — exact equality on field (e.g. `level=ERROR`)
- *   type=prefix     — _source startsWith
- *   type=phrase     — quoted-substring
- *   type=range      — `field>=value` / `field<=value` (latency-like)
- *   type=knn        — fake nearest-vector: rank by string-similarity hash
- *   type=semantic   — similar to knn, ranks differently
- *   type=hybrid     — 0.6*match + 0.4*vector, RRF-style fusion
- * index='*' means all indices.
- *
- * filters: `{ level: 'ERROR' }` applied as post-filter (clickable facets).
- */
-export function mockSearch({ q = '', type = 'match', index = '*', filters = {}, sort = { field: '_score', dir: 'desc' } } = {}) {
-  const t0 = performance.now();
-  const docs = corpus();
-  const qLower = q.toLowerCase().trim();
-
-  const passesIndex = (d) => index === '*' || d._index === index;
-  const passesFilter = (d) => Object.entries(filters).every(([f, v]) => !v || d[f] === v);
-
-  let pool = docs.filter((d) => passesIndex(d) && passesFilter(d));
-  let matched;
-  if (!qLower) {
-    matched = pool.map((d) => ({ ...d, _score: 1 }));
-  } else if (type === 'term') {
-    // field=value syntax
-    const m = qLower.match(/^([a-z_]+)\s*=\s*(.+)$/i);
-    if (m) {
-      const [, f, v] = m;
-      matched = pool
-        .filter((d) => String(d[f] ?? '').toLowerCase() === v.toLowerCase())
-        .map((d) => ({ ...d, _score: 1 }));
-    } else matched = [];
-  } else if (type === 'prefix') {
-    matched = pool
-      .filter((d) => d._source.toLowerCase().startsWith(qLower))
-      .map((d) => ({ ...d, _score: 1 - (d._source.length / 500) }));
-  } else if (type === 'phrase') {
-    const phrase = qLower.replace(/^"|"$/g, '');
-    matched = pool
-      .filter((d) => d._source.toLowerCase().includes(phrase))
-      .map((d) => ({ ...d, _score: 2 + Math.random() * 0.5 }));
-  } else if (type === 'range') {
-    const m = qLower.match(/^([a-z_]+)\s*(>=|<=|>|<)\s*(\d+(?:\.\d+)?)$/i);
-    if (m) {
-      const [, f, op, v] = m;
-      const n = Number(v);
-      matched = pool
-        .filter((d) => {
-          const src = d._source;
-          const rx = new RegExp(f + '=(\\d+(?:\\.\\d+)?)', 'i');
-          const mm = src.match(rx);
-          if (!mm) return false;
-          const x = Number(mm[1]);
-          return op === '>=' ? x >= n : op === '<=' ? x <= n : op === '>' ? x > n : x < n;
-        })
-        .map((d) => ({ ...d, _score: 1 }));
-    } else matched = [];
-  } else if (type === 'knn' || type === 'semantic') {
-    // Fake vector distance: bytewise hash diff against query
-    const qHash = Array.from(qLower).reduce((a, c) => (a + c.charCodeAt(0)) % 997, 0);
-    matched = pool.map((d) => {
-      const dh = Array.from(d._source.toLowerCase()).reduce((a, c) => (a + c.charCodeAt(0)) % 997, 0);
-      const dist = Math.abs(qHash - dh) / 997;
-      return { ...d, _score: 1 - dist };
-    }).filter((d) => d._score > 0.72);
-  } else if (type === 'hybrid') {
-    // 0.6*bm25 + 0.4*vector, RRF-style rank fusion
-    const bmList = pool.filter((d) => d._source.toLowerCase().includes(qLower))
-      .map((d, i) => ({ id: d._id, rank: i + 1, base: d }));
-    const qHash = Array.from(qLower).reduce((a, c) => (a + c.charCodeAt(0)) % 997, 0);
-    const knnList = pool.map((d) => {
-      const dh = Array.from(d._source.toLowerCase()).reduce((a, c) => (a + c.charCodeAt(0)) % 997, 0);
-      return { id: d._id, score: 1 - Math.abs(qHash - dh) / 997, base: d };
-    }).sort((a, b) => b.score - a.score).slice(0, 80).map((d, i) => ({ ...d, rank: i + 1 }));
-    const mix = new Map();
-    for (const r of bmList) mix.set(r.id, { base: r.base, s: 0.6 / (60 + r.rank) });
-    for (const r of knnList) {
-      const cur = mix.get(r.id);
-      const add = 0.4 / (60 + r.rank);
-      if (cur) cur.s += add;
-      else mix.set(r.id, { base: r.base, s: add });
-    }
-    matched = Array.from(mix.values()).sort((a, b) => b.s - a.s).map((r) => ({ ...r.base, _score: r.s * 1000 }));
-  } else {
-    // default: match
-    matched = pool.filter((d) => d._source.toLowerCase().includes(qLower))
-      .map((d) => {
-        const idx = d._source.toLowerCase().indexOf(qLower);
-        const score = 2 + (1 - idx / d._source.length) * 2;
-        return { ...d, _score: score };
-      });
-  }
-
-  // Sort honors caller's request. Defaults to _score desc. GH#696/GH#737.
-  const sortField = sort?.field || '_score';
-  const sortDir = sort?.dir === 'asc' ? 1 : -1;
-  matched.sort((a, b) => {
-    const av = a[sortField];
-    const bv = b[sortField];
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
-    return String(av).localeCompare(String(bv)) * sortDir;
-  });
-  const hits = matched.slice(0, 25);
-  const took = Math.max(1, Math.round(performance.now() - t0 + (0.5 + Math.random() * 3.5)));
-  // Facets computed from matched pool (post-query, pre-filter)
-  const count = (field) => {
-    const m = new Map();
-    for (const d of matched) m.set(d[field], (m.get(d[field]) || 0) + 1);
-    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8)
-      .map(([value, c]) => ({ label: value, value, count: c }));
-  };
-  // Histogram: buckets by the hour of d._ts
-  const buckets = Array.from({ length: 24 }, () => 0);
-  for (const d of matched) {
-    const h = parseInt(d._ts.slice(0, 2), 10) || 0;
-    buckets[h] += 1;
-  }
-  return {
-    hits,
-    total: matched.length,
-    tookMs: took,
-    maxScore: hits.length ? hits[0]._score : null,
-    facets: { level: count('level'), service: count('service'), host: count('host'), _index: count('_index') },
-    histogram: buckets,
-  };
-}
+// (The client-side fake search corpus and `mockSearch()` that lived here are
+// gone. They fabricated log-shaped hits for the Search · Discover table, and
+// the shell kept them on screen whenever the engine call failed — invented
+// documents under a LIVE pill. Discover, the Corpus home and the Reader show
+// the user's own documents, so they are engine-or-error only: see
+// data/query.js#NEVER_MOCK and test/guest-graph.test.mjs.)
 
 // ==========================================================
 // ANOMALY DETECTION  — client-side z-score over a mock stream
@@ -896,26 +722,6 @@ const buildIngest = (rand, range) => {
   };
 };
 
-// ==========================================================
-// SEARCH DASHBOARD  — static context data (histogram, facets)
-// only used when no query has been submitted yet.
-// ==========================================================
-const buildSearchDash = (rand, range) => {
-  const n = points(range);
-  const queries = diurnal(n, 1200, { rand, peakHour: 14 });
-  const took_p50 = queries.map(() => 2 + rand() * 1.4);
-  const took_p95 = queries.map(() => 8 + rand() * 3.2);
-  return {
-    metrics: {
-      qps: { value: queries[queries.length - 1], formatted: compact.format(queries[queries.length - 1]), delta: (rand() - 0.4) * 5 },
-      p95: { value: took_p95[took_p95.length - 1], formatted: took_p95[took_p95.length - 1].toFixed(1), delta: (rand() - 0.6) * 6 },
-      totalDocs: { value: 52_400_000, formatted: '52.4M', hint: '6 indices · 32 shards' },
-      uniqueTerms: { value: 18_900_000, formatted: '18.9M', hint: 'exact cardinality ✓' },
-    },
-    series: { queries, took_p50, took_p95, startLabel: rangeLabels(range)[0], endLabel: rangeLabels(range)[1] },
-  };
-};
-
 // ---------- filter application ----------------------------
 // The real backend will compile `filters` into an ES filter clause.
 // Here we approximate the behaviour so click-to-filter actually
@@ -1034,7 +840,6 @@ export function mock(dashId, range = '24H', ctx = {}) {
     case 'rag-quality':     out = buildRagQuality(seedRand, effectiveRange); break;
     case 'vector-index':    out = buildVectorIndex(seedRand, effectiveRange); break;
     case 'agent-memory':    out = buildAgentMemory(seedRand, effectiveRange); break;
-    case 'search-discover': out = buildSearchDash(seedRand, effectiveRange); break;
     case 'anomaly-detect':  out = buildAnomalyDetect(seedRand, effectiveRange); break;
     case 'ingest-pipeline': out = buildIngest(seedRand, effectiveRange); break;
     case 'logs-overview':   out = buildLogsOverview(seedRand, effectiveRange); break;

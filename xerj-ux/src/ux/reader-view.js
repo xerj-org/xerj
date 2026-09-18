@@ -40,7 +40,11 @@ export class ReaderView {
     this.indicesFn = opts.indices || (() => []);
     this.guest = !!opts.guest;
     this.onFatal = opts.onFatal || (() => {});
-    this.onStatus = opts.onStatus || (() => {});
+    const report = opts.onStatus || (() => {});
+    /** The last status this view reported — the shell re-reads it when it
+     *  repaints around us without a new search having run. */
+    this.lastStatus = null;
+    this.onStatus = (st) => { this.lastStatus = st; report(st); };
     this.root = null;
     this.slots = null;
     this.seq = 0;

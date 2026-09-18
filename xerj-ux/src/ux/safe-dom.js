@@ -94,6 +94,9 @@ export function h(tag, attrs, ...children) {
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v == null || v === false) continue;
     if (!attrAllowed(k)) throw new Error(`safe-dom: attribute "${k}" is not allowed`);
+    // An href must already BE a string: coercing first would let an object
+    // with a crafted toString() choose the URL.
+    if (k === 'href' && typeof v !== 'string') continue;
     a[k] = v === true ? '' : String(v);
   }
   if (tag === 'input' && !INPUT_TYPES.has(a.type || 'text')) {

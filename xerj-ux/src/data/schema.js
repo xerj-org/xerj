@@ -35,18 +35,23 @@ const _fields = new Map();       // index -> { at, types }
 export function resetSchemaCache() { _names = null; _fields.clear(); }
 
 /** Real user index names on the engine (no system indices, no autoindex
- *  plumbing). `[]` when the list cannot be read. */
-export async function indexNames(_baseUrl, signal) {
+ *  plumbing). THROWS when the list cannot be read — "could not ask" and
+ *  "the engine holds nothing" are different answers and must read
+ *  differently on the page. */
+export async function indexNamesStrict(signal) {
   if (_names && Date.now() - _names.at < TTL_MS) return _names.names;
-  let names = [];
-  try {
-    names = (await listUserIndices(signal)).map((it) => it.name).filter((n) => !INTERNAL_INDICES.has(n));
-  } catch (e) {
-    if (e && e.name === 'AbortError') throw e;
-    return []; // not cached: the next render asks again
-  }
+  const names = (await listUserIndices(signal)).map((it) => it.name).filter((n) => !INTERNAL_INDICES.has(n));
   _names = { at: Date.now(), names };
   return names;
+}
+
+/** Same, for callers that only decorate the UI (the nav probe): `[]` when the
+ *  list cannot be read. A failure is not cached — the next render asks again. */
+export async function indexNames(_baseUrl, signal) {
+  try { return await indexNamesStrict(signal); } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    return [];
+  }
 }
 
 /** Field roles for one concrete index. */
