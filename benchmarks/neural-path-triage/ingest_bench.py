@@ -2,10 +2,12 @@
 """End-to-end `_bulk` ingest throughput into a `semantic_text` field, with the
 server's own CPU use, so "how many cores did it keep busy" is a number.
 
-    python3 ingest_bench.py http://localhost:9560 <server_pid> /path/to/beir/scifact 400 [clients ...]
+    python3 ingest_bench.py http://localhost:9560 <server_pid> /path/to/beir/scifact 400 [--titles-only] [clients ...]
 
 Runs one pass per `clients` value (default: 1 4 8): the same 400 documents,
-50 per `_bulk`, sent by that many concurrent clients. Linux only (/proc).
+50 per `_bulk`, sent by that many concurrent clients. `--titles-only` indexes
+just each document's title - a one-passage, one-sentence document - to show the
+short-document rate through the same path. Linux only (/proc).
 WRITES to the node: it creates and deletes throwaway indices named tp_*.
 """
 import concurrent.futures as cf
@@ -17,9 +19,11 @@ import time
 from common import http, process_cpu_seconds
 
 url, pid, data_dir, n = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4])
-client_counts = [int(c) for c in sys.argv[5:]] or [1, 4, 8]
+rest = sys.argv[5:]
+titles_only = "--titles-only" in rest
+client_counts = [int(c) for c in rest if c != "--titles-only"] or [1, 4, 8]
 docs = [json.loads(l) for l in open(data_dir + "/corpus.jsonl")][:n]
-docs = [d["title"] + ". " + d["text"] for d in docs]
+docs = [d["title"] if titles_only else d["title"] + ". " + d["text"] for d in docs]
 BULK = 50
 print(f"docs={len(docs)} mean_chars={sum(map(len, docs)) / len(docs):.0f} cores={os.cpu_count()}")
 

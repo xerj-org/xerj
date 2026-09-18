@@ -55,19 +55,21 @@ nDCG@10:
 | BM25 (`multi_match` over `title`, `text`) | 0.657 | 0.302 |
 | MiniLM vectors only (`semantic`) | 0.676 | 0.329 |
 | BM25 top-30 re-ordered by the same bi-encoder | 0.686 | 0.332 |
-| **`hybrid`, RRF, server-side** | **0.699** | **0.345** |
+| **`hybrid`, RRF, server-side** | **0.699–0.704** (three runs) | **0.345** |
 
 Two conclusions. Re-ordering a BM25 shortlist with the embedder XERJ already
 ships is *worse* than the hybrid query XERJ already ships, on both corpora, so
 that is not worth building. And **a local cross-encoder ships only if it beats
-0.699 / 0.345 on this harness**; if it does not, it does not ship.
+0.699 / 0.345 on this harness** by more than the run-to-run spread described
+below; if it does not, it does not ship.
 
 Read these numbers with their limits. They are with the opt-in neural
 embedder; the **default embedder is lexical feature hashing** and was not part
 of this run. They are two small public corpora on one machine. The hybrid
-figure moves in the third decimal between runs — 0.6993 and 0.7023 on SciFact
-— because documents with an equal fused score are ordered by a per-process hash
-seed; that is a bug with its own issue, and the table rounds accordingly.
+figure moves between runs of unchanged indices — 0.6993, 0.7023 and 0.7044 on
+SciFact; 0.3448, 0.3446 and 0.3450 on NFCorpus — because documents with an
+equal fused score are ordered by a per-process hash seed. That is a bug with
+its own issue. The other three arms reproduce to four decimals every time.
 
 On NFCorpus, BM25 returns no hits at all for 25 of the 323 queries. That is
 legitimate: in all 25, no query token occurs in any document (18 absent terms
