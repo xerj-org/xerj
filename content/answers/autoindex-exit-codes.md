@@ -98,7 +98,7 @@ So an exit 3 is still a finished run, but it is not always a small gap. Read `da
 
 Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
 
-A 429 *inside a bulk* is different. When the node's memory circuit breaker answers some bulk items with `status: 429`, the run re-sends only those items after a backoff and carries on; it exits 1 only after 120 seconds in which the node accepted nothing, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
+A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on; it exits 1 only after 120 seconds in which the node accepted nothing, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
 
 ## Exit 4 is a question, and nothing was written
 

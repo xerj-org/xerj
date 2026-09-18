@@ -306,14 +306,18 @@ dataset, not just the first, and says to rebuild under a new `--state-dir` and
 The engine measures its own resident memory and, above a watermark, answers
 writes with HTTP 429 until memory drops back — a parent memory circuit breaker
 that engages and releases within seconds. A bulk can be answered two ways while
-it is engaged: the whole request comes back 429 (always retried with backoff),
-or the request comes back 200 with some *items* marked `status: 429`. The
-second used to end the run: a 48,533-file run aborted at 60.4% of its `index`
-phase, after 85 minutes, on the first bulk that came back with 747 items
-rejected ([#944](https://github.com/xerj-org/xerj/issues/944)). The breaker
-had released about a second later.
+it is engaged: the whole request comes back 429, or the request comes back 200
+with some *items* marked `status: 429`. Both used to end the run. The second
+ended a 48,533-file run at 60.4% of its `index` phase, after 85 minutes, on the
+first bulk that came back with 747 items rejected
+([#944](https://github.com/xerj-org/xerj/issues/944)); the breaker had released
+about a second later. The first ended the resumed run 1039.6 s in: a
+whole-request 429 was handed to the transport retry — six attempts, about 8 s
+of backoff — and then aborted with `error: _bulk: HTTP 429 Too Many Requests`,
+while the same rejection carried per item would have been waited out for 120 s.
 
-Now, when every failed item in a bulk is a 429, the run:
+Now, when a bulk comes back 429 as a whole, or when every failed item in it is
+a 429, the run:
 
 - lowers its bulk concurrency once per congestion event, as before;
 - cuts exactly the rejected actions out of the body it sent — the response is
@@ -326,7 +330,21 @@ Now, when every failed item in a bulk is a 429, the run:
   nothing from that bulk was journaled and the same command resumes the run.
 
 A 429 beside a different failure (a 400 for a record the node cannot parse) is
-never re-sent: that bulk carries a bad record you need to see.
+never re-sent: that bulk carries a bad record you need to see. A whole-request
+429 whose body is a full bulk response (the engine echoes one) is read item by
+item, so an action the node says it accepted is not sent again; a bare
+`{"error": …}` body means every action was rejected and the whole body goes
+out again.
+
+Patience is finite for a reason. A node whose resident memory stays pinned
+above its watermark never accepts again, and no client-side wait fixes that:
+after the full-corpus run above, the node still held 14.8 GB of anonymous
+memory for 1.2 GB on disk 2.5 hours after the last write, and every write was
+429 until it was restarted
+([#950](https://github.com/xerj-org/xerj/issues/950)). The run then exits 1
+with `the server kept rejecting`; restart the node, or raise
+`XERJ_MAX_PROCESS_MEMORY_MB` / `limits.max_process_memory_mb`, and rerun the
+same command to resume.
 
 The stream says what is happening at most once every 5 s (`autoindex: server
 back-pressure: N of M bulk item(s) rejected … re-sending only the rejected

@@ -73,6 +73,11 @@ struct HttpState {
     /// memory circuit breaker produces while it is engaged. The client must
     /// re-send exactly the odd ones.
     throttle_next_data_bulk_odd_items: bool,
+    /// Opt-in (#944, second shape): answer the next N data bulks HTTP 429 as
+    /// a whole, applying nothing — how the engine answers when its memory
+    /// circuit breaker rejects the request, and the literal end of the resumed
+    /// full-corpus run (`error: _bulk: HTTP 429 Too Many Requests`).
+    throttle_whole_data_bulks: usize,
     /// Action count of every data bulk answered, in order — how a test proves
     /// a re-send carried only the rejected items.
     data_bulk_item_counts: Vec<usize>,
@@ -334,6 +339,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         match status {
             200 => "OK",
             400 => "Bad Request",
+            429 => "Too Many Requests",
             503 => "Service Unavailable",
             _ => "Internal Server Error",
         },
@@ -382,6 +388,27 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
                 }),
             );
         }
+    }
+    if is_data && locked.throttle_whole_data_bulks > 0 {
+        locked.throttle_whole_data_bulks -= 1;
+        let mut actions = 0usize;
+        let mut cursor = 0;
+        while cursor < lines.len() {
+            let action: Value = serde_json::from_slice(lines[cursor]).unwrap();
+            cursor += if action.get("delete").is_some() { 1 } else { 2 };
+            actions += 1;
+        }
+        locked.data_bulk_item_counts.push(actions);
+        return (
+            429,
+            json!({
+                "error": {
+                    "type": "circuit_breaking_exception",
+                    "reason": "[parent] real memory circuit breaker tripped: rss=15634MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill"
+                },
+                "status": 429
+            }),
+        );
     }
     if is_data && std::mem::take(&mut locked.throttle_next_data_bulk_odd_items) {
         let mut items = Vec::new();
@@ -4864,5 +4891,47 @@ fn a_per_item_429_in_a_sealed_bulk_is_resent_and_the_generation_commits() {
         &counts[..2],
         &[4, 2],
         "the re-send carried exactly the two rejected items: {counts:?}"
+    );
+}
+
+/// #944, second shape, on the generated path: the engine answers the whole
+/// `_bulk` HTTP 429 — the literal end of the resumed full-corpus run
+/// (`error: _bulk: HTTP 429 Too Many Requests`), where the transport retry gave
+/// up after six attempts. Three whole-request 429s in a row are waited out
+/// through the same patience as per-item ones, every record lands, the
+/// generation commits, and the summary counts the re-sends.
+#[test]
+fn a_whole_request_429_on_a_sealed_bulk_is_resent_and_the_generation_commits() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("rows.csv"),
+        "id,value\n1,first\n2,second\n3,third\n4,fourth\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().throttle_whole_data_bulks = 3;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config).unwrap();
+    assert_eq!(
+        code, 0,
+        "a whole-request 429 that clears must not end the run"
+    );
+    let summary = summary.unwrap();
+    assert_eq!(summary["bulk_retries"], 3, "{summary}");
+    assert_eq!(summary["bulk_items_reissued"], 12, "{summary}");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(
+        endpoint.data_docs().len(),
+        4,
+        "every record landed once the node accepted the re-send"
+    );
+    let counts = endpoint.state.lock().unwrap().data_bulk_item_counts.clone();
+    assert_eq!(
+        &counts[..4],
+        &[4, 4, 4, 4],
+        "the whole body is re-sent each time, nothing was accepted: {counts:?}"
     );
 }

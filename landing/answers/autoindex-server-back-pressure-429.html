@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Why does xerj autoindex say the server pushed back (429)?</title>
-<meta name="description" content="When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
+<meta name="description" content="When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Why does xerj autoindex say the server pushed back (429)?">
-<meta property="og:description" content="When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
+<meta property="og:description" content="When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
 <meta property="og:url" content="https://xerj.org/answers/autoindex-server-back-pressure-429">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Why does xerj autoindex say the server pushed back (429)?">
-<meta name="twitter:description" content="When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
+<meta name="twitter:description" content="When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,7 +60,7 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "Why does xerj autoindex say the server pushed back (429)?",
-  "description": "When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.",
+  "description": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.",
   "url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -257,7 +257,7 @@
   </div>
   <h2>What the node is doing</h2>
   <p>XERJ's engine measures its own resident memory. When it crosses a watermark, a parent memory circuit breaker engages and every write is answered with HTTP 429 until memory drops back below the line. In the node log behind this page the breaker engaged 14 times in 27 minutes and released every engagement within 0.1 to 3.1 seconds. That is the breaker working as designed: the node protects itself instead of being killed for memory.</p>
-  <p>A bulk request can be answered two ways while the breaker is engaged. The whole request can come back HTTP 429, or the request can come back HTTP 200 with some of its items marked <code class="inline">status: 429</code> inside. The first was always retried. The second used to end the run.</p>
+  <p>A bulk request can be answered two ways while the breaker is engaged. The whole request can come back HTTP 429, or the request can come back HTTP 200 with some of its items marked <code class="inline">status: 429</code> inside. Both used to end the run: the second on the spot, the first after six transport retries, about 8 s of backoff in all.</p>
   <h2>What used to happen</h2>
   <p>A 48,533-file run aborted at 60.4% of its <code class="inline">index</code> phase, after 5122.5 seconds of work, when one bulk came back with 747 items rejected 429:</p>
   <pre class="code"><code class="language-text">xerj-progress phase=index basis=bytes pct=60.4 items=30036/47444 bytes=664119401/1099789983 rate=92730.0 eta_s=4698.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4855.0 elapsed_s=5120.1 waiting_on=elasticsearch/libs/h3/src/test/resources/org/elasticsearch/h3/bc14r09centers.txt.gz(732B)
@@ -266,8 +266,9 @@ xerj-done ok=false exit=1 reason=aborted wall=5122.5s
 error: prepared bulk contained 747 rejected items: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped: rss=15679MB &gt;= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill","status":429}
 </code></pre>
   <p>The breaker released about a second later. The run was gone.</p>
+  <p>The fix for that shape was then run on the same corpus, resuming the generation, and the other shape ended it 1039.6 s in, at 20.8% of what remained: the engine answered a whole bulk HTTP 429, the transport retry gave up after six attempts, and the run aborted with <code class="inline">error: _bulk: HTTP 429 Too Many Requests: {"took":49,"errors":true,"items":[…]}</code>. Same breaker, same rejection, a different line of the client.</p>
   <h2>What happens now</h2>
-  <p>When a bulk comes back with items rejected 429, and every failed item in it is a 429, the run:</p>
+  <p>When a bulk comes back HTTP 429 as a whole, or comes back with items rejected 429 and every failed item in it is a 429, the run:</p>
   <ol>
     <li>Lowers its bulk concurrency, once per congestion event, as it always did.</li>
     <li>Cuts exactly the rejected actions out of the body it sent. The bulk response lists one answer per action in order, so the mapping is positional, and a <code class="inline">delete</code> action, which has no document line, keeps its place.</li>
@@ -278,6 +279,7 @@ error: prepared bulk contained 747 rejected items: {"type":"engine_exception","r
   <pre class="code"><code class="language-text">error: the server kept rejecting 12 of a prepared bulk's items after 120s of back-pressure re-sends with nothing accepted: {"type":"engine_exception",...}. Nothing from this bulk was journaled applied; rerun the same command once the server condition clears and the run resumes from its last committed operation
 </code></pre>
   <p>A bulk with a 429 next to a different failure, such as a 400 for a record the node could not parse, is not re-sent. That bulk carries a bad record you need to see, and re-sending the good half would hide which one it was.</p>
+  <p>A whole-request 429 is mapped onto the same loop. When its body is a full bulk response, which is what the engine echoes, the items say which actions were accepted and those are not sent again; when the body is a bare <code class="inline">{"error": …}</code> object, every action was rejected and the whole body goes out again. A 429 whose body cannot be mapped onto the actions at all is still the transport error it always was, because re-sending on a guess could write the wrong records twice.</p>
   <h2>What the stream shows</h2>
   <p>While the run waits, stderr carries one line per 5 seconds at most:</p>
   <pre class="code"><code class="language-text">autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped ..."}); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
@@ -290,6 +292,7 @@ error: prepared bulk contained 747 rejected items: {"type":"engine_exception","r
   <p><code class="inline">bulk_retries</code> is the number of re-sent bulks. It appears only when it happened, so a run that never met back-pressure prints the line it always did, and one that did cannot print the same line. On the <code class="inline">--no-graph</code> path the JSON summary also carries <code class="inline">bulk_items_reissued</code>, the number of items those re-sends carried.</p>
   <h2>If it did exit 1</h2>
   <p>The node stayed above its memory watermark, accepting nothing, for longer than the run's patience. Read the node log: it names the cap it chose (<code class="inline">memory: detected … usable, using a … cap</code>) and the setting that changes it, <code class="inline">limits.max_process_memory_mb</code> or <code class="inline">XERJ_MAX_PROCESS_MEMORY_MB</code>. Then rerun the same command. Nothing from the rejected bulk was journaled as applied, so the run resumes from its last committed operation and sends that bulk again.</p>
+  <p>One cause is known and is not transient. After a large ingest into many indices the node's resident memory can stay pinned above the watermark: after the run behind this page the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk, unchanged 2.5 hours after the last write, and every write was 429 until the node was restarted (<a href="https://github.com/xerj-org/xerj/issues/950">#950</a>). No client-side wait fixes that. Restart the node, or raise the cap, then rerun.</p>
   <h2>FAQ</h2>
   <h3>Why did xerj autoindex say the server pushed back with HTTP 429?</h3>
   <p>The node answered a bulk, or some items inside one, with HTTP 429. Its memory circuit breaker does that for the moments its resident memory sits above a watermark. <code class="inline">xerj autoindex</code> lowers its bulk concurrency, re-sends only the rejected items after a short backoff, and carries on.</p>
@@ -302,13 +305,15 @@ error: prepared bulk contained 747 rejected items: {"type":"engine_exception","r
   <h3>Why does the progress percentage stop moving during back-pressure?</h3>
   <p>Because nothing is landing while the client waits out the backoff. <code class="inline">since_progress_s</code> climbs honestly and a <code class="inline">server back-pressure</code> line on stderr names the cause, the delay and how much patience is left. That is different from a hang, where no such line appears.</p>
   <h3>My run exited 1 with 'kept rejecting'. What now?</h3>
-  <p>The node stayed above its memory watermark for longer than 120 s with nothing accepted. Check the node log for its memory cap, raise <code class="inline">limits.max_process_memory_mb</code> or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation.</p>
+  <p>The node stayed above its memory watermark for longer than 120 s with nothing accepted. Check the node log for its memory cap, raise <code class="inline">limits.max_process_memory_mb</code> or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation. If the node log shows resident memory pinned at the watermark long after ingest stopped, that is issue #950 and only a restart of the node clears it.</p>
   <h3>Does a 429 on a mapping request count the same way?</h3>
   <p>No. A 429 on create-index or put-mapping is the endpoint saying it is busy, not a per-item rejection inside a bulk, and it still aborts the run with exit 1 after the transport retries. Only HTTP 400 there is a dataset refusal.</p>
   <h2>Evidence</h2>
   <ul>
     <li>Before this change, a 48,533-file run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected with status 429 by the engine's real memory circuit breaker, and the terminal line read xerj-done ok=false exit=1 reason=aborted wall=5122.5s. — <code>benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt</code></li>
     <li>The node's log for the same run shows the memory circuit breaker engaged 14 times in 27 minutes and released every engagement within 0.1 to 3.1 seconds, at a 16 GiB automatic memory cap on a 119.2 GiB machine. — <code>benchmarks/autoindex-resilience/before-944.node.governor.txt</code></li>
+    <li>The resumed run, with the per-item fix in place, aborted 1039.6 s in at 20.8% of the remaining index phase with error: _bulk: HTTP 429 Too Many Requests, after the transport retry gave up on a whole-request 429 following six attempts and about 8 s of backoff. — <code>benchmarks/autoindex-resilience/before-944.whole-request-429.stderr.txt</code></li>
+    <li>After that run the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk 2.5 hours after the last write, its breaker stayed engaged, and every write was answered 429 until the node was restarted. — <a href="https://github.com/xerj-org/xerj/issues/950">https://github.com/xerj-org/xerj/issues/950</a></li>
     <li>Only a bulk whose every failed item is a 429 is re-sent; the rejected actions are cut out of the sent body by position and re-issued after a backoff that starts at 250 ms and doubles to 8 s; the client gives up only after 120 s with nothing accepted, measured from the last response that accepted an item. — <code>engine/crates/xerj-autoindex/src/esclient.rs</code></li>
     <li>The 'raising bulk concurrency' line is printed at most once every 10 s, plus the step that reaches the ceiling; the capture that motivated this holds 117 such lines for 11 shrinks. — <code>engine/crates/xerj-autoindex/src/esclient.rs</code></li>
   </ul>

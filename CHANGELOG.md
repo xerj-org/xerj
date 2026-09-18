@@ -55,7 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inside one bulk — the node's memory circuit breaker, which engages and
   releases within seconds — aborted the 48,533-file run at 60% after 85
   minutes. The rejected items are now re-sent, and only those, after a backoff,
-  for as long as the node accepts something and for 120 s once it does not;
+  for as long as the node accepts something and for 120 s once it does not — a
+  429 on the whole bulk request is the same back-pressure, not six transport
+  attempts (that split ended the resumed run);
   only then is it exit 1, resumable, with an error line that says so. The
   terminal line carries `bulk_retries=N` when it happened, and the
   `raising bulk concurrency` line is printed at most once per 10 s (117 lines

@@ -171,6 +171,22 @@ const BACKPRESSURE_PATIENCE: Duration = Duration::from_secs(120);
 /// worker can be re-sending at once; one line per interval is the record.
 const BACKPRESSURE_ANNOUNCE_EVERY: Duration = Duration::from_secs(5);
 
+/// What [`Es::with_retry_throttle`] does with an HTTP 429 on the whole request.
+#[derive(Clone, Copy)]
+enum Throttle {
+    /// Sleep and try again here, like a 5xx — mappings, counts, deletes.
+    RetryHere,
+    /// Hand the response to the parser. For `_bulk`, a whole-request 429 is
+    /// the same back-pressure as a per-item one and belongs to the one
+    /// patience loop in [`Es::bulk`], not to six transport attempts (#944).
+    /// The resumed full-corpus run died on exactly that split: the engine
+    /// answered a bulk `HTTP 429 Too Many Requests` at the top of the
+    /// response, the transport retry gave up after about 8 s, and the run
+    /// ended `exit=1 reason=aborted` — while the same rejection carried
+    /// per item inside a 200 would have been waited out for 120 s.
+    HandToParser,
+}
+
 /// Run-wide record of per-item back-pressure re-sends, shared by every clone
 /// of a client like [`BulkAdmission`] — it is what `xerj-done` reports as
 /// `bulk_retries`.
@@ -371,6 +387,34 @@ struct ParsedBulk {
 /// body, and re-sending on a guess could write the wrong records twice.
 fn select_bulk_actions(body: &[u8], keep: &[usize], expected_items: usize) -> Option<Vec<u8>> {
     let mut out = Vec::new();
+    let actions = walk_bulk_actions(body, |position, action, document| {
+        if keep.binary_search(&position).is_ok() {
+            out.extend_from_slice(action);
+            out.push(b'\n');
+            if let Some(document) = document {
+                out.extend_from_slice(document);
+                out.push(b'\n');
+            }
+        }
+    })?;
+    (actions == expected_items).then_some(out)
+}
+
+/// How many actions an NDJSON bulk body holds — what a whole-request 429 is
+/// mapped onto when the server's answer carries no items (#944). `None` when a
+/// line is not a JSON object.
+fn count_bulk_actions(body: &[u8]) -> Option<usize> {
+    walk_bulk_actions(body, |_, _, _| {})
+}
+
+/// Walk an NDJSON bulk body action by action, calling `visit(position,
+/// action_line, document_line)`. `delete` actions have no document line, so
+/// the body is walked by action verb rather than assumed to be pairs. Returns
+/// the action count, or `None` when a line is not a JSON object.
+fn walk_bulk_actions(
+    body: &[u8],
+    mut visit: impl FnMut(usize, &[u8], Option<&[u8]>),
+) -> Option<usize> {
     let mut lines = body
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty());
@@ -387,17 +431,10 @@ fn select_bulk_actions(body: &[u8], keep: &[usize], expected_items: usize) -> Op
         } else {
             Some(lines.next()?)
         };
-        if keep.binary_search(&position).is_ok() {
-            out.extend_from_slice(action);
-            out.push(b'\n');
-            if let Some(document) = document {
-                out.extend_from_slice(document);
-                out.push(b'\n');
-            }
-        }
+        visit(position, action, document);
         position += 1;
     }
-    (position == expected_items).then_some(out)
+    Some(position)
 }
 
 #[derive(Debug)]
@@ -411,6 +448,69 @@ pub struct BulkOutcome {
     pub server_errors: u64,
     pub first_error: Option<String>,
     pub first_server_error: Option<String>,
+}
+
+/// A `_bulk` response body, parsed into the caller-facing outcome plus the
+/// positions of the items answered 429. Shared by the HTTP 200 path and the
+/// whole-request 429 path of [`Es::bulk_attempt`], which differ only in the
+/// status line.
+fn parse_bulk_response(v: &Value) -> ParsedBulk {
+    let mut item_errors = 0u64;
+    let mut server_errors = 0u64;
+    let mut first_error = None;
+    let mut first_server_error = None;
+    let mut throttled = Vec::new();
+    let mut only_throttled = true;
+    let items = v
+        .get("items")
+        .and_then(|i| i.as_array())
+        .map_or(0, Vec::len);
+    if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
+        if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
+            for (position, it) in items.iter().enumerate() {
+                let op = it
+                    .get("index")
+                    .or_else(|| it.get("create"))
+                    .or_else(|| it.get("update"))
+                    .or_else(|| it.get("delete"));
+                if let Some(op) = op {
+                    if op.get("error").is_some() {
+                        item_errors += 1;
+                        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
+                        if item_status == 429 {
+                            throttled.push(position);
+                        } else {
+                            only_throttled = false;
+                        }
+                        if item_status == 429
+                            || item_status >= 500
+                            || is_index_block_error(&op["error"])
+                        {
+                            server_errors += 1;
+                            if first_server_error.is_none() {
+                                first_server_error =
+                                    Some(op["error"].to_string().chars().take(500).collect());
+                            }
+                        }
+                        if first_error.is_none() {
+                            first_error = Some(op["error"].to_string().chars().take(300).collect());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ParsedBulk {
+        outcome: BulkOutcome {
+            item_errors,
+            server_errors,
+            first_error,
+            first_server_error,
+        },
+        items,
+        throttled,
+        only_throttled,
+    }
 }
 
 /// Whether a per-item bulk `error` object reports a cluster/index write
@@ -468,8 +568,14 @@ const SERVER_REASON_MAX: usize = 512;
 /// else (an HTML proxy error page, a bare string), because a reverse proxy in
 /// front of the server is exactly the case where the status alone is useless.
 fn server_reason(resp: reqwest::blocking::Response) -> Option<String> {
-    let body = resp.text().ok()?;
-    let reason = serde_json::from_str::<Value>(&body)
+    reason_from_body(&resp.text().ok()?)
+}
+
+/// [`server_reason`] over a body already read — the whole-request 429 branch
+/// of [`Es::bulk_attempt`] needs the body twice, once for the items it may
+/// carry and once for the reason.
+fn reason_from_body(body: &str) -> Option<String> {
+    let reason = serde_json::from_str::<Value>(body)
         .ok()
         .and_then(|value| {
             let error = value.get("error")?;
@@ -481,7 +587,7 @@ fn server_reason(resp: reqwest::blocking::Response) -> Option<String> {
                 (None, None) => None,
             }
         })
-        .unwrap_or(body);
+        .unwrap_or_else(|| body.to_owned());
     // `chars`, not bytes: the body can be any encoding the server chose, and
     // slicing one mid-codepoint would panic on the error path (#326).
     let reason: String = reason.trim().chars().take(SERVER_REASON_MAX).collect();
@@ -775,6 +881,18 @@ impl Es {
     fn with_retry<T>(
         &self,
         what: &str,
+        f: impl FnMut() -> Result<reqwest::blocking::Response>,
+        parse: impl Fn(reqwest::blocking::Response) -> Result<T>,
+    ) -> Result<T> {
+        self.with_retry_throttle(what, Throttle::RetryHere, f, parse)
+    }
+
+    /// [`Self::with_retry`] with a say over what a whole-request 429 means
+    /// for this request.
+    fn with_retry_throttle<T>(
+        &self,
+        what: &str,
+        throttle: Throttle,
         mut f: impl FnMut() -> Result<reqwest::blocking::Response>,
         parse: impl Fn(reqwest::blocking::Response) -> Result<T>,
     ) -> Result<T> {
@@ -785,8 +903,10 @@ impl Es {
             match f() {
                 Ok(resp) => {
                     let status = resp.status();
-                    if status.as_u16() == 429 || status.is_server_error() {
-                        if status.as_u16() == 429 {
+                    let throttled_here =
+                        status.as_u16() == 429 && matches!(throttle, Throttle::RetryHere);
+                    if throttled_here || status.is_server_error() {
+                        if throttled_here {
                             self.admission.on_congestion();
                         }
                         last_err = Some(match server_reason(resp) {
@@ -909,8 +1029,9 @@ impl Es {
         let mut idle_since: Option<Instant> = None;
         let mut throttled_in_this_bulk = false;
         let outcome = loop {
-            // A failed bulk earns nothing back. If it failed *because* of a
-            // 429, `with_retry` has already shrunk the window.
+            // A failed bulk earns nothing back. A 429 on the whole request is
+            // not a failure here: `bulk_attempt` parses it as throttled items
+            // and it joins this loop like a per-item one (#944).
             let parsed = self.bulk_attempt(body.clone())?;
             if parsed.throttled.is_empty() {
                 break parsed.outcome;
@@ -965,76 +1086,68 @@ impl Es {
     /// One `_bulk` request through the transport retry, parsed into the
     /// caller-facing outcome plus the positions of the items the server
     /// answered 429 — what [`Self::bulk`] needs to re-send only those.
+    ///
+    /// A 429 on the whole request is parsed the same way (#944). The engine
+    /// answers one when its memory circuit breaker rejects the request, and
+    /// the body is then either an `{"error": …}` object or a full bulk
+    /// response whose items carry the per-item statuses. The items are
+    /// preferred when they are there and match the body — an item the server
+    /// says it accepted must not be written twice — else every action was
+    /// rejected. A 429 whose body cannot be mapped onto the actions at all is
+    /// still the transport error it always was: re-sending on a guess could
+    /// write the wrong records twice.
     fn bulk_attempt(&self, body: Vec<u8>) -> Result<ParsedBulk> {
-        self.with_retry(
+        let actions = count_bulk_actions(&body);
+        self.with_retry_throttle(
             "_bulk",
+            Throttle::HandToParser,
             || self.send_bulk(body.clone()),
             |resp| {
                 let status = resp.status();
+                if status.as_u16() == 429 {
+                    let text = resp.text().context("read bulk 429 response")?;
+                    let value = serde_json::from_str::<Value>(&text).ok();
+                    let items = value
+                        .as_ref()
+                        .and_then(|value| value.get("items"))
+                        .and_then(Value::as_array)
+                        .map(Vec::len);
+                    if let (Some(value), true) =
+                        (value.as_ref(), items.is_some() && items == actions)
+                    {
+                        return Ok(parse_bulk_response(value));
+                    }
+                    // The reason goes onto one stderr line; a body that is not
+                    // the engine's JSON could carry a newline there.
+                    let reason = reason_from_body(&text).map(|reason| {
+                        reason
+                            .chars()
+                            .map(|c| if c.is_control() { ' ' } else { c })
+                            .collect::<String>()
+                    });
+                    let Some(actions) = actions else {
+                        return Err(match reason {
+                            Some(reason) => anyhow!("_bulk: HTTP {status}: {reason}"),
+                            None => anyhow!("_bulk: HTTP {status}"),
+                        });
+                    };
+                    return Ok(ParsedBulk {
+                        outcome: BulkOutcome {
+                            item_errors: actions as u64,
+                            server_errors: actions as u64,
+                            first_error: reason.clone(),
+                            first_server_error: reason,
+                        },
+                        items: actions,
+                        throttled: (0..actions).collect(),
+                        only_throttled: true,
+                    });
+                }
                 if !status.is_success() {
                     return Err(anyhow!("bulk HTTP {status}"));
                 }
                 let v: Value = resp.json().context("parse bulk response")?;
-                let mut item_errors = 0u64;
-                let mut server_errors = 0u64;
-                let mut first_error = None;
-                let mut first_server_error = None;
-                let mut throttled = Vec::new();
-                let mut only_throttled = true;
-                let items = v
-                    .get("items")
-                    .and_then(|i| i.as_array())
-                    .map_or(0, Vec::len);
-                if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
-                    if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
-                        for (position, it) in items.iter().enumerate() {
-                            let op = it
-                                .get("index")
-                                .or_else(|| it.get("create"))
-                                .or_else(|| it.get("update"))
-                                .or_else(|| it.get("delete"));
-                            if let Some(op) = op {
-                                if op.get("error").is_some() {
-                                    item_errors += 1;
-                                    let item_status =
-                                        op.get("status").and_then(Value::as_u64).unwrap_or(500);
-                                    if item_status == 429 {
-                                        throttled.push(position);
-                                    } else {
-                                        only_throttled = false;
-                                    }
-                                    if item_status == 429
-                                        || item_status >= 500
-                                        || is_index_block_error(&op["error"])
-                                    {
-                                        server_errors += 1;
-                                        if first_server_error.is_none() {
-                                            first_server_error = Some(
-                                                op["error"].to_string().chars().take(500).collect(),
-                                            );
-                                        }
-                                    }
-                                    if first_error.is_none() {
-                                        first_error = Some(
-                                            op["error"].to_string().chars().take(300).collect(),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Ok(ParsedBulk {
-                    outcome: BulkOutcome {
-                        item_errors,
-                        server_errors,
-                        first_error,
-                        first_server_error,
-                    },
-                    items,
-                    throttled,
-                    only_throttled,
-                })
+                Ok(parse_bulk_response(&v))
             },
         )
     }
@@ -2293,6 +2406,152 @@ mod tests {
         assert_eq!(outcome.server_errors, 1);
         assert_eq!(es.bulk_backpressure_retries(), 0);
         assert!(es.backoff_delays.lock().unwrap().is_empty());
+    }
+
+    // ── #944, second shape: HTTP 429 on the WHOLE bulk ──
+
+    /// The shape that ended the resumed full-corpus run: the engine answered
+    /// the whole `_bulk` 429 (`error: _bulk: HTTP 429 Too Many Requests`), and
+    /// the transport retry gave up after six attempts — about 8 s — while a
+    /// per-item 429 would have been waited out for 120 s. Now it is the same
+    /// back-pressure: the body is re-sent after a backoff, the re-send is
+    /// counted, and the caller sees the clean result.
+    #[test]
+    fn a_whole_request_429_is_re_sent_like_a_per_item_one() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let bodies = Arc::new(Mutex::new(Vec::new()));
+        let bodies_server = bodies.clone();
+        let server = std::thread::spawn(move || {
+            let (mut first, _) = listener.accept().unwrap();
+            let request = read_request(&mut first);
+            bodies_server
+                .lock()
+                .unwrap()
+                .push(body_after_headers(&request).to_vec());
+            throttled(&mut first);
+            let (mut second, _) = listener.accept().unwrap();
+            let request = read_request(&mut second);
+            bodies_server
+                .lock()
+                .unwrap()
+                .push(body_after_headers(&request).to_vec());
+            items_answered(&mut second, &[201, 201]);
+        });
+        let es = client(address, 4);
+        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B])).unwrap();
+        server.join().unwrap();
+        assert_eq!(
+            (outcome.item_errors, outcome.server_errors),
+            (0, 0),
+            "{outcome:?}"
+        );
+        assert_eq!(es.bulk_backpressure_retries(), 1);
+        assert_eq!(
+            es.bulk_items_reissued(),
+            2,
+            "every action was rejected, so every action is re-sent"
+        );
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(bodies[1], joined(&[PAIR_A, PAIR_B]));
+        assert_eq!(es.bulk_congestion_events(), 1);
+        assert_eq!(
+            es.bulk_concurrency_limit(),
+            2,
+            "a whole-request 429 halves the window too"
+        );
+    }
+
+    /// The engine's whole-request 429 can carry a full bulk response whose
+    /// items say which actions it did accept. Those are not written twice.
+    #[test]
+    fn a_whole_request_429_carrying_item_statuses_re_sends_only_the_rejected() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let bodies = Arc::new(Mutex::new(Vec::new()));
+        let bodies_server = bodies.clone();
+        let server = std::thread::spawn(move || {
+            let (mut first, _) = listener.accept().unwrap();
+            let request = read_request(&mut first);
+            bodies_server
+                .lock()
+                .unwrap()
+                .push(body_after_headers(&request).to_vec());
+            respond_status(
+                &mut first,
+                "429 Too Many Requests",
+                br#"{"took":49,"errors":true,"items":[{"index":{"status":201}},{"index":{"status":429,"error":{"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped","status":429}}},{"index":{"status":201}}]}"#,
+            );
+            let (mut second, _) = listener.accept().unwrap();
+            let request = read_request(&mut second);
+            bodies_server
+                .lock()
+                .unwrap()
+                .push(body_after_headers(&request).to_vec());
+            items_answered(&mut second, &[201]);
+        });
+        let es = client(address, 4);
+        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B, PAIR_C])).unwrap();
+        server.join().unwrap();
+        assert_eq!(
+            (outcome.item_errors, outcome.server_errors),
+            (0, 0),
+            "{outcome:?}"
+        );
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(
+            bodies[1],
+            PAIR_B.to_vec(),
+            "only the rejected action goes out again"
+        );
+        assert_eq!(es.bulk_items_reissued(), 1);
+    }
+
+    /// A whole-request 429 that never clears is handed back after the client's
+    /// patience — as `server_errors`, which the callers turn into "the server
+    /// kept rejecting … rerun to resume" — and not as a transport error after
+    /// six attempts.
+    #[test]
+    fn a_whole_request_429_that_never_clears_is_handed_back_after_patience() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let served = Arc::new(Mutex::new(0usize));
+        let served_server = served.clone();
+        let server = std::thread::spawn(move || loop {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_request(&mut stream);
+            if request.starts_with(b"STOP") {
+                break;
+            }
+            *served_server.lock().unwrap() += 1;
+            throttled(&mut stream);
+        });
+        // Long enough, with the test policy's 10–20 ms backoffs, for more
+        // sends than the six transport attempts the old path allowed.
+        let es = client(address, 4).with_backpressure_patience(Duration::from_millis(250));
+        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B])).unwrap();
+        let mut stop = std::net::TcpStream::connect(address).unwrap();
+        stop.write_all(b"STOP\r\n\r\n").unwrap();
+        drop(stop);
+        server.join().unwrap();
+        assert_eq!(
+            outcome.server_errors, 2,
+            "both actions are handed back as server errors: {outcome:?}"
+        );
+        assert_eq!(outcome.item_errors, 2);
+        assert!(
+            outcome
+                .first_server_error
+                .as_deref()
+                .is_some_and(|reason| reason.contains("es_rejected_execution_exception")),
+            "{outcome:?}"
+        );
+        let served = *served.lock().unwrap();
+        assert!(
+            served > 6,
+            "patience, not six attempts, bounds the re-sends: served {served}"
+        );
+        assert_eq!(es.bulk_backpressure_retries() as usize, served - 1);
     }
 
     #[test]

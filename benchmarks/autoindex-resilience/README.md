@@ -40,6 +40,7 @@ Nothing else was changed.
 | `fresh-before-rc74.committed-generation.txt` | rc.74 refusing `--fresh` over a committed generation. |
 | `before-944.full-corpus.stderr.txt` | This branch before #944 was fixed: the full corpus, aborted at 60.4% by a per-item 429. Trimmed to its first 30 and last 40 lines (the 1,479 lines in between are `index` progress and bulk-concurrency lines); the marker line says so. |
 | `before-944.node.governor.txt` | The node's governor log lines for that run: the memory cap it chose and every circuit-breaker engagement and release. ANSI colour stripped, nothing else changed. |
+| `before-944.whole-request-429.stderr.txt` | This branch with the per-item fix, resuming that generation on the same node: aborted 1039.6 s in by a 429 on the *whole* bulk request, which the transport retry gave up on after six attempts. Complete, nothing trimmed. |
 
 ## The corpus and the command
 
@@ -150,7 +151,30 @@ second later. The same capture holds 117 `raising bulk concurrency` lines for
 The fix (re-send only the rejected items while the node accepts something,
 give up after 120 s with nothing accepted, `bulk_retries=N` on the terminal
 line) is verified by unit tests on a stub server and by an end-to-end test on
-each of the two indexing paths. The full-corpus result is below.
+each of the two indexing paths.
+
+Resuming the interrupted generation with that fix found the second shape of
+the same defect (`before-944.whole-request-429.stderr.txt`): 1039.6 s in, at
+20.8% of the 17,398 operations that remained, the engine answered a whole bulk
+HTTP 429 and the client's transport retry gave up after six attempts:
+
+```text
+xerj-done ok=false exit=1 reason=aborted wall=1039.6s
+error: _bulk: HTTP 429 Too Many Requests: {"took":49,"errors":true,"items":[{"index":{"_index":"xc-xerj-search-elasticsearch-x-pack-25",…"status":429,"error":{"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped: rss=15634MB >= watermark=15564MB (94% of limit=16384MB); …
+```
+
+A whole-request 429 now joins the same patience loop as a per-item one
+(unit tests: re-sent like a per-item one; items in the 429 body honoured; handed
+back after patience, not after six attempts; and a generated-path end-to-end
+run answered three whole-request 429s in a row).
+
+The node's side of that second abort is not a client defect and is filed as
+[#950](https://github.com/xerj-org/xerj/issues/950): the resumed run began
+with the node's resident memory already at the watermark — 14.8 GB of anonymous
+memory for 1.2 GB on disk, unchanged 2.5 hours after the last write — so
+nothing was ever accepted again. On the default 16 GiB tier this corpus cannot
+finish on that node; the full-corpus result below was taken with a raised
+`XERJ_MAX_PROCESS_MEMORY_MB`, and says so.
 
 ## After, full corpus (this branch)
 

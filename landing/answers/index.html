@@ -330,7 +330,7 @@
   <ul>
     <li><a href="/answers/autoindex-dataset-refused-by-server">One dataset was REFUSED by the server. Did I lose the whole index?</a> — When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line.</li>
     <li><a href="/answers/autoindex-exit-codes">The indexer exited 3 (or 4). Did it fail?</a> — xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.</li>
-    <li><a href="/answers/autoindex-server-back-pressure-429">The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a> — When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.</li>
+    <li><a href="/answers/autoindex-server-back-pressure-429">The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a> — When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal.</li>
   </ul>
   <h2>Operations: installation</h2>
   <ul>
