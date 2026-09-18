@@ -26,6 +26,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
 
+### Documentation
+
+- **ROADMAP: the zero-token direction, with every status checked against the
+  tree** ([#941](https://github.com/xerj-org/xerj/issues/941)). A new roadmap
+  section and [docs/ZERO_TOKEN_DIRECTION.md](./docs/ZERO_TOKEN_DIRECTION.md)
+  lay out judged search, share links and a guest reading room, mail ingest,
+  semantic detections, a real object-storage backend, a block index mode for
+  logs, user-code ingest plugins and a corpus hub of signed packs — and say
+  plainly what exists today: `S3Backend` is a local-directory simulation and
+  `storage.backend = "s3"` refuses to start on purpose, `_watcher` stores
+  watches and never evaluates them, alert rules have schemas and no
+  evaluator, `xerj-logs` has no caller, and there is no wasmtime backend in
+  the tree. The measuring behind it
+  ([benchmarks/neural-path-triage/](./benchmarks/neural-path-triage/)) filed
+  four defects with literal reproductions:
+  [#937](https://github.com/xerj-org/xerj/issues/937) a declared analyzer
+  stops applying at flush, [#938](https://github.com/xerj-org/xerj/issues/938)
+  neural ingest keeps ~3.4 of 32 threads busy,
+  [#939](https://github.com/xerj-org/xerj/issues/939) `semantic` over
+  multi-passage documents is an exact scan that copies every `_source`
+  (~410 ms p50 on 5,183 documents, forward pass ~14 ms), and
+  [#940](https://github.com/xerj-org/xerj/issues/940) tied RRF scores change
+  order across a restart. All four stay open; nothing is fixed by this entry.
+
 ## [1.0.0-rc.74] - 2026-09-08
 
 ### Added

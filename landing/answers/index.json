@@ -93,6 +93,15 @@
       "summary": "Our capture ran agent memory on one XERJ process with three loopback sockets, no second data service, and a peak resident size of 100,928 kB."
     },
     {
+      "title": "Does XERJ support S3, alerting or custom plugins?",
+      "question": "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?",
+      "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
+      "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
+      "cluster": "Capabilities and limits",
+      "updated": "2026-09-18",
+      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+    },
+    {
       "title": "Audit a PHP codebase with an index, not grep",
       "question": "How do I search a large PHP repo for dangerous sinks without reading every file?",
       "canonical_url": "https://xerj.org/answers/audit-php-codebase-with-an-index",

@@ -1,8 +1,13 @@
 # Neural-path triage: BEIR probes for the `--embed-mode neural` path
 
 Small, stdlib-only probes that turn "the neural path feels slow / odd" into
-numbers with a reproduction. They were written to investigate four
-observations from a BEIR run and each one ended as a filed issue. Everything a
+numbers with a reproduction. They were written to investigate observations from
+a BEIR run; four ended as filed issues
+([#937](https://github.com/xerj-org/xerj/issues/937) analyzers at flush,
+[#938](https://github.com/xerj-org/xerj/issues/938) ingest throughput,
+[#939](https://github.com/xerj-org/xerj/issues/939) exact-scan latency,
+[#940](https://github.com/xerj-org/xerj/issues/940) RRF tie order) and one
+(zero-hit BM25 queries) turned out to be legitimate. Everything a
 public page or an issue quotes from here is in `results/<date>/` verbatim.
 
 Scope, stated once: this is the **opt-in neural embedder** (`--embed-mode

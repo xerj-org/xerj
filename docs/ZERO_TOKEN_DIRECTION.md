@@ -216,24 +216,29 @@ a manifest carrying:
 
 Measuring the baseline for section 1 turned up four defects. Each is a filed
 issue with a literal reproduction; the harness and the raw output are in
-[`benchmarks/neural-path-triage/`](../benchmarks/neural-path-triage/).
+[`benchmarks/neural-path-triage/`](../benchmarks/neural-path-triage/). Stage 1
+as a whole is tracked in [#941](https://github.com/xerj-org/xerj/issues/941).
 
-- **A declared analyzer stops applying at flush.** A default analyzer declared
+- **A declared analyzer stops applying at flush**
+  ([#937](https://github.com/xerj-org/xerj/issues/937)). A default analyzer declared
   in `settings.analysis` is honoured by the in-memory table only; after a
   flush the segment is written and queried with `standard`, so the same
   `match` query returns a different hit set. A per-field `analyzer` in the
   mapping is accepted, echoed back and ignored, and an unknown analyzer name
   is accepted. This is why stemming cannot currently be turned on.
-- **Neural ingest leaves the machine idle.** One `_bulk` stream into a
+- **Neural ingest leaves the machine idle**
+  ([#938](https://github.com/xerj-org/xerj/issues/938)). One `_bulk` stream into a
   `semantic_text` field runs at 6.1 documents per second on ~1,470-character
   abstracts while the server keeps 3.4 of 32 hardware threads busy. The same
   node reaches 29.5 documents per second when eight clients send concurrently,
   for the same total CPU.
 - **A `semantic` query over multi-passage documents is an exact scan that
-  copies every stored document.** ~410 ms p50 on 5,183 documents, of which the
+  copies every stored document**
+  ([#939](https://github.com/xerj-org/xerj/issues/939)). ~410 ms p50 on 5,183 documents, of which the
   model's forward pass is ~14 ms. The same query on a 10,003-document index of
   one-sentence documents is ~14 ms in total.
-- **Tied RRF scores are ordered by a per-process hash seed.** After a restart
+- **Tied RRF scores are ordered by a per-process hash seed**
+  ([#940](https://github.com/xerj-org/xerj/issues/940)). After a restart
   on unchanged data, 32 of 40 SciFact queries returned a different order and
   21 of 40 a different top 10, with identical hit sets.
 
