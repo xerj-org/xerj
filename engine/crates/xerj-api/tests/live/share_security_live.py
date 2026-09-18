@@ -390,8 +390,9 @@ for method, path, body in [
 
 if NATIVE:
     section("what the guest CANNOT reach: the native REST listener")
-    s, r, _ = call("GET", "/v1/indices", None, ADMIN, base=NATIVE)
-    ok("(the owner can list indices on the native port)", s == 200, (s, r))
+    # (`/v1/indices` is POST-only — create; the native listing is `GET /v1/indices/{name}`.)
+    s, r, _ = call("GET", "/v1/indices/casefile", None, ADMIN, base=NATIVE)
+    ok("(the owner can describe the shared index on the native port)", s == 200, (s, r))
     for method, path, body in [
         ("GET", "/v1/indices", None), ("GET", "/v1/indices/casefile", None),
         ("POST", "/v1/indices/casefile/search", {"query": {"match_all": {}}}),

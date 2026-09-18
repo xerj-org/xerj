@@ -116,8 +116,14 @@ for want in "link:" "passcode:" "expires:" "xerj share --revoke" "read-only" "on
   printf '%s' "$HUMAN" | grep -qF -- "$want" || bad "create output lacks \"$want\": $HUMAN"
 done
 ok "create prints link, passcode, expiry, how to revoke, and that the link is local-only"
-share --list | grep -q "$HANDLE" && ok "--list shows the share" || bad "--list does not show $HANDLE"
-share --revoke "$HANDLE" | grep -q "revoked" && ok "--revoke" || bad "--revoke $HANDLE"
+# Capture, then grep: `xerj share … | grep -q` is a trap under pipefail —
+# grep -q exits on its first match, the CLI's next write gets SIGPIPE (exit
+# 141, nothing on stderr), and the pipeline fails with the handle right there
+# in the output. Seen once in CI-shaped runs under load.
+LISTED="$(share --list 2>&1)"
+printf '%s' "$LISTED" | grep -q "$HANDLE" && ok "--list shows the share" || bad "--list does not show $HANDLE: $LISTED"
+REVOKED="$(share --revoke "$HANDLE" 2>&1)"
+printf '%s' "$REVOKED" | grep -q "revoked" && ok "--revoke" || bad "--revoke $HANDLE: $REVOKED"
 share --list --json | python3 -c "import json,sys; s=[x for x in json.load(sys.stdin)['shares'] if x['handle']=='$HANDLE']; sys.exit(0 if s and s[0]['status']=='revoked' else 1)" \
   && ok "--list --json reports it revoked" || bad "revoked share not reported as revoked"
 mkdir -p "$ROOT/never-indexed"

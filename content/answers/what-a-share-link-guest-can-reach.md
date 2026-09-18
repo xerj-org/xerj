@@ -91,7 +91,7 @@ A pattern such as `_all` is not refused. It is expanded over what the key holds,
 
 ## An alias is fixed when the share is made
 
-Sharing an alias records the concrete indices it points at now. The test shares an alias, re-points it at another index, and confirms the guest still reads the first index and gets a 403 on the second.
+Sharing an alias pins the concrete indices it points at now. The test shares an alias, re-points it at another index, and confirms the guest still reads the first index and gets a 403 on the second.
 
 ## The claim route
 
@@ -103,7 +103,7 @@ A claim against a known share is charged to that share: 10 a minute and 30 an ho
 
 A guest can read every document in the shared index, and its mapping. There is no per-document or per-field restriction in XERJ, which is also why the `autoindex-catalog` index is never granted: it lists every corpus on the node and could not be filtered.
 
-Successful reads are only partly audited. The audit log records every claim outcome, every refused request and every `_search`, and it does not record a successful `GET _doc`.
+Successful reads are only partly audited. The audit log holds a line for every claim outcome, every refused request and every `_search`, and none for a successful `GET _doc`.
 
 Guest searches are not rate-limited. Authorization in XERJ comes from scoped API keys; roles are stored but not enforced. XERJ is single-node, so the share is only as available as that one host.
 

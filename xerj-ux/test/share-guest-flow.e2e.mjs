@@ -205,9 +205,16 @@ async function main() {
     const submitPasscode = (code) => evaluate(`(() => {
       const i = document.getElementById('passcode'); i.value = ${JSON.stringify(code)};
       document.getElementById('claim-form').requestSubmit(); })()`);
-    const search = (q) => evaluate(`(() => {
-      const i = document.getElementById('q'); i.value = ${JSON.stringify(q)};
-      document.getElementById('search-form').requestSubmit(); })()`);
+    // Submit a query and wait until the list shows THAT query's answer. The
+    // previous rows stay on screen until the response lands, so a row count
+    // alone cannot tell a fresh list from a stale one (two queries that both
+    // return two rows looked identical to an earlier version of this test).
+    const search = async (q) => {
+      await evaluate(`(() => {
+        const i = document.getElementById('q'); i.value = ${JSON.stringify(q)};
+        document.getElementById('search-form').requestSubmit(); })()`);
+      await waitFor(`document.getElementById('results').dataset.query === ${JSON.stringify(q)}`, `results for ${JSON.stringify(q)}`);
+    };
     const injected = () => evaluate(`({
       xss: window.__xss === undefined ? null : String(window.__xss),
       foreign: document.querySelectorAll('#app script, #app img, #app svg, #app iframe, #app style, #app a[href^="javascript"], #xss-link, #xss-breakout, #app b').length,

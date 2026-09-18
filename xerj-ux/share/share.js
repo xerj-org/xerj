@@ -422,6 +422,10 @@
     state.from = from;
     state.total = total;
     for (const hit of merged) $('results').appendChild(renderHit(hit));
+    // Which query the list now shows. Until the answer is in, the previous
+    // list stays on screen, so a reader (or a test) cannot tell a new result
+    // from an old one by looking at the rows alone.
+    $('results').dataset.query = q;
     state.shown += merged.length;
     const anyFull = lists.some((l) => l.length === PAGE_SIZE);
     $('more').hidden = !(anyFull && state.shown < total);
