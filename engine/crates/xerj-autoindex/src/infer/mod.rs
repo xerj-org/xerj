@@ -594,9 +594,9 @@ pub fn infer_fields_with_policy(
                     // ("nested semantic_text field … is not supported"). That
                     // 400 lands on the mapping install and aborts the WHOLE
                     // run: one YAML key — "Check streams can't be enabled with
-                    // existing logs.otel indices" — lost a 50,593-file corpus at
-                    // 154 s. Such a field stays plain `text`: still searchable,
-                    // just not embedded.
+                    // existing logs.otel indices" — lost a 48,533-file corpus
+                    // with nothing indexed (#929). Such a field stays plain
+                    // `text`: still searchable, just not embedded.
                     && !s.name.contains('.')
                     && fields
                         .get(&s.name)

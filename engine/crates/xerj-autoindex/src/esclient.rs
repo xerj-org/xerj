@@ -51,7 +51,7 @@ pub struct Es {
 /// fail that one dataset. An endpoint failure says nothing about any particular
 /// dataset and still aborts the run. Before this type existed both arrived as
 /// the same stringly `anyhow!`, so the only safe reading was the pessimistic
-/// one, and a single unmappable field name aborted a 50,593-file run with zero
+/// one, and a single unmappable field name aborted a 48,533-file run with zero
 /// documents indexed (#929).
 ///
 /// Only HTTP 400 is classified as a refusal. 401/403 are credentials, 404 is a

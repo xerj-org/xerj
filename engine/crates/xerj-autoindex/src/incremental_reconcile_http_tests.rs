@@ -55,7 +55,7 @@ struct HttpState {
     catalog_mapping_puts: usize,
     /// Opt-in (#929): a DATASET `_mapping` PUT whose index name contains one of
     /// these is refused with the 400 a real engine returns for a field it
-    /// cannot map — the literal response that aborted the 50,593-file run.
+    /// cannot map — the literal response that aborted the 48,533-file run.
     /// A refusal is a statement about that one dataset.
     refused_dataset_mappings: Vec<String>,
     /// Opt-in (#929): the same selection, answered 503 instead. That is the
@@ -4629,4 +4629,40 @@ fn a_refusal_is_on_the_progress_stream_and_the_terminal_line() {
         .find(|line| line["phase"] == "index")
         .unwrap();
     assert_eq!(index_opened["items"], "0/1", "{index_opened:?}");
+}
+
+/// #929, the degenerate end: the server refuses EVERY dataset. Nothing can be
+/// indexed, and the run must say exactly that — a committed generation with no
+/// documents, exit 3, every file accounted for as refused — rather than panic
+/// on an empty plan or, worse, report an empty corpus as a clean success. A
+/// wrapper that verifies with `_count > 0` (xc-index.sh) then keeps its old
+/// index, which is the right outcome.
+#[test]
+fn refusing_every_dataset_commits_nothing_searchable_and_is_not_a_success() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, prose) = two_dataset_indices();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().refused_dataset_mappings = vec![tabular, prose];
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config)
+        .unwrap_or_else(|error| panic!("refusing every dataset aborted the run: {error:#}"));
+    assert_eq!(code, 3, "an empty corpus is never exit 0");
+    let summary = summary.unwrap();
+    assert_eq!(summary["datasets_refused"], 2, "{summary}");
+    assert_eq!(summary["files_refused"], 3, "{summary}");
+    assert_eq!(summary["files_indexed"], 0, "{summary}");
+    assert_eq!(summary["records_total"], 0, "{summary}");
+    assert_eq!(
+        endpoint.data_docs().len(),
+        0,
+        "nothing was searchable to publish"
+    );
+    assert_eq!(endpoint.data_bulk_requests(), 0);
 }

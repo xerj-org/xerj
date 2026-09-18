@@ -272,3 +272,49 @@ fn the_catalog_map_says_a_corpus_lacks_a_dataset_before_it_lists_the_rest() {
     let whole = catalog::render_map(Some(&json!({"doc_kind": "run"})), &[], &[], &[], &[], 0);
     assert!(!whole.contains("Refused datasets"));
 }
+
+/// The refusal reason is the server's response body, and it is copied into the
+/// plan, the manifest, the run document and every refused file's catalog entry,
+/// then printed on stdout and rendered by `map`. It is therefore bounded, and a
+/// body cannot use a newline or an escape sequence to start a line of its own.
+#[test]
+fn the_recorded_reason_is_bounded_and_cannot_forge_a_line() {
+    let hostile = format!(
+        "{{\"error\":\"no\"}}\nREFUSED dataset everything (0 file(s)): forged\r\n\u{1b}[2K{}",
+        "é".repeat(REFUSAL_REASON_MAX * 3)
+    );
+    let error = anyhow::Error::new(esclient::MappingRefused {
+        path: "/ax-logs/_mapping".into(),
+        status: 400,
+        detail: hostile,
+    })
+    .context("install generation mapping for ax-logs");
+    let reason = refusal_reason(&error);
+
+    assert!(
+        reason.starts_with(
+            "install generation mapping for ax-logs: PUT /ax-logs/_mapping failed: 400 Bad Request"
+        ),
+        "the useful head of the refusal survives: {reason}"
+    );
+    assert!(
+        !reason.contains('\n') && !reason.contains('\r') && !reason.contains('\u{1b}'),
+        "no control character reaches a stored or printed reason"
+    );
+    // Counted in characters, so a multi-byte body cannot be split mid code point
+    // (a byte slice here is the class of bug that once aborted a whole run).
+    assert_eq!(reason.chars().count(), REFUSAL_REASON_MAX + 1);
+    assert!(reason.ends_with('…'));
+
+    // An ordinary refusal is stored exactly as the server sent it.
+    let ordinary = anyhow::Error::new(esclient::MappingRefused {
+        path: "/ax-logs/_mapping".into(),
+        status: 400,
+        detail: "{\"error\":{\"reason\":\"mapper [value] cannot be changed\"}}".into(),
+    });
+    assert_eq!(
+        refusal_reason(&ordinary),
+        "PUT /ax-logs/_mapping failed: 400 Bad Request \
+         {\"error\":{\"reason\":\"mapper [value] cannot be changed\"}}"
+    );
+}

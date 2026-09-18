@@ -45,7 +45,10 @@ command -v python3 >/dev/null 2>&1 || {
 auth=()
 [ -n "${XERJ_API_KEY:-}" ] && auth=(-H "Authorization: ApiKey $XERJ_API_KEY")
 
-http() { curl -fsS -m 30 "${auth[@]}" "$@"; }
+# `${auth[@]+…}`, not a bare "${auth[@]}": under `set -u`, bash 3.2 — still what
+# macOS ships as /bin/bash — treats expanding an EMPTY array as an unbound
+# variable and exits, so every call would fail on a node without auth.
+http() { curl -fsS -m 30 ${auth[@]+"${auth[@]}"} "$@"; }
 
 http -m 5 "$URL/_cluster/health" >/dev/null 2>&1 || {
   echo "xc-index: no XERJ at $URL. Start it, or set XERJ_URL." >&2; exit 2; }

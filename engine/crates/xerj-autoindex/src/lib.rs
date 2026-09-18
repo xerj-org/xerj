@@ -253,6 +253,30 @@ pub(crate) mod frozen_contract {
 /// One dataset the server refused to map: `(slug, the server's refusal)`.
 pub(crate) type MappingRefusal = (String, String);
 
+/// Longest refusal reason that is recorded, in characters.
+///
+/// Generous next to a real engine's answer — the refusal in #929 is under 500 —
+/// and small next to what it multiplies into: see [`refusal_reason`].
+const REFUSAL_REASON_MAX: usize = 1024;
+
+/// The reason a refusal is recorded under: the error chain, bounded and with
+/// control characters replaced.
+///
+/// The text is the SERVER's response body, verbatim, so it is outside input,
+/// and it does not stay in one place. It is frozen into the plan and the
+/// committed manifest, republished in the catalog's run document by every
+/// later generation, copied into the catalog entry of EVERY file the refusal
+/// cost, printed on stdout, and rendered by `xerj autoindex map`. Unbounded, a
+/// verbose proxy error page under a 10,000-file dataset is tens of megabytes
+/// of catalog; unsanitized, a body containing a newline can start a line of
+/// its own on stdout — for instance a second, forged `REFUSED dataset` line.
+/// [`progress::sanitize`] already solves both for the progress surface (it
+/// counts characters, so it cannot split a code point), so the reason goes
+/// through it once, here, before anything stores it.
+fn refusal_reason(error: &anyhow::Error) -> String {
+    progress::sanitize(&format!("{error:#}"), REFUSAL_REASON_MAX)
+}
+
 /// Create every dataset index in `plan` and install its mapping.
 ///
 /// A server *refusal* of one dataset's mapping (HTTP 400, see
@@ -262,7 +286,7 @@ pub(crate) type MappingRefusal = (String, String);
 /// endpoint failure, is not specific to any dataset, and still aborts.
 ///
 /// This used to be a bare `?` inside the loop, which let ONE unmappable field
-/// name abort a 50,593-file, 1,526-dataset run with zero documents indexed
+/// name abort a 48,533-file, 1,526-dataset run with zero documents indexed
 /// (#929). The precedent for the split is Meilisearch's batch processing,
 /// read for approach only: a per-operation user error marks that one task
 /// `Failed` while the batch carries on, and only an internal error aborts it
@@ -289,7 +313,7 @@ fn install_dataset_mappings(
         match installed {
             Ok(()) => {}
             Err(error) if error.downcast_ref::<esclient::MappingRefused>().is_some() => {
-                refused.push((dataset.slug.clone(), format!("{error:#}")));
+                refused.push((dataset.slug.clone(), refusal_reason(&error)));
             }
             Err(error) => return Err(error),
         }
@@ -5660,7 +5684,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                 if !resumed_with_plan
                     && error.downcast_ref::<esclient::MappingRefused>().is_some() =>
             {
-                refused.push((d.slug.clone(), format!("{error:#}")));
+                refused.push((d.slug.clone(), refusal_reason(&error)));
             }
             Err(error) => return Err(error),
         }
