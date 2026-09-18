@@ -647,7 +647,7 @@ fn explain(status: u16, body: &Value, common: &Common) -> anyhow::Error {
 }
 
 fn list(es: &Es, common: &Common) -> Result<i32> {
-    let (status, body) = es.request_json(reqwest::Method::GET, "/_share", None)?;
+    let (status, body) = es.request_json("GET", "/_share", None)?;
     if status != 200 {
         return Err(explain(status, &body, common));
     }
@@ -691,7 +691,7 @@ fn list(es: &Es, common: &Common) -> Result<i32> {
 
 fn revoke(es: &Es, common: &Common, handle: &str) -> Result<i32> {
     let (status, body) =
-        es.request_json(reqwest::Method::DELETE, &format!("/_share/{handle}"), None)?;
+        es.request_json("DELETE", &format!("/_share/{handle}"), None)?;
     if status == 404 {
         bail!("no share with handle {handle} on this node (see `xerj share --list`)");
     }
@@ -851,7 +851,7 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
     if let Some(l) = &create.label {
         body["label"] = json!(l);
     }
-    let (status, resp) = es.request_json(reqwest::Method::POST, "/_share", Some(&body))?;
+    let (status, resp) = es.request_json("POST", "/_share", Some(&body))?;
     if status != 200 {
         return Err(explain(status, &resp, common));
     }
@@ -860,7 +860,6 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
         .and_then(Value::as_str)
         .context("the node's response carries no share_id")?;
     let handle = resp.get("handle").and_then(Value::as_str).unwrap_or("");
-    let passcode = resp.get("passcode").and_then(Value::as_str).unwrap_or("");
     let url_path = resp.get("url_path").and_then(Value::as_str);
 
     let base = tunnel
@@ -919,7 +918,7 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
         );
         return Ok(0);
     }
-    match es.request_json(reqwest::Method::DELETE, &format!("/_share/{handle}"), None) {
+    match es.request_json("DELETE", &format!("/_share/{handle}"), None) {
         Ok((200, body)) => eprintln!(
             "share {handle} revoked — {} guest key(s) invalidated.",
             body.get("keys_invalidated")

@@ -795,19 +795,52 @@ async fn create_share_inner(
     if indices.len() > MAX_INDICES {
         return bad_request(format!("a share may name at most {MAX_INDICES} indices"));
     }
+    // An alias is resolved NOW, to the indices it points at as the owner runs
+    // the command, and the share records those. Two reasons. Authorization
+    // resolves an alias to its backing indices and checks each of *those*
+    // against the key's grants (`authz::authorize_expression`), so a grant on
+    // the alias name alone mints a key that can read nothing — the first cut
+    // accepted an alias here and produced exactly that. And a frozen list means
+    // re-pointing the alias later cannot move, or widen, what a guest already
+    // holds: the owner shared these indices, not whatever the name means next
+    // week. The backing names go through the same validation, so an alias is
+    // not a way to share a system index.
+    let mut concrete: Vec<String> = Vec::with_capacity(indices.len());
     for name in &indices {
         if let Err(why) = validate_share_index(name) {
             return bad_request(why);
         }
-        let exists = state.engine.get_index(name).is_ok() || state.engine.aliases.contains_key(name);
-        if !exists {
-            return es_error(
-                StatusCode::NOT_FOUND,
-                "index_not_found_exception",
-                format!("no such index [{name}]"),
-            );
+        let backing = state
+            .engine
+            .aliases
+            .get(name)
+            .map(|e| e.value().clone())
+            .filter(|b| !b.is_empty());
+        let resolved = backing.unwrap_or_else(|| vec![name.clone()]);
+        for index in resolved {
+            if let Err(why) = validate_share_index(&index) {
+                return bad_request(if index == *name {
+                    why
+                } else {
+                    format!("alias `{name}` resolves to `{index}`: {why}")
+                });
+            }
+            if state.engine.get_index(&index).is_err() {
+                return es_error(
+                    StatusCode::NOT_FOUND,
+                    "index_not_found_exception",
+                    format!("no such index [{index}]"),
+                );
+            }
+            concrete.push(index);
         }
     }
+    let mut seen = HashSet::new();
+    concrete.retain(|i| seen.insert(i.clone()));
+    if concrete.len() > MAX_INDICES {
+        return bad_request(format!("a share may name at most {MAX_INDICES} indices"));
+    }
+    let indices = concrete;
     if let Some(b) = &brain {
         let edges = crate::authz::brain_edges_index(b);
         if state.engine.get_index(&edges).is_err() {

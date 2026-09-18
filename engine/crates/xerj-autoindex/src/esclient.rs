@@ -574,12 +574,18 @@ impl Es {
     /// spend ~16s re-asking a question whose answer will not change. A body
     /// that is not JSON comes back as `Value::Null` rather than an error: the
     /// status is still the caller's to interpret.
+    ///
+    /// `method` is the verb as text (`"GET"`, `"POST"`, `"DELETE"`) so that a
+    /// caller in another crate does not need `reqwest` as a dependency of its
+    /// own just to name one.
     pub fn request_json(
         &self,
-        method: reqwest::Method,
+        method: &str,
         path: &str,
         body: Option<&Value>,
     ) -> Result<(u16, Value)> {
+        let method = reqwest::Method::from_bytes(method.as_bytes())
+            .with_context(|| format!("not an HTTP method: {method}"))?;
         let mut r = self.req(method, path);
         if let Some(b) = body {
             r = r.json(b);
