@@ -22,6 +22,8 @@ The fix is a build-verify-swap in the wrapper. These tests pin its contract:
   * two --fresh runs inside one second cannot retire the build just verified
   * an interrupted FIRST build (no index to fall back to) is kept, recorded as
     salvaged with its real exit code, and resumed by a plain re-run
+  * a record count the node does not ANSWER is never read as zero: it cannot
+    get a working index retired, nor a finished build deleted
 
 Offline: a fake node (http.server) and a fake `xerj` binary that behaves like
 the real one where it matters — it refuses `--fresh` and refuses a legacy state
@@ -49,6 +51,8 @@ class Node:
         self.indices = {}          # name -> record count
         self.log = []              # (method, path) in arrival order
         self.catalog_deletes = []  # delete-by-query bodies
+        self.count_outage = 0      # the next N `_count` requests answer 503
+        self.count_mute = set()    # `_count` patterns that NEVER answer (503)
         self.lock = threading.Lock()
 
     def matching(self, pattern):
@@ -82,6 +86,12 @@ def make_handler(node):
                     pattern = path[len("/_cat/indices/"):]
                     return self.reply(200, [{"index": n} for n in node.matching(pattern)])
                 if path.endswith("/_count"):
+                    # A busy node: it is up, it lists indices, it cannot count.
+                    if path[1:-len("/_count")] in node.count_mute:
+                        return self.reply(503, {"error": "busy"})
+                    if node.count_outage > 0:
+                        node.count_outage -= 1
+                        return self.reply(503, {"error": "busy"})
                     pattern = path[1:-len("/_count")]
                     return self.reply(200, {"count": sum(node.indices[n] for n in node.matching(pattern))})
             self.reply(404, {"error": "not found"})
@@ -104,6 +114,9 @@ def make_handler(node):
                 if path == "/__test/create":
                     spec = json.loads(raw)
                     node.indices[spec["index"]] = spec["docs"]
+                    return self.reply(200, {})
+                if path == "/__test/outage":
+                    node.count_outage = json.loads(raw)["requests"]
                     return self.reply(200, {})
                 if path == "/autoindex-catalog/_delete_by_query":
                     node.catalog_deletes.append(json.loads(raw))
@@ -147,6 +160,10 @@ if [ "$docs" -gt 0 ]; then
   done
 fi
 mkdir -p "$state" && : > "$state/journal.ndjson"
+if [ -f "$fake/outage" ]; then
+  curl -fsS -X POST "$url/__test/outage" -H 'Content-Type: application/json' \
+    -d "{\"requests\":$(cat "$fake/outage")}" >/dev/null
+fi
 exit "$rc"
 '''
 
@@ -202,7 +219,7 @@ class Rig:
 
     def run(self, *args):
         env = dict(os.environ, XERJ_CODE_HOME=self.home, XERJ_URL=self.url,
-                   XERJ_BIN=self.xerj, FAKE_DIR=self.fake)
+                   XERJ_BIN=self.xerj, FAKE_DIR=self.fake, XC_COUNT_PAUSE="0")
         env.pop("XERJ_API_KEY", None)
         done = subprocess.run(["bash", SCRIPT, *args], env=env, capture_output=True,
                               text=True, timeout=120)
@@ -382,6 +399,100 @@ def main():
     check("a finished resume clears the salvaged mark",
           state.get("salvaged") is False and state.get("autoindex_exit") == 0, str(state))
     check("the build id did not change", state.get("index_prefix") == built, str(state))
+    rig.close()
+
+    # 9 ── "the node did not say" is not "zero": the OLD index ───────────────
+    # One 503 on one `_count` used to read a working index as "nothing to fall
+    # back to": the FAILED build was kept over it and the working index retired,
+    # exit 0. Only the OLD index's count is mute here — the new build's count
+    # answers, which is exactly the combination that did the damage.
+    print("--fresh when the node cannot count the WORKING index and the build fails")
+    rig = Rig()
+    rig.legacy_state("blind", docs=500)
+    before_state = rig.state("blind")
+    rig.behave(rc=1, docs=7)
+    rig.node.count_mute.add("xc-blind-*")
+    code, out, err = rig.run("blind", "--fresh")
+    check("the failed build is NOT accepted (non-zero exit)", code != 0, "code=%s" % code)
+    check("the working index survives", rig.node.indices.get("xc-blind-docs") == 500
+          and rig.node.indices.get("xc-blind-code") == 500, str(rig.node.indices))
+    check("the old index is never named in a DELETE",
+          not any(path in ("/xc-blind-docs", "/xc-blind-code")
+                  for method, path in rig.node.log if method == "DELETE"), str(rig.node.log))
+    check("the state file still points at the working index", rig.state("blind") == before_state, str(rig.state("blind")))
+    check("it says the count was unknown and what it presumed", "did not answer a record count" in err
+          and "WORKING index" in err, err)
+    rig.close()
+
+    # 10 ── …and the NEW build: a finished build must not be deleted unverified
+    # One 503 used to read a complete build as "empty": its indices AND its
+    # resume state were deleted.
+    print("--fresh when the build finishes but the node cannot count it (working index present)")
+    rig = Rig()
+    rig.legacy_state("mute", docs=500)
+    before_state = rig.state("mute")
+    rig.behave(rc=0, docs=7)
+    # The old count must succeed (1 request) and every later one fail: let the
+    # first through, then start the outage from inside the fake binary's run.
+    with open(os.path.join(rig.fake, "outage"), "w") as handle:
+        handle.write("6")
+    code, out, err = rig.run("mute", "--fresh")
+    built = [n for n in rig.node.indices if re.match(r"xc-mute-b\d{14}-", n)]
+    check("exits non-zero: the build could not be verified", code != 0, "code=%s" % code)
+    check("NOTHING is deleted", not any(method == "DELETE" for method, _ in rig.node.log), str(rig.node.log))
+    check("the unverified build's indices are kept", len(built) == 2, str(rig.node.indices))
+    check("the working index is kept", rig.node.indices.get("xc-mute-docs") == 500, str(rig.node.indices))
+    check("readers are NOT switched to an unverified build", rig.state("mute") == before_state, str(rig.state("mute")))
+    state_root = os.path.join(rig.home, "autoindex-state", "mute")
+    check("the build's resume state is kept",
+          os.path.isdir(state_root) and any(os.path.isfile(os.path.join(state_root, d, "journal.ndjson"))
+                                            for d in os.listdir(state_root)), state_root)
+    check("it says so", "NOTHING was deleted" in err and "NOT touched" in err, err)
+    rig.close()
+
+    print("a FIRST build the node cannot count is kept and recorded as unverified")
+    rig = Rig()
+    rig.corpus("first")
+    rig.behave(rc=0, docs=7)
+    rig.node.count_outage = 6
+    code, out, err = rig.run("first", "--fresh")
+    check("exits non-zero", code != 0, "code=%s" % code)
+    check("nothing is deleted", not any(method == "DELETE" for method, _ in rig.node.log), str(rig.node.log))
+    state = rig.state("first")
+    check("the ledger records it as unverified (salvaged), with the real exit code",
+          state.get("salvaged") is True and state.get("autoindex_exit") == 0, str(state))
+    check("its indices are kept", rig.node.indices.get(state.get("index_prefix", "?") + "-docs") == 7, str(rig.node.indices))
+    rig.node.count_outage = 0
+    code, out, err = rig.run("first")
+    state = rig.state("first")
+    check("a plain re-run, once the node answers, confirms it and clears the mark",
+          code == 0 and state.get("salvaged") is False, "code=%s state=%s" % (code, state))
+    rig.close()
+
+    # 11 ── patience: a node that answers on a later attempt is simply believed
+    print("--fresh when the count fails a few times and then answers")
+    rig = Rig()
+    rig.legacy_state("slow", docs=500)
+    rig.behave(rc=0, docs=7)
+    rig.node.count_outage = 3
+    code, out, err = rig.run("slow", "--fresh")
+    check("exits 0", code == 0, "code=%s stderr=%s" % (code, err))
+    check("the replacement was verified and readers switched",
+          re.fullmatch(r"xc-slow-b\d{14}", rig.state("slow").get("index_prefix", "")) is not None, str(rig.state("slow")))
+    check("the old index was retired only then", "xc-slow-docs" not in rig.node.indices, str(rig.node.indices))
+    rig.close()
+
+    # 12 ── legacy path: without a count from BEFORE the run, nothing is salvaged
+    print("legacy update when the node could not count before the run")
+    rig = Rig()
+    rig.legacy_state("old", docs=500)
+    os.remove(os.path.join(rig.fake, "default-state", "LEGACY"))
+    before_state = rig.state("old")
+    rig.behave(rc=1, docs=9)
+    rig.node.count_outage = 6
+    code, out, err = rig.run("old")
+    check("a failed legacy run is not salvaged on an unknown baseline", code != 0, "code=%s" % code)
+    check("the ledger is not re-dated", rig.state("old") == before_state, str(rig.state("old")))
     rig.close()
 
     print("\n%d passed, %d failed" % (passed, failed))

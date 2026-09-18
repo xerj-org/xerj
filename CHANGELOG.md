@@ -50,7 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer forwards the flag to autoindex (which refuses it once a generation has
   committed): it builds a replacement beside the old index, verifies
   `_count > 0`, switches the state file atomically and only then retires the old
-  indices by exact name. A first build that is interrupted after writing
+  indices by exact name; a record count the node does not answer is never read
+  as zero, so it cannot get a working index retired or a finished build
+  deleted. A first build that is interrupted after writing
   records is kept rather than leave no corpus, and `xc.py` now reads the
   `salvaged` / `autoindex_exit` the script always recorded: it warns on every
   query that coverage is INCOMPLETE, so a miss against a partial index cannot

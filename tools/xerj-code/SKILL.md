@@ -81,6 +81,12 @@ bucket a repo is in; `hub/README.md` explains the three.
   outright once a corpus generation has committed — which is why `--fresh` used
   to fail on every corpus that had been indexed before
   ([#930](https://github.com/xerj-org/xerj/issues/930)).
+- **A record count the node does not answer is never read as zero.** The
+  script asks up to 6 times (`XC_COUNT_TRIES`, `XC_COUNT_PAUSE`). If the node
+  still cannot count the existing index, it is presumed to be a working one and
+  no failed build is kept over it; if it cannot count the new build, nothing is
+  deleted and nothing is switched. Only a number — or a 404, no index matches —
+  authorises a delete or a swap.
 - **An interrupted FIRST build is kept, and `xc.py` says so.** When a build
   fails after writing records and there is no working index to fall back to,
   the script keeps it rather than leave no corpus at all, and records

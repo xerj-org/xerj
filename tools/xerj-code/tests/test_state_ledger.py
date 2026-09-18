@@ -225,7 +225,7 @@ def main():
     check("case6 a salvaged index still answers (exit 0)", code == 0,
           f"got {code} {out + err!r}")
     check("case6 the reader is told coverage is incomplete",
-          "INCOMPLETE" in err and "exited 1" in err, repr(err))
+          "INCOMPLETE" in err and "autoindex exit 1, kept unverified" in err, repr(err))
     check("case6 the warning names the command that resumes it",
           f"xc-index.sh {CORPUS}" in err, repr(err))
     check("case6 the warning is not on stdout", "INCOMPLETE" not in out, repr(out))

@@ -163,7 +163,9 @@ def incomplete_coverage(state):
     querying — saw a normal index: a miss against a half-built corpus read
     exactly like "this code does not exist", which is the false confidence the
     staleness check exists to prevent. Exit 0 is clean and 3 is completed with
-    junk or refused datasets; anything else did not finish.
+    junk or refused datasets; anything else did not finish. `salvaged` is also
+    set for a build whose record count the node never answered, whatever its
+    exit code, so the wording covers both: not verified complete.
 
     Returns the warning line, or None when the ledger records a finished run.
     """
@@ -172,10 +174,10 @@ def incomplete_coverage(state):
     if finished and not state.get("salvaged"):
         return None
     name = state.get("corpus", "?")
-    return (f"WARNING: the index for '{name}' was recorded from an autoindex run "
-            f"that exited {rc} and did not finish. Coverage is INCOMPLETE: a miss "
-            f"here is not evidence that the code is absent. Re-run "
-            f"xc-index.sh {name} to resume it.")
+    how = f"autoindex exit {rc}" + (", kept unverified" if state.get("salvaged") else "")
+    return (f"WARNING: the index for '{name}' was NOT verified complete ({how}). "
+            f"Coverage may be INCOMPLETE: a miss here is not evidence that the "
+            f"code is absent. Re-run xc-index.sh {name} to resume or confirm it.")
 
 
 def check_fresh(state, stale_ok):

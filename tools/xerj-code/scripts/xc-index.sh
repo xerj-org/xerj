@@ -137,13 +137,45 @@ corpus_indices() {
     | python3 -c "$CORPUS_INDICES_PY" "$name" "$CORPORA" "$ROOT/state"
 }
 
-# Records under one exact index prefix. Empty string when the node cannot say.
+# Records under one exact index prefix, asked ONCE. Three answers, and the
+# difference between the last two is the whole point:
+#   a number   the node counted them
+#   0          the node answered 404 — the wildcard matches no index, so no records
+#   (nothing)  the node DID NOT SAY: timeout, 5xx, connection refused, junk
+# "Did not say" used to be folded into 0 by every caller, and 0 is what
+# authorises the two destructive steps below. One 503 on one request was enough
+# to (a) read a working 500-record index as "nothing to fall back to", keep a
+# FAILED build over it and retire it, and (b) read a finished build as "empty"
+# and delete it with its resume state. A node under memory pressure — the node
+# a long build produces — answers exactly like that.
+count_once() {
+  local reply code
+  # No -f: the status is read, not inferred. `|| return 0`: under `pipefail` +
+  # `set -e` a failure inside `x="$(count_once …)"` would end the script at the
+  # assignment instead of reporting "did not say".
+  reply="$(curl -sS -m 30 ${auth[@]+"${auth[@]}"} -w '\n%{http_code}' "$URL/$1-*/_count" 2>/dev/null)" || return 0
+  code="${reply##*$'\n'}"
+  case "$code" in
+    200) printf '%s\n' "${reply%$'\n'*}" \
+           | sed -n 's/.*"count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1 || true ;;
+    404) echo 0 ;;
+  esac
+}
+
+# The same, asked patiently: a busy node gets several chances before "did not
+# say" is believed. Still prints nothing when it never answered — callers must
+# treat that as UNKNOWN, never as zero.
+COUNT_TRIES="${XC_COUNT_TRIES:-6}"
+COUNT_PAUSE="${XC_COUNT_PAUSE:-5}"
 count_under() {
-  # `|| true` twice on purpose: a wildcard that matches nothing may answer 404,
-  # and under `pipefail` + `set -e` a failed count inside `x="$(count_under …)"`
-  # would end the script at the assignment instead of reporting "no records".
-  { http "$URL/$1-*/_count" 2>/dev/null || true; } \
-    | sed -n 's/.*"count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1 || true
+  local attempt=1 value=""
+  while :; do
+    value="$(count_once "$1")"
+    if [ -n "$value" ]; then printf '%s\n' "$value"; return 0; fi
+    [ "$attempt" -lt "$COUNT_TRIES" ] || return 0
+    attempt=$((attempt + 1))
+    sleep "$COUNT_PAUSE"
+  done
 }
 
 delete_indices() {   # names on stdin, one per line; exact names only, never a wildcard
@@ -252,16 +284,46 @@ build)
   done
   new_prefix="xc-$name-$build"
   new_state="$STATE_ROOT/$name/$build"
-  old_docs=0
+  # Is there a working index to protect? When the node cannot count it, the
+  # answer is YES: presuming "none" is what lets a failed build be kept over it
+  # and the old indices be retired.
+  has_working_index=false
   if [ -n "$old_indices" ]; then
-    old_docs="$(count_under "${old_index_prefix:-xc-$name}")"; [ -n "$old_docs" ] || old_docs=0
+    old_docs="$(count_under "${old_index_prefix:-xc-$name}")"
+    if [ -z "$old_docs" ]; then
+      has_working_index=true; old_docs="an unknown number of"
+      echo "xc-index: the node did not answer a record count for the existing index; treating it as" >&2
+      echo "xc-index: a WORKING index — a failed build will not be kept over it." >&2
+    elif [ "$old_docs" -gt 0 ] 2>/dev/null; then
+      has_working_index=true
+    fi
     echo "xc-index: --fresh — building $new_prefix-* beside the existing index ($old_docs records);"
     echo "xc-index: the existing index stays live until the replacement has been verified"
   fi
   mkdir -p "$new_state"
   run_autoindex "$new_prefix" "$new_state"
 
-  docs="$(count_under "$new_prefix")"; [ -n "$docs" ] || docs=0
+  docs="$(count_under "$new_prefix")"
+  if [ -z "$docs" ]; then
+    # UNKNOWN is not EMPTY. The cleanup below deletes this build's indices and
+    # its resume state, so it may only run on a count the node actually gave.
+    echo "xc-index: the node did not answer a record count for build $build ($COUNT_TRIES attempts;" >&2
+    echo "xc-index: autoindex exit $rc). It cannot be verified, so NOTHING was deleted and NOTHING" >&2
+    echo "xc-index: was switched: its indices ($new_prefix-*) and its state directory are kept." >&2
+    if $has_working_index; then
+      echo "xc-index: the existing index was NOT touched and is still what xc.py serves." >&2
+      echo "xc-index: When the node answers again, re-run with --fresh; the unverified build is" >&2
+      echo "xc-index: retired by the next build that verifies." >&2
+    else
+      # Nothing to protect and nothing else to serve: record it for what it is,
+      # so xc.py warns on every query and a plain re-run resumes or confirms it.
+      write_state "$rc" true "$build" "$new_prefix" "$new_state"
+      echo "xc-index: There is no other index for '$name', so this build is recorded as UNVERIFIED" >&2
+      echo "xc-index: (xc.py will say so). Re-run  xc-index.sh $name  to resume or confirm it." >&2
+    fi
+    [ "$rc" -ne 0 ] && [ "$rc" -ne 3 ] && exit "$rc"
+    exit 1
+  fi
   salvaged=false
   verified=false
   case $rc in
@@ -271,7 +333,7 @@ build)
       # (#367), leaving a complete, queryable index behind. That is worth
       # keeping when the alternative is no corpus at all — and NOT worth
       # swapping a verified, working index out for.
-      if [ "$docs" -gt 0 ] 2>/dev/null && [ "$old_docs" -eq 0 ] 2>/dev/null; then
+      if [ "$docs" -gt 0 ] 2>/dev/null && ! $has_working_index; then
         verified=true; salvaged=true
         echo "xc-index: WARNING — autoindex exited $rc, but this build wrote $docs records and" >&2
         echo "xc-index: there is no working index to fall back to. Recording it as indexed with" >&2
@@ -339,7 +401,9 @@ legacy)
   # Recorded before the run so a failure can tell "this run wrote records" apart
   # from "an earlier run's records are still lying around". Salvaging the latter
   # would date stale data to now, which SKILL.md calls worse than no index.
-  docs_before="$(count_under "xc-$name")"; [ -n "$docs_before" ] || docs_before=0
+  docs_before="$(count_under "xc-$name")"
+  before_known=true
+  [ -n "$docs_before" ] || { before_known=false; docs_before=0; }
   run_autoindex "xc-$name"
   docs=""
   salvaged=false
@@ -347,7 +411,9 @@ legacy)
     0|3) ;;
     *)
       docs="$(count_under "xc-$name")"
-      if [ -n "$docs" ] && [ "$docs" -gt "$docs_before" ] 2>/dev/null; then
+      # Without a count from BEFORE the run, "more records than before" cannot be
+      # shown, and salvaging would date an earlier run's records to now.
+      if $before_known && [ -n "$docs" ] && [ "$docs" -gt "$docs_before" ] 2>/dev/null; then
         salvaged=true
         echo "xc-index: WARNING — autoindex exited $rc, but this run wrote records" >&2
         echo "xc-index: ($docs_before -> $docs). The corpus is queryable and is being" >&2

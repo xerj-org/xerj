@@ -32,9 +32,9 @@ evidence:
     source: "benchmarks/autoindex-resilience/fresh-before-rc74.legacy-state.txt"
   - claim: "On v1.0.0-rc.74 xerj autoindex --fresh over a committed generation aborted with exit 1: --fresh cannot discard committed corpus generation 1 under the same destination."
     source: "benchmarks/autoindex-resilience/fresh-before-rc74.committed-generation.txt"
-  - claim: "The --fresh contract is pinned by 59 offline checks: a new state directory and prefix, --fresh never forwarded to autoindex, nothing deleted before the replacement's count was read, deletes by exact name, a failed or empty build leaves the old index and state file untouched, a sibling corpus is never touched, and an interrupted first build is kept, recorded as salvaged with its real exit code, and resumed by a plain re-run under the same prefix and state directory."
+  - claim: "The --fresh contract is pinned by 81 offline checks: a new state directory and prefix, --fresh never forwarded to autoindex, nothing deleted before the replacement's count was read, deletes by exact name, a failed or empty build leaves the old index and state file untouched, a sibling corpus is never touched, an interrupted first build is kept, recorded as salvaged with its real exit code, and resumed by a plain re-run under the same prefix and state directory, and a record count the node does not answer is never read as zero: it cannot get a working index retired or a finished build deleted."
     source: "tools/xerj-code/tests/test_xc_index_fresh.py"
-  - claim: "When the ledger records a salvaged build or an autoindex exit other than 0 or 3, xc.py prints a coverage-is-INCOMPLETE warning on stderr on every query, keeps --json stdout parseable, and marks the corpus INCOMPLETE in --list. Exit 3 is not reported as incomplete."
+  - claim: "When the ledger records a salvaged build or an autoindex exit other than 0 or 3, xc.py prints a coverage-may-be-INCOMPLETE warning on stderr on every query, keeps --json stdout parseable, and marks the corpus INCOMPLETE in --list. Exit 3 is not reported as incomplete."
     source: "tools/xerj-code/tests/test_state_ledger.py"
   - claim: "xc.py queries index_prefix, the one verified build, and never the bare namespace glob once a corpus has been rebuilt."
     source: "tools/xerj-code/tests/test_state_ledger.py"
@@ -101,10 +101,20 @@ There is one case where a failed build is kept: it wrote records, and there is n
 A kept build can be partial, so the reader is told. While the state file says `salvaged`, or records an exit code other than 0 or 3, `xc.py` prints this on stderr with every query, and `xc.py --list` marks the corpus `INCOMPLETE`:
 
 ```text
-WARNING: the index for 'xerj-storage' was recorded from an autoindex run that exited 1 and did not finish. Coverage is INCOMPLETE: a miss here is not evidence that the code is absent. Re-run xc-index.sh xerj-storage to resume it.
+WARNING: the index for 'xerj-storage' was NOT verified complete (autoindex exit 1, kept unverified). Coverage may be INCOMPLETE: a miss here is not evidence that the code is absent. Re-run xc-index.sh xerj-storage to resume or confirm it.
 ```
 
-A plain `xc-index.sh <corpus>` resumes it. The kept build has its own prefix and state directory, so the re-run passes both back to autoindex, which continues from its journal. When that run exits 0 or 3 the `salvaged` mark is cleared and the warning stops.
+## A count the node does not answer is not zero
+
+Every decision above rests on a record count, and a busy node does not always answer one. A timeout, a 5xx or a refused connection is "did not say". It is not zero. The script asks up to 6 times, 5 seconds apart (`XC_COUNT_TRIES`, `XC_COUNT_PAUSE`). Only a number, or a 404 because no index matches, is believed.
+
+When the node never says how many records the existing index holds, the script presumes it is a working index. A failed build is then not kept over it.
+
+When the node never says how many records the new build holds, nothing is deleted and nothing is switched. The build's indices and its state directory are kept. If there is a working index it keeps serving, and the next `--fresh` that verifies retires the leftover. If there is none, the build is recorded as unverified, `xc.py` warns as above, and a plain re-run confirms it once the node answers.
+
+An earlier draft of this script read "did not say" as zero. One 503 on one request then retired a working 500-record index in favour of a failed build, and another deleted a finished build together with its resume state. Both are reproduced in the test file and fail against that draft.
+
+A plain `xc-index.sh <corpus>` resumes a kept build. The kept build has its own prefix and state directory, so the re-run passes both back to autoindex, which continues from its journal. When that run exits 0 or 3 the `salvaged` mark is cleared and the warning stops.
 
 ## Two prefixes in the state file
 
@@ -138,8 +148,8 @@ The old state directory of a corpus indexed before builds existed lives under `~
 
 The two error messages are captures from v1.0.0-rc.74, committed under `benchmarks/autoindex-resilience/`. Local paths in them were shortened; nothing else was changed.
 
-The new behaviour is pinned by `tools/xerj-code/tests/test_xc_index_fresh.py`: 59 offline checks against a fake node and a fake `xerj` binary that refuses what the real one refuses. The same test fails against the old script with the first error above.
+The new behaviour is pinned by `tools/xerj-code/tests/test_xc_index_fresh.py`: 81 offline checks against a fake node and a fake `xerj` binary that refuses what the real one refuses. The same test fails against the old script with the first error above.
 
 The warning and the `--list` mark are pinned by `tools/xerj-code/tests/test_state_ledger.py` (25 offline checks). Resuming a kept build was checked against the fake binary only: that the re-run passes the same prefix and state directory. autoindex resuming an interrupted generation from its journal is a separate capture, `benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt`. The two were not run together end to end.
 
-Writing that test found three defects in the first draft of the new script. An index listing that never reached its filter, a record count that read as zero when the node put a space after the colon, and two rebuilds inside one second retiring the build they had just verified. All three are fixed and covered.
+Writing that test found five defects in drafts of the new script. An index listing that never reached its filter, a record count that read as zero when the node put a space after the colon, two rebuilds inside one second retiring the build they had just verified, and the two unanswered-count defects described above. All five are fixed and covered. The unanswered count was exercised against the fake node only, with a 503. It was not provoked on a real node.
