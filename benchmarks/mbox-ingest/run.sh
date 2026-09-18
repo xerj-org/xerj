@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Measure `xerj autoindex` on a synthetic Google Takeout mailbox.
+#
+#   benchmarks/mbox-ingest/run.sh <xerj-binary> <work-dir> <profile> <size> <es-port>
+#   e.g.  run.sh engine/target/release/xerj /data/mboxbench mixed 1G 9520
+#
+# <work-dir> MUST be on a real disk. On a tmpfs (/tmp on many distros) the
+# corpus, the index and the staging file all live in RAM, and every memory
+# figure this prints would be wrong.
+#
+# It boots a THROWAWAY node on <es-port> (+1 rest, +2 grpc) with its own data
+# directory, the default LEXICAL embedder and auth off, indexes the tree with
+# default autoindex settings, and writes <work-dir>/result-<profile>-<size>.json.
+# Nothing here talks to any other node.
+set -euo pipefail
+XERJ=$(readlink -f "$1"); WORK=$(readlink -f "$2"); PROFILE=$3; SIZE=$4; PORT=$5
+HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/../.." && pwd)
+TAG="$PROFILE-$SIZE"; TREE="$WORK/tree-$TAG"; TRUTH="$WORK/tree-$TAG.truth.json"
+DATA="$WORK/node-$TAG"; STATE="$WORK/state-$TAG"; OUT="$WORK/result-$TAG.json"
+URL="http://127.0.0.1:$PORT"
+
+case "$(findmnt -no FSTYPE -T "$WORK")" in tmpfs|ramfs) echo "refusing: $WORK is RAM-backed"; exit 2;; esac
+if ss -ltn | grep -qE ":($PORT|$((PORT+1))|$((PORT+2)))\b"; then echo "refusing: port block $PORT.. is in use"; exit 2; fi
+
+if [ ! -d "$TREE" ]; then
+  python3 "$REPO/scripts/synthetic-takeout.py" --out "$TREE" --truth "$TRUTH" \
+      --target-bytes "$SIZE" --profile "$PROFILE" --seed 42 --with-archive
+fi
+rm -rf "$DATA" "$STATE"; mkdir -p "$DATA"
+cat > "$WORK/node-$TAG.toml" <<TOML
+[server]
+es_compat_port = $PORT
+rest_port = $((PORT+1))
+grpc_port = $((PORT+2))
+data_dir = "$DATA"
+[tls]
+enabled = false
+[auth]
+enabled = false
+[embedding]
+mode = "lexical"
+TOML
+nohup "$XERJ" -c "$WORK/node-$TAG.toml" --insecure --embed-mode lexical > "$WORK/server-$TAG.log" 2>&1 &
+SERVER=$!
+trap 'kill $SERVER 2>/dev/null || true' EXIT
+for _ in $(seq 1 120); do curl -fsS "$URL/_cluster/health" >/dev/null 2>&1 && break; sleep 0.5; done
+curl -fsS "$URL/_cluster/health" >/dev/null || { echo "node did not come up"; exit 1; }
+
+hwm() { awk '/^VmHWM:/{print $2}' "/proc/$1/status" 2>/dev/null || echo 0; }   # kB
+SERVER_IDLE_KB=$(hwm $SERVER)
+LOAD_BEFORE=$(cut -d' ' -f1-3 /proc/loadavg)
+
+# ── the run ── default settings; --yes answers the >10-minute estimate gate.
+# Run under GNU time: its "Maximum resident set size" is the largest SINGLE
+# process in the tree — autoindex itself or any PDF worker child it waited for
+# (getrusage RUSAGE_CHILDREN). PDF workers live ~50 ms each, so polling cannot
+# see them; this can.
+START=$(date +%s.%N)
+/usr/bin/time -v -o "$WORK/time-$TAG.txt" \
+  "$XERJ" autoindex "$TREE" --url "$URL" --prefix bench --brain bench --state-dir "$STATE" \
+    --yes --progress plain --json > "$WORK/autoindex-$TAG.json" 2> "$WORK/autoindex-$TAG.log" &
+TIMEPID=$!
+AX=""; for _ in $(seq 1 50); do AX=$(pgrep -P $TIMEPID -x xerj 2>/dev/null | head -1 || true); [ -n "$AX" ] && break; sleep 0.1; done
+# The autoindex process's OWN peak: VmHWM is a high-water mark, so the last
+# sample before exit is its peak to within one interval.
+AX_KB=0; STATE_B=0
+while kill -0 $TIMEPID 2>/dev/null; do
+  if [ -n "$AX" ]; then v=$(hwm $AX); [ "${v:-0}" -gt "$AX_KB" ] && AX_KB=$v; fi
+  b=$(du -sb "$STATE" 2>/dev/null | cut -f1 || echo 0); [ "${b:-0}" -gt "$STATE_B" ] && STATE_B=$b
+  sleep 0.5
+done
+set +e; wait $TIMEPID; RC=$?; set -e
+END=$(date +%s.%N)
+KIDS_KB=$(awk -F': ' '/Maximum resident set size/{print $2}' "$WORK/time-$TAG.txt")
+SERVER_PEAK_KB=$(hwm $SERVER)
+INDEX_B_AT_EXIT=$(du -sb "$DATA" | cut -f1)
+
+# Let flush + background merges settle: size is stable for 30 s.
+curl -fsS -XPOST "$URL/_flush" >/dev/null 2>&1 || true
+prev=-1; stable=0
+for _ in $(seq 1 120); do
+  cur=$(du -sb "$DATA" | cut -f1)
+  if [ "$cur" = "$prev" ]; then stable=$((stable+1)); else stable=0; fi
+  [ "$stable" -ge 6 ] && break; prev=$cur; sleep 5
+done
+INDEX_B_SETTLED=$(du -sb "$DATA" | cut -f1)
+SERVER_PEAK_KB=$(hwm $SERVER)
+
+python3 "$HERE/verify.py" --url "$URL" --prefix bench --brain bench --truth "$TRUTH" > "$WORK/verify-$TAG.json" || true
+
+python3 - "$OUT" <<PY
+import json, os, sys
+def load(p):
+    try: return json.load(open(p))
+    except Exception as e: return {"unreadable": str(e)}
+truth = load("$TRUTH"); ver = load("$WORK/verify-$TAG.json")
+tree_bytes = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk("$TREE") for f in fs)
+wall = $END - $START
+docs = ver.get("node_docs", 0)
+json.dump({
+  "profile": "$PROFILE", "target_size": "$SIZE", "autoindex_exit_code": $RC,
+  "source": {"mbox_bytes": truth["mbox"]["bytes"], "tree_bytes": tree_bytes, "entries": truth["entries"],
+             "attachments": truth["attachments"], "mbox_sha256": truth["mbox"]["sha256"]},
+  "wall_seconds": round(wall, 1),
+  "node_docs_indexed": docs,
+  "docs_per_second": round(docs / wall, 1) if wall else None,
+  "source_mb_per_second": round(truth["mbox"]["bytes"] / 1e6 / wall, 2) if wall else None,
+  "peak_rss_mb": {"autoindex_process": round($AX_KB / 1024, 1),
+                  "largest_single_process_in_autoindex_tree": round($KIDS_KB / 1024, 1),
+                  "server": round($SERVER_PEAK_KB / 1024, 1), "server_idle_before_run": round($SERVER_IDLE_KB / 1024, 1)},
+  "disk_bytes": {"index_at_autoindex_exit": $INDEX_B_AT_EXIT, "index_settled": $INDEX_B_SETTLED,
+                 "index_settled_over_mbox": round($INDEX_B_SETTLED / truth["mbox"]["bytes"], 3),
+                 "state_dir_peak_during_run": $STATE_B},
+  "loadavg_before": "$LOAD_BEFORE", "loadavg_after": open("/proc/loadavg").read().split()[:3],
+  "verify": ver,
+}, open(sys.argv[1], "w"), indent=1)
+print(open(sys.argv[1]).read())
+PY
