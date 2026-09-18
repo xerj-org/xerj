@@ -34,6 +34,7 @@ those two files before entering the enclave.
 | External proxy | Disabled (`default_endpoint = ""`) | Only the configured endpoint is contacted |
 | ONNX | Experimental and not in the standard release | Build the feature and provide local assets explicitly |
 | WAL tap | Disabled | It remains inert unless enabled with a target URL; see the durable overlay note below |
+| Rerank provider | Inert: no key is configured | The one search feature that POSTs document text to a third party. It stays inert with no `rerank.api_key` and no `TYPESAFE_API_KEY` in the service environment, and a search must carry a `rerank` block to trigger it. Set `[rerank] enabled = false` to refuse it outright, whatever the environment holds; `GET /_xerj/rerank` confirms `"enabled": false`. See [RERANK.md](../RERANK.md) |
 | Cluster | Disabled | Single-node startup does not initialize the Raft transport |
 | REST / ES-compatible listeners | `127.0.0.1` | The default is loopback-only |
 | `autoindex` and MCP clients | Localhost defaults | They connect to `localhost`; they do not create a public listener |

@@ -52,7 +52,14 @@ comparison needs a `TYPESAFE_API_KEY` and the `rerank` stage, which now exists.
   bounds. The first SciFact vector-arm p50 (0.4 ms) is a **cache artefact** — an earlier
   aborted run had already embedded those queries — and must not be quoted.
 - **BM25 returned zero hits for 25 of 323 NFCorpus queries** under default-OR
-  `multi_match`. Unexplained; worth an issue.
+  `multi_match`. **Explained, and not a defect:** exactly 25 of the test queries
+  share no token with any document's title or text — they are single words such
+  as `deafness`, `eggnog`, `Fosamax` and `Zoloft` that occur nowhere in the
+  corpus. [`lexical_gap.py`](./lexical_gap.py) counts them without a running
+  node ([output](./results/nfcorpus-lexical-gap.txt)); the same check reports 0
+  for SciFact, where BM25 also had `empty=0`. This is the dataset's lexical gap,
+  and it is the clearest reason the vector arm matters on NFCorpus: no reorder
+  of a BM25 shortlist can repair an empty list.
 
 ## Reproduce
 

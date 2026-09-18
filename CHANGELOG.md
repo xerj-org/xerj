@@ -25,6 +25,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never silently degrades to one leg. The MCP `xerj_memory_recall` tool
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
+- **`rerank` stage on `_search`: hand the top hits to an external relevance
+  judge and reorder by the calibrated probability that comes back.**
+  `"rerank": {}` sends the question and the text of the top `window` hits
+  (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
+  `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
+  cannot be. **It is the one XERJ feature that sends document text off the
+  machine**: inert until an operator sets `[rerank] api_key` (or
+  `TYPESAFE_API_KEY`; config wins over env), opt-in per request, forbidden
+  outright by `[rerank] enabled = false`, and only fields the response returns
+  are sent — `rerank.fields` is an exhaustive allow-list. Failure policy is
+  *degrade on deadline, surface on contract*: a slow provider is a 200 with the
+  engine's order and `_rerank.applied: false`; no key is 503, disabled 403, a
+  rejected key or malformed body 502, all with no hits. `hits.total` and `aggs`
+  stay the engine's; paging happens inside the window; `sort`, `search_after`,
+  `collapse`, scroll and `size: 0` are 400s; and `_msearch`, search templates,
+  `_async_search`, the native `/v1` search API and gRPC refuse the block instead
+  of dropping it. `GET /_xerj/rerank` reports whether a provider is configured
+  and never the key; `/v1/metrics` gains `xerj_rerank_requests_total{outcome}`,
+  `xerj_rerank_documents_judged_total` and
+  `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and
+  `xerj_hybrid_search` tools take an optional `rerank` argument. **Ranking
+  quality with the real model is not verified** — no provider key was
+  available, and the 41 HTTP tests run against an in-process test double.
+  New crate `xerj-rerank`; reference in `docs/RERANK.md`; two benchmarks,
+  `benchmarks/beir-hybrid` and `benchmarks/decisions-as-retrieval`, both
+  measured with `--embed-mode neural`, not the default lexical embedder. The
+  one-question-per-document request shape follows `hev/jev-rerank`
+  (Apache-2.0); the failure policy follows Meilisearch's personalization module
+  (approach adapted, no code copied).
 
 ## [1.0.0-rc.74] - 2026-09-08
 
