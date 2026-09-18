@@ -436,6 +436,19 @@ fn validate_share_index(name: &str) -> Result<(), String> {
             "index `{name}` is in the reserved .xerj-memory-* namespace; share a brain with `brain` instead"
         ));
     }
+    // Every dot-index is the node's own: `.xerj_sessions`, `.xerj_api_tokens`,
+    // `.xerj_passkeys` and `.xerj_magic_links` are credential stores, and
+    // `.xerj_audit` records who connected from where. The check above named only
+    // the memory namespace, so a share on any of these was accepted — found by
+    // the first live run (2026-09-18), which minted a guest link onto the audit
+    // log. A share grants a *user's* corpus, and no user index starts with a dot,
+    // so the rule is the whole prefix rather than a list that has to be kept in
+    // step with every system index added later.
+    if name.starts_with('.') {
+        return Err(format!(
+            "index `{name}` is a system index and cannot be shared; a share names one of your own indices"
+        ));
+    }
     if name.starts_with('_') {
         return Err(format!("index `{name}` is not an index name"));
     }
@@ -998,6 +1011,19 @@ mod tests {
         assert!(validate_share_index("logs-*").is_err());
         assert!(validate_share_index("a,b").is_err());
         assert!(validate_share_index(".xerj-memory-kb-edges").is_err());
+        // The node's own indices, credential stores first. Each of these was
+        // shareable before the dot-prefix rule.
+        for system in [
+            ".xerj_sessions",
+            ".xerj_api_tokens",
+            ".xerj_passkeys",
+            ".xerj_magic_links",
+            ".xerj_users",
+            ".xerj_audit",
+            ".anything-else",
+        ] {
+            assert!(validate_share_index(system).is_err(), "{system} must not be shareable");
+        }
         assert!(validate_share_index("_all").is_err());
         assert!(validate_share_index("Upper").is_err());
         assert!(validate_share_index("").is_err());
