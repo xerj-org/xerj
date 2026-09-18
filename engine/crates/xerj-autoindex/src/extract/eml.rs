@@ -17,6 +17,12 @@
 //! Header/body field names are the extractor's own vocabulary
 //! (`FieldOrigin::Extractor`): present on every email, so they never move a file
 //! between datasets.
+//!
+//! The per-message work lives in [`emit_message`], which takes BYTES rather
+//! than a path, so a container of messages (`extract::mbox` — a Google Takeout
+//! or Thunderbird mailbox) produces records of exactly the same shape as a
+//! standalone `.eml`: same fields, same locators, only namespaced by the
+//! message's position in its container (`m{offset}-msg-s0` vs `msg-s0`).
 
 use super::{
     for_each_section, read_whole, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE,
@@ -28,7 +34,7 @@ use std::path::Path;
 
 /// Whole-message read cap. Mailbox exports of a single message rarely approach
 /// this; a message larger than it is treated as junk rather than parsed.
-const MAX_EML: u64 = 64 << 20;
+pub(crate) const MAX_EML: u64 = 64 << 20;
 
 /// A message with more parts than this has its tail dropped (reported via
 /// `ExtractStats.truncated`) — a defensive bound on a pathological MIME bomb.
@@ -38,17 +44,77 @@ const MAX_ATTACHMENTS: usize = 256;
 /// get a name card only (their bytes are not indexed).
 const MAX_ATTACH_BYTES: usize = 24 << 20;
 
+/// `References:` ids kept per message. A thread hundreds of replies deep
+/// carries one id per ancestor; the thread detector only ever needs the
+/// nearest resolvable one, and the tail of the list is the nearest.
+const MAX_REFERENCES: usize = 64;
+
+/// Where a message sits when it is not a file of its own.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct MessageEnvelope<'a> {
+    /// Prepended to every locator this message emits. Empty for a standalone
+    /// `.eml`; `m{byte offset}-` inside an mbox, so two messages of one
+    /// container can never collide on `msg-s0`.
+    pub loc_prefix: &'a str,
+    /// RFC 3339 delivery time from the container (the mbox `From ` line). Used
+    /// for `email_date` ONLY when the message has no parseable `Date:` header
+    /// of its own — the header is what the sender wrote and always wins.
+    pub fallback_date: Option<String>,
+}
+
+/// What [`emit_message`] did with the bytes it was handed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MessageOutcome {
+    /// Parsed and emitted. `alive` is the sink's last answer: `false` means the
+    /// caller must stop extracting (phase-A sampling has what it needs).
+    Emitted { alive: bool },
+    /// Not parseable as a message at all; nothing was emitted. The caller
+    /// decides the fallback (a file is re-read as prose, an mbox entry is
+    /// indexed as raw text).
+    Unparseable,
+}
+
 pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     let mut stats = ExtractStats::default();
     let Some(bytes) = read_whole(path, gzip, MAX_EML)? else {
         stats.junk += 1;
         return Ok(stats);
     };
-    let Some(msg) = MessageParser::default().parse(&bytes) else {
+    match emit_message(&bytes, &MessageEnvelope::default(), sink, &mut stats) {
         // Unparseable as a message — fall back to indexing it as prose rather
         // than dropping it, matching the never-fatal contract.
-        return super::extract_as_document(path, gzip, sink);
+        MessageOutcome::Unparseable => super::extract_as_document(path, gzip, sink),
+        MessageOutcome::Emitted { .. } => Ok(stats),
+    }
+}
+
+/// The message parser, built once. mail-parser leaves headers it has no
+/// registered grammar for RAW — undecoded — and Gmail writes a non-ASCII label
+/// as an RFC 2047 encoded-word (`=?UTF-8?B?…?=`), so the two Gmail headers read
+/// below are registered as unstructured text.
+fn parser() -> &'static MessageParser {
+    static PARSER: std::sync::OnceLock<MessageParser> = std::sync::OnceLock::new();
+    PARSER.get_or_init(|| {
+        MessageParser::default()
+            .header_text("X-Gmail-Labels")
+            .header_text("X-GM-THRID")
+    })
+}
+
+/// Parse ONE message from `bytes` and emit its message + attachment records.
+///
+/// Shared by the `.eml` path above and the mbox container (`extract::mbox`),
+/// which is what keeps the two record shapes identical.
+pub(crate) fn emit_message(
+    bytes: &[u8],
+    env: &MessageEnvelope<'_>,
+    sink: Sink,
+    stats: &mut ExtractStats,
+) -> MessageOutcome {
+    let Some(msg) = parser().parse(bytes) else {
+        return MessageOutcome::Unparseable;
     };
+    let pre = env.loc_prefix;
 
     // ── message header fields (decoded: encoded-words, charset) ──
     let subject = msg.subject().unwrap_or("").trim().to_string();
@@ -57,14 +123,52 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     put(&mut headers, "email_from", addr_string(msg.from()));
     put(&mut headers, "email_to", addr_string(msg.to()));
     put(&mut headers, "email_cc", addr_string(msg.cc()));
-    if let Some(d) = msg.date() {
-        put(&mut headers, "email_date", d.to_rfc3339());
+    match (msg.date(), env.fallback_date.as_deref()) {
+        (Some(d), _) => put(&mut headers, "email_date", d.to_rfc3339()),
+        (None, Some(fallback)) => put(&mut headers, "email_date", fallback.to_string()),
+        (None, None) => {}
     }
     if let Some(id) = msg.message_id() {
         put(&mut headers, "email_message_id", id.to_string());
     }
     if let Some(irt) = msg.in_reply_to().as_text() {
         put(&mut headers, "email_in_reply_to", irt.to_string());
+    }
+    // `References:` — the ancestor chain, oldest first. Kept as a list so the
+    // thread detector can still resolve a parent when `In-Reply-To` is absent
+    // or names a message that is not in the corpus. The TAIL is kept when the
+    // list is over the cap: the nearest ancestors are the useful ones.
+    if let Some(refs) = msg.references().as_text_list() {
+        let skip = refs.len().saturating_sub(MAX_REFERENCES);
+        let ids: Vec<Value> = refs
+            .iter()
+            .skip(skip)
+            .map(|r| r.trim())
+            .filter(|r| !r.is_empty())
+            .map(|r| Value::String(r.to_string()))
+            .collect();
+        if !ids.is_empty() {
+            headers.insert("email_references".into(), Value::Array(ids));
+        }
+    }
+    // Gmail (Google Takeout) stamps every exported message with its labels and
+    // its conversation id. Labels are how a reader separates `Inbox` from
+    // `Spam`/`Trash` in an "All mail Including Spam and Trash" export, so they
+    // are indexed rather than used to silently drop mail. Absent everywhere
+    // else, which is why both are optional fields and not part of the shape.
+    if let Some(labels) = msg.header("X-Gmail-Labels").and_then(|h| h.as_text()) {
+        let labels: Vec<Value> = labels
+            .split(',')
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(|l| Value::String(l.to_string()))
+            .collect();
+        if !labels.is_empty() {
+            headers.insert("email_labels".into(), Value::Array(labels));
+        }
+    }
+    if let Some(thread) = msg.header("X-GM-THRID").and_then(|h| h.as_text()) {
+        put(&mut headers, "email_thread_id", thread.trim().to_string());
     }
 
     let title = if subject.is_empty() {
@@ -81,7 +185,16 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         .unwrap_or_default();
 
     // Emit the message itself as document section(s) carrying the headers.
-    emit_email_doc(&headers, &title, body.trim(), "msg", sink, &mut stats);
+    if !emit_email_doc(
+        &headers,
+        &title,
+        body.trim(),
+        &format!("{pre}msg"),
+        sink,
+        stats,
+    ) {
+        return MessageOutcome::Emitted { alive: false };
+    }
 
     // ── attachments — each indexed as its own document(s) ──
     for (n, part) in msg.attachments().enumerate() {
@@ -111,49 +224,60 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         };
         let link = attach_link(&headers, &name, &ctype, data.len());
 
-        if is_pdf(&name, data) && data.len() <= MAX_ATTACH_BYTES {
-            route_pdf(data, n, &link, sink, &mut stats);
+        let alive = if is_pdf(&name, data) && data.len() <= MAX_ATTACH_BYTES {
+            route_pdf(data, &format!("{pre}att{n}-"), &link, sink, stats)
         } else if is_texty(&ctype, data) && data.len() <= MAX_ATTACH_BYTES {
             let text = String::from_utf8_lossy(data);
             emit_email_doc(
                 &link,
                 &name,
                 text.trim(),
-                &format!("att{n}"),
+                &format!("{pre}att{n}"),
                 sink,
-                &mut stats,
-            );
+                stats,
+            )
         } else {
             // Unindexable body — a name/type/size card keeps it discoverable.
             stats.records += 1;
             sink(RawRecord {
                 fields: link,
-                locator: format!("att{n}-card"),
+                locator: format!("{pre}att{n}-card"),
                 group: None,
                 origin: FieldOrigin::Extractor,
-            });
+            })
+        };
+        if !alive {
+            return MessageOutcome::Emitted { alive: false };
         }
     }
 
-    Ok(stats)
+    MessageOutcome::Emitted { alive: true }
 }
 
 /// Emit `body` as one or more section records, each stamped with `base_fields`
 /// (message headers or attachment-link fields) plus `title`/`body`/`section`.
-fn emit_email_doc(
+///
+/// Returns the sink's last answer: `false` = stop extracting.
+pub(crate) fn emit_email_doc(
     base_fields: &Map<String, Value>,
     title: &str,
     body: &str,
     loc_prefix: &str,
     sink: Sink,
     stats: &mut ExtractStats,
-) {
+) -> bool {
     // Collect sections first so we know whether to stamp a `section` field.
+    // One past the cap is collected so that "exactly at the cap" and "over the
+    // cap" are distinguishable: only the latter dropped anything (#381).
     let mut secs: Vec<String> = Vec::new();
     for_each_section(body, &mut |s| {
         secs.push(s);
-        secs.len() < MAX_RECORDS_PER_FILE
+        secs.len() <= MAX_RECORDS_PER_FILE
     });
+    if secs.len() > MAX_RECORDS_PER_FILE {
+        secs.truncate(MAX_RECORDS_PER_FILE);
+        stats.truncated = true;
+    }
     if secs.is_empty() {
         secs.push(String::new());
     }
@@ -172,44 +296,70 @@ fn emit_email_doc(
             group: None,
             origin: FieldOrigin::Extractor,
         }) {
-            return;
+            return false;
         }
     }
+    true
 }
 
 /// Route a PDF attachment's bytes through the real PDF extractor, re-tagging
 /// each emitted page record with the parent-email link fields and a locator
-/// namespaced to this attachment.
+/// namespaced to this attachment (`prefix` = `att{n}-`, or `m{offset}-att{n}-`
+/// inside an mbox).
+///
+/// Returns the sink's last answer: `false` = stop extracting.
 fn route_pdf(
     data: &[u8],
-    n: usize,
+    prefix: &str,
     link: &Map<String, Value>,
     sink: Sink,
     stats: &mut ExtractStats,
-) {
+) -> bool {
     use std::io::Write;
     let Ok(mut tmp) = tempfile::Builder::new().suffix(".pdf").tempfile() else {
         stats.junk += 1;
-        return;
+        return true;
     };
     if tmp.write_all(data).is_err() {
         stats.junk += 1;
-        return;
+        return true;
     }
-    let prefix = format!("att{n}-");
+    let mut alive = true;
+    let mut pages = 0u64;
     let mut inner = |mut rec: RawRecord| -> bool {
         for (k, v) in link.iter() {
             rec.fields.entry(k.clone()).or_insert_with(|| v.clone());
         }
         rec.locator = format!("{prefix}{}", rec.locator);
         rec.origin = FieldOrigin::Extractor;
-        stats.records += 1;
-        sink(rec)
+        pages += 1;
+        alive = sink(rec);
+        alive
     };
     // The PDF extractor increments its own record count; we count via `inner`
     // instead, so start from what it reports and keep only the delta semantics
     // simple: ignore its stats.records, trust `inner`.
-    let _ = super::pdf::extract(tmp.path(), &mut inner);
+    let parsed = super::pdf::extract(tmp.path(), &mut inner);
+    stats.records += pages;
+    if pages == 0 && alive {
+        // The parser failed, timed out, or found no text layer (a scanned
+        // PDF). The attachment still EXISTS, and "the contract Dana sent" has
+        // to stay findable by name — so it gets the same name/type/size card
+        // any other unindexable attachment gets, instead of vanishing. Counted
+        // as junk only when the parser actually errored: an image-only PDF is
+        // not a failure of the file.
+        if parsed.is_err() {
+            stats.junk += 1;
+        }
+        stats.records += 1;
+        alive = sink(RawRecord {
+            fields: link.clone(),
+            locator: format!("{prefix}card"),
+            group: None,
+            origin: FieldOrigin::Extractor,
+        });
+    }
+    alive
 }
 
 // ── field helpers ──────────────────────────────────────────────────────────
@@ -240,11 +390,16 @@ fn attach_link(
         "attachment_bytes".into(),
         Value::Number((size as u64).into()),
     );
+    // `email_labels`/`email_thread_id` exist only on Gmail exports; copying
+    // them means "not in Spam" filters an attachment the same way it filters
+    // the message that carried it.
     for k in [
         "email_subject",
         "email_from",
         "email_date",
         "email_message_id",
+        "email_labels",
+        "email_thread_id",
     ] {
         if let Some(v) = headers.get(k) {
             m.insert(k.into(), v.clone());
@@ -282,10 +437,20 @@ fn is_texty(ctype: &str, data: &[u8]) -> bool {
     {
         return true;
     }
-    // Fallback: mostly-printable UTF-8 sample.
+    // Fallback: mostly-printable UTF-8 sample. The sample is a BYTE prefix, so
+    // it can end inside a multi-byte character; that is a property of where the
+    // cut fell, not of the data, and must not turn a Chinese or Arabic text
+    // attachment into an unindexed card. An error in the last 3 bytes of a
+    // full-size sample is the cut; anywhere else it is not UTF-8.
     let sample = &data[..data.len().min(2048)];
+    let utf8 = match std::str::from_utf8(sample) {
+        Ok(_) => true,
+        Err(e) => {
+            sample.len() == 2048 && e.error_len().is_none() && e.valid_up_to() + 3 >= sample.len()
+        }
+    };
     !sample.is_empty()
-        && std::str::from_utf8(sample).is_ok()
+        && utf8
         && sample
             .iter()
             .filter(|b| **b < 9 || (**b > 13 && **b < 32))

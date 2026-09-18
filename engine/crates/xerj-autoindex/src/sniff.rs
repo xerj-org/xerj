@@ -23,6 +23,11 @@ pub enum Family {
     /// into fields, MIME decoded, and each attachment indexed as its own
     /// document (PDFs routed to the PDF extractor).
     Eml,
+    /// mbox mailbox: many RFC 5322 messages in one file, each opened by a
+    /// `From <sender> <date>` separator line (Google Takeout, Thunderbird,
+    /// Apple Mail, mutt). Split as a STREAM — multi-GB is the normal size — and
+    /// each message goes through the same extraction as [`Family::Eml`].
+    Mbox,
     Docx,
     Sqlite,
     SqlDump,
@@ -60,6 +65,7 @@ impl Family {
             Family::TxtLines => "txt-lines",
             Family::Pdf => "pdf",
             Family::Eml => "eml",
+            Family::Mbox => "mbox",
             Family::Docx => "docx",
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
@@ -75,7 +81,7 @@ impl Family {
     pub fn is_document(&self) -> bool {
         matches!(
             self,
-            Family::Pdf | Family::Docx | Family::TxtProse | Family::Eml
+            Family::Pdf | Family::Docx | Family::TxtProse | Family::Eml | Family::Mbox
         )
     }
 }
@@ -257,6 +263,15 @@ fn sniff_bytes(
         s.binary_kind = Some("tga".into());
         return Ok(s);
     }
+    // tar — reached for a `.tgz`/`.tar.gz` too, because `prefix` is already the
+    // DECOMPRESSED stream. It would be junked as "unknown" by the NUL ratio
+    // below anyway (a tar header is mostly NUL padding); this only names it, so
+    // the run can tell the user what to do about it.
+    if looks_like_tar_header(prefix) {
+        let mut s = mk(Family::Binary);
+        s.binary_kind = Some("tar".into());
+        return Ok(s);
+    }
 
     // 2. Binary vs text: decode UTF-8, fall back windows-1252.
     let (text, encoding) = decode(prefix);
@@ -430,6 +445,14 @@ const MAGIC_TABLE: &[MagicRow] = &[
     (b"ID3", "mp3", id3v2_header),
     (b"Kaydara FBX Binary", "fbx", fbx_header),
     (b"\x76\x2f\x31\x01", "exr", accept),
+    // Archives. None is ever opened — see `archive_advice` — but naming the
+    // kind is what lets the run say "extract it first" instead of "binary
+    // content (unknown)" about the one file a Google Takeout download consists
+    // of. Each signature carries a byte text cannot contain (0xBC/0xAF + 0x1C,
+    // 0x1A + 0x07, 0xFD + NUL), so `accept` is within the invariant above.
+    (b"7z\xbc\xaf\x27\x1c", "7z", accept),
+    (b"Rar!\x1a\x07", "rar", accept),
+    (b"\xfd7zXZ\x00", "xz", accept),
 ];
 
 /// Magic-byte signature taken as sufficient on its own.
@@ -1017,6 +1040,62 @@ fn looks_like_tga_header(prefix: &[u8]) -> bool {
     width > 0 && height > 0
 }
 
+/// POSIX/GNU tar: the `ustar` magic sits at offset 257 of the first 512-byte
+/// header block. Five printable letters are not evidence on their own (the
+/// `MAGIC_TABLE` invariant), so the header's own checksum has to agree: bytes
+/// 148..156 hold, in octal, the sum of all 512 header bytes with that field
+/// read as spaces. Text that happens to say `ustar` at byte 257 does not also
+/// carry a correct checksum of itself 109 bytes earlier.
+fn looks_like_tar_header(prefix: &[u8]) -> bool {
+    let Some(header) = prefix.get(..512) else {
+        return false;
+    };
+    if &header[257..262] != b"ustar" {
+        return false;
+    }
+    let stored = header[148..156]
+        .iter()
+        .skip_while(|b| **b == b' ')
+        .take_while(|b| (b'0'..=b'7').contains(*b))
+        .fold(0u64, |acc, b| acc * 8 + u64::from(*b - b'0'));
+    let computed: u64 = header
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            if (148..156).contains(&i) {
+                u64::from(b' ')
+            } else {
+                u64::from(*b)
+            }
+        })
+        .sum();
+    stored == computed
+}
+
+/// What to tell the user about a file that is an ARCHIVE, or `None` for any
+/// other binary kind.
+///
+/// autoindex never opens archives: unpacking is unbounded work on untrusted
+/// input (zip bombs, path traversal, a 50 GB Takeout part inflating into the
+/// state directory), and the honest alternative to doing that badly is saying
+/// so. "binary content (zip)" is true and useless to someone whose entire
+/// Google Takeout download is that one file — so the reason names the action.
+pub fn archive_advice(binary_kind: &str, gzip: bool) -> Option<String> {
+    let (what, how) = match (binary_kind, gzip) {
+        ("zip", _) => ("zip archive", "unzip <file>"),
+        ("tar", true) => ("gzip-compressed tar archive", "tar -xzf <file>"),
+        ("tar", false) => ("tar archive", "tar -xf <file>"),
+        ("7z", _) => ("7z archive", "7z x <file>"),
+        ("rar", _) => ("rar archive", "unrar x <file>"),
+        ("xz", _) => ("xz-compressed file", "xz -dk <file>, or tar -xJf <file> for a .tar.xz"),
+        _ => return None,
+    };
+    Some(format!(
+        "unextracted {what}: autoindex does not open archives — extract it first ({how}), \
+         then run autoindex on the extracted folder"
+    ))
+}
+
 fn decode(bytes: &[u8]) -> (String, &'static str) {
     match std::str::from_utf8(bytes) {
         Ok(s) => (s.to_string(), "utf-8"),
@@ -1045,6 +1124,14 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
     // (`From:`/`Date:`/`Message-ID:`/…) would otherwise be misread as prose or a
     // key:value log. Gated on a STRONG header plus >=3 canonical headers so an
     // ordinary `key: value` config or YAML never trips it.
+    // A mailbox is an email with a separator line in front of it, so it is
+    // tested first: the separator is not a header, and without this branch the
+    // `looks_like_email` gate below fails on line one and a multi-GB mailbox
+    // falls through to prose — every message's headers indexed as body text and
+    // the record cap cutting it off after the first few thousand sections.
+    if looks_like_mbox(nonblank) {
+        return Family::Mbox;
+    }
     if looks_like_email(nonblank) {
         return Family::Eml;
     }
@@ -1123,6 +1210,22 @@ fn header_name(line: &str) -> Option<&str> {
         return None;
     }
     Some(name)
+}
+
+/// Does this text open like an mbox mailbox? The first line must be a real
+/// separator (`From <sender> <asctime date>` — `extract::mbox::is_from_line`,
+/// the same predicate the splitter cuts on, so the two can never disagree about
+/// what a mailbox is) AND what follows it must pass the email gate. Detected by
+/// content, never by the `.mbox` extension: Thunderbird folders have no
+/// extension at all, Apple Mail's file is literally named `mbox`, and a
+/// `notes.mbox` that is not a mailbox must not be split as one.
+fn looks_like_mbox(nonblank: &[&str]) -> bool {
+    match nonblank.split_first() {
+        Some((first, rest)) => {
+            crate::extract::mbox::is_from_line(first.as_bytes()) && looks_like_email(rest)
+        }
+        None => false,
+    }
 }
 
 /// Does this text open like an email? Requires the first line to be a header, a

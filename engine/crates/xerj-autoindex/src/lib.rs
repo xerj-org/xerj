@@ -1360,6 +1360,10 @@ fn sample_limit_bytes(family: Family, path: &Path) -> Option<u64> {
         Family::SqlDump => Some(SQLDUMP_SAMPLE_LIMIT),
         Family::UnityYaml => Some(UNITY_SAMPLE_LIMIT),
         Family::Jsonl | Family::Logs | Family::Csv | Family::TxtLines => Some(SAMPLE_LIMIT_BYTES),
+        // A mailbox is a stream of whole messages: the splitter checks this
+        // limit BETWEEN messages, so a sample never ends mid-MIME-part, and a
+        // multi-GB Takeout export costs phase A a few MB of reading.
+        Family::Mbox => Some(SAMPLE_LIMIT_BYTES),
         Family::Sqlite => Some(1), // signals per-table row cap inside the extractor
         _ => None,                 // whole-file extractors cap themselves
     }
@@ -1816,13 +1820,13 @@ fn scan_file(
         }
     };
     if sn.family == Family::Binary {
-        out.junk = Some((
-            "junk".into(),
-            format!(
-                "binary content ({})",
-                sn.binary_kind.clone().unwrap_or_else(|| "unknown".into())
-            ),
-        ));
+        let kind = sn.binary_kind.clone().unwrap_or_else(|| "unknown".into());
+        // An archive gets the action, not just the verdict: a Google Takeout
+        // download IS one `.zip`/`.tgz`, and "binary content (zip)" tells its
+        // owner nothing about why their mail is not searchable.
+        let reason = sniff::archive_advice(&kind, sn.gzip)
+            .unwrap_or_else(|| format!("binary content ({kind})"));
+        out.junk = Some(("junk".into(), reason));
         out.sniffed = Some(sn);
         return out;
     }

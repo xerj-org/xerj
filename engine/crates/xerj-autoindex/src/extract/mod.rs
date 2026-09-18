@@ -11,6 +11,7 @@ pub mod html;
 pub mod json;
 pub mod jsonl;
 pub mod logs;
+pub mod mbox;
 pub mod pdf;
 pub mod sqldump;
 pub mod sqlite_x;
@@ -203,6 +204,7 @@ pub fn extract(
         Family::TxtLines => txt::extract_lines(path, sn.gzip, limit_bytes, sink),
         Family::Pdf => pdf::extract(path, sink),
         Family::Eml => eml::extract(path, sn.gzip, sink),
+        Family::Mbox => mbox::extract(path, sn.gzip, limit_bytes, sink),
         Family::Docx => docx::extract(path, sink),
         Family::Sqlite => sqlite_x::extract(path, limit_bytes.map(|_| 500), sink),
         Family::SqlDump => sqldump::extract(path, sn.gzip, limit_bytes, sink),
