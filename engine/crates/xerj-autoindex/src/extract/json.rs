@@ -221,6 +221,30 @@ fn keep_note(obj: &Map<String, Value>) -> Option<KeepNote> {
     })
 }
 
+/// Largest file [`is_keep_note_file`] will open. Keep caps a note at roughly
+/// 20k characters; a JSON file past this is not a note, and the walker must
+/// not read megabytes per `.html` it meets just to find that out.
+const KEEP_PROBE_MAX: u64 = 1 << 20;
+
+/// Is the file at `path` a Google Keep note? The SAME predicate the extractor
+/// applies ([`keep_note`]), exposed for the walker's Takeout rule so the two
+/// can never disagree about which `.html` has a JSON twin that will be indexed
+/// as the note. Any error — unreadable, oversized, not JSON — is `false`: the
+/// caller is deciding whether to SKIP a file, and doubt means index it.
+pub(crate) fn is_keep_note_file(path: &Path) -> bool {
+    let small = std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.len() <= KEEP_PROBE_MAX);
+    if !small {
+        return false;
+    }
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    match serde_json::from_slice::<Value>(&bytes) {
+        Ok(Value::Object(obj)) => keep_note(&obj).is_some(),
+        _ => false,
+    }
+}
+
 fn emit(v: Value, locator: &str, sink: Sink, stats: &mut ExtractStats) -> bool {
     let fields = match v {
         Value::Object(m) => flatten_object(m),

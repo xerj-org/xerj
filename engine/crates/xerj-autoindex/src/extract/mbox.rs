@@ -746,7 +746,11 @@ mod tests {
             serde_json::json!(["Inbox", "Important", "Ärger"]),
             "labels split, encoded-word decoded"
         );
-        assert_eq!(field(&recs[1], "email_thread_id"), Some("1787654321098765432"));
+        assert_eq!(
+            field(&recs[1], "email_thread_id"),
+            Some("18cf06223648b478"),
+            "X-GM-THRID 1787654321098765432 in the hex form Gmail's own URLs use"
+        );
         assert_eq!(recs[2].locator, format!("m{off}-att0-s0"));
         assert_eq!(field(&recs[2], "attachment_name"), Some("notes.txt"));
         assert_eq!(field(&recs[2], "email_message_id"), Some("b@x"));

@@ -170,8 +170,10 @@ pub(crate) fn emit_message(
         // Gmail writes the conversation id in decimal; its own API and URLs
         // (`#all/18c0f2a5b3d4e6f7`) use the same number in hex. Hex is kept
         // because it is the form a user can paste back into Gmail, and because
-        // a column of 19-digit decimals is inferred as `long`, where one value
-        // past i64 would be dropped by coercion.
+        // a column of 19-digit decimals is inferred as `long`: the id is a
+        // u64, and `coerce_value` sends a digit string past i64::MAX through
+        // f64, where it SATURATES — every such thread would silently share
+        // one id. A hex string is never inferred as a number.
         let id = thread
             .parse::<u64>()
             .map(|n| format!("{n:x}"))
@@ -530,6 +532,31 @@ mod tests {
             att_body.contains("secret plan attached"),
             "attachment body not decoded: {att_body}"
         );
+    }
+
+    /// Gmail's conversation id is a u64 written in decimal. Left as a digit
+    /// string it is inferred `long`, and ids past i64::MAX saturate onto ONE
+    /// value in coercion — so it is stored as hex, the form Gmail's URLs use.
+    #[test]
+    fn gmail_thread_ids_stay_distinct_past_i64_max() {
+        let thread = |thrid: &str| -> Option<String> {
+            let eml = format!(
+                "From: a@x.org\r\nTo: b@x.org\r\nSubject: t\r\nMessage-ID: <t@x.org>\r\n\
+                 X-GM-THRID: {thrid}\r\n\r\nbody\r\n"
+            );
+            let recs = run(eml.as_bytes());
+            field(&recs[0], "email_thread_id").map(str::to_string)
+        };
+        assert_eq!(thread("1787654321098765432").as_deref(), Some("18cf06223648b478"));
+        // Two ids above i64::MAX (9223372036854775807) that f64 cannot tell apart.
+        let a = thread("18446744073709551614");
+        let b = thread("18446744073709551615");
+        assert_eq!(a.as_deref(), Some("fffffffffffffffe"));
+        assert_eq!(b.as_deref(), Some("ffffffffffffffff"));
+        assert_ne!(a, b);
+        // Not a u64 at all: kept as written rather than dropped or panicking.
+        assert_eq!(thread("99999999999999999999999").as_deref(), Some("99999999999999999999999"));
+        assert_eq!(thread("thread-設計").as_deref(), Some("thread-設計"));
     }
 
     /// A non-text, non-PDF attachment gets a name/type/size card so it stays
