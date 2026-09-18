@@ -637,6 +637,26 @@ fn the_committed_fixture_is_what_the_generator_writes() {
     if differing.is_empty() {
         return;
     }
+    // WHICH files exist is not a property of the Python version: the generator
+    // decides names from its arguments, and only the bytes inside a file can
+    // move between interpreter releases. So a file on one side only is never
+    // tolerated. This is the check that catches a fixture file that never
+    // reached the commit (the repo's blanket `*.md` ignore rule swallowed
+    // `Drive/meeting-notes.md`, the tree was complete on the author's disk and
+    // absent from every clean checkout; on CI's different Python the tolerant
+    // branch below then reported "NOT VERIFIED" and passed).
+    let one_sided: Vec<&String> = differing
+        .iter()
+        .copied()
+        .filter(|k| generated.contains_key(*k) != committed.contains_key(*k))
+        .collect();
+    assert!(
+        one_sided.is_empty(),
+        "the committed fixture and the generator disagree about WHICH files exist \
+         (python {version}): {one_sided:?}\n\
+         a file the generator writes but the checkout lacks is usually an ignore rule: \
+         `git check-ignore -v <file>`, then `git add -f` it or re-include the path in .gitignore"
+    );
     let written_with =
         std::fs::read_to_string(fixture().join("GENERATED_WITH_PYTHON.txt")).unwrap_or_default();
     if written_with.trim() != version {
