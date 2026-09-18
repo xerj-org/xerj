@@ -4,12 +4,12 @@
 // Two taxonomies at play:
 //
 //   1. SECTIONS are the primary product surface — the top nav.
-//      Order = what users look for first, per user-feedback/kibana/:
-//         dashboards → discover → alerts → data → users → settings
+//      Order = what a `xerj brain <folder>` user looks for first:
+//         corpus → discover → reader → dashboards → alerts → data → users → settings
 //
 //   2. DASHBOARDS live under SECTION='dashboards' and appear in
 //      the secondary nav row. Other sections each have exactly
-//      one view (discover, alerts, data, users, settings).
+//      one view (corpus, discover, reader, alerts, data, users, settings).
 // ============================================================
 
 import { aiOverview }     from './ai-overview.js';
@@ -21,9 +21,10 @@ import { anomalyDetect }  from './anomaly-detect.js';
 import { ingestPipeline } from './ingest-pipeline.js';
 import { logsOverview }   from './logs-overview.js';
 import { system }         from './system.js';
-import { caseReview }     from './case-review.js';        // auto-activates for an EML/PDF corpus
 
+import { corpus }         from './corpus.js';            // CORPUS section (home)
 import { searchDiscover } from './search-discover.js';   // DISCOVER section
+import { reader }         from './reader.js';            // READER section
 import { alerts }         from './alerts.js';            // ALERTS section
 import { dataSection }    from './data.js';              // DATA section
 import { users }          from './users.js';             // USERS section
@@ -36,7 +37,6 @@ import { settings }       from './settings.js';          // SETTINGS section
 // them into folders/dropdowns — handles screens that can't fit
 // the full dashboard list on one line.
 const DEFAULT_GROUP = {
-  'case-review':    'review',
   'ai-overview':    'ai',
   'rag-quality':    'ai',
   'vector-index':   'ai',
@@ -47,7 +47,7 @@ const DEFAULT_GROUP = {
   'ingest-pipeline':'logs',
   'system':         'infra',
 };
-for (const d of [caseReview, aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain, anomalyDetect, ingestPipeline, logsOverview, system]) {
+for (const d of [aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain, anomalyDetect, ingestPipeline, logsOverview, system]) {
   d.section = 'dashboards';
   d.group = DEFAULT_GROUP[d.id] || 'other';
 }
@@ -71,15 +71,10 @@ agentMemory.requiresLive    = 'agent-memory';
 anomalyDetect.requiresLive  = 'anomalies';
 ingestPipeline.requiresLive = 'logs-ingest-events';
 logsOverview.requiresLive   = 'logs';
-// Case Review appears only once the engine holds an email corpus (someone ran
-// `xerj autoindex` over a folder of .eml). Detected by data/email-probe.js.
-caseReview.requiresLive     = 'email-corpus';
 // Search-discover gets tagged as the DISCOVER section (promoted out of the dashboards list).
 searchDiscover.section = 'discover';
 
 const all = [
-  // Review — email/document corpora (auto-activates)
-  caseReview,
   // Dashboards section, ordered by group so the first member of each
   // group is the one the group tab lands on when clicked.
   //   AI:    ai-overview, rag-quality, vector-index, agent-memory, second-brain
@@ -88,8 +83,12 @@ const all = [
   aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain,
   logsOverview, anomalyDetect, ingestPipeline,
   system,
-  // Top-level sections (one view each)
+  // Top-level sections (one view each). Corpus / Discover / Reader are
+  // the `xerj brain` product path — and the only three a shared-link
+  // guest ever sees (data/guest.js).
+  corpus,
   searchDiscover,
+  reader,
   alerts,
   dataSection,
   users,
@@ -99,13 +98,16 @@ const all = [
 export const defaults = all;
 export const registry = Object.fromEntries(all.map((d) => [d.id, d]));
 
-// Primary nav: one entry per section. Order matters — this is the
-// order corpus priority told us users scan. The label is uppercase
-// UI text; the id maps to a section. Each section knows which view
-// to render when clicked (the first dashboard in that section).
+// Primary nav: one entry per section. Order matters — a brain user
+// wants their data first: what is indexed (Corpus), search it
+// (Discover), read it (Reader). The label is uppercase UI text; the
+// id maps to a section. Each section knows which view to render when
+// clicked (the first dashboard in that section).
 export const SECTIONS = [
-  { id: 'dashboards', label: 'Dashboards' },
+  { id: 'corpus',     label: 'Corpus'     },
   { id: 'discover',   label: 'Discover'   },
+  { id: 'reader',     label: 'Reader'     },
+  { id: 'dashboards', label: 'Dashboards' },
   { id: 'alerts',     label: 'Alerts'     },
   { id: 'data',       label: 'Data'       },
   { id: 'users',      label: 'Users'      },
@@ -118,10 +120,9 @@ export const SECTIONS = [
 // and collapsed to a label otherwise. Adding a new group is just a
 // DEFAULT_GROUP entry above + a row in this array.
 export const DASHBOARD_GROUPS = [
-  { id: 'review', label: 'Review' },
-  { id: 'ai',     label: 'AI'     },
-  { id: 'logs',   label: 'Logs'   },
-  { id: 'infra',  label: 'Infra'  },
+  { id: 'ai',    label: 'AI'    },
+  { id: 'logs',  label: 'Logs'  },
+  { id: 'infra', label: 'Infra' },
 ];
 
 /** Return dashboards belonging to a section. Used by the nav

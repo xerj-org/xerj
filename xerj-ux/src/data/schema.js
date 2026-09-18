@@ -43,6 +43,15 @@ function resolveBase(baseUrl) {
   return (baseUrl || '').replace(/\/+$/, '');
 }
 
+// A shared-link guest (data/guest.js) may read ONE index; a whole-engine
+// `_mapping` would be refused, so the shell scopes this module to that index
+// and the fetch becomes `/<index>/_mapping`. Null = unscoped (the operator).
+let _scopeIndex = null;
+export function setMappingScope(index) {
+  _scopeIndex = index || null;
+  cache.clear();
+}
+
 async function fetchMapping(baseUrl, signal) {
   const base = resolveBase(baseUrl);
   if (!base) return {};
@@ -50,7 +59,8 @@ async function fetchMapping(baseUrl, signal) {
   if (hit && Date.now() - hit.at < TTL_MS) return hit.mapping;
   let mapping = {};
   try {
-    const r = await fetch(`${base}/_mapping`, { signal, headers: { accept: 'application/json' } });
+    const path = _scopeIndex ? `/${encodeURIComponent(_scopeIndex)}/_mapping` : '/_mapping';
+    const r = await fetch(`${base}${path}`, { signal, headers: { accept: 'application/json' } });
     if (r.ok) mapping = await r.json();
   } catch { mapping = {}; }
   cache.set(base, { at: Date.now(), mapping });

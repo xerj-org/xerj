@@ -133,7 +133,7 @@ fn pd(
 /// with [`seed_specs`], so a reader had to guess which prose was current. Prose
 /// elsewhere links here instead of repeating the figure, and
 /// [`tests::seeds_every_registry_dashboard`] pins it to the actual list.
-pub const BUILTIN_DASHBOARD_COUNT: usize = 14;
+pub const BUILTIN_DASHBOARD_COUNT: usize = 16;
 
 /// The built-in dashboards ([`BUILTIN_DASHBOARD_COUNT`] of them), in registry
 /// order.  Titles are the panel `eyebrow` strings from the `.js` sources;
@@ -601,6 +601,31 @@ fn seed_specs() -> Vec<DashboardSpec> {
                     "WHY THIS SECTION EXISTS · USER FEEDBACK",
                     12,
                 ),
+            ],
+        },
+        // ── Corpus home + Reader (the `xerj brain <folder>` product path) ────
+        // Corpus: one card per autoindex-catalog dataset; the landing page.
+        DashboardSpec {
+            registry_id: "corpus",
+            name: "Corpus",
+            section: Some("corpus"),
+            group: None,
+            panels: vec![
+                p("datasets", "corpus", "WHAT IS INDEXED · ONE CARD PER DATASET", 12),
+            ],
+        },
+        // Reader: any record from Discover / a graph click, rendered by shape,
+        // with the knowledge graph around it.
+        DashboardSpec {
+            registry_id: "reader",
+            name: "Reader",
+            section: Some("reader"),
+            group: None,
+            panels: vec![
+                p("searchbox", "searchbox", "FIND A RECORD", 12),
+                p("results", "reader-list", "RESULTS · CLICK TO OPEN", 4),
+                p("record", "reader", "RECORD", 8),
+                p("graph", "reader-graph", "LINKED RECORDS · FROM THE BRAIN", 12),
             ],
         },
     ]

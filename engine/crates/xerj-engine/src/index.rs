@@ -14438,7 +14438,7 @@ impl Index {
             // embedding config and kNNs against its companion vector, instead of
             // falling through to treat the (aliased, vectorless) name as the
             // vector field and matching nothing.
-            let field = &resolve_field_alias(&schema.schema, field);
+            let field = &field.to_string(); // TEMP-FAIL-BEFORE: alias resolution disabled
             match schema.schema.field(field) {
                 Some(fc) if fc.embedding.is_some() => {
                     let emb = fc.embedding.as_ref().unwrap();
