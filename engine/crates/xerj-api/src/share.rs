@@ -1016,12 +1016,30 @@ mod tests {
         // A different share is untouched.
         store.charge("share:y", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap();
         // The minute window rolls over; the hour window still counts.
-        let later = now + WINDOW_MIN_MS + 1;
-        store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, later).unwrap();
-        for _ in 0..(SHARE_PER_HOUR - SHARE_PER_MINUTE - 1) {
-            let _ = store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, later + 1);
+        //
+        // A minute-throttled attempt returns before the hour window is
+        // charged — it never reaches passcode verification, so it is not a
+        // guess and does not spend the hourly guess budget. Filling the hour
+        // therefore takes *accepted* charges, spread over fresh minute windows.
+        let mut t = now;
+        let mut accepted = SHARE_PER_MINUTE;
+        while accepted < SHARE_PER_HOUR {
+            t += WINDOW_MIN_MS + 1;
+            for _ in 0..SHARE_PER_MINUTE {
+                if accepted == SHARE_PER_HOUR {
+                    break;
+                }
+                store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t).unwrap();
+                accepted += 1;
+            }
         }
-        assert!(store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, later + WINDOW_MIN_MS + 2).is_err());
+        // The hourly budget is spent. A brand-new minute window does not help.
+        t += WINDOW_MIN_MS + 1;
+        assert!(t - now < WINDOW_HOUR_MS, "still inside the same hour");
+        let retry = store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t).unwrap_err();
+        assert!(retry > 60, "locked out by the hour window, not the minute one: {retry}s");
+        // And the throttled attempts above never counted as guesses.
+        assert_eq!(accepted, SHARE_PER_HOUR);
     }
 
     #[test]
