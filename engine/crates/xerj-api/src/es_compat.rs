@@ -3447,6 +3447,12 @@ pub struct EsSearchBody {
     /// (live: a 1 ms-timeout wildcard ran 3.7 s with `timed_out: false`).
     #[serde(default)]
     pub timeout: Option<String>,
+    /// Second-stage relevance reranking over the top `window` hits — see
+    /// [`crate::rerank_stage`]. Declared here because serde drops unknown
+    /// top-level keys silently, and a `rerank` block that vanished without a
+    /// word would return lexical order to a caller who asked for something else.
+    #[serde(default)]
+    pub rerank: Option<Value>,
 }
 
 impl Default for EsSearchBody {
@@ -3482,6 +3488,7 @@ impl Default for EsSearchBody {
             slice: None,
             pit: None,
             timeout: None,
+            rerank: None,
         }
     }
 }
@@ -3533,6 +3540,10 @@ const ES_SEARCH_TOP_LEVEL_KEYS: &[&str] = &[
     "profile",
     "stats",
     "ext",
+    // The one key here that is NOT Elasticsearch's: XERJ's second-stage
+    // reranking (`crate::rerank_stage`). Listed so the unknown-key gate lets it
+    // through to a stage that validates its contents strictly.
+    "rerank",
 ];
 
 /// A minimal position-tracking JSON scanner used solely to locate the first
@@ -9187,6 +9198,34 @@ async fn search_impl(
     // capture every matching hit; we'll truncate the response hits back to
     // this size after building the response.
     let is_scroll_request = params.scroll.is_some();
+    // Validate `rerank` and widen the page to its window *before* the search
+    // runs; the stage itself runs on the rendered hits further down.
+    let rerank_from = body.from;
+    let rerank_plan = match crate::rerank_stage::RerankPlan::prepare(&mut body, is_scroll_request) {
+        Ok(plan) => plan,
+        Err(reason) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{
+                            "type": "illegal_argument_exception",
+                            "reason": reason,
+                        }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    };
+    if rerank_plan.is_some() {
+        // The stage pages the reranked window itself; the engine must return
+        // the window from the top.
+        body.from = 0;
+    }
     let scroll_page_size = body.size;
     if is_scroll_request {
         // RC4 blocker 11: enforce the open-scroll cap BEFORE running the
@@ -14259,6 +14298,31 @@ async fn search_impl(
     }
     let response_hint = (!all_hints.is_empty()).then(|| json!({ "hints": all_hints }));
 
+    let mut hits = hits;
+    let mut max_score = max_score;
+    let rerank_info = match &rerank_plan {
+        None => None,
+        Some(plan) => match plan.apply(&mut hits, &mut max_score, rerank_from).await {
+            Ok(info) => Some(info),
+            Err(e) => {
+                let status = crate::rerank_stage::status_for(&e);
+                let reason = format!("rerank failed: {e}");
+                return (
+                    StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
+                    Json(json!({
+                        "error": {
+                            "root_cause": [{ "type": "rerank_exception", "reason": reason }],
+                            "type": "rerank_exception",
+                            "reason": reason,
+                        },
+                        "status": status,
+                    })),
+                )
+                    .into_response();
+            }
+        },
+    };
+
     let mut response_body = if track_total_disabled {
         if want_int_total {
             json!({
@@ -14331,6 +14395,21 @@ async fn search_impl(
     // everything else including `hits`. `serde_json` runs with
     // `preserve_order` workspace-wide (see xerj-common/Cargo.toml), so the
     // rebuilt map's insertion order is exactly the wire order.
+    // `_rerank` says which ranking the caller is looking at — applied, or the
+    // engine's own after a degrade. It goes ahead of `hits` for the same reason
+    // the hint below does: a reader that truncates long output from the bottom
+    // must still see it.
+    if let Some(info) = rerank_info {
+        if let Some(obj) = response_body.as_object_mut() {
+            let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
+            rebuilt.insert("_rerank".to_string(), info);
+            for (k, v) in obj.iter() {
+                rebuilt.insert(k.clone(), v.clone());
+            }
+            *obj = rebuilt;
+        }
+    }
+
     if let Some(hint) = response_hint {
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
@@ -20887,6 +20966,7 @@ pub async fn search_with_scroll(
         slice: body.slice.clone(),
         pit: body.pit.clone(),
         timeout: body.timeout.clone(),
+        rerank: None,
     };
     // page_size: what the caller requested (or default 10)
     let page_size = body.size;

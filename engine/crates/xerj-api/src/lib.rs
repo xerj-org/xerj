@@ -74,6 +74,7 @@ pub mod graph_api;
 pub mod ism_api;
 pub mod memory_api;
 pub mod native;
+pub mod rerank_stage;
 pub mod responses;
 pub mod router;
 pub mod state;

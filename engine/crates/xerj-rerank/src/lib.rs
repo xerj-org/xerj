@@ -228,6 +228,15 @@ pub struct RerankConfig {
     /// domain-specific — a support corpus and a code corpus do not mean the
     /// same thing by it.
     pub instructions: Option<String>,
+    /// The question to judge documents against. Required unless the caller's
+    /// search query is a shape the API layer can read a plain string out of —
+    /// guessing at the intent behind a `bool` tree would rank against the
+    /// wrong question without anyone noticing.
+    pub query: Option<String>,
+    /// `_source` fields sent to the provider. `None` sends every top-level
+    /// string field, which is right for small documents and wasteful for wide
+    /// ones.
+    pub fields: Option<Vec<String>>,
 }
 
 impl Default for RerankConfig {
@@ -242,6 +251,8 @@ impl Default for RerankConfig {
             max_doc_chars: DEFAULT_MAX_DOC_CHARS,
             timeout: Duration::from_secs(10),
             instructions: None,
+            query: None,
+            fields: None,
         }
     }
 }
@@ -267,6 +278,8 @@ impl RerankConfig {
             "max_doc_chars",
             "timeout_ms",
             "instructions",
+            "query",
+            "fields",
         ];
         for k in obj.keys() {
             if !KNOWN.contains(&k.as_str()) {
@@ -363,6 +376,39 @@ impl RerankConfig {
                     })?
                     .to_string(),
             );
+        }
+
+        if let Some(q) = obj.get("query") {
+            let q = q
+                .as_str()
+                .ok_or_else(|| RerankError::Config("`rerank.query` must be a string".into()))?;
+            if q.trim().is_empty() {
+                return Err(RerankError::Config(
+                    "`rerank.query` must not be empty".into(),
+                ));
+            }
+            cfg.query = Some(q.to_string());
+        }
+        if let Some(f) = obj.get("fields") {
+            let arr = f.as_array().ok_or_else(|| {
+                RerankError::Config("`rerank.fields` must be an array of field names".into())
+            })?;
+            let mut fields = Vec::with_capacity(arr.len());
+            for v in arr {
+                fields.push(
+                    v.as_str()
+                        .ok_or_else(|| {
+                            RerankError::Config("`rerank.fields` entries must be strings".into())
+                        })?
+                        .to_string(),
+                );
+            }
+            if fields.is_empty() {
+                return Err(RerankError::Config(
+                    "`rerank.fields` must not be empty".into(),
+                ));
+            }
+            cfg.fields = Some(fields);
         }
 
         Ok(cfg)
