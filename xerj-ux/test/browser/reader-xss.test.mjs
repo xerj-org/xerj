@@ -162,3 +162,26 @@ test('operator Discover: hostile hits, facet values and FIELD NAMES stay text', 
   ctx.engine.state.fail = {};
   await page.close();
 });
+
+test('the whole operator console runs under the shipped policy with zero violations', { skip }, async () => {
+  // The policy is new; the console is not. Every section the operator can
+  // reach has to keep working under `script-src 'self'; connect-src 'self'`,
+  // or the policy would have broken it silently (a blocked fetch is just a
+  // failed fetch). The fake node answers most telemetry calls 404 — that is
+  // fine; what must not happen is a VIOLATION.
+  const page = await openOperator(ctx, '#/corpus');
+  await page.waitFor(`document.querySelector('[data-nav-status]')`, { label: 'operator shell' });
+  const routes = ['#/dashboards/ai-overview', '#/dashboards/rag-quality', '#/dashboards/vector-index', '#/dashboards/agent-memory', '#/dashboards/second-brain?brain=inbox',
+    '#/dashboards/logs-overview', '#/dashboards/anomaly-detect', '#/dashboards/ingest-pipeline', '#/dashboards/system', '#/discover', '#/reader', '#/alerts', '#/data', '#/users', '#/settings', '#/corpus'];
+  for (const r of routes) {
+    await page.setHash(r);
+    await page.waitFor(`document.getElementById('app').getAttribute('aria-busy') === 'false' && document.querySelector('.h-scene, h1')`, { label: r });
+    await new Promise((res) => setTimeout(res, 150));
+    const v = await page.eval('window.__cspViolations');
+    assert.deepEqual(v, [], `${r}: Content-Security-Policy violation`);
+  }
+  // theme switch + edit mode toggle exercise the shell's own handlers
+  await page.eval(`(document.querySelector('[data-theme-set="day"], [data-theme="day"], [data-theme-toggle]')?.click(), true)`);
+  await assertNotPwned(page, ctx.engine.origin, 'operator console tour');
+  await page.close();
+});
