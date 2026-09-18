@@ -87,7 +87,9 @@ async fn boot() -> TestApp {
     schema
         .add_field(FieldConfig::new("email_from", FieldType::Keyword))
         .unwrap();
-    engine.create_index("ax-inbox", schema).expect("create index");
+    engine
+        .create_index("ax-inbox", schema)
+        .expect("create index");
     let idx = engine.get_index("ax-inbox").unwrap();
     idx.create_document(
         "m1".into(),
@@ -190,10 +192,7 @@ async fn no_highlight_block_unless_one_was_requested() {
     )
     .await;
     assert_eq!(status, 200, "{body}");
-    assert!(
-        body["hits"]["hits"][0].get("highlight").is_none(),
-        "{body}"
-    );
+    assert!(body["hits"]["hits"][0].get("highlight").is_none(), "{body}");
 }
 
 #[tokio::test]
@@ -228,7 +227,9 @@ async fn the_reader_proxy_needs_a_session() {
         .method("POST")
         .uri(SEARCH)
         .header("content-type", "application/json")
-        .body(Body::from(json!({ "query": { "match_all": {} } }).to_string()))
+        .body(Body::from(
+            json!({ "query": { "match_all": {} } }).to_string(),
+        ))
         .unwrap();
     let resp = app.router.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status().as_u16(), 401);

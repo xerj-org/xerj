@@ -50,12 +50,15 @@ extractors are the contract — `engine/crates/xerj-autoindex/src/extract/`):
 | pdf | `page` + `body` | title, page number, that page's extracted text |
 | code symbol / file | `name` + `language` + `code`, or `language` + `defs` | signature, file and line, the code |
 | note | `body` or `text` | title and text — markdown, docx, html, plain text |
+| file | `ax_locator: "file"` and no text | the one record autoindex writes per *file*: path, format, and the records that came out of it (the message first, then pages in order) |
 | anything else | — | the `_source` as JSON; vector and passage plumbing fields are counted, not dumped |
 
 An email's attachments and an attachment's parent are joined on
 `email_message_id`, which the EML extractor stamps on the email record and on
-every attachment record it emits. A PDF attachment contributes one record per
-page; the attachment list shows each file once.
+every attachment record it emits (stored without its angle brackets). A PDF
+attachment contributes one record per page section; the attachment list shows
+each file once, at its lowest page. Every record also links up to its file's
+record (`FROM FILE`), joined on `ax_file`.
 
 What the Reader does **not** do: it does not render a PDF's pages or an
 email's HTML. It shows the text the extractor indexed. The engine stores
@@ -63,12 +66,21 @@ extracted text, not attachment bytes.
 
 ### The graph panel
 
-The panel is one `GET /_graph/{brain}/ego?node=<id>&hops=1&direction=both`
-call ([SECOND_BRAIN.md](./SECOND_BRAIN.md#get-_graphbrainego)). Neighbours are
-grouped by edge type, each one a link that opens in the same Reader. The panel
-states, in words, which of these is true: no brain for this index, a brain with
-no links for this record, links clipped by the limit, links to ids with no
-document behind them, or a refusal.
+The panel is a `GET /_graph/{brain}/ego?node=<id>&hops=1&direction=both` call
+([SECOND_BRAIN.md](./SECOND_BRAIN.md#get-_graphbrainego)). Neighbours are
+grouped by edge type, each one a link that opens in the same Reader.
+
+autoindex's file-level detectors (`same_dir`, `mdlink`, `pathcite`, `href`)
+link **file records**, not the records inside a file — in the recorded run the
+email message record has no edge of its own, while its file has two. So for a
+record that is not itself a file record the panel makes a second `ego` call for
+the record's file and merges the two; links that came through the file are
+marked `FILE`, and the panel's last line says how many did and why. A brain
+that is missing or refused is asked once, not twice.
+
+The panel states, in words, which of these is true: no brain for this index, a
+brain with no links for this record, links clipped by the limit, links to ids
+with no document behind them, or a refusal.
 
 **On an auth-enabled engine (the default) the graph panel is refused for a
 signed-in operator.** The console holds a passkey session, not an engine API
@@ -78,7 +90,8 @@ key, and the console's search proxy deliberately cannot read the reserved
 through the session-authenticated proxy and work; the graph panel says "the
 graph API refused this console session (HTTP 401)" rather than claiming there
 are no links. On `--insecure` it works. A guest's graph panel works on an
-auth-enabled engine, because a guest *has* a key (below).
+auth-enabled engine, because a guest *has* a key (below). Tracked as
+[#936](https://github.com/xerj-org/xerj/issues/936).
 
 ### Discover
 
@@ -212,7 +225,18 @@ skip (CI does).
 - The share link itself — minting, passcodes, claim limits, revocation — is a
   separate surface; this page covers only what the console does with the
   record it is handed.
-- The operator's graph panel needs `--insecure` today (above).
+- The operator's graph panel needs `--insecure` today (above,
+  [#936](https://github.com/xerj-org/xerj/issues/936)).
+- The console's passkey sign-in only works when the console is reached at
+  `http://localhost:9200`: the WebAuthn relying-party origin is fixed
+  (`xerj-console-api/src/state.rs`, `RpConfig::default`), so a node on another
+  port refuses enrolment
+  ([#935](https://github.com/xerj-org/xerj/issues/935)). That predates this
+  work and affects the whole operator console, not only these views; guest mode
+  does not sign in and is unaffected.
+- `xerj brain` still opens the Second Brain dashboard
+  (`#/second-brain?brain=<name>`); the Corpus home is where a bare
+  `/_xerj-console/` lands.
 - `*` in Discover searches one index at a time.
 - PDF pages and email HTML are shown as extracted text, never rendered.
 - The console loads its fonts from Google Fonts, in guest mode too. The page is

@@ -615,9 +615,12 @@ fn seed_specs() -> Vec<DashboardSpec> {
             name: "Corpus",
             section: Some("corpus"),
             group: None,
-            panels: vec![
-                p("datasets", "corpus", "WHAT IS INDEXED · ONE CARD PER DATASET", 12),
-            ],
+            panels: vec![p(
+                "datasets",
+                "corpus",
+                "WHAT IS INDEXED · ONE CARD PER DATASET",
+                12,
+            )],
         },
         // Reader: any record from Discover / a graph click, rendered by shape,
         // with the knowledge graph around it.
