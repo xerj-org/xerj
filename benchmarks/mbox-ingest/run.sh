@@ -4,6 +4,12 @@
 #   benchmarks/mbox-ingest/run.sh <xerj-binary> <work-dir> <profile> <size> <es-port>
 #   e.g.  run.sh engine/target/release/xerj /data/mboxbench mixed 1G 9520
 #
+#   AX_FLAGS="--no-semantic"   extra `xerj autoindex` flags for this run
+#   LABEL=no-semantic          suffix for the result file (default: "default")
+#   RESUME=1                   keep the node's data dir and the state dir from the
+#                              previous run with this LABEL and run the SAME command
+#                              again - what the tool tells you to do after a failure
+#
 # <work-dir> MUST be on a real disk. On a tmpfs (/tmp on many distros) the
 # corpus, the index and the staging file all live in RAM, and every memory
 # figure this prints would be wrong.
@@ -15,8 +21,10 @@
 set -euo pipefail
 XERJ=$(readlink -f "$1"); WORK=$(readlink -f "$2"); PROFILE=$3; SIZE=$4; PORT=$5
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/../.." && pwd)
-TAG="$PROFILE-$SIZE"; TREE="$WORK/tree-$TAG"; TRUTH="$WORK/tree-$TAG.truth.json"
-DATA="$WORK/node-$TAG"; STATE="$WORK/state-$TAG"; OUT="$WORK/result-$TAG.json"
+LABEL=${LABEL:-default}; AX_FLAGS=${AX_FLAGS:-}; RESUME=${RESUME:-0}
+SRC="$PROFILE-$SIZE"; TREE="$WORK/tree-$SRC"; TRUTH="$WORK/tree-$SRC.truth.json"
+TAG="$SRC-$LABEL"; [ "$RESUME" = 1 ] && RUN="$TAG-resume" || RUN="$TAG"
+DATA="$WORK/node-$TAG"; STATE="$WORK/state-$TAG"; OUT="$WORK/result-$RUN.json"
 URL="http://127.0.0.1:$PORT"
 
 case "$(findmnt -no FSTYPE -T "$WORK")" in tmpfs|ramfs) echo "refusing: $WORK is RAM-backed"; exit 2;; esac
@@ -26,7 +34,8 @@ if [ ! -d "$TREE" ]; then
   python3 "$REPO/scripts/synthetic-takeout.py" --out "$TREE" --truth "$TRUTH" \
       --target-bytes "$SIZE" --profile "$PROFILE" --seed 42 --with-archive
 fi
-rm -rf "$DATA" "$STATE"; mkdir -p "$DATA"
+if [ "$RESUME" != 1 ]; then rm -rf "$DATA" "$STATE"; fi
+mkdir -p "$DATA"
 cat > "$WORK/node-$TAG.toml" <<TOML
 [server]
 es_compat_port = $PORT
@@ -40,7 +49,7 @@ enabled = false
 [embedding]
 mode = "lexical"
 TOML
-nohup "$XERJ" -c "$WORK/node-$TAG.toml" --insecure --embed-mode lexical > "$WORK/server-$TAG.log" 2>&1 &
+nohup "$XERJ" -c "$WORK/node-$TAG.toml" --insecure --embed-mode lexical > "$WORK/server-$RUN.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
 for _ in $(seq 1 120); do curl -fsS "$URL/_cluster/health" >/dev/null 2>&1 && break; sleep 0.5; done
@@ -56,9 +65,9 @@ LOAD_BEFORE=$(cut -d' ' -f1-3 /proc/loadavg)
 # (getrusage RUSAGE_CHILDREN). PDF workers live ~50 ms each, so polling cannot
 # see them; this can.
 START=$(date +%s.%N)
-/usr/bin/time -v -o "$WORK/time-$TAG.txt" \
+/usr/bin/time -v -o "$WORK/time-$RUN.txt" \
   "$XERJ" autoindex "$TREE" --url "$URL" --prefix bench --brain bench --state-dir "$STATE" \
-    --yes --progress plain --json > "$WORK/autoindex-$TAG.json" 2> "$WORK/autoindex-$TAG.log" &
+    --yes --progress plain --json $AX_FLAGS > "$WORK/autoindex-$RUN.json" 2> "$WORK/autoindex-$RUN.log" &
 TIMEPID=$!
 AX=""; for _ in $(seq 1 50); do AX=$(pgrep -P $TIMEPID -x xerj 2>/dev/null | head -1 || true); [ -n "$AX" ] && break; sleep 0.1; done
 # The autoindex process's OWN peak: VmHWM is a high-water mark, so the last
@@ -71,7 +80,7 @@ while kill -0 $TIMEPID 2>/dev/null; do
 done
 set +e; wait $TIMEPID; RC=$?; set -e
 END=$(date +%s.%N)
-KIDS_KB=$(awk -F': ' '/Maximum resident set size/{print $2}' "$WORK/time-$TAG.txt")
+KIDS_KB=$(awk -F': ' '/Maximum resident set size/{print $2}' "$WORK/time-$RUN.txt")
 SERVER_PEAK_KB=$(hwm $SERVER)
 INDEX_B_AT_EXIT=$(du -sb "$DATA" | cut -f1)
 
@@ -86,19 +95,21 @@ done
 INDEX_B_SETTLED=$(du -sb "$DATA" | cut -f1)
 SERVER_PEAK_KB=$(hwm $SERVER)
 
-python3 "$HERE/verify.py" --url "$URL" --prefix bench --brain bench --truth "$TRUTH" > "$WORK/verify-$TAG.json" || true
+python3 "$HERE/verify.py" --url "$URL" --prefix bench --brain bench --truth "$TRUTH" > "$WORK/verify-$RUN.json" || true
 
 python3 - "$OUT" <<PY
 import json, os, sys
 def load(p):
     try: return json.load(open(p))
     except Exception as e: return {"unreadable": str(e)}
-truth = load("$TRUTH"); ver = load("$WORK/verify-$TAG.json")
+truth = load("$TRUTH"); ver = load("$WORK/verify-$RUN.json")
 tree_bytes = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk("$TREE") for f in fs)
 wall = $END - $START
 docs = ver.get("node_docs", 0)
 json.dump({
-  "profile": "$PROFILE", "target_size": "$SIZE", "autoindex_exit_code": $RC,
+  "profile": "$PROFILE", "target_size": "$SIZE", "label": "$LABEL", "extra_autoindex_flags": "$AX_FLAGS",
+  "resumed_after_a_failed_run": "$RESUME" == "1", "autoindex_exit_code": $RC,
+  "autoindex_last_line": open("$WORK/autoindex-$RUN.log", errors="replace").read().strip().splitlines()[-1][:600],
   "source": {"mbox_bytes": truth["mbox"]["bytes"], "tree_bytes": tree_bytes, "entries": truth["entries"],
              "attachments": truth["attachments"], "mbox_sha256": truth["mbox"]["sha256"]},
   "wall_seconds": round(wall, 1),

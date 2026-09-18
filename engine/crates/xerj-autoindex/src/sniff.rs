@@ -3753,3 +3753,142 @@ mod text_family_tests {
         assert_eq!(classify_full(sh), Family::TxtLines);
     }
 }
+
+#[cfg(test)]
+mod mail_and_archive_sniff_tests {
+    use super::*;
+    use std::path::Path;
+
+    fn sniffed(bytes: &[u8], name: &str, gzip: bool) -> Sniffed {
+        sniff_bytes(bytes, Path::new(name), Path::new(name), gzip).unwrap()
+    }
+
+    fn family(text: &str, name: &str) -> Family {
+        sniffed(text.as_bytes(), name, false).family
+    }
+
+    const SEP: &str = "From 1787654321098765432@xxx Tue Nov 14 22:13:20 +0000 2023";
+    const HEADERS: &str = "From: Dana Klein <dana@example.org>\nTo: alex@example.org\n\
+                           Subject: Term sheet\nDate: Tue, 14 Nov 2023 22:13:20 +0000\n\
+                           Message-ID: <a@example.org>\n\nbody text\n";
+
+    /// A mailbox is recognised by what is IN it. Thunderbird folders have no
+    /// extension, Apple Mail's file is literally `mbox`, and Takeout's has
+    /// spaces in its name — none of which may matter.
+    #[test]
+    fn a_mailbox_is_detected_by_content_under_any_name() {
+        let lf = format!("{SEP}\n{HEADERS}");
+        let crlf = lf.replace('\n', "\r\n");
+        for name in ["Inbox", "mbox", "All mail Including Spam and Trash.mbox", "export.txt", "x.eml"] {
+            assert_eq!(family(&lf, name), Family::Mbox, "LF {name}");
+            assert_eq!(family(&crlf, name), Family::Mbox, "CRLF {name}");
+        }
+        // Blank lines before the first separator are tolerated.
+        assert_eq!(family(&format!("\n\n{lf}"), "Inbox"), Family::Mbox);
+        // Thunderbird and mutt separators.
+        for sep in ["From - Tue Oct 10 12:34:56 2023", "From MAILER-DAEMON Fri Jul  8 12:08:34 2011"] {
+            assert_eq!(family(&format!("{sep}\n{HEADERS}"), "Sent"), Family::Mbox, "{sep}");
+        }
+    }
+
+    /// …and the extension alone proves nothing.
+    #[test]
+    fn the_mbox_extension_is_not_evidence() {
+        let prose = "Notes about the mbox format.\n\nIt is older than MIME and it shows.\n";
+        assert_ne!(family(prose, "notes.mbox"), Family::Mbox);
+        // Prose that opens with the word "From" and even looks a bit like mail.
+        let essay = format!("From what I understand, the deal closes Monday.\n{HEADERS}");
+        assert_ne!(family(&essay, "essay.mbox"), Family::Mbox);
+        // A real separator followed by something that is not a message.
+        let log = format!("{SEP}\nname: app\nversion: 2\nport: 8080\n");
+        assert_ne!(family(&log, "weird.mbox"), Family::Mbox);
+        // A QUOTED separator is body text of some other file, not a mailbox.
+        assert_ne!(family(&format!(">{SEP}\n{HEADERS}"), "reply.mbox"), Family::Mbox);
+        // A single message with no separator stays an email.
+        assert_eq!(family(HEADERS, "one.mbox"), Family::Eml);
+    }
+
+    /// The sniffer only ever sees a PREFIX of the file, cut at a byte count, so
+    /// the cut lands inside multi-byte characters as a matter of course. Every
+    /// prefix length of a mailbox full of them: no panic (panic = abort), and
+    /// once the headers are in view the answer is stable.
+    #[test]
+    fn a_prefix_cut_inside_a_multibyte_character_never_panics() {
+        let mbox = format!(
+            "{SEP}\nFrom: 山田 太郎 <yamada@example.org>\nTo: محمد علي <ali@example.org>\n\
+             Subject: 設計書 — Überweisung\nDate: Tue, 14 Nov 2023 22:13:20 +0000\n\
+             Message-ID: <a@example.org>\n\nمرحبا بالعالم 設計書 Grüße\n"
+        );
+        let bytes = mbox.as_bytes();
+        let headers_end = mbox.find("\n\n").unwrap();
+        for cut in 0..=bytes.len() {
+            let got = sniffed(&bytes[..cut], "Inbox", false).family;
+            if cut > headers_end {
+                assert_eq!(got, Family::Mbox, "cut={cut}");
+            }
+        }
+    }
+
+    fn tar_header(name: &str) -> Vec<u8> {
+        let mut h = vec![0u8; 512];
+        h[..name.len()].copy_from_slice(name.as_bytes());
+        h[100..107].copy_from_slice(b"0000644");
+        h[257..263].copy_from_slice(b"ustar\0");
+        h[263..265].copy_from_slice(b"00");
+        h[148..156].copy_from_slice(b"        ");
+        let sum: u32 = h.iter().map(|b| u32::from(*b)).sum();
+        h[148..156].copy_from_slice(format!("{sum:06o}\0 ").as_bytes());
+        h
+    }
+
+    /// Archives are NAMED so the run can say what to do about them. A Takeout
+    /// download is one `.zip` or `.tgz`; "binary content (unknown)" tells its
+    /// owner nothing.
+    #[test]
+    fn archives_are_named_and_told_apart_from_text_that_mentions_them() {
+        let tar = sniffed(&tar_header("Takeout/Mail/All mail.mbox"), "takeout-001.tar", false);
+        assert_eq!(tar.family, Family::Binary);
+        assert_eq!(tar.binary_kind.as_deref(), Some("tar"));
+        // The same 512 bytes reached through gzip (a .tgz): still a tar.
+        let tgz = sniffed(&tar_header("Takeout/x"), "takeout-001.tgz", true);
+        assert_eq!(tgz.binary_kind.as_deref(), Some("tar"));
+        // `ustar` at offset 257 of a TEXT file, with no valid checksum: not a tar.
+        let mut text = vec![b'a'; 512];
+        text[257..262].copy_from_slice(b"ustar");
+        assert_ne!(sniffed(&text, "essay.txt", false).binary_kind.as_deref(), Some("tar"));
+        // Shorter than one header block: `get(..512)` is None, not a panic.
+        assert_ne!(sniffed(&tar_header("x")[..300], "cut.tar", false).binary_kind.as_deref(), Some("tar"));
+
+        for (magic, kind) in [
+            (&b"7z\xbc\xaf\x27\x1c\x00\x04rest"[..], "7z"),
+            (&b"Rar!\x1a\x07\x01\x00rest"[..], "rar"),
+            (&b"\xfd7zXZ\x00\x00\x04rest"[..], "xz"),
+        ] {
+            let s = sniffed(magic, "a.bin", false);
+            assert_eq!(s.family, Family::Binary, "{kind}");
+            assert_eq!(s.binary_kind.as_deref(), Some(kind));
+        }
+    }
+
+    #[test]
+    fn archive_advice_names_the_command_for_the_kind_in_hand() {
+        let advice = |kind: &str, gz: bool| archive_advice(kind, gz).unwrap_or_default();
+        for (kind, gz, command) in [
+            ("zip", false, "unzip <file>"),
+            ("tar", false, "tar -xf <file>"),
+            ("tar", true, "tar -xzf <file>"),
+            ("7z", false, "7z x <file>"),
+            ("rar", false, "unrar x <file>"),
+            ("xz", false, "xz -dk <file>"),
+        ] {
+            let text = advice(kind, gz);
+            assert!(text.contains("extract it first"), "{kind}: {text}");
+            assert!(text.contains(command), "{kind}: {text}");
+            assert!(text.contains("does not open archives"), "{kind}: {text}");
+        }
+        // Not an archive: no advice, the ordinary "binary content (…)" stands.
+        for kind in ["png", "pdf", "unknown", "", "設計"] {
+            assert_eq!(archive_advice(kind, false), None, "{kind}");
+        }
+    }
+}

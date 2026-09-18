@@ -404,6 +404,25 @@ fn from_line_rfc3339(line: &[u8]) -> Option<String> {
     )
 }
 
+/// The byte offset a record's locator carries: `m{offset}-msg-s0` → `offset`.
+/// `None` for any locator this module did not write (`msg-s0` of a standalone
+/// `.eml` starts with `m` too, and is not an offset).
+///
+/// Lives next to the code that WRITES the prefix (`format!("m{}-", msg.offset)`
+/// in [`extract_from`]) so the two cannot drift. It is how Phase B reports
+/// progress INSIDE a mailbox: each record says how far into the file its
+/// message began, which costs nothing and needs no channel from the splitter.
+///
+/// Byte-safe: the prefix is ASCII (`m`, digits, `-`), and `strip_prefix` /
+/// `split_once` only ever cut at the ASCII bytes they matched.
+pub fn locator_offset(locator: &str) -> Option<u64> {
+    let (digits, _rest) = locator.strip_prefix('m')?.split_once('-')?;
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
 /// Extract every message of the mailbox at `path`.
 ///
 /// `limit_bytes` bounds a SAMPLING read (phase A): splitting stops once that
@@ -767,6 +786,28 @@ mod tests {
             assert_eq!(r.group, None);
             assert_eq!(r.origin, crate::extract::FieldOrigin::Extractor);
         }
+    }
+
+    #[test]
+    fn locator_offsets_round_trip_and_reject_everything_else() {
+        assert_eq!(locator_offset("m0-msg-s0"), Some(0));
+        assert_eq!(locator_offset("m1073777879-att2-p3-s1"), Some(1_073_777_879));
+        assert_eq!(locator_offset("m18446744073709551615-raw-s0"), Some(u64::MAX));
+        // Not ours: a standalone .eml, other families, overflow, junk, non-ASCII.
+        for other in [
+            "msg-s0", "m-msg-s0", "m12", "m12x-msg-s0", "att0-card", "p1-s0", "", "m",
+            "m18446744073709551616-msg-s0", "m１２-msg-s0", "mé-1", "設計-m5-",
+        ] {
+            assert_eq!(locator_offset(other), None, "{other:?}");
+        }
+        // What the extractor writes is what this reads back.
+        let mbox = format!("{SEP_A}\n{}\n{SEP_TBIRD}\n{}\n", msg("a@x", "one", "x"), msg("b@x", "two", "y"));
+        let offsets: Vec<u64> = records(mbox.as_bytes())
+            .0
+            .iter()
+            .map(|r| locator_offset(&r.locator).expect("every mbox record carries its offset"))
+            .collect();
+        assert_eq!(offsets, vec![0, (SEP_A.len() + 1 + msg("a@x", "one", "x").len() + 1) as u64]);
     }
 
     /// Same bytes, same ids — and an id does not move when a LATER message

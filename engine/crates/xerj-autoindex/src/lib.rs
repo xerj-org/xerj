@@ -1335,6 +1335,36 @@ const UNITY_SAMPLE_LIMIT: u64 = 512 << 20;
 /// the only fixture that reaches it naturally is a half-gigabyte file, which
 /// is why that path shipped untested. `SampleLimitOverride` gives the suite a
 /// fixture it can afford.
+/// Share of a container file's progress credited while it is being split and
+/// staged; the rest is credited as the staged records reach the engine.
+///
+/// MEASURED, not chosen: on the 1 GB synthetic mailbox in
+/// `benchmarks/mbox-ingest/` extraction and sending took CONTAINER_SPLIT_NOTE of
+/// the file's wall time. It only shapes how the bar moves between 0 and 100 —
+/// both ends are exact whatever this is — so a mailbox with a different mix
+/// (all text, or all attachments) sees a bar that is uneven, never wrong.
+const CONTAINER_EXTRACT_PERCENT: u64 = 45;
+
+/// Progress position for "the splitter has reached `offset`" in a file of
+/// `size` bytes. `offset` is clamped to `size`: in a gzipped mailbox it counts
+/// DECOMPRESSED bytes and runs past the size on disk, and extraction must not
+/// spend the share that belongs to sending.
+fn container_extract_credit(size: u64, offset: u64) -> u64 {
+    // u128: a u64 byte position times 45 can overflow a u64.
+    ((u128::from(offset.min(size)) * u128::from(CONTAINER_EXTRACT_PERCENT)) / 100) as u64
+}
+
+/// Progress position for "`sent` of `staged` bytes have reached the engine",
+/// for a file of `size` bytes.
+fn container_send_credit(size: u64, sent: u64, staged: u64) -> u64 {
+    let base = container_extract_credit(size, size);
+    if staged == 0 {
+        return base;
+    }
+    let span = u128::from(size - base);
+    base + ((span * u128::from(sent.min(staged))) / u128::from(staged)) as u64
+}
+
 fn sample_limit_bytes(family: Family, path: &Path) -> Option<u64> {
     // Only the test override reads the path; the shipped caps are per-family.
     #[cfg(not(test))]
@@ -5879,7 +5909,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                     // included: progress measures work drained from the queue,
                     // and a `continue` that skipped the count would park the
                     // bar short of 100% forever.
-                    let _in_flight = pr.file(&f.rel, f.size);
+                    let in_flight = pr.file(&f.rel, f.size);
                     let key = &keys[i];
                     let expected_digest = &digests[i];
                     let fa = plan.files.get(key).unwrap();
@@ -6023,6 +6053,18 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                                 file_junk += 1;
                                 return true;
                             };
+                            // Progress INSIDE a mailbox. One Takeout mbox is
+                            // the whole corpus, so crediting its bytes only
+                            // when the file finishes left the bar at 0.0% and
+                            // `since_progress_s` climbing for the entire run.
+                            // Every mbox record says how far into the file its
+                            // message began; that is the position.
+                            if sn.family == Family::Mbox {
+                                if let Some(offset) = extract::mbox::locator_offset(&rec.locator) {
+                                    in_flight
+                                        .advance_to(container_extract_credit(f.size, offset));
+                                }
+                            }
                             let mut fields = rec.fields;
                             // BEFORE coercion, not after: these are ordinary
                             // record fields once stamped, and a field that
@@ -6312,6 +6354,15 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                         }
                     }
                     if send_err.is_none() {
+                        // The second half of a mailbox's bar: staged bytes
+                        // handed to the engine, out of staged bytes in total.
+                        let credit_send = sn.family == Family::Mbox;
+                        let staged_len = staged
+                            .as_file()
+                            .metadata()
+                            .map(|m| m.len())
+                            .unwrap_or(0);
+                        let mut staged_sent = 0u64;
                         let mut reader = BufReader::new(staged.as_file_mut());
                         let mut buf = Vec::with_capacity(bulk_cut + (1 << 20));
                         let mut docs = 0usize;
@@ -6346,6 +6397,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             }
                             buf.extend_from_slice(&action);
                             buf.extend_from_slice(&document);
+                            staged_sent += (action.len() + document.len()) as u64;
                             docs += 1;
                             if (buf.len() >= bulk_cut || docs >= 5000)
                                 && record_bulk_outcome(
@@ -6361,6 +6413,13 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             if buf.is_empty() {
                                 docs = 0;
                                 buf.reserve(bulk_cut);
+                                if credit_send {
+                                    in_flight.advance_to(container_send_credit(
+                                        f.size,
+                                        staged_sent,
+                                        staged_len,
+                                    ));
+                                }
                             }
                         }
                         if !buf.is_empty() && send_err.is_none() {
@@ -9252,6 +9311,55 @@ mod unity_pipeline_tests {
             g.no_guid,
             vec!["Assets/Broken.cs.meta".to_string()],
             "the .meta with no usable guid must be named, not silently skipped"
+        );
+    }
+}
+
+#[cfg(test)]
+mod container_progress_tests {
+    use super::{container_extract_credit, container_send_credit, CONTAINER_EXTRACT_PERCENT};
+
+    /// Whatever the split, the two stages together cover the file EXACTLY:
+    /// extraction ends where sending starts, sending ends on the file's size.
+    #[test]
+    fn the_two_stages_meet_and_end_on_the_file_size() {
+        for size in [0u64, 1, 99, 100, 1_073_777_879, u64::MAX] {
+            let seam = container_extract_credit(size, size);
+            assert_eq!(container_send_credit(size, 0, 1000), seam, "size={size}");
+            assert_eq!(container_send_credit(size, 1000, 1000), size, "size={size}");
+            assert!(seam <= size);
+            // Nothing staged (every entry was junk): stay at the seam; the
+            // guard's drop credits the rest.
+            assert_eq!(container_send_credit(size, 0, 0), seam);
+        }
+        assert_eq!(container_extract_credit(1000, 1000), 10 * CONTAINER_EXTRACT_PERCENT);
+    }
+
+    #[test]
+    fn credit_is_monotonic_and_never_overflows() {
+        let size = u64::MAX;
+        let mut last = 0;
+        for offset in [0, 1, u64::MAX / 3, u64::MAX / 2, u64::MAX - 1, u64::MAX] {
+            let c = container_extract_credit(size, offset);
+            assert!(c >= last && c <= size);
+            last = c;
+        }
+        let mut last = container_extract_credit(size, size);
+        for sent in [0u64, 1, 500, 999, 1000, 5000] {
+            let c = container_send_credit(size, sent, 1000);
+            assert!(c >= last && c <= size, "sent={sent}");
+            last = c;
+        }
+    }
+
+    /// A gzipped mailbox reports DECOMPRESSED offsets, which run past the size
+    /// on disk. Extraction must stop at its own share.
+    #[test]
+    fn a_decompressed_offset_past_the_file_size_is_clamped() {
+        let size = 1000;
+        assert_eq!(
+            container_extract_credit(size, 50_000),
+            container_extract_credit(size, size)
         );
     }
 }
