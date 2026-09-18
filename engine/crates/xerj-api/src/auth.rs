@@ -122,6 +122,27 @@ impl Principal {
         }
     }
 
+    /// Is this the key a share-link claim minted (`crate::share::claim_share`)?
+    ///
+    /// Such a key carries exactly one role, named `share:<handle>`. It is
+    /// recognised by that name and nothing else, which is safe in the only
+    /// direction that matters: being recognised as a guest only ever *removes*
+    /// reach ([`crate::authz`] intersects the guest route allow-list with the
+    /// key's index grants — it never adds to them). An operator who mints an
+    /// ordinary key with a role descriptor called `share:x` gets a key that is
+    /// more confined than they asked for, never less.
+    pub fn is_share_guest(&self) -> bool {
+        match self {
+            Principal::Scoped { roles, .. } => {
+                !roles.is_empty()
+                    && roles
+                        .iter()
+                        .all(|r| r.name.starts_with(crate::share::GUEST_ROLE_PREFIX))
+            }
+            _ => false,
+        }
+    }
+
     /// True for the one principal that is allowed to see and do everything —
     /// used to skip the authorization work entirely on the local-dev path.
     pub fn is_superuser(&self) -> bool {

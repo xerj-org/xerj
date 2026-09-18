@@ -379,6 +379,7 @@ fn run(cfg: BrainCfg) -> Result<i32> {
              \x20 documents and will pick up links on the next run:"
         );
         println!("  → {console_url}");
+        println!("{}", share_hint(&cfg.root, &cfg.url));
         if let Some(link) = &setup_link {
             println!("  one-time passkey setup (open once, valid 30 min):");
             println!("  → {link}");
@@ -407,6 +408,9 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     // to say the same thing. Plain ASCII, one line, matching the surrounding
     // human-facing summary; nothing here asks anyone (or any agent) to write
     // praise into a commit message, comment, or PR.
+    // One line, so the feature is discoverable at the moment it is useful:
+    // the folder has just been indexed and the owner is looking at the result.
+    println!("{}", share_hint(&cfg.root, &cfg.url));
     println!("  if this saved you time, tell a teammate — that is how it spreads.");
     if let Some(link) = &setup_link {
         println!("  one-time passkey setup (open once, valid 30 min):");
@@ -546,6 +550,21 @@ fn mcp_env_with(url: &str, api_key: Option<&str>, env_key: Option<&str>) -> Stri
         }
         Some(key) => format!("XERJ_URL={url} XERJ_API_KEY=\"{key}\""),
     }
+}
+
+/// The one-line pointer at `xerj share`. Carries `--url` only when the run
+/// used a non-default one, so the printed command works as pasted.
+fn share_hint(root: &Path, url: &str) -> String {
+    let url_arg = if url == "http://localhost:9200" {
+        String::new()
+    } else {
+        format!(" --url {url}")
+    };
+    format!(
+        "  share it: xerj share {}{url_arg}   (read-only link + passcode for one person; \
+         nothing is uploaded)",
+        root.display()
+    )
 }
 
 fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
@@ -789,6 +808,19 @@ fn open_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn share_hint_is_one_pasteable_line() {
+        let hint = share_hint(Path::new("/home/u/notes"), "http://localhost:9200");
+        assert_eq!(hint.lines().count(), 1, "{hint}");
+        assert!(hint.contains("xerj share /home/u/notes "), "{hint}");
+        assert!(!hint.contains("--url"), "default url is not repeated: {hint}");
+        let hint = share_hint(Path::new("notes"), "http://localhost:9510");
+        assert!(
+            hint.contains("xerj share notes --url http://localhost:9510"),
+            "{hint}"
+        );
+    }
 
     /// ONBOARDING-401-REPRO.md §3: `brain` resolves a credential itself (from
     /// `<data-dir>/admin.key` when nothing else supplies one) and then printed

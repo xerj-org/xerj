@@ -40,20 +40,70 @@
 //!
 //! The claim route is the only unauthenticated door that hands out a
 //! credential, so it is narrow on purpose: one exact path shape, `POST` only,
-//! a fixed-size body, a per-IP *and* per-share sliding window, and every
-//! outcome — success, wrong passcode, exhausted, expired, revoked, unknown,
-//! throttled — lands in the audit log with the source address.
+//! a fixed-size body, a sliding-window throttle, `Cache-Control: no-store` on
+//! every answer, and every outcome — success, wrong passcode, exhausted,
+//! expired, revoked, unknown, throttled — in the audit log with the source
+//! address.
+//!
+//! ## The two throttles, and why a tunnel does not break them
+//!
+//! - A claim against a **known** share is charged to that share's window
+//!   ([`SHARE_PER_MINUTE`] / [`SHARE_PER_HOUR`]), from anywhere. This is the
+//!   passcode lockout, and it does not depend on knowing who is asking.
+//! - A claim against an **unknown** id is charged to the source address's
+//!   window ([`IP_PER_MINUTE`] / [`IP_PER_HOUR`]). It bounds junk traffic and
+//!   the audit lines it writes.
+//!
+//! They are deliberately *not* stacked. The first cut charged the source
+//! window before looking the share up, which is fine on a directly exposed
+//! node and wrong behind `xerj share --tunnel`: every request a tunnel (or any
+//! reverse proxy on the same host) delivers arrives from `127.0.0.1`, so all
+//! guests shared one source bucket, and ten junk requests a minute from anyone
+//! who had found the hostname answered every real guest with `429` — a
+//! one-line denial of service on the feature. The fix is not to believe
+//! `X-Forwarded-For`: a direct client writes that header itself (#76 S5-4),
+//! and an unconfigured node believes nobody. It is to stop the collapsed
+//! bucket from mattering: a real share id is governed by its own window, which
+//! no amount of junk can touch, and junk is governed by the source window,
+//! where collapsing every tunnel client into one bucket only makes the bound
+//! tighter.
+//!
+//! Operators who want each guest's real address — in the audit log and as the
+//! junk-traffic key — declare the proxy the usual way,
+//! `server.trusted_proxies = ["127.0.0.1", "::1"]`; then, and only then,
+//! `X-Forwarded-For` is read, right to left (see [`ClaimSource`]). IPv6
+//! sources are keyed by their /64, since one host is routinely handed a whole
+//! /64 to rotate through.
+//!
+//! ## An open node cannot share
+//!
+//! With authentication off (`--insecure`, `auth.enabled = false`, or no admin
+//! key) every request is [`Principal::Superuser`], so a "scoped, read-only"
+//! guest key would restrict nothing. `POST /_share` and the claim route answer
+//! `409` there rather than hand out a credential that promises a boundary the
+//! node is not enforcing.
 //!
 //! ## What a guest can reach
 //!
-//! The minted key carries one role: `read` on the share's `indices` plus, when
-//! a brain is named, `read` on that brain's edges index
-//! (`authz::brain_edges_index`). That is what unlocks `/{index}/_search`,
-//! `_mget`, `_count`, and `/_graph/{brain}/ego|overview` for the guest, and
-//! what `authz` denies everywhere else. The `autoindex-catalog` index is **not**
-//! granted: it lists every corpus on the node, the engine has no document-level
-//! security to filter it with, and the guest page already receives the index
-//! name directly.
+//! The minted key carries one role, named `share:<handle>`: `read` on the
+//! share's `indices` plus, when a brain is named, `read` on that brain's edges
+//! index (`authz::brain_edges_index`). Two things then confine it:
+//!
+//! 1. the index grants — the same per-index authorization every scoped key
+//!    gets, in the middleware and again in the engine's index funnel;
+//! 2. a **route allow-list** that applies to share guests only
+//!    (`authz::guest_route_allowed`, keyed on [`GUEST_ROLE_PREFIX`]):
+//!    `_search`, `_count`, `_msearch`, `_mget`, `_mapping`, `_field_caps`,
+//!    `GET _doc/{id}` and `GET _source/{id}` on the granted indices, and
+//!    `GET /_graph/{brain}/ego|overview`. An ordinary scoped key is given a
+//!    *filtered* view of `_cat`, `_cluster/*`, `_nodes` and friends because
+//!    Kibana needs one; a guest is given none of it. No `scroll`, no `_pit`,
+//!    no `_async_search` either — nothing that parks state on the owner's
+//!    machine.
+//!
+//! The `autoindex-catalog` index is **not** granted: it lists every corpus on
+//! the node, the engine has no document-level security to filter it with, and
+//! the guest page already receives the index name directly.
 
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -107,6 +157,16 @@ pub const IP_PER_HOUR: u32 = 100;
 /// against it is a search that does not finish.
 pub const SHARE_PER_MINUTE: u32 = 10;
 pub const SHARE_PER_HOUR: u32 = 30;
+
+/// Every guest key's single role is named `share:<handle>`. `authz` keys its
+/// guest route allow-list on this prefix (`Principal::is_share_guest`).
+pub const GUEST_ROLE_PREFIX: &str = "share:";
+
+/// Hard ceiling on live rate windows. Past it, new source addresses share one
+/// overflow bucket — throttled together rather than tracked without bound.
+const MAX_WINDOWS: usize = 50_000;
+/// Stale windows are swept every this-many charges, not on every call.
+const PRUNE_EVERY: u64 = 64;
 
 const WINDOW_MIN_MS: u64 = 60_000;
 const WINDOW_HOUR_MS: u64 = 3_600_000;
@@ -212,6 +272,18 @@ pub struct ShareStore {
     path: PathBuf,
     records: DashMap<String, ShareRecord>,
     windows: DashMap<String, RateWindow>,
+    charges: std::sync::atomic::AtomicU64,
+}
+
+/// A refused charge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Throttled {
+    /// Seconds until the window that refused rolls over.
+    pub retry_after_secs: u64,
+    /// True for the first refusal in that window only. The caller audits that
+    /// one and stays quiet for the rest, so an unauthenticated flood cannot
+    /// turn the audit log into its own denial of service.
+    pub first_in_window: bool,
 }
 
 impl ShareStore {
@@ -237,6 +309,7 @@ impl ShareStore {
             path,
             records,
             windows: DashMap::new(),
+            charges: std::sync::atomic::AtomicU64::new(0),
         })
     }
 
@@ -286,28 +359,75 @@ impl ShareStore {
         }
     }
 
-    /// Charge one claim attempt against `key`. `Err(retry_after_secs)` when
-    /// over either window. Same sliding-window shape as the console's auth
-    /// limiter (`xerj-console-api::auth::rate_limit`), re-implemented here
-    /// because that one is bound to `ConsoleState` and this crate must not
-    /// depend on the console.
-    fn charge(&self, key: &str, per_minute: u32, per_hour: u32, now_ms: u64) -> Result<(), u64> {
-        for (suffix, window_ms, limit) in [("m", WINDOW_MIN_MS, per_minute), ("h", WINDOW_HOUR_MS, per_hour)] {
-            let k = format!("{key}:{suffix}");
-            let mut w = self.windows.entry(k).or_insert(RateWindow { count: 0, start_ms: now_ms });
-            if now_ms.saturating_sub(w.start_ms) > window_ms {
-                *w = RateWindow { count: 0, start_ms: now_ms };
-            }
-            w.count += 1;
-            if w.count > limit {
-                let retry = (w.start_ms + window_ms).saturating_sub(now_ms) / 1000 + 1;
-                return Err(retry);
-            }
+    /// Charge one claim attempt against `key`. `Err` when over either window.
+    /// Same sliding-window shape as the console's auth limiter
+    /// (`xerj-console-api::auth::rate_limit`), re-implemented here because
+    /// that one is bound to `ConsoleState` and this crate must not depend on
+    /// the console.
+    fn charge(
+        &self,
+        key: &str,
+        per_minute: u32,
+        per_hour: u32,
+        now_ms: u64,
+    ) -> Result<(), Throttled> {
+        use std::sync::atomic::Ordering;
+        if self.charges.fetch_add(1, Ordering::Relaxed) % PRUNE_EVERY == 0 {
+            self.windows
+                .retain(|_, w| now_ms.saturating_sub(w.start_ms) < WINDOW_HOUR_MS);
         }
-        if self.windows.len() > 10_000 {
-            self.windows.retain(|_, w| now_ms.saturating_sub(w.start_ms) < WINDOW_HOUR_MS);
+        // Bounded state for an unauthenticated route: once the table is full,
+        // addresses it has not seen yet are throttled as one.
+        // Only source keys collapse: share keys are bounded by the number of
+        // shares, which only the superuser can create.
+        let key = if key.starts_with("ip:")
+            && self.windows.len() >= MAX_WINDOWS
+            && !self.windows.contains_key(&format!("{key}:m"))
+        {
+            "ip:overflow"
+        } else {
+            key
+        };
+        for (suffix, window_ms, limit) in [
+            ("m", WINDOW_MIN_MS, per_minute),
+            ("h", WINDOW_HOUR_MS, per_hour),
+        ] {
+            let k = format!("{key}:{suffix}");
+            let mut w = self.windows.entry(k).or_insert(RateWindow {
+                count: 0,
+                start_ms: now_ms,
+            });
+            if now_ms.saturating_sub(w.start_ms) > window_ms {
+                *w = RateWindow {
+                    count: 0,
+                    start_ms: now_ms,
+                };
+            }
+            w.count = w.count.saturating_add(1);
+            if w.count > limit {
+                return Err(Throttled {
+                    retry_after_secs: (w.start_ms + window_ms).saturating_sub(now_ms) / 1000 + 1,
+                    first_in_window: w.count == limit + 1,
+                });
+            }
         }
         Ok(())
+    }
+}
+
+/// The rate-limit key for a claim source: the address itself for IPv4, the
+/// enclosing /64 for IPv6. A single IPv6 host is routinely delegated a whole
+/// /64 and can take a fresh address per request, so per-address buckets there
+/// are no throttle at all. Anything that is not an address (`unknown`) is its
+/// own bucket.
+fn source_bucket(source: &str) -> String {
+    match source.parse::<IpAddr>() {
+        Ok(IpAddr::V6(v6)) => {
+            let mut seg = v6.segments();
+            seg[4..].fill(0);
+            format!("{}/64", std::net::Ipv6Addr::from(seg))
+        }
+        _ => source.to_string(),
     }
 }
 
@@ -494,6 +614,51 @@ fn bad_request(reason: String) -> Response {
     es_error(StatusCode::BAD_REQUEST, "illegal_argument_exception", reason)
 }
 
+/// Is this node enforcing authentication at all? Mirrors the open-mode test in
+/// [`crate::auth::authenticate`] exactly: those are the conditions under which
+/// every request is the superuser.
+fn auth_is_enforced(state: &AppState) -> bool {
+    let cfg = &state.config.auth;
+    cfg.enabled && !cfg.admin_api_key.is_empty()
+}
+
+/// The `409` an open node gives instead of a share. See the module docs.
+fn open_node_refusal() -> Response {
+    es_error(
+        StatusCode::CONFLICT,
+        "illegal_state_exception",
+        "this node runs with authentication off (--insecure, or auth.enabled = false), so \
+         every request is already the superuser and a read-only guest key would restrict \
+         nothing. Restart the node with authentication on (the default) to share an index"
+            .into(),
+    )
+}
+
+/// Nothing under `/_share` may be stored by a browser, a proxy or a CDN: the
+/// create response carries the link and passcode, the claim response carries
+/// a live credential, and an error body says whether a share exists.
+/// `no-store` for HTTP/1.1 caches, `Pragma` for the HTTP/1.0 ones still found
+/// in front of things.
+fn no_store(mut resp: Response) -> Response {
+    let headers = resp.headers_mut();
+    headers.insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store, max-age=0"),
+    );
+    headers.insert(header::PRAGMA, header::HeaderValue::from_static("no-cache"));
+    resp
+}
+
+/// Does the node believe forwarding headers from a proxy on this machine —
+/// i.e. is loopback a declared `server.trusted_proxies` entry? Reported in the
+/// create response so `xerj share --tunnel` can tell the owner whose address
+/// the audit log will record.
+fn loopback_is_trusted_proxy(state: &AppState) -> bool {
+    xerj_common::net::TrustedProxies::parse(&state.config.server.trusted_proxies)
+        .map(|t| t.contains(&IpAddr::from([127, 0, 0, 1])))
+        .unwrap_or(false)
+}
+
 /// The management routes are superuser-only. The admin key is what
 /// `xerj share` reads from `<data-dir>/admin.key`; a scoped key must not be
 /// able to widen its own reach by minting a share, and an unscoped key must
@@ -579,6 +744,21 @@ pub async fn create_share(
     principal: Principal,
     body: Option<Json<Value>>,
 ) -> Response {
+    no_store(create_share_inner(state, principal, body).await)
+}
+
+async fn create_share_inner(
+    state: AppState,
+    principal: Principal,
+    body: Option<Json<Value>>,
+) -> Response {
+    if !auth_is_enforced(&state) {
+        state
+            .engine
+            .audit
+            .append("share.create", principal.label(), "_share", "denied", "node has authentication off");
+        return open_node_refusal();
+    }
     if let Err(resp) = require_superuser(&principal) {
         state.engine.audit.append("share.create", principal.label(), "_share", "denied", "");
         return resp;
@@ -752,11 +932,23 @@ pub async fn create_share(
     out["share_id"] = json!(share_id);
     out["url_path"] = json!(format!("/_xerj-console/share#{share_id}"));
     out["passcode"] = json!(passcode);
+    out["claim_limiter"] = json!({
+        "per_share_per_minute": SHARE_PER_MINUTE,
+        "per_share_per_hour": SHARE_PER_HOUR,
+        // Whose address a claim is attributed to: the TCP peer, or — when
+        // loopback is a declared trusted proxy — the address a local reverse
+        // proxy or tunnel forwarded.
+        "source_address": if loopback_is_trusted_proxy(&state) { "forwarded" } else { "peer" },
+    });
     Json(out).into_response()
 }
 
 /// `GET /_share` — list every share. Superuser only. No hashes, no ids.
 pub async fn list_shares(State(state): State<AppState>, principal: Principal) -> Response {
+    no_store(list_shares_inner(state, principal).await)
+}
+
+async fn list_shares_inner(state: AppState, principal: Principal) -> Response {
     if let Err(resp) = require_superuser(&principal) {
         state.engine.audit.append("share.list", principal.label(), "_share", "denied", "");
         return resp;
@@ -775,6 +967,10 @@ pub async fn revoke_share(
     principal: Principal,
     AxumPath(id): AxumPath<String>,
 ) -> Response {
+    no_store(revoke_share_inner(state, principal, id).await)
+}
+
+async fn revoke_share_inner(state: AppState, principal: Principal, id: String) -> Response {
     if let Err(resp) = require_superuser(&principal) {
         state.engine.audit.append("share.revoke", principal.label(), "_share", "denied", "");
         return resp;
@@ -833,24 +1029,59 @@ pub async fn claim_share(
     AxumPath(id): AxumPath<String>,
     body: Option<Json<Value>>,
 ) -> Response {
+    no_store(claim_share_inner(state, source, id, body).await)
+}
+
+async fn claim_share_inner(
+    state: AppState,
+    source: String,
+    id: String,
+    body: Option<Json<Value>>,
+) -> Response {
     let subject = format!("guest@{source}");
     let now = now_ms();
     let id = id.trim().to_string();
-    // Unknown ids are throttled per source only; a real share is throttled
-    // per share as well, so a distributed guesser still runs into the
-    // per-share ceiling.
-    if let Err(retry) = state.shares.charge(&format!("ip:{source}"), IP_PER_MINUTE, IP_PER_HOUR, now) {
-        state.engine.audit.append("share.claim", &subject, "_share", "denied", "rate-limited (source)");
-        return too_many(retry);
+    if !auth_is_enforced(&state) {
+        return open_node_refusal();
     }
+    // The lookup comes FIRST, and which window is charged depends on its
+    // answer — see "The two throttles" in the module docs. It is a SHA-256 and
+    // a map probe, so an unauthenticated caller buys nothing by forcing it.
     let Some(record) = state.shares.find_by_id(&id) else {
+        // Junk: the source window is the only throttle there is. Behind a
+        // tunnel every client shares the loopback bucket, which makes this
+        // bound tighter, never looser — and it cannot lock a real guest out,
+        // because a real share id never reaches this branch.
+        let bucket = format!("ip:{}", source_bucket(&source));
+        if let Err(t) = state.shares.charge(&bucket, IP_PER_MINUTE, IP_PER_HOUR, now) {
+            if t.first_in_window {
+                state.engine.audit.append(
+                    "share.claim",
+                    &subject,
+                    "_share",
+                    "denied",
+                    "rate-limited (source); further refusals in this window are not logged",
+                );
+            }
+            return too_many(t.retry_after_secs);
+        }
         state.engine.audit.append("share.claim", &subject, "_share", "error", "unknown share");
         return es_error(StatusCode::NOT_FOUND, "resource_not_found_exception", "unknown share link".into());
     };
     let handle = record.handle.clone();
-    if let Err(retry) = state.shares.charge(&format!("share:{handle}"), SHARE_PER_MINUTE, SHARE_PER_HOUR, now) {
-        state.engine.audit.append("share.claim", &subject, &handle, "denied", "rate-limited (share)");
-        return too_many(retry);
+    // A real share: its own window, from anywhere. This is the passcode
+    // lockout and it holds whoever is asking and however they got here.
+    if let Err(t) = state.shares.charge(&format!("share:{handle}"), SHARE_PER_MINUTE, SHARE_PER_HOUR, now) {
+        if t.first_in_window {
+            state.engine.audit.append(
+                "share.claim",
+                &subject,
+                &handle,
+                "denied",
+                "rate-limited (share); further refusals in this window are not logged",
+            );
+        }
+        return too_many(t.retry_after_secs);
     }
     if let Some(why) = record.unavailable(now) {
         state.engine.audit.append("share.claim", &subject, &handle, "denied", why);
@@ -881,7 +1112,7 @@ pub async fn claim_share(
     // `POST /_security/api_key` so the same auth path re-authenticates it.
     let granted = record.granted_indices();
     let roles = vec![Role::new(
-        format!("share:{handle}"),
+        format!("{GUEST_ROLE_PREFIX}{handle}"),
         HashSet::from([Privilege::ReadIndex]),
         granted,
     )];
@@ -1037,8 +1268,18 @@ mod tests {
         for _ in 0..SHARE_PER_MINUTE {
             store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap();
         }
-        let retry = store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap_err();
-        assert!(retry >= 1 && retry <= 61, "{retry}");
+        let refused = store
+            .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+            .unwrap_err();
+        let retry = refused.retry_after_secs;
+        assert!((1..=61).contains(&retry), "{retry}");
+        // The first refusal in a window is the one that gets audited; the
+        // flood behind it is not, or the audit log becomes the attack.
+        assert!(refused.first_in_window);
+        let again = store
+            .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+            .unwrap_err();
+        assert!(!again.first_in_window);
         // A different share is untouched.
         store.charge("share:y", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap();
         // The minute window rolls over; the hour window still counts.
@@ -1062,10 +1303,98 @@ mod tests {
         // The hourly budget is spent. A brand-new minute window does not help.
         t += WINDOW_MIN_MS + 1;
         assert!(t - now < WINDOW_HOUR_MS, "still inside the same hour");
-        let retry = store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t).unwrap_err();
+        let retry = store
+            .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t)
+            .unwrap_err()
+            .retry_after_secs;
         assert!(retry > 60, "locked out by the hour window, not the minute one: {retry}s");
         // And the throttled attempts above never counted as guesses.
         assert_eq!(accepted, SHARE_PER_HOUR);
+    }
+
+    #[test]
+    fn ipv6_sources_are_bucketed_by_their_64() {
+        // One host, two addresses out of the /64 it was delegated: one bucket.
+        assert_eq!(
+            source_bucket("2001:db8:1:2:aaaa:bbbb:cccc:dddd"),
+            source_bucket("2001:db8:1:2::1")
+        );
+        assert_eq!(source_bucket("2001:db8:1:2::1"), "2001:db8:1:2::/64");
+        // A different /64 is a different bucket.
+        assert_ne!(source_bucket("2001:db8:1:3::1"), source_bucket("2001:db8:1:2::1"));
+        // IPv4 and the no-transport bucket are left alone.
+        assert_eq!(source_bucket("203.0.113.9"), "203.0.113.9");
+        assert_eq!(source_bucket("unknown"), "unknown");
+    }
+
+    #[test]
+    fn junk_traffic_cannot_spend_a_real_shares_budget() {
+        // The tunnel case: every client arrives as 127.0.0.1. Exhaust that
+        // source bucket the way a flood of made-up ids would…
+        let dir = tempfile::tempdir().unwrap();
+        let store = ShareStore::open(dir.path().to_str().unwrap());
+        let now = 5_000_000;
+        let junk = format!("ip:{}", source_bucket("127.0.0.1"));
+        for _ in 0..IP_PER_MINUTE {
+            store.charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now).unwrap();
+        }
+        assert!(store.charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now).is_err());
+        // …and a real share's window is untouched: `claim_share` charges a
+        // known id to `share:<handle>` only, never to the source bucket.
+        for _ in 0..SHARE_PER_MINUTE {
+            store
+                .charge("share:abc123", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn the_window_table_is_bounded_and_overflow_throttles_rather_than_exempts() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ShareStore::open(dir.path().to_str().unwrap());
+        let now = 9_000_000;
+        for i in 0..MAX_WINDOWS {
+            store.windows.insert(
+                format!("ip:filler-{i}:m"),
+                RateWindow {
+                    count: 1,
+                    start_ms: now,
+                },
+            );
+        }
+        // New sources now share one bucket: ten of them, from ten "addresses",
+        // and the eleventh is refused.
+        for i in 0..IP_PER_MINUTE {
+            store
+                .charge(&format!("ip:new-{i}"), IP_PER_MINUTE, IP_PER_HOUR, now)
+                .unwrap();
+        }
+        assert!(store
+            .charge("ip:new-last", IP_PER_MINUTE, IP_PER_HOUR, now)
+            .is_err());
+        assert!(!store.windows.contains_key("ip:new-0:m"));
+        // A share's own window is never collapsed into the overflow bucket.
+        store
+            .charge("share:real", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+            .unwrap();
+        assert!(store.windows.contains_key("share:real:m"));
+    }
+
+    #[test]
+    fn nothing_under_share_is_cacheable() {
+        let resp = no_store(Json(json!({"api_key": "x"})).into_response());
+        assert_eq!(
+            resp.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-store, max-age=0"
+        );
+        assert_eq!(resp.headers().get(header::PRAGMA).unwrap(), "no-cache");
+        // Errors too: a cached 404/410 says whether a share exists.
+        let resp = no_store(too_many(5));
+        assert_eq!(
+            resp.headers().get(header::CACHE_CONTROL).unwrap(),
+            "no-store, max-age=0"
+        );
+        assert_eq!(resp.headers().get(header::RETRY_AFTER).unwrap(), "5");
     }
 
     #[test]

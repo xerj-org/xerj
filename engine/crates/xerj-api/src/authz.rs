@@ -1281,6 +1281,23 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     let path = req.uri().path().to_string();
     let target = classify(&path);
     if matches!(target, Target::Exempt) {
+        // `/v1/metrics` is exempt because it names no index — but it does
+        // describe the node (index counts, document counts, request rates),
+        // which is more than a share-link guest was handed. Every other exempt
+        // path is a probe, the version banner, "who am I" or the claim route
+        // itself. Authenticating here costs one header lookup on the scrape
+        // path only.
+        if path == "/v1/metrics" {
+            let principal = authenticate(
+                &state,
+                req.headers()
+                    .get(header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok()),
+            );
+            if principal.is_share_guest() {
+                return guest_forbidden(&principal, &path);
+            }
+        }
         return next.run(req).await;
     }
 
@@ -1296,6 +1313,14 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
 
     let segs = segments(&path);
     let method = req.method().clone();
+
+    // A share-link guest gets a route allow-list on top of its index grants.
+    // Checked first and separately so that everything below still runs for a
+    // guest: this can only refuse, never permit.
+    if principal.is_share_guest() && !guest_route_allowed(&method, &segs, &target, req.uri().query())
+    {
+        return guest_forbidden(&principal, &path);
+    }
     let shape = body_shape(&method, &segs);
 
     // Buffer the body only for the routes that can name an index inside it.
@@ -1328,6 +1353,118 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     let response =
         xerj_engine::index_guard::scoped(visibility_for(&principal), next.run(req)).await;
     prune_response(response, &segs, &principal, &state).await
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Share-link guests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Index-scoped operations a share-link guest may call: what a reading room
+/// needs, and nothing that opens a server-side context or describes the node.
+///
+/// Not on the list, on purpose: `_pit` and `_async_search` (server-side state
+/// a guest could pile up), `_sql`/`_esql`/`_eql` (the table name is resolved
+/// deep in a statement), `_stats`/`_settings`/`_segments`/`_disk_usage`
+/// (storage layout), `_alias`, `_analyze`, `_explain`, `_termvectors`,
+/// `_validate`, `_rank_eval`, `_knn_search`, `_terms_enum`, `_graph`.
+const GUEST_INDEX_OPS: &[&str] = &[
+    "_search",
+    "_count",
+    "_msearch",
+    "_mget",
+    "_mapping",
+    "_field_caps",
+];
+/// The same, for the ops that take a document id as one further segment.
+const GUEST_DOC_OPS: &[&str] = &["_doc", "_source"];
+/// The read half of the graph API.
+const GUEST_GRAPH_OPS: &[&str] = &["ego", "overview"];
+/// Query-string parameters that turn a permitted search into something else.
+/// `scroll` opens a server-side cursor that outlives the request.
+const GUEST_DENIED_PARAMS: &[&str] = &["scroll"];
+
+/// May a share-link guest call this route at all?
+///
+/// A route allow-list, deliberately separate from — and applied before — the
+/// index decision in [`decide`]. A scoped key is normally given a *filtered*
+/// view of the cluster surface (`_cat`, `_cluster/*`, `_nodes`, `_snapshot`
+/// listings, the global `_search`), because Kibana cannot function without
+/// one. A guest is not Kibana: it was handed one corpus by someone who did not
+/// agree to describe their node. So for a guest the cluster surface is simply
+/// closed, and the index surface is closed except for reading.
+///
+/// Returning `true` permits nothing on its own; [`decide`] still checks every
+/// named index against the key's grants.
+fn guest_route_allowed(
+    method: &Method,
+    segs: &[String],
+    target: &Target,
+    query: Option<&str>,
+) -> bool {
+    let is_get = method == Method::GET || method == Method::HEAD;
+    let is_read_verb = is_get || method == Method::POST;
+    match target {
+        Target::Exempt => true,
+        Target::Cluster | Target::Memory(_) => false,
+        Target::Brain(_) => {
+            is_get
+                && segs.len() == 3
+                && segs
+                    .get(2)
+                    .is_some_and(|op| GUEST_GRAPH_OPS.contains(&op.as_str()))
+        }
+        Target::Indices(_, op_start) => {
+            // The native router spells the same index `/v1/indices/{name}/…`;
+            // the guest page speaks ES-compat only, so that door stays shut.
+            if segs.first().map(String::as_str) == Some("v1") {
+                return false;
+            }
+            let Some(op) = segs.get(*op_start).map(String::as_str) else {
+                // `GET /{index}` — settings, aliases and mappings in one.
+                return false;
+            };
+            let extra = segs.len() - op_start - 1;
+            let shape_ok = if GUEST_INDEX_OPS.contains(&op) {
+                is_read_verb && extra == 0
+            } else if GUEST_DOC_OPS.contains(&op) {
+                is_get && extra == 1
+            } else {
+                false
+            };
+            shape_ok && !query_names_any(query, GUEST_DENIED_PARAMS)
+        }
+    }
+}
+
+/// Does the raw query string carry any of `names` as a parameter name?
+/// Names are percent-decoded and compared case-insensitively, so `%73croll`
+/// and `SCROLL` are the parameter they decode to.
+fn query_names_any(query: Option<&str>, names: &[&str]) -> bool {
+    let Some(query) = query else {
+        return false;
+    };
+    query.split('&').any(|pair| {
+        let key = pair.split('=').next().unwrap_or("");
+        let key = percent_decode(&key.replace('+', " ")).to_ascii_lowercase();
+        names.contains(&key.trim())
+    })
+}
+
+/// The guest's 403. Says what the key is for, so a guest who wandered gets an
+/// explanation rather than the operator-facing "mint a key whose
+/// role_descriptors grant…" remedy, which they can do nothing with.
+fn guest_forbidden(principal: &Principal, path: &str) -> Response {
+    tracing::debug!(
+        principal = principal.label(),
+        path,
+        "share-link guest denied a route outside the reading-room allow-list"
+    );
+    es_error(
+        StatusCode::FORBIDDEN,
+        "this credential is a share-link guest key: it can search and read the shared \
+         index (and walk the shared brain's links), and nothing else on this node"
+            .to_string(),
+    )
 }
 
 /// The whole decision, split out so it can be unit-tested without a router.
@@ -1859,6 +1996,194 @@ mod tests {
         fn targets(&self, name: &str) -> Option<Vec<String>> {
             self.0.get(name).cloned()
         }
+    }
+
+    /// The principal a share-link claim mints: one `share:<handle>` role,
+    /// `read` on the shared index and on the brain's edges index.
+    fn guest() -> Principal {
+        Principal::Scoped {
+            key_id: "g1".into(),
+            roles: vec![Role::new(
+                format!("{}1a2b3c4d5e6f", crate::share::GUEST_ROLE_PREFIX),
+                HashSet::from([Privilege::ReadIndex]),
+                vec!["casefile".to_string(), brain_edges_index("case")],
+            )],
+        }
+    }
+
+    /// The guest route allow-list AND the index decision, the way the
+    /// middleware stacks them. `path` may carry a query string.
+    fn guest_check(method: Method, path_and_query: &str, body: &str) -> bool {
+        let p = guest();
+        let (path, query) = match path_and_query.split_once('?') {
+            Some((p, q)) => (p, Some(q)),
+            None => (path_and_query, None),
+        };
+        let segs = segments(path);
+        let target = classify(path);
+        guest_route_allowed(&method, &segs, &target, query) && check(&p, method, path, body)
+    }
+
+    #[test]
+    fn a_share_guest_is_recognised_by_its_role_name_and_only_loses_reach() {
+        assert!(guest().is_share_guest());
+        assert!(!scoped(&["casefile"], &[Privilege::ReadIndex]).is_share_guest());
+        assert!(!unscoped().is_share_guest());
+        assert!(!Principal::Superuser.is_share_guest());
+        assert!(!Principal::Denied.is_share_guest());
+        // A key holding a share role AND an ordinary one is not a guest: the
+        // allow-list is for keys a claim minted, which carry exactly one role.
+        let mixed = Principal::Scoped {
+            key_id: "m".into(),
+            roles: vec![
+                Role::new("share:x", HashSet::from([Privilege::ReadIndex]), vec!["a".into()]),
+                Role::new("ops", HashSet::from([Privilege::ReadIndex]), vec!["b".into()]),
+            ],
+        };
+        assert!(!mixed.is_share_guest());
+    }
+
+    #[test]
+    fn a_share_guest_can_read_the_shared_index_and_walk_the_shared_brain() {
+        for (method, path) in [
+            (Method::POST, "/casefile/_search"),
+            (Method::GET, "/casefile/_search"),
+            (Method::POST, "/casefile/_search?size=10&from=20"),
+            (Method::POST, "/casefile/_count"),
+            (Method::GET, "/casefile/_doc/1"),
+            (Method::HEAD, "/casefile/_doc/1"),
+            (Method::GET, "/casefile/_source/1"),
+            (Method::GET, "/casefile/_mapping"),
+            (Method::POST, "/casefile/_field_caps"),
+            (Method::GET, "/_graph/case/ego"),
+            (Method::GET, "/_graph/case/overview"),
+            (Method::GET, "/"),
+            (Method::GET, "/_security/_authenticate"),
+            (Method::GET, "/health/ready"),
+        ] {
+            assert!(guest_check(method.clone(), path, ""), "{method} {path} must be allowed");
+        }
+        assert!(guest_check(
+            Method::POST,
+            "/casefile/_mget",
+            r#"{"docs":[{"_id":"1"}]}"#
+        ));
+    }
+
+    #[test]
+    fn a_share_guest_is_shut_out_of_everything_that_describes_or_changes_the_node() {
+        for (method, path) in [
+            // the cluster surface an ordinary scoped key sees filtered
+            (Method::GET, "/_cat/indices"),
+            (Method::GET, "/_cat/aliases"),
+            (Method::GET, "/_cluster/health"),
+            (Method::GET, "/_cluster/state"),
+            (Method::GET, "/_cluster/settings"),
+            (Method::GET, "/_nodes"),
+            (Method::GET, "/_nodes/stats"),
+            (Method::GET, "/_snapshot"),
+            (Method::GET, "/_snapshot/_all"),
+            (Method::GET, "/_mapping"),
+            (Method::GET, "/_aliases"),
+            (Method::GET, "/_alias"),
+            (Method::GET, "/_tasks"),
+            (Method::GET, "/_stats"),
+            (Method::GET, "/_resolve/index/*"),
+            (Method::GET, "/_security/api_key"),
+            (Method::POST, "/_security/api_key"),
+            (Method::GET, "/_xerj/wal_tap"),
+            // share management
+            (Method::GET, "/_share"),
+            (Method::POST, "/_share"),
+            (Method::DELETE, "/_share/1a2b3c4d5e6f"),
+            // global verbs: a reading room names its index
+            (Method::POST, "/_search"),
+            (Method::POST, "/_msearch"),
+            (Method::POST, "/_mget"),
+            (Method::POST, "/_count"),
+            (Method::POST, "/_sql"),
+            // server-side contexts
+            (Method::POST, "/casefile/_search?scroll=1m"),
+            (Method::POST, "/casefile/_search?size=1&SCROLL=1m"),
+            (Method::POST, "/casefile/_search?%73croll=1m"),
+            (Method::POST, "/_search/scroll"),
+            (Method::DELETE, "/_search/scroll"),
+            (Method::POST, "/casefile/_pit"),
+            (Method::DELETE, "/_pit"),
+            (Method::POST, "/casefile/_async_search"),
+            // the shared index's own non-reading surface
+            (Method::GET, "/casefile"),
+            (Method::HEAD, "/casefile"),
+            (Method::GET, "/casefile/_settings"),
+            (Method::GET, "/casefile/_stats"),
+            (Method::GET, "/casefile/_alias"),
+            (Method::GET, "/casefile/_segments"),
+            (Method::POST, "/casefile/_search/template"),
+            (Method::POST, "/casefile/_sql"),
+            (Method::POST, "/casefile/_analyze"),
+            (Method::POST, "/casefile/_doc/1"),
+            (Method::PUT, "/casefile/_doc/1"),
+            (Method::DELETE, "/casefile/_doc/1"),
+            (Method::POST, "/casefile/_doc"),
+            (Method::POST, "/casefile/_update/1"),
+            (Method::POST, "/casefile/_bulk"),
+            (Method::POST, "/casefile/_delete_by_query"),
+            (Method::POST, "/casefile/_refresh"),
+            (Method::DELETE, "/casefile"),
+            (Method::PUT, "/casefile"),
+            // another index, another brain, the brain's write half, memory
+            (Method::POST, "/private-diary/_search"),
+            (Method::GET, "/private-diary/_doc/1"),
+            (Method::POST, "/casefile,private-diary/_search"),
+            (Method::GET, "/_graph/other/ego"),
+            (Method::GET, "/_graph/other/overview"),
+            (Method::POST, "/_graph/case/link"),
+            (Method::DELETE, "/_graph/case/link/e1"),
+            (Method::GET, "/_memory/case"),
+            (Method::POST, "/_memory/case/_recall"),
+            // the native router's spelling of the same index
+            (Method::POST, "/v1/indices/casefile/search"),
+            (Method::GET, "/v1/indices/casefile"),
+            (Method::GET, "/v1/indices"),
+        ] {
+            assert!(!guest_check(method.clone(), path, ""), "{method} {path} must be refused");
+        }
+        // A body that reaches past the path index is refused by the index
+        // decision, exactly as for any other scoped key.
+        assert!(!guest_check(
+            Method::POST,
+            "/casefile/_mget",
+            r#"{"docs":[{"_index":"private-diary","_id":"1"}]}"#
+        ));
+        assert!(!guest_check(
+            Method::POST,
+            "/casefile/_msearch",
+            "{\"index\":\"private-diary\"}\n{\"query\":{\"match_all\":{}}}\n"
+        ));
+    }
+
+    #[test]
+    fn the_guest_allow_list_never_grants_what_the_key_does_not_hold() {
+        // An ordinary scoped key is not subject to the allow-list at all…
+        let ordinary = scoped(&["casefile"], &[Privilege::ReadIndex]);
+        assert!(check(&ordinary, Method::GET, "/_cat/indices", ""));
+        // …and the allow-list saying yes is not a grant: the index decision
+        // still refuses an index the guest was never given.
+        let segs = segments("/private-diary/_search");
+        let target = classify("/private-diary/_search");
+        assert!(guest_route_allowed(&Method::POST, &segs, &target, None));
+        assert!(!check(&guest(), Method::POST, "/private-diary/_search", ""));
+    }
+
+    #[test]
+    fn query_parameter_names_are_decoded_before_they_are_compared() {
+        assert!(query_names_any(Some("scroll=1m"), GUEST_DENIED_PARAMS));
+        assert!(query_names_any(Some("a=b&Scroll=1m"), GUEST_DENIED_PARAMS));
+        assert!(query_names_any(Some("%73%63roll=1m"), GUEST_DENIED_PARAMS));
+        assert!(query_names_any(Some("scroll"), GUEST_DENIED_PARAMS));
+        assert!(!query_names_any(Some("q=scroll&size=1"), GUEST_DENIED_PARAMS));
+        assert!(!query_names_any(Some("scroll_size=1"), GUEST_DENIED_PARAMS));
+        assert!(!query_names_any(None, GUEST_DENIED_PARAMS));
     }
 
     /// Run the whole decision the way the middleware does.
