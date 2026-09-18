@@ -6080,6 +6080,25 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             // string the node doc carries, and `id` is the
                             // section node the evidence lives in.
                             if let Some(gr) = graph.as_ref() {
+                                // Structured (field-level) detection first: it
+                                // is offered every record, text section or not
+                                // — an email's locators (`m{off}-msg-s0`) are
+                                // deliberately not text sections, and its
+                                // thread edges come from parsed headers.
+                                if let (Some(cf), Some(staged_fields)) =
+                                    (gr.corpus.files.get(&f.rel), doc.as_object())
+                                {
+                                    let ctx = detect::RecordCtx {
+                                        corpus: &gr.corpus,
+                                        file: cf,
+                                        locator: &rec.locator,
+                                        doc_id: &id,
+                                        fields: staged_fields,
+                                    };
+                                    for det in &gr.detectors {
+                                        det.detect_record(&ctx, &mut edge_drafts);
+                                    }
+                                }
                                 if let Some(label) = section_label(&rec.locator) {
                                     if let (Some(cf), Some(body)) = (
                                         gr.corpus.files.get(&f.rel),

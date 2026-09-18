@@ -59,8 +59,8 @@
 //! indexed by byte offset, there is no `unwrap` on parsed input, and every
 //! slice bound is derived from a `len()` or a `position()` of the same buffer.
 
-use super::eml::{emit_email_doc, emit_message, MessageEnvelope, MessageOutcome, MAX_EML};
-use super::{open_reader, ExtractStats, Sink};
+use super::eml::{emit_message, MessageEnvelope, MessageOutcome, MAX_EML};
+use super::{emit_document_with_fields, open_reader, ExtractStats, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::io::BufRead;
@@ -83,15 +83,17 @@ pub struct RawMessage {
     /// The message, with one level of `>From ` quoting undone and the
     /// container's trailing blank line removed. Holds at most the cap.
     pub bytes: Vec<u8>,
-    /// Size of the message in the mailbox. Larger than `bytes.len()` exactly
-    /// when the message was over the cap and `bytes` is only its head.
+    /// Size of the message in the mailbox, which is what `bytes.len()` would
+    /// have been without the cap.
     pub total_len: u64,
+    /// The message was over the cap and `bytes` is only its head.
+    capped: bool,
 }
 
 impl RawMessage {
     /// The message was larger than the splitter's cap; `bytes` is its head.
     pub fn oversized(&self) -> bool {
-        self.total_len > self.bytes.len() as u64
+        self.capped
     }
 }
 
@@ -174,6 +176,9 @@ impl<R: BufRead> Splitter<R> {
     fn push(cur: &mut RawMessage, cap: usize, bytes: &[u8]) {
         cur.total_len += bytes.len() as u64;
         let room = cap.saturating_sub(cur.bytes.len());
+        if bytes.len() > room {
+            cur.capped = true;
+        }
         if room > 0 {
             cur.bytes.extend_from_slice(&bytes[..bytes.len().min(room)]);
         }
@@ -208,11 +213,15 @@ impl<R: BufRead> Splitter<R> {
         // container, not to the message. The message's own final newline stays.
         // Only when nothing was cut: a capped message does not end where it ends.
         if !msg.oversized() {
-            if msg.bytes.ends_with(b"\r\n\r\n") {
-                msg.bytes.truncate(msg.bytes.len() - 2);
+            let strip = if msg.bytes.ends_with(b"\r\n\r\n") {
+                2
             } else if msg.bytes.ends_with(b"\n\n") {
-                msg.bytes.truncate(msg.bytes.len() - 1);
-            }
+                1
+            } else {
+                0
+            };
+            msg.bytes.truncate(msg.bytes.len() - strip);
+            msg.total_len -= strip as u64;
         }
         msg
     }
@@ -238,6 +247,7 @@ impl<R: BufRead> Splitter<R> {
                     from_line: String::from_utf8_lossy(trim_eol(&self.head)).into_owned(),
                     bytes: Vec::new(),
                     total_len: 0,
+                    capped: false,
                 });
                 if matches!(kind, Head::Eof) {
                     self.eof = true;
@@ -456,7 +466,7 @@ fn emit_unparseable(
     if let Some(date) = &env.fallback_date {
         fields.insert("email_date".into(), Value::String(date.clone()));
     }
-    emit_email_doc(
+    emit_document_with_fields(
         &fields,
         "(unparseable message)",
         text,
@@ -781,16 +791,17 @@ mod tests {
     fn malformed_messages_never_stop_the_mailbox() {
         let good = msg("good@x", "survivor", "still indexed");
         let mut mbox: Vec<u8> = Vec::new();
-        let mut add = |sep: &str, body: &[u8]| {
+        fn add_to(mbox: &mut Vec<u8>, sep: &str, body: &[u8]) {
             mbox.extend_from_slice(sep.as_bytes());
             mbox.push(b'\n');
             mbox.extend_from_slice(body);
             mbox.extend_from_slice(b"\n\n");
-        };
+        }
         // no headers at all, only non-UTF-8 bytes
-        add(SEP_A, &[0xff, 0xfe, 0xfd, b'\n', 0x80, 0x81]);
+        add_to(&mut mbox, SEP_A, &[0xff, 0xfe, 0xfd, b'\n', 0x80, 0x81]);
         // an unterminated multipart with a truncated base64 attachment
-        add(
+        add_to(
+            &mut mbox,
             SEP_A,
             b"From: a@x.org\nSubject: broken\nMIME-Version: 1.0\n\
               Content-Type: multipart/mixed; boundary=\"zz\"\n\n--zz\n\
@@ -798,14 +809,15 @@ mod tests {
               Content-Transfer-Encoding: base64\n\nJVBERi0xLjQKJ",
         );
         // latin-1 body declared as such, 8-bit, no MIME-Version
-        add(
+        add_to(
+            &mut mbox,
             SEP_A,
             b"From: a@x.org\nSubject: caf\xe9\nContent-Type: text/plain; charset=iso-8859-1\n\n\
               Gr\xfc\xdfe aus K\xf6ln\n",
         );
         // an entry that is nothing but a separator
         mbox.extend_from_slice(format!("{SEP_TBIRD}\n").as_bytes());
-        add(SEP_GMAIL, good.as_bytes());
+        add_to(&mut mbox, SEP_GMAIL, good.as_bytes());
         let (recs, stats) = records(&mbox);
         assert!(
             recs.iter()

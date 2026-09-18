@@ -24,9 +24,7 @@
 //! standalone `.eml`: same fields, same locators, only namespaced by the
 //! message's position in its container (`m{offset}-msg-s0` vs `msg-s0`).
 
-use super::{
-    for_each_section, read_whole, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE,
-};
+use super::{emit_document_with_fields, read_whole, ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;
 use mail_parser::{MessageParser, MimeHeaders, PartType};
 use serde_json::{Map, Value};
@@ -88,17 +86,18 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     }
 }
 
-/// The message parser, built once. mail-parser leaves headers it has no
-/// registered grammar for RAW — undecoded — and Gmail writes a non-ASCII label
-/// as an RFC 2047 encoded-word (`=?UTF-8?B?…?=`), so the two Gmail headers read
-/// below are registered as unstructured text.
-fn parser() -> &'static MessageParser {
-    static PARSER: std::sync::OnceLock<MessageParser> = std::sync::OnceLock::new();
-    PARSER.get_or_init(|| {
-        MessageParser::default()
-            .header_text("X-Gmail-Labels")
-            .header_text("X-GM-THRID")
-    })
+/// An unstructured header mail-parser has no registered grammar for, decoded.
+///
+/// The default parser leaves such headers RAW, and Gmail writes a non-ASCII
+/// label as an RFC 2047 encoded-word (`=?UTF-8?B?…?=`). Registering a custom
+/// grammar on the parser is not an option: a non-empty `header_map` REPLACES
+/// the built-in dispatch, and `From`/`To`/`Date` silently stop being parsed.
+/// `header_as` re-reads just this header's bytes as text instead.
+fn text_header(msg: &mail_parser::Message<'_>, name: &'static str) -> Option<String> {
+    msg.header_as(name, mail_parser::HeaderForm::Text)
+        .into_iter()
+        .find_map(|v| v.as_text().map(|t| t.trim().to_string()))
+        .filter(|t| !t.is_empty())
 }
 
 /// Parse ONE message from `bytes` and emit its message + attachment records.
@@ -111,7 +110,7 @@ pub(crate) fn emit_message(
     sink: Sink,
     stats: &mut ExtractStats,
 ) -> MessageOutcome {
-    let Some(msg) = parser().parse(bytes) else {
+    let Some(msg) = MessageParser::default().parse(bytes) else {
         return MessageOutcome::Unparseable;
     };
     let pre = env.loc_prefix;
@@ -156,7 +155,7 @@ pub(crate) fn emit_message(
     // `Spam`/`Trash` in an "All mail Including Spam and Trash" export, so they
     // are indexed rather than used to silently drop mail. Absent everywhere
     // else, which is why both are optional fields and not part of the shape.
-    if let Some(labels) = msg.header("X-Gmail-Labels").and_then(|h| h.as_text()) {
+    if let Some(labels) = text_header(&msg, "X-Gmail-Labels") {
         let labels: Vec<Value> = labels
             .split(',')
             .map(str::trim)
@@ -167,8 +166,17 @@ pub(crate) fn emit_message(
             headers.insert("email_labels".into(), Value::Array(labels));
         }
     }
-    if let Some(thread) = msg.header("X-GM-THRID").and_then(|h| h.as_text()) {
-        put(&mut headers, "email_thread_id", thread.trim().to_string());
+    if let Some(thread) = text_header(&msg, "X-GM-THRID") {
+        // Gmail writes the conversation id in decimal; its own API and URLs
+        // (`#all/18c0f2a5b3d4e6f7`) use the same number in hex. Hex is kept
+        // because it is the form a user can paste back into Gmail, and because
+        // a column of 19-digit decimals is inferred as `long`, where one value
+        // past i64 would be dropped by coercion.
+        let id = thread
+            .parse::<u64>()
+            .map(|n| format!("{n:x}"))
+            .unwrap_or(thread);
+        put(&mut headers, "email_thread_id", id);
     }
 
     let title = if subject.is_empty() {
@@ -185,7 +193,7 @@ pub(crate) fn emit_message(
         .unwrap_or_default();
 
     // Emit the message itself as document section(s) carrying the headers.
-    if !emit_email_doc(
+    if !emit_document_with_fields(
         &headers,
         &title,
         body.trim(),
@@ -228,7 +236,7 @@ pub(crate) fn emit_message(
             route_pdf(data, &format!("{pre}att{n}-"), &link, sink, stats)
         } else if is_texty(&ctype, data) && data.len() <= MAX_ATTACH_BYTES {
             let text = String::from_utf8_lossy(data);
-            emit_email_doc(
+            emit_document_with_fields(
                 &link,
                 &name,
                 text.trim(),
@@ -252,54 +260,6 @@ pub(crate) fn emit_message(
     }
 
     MessageOutcome::Emitted { alive: true }
-}
-
-/// Emit `body` as one or more section records, each stamped with `base_fields`
-/// (message headers or attachment-link fields) plus `title`/`body`/`section`.
-///
-/// Returns the sink's last answer: `false` = stop extracting.
-pub(crate) fn emit_email_doc(
-    base_fields: &Map<String, Value>,
-    title: &str,
-    body: &str,
-    loc_prefix: &str,
-    sink: Sink,
-    stats: &mut ExtractStats,
-) -> bool {
-    // Collect sections first so we know whether to stamp a `section` field.
-    // One past the cap is collected so that "exactly at the cap" and "over the
-    // cap" are distinguishable: only the latter dropped anything (#381).
-    let mut secs: Vec<String> = Vec::new();
-    for_each_section(body, &mut |s| {
-        secs.push(s);
-        secs.len() <= MAX_RECORDS_PER_FILE
-    });
-    if secs.len() > MAX_RECORDS_PER_FILE {
-        secs.truncate(MAX_RECORDS_PER_FILE);
-        stats.truncated = true;
-    }
-    if secs.is_empty() {
-        secs.push(String::new());
-    }
-    let multi = secs.len() > 1;
-    for (i, sec) in secs.into_iter().enumerate() {
-        let mut fields = base_fields.clone();
-        fields.insert("title".into(), Value::String(title.to_string()));
-        fields.insert("body".into(), Value::String(sec));
-        if multi {
-            fields.insert("section".into(), Value::Number((i as u64).into()));
-        }
-        stats.records += 1;
-        if !sink(RawRecord {
-            fields,
-            locator: format!("{loc_prefix}-s{i}"),
-            group: None,
-            origin: FieldOrigin::Extractor,
-        }) {
-            return false;
-        }
-    }
-    true
 }
 
 /// Route a PDF attachment's bytes through the real PDF extractor, re-tagging

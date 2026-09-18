@@ -17,6 +17,7 @@
 //! "what did it believe last Tuesday" stays answerable.
 
 pub mod cratecite;
+pub mod emailthread;
 pub mod href;
 pub mod mdlink;
 pub mod pathcite;
@@ -351,6 +352,22 @@ pub struct SectionCtx<'a> {
     pub text: &'a str,
 }
 
+/// Per-RECORD structured context: the FIELDS of a staged record rather than
+/// its text. For relationships the extractor already parsed out of the source
+/// (an email's `In-Reply-To`), where re-finding them in body text would be both
+/// slower and wrong. Unlike [`SectionCtx`] this is offered for every record of
+/// every family — locators that are not text sections included.
+pub struct RecordCtx<'a> {
+    pub corpus: &'a CorpusIndex,
+    pub file: &'a CorpusFile,
+    /// The record's content locator (`RawRecord::locator`).
+    pub locator: &'a str,
+    /// The node doc id the record was staged under.
+    pub doc_id: &'a str,
+    /// The record exactly as staged: coerced, with the `ax_*` provenance.
+    pub fields: &'a serde_json::Map<String, Value>,
+}
+
 /// What a resolving detector could not turn into edges. Surfaced in the run
 /// summary so a dangling `[[link]]` is recorded, never silently dropped.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -373,6 +390,11 @@ pub trait EdgeDetector: Sync {
     fn tag(&self) -> &'static str;
     /// Per-section textual detection. Default: no-op.
     fn detect_text(&self, _ctx: &SectionCtx<'_>, _out: &mut Vec<EdgeDraft>) {}
+    /// Per-record structured detection, called for EVERY staged record right
+    /// after `detect_text` would have been. Default: no-op, and a detector that
+    /// implements it must return early for families it does not read — this is
+    /// the hot path of Phase B.
+    fn detect_record(&self, _ctx: &RecordCtx<'_>, _out: &mut Vec<EdgeDraft>) {}
     /// Corpus-structural detection, called once after Phase A — before any
     /// file is read, so it sees identities and paths only. Default: no-op.
     fn detect_structure(&self, _corpus: &CorpusIndex, _out: &mut Vec<EdgeDraft>) {}
@@ -404,6 +426,7 @@ pub fn default_detectors() -> Vec<Box<dyn EdgeDetector>> {
         Box::new(sequence::Sequence),
         Box::new(samedir::SameDir),
         Box::new(sharedterm::SharedTerm::default()),
+        Box::new(emailthread::EmailThread::default()),
     ]
 }
 
@@ -420,6 +443,9 @@ pub fn detector_tag_for(edge_type: &str) -> &'static str {
         sequence::EDGE_TYPE => sequence::TAG,
         samedir::EDGE_TYPE => samedir::TAG,
         sharedterm::EDGE_TYPE => sharedterm::TAG,
+        // One detector, two edge types: both are facts read off the same
+        // parsed message, versioned together.
+        emailthread::REPLIES_TO | emailthread::ATTACHMENT_OF => emailthread::TAG,
         _ => "unknown@0",
     }
 }

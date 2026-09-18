@@ -580,6 +580,56 @@ pub fn emit_document(
     }
 }
 
+/// [`emit_document`] for a document that carries FIELDS of its own: emit `body`
+/// as one or more section records, each stamped with `base_fields` (an email's
+/// headers, an attachment's link-back fields, a note's labels) plus
+/// `title`/`body`/`section`. Locators are `{loc_prefix}-s{i}`.
+///
+/// Returns the sink's last answer: `false` = stop extracting.
+pub(crate) fn emit_document_with_fields(
+    base_fields: &Map<String, Value>,
+    title: &str,
+    body: &str,
+    loc_prefix: &str,
+    sink: Sink,
+    stats: &mut ExtractStats,
+) -> bool {
+    // Collect sections first so we know whether to stamp a `section` field.
+    // One past the cap is collected so that "exactly at the cap" and "over the
+    // cap" are distinguishable: only the latter dropped anything (#381).
+    let mut secs: Vec<String> = Vec::new();
+    for_each_section(body, &mut |s| {
+        secs.push(s);
+        secs.len() <= MAX_RECORDS_PER_FILE
+    });
+    if secs.len() > MAX_RECORDS_PER_FILE {
+        secs.truncate(MAX_RECORDS_PER_FILE);
+        stats.truncated = true;
+    }
+    if secs.is_empty() {
+        secs.push(String::new());
+    }
+    let multi = secs.len() > 1;
+    for (i, sec) in secs.into_iter().enumerate() {
+        let mut fields = base_fields.clone();
+        fields.insert("title".into(), Value::String(title.to_string()));
+        fields.insert("body".into(), Value::String(sec));
+        if multi {
+            fields.insert("section".into(), Value::Number((i as u64).into()));
+        }
+        stats.records += 1;
+        if !sink(RawRecord {
+            fields,
+            locator: format!("{loc_prefix}-s{i}"),
+            group: None,
+            origin: FieldOrigin::Extractor,
+        }) {
+            return false;
+        }
+    }
+    true
+}
+
 #[cfg(test)]
 mod section_tests {
     use super::*;
