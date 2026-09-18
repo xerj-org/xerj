@@ -22,6 +22,9 @@ pub struct Es {
     /// property of the server, so all of a run's workers must see the same
     /// admission limit.
     admission: Arc<BulkAdmission>,
+    /// How long one `bulk` call keeps re-offering records the server
+    /// rejected with a per-item 429 (see [`THROTTLE_PATIENCE`]).
+    throttle_patience: Duration,
     /// Every delay this client has actually backed off for, in order.
     /// Test-only, and per-instance rather than global so a concurrent test
     /// cannot perturb it — `--test-threads=2` in CI is exactly the shape that
@@ -142,6 +145,11 @@ impl BulkAdmission {
         self.ceiling > 0
     }
 
+    /// Whether this run's client speaks on stderr about server pushback.
+    fn announces(&self) -> bool {
+        self.announce
+    }
+
     /// Current admission limit; equals the ceiling until the server pushes
     /// back. `0` when the gate is off.
     pub fn limit(&self) -> usize {
@@ -224,6 +232,88 @@ impl BulkAdmission {
         drop(state);
         self.space.notify_one();
     }
+}
+
+/// How long one `bulk` call keeps re-offering records the server rejected
+/// with a per-item `status: 429` before handing the rejection to the caller.
+///
+/// That is the shape of XERJ's parent memory circuit breaker: HTTP 200, every
+/// item `429`, reason `[parent] real memory circuit breaker tripped … writes
+/// rejected to prevent an out-of-memory kill`. It is transient by design —
+/// the governor releases it as soon as RSS drops back under the watermark
+/// (`xerj-engine/src/governor.rs`: "RSS back below the memory watermark"),
+/// which on the 1 GB Takeout mailbox run took between 0.3 s and 10 s each
+/// time it tripped. Before this, the FIRST such answer aborted the run: the
+/// per-item path never retried (only HTTP-level 429s went through
+/// `with_retry`, and that gives up after ~8 s of backoff anyway), the file
+/// was left un-journaled, and the "rerun the same command" the error message
+/// advises re-extracted the whole mailbox and hit the same wall — measured
+/// twice, 226.9 s and 298.7 s to the same failure.
+///
+/// Ten minutes is deliberately long: a 429 here is not a bad record, it is
+/// the server asking for time, and the alternative is losing the run. Per-item
+/// 5xx and write blocks are NOT waited on — they are not congestion.
+pub const THROTTLE_PATIENCE: Duration = Duration::from_secs(600);
+
+/// How often the wait is announced on stderr, so a run that is waiting on
+/// the server does not look like a hang.
+const NOTICE_EVERY: Duration = Duration::from_secs(30);
+
+/// What one round of a bulk request said, item by item.
+struct Round {
+    outcome: BulkOutcome,
+    /// Indexes (in request order) of the items the server rejected `429`.
+    throttled: Vec<usize>,
+    /// Server-side failures that are NOT throttling — 5xx, write blocks.
+    other_server_errors: u64,
+    /// The first per-item error that waiting cannot fix (a 400).
+    first_settled_error: Option<String>,
+    /// The server's stated reason for the first 429 item.
+    throttle_reason: Option<String>,
+    /// Items in the response, for alignment with the request body.
+    items: usize,
+}
+
+/// The byte ranges of the items in a bulk body, in request order: an action
+/// line plus its source line, or the action line alone for `delete`. `None`
+/// if the body is not well-formed NDJSON — a caller then does not retry.
+fn bulk_item_ranges(body: &[u8]) -> Option<Vec<std::ops::Range<usize>>> {
+    let mut ranges = Vec::new();
+    let mut pos = 0usize;
+    while pos < body.len() {
+        let start = pos;
+        let action_end = memchr::memchr(b'\n', &body[pos..]).map_or(body.len(), |i| pos + i + 1);
+        let action: Value = serde_json::from_slice(&body[start..action_end]).ok()?;
+        let object = action.as_object()?;
+        if object.len() != 1 {
+            return None;
+        }
+        pos = action_end;
+        if !object.contains_key("delete") {
+            if pos >= body.len() {
+                return None;
+            }
+            pos = memchr::memchr(b'\n', &body[pos..]).map_or(body.len(), |i| pos + i + 1);
+        }
+        ranges.push(start..pos);
+    }
+    Some(ranges)
+}
+
+/// The sub-body holding only the items at `keep`, byte-identical to their
+/// original lines. `None` if the body does not have exactly `expected`
+/// items — the response cannot then be aligned with the request.
+fn select_bulk_items(body: &[u8], keep: &[usize], expected: usize) -> Option<Vec<u8>> {
+    let ranges = bulk_item_ranges(body)?;
+    if ranges.len() != expected {
+        return None;
+    }
+    let mut out = Vec::with_capacity(body.len());
+    for &i in keep {
+        let range = ranges.get(i)?.clone();
+        out.extend_from_slice(&body[range]);
+    }
+    Some(out)
 }
 
 pub struct BulkOutcome {
@@ -394,6 +484,7 @@ impl Es {
             retry_initial_delay,
             retry_max_delay,
             admission: Arc::new(BulkAdmission::off()),
+            throttle_patience: THROTTLE_PATIENCE,
             #[cfg(test)]
             backoff_delays: Arc::new(std::sync::Mutex::new(Vec::new())),
         })
@@ -405,6 +496,13 @@ impl Es {
     /// Off by default: a probe or a one-shot client has nothing to throttle.
     /// A run enables it once, before its workers start, and every clone made
     /// afterwards shares the same window.
+    /// How long a bulk keeps re-offering per-item-429 records (tests shrink it).
+    #[cfg(test)]
+    fn with_throttle_patience(mut self, patience: Duration) -> Self {
+        self.throttle_patience = patience;
+        self
+    }
+
     pub fn with_bulk_concurrency(mut self, workers: usize, announce: bool) -> Self {
         self.admission = Arc::new(BulkAdmission::new(workers.max(1), announce));
         self
@@ -679,14 +777,82 @@ impl Es {
     /// long as the attempt (including its retries) is outstanding — that is
     /// what makes a shrunken limit actually reduce offered load rather than
     /// only rename it.
+    ///
+    /// Two kinds of retry live here. A transport error or an HTTP-level
+    /// 429/5xx retries the WHOLE request (`with_retry`, 6 attempts). A 200
+    /// whose items carry `status: 429` re-offers ONLY those items, after a
+    /// backoff, for up to `throttle_patience` — the memory breaker's shape,
+    /// see [`THROTTLE_PATIENCE`]. Records the server took are never sent
+    /// twice, and a record it refused for a reason waiting cannot fix (a
+    /// per-item 400, 5xx, or a write block) is not re-offered.
     pub fn bulk(&self, body: Vec<u8>) -> Result<BulkOutcome> {
         let _permit = self.admission.acquire();
+        let mut body = body;
+        // Item errors settled by earlier rounds of this call (a bad record's
+        // 400): the record is not re-offered, its error is still reported.
+        let mut settled_item_errors = 0u64;
+        let mut settled_first_error: Option<String> = None;
+        let episode = Instant::now();
+        let mut delay = self.retry_initial_delay;
+        let mut last_notice: Option<Instant> = None;
+        loop {
+            let round = self.bulk_round(body.clone())?;
+            let mut outcome = round.outcome;
+            outcome.item_errors += settled_item_errors;
+            if outcome.first_error.is_none() {
+                outcome.first_error = settled_first_error.clone();
+            }
+            if round.throttled.is_empty() || round.other_server_errors > 0 {
+                return Ok(outcome);
+            }
+            // Only per-item 429s stand between this bulk and a clean
+            // outcome. Wait while patience lasts; after that the caller gets
+            // the server's own reason, exactly as before.
+            let waited = episode.elapsed();
+            let retry = if waited < self.throttle_patience {
+                select_bulk_items(&body, &round.throttled, round.items)
+            } else {
+                None
+            };
+            let Some(retry) = retry else {
+                return Ok(outcome);
+            };
+            settled_item_errors = outcome
+                .item_errors
+                .saturating_sub(round.throttled.len() as u64);
+            if round.first_settled_error.is_some() {
+                settled_first_error = round.first_settled_error;
+            }
+            if self.admission.announces()
+                && !matches!(last_notice, Some(t) if t.elapsed() < NOTICE_EVERY)
+            {
+                eprintln!(
+                    "autoindex: server is shedding load — {}; re-offering {} rejected \
+                     record(s) (waited {}s, giving up after {}s)",
+                    round
+                        .throttle_reason
+                        .as_deref()
+                        .unwrap_or("per-item HTTP 429"),
+                    round.throttled.len(),
+                    waited.as_secs(),
+                    self.throttle_patience.as_secs()
+                );
+                last_notice = Some(Instant::now());
+            }
+            body = retry;
+            self.backoff(delay);
+            delay = (delay * 2).min(self.retry_max_delay);
+        }
+    }
+
+    /// One request of a bulk body, with the transport-level retries, parsed.
+    fn bulk_round(&self, body: Vec<u8>) -> Result<Round> {
         // A bulk can also be throttled *per item*: HTTP 200 with individual
         // documents rejected `status: 429`. That is the same congestion
         // signal wearing a different hat, and it must not be read as a
         // clean bulk that earns concurrency back.
         let item_throttled = std::cell::Cell::new(false);
-        let outcome = self.with_retry(
+        let round = self.with_retry(
             "_bulk",
             || self.send_bulk(body.clone()),
             |resp| {
@@ -695,62 +861,85 @@ impl Es {
                     return Err(anyhow!("bulk HTTP {status}"));
                 }
                 let v: Value = resp.json().context("parse bulk response")?;
-                let mut item_errors = 0u64;
-                let mut server_errors = 0u64;
-                let mut first_error = None;
-                let mut first_server_error = None;
+                let items = v.get("items").and_then(|i| i.as_array());
+                let mut round = Round {
+                    outcome: BulkOutcome {
+                        item_errors: 0,
+                        server_errors: 0,
+                        first_error: None,
+                        first_server_error: None,
+                    },
+                    throttled: Vec::new(),
+                    other_server_errors: 0,
+                    first_settled_error: None,
+                    throttle_reason: None,
+                    items: items.map_or(0, Vec::len),
+                };
                 if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
-                    if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
-                        for it in items {
-                            let op = it
-                                .get("index")
-                                .or_else(|| it.get("create"))
-                                .or_else(|| it.get("update"));
-                            if let Some(op) = op {
-                                if op.get("error").is_some() {
-                                    item_errors += 1;
-                                    let item_status =
-                                        op.get("status").and_then(Value::as_u64).unwrap_or(500);
-                                    if item_status == 429 {
-                                        item_throttled.set(true);
-                                    }
-                                    if item_status == 429
-                                        || item_status >= 500
-                                        || is_index_block_error(&op["error"])
-                                    {
-                                        server_errors += 1;
-                                        if first_server_error.is_none() {
-                                            first_server_error = Some(
-                                                op["error"].to_string().chars().take(500).collect(),
-                                            );
-                                        }
-                                    }
-                                    if first_error.is_none() {
-                                        first_error = Some(
-                                            op["error"].to_string().chars().take(300).collect(),
-                                        );
-                                    }
-                                }
+                    for (i, it) in items.into_iter().flatten().enumerate() {
+                        let op = it
+                            .get("index")
+                            .or_else(|| it.get("create"))
+                            .or_else(|| it.get("update"))
+                            .or_else(|| it.get("delete"));
+                        let Some(op) = op else { continue };
+                        if op.get("error").is_none() {
+                            continue;
+                        }
+                        round.outcome.item_errors += 1;
+                        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
+                        let error_text = || {
+                            op["error"]
+                                .to_string()
+                                .chars()
+                                .take(500)
+                                .collect::<String>()
+                        };
+                        if item_status == 429 {
+                            round.throttled.push(i);
+                            if round.throttle_reason.is_none() {
+                                round.throttle_reason = Some(
+                                    op["error"]
+                                        .get("reason")
+                                        .and_then(Value::as_str)
+                                        .map(|r| r.chars().take(300).collect())
+                                        .unwrap_or_else(error_text),
+                                );
                             }
+                        }
+                        if item_status == 429
+                            || item_status >= 500
+                            || is_index_block_error(&op["error"])
+                        {
+                            round.outcome.server_errors += 1;
+                            if item_status != 429 {
+                                round.other_server_errors += 1;
+                            }
+                            if round.outcome.first_server_error.is_none() {
+                                round.outcome.first_server_error = Some(error_text());
+                            }
+                        } else if round.first_settled_error.is_none() {
+                            round.first_settled_error =
+                                Some(op["error"].to_string().chars().take(300).collect());
+                        }
+                        if round.outcome.first_error.is_none() {
+                            round.outcome.first_error =
+                                Some(op["error"].to_string().chars().take(300).collect());
                         }
                     }
                 }
-                Ok(BulkOutcome {
-                    item_errors,
-                    server_errors,
-                    first_error,
-                    first_server_error,
-                })
+                item_throttled.set(!round.throttled.is_empty());
+                Ok(round)
             },
         );
-        match (&outcome, item_throttled.get()) {
+        match (&round, item_throttled.get()) {
             (Ok(_), false) => self.admission.on_success(),
             (Ok(_), true) => self.admission.on_congestion(),
             // A failed bulk earns nothing back. If it failed *because* of a
             // 429, `with_retry` has already shrunk the window.
             (Err(_), _) => {}
         }
-        outcome
+        round
     }
 
     fn send_bulk(&self, body: Vec<u8>) -> Result<reqwest::blocking::Response> {
@@ -938,7 +1127,7 @@ impl Es {
 
 #[cfg(test)]
 mod tests {
-    use super::Es;
+    use super::{bulk_item_ranges, select_bulk_items, Es};
     use std::io::Read;
     use std::io::Write;
     use std::net::TcpListener;
@@ -1559,7 +1748,9 @@ mod tests {
                 br#"{"errors":true,"items":[{"index":{"status":429,"error":{"type":"es_rejected_execution_exception","reason":"rejected"}}}]}"#,
             );
         });
-        let es = client(address, 4);
+        // Patience zero: this test pins the ADMISSION response to a per-item
+        // 429, not the re-offer loop (which has its own tests below).
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
         let outcome = es.bulk(BULK.to_vec()).unwrap();
         assert_eq!(outcome.server_errors, 1);
         assert_eq!(
@@ -1782,5 +1973,202 @@ mod tests {
             assert!(!error.contains("--insecure"), "{status_line}: {error}");
             server.join().unwrap();
         }
+    }
+
+    // ── per-item 429: the memory breaker's shape ─────────────────────────
+
+    fn request_body(request: &[u8]) -> &[u8] {
+        let offset = request.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
+        &request[offset..]
+    }
+
+    const BREAKER: &str = "[parent] real memory circuit breaker tripped: rss=15580MB >= \
+                           watermark=15564MB (94% of limit=16384MB); writes rejected to \
+                           prevent an out-of-memory kill";
+
+    fn item(id: &str, status: u32, error: Option<&str>) -> String {
+        match error {
+            Some(reason) => format!(
+                r#"{{"index":{{"_index":"i","_id":"{id}","status":{status},"error":{{"type":"engine_exception","reason":"{reason}"}}}}}}"#
+            ),
+            None => format!(r#"{{"index":{{"_index":"i","_id":"{id}","status":{status}}}}}"#),
+        }
+    }
+
+    fn items_response(items: &[String], errors: bool) -> Vec<u8> {
+        format!(r#"{{"errors":{errors},"items":[{}]}}"#, items.join(",")).into_bytes()
+    }
+
+    fn pair(id: &str) -> Vec<u8> {
+        format!("{{\"index\":{{\"_index\":\"i\",\"_id\":\"{id}\"}}}}\n{{\"v\":\"{id}\"}}\n")
+            .into_bytes()
+    }
+
+    /// Serve `responses`, one per connection, recording each request.
+    fn serve_bodies(
+        listener: TcpListener,
+        responses: Vec<Vec<u8>>,
+    ) -> (std::thread::JoinHandle<()>, Arc<Mutex<Vec<Vec<u8>>>>) {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let seen = requests.clone();
+        let handle = std::thread::spawn(move || {
+            for body in responses {
+                let (mut stream, _) = listener.accept().unwrap();
+                seen.lock().unwrap().push(read_request(&mut stream));
+                respond_json(&mut stream, &body);
+            }
+        });
+        (handle, requests)
+    }
+
+    #[test]
+    fn per_item_breaker_rejections_are_re_offered_until_the_server_takes_them() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![
+                // a taken, b and c rejected by the breaker
+                items_response(
+                    &[
+                        item("a", 201, None),
+                        item("b", 429, Some(BREAKER)),
+                        item("c", 429, Some(BREAKER)),
+                    ],
+                    true,
+                ),
+                // b taken this time, c still rejected
+                items_response(&[item("b", 201, None), item("c", 429, Some(BREAKER))], true),
+                // c taken
+                items_response(&[item("c", 201, None)], false),
+            ],
+        );
+        let body = [pair("a"), pair("b"), pair("c")].concat();
+        let outcome = client(address, 4).bulk(body).unwrap();
+        server.join().unwrap();
+        assert_eq!(outcome.server_errors, 0, "{:?}", outcome.first_server_error);
+        assert_eq!(outcome.item_errors, 0);
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert_eq!(request_body(&requests[1]), [pair("b"), pair("c")].concat());
+        assert_eq!(request_body(&requests[2]), pair("c"));
+    }
+
+    #[test]
+    fn per_item_429_gives_up_after_patience_with_the_servers_own_reason() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![items_response(
+                &[item("a", 201, None), item("b", 429, Some(BREAKER))],
+                true,
+            )],
+        );
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
+        let outcome = es.bulk([pair("a"), pair("b")].concat()).unwrap();
+        server.join().unwrap();
+        assert_eq!(
+            requests.lock().unwrap().len(),
+            1,
+            "patience exhausted: no retry"
+        );
+        assert_eq!(outcome.server_errors, 1);
+        assert!(
+            outcome
+                .first_server_error
+                .as_deref()
+                .unwrap()
+                .contains("circuit breaker"),
+            "{:?}",
+            outcome.first_server_error
+        );
+    }
+
+    #[test]
+    fn a_bad_record_is_settled_once_while_throttled_records_are_re_offered() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![
+                items_response(
+                    &[
+                        item("a", 400, Some("mapper_parsing_exception")),
+                        item("b", 429, Some(BREAKER)),
+                    ],
+                    true,
+                ),
+                items_response(&[item("b", 201, None)], false),
+            ],
+        );
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(requests.lock().unwrap().len(), 2);
+        assert_eq!(
+            request_body(&requests.lock().unwrap()[1]),
+            pair("b"),
+            "only b is re-offered"
+        );
+        assert_eq!(outcome.server_errors, 0);
+        assert_eq!(outcome.item_errors, 1, "the 400 is reported exactly once");
+        assert!(outcome
+            .first_error
+            .unwrap()
+            .contains("mapper_parsing_exception"));
+    }
+
+    #[test]
+    fn a_per_item_5xx_beside_a_429_is_not_waited_on() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![items_response(
+                &[
+                    item("a", 503, Some("unavailable")),
+                    item("b", 429, Some(BREAKER)),
+                ],
+                true,
+            )],
+        );
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(requests.lock().unwrap().len(), 1);
+        assert_eq!(outcome.server_errors, 2);
+    }
+
+    #[test]
+    fn bulk_item_selection_keeps_lines_byte_identical_and_knows_delete_has_no_source() {
+        let del = b"{\"delete\":{\"_index\":\"i\",\"_id\":\"x\"}}\n".to_vec();
+        let body = [pair("a"), del.clone(), pair("c")].concat();
+        let ranges = bulk_item_ranges(&body).unwrap();
+        assert_eq!(ranges.len(), 3);
+        assert_eq!(&body[ranges[1].clone()], del.as_slice());
+        assert_eq!(
+            select_bulk_items(&body, &[0, 2], 3).unwrap(),
+            [pair("a"), pair("c")].concat()
+        );
+        assert_eq!(select_bulk_items(&body, &[1], 3).unwrap(), del);
+        assert!(
+            select_bulk_items(&body, &[0], 2).is_none(),
+            "response/request mismatch"
+        );
+        assert!(
+            select_bulk_items(&body, &[7], 3).is_none(),
+            "index past the end"
+        );
+        // Malformed: an index action with no source line.
+        assert!(bulk_item_ranges(b"{\"index\":{\"_id\":\"a\"}}\n").is_none());
+        // Multi-byte source lines cut only at the newline the writer put there.
+        let body = "{\"index\":{\"_id\":\"é\"}}\n{\"v\":\"設計 — café\"}\n".as_bytes();
+        assert_eq!(select_bulk_items(body, &[0], 1).unwrap(), body);
+        // A final line without its newline is still one item.
+        let body = b"{\"index\":{\"_id\":\"a\"}}\n{\"v\":1}";
+        assert_eq!(bulk_item_ranges(body).unwrap().len(), 1);
     }
 }

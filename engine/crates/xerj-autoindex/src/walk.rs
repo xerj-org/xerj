@@ -975,9 +975,18 @@ mod takeout_noise_tests {
         let dir = tempfile::TempDir::new().unwrap();
         make_takeout(dir.path(), true);
         let (rels, report) = rels(dir.path(), IgnoreOptions::default());
-        assert!(!rels.iter().any(|r| r.ends_with("archive_browser.html")), "{rels:?}");
-        assert!(!rels.contains(&"Takeout/Keep/todo.html".to_string()), "{rels:?}");
-        assert!(!rels.contains(&"Takeout/Keep/設計書 مرحبا.html".to_string()), "{rels:?}");
+        assert!(
+            !rels.iter().any(|r| r.ends_with("archive_browser.html")),
+            "{rels:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "{rels:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/設計書 مرحبا.html".to_string()),
+            "{rels:?}"
+        );
         // The data itself is all still there.
         for kept in [
             "Takeout/Mail/All mail Including Spam and Trash.mbox",
@@ -987,11 +996,17 @@ mod takeout_noise_tests {
             "Takeout/Drive/report.html",
             "Takeout/Drive/report.json",
         ] {
-            assert!(rels.contains(&kept.to_string()), "{kept} missing from {rels:?}");
+            assert!(
+                rels.contains(&kept.to_string()),
+                "{kept} missing from {rels:?}"
+            );
         }
         // Never silent: each rule is on the report with its count.
         assert_eq!(report.by_rule[TAKEOUT_INDEX_RULE].files, 1, "{report:?}");
-        assert_eq!(report.by_rule[TAKEOUT_KEEP_TWIN_RULE].files, 2, "{report:?}");
+        assert_eq!(
+            report.by_rule[TAKEOUT_KEEP_TWIN_RULE].files, 2,
+            "{report:?}"
+        );
         assert_eq!(report.files_skipped, 3);
     }
 
@@ -1002,7 +1017,10 @@ mod takeout_noise_tests {
         let dir = tempfile::TempDir::new().unwrap();
         make_takeout(dir.path(), true);
         let (rels, report) = rels(&dir.path().join("Takeout"), IgnoreOptions::default());
-        assert!(!rels.contains(&"archive_browser.html".to_string()), "{rels:?}");
+        assert!(
+            !rels.contains(&"archive_browser.html".to_string()),
+            "{rels:?}"
+        );
         assert!(!rels.contains(&"Keep/todo.html".to_string()), "{rels:?}");
         assert!(rels.contains(&"Keep/todo.json".to_string()), "{rels:?}");
         assert_eq!(report.by_rule[TAKEOUT_KEEP_TWIN_RULE].files, 2);
@@ -1015,7 +1033,10 @@ mod takeout_noise_tests {
         let dir = tempfile::TempDir::new().unwrap();
         make_takeout(dir.path(), false);
         let (rels, report) = rels(dir.path(), IgnoreOptions::default());
-        assert!(rels.contains(&"Takeout/Keep/todo.html".to_string()), "{rels:?}");
+        assert!(
+            rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "{rels:?}"
+        );
         assert_eq!(report.files_skipped, 0, "{report:?}");
     }
 
@@ -1030,7 +1051,10 @@ mod takeout_noise_tests {
         fs::write(deep.join("n.json"), KEEP_NOTE).unwrap();
         fs::write(deep.join("n.html"), "<html>n</html>").unwrap();
         let (rels, _) = rels(dir.path(), IgnoreOptions::default());
-        assert!(rels.contains(&"Takeout/Keep/sub/n.html".to_string()), "{rels:?}");
+        assert!(
+            rels.contains(&"Takeout/Keep/sub/n.html".to_string()),
+            "{rels:?}"
+        );
     }
 
     #[test]
@@ -1043,15 +1067,30 @@ mod takeout_noise_tests {
         };
         for opts in [IgnoreOptions::off(), no_defaults] {
             let (rels, _) = rels(dir.path(), opts);
-            assert!(rels.contains(&"Takeout/archive_browser.html".to_string()), "{opts:?}");
-            assert!(rels.contains(&"Takeout/Keep/todo.html".to_string()), "{opts:?}");
+            assert!(
+                rels.contains(&"Takeout/archive_browser.html".to_string()),
+                "{opts:?}"
+            );
+            assert!(
+                rels.contains(&"Takeout/Keep/todo.html".to_string()),
+                "{opts:?}"
+            );
         }
         // `!name` in .xerjignore outranks the built-in rule.
         fs::write(dir.path().join(".xerjignore"), "!archive_browser.html\n").unwrap();
         let (rels, report) = rels(dir.path(), IgnoreOptions::default());
-        assert!(rels.contains(&"Takeout/archive_browser.html".to_string()), "{rels:?}");
-        assert!(!report.by_rule.contains_key(TAKEOUT_INDEX_RULE), "{report:?}");
-        assert!(!rels.contains(&"Takeout/Keep/todo.html".to_string()), "twins still skipped");
+        assert!(
+            rels.contains(&"Takeout/archive_browser.html".to_string()),
+            "{rels:?}"
+        );
+        assert!(
+            !report.by_rule.contains_key(TAKEOUT_INDEX_RULE),
+            "{report:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "twins still skipped"
+        );
     }
 
     /// A json twin that is broken, huge, or a directory is not a Keep note, and
@@ -1071,7 +1110,10 @@ mod takeout_noise_tests {
         fs::write(keep.join("big.html"), "<html>big</html>").unwrap();
         let (rels, _) = rels(dir.path(), IgnoreOptions::default());
         for kept in ["broken.html", "isdir.html", "big.html"] {
-            assert!(rels.contains(&format!("Takeout/Keep/{kept}")), "{kept}: {rels:?}");
+            assert!(
+                rels.contains(&format!("Takeout/Keep/{kept}")),
+                "{kept}: {rels:?}"
+            );
         }
     }
 }

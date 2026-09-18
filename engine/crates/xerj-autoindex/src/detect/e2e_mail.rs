@@ -32,8 +32,19 @@ const MBOX_REL: &str = "Takeout/Mail/All mail Including Spam and Trash.mbox";
 /// keeps FILE names portable across every OS that checks the repo out (the
 /// message CONTENT is non-ASCII regardless).
 const FIXTURE_ARGS: &[&str] = &[
-    "--seed", "42", "--messages", "36", "--blob-max", "2K", "--long-line-bytes", "3K",
-    "--keep-notes", "4", "--ascii-names", "--with-archive", "--quiet",
+    "--seed",
+    "42",
+    "--messages",
+    "36",
+    "--blob-max",
+    "2K",
+    "--long-line-bytes",
+    "3K",
+    "--keep-notes",
+    "4",
+    "--ascii-names",
+    "--with-archive",
+    "--quiet",
 ];
 
 fn fixture() -> PathBuf {
@@ -134,7 +145,9 @@ fn s<'a>(doc: &'a Value, key: &str) -> &'a str {
 fn mbox_records(ix: &Indexed) -> Vec<(&String, &Value)> {
     ix.nodes
         .iter()
-        .filter(|(_, d)| s(d, "ax_path") == MBOX_REL && s(d, "ax_locator") != super::FILE_CARD_LOCATOR)
+        .filter(|(_, d)| {
+            s(d, "ax_path") == MBOX_REL && s(d, "ax_locator") != super::FILE_CARD_LOCATOR
+        })
         .collect()
 }
 
@@ -164,7 +177,11 @@ fn a_takeout_mailbox_indexes_to_what_the_ground_truth_says() {
         "every locator is namespaced by byte offset: {heads:?}"
     );
     let unique: BTreeSet<&&str> = heads.iter().collect();
-    assert_eq!(unique.len(), heads.len(), "offsets are unique within the file");
+    assert_eq!(
+        unique.len(),
+        heads.len(),
+        "offsets are unique within the file"
+    );
     for (_, d) in &recs {
         assert_eq!(s(d, "ax_format"), "mbox");
     }
@@ -197,8 +214,15 @@ fn a_takeout_mailbox_indexes_to_what_the_ground_truth_says() {
     };
     let from_lines = ["From the desk of", "From what I can tell", "From now on,"];
     let unquoted: usize = from_lines.iter().map(|f| line_starts(f)).sum();
-    assert_eq!(unquoted, n("from_lines_in_bodies"), "`>From ` came back as `From `");
-    let still_quoted: usize = from_lines.iter().map(|f| line_starts(&format!(">{f}"))).sum();
+    assert_eq!(
+        unquoted,
+        n("from_lines_in_bodies"),
+        "`>From ` came back as `From `"
+    );
+    let still_quoted: usize = from_lines
+        .iter()
+        .map(|f| line_starts(&format!(">{f}")))
+        .sum();
     assert_eq!(still_quoted, 0, "no `>From the desk…` left behind");
     assert_eq!(
         line_starts(">From the archive"),
@@ -210,44 +234,75 @@ fn a_takeout_mailbox_indexes_to_what_the_ground_truth_says() {
     let all: Vec<&Value> = ix.nodes.values().collect();
     for nd in truth["needles"].as_array().unwrap() {
         let (token, place) = (nd["token"].as_str().unwrap(), nd["where"].as_str().unwrap());
-        let hits: Vec<&&Value> = all.iter().filter(|d| s(d, "body").contains(token)).collect();
+        let hits: Vec<&&Value> = all
+            .iter()
+            .filter(|d| s(d, "body").contains(token))
+            .collect();
         if place == "pdf-attachment" {
             // See the module docs: no PDF worker inside a unit test.
-            assert!(hits.is_empty(), "{token}: PDF text cannot be extracted here");
+            assert!(
+                hits.is_empty(),
+                "{token}: PDF text cannot be extracted here"
+            );
             continue;
         }
-        assert_eq!(hits.len(), 1, "{place} needle {token} must be found exactly once");
+        assert_eq!(
+            hits.len(),
+            1,
+            "{place} needle {token} must be found exactly once"
+        );
         let hit = hits[0];
         match place {
             // 8-bit bodies: declared latin-1, and UNDECLARED cp1252, both decoded.
             "latin1-8bit-body" => assert!(s(hit, "body").contains("Grüße aus Köln"), "{hit}"),
             "cp1252-undeclared-body" => {
-                assert!(s(hit, "body").contains("\u{201c}Quoted\u{201d} price: \u{20ac}420"), "{hit}")
+                assert!(
+                    s(hit, "body").contains("\u{201c}Quoted\u{201d} price: \u{20ac}420"),
+                    "{hit}"
+                )
             }
             "text-attachment" => {
                 assert!(s(hit, "ax_locator").contains("-att"), "{hit}");
                 assert!(!s(hit, "attachment_name").is_empty());
-                assert_eq!(s(hit, "email_message_id"), nd["message_id"].as_str().unwrap());
+                assert_eq!(
+                    s(hit, "email_message_id"),
+                    nd["message_id"].as_str().unwrap()
+                );
             }
             // Exactly once is the point: the `.html` twin of each note is skipped.
             "keep-note" => {
                 assert!(s(hit, "ax_path").starts_with("Takeout/Keep/"));
                 assert!(s(hit, "ax_path").ends_with(".json"));
                 assert_eq!(s(hit, "ax_locator"), "note-s0");
-                assert!(hit.get("keep_trashed").is_some(), "a document, with Keep's fields");
+                assert!(
+                    hit.get("keep_trashed").is_some(),
+                    "a document, with Keep's fields"
+                );
             }
             "drive-markdown" => assert_eq!(s(hit, "ax_path"), "Takeout/Drive/meeting-notes.md"),
             "body" | "after-unquoted-prose-from" => {
-                assert_eq!(s(hit, "email_message_id"), nd["message_id"].as_str().unwrap())
+                assert_eq!(
+                    s(hit, "email_message_id"),
+                    nd["message_id"].as_str().unwrap()
+                )
             }
             other => panic!("the generator plants a kind this test does not check: {other}"),
         }
     }
 
     // ── Gmail's headers became fields ──
-    let labelled = recs.iter().filter(|(_, d)| d.get("email_labels").is_some()).count();
-    assert!(labelled >= n("messages_regular"), "every regular message carries its labels");
-    for (_, d) in recs.iter().filter(|(_, d)| d.get("email_thread_id").is_some()) {
+    let labelled = recs
+        .iter()
+        .filter(|(_, d)| d.get("email_labels").is_some())
+        .count();
+    assert!(
+        labelled >= n("messages_regular"),
+        "every regular message carries its labels"
+    );
+    for (_, d) in recs
+        .iter()
+        .filter(|(_, d)| d.get("email_thread_id").is_some())
+    {
         let id = s(d, "email_thread_id");
         assert!(
             id.len() <= 16 && id.bytes().all(|b| b.is_ascii_hexdigit()),
@@ -271,10 +326,21 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
     let (ix, _es, _corpus, _state) = index_fixture();
     let n = |key: &str| truth[key].as_u64().unwrap();
 
-    let mail: Vec<&Value> = ix.edges.values().filter(|e| s(e, "detector") == TAG).collect();
+    let mail: Vec<&Value> = ix
+        .edges
+        .values()
+        .filter(|e| s(e, "detector") == TAG)
+        .collect();
     let replies: Vec<&&Value> = mail.iter().filter(|e| s(e, "type") == REPLIES_TO).collect();
-    let attached: Vec<&&Value> = mail.iter().filter(|e| s(e, "type") == ATTACHMENT_OF).collect();
-    assert_eq!(replies.len() + attached.len(), mail.len(), "two edge types, nothing else");
+    let attached: Vec<&&Value> = mail
+        .iter()
+        .filter(|e| s(e, "type") == ATTACHMENT_OF)
+        .collect();
+    assert_eq!(
+        replies.len() + attached.len(),
+        mail.len(),
+        "two edge types, nothing else"
+    );
 
     // replies_to: one per reply whose parent — or nearest References ancestor —
     // is in the mailbox. The generator knows how many that is.
@@ -283,7 +349,11 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
         .iter()
         .filter(|e| s(&e["evidence"], "quote").starts_with("References: <"))
         .count() as u64;
-    assert_eq!(via_refs, n("replies_via_references"), "resolved through References, and SAYS so");
+    assert_eq!(
+        via_refs,
+        n("replies_via_references"),
+        "resolved through References, and SAYS so"
+    );
     for e in &replies {
         let quote = s(&e["evidence"], "quote");
         assert!(
@@ -291,17 +361,29 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
             "evidence names the header and the id: {quote}"
         );
         for end in ["src", "dst"] {
-            let node = ix.nodes.get(s(e, end)).unwrap_or_else(|| panic!("{end} of {e} is a ghost"));
-            assert!(s(node, "ax_locator").ends_with("-msg-s0"), "{end} is a message node");
+            let node = ix
+                .nodes
+                .get(s(e, end))
+                .unwrap_or_else(|| panic!("{end} of {e} is a ghost"));
+            assert!(
+                s(node, "ax_locator").ends_with("-msg-s0"),
+                "{end} is a message node"
+            );
         }
         assert_ne!(s(e, "src"), s(e, "dst"));
         assert_eq!(s(e, "src_file"), MBOX_REL);
     }
     // A parent that is not in the mailbox is COUNTED, never invented; the
     // duplicated Message-ID is counted as ambiguous.
-    assert_eq!(ix.graph["edges_unresolved"].as_u64().unwrap(), n("replies_dangling"));
+    assert_eq!(
+        ix.graph["edges_unresolved"].as_u64().unwrap(),
+        n("replies_dangling")
+    );
     assert_eq!(ix.graph["edges_ambiguous"], serde_json::json!(1));
-    assert_eq!(ix.graph["by_detector"][TAG].as_u64().unwrap(), mail.len() as u64);
+    assert_eq!(
+        ix.graph["by_detector"][TAG].as_u64().unwrap(),
+        mail.len() as u64
+    );
 
     // attachment_of: exactly one per attachment RECORD, to the message in the
     // same container slot.
@@ -311,12 +393,28 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
         .filter(|(_, d)| d.get("attachment_name").is_some())
         .collect();
     assert_eq!(attached.len(), att_records.len());
-    let total_attachments: u64 = truth["attachments"].as_object().unwrap().values().map(|v| v.as_u64().unwrap()).sum();
-    assert!(att_records.len() as u64 >= total_attachments, "at least one record per attachment");
+    let total_attachments: u64 = truth["attachments"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|v| v.as_u64().unwrap())
+        .sum();
+    assert!(
+        att_records.len() as u64 >= total_attachments,
+        "at least one record per attachment"
+    );
     for e in &attached {
-        let src = att_records.get(&s(e, "src").to_string()).expect("src is an attachment record");
+        let src = att_records
+            .get(&s(e, "src").to_string())
+            .expect("src is an attachment record");
         let dst = ix.nodes.get(s(e, "dst")).expect("dst exists");
-        let slot = |d: &Value| s(d, "ax_locator").split('-').next().unwrap_or("").to_string();
+        let slot = |d: &Value| {
+            s(d, "ax_locator")
+                .split('-')
+                .next()
+                .unwrap_or("")
+                .to_string()
+        };
         assert_eq!(slot(src), slot(dst), "same mbox slot (m<offset>)");
         assert!(s(dst, "ax_locator").ends_with("-msg-s0"));
         assert_eq!(s(src, "email_message_id"), s(dst, "email_message_id"));
@@ -327,7 +425,9 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
     // The PDFs (cards here — see the module docs) stay findable by name.
     let pdf_cards = att_records
         .values()
-        .filter(|d| s(d, "attachment_name").ends_with(".pdf") && s(d, "ax_locator").ends_with("-card"))
+        .filter(|d| {
+            s(d, "attachment_name").ends_with(".pdf") && s(d, "ax_locator").ends_with("-card")
+        })
         .count() as u64;
     assert_eq!(
         pdf_cards,
@@ -344,12 +444,21 @@ fn takeout_noise_is_skipped_and_archives_say_extract_me_first() {
     let (ix, _es, _corpus, _state) = index_fixture();
 
     let paths: BTreeSet<&str> = ix.nodes.values().map(|d| s(d, "ax_path")).collect();
-    assert!(!paths.iter().any(|p| p.ends_with("archive_browser.html")), "{paths:?}");
     assert!(
-        !paths.iter().any(|p| p.starts_with("Takeout/Keep/") && p.ends_with(".html")),
+        !paths.iter().any(|p| p.ends_with("archive_browser.html")),
+        "{paths:?}"
+    );
+    assert!(
+        !paths
+            .iter()
+            .any(|p| p.starts_with("Takeout/Keep/") && p.ends_with(".html")),
         "Keep html twins are skipped: {paths:?}"
     );
-    let notes = ix.nodes.values().filter(|d| s(d, "ax_locator") == "note-s0").count() as u64;
+    let notes = ix
+        .nodes
+        .values()
+        .filter(|d| s(d, "ax_locator") == "note-s0")
+        .count() as u64;
     assert_eq!(notes, truth["keep_notes"].as_u64().unwrap());
 
     for archive in truth["archives"].as_array().unwrap() {
@@ -362,11 +471,21 @@ fn takeout_noise_is_skipped_and_archives_say_extract_me_first() {
         assert_eq!(s(row, "status"), "junk");
         let reason = s(row, "reason");
         assert!(reason.contains("extract it first"), "{name}: {reason}");
-        assert!(reason.contains("does not open archives"), "{name}: {reason}");
+        assert!(
+            reason.contains("does not open archives"),
+            "{name}: {reason}"
+        );
         assert!(!paths.contains(name), "{name} was not indexed as content");
     }
-    let tgz = ix.catalog.values().find(|d| s(d, "path").ends_with(".tgz")).unwrap();
-    assert!(s(tgz, "reason").contains("tar -xzf"), "a .tgz gets the tar command, not unzip");
+    let tgz = ix
+        .catalog
+        .values()
+        .find(|d| s(d, "path").ends_with(".tgz"))
+        .unwrap();
+    assert!(
+        s(tgz, "reason").contains("tar -xzf"),
+        "a .tgz gets the tar command, not unzip"
+    );
 }
 
 /// Same bytes → same ids. A second run over the same state, and a run from a
@@ -384,15 +503,29 @@ fn rerunning_never_duplicates_a_message() {
             .collect::<BTreeSet<String>>()
     };
 
-    assert_eq!(crate::run_index(cfg(corpus.path(), state.path(), &es.url)).unwrap(), 3);
+    assert_eq!(
+        crate::run_index(cfg(corpus.path(), state.path(), &es.url)).unwrap(),
+        3
+    );
     let again = split(&es.docs.lock().unwrap(), state.path());
     assert_eq!(ids(&again), ids(&first), "incremental re-run");
 
     let fresh_state = tempfile::tempdir().unwrap();
-    assert_eq!(crate::run_index(cfg(corpus.path(), fresh_state.path(), &es.url)).unwrap(), 3);
+    assert_eq!(
+        crate::run_index(cfg(corpus.path(), fresh_state.path(), &es.url)).unwrap(),
+        3
+    );
     let fresh = split(&es.docs.lock().unwrap(), fresh_state.path());
-    assert_eq!(ids(&fresh), ids(&first), "full re-index from an empty state dir");
-    assert_eq!(mail_edges(&fresh), mail_edges(&first), "edge ids are deterministic too");
+    assert_eq!(
+        ids(&fresh),
+        ids(&first),
+        "full re-index from an empty state dir"
+    );
+    assert_eq!(
+        mail_edges(&fresh),
+        mail_edges(&first),
+        "edge ids are deterministic too"
+    );
 }
 
 /// The committed fixture must be exactly what `scripts/synthetic-takeout.py`
@@ -410,8 +543,13 @@ fn rerunning_never_duplicates_a_message() {
 /// failure when `CI` is set, because CI is where drift has to be caught.
 #[test]
 fn the_committed_fixture_is_what_the_generator_writes() {
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../scripts/synthetic-takeout.py");
-    assert!(script.is_file(), "generator missing at {}", script.display());
+    let script =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../scripts/synthetic-takeout.py");
+    assert!(
+        script.is_file(),
+        "generator missing at {}",
+        script.display()
+    );
     let python = ["python3", "python"].into_iter().find(|p| {
         std::process::Command::new(p)
             .arg("--version")
@@ -419,7 +557,10 @@ fn the_committed_fixture_is_what_the_generator_writes() {
             .is_ok_and(|o| o.status.success())
     });
     let Some(python) = python else {
-        assert!(std::env::var_os("CI").is_none(), "CI has no python3: fixture drift cannot be checked");
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "CI has no python3: fixture drift cannot be checked"
+        );
         eprintln!("NOT CHECKED: no python3 on PATH, fixture drift check did not run");
         return;
     };
@@ -449,7 +590,12 @@ fn the_committed_fixture_is_what_the_generator_writes() {
             if e.file_type().unwrap().is_dir() {
                 files(root, &e.path(), out);
             } else {
-                let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+                let rel = e
+                    .path()
+                    .strip_prefix(root)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/");
                 out.insert(rel, std::fs::read(e.path()).unwrap());
             }
         }
@@ -462,14 +608,25 @@ fn the_committed_fixture_is_what_the_generator_writes() {
         let _ = std::fs::remove_dir_all(fixture().join("tree"));
         copy_tree(&tree, &fixture().join("tree"));
         std::fs::copy(&truth_path, fixture().join("truth.json")).unwrap();
-        std::fs::write(fixture().join("GENERATED_WITH_PYTHON.txt"), format!("{version}\n")).unwrap();
+        std::fs::write(
+            fixture().join("GENERATED_WITH_PYTHON.txt"),
+            format!("{version}\n"),
+        )
+        .unwrap();
         eprintln!("fixture regenerated with python {version}");
         return;
     }
 
     let mut committed = BTreeMap::new();
-    files(&fixture().join("tree"), &fixture().join("tree"), &mut committed);
-    committed.insert("../truth.json".into(), std::fs::read(fixture().join("truth.json")).unwrap());
+    files(
+        &fixture().join("tree"),
+        &fixture().join("tree"),
+        &mut committed,
+    );
+    committed.insert(
+        "../truth.json".into(),
+        std::fs::read(fixture().join("truth.json")).unwrap(),
+    );
     let differing: Vec<&String> = generated
         .keys()
         .chain(committed.keys())
@@ -480,7 +637,8 @@ fn the_committed_fixture_is_what_the_generator_writes() {
     if differing.is_empty() {
         return;
     }
-    let written_with = std::fs::read_to_string(fixture().join("GENERATED_WITH_PYTHON.txt")).unwrap_or_default();
+    let written_with =
+        std::fs::read_to_string(fixture().join("GENERATED_WITH_PYTHON.txt")).unwrap_or_default();
     if written_with.trim() != version {
         eprintln!(
             "NOT VERIFIED: fixture written with python {}, this is {version}; {} file(s) differ \

@@ -424,7 +424,11 @@ mod tests {
         let by_src: HashMap<&str, &EdgeDraft> = out.iter().map(|e| (e.src.as_str(), e)).collect();
         assert_eq!(out.len(), 2);
         assert_eq!(by_src[mid.as_str()].dst, root);
-        assert_eq!(by_src[leaf.as_str()].dst, mid, "nearest ancestor, not the root");
+        assert_eq!(
+            by_src[leaf.as_str()].dst,
+            mid,
+            "nearest ancestor, not the root"
+        );
         assert_eq!(by_src[leaf.as_str()].quote, "References: <mid@x>");
     }
 
@@ -452,7 +456,11 @@ mod tests {
         );
         let mut out = Vec::new();
         det.detect_corpus(&corpus, &mut out);
-        assert!(out.is_empty(), "{:?}", out.iter().map(|e| &e.quote).collect::<Vec<_>>());
+        assert!(
+            out.is_empty(),
+            "{:?}",
+            out.iter().map(|e| &e.quote).collect::<Vec<_>>()
+        );
         assert_eq!(det.counters().unresolved, 2);
     }
 
@@ -499,8 +507,16 @@ mod tests {
         let eml = &corpus.files["saved/reply.eml"];
         let det = EmailThread::default();
         let mut out = Vec::new();
-        let att = json!({"attachment_name": "term-sheet — 設計書.pdf", "email_message_id": "deal@x"});
-        let page = observe(&det, &corpus, mbox, "m4096-att0-p2-s0", att.clone(), &mut out);
+        let att =
+            json!({"attachment_name": "term-sheet — 設計書.pdf", "email_message_id": "deal@x"});
+        let page = observe(
+            &det,
+            &corpus,
+            mbox,
+            "m4096-att0-p2-s0",
+            att.clone(),
+            &mut out,
+        );
         let card = observe(
             &det,
             &corpus,

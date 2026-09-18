@@ -9,6 +9,10 @@
 #   RESUME=1                   keep the node's data dir and the state dir from the
 #                              previous run with this LABEL and run the SAME command
 #                              again - what the tool tells you to do after a failure
+#   XERJ_MAX_PROCESS_MEMORY_MB=off   inherited by the node: lifts the server's
+#                              auto memory cap. Spell it "off": a bare 0 is
+#                              ambiguous to the governor and silently ignored
+#                              (one run here was labelled "uncapped" and was not).
 #
 # <work-dir> MUST be on a real disk. On a tmpfs (/tmp on many distros) the
 # corpus, the index and the staging file all live in RAM, and every memory

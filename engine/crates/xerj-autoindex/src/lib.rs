@@ -4266,6 +4266,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     let scan_threads = pool::scan_pool().current_num_threads();
     extract::pdf::configure_workers(cfg.pdf_workers);
     extract::pdf::configure_timeout(cfg.pdf_timeout_secs);
+    // A mailbox is one file on one Phase-B worker; inside it, messages are
+    // parsed on a pool of this width, shared by every mailbox in the run.
+    extract::mbox::configure_parallelism(cfg.workers);
     let t0 = Instant::now();
     // The progress surface and its ticker are the FIRST things built: every
     // later phase reports through them, and the ticker guarantees the stream
@@ -6061,8 +6064,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             // message began; that is the position.
                             if sn.family == Family::Mbox {
                                 if let Some(offset) = extract::mbox::locator_offset(&rec.locator) {
-                                    in_flight
-                                        .advance_to(container_extract_credit(f.size, offset));
+                                    in_flight.advance_to(container_extract_credit(f.size, offset));
                                 }
                             }
                             let mut fields = rec.fields;
@@ -6357,11 +6359,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                         // The second half of a mailbox's bar: staged bytes
                         // handed to the engine, out of staged bytes in total.
                         let credit_send = sn.family == Family::Mbox;
-                        let staged_len = staged
-                            .as_file()
-                            .metadata()
-                            .map(|m| m.len())
-                            .unwrap_or(0);
+                        let staged_len = staged.as_file().metadata().map(|m| m.len()).unwrap_or(0);
                         let mut staged_sent = 0u64;
                         let mut reader = BufReader::new(staged.as_file_mut());
                         let mut buf = Vec::with_capacity(bulk_cut + (1 << 20));
@@ -9332,7 +9330,10 @@ mod container_progress_tests {
             // guard's drop credits the rest.
             assert_eq!(container_send_credit(size, 0, 0), seam);
         }
-        assert_eq!(container_extract_credit(1000, 1000), 10 * CONTAINER_EXTRACT_PERCENT);
+        assert_eq!(
+            container_extract_credit(1000, 1000),
+            10 * CONTAINER_EXTRACT_PERCENT
+        );
     }
 
     #[test]

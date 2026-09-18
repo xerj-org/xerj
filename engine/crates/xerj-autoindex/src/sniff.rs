@@ -1087,7 +1087,10 @@ pub fn archive_advice(binary_kind: &str, gzip: bool) -> Option<String> {
         ("tar", false) => ("tar archive", "tar -xf <file>"),
         ("7z", _) => ("7z archive", "7z x <file>"),
         ("rar", _) => ("rar archive", "unrar x <file>"),
-        ("xz", _) => ("xz-compressed file", "xz -dk <file>, or tar -xJf <file> for a .tar.xz"),
+        ("xz", _) => (
+            "xz-compressed file",
+            "xz -dk <file>, or tar -xJf <file> for a .tar.xz",
+        ),
         _ => return None,
     };
     Some(format!(
@@ -3779,15 +3782,28 @@ mod mail_and_archive_sniff_tests {
     fn a_mailbox_is_detected_by_content_under_any_name() {
         let lf = format!("{SEP}\n{HEADERS}");
         let crlf = lf.replace('\n', "\r\n");
-        for name in ["Inbox", "mbox", "All mail Including Spam and Trash.mbox", "export.txt", "x.eml"] {
+        for name in [
+            "Inbox",
+            "mbox",
+            "All mail Including Spam and Trash.mbox",
+            "export.txt",
+            "x.eml",
+        ] {
             assert_eq!(family(&lf, name), Family::Mbox, "LF {name}");
             assert_eq!(family(&crlf, name), Family::Mbox, "CRLF {name}");
         }
         // Blank lines before the first separator are tolerated.
         assert_eq!(family(&format!("\n\n{lf}"), "Inbox"), Family::Mbox);
         // Thunderbird and mutt separators.
-        for sep in ["From - Tue Oct 10 12:34:56 2023", "From MAILER-DAEMON Fri Jul  8 12:08:34 2011"] {
-            assert_eq!(family(&format!("{sep}\n{HEADERS}"), "Sent"), Family::Mbox, "{sep}");
+        for sep in [
+            "From - Tue Oct 10 12:34:56 2023",
+            "From MAILER-DAEMON Fri Jul  8 12:08:34 2011",
+        ] {
+            assert_eq!(
+                family(&format!("{sep}\n{HEADERS}"), "Sent"),
+                Family::Mbox,
+                "{sep}"
+            );
         }
     }
 
@@ -3803,7 +3819,10 @@ mod mail_and_archive_sniff_tests {
         let log = format!("{SEP}\nname: app\nversion: 2\nport: 8080\n");
         assert_ne!(family(&log, "weird.mbox"), Family::Mbox);
         // A QUOTED separator is body text of some other file, not a mailbox.
-        assert_ne!(family(&format!(">{SEP}\n{HEADERS}"), "reply.mbox"), Family::Mbox);
+        assert_ne!(
+            family(&format!(">{SEP}\n{HEADERS}"), "reply.mbox"),
+            Family::Mbox
+        );
         // A single message with no separator stays an email.
         assert_eq!(family(HEADERS, "one.mbox"), Family::Eml);
     }
@@ -3846,7 +3865,11 @@ mod mail_and_archive_sniff_tests {
     /// owner nothing.
     #[test]
     fn archives_are_named_and_told_apart_from_text_that_mentions_them() {
-        let tar = sniffed(&tar_header("Takeout/Mail/All mail.mbox"), "takeout-001.tar", false);
+        let tar = sniffed(
+            &tar_header("Takeout/Mail/All mail.mbox"),
+            "takeout-001.tar",
+            false,
+        );
         assert_eq!(tar.family, Family::Binary);
         assert_eq!(tar.binary_kind.as_deref(), Some("tar"));
         // The same 512 bytes reached through gzip (a .tgz): still a tar.
@@ -3855,9 +3878,17 @@ mod mail_and_archive_sniff_tests {
         // `ustar` at offset 257 of a TEXT file, with no valid checksum: not a tar.
         let mut text = vec![b'a'; 512];
         text[257..262].copy_from_slice(b"ustar");
-        assert_ne!(sniffed(&text, "essay.txt", false).binary_kind.as_deref(), Some("tar"));
+        assert_ne!(
+            sniffed(&text, "essay.txt", false).binary_kind.as_deref(),
+            Some("tar")
+        );
         // Shorter than one header block: `get(..512)` is None, not a panic.
-        assert_ne!(sniffed(&tar_header("x")[..300], "cut.tar", false).binary_kind.as_deref(), Some("tar"));
+        assert_ne!(
+            sniffed(&tar_header("x")[..300], "cut.tar", false)
+                .binary_kind
+                .as_deref(),
+            Some("tar")
+        );
 
         for (magic, kind) in [
             (&b"7z\xbc\xaf\x27\x1c\x00\x04rest"[..], "7z"),

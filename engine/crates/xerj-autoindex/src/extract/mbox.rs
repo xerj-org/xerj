@@ -47,6 +47,26 @@
 //! length (binary `Content-Transfer-Encoding` has no line structure at all) is
 //! streamed through in chunks; it is never materialised.
 //!
+//! ## Parallelism
+//!
+//! Phase B runs one worker per FILE, and a Takeout mailbox is one file, so
+//! before this every message of a multi-GB export was extracted on ONE
+//! thread — including one PDF parser subprocess per attached PDF — while the
+//! other cores idled (measured: ~4.7 MB/s on the 1 GB synthetic Takeout, the
+//! figures are in `benchmarks/mbox-ingest/README.md`). Splitting is cheap
+//! and inherently serial; parsing is not. So the splitter runs on its own
+//! thread and hands each message to a pool that runs [`emit_message`], and
+//! the calling thread forwards the results to the sink IN MESSAGE ORDER, so
+//! the record stream is byte-for-byte what the sequential path produces (a
+//! test pins that). Memory stays bounded by [`IN_FLIGHT_BUDGET`]: the
+//! splitter waits before reading a message that would push the bytes held
+//! across the pool and the reorder buffer over it, and a single message
+//! larger than the whole budget is admitted alone. Phase-A sampling (a byte
+//! limit) stays sequential so that what gets sampled is a function of the
+//! bytes, not of scheduling. Slots are process-wide (`configure_parallelism`,
+//! set from `--workers`), so ten mailboxes in one tree share the cores
+//! instead of each taking all of them.
+//!
 //! ## The record cap (#381)
 //!
 //! `MAX_RECORDS_PER_FILE` (4096) bounds what ONE DOCUMENT may emit, so that a
@@ -68,11 +88,14 @@
 //! slice bound is derived from a `len()` or a `position()` of the same buffer.
 
 use super::eml::{emit_message, MessageEnvelope, MessageOutcome, MAX_EML};
-use super::{emit_document_with_fields, open_reader, ExtractStats, Sink};
+use super::{emit_document_with_fields, open_reader, ExtractStats, RawRecord, Sink};
 use anyhow::Result;
 use serde_json::{Map, Value};
+use std::collections::BTreeMap;
 use std::io::BufRead;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Condvar, Mutex, OnceLock};
 
 /// Bytes of a line held back while deciding whether it is a separator or a
 /// quoted `>From `. A real separator is well under 200 bytes; a line that is
@@ -440,7 +463,167 @@ pub fn extract(
     extract_from(reader, limit_bytes, sink)
 }
 
-fn extract_from<R: BufRead>(
+/// Bytes of messages a mailbox may hold in flight across its worker pool and
+/// the reorder buffer (see the module docs, "Parallelism"). One message over
+/// this is admitted on its own, so a 64 MB message (the `MAX_EML` cap) never
+/// deadlocks the pipeline; it just runs alone.
+pub const IN_FLIGHT_BUDGET: usize = 256 << 20;
+
+/// Message-extraction slots shared by every mailbox open in this process.
+/// Set once per run from `--workers` (the Phase-B width). The default only
+/// covers code paths that never call it: unit tests and one-shot probes.
+pub fn configure_parallelism(workers: usize) {
+    gate().set_limit(workers.max(1));
+}
+
+/// Slots currently configured — what one mailbox may use at most.
+pub fn parallelism() -> usize {
+    gate().limit()
+}
+
+fn gate() -> &'static Gate {
+    static GATE: OnceLock<Gate> = OnceLock::new();
+    GATE.get_or_init(|| Gate::new(xerj_common::resource::cores().clamp(1, 8)))
+}
+
+/// A counting gate: `limit` permits, taken one per message being parsed.
+struct Gate {
+    /// (in use, limit)
+    state: Mutex<(usize, usize)>,
+    ready: Condvar,
+}
+
+impl Gate {
+    fn new(limit: usize) -> Self {
+        Self {
+            state: Mutex::new((0, limit.max(1))),
+            ready: Condvar::new(),
+        }
+    }
+
+    fn set_limit(&self, limit: usize) {
+        self.state.lock().expect("mbox gate poisoned").1 = limit.max(1);
+        self.ready.notify_all();
+    }
+
+    fn limit(&self) -> usize {
+        self.state.lock().expect("mbox gate poisoned").1
+    }
+
+    fn acquire(&self) -> GatePermit<'_> {
+        let mut state = self.state.lock().expect("mbox gate poisoned");
+        while state.0 >= state.1 {
+            state = self.ready.wait(state).expect("mbox gate poisoned");
+        }
+        state.0 += 1;
+        GatePermit(self)
+    }
+}
+
+struct GatePermit<'a>(&'a Gate);
+
+impl Drop for GatePermit<'_> {
+    fn drop(&mut self) {
+        let mut state = self.0.state.lock().expect("mbox gate poisoned");
+        state.0 = state.0.saturating_sub(1);
+        self.0.ready.notify_one();
+    }
+}
+
+/// Bytes admitted into the pipeline. `acquire` blocks while the request would
+/// overflow the cap AND something is already in flight; with nothing in
+/// flight any size goes through, which is what keeps an oversized message
+/// from waiting forever.
+struct Budget {
+    used: Mutex<usize>,
+    freed: Condvar,
+    cap: usize,
+}
+
+impl Budget {
+    fn new(cap: usize) -> Self {
+        Self {
+            used: Mutex::new(0),
+            freed: Condvar::new(),
+            cap,
+        }
+    }
+
+    fn acquire(&self, bytes: usize) {
+        let mut used = self.used.lock().expect("mbox budget poisoned");
+        while *used > 0 && used.saturating_add(bytes) > self.cap {
+            used = self.freed.wait(used).expect("mbox budget poisoned");
+        }
+        *used = used.saturating_add(bytes);
+    }
+
+    fn release(&self, bytes: usize) {
+        let mut used = self.used.lock().expect("mbox budget poisoned");
+        *used = used.saturating_sub(bytes);
+        drop(used);
+        self.freed.notify_all();
+    }
+}
+
+struct Job {
+    seq: u64,
+    msg: RawMessage,
+}
+
+enum Done {
+    Message {
+        seq: u64,
+        bytes: usize,
+        records: Vec<RawRecord>,
+        stats: ExtractStats,
+    },
+    /// The splitter failed after handing out `seq` messages.
+    Error { seq: u64, error: std::io::Error },
+    /// The splitter is done; `total` messages were handed out.
+    End { total: u64 },
+}
+
+/// Emit one split-out message through `sink`. Returns the sink's last answer
+/// (`false` = stop). Shared by the sequential and the parallel path so the
+/// two cannot drift.
+fn emit_raw_message(msg: &RawMessage, sink: Sink, stats: &mut ExtractStats) -> bool {
+    let prefix = format!("m{}-", msg.offset);
+    if msg.oversized() {
+        // Over the per-message cap: the head is parsed (headers, body and
+        // whatever attachments fit), the tail is not. Reported, never
+        // silent — the run names this file as truncated.
+        stats.truncated = true;
+    }
+    let env = MessageEnvelope {
+        loc_prefix: &prefix,
+        fallback_date: from_line_rfc3339(msg.from_line.as_bytes()),
+    };
+    match emit_message(&msg.bytes, &env, sink, stats) {
+        MessageOutcome::Emitted { alive } => alive,
+        MessageOutcome::Unparseable => emit_unparseable(msg, &prefix, &env, sink, stats),
+    }
+}
+
+fn extract_from<R: BufRead + Send>(
+    reader: R,
+    limit_bytes: Option<u64>,
+    sink: Sink,
+) -> Result<ExtractStats> {
+    // Sampling stays sequential: it stops at a byte limit, and which
+    // messages it saw must be a function of the bytes, not of scheduling.
+    let workers = if limit_bytes.is_some() {
+        1
+    } else {
+        parallelism()
+    };
+    if workers <= 1 {
+        extract_sequential(reader, limit_bytes, sink)
+    } else {
+        extract_parallel(reader, sink, workers)
+    }
+}
+
+fn extract_sequential<R: BufRead>(
     reader: R,
     limit_bytes: Option<u64>,
     sink: Sink,
@@ -448,22 +631,7 @@ fn extract_from<R: BufRead>(
     let mut stats = ExtractStats::default();
     let mut split = Splitter::new(reader);
     while let Some(msg) = split.next_message()? {
-        let prefix = format!("m{}-", msg.offset);
-        if msg.oversized() {
-            // Over the per-message cap: the head is parsed (headers, body and
-            // whatever attachments fit), the tail is not. Reported, never
-            // silent — the run names this file as truncated.
-            stats.truncated = true;
-        }
-        let env = MessageEnvelope {
-            loc_prefix: &prefix,
-            fallback_date: from_line_rfc3339(msg.from_line.as_bytes()),
-        };
-        let alive = match emit_message(&msg.bytes, &env, sink, &mut stats) {
-            MessageOutcome::Emitted { alive } => alive,
-            MessageOutcome::Unparseable => emit_unparseable(&msg, &prefix, &env, sink, &mut stats),
-        };
-        if !alive {
+        if !emit_raw_message(&msg, sink, &mut stats) {
             break;
         }
         if limit_bytes.is_some_and(|limit| split.consumed() >= limit) {
@@ -471,6 +639,149 @@ fn extract_from<R: BufRead>(
         }
     }
     Ok(stats)
+}
+
+/// One message, parsed on a pool thread into a local buffer.
+fn extract_one(msg: &RawMessage) -> (Vec<RawRecord>, ExtractStats) {
+    let mut stats = ExtractStats::default();
+    let mut records = Vec::new();
+    let mut sink = |r: RawRecord| {
+        records.push(r);
+        true
+    };
+    emit_raw_message(msg, &mut sink, &mut stats);
+    (records, stats)
+}
+
+/// The pipeline described in the module docs: splitter thread → `workers`
+/// parsers → this thread, which forwards records in message order.
+///
+/// Why it cannot deadlock: the forwarding thread blocks only on the result
+/// channel; a parser blocks only on the job channel (closed by the splitter
+/// when it ends) and on the process gate (released by other parsers); the
+/// splitter blocks on the budget and on the job channel, both released by
+/// the forwarding thread and the parsers respectively. When the sink says
+/// stop, the splitter sees the flag on its next message, and this thread
+/// keeps draining results — without forwarding — until the splitter's `End`
+/// arrives, so nothing is left blocked on a channel this thread has dropped.
+fn extract_parallel<R: BufRead + Send>(
+    reader: R,
+    sink: Sink,
+    workers: usize,
+) -> Result<ExtractStats> {
+    let (job_tx, job_rx) = mpsc::sync_channel::<Job>(workers);
+    let job_rx = Arc::new(Mutex::new(job_rx));
+    let (done_tx, done_rx) = mpsc::channel::<Done>();
+    let stop = AtomicBool::new(false);
+    let budget = Budget::new(IN_FLIGHT_BUDGET);
+    let mut stats = ExtractStats::default();
+    let mut failure: Option<std::io::Error> = None;
+
+    std::thread::scope(|scope| {
+        let splitter_tx = done_tx.clone();
+        let (stop_ref, budget_ref) = (&stop, &budget);
+        scope.spawn(move || {
+            let mut split = Splitter::new(reader);
+            let mut seq = 0u64;
+            loop {
+                if stop_ref.load(Ordering::Relaxed) {
+                    break;
+                }
+                match split.next_message() {
+                    Ok(Some(msg)) => {
+                        budget_ref.acquire(msg.bytes.len());
+                        if job_tx.send(Job { seq, msg }).is_err() {
+                            break;
+                        }
+                        seq += 1;
+                    }
+                    Ok(None) => break,
+                    Err(error) => {
+                        let _ = splitter_tx.send(Done::Error { seq, error });
+                        break;
+                    }
+                }
+            }
+            let _ = splitter_tx.send(Done::End { total: seq });
+            // `job_tx` drops here: the parsers drain what is queued and exit.
+        });
+        for _ in 0..workers {
+            let job_rx = Arc::clone(&job_rx);
+            let done_tx = done_tx.clone();
+            scope.spawn(move || loop {
+                // Hold the lock only while waiting for a job, never while
+                // parsing one: the other parsers must be able to take theirs.
+                let job = match job_rx.lock() {
+                    Ok(rx) => rx.recv(),
+                    Err(_) => return,
+                };
+                let Ok(Job { seq, msg }) = job else { return };
+                let _slot = gate().acquire();
+                let bytes = msg.bytes.len();
+                let (records, stats) = extract_one(&msg);
+                drop(msg);
+                if done_tx
+                    .send(Done::Message {
+                        seq,
+                        bytes,
+                        records,
+                        stats,
+                    })
+                    .is_err()
+                {
+                    return;
+                }
+            });
+        }
+        drop(done_tx);
+
+        let mut next = 0u64;
+        let mut total: Option<u64> = None;
+        let mut pending: BTreeMap<u64, (usize, Vec<RawRecord>, ExtractStats)> = BTreeMap::new();
+        let mut alive = true;
+        loop {
+            if total.is_some_and(|t| next >= t) {
+                break;
+            }
+            let Ok(done) = done_rx.recv() else { break };
+            match done {
+                Done::End { total: t } => total = Some(t),
+                Done::Error { seq, error } => {
+                    failure = Some(error);
+                    total = Some(seq);
+                }
+                Done::Message {
+                    seq,
+                    bytes,
+                    records,
+                    stats,
+                } => {
+                    pending.insert(seq, (bytes, records, stats));
+                }
+            }
+            while let Some((bytes, records, s)) = pending.remove(&next) {
+                next += 1;
+                budget.release(bytes);
+                if !alive {
+                    continue;
+                }
+                stats.records += s.records;
+                stats.junk += s.junk;
+                stats.truncated |= s.truncated;
+                for record in records {
+                    if !sink(record) {
+                        alive = false;
+                        stop.store(true, Ordering::Relaxed);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+    match failure {
+        Some(error) => Err(error.into()),
+        None => Ok(stats),
+    }
 }
 
 /// A mailbox entry the MIME parser refused outright. Its text is still in the
@@ -612,7 +923,10 @@ mod tests {
             Some("2016-12-31T23:59:59Z")
         );
         // Feb 30 has the right SHAPE and no such day: not a date, no panic.
-        assert_eq!(from_line_rfc3339(b"From a@b Mon Feb 30 10:00:00 2024"), None);
+        assert_eq!(
+            from_line_rfc3339(b"From a@b Mon Feb 30 10:00:00 2024"),
+            None
+        );
     }
 
     #[test]
@@ -639,7 +953,11 @@ mod tests {
         let body = ">From the desk of Bob\n>>From the archive\n> From spaced\n>Fromage\n> quoted reply\nFrom what I hear";
         let mbox = format!("{SEP_A}\n{}\n", msg("q@x", "quoting", body));
         let out = split_all(mbox.as_bytes());
-        assert_eq!(out.len(), 1, "an unquoted prose `From ` line is not a split");
+        assert_eq!(
+            out.len(),
+            1,
+            "an unquoted prose `From ` line is not a split"
+        );
         let text = String::from_utf8(out[0].bytes.clone()).unwrap();
         assert!(text.contains("\nFrom the desk of Bob\n"), "{text}");
         assert!(text.contains("\n>From the archive\n"), "{text}");
@@ -663,7 +981,10 @@ mod tests {
 
     #[test]
     fn a_missing_trailing_newline_keeps_the_last_line() {
-        let mbox = format!("{SEP_A}\n{}", msg("a@x", "tail", "last line without newline"));
+        let mbox = format!(
+            "{SEP_A}\n{}",
+            msg("a@x", "tail", "last line without newline")
+        );
         let mbox = mbox.trim_end_matches('\n');
         let out = split_all(mbox.as_bytes());
         assert_eq!(out.len(), 1);
@@ -692,10 +1013,18 @@ mod tests {
     /// inside multi-byte characters.
     #[test]
     fn chunk_boundaries_never_change_the_split() {
-        let a = msg("a@x", "Überweisung — 設計書", "Grüße\n>From Zoë\nمرحبا بالعالم");
+        let a = msg(
+            "a@x",
+            "Überweisung — 設計書",
+            "Grüße\n>From Zoë\nمرحبا بالعالم",
+        );
         let b = msg("b@x", "second", "x").replace('\n', "\r\n");
         let long = "L".repeat(3 * HEAD_CAP + 7);
-        let c = msg("c@x", "long line", &format!("{long}\n>From after the long line"));
+        let c = msg(
+            "c@x",
+            "long line",
+            &format!("{long}\n>From after the long line"),
+        );
         let mbox = format!("{SEP_A}\n{a}\n{SEP_GMAIL}\r\n{b}\r\n{SEP_TBIRD}\n{c}\n");
         let want = split_with(mbox.as_bytes(), 1 << 20, 1 << 16);
         assert_eq!(want.len(), 3);
@@ -791,23 +1120,49 @@ mod tests {
     #[test]
     fn locator_offsets_round_trip_and_reject_everything_else() {
         assert_eq!(locator_offset("m0-msg-s0"), Some(0));
-        assert_eq!(locator_offset("m1073777879-att2-p3-s1"), Some(1_073_777_879));
-        assert_eq!(locator_offset("m18446744073709551615-raw-s0"), Some(u64::MAX));
+        assert_eq!(
+            locator_offset("m1073777879-att2-p3-s1"),
+            Some(1_073_777_879)
+        );
+        assert_eq!(
+            locator_offset("m18446744073709551615-raw-s0"),
+            Some(u64::MAX)
+        );
         // Not ours: a standalone .eml, other families, overflow, junk, non-ASCII.
         for other in [
-            "msg-s0", "m-msg-s0", "m12", "m12x-msg-s0", "att0-card", "p1-s0", "", "m",
-            "m18446744073709551616-msg-s0", "m１２-msg-s0", "mé-1", "設計-m5-",
+            "msg-s0",
+            "m-msg-s0",
+            "m12",
+            "m12x-msg-s0",
+            "att0-card",
+            "p1-s0",
+            "",
+            "m",
+            "m18446744073709551616-msg-s0",
+            "m１２-msg-s0",
+            "mé-1",
+            "設計-m5-",
         ] {
             assert_eq!(locator_offset(other), None, "{other:?}");
         }
         // What the extractor writes is what this reads back.
-        let mbox = format!("{SEP_A}\n{}\n{SEP_TBIRD}\n{}\n", msg("a@x", "one", "x"), msg("b@x", "two", "y"));
+        let mbox = format!(
+            "{SEP_A}\n{}\n{SEP_TBIRD}\n{}\n",
+            msg("a@x", "one", "x"),
+            msg("b@x", "two", "y")
+        );
         let offsets: Vec<u64> = records(mbox.as_bytes())
             .0
             .iter()
             .map(|r| locator_offset(&r.locator).expect("every mbox record carries its offset"))
             .collect();
-        assert_eq!(offsets, vec![0, (SEP_A.len() + 1 + msg("a@x", "one", "x").len() + 1) as u64]);
+        assert_eq!(
+            offsets,
+            vec![
+                0,
+                (SEP_A.len() + 1 + msg("a@x", "one", "x").len() + 1) as u64
+            ]
+        );
     }
 
     /// Same bytes, same ids — and an id does not move when a LATER message
@@ -816,9 +1171,16 @@ mod tests {
     fn locators_are_deterministic() {
         let a = msg("a@x", "one", "alpha");
         let mbox1 = format!("{SEP_A}\n{a}\n{SEP_TBIRD}\n{}\n", msg("b@x", "two", "beta"));
-        let mbox2 = format!("{SEP_A}\n{a}\n{SEP_TBIRD}\n{}\n", msg("c@x", "2", "gamma gamma"));
+        let mbox2 = format!(
+            "{SEP_A}\n{a}\n{SEP_TBIRD}\n{}\n",
+            msg("c@x", "2", "gamma gamma")
+        );
         let loc = |data: &str| -> Vec<String> {
-            records(data.as_bytes()).0.into_iter().map(|r| r.locator).collect()
+            records(data.as_bytes())
+                .0
+                .into_iter()
+                .map(|r| r.locator)
+                .collect()
         };
         assert_eq!(loc(&mbox1), loc(&mbox1));
         assert_eq!(loc(&mbox1)[0], loc(&mbox2)[0]);
@@ -879,7 +1241,8 @@ mod tests {
         );
         // The separator-only entry is junk, not an empty "(no subject)" document.
         assert!(
-            recs.iter().all(|r| field(r, "title") != Some("(no subject)")),
+            recs.iter()
+                .all(|r| field(r, "title") != Some("(no subject)")),
             "an entry with no bytes must not become an empty document"
         );
         assert!(stats.junk >= 1, "{stats:?}");
@@ -904,8 +1267,12 @@ mod tests {
             seen += 1;
             seen < 3
         };
-        let stats =
-            extract_from(BufReader::new(Cursor::new(mbox.as_bytes())), None, &mut sink).unwrap();
+        let stats = extract_from(
+            BufReader::new(Cursor::new(mbox.as_bytes())),
+            None,
+            &mut sink,
+        )
+        .unwrap();
         assert_eq!(seen, 3);
         assert_eq!(stats.records, 3);
         // …and the byte limit stops it BETWEEN messages, never inside one.
@@ -944,6 +1311,259 @@ mod tests {
         let mbox = format!("{SEP_A}\n{}\n", msg("huge@x", "huge", &body));
         let (recs, stats) = records(mbox.as_bytes());
         assert_eq!(recs.len(), crate::extract::MAX_RECORDS_PER_FILE);
-        assert!(stats.truncated, "a capped message is reported, never silent");
+        assert!(
+            stats.truncated,
+            "a capped message is reported, never silent"
+        );
+    }
+
+    // ── the parallel pipeline ──────────────────────────────────────────
+
+    fn shape(recs: &[RawRecord]) -> Vec<(String, Option<String>, Map<String, Value>)> {
+        recs.iter()
+            .map(|r| (r.locator.clone(), r.group.clone(), r.fields.clone()))
+            .collect()
+    }
+
+    fn mime_msg(i: usize) -> String {
+        format!(
+            "From: Zoë <zoe@example.org>\nTo: bob@example.org\nSubject: Anhang {i} — 添付\n\
+             Date: Mon, 1 Jan 2024 10:00:00 +0000\nMessage-ID: <mime-{i}@example.org>\n\
+             MIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"b{i}\"\n\n\
+             --b{i}\nContent-Type: text/plain; charset=utf-8\n\nbody {i} with attachment ✓\n\
+             --b{i}\nContent-Type: text/plain; name=\"notes-{i}.txt\"\n\
+             Content-Disposition: attachment; filename=\"notes-{i}.txt\"\n\n\
+             attached text {i} — café\n--b{i}--\n"
+        )
+    }
+
+    /// Every shape the splitter and the parser have a branch for, mixed:
+    /// three writers' separators, multi-byte text, quoted and unquoted
+    /// `From ` lines, CRLF, a long body that sections, a MIME attachment,
+    /// an entry with no headers, an empty entry.
+    fn varied_mailbox(n: usize) -> Vec<u8> {
+        let mut out = Vec::new();
+        for i in 0..n {
+            let sep = match i % 3 {
+                0 => SEP_A,
+                1 => SEP_GMAIL,
+                _ => SEP_TBIRD,
+            };
+            out.extend_from_slice(sep.as_bytes());
+            out.push(b'\n');
+            if i % 7 == 6 {
+                out.extend_from_slice(format!("no headers here {i} — 設計\n\n").as_bytes());
+                continue;
+            }
+            if i % 11 == 10 {
+                out.push(b'\n');
+                continue;
+            }
+            if i % 5 == 4 {
+                out.extend_from_slice(mime_msg(i).as_bytes());
+                out.push(b'\n');
+                continue;
+            }
+            let body = match i % 5 {
+                0 => format!(
+                    "Résumé № {i}: 設計 données — café\n>From quoted {i}\n\
+                     From what I understand, this is prose.\n"
+                ),
+                1 => format!("plain {i}\n\n{}", "Paragraph text here. ".repeat(300)),
+                2 => String::new(),
+                _ => format!("line one {i}\r\nline two ✓\r\n"),
+            };
+            out.extend_from_slice(
+                msg(
+                    &format!("id-{i}@example.org"),
+                    &format!("Subject {i} — 件名"),
+                    &body,
+                )
+                .as_bytes(),
+            );
+            out.push(b'\n');
+        }
+        out
+    }
+
+    fn run_sequential(data: &[u8]) -> (Vec<RawRecord>, ExtractStats) {
+        let mut out = Vec::new();
+        let mut sink = |r: RawRecord| {
+            out.push(r);
+            true
+        };
+        let stats = extract_sequential(
+            BufReader::with_capacity(4096, Cursor::new(data)),
+            None,
+            &mut sink,
+        )
+        .unwrap();
+        (out, stats)
+    }
+
+    fn run_parallel(data: &[u8], workers: usize) -> (Vec<RawRecord>, ExtractStats) {
+        let mut out = Vec::new();
+        let mut sink = |r: RawRecord| {
+            out.push(r);
+            true
+        };
+        let stats = extract_parallel(
+            BufReader::with_capacity(4096, Cursor::new(data)),
+            &mut sink,
+            workers,
+        )
+        .unwrap();
+        (out, stats)
+    }
+
+    #[test]
+    fn parallel_and_sequential_paths_emit_identical_record_streams() {
+        let data = varied_mailbox(120);
+        let (seq, seq_stats) = run_sequential(&data);
+        assert!(
+            seq.len() > 120,
+            "sections and attachments outnumber messages: {}",
+            seq.len()
+        );
+        assert!(seq_stats.junk > 0, "the empty entries are junk");
+        for workers in [2, 3, 7, 16] {
+            let (par, par_stats) = run_parallel(&data, workers);
+            assert_eq!(shape(&par), shape(&seq), "workers={workers}");
+            assert_eq!(
+                (par_stats.records, par_stats.junk, par_stats.truncated),
+                (seq_stats.records, seq_stats.junk, seq_stats.truncated),
+                "workers={workers}"
+            );
+        }
+        // And the dispatcher itself, at whatever width this process has.
+        let (via_dispatch, _) = records(&data);
+        assert_eq!(shape(&via_dispatch), shape(&seq));
+    }
+
+    #[test]
+    fn sink_stop_ends_the_parallel_run_without_a_hang() {
+        let data = varied_mailbox(200);
+        let mut out = Vec::new();
+        let mut sink = |r: RawRecord| {
+            out.push(r);
+            out.len() < 5
+        };
+        let stats = extract_parallel(
+            BufReader::with_capacity(4096, Cursor::new(&data[..])),
+            &mut sink,
+            4,
+        )
+        .unwrap();
+        assert_eq!(out.len(), 5);
+        assert!(stats.records >= 5);
+        let (seq, _) = run_sequential(&data);
+        assert_eq!(shape(&out), shape(&seq[..5]), "the first five, in order");
+    }
+
+    /// Serves `data` until `fail_at`, then fails every read: a disk that goes
+    /// away, or a pipe that closes, mid-mailbox.
+    struct Flaky<'a> {
+        data: &'a [u8],
+        pos: usize,
+        fail_at: usize,
+    }
+
+    impl std::io::Read for Flaky<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if self.pos >= self.fail_at {
+                return Err(std::io::Error::other("disk gone"));
+            }
+            let end = self.data.len().min(self.fail_at).min(self.pos + buf.len());
+            let n = end - self.pos;
+            buf[..n].copy_from_slice(&self.data[self.pos..end]);
+            self.pos = end;
+            Ok(n)
+        }
+    }
+
+    #[test]
+    fn splitter_error_surfaces_after_the_messages_before_it_were_emitted() {
+        let data = varied_mailbox(60);
+        let fail_at = data.len() / 2;
+        let run = |workers: usize| {
+            let mut out = Vec::new();
+            let mut sink = |r: RawRecord| {
+                out.push(r);
+                true
+            };
+            let reader = BufReader::with_capacity(
+                1024,
+                Flaky {
+                    data: &data,
+                    pos: 0,
+                    fail_at,
+                },
+            );
+            let res = if workers == 1 {
+                extract_sequential(reader, None, &mut sink)
+            } else {
+                extract_parallel(reader, &mut sink, workers)
+            };
+            (res.map(|_| ()).map_err(|e| e.to_string()), out)
+        };
+        let (seq_res, seq) = run(1);
+        assert!(seq_res.unwrap_err().contains("disk gone"));
+        assert!(
+            !seq.is_empty(),
+            "messages before the failure are still indexed"
+        );
+        for workers in [2, 5] {
+            let (par_res, par) = run(workers);
+            assert!(
+                par_res.unwrap_err().contains("disk gone"),
+                "workers={workers}"
+            );
+            assert_eq!(shape(&par), shape(&seq), "workers={workers}");
+        }
+    }
+
+    #[test]
+    fn budget_admits_an_oversized_message_alone_and_blocks_the_next() {
+        use std::sync::atomic::AtomicBool;
+        let budget = Arc::new(Budget::new(10));
+        budget.acquire(50); // over the cap, nothing in flight: admitted
+        let entered = Arc::new(AtomicBool::new(false));
+        let waiter = {
+            let (budget, entered) = (Arc::clone(&budget), Arc::clone(&entered));
+            std::thread::spawn(move || {
+                budget.acquire(1);
+                entered.store(true, Ordering::SeqCst);
+            })
+        };
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(
+            !entered.load(Ordering::SeqCst),
+            "must wait while 50 > cap is in flight"
+        );
+        budget.release(50);
+        waiter.join().unwrap();
+        assert!(entered.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn gate_bounds_parsers_across_mailboxes_and_a_dropped_permit_frees_a_slot() {
+        let gate = Arc::new(Gate::new(2));
+        let a = gate.acquire();
+        let _b = gate.acquire();
+        let third = {
+            let gate = Arc::clone(&gate);
+            std::thread::spawn(move || {
+                let _c = gate.acquire();
+            })
+        };
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(
+            !third.is_finished(),
+            "two slots, two holders: the third waits"
+        );
+        drop(a);
+        third.join().unwrap();
+        gate.set_limit(1);
+        assert_eq!(gate.limit(), 1);
     }
 }

@@ -297,13 +297,25 @@ mod tests {
         let r = &recs[0];
         assert_eq!(r.locator, "note-s0");
         assert_eq!(r.origin, FieldOrigin::Extractor);
-        assert_eq!(r.fields["title"], serde_json::json!("Acquisition follow-ups"));
+        assert_eq!(
+            r.fields["title"],
+            serde_json::json!("Acquisition follow-ups")
+        );
         let body = r.fields["body"].as_str().unwrap();
         assert!(body.contains("Bring the 設計書."), "{body}");
-        assert!(body.contains("Term sheet — https://example.org/ts"), "{body}");
+        assert!(
+            body.contains("Term sheet — https://example.org/ts"),
+            "{body}"
+        );
         assert_eq!(r.fields["keep_labels"], serde_json::json!(["work", "deal"]));
-        assert_eq!(r.fields["keep_created"], serde_json::json!("2023-07-22T04:26:40Z"));
-        assert_eq!(r.fields["keep_edited"], serde_json::json!("2023-11-14T22:13:20Z"));
+        assert_eq!(
+            r.fields["keep_created"],
+            serde_json::json!("2023-07-22T04:26:40Z")
+        );
+        assert_eq!(
+            r.fields["keep_edited"],
+            serde_json::json!("2023-11-14T22:13:20Z")
+        );
         assert_eq!(r.fields["keep_trashed"], serde_json::json!(false));
         assert_eq!(r.fields["keep_pinned"], serde_json::json!(true));
         assert!(r.fields.get("textContent").is_none(), "not a raw data row");
@@ -351,7 +363,11 @@ mod tests {
                 );
                 let (_, recs) = run(&note);
                 let title = recs[0].fields["title"].as_str().unwrap();
-                assert_eq!(title.chars().count(), n.min(KEEP_TITLE_CHARS), "{unit} x{n}");
+                assert_eq!(
+                    title.chars().count(),
+                    n.min(KEEP_TITLE_CHARS),
+                    "{unit} x{n}"
+                );
             }
         }
     }

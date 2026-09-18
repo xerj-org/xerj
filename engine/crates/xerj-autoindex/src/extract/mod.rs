@@ -111,14 +111,16 @@ pub const SECTION_OVERLAP: usize = 200;
 
 /// Open a (possibly gzipped) file as a buffered reader of DECODED-transparent
 /// bytes, optionally capped at `limit` decoded bytes (sampling).
-pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dyn BufRead>> {
+pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dyn BufRead + Send>> {
     let f = std::fs::File::open(path)?;
-    let inner: Box<dyn Read> = if gzip {
+    let inner: Box<dyn Read + Send> = if gzip {
         Box::new(flate2::read::MultiGzDecoder::new(f))
     } else {
         Box::new(f)
     };
-    let inner: Box<dyn Read> = match limit {
+    // `Send` so a container extractor (mbox) can move the reader to its
+    // splitter thread; every concrete reader here is.
+    let inner: Box<dyn Read + Send> = match limit {
         Some(n) => Box::new(inner.take(n)),
         None => Box::new(inner),
     };

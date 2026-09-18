@@ -1974,13 +1974,21 @@ mod tests {
         progress.tick();
         let text = captured(&buffer);
         assert!(text.contains("pct=50.0"), "the bar moves mid-file: {text}");
-        assert_eq!(progress.items_done.load(Ordering::Relaxed), 0, "not done yet");
+        assert_eq!(
+            progress.items_done.load(Ordering::Relaxed),
+            0,
+            "not done yet"
+        );
 
         // A decompressed stream's offsets run past the size on disk: clamped.
         guard.advance_to(u64::MAX);
         assert_eq!(bytes(), size);
         drop(guard);
-        assert_eq!(bytes(), size, "drop credits only the remainder — here, none");
+        assert_eq!(
+            bytes(),
+            size,
+            "drop credits only the remainder — here, none"
+        );
         assert_eq!(progress.items_done.load(Ordering::Relaxed), 1);
 
         // …and a guard that never reported anything still credits everything.

@@ -624,7 +624,10 @@ mod tests {
             let recs = run(eml.as_bytes());
             field(&recs[0], "email_thread_id").map(str::to_string)
         };
-        assert_eq!(thread("1787654321098765432").as_deref(), Some("18cf06223648b478"));
+        assert_eq!(
+            thread("1787654321098765432").as_deref(),
+            Some("18cf06223648b478")
+        );
         // Two ids above i64::MAX (9223372036854775807) that f64 cannot tell apart.
         let a = thread("18446744073709551614");
         let b = thread("18446744073709551615");
@@ -632,7 +635,10 @@ mod tests {
         assert_eq!(b.as_deref(), Some("ffffffffffffffff"));
         assert_ne!(a, b);
         // Not a u64 at all: kept as written rather than dropped or panicking.
-        assert_eq!(thread("99999999999999999999999").as_deref(), Some("99999999999999999999999"));
+        assert_eq!(
+            thread("99999999999999999999999").as_deref(),
+            Some("99999999999999999999999")
+        );
         assert_eq!(thread("thread-設計").as_deref(), Some("thread-設計"));
     }
 
@@ -656,11 +662,18 @@ mod tests {
         };
         let (from_lf, from_crlf) = (bodies(&lf), bodies(&crlf));
         assert!(from_lf.len() > 1, "long enough to be sectioned at all");
-        assert_eq!(from_crlf, from_lf, "line endings must not change the sections");
+        assert_eq!(
+            from_crlf, from_lf,
+            "line endings must not change the sections"
+        );
         assert!(from_crlf.iter().all(|b| !b.contains('\r')));
         // Paragraph-aligned: every section ends where a paragraph ends.
         for b in &from_crlf {
-            assert!(b.trim_end().ends_with("term sheet"), "cut mid-paragraph: …{:?}", b.chars().rev().take(30).collect::<String>());
+            assert!(
+                b.trim_end().ends_with("term sheet"),
+                "cut mid-paragraph: …{:?}",
+                b.chars().rev().take(30).collect::<String>()
+            );
         }
     }
 
@@ -712,7 +725,10 @@ mod tests {
         // 8-bit byte as the LAST byte too, where a "tolerate a cut prefix"
         // decoder would drop it.
         let body = body_of(b"\n\x93Quoted\x94 price: \x80420 at the caf\xe9");
-        assert_eq!(body, "\u{201c}Quoted\u{201d} price: \u{20ac}420 at the caf\u{e9}");
+        assert_eq!(
+            body,
+            "\u{201c}Quoted\u{201d} price: \u{20ac}420 at the caf\u{e9}"
+        );
         assert!(!body.contains('\u{fffd}'));
 
         // Valid UTF-8 with no charset stays UTF-8 (not re-read as cp1252).
@@ -723,10 +739,14 @@ mod tests {
             body_of(b"Content-Type: text/plain; charset=iso-8859-1\n\ncaf\xe9"),
             "café"
         );
-        assert!(body_of(b"Content-Type: text/plain; charset=utf-8\n\ncaf\xe9").contains('\u{fffd}'));
+        assert!(
+            body_of(b"Content-Type: text/plain; charset=utf-8\n\ncaf\xe9").contains('\u{fffd}')
+        );
         // Quoted-printable with no charset: raw bytes are the ENCODED form and
         // are valid ASCII, so the parser's decoding stands.
-        assert!(body_of(b"Content-Transfer-Encoding: quoted-printable\n\ncaf=E9 ok").contains("ok"));
+        assert!(
+            body_of(b"Content-Transfer-Encoding: quoted-printable\n\ncaf=E9 ok").contains("ok")
+        );
         // FF FE opens the body: two bytes of text, never a UTF-16 BOM.
         assert_eq!(body_of(b"\n\xff\xfeabc"), "\u{ff}\u{fe}abc");
     }
