@@ -376,7 +376,11 @@ impl ShareStore {
         now_ms: u64,
     ) -> Result<(), Throttled> {
         use std::sync::atomic::Ordering;
-        if self.charges.fetch_add(1, Ordering::Relaxed) % PRUNE_EVERY == 0 {
+        if self
+            .charges
+            .fetch_add(1, Ordering::Relaxed)
+            .is_multiple_of(PRUNE_EVERY)
+        {
             self.windows
                 .retain(|_, w| now_ms.saturating_sub(w.start_ms) < WINDOW_HOUR_MS);
         }
