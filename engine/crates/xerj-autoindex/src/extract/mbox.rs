@@ -15,11 +15,19 @@
 //! `From `, writers quote such lines: **mboxo** turns `From ` into `>From `,
 //! **mboxrd** additionally turns `>From ` into `>>From ` so the quoting is
 //! reversible. Reading undoes exactly one level: a line matching `^>+From `
-//! loses its first `>`. (mail-parser's `mailbox::mbox::MessageIterator`,
-//! Apache-2.0/MIT, applies the same rule; it was read as the reference for it.
-//! This is a separate implementation because that iterator buffers a whole
-//! line with `read_until`, reports no byte offsets, has no message size cap,
-//! and accepts ANY line starting `From ` as a separator.)
+//! loses its first `>`.
+//!
+//! The reference read for that rule is mail-parser's own
+//! `mailbox::mbox::MessageIterator` (`mail-parser-0.11.9/src/mailbox/mbox.rs`,
+//! Apache-2.0 OR MIT — already a dependency of this crate). Its unquoting is
+//! at `mbox.rs:75-80` and ours is the same rule. It is NOT used here, and
+//! nothing is copied from it, for four reasons that are each visible in that
+//! file: it buffers every line whole with `read_until` (`:49`), so one
+//! newline-free binary part is held in memory at once; its `Message` carries
+//! no byte offset (`:21-25`), which is what our locators are made of; message
+//! contents grow without a cap (`:70`, `:80`, `:82`); and ANY line starting
+//! `From ` is a separator (`:55`) — see the next paragraph for why that one
+//! is a correctness bug on real mailboxes rather than a style difference.
 //!
 //! A separator here must carry an asctime-shaped date (`Mon Jan  1 00:00:00
 //! 2024`, optionally with a zone token, which is what Gmail Takeout writes).
@@ -828,6 +836,12 @@ mod tests {
                 .any(|r| field(r, "email_message_id") == Some("good@x")),
             "the message after the wreckage must still be indexed"
         );
+        // The separator-only entry is junk, not an empty "(no subject)" document.
+        assert!(
+            recs.iter().all(|r| field(r, "title") != Some("(no subject)")),
+            "an entry with no bytes must not become an empty document"
+        );
+        assert!(stats.junk >= 1, "{stats:?}");
         let latin = recs
             .iter()
             .find(|r| field(r, "body").is_some_and(|b| b.contains("Köln")))

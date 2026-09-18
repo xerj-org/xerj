@@ -50,7 +50,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import bisect
 import gzip
 import hashlib
 import io
@@ -97,6 +96,15 @@ FROM_LINES = [
     "From now on, please copy legal on these.",
 ]
 PROSE_FROM = "From what I understand, the deal closes Monday and not before."
+
+# Coverage must not depend on luck: at small N a 1% feature simply never fires,
+# and a fixture that lacks the hard cases tests nothing. These message numbers
+# ALWAYS carry the named feature; the probabilistic draws add more on top.
+FORCED = {
+    2: "body-needle", 3: "latin1", 4: "cp1252", 5: "from-line", 6: "quoted-from",
+    9: "attach-pdf", 12: "attach-text", 15: "attach-binary", 18: "nonascii-subject",
+}
+FORCED_REPLY = {11: "via-references", 14: "dangling", 17: "direct"}
 
 
 def make_vocab(rng: random.Random, n: int = 24000):
@@ -260,8 +268,10 @@ QUOTE_RE = re.compile(rb"(?m)^(>*From )")
 
 
 class Mailbox:
-    def __init__(self, rng: random.Random, text: Text, profile: str, truth: dict):
+    def __init__(self, rng: random.Random, text: Text, profile: str, truth: dict,
+                 blob_max: int = 3 << 20, long_line: int = 300 << 10):
         self.rng, self.text, self.profile, self.truth = rng, text, profile, truth
+        self.blob_max, self.long_line = blob_max, long_line
         self.used_needles: set = set()
         self.n = 0
         self.epoch = BASE_EPOCH
@@ -284,12 +294,13 @@ class Mailbox:
         self.truth["needles"].append({"token": t, "where": where, "message_id": message_id})
         return t
 
-    def attachment(self, message_id: str, want_needle: bool):
-        """-> (mime part text, kind)"""
+    def attachment(self, message_id: str, want_needle: bool, kind: str | None = None):
+        """-> (mime part text, kind). `kind` forces pdf/text/binary."""
         rng = self.rng
         roll = rng.random()
         if self.profile == "text":
             roll = min(roll, 0.59)  # text profile: PDFs and text files only
+        roll = {"pdf": 0.0, "text": 0.45, "binary": 0.9}.get(kind, roll)
         if roll < 0.30:
             kind = "pdf"
             pages = []
@@ -320,7 +331,7 @@ class Mailbox:
             name = rng.choice(["notes", "export", "minutes", "ledger"]) + "-%d.%s" % (rng.randint(1, 999), ext)
         else:
             kind = "binary"
-            size = lognorm(rng, 11.0, 1.1, 2048, 3 << 20)
+            size = lognorm(rng, 11.0, 1.1, min(2048, self.blob_max), self.blob_max)
             if rng.random() < 0.75:
                 data = b"\x89PNG\r\n\x1a\n" + rng.randbytes(size)
                 ctype, name = "image/png", "IMG_%04d.png" % rng.randint(1, 9999)
@@ -343,14 +354,18 @@ class Mailbox:
         sender, rcpt = self.person(), self.person()
         mid = "%08x.%06d@%s" % (rng.getrandbits(32), self.n, sender[1].split("@")[1])
 
+        forced = FORCED.get(self.n)
+        forced_reply = FORCED_REPLY.get(self.n)
         in_reply_to, refs, thread_id, subject = None, [], None, None
-        if self.threads and rng.random() < 0.55:
+        reply_roll = rng.random()
+        if self.threads and (reply_roll < 0.55 or forced_reply):
             ti = rng.randrange(max(0, len(self.threads) - 200), len(self.threads))
             thread_id, chain, subject = self.threads[ti]
             parent = rng.choice(chain[-3:])
             refs = chain[:chain.index(parent) + 1]
             in_reply_to = parent
             fate = rng.random()
+            fate = {"dangling": 0.0, "via-references": 0.04, "direct": 0.5}.get(forced_reply, fate)
             if fate < 0.03:      # parent AND ancestors are not in this mailbox
                 in_reply_to = "gone-%06d@elsewhere.example" % self.n
                 refs = ["older-%06d@elsewhere.example" % self.n, in_reply_to]
@@ -366,7 +381,7 @@ class Mailbox:
             if not subject.lower().startswith("re:"):
                 subject = "Re: " + subject
         else:
-            if rng.random() < 0.15:
+            if rng.random() < 0.15 or forced == "nonascii-subject":
                 subject = "%s %d" % (rng.choice(NONASCII_SUBJECTS), rng.randint(1, 9999))
             else:
                 subject = "%s %s" % (rng.choice(ASCII_SUBJECTS), " ".join(self.text.words(rng.randint(1, 4))))
@@ -377,13 +392,13 @@ class Mailbox:
 
         # body
         body = self.text.paragraphs(lognorm(rng, 4.6, 0.9, 8, 5000))
-        if self.n % 97 == 0:
+        if self.n % 97 == 0 or forced == "body-needle":
             body += "\n\nTracking token: %s\n" % self.plant("body", mid)
-        if rng.random() < 0.05:
+        if rng.random() < 0.05 or forced == "from-line":
             line = rng.choice(FROM_LINES)
             body = body + "\n\n" + line + "\n" + self.text.paragraphs(20)
             self.truth["from_lines_in_bodies"] += 1
-        if rng.random() < 0.01:
+        if rng.random() < 0.01 or forced == "quoted-from":
             body += "\n\nOn Monday Bob wrote:\n>From the archive, as requested.\n> second quoted line\n"
             self.truth["quoted_from_lines_in_bodies"] += 1
 
@@ -403,11 +418,22 @@ class Mailbox:
             head.append("References: %s" % "\n ".join("<%s>" % r for r in refs[-12:]))
 
         style = rng.random()
+        style = {"latin1": 0.0, "cp1252": 0.035}.get(forced, style)
+        bare = False
         if style < 0.03:
             # declared ISO-8859-1, sent 8-bit
-            latin = (body + "\n\nGrüße aus Köln — café, naïve, señor\n").encode("latin-1", "replace")
+            tok = self.plant("latin1-8bit-body", mid)
+            latin = (body + "\n\nGrüße aus Köln, café, naïve, señor %s\n" % tok).encode("latin-1")
             text_part = b"Content-Type: text/plain; charset=iso-8859-1\nContent-Transfer-Encoding: 8bit\n\n" + latin
             self.truth["bodies_latin1_8bit"] += 1
+        elif style < 0.04:
+            # UNDECLARED Windows-1252: no MIME-Version, no Content-Type, raw 8-bit
+            # bytes (curly quotes 0x93/0x94, euro 0x80, e-acute 0xe9) — what an old
+            # desktop client wrote. Not valid UTF-8, and nothing says what it is.
+            tok = self.plant("cp1252-undeclared-body", mid)
+            text_part = b"\n" + (body + "\n\n\u201cQuoted\u201d price: \u20ac420, caf\u00e9 %s\n" % tok).encode("cp1252")
+            bare = True
+            self.truth["bodies_cp1252_undeclared"] += 1
         elif style < 0.13:
             b = "b%012x" % rng.getrandbits(48)
             html = "<html><body>%s</body></html>" % "".join("<p>%s</p>" % p for p in body.split("\n\n"))
@@ -424,11 +450,15 @@ class Mailbox:
         else:
             text_part = ("Content-Type: text/plain; charset=utf-8\n\n%s\n" % body).encode()
 
-        if rng.random() < self.attach_rate:
+        if bare:
+            head = [h for h in head if not h.startswith("MIME-Version")]
+        forced_kind = {"attach-pdf": "pdf", "attach-text": "text", "attach-binary": "binary"}.get(forced)
+        if not bare and (rng.random() < self.attach_rate or forced_kind):
             b = "m%012x" % rng.getrandbits(48)
             parts = [b"--" + b.encode() + b"\n" + text_part]
             for k in range(rng.choice((1, 1, 1, 2, 3))):
-                part, _ = self.attachment(mid, want_needle=(self.n % 11 == 0 and k == 0))
+                part, _ = self.attachment(mid, want_needle=((self.n % 11 == 0 or bool(forced_kind)) and k == 0),
+                                          kind=forced_kind if k == 0 else None)
                 parts.append(("\n--%s\n" % b).encode() + part.encode())
             parts.append(("\n--%s--\n" % b).encode())
             payload = ("Content-Type: multipart/mixed; boundary=\"%s\"\n\n" % b).encode() + b"".join(parts)
@@ -443,7 +473,10 @@ class Mailbox:
         rng, out = self.rng, []
         tid = lambda: rng.getrandbits(62) | (1 << 60)  # noqa: E731
         self.epoch += 60
-        out.append(self.entry(b"\xff\xfe\xfd\x00\x01garbage with no headers\n\x80\x81\x82", tid()))
+        # Bytes that are not UTF-8, not a BOM (FF FE / FE FF would make this VALID
+        # UTF-16 and the "garbage" a legitimate document), and include the five
+        # code points Windows-1252 leaves undefined (81 8D 8F 90 9D).
+        out.append(self.entry(b"\x81\x8d\x8f\x90\x9d\x00\x01garbage with no headers\n\x80\x81\x82", tid()))
         out.append(self.entry(
             b"From: a@example.org\nSubject: broken multipart\nMIME-Version: 1.0\n"
             b"Content-Type: multipart/mixed; boundary=\"zz\"\n\n--zz\n"
@@ -453,7 +486,7 @@ class Mailbox:
             b"Message-ID: <badword-%d@example.org>\n\nbody after a broken encoded-word \xe8\xa8\n" % self.n, tid()))
         out.append(self.entry(
             b"From: c@example.org\nSubject: one very long line\nMessage-ID: <longline-%d@example.org>\n\n" % self.n
-            + b"L" * (300 << 10), tid()))
+            + b"L" * self.long_line, tid()))
         out.append(self.entry(b"", tid()))
         prose_id = "prosefrom-%d@example.org" % self.n
         out.append(self.entry((
@@ -464,6 +497,8 @@ class Mailbox:
         out.append(self.entry(dup, tid()))
         out.append(self.entry(dup, tid()))
         self.truth["entries_malformed_block"] += len(out)
+        self.truth["entries_empty"] += 1                 # the separator-only entry
+        self.truth["attachments_malformed"]["pdf"] += 1  # the truncated-base64 x.pdf
         return out
 
     def entry(self, message: bytes, thread_id: int, quote: bool = True) -> bytes:
@@ -475,7 +510,7 @@ class Mailbox:
 
 
 def write_mbox(path: str, rng, text, args, truth) -> None:
-    box = Mailbox(rng, text, args.profile, truth)
+    box = Mailbox(rng, text, args.profile, truth, args.blob_max, args.long_line_bytes)
     sha, written = hashlib.sha256(), 0
     eol = b"\r\n" if args.eol == "crlf" else b"\n"
 
@@ -521,7 +556,7 @@ def write_mbox(path: str, rng, text, args, truth) -> None:
                      "eol": args.eol, "trailing_newline": False}
 
 
-def write_keep(keep_dir: str, rng, text, n: int, truth, box_needles: set) -> None:
+def write_keep(keep_dir: str, rng, text, n: int, truth, box_needles: set, ascii_names: bool) -> None:
     os.makedirs(keep_dir, exist_ok=True)
     titles = ["Groceries", "Deal follow-ups", "設計メモ", "قائمة المهام", "Reading list", "Gift ideas"]
     for i in range(n):
@@ -539,7 +574,7 @@ def write_keep(keep_dir: str, rng, text, n: int, truth, box_needles: set) -> Non
             note["textContent"] = text.paragraphs(40) + "\n" + tok
         if i % 2 == 0:
             note["labels"] = [{"name": "work"}] + ([{"name": "Ärger"}] if i % 4 == 0 else [])
-        stem = "note-%03d" % i if i % 6 else "メモ-%03d" % i
+        stem = "note-%03d" % i if (i % 6 or ascii_names) else "メモ-%03d" % i
         with open(os.path.join(keep_dir, stem + ".json"), "w", encoding="utf-8") as f:
             json.dump(note, f, ensure_ascii=False, sort_keys=True)
         with open(os.path.join(keep_dir, stem + ".html"), "w", encoding="utf-8") as f:
@@ -593,6 +628,13 @@ def main() -> int:
     ap.add_argument("--eol", choices=["crlf", "lf"], default="crlf")
     ap.add_argument("--keep-notes", type=int, default=12)
     ap.add_argument("--with-archive", action="store_true", help="also write an unextracted .zip and .tgz")
+    ap.add_argument("--blob-max", type=parse_size, default=3 << 20,
+                    help="largest binary attachment (default 3M); shrink it for a small committed fixture")
+    ap.add_argument("--long-line-bytes", type=parse_size, default=300 << 10,
+                    help="length of the malformed block's single newline-free line (default 300K)")
+    ap.add_argument("--ascii-names", action="store_true",
+                    help="ASCII file names only (for a tree that is committed to git and checked out on "
+                         "every OS); message CONTENT stays non-ASCII either way")
     ap.add_argument("--truth", help="where to write the ground truth (default: <out>.truth.json, OUTSIDE the tree)")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
@@ -609,6 +651,7 @@ def main() -> int:
         "entries": 0, "messages_regular": 0, "entries_malformed_block": 0, "messages_with_attachments": 0,
         "threads": 0, "replies_resolvable": 0, "replies_via_references": 0, "replies_dangling": 0,
         "from_lines_in_bodies": 0, "quoted_from_lines_in_bodies": 0, "bodies_latin1_8bit": 0,
+        "bodies_cp1252_undeclared": 0, "entries_empty": 0, "attachments_malformed": {"pdf": 0},
         "attachments": {"pdf": 0, "text": 0, "binary": 0}, "needles": [],
     }
     takeout = os.path.join(args.out, "Takeout")
@@ -616,7 +659,7 @@ def main() -> int:
     os.makedirs(os.path.join(takeout, "Drive"), exist_ok=True)
     write_mbox(os.path.join(takeout, "Mail", MBOX_NAME), rng, text, args, truth)
     used = {n["token"] for n in truth["needles"]}
-    write_keep(os.path.join(takeout, "Keep"), rng, text, args.keep_notes, truth, used)
+    write_keep(os.path.join(takeout, "Keep"), rng, text, args.keep_notes, truth, used, args.ascii_names)
     drive_tok = needle(rng, used)
     truth["needles"].append({"token": drive_tok, "where": "drive-markdown", "message_id": None})
     with open(os.path.join(takeout, "Drive", "meeting-notes.md"), "w", encoding="utf-8") as f:

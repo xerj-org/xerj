@@ -28,6 +28,8 @@ pub mod wikilink;
 
 #[cfg(test)]
 mod e2e;
+#[cfg(test)]
+mod e2e_mail;
 
 use crate::esclient::Es;
 use anyhow::{anyhow, Context, Result};

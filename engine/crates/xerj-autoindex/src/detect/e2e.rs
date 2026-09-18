@@ -16,17 +16,17 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 /// index → (_id → _source). BTreeMaps keep every assertion order-stable.
-type Docs = BTreeMap<String, BTreeMap<String, Value>>;
+pub(super) type Docs = BTreeMap<String, BTreeMap<String, Value>>;
 
-struct MockEs {
-    url: String,
-    docs: Arc<Mutex<Docs>>,
+pub(super) struct MockEs {
+    pub(super) url: String,
+    pub(super) docs: Arc<Mutex<Docs>>,
     stop: Arc<Mutex<bool>>,
     join: Option<thread::JoinHandle<()>>,
 }
 
 impl MockEs {
-    fn start() -> Self {
+    pub(super) fn start() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -58,7 +58,7 @@ impl MockEs {
         }
     }
 
-    fn index(&self, name: &str) -> BTreeMap<String, Value> {
+    pub(super) fn index(&self, name: &str) -> BTreeMap<String, Value> {
         self.docs
             .lock()
             .unwrap()
@@ -256,7 +256,7 @@ fn search(index: &str, body: &Value, docs: &Arc<Mutex<Docs>>) -> Value {
 
 const EDGES_INDEX: &str = ".xerj-memory-notes-edges";
 
-fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
+pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
     IndexCfg {
         root: root.to_owned(),
         url: url.to_owned(),
@@ -319,7 +319,7 @@ fn write_fixture(dir: &Path) {
     fs::write(dir.join("epsilon.md"), "Epsilon stands alone.").unwrap();
 }
 
-fn journal_graph_summary(state_dir: &Path) -> Value {
+pub(super) fn journal_graph_summary(state_dir: &Path) -> Value {
     let journal = fs::read_to_string(state_dir.join("journal.ndjson")).unwrap();
     journal
         .lines()

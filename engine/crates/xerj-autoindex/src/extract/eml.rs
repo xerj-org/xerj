@@ -122,10 +122,8 @@ pub(crate) fn emit_message(
     put(&mut headers, "email_from", addr_string(msg.from()));
     put(&mut headers, "email_to", addr_string(msg.to()));
     put(&mut headers, "email_cc", addr_string(msg.cc()));
-    match (msg.date(), env.fallback_date.as_deref()) {
-        (Some(d), _) => put(&mut headers, "email_date", d.to_rfc3339()),
-        (None, Some(fallback)) => put(&mut headers, "email_date", fallback.to_string()),
-        (None, None) => {}
+    if let Some(d) = msg.date() {
+        put(&mut headers, "email_date", d.to_rfc3339());
     }
     if let Some(id) = msg.message_id() {
         put(&mut headers, "email_message_id", id.to_string());
@@ -188,11 +186,30 @@ pub(crate) fn emit_message(
     };
 
     // ── message body: prefer decoded text/plain, else strip the HTML part ──
-    let body = msg
-        .body_text(0)
-        .map(|c| c.to_string())
+    let body = undeclared_8bit_body(&msg)
+        .or_else(|| msg.body_text(0).map(|c| c.to_string()))
+        .map(|t| unix_eol(&t))
         .or_else(|| msg.body_html(0).map(|h| strip_html(&h)))
         .unwrap_or_default();
+
+    // Nothing at all: no header this extractor reads, no body text, no parts.
+    // mail-parser accepts a lone blank line as a (header-less, body-less)
+    // message, which is what a separator-only mbox entry or a truncated file
+    // hands it — and "(no subject)" with an empty body is not a document, it
+    // is a hole in every result list. The caller's fallback decides: a file is
+    // re-read as prose, an mbox entry with no text is junk.
+    //
+    // Tested BEFORE the container's fallback date is applied: that date comes
+    // from the mbox separator, not from the message, and every mbox entry has
+    // one — counting it would make an empty entry look like it had a header.
+    if headers.is_empty() && body.trim().is_empty() && msg.attachments().next().is_none() {
+        return MessageOutcome::Unparseable;
+    }
+    if !headers.contains_key("email_date") {
+        if let Some(fallback) = env.fallback_date.as_deref() {
+            put(&mut headers, "email_date", fallback.to_string());
+        }
+    }
 
     // Emit the message itself as document section(s) carrying the headers.
     if !emit_document_with_fields(
@@ -237,7 +254,7 @@ pub(crate) fn emit_message(
         let alive = if is_pdf(&name, data) && data.len() <= MAX_ATTACH_BYTES {
             route_pdf(data, &format!("{pre}att{n}-"), &link, sink, stats)
         } else if is_texty(&ctype, data) && data.len() <= MAX_ATTACH_BYTES {
-            let text = String::from_utf8_lossy(data);
+            let text = unix_eol(&String::from_utf8_lossy(data));
             emit_document_with_fields(
                 &link,
                 &name,
@@ -421,6 +438,66 @@ fn is_texty(ctype: &str, data: &[u8]) -> bool {
             < sample.len().max(1)
 }
 
+/// The text body re-decoded from its RAW bytes — only when the sender declared
+/// no charset at all AND the bytes are not UTF-8.
+///
+/// With nothing declared, mail-parser reads such a body as UTF-8 and every
+/// 8-bit byte becomes U+FFFD: `café` is indexed as `caf`, `€420` loses its
+/// sign, and neither is ever found again. That is what pre-MIME mail and a
+/// generation of desktop clients wrote, and it is what sits in the old end of
+/// a lifelong mailbox. autoindex already has a rule for undeclared 8-bit TEXT
+/// FILES — UTF-8, else Windows-1252 (`sniff::decode`) — and this applies the
+/// same rule to the same situation.
+///
+/// Narrow on purpose. A DECLARED charset is the sender's word and is left to
+/// the parser; a quoted-printable or base64 part is left alone too, because
+/// its bytes in `raw_message` are the ENCODED form. Windows-1252 is right for
+/// Western European mail and wrong for undeclared Cyrillic or CJK legacy
+/// encodings, which are not detected — those were unreadable before this and
+/// still are, which is documented rather than hidden.
+fn undeclared_8bit_body(msg: &mail_parser::Message<'_>) -> Option<String> {
+    let id = *msg.text_body.first()?;
+    let part = msg.parts.get(usize::try_from(id).ok()?)?;
+    // `text_body` can name an HTML part (the parser renders it to text on
+    // request); only a real text/plain body is re-read from its bytes.
+    if !matches!(part.body, PartType::Text(_)) || part.encoding != mail_parser::Encoding::None {
+        return None;
+    }
+    if part
+        .content_type()
+        .is_some_and(|c| c.attribute("charset").is_some())
+    {
+        return None;
+    }
+    // Offsets come from the parser and index the same buffer; `get` rather
+    // than slicing anyway — this is untrusted input under panic = abort.
+    let raw = msg
+        .raw_message
+        .get(usize::try_from(part.offset_body).ok()?..usize::try_from(part.offset_end).ok()?)?;
+    if std::str::from_utf8(raw).is_ok() {
+        return None;
+    }
+    // No BOM handling: this is a mail body, not a file, and `FF FE` here is two
+    // bytes of text.
+    let (text, _) = encoding_rs::WINDOWS_1252.decode_without_bom_handling(raw);
+    Some(text.into_owned())
+}
+
+/// CRLF → LF. Mail is CRLF on the wire (RFC 5322 §2.1) and that is how most
+/// mailboxes store it, but it is transport framing, not content — and the
+/// section splitter finds paragraphs by `\n\n`, which `\r\n\r\n` does not
+/// contain. Left alone, every long CRLF body is ONE paragraph, so it is cut
+/// hard at the size limit, mid-word and with no overlap, instead of between
+/// paragraphs. Only the pair is rewritten; a lone `\r` is left as the sender
+/// wrote it.
+fn unix_eol(text: &str) -> String {
+    if text.contains("\r\n") {
+        text.replace("\r\n", "\n")
+    } else {
+        text.to_string()
+    }
+}
+
 /// Cheap HTML → text for messages that only carry an HTML part: drop tags and
 /// collapse whitespace. Not a full renderer — enough to index the words.
 fn strip_html(html: &str) -> String {
@@ -557,6 +634,101 @@ mod tests {
         // Not a u64 at all: kept as written rather than dropped or panicking.
         assert_eq!(thread("99999999999999999999999").as_deref(), Some("99999999999999999999999"));
         assert_eq!(thread("thread-設計").as_deref(), Some("thread-設計"));
+    }
+
+    /// A CRLF body must section exactly like the same body with LF endings:
+    /// between paragraphs, with overlap — not hard-cut mid-word because
+    /// `\r\n\r\n` hides every paragraph break from the splitter.
+    #[test]
+    fn a_crlf_body_sections_on_paragraphs_like_an_lf_body() {
+        // Multi-byte text on purpose: a hard cut lands inside it (panic = abort).
+        let para = "設計書 Überweisung مرحبا term sheet ".repeat(40);
+        let body_lf = vec![para.trim_end().to_string(); 30].join("\n\n");
+        let head = "From: a@x.org\nTo: b@x.org\nSubject: long\nMessage-ID: <l@x.org>\n\
+                    Content-Type: text/plain; charset=utf-8\n\n";
+        let lf = format!("{head}{body_lf}\n");
+        let crlf = lf.replace('\n', "\r\n");
+        let bodies = |eml: &str| -> Vec<String> {
+            run(eml.as_bytes())
+                .iter()
+                .map(|r| field(r, "body").unwrap().to_string())
+                .collect()
+        };
+        let (from_lf, from_crlf) = (bodies(&lf), bodies(&crlf));
+        assert!(from_lf.len() > 1, "long enough to be sectioned at all");
+        assert_eq!(from_crlf, from_lf, "line endings must not change the sections");
+        assert!(from_crlf.iter().all(|b| !b.contains('\r')));
+        // Paragraph-aligned: every section ends where a paragraph ends.
+        for b in &from_crlf {
+            assert!(b.trim_end().ends_with("term sheet"), "cut mid-paragraph: …{:?}", b.chars().rev().take(30).collect::<String>());
+        }
+    }
+
+    /// Nothing in, nothing out: a blank line is not a "(no subject)" document.
+    #[test]
+    fn an_empty_message_is_unparseable_not_an_empty_document() {
+        // Both envelopes: a standalone file, and an mbox slot — whose separator
+        // ALWAYS supplies a fallback date, which must not count as "a header".
+        let in_mbox = MessageEnvelope {
+            loc_prefix: "m0-",
+            fallback_date: Some("2024-01-01T10:00:00Z".into()),
+        };
+        for env in [MessageEnvelope::default(), in_mbox] {
+            for bytes in [&b""[..], b"\n", b"\r\n", b"\r\n\r\n", b"   \n"] {
+                let mut stats = ExtractStats::default();
+                let mut got = Vec::new();
+                let mut sink = |r: RawRecord| {
+                    got.push(r);
+                    true
+                };
+                let out = emit_message(bytes, &env, &mut sink, &mut stats);
+                assert_eq!(out, MessageOutcome::Unparseable, "{bytes:?} {env:?}");
+                assert!(got.is_empty(), "{bytes:?}");
+                assert_eq!(stats.records, 0);
+            }
+        }
+        // …but a message that has ONLY a subject, or ONLY a body, is a message.
+        for bytes in [&b"Subject: hello\n\n"[..], b"\njust a body, no headers\n"] {
+            let mut stats = ExtractStats::default();
+            let mut sink = |_r: RawRecord| true;
+            let out = emit_message(bytes, &MessageEnvelope::default(), &mut sink, &mut stats);
+            assert_eq!(out, MessageOutcome::Emitted { alive: true }, "{bytes:?}");
+            assert_eq!(stats.records, 1);
+        }
+    }
+
+    /// Undeclared 8-bit text is read as Windows-1252, like an undeclared text
+    /// FILE — not flattened to U+FFFD. A declared charset is never overridden,
+    /// and neither is a transfer-encoded part.
+    #[test]
+    fn an_undeclared_8bit_body_is_read_as_windows_1252() {
+        let head = b"From: a@x.org\nTo: b@x.org\nSubject: old mail\nMessage-ID: <o@x.org>\n";
+        let body_of = |rest: &[u8]| -> String {
+            let mut eml = head.to_vec();
+            eml.extend_from_slice(rest);
+            field(&run(&eml)[0], "body").unwrap().to_string()
+        };
+        // cp1252: 0x93/0x94 curly quotes, 0x80 euro, 0xe9 e-acute — with the
+        // 8-bit byte as the LAST byte too, where a "tolerate a cut prefix"
+        // decoder would drop it.
+        let body = body_of(b"\n\x93Quoted\x94 price: \x80420 at the caf\xe9");
+        assert_eq!(body, "\u{201c}Quoted\u{201d} price: \u{20ac}420 at the caf\u{e9}");
+        assert!(!body.contains('\u{fffd}'));
+
+        // Valid UTF-8 with no charset stays UTF-8 (not re-read as cp1252).
+        assert_eq!(body_of("\ncafé 設計".as_bytes()), "café 設計");
+        // A DECLARED charset is the sender's word: latin-1 0xe9 stays é, and a
+        // declared-but-wrong utf-8 is left to the parser, not second-guessed.
+        assert_eq!(
+            body_of(b"Content-Type: text/plain; charset=iso-8859-1\n\ncaf\xe9"),
+            "café"
+        );
+        assert!(body_of(b"Content-Type: text/plain; charset=utf-8\n\ncaf\xe9").contains('\u{fffd}'));
+        // Quoted-printable with no charset: raw bytes are the ENCODED form and
+        // are valid ASCII, so the parser's decoding stands.
+        assert!(body_of(b"Content-Transfer-Encoding: quoted-printable\n\ncaf=E9 ok").contains("ok"));
+        // FF FE opens the body: two bytes of text, never a UTF-16 BOM.
+        assert_eq!(body_of(b"\n\xff\xfeabc"), "\u{ff}\u{fe}abc");
     }
 
     /// A non-text, non-PDF attachment gets a name/type/size card so it stays
