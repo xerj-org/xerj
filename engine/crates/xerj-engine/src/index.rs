@@ -14435,10 +14435,11 @@ impl Index {
             // respects field aliases the way `match`/`term` already do. A console
             // or agent that queries `embedding` — aliased to the corpus's real
             // semantic field (e.g. autoindex's `body`) — then finds that field's
-            // embedding config and kNNs against its companion vector, instead of
-            // falling through to treat the (aliased, vectorless) name as the
-            // vector field and matching nothing.
-            let field = &field.to_string(); // TEMP-FAIL-BEFORE: alias resolution disabled
+            // embedding config and kNNs against its companion vector. Without
+            // this the aliased, vectorless name falls through to the arm below
+            // and the query is rejected as "not a `semantic_text` field"
+            // (pinned by `test_semantic_field_alias_resolution`).
+            let field = &resolve_field_alias(&schema.schema, field);
             match schema.schema.field(field) {
                 Some(fc) if fc.embedding.is_some() => {
                     let emb = fc.embedding.as_ref().unwrap();
