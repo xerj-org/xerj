@@ -101,9 +101,11 @@ PY
 # retiring a sibling's indices is not a mistake this script gets to make. An
 # index is a sibling's when it sits under `xc-<other>-` for a longer corpus name
 # that extends this one — known from corpora/ and from state/.
-corpus_indices() {
-  http "$URL/_cat/indices/xc-$name-*?format=json&h=index" 2>/dev/null \
-    | python3 - "$name" "$CORPORA" "$ROOT/state" <<'PY'
+# The filter is passed with -c, NOT as a heredoc on `python3 -`: a heredoc IS the
+# process's stdin, so it would replace the pipe carrying the index list — the
+# filter would read nothing, and curl would die writing into a closed pipe
+# (exit 23), which `pipefail` + `set -e` turn into a silent exit of this script.
+CORPUS_INDICES_PY='
 import json, os, sys
 name, corpora, state = sys.argv[1], sys.argv[2], sys.argv[3]
 siblings = set()
@@ -119,17 +121,26 @@ try:
     rows = json.load(sys.stdin)
 except Exception:
     rows = []
-for row in rows:
-    index = row.get("index", "")
+for row in rows if isinstance(rows, list) else []:
+    index = row.get("index", "") if isinstance(row, dict) else ""
     if index.startswith("xc-%s-" % name) and not any(index.startswith(s) for s in siblings):
         print(index)
-PY
+'
+corpus_indices() {
+  # A wildcard that matches nothing may answer 404; that is "no indices", not a
+  # failure. Any other error also lists nothing, which errs toward keeping an
+  # index (nothing is retired that was not listed), never toward deleting one.
+  { http "$URL/_cat/indices/xc-$name-*?format=json&h=index" 2>/dev/null || true; } \
+    | python3 -c "$CORPUS_INDICES_PY" "$name" "$CORPORA" "$ROOT/state"
 }
 
 # Records under one exact index prefix. Empty string when the node cannot say.
 count_under() {
-  http "$URL/$1-*/_count" 2>/dev/null \
-    | sed -n 's/.*"count":\([0-9][0-9]*\).*/\1/p' | head -n 1
+  # `|| true` twice on purpose: a wildcard that matches nothing may answer 404,
+  # and under `pipefail` + `set -e` a failed count inside `x="$(count_under …)"`
+  # would end the script at the assignment instead of reporting "no records".
+  { http "$URL/$1-*/_count" 2>/dev/null || true; } \
+    | sed -n 's/.*"count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1 || true
 }
 
 delete_indices() {   # names on stdin, one per line; exact names only, never a wildcard
@@ -223,11 +234,21 @@ run_autoindex() {   # prefix [state-dir]
 case "$mode" in
 # ── build: first index, or --fresh ──────────────────────────────────────────
 build)
-  build="b$(date -u +%Y%m%d%H%M%S)"
-  new_prefix="xc-$name-$build"
-  new_state="$STATE_ROOT/$name/$build"
   # Listed BEFORE the build so "old" can never include what this run creates.
   old_indices="$(corpus_indices)"
+  # The build id has one-second resolution, and everything below keys on it: a
+  # second --fresh inside the same second would reuse the prefix of the build it
+  # is replacing, write into its indices, and then RETIRE them as "old". So the
+  # id must be new — not the recorded build, not a state directory that exists,
+  # not a prefix any live index already sits under.
+  build="b$(date -u +%Y%m%d%H%M%S)"
+  while [ "$build" = "$old_build" ] || [ -e "$STATE_ROOT/$name/$build" ] \
+     || printf '%s\n' "$old_indices" | grep -q "^xc-$name-$build-"; do
+    sleep 1
+    build="b$(date -u +%Y%m%d%H%M%S)"
+  done
+  new_prefix="xc-$name-$build"
+  new_state="$STATE_ROOT/$name/$build"
   old_docs=0
   if [ -n "$old_indices" ]; then
     old_docs="$(count_under "${old_index_prefix:-xc-$name}")"; [ -n "$old_docs" ] || old_docs=0
@@ -273,6 +294,11 @@ build)
   # Verified. Switch readers first, retire second: a crash between the two
   # leaves a duplicate, never a gap.
   write_state "$rc" "$salvaged" "$build" "$new_prefix" "$new_state"
+  if [ -n "$old_indices" ]; then
+    # Belt and braces for the invariant above: whatever else is true, an index
+    # of the build that was just verified is never on the retire list.
+    old_indices="$(printf '%s\n' "$old_indices" | grep -v "^$new_prefix-" || true)"
+  fi
   if [ -n "$old_indices" ]; then
     echo "xc-index: replacement verified ($docs records) — retiring $(printf '%s\n' "$old_indices" | wc -l | tr -d ' ') old indices"
     if ! printf '%s\n' "$old_indices" | delete_indices; then

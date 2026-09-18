@@ -53,6 +53,16 @@ struct HttpState {
     /// How many catalog `_mapping` PUTs were attempted (the drop-and-retry
     /// loop's cost).
     catalog_mapping_puts: usize,
+    /// Opt-in (#929): a DATASET `_mapping` PUT whose index name contains one of
+    /// these is refused with the 400 a real engine returns for a field it
+    /// cannot map — the literal response that aborted the 50,593-file run.
+    /// A refusal is a statement about that one dataset.
+    refused_dataset_mappings: Vec<String>,
+    /// Opt-in (#929): the same selection, answered 503 instead. That is the
+    /// endpoint failing, says nothing about the dataset, and must still abort.
+    unavailable_dataset_mappings: Vec<String>,
+    /// Every dataset index a `_mapping` PUT was attempted for, in order.
+    dataset_mapping_puts: Vec<String>,
 }
 
 struct HttpEndpoint {
@@ -226,6 +236,7 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         // `text`, if any — the engine reports one conflict per request.
         let mut conflict: Option<String> = None;
         let mut unavailable = false;
+        let mut refused_dataset: Option<String> = None;
         if path.ends_with("/_mapping") {
             assert!(value.get("properties").is_some());
             assert!(value.get("mappings").is_none());
@@ -244,12 +255,41 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
                 }
             } else {
                 locked.saw_dataset_mapping_update = true;
+                let index = path
+                    .trim_start_matches('/')
+                    .trim_end_matches("/_mapping")
+                    .to_owned();
+                let selected = |needles: &[String]| {
+                    needles.iter().any(|needle| index.contains(needle.as_str()))
+                };
+                unavailable = selected(&locked.unavailable_dataset_mappings);
+                if selected(&locked.refused_dataset_mappings) {
+                    refused_dataset = Some(index.clone());
+                }
+                locked.dataset_mapping_puts.push(index);
             }
         } else {
             assert!(value.pointer("/mappings/properties").is_some());
             assert!(value.get("properties").is_none());
         }
-        if unavailable {
+        if let Some(index) = refused_dataset {
+            // Byte for byte the shape of the refusal in #929.
+            let reason = format!(
+                "nested semantic_text field [{index}.unmappable] is not supported; map \
+                 semantic_text as a top-level field"
+            );
+            (
+                400,
+                json!({
+                    "error": {
+                        "root_cause": [{"type": "mapper_parsing_exception", "reason": reason}],
+                        "type": "mapper_parsing_exception",
+                        "reason": reason
+                    },
+                    "status": 400
+                }),
+            )
+        } else if unavailable {
             (
                 503,
                 json!({"error": {"type": "unavailable_shards_exception", "reason": "no node"}}),
@@ -4140,4 +4180,431 @@ fn no_graph_genesis_bootstrap_is_refused_on_the_graph_path() {
     assert_eq!(journal_events(state_dir.path(), "sync_begin"), 1);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
     assert_eq!(endpoint.data_docs().len(), 1);
+}
+
+// ── #929: one dataset the server refuses must cost that dataset, not the run ──
+
+/// A two-dataset corpus: tabular rows and prose. Which dataset the plan lists
+/// first is an implementation detail, so the tests below refuse each in turn —
+/// one of the two orders necessarily puts the refusal BEFORE an accepted
+/// dataset, which is the order that used to lose the accepted one.
+fn write_two_dataset_corpus(root: &Path) {
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n2,beta\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n3,gamma\n").unwrap();
+    fs::write(
+        root.join("notes.md"),
+        "# Notes\n\nTiered merge policy picks segments of similar size.\n",
+    )
+    .unwrap();
+}
+
+/// The two dataset indices that corpus produces, learned from a clean run so
+/// the tests do not hard-code a slug scheme: `(tabular, prose)`.
+fn two_dataset_indices() -> (String, String) {
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config).unwrap(), 0, "the clean corpus indexes whole");
+    let docs = endpoint.data_docs();
+    let index_of = |path: &str| {
+        docs.iter()
+            .find(|doc| doc["ax_path"] == path)
+            .and_then(|doc| doc["ax_dataset"].as_str())
+            .map(|slug| format!("incremental-http-{slug}"))
+            .unwrap_or_else(|| panic!("{path} was not indexed by the clean run"))
+    };
+    let (tabular, prose) = (index_of("a.csv"), index_of("notes.md"));
+    assert_ne!(tabular, prose, "the fixture must produce two datasets");
+    (tabular, prose)
+}
+
+fn refused_detail(summary: &Value) -> Vec<Value> {
+    serde_json::from_str(
+        summary["refused_datasets_json"]
+            .as_str()
+            .expect("a run that refused a dataset carries refused_datasets_json"),
+    )
+    .unwrap()
+}
+
+/// #929, the defect itself. One dataset's mapping is refused with the literal
+/// 400 from the report; the other dataset must be indexed, the run must end 3
+/// (not 1), and the generation that commits must SAY it lacks a dataset — in
+/// its summary, in the catalog's run document and on each file it cost.
+#[test]
+fn a_refused_dataset_mapping_costs_that_dataset_not_the_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, prose) = two_dataset_indices();
+
+    for (refused_index, lost, kept) in [
+        (&tabular, vec!["a.csv", "b.csv"], vec!["notes.md"]),
+        (&prose, vec!["notes.md"], vec!["a.csv", "b.csv"]),
+    ] {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        write_two_dataset_corpus(corpus.path());
+        let endpoint = HttpEndpoint::start();
+        endpoint.state.lock().unwrap().refused_dataset_mappings = vec![refused_index.clone()];
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+        let (code, summary) = run_index_report(config.clone())
+            .unwrap_or_else(|error| panic!("refusing {refused_index} aborted the run: {error:#}"));
+        assert_eq!(code, 3, "a refused dataset is exit 3, never 0 and never 1");
+        let summary = summary.expect("generated run returns its committed run projection");
+
+        // Every dataset's mapping was attempted: the loop did not stop at the
+        // refusal, whichever side of it the accepted dataset sat on.
+        let attempted = endpoint.state.lock().unwrap().dataset_mapping_puts.clone();
+        assert!(
+            attempted.contains(&tabular) && attempted.contains(&prose),
+            "both datasets must be attempted, got {attempted:?}"
+        );
+
+        // The rest of the corpus is indexed and nothing of the refused dataset is.
+        let docs = endpoint.data_docs();
+        assert_eq!(
+            paths(&docs),
+            kept,
+            "refusing {refused_index} must index exactly the other dataset"
+        );
+        assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+        // The committed generation names what it lacks.
+        assert_eq!(summary["datasets_refused"], 1);
+        assert_eq!(summary["files_refused"], lost.len());
+        assert_eq!(summary["files_junk"], lost.len());
+        assert_eq!(summary["datasets"], 1, "a refused dataset is not a dataset");
+        let detail = refused_detail(&summary);
+        assert_eq!(detail.len(), 1);
+        assert_eq!(detail[0]["index"], refused_index.as_str());
+        assert_eq!(detail[0]["files"], lost.len());
+        let reason = detail[0]["reason"].as_str().unwrap();
+        assert!(
+            reason.contains("400") && reason.contains("nested semantic_text field"),
+            "the server's own words travel with the refusal, got: {reason}"
+        );
+
+        // …and so does every file it cost, in the catalog a reader starts from.
+        let catalog = endpoint.catalog_docs();
+        let mut junked: Vec<&str> = catalog
+            .iter()
+            .filter(|doc| doc["doc_kind"] == "file" && doc["status"] == "junk")
+            .map(|doc| {
+                assert!(
+                    doc["reason"]
+                        .as_str()
+                        .is_some_and(|reason| reason.contains("was refused by the server")),
+                    "a refused file says why it is not indexed: {doc}"
+                );
+                doc["path"].as_str().or(doc["rel"].as_str()).unwrap_or("")
+            })
+            .collect();
+        junked.sort_unstable();
+        assert_eq!(junked, lost, "catalog file documents for the refused files");
+        assert!(
+            !catalog.iter().any(|doc| doc["doc_kind"] == "dataset"
+                && doc["index"] == refused_index.as_str()),
+            "a refused dataset must not be published as a dataset document"
+        );
+
+        // A no-op re-run is still exit 3, still names the dataset, and writes
+        // nothing: the refusal is part of the committed generation, not a log
+        // line only the first run printed.
+        let bulks = endpoint.data_bulk_requests();
+        let (again, again_summary) = run_index_report(config).unwrap();
+        assert_eq!(again, 3);
+        let again_summary = again_summary.unwrap();
+        assert_eq!(again_summary["generation"], 1);
+        assert_eq!(again_summary["datasets_refused"], 1);
+        assert_eq!(refused_detail(&again_summary), detail);
+        assert_eq!(endpoint.data_bulk_requests(), bulks);
+        assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    }
+}
+
+/// #929: the tolerance is narrow on purpose. A 503 on the same request is the
+/// ENDPOINT failing — it says nothing about the dataset — so routing around it
+/// would publish a corpus that silently lacks data for a transient reason.
+#[test]
+fn an_unavailable_dataset_mapping_still_aborts_the_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, _) = two_dataset_indices();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().unavailable_dataset_mappings = vec![tabular.clone()];
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = run_index(config).unwrap_err();
+    let rendered = format!("{error:#}");
+    assert!(
+        rendered.contains("503") && rendered.contains(&tabular),
+        "an endpoint failure names the request that failed, got: {rendered}"
+    );
+    assert_eq!(endpoint.data_docs().len(), 0, "nothing is published");
+    assert_eq!(journal_events(state_dir.path(), "sync_begin"), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 0);
+}
+
+/// #929: a refusal must not turn into "this corpus can never be re-indexed".
+/// The refused files are junk in the committed plan, so an incremental run has
+/// to carry the refusal forward — for the unchanged file, for a CHANGED file of
+/// the refused shape, and for a NEW one — while everything else reconciles.
+#[test]
+fn a_refused_dataset_stays_refused_across_an_incremental_generation() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, _) = two_dataset_indices();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().refused_dataset_mappings = vec![tabular.clone()];
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 3);
+    assert_eq!(paths(&endpoint.data_docs()), ["notes.md"]);
+
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n9,changed\n").unwrap();
+    fs::write(corpus.path().join("c.csv"), "id,value\n4,delta\n").unwrap();
+    fs::write(
+        corpus.path().join("more.md"),
+        "# More\n\nA log-structured merge tree compacts sorted runs.\n",
+    )
+    .unwrap();
+
+    let (code, summary) = run_index_report(config)
+        .unwrap_or_else(|error| panic!("the incremental run aborted: {error:#}"));
+    assert_eq!(code, 3);
+    let summary = summary.unwrap();
+    assert_eq!(summary["generation"], 2);
+    assert_eq!(summary["datasets_refused"], 1);
+    assert_eq!(
+        summary["files_refused"], 3,
+        "unchanged b.csv, changed a.csv and new c.csv are all refused"
+    );
+    let detail = refused_detail(&summary);
+    assert_eq!(detail[0]["index"], tabular.as_str());
+    assert_eq!(paths(&endpoint.data_docs()), ["more.md", "notes.md"]);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+}
+
+/// #929: once a generation is sealed a dataset can no longer leave it, so a
+/// server that starts refusing a dataset it accepted before is fatal — but the
+/// error names EVERY refused dataset and the one recovery that works, and the
+/// committed generation is left exactly as it was.
+#[test]
+fn a_refusal_of_an_already_committed_dataset_is_fatal_and_names_it() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, prose) = two_dataset_indices();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let committed_docs = endpoint.data_docs();
+
+    endpoint.state.lock().unwrap().refused_dataset_mappings =
+        vec![tabular.clone(), prose.clone()];
+    fs::write(corpus.path().join("c.csv"), "id,value\n4,delta\n").unwrap();
+
+    let error = run_index(config).unwrap_err();
+    let rendered = format!("{error:#}");
+    assert!(
+        rendered.contains("2 dataset(s)") && rendered.contains("already sealed"),
+        "got: {rendered}"
+    );
+    for index in [&tabular, &prose] {
+        assert!(
+            rendered.contains(index.as_str()),
+            "every refused dataset is named, not just the first; missing {index} in: {rendered}"
+        );
+    }
+    assert!(rendered.contains("new --state-dir") && rendered.contains("new --prefix"));
+    assert_eq!(endpoint.data_docs(), committed_docs, "no document was published");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+// ── #931: the generated path reports the phase it is actually in ─────────────
+
+/// Every `xerj-progress` line of a captured stream, as `key -> value` maps, in
+/// the order they were emitted.
+fn progress_lines(stream: &str) -> Vec<BTreeMap<String, String>> {
+    stream
+        .lines()
+        .filter_map(|line| line.strip_prefix("xerj-progress "))
+        .map(|line| {
+            line.split_whitespace()
+                .filter_map(|pair| pair.split_once('='))
+                .map(|(key, value)| (key.to_owned(), value.to_owned()))
+                .collect()
+        })
+        .collect()
+}
+
+/// #931, the defect itself. On the generated `--no-graph` route the stream used
+/// to say `phase=scan … pct=100.0 … eta_quality=stalled` from the end of the
+/// scan until the run exited — through mapping installation, sealing, every
+/// bulk request and the read-back barrier — which is byte for byte what the
+/// real end-of-scan hang prints. Each of those steps is now a phase of its own
+/// with a real denominator, so `scan` can only ever mean scan.
+#[test]
+fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let code = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index(config).unwrap()
+    };
+    assert_eq!(code, 0);
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let lines = progress_lines(&stream);
+
+    // The phases, de-duplicated in order of first appearance.
+    let mut phases: Vec<&str> = Vec::new();
+    for line in &lines {
+        let phase = line["phase"].as_str();
+        if phases.last() != Some(&phase) {
+            phases.push(phase);
+        }
+    }
+    assert_eq!(
+        phases,
+        [
+            "walk",
+            "hash",
+            "scan",
+            "prepare",
+            "snapshot",
+            "index",
+            "finalize-catalog",
+            "finalize-verify"
+        ],
+        "each long step of the generated route is its own phase, in order:\n{stream}"
+    );
+
+    // `scan` never reappears once the run has moved on — the exact symptom.
+    let left_scan = lines
+        .iter()
+        .position(|line| line["phase"] == "prepare")
+        .unwrap();
+    assert!(
+        lines[left_scan..].iter().all(|line| line["phase"] != "scan"),
+        "a line after `prepare` still claims the scan phase:\n{stream}"
+    );
+
+    // The `index` phase has an honest denominator in both units: the three
+    // files still to apply, and the sealed bulk bytes they will send.
+    let index_opened = lines
+        .iter()
+        .find(|line| line["phase"] == "index")
+        .expect("the index phase opens with a line of its own");
+    assert_eq!(index_opened["items"], "0/3", "{index_opened:?}");
+    assert_eq!(index_opened["basis"], "bytes", "{index_opened:?}");
+    let (done, total) = index_opened["bytes"].split_once('/').unwrap();
+    assert_eq!(done, "0");
+    assert!(
+        total.parse::<u64>().unwrap() > 0,
+        "the index phase counts sealed bulk bytes, got {index_opened:?}"
+    );
+    // `snapshot` is denominated in the SOURCE bytes it copies and seals.
+    let source_bytes: u64 = ["a.csv", "b.csv", "notes.md"]
+        .iter()
+        .map(|name| fs::metadata(corpus.path().join(name)).unwrap().len())
+        .sum();
+    let snapshot_opened = lines
+        .iter()
+        .find(|line| line["phase"] == "snapshot")
+        .unwrap();
+    assert_eq!(snapshot_opened["items"], "0/3");
+    assert_eq!(snapshot_opened["bytes"], format!("0/{source_bytes}"));
+
+    // The run closes its own stream, successfully, exactly once.
+    let done: Vec<&str> = stream
+        .lines()
+        .filter(|line| line.starts_with("xerj-done "))
+        .collect();
+    assert_eq!(done.len(), 1, "{stream}");
+    assert!(done[0].contains("ok=true") && done[0].contains("exit=0"), "{}", done[0]);
+}
+
+/// #931 + #929 together: a refusal is announced on the progress surface (it is
+/// a `warn`, which `--quiet` does not silence) and the terminal line carries
+/// the counts, so an agent reading only the machine stream learns that the
+/// corpus lacks a dataset without parsing prose.
+#[test]
+fn a_refusal_is_on_the_progress_stream_and_the_terminal_line() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let (tabular, _) = two_dataset_indices();
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_two_dataset_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().refused_dataset_mappings = vec![tabular.clone()];
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let code = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index(config).unwrap()
+    };
+    assert_eq!(code, 3);
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    assert!(
+        stream.contains("REFUSED by the server") && stream.contains("every other dataset continues"),
+        "the refusal is announced while the run continues:\n{stream}"
+    );
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .expect("the run closes its stream");
+    assert!(
+        done.contains("ok=true")
+            && done.contains("exit=3")
+            && done.contains("datasets_refused=1")
+            && done.contains("files_refused=2"),
+        "the terminal line carries the refusal counts, got: {done}"
+    );
+    // The index phase counts only what is left to index: the one prose file.
+    let index_opened = progress_lines(&stream)
+        .into_iter()
+        .find(|line| line["phase"] == "index")
+        .unwrap();
+    assert_eq!(index_opened["items"], "0/1", "{index_opened:?}");
 }

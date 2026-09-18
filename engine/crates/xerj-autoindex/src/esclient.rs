@@ -1836,3 +1836,73 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod mapping_refusal_tests {
+    use super::{mapping_error, MappingRefused};
+    use reqwest::StatusCode;
+
+    /// #929: only a 400 is a statement about the ONE index being mapped. Every
+    /// other failure is about the endpoint or the caller's credentials, says
+    /// nothing about this dataset, and must keep aborting the run — routing
+    /// around a 503 would publish a corpus that lacks data for a transient
+    /// reason and call it complete.
+    #[test]
+    fn only_a_400_is_classified_as_a_refusal() {
+        let refused = mapping_error(
+            "/ax-logs/_mapping".into(),
+            StatusCode::BAD_REQUEST,
+            "{\"error\":\"nope\"}".into(),
+        );
+        let refusal = refused
+            .downcast_ref::<MappingRefused>()
+            .expect("a 400 is a refusal");
+        assert_eq!(refusal.path, "/ax-logs/_mapping");
+        assert_eq!(refusal.status, 400);
+        assert_eq!(refusal.detail, "{\"error\":\"nope\"}");
+
+        for status in [401u16, 403, 404, 408, 409, 413, 429, 500, 502, 503, 504] {
+            let error = mapping_error(
+                "/ax-logs/_mapping".into(),
+                StatusCode::from_u16(status).unwrap(),
+                "detail".into(),
+            );
+            assert!(
+                error.downcast_ref::<MappingRefused>().is_none(),
+                "HTTP {status} is an endpoint/credential failure, not a refusal of this dataset"
+            );
+        }
+    }
+
+    /// The refusal survives `with_context`, which is how every call site wraps
+    /// it — `downcast_ref` has to see through the context layers, or the
+    /// classification would silently never fire.
+    #[test]
+    fn the_refusal_is_still_recognisable_under_context() {
+        use anyhow::Context;
+        let wrapped: anyhow::Result<()> = Err(mapping_error(
+            "/ax-logs/_mapping".into(),
+            StatusCode::BAD_REQUEST,
+            "detail".into(),
+        ))
+        .with_context(|| "install generation mapping for ax-logs");
+        let error = wrapped.unwrap_err();
+        assert!(error.downcast_ref::<MappingRefused>().is_some());
+        assert_eq!(
+            format!("{error:#}"),
+            "install generation mapping for ax-logs: PUT /ax-logs/_mapping failed: \
+             400 Bad Request detail"
+        );
+    }
+
+    /// Log lines, test expectations and operator runbooks are keyed on the
+    /// message these calls produced before the type existed. Both arms render it
+    /// byte for byte.
+    #[test]
+    fn both_arms_render_the_message_earlier_releases_printed() {
+        for status in [StatusCode::BAD_REQUEST, StatusCode::SERVICE_UNAVAILABLE] {
+            let rendered = mapping_error("/ax/_mapping".into(), status, "body".into()).to_string();
+            assert_eq!(rendered, format!("PUT /ax/_mapping failed: {status} body"));
+        }
+    }
+}

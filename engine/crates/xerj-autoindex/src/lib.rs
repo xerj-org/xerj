@@ -9296,6 +9296,8 @@ mod code_coverage_tests {
 mod failure_resume_http_tests;
 #[cfg(test)]
 mod incremental_reconcile_http_tests;
+#[cfg(test)]
+mod refused_dataset_tests;
 
 /// The Unity PIPELINE half — `build_unity_guid_map` + `enrich_unity_fields`
 /// + the plan's field registration, driven through the real phase-A planner.

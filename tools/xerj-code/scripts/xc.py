@@ -81,6 +81,22 @@ def load_state(corpus):
         return json.load(fh)
 
 
+def query_prefix(state):
+    """The index prefix to query for this corpus.
+
+    `xc-index.sh --fresh` builds a replacement BESIDE the index it replaces and
+    retires the old one only after the new one verifies (#930), so for the
+    length of a rebuild two builds of one corpus exist under `xc-<corpus>-*`.
+    The state file therefore records two things: `prefix` (`xc-<corpus>`, the
+    whole namespace, unchanged since the first release so anything that globs on
+    it keeps working) and `index_prefix` (`xc-<corpus>-b<stamp>`, the ONE build
+    that was verified). Querying the exact build is what keeps a half-built
+    replacement — or a retired build whose delete failed — out of the answers.
+    A state file written before builds existed has no `index_prefix`.
+    """
+    return state.get("index_prefix") or state.get("prefix") or f"xc-{state.get('corpus', '')}"
+
+
 def live_index_count(prefix):
     """How many indices under `prefix*` actually exist on the target server.
 
@@ -121,7 +137,7 @@ def require_loaded(state):
     different diagnoses with different fixes, and collapsing them is the bug this
     guard closes.
     """
-    prefix = state["prefix"]
+    prefix = query_prefix(state)
     count = live_index_count(prefix)
     if count is None:
         return  # server unreachable/ambiguous — let the search path report it.
@@ -547,7 +563,8 @@ def list_corpora():
         except (OSError, ValueError):
             print(f"  {name:<18} !! unreadable state file")
             continue
-        prefix = st.get("prefix", f"xc-{name}")
+        st.setdefault("corpus", name)
+        prefix = query_prefix(st)
         stamp = (st.get("indexed_at") or "?")[:10]
         count = live_index_count(prefix)
         if count is None:
@@ -629,16 +646,16 @@ def main():
 
     note = None
     if args.mode == "hybrid":
-        hits, note = hybrid_search(state["prefix"], args.query, args.k, args.lang)
+        hits, note = hybrid_search(query_prefix(state), args.query, args.k, args.lang)
         res = {"hits": {"hits": hits}}
     elif args.mode == "semantic":
-        capable, total = semantic_indices(state["prefix"])
+        capable, total = semantic_indices(query_prefix(state))
         hits = semantic_search(capable, args.query, args.k, args.lang)
         res = {"hits": {"hits": hits}}
         note = (f"vector only over {len(capable)} of {total} index(es)" if capable
-                else f"no index under '{state['prefix']}*' maps `body` as semantic_text")
+                else f"no index under '{query_prefix(state)}*' maps `body` as semantic_text")
     else:
-        res = search(state["prefix"], args.query, args.k, args.lang)
+        res = search(query_prefix(state), args.query, args.k, args.lang)
         hits = res.get("hits", {}).get("hits", [])
 
     # Say which arms ran, every time. A hybrid call that silently fell back to
