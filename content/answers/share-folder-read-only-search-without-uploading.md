@@ -51,7 +51,7 @@ faq:
     a: "No. It is search and reading only: no text is generated and no model is called. The default embedder is lexical feature hashing, so ranking is by word and sub-word overlap plus BM25."
 ---
 
-**TL;DR** — Index the folder with `xerj brain`, then run `xerj share` on the same folder. The other person gets a link and a passcode, opens a read-only search page in a browser, and reads what they find. The documents and the index stay on your machine. You can revoke it at any time.
+**TL;DR** — Index the folder with `xerj brain`, then run `xerj share` on the same folder. The other person gets a link and a passcode. They open a read-only search page in a browser and read what they find. The documents and the index stay on your machine. You can revoke it at any time.
 
 ## The two commands
 
@@ -72,7 +72,7 @@ Send the link and the passcode through different channels. Either one alone open
 
 ## What the other person sees
 
-A page that asks for the passcode, then a reading room over that one index: a search box, highlighted snippets, and a document view. The page states that access is read-only, shows when it ends, and has a sign-out button.
+A page that asks for the passcode, then a reading room over that one index: a search field, highlighted passages, and a document view. The page states that access is read-only, shows when it ends, and has a sign-out button.
 
 Email is shown as text. HTML in a message body is displayed as its source and never rendered, and addresses inside documents are not turned into links, because document text is other people's content.
 

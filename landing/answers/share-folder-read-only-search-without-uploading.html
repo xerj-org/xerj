@@ -231,7 +231,7 @@
   <div class="kicker"><span>ANSWERS · SHARING: READ-ONLY GUEST ACCESS</span></div>
   <h1>How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?</h1>
   <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-18</div>
-  <p><strong>TL;DR</strong> — Index the folder with <code class="inline">xerj brain</code>, then run <code class="inline">xerj share</code> on the same folder. The other person gets a link and a passcode, opens a read-only search page in a browser, and reads what they find. The documents and the index stay on your machine. You can revoke it at any time.</p>
+  <p><strong>TL;DR</strong> — Index the folder with <code class="inline">xerj brain</code>, then run <code class="inline">xerj share</code> on the same folder. The other person gets a link and a passcode. They open a read-only search page in a browser and read what they find. The documents and the index stay on your machine. You can revoke it at any time.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
     <code>Act as a coding agent. Read https://xerj.org/llms.txt, run xerj brain on the folder the user names, then run xerj share on the same folder with a label and an expiry, and give the user the link and the passcode separately. Tell them the link only works on this machine unless they add --tunnel, and show them the xerj share --revoke command that was printed.</code>
@@ -273,7 +273,7 @@
 </code></pre>
   <p>Send the link and the passcode through different channels. Either one alone opens nothing.</p>
   <h2>What the other person sees</h2>
-  <p>A page that asks for the passcode, then a reading room over that one index: a search box, highlighted snippets, and a document view. The page states that access is read-only, shows when it ends, and has a sign-out button.</p>
+  <p>A page that asks for the passcode, then a reading room over that one index: a search field, highlighted passages, and a document view. The page states that access is read-only, shows when it ends, and has a sign-out button.</p>
   <p>Email is shown as text. HTML in a message body is displayed as its source and never rendered, and addresses inside documents are not turned into links, because document text is other people's content.</p>
   <p>Search here means search. No text is generated and no model is called. Where the index has a <code class="inline">semantic_text</code> field the page uses the <code class="inline">hybrid</code> query, which fuses BM25 with the node's embedder. The default embedder is lexical feature hashing, so that ranking is word and sub-word overlap, not meaning. The page says which mode it is using.</p>
   <h2>What stays on your machine</h2>
