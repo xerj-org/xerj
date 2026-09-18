@@ -5,23 +5,64 @@
 //! page to the rerank window, hands the window to a [`xerj_rerank::Provider`],
 //! and reorders the rendered hits by what comes back.
 //!
-//! The stage is strict about what it cannot do coherently. An explicit `sort`
-//! means the caller has already said how results are ordered; paging past the
-//! window means pages would be cut from two different orderings. Both are
-//! refused with a 400 rather than quietly honoured in a way that misleads.
+//! # What the stage owns, and what it leaves alone
+//!
+//! It owns exactly one thing: the order (and, with `rerank.min_score`, the
+//! membership) of `hits.hits`. Everything else in the response stays the
+//! engine's — `hits.total`, `aggregations`, `suggest`, `profile` all describe
+//! the full match set, not the window. That is the split Meilisearch's
+//! personalisation rerank makes too
+//! (`crates/meilisearch/src/routes/indexes/search.rs:788-801`: only
+//! `search_result.hits` is replaced, facets and the estimated total are left as
+//! computed; approach adapted, no code copied).
+//!
+//! # The judge sees what the caller sees
+//!
+//! Candidate text is read from the hit as the response will carry it — the
+//! projected `_source`, then the hit's `fields`. Nothing the response does not
+//! return is sent to the provider. That is a privacy property as much as a
+//! design one: reranking is the one search feature that sends data off the
+//! machine, and "exactly what you were about to receive, no more" is a rule a
+//! caller can audit. The cost is that `_source` filtering which removes the
+//! text also removes it from the judge, so that combination is refused by name
+//! instead of being judged blind.
+//!
+//! Two rules follow from treating this as an egress control rather than a
+//! convenience. `rerank.fields` is EXHAUSTIVE: naming `["body"]` sends the body
+//! and nothing else, not even the title. And what was actually returned is
+//! checked on the rendered hits, not predicted from the request — a named field
+//! that contributed no text is reported as `_rerank.fields_without_text`, and a
+//! window with no text at all is a 400, never a batch of blank documents.
+//!
+//! # Strictness
+//!
+//! The stage refuses what it cannot do coherently. An explicit `sort` means the
+//! caller has already said how results are ordered; paging past the window
+//! means pages would be cut from two different orderings. Both are a 400 rather
+//! than quietly honoured in a way that misleads. Surfaces that do not run the
+//! stage at all (`_msearch`, search templates, `_async_search`, scroll, the
+//! native `/v1` search API and the gRPC Search RPC) refuse a body carrying
+//! `rerank` for the same reason: dropping the key silently returns lexical
+//! order to a caller who asked for something else.
 
+use axum::extract::State;
+use axum::Json;
 use serde_json::{json, Value};
-use std::time::Duration;
-use xerj_rerank::{Candidate, Deadline, Provider, RerankConfig, RerankError, RerankOutcome};
+use std::time::{Duration, Instant};
+use xerj_rerank::{
+    Candidate, Deadline, Provider, ProviderSettings, RerankConfig, RerankError, RerankOutcome,
+};
 
 use crate::es_compat::EsSearchBody;
 use crate::responses::EsHit;
+use crate::state::AppState;
 
 /// A validated rerank request, produced before the search runs.
 pub struct RerankPlan {
     cfg: RerankConfig,
     query: String,
     requested_size: usize,
+    from: usize,
 }
 
 /// Read a plain question out of the simple query shapes that carry one.
@@ -51,11 +92,123 @@ fn infer_query(q: &Value) -> Option<String> {
     }
 }
 
+/// `*`-glob match, the only wildcard `_source` filtering supports.
+fn glob(pattern: &str, name: &str) -> bool {
+    let mut parts = pattern.split('*');
+    // `split` always yields at least one piece: the literal head.
+    let head = parts.next().unwrap_or_default();
+    let Some(mut rest) = name.strip_prefix(head) else {
+        return false;
+    };
+    let mut pieces: Vec<&str> = parts.collect();
+    let Some(tail) = pieces.pop() else {
+        // No `*` at all: the head had to be the whole name.
+        return rest.is_empty();
+    };
+    for piece in pieces {
+        match rest.find(piece) {
+            Some(at) => rest = &rest[at + piece.len()..],
+            None => return false,
+        }
+    }
+    rest.ends_with(tail)
+}
+
+/// Whether a `_source` filter pattern keeps `field` — the field itself, an
+/// ancestor object of it, or (for includes) a descendant of it.
+fn pattern_covers(pattern: &str, field: &str) -> bool {
+    glob(pattern, field)
+        || field
+            .match_indices('.')
+            .any(|(i, _)| glob(pattern, &field[..i]))
+}
+
+/// Whether the request's `_source` clause leaves `field` in the response.
+fn source_keeps(source: Option<&Value>, field: &str) -> bool {
+    let strings = |v: &Value| -> Vec<String> {
+        match v {
+            Value::String(s) => vec![s.clone()],
+            Value::Array(a) => a
+                .iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    let (includes, excludes) = match source {
+        None | Some(Value::Bool(true)) | Some(Value::Null) => return true,
+        Some(Value::Bool(false)) => return false,
+        Some(v @ (Value::String(_) | Value::Array(_))) => (strings(v), Vec::new()),
+        Some(Value::Object(o)) => (
+            o.get("includes")
+                .or_else(|| o.get("include"))
+                .map(strings)
+                .unwrap_or_default(),
+            o.get("excludes")
+                .or_else(|| o.get("exclude"))
+                .map(strings)
+                .unwrap_or_default(),
+        ),
+        Some(_) => return true,
+    };
+    if excludes.iter().any(|p| pattern_covers(p, field)) {
+        return false;
+    }
+    includes.is_empty()
+        || includes
+            .iter()
+            .any(|p| pattern_covers(p, field) || p.starts_with(&format!("{field}.")))
+}
+
+/// Whether the request's `fields` clause asks for `field`.
+fn fields_requests(fields: Option<&Value>, field: &str) -> bool {
+    let Some(Value::Array(arr)) = fields else {
+        return false;
+    };
+    arr.iter().any(|entry| {
+        let name = match entry {
+            Value::String(s) => s.as_str(),
+            Value::Object(o) => o.get("field").and_then(Value::as_str).unwrap_or(""),
+            _ => "",
+        };
+        !name.is_empty() && glob(name, field)
+    })
+}
+
+/// Append every string under `v` — a string, or an array of strings. Numbers,
+/// booleans, vectors and nested objects are not prose and are not sent.
+fn push_text(v: &Value, out: &mut String) {
+    match v {
+        Value::String(s) if !s.trim().is_empty() => {
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(s);
+        }
+        Value::Array(items) => items
+            .iter()
+            .filter(|i| i.is_string())
+            .for_each(|i| push_text(i, out)),
+        _ => {}
+    }
+}
+
+/// `a.b.c` looked up first as a literal key, then as a path.
+fn lookup<'a>(obj: &'a serde_json::Map<String, Value>, field: &str) -> Option<&'a Value> {
+    if let Some(v) = obj.get(field) {
+        return Some(v);
+    }
+    let (head, rest) = field.split_once('.')?;
+    lookup(obj.get(head)?.as_object()?, rest)
+}
+
 impl RerankPlan {
     /// Validate the request and widen the page to the rerank window.
     ///
-    /// Returns `Ok(None)` when the body has no `rerank` block. `Err` carries the
-    /// reason for a 400.
+    /// Must run AFTER the URL parameters (`?sort=`, `?_source=`, `?size=`,
+    /// `?from=`…) have been merged into `body`, or a `?sort=` slips past the
+    /// refusal below. Returns `Ok(None)` when the body has no `rerank` block.
+    /// `Err` carries the reason for a 400.
     pub fn prepare(body: &mut EsSearchBody, scrolling: bool) -> Result<Option<Self>, String> {
         let Some(raw) = body.rerank.as_ref() else {
             return Ok(None);
@@ -82,10 +235,25 @@ impl RerankPlan {
         if body.collapse.is_some() {
             return Err("`rerank` cannot be combined with `collapse`".into());
         }
-        if matches!(body.source, Some(Value::Bool(false))) {
+        // `_source: false` on its own returns no text, so there is certainly
+        // nothing to judge and the search need not run. Beside a `fields`
+        // clause it is a coherent request — "do not return the source, return
+        // `body` through `fields`, judge on that" — and is let through to the
+        // post-render check in `apply`, which looks at what actually came back.
+        let asks_for_fields = matches!(&body.fields, Some(Value::Array(a)) if !a.is_empty());
+        if matches!(body.source, Some(Value::Bool(false))) && !asks_for_fields {
             return Err(
-                "`rerank` needs document text: `_source: false` leaves nothing to \
-                        judge. Use `rerank.fields` to limit what is sent instead"
+                "`rerank` needs document text: `_source: false` with no `fields` clause \
+                 leaves nothing to judge. Return the text through `fields`, or use \
+                 `rerank.fields` to limit what is sent instead"
+                    .into(),
+            );
+        }
+        if body.size == 0 {
+            return Err(
+                "`rerank` cannot be combined with `size: 0`: the provider would be paid to \
+                 judge documents the response does not return. Drop `rerank` for an \
+                 aggregation-only request, or ask for at least one hit"
                     .into(),
             );
         }
@@ -98,58 +266,159 @@ impl RerankPlan {
                 cfg.window
             ));
         }
+        // The judge reads the hit as the response carries it, so a field the
+        // caller told us to judge but also told us not to return cannot be
+        // judged. Say which one instead of sending blank documents.
+        //
+        // This is a prediction, and it is only made where it cannot be wrong:
+        // `docvalue_fields`, `stored_fields` and `script_fields` also put values
+        // on a hit, so when any of them is present the question is left to the
+        // check on the rendered hits in `apply`.
+        let other_channels = body.docvalue_fields.is_some()
+            || body.stored_fields.is_some()
+            || body.script_fields.is_some();
+        if let (Some(fields), false) = (&cfg.fields, other_channels) {
+            for f in fields {
+                if !source_keeps(body.source.as_ref(), f)
+                    && !fields_requests(body.fields.as_ref(), f)
+                {
+                    return Err(format!(
+                        "`rerank.fields` names `{f}`, but the `_source` filter removes it from \
+                         the response and `fields` does not ask for it. The judge only sees \
+                         what the response returns, so nothing would be left to judge: include \
+                         `{f}` in `_source`, or request it through `fields`"
+                    ));
+                }
+            }
+        }
 
         let query = match cfg.query.clone() {
             Some(q) => q,
             None => body.query.as_ref().and_then(infer_query).ok_or_else(|| {
                 "`rerank.query` is required: the search query is not a shape a single \
                  question can be read from (supported for inference: match, match_phrase, \
-                 multi_match, semantic, simple_query_string)"
+                 multi_match, semantic, simple_query_string). A `bool`, a `hybrid`, a \
+                 top-level `knn` with no text query, or no `query` at all needs the question \
+                 spelled out"
                     .to_string()
             })?,
         };
 
         let requested_size = body.size;
+        let from = body.from;
         body.size = body.size.max(cfg.window);
+        // The stage pages the reranked window itself; the engine must return
+        // the window from the top.
+        body.from = 0;
 
         Ok(Some(Self {
             cfg,
             query,
             requested_size,
+            from,
         }))
     }
 
-    fn candidate(&self, ordinal: usize, hit: &EsHit) -> Candidate {
+    /// The page the caller asked for, before the stage widened it. The search
+    /// handler restores these on `body` for everything downstream that reads
+    /// them (response hints, `terminated_early`), once the engine has run.
+    pub fn requested_page(&self) -> (usize, usize) {
+        (self.from, self.requested_size)
+    }
+
+    /// The prose a hit returns under one field name: `_source` first, then the
+    /// hit's `fields` — which is how fetched-not-stored values get judged.
+    fn field_text(hit: &EsHit, name: &str) -> String {
         let src = hit.source.as_ref().and_then(Value::as_object);
-        let title = src
-            .and_then(|o| o.get("title"))
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let mut out = String::new();
+        if let Some(v) = src
+            .and_then(|o| lookup(o, name))
+            .or_else(|| hit.fields.as_ref().and_then(|f| f.get(name)))
+        {
+            if name == xerj_query::executor::PASSAGE_RESPONSE_FIELD {
+                // `_passage` is `[{field, ordinal, start_offset, end_offset,
+                // text, page?}]`, not a string: the prose is its `text`. The
+                // one object shape that is read, because it is the engine's own
+                // and its `text` is by construction a slice of a returned field.
+                for passage in v.as_array().into_iter().flatten() {
+                    if let Some(text) = passage.get("text") {
+                        push_text(text, &mut out);
+                    }
+                }
+            } else {
+                push_text(v, &mut out);
+            }
+        }
+        out
+    }
+
+    fn candidate(&self, ordinal: usize, hit: &EsHit) -> Candidate {
+        // `rerank.fields` is an egress control, so it is exhaustive: a caller
+        // who wrote `["body"]` has said what may leave the machine, and the
+        // title is not on that list. Unrestricted, the title is promoted to its
+        // own slot because a judge reads it differently from body text.
+        let title_allowed = match &self.cfg.fields {
+            None => true,
+            Some(fields) => fields.iter().any(|f| f == "title"),
+        };
+        let title = if title_allowed {
+            Self::field_text(hit, "title")
+        } else {
+            String::new()
+        };
 
         let mut text = String::new();
-        if let Some(obj) = src {
-            let mut push = |v: &Value| {
-                if let Some(s) = v.as_str() {
-                    if !text.is_empty() {
-                        text.push('\n');
+        match &self.cfg.fields {
+            Some(fields) => {
+                for f in fields.iter().filter(|f| f.as_str() != "title") {
+                    let t = Self::field_text(hit, f);
+                    if !t.is_empty() {
+                        if !text.is_empty() {
+                            text.push('\n');
+                        }
+                        text.push_str(&t);
                     }
-                    text.push_str(s);
                 }
-            };
-            match &self.cfg.fields {
-                Some(fields) => fields.iter().filter_map(|f| obj.get(f)).for_each(&mut push),
-                None => obj
-                    .iter()
-                    .filter(|(k, _)| k.as_str() != "title")
-                    .map(|(_, v)| v)
-                    .for_each(&mut push),
+            }
+            None => {
+                // The matching passage goes FIRST when the response carries
+                // one. Text is cut at `max_doc_chars`, so on a long document an
+                // appended passage would be the part that gets cut — and it is
+                // the part that says why this hit matched.
+                text = Self::field_text(hit, xerj_query::executor::PASSAGE_RESPONSE_FIELD);
+                if let Some(obj) = hit.source.as_ref().and_then(Value::as_object) {
+                    obj.iter()
+                        .filter(|(k, _)| k.as_str() != "title")
+                        .for_each(|(_, v)| push_text(v, &mut text));
+                }
             }
         }
         Candidate {
             ordinal,
-            title,
+            title: (!title.is_empty()).then_some(title),
             text,
         }
+    }
+
+    /// Fields named in `rerank.fields` that no hit in the window returned any
+    /// prose for.
+    ///
+    /// Checked on the RENDERED hits rather than predicted from the request,
+    /// because prediction was wrong once already: `prepare` reasons that a
+    /// `fields` clause returns a value `_source` filtering removed, and the
+    /// engine does not always do that. A named field that silently contributes
+    /// nothing means the caller believes documents were judged on text the
+    /// judge never saw — so it is reported, whatever the cause (a projection, a
+    /// typo in the name, or a field these hits simply lack).
+    fn fields_without_text(&self, window: &[EsHit]) -> Vec<String> {
+        let Some(fields) = &self.cfg.fields else {
+            return Vec::new();
+        };
+        fields
+            .iter()
+            .filter(|f| window.iter().all(|h| Self::field_text(h, f).is_empty()))
+            .cloned()
+            .collect()
     }
 
     /// Rerank `hits` in place and return the `_rerank` block for the response.
@@ -158,38 +427,80 @@ impl RerankPlan {
     /// degradable causes come back as `Ok` with `"applied": false`.
     pub async fn apply(
         &self,
+        settings: &ProviderSettings,
         hits: &mut Vec<EsHit>,
         max_score: &mut Option<f64>,
-        from: usize,
     ) -> Result<Value, RerankError> {
+        let started = Instant::now();
         let window = self.cfg.window.min(hits.len());
-        let candidates: Vec<Candidate> = hits[..window]
+        let all: Vec<Candidate> = hits[..window]
             .iter()
             .enumerate()
             .map(|(i, h)| self.candidate(i, h))
             .collect();
+        // A hit with no prose at all is not sent: a blank document costs a
+        // judgement and the verdict on nothing means nothing.
+        let sendable: Vec<Candidate> = all
+            .iter()
+            .filter(|c| c.title.is_some() || !c.text.trim().is_empty())
+            .cloned()
+            .collect();
+        let skipped_no_text = all.len() - sendable.len();
+        let fields_without_text = self.fields_without_text(&hits[..window]);
 
-        let provider = Provider::from_config(&self.cfg)?;
+        // Misconfiguration surfaces whether or not this search had hits.
+        let provider = Provider::from_settings(&self.cfg, settings)?;
+
+        if window > 0 && sendable.is_empty() {
+            return Err(RerankError::Config(format!(
+                "nothing to judge: none of the top {window} hits carries a string field in \
+                 the response{}. The judge only sees what the response returns — name the \
+                 text field(s) in `rerank.fields` and make sure `_source` (or `fields`) \
+                 returns them",
+                match &self.cfg.fields {
+                    Some(f) => format!(" under `rerank.fields` {f:?}"),
+                    None => String::new(),
+                }
+            )));
+        }
+
         let deadline = Deadline::new(self.cfg.timeout.max(Duration::from_millis(1)));
         let outcome = provider
-            .rerank(&self.query, &candidates, &self.cfg, &deadline)
+            .rerank(&self.query, &sendable, &self.cfg, &deadline)
             .await?;
 
-        let info = match outcome {
+        let mut info = match outcome {
             RerankOutcome::Degraded { reason } => {
                 tracing::warn!(%reason, "rerank degraded; engine order kept");
                 json!({
                     "applied": false,
                     "reason": reason,
                     "provider": self.cfg.provider,
+                    "score_kind": "engine",
                 })
             }
             RerankOutcome::Reordered {
                 scores,
                 partial_failures,
+                usage,
             } => {
-                let ordered = xerj_rerank::apply_scores(&candidates, &scores, self.cfg.min_score);
+                // A verdict counts only for a document that was actually sent.
+                // The provider is a third party: an answer keyed to a hit that
+                // was skipped as blank, or to a key nobody sent, would otherwise
+                // score a document the judge never saw and inflate `judged` —
+                // which is the operator's billing meter.
+                let sent: std::collections::HashSet<usize> =
+                    sendable.iter().map(|c| c.ordinal).collect();
+                let scores: Vec<xerj_rerank::Scored> = scores
+                    .into_iter()
+                    .filter(|s| sent.contains(&s.ordinal))
+                    .collect();
+                let ordered = xerj_rerank::apply_scores(&all, &scores, self.cfg.min_score);
                 let judged = scores.len();
+                let below_min = match self.cfg.min_score {
+                    Some(min) => scores.iter().filter(|s| s.score < min).count(),
+                    None => 0,
+                };
                 let mut slots: Vec<Option<EsHit>> = hits.drain(..).map(Some).collect();
                 let mut out = Vec::with_capacity(slots.len());
                 for s in &ordered {
@@ -197,7 +508,23 @@ impl RerankPlan {
                         // Unjudged hits carry a negative sort key internally;
                         // they keep the engine's score rather than exposing it.
                         if s.score >= 0.0 {
-                            h.score = Some(f64::from(s.score));
+                            let p = f64::from(s.score);
+                            // `explain` described the engine's score. Keep it,
+                            // under a node that says where `_score` now comes
+                            // from — an `_explanation.value` that disagrees
+                            // with `_score` would be a lie by omission.
+                            if let Some(engine) = h.explanation.take() {
+                                h.explanation = Some(json!({
+                                    "value": p,
+                                    "description": format!(
+                                        "rerank: relevance probability from provider `{}` \
+                                         (model `{}`); replaces the engine score explained below",
+                                        self.cfg.provider, self.cfg.model
+                                    ),
+                                    "details": [engine],
+                                }));
+                            }
+                            h.score = Some(p);
                         }
                         out.push(h);
                     }
@@ -208,7 +535,10 @@ impl RerankPlan {
                 if self.cfg.min_score.is_none() {
                     out.extend(slots.into_iter().skip(window).flatten());
                 }
-                let pruned = window.saturating_sub(ordered.len());
+                let dropped_unjudged = match self.cfg.min_score {
+                    Some(_) => window.saturating_sub(judged),
+                    None => 0,
+                };
                 *hits = out;
                 *max_score = hits.first().and_then(|h| h.score);
                 json!({
@@ -218,16 +548,36 @@ impl RerankPlan {
                     "score_kind": "probability",
                     "window": window,
                     "judged": judged,
-                    "pruned_below_min_score": pruned,
+                    "skipped_no_text": skipped_no_text,
+                    "pruned_below_min_score": below_min,
+                    "dropped_unjudged": dropped_unjudged,
                     "partial_failures": partial_failures,
+                    "usage": {
+                        "input_tokens": usage.input_tokens,
+                        "output_tokens": usage.output_tokens,
+                    },
                 })
             }
         };
+        if let Some(obj) = info.as_object_mut() {
+            // Present only when there is something to say: a field the caller
+            // asked to be judged on that contributed no text at all.
+            if !fields_without_text.is_empty() && obj.get("applied") == Some(&json!(true)) {
+                obj.insert("fields_without_text".into(), json!(fields_without_text));
+            }
+            // The question that was judged — inferred or given. A caller who
+            // let it be inferred should be able to see what was inferred.
+            obj.insert("query".into(), json!(self.query));
+            obj.insert(
+                "took_ms".into(),
+                json!(started.elapsed().as_millis() as u64),
+            );
+        }
 
         // The page was widened to the window; cut it back to what was asked.
         let page: Vec<EsHit> = std::mem::take(hits)
             .into_iter()
-            .skip(from)
+            .skip(self.from)
             .take(self.requested_size)
             .collect();
         *hits = page;
@@ -235,10 +585,51 @@ impl RerankPlan {
     }
 }
 
+/// Count a request the stage refused before the search ran (`prepare` said no).
+pub fn record_refused(metrics: &xerj_common::metrics::Metrics) {
+    metrics
+        .rerank_requests
+        .with_label_values(&["refused"])
+        .inc();
+}
+
+/// Count what [`RerankPlan::apply`] did.
+///
+/// `refused` means nothing reached the provider (400 / 403 / 503); `failed`
+/// means it was called and the contract broke (502). The split matters to the
+/// operator reading the counter: only `applied`, `degraded` and `failed` can
+/// have cost money.
+pub fn record_outcome(
+    metrics: &xerj_common::metrics::Metrics,
+    result: &Result<Value, RerankError>,
+) {
+    let outcome = match result {
+        Ok(info) if info["applied"] == json!(true) => {
+            metrics
+                .rerank_documents_judged
+                .inc_by(info["judged"].as_u64().unwrap_or(0));
+            for (kind, key) in [("input", "input_tokens"), ("output", "output_tokens")] {
+                metrics
+                    .rerank_provider_tokens
+                    .with_label_values(&[kind])
+                    .inc_by(info["usage"][key].as_u64().unwrap_or(0));
+            }
+            "applied"
+        }
+        Ok(_) => "degraded",
+        Err(e) if status_for(e) == 502 => "failed",
+        Err(_) => "refused",
+    };
+    metrics.rerank_requests.with_label_values(&[outcome]).inc();
+}
+
 /// HTTP status for a rerank fault that must reach the caller.
 pub fn status_for(e: &RerankError) -> u16 {
     match e {
         RerankError::Config(_) | RerankError::UnknownProvider(_) => 400,
+        // The operator has forbidden it. Not the caller's syntax (400) and not
+        // something a retry or a key fixes (503).
+        RerankError::DisabledByOperator => 403,
         // The server is not configured to reach the provider: not the
         // caller's mistake, and not a gateway fault either.
         RerankError::MissingKey(_) => 503,
@@ -247,6 +638,90 @@ pub fn status_for(e: &RerankError) -> u16 {
         | RerankError::Malformed(_)
         | RerankError::Deadline { .. } => 502,
     }
+}
+
+/// ES-shaped error `type` for a rerank fault: a request the caller can fix is
+/// an `illegal_argument_exception` like every other 400; the rest are XERJ's.
+pub fn error_type_for(e: &RerankError) -> &'static str {
+    match e {
+        RerankError::Config(_) | RerankError::UnknownProvider(_) => "illegal_argument_exception",
+        _ => "rerank_exception",
+    }
+}
+
+/// Why an endpoint that does not run the rerank stage refuses the block. One
+/// sentence, shared by the ES-shaped 400 below, the native REST API and gRPC,
+/// so the three surfaces cannot tell a caller three different things.
+pub fn unsupported_reason(endpoint: &str) -> String {
+    format!(
+        "`rerank` is not supported on {endpoint}: only `POST /{{index}}/_search` runs the rerank \
+         stage. Send this search there, or remove the `rerank` block — it is refused here \
+         rather than silently ignored"
+    )
+}
+
+/// The 400 for an endpoint that does not run the rerank stage.
+///
+/// `xerj_query::parse_request` ignores keys it does not know, so without this a
+/// `rerank` block on `_msearch`, a search template, `_async_search` or a scroll
+/// vanished without a word and the caller got the engine's order back under a
+/// 200 — the accepted-and-ignored class this project treats as a defect.
+pub fn unsupported_on(endpoint: &str) -> Value {
+    let reason = unsupported_reason(endpoint);
+    json!({
+        "error": {
+            "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+            "type": "illegal_argument_exception",
+            "reason": reason,
+        },
+        "status": 400,
+    })
+}
+
+/// `GET /_xerj/rerank` — whether a rerank provider is configured.
+///
+/// Reports THAT a key is set and where it came from; never the key, and the
+/// endpoint only with userinfo, query and fragment stripped. Superuser-only,
+/// like the rest of the `/_xerj/*` operator namespace (`authz.rs`).
+pub async fn rerank_status(State(state): State<AppState>) -> Json<Value> {
+    Json(status_document(&state.rerank))
+}
+
+/// The body of [`rerank_status`], split out so it is testable without a router.
+pub fn status_document(settings: &ProviderSettings) -> Value {
+    let defaults = RerankConfig::default();
+    json!({
+        "enabled": settings.enabled,
+        "configured": settings.enabled && settings.has_key(),
+        "providers": ["jev"],
+        "api_key": {
+            "set": settings.has_key(),
+            "source": settings.key_source().map(|s| s.as_str()),
+        },
+        "endpoint": {
+            "url": settings.endpoint_for_display(),
+            "source": settings.endpoint_source().as_str(),
+        },
+        "defaults": {
+            "provider": defaults.provider,
+            "model": defaults.model,
+            "window": defaults.window,
+            "batch": defaults.batch,
+            "max_concurrency": defaults.max_concurrency,
+            "max_doc_chars": defaults.max_doc_chars,
+            "timeout_ms": defaults.timeout.as_millis() as u64,
+        },
+        "limits": {
+            "max_docs_per_call": xerj_rerank::JEV_MAX_DOCS_PER_CALL,
+            "max_window": xerj_rerank::MAX_WINDOW,
+            "max_concurrency": xerj_rerank::MAX_CONCURRENCY,
+            "max_doc_chars": xerj_rerank::MAX_DOC_CHARS,
+            "max_timeout_ms": xerj_rerank::MAX_TIMEOUT_MS,
+        },
+        "data_egress": "A search that carries a `rerank` block sends the text of up to \
+                        `window` hits, and the query, to the endpoint above. No other \
+                        request sends document text anywhere.",
+    })
 }
 
 #[cfg(test)]
@@ -282,12 +757,110 @@ mod tests {
         assert_eq!(status_for(&RerankError::Config("x".into())), 400);
         assert_eq!(status_for(&RerankError::UnknownProvider("x".into())), 400);
         assert_eq!(status_for(&RerankError::MissingKey("K")), 503);
+        assert_eq!(status_for(&RerankError::DisabledByOperator), 403);
         assert_eq!(
             status_for(&RerankError::Status {
                 status: 401,
                 body: String::new()
             }),
             502
+        );
+        assert_eq!(
+            error_type_for(&RerankError::Config("x".into())),
+            "illegal_argument_exception"
+        );
+        assert_eq!(
+            error_type_for(&RerankError::MissingKey("K")),
+            "rerank_exception"
+        );
+    }
+
+    #[test]
+    fn source_filter_knows_what_survives() {
+        let inc = json!(["title", "meta.*"]);
+        assert!(source_keeps(Some(&inc), "title"));
+        assert!(source_keeps(Some(&inc), "meta.summary"));
+        assert!(!source_keeps(Some(&inc), "body"));
+
+        let exc = json!({"excludes": ["body", "secret.*"]});
+        assert!(!source_keeps(Some(&exc), "body"));
+        assert!(!source_keeps(Some(&exc), "secret.note"));
+        assert!(source_keeps(Some(&exc), "title"));
+
+        // Excluding the parent object removes the child.
+        let exc_parent = json!({"excludes": ["meta"]});
+        assert!(!source_keeps(Some(&exc_parent), "meta.summary"));
+        // Including a child keeps (part of) the parent.
+        let inc_child = json!({"includes": ["meta.summary"]});
+        assert!(source_keeps(Some(&inc_child), "meta"));
+
+        assert!(source_keeps(None, "body"));
+        assert!(source_keeps(Some(&json!(true)), "body"));
+        assert!(!source_keeps(Some(&json!(false)), "body"));
+        assert!(source_keeps(Some(&json!("bo*")), "body"));
+    }
+
+    #[test]
+    fn glob_matches_like_source_filtering_does() {
+        assert!(glob("body", "body"));
+        assert!(!glob("body", "body2"));
+        assert!(glob("*", "anything"));
+        assert!(glob("meta.*", "meta.summary"));
+        assert!(!glob("meta.*", "metadata"));
+        assert!(glob("*_text", "body_text"));
+        assert!(glob("a*b*c", "a-x-b-y-c"));
+        assert!(!glob("a*b*c", "a-x-c"));
+        assert!(glob("été*", "été-2026"), "multi-byte names must not panic");
+    }
+
+    #[test]
+    fn text_is_strings_and_string_arrays_only() {
+        let mut out = String::new();
+        push_text(&json!("alpha"), &mut out);
+        push_text(&json!(["beta", 7, "gamma"]), &mut out);
+        push_text(&json!(42), &mut out);
+        push_text(&json!({"nested": "no"}), &mut out);
+        push_text(&json!([0.1, 0.2]), &mut out);
+        push_text(&json!("   "), &mut out);
+        assert_eq!(out, "alpha\nbeta\ngamma");
+    }
+
+    #[test]
+    fn dotted_fields_resolve_as_a_literal_key_then_as_a_path() {
+        let doc = json!({"a.b": "literal", "a": {"b": "path", "c": {"d": "deep"}}});
+        let obj = doc.as_object().unwrap();
+        assert_eq!(lookup(obj, "a.b"), Some(&json!("literal")));
+        assert_eq!(lookup(obj, "a.c.d"), Some(&json!("deep")));
+        assert_eq!(lookup(obj, "a.x"), None);
+    }
+
+    #[test]
+    fn status_document_never_carries_the_key() {
+        let s = ProviderSettings::with_key_and_endpoint(
+            "sk-do-not-print",
+            "https://u:p@judge.example/v1/systemone?k=v",
+        );
+        let doc = status_document(&s);
+        let text = doc.to_string();
+        assert!(!text.contains("sk-do-not-print"), "{text}");
+        assert!(!text.contains("u:p@"), "{text}");
+        assert!(!text.contains("k=v"), "{text}");
+        assert_eq!(doc["configured"], true);
+        assert_eq!(doc["api_key"]["set"], true);
+        assert_eq!(doc["api_key"]["source"], "config");
+        assert_eq!(doc["endpoint"]["url"], "https://judge.example/v1/systemone");
+
+        let unset = status_document(&ProviderSettings::resolve(true, "", "", None, None));
+        assert_eq!(unset["configured"], false);
+        assert_eq!(unset["api_key"]["set"], false);
+        assert!(unset["api_key"]["source"].is_null());
+        assert_eq!(unset["endpoint"]["source"], "default");
+
+        let off = status_document(&ProviderSettings::resolve(false, "k", "", None, None));
+        assert_eq!(off["enabled"], false);
+        assert_eq!(
+            off["configured"], false,
+            "a key on a node that forbids reranking is not a working configuration"
         );
     }
 }

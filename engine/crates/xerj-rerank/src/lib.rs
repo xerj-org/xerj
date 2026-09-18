@@ -67,18 +67,40 @@ use serde_json::{json, Map, Value};
 
 /// Hard ceiling on documents per Jev request.
 ///
-/// Jev's context budget is ~32k tokens; 30 passages plus the query is the
-/// working figure the ecosystem settled on. Longer candidate lists are split
+/// The `hev/jev-rerank` README reports a ~32k-token request budget and
+/// "~30–50 typical passages per call", and uses 30; this project has not
+/// measured the provider's limit itself. Longer candidate lists are split
 /// into several calls, and the scores stay comparable across them because each
 /// answer is an absolute probability rather than a rank within its batch.
 pub const JEV_MAX_DOCS_PER_CALL: usize = 30;
 
 /// Default concurrent in-flight provider calls.
 ///
-/// Conservative on purpose: Jev starts returning 429 around 24 concurrent
-/// requests, and a search path that provokes rate limiting is worse than a
-/// slightly slower one.
+/// Conservative on purpose. The provider's rate limits are undocumented; the
+/// `hev/jev-rerank` README reports sustained 429s at about 24 requests in
+/// flight (their observation, not ours). A search path that provokes rate
+/// limiting is worse than a slightly slower one.
 pub const DEFAULT_MAX_CONCURRENCY: usize = 8;
+
+/// Ceiling on `rerank.window`.
+///
+/// The operator pays per judged document, and the caller picks the window — so
+/// the ceiling is the server's, not the caller's. 300 is ten full provider
+/// calls, two waves at the default concurrency.
+pub const MAX_WINDOW: usize = 300;
+
+/// Ceiling on `rerank.max_concurrency`. Kept under the ~24 in flight at which
+/// `hev/jev-rerank` reports sustained 429s: a caller must not be able to push
+/// the server's key into rate limiting.
+pub const MAX_CONCURRENCY: usize = 16;
+
+/// Ceiling on `rerank.max_doc_chars`. 30 documents at this size is already past
+/// what a ~32k-token context holds; anything larger only buys a provider 4xx.
+pub const MAX_DOC_CHARS: usize = 8_000;
+
+/// Ceiling on `rerank.timeout_ms`: a search must not be able to pin a
+/// connection for minutes on a third party's behalf.
+pub const MAX_TIMEOUT_MS: u64 = 60_000;
 
 /// How much of each document body to send.
 ///
@@ -88,7 +110,10 @@ pub const DEFAULT_MAX_DOC_CHARS: usize = 1200;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RerankError {
-    #[error("no API key: set {0} or pass it in the request")]
+    #[error(
+        "no rerank API key is configured on this server: set `api_key` under `[rerank]` in the \
+         config file, or the {0} environment variable, and restart"
+    )]
     MissingKey(&'static str),
     #[error("provider `{0}` is not supported")]
     UnknownProvider(String),
@@ -102,6 +127,15 @@ pub enum RerankError {
     Config(String),
     #[error("rerank deadline exceeded after {elapsed_ms}ms")]
     Deadline { elapsed_ms: u128 },
+    /// The operator switched reranking off (`[rerank] enabled = false`).
+    /// Distinct from [`Self::MissingKey`]: that one is "not set up yet", this
+    /// one is "deliberately never" — reranking sends document text to a third
+    /// party, and an operator must be able to forbid that outright.
+    #[error(
+        "reranking is disabled on this server (`[rerank] enabled = false`): it would send \
+         document text to a third-party provider, and the operator has forbidden that"
+    )]
+    DisabledByOperator,
 }
 
 /// What the caller should do with a failure.
@@ -126,6 +160,7 @@ impl RerankError {
             | Self::UnknownProvider(_)
             | Self::Config(_)
             | Self::Malformed(_)
+            | Self::DisabledByOperator
             | Self::Status { .. } => Policy::Surface,
         }
     }
@@ -187,9 +222,27 @@ pub enum RerankOutcome {
         /// documents is still correct — the probabilities are absolute — but the
         /// caller should know the window was not fully covered.
         partial_failures: usize,
+        /// Tokens the provider billed for, summed over every batch that
+        /// answered. Reranking is the one paid call in a search, so the caller
+        /// gets the meter reading rather than having to infer it.
+        usage: Usage,
     },
     /// Reranking did not run. The engine's order stands.
     Degraded { reason: String },
+}
+
+/// Token usage as the provider reports it. Zero when the provider omits it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Usage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
+impl Usage {
+    fn add(&mut self, other: Usage) {
+        self.input_tokens = self.input_tokens.saturating_add(other.input_tokens);
+        self.output_tokens = self.output_tokens.saturating_add(other.output_tokens);
+    }
 }
 
 /// One candidate handed to the reranker.
@@ -233,9 +286,12 @@ pub struct RerankConfig {
     /// guessing at the intent behind a `bool` tree would rank against the
     /// wrong question without anyone noticing.
     pub query: Option<String>,
-    /// `_source` fields sent to the provider. `None` sends every top-level
-    /// string field, which is right for small documents and wasteful for wide
-    /// ones.
+    /// Returned fields sent to the provider. An EXHAUSTIVE allow-list: it is an
+    /// egress control, so `["body"]` sends the body and not even the title.
+    /// `None` sends the title, then the matching `_passage` when the response
+    /// carries one, then every other returned top-level string field — right
+    /// for small documents and wasteful for wide ones. The API layer reads the
+    /// values; this crate only carries the names.
     pub fields: Option<Vec<String>>,
 }
 
@@ -311,6 +367,12 @@ impl RerankConfig {
             if w == 0 {
                 return Err(RerankError::Config("`rerank.window` must be > 0".into()));
             }
+            if w as usize > MAX_WINDOW {
+                return Err(RerankError::Config(format!(
+                    "`rerank.window` must be <= {MAX_WINDOW}: every document in the window is \
+                     a paid provider judgement"
+                )));
+            }
             cfg.window = w as usize;
         }
         if let Some(b) = obj.get("batch") {
@@ -339,10 +401,10 @@ impl RerankConfig {
             let c = c.as_u64().ok_or_else(|| {
                 RerankError::Config("`rerank.max_concurrency` must be a number".into())
             })?;
-            if c == 0 {
-                return Err(RerankError::Config(
-                    "`rerank.max_concurrency` must be > 0".into(),
-                ));
+            if c == 0 || c as usize > MAX_CONCURRENCY {
+                return Err(RerankError::Config(format!(
+                    "`rerank.max_concurrency` must be between 1 and {MAX_CONCURRENCY}"
+                )));
             }
             cfg.max_concurrency = c as usize;
         }
@@ -350,10 +412,10 @@ impl RerankConfig {
             let c = c.as_u64().ok_or_else(|| {
                 RerankError::Config("`rerank.max_doc_chars` must be a number".into())
             })?;
-            if c == 0 {
-                return Err(RerankError::Config(
-                    "`rerank.max_doc_chars` must be > 0".into(),
-                ));
+            if c == 0 || c as usize > MAX_DOC_CHARS {
+                return Err(RerankError::Config(format!(
+                    "`rerank.max_doc_chars` must be between 1 and {MAX_DOC_CHARS}"
+                )));
             }
             cfg.max_doc_chars = c as usize;
         }
@@ -361,10 +423,10 @@ impl RerankConfig {
             let t = t.as_u64().ok_or_else(|| {
                 RerankError::Config("`rerank.timeout_ms` must be a number".into())
             })?;
-            if t == 0 {
-                return Err(RerankError::Config(
-                    "`rerank.timeout_ms` must be > 0".into(),
-                ));
+            if t == 0 || t > MAX_TIMEOUT_MS {
+                return Err(RerankError::Config(format!(
+                    "`rerank.timeout_ms` must be between 1 and {MAX_TIMEOUT_MS}"
+                )));
             }
             cfg.timeout = Duration::from_millis(t);
         }
@@ -433,6 +495,20 @@ fn clip(s: &str, max_chars: usize) -> &str {
     }
 }
 
+/// Remove the provider key from text that is about to reach a caller or a log.
+///
+/// A provider's error body is returned to whoever ran the search (the 502's
+/// `reason`) and written to the log, and that caller is not necessarily the
+/// operator who owns the key. Some APIs echo the credential in an auth error
+/// ("invalid key: sk-…"). Without this, any principal allowed to search could
+/// read the operator's key by provoking one.
+fn redact_key(text: &str, api_key: &str) -> String {
+    if api_key.is_empty() {
+        return text.to_string();
+    }
+    text.replace(api_key, "<redacted>")
+}
+
 /// Build one System One request body for a batch of candidates.
 ///
 /// Split out from the HTTP call so the wire format is testable without a network
@@ -478,10 +554,20 @@ struct JevAnswer {
     noul: Option<f64>,
 }
 
+#[derive(Deserialize, Default)]
+struct JevUsage {
+    #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+}
+
 #[derive(Deserialize)]
 struct JevResponse {
     #[serde(default)]
     answers: std::collections::HashMap<String, JevAnswer>,
+    #[serde(default)]
+    usage: JevUsage,
 }
 
 /// Parse a System One response into scores keyed by the caller's ordinals.
@@ -490,8 +576,17 @@ struct JevResponse {
 /// inventing a "not relevant" verdict the model never gave would silently
 /// demote a document.
 pub fn parse_jev_response(body: &str) -> Result<Vec<Scored>, RerankError> {
+    parse_jev_response_with_usage(body).map(|(scores, _)| scores)
+}
+
+/// [`parse_jev_response`], plus the `usage` block the provider bills against.
+pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage), RerankError> {
     let parsed: JevResponse =
         serde_json::from_str(body).map_err(|e| RerankError::Malformed(e.to_string()))?;
+    let usage = Usage {
+        input_tokens: parsed.usage.input_tokens,
+        output_tokens: parsed.usage.output_tokens,
+    };
 
     let mut out = Vec::with_capacity(parsed.answers.len());
     for (key, ans) in parsed.answers {
@@ -499,12 +594,15 @@ pub fn parse_jev_response(body: &str) -> Result<Vec<Scored>, RerankError> {
             continue;
         };
         let Some(noul) = ans.noul else { continue };
+        // A probability outside 0..=1 is not a probability. Clamp rather than
+        // reject the whole batch: the ordering signal is still usable, and the
+        // caller's `min_score` contract (0..=1) must keep meaning something.
         out.push(Scored {
             ordinal,
-            score: noul as f32,
+            score: (noul as f32).clamp(0.0, 1.0),
         });
     }
-    Ok(out)
+    Ok((out, usage))
 }
 
 /// Reorder `candidates` by provider score.
@@ -555,6 +653,161 @@ pub fn apply_scores(
     scored
 }
 
+/// Where a resolved setting came from. Reported by `GET /_xerj/rerank` so an
+/// operator can tell which of two places is actually in force — without the
+/// endpoint ever having to print the value itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingSource {
+    /// The server's config file (`[rerank]`).
+    Config,
+    /// The process environment.
+    Env,
+    /// Neither — the built-in default (endpoint) or nothing at all (key).
+    Default,
+}
+
+impl SettingSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Config => "config",
+            Self::Env => "env",
+            Self::Default => "default",
+        }
+    }
+}
+
+/// The server's resolved provider settings: the injection seam between
+/// configuration and a [`Provider`].
+///
+/// Resolved ONCE at startup and carried in the API layer's shared state. Two
+/// reasons it is not read from the environment per request, which is what the
+/// first draft did:
+///
+/// * tests run in parallel threads of one process, and a test that has to
+///   `set_var("TYPESAFE_API_KEY")` races every other test that reads it;
+/// * one `reqwest::Client` lives here, so consecutive searches share a
+///   connection pool instead of paying a TLS handshake per rerank.
+///
+/// `Debug` is written by hand so the key can never reach a log line.
+#[derive(Clone)]
+pub struct ProviderSettings {
+    /// `false` refuses every rerank request ([`RerankError::DisabledByOperator`]).
+    pub enabled: bool,
+    api_key: Option<String>,
+    key_source: SettingSource,
+    endpoint: String,
+    endpoint_source: SettingSource,
+    client: reqwest::Client,
+}
+
+impl std::fmt::Debug for ProviderSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProviderSettings")
+            .field("enabled", &self.enabled)
+            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
+            .field("key_source", &self.key_source)
+            .field("endpoint", &self.endpoint_for_display())
+            .field("endpoint_source", &self.endpoint_source)
+            .finish()
+    }
+}
+
+impl Default for ProviderSettings {
+    /// No key, the public endpoint, enabled: a server that has not been set up.
+    fn default() -> Self {
+        Self::resolve(true, "", "", None, None)
+    }
+}
+
+impl ProviderSettings {
+    /// Pure resolution rule, split from the environment read so it can be
+    /// tested without mutating process-wide state.
+    ///
+    /// Precedence for both values: a non-empty config field wins, then the
+    /// environment, then the default. Explicit configuration beats the ambient
+    /// environment for the reason `cluster.auth_secret` does — a stray variable
+    /// in the service's environment must not silently re-point where document
+    /// text is sent.
+    pub fn resolve(
+        enabled: bool,
+        config_key: &str,
+        config_endpoint: &str,
+        env_key: Option<String>,
+        env_endpoint: Option<String>,
+    ) -> Self {
+        let non_empty =
+            |v: Option<String>| v.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+        let (api_key, key_source) =
+            match (non_empty(Some(config_key.to_string())), non_empty(env_key)) {
+                (Some(k), _) => (Some(k), SettingSource::Config),
+                (None, Some(k)) => (Some(k), SettingSource::Env),
+                (None, None) => (None, SettingSource::Default),
+            };
+        let (endpoint, endpoint_source) = match (
+            non_empty(Some(config_endpoint.to_string())),
+            non_empty(env_endpoint),
+        ) {
+            (Some(e), _) => (e, SettingSource::Config),
+            (None, Some(e)) => (e, SettingSource::Env),
+            (None, None) => (
+                JevProvider::DEFAULT_ENDPOINT.to_string(),
+                SettingSource::Default,
+            ),
+        };
+        Self {
+            enabled,
+            api_key,
+            key_source,
+            endpoint,
+            endpoint_source,
+            client: reqwest::Client::new(),
+        }
+    }
+
+    /// Config fields first, then `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT`.
+    pub fn from_config_and_env(enabled: bool, config_key: &str, config_endpoint: &str) -> Self {
+        Self::resolve(
+            enabled,
+            config_key,
+            config_endpoint,
+            std::env::var(JevProvider::ENV_KEY).ok(),
+            std::env::var(JevProvider::ENV_ENDPOINT).ok(),
+        )
+    }
+
+    /// Settings for a known key and endpoint — what a test points at its stub.
+    pub fn with_key_and_endpoint(api_key: &str, endpoint: &str) -> Self {
+        Self::resolve(true, api_key, endpoint, None, None)
+    }
+
+    /// Whether a key is in force. Never the key.
+    pub fn has_key(&self) -> bool {
+        self.api_key.is_some()
+    }
+    pub fn key_source(&self) -> Option<SettingSource> {
+        self.api_key.as_ref().map(|_| self.key_source)
+    }
+    pub fn endpoint_source(&self) -> SettingSource {
+        self.endpoint_source
+    }
+
+    /// The endpoint with anything secret-shaped removed: userinfo, query
+    /// string and fragment. An operator who put a token in the URL should not
+    /// find it echoed by a status endpoint.
+    pub fn endpoint_for_display(&self) -> String {
+        match reqwest::Url::parse(&self.endpoint) {
+            Ok(mut u) => {
+                let _ = u.set_username("");
+                let _ = u.set_password(None);
+                u.set_query(None);
+                u.set_fragment(None);
+                u.to_string()
+            }
+            Err(_) => "<unparseable endpoint>".to_string(),
+        }
+    }
+}
+
 /// A configured reranking backend.
 pub enum Provider {
     Jev(JevProvider),
@@ -565,10 +818,27 @@ pub enum Provider {
 
 impl Provider {
     /// Build a provider from config plus the ambient environment.
+    ///
+    /// Kept for callers without server state (a CLI, a benchmark). A server
+    /// uses [`Self::from_settings`], which never touches the environment.
     pub fn from_config(cfg: &RerankConfig) -> Result<Self, RerankError> {
+        Self::from_settings(cfg, &ProviderSettings::from_config_and_env(true, "", ""))
+    }
+
+    /// Build a provider from the request's `rerank` block and the server's
+    /// resolved settings. The environment is not consulted.
+    pub fn from_settings(
+        cfg: &RerankConfig,
+        settings: &ProviderSettings,
+    ) -> Result<Self, RerankError> {
         match cfg.provider.as_str() {
             "none" | "disabled" => Ok(Self::Disabled),
-            "jev" | "typesafe" => JevProvider::from_env(cfg).map(Self::Jev),
+            "jev" | "typesafe" => {
+                if !settings.enabled {
+                    return Err(RerankError::DisabledByOperator);
+                }
+                JevProvider::from_settings(settings).map(Self::Jev)
+            }
             other => Err(RerankError::UnknownProvider(other.to_string())),
         }
     }
@@ -589,6 +859,7 @@ impl Provider {
             return Ok(RerankOutcome::Reordered {
                 scores: Vec::new(),
                 partial_failures: 0,
+                usage: Usage::default(),
             });
         }
         if deadline.exceeded() {
@@ -598,7 +869,7 @@ impl Provider {
         }
         match self {
             Self::Disabled => Ok(RerankOutcome::Degraded {
-                reason: "rerank provider disabled (no API key configured)".into(),
+                reason: "rerank provider disabled (`rerank.provider` is `none`)".into(),
             }),
             Self::Jev(p) => match p.rerank(query, candidates, cfg, deadline).await {
                 Ok(outcome) => Ok(outcome),
@@ -620,17 +891,20 @@ pub struct JevProvider {
 
 impl JevProvider {
     pub const ENV_KEY: &'static str = "TYPESAFE_API_KEY";
+    pub const ENV_ENDPOINT: &'static str = "TYPESAFE_ENDPOINT";
     pub const DEFAULT_ENDPOINT: &'static str = "https://api.typesafe.ai/v1/systemone";
 
-    pub fn from_env(cfg: &RerankConfig) -> Result<Self, RerankError> {
-        let api_key =
-            std::env::var(Self::ENV_KEY).map_err(|_| RerankError::MissingKey(Self::ENV_KEY))?;
-        if api_key.trim().is_empty() {
-            return Err(RerankError::MissingKey(Self::ENV_KEY));
-        }
-        let endpoint = std::env::var("TYPESAFE_ENDPOINT")
-            .unwrap_or_else(|_| Self::DEFAULT_ENDPOINT.to_string());
-        Ok(Self::new(api_key, endpoint, cfg.timeout))
+    /// Shares the settings' HTTP client, so the pool outlives this request.
+    pub fn from_settings(settings: &ProviderSettings) -> Result<Self, RerankError> {
+        let api_key = settings
+            .api_key
+            .clone()
+            .ok_or(RerankError::MissingKey(Self::ENV_KEY))?;
+        Ok(Self {
+            client: settings.client.clone(),
+            endpoint: settings.endpoint.clone(),
+            api_key,
+        })
     }
 
     pub fn new(api_key: String, endpoint: String, timeout: Duration) -> Self {
@@ -657,14 +931,14 @@ impl JevProvider {
         batch: &[Candidate],
         cfg: &RerankConfig,
         deadline: &Deadline,
-    ) -> Result<Vec<Scored>, RerankError> {
+    ) -> Result<(Vec<Scored>, Usage), RerankError> {
         const MAX_ATTEMPTS: u32 = 3;
         let mut attempt = 0;
         loop {
             if deadline.exceeded() {
                 return Err(deadline.err());
             }
-            match self.call_batch(query, batch, cfg).await {
+            match self.call_batch(query, batch, cfg, deadline).await {
                 Ok(scores) => return Ok(scores),
                 Err(e) => {
                     attempt += 1;
@@ -700,22 +974,43 @@ impl JevProvider {
         query: &str,
         batch: &[Candidate],
         cfg: &RerankConfig,
-    ) -> Result<Vec<Scored>, RerankError> {
+        deadline: &Deadline,
+    ) -> Result<(Vec<Scored>, Usage), RerankError> {
         let body = build_jev_request(query, batch, cfg);
+        // Per request, not per client: the client is shared across searches
+        // (see `ProviderSettings`), and each search brings its own budget. The
+        // HTTP timeout is whatever is left of the stage deadline, so a call
+        // can never outlive the search that is waiting on it.
+        let http_timeout = cfg
+            .timeout
+            .min(deadline.remaining())
+            .max(Duration::from_millis(1));
         let resp = self
             .client
             .post(&self.endpoint)
+            .timeout(http_timeout)
             .bearer_auth(&self.api_key)
             .json(&body)
             .send()
             .await
-            .map_err(|e| RerankError::Transport(e.to_string()))?;
+            .map_err(|e| {
+                // A timeout is the deadline speaking, not the network: report
+                // it as one so the policy degrades instead of surfacing.
+                if e.is_timeout() {
+                    deadline.err()
+                } else {
+                    RerankError::Transport(e.to_string())
+                }
+            })?;
 
         let status = resp.status();
-        let text = resp
-            .text()
-            .await
-            .map_err(|e| RerankError::Transport(e.to_string()))?;
+        let text = resp.text().await.map_err(|e| {
+            if e.is_timeout() {
+                deadline.err()
+            } else {
+                RerankError::Transport(e.to_string())
+            }
+        })?;
 
         if !status.is_success() {
             // 429 and 529 are the documented back-off codes. Surfaced rather
@@ -723,10 +1018,10 @@ impl JevProvider {
             // deadline, and fail-open beats spending it on retries.
             return Err(RerankError::Status {
                 status: status.as_u16(),
-                body: clip(&text, 400).to_string(),
+                body: redact_key(clip(&text, 400), &self.api_key),
             });
         }
-        parse_jev_response(&text)
+        parse_jev_response_with_usage(&text)
     }
 
     pub async fn rerank(
@@ -740,6 +1035,7 @@ impl JevProvider {
             return Ok(RerankOutcome::Reordered {
                 scores: Vec::new(),
                 partial_failures: 0,
+                usage: Usage::default(),
             });
         }
         let batch_size = cfg.batch.clamp(1, JEV_MAX_DOCS_PER_CALL);
@@ -747,6 +1043,7 @@ impl JevProvider {
             candidates.chunks(batch_size).map(|c| c.to_vec()).collect();
 
         let mut scores = Vec::with_capacity(candidates.len());
+        let mut usage = Usage::default();
         let mut partial_failures = 0usize;
         let mut first_hard_error: Option<RerankError> = None;
 
@@ -767,7 +1064,10 @@ impl JevProvider {
             }
             while let Some(joined) = set.join_next().await {
                 match joined {
-                    Ok(Ok(mut part)) => scores.append(&mut part),
+                    Ok(Ok((mut part, used))) => {
+                        scores.append(&mut part);
+                        usage.add(used);
+                    }
                     // One failed batch must not discard the batches that
                     // succeeded: their scores are absolute probabilities, so a
                     // partial result is still correctly ordered.
@@ -804,6 +1104,7 @@ impl JevProvider {
         Ok(RerankOutcome::Reordered {
             scores,
             partial_failures,
+            usage,
         })
     }
 
@@ -829,6 +1130,18 @@ mod tests {
                 text: format!("body {i}"),
             })
             .collect()
+    }
+
+    #[test]
+    fn a_provider_error_that_echoes_the_key_is_redacted() {
+        let body = r#"{"error":"invalid api key: sk-operator-secret (Bearer sk-operator-secret)"}"#;
+        let out = redact_key(body, "sk-operator-secret");
+        assert!(!out.contains("sk-operator-secret"), "{out}");
+        assert_eq!(out.matches("<redacted>").count(), 2, "{out}");
+        // Nothing to redact leaves the text alone, and an empty key is not a
+        // pattern that matches between every character.
+        assert_eq!(redact_key("rate limited", "sk-x"), "rate limited");
+        assert_eq!(redact_key("rate limited", ""), "rate limited");
     }
 
     #[test]
@@ -993,6 +1306,118 @@ mod tests {
         assert_eq!(clip("اختبار", 3).chars().count(), 3);
         assert_eq!(clip("设计文档", 2), "设计");
         assert_eq!(clip("ascii", 99), "ascii");
+    }
+
+    #[test]
+    fn caller_chosen_cost_knobs_have_server_side_ceilings() {
+        for (body, needle) in [
+            (json!({"window": MAX_WINDOW + 1}), "rerank.window"),
+            (
+                json!({"max_concurrency": MAX_CONCURRENCY + 1}),
+                "max_concurrency",
+            ),
+            (json!({"max_doc_chars": MAX_DOC_CHARS + 1}), "max_doc_chars"),
+            (json!({"timeout_ms": MAX_TIMEOUT_MS + 1}), "timeout_ms"),
+        ] {
+            let err = RerankConfig::from_json(&body).expect_err("over the ceiling");
+            assert!(err.to_string().contains(needle), "{err}");
+        }
+        assert!(RerankConfig::from_json(&json!({"window": MAX_WINDOW})).is_ok());
+    }
+
+    // ── server-side settings: the env-free seam ─────────────────────────────
+
+    #[test]
+    fn config_beats_env_and_env_beats_default() {
+        let s = ProviderSettings::resolve(
+            true,
+            "from-config",
+            "http://config.example/v1",
+            Some("from-env".into()),
+            Some("http://env.example/v1".into()),
+        );
+        assert_eq!(s.key_source(), Some(SettingSource::Config));
+        assert_eq!(s.endpoint_source(), SettingSource::Config);
+        assert_eq!(s.endpoint_for_display(), "http://config.example/v1");
+
+        let s = ProviderSettings::resolve(true, "", "  ", Some("from-env".into()), None);
+        assert_eq!(s.key_source(), Some(SettingSource::Env));
+        assert_eq!(s.endpoint_source(), SettingSource::Default);
+        assert_eq!(s.endpoint_for_display(), JevProvider::DEFAULT_ENDPOINT);
+
+        // Whitespace is not a key.
+        let s = ProviderSettings::resolve(true, "", "", Some("   ".into()), None);
+        assert!(!s.has_key());
+        assert_eq!(s.key_source(), None);
+    }
+
+    #[test]
+    fn debug_output_never_contains_the_key() {
+        let s = ProviderSettings::with_key_and_endpoint(
+            "sk-very-secret",
+            "https://user:hunter2@api.example/v1/systemone?token=abc#frag",
+        );
+        let dbg = format!("{s:?}");
+        assert!(!dbg.contains("sk-very-secret"), "{dbg}");
+        assert!(!dbg.contains("hunter2"), "{dbg}");
+        assert!(!dbg.contains("token=abc"), "{dbg}");
+        assert!(dbg.contains("<redacted>"), "{dbg}");
+        assert_eq!(
+            s.endpoint_for_display(),
+            "https://api.example/v1/systemone",
+            "userinfo, query and fragment are all places a secret hides"
+        );
+    }
+
+    #[test]
+    fn missing_key_is_a_surfaced_error_not_a_silent_degrade() {
+        let settings = ProviderSettings::resolve(true, "", "", None, None);
+        let err = match Provider::from_settings(&RerankConfig::default(), &settings) {
+            Err(e) => e,
+            Ok(_) => panic!("no key must not build a working provider"),
+        };
+        assert!(matches!(err, RerankError::MissingKey(_)));
+        assert_eq!(err.policy(), Policy::Surface);
+        // The message must not tell callers to put a key in the request: there
+        // is no such field, and a key in a search body ends up in slow-query
+        // logs and audit trails.
+        assert!(!err.to_string().contains("in the request"), "{err}");
+    }
+
+    #[test]
+    fn an_operator_can_forbid_reranking_outright() {
+        let settings = ProviderSettings::resolve(false, "a-key", "", None, None);
+        let err = match Provider::from_settings(&RerankConfig::default(), &settings) {
+            Err(e) => e,
+            Ok(_) => panic!("enabled = false must refuse even with a key"),
+        };
+        assert!(matches!(err, RerankError::DisabledByOperator));
+        assert_eq!(err.policy(), Policy::Surface);
+    }
+
+    #[test]
+    fn usage_is_parsed_and_absent_usage_is_zero() {
+        let (_, u) = parse_jev_response_with_usage(
+            r#"{"answers":{"d0":{"type":"noul","noul":0.5}},
+                "usage":{"input_tokens":312,"output_tokens":48}}"#,
+        )
+        .unwrap();
+        assert_eq!((u.input_tokens, u.output_tokens), (312, 48));
+        let (_, u) =
+            parse_jev_response_with_usage(r#"{"answers":{"d0":{"type":"noul","noul":0.5}}}"#)
+                .unwrap();
+        assert_eq!(u, Usage::default());
+    }
+
+    #[test]
+    fn out_of_range_probabilities_are_clamped() {
+        let mut got = parse_jev_response(
+            r#"{"answers":{"d0":{"type":"noul","noul":1.7},"d1":{"type":"noul","noul":-0.2}}}"#,
+        )
+        .unwrap();
+        got.sort_by_key(|s| s.ordinal);
+        assert_eq!(got[0].score, 1.0);
+        assert_eq!(got[1].score, 0.0);
     }
 
     fn rt() -> tokio::runtime::Runtime {

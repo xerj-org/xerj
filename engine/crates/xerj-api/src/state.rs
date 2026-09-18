@@ -533,6 +533,14 @@ pub struct AppState {
     /// Live background scoring tasks, keyed by datafeed id. Aborted on `_stop`
     /// (and replaced on a re-`_start`). In-memory only.
     pub ml_datafeed_tasks: Arc<DashMap<String, tokio::task::JoinHandle<()>>>,
+    /// Resolved rerank-provider settings (key, endpoint, kill switch, shared
+    /// HTTP client) — the injection seam for [`crate::rerank_stage`].
+    ///
+    /// Resolved once here from `[rerank]` in the config file with the
+    /// `TYPESAFE_*` environment variables as the fallback, and never read from
+    /// the environment again. A test points a node at its own stub by replacing
+    /// this field, so parallel tests never race on process-wide env state.
+    pub rerank: Arc<xerj_rerank::ProviderSettings>,
 }
 
 impl AppState {
@@ -565,7 +573,13 @@ impl AppState {
         } else {
             (Arc::new(DashMap::new()), Arc::new(DashMap::new()))
         };
+        let rerank = Arc::new(xerj_rerank::ProviderSettings::from_config_and_env(
+            config.rerank.enabled,
+            &config.rerank.api_key,
+            &config.rerank.endpoint,
+        ));
         Self {
+            rerank,
             config: Arc::new(config),
             engine: Arc::new(engine),
             metrics: Arc::new(metrics),

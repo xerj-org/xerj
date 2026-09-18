@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **117 settings** versus
+//! Configuration is intentionally minimal: **120 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -95,9 +95,11 @@ pub struct Config {
     /// Single-node WAL tap: push a filtered index subset to an external
     /// ES-compatible target — 10 settings. Off by default.
     pub wal_tap: WalTapConfig,
+    /// Second-stage reranking provider — 3 settings. Inert until a key is set.
+    pub rerank: RerankProviderConfig,
 }
 
-// 21 sub-configs, 117 leaf settings in total. Do not maintain that sum by hand
+// 22 sub-configs, 120 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -204,6 +206,12 @@ impl Config {
         // out-of-range value is a typo the operator wants to hear about now,
         // at boot, not as a disk-full page later.
         if let Err(reason) = self.wal_tap.check_limits() {
+            return Err(XerjError::config(reason));
+        }
+
+        // Rerank: the endpoint is where document text gets POSTed, and it is
+        // echoed by `GET /_xerj/rerank`. Same two rules as the WAL tap target.
+        if let Err(reason) = RerankProviderConfig::check_endpoint(&self.rerank.endpoint) {
             return Err(XerjError::config(reason));
         }
 
@@ -436,7 +444,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (117 user-facing settings total; counted by
+// Sub-configs  (120 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -2111,6 +2119,107 @@ impl Default for SearchContextConfig {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Rerank provider
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Second-stage reranking provider (`"rerank": {...}` on `_search`).
+///
+/// **3 settings.**
+///
+/// Reranking is the one search feature that sends data off this machine: the
+/// text of the top-N hits is POSTed to a third-party judge. It therefore does
+/// nothing until an operator supplies a key, and it can be forbidden outright.
+///
+/// The key can come from here or from the `TYPESAFE_API_KEY` environment
+/// variable; the endpoint from here or `TYPESAFE_ENDPOINT`. **An explicit value
+/// in this file wins over the environment** — the same rule as
+/// `cluster.auth_secret`, for the same reason: a stray variable must not
+/// silently re-point where document text goes. The resolution itself lives in
+/// `xerj_rerank::ProviderSettings::resolve`, which is a pure function so it can
+/// be tested without touching process-wide environment state.
+///
+/// There is deliberately no per-request key. A key in a search body would land
+/// in slow-query logs, audit trails and client-side request dumps.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RerankProviderConfig {
+    /// `false` refuses every `rerank` request with a 403 and guarantees no
+    /// document text leaves the host through this feature, whatever the
+    /// environment holds (default: `true` — but inert without a key).
+    pub enabled: bool,
+    /// Provider API key (default: empty → fall back to `TYPESAFE_API_KEY`).
+    /// Never echoed by any endpoint; `GET /_xerj/rerank` reports only whether
+    /// one is set and where it came from.
+    pub api_key: String,
+    /// Provider endpoint (default: empty → `TYPESAFE_ENDPOINT`, then
+    /// `https://api.typesafe.ai/v1/systemone`). Must be an absolute
+    /// `http(s)://` URL without credentials in it.
+    pub endpoint: String,
+}
+
+impl Default for RerankProviderConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            api_key: String::new(),
+            endpoint: String::new(),
+        }
+    }
+}
+
+/// Hand-written so `{:?}` on a `Config` can never put the key in a log line.
+impl std::fmt::Debug for RerankProviderConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RerankProviderConfig")
+            .field("enabled", &self.enabled)
+            .field(
+                "api_key",
+                &if self.api_key.trim().is_empty() {
+                    "<unset>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .field("endpoint", &redact_url_userinfo(&self.endpoint))
+            .finish()
+    }
+}
+
+impl RerankProviderConfig {
+    /// An absolute `http(s)://` URL with no userinfo, or empty.
+    ///
+    /// Userinfo is refused for the reason `wal_tap.target_url` refuses it:
+    /// `reqwest` turns `user:pass@host` into an `Authorization` header, so it is
+    /// a credential in a field that a status endpoint echoes.
+    pub fn check_endpoint(url: &str) -> Result<(), String> {
+        let trimmed = url.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        let Some(rest) = trimmed
+            .strip_prefix("http://")
+            .or_else(|| trimmed.strip_prefix("https://"))
+        else {
+            return Err(
+                "rerank.endpoint must be an absolute http:// or https:// URL, e.g. \
+                 \"https://api.typesafe.ai/v1/systemone\""
+                    .to_string(),
+            );
+        };
+        let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+        if authority.contains('@') {
+            return Err(
+                "rerank.endpoint must not carry credentials in the URL (user:password@host): \
+                 the endpoint is echoed by GET /_xerj/rerank. Put the credential in \
+                 rerank.api_key, which is never echoed."
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tests
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2371,7 +2480,7 @@ mod tests {
             drift.join("\n  ")
         );
 
-        // …and the file's own header quotes how many of the 117 it sets. That
+        // …and the file's own header quotes how many of the 120 it sets. That
         // number was 38, then 56, and never once the truth (#207), so count the
         // assignments instead of trusting the sentence.
         let set_here = toml_src
@@ -2825,6 +2934,7 @@ mod tests {
         ("compat", 2),
         ("lifecycle", 1),
         ("wal_tap", 10),
+        ("rerank", 3),
     ];
 
     /// Count the settings by *counting them*.
@@ -2867,7 +2977,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 117,
+            total, 120,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \
