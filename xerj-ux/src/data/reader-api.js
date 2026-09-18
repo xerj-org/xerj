@@ -18,7 +18,8 @@
 // A transport is:
 //   { guest: boolean,
 //     search(index, body, signal)  → ES `_search` response     (throws)
-//     ego(brain, params, signal)   → { status, body }           (throws) }
+//     ego(brain, params, signal)   → { status, body }           (throws)
+//     discoverBrains?(index)       → string[]  brains listing the index }
 // where a thrown error may carry `.kind`: 'unauthorized' | 'forbidden' |
 // 'expired' | 'not-found' | 'blocked' | 'network' | 'http'.
 //
@@ -28,11 +29,13 @@
 
 import { groupNeighbors } from '../ux/reader-render.js';
 import { highlightRequest } from '../ux/safe-dom.js';
-import { buildSearchBody } from './search-body.js';
+import { buildSearchBody, searchFieldsOf } from './search-body.js';
 import { deriveRoles } from './schema-roles.js';
 
 /** Error kinds that end a guest session (the shell logs the guest out). */
 export const FATAL_KINDS = new Set(['unauthorized', 'expired']);
+/** How many brains a record's graph panel walks when several list its index. */
+export const MAX_BRAINS = 4;
 
 function errText(e) {
   if (!e) return 'unknown error';
@@ -115,10 +118,10 @@ export function makeReaderApi(transport) {
       const r = await roles(index, signal);
       const body = buildSearchBody(q, type, {}, r, { size, aggs: false });
       if ((q || '').trim() && type !== 'semantic') {
-        // Only fields this index really has (when the mapping was readable).
-        const known = new Set(r.allFields || []);
-        const extra = ['email_subject', 'attachment_name'].filter((f) => known.has(f));
-        body.highlight = highlightRequest([r.textField, ...extra].filter(Boolean));
+        // Exactly the fields the query ran over (schema-roles.js#searchFields:
+        // the text field plus subject / title / attachment name when the
+        // mapping has them), so a match in a subject line is marked too.
+        body.highlight = highlightRequest(searchFieldsOf(r));
       }
       const resp = await transport.search(index, body, signal);
       return { hits: hitsOf(resp, index), total: totalOf(resp), took: Number(resp && resp.took) || 0 };
@@ -220,25 +223,33 @@ export function makeReaderApi(transport) {
   }
 
   /**
-   * Which brain holds the graph for `index`. A guest's brain is the share's
-   * and nothing else. For the operator: the `?brain=` hint, else whatever the
-   * transport can discover, else the index slug (`ax-notes` → `notes`, the
-   * name `xerj brain` derives from the folder).
+   * Which brains hold a graph for `index`, in the order they are walked. A
+   * guest's brain is the share's and nothing else. For the operator: the
+   * `?brain=` hint alone, else every brain the transport can discover (at most
+   * MAX_BRAINS), else the index slug (`ax-notes` → `notes`, the name
+   * `xerj brain` derives from the folder).
    */
-  async function resolveBrain(index, hint, signal) {
-    if (transport.guest) return transport.brain || null;
-    if (hint) return hint;
-    if (!index) return null;
+  async function resolveBrains(index, hint, signal) {
+    if (transport.guest) return transport.brain ? [transport.brain] : [];
+    if (hint) return [hint];
+    if (!index) return [];
     if (brainByIndex.has(index)) return brainByIndex.get(index);
-    let found = null;
-    if (typeof transport.discoverBrain === 'function') {
-      try { found = await transport.discoverBrain(index, signal); } catch (e) {
-        if (e && e.name === 'AbortError') throw e;
-      }
+    let found = [];
+    try {
+      if (typeof transport.discoverBrains === 'function') found = await transport.discoverBrains(index, signal);
+      else if (typeof transport.discoverBrain === 'function') found = [await transport.discoverBrain(index, signal)];
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
     }
-    const brain = found || String(index).replace(/^ax-/, '');
-    brainByIndex.set(index, brain);
-    return brain;
+    const brains = (Array.isArray(found) ? found : []).filter((b) => typeof b === 'string' && b).slice(0, MAX_BRAINS);
+    if (!brains.length) brains.push(String(index).replace(/^ax-/, ''));
+    brainByIndex.set(index, brains);
+    return brains;
+  }
+
+  /** The first of `resolveBrains` (kept for callers that want one name). */
+  async function resolveBrain(index, hint, signal) {
+    return (await resolveBrains(index, hint, signal))[0] || null;
   }
 
   /**
@@ -280,7 +291,7 @@ export function makeReaderApi(transport) {
    * href) link FILE records; an email or a PDF page opened on its own would
    * otherwise always read "no links" beside a file that has several.
    */
-  async function fetchGraph(brain, hit, fileRecord, signal) {
+  async function fetchGraphOne(brain, hit, fileRecord, signal) {
     const own = await fetchEgo(brain, hit._id, signal);
     if (!fileRecord || fileRecord._id === hit._id) return own;
     if (own.status !== 'ok' && own.status !== 'no-links') return own; // no brain / denied / error: the same answer would come back
@@ -301,6 +312,60 @@ export function makeReaderApi(transport) {
     if (!groups.length) return own;
     const fs = fileRecord._source || {};
     return { status: 'ok', groups, notShown: own.notShown || viaFile.notShown || {}, viaFile: added, filePath: typeof fs.ax_path === 'string' ? fs.ax_path : null };
+  }
+
+  const sortItems = (items) => items.sort((a, b) => String(a.title).localeCompare(String(b.title)) || String(a.id).localeCompare(String(b.id)));
+
+  /**
+   * The graph panel over EVERY candidate brain (`resolveBrains`), walked in
+   * order and merged. Two `xerj brain` runs over different folders land in the
+   * same index with two brains that each hold links only for their own files;
+   * asking one of them read "no links" for the other's records (PR #945
+   * review). The result always says which brains were consulted (`brains`)
+   * and, when links were found, which of them had any (`brainsWithLinks`);
+   * every neighbour carries the brain its link came from.
+   *
+   * With no links anywhere the most informative answer wins: a brain that
+   * exists but has none over a refusal, a refusal over an error, an error over
+   * a missing brain.
+   */
+  async function fetchGraph(brainOrList, hit, fileRecord, signal) {
+    const brains = (Array.isArray(brainOrList) ? brainOrList : [brainOrList]).filter((b) => typeof b === 'string' && b).slice(0, MAX_BRAINS);
+    if (!brains.length) return { status: 'no-brain', guest: !!transport.guest, brain: null, brains: [] };
+    if (brains.length === 1) return { ...(await fetchGraphOne(brains[0], hit, fileRecord, signal)), brain: brains[0], brains };
+    const results = [];
+    for (const brain of brains) results.push({ brain, r: await fetchGraphOne(brain, hit, fileRecord, signal) });
+    const oks = results.filter((x) => x.r.status === 'ok');
+    if (oks.length) {
+      const groups = [];
+      const seen = new Set();
+      const notShown = {};
+      let viaFile = 0;
+      let filePath = null;
+      for (const { brain, r } of oks) {
+        for (const g of r.groups) {
+          for (const it of g.items) {
+            const key = `${g.type}\n${it.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            let into = groups.find((x) => x.type === g.type);
+            if (!into) { into = { type: g.type, label: g.label, items: [] }; groups.push(into); }
+            into.items.push({ ...it, brain });
+            if (it.via === 'file') viaFile++;
+          }
+        }
+        if (!filePath && r.filePath) filePath = r.filePath;
+        for (const k of ['edges_clipped', 'frontier_clipped', 'dangling_nodes']) {
+          const n = Number(r.notShown && r.notShown[k]) || 0;
+          if (n) notShown[k] = (Number(notShown[k]) || 0) + n;
+        }
+      }
+      for (const g of groups) sortItems(g.items);
+      return { status: 'ok', groups, notShown, viaFile, filePath, brain: oks[0].brain, brains, brainsWithLinks: oks.map((x) => x.brain) };
+    }
+    const pick = (st) => results.find((x) => x.r.status === st);
+    const best = pick('no-links') || pick('denied') || pick('error') || pick('no-brain') || results[0];
+    return { ...best.r, brain: best.brain, brains };
   }
 
   /**
@@ -336,5 +401,5 @@ export function makeReaderApi(transport) {
     }
   }
 
-  return { roles, search, fetchRecord, findRecord, fetchRelated, resolveBrain, fetchEgo, fetchGraph, indexSummary };
+  return { roles, search, fetchRecord, findRecord, fetchRelated, resolveBrain, resolveBrains, fetchEgo, fetchGraph, indexSummary };
 }

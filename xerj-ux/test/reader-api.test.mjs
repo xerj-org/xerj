@@ -115,3 +115,49 @@ test('a refused graph is asked for ONCE — not again through the file', async (
   assert.equal(g.status, 'denied');
   assert.deepEqual(t.calls.filter((c) => c.ego).map((c) => c.ego), ['msg-05', 'msg-05'], 'one retry without node summaries, then stop');
 });
+
+test('two brains over one index: every brain that lists the index is walked, the links are merged, and the panel names them all', async () => {
+  // PR #945 review: `xerj brain casefile` then `xerj brain vendors` on one node
+  // → both brains list `ax-docs`; each holds links only for its own files.
+  // The reader used to ask the FIRST brain `_cat` listed and say "records no
+  // links for this record" for the other brain's files.
+  const egoByBrain = {
+    vendors:  { 'file-05': { edges: [], nodes: {}, not_shown: {} } },
+    casefile: { 'file-05': { edges: [{ src: 'file-05', dst: 'file-06', type: 'same_dir', hop: 1, edge_id: 'e1' }], nodes: { 'file-06': { index: 'ax-docs', title: '06.eml' } }, not_shown: { dangling_nodes: 1 } } },
+    third:    { 'file-05': { edges: [{ src: 'file-07', dst: 'file-05', type: 'mdlink', hop: 1, edge_id: 'e2' }, { src: 'file-05', dst: 'file-06', type: 'same_dir', hop: 1, edge_id: 'dup' }], nodes: { 'file-07': { index: 'ax-docs', title: 'deal.md' } }, not_shown: {} } },
+  };
+  const t = transport();
+  t.discoverBrains = async (index) => (index === 'ax-docs' ? ['vendors', 'casefile', 'third'] : []);
+  t.ego = async (brain, params) => { t.calls.push({ ego: params.node, brain }); const b = (egoByBrain[brain] || {})[params.node]; return b ? { status: 200, body: b } : { status: 200, body: { edges: [], nodes: {}, not_shown: {} } }; };
+  const api = makeReaderApi(t);
+  assert.deepEqual(await api.resolveBrains('ax-docs', null), ['vendors', 'casefile', 'third']);
+  assert.deepEqual(await api.resolveBrains('ax-docs', 'only-this'), ['only-this'], 'an explicit hint is walked alone');
+  assert.equal(await api.resolveBrain('ax-docs', null), 'vendors');
+  const g = await api.fetchGraph(['vendors', 'casefile', 'third'], fileRec, null);
+  assert.equal(g.status, 'ok');
+  assert.deepEqual(g.brains, ['vendors', 'casefile', 'third']);
+  assert.deepEqual(g.brainsWithLinks, ['casefile', 'third']);
+  assert.deepEqual(t.calls.filter((c) => c.ego).map((c) => c.brain), ['vendors', 'casefile', 'third'], 'each candidate asked once');
+  assert.deepEqual(g.groups.map((x) => [x.type, x.items.map((i) => `${i.id}@${i.brain}`)]), [['same_dir', ['file-06@casefile']], ['mdlink', ['file-07@third']]], 'a duplicate link from a later brain is not listed twice');
+  assert.deepEqual(g.notShown, { dangling_nodes: 1 });
+  const panel = renderGraphPanel({ ...g, index: 'ax-docs' });
+  assertInert(panel, 'merged brains');
+  assert.match(textOf(panel), /2 linked records · brains vendors, casefile, third consulted · links in casefile, third · 1 hop · 1 link to ids with no document behind them/);
+  assert.deepEqual(findAll(panel, (n) => n.tag === 'a').map((a) => a.attrs.href), ['#/reader?index=ax-docs&id=file-06&brain=casefile', '#/reader?index=ax-docs&id=file-07&brain=third'], 'each neighbour links into the brain its link came from');
+
+  // no links anywhere: the panel says which brains were asked
+  const none = await api.fetchGraph(['vendors', 'nolinks'], { _index: 'ax-docs', _id: 'msg-05', _source: {} }, null);
+  assert.equal(none.status, 'no-links');
+  assert.deepEqual(none.brains, ['vendors', 'nolinks']);
+  assert.match(textOf(renderGraphPanel({ ...none, index: 'ax-docs' })), /^Brains vendors, nolinks record no links for this record\.$/);
+  // one brain: exactly the single-brain answer, named
+  const one = await api.fetchGraph(['casefile'], fileRec, null);
+  assert.deepEqual([one.status, one.brain, one.brains, one.viaFile], ['ok', 'casefile', ['casefile'], undefined]);
+  assert.match(textOf(renderGraphPanel({ ...one, index: 'ax-docs' })), /1 linked record · brain casefile · 1 hop/);
+  // the walk is bounded
+  assert.equal((await api.fetchGraph(['a', 'b', 'c', 'd', 'e', 'f'], fileRec, null)).brains.length, 4);
+  // a guest walks the share's brain only, whatever the transport could discover
+  const gt = transport({ guest: true });
+  gt.discoverBrains = async () => ['casefile', 'vendors'];
+  assert.deepEqual(await makeReaderApi(gt).resolveBrains('ax-docs', 'ignored-hint'), ['casefile']);
+});

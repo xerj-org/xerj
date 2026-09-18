@@ -13,6 +13,7 @@ const { resetSchemaCache } = await import('../src/data/schema.js');
 const { previewRequest } = await import('../src/dashboards/search-discover.js');
 const { buildSearchBody, buildQueryClause, QUERY_TYPES, requestPath } = await import('../src/data/search-body.js');
 const { deriveRoles } = await import('../src/data/schema-roles.js');
+const { searchFieldsOf } = await import('../src/data/search-body.js');
 
 const LOOKS_FABRICATED = ['hits', 'datasets', 'summaries'];
 
@@ -112,7 +113,8 @@ test('the query builder: real fields, an engine-accepted hybrid shape, no raw kN
   assert.ok(hf.query.hybrid && !hf.query.bool && !hf.post_filter);
   for (const leg of hf.query.hybrid.queries) {
     assert.deepEqual(leg.query.bool.filter, [{ term: { ax_format: 'eml' } }]);
-    assert.ok(leg.query.bool.must.match || leg.query.bool.must.semantic);
+    // the lexical leg is the multi-field match (below); the other is semantic
+    assert.ok((leg.query.bool.must.bool && leg.query.bool.must.bool.should.every((c) => c.match)) || leg.query.bool.must.semantic);
     assert.equal(typeof leg.weight, 'number');
   }
   assert.deepEqual(hf.query.hybrid.fusion, { type: 'rrf', k: 60 });
@@ -125,4 +127,37 @@ test('the query builder: real fields, an engine-accepted hybrid shape, no raw kN
   assert.deepEqual(Object.keys(body).sort(), ['query', 'size', 'track_total_hits']);
   assert.equal(buildSearchBody('x', 'match', {}, logs, { sort: { field: '_score' } }).sort, undefined);
   assert.deepEqual(buildSearchBody('x', 'match', {}, logs, { sort: { field: 'level', dir: 'asc' } }).sort, [{ level: 'asc' }]);
+});
+
+test('MATCH / PHRASE / PREFIX search the subject, title and attachment-name fields the index has — one OR-ed clause per field', () => {
+  // PR #945 review: "Lunch" returned 0 results although an email's SUBJECT was
+  // "Lunch on Friday?" — only `body` was searched. Now every title-like field
+  // the mapping has is searched (and highlighted, reader-api.js).
+  const roles = deriveRoles({ body: 'semantic_text', email_subject: 'text', title: 'keyword', attachment_name: 'keyword', email_from: 'keyword' });
+  assert.deepEqual(roles.searchFields, ['body', 'email_subject', 'title', 'attachment_name']);
+  assert.deepEqual(searchFieldsOf(roles), roles.searchFields);
+  const m = buildQueryClause('Lunch', 'match', roles);
+  assert.deepEqual(m, { bool: { should: [
+    { match: { body: 'Lunch' } }, { match: { email_subject: 'Lunch' } }, { match: { title: 'Lunch' } }, { match: { attachment_name: 'Lunch' } },
+  ], minimum_should_match: 1 } });
+  assert.deepEqual(buildQueryClause('term sheet', 'phrase', roles).bool.should.map((c) => Object.keys(c)[0]), ['match_phrase', 'match_phrase', 'match_phrase', 'match_phrase']);
+  assert.deepEqual(buildQueryClause('lun', 'prefix', roles).bool.should[1], { prefix: { email_subject: 'lun' } });
+  // the lexical leg of HYBRID is the same clause
+  assert.deepEqual(buildQueryClause('Lunch', 'hybrid', roles).hybrid.queries[0].query, m);
+  // a filter wraps it once: bool{must: <should-clause>, filter}
+  const body = buildSearchBody('Lunch', 'match', { email_from: 'sam@acme.example' }, roles, { aggs: false });
+  assert.deepEqual(body.query.bool.must, m);
+  // `bool.should` and not `multi_match`: measured on a live node, multi_match
+  // (best_fields) returns no highlight fragments; per-field clauses do.
+  assert.ok(!JSON.stringify(m).includes('multi_match'));
+  // one field → the plain clause, byte for byte as before (Discover's REQUEST panel)
+  const one = deriveRoles({ body: 'text', level: 'keyword' });
+  assert.deepEqual(one.searchFields, ['body']);
+  assert.deepEqual(buildQueryClause('x', 'match', one), { match: { body: 'x' } });
+  assert.deepEqual(buildQueryClause('x', 'prefix', one), { prefix: { body: 'x' } });
+  assert.deepEqual(buildQueryClause('x y', 'phrase', one), { match_phrase: { body: 'x y' } });
+  // no mapping (roles from `{}`): the text field only — nothing is guessed
+  assert.deepEqual(buildQueryClause('x', 'match', deriveRoles({})), { match: { body: 'x' } });
+  // an empty box is match_all whatever the fields
+  assert.deepEqual(buildQueryClause('  ', 'match', roles), { match_all: {} });
 });

@@ -80,17 +80,24 @@ export async function startFakeEngine() {
     operator: false,
     /** status overrides: { search, mapping, ego, proxySearch, all } → HTTP status */
     fail: {},
+    /** An `--insecure` node: the brain list, each brain's meta document and
+     *  `ego` answer WITHOUT a key, so the operator's graph path can be driven.
+     *  `brains` is the `_cat` order; only `inbox` holds edges for the fixtures. */
+    openGraph: false,
+    brains: ['inbox'],
   };
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const path = decodeURIComponent(url.pathname);
     const auth = req.headers.authorization || null;
-    state.log.push({ method: req.method, path, query: url.search, auth, cookie: !!req.headers.cookie });
+    const entry = { method: req.method, path, query: url.search, auth, cookie: !!req.headers.cookie, body: null };
+    state.log.push(entry);
     let raw = '';
     for await (const chunk of req) raw += chunk;
     let body = null;
     try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
+    entry.body = body;
 
     const send = (status, payload, headers = {}) => {
       const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -146,6 +153,19 @@ export async function startFakeEngine() {
       return;
     }
 
+    // ---- the graph without a key (an `--insecure` node), when a test asks --
+    if (state.openGraph && !auth) {
+      if (path === '/_cat/indices/.xerj-memory-*') {
+        res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end(state.brains.map((b) => `green open .xerj-memory-${b}-edges u1 1 0 1 0 1kb 1kb 1kb`).join('\n'));
+        return;
+      }
+      const bm = path.match(/^\/\.xerj-memory-([^/]+)-edges\/_doc\/__xerj-brain-meta$/);
+      if (bm) { send(state.brains.includes(bm[1]) ? 200 : 404, { _index: `.xerj-memory-${bm[1]}-edges`, _id: '__xerj-brain-meta', found: true, _source: { nodes_index: 'ax-inbox' } }); return; }
+      const gm = path.match(/^\/_graph\/([^/]+)\/ego$/);
+      if (gm) { send(200, gm[1] === 'inbox' ? hostileEgo : { node: url.searchParams.get('node'), edges: [], nodes: {}, not_shown: {} }); return; }
+    }
+
     // ---- data plane (API key) --------------------------------------------
     if (auth !== `ApiKey ${GUEST_KEY}`) { refuse(401); return; }
     const dm = path.match(/^\/([^/]+)\/(_search|_count|_mapping)$/);
@@ -172,7 +192,7 @@ export async function startFakeEngine() {
   const origin = `http://127.0.0.1:${port}`;
   return {
     origin, state, csp,
-    reset() { state.log.length = 0; state.fail = {}; },
+    reset() { state.log.length = 0; state.fail = {}; state.openGraph = false; state.brains = ['inbox']; },
     /** requests that were NOT static SPA assets */
     apiLog() { return state.log.filter((r) => !(r.path.startsWith('/_xerj-console/') && !r.path.startsWith('/_xerj-console/api/')) && !r.path.startsWith('/__') && r.path !== '/favicon.ico'); },
     close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }),

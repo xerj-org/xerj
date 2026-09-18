@@ -21,10 +21,37 @@ export const QUERY_TYPES = ['match', 'term', 'range', 'prefix', 'phrase', 'seman
 /** How many facet fields to aggregate on (keyword fields from the mapping). */
 export const FACET_FIELDS = 3;
 
+/**
+ * The fields a MATCH / PHRASE / PREFIX runs over: `roles.searchFields`
+ * (schema-roles.js — the text field plus the subject / title / attachment-name
+ * fields the mapping has), or just the text field.
+ */
+export function searchFieldsOf(roles) {
+  const textField = roles?.textField || 'body';
+  const list = Array.isArray(roles?.searchFields) ? roles.searchFields.filter((f) => typeof f === 'string' && f) : [];
+  return list.length ? list : [textField];
+}
+
+/**
+ * One clause per search field, OR-ed. A single field keeps the plain clause.
+ *
+ * Why `bool.should` and not `multi_match`: measured on a live node
+ * (2026-09-18, the console-reader corpus), `multi_match` with the default
+ * `best_fields` type returns the right hits but NO highlight fragments, while
+ * `bool.should` of per-field clauses returns the same hits with a fragment
+ * per matching field — and the Reader's result cards are built from those
+ * fragments.
+ */
+function overFields(fields, make) {
+  if (fields.length === 1) return make(fields[0]);
+  return { bool: { should: fields.map(make), minimum_should_match: 1 } };
+}
+
 /** Inner query clause for a (q, type) pair over the given field roles. */
 export function buildQueryClause(q, type, roles) {
   const textField = roles?.textField || 'body';
   const semanticField = roles?.semanticField || textField;
+  const fields = searchFieldsOf(roles);
   const text = (q || '').trim();
   switch (type) {
     case 'term': {
@@ -40,19 +67,19 @@ export function buildQueryClause(q, type, roles) {
       const n = Number(v);
       return { range: { [f]: { [k]: Number.isFinite(n) && v !== '' ? n : v } } };
     }
-    case 'prefix':   return text ? { prefix: { [textField]: text } } : { match_all: {} };
-    case 'phrase':   return text ? { match_phrase: { [textField]: text } } : { match_all: {} };
+    case 'prefix':   return text ? overFields(fields, (f) => ({ prefix: { [f]: text } })) : { match_all: {} };
+    case 'phrase':   return text ? overFields(fields, (f) => ({ match_phrase: { [f]: text } })) : { match_all: {} };
     case 'semantic': return text ? { semantic: { field: semanticField, query: text, k: 10 } } : { match_all: {} };
     case 'hybrid':   return text ? {
       hybrid: {
         queries: [
-          { query: { match: { [textField]: text } }, weight: 1.0 },
+          { query: overFields(fields, (f) => ({ match: { [f]: text } })), weight: 1.0 },
           { query: { semantic: { field: semanticField, query: text, k: 10 } }, weight: 0.8 },
         ],
         fusion: { type: 'rrf', k: 60 },
       },
     } : { match_all: {} };
-    default:         return text ? { match: { [textField]: text } } : { match_all: {} };
+    default:         return text ? overFields(fields, (f) => ({ match: { [f]: text } })) : { match_all: {} };
   }
 }
 

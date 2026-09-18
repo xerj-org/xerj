@@ -127,6 +127,86 @@ test('operator reader + corpus home: the same documents, through the session pro
   await page.close();
 });
 
+test('operator reader: changing the query type runs the text in the box, not the last submitted query', { skip }, async () => {
+  // PR #945 review: after Enter on one query, typing another and picking a
+  // type ran the OLD query under the new text.
+  const page = await openOperator(ctx, readerHash(HOSTILE_ID));
+  await page.waitFor(`document.querySelector('[data-safe-mount="reader"] [data-shape="email"]')`, { label: 'operator reader' });
+  await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'invoice'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
+  await page.waitFor(`/RESULTS/.test(document.querySelector('[data-rd-slot="list-head"]').textContent)`, { label: 'first search' });
+  const searches = () => ctx.engine.state.log.filter((r) => r.path.endsWith('/ax-inbox/search') && r.body && r.body.highlight);
+  const n = searches().length;
+  assert.ok(n >= 1 && JSON.stringify(searches().at(-1).body.query).includes('invoice'));
+  // type a NEW query, no Enter, then pick a type
+  await page.eval(`(() => { document.querySelector('.rd-q').value = 'customer'; const s = document.querySelector('.rd-type'); s.value = 'phrase'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+  await page.waitFor(`/RESULTS/.test(document.querySelector('[data-rd-slot="list-head"]').textContent)`, { label: 'second search' });
+  await page.waitFor(`${n + 1} <= ${searches().length}`);
+  const sent = searches().at(-1).body.query;
+  const text = JSON.stringify(sent);
+  assert.ok(text.includes('customer') && !text.includes('invoice'), `the request carries the box text: ${text}`);
+  assert.ok(text.includes('match_phrase'), 'and the picked type');
+  // the picked type searched the subject and attachment-name fields too (fixture mapping has them)
+  assert.deepEqual(sent.bool.should.map((c) => Object.keys(c.match_phrase)[0]), ['body', 'email_subject', 'attachment_name']);
+  assert.deepEqual(Object.keys(searches().at(-1).body.highlight.fields), ['body', 'email_subject', 'attachment_name'], 'highlights are asked for the same fields');
+  assert.equal(await page.eval(`document.querySelector('.rd-q').value`), 'customer');
+  await assertNotPwned(page, ctx.engine.origin, 'type change');
+  await page.close();
+});
+
+test('the link `xerj brain` prints (#/second-brain?brain=…) opens the Second Brain view even when the brains probe is refused — never a SAMPLE DATA dashboard', { skip }, async () => {
+  // On an auth-enabled engine `GET /_cat/indices/.xerj-memory-*` answers 401
+  // to a console session (this fake does the same without a key), so the
+  // Second Brain dashboard is "gated". The printed link is explicit and must
+  // resolve to it (PR #945 review: it fell through to System's host metrics).
+  const page = await openOperator(ctx, '#/second-brain?brain=inbox');
+  await page.waitFor(`document.getElementById('app')?.getAttribute('aria-busy') === 'false' && !!document.querySelector('h1.h-scene')`, { label: 'the routed view' });
+  await new Promise((r) => setTimeout(r, 300));
+  const v = await page.eval(`({ h1: document.querySelector('h1.h-scene').textContent, hash: location.hash, text: document.getElementById('app').textContent, pill: document.querySelector('[data-nav-status]')?.textContent || '' })`);
+  assert.equal(v.h1, 'SECOND BRAIN', `landed on ${v.h1}`);
+  assert.equal(v.hash, '#/second-brain?brain=inbox');
+  assert.ok(!/HOST METRICS|SAMPLE DATA/.test(v.text), 'no sample telemetry in place of the brain');
+  assert.match(v.text, /REFUSED THIS CONSOLE SESSION/, 'and the view says the probe was refused, not that the engine is down');
+  assert.doesNotMatch(v.pill, /^LIVE/);
+  assert.match(v.pill, /refused this console session/i);
+  // the same for the /dashboards/ form, and the bare default still falls through
+  await page.setHash('#/dashboards/second-brain?brain=inbox');
+  await page.waitFor(`document.querySelector('h1.h-scene')?.textContent === 'SECOND BRAIN'`);
+  await page.setHash('#/dashboards');
+  await page.waitFor(`document.querySelector('h1.h-scene') && document.querySelector('h1.h-scene').textContent !== 'SECOND BRAIN'`, { label: 'the bare dashboards route falls through to a visible dashboard' });
+  await assertNotPwned(page, ctx.engine.origin, 'deep link');
+  await page.close();
+});
+
+test('operator graph panel: two brains over one index — the links come from the brain that has them, and the panel names both', { skip }, async () => {
+  // PR #945 review: `xerj brain casefile` + `xerj brain vendors` on one node →
+  // two brains list ax-docs; the panel walked the first `_cat` listed and said
+  // "no links" for the other brain's records. `other` is listed first here and
+  // holds nothing for the fixtures; `inbox` holds the hostile ego.
+  ctx.engine.state.openGraph = true;
+  ctx.engine.state.brains = ['other', 'inbox'];
+  ctx.engine.state.log.length = 0;
+  try {
+    const page = await openOperator(ctx, readerHash(HOSTILE_ID));
+    await page.waitFor(`document.querySelector('[data-safe-mount="reader"] .rd-egroups')`, { label: 'graph groups', timeoutMs: 20000 });
+    const g = await census(page, '.rd-graph');
+    assertCensusInert(g, 'two-brain graph panel');
+    assert.equal(g.anchors, 3, 'the hostile ego\'s three neighbours');
+    assert.match(g.text, /3 linked records · brains other, inbox consulted · links in inbox · 1 hop/);
+    const hrefs = await page.eval(`[...document.querySelectorAll('.rd-neigh')].map((a) => a.getAttribute('href'))`);
+    assert.ok(hrefs.length === 3 && hrefs.every((h) => h.includes('brain=inbox')), `each neighbour links into the brain its link came from: ${hrefs}`);
+    const asked = ctx.engine.state.log.filter((r) => /^\/_graph\/[^/]+\/ego$/.test(r.path)).map((r) => r.path);
+    assert.deepEqual([...new Set(asked)], ['/_graph/other/ego', '/_graph/inbox/ego'], 'both candidates were asked');
+    // an explicit hint walks that brain alone
+    await page.setHash(`${readerHash(HOSTILE_ID)}&brain=other`);
+    await page.waitFor(`/Brain other records no links/.test(document.querySelector('.rd-graph').textContent)`, { label: 'the hint alone' });
+    await assertNotPwned(page, ctx.engine.origin, 'two brains');
+    await page.close();
+  } finally {
+    ctx.engine.state.openGraph = false;
+    ctx.engine.state.brains = ['inbox'];
+  }
+});
+
 test('operator Discover: hostile hits, facet values and FIELD NAMES stay text', { skip }, async () => {
   const page = await openOperator(ctx, '#/discover');
   await page.waitFor(`document.querySelectorAll('.hits-list .hit').length >= 7 && document.querySelector('.facet')`, { label: 'Discover hits + facets' });

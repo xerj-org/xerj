@@ -50,6 +50,14 @@ function sampleButtons(card) {
   return out;
 }
 
+/** What the catalog entry describes: the LAST `xerj brain` / `xerj autoindex`
+ *  run over this dataset. The record count is the index's total at the end of
+ *  that run; files, bytes, formats and the semantic_text field are that run's
+ *  own. A second run over another folder into the same index rewrites the
+ *  entry with ITS files (PR #945 review: "91 records · 4 files" after a
+ *  14-file corpus), so those facts are labelled as the last run's. */
+const LAST_RUN = 'as of the last xerj brain / autoindex run over this dataset (autoindex-catalog)';
+
 /** One dataset card from a catalog entry (data/catalog.js#parseCatalogHits). */
 export function renderCorpusCard(card, { brain, discover = true } = {}) {
   const fields = topFields(card, 8);
@@ -60,12 +68,13 @@ export function renderCorpusCard(card, { brain, discover = true } = {}) {
       h('div', null, h('div', { class: 'key' }, 'DATASET'), h('h2', { class: 'cp-card__name mono' }, card.index)),
       h('div', { class: 'cp-card__nums mono' },
         h('span', null, h('b', { class: 'accent' }, fmtCount(card.records)), ' records'),
-        h('span', null, h('b', null, fmtCount(card.files)), ' files'),
-        h('span', null, h('b', null, fmtBytes(card.bytes))))),
+        h('span', { title: LAST_RUN }, h('b', null, fmtCount(card.files)), ' files'),
+        h('span', { title: LAST_RUN }, h('b', null, fmtBytes(card.bytes))),
+        h('span', { class: 'faint', title: LAST_RUN }, '· last run'))),
     h('div', { class: 'cp-card__facts mono' },
-      card.formats.length ? fact('formats', card.formats.join(', ')) : null,
+      card.formats.length ? fact('formats · last run', card.formats.join(', ')) : null,
       span ? fact(card.timeField || 'time', span) : null,
-      card.semanticField ? fact('semantic_text field', card.semanticField) : h('span', { class: 'cp-fact faint' }, 'no semantic_text field'),
+      card.semanticField ? fact('semantic_text field', card.semanticField) : h('span', { class: 'cp-fact faint', title: LAST_RUN }, 'no semantic_text field in the last run'),
       card.junk ? fact('skipped as junk', fmtCount(card.junk)) : null),
     fields.length
       ? h('div', { class: 'cp-fields' }, fields.map((f) => h('span', { class: 'cp-field mono', title: f.examples.join(' · ') },

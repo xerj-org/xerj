@@ -988,15 +988,20 @@ async function render() {
   // empty "Logs" group doesn't linger on a brain-only engine.
   const activeGroups = DASHBOARD_GROUPS.filter((g) => dashboardsForSection.some((d) => d.group === g.id));
 
-  // Which dashboard to RENDER. An explicit deep link (`#/dashboards/<id>`)
-  // resolves even if that id is currently gated — a fresh `xerj brain` prints
-  // exactly such a link and it must open before the probe confirms the brain.
-  // But the DEFAULT landing must never open a gated, mock-filled dashboard: fall
-  // through to the first VISIBLE one (Second Brain on a brain-only engine, or
-  // System — always-on — on a truly empty engine).
-  const explicitDeepLink = /#\/dashboards\/[a-z0-9._-]+/i
-    .test((typeof location !== 'undefined' && location.hash) || '');
+  // Which dashboard to RENDER. An explicit deep link — one that NAMES a
+  // dashboard in the hash, `#/dashboards/<id>` or the bare `#/<id>[?…]` form
+  // `xerj brain` prints (`#/second-brain?brain=<name>`) — resolves even if that
+  // id is currently gated: the link must open before the probe confirms the
+  // brain, and on an auth-enabled engine the brains probe is refused (401)
+  // outright, which used to send the printed link to the System dashboard's
+  // SAMPLE DATA (PR #945 review). But the DEFAULT landing (`#/dashboards`, or a
+  // stale route) must never open a gated, mock-filled dashboard: fall through
+  // to the first VISIBLE one (Second Brain on a brain-only engine, or System —
+  // always-on — on a truly empty engine).
+  const hashPath = ((typeof location !== 'undefined' && location.hash) || '')
+    .replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
   const routed = allDash.find((d) => d.id === state.route);
+  const explicitDeepLink = !!routed && hashPath.length > 0 && hashPath[hashPath.length - 1] === routed.id;
   const routedGated = routed && routed.requiresLive && !state.liveFeatures[routed.requiresLive];
   // Deliberately NOT synced back to state.route: keeping the (gated) default
   // route means the fallthrough re-resolves to the first VISIBLE dashboard on

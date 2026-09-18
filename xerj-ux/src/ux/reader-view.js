@@ -52,7 +52,7 @@ export class ReaderView {
     this.abort = null;
     this.searchAbort = null;
     this.s = {
-      index: null, id: null, brain: null, brainHint: null,
+      index: null, id: null, brain: null, brains: [], brainHint: null,
       q: '', type: 'match',
       result: null,          // { hits, total, took, error, pending }
       hit: null, recordError: null, recordKind: null, loading: false,
@@ -75,8 +75,10 @@ export class ReaderView {
     if (!idx) idx = this.s.index && (!this.guest || allowed.includes(this.s.index)) ? this.s.index : (allowed[0] || null);
     const indexChanged = idx !== this.s.index;
     const idChanged = (id || null) !== this.s.id;
+    const hint = this.guest ? null : (brain || null);
+    const hintChanged = hint !== this.s.brainHint;
     this.s.index = idx;
-    this.s.brainHint = this.guest ? null : (brain || null);
+    this.s.brainHint = hint;
     this.s.id = id || null;
     if (indexChanged) { this.s.result = null; this.s.hit = null; }
     // Coming back to a view whose last load FAILED asks again (a refused or
@@ -86,6 +88,9 @@ export class ReaderView {
     const recordFailed = !!(this.s.id && !this.s.hit && !this.s.loading && this.s.recordKind !== 'not-found');
     if (idx && (indexChanged || !this.s.result || searchFailed)) this.runSearch();
     if (indexChanged || idChanged || recordFailed) this.loadRecord();
+    // Only `&brain=` changed: the record stands, the graph half is re-asked
+    // with the new hint (PR #945 review: it used to keep the old brain's answer).
+    else if (hintChanged && this.s.hit) this.reloadGraph();
     this.paint();
   }
 
@@ -135,9 +140,9 @@ export class ReaderView {
 
       this.s.graph = { status: 'loading' };
       this.paintGraph();
-      const [related, brain] = await Promise.all([
+      const [related, brains] = await Promise.all([
         this.api.fetchRelated(rec.hit, ac.signal),
-        this.api.resolveBrain(index, this.s.brainHint, ac.signal),
+        this.api.resolveBrains(index, this.s.brainHint, ac.signal),
       ]);
       if (seq !== this.seq) return;
       if (this.fatal(related.kind)) return;
@@ -147,9 +152,34 @@ export class ReaderView {
         siblings: related.siblings || (rec.hit._source.ax_locator === 'file' ? [] : undefined),
         siblingsTruncated: !!related.siblingsTruncated,
       };
-      this.s.brain = brain;
+      this.s.brains = brains;
+      this.s.brain = brains[0] || null;
       this.paintRecord();
-      const graph = await this.api.fetchGraph(brain, rec.hit, related.fileRecord || null, ac.signal);
+      this.paintGraph();
+      const graph = await this.api.fetchGraph(brains, rec.hit, related.fileRecord || null, ac.signal);
+      if (seq !== this.seq) return;
+      if (graph.kind === 'expired' && this.fatal('expired')) return;
+      this.s.graph = graph;
+      this.paintGraph();
+    } catch { /* aborted: a newer load owns the view */ }
+  }
+
+  /** Re-ask the graph half for the open record (the `&brain=` hint changed). */
+  async reloadGraph() {
+    const hit = this.s.hit;
+    if (!hit) return;
+    if (this.abort) this.abort.abort();
+    const ac = this.abort = new AbortController();
+    const seq = ++this.seq;
+    this.s.graph = { status: 'loading' };
+    this.paintGraph();
+    try {
+      const brains = await this.api.resolveBrains(this.s.index, this.s.brainHint, ac.signal);
+      if (seq !== this.seq) return;
+      this.s.brains = brains;
+      this.s.brain = brains[0] || null;
+      this.paintGraph();
+      const graph = await this.api.fetchGraph(brains, hit, (this.s.related && this.s.related.fileRecord) || null, ac.signal);
       if (seq !== this.seq) return;
       if (graph.kind === 'expired' && this.fatal('expired')) return;
       this.s.graph = graph;
@@ -195,7 +225,17 @@ export class ReaderView {
     this.root = null; this.slots = null;
   }
 
-  paint() { this.paintList(); this.paintRecord(); this.paintGraph(); }
+  paint() { this.paintIndex(); this.paintList(); this.paintRecord(); this.paintGraph(); }
+
+  /** The index label / picker beside the search box follows the route
+   *  (attach() renders it before setRoute() has set the index). */
+  paintIndex() {
+    if (!this.root) return;
+    const one = this.root.querySelector('.rd-index-one');
+    if (one) mount(one, this.s.index || '');
+    const sel = this.root.querySelector('.rd-index');
+    if (sel && this.s.index && sel.value !== this.s.index) sel.value = this.s.index;
+  }
 
   paintList() {
     if (!this.slots) return;
@@ -226,7 +266,7 @@ export class ReaderView {
     if (!this.slots) return;
     const s = this.s;
     mount(this.slots.graph, renderGraphPanel(s.hit
-      ? { ...s.graph, brain: s.brain, index: s.hit._index, guest: this.guest }
+      ? { brain: s.brain, brains: s.brains, ...s.graph, index: s.hit._index, guest: this.guest }
       : { status: 'idle' }));
   }
 
@@ -244,7 +284,15 @@ export class ReaderView {
     const t = e.target;
     if (!t || !t.classList) return;
     if (t.classList.contains('rd-type')) {
-      if (QUERY_TYPES.includes(t.value)) { this.s.type = t.value; this.runSearch(); }
+      if (QUERY_TYPES.includes(t.value)) {
+        // Run what is IN THE BOX, not the last submitted query: a person who
+        // typed a new query and then picked a type saw results for the old one
+        // under the new text (PR #945 review).
+        const box = this.root && this.root.querySelector('.rd-q');
+        if (box) this.s.q = String(box.value || '');
+        this.s.type = t.value;
+        this.runSearch();
+      }
     } else if (t.classList.contains('rd-index')) {
       const win = this.root && this.root.ownerDocument.defaultView;
       if (win && this.indicesFn().includes(t.value)) win.location.hash = readerHref({ index: t.value, brain: this.s.brainHint });

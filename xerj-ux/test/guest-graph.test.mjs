@@ -83,7 +83,13 @@ test('no module the guest loads knows a console / admin / cluster endpoint', () 
   const fetchers = GUEST_GRAPH.filter((f) => /\bfetch\s*\(|\bdoFetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource/.test(code(join(ROOT, f))));
   assert.deepEqual(fetchers, ['src/data/guest.js'], 'every guest request goes through data/guest.js');
   const guest = code(join(SRC, 'data/guest.js'));
-  assert.ok(!/XMLHttpRequest|sendBeacon|WebSocket|EventSource/.test(guest));
+  // guest.js GUARDS XMLHttpRequest and sendBeacon (installGuestGuard wraps
+  // them) but never USES them, and knows no WebSocket / EventSource at all.
+  assert.ok(!/new\s+(XMLHttpRequest|WebSocket|EventSource)\s*\(|navigator\.sendBeacon\s*\(|\.send\s*\(/.test(guest), 'guest.js makes no request outside fetch');
+  assert.ok(!/WebSocket|EventSource/.test(guest));
+  const guard = guest.slice(guest.indexOf('export function installGuestGuard'));
+  assert.ok(/XMLHttpRequest/.test(guard) && /sendBeacon/.test(guard), 'the guard covers XHR and beacons');
+  assert.ok(!/XMLHttpRequest|sendBeacon/.test(guest.slice(0, guest.indexOf('export function installGuestGuard')).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')), 'and nothing before it mentions them');
   assert.ok(/credentials:\s*'omit'/.test(guest), 'guest requests never carry a session cookie');
 });
 

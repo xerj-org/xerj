@@ -14,6 +14,13 @@ const TEXT_PREF = ['body', 'message', 'content', 'text', 'email_subject', 'title
 const SEM_PREF  = ['body', 'content', 'text', 'message'];
 // Keyword fields that make poor facets (plumbing / high-cardinality ids).
 const FACET_SKIP = /^(ax_|email_message_id|email_in_reply_to|attachment_name|_)/;
+// The title-like fields a person searches BY, beside the text field: an email's
+// subject, a document's title, an attachment's file name. MATCH / PHRASE /
+// PREFIX run over `searchFields` (search-body.js), so a word that appears only
+// in a subject line finds the email (PR #945 review: "Lunch on Friday?" was not
+// found by "Lunch" because only `body` was searched). Only fields the mapping
+// really has are included.
+const EXTRA_SEARCH = ['email_subject', 'title', 'attachment_name'];
 
 function pick(prefList, present) {
   for (const p of prefList) if (present.includes(p)) return p;
@@ -39,6 +46,7 @@ export function deriveRoles(fieldTypes) {
   const dateField = names.includes('@timestamp') ? '@timestamp'
                   : (dateFields[0] || (names.includes('email_date') ? 'email_date' : null));
   const isEmail = names.includes('email_from') || names.includes('email_subject');
+  const searchFields = [textField, ...EXTRA_SEARCH.filter((f) => f !== textField && names.includes(f))];
 
-  return { textField, semanticField, keywordFields, dateField, isEmail, allFields: names };
+  return { textField, semanticField, keywordFields, dateField, isEmail, searchFields, allFields: names };
 }

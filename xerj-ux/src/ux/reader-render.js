@@ -399,17 +399,25 @@ export function groupNeighbors(ego, focusId) {
 export function renderGraphPanel(g = {}) {
   const brain = str(g.brain);
   const mono = (t) => h('span', { class: 'mono' }, t);
+  // Every brain that lists this record's index was consulted (reader-api.js
+  // #fetchGraph); the panel names all of them, so "no links" can be read as
+  // "no links in any of these" and never hides a brain that was not asked.
+  const brains = (Array.isArray(g.brains) ? g.brains.map(str).filter(Boolean) : []);
+  const several = brains.length > 1;
+  const brainsText = (cap) => (several
+    ? [cap ? 'Brains ' : 'brains ', mono(brains.join(', '))]
+    : [cap ? 'Brain ' : 'brain ', mono(brain || brains[0] || '')]);
   switch (g.status) {
     case 'loading':
-      return h('div', { class: 'rd-empty' }, 'Walking brain ', mono(brain), '…');
+      return h('div', { class: 'rd-empty' }, 'Walking ', ...brainsText(false), '…');
     case 'no-brain':
       return h('div', { class: 'rd-empty' },
-        brain ? ['No brain named ', mono(brain), ' on this engine (no edges index), so there are no recorded links for this record.']
+        (brain || several) ? ['No ', ...brainsText(false), ' on this engine (no edges index), so there are no recorded links for this record.']
           : 'No brain is associated with this index, so there are no recorded links for this record.',
         g.guest ? null : [h('br'), 'Build one: ', h('span', { class: 'mono accent' }, 'xerj brain <folder>'), ' — the links appear here.']);
     case 'no-links':
-      return h('div', { class: 'rd-empty' }, 'Brain ', mono(brain), ' records no links for this record',
-        g.dangling ? ' (its id is not a node in that brain).' : '.');
+      return h('div', { class: 'rd-empty' }, ...brainsText(true), several ? ' record no links for this record' : ' records no links for this record',
+        g.dangling ? (several ? ' (its id is not a node in any of them).' : ' (its id is not a node in that brain).') : '.');
     case 'denied':
       return h('div', { class: 'rd-empty' },
         g.guest
@@ -429,7 +437,7 @@ export function renderGraphPanel(g = {}) {
           h('div', { class: 'key' }, `${str(gr.label).toUpperCase()} · ${gr.items.length}`),
           gr.items.map((it) => h('a', {
             class: 'rd-neigh',
-            href: readerHref({ index: it.index || g.index, id: it.id, brain: g.brain }),
+            href: readerHref({ index: it.index || g.index, id: it.id, brain: it.brain || g.brain }),
             'data-reader-open': str(it.id),
             'data-reader-index': str(it.index || g.index),
             title: str(it.id),
@@ -439,7 +447,11 @@ export function renderGraphPanel(g = {}) {
             h('span', { class: 'rd-neigh__title' }, str(it.title)),
             it.preview ? h('span', { class: 'rd-neigh__prev' }, str(it.preview).replace(/\s+/g, ' ').slice(0, 90)) : null))))),
         h('div', { class: 'rd-honest mono faint' },
-          `${total} linked record${total === 1 ? '' : 's'} · brain ${brain} · 1 hop`,
+          `${total} linked record${total === 1 ? '' : 's'} · `,
+          several
+            ? `brains ${brains.join(', ')} consulted · links in ${(Array.isArray(g.brainsWithLinks) && g.brainsWithLinks.length ? g.brainsWithLinks : [brain]).map(str).join(', ')}`
+            : `brain ${brain}`,
+          ' · 1 hop',
           g.viaFile ? ` · ${g.viaFile} of them are links of the file this record came from (${str(g.filePath) || 'its file record'}) — file-level detectors link files, not the records inside them` : '',
           clipped ? ` · ${clipped} more not shown (limit)` : '',
           dangling ? ` · ${dangling} link${dangling === 1 ? '' : 's'} to ids with no document behind them` : ''),

@@ -244,12 +244,21 @@ export async function guestRequest(share, op, { indices, query, body, signal } =
 // ----- the fetch guard --------------------------------------------------
 
 /**
- * Wrap `win.fetch` so that, while a guest session is active, NOTHING but the
- * share's own four operations leaves the page. A refused call resolves to a
- * synthetic 403 (so calling code sees an ordinary denied response) and is
- * counted on `win.__xerjGuestBlocked` for the tests. Cross-origin fetches are
- * refused too — the guest shell has no reason to make one, and a key-bearing
- * page should not be talking to third parties.
+ * Wrap the page's request APIs so that, while a guest session is active,
+ * NOTHING but the share's own four operations leaves the page:
+ *
+ *   fetch                 a refused call resolves to a synthetic 403 (calling
+ *                         code sees an ordinary denied response)
+ *   XMLHttpRequest.open   a refused call throws a SecurityError
+ *   navigator.sendBeacon  a refused call returns false
+ *
+ * Each refusal is counted on `win.__xerjGuestBlocked` for the tests.
+ * Cross-origin requests are refused too — the guest shell has no reason to
+ * make one, and a key-bearing page should not be talking to third parties.
+ * (What this does not cover — WebSocket, EventSource, a `<form>` — is stopped
+ * by the Content-Security-Policy's `connect-src 'self'` / `form-action` for
+ * other origins and by the engine, which has no session and no key, on this
+ * one. The guard is a UI-side tripwire, not the boundary; the key is.)
  *
  * The guard does NOT add the Authorization header. Idempotent.
  */
@@ -260,6 +269,14 @@ export function installGuestGuard(share, win = globalThis) {
   const base = win.location && win.location.href;
   const origin = win.location && win.location.origin;
   win.__xerjGuestBlocked = win.__xerjGuestBlocked || [];
+  /** null when the request may go out; otherwise where it was headed. */
+  const refusedAt = (method, raw) => {
+    let u;
+    try { u = new URL(raw, base); } catch { return '(unparseable url)'; }
+    if (u.origin !== origin) return u.origin;
+    if (!guestAllows(share, method, u.pathname)) return u.pathname;
+    return null;
+  };
   const refuse = (method, where) => {
     win.__xerjGuestBlocked.push(`${method} ${where}`);
     const Resp = win.Response || globalThis.Response;
@@ -270,14 +287,40 @@ export function installGuestGuard(share, win = globalThis) {
   const guarded = (input, init) => {
     const raw = typeof input === 'string' ? input : (input && typeof input.url === 'string' ? input.url : String(input || ''));
     const method = String((init && init.method) || (input && typeof input === 'object' && input.method) || 'GET').toUpperCase();
-    let u;
-    try { u = new URL(raw, base); } catch { return refuse(method, '(unparseable url)'); }
-    if (u.origin !== origin) return refuse(method, u.origin);
-    if (!guestAllows(share, method, u.pathname)) return refuse(method, u.pathname);
-    return orig(input, init);
+    const where = refusedAt(method, raw);
+    return where == null ? orig(input, init) : refuse(method, where);
   };
   guarded.__xerjGuestGuard = true;
   win.fetch = guarded;
+
+  const XHR = win.XMLHttpRequest;
+  if (XHR && XHR.prototype && typeof XHR.prototype.open === 'function' && !XHR.prototype.open.__xerjGuestGuard) {
+    const origOpen = XHR.prototype.open;
+    const guardedOpen = function open(method, url, ...rest) {
+      const m = String(method || 'GET').toUpperCase();
+      const where = refusedAt(m, String(url));
+      if (where != null) {
+        win.__xerjGuestBlocked.push(`XHR ${m} ${where}`);
+        const DomEx = win.DOMException || globalThis.DOMException;
+        throw DomEx ? new DomEx('guest session: request refused', 'SecurityError') : new Error('guest session: request refused');
+      }
+      return origOpen.call(this, method, url, ...rest);
+    };
+    guardedOpen.__xerjGuestGuard = true;
+    XHR.prototype.open = guardedOpen;
+  }
+
+  const nav = win.navigator;
+  if (nav && typeof nav.sendBeacon === 'function' && !nav.sendBeacon.__xerjGuestGuard) {
+    const origBeacon = nav.sendBeacon.bind(nav);
+    const guardedBeacon = (url, data) => {
+      const where = refusedAt('POST', String(url));
+      if (where != null) { win.__xerjGuestBlocked.push(`BEACON POST ${where}`); return false; }
+      return origBeacon(url, data);
+    };
+    guardedBeacon.__xerjGuestGuard = true;
+    try { Object.defineProperty(nav, 'sendBeacon', { value: guardedBeacon, configurable: true, writable: true }); } catch { nav.sendBeacon = guardedBeacon; }
+  }
 }
 
 // ----- expiry -----------------------------------------------------------
