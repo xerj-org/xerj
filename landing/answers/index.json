@@ -117,7 +117,7 @@
       "markdown_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm.md",
       "cluster": "Decisions as retrieval",
       "updated": "2026-09-18",
-      "summary": "Index your labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing and 0.983 on SMS spam, no model call."
+      "summary": "Index labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam, no LLM or API call."
     },
     {
       "title": "How do I reduce embedding API cost?",

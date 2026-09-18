@@ -56,8 +56,8 @@ CONTENTS — search for a section number (e.g. "3.4", "10.") to jump
             for `_passage`
        2.h  what the fully-exercised AI-core surface is
        2.i  performance is supporting evidence, not the headline
-       2.j  `rerank` is the ONE feature that sends document text off the machine,
-            and it needs an operator-configured provider
+       2.j  `rerank` is the only search-time feature that sends document text off
+            the node, and it needs an operator-configured provider
   3. THE SEVEN CANONICAL AGENT OPERATIONS — full contract for each
        3.0  xerj_autoindex ....... make a folder searchable (CLI-only, zero config)
        3.1  xerj_search .......... lexical / structured search, and the code-document
@@ -276,9 +276,13 @@ For a complete disconnected deployment procedure, including current GitHub relea
   read-under-write); they are published, not hidden. Acked deletes survive
   SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.
 
-- `rerank` is the ONE feature that sends document text off the machine. Everything
-  else in this file — indexing, search, the built-in embedder, agent memory — runs on
-  the node. A `_search` body carrying `"rerank": {...}` POSTs the question and the text
+- `rerank` is the only SEARCH-TIME feature that sends document text off the node.
+  Two other outbound paths exist and are operator configuration, inert by default:
+  `[embedding] default_endpoint` / `--embed-mode proxy` (document text at ingest and
+  query text at search time to an external embeddings API) and the WAL tap
+  (`PUT /_xerj/wal_tap`, every write on tapped indices to an external `_bulk`
+  endpoint). Indexing, search, the built-in embedders (lexical and neural) and agent
+  memory run on the node. A `_search` body carrying `"rerank": {...}` POSTs the question and the text
   of up to `window` hits (default 30, max 300) to a third-party relevance judge
   (TypeSafe AI's Jev, `POST /v1/systemone`). Three controls: it is inert until the
   node's OPERATOR sets a provider key (`[rerank] api_key`, or `TYPESAFE_API_KEY`; a

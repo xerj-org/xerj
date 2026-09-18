@@ -43,9 +43,10 @@ comparison needs a `TYPESAFE_API_KEY` and the `rerank` stage, which now exists.
 
 ## Defects this run surfaced
 
-- **Neural indexing is ~3–7 documents/second on CPU.** SciFact (5,183 short abstracts)
-  took about 25 minutes. This is the known figure in `xerj-autoindex/src/infer/mod.rs`,
-  and it is the binding constraint on any "index your mail on a laptop" story.
+- **Neural indexing was ~3–7 documents/second on CPU in this run.** SciFact (5,183
+  short abstracts) took about 25 minutes. That is consistent with the ~3 docs/s figure
+  recorded in `xerj-autoindex/src/infer/mod.rs`, and it is the binding constraint on any
+  "index your mail on a laptop" story.
 - **Hybrid and filtered-semantic queries cost ~220–370 ms p50** on a 5k-document index,
   against ~18 ms for BM25. Most of that is the per-query BERT forward pass on CPU; the
   machine was also compiling during the run, so treat the absolute values as upper

@@ -584,12 +584,16 @@ access_log = false
 # ── Rerank provider ─────────────────────────────────────────
 # `"rerank": {...}` on _search sends the text of the top-N hits to a
 # third-party judge (TypeSafe AI's Jev) and reorders them by the relevance
-# probability that comes back. It is the ONE search feature that sends data off
-# this machine, so it does nothing until a key is supplied here or in the
+# probability that comes back. It is the only SEARCH-TIME feature that sends
+# document text off this node (the other outbound paths, [embedding]
+# default_endpoint and the WAL tap, are operator configuration, inert by
+# default too), so it does nothing until a key is supplied here or in the
 # TYPESAFE_API_KEY environment variable. A value in this file wins over the
 # environment. `enabled = false` refuses every rerank request (403) whatever
 # the environment holds. The key is never echoed: GET /_xerj/rerank (superuser
 # only) reports whether one is set and where it came from, nothing more.
+# `endpoint`, from here or from TYPESAFE_ENDPOINT, must be an absolute
+# http(s):// URL with no user:password@ in it, or the node refuses to start.
 # See docs/RERANK.md.
 #
 # [rerank]

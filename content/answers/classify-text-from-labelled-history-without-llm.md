@@ -1,7 +1,7 @@
 ---
 title: "Can I route or spam-filter text without an LLM call?"
 h1: "Can I route tickets or filter spam from labelled history, without an LLM call?"
-description: "Index your labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing and 0.983 on SMS spam, no model call."
+description: "Index labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam, no LLM or API call."
 slug: "classify-text-from-labelled-history-without-llm"
 cluster: "Decisions as retrieval"
 question: "Can I classify text from labelled history without calling an LLM?"
@@ -36,7 +36,7 @@ faq:
   - q: "How accurate is nearest-neighbour classification on a real dataset?"
     a: "On Banking77, a 77-way intent dataset, XERJ measured 0.819 with BM25 and 0.933 with MiniLM neighbours. On SMS spam it measured 0.983 with BM25 alone. The MiniLM figures need `--embed-mode neural`."
   - q: "Can I trust the confidence value?"
-    a: "In this run, yes. Expected calibration error was 0.012 on Banking77 and 0.009 on SMS spam for the MiniLM arm, so a reported 0.9 was right about nine times in ten."
+    a: "In this run, yes. Expected calibration error was 0.012 on Banking77 and 0.009 on SMS spam for the MiniLM arm: averaged over confidence bins, the reported confidence and the observed accuracy differed by about one point."
   - q: "Does this work with no labelled examples?"
     a: "No. This is not zero-shot. A new category or a new policy has no history to vote from, and that case needs a judge model or a person."
   - q: "Do I need a neural embedder for this?"
@@ -45,7 +45,7 @@ faq:
     a: "No. XERJ did not run any judge model on these datasets and claims nothing about how one would score."
 ---
 
-**TL;DR** — If you already have labelled examples, you can route and filter text with no model call. Index the examples, fetch the 10 nearest for each new item, and vote. Measured: 0.933 accuracy on 77-way intent routing and 0.983 on SMS spam. The 0.933 figure needs `--embed-mode neural`. The spam figure is plain BM25.
+**TL;DR** — If you already have labelled examples, you can route and filter text with no LLM or API call. Index the examples, fetch the 10 nearest for each new item, and vote. Measured: 0.933 accuracy on 77-way intent routing and 0.983 on SMS spam. The 0.933 figure needs `--embed-mode neural`, which runs one local MiniLM embedding per item; the spam figure is plain BM25, with no model of any kind.
 
 ## The method
 
@@ -88,7 +88,7 @@ XERJ's default embedder is lexical feature hashing. It has no model in it. Do no
 
 ## The confidence gate is the point
 
-A calibration error of 0.012 means the reported confidence is usable. When the vote says 0.9, it was right about nine times in ten in this run.
+An expected calibration error of 0.012 means the reported confidence is usable: averaged over confidence bins, the gap between the confidence the vote reported and the accuracy observed at that confidence was about one point in this run.
 
 That makes the confidence a gate. On Banking77, the MiniLM arm decided 86.9% of items at confidence 0.8 or higher, and was right on 0.979 of them. Only the remaining items need a judge model or a person.
 

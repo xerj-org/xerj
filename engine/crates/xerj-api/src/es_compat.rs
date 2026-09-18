@@ -10920,31 +10920,47 @@ async fn search_impl(
         }
     }
 
+    // `rerank` widened the engine's page to `rerank.window`, so the engine's
+    // own `from + size > max_result_window` check would fire on a page size
+    // the caller never sent (they asked for `size: 5`, the stage asked the
+    // engine for 30). Say it in the caller's terms, per index, before the
+    // engine runs — a wildcard search tripped on one small index the same way.
+    if let Some(plan) = &rerank_plan {
+        for ix in &participating_indices {
+            let max_w = index_max_result_window(&state, ix);
+            if plan.window() > max_w {
+                let reason = format!(
+                    "`rerank.window` ({}) exceeds `index.max_result_window` ({max_w}) on \
+                     `{ix}`: the stage judges that many of the engine's top hits, so the \
+                     engine must be able to return them. Lower `rerank.window` or raise \
+                     the index setting",
+                    plan.window()
+                );
+                crate::rerank_stage::record_refused(&state.metrics);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "root_cause": [{
+                                "type": "illegal_argument_exception",
+                                "reason": reason,
+                            }],
+                            "type": "illegal_argument_exception",
+                            "reason": reason,
+                        },
+                        "status": 400,
+                    })),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     // Enforce per-index `index.max_result_window` for `ids` clauses.
     // ES rejects queries whose `ids.values` list is longer than the
     // index's configured max_result_window (default 10000).
     for ix in &participating_indices {
-        let max_w = state
-            .engine
-            .index_settings
-            .get(ix)
-            .map(|v| v.clone())
-            .and_then(|s| {
-                let as_int = |v: &Value| {
-                    v.as_u64()
-                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-                };
-                s.pointer("/index/max_result_window")
-                    .and_then(as_int)
-                    .or_else(|| {
-                        s.get("index")
-                            .and_then(|i| i.get("index.max_result_window"))
-                            .and_then(as_int)
-                    })
-                    .or_else(|| s.get("index.max_result_window").and_then(as_int))
-            })
-            .map(|v| v as usize)
-            .unwrap_or(10_000);
+        let max_w = index_max_result_window(&state, ix);
         fn max_ids_in_json(q: &Value) -> usize {
             match q {
                 Value::Object(obj) => {
@@ -20938,6 +20954,34 @@ pub async fn delete_index_template(
 // DELETE /_search/scroll            — clear scroll
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// An index's `index.max_result_window`, in any of the three spellings a
+/// settings document can carry it (nested `index.max_result_window`, a flat
+/// dotted key under `index`, or a top-level dotted key), defaulting to ES's
+/// 10,000. Shared by the `ids` clause check and the `rerank.window` check.
+fn index_max_result_window(state: &AppState, ix: &str) -> usize {
+    state
+        .engine
+        .index_settings
+        .get(ix)
+        .map(|v| v.clone())
+        .and_then(|s| {
+            let as_int = |v: &Value| {
+                v.as_u64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            };
+            s.pointer("/index/max_result_window")
+                .and_then(as_int)
+                .or_else(|| {
+                    s.get("index")
+                        .and_then(|i| i.get("index.max_result_window"))
+                        .and_then(as_int)
+                })
+                .or_else(|| s.get("index.max_result_window").and_then(as_int))
+        })
+        .map(|v| v as usize)
+        .unwrap_or(10_000)
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct ScrollQueryParams {
     pub scroll: Option<String>,
@@ -21316,6 +21360,13 @@ pub struct ScrollBody {
     pub scroll: Option<String>,
     #[serde(default)]
     pub scroll_id: Option<String>,
+    /// Declared so a continuation body carrying `rerank` is refused rather
+    /// than ignored: serde drops unknown keys, and a scroll continuation
+    /// streams the engine's order, so a caller who added `rerank` here was
+    /// getting lexical order under a 200 — the same accepted-and-ignored
+    /// class the `?scroll=` path already refuses.
+    #[serde(default)]
+    pub rerank: Option<Value>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -21335,6 +21386,13 @@ pub async fn next_scroll(
 ) -> impl IntoResponse {
     // scroll_id may come from body OR query param
     let body = body.into_or_default();
+    if body.rerank.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(crate::rerank_stage::unsupported_on("_search/scroll")),
+        )
+            .into_response();
+    }
     let scroll_id = match body.scroll_id.clone().or_else(|| params.scroll_id.clone()) {
         Some(id) if !id.is_empty() => id,
         _ => {
@@ -23856,7 +23914,7 @@ async fn msearch_impl(
         // renderer. `parse_request` ignores keys it does not know, so without
         // this the item came back 200 in the engine's order — refused per item
         // instead, and the rest of the batch still runs.
-        if search_body_val.get("rerank").is_some() {
+        if crate::rerank_stage::carries_rerank(&search_body_val) {
             responses.push(crate::rerank_stage::unsupported_on("_msearch"));
             continue;
         }
@@ -31880,7 +31938,7 @@ pub async fn search_template(
 
     // A template that renders a `rerank` block: this minimal path does not run
     // the stage, and `parse_request` would drop the key without a word.
-    if search_body_val.get("rerank").is_some() {
+    if crate::rerank_stage::carries_rerank(&search_body_val) {
         return (
             StatusCode::BAD_REQUEST,
             Json(crate::rerank_stage::unsupported_on("_search/template")),
@@ -32075,7 +32133,7 @@ async fn msearch_template_impl(
 
         // Same refusal as `_msearch` and `_search/template`: the rendered body
         // carries a `rerank` block this path would silently drop.
-        if search_body_val.get("rerank").is_some() {
+        if crate::rerank_stage::carries_rerank(&search_body_val) {
             responses.push(crate::rerank_stage::unsupported_on("_msearch/template"));
             continue;
         }

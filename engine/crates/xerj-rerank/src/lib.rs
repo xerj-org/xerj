@@ -223,7 +223,7 @@ pub enum RerankOutcome {
         /// caller should know the window was not fully covered.
         partial_failures: usize,
         /// Tokens the provider billed for, summed over every batch that
-        /// answered. Reranking is the one paid call in a search, so the caller
+        /// answered. Reranking is a paid call inside a search, so the caller
         /// gets the meter reading rather than having to infer it.
         usage: Usage,
     },
@@ -256,10 +256,16 @@ pub struct Candidate {
 }
 
 /// A relevance probability for one candidate, in `0.0..=1.0`.
+///
+/// Carried as `f64` end to end. The provider answers a JSON number, the hit's
+/// `_score` is an `f64` on the wire, and a threshold the caller wrote as `0.9`
+/// has to compare equal to the `0.9` the response prints: an `f32` in the
+/// middle turned that into `0.8999999761581421` and made a client-side
+/// `_score >= 0.9` disagree with the server's own `rerank.min_score`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Scored {
     pub ordinal: usize,
-    pub score: f32,
+    pub score: f64,
 }
 
 /// Parsed `rerank` block from a search body.
@@ -273,7 +279,7 @@ pub struct RerankConfig {
     /// Documents per provider call, capped at [`JEV_MAX_DOCS_PER_CALL`].
     pub batch: usize,
     /// Drop candidates scoring below this. `None` keeps all and only reorders.
-    pub min_score: Option<f32>,
+    pub min_score: Option<f64>,
     pub max_concurrency: usize,
     pub max_doc_chars: usize,
     pub timeout: Duration,
@@ -395,7 +401,7 @@ impl RerankConfig {
                     "`rerank.min_score` must be between 0 and 1 — it is a probability".into(),
                 ));
             }
-            cfg.min_score = Some(t as f32);
+            cfg.min_score = Some(t);
         }
         if let Some(c) = obj.get("max_concurrency") {
             let c = c.as_u64().ok_or_else(|| {
@@ -599,10 +605,37 @@ pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage),
         // caller's `min_score` contract (0..=1) must keep meaning something.
         out.push(Scored {
             ordinal,
-            score: (noul as f32).clamp(0.0, 1.0),
+            score: noul.clamp(0.0, 1.0),
         });
     }
     Ok((out, usage))
+}
+
+/// Keep only the verdicts for documents that were in `batch`.
+///
+/// The provider is a third party, and a call is answered per batch: an answer
+/// keyed to a document another batch sent, or to a key nobody sent, is not a
+/// verdict on anything this call asked about. Without this filter a provider
+/// that echoed `d0..d59` on every call scored a 30-document window as 90
+/// judged documents — three verdicts per hit, the last one winning, and the
+/// operator's billing meter (`judged`) tripled. One verdict per ordinal per
+/// batch, in the batch's own order, so `judged` counts documents rather than
+/// answers.
+fn keep_verdicts_for(batch: &[Candidate], scores: Vec<Scored>) -> Vec<Scored> {
+    let mut by_ordinal: std::collections::HashMap<usize, f64> =
+        std::collections::HashMap::with_capacity(scores.len());
+    for s in scores {
+        by_ordinal.insert(s.ordinal, s.score);
+    }
+    batch
+        .iter()
+        .filter_map(|c| {
+            by_ordinal.get(&c.ordinal).map(|&score| Scored {
+                ordinal: c.ordinal,
+                score,
+            })
+        })
+        .collect()
 }
 
 /// Reorder `candidates` by provider score.
@@ -613,9 +646,9 @@ pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage),
 pub fn apply_scores(
     candidates: &[Candidate],
     scores: &[Scored],
-    min_score: Option<f32>,
+    min_score: Option<f64>,
 ) -> Vec<Scored> {
-    let mut by_ordinal: std::collections::HashMap<usize, f32> =
+    let mut by_ordinal: std::collections::HashMap<usize, f64> =
         std::collections::HashMap::with_capacity(scores.len());
     for s in scores {
         by_ordinal.insert(s.ordinal, s.score);
@@ -638,7 +671,7 @@ pub fn apply_scores(
             // preserving their engine order via the stable sort below.
             scored.push(Scored {
                 ordinal: cand.ordinal,
-                score: -1.0 - (rank as f32),
+                score: -1.0 - (rank as f64),
             });
         }
     }
@@ -1021,7 +1054,8 @@ impl JevProvider {
                 body: redact_key(clip(&text, 400), &self.api_key),
             });
         }
-        parse_jev_response_with_usage(&text)
+        let (scores, usage) = parse_jev_response_with_usage(&text)?;
+        Ok((keep_verdicts_for(batch, scores), usage))
     }
 
     pub async fn rerank(
@@ -1049,10 +1083,12 @@ impl JevProvider {
 
         // Bounded waves rather than unbounded fan-out: the provider rate-limits,
         // and a search that trips a 429 is slower than one that paced itself.
+        let mut dispatched = 0usize;
         for wave in batches.chunks(cfg.max_concurrency.max(1)) {
             if deadline.exceeded() {
                 break;
             }
+            dispatched += wave.len();
             let mut set = tokio::task::JoinSet::new();
             for batch in wave {
                 let this = self.clone_for_task();
@@ -1085,6 +1121,13 @@ impl JevProvider {
                 }
             }
         }
+
+        // A batch the deadline stopped from ever being sent left its documents
+        // exactly as unjudged as a batch that failed. Counting it makes the
+        // block auditable: `judged` plus `partial_failures` batches accounts
+        // for the whole window, instead of a window of 36 with 10 judged and
+        // one failure and 16 documents unexplained.
+        partial_failures += batches.len() - dispatched;
 
         // Nothing came back at all. Report why rather than silently handing back
         // the engine's order as if it had been reranked.
@@ -1267,6 +1310,82 @@ mod tests {
             out.iter().map(|s| s.ordinal).collect::<Vec<_>>(),
             vec![0, 1, 2]
         );
+    }
+
+    /// A provider that answers for documents this batch never sent — another
+    /// batch's keys, or keys nobody sent — must not score them here, and must
+    /// not count them. `judged` is the operator's billing meter.
+    #[test]
+    fn verdicts_are_kept_per_batch_one_per_document() {
+        let batch = cands(3); // ordinals 0, 1, 2
+        let answers = vec![
+            Scored {
+                ordinal: 2,
+                score: 0.2,
+            },
+            Scored {
+                ordinal: 0,
+                score: 0.9,
+            },
+            // Another batch's documents, echoed back.
+            Scored {
+                ordinal: 7,
+                score: 0.99,
+            },
+            Scored {
+                ordinal: 30,
+                score: 0.99,
+            },
+            // A key nobody sent.
+            Scored {
+                ordinal: 999,
+                score: 0.99,
+            },
+        ];
+        let kept = keep_verdicts_for(&batch, answers);
+        assert_eq!(kept.len(), 2, "{kept:?}");
+        assert_eq!(
+            kept[0],
+            Scored {
+                ordinal: 0,
+                score: 0.9
+            }
+        );
+        assert_eq!(
+            kept[1],
+            Scored {
+                ordinal: 2,
+                score: 0.2
+            }
+        );
+
+        // Only unknown keys: nothing was judged, and the caller must not be
+        // told the order is the judge's.
+        let none = keep_verdicts_for(
+            &batch,
+            vec![Scored {
+                ordinal: 999,
+                score: 0.99,
+            }],
+        );
+        assert!(none.is_empty(), "{none:?}");
+    }
+
+    /// The probability the provider sent is the probability the caller gets,
+    /// to the digit: `0.9` in, `0.9` out — not `0.8999999761581421`.
+    #[test]
+    fn probabilities_keep_double_precision() {
+        let body =
+            r#"{"answers":{"d0":{"type":"noul","noul":0.9},"d1":{"type":"noul","noul":0.6}}}"#;
+        let scores = parse_jev_response(body).unwrap();
+        let of = |o: usize| scores.iter().find(|s| s.ordinal == o).unwrap().score;
+        assert_eq!(of(0), 0.9);
+        assert_eq!(of(1), 0.6);
+        assert_eq!(format!("{}", of(0)), "0.9");
+        // The threshold a caller writes is compared without a narrowing step.
+        let kept = apply_scores(&cands(2), &scores, Some(0.9));
+        assert_eq!(kept.len(), 1, "{kept:?}");
+        assert_eq!(kept[0].ordinal, 0);
     }
 
     #[test]

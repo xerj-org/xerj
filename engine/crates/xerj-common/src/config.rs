@@ -2127,9 +2127,12 @@ impl Default for SearchContextConfig {
 ///
 /// **3 settings.**
 ///
-/// Reranking is the one search feature that sends data off this machine: the
-/// text of the top-N hits is POSTed to a third-party judge. It therefore does
-/// nothing until an operator supplies a key, and it can be forbidden outright.
+/// Reranking is the only search-time feature that sends document text off
+/// this node: the text of the top-N hits is POSTed to a third-party judge.
+/// (The other outbound paths — `[embedding] default_endpoint` and the WAL tap
+/// — are operator configuration, not something a search request triggers.)
+/// It therefore does nothing until an operator supplies a key, and it can be
+/// forbidden outright.
 ///
 /// The key can come from here or from the `TYPESAFE_API_KEY` environment
 /// variable; the endpoint from here or `TYPESAFE_ENDPOINT`. **An explicit value
@@ -2138,6 +2141,13 @@ impl Default for SearchContextConfig {
 /// silently re-point where document text goes. The resolution itself lives in
 /// `xerj_rerank::ProviderSettings::resolve`, which is a pure function so it can
 /// be tested without touching process-wide environment state.
+///
+/// The endpoint is validated wherever it came from: the config value in
+/// [`Config::validate`], the environment value in [`Self::check_environment`]
+/// at boot. The first draft validated only the file, so
+/// `TYPESAFE_ENDPOINT=http://user:pw@host/…` started a node whose docs said it
+/// would refuse — and `reqwest` would have sent that userinfo as Basic auth
+/// beside the bearer key.
 ///
 /// There is deliberately no per-request key. A key in a search body would land
 /// in slow-query logs, audit trails and client-side request dumps.
@@ -2187,6 +2197,39 @@ impl std::fmt::Debug for RerankProviderConfig {
 }
 
 impl RerankProviderConfig {
+    /// The environment variable the endpoint falls back to when the config
+    /// field is empty. Mirrors `xerj_rerank::JevProvider::ENV_ENDPOINT`; this
+    /// crate does not link `xerj-rerank`, and the two are pinned equal by a
+    /// test in `xerj-api`, which links both.
+    pub const ENV_ENDPOINT: &'static str = "TYPESAFE_ENDPOINT";
+
+    /// The endpoint the node will actually use, given the config field and the
+    /// environment fallback — the same precedence `ProviderSettings::resolve`
+    /// applies — checked by [`Self::check_endpoint`], with the failure naming
+    /// where the bad value came from. Pure, so it is testable without
+    /// mutating the process environment.
+    pub fn check_resolved_endpoint(
+        config_endpoint: &str,
+        env_endpoint: Option<&str>,
+    ) -> Result<(), String> {
+        if !config_endpoint.trim().is_empty() {
+            return Self::check_endpoint(config_endpoint);
+        }
+        match env_endpoint {
+            Some(v) if !v.trim().is_empty() => Self::check_endpoint(v)
+                .map_err(|reason| format!("{}: {reason}", Self::ENV_ENDPOINT)),
+            _ => Ok(()),
+        }
+    }
+
+    /// Boot-time check of the environment fallback. Separate from
+    /// [`Config::validate`], which must stay a pure function of the file so
+    /// config tests do not depend on the developer's shell.
+    pub fn check_environment(&self) -> Result<(), String> {
+        let env = std::env::var(Self::ENV_ENDPOINT).ok();
+        Self::check_resolved_endpoint(&self.endpoint, env.as_deref())
+    }
+
     /// An absolute `http(s)://` URL with no userinfo, or empty.
     ///
     /// Userinfo is refused for the reason `wal_tap.target_url` refuses it:
@@ -2227,6 +2270,26 @@ impl RerankProviderConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The documented refusal applies to the value the node will USE, from
+    /// whichever place it came. Config wins, so a good config value shadows
+    /// a bad environment one; with no config value the environment is checked.
+    #[test]
+    fn rerank_endpoint_is_checked_from_the_environment_too() {
+        let bad = "http://user:pw@127.0.0.1:9/v1/systemone";
+        let good = "https://api.typesafe.ai/v1/systemone";
+        let err = RerankProviderConfig::check_resolved_endpoint("", Some(bad)).unwrap_err();
+        assert!(err.starts_with("TYPESAFE_ENDPOINT: "), "{err}");
+        assert!(err.contains("must not carry credentials"), "{err}");
+        assert!(RerankProviderConfig::check_resolved_endpoint("", Some("ftp://x")).is_err());
+        assert!(RerankProviderConfig::check_resolved_endpoint("", Some(good)).is_ok());
+        assert!(RerankProviderConfig::check_resolved_endpoint("", Some("  ")).is_ok());
+        assert!(RerankProviderConfig::check_resolved_endpoint("", None).is_ok());
+        // The config value is in force, so the environment value is not used
+        // and not judged.
+        assert!(RerankProviderConfig::check_resolved_endpoint(good, Some(bad)).is_ok());
+        assert!(RerankProviderConfig::check_resolved_endpoint(bad, Some(good)).is_err());
+    }
 
     #[test]
     fn default_config_is_valid() {

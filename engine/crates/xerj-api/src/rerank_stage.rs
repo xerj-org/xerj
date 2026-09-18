@@ -21,11 +21,13 @@
 //! Candidate text is read from the hit as the response will carry it — the
 //! projected `_source`, then the hit's `fields`. Nothing the response does not
 //! return is sent to the provider. That is a privacy property as much as a
-//! design one: reranking is the one search feature that sends data off the
-//! machine, and "exactly what you were about to receive, no more" is a rule a
-//! caller can audit. The cost is that `_source` filtering which removes the
-//! text also removes it from the judge, so that combination is refused by name
-//! instead of being judged blind.
+//! design one: reranking is the only search-time feature that sends document
+//! text off the node (the other two outbound paths, `[embedding]
+//! default_endpoint` and the WAL tap, are operator configuration, not
+//! something a search request can trigger), and "exactly what you were about
+//! to receive, no more" is a rule a caller can audit. The cost is that
+//! `_source` filtering which removes the text also removes it from the judge,
+//! so that combination is refused by name instead of being judged blind.
 //!
 //! Two rules follow from treating this as an egress control rather than a
 //! convenience. `rerank.fields` is EXHAUSTIVE: naming `["body"]` sends the body
@@ -40,10 +42,24 @@
 //! caller has already said how results are ordered; paging past the window
 //! means pages would be cut from two different orderings. Both are a 400 rather
 //! than quietly honoured in a way that misleads. Surfaces that do not run the
-//! stage at all (`_msearch`, search templates, `_async_search`, scroll, the
-//! native `/v1` search API and the gRPC Search RPC) refuse a body carrying
-//! `rerank` for the same reason: dropping the key silently returns lexical
-//! order to a caller who asked for something else.
+//! stage at all (`_msearch`, search templates, `_async_search`, scroll and its
+//! `_search/scroll` continuation, the native `/v1` search API and the gRPC
+//! Search RPC) refuse a body carrying `rerank` for the same reason: dropping
+//! the key silently returns lexical order to a caller who asked for something
+//! else. `"rerank": null` is the same as no `rerank` key on every surface.
+//!
+//! # One kind of `_score` per response
+//!
+//! When the stage applies, `_score` is a probability on every hit that has
+//! one and `null` on every hit that does not — a hit the provider returned no
+//! verdict for, or one that was skipped as blank. The engine's BM25 value is
+//! never left in `_score` next to probabilities: a client that sorts by
+//! `_score` or scales by `hits.max_score` (Kibana's score bars, the
+//! elasticsearch-py helpers) cannot tell a `1.63` BM25 from a `0.9`
+//! probability, and `max_score` would be smaller than a later hit's score.
+//! `null` is what Elasticsearch itself puts in `_score` when a hit has no
+//! comparable score (a field sort without `track_scores`), so every client
+//! already handles it. The count is reported as `_rerank.unjudged`.
 
 use axum::extract::State;
 use axum::Json;
@@ -236,16 +252,30 @@ impl RerankPlan {
             return Err("`rerank` cannot be combined with `collapse`".into());
         }
         // `_source: false` on its own returns no text, so there is certainly
-        // nothing to judge and the search need not run. Beside a `fields`
-        // clause it is a coherent request — "do not return the source, return
-        // `body` through `fields`, judge on that" — and is let through to the
-        // post-render check in `apply`, which looks at what actually came back.
-        let asks_for_fields = matches!(&body.fields, Some(Value::Array(a)) if !a.is_empty());
+        // nothing to judge and the search need not run. Beside a clause that
+        // puts values on the hit — `fields`, `docvalue_fields`,
+        // `stored_fields`, `script_fields` — it is a coherent request ("do not
+        // return the source, return `body` through `fields`, judge on that")
+        // and is let through to the post-render check in `apply`, which looks
+        // at what actually came back. The first draft gated on `fields` alone
+        // and refused `_source: false` + `docvalue_fields` with a message that
+        // named `fields` as the only way, contradicting the comment below.
+        let non_empty = |v: &Option<Value>| match v {
+            Some(Value::Array(a)) => !a.is_empty(),
+            Some(Value::Object(o)) => !o.is_empty(),
+            Some(Value::String(s)) => !s.trim().is_empty(),
+            _ => false,
+        };
+        let asks_for_fields = non_empty(&body.fields)
+            || non_empty(&body.docvalue_fields)
+            || non_empty(&body.stored_fields)
+            || non_empty(&body.script_fields);
         if matches!(body.source, Some(Value::Bool(false))) && !asks_for_fields {
             return Err(
-                "`rerank` needs document text: `_source: false` with no `fields` clause \
-                 leaves nothing to judge. Return the text through `fields`, or use \
-                 `rerank.fields` to limit what is sent instead"
+                "`rerank` needs document text: `_source: false` with no `fields` (or \
+                 `docvalue_fields`, `stored_fields`, `script_fields`) clause leaves nothing \
+                 to judge. Return the text through `fields`, or use `rerank.fields` to \
+                 limit what is sent instead"
                     .into(),
             );
         }
@@ -324,6 +354,16 @@ impl RerankPlan {
     /// them (response hints, `terminated_early`), once the engine has run.
     pub fn requested_page(&self) -> (usize, usize) {
         (self.from, self.requested_size)
+    }
+
+    /// How many of the engine's top hits the stage asked for. The search
+    /// handler checks it against each participating index's
+    /// `index.max_result_window` before the engine runs, so the caller hears
+    /// "`rerank.window` (30) exceeds `index.max_result_window` (20)" rather
+    /// than the engine's `from + size > max_result_window` about a page size
+    /// they never sent.
+    pub fn window(&self) -> usize {
+        self.cfg.window
     }
 
     /// The prose a hit returns under one field name: `_source` first, then the
@@ -488,13 +528,36 @@ impl RerankPlan {
                 // The provider is a third party: an answer keyed to a hit that
                 // was skipped as blank, or to a key nobody sent, would otherwise
                 // score a document the judge never saw and inflate `judged` —
-                // which is the operator's billing meter.
+                // which is the operator's billing meter. The provider crate
+                // already keeps one verdict per document per batch; this is
+                // the same rule applied to whatever `Provider` arm answered.
                 let sent: std::collections::HashSet<usize> =
                     sendable.iter().map(|c| c.ordinal).collect();
+                let mut seen = std::collections::HashSet::with_capacity(scores.len());
                 let scores: Vec<xerj_rerank::Scored> = scores
                     .into_iter()
-                    .filter(|s| sent.contains(&s.ordinal))
+                    .filter(|s| sent.contains(&s.ordinal) && seen.insert(s.ordinal))
                     .collect();
+                // Documents were sent and not one came back with a verdict:
+                // the provider answered, but not about anything it was asked.
+                // That is the engine's order, and the caller must be told so —
+                // `applied: true` over untouched BM25 scores was the silent
+                // fake this stage exists to avoid, and it counted as "applied"
+                // on the operator's meter.
+                if !sendable.is_empty() && scores.is_empty() {
+                    let reason = "provider returned no verdict for any document that was sent";
+                    tracing::warn!(reason, "rerank degraded; engine order kept");
+                    return self.finish(
+                        started,
+                        hits,
+                        json!({
+                            "applied": false,
+                            "reason": reason,
+                            "provider": self.cfg.provider,
+                            "score_kind": "engine",
+                        }),
+                    );
+                }
                 let ordered = xerj_rerank::apply_scores(&all, &scores, self.cfg.min_score);
                 let judged = scores.len();
                 let below_min = match self.cfg.min_score {
@@ -503,12 +566,12 @@ impl RerankPlan {
                 };
                 let mut slots: Vec<Option<EsHit>> = hits.drain(..).map(Some).collect();
                 let mut out = Vec::with_capacity(slots.len());
+                let mut unjudged = 0usize;
                 for s in &ordered {
                     if let Some(mut h) = slots.get_mut(s.ordinal).and_then(Option::take) {
-                        // Unjudged hits carry a negative sort key internally;
-                        // they keep the engine's score rather than exposing it.
+                        // Unjudged hits carry a negative sort key internally.
                         if s.score >= 0.0 {
-                            let p = f64::from(s.score);
+                            let p = s.score;
                             // `explain` described the engine's score. Keep it,
                             // under a node that says where `_score` now comes
                             // from — an `_explanation.value` that disagrees
@@ -525,21 +588,47 @@ impl RerankPlan {
                                 }));
                             }
                             h.score = Some(p);
+                        } else {
+                            // No verdict. `_score` is `null`, never the engine's
+                            // BM25 value beside probabilities (see the module
+                            // doc). The explanation, if any, still describes
+                            // the engine score, and says so.
+                            unjudged += 1;
+                            if let Some(engine) = h.explanation.take() {
+                                let engine_value = engine.get("value").cloned();
+                                h.explanation = Some(json!({
+                                    "value": engine_value,
+                                    "description": format!(
+                                        "rerank: no verdict from provider `{}` for this hit; \
+                                         `_score` is null and the engine score is explained below",
+                                        self.cfg.provider
+                                    ),
+                                    "details": [engine],
+                                }));
+                            }
+                            h.score = None;
                         }
                         out.push(h);
                     }
                 }
                 // Past the window nothing was judged. With a threshold those
                 // hits cannot be shown to clear it, so they are dropped; with
-                // none they follow in the engine's order.
+                // none they follow in the engine's order, also with no score.
                 if self.cfg.min_score.is_none() {
-                    out.extend(slots.into_iter().skip(window).flatten());
+                    for mut h in slots.into_iter().skip(window).flatten() {
+                        h.score = None;
+                        unjudged += 1;
+                        out.push(h);
+                    }
                 }
                 let dropped_unjudged = match self.cfg.min_score {
                     Some(_) => window.saturating_sub(judged),
                     None => 0,
                 };
                 *hits = out;
+                // Judged hits sort first and their probabilities descend, so
+                // the first hit's score is the maximum of every `_score` on the
+                // page — the invariant `max_score` is for.
                 *max_score = hits.first().and_then(|h| h.score);
                 json!({
                     "applied": true,
@@ -548,6 +637,7 @@ impl RerankPlan {
                     "score_kind": "probability",
                     "window": window,
                     "judged": judged,
+                    "unjudged": unjudged,
                     "skipped_no_text": skipped_no_text,
                     "pruned_below_min_score": below_min,
                     "dropped_unjudged": dropped_unjudged,
@@ -565,6 +655,19 @@ impl RerankPlan {
             if !fields_without_text.is_empty() && obj.get("applied") == Some(&json!(true)) {
                 obj.insert("fields_without_text".into(), json!(fields_without_text));
             }
+        }
+        self.finish(started, hits, info)
+    }
+
+    /// Stamp the fields every `_rerank` block carries and cut the widened
+    /// window back to the page the caller asked for.
+    fn finish(
+        &self,
+        started: Instant,
+        hits: &mut Vec<EsHit>,
+        mut info: Value,
+    ) -> Result<Value, RerankError> {
+        if let Some(obj) = info.as_object_mut() {
             // The question that was judged — inferred or given. A caller who
             // let it be inferred should be able to see what was inferred.
             obj.insert("query".into(), json!(self.query));
@@ -573,7 +676,6 @@ impl RerankPlan {
                 json!(started.elapsed().as_millis() as u64),
             );
         }
-
         // The page was widened to the window; cut it back to what was asked.
         let page: Vec<EsHit> = std::mem::take(hits)
             .into_iter()
@@ -583,6 +685,16 @@ impl RerankPlan {
         *hits = page;
         Ok(info)
     }
+}
+
+/// Whether a raw search body carries a `rerank` block that means something.
+///
+/// `"rerank": null` is treated as absent everywhere: `EsSearchBody.rerank` is
+/// an `Option<Value>` and serde reads `null` as `None`, so `_search` already
+/// ignored it, while the surfaces that inspect the raw JSON (`_msearch`, the
+/// templates, `_async_search`) saw a present key and refused. One rule.
+pub fn carries_rerank(body: &Value) -> bool {
+    body.get("rerank").is_some_and(|r| !r.is_null())
 }
 
 /// Count a request the stage refused before the search ran (`prepare` said no).
@@ -719,8 +831,14 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
             "max_timeout_ms": xerj_rerank::MAX_TIMEOUT_MS,
         },
         "data_egress": "A search that carries a `rerank` block sends the text of up to \
-                        `window` hits, and the query, to the endpoint above. No other \
-                        request sends document text anywhere.",
+                        `window` hits, and the query, to the endpoint above. It is the \
+                        only search-time feature that sends document text off the node. \
+                        Two other outbound paths exist and are operator configuration, \
+                        inert by default: `[embedding] default_endpoint` (`--embed-mode \
+                        proxy`) sends document text at ingest and query text at search \
+                        time to an external embeddings API, and the WAL tap \
+                        (`PUT /_xerj/wal_tap`) replays every write on tapped indices to \
+                        an external `_bulk` endpoint.",
     })
 }
 
@@ -832,6 +950,16 @@ mod tests {
         assert_eq!(lookup(obj, "a.b"), Some(&json!("literal")));
         assert_eq!(lookup(obj, "a.c.d"), Some(&json!("deep")));
         assert_eq!(lookup(obj, "a.x"), None);
+    }
+
+    /// `xerj-common` validates the environment endpoint at boot and cannot
+    /// link `xerj-rerank`, so it carries its own copy of the variable name.
+    #[test]
+    fn the_env_endpoint_variable_name_is_the_same_in_both_crates() {
+        assert_eq!(
+            xerj_common::config::RerankProviderConfig::ENV_ENDPOINT,
+            xerj_rerank::JevProvider::ENV_ENDPOINT
+        );
     }
 
     #[test]

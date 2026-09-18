@@ -65,6 +65,14 @@ enum Fault {
     /// Answer correctly, and ALSO return a 0.99 verdict for `d0`..`d9` whether
     /// or not those documents were sent — a provider that misbehaves.
     AnswerUnsent,
+    /// Answer every other document in each call and stay silent on the rest.
+    Partial,
+    /// Answer ONLY for keys nobody sent (`d999`, `x`): a provider that parses
+    /// but says nothing about the documents it was asked about.
+    WrongKeys,
+    /// Answer correctly, and ALSO echo a 0.5 verdict for `d0`..`d59` on every
+    /// call — a provider that leaks other batches' keys back.
+    EchoOtherBatches,
 }
 
 #[derive(Clone)]
@@ -183,8 +191,21 @@ async fn systemone(
     let query = words(parsed["state"]["query"].as_str().unwrap_or_default());
     let verdicts = stub.verdicts.lock().unwrap().clone();
     let mut answers = serde_json::Map::new();
+    if matches!(fault, Fault::WrongKeys) {
+        answers.insert("d999".into(), json!({"type": "noul", "noul": 0.9}));
+        answers.insert("x".into(), json!({"type": "noul", "noul": 0.9}));
+        return axum::Json(json!({
+            "model": parsed["model"],
+            "answers": answers,
+            "usage": {"input_tokens": 100, "output_tokens": 10},
+        }))
+        .into_response();
+    }
     if let Some(docs) = parsed["state"]["documents"].as_object() {
-        for (key, doc) in docs {
+        for (i, (key, doc)) in docs.iter().enumerate() {
+            if matches!(fault, Fault::Partial) && i % 2 == 1 {
+                continue;
+            }
             let title = doc["title"].as_str().unwrap_or_default();
             let text = doc["text"].as_str().unwrap_or_default();
             let p = match &verdicts {
@@ -202,6 +223,13 @@ async fn systemone(
             answers
                 .entry(format!("d{i}"))
                 .or_insert_with(|| json!({"type": "noul", "noul": 0.99}));
+        }
+    }
+    if matches!(fault, Fault::EchoOtherBatches) {
+        for i in 0..60 {
+            answers
+                .entry(format!("d{i}"))
+                .or_insert_with(|| json!({"type": "noul", "noul": 0.5}));
         }
     }
     axum::Json(json!({
@@ -474,9 +502,10 @@ async fn scores_are_probabilities_and_max_score_tracks_the_top_hit() {
         .iter()
         .map(|h| h["_score"].as_f64().unwrap())
         .collect();
-    for (got, want) in scores.iter().zip([0.9, 0.7, 0.3, 0.1]) {
-        assert!((got - want).abs() < 1e-6, "{scores:?}");
-    }
+    // To the digit: the provider said 0.9 and the wire says 0.9, not the
+    // 0.8999999761581421 an f32 in the middle produced. A caller who re-applies
+    // a threshold client-side must agree with `rerank.min_score`.
+    assert_eq!(scores, vec![0.9, 0.7, 0.3, 0.1]);
     assert_eq!(r["hits"]["max_score"].as_f64(), Some(scores[0]));
 }
 
@@ -1414,9 +1443,12 @@ async fn hits_with_no_prose_are_skipped_not_sent_blank() {
             .len(),
         4
     );
-    // Unjudged is not a verdict of irrelevant: it sorts after the judged hits
-    // and keeps the engine's score.
+    // Unjudged is not a verdict of irrelevant: it sorts after the judged hits.
+    // Its `_score` is null — never the engine's BM25 value beside
+    // probabilities — and the block counts it.
     assert_eq!(ids(&r).last().map(String::as_str), Some("9"), "{r}");
+    assert!(r["hits"]["hits"][4]["_score"].is_null(), "{r}");
+    assert_eq!(r["_rerank"]["unjudged"], 1, "{r}");
 
     // With a threshold it cannot be shown to clear the bar, so it goes — and
     // the response says that is why.
@@ -1988,18 +2020,19 @@ async fn text_returned_through_docvalue_fields_is_judgeable() {
             }),
         )
         .await;
-    // Either the engine returned `cat` and it was judged, or it did not and
-    // the request was refused as nothing to judge. Never a blind judgement,
-    // and never a pre-flight refusal claiming `fields` was the only way.
-    if st == StatusCode::OK {
-        assert_eq!(r["_rerank"]["applied"], true, "{r}");
-        let sent = stub.everything_sent();
-        assert!(sent.contains("trial"), "{sent}");
-    } else {
-        assert_eq!(st, StatusCode::BAD_REQUEST, "{r}");
-        assert!(reason(&r).contains("nothing to judge"), "{r}");
-        assert!(stub.calls().is_empty());
-    }
+    // The engine returns `cat` under `fields`, so it is judged — on exactly the
+    // text that came back. The first draft of `prepare` gated on `fields`
+    // alone and refused this pre-flight, with a message naming `fields` as the
+    // only way; this test accepted that refusal and so passed vacuously.
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(r["_rerank"]["judged"], 4, "{r}");
+    let sent = stub.everything_sent();
+    assert!(sent.contains("trial"), "{sent}");
+    assert!(
+        !sent.contains("supplementation"),
+        "`_source: false` returned no body, so no body was sent: {sent}"
+    );
 }
 
 /// The provider is a third party. A verdict it returns for a document XERJ
@@ -2014,20 +2047,6 @@ async fn a_verdict_for_a_document_that_was_never_sent_is_ignored() {
     let (st, b) = node.call("PUT", "/kb/_doc/9", json!({"n": 9})).await;
     assert!(st.is_success(), "{b}");
     node.call("POST", "/kb/_refresh", json!({})).await;
-
-    let (_, plain) = node
-        .search(
-            "/kb/_search",
-            json!({"query": {"match_all": {}}, "size": 5}),
-        )
-        .await;
-    let engine_score_of_9 = plain["hits"]["hits"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|h| h["_id"] == "9")
-        .map(|h| h["_score"].clone())
-        .expect("doc 9 matches match_all");
 
     let (st, r) = node
         .search(
@@ -2048,11 +2067,12 @@ async fn a_verdict_for_a_document_that_was_never_sent_is_ignored() {
         .find(|h| h["_id"] == "9")
         .expect("unjudged, not dropped")
         .clone();
-    assert_eq!(
-        nine["_score"], engine_score_of_9,
+    assert!(
+        nine["_score"].is_null(),
         "doc 9 was never sent, so the stub's 0.99 for it is not its score: {r}"
     );
     assert_eq!(ids(&r).last().map(String::as_str), Some("9"), "{r}");
+    assert_eq!(r["_rerank"]["unjudged"], 1, "{r}");
 }
 
 /// `fields: ["_passage"]` returns the matching slice of a document. It is an
@@ -2216,5 +2236,428 @@ async fn a_provider_error_that_echoes_the_key_never_reaches_the_caller() {
     assert!(
         text.contains("401"),
         "the status still gets through: {text}"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Review remediation (PR #946): provider answers that are partial, wrong or
+//    duplicated must never produce a response that contradicts itself.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Twelve documents with distinct titles and one common body term, so the
+/// engine returns all of them and the judge can tell them apart.
+async fn seed_dozen(node: &Node) {
+    let docs: Vec<(String, String)> = (0..12)
+        .map(|i| (format!("{i}"), format!("doc number {i}")))
+        .collect();
+    let seeded: Vec<(&str, &str, &str, &str, i64)> = docs
+        .iter()
+        .map(|(id, title)| (id.as_str(), title.as_str(), "common term here", "c", 1))
+        .collect();
+    node.seed("dozen", &seeded).await;
+}
+
+fn scores_of(r: &Value) -> Vec<Option<f64>> {
+    r["hits"]["hits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|h| h["_score"].as_f64())
+        .collect()
+}
+
+/// The provider answers half the window. The response must still be one a
+/// client can read without contradiction: every `_score` is a probability or
+/// `null`, never the engine's BM25 next to probabilities; `max_score` is the
+/// maximum of every score on the page; scores descend; unjudged hits are
+/// counted and sort last.
+#[tokio::test]
+async fn a_partial_verdict_set_keeps_score_single_kind_on_the_wire() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::Partial);
+    stub.by_title(&[
+        ("doc number 0", 0.9),
+        ("doc number 1", 0.8),
+        ("doc number 2", 0.7),
+        ("doc number 3", 0.6),
+        ("doc number 4", 0.5),
+        ("doc number 5", 0.4),
+        ("doc number 6", 0.3),
+        ("doc number 7", 0.2),
+        ("doc number 8", 0.1),
+    ]);
+    let node = node(&stub).await;
+    seed_dozen(&node).await;
+
+    let (st, r) = node
+        .search(
+            "/dozen/_search",
+            json!({"query": {"match": {"body": "common"}}, "size": 12, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    let rr = &r["_rerank"];
+    assert_eq!(rr["applied"], true, "{rr}");
+    assert_eq!(rr["score_kind"], "probability", "{rr}");
+    assert_eq!(rr["window"], 12, "{rr}");
+    assert_eq!(rr["judged"], 6, "{rr}");
+    assert_eq!(rr["unjudged"], 6, "{rr}");
+    assert_eq!(rr["skipped_no_text"], 0, "{rr}");
+
+    let scores = scores_of(&r);
+    assert_eq!(scores.len(), 12, "{r}");
+    let judged: Vec<f64> = scores.iter().flatten().copied().collect();
+    assert_eq!(judged.len(), 6, "six probabilities, six nulls: {scores:?}");
+    assert!(
+        scores[..6].iter().all(Option::is_some) && scores[6..].iter().all(Option::is_none),
+        "judged hits first, unjudged after, nothing interleaved: {scores:?}"
+    );
+    for p in &judged {
+        assert!(
+            (0.0..=1.0).contains(p),
+            "a BM25 value leaked into _score: {scores:?}"
+        );
+    }
+    assert!(
+        judged.windows(2).all(|w| w[0] >= w[1]),
+        "_score must not rise down the page: {scores:?}"
+    );
+    let max = r["hits"]["max_score"]
+        .as_f64()
+        .expect("max_score is a number");
+    assert!(
+        judged.iter().all(|p| *p <= max),
+        "max_score {max} is below a later hit's _score: {scores:?}"
+    );
+    assert_eq!(
+        Some(max),
+        scores[0],
+        "max_score is the top hit's score: {r}"
+    );
+    // `hits.total` is still the engine's: twelve matched, whatever was judged.
+    assert_eq!(r["hits"]["total"]["value"], 12, "{r}");
+}
+
+/// The provider answers, but only about documents nobody sent. That is not a
+/// reranked order, and the response must not say it is — nor may the
+/// operator's meter count it as applied.
+#[tokio::test]
+async fn verdicts_only_for_unknown_keys_degrade_instead_of_claiming_the_judges_order() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::WrongKeys);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (_, base) = node
+        .search("/kb/_search", json!({"query": match_q(), "size": 3}))
+        .await;
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 3, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    let rr = &r["_rerank"];
+    assert_eq!(
+        rr["applied"], false,
+        "verdicts for d999 and x are not a reranking: {rr}"
+    );
+    assert_eq!(rr["score_kind"], "engine", "{rr}");
+    let why = rr["reason"].as_str().unwrap_or_default();
+    assert!(
+        why.contains("no scores") || why.contains("no verdict"),
+        "the reason says nothing came back for what was sent: {rr}"
+    );
+    assert!(
+        rr.get("judged").is_none(),
+        "a degraded block has no `judged`: {rr}"
+    );
+    assert_eq!(ids(&r), ids(&base), "the engine's order, untouched: {r}");
+    assert_eq!(
+        scores_of(&r),
+        scores_of(&base),
+        "and the engine's scores: {r}"
+    );
+    assert_eq!(stub.calls().len(), 1);
+
+    let (_, text) = node.raw("GET", "/v1/metrics", String::new()).await;
+    let value = |needle: &str| -> Option<f64> {
+        text.lines()
+            .find(|l| l.starts_with(needle))
+            .and_then(|l| l.rsplit(' ').next())
+            .and_then(|v| v.parse().ok())
+    };
+    assert_eq!(
+        value(r#"xerj_rerank_requests_total{outcome="degraded"}"#),
+        Some(1.0),
+        "{text}"
+    );
+    assert_ne!(
+        value(r#"xerj_rerank_requests_total{outcome="applied"}"#),
+        Some(1.0),
+        "must not be counted as applied: {text}"
+    );
+    assert_eq!(
+        value("xerj_rerank_documents_judged_total").unwrap_or(0.0),
+        0.0,
+        "nothing was judged, nothing is billed: {text}"
+    );
+}
+
+/// A provider that echoes `d0..d59` back on every call must not turn a
+/// 35-document window into 105 judged documents (three verdicts per hit, the
+/// last one winning) or triple the billing meter. One verdict per document,
+/// from the batch that sent it.
+#[tokio::test]
+async fn a_verdict_echoed_from_another_batch_is_not_counted_twice() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::EchoOtherBatches);
+    let node = node(&stub).await;
+    let docs: Vec<(String, String)> = (0..35)
+        .map(|i| (format!("{i}"), format!("doc number {i}")))
+        .collect();
+    let seeded: Vec<(&str, &str, &str, &str, i64)> = docs
+        .iter()
+        .map(|(id, title)| (id.as_str(), title.as_str(), "common term here", "c", 1))
+        .collect();
+    node.seed("many", &seeded).await;
+    stub.by_title(&[("doc number 33", 0.95)]);
+
+    let (st, r) = node
+        .search(
+            "/many/_search",
+            json!({"query": {"match": {"body": "common"}}, "size": 35,
+                   "rerank": {"window": 35, "batch": 10}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(stub.calls().len(), 4, "35 documents in batches of 10");
+    let rr = &r["_rerank"];
+    assert_eq!(rr["applied"], true, "{rr}");
+    assert_eq!(rr["window"], 35, "{rr}");
+    assert_eq!(
+        rr["judged"], 35,
+        "one verdict per document, not per echo: {rr}"
+    );
+    assert_eq!(rr["unjudged"], 0, "{rr}");
+    assert_eq!(
+        ids(&r)[0],
+        "33",
+        "the real verdict wins over the echoed 0.5: {r}"
+    );
+    let scores = scores_of(&r);
+    assert!(scores.iter().all(Option::is_some), "{scores:?}");
+    assert_eq!(scores[0], Some(0.95), "{scores:?}");
+
+    let (_, text) = node.raw("GET", "/v1/metrics", String::new()).await;
+    let judged_total = text
+        .lines()
+        .find(|l| l.starts_with("xerj_rerank_documents_judged_total"))
+        .and_then(|l| l.rsplit(' ').next())
+        .and_then(|v| v.parse::<f64>().ok());
+    assert_eq!(
+        judged_total,
+        Some(35.0),
+        "the meter counts documents: {text}"
+    );
+}
+
+/// The deadline stops batches from ever being sent. Those documents are as
+/// unjudged as the ones in a batch that failed, and the block must account
+/// for the whole window: `judged` plus `partial_failures` batches.
+#[tokio::test]
+async fn batches_the_deadline_never_dispatched_count_as_partial_failures() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::Delay(Duration::from_millis(1000)));
+    let node = node(&stub).await;
+    let docs: Vec<(String, String)> = (0..35)
+        .map(|i| (format!("{i}"), format!("doc number {i}")))
+        .collect();
+    let seeded: Vec<(&str, &str, &str, &str, i64)> = docs
+        .iter()
+        .map(|(id, title)| (id.as_str(), title.as_str(), "common term here", "c", 1))
+        .collect();
+    node.seed("many", &seeded).await;
+
+    // Batch 1 answers at ~1.0 s; batch 2 is sent with ~0.8 s left and times
+    // out; batches 3 and 4 are never sent.
+    let (st, r) = node
+        .search(
+            "/many/_search",
+            json!({"query": {"match": {"body": "common"}}, "size": 5,
+                   "rerank": {"window": 35, "batch": 10, "max_concurrency": 1,
+                              "timeout_ms": 1800}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    let rr = &r["_rerank"];
+    assert_eq!(
+        rr["applied"], true,
+        "one batch answered, so its order stands: {rr}"
+    );
+    assert_eq!(rr["window"], 35, "{rr}");
+    assert_eq!(rr["judged"], 10, "{rr}");
+    assert_eq!(rr["unjudged"], 25, "{rr}");
+    assert_eq!(
+        rr["partial_failures"], 3,
+        "one batch timed out and two were never dispatched: {rr}"
+    );
+    assert_eq!(stub.calls().len(), 2, "batches 3 and 4 were never sent");
+}
+
+/// A scroll continuation that carries `rerank` is refused like the `?scroll=`
+/// open is; and `"rerank": null` means "no rerank" on every surface, so an
+/// `_msearch` item and a `_search` body with it behave the same way.
+#[tokio::test]
+async fn scroll_continuation_refuses_rerank_and_null_is_absent_everywhere() {
+    let stub = Stub::start().await;
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (st, opened) = node
+        .search(
+            "/kb/_search?scroll=1m",
+            json!({"query": match_q(), "size": 2}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{opened}");
+    let scroll_id = opened["_scroll_id"]
+        .as_str()
+        .expect("scroll id")
+        .to_string();
+    let (st, r) = node
+        .search(
+            "/_search/scroll",
+            json!({"scroll": "1m", "scroll_id": scroll_id, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "_search/scroll: {r}");
+    assert!(reason(&r).contains("_search/scroll"), "{r}");
+    let (st, r) = node
+        .search(
+            "/_search/scroll",
+            json!({"scroll": "1m", "scroll_id": scroll_id}),
+        )
+        .await;
+    assert_eq!(
+        st,
+        StatusCode::OK,
+        "the continuation itself still works: {r}"
+    );
+
+    let (st, r) = node
+        .search("/kb/_search", json!({"query": match_q(), "rerank": null}))
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert!(r.get("_rerank").is_none(), "null is absent: {r}");
+
+    let ndjson = format!(
+        "{}\n{}\n",
+        json!({"index": "kb"}),
+        json!({"query": match_q(), "size": 2, "rerank": null}),
+    );
+    let (st, text) = node.raw("POST", "/_msearch", ndjson).await;
+    assert_eq!(st, StatusCode::OK, "{text}");
+    let r: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        r["responses"][0]["hits"]["hits"].as_array().map(Vec::len),
+        Some(2),
+        "null is absent on _msearch too, not a refused block: {r}"
+    );
+    assert!(stub.calls().is_empty());
+}
+
+/// A point-in-time search has no `sort` or `search_after` of its own, so the
+/// stage runs on it; paging it with `search_after` is refused like any other.
+#[tokio::test]
+async fn a_pit_search_runs_the_stage() {
+    let stub = Stub::start().await;
+    inverted(&stub);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (st, pit) = node.call("POST", "/kb/_pit?keep_alive=1m", json!({})).await;
+    assert_eq!(st, StatusCode::OK, "{pit}");
+    let id = pit["id"].as_str().expect("pit id").to_string();
+
+    let (st, r) = node
+        .search(
+            "/_search",
+            json!({"pit": {"id": id, "keep_alive": "1m"}, "query": match_q(), "size": 4,
+                   "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(ids(&r), INVERTED_IDS, "{r}");
+}
+
+/// The stage widens the engine's page to `rerank.window`. On an index whose
+/// `index.max_result_window` is smaller, the engine's own check fired with
+/// "from + size > max_result_window" — numbers the caller never sent. The
+/// refusal is now in the caller's terms, per index, and a wildcard search that
+/// touches such an index names it.
+#[tokio::test]
+async fn a_small_max_result_window_is_refused_in_the_callers_terms() {
+    let stub = Stub::start().await;
+    inverted(&stub);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+    let (st, b) = node
+        .call(
+            "PUT",
+            "/kbsmall",
+            json!({"settings": {"index": {"max_result_window": 20}},
+                   "mappings": {"properties": {"title": {"type": "text"}, "body": {"type": "text"}}}}),
+        )
+        .await;
+    assert!(st.is_success(), "{b}");
+    node.call(
+        "PUT",
+        "/kbsmall/_doc/1",
+        json!({"title": "t", "body": "vitamin d"}),
+    )
+    .await;
+    node.call("POST", "/kbsmall/_refresh", json!({})).await;
+
+    let (st, r) = node
+        .search(
+            "/kbsmall/_search",
+            json!({"query": match_q(), "size": 5, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{r}");
+    let why = reason(&r);
+    assert!(why.contains("`rerank.window` (30)"), "{why}");
+    assert!(why.contains("`index.max_result_window` (20)"), "{why}");
+    assert!(why.contains("kbsmall"), "{why}");
+    assert!(
+        !why.contains("from + size"),
+        "not the engine's page arithmetic: {why}"
+    );
+
+    // The wildcard search names the index that cannot serve the window.
+    let (st, r) = node
+        .search(
+            "/kb*/_search",
+            json!({"query": match_q(), "size": 5, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_REQUEST, "{r}");
+    assert!(reason(&r).contains("kbsmall"), "{r}");
+
+    // A window that fits works, on the small index and across the wildcard.
+    let (st, r) = node
+        .search(
+            "/kb*/_search",
+            json!({"query": match_q(), "size": 5, "rerank": {"window": 20}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert!(
+        stub.calls().len() == 1,
+        "only the fitting request reached the provider"
     );
 }

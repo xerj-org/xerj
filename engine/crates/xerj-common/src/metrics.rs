@@ -122,8 +122,8 @@ pub struct Metrics {
     pub query_cache_misses: IntGauge,
 
     // ── Rerank stage ──────────────────────────────────────────────────────────
-    // Reranking is the one search feature the operator pays a third party for,
-    // per judged document, on a volume the CALLER chooses. These are the meter.
+    // Reranking is a search feature the operator pays a third party for, per
+    // judged document, on a volume the CALLER chooses. These are the meter.
     /// `rerank` requests by outcome: `applied` (the judge's order was served),
     /// `degraded` (deadline missed, engine order served under a 200),
     /// `refused` (400 / 403 / 503 — nothing was sent to the provider) and

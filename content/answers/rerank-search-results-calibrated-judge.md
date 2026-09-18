@@ -36,7 +36,7 @@ faq:
   - q: "How do I rerank search results in XERJ?"
     a: "Add a `rerank` object to the body of `POST /{index}/_search`. An empty object uses every default: the top 30 hits are judged and reordered by relevance probability."
   - q: "Does reranking send my documents to a third party?"
-    a: "Yes. It is the one XERJ feature that sends data off the machine. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent."
+    a: "Yes. It is the only search-time feature that sends document text off the node; proxy embeddings and the WAL tap are the other outbound paths, and all three are operator-configured and inert by default. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent."
   - q: "What happens when the rerank provider is slow?"
     a: "The search still answers with HTTP 200. You get the engine's order and scores, and the `_rerank` block says `applied: false` with the reason. A slow provider degrades; it does not fail the search."
   - q: "What happens when the provider key is wrong or missing?"
@@ -75,7 +75,7 @@ A calibrated probability means the same thing on every query. `rerank.min_score:
 
 ## This sends your data off the machine
 
-Reranking is the one XERJ feature that sends document text to a third party. Indexing, search, embedding and agent memory all run on the node. A rerank request POSTs the question and the text of up to `window` hits to the provider.
+Reranking is the only search-time feature that sends document text to a third party. Two other outbound paths exist, and both are off by default. `[embedding] default_endpoint` (proxy embeddings) sends document text at indexing time, and query text at search time, to an external embeddings API. The WAL tap replays every write on tapped indices to an external `_bulk` endpoint. An operator has to turn either one on. Indexing, search, the built-in embedders and agent memory run on the node. A rerank request POSTs the question and the text of up to `window` hits to the provider.
 
 Three controls exist. Reranking does nothing until an operator sets a provider key. A search only triggers it by carrying a `rerank` block. An operator can forbid it with `enabled = false` under `[rerank]`, which refuses every rerank request with HTTP 403.
 

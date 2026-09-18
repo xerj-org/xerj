@@ -30,14 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"rerank": {}` sends the question and the text of the top `window` hits
   (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
   `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
-  cannot be. **It is the one XERJ feature that sends document text off the
-  machine**: inert until an operator sets `[rerank] api_key` (or
+  cannot be. **It is the only search-time feature that sends document text
+  off the node** (the other outbound paths, `[embedding] default_endpoint` and
+  the WAL tap, are operator configuration, inert by default too): inert until
+  an operator sets `[rerank] api_key` (or
   `TYPESAFE_API_KEY`; config wins over env), opt-in per request, forbidden
   outright by `[rerank] enabled = false`, and only fields the response returns
   are sent — `rerank.fields` is an exhaustive allow-list. Failure policy is
   *degrade on deadline, surface on contract*: a slow provider is a 200 with the
   engine's order and `_rerank.applied: false`; no key is 503, disabled 403, a
-  rejected key or malformed body 502, all with no hits. `hits.total` and `aggs`
+  rejected key or malformed body 502, all with no hits; a provider that answers
+  for nothing it was sent is a 200 with `applied: false`. When applied, every
+  `_score` is a probability or `null` (a hit with no verdict, counted in
+  `_rerank.unjudged`, sorts last) — never an engine score beside probabilities.
+  `hits.total` and `aggs`
   stay the engine's; paging happens inside the window; `sort`, `search_after`,
   `collapse`, scroll and `size: 0` are 400s; and `_msearch`, search templates,
   `_async_search`, the native `/v1` search API and gRPC refuse the block instead

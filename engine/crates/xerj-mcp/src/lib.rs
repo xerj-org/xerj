@@ -391,7 +391,7 @@ const BRAIN_HONESTY: &str = " Honesty: links come from deterministic lexical \
 /// deciding whether to spend a paid third-party call. It therefore says three
 /// things a schema normally would not: when the stage is worth it, that it
 /// needs a provider only the node's operator can configure, and that it is the
-/// one XERJ feature that sends document text off the machine.
+/// only search-time feature that sends document text off the node.
 fn rerank_arg_schema(query_required: bool) -> Value {
     let defaults = xerj_rerank::RerankConfig::default();
     let question = if query_required {
@@ -420,10 +420,11 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. \
          Without it the search fails with HTTP 503 `rerank_exception`; do not retry, \
          repeat the search without `rerank`. HTTP 403 means the operator disabled it. \
-         PRIVACY: this is the one XERJ feature that sends document text off the machine \
-         — do not use it on data that must stay local unless the user has agreed. Only \
-         fields the response returns are sent, so `_source` filtering also limits what \
-         leaves. \
+         PRIVACY: this is the only search-time feature that sends document text off the \
+         node (the two other outbound paths, `[embedding] default_endpoint` proxy \
+         embeddings and the WAL tap, are operator configuration, inert by default) — do \
+         not use it on data that must stay local unless the user has agreed. Only fields \
+         the response returns are sent, so `_source` filtering also limits what leaves. \
          Pass true or {{}} for defaults, or an object with: {question} \
          `window` (int, default {default_window}, max {max_window}): how many top hits \
          are judged — every one is a paid judgement; `from`+`size` must fit inside it. \
@@ -433,8 +434,10 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
          Cannot be combined with `sort`. \
          READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
-         judge's; `applied: false` means the provider missed the deadline and you are \
-         looking at the engine's own order with engine scores, stated in `reason`.",
+         judge's and every `_score` is a probability or null (a hit with no verdict, \
+         counted in `unjudged`, sorts last); `applied: false` means the provider missed \
+         the deadline or answered nothing usable, and you are looking at the engine's own \
+         order with engine scores, stated in `reason`.",
         default_window = defaults.window,
         max_window = xerj_rerank::MAX_WINDOW,
         default_timeout_ms = defaults.timeout.as_millis(),

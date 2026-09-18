@@ -411,9 +411,10 @@ limits each one does not lift:
 - [Security model](./docs/SECURITY_MODEL.md) for authentication, the reserved
   `.xerj-memory-*` namespace, API keys and what is not enforced.
 - [Reranking](./docs/RERANK.md) for the optional `rerank` search stage: an external judge
-  reorders the top hits by a calibrated probability. It is the one feature that sends
-  document text off the machine, it needs an operator-configured provider key, and its
-  ranking quality with the real model is not verified.
+  reorders the top hits by a calibrated probability. It is the only search-time feature
+  that sends document text off the node (proxy embeddings and the WAL tap are the other
+  operator-configured outbound paths), it needs an operator-configured provider key, and
+  its ranking quality with the real model is not verified.
 - [XERJ vs Lucene 10.3.1](./docs/XERJ_VS_LUCENE.md) for a source-pinned, six-axis comparison
   of their storage and search designs.
 

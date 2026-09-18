@@ -2,11 +2,15 @@
 
 > **This feature sends your data off the machine.** A search that carries a
 > `rerank` block POSTs the question and the text of up to `window` hits
-> (default 30, maximum 300) to a third-party API. It is the **one** XERJ
-> feature that does this. Every other request — indexing, search, embedding,
-> agent memory — runs entirely on the node. Reranking is off until an operator
-> supplies a provider key, a request only triggers it by asking for it, and an
-> operator can forbid it outright with `[rerank] enabled = false`. Read
+> (default 30, maximum 300) to a third-party API. It is the only
+> **search-time** feature that sends document text off the node. Two other
+> outbound paths exist, and both are operator configuration, inert by default:
+> `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at
+> ingest and query text at search time to an external embeddings API, and the
+> WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an
+> external `_bulk` endpoint. Reranking is off until an operator supplies a
+> provider key, a request only triggers it by asking for it, and an operator
+> can forbid it outright with `[rerank] enabled = false`. Read
 > [What leaves the machine](#what-leaves-the-machine) before you turn it on.
 
 `rerank` is an optional second stage on `POST /{index}/_search`. The engine
@@ -53,7 +57,7 @@ endpoint = "https://api.typesafe.ai/v1/systemone"  # or TYPESAFE_ENDPOINT; this 
 |---|---|---|---|
 | `rerank.enabled` | none | `true` | `false` refuses every `rerank` request with HTTP 403, whatever the environment holds. Nothing is sent. |
 | `rerank.api_key` | `TYPESAFE_API_KEY` | empty | The provider key. Empty in both places means reranking is not configured: requests get HTTP 503. |
-| `rerank.endpoint` | `TYPESAFE_ENDPOINT` | `https://api.typesafe.ai/v1/systemone` | Where documents are POSTed. Must be an absolute `http(s)://` URL with no `user:password@` in it; the node refuses to start otherwise. |
+| `rerank.endpoint` | `TYPESAFE_ENDPOINT` | `https://api.typesafe.ai/v1/systemone` | Where documents are POSTed. Must be an absolute `http(s)://` URL with no `user:password@` in it. The node refuses to start otherwise, **whichever place the value came from** — the config file at config load, the environment variable at boot (`TYPESAFE_ENDPOINT: rerank.endpoint must not carry credentials…`). |
 
 The settings are resolved once, at startup. Changing the environment of a
 running node does nothing; restart it.
@@ -78,7 +82,7 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
                 "max_concurrency": 8, "max_doc_chars": 1200, "timeout_ms": 10000 },
   "limits":   { "max_docs_per_call": 30, "max_window": 300, "max_concurrency": 16,
                 "max_doc_chars": 8000, "max_timeout_ms": 60000 },
-  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. No other request sends document text anywhere."
+  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other outbound paths exist and are operator configuration, inert by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at ingest and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint."
 }
 ```
 
@@ -159,6 +163,7 @@ Applied:
     "score_kind": "probability",
     "window": 4,
     "judged": 4,
+    "unjudged": 0,
     "skipped_no_text": 0,
     "pruned_below_min_score": 2,
     "dropped_unjudged": 0,
@@ -194,21 +199,37 @@ policy](#failure-policy-degrade-on-deadline-surface-on-contract)):
 | `applied` | `true`: the order is the judge's. `false`: the order and scores are the engine's; `reason` says why. **Always read this.** |
 | `score_kind` | `"probability"` when `_score` is a 0–1 relevance probability, `"engine"` when it is still BM25 / fusion. |
 | `window` | Hits considered: `min(rerank.window, hits the engine returned)`. |
-| `judged` | Documents the provider returned a verdict for. |
+| `judged` | Documents the provider returned a verdict for. One verdict per document: an answer keyed to a document that was never sent, or sent in another call, is not counted. This is the figure `xerj_rerank_documents_judged_total` meters. |
+| `unjudged` | Hits in the response that have no verdict — the provider did not answer for them, or they were skipped as blank. Their `_score` is `null` and they sort after every judged hit. Without `min_score`, `judged + unjudged` equals `window`. |
 | `skipped_no_text` | Hits in the window with no string content in the response. They are not sent: a blank document costs a judgement and a verdict on nothing means nothing. |
 | `pruned_below_min_score` | Judged hits removed by `rerank.min_score`. |
 | `dropped_unjudged` | With `min_score` set, hits that were never judged cannot be shown to clear the bar, so they are dropped and counted here. |
 | `fields_without_text` | Present only when there is something to report: the names in `rerank.fields` that **no hit in the window** returned any text for — a typo, a field these hits lack, or a field the projection removed. Those documents were judged without it. |
-| `partial_failures` | Provider calls that failed while others succeeded. The scored hits are still correctly ordered — each probability is absolute — but the window was not fully covered. |
+| `partial_failures` | Provider calls that did not deliver a verdict while others did: calls that failed, and calls the deadline stopped from ever being sent. The scored hits are still correctly ordered — each probability is absolute — but the window was not fully covered; `unjudged` says by how much. |
 | `usage` | Tokens the provider reported, summed over every call that answered. Zero when the provider omits it. |
 | `query` | The question that was judged, inferred or given. |
 | `took_ms` | Time spent in the stage. The response's own `took` includes it. |
 
 What changes on a hit: `_score` becomes the probability, and `hits.max_score`
-becomes the top hit's probability. Hits that were not judged keep the engine's
-score and sort **after** every judged hit, in the engine's order — an unjudged
+becomes the top hit's probability. Hits that were not judged get `_score:
+null` and sort **after** every judged hit, in the engine's order — an unjudged
 document is not evidence of irrelevance, but it cannot be ranked against
 documents that were scored. Equal probabilities keep the engine's order.
+
+**`_score` is one kind per response.** When `applied` is `true`, every
+`_score` is a probability or `null`; the engine's BM25 value is never left on
+some hits beside probabilities on others. A client that sorts by `_score` or
+scales by `hits.max_score` cannot tell a `1.63` BM25 from a `0.9` probability,
+and `max_score` would be smaller than a later hit's score. `null` is what
+Elasticsearch itself puts in `_score` when a hit has no comparable score, so
+every client already handles it. `_score` and `hits.max_score` carry the
+provider's probability at double precision: `0.9` from the provider is `0.9` on
+the wire, so a threshold applied client-side agrees with `rerank.min_score`.
+
+If the provider answered but not for a single document that was sent (every
+answer keyed to something else), that is not a reranking: the response is the
+degraded shape, `applied: false`, with the reason, and the operator's meters
+count it as degraded, not applied.
 
 ## How it interacts with the rest of `_search`
 
@@ -225,12 +246,15 @@ by a test in `rerank_stage_http.rs`.
 | `highlight`, `fields`, `inner_hits`, `matched_queries` | **Travel with their hit.** The stage moves rendered hits, so nothing is recomputed and nothing is swapped between hits. |
 | `"fields": ["_passage"]` | The matching passage is **judgeable**, and leads the text the judge reads. Name it in `rerank.fields` to send only the passage. |
 | the large-response hint (`_xerj.hints`) | Its ready-to-send corrected request **keeps the `rerank` block**. A suggestion without it would be a different search, returning the engine's order. Its narrower projection also narrows what the judge is sent. |
-| `_source` filtering | Decides what the judge sees — see the next section. `_source: false` with no `fields` clause is a 400 (nothing can be judged); beside a `fields` clause that returns the text, it works. |
+| `_source` filtering | Decides what the judge sees — see the next section. `_source: false` with no `fields`, `docvalue_fields`, `stored_fields` or `script_fields` clause is a 400 (nothing can be judged); beside one that returns the text, it works, and the judge reads what came back. |
 | `explain` | The engine's explanation is kept, unaltered, under a new top node whose `value` equals the new `_score` and whose description says the score is a rerank probability. An `_explanation.value` that disagreed with `_score` would mislead. |
 | `profile` | Unchanged; it profiles the engine. The stage reports its own time in `_rerank.took_ms`. |
 | top-level `min_score` | The **engine's** threshold, applied to **engine** scores before the window is cut. It shapes the match set and `hits.total` exactly as it does without `rerank`, and it is never compared against a probability. `rerank.min_score` is the probability threshold. The two compose: engine bar first, probability bar second. |
 | `knn` (top level) | Works. A vector is not a question, so a `knn` with no text `query` needs `rerank.query`. Beside a text query the question is read from the text query, and vector-only hits are inside the window the judge sees. Vectors are never sent. |
 | `rescore` | Runs first, inside the engine. `rerank` has the last word. |
+| `pit` (point in time) | Works: a PIT fixes the snapshot, not the order. Paging it with `search_after` is refused like any other `search_after`. |
+| `index.max_result_window` smaller than `rerank.window` | **400**, in the caller's terms: `` `rerank.window` (30) exceeds `index.max_result_window` (20) on `kbsmall` ``. The stage asks the engine for `window` hits, so every participating index — including each one a wildcard expands to — must be able to return that many. Lower the window or raise the setting. |
+| `"rerank": null` | The same as no `rerank` key, on every surface: `_search` runs without the stage, and an `_msearch` item or template carrying it is not refused. |
 | multi-index and wildcard searches (`/a,b/_search`, `/kb*/_search`) | Work. The window is cut from the merged result, so hits from different indices are ranked against each other; `_index` stays with its `_id`. |
 | `sort` (body or `?sort=`) | **400.** An explicit sort already fixes the order. |
 | `search_after`, `collapse`, `scroll` | **400.** Each of them depends on the engine's order. |
@@ -247,7 +271,7 @@ rather than dropping the key and returning the engine's order under a 200:
 | `_msearch` | **Per item.** The item that carries `rerank` gets a `status: 400` entry; the rest of the batch still runs. |
 | `_search/template`, `_msearch/template` | 400 when the *rendered* template contains `rerank` (per item for `_msearch/template`). |
 | `_async_search` | 400. A stored search would also be a stored third-party call that nobody is waiting on. |
-| `_search_scroll`, `?scroll=` | 400. A scroll streams the engine's order. |
+| `_search_scroll`, `?scroll=`, and the `_search/scroll` continuation | 400. A scroll streams the engine's order. |
 
 ## What leaves the machine
 
@@ -279,6 +303,15 @@ Sent to the provider, per search:
 Never sent: document `_id`s and index names (documents are keyed `d0`, `d1`, … by
 position), numbers, booleans, vectors, nested objects, and any field the
 response does not return.
+
+For the record, the other ways data can leave a node, none of which a search
+request can trigger: `[embedding] default_endpoint` / `--embed-mode proxy`
+sends document text at ingest and query text at search time to the embeddings
+API you configured; the WAL tap (`PUT /_xerj/wal_tap`) replays every write on
+the indices you tapped to the `_bulk` endpoint you named; and `--embed-mode
+neural` downloads its model weights from the HuggingFace Hub on first use, and
+sends no text. All three are off unless an operator turns them on. The
+[air-gapped recipe](./recipes/air-gapped-deployment.md) lists them together.
 
 So `_source` filtering is also an egress control:
 
@@ -345,13 +378,16 @@ the operator more than it saves. A surfaced fault returns **no hits**: handing
 back the engine's order next to an error would invite a caller to ignore the
 error.
 
-If some provider calls succeed and others fail, the stage keeps what it has:
-the judged hits are ordered by probability, the rest follow in the engine's
-order, and `partial_failures` says how many calls were lost.
+If some provider calls succeed and others fail, or the deadline stops later
+calls from being sent, the stage keeps what it has: the judged hits are ordered
+by probability, the rest follow with `_score: null` in the engine's order, and
+`partial_failures` says how many calls did not deliver.
 
 The split follows the one Meilisearch uses for its reranking call in its
 personalization module (return the original hits when the deadline is exceeded,
-return the error otherwise). The approach was adapted; no code was copied.
+return the error otherwise). The approach, and the retry back-off constants,
+were adapted from that module (MIT); the code comment in `xerj-rerank` cites
+the lines.
 
 ## Cost and concurrency facts
 
@@ -430,7 +466,9 @@ Two things those runs do say:
 
 - The one-`noul`-per-document request shape:
   [`hev/jev-rerank`](https://github.com/hev/jev-rerank), Apache-2.0.
-- The degrade-on-deadline, surface-on-contract failure policy: Meilisearch's
-  personalization module (MIT). Approach adapted, no code copied.
+- The degrade-on-deadline, surface-on-contract failure policy, and the retry
+  back-off shape (exponential in the attempt, a flat extra pause after a 429):
+  Meilisearch's personalization module (MIT, not part of its Enterprise
+  Edition). Approach and constants adapted; cited in `xerj-rerank/src/lib.rs`.
 - The provider API is TypeSafe AI's System One
   (`POST /v1/systemone`, <https://docs.typesafe.ai/api>).
