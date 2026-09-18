@@ -60,6 +60,12 @@ command -v python3 >/dev/null || { echo "python3 is required"; exit 1; }
 boot() {
   local name="$1" es="$2" extra="$3"; shift 3
   local dir="$ROOT/$name"
+  # Something already answering here is NOT our node: the phases below create
+  # and delete indices, so never adopt a listener we did not start.
+  if curl -s -o /dev/null "http://127.0.0.1:$es/" 2>/dev/null; then
+    echo "port $es is already in use — refusing to test against a node this script did not start"
+    return 1
+  fi
   mkdir -p "$dir/data"
   cat >"$dir/xerj.toml" <<EOF
 [server]
