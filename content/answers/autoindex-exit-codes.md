@@ -29,6 +29,7 @@ links_out:
   - "resume-interrupted-autoindex-run"
   - "why-autoindex-skipped-files"
   - "autoindex-dataset-refused-by-server"
+  - "autoindex-server-back-pressure-429"
 evidence:
   - claim: "EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition."
     source: "engine/crates/xerj-autoindex/src/cli.rs:395"
@@ -96,6 +97,8 @@ xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 
 So an exit 3 is still a finished run, but it is not always a small gap. Read `datasets_refused` before you report a corpus as searchable. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers what is recorded and how to recover.
 
 Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
+
+A 429 *inside a bulk* is different. When the node's memory circuit breaker answers some bulk items with `status: 429`, the run re-sends only those items after a backoff and carries on; it exits 1 only after 120 seconds in which the node accepted nothing, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
 
 ## Exit 4 is a question, and nothing was written
 

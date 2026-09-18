@@ -301,6 +301,41 @@ manifest, snapshot and catalog disagreeing — but the error names every refused
 dataset, not just the first, and says to rebuild under a new `--state-dir` and
 `--prefix`.
 
+## 8. Back-pressure from the node is waited out, not fatal
+
+The engine measures its own resident memory and, above a watermark, answers
+writes with HTTP 429 until memory drops back — a parent memory circuit breaker
+that engages and releases within seconds. A bulk can be answered two ways while
+it is engaged: the whole request comes back 429 (always retried with backoff),
+or the request comes back 200 with some *items* marked `status: 429`. The
+second used to end the run: a 48,533-file run aborted at 60.4% of its `index`
+phase, after 85 minutes, on the first bulk that came back with 747 items
+rejected ([#944](https://github.com/xerj-org/xerj/issues/944)). The breaker
+had released about a second later.
+
+Now, when every failed item in a bulk is a 429, the run:
+
+- lowers its bulk concurrency once per congestion event, as before;
+- cuts exactly the rejected actions out of the body it sent — the response is
+  positional, and a `delete` (no document line) keeps its place — and re-sends
+  only those after a backoff of 250 ms doubling to 8 s;
+- keeps doing so while the node accepts *something*; each response that lands
+  an item resets the clock;
+- gives up after 120 s in which nothing was accepted. Only then is it exit 1,
+  with an error line that begins `the server kept rejecting` and says that
+  nothing from that bulk was journaled and the same command resumes the run.
+
+A 429 beside a different failure (a 400 for a record the node cannot parse) is
+never re-sent: that bulk carries a bad record you need to see.
+
+The stream says what is happening at most once every 5 s (`autoindex: server
+back-pressure: N of M bulk item(s) rejected … re-sending only the rejected
+items in 0.3s — the run gives up if nothing is accepted for another 120s`), and
+the terminal line of a run that met back-pressure carries `bulk_retries=N`,
+present only when it happened. The `raising bulk concurrency` line after
+recovery is printed at most once every 10 s (the motivating capture held 117 of
+them for 11 shrinks).
+
 ## 8. Reading progress on the `--no-graph` path
 
 Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,

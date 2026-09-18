@@ -141,6 +141,18 @@ xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 data
 
 If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
 
+If the node pushed back with HTTP 429 during the run, the line carries `bulk_retries`, the number of bulks the run re-sent. It also appears only when it happened.
+
+## When the node pushes back
+
+A node that crosses its memory watermark answers writes with HTTP 429 until memory drops back, usually within seconds. The run lowers its bulk concurrency, re-sends only the rejected items after a backoff, and says so on stderr at most once every 5 seconds:
+
+```text
+autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: …); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
+```
+
+During the wait `since_progress_s` climbs, because nothing is landing. That is the honest reading, and the line above is what tells it apart from a hang. Before this change a full-corpus run aborted at 60.4% of its `index` phase, after 5122.5 seconds, on the first bulk that came back with 747 items rejected 429. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the rules and the exit-1 case.
+
 ## Progress and the decision gate are separate runs
 
 `--quiet` means no progress output, so it cannot share an invocation with `--progress plain`. The capture ran the 2 recipes as separate commands for that reason.
@@ -173,6 +185,10 @@ Pass --progress plain and read the xerj-progress lines from stderr. Each line is
 
 The xerj-done line carries ok, exit, reason, wall, files, records, datasets and junk_files. The captured run ended ok=true exit=0 reason=completed.
 
+### What does a server back-pressure line mean?
+
+The node answered some bulk items with HTTP 429 and the run is re-sending only those after a backoff. `since_progress_s` climbs while it waits; the line names the delay and the patience left. The terminal line then carries `bulk_retries=N`.
+
 ### Can I combine --quiet with --progress plain?
 
 No. --quiet means no progress output, so the decision-JSON recipe and the progress-parsing recipe are separate invocations of autoindex.
@@ -185,6 +201,7 @@ No. --quiet means no progress output, so the decision-JSON recipe and the progre
 - Resuming a full-corpus generation interrupted with 12,890 of 47,444 operations committed reported starting, then replay, then opened index at items=0/34554 bytes=0/805561870, and never reported scan or snapshot. — `benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt`
 - A probe of 60 index refreshes on a node holding 1,526 datasets took 6.36 s, about 106 ms each, which projects to about 160 seconds for all 1,526. — `benchmarks/autoindex-resilience/README.md`
 - On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus. — `benchmarks/autoindex-resilience/before-rc74.stderr.txt`
+- A full-corpus run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected 429 by the node's memory circuit breaker. — `benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt`
 
 ## Related
 
@@ -192,3 +209,4 @@ No. --quiet means no progress output, so the decision-JSON recipe and the progre
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
 - [How do I estimate folder-indexing time?](/answers/estimate-autoindex-time-before-running)
 - [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429)

@@ -1,0 +1,30 @@
+2026-09-18T09:00:28.483462Z  INFO xerj_engine::governor: memory: detected 119.2 GiB usable, using a 16 GiB cap (auto tier); change with limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB (0 = whole machine)
+2026-09-18T09:00:28.483495Z  INFO xerj_engine::governor: resource governor initialised (parent circuit breaker) memtable_budget_mb=4096 memory_limit_mb=16384 memory_limit_source=Auto memory_watermark_mb=15564 memory_watermark_pct=95 max_query_memory_mb=512 max_concurrent_searches=64 max_concurrent_bulks=8 disk_flood_pct=95 segment_hydration_cache_mb=3276 segment_hydration_cache_source=Auto
+2026-09-18T10:05:46.116450Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15709 watermark_mb=15564
+2026-09-18T10:05:47.417562Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15125
+2026-09-18T10:05:49.919878Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15706 watermark_mb=15564
+2026-09-18T10:05:50.420324Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=14921
+2026-09-18T10:18:03.979148Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15668 watermark_mb=15564
+2026-09-18T10:18:04.079258Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15336
+2026-09-18T10:22:19.318914Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15609 watermark_mb=15564
+2026-09-18T10:22:19.719276Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15545
+2026-09-18T10:22:22.221728Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15577 watermark_mb=15564
+2026-09-18T10:22:22.622112Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15541
+2026-09-18T10:22:33.432379Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15636 watermark_mb=15564
+2026-09-18T10:22:36.535264Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15533
+2026-09-18T10:23:59.113786Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15705 watermark_mb=15564
+2026-09-18T10:23:59.814447Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15508
+2026-09-18T10:24:00.014666Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15626 watermark_mb=15564
+2026-09-18T10:24:00.314955Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15544
+2026-09-18T10:26:08.635394Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15622 watermark_mb=15564
+2026-09-18T10:26:08.735500Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15547
+2026-09-18T10:26:08.935666Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15629 watermark_mb=15564
+2026-09-18T10:26:11.037620Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15525
+2026-09-18T10:26:48.872637Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15679 watermark_mb=15564
+2026-09-18T10:26:49.272990Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15548
+2026-09-18T10:32:29.409327Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15606 watermark_mb=15564
+2026-09-18T10:32:31.311145Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15547
+2026-09-18T10:32:37.216788Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15613 watermark_mb=15564
+2026-09-18T10:32:38.517958Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15207
+2026-09-18T10:32:39.519008Z  WARN xerj_engine::governor: RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429) rss_mb=15567 watermark_mb=15564
+2026-09-18T10:32:39.919462Z  INFO xerj_engine::governor: RSS back below the memory watermark — releasing the memory circuit breaker rss_mb=15257

@@ -1156,6 +1156,24 @@ fn checked_bulk(es: &crate::esclient::Es, body: Vec<u8>) -> Result<()> {
         return Ok(());
     }
     let outcome = es.bulk(body)?;
+    // `Es::bulk` has already re-sent per-item 429s for as long as the server
+    // kept accepting anything, and for its patience once it did not (#944).
+    // What is left is either a server condition that did not clear — fatal,
+    // and resumable, because a sealed operation is journaled applied only
+    // after this returns — or a record the server refused outright.
+    if outcome.server_errors > 0 {
+        anyhow::bail!(
+            "the server kept rejecting {} of a prepared bulk's items after {}s of \
+             back-pressure re-sends with nothing accepted: {}. Nothing from this \
+             bulk was journaled applied; rerun the same command once the server \
+             condition clears and the run resumes from its last committed operation",
+            outcome.server_errors,
+            es.backpressure_patience().as_secs(),
+            outcome
+                .first_server_error
+                .unwrap_or_else(|| "unknown server error".into())
+        );
+    }
     anyhow::ensure!(
         outcome.item_errors == 0,
         "prepared bulk contained {} rejected items: {}",

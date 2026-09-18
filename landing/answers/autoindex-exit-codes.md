@@ -96,6 +96,8 @@ So an exit 3 is still a finished run, but it is not always a small gap. Read `da
 
 Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
 
+A 429 *inside a bulk* is different. When the node's memory circuit breaker answers some bulk items with `status: 429`, the run re-sends only those items after a backoff and carries on; it exits 1 only after 120 seconds in which the node accepted nothing, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
+
 ## Exit 4 is a question, and nothing was written
 
 Phase A reads and parses every file to sniff and sample it, so it measures throughput per format family on the machine you are on. It turns that into a range for the indexing phase, and the gate compares the upper end of the range against `--max-minutes` (default 10).
@@ -197,3 +199,4 @@ Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
 - [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429)

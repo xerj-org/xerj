@@ -68,6 +68,14 @@ struct HttpState {
     /// AFTER some operations committed, which is the only state in which
     /// "count what remains" differs from "count everything".
     fail_data_bulk_number: Option<usize>,
+    /// Opt-in (#944): apply the even-position actions of the next data bulk
+    /// and answer the odd-position ones with the per-item 429 the engine's
+    /// memory circuit breaker produces while it is engaged. The client must
+    /// re-send exactly the odd ones.
+    throttle_next_data_bulk_odd_items: bool,
+    /// Action count of every data bulk answered, in order — how a test proves
+    /// a re-send carried only the rejected items.
+    data_bulk_item_counts: Vec<usize>,
 }
 
 struct HttpEndpoint {
@@ -375,6 +383,50 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
             );
         }
     }
+    if is_data && std::mem::take(&mut locked.throttle_next_data_bulk_odd_items) {
+        let mut items = Vec::new();
+        let mut cursor = 0;
+        while cursor < lines.len() {
+            let action: Value = serde_json::from_slice(lines[cursor]).unwrap();
+            cursor += 1;
+            let position = items.len();
+            if let Some(meta) = action.get("delete") {
+                let index = meta["_index"].as_str().unwrap().to_owned();
+                let id = meta["_id"].as_str().unwrap().to_owned();
+                locked.docs.remove(&(index, id));
+                items.push(json!({"delete": {"status": 200}}));
+                continue;
+            }
+            let payload: Value = serde_json::from_slice(lines[cursor]).unwrap();
+            cursor += 1;
+            if position % 2 == 1 {
+                items.push(json!({"index": {
+                    "status": 429,
+                    "error": {
+                        "type": "engine_exception",
+                        "reason": "[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill",
+                        "status": 429
+                    }
+                }}));
+                continue;
+            }
+            if let Some(meta) = action.get("index") {
+                let index = meta["_index"].as_str().unwrap().to_owned();
+                let id = meta["_id"].as_str().unwrap().to_owned();
+                locked.docs.insert((index, id), payload);
+            } else if let Some(meta) = action.get("update") {
+                let index = meta["_index"].as_str().unwrap().to_owned();
+                let id = meta["_id"].as_str().unwrap().to_owned();
+                let patch = payload["doc"].as_object().unwrap();
+                let target = locked.docs.get_mut(&(index, id)).unwrap();
+                let target = target.as_object_mut().unwrap();
+                target.extend(patch.clone());
+            }
+            items.push(json!({"index": {"status": 201}}));
+        }
+        locked.data_bulk_item_counts.push(items.len());
+        return (200, json!({"errors": true, "items": items}));
+    }
     // Half-applied bulk: apply the leading actions, then report failure.
     let applied_limit = if is_data && std::mem::take(&mut locked.partially_apply_next_data_bulk) {
         Some(lines.len() / 2)
@@ -382,12 +434,14 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
         None
     };
     let mut cursor = 0;
+    let mut actions = 0usize;
     while cursor < lines.len() {
         if applied_limit.is_some_and(|limit| cursor >= limit) {
             break;
         }
         let action: Value = serde_json::from_slice(lines[cursor]).unwrap();
         cursor += 1;
+        actions += 1;
         if let Some(meta) = action.get("delete") {
             let index = meta["_index"].as_str().unwrap().to_owned();
             let id = meta["_id"].as_str().unwrap().to_owned();
@@ -408,6 +462,9 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
             let target = target.as_object_mut().unwrap();
             target.extend(patch.clone());
         }
+    }
+    if is_data {
+        locked.data_bulk_item_counts.push(actions);
     }
     if applied_limit.is_some() {
         return (
@@ -4764,5 +4821,48 @@ fn a_resumed_replay_opens_at_replay_and_counts_only_what_remains() {
     assert!(
         done.contains("ok=true") && done.contains("exit=0"),
         "{done}"
+    );
+}
+
+/// #944 on the generated (`--no-graph`) path: one data bulk comes back with
+/// half its items answered 429 by the engine's memory circuit breaker.
+/// `checked_bulk` used to abort the run on the spot — the literal end of a
+/// 48,533-file run at 60%. The rejected half is re-sent, and only that half;
+/// every record lands; the run commits its generation and exits 0; and the
+/// summary says it happened.
+#[test]
+fn a_per_item_429_in_a_sealed_bulk_is_resent_and_the_generation_commits() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("rows.csv"),
+        "id,value\n1,first\n2,second\n3,third\n4,fourth\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .throttle_next_data_bulk_odd_items = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config).unwrap();
+    assert_eq!(code, 0, "a transient per-item 429 must not end the run");
+    let summary = summary.unwrap();
+    assert_eq!(summary["bulk_retries"], 1, "{summary}");
+    assert_eq!(summary["bulk_items_reissued"], 2, "{summary}");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(
+        endpoint.data_docs().len(),
+        4,
+        "every rejected record landed on the re-send"
+    );
+    let counts = endpoint.state.lock().unwrap().data_bulk_item_counts.clone();
+    assert_eq!(
+        &counts[..2],
+        &[4, 2],
+        "the re-send carried exactly the two rejected items: {counts:?}"
     );
 }

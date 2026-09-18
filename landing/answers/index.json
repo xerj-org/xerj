@@ -480,6 +480,15 @@
       "summary": "When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line."
     },
     {
+      "title": "Why does xerj autoindex say the server pushed back (429)?",
+      "question": "Why did xerj autoindex say the server pushed back with HTTP 429?",
+      "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
+      "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-18",
+      "summary": "When the node answers bulk items with a per-item HTTP 429 (its memory circuit breaker), xerj autoindex re-sends only the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal."
+    },
+    {
       "title": "Is there a single-binary local search engine?",
       "question": "Is there a single-binary local search engine I can just run?",
       "canonical_url": "https://xerj.org/answers/search-engine-without-docker",

@@ -396,6 +396,17 @@ and the answer is `--approve`, never a retry. 0/3/2/1 are every code a binary
 WITHOUT the estimate gate returns — that includes every release through
 v1.0.0-rc.15; only v1.0.0-rc.16 and later ever return 4.
 
+Back-pressure is not a failure: when the node's memory circuit breaker answers
+some bulk items with a per-item HTTP 429, the run lowers its bulk concurrency,
+re-sends ONLY the rejected items after a backoff (250 ms doubling to 8 s), and
+continues for as long as the node accepts something; stderr says `server
+back-pressure … re-sending only the rejected items` (at most once per 5 s — it
+is not a hang, even though `since_progress_s` climbs), and the terminal line of a
+run that met it carries `bulk_retries=N` (present only when it happened). It
+exits 1 only after 120 s in which nothing was accepted, with an error line that
+begins `the server kept rejecting`; the same command then resumes from the last
+committed operation. See https://xerj.org/answers/autoindex-server-back-pressure-429.md
+
 Pipeline: walk → sniff → sample → infer → map → extract → bulk → correlate →
 catalog → verify.
   - Formats are detected by CONTENT SNIFFING (magic bytes) — extensions are never

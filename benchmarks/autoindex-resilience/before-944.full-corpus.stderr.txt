@@ -1,0 +1,71 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=63759 safe_zone_mib=48496]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 50061 files (505 MB) under ~/.xerj-code/corpora/xerj-search
+autoindex: ignore rules: skipped 55 files and pruned 26 directories (contents never walked, so not counted); 24 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 55 files, 24 directories pruned
+autoindex: ignore rules:   <built-in>:build/ — 2 directories pruned
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/50061 bytes=0/529551172 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+autoindex: 1528 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix3/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix4/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix5/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major1/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major2/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  … and 1518 more
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/48533 bytes=0/520892779 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.9
+phase A: sniffing + sampling 48533 files with 32 threads…
+xerj-bar [####################----] 85.6% | scan | 44556/48533 items | 102.8MB/s | eta unknown
+xerj-progress phase=scan basis=bytes pct=85.6 items=44556/48533 bytes=445627812/520892779 rate=107807362.3 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=4.1 elapsed_s=5.0
+phase A: 1 PDF extraction(s) could not retain a bounded run-local artifact; phase B will parse them again safely
+  PDF reuse fallback for elasticsearch/modules/ingest-attachment/src/test/resources/org/elasticsearch/ingest/attachment/test/sample-files/test.pdf: admission refused (artifact_count_ceiling); snapshot headroom or the bounded 0 MiB/0-artifact ceiling would be exceeded
+phase A: 1526 datasets inferred, 1089 junk/skipped files
+estimate: at least 4.0 s–5.3 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 47353 file(s) / 371.2 MB read end to end across 11 family/families, scheduled over 32 worker(s). Covers 423.9 MB of the 423.9 MB planned (100% of planned bytes). Client-side extraction only.
+[… 1481 lines trimmed: phase=index progress lines and bulk-concurrency lines; the full capture was 1551 lines …]
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 32 → 16 for this run
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 16 → 8 for this run
+xerj-bar [##############----------] 60.1% | index | 29851/47444 items | 94.7KB/s | eta 1h15m | waiting on …/BoundedWindowInferenceModel.java(18.3KB)
+xerj-progress phase=index basis=bytes pct=60.1 items=29851/47444 bytes=661075836/1099789983 rate=97012.6 eta_s=4522.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4820.0 elapsed_s=5085.1 waiting_on=elasticsearch/x-pack/plugin/core/src/main/java/org/elasticsearch/xpack/core/ml/inference/trainedmodel/inference/BoundedWindowInferenceModel.java(18.3KB)
+autoindex: server healthy again; raising bulk concurrency 8 → 9
+autoindex: server healthy again; raising bulk concurrency 9 → 10
+xerj-progress phase=index basis=bytes pct=60.1 items=29873/47444 bytes=661356100/1099789983 rate=88820.4 eta_s=4936.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4825.0 elapsed_s=5090.1 waiting_on=elasticsearch/x-pack/plugin/security/qa/service-account/src/javaRestTest/resources/service_tokens(794B)
+autoindex: server healthy again; raising bulk concurrency 10 → 11
+autoindex: server healthy again; raising bulk concurrency 11 → 12
+autoindex: server healthy again; raising bulk concurrency 12 → 13
+autoindex: server healthy again; raising bulk concurrency 13 → 14
+xerj-progress phase=index basis=bytes pct=60.2 items=29900/47444 bytes=661747064/1099789983 rate=86694.6 eta_s=5052.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4830.0 elapsed_s=5095.1 waiting_on=elasticsearch/x-pack/plugin/esql/src/main/generated/org/elasticsearch/xpack/esql/expression/function/scalar/multivalue/MvLastBytesRefEvaluator.java(13.8KB)
+autoindex: server healthy again; raising bulk concurrency 14 → 15
+autoindex: server healthy again; raising bulk concurrency 15 → 16
+autoindex: server healthy again; raising bulk concurrency 16 → 17
+xerj-bar [##############----------] 60.2% | index | 29927/47444 items | 83.9KB/s | eta 1h24m | waiting on …ExtractConstantMillisEvaluator.java(18.3KB)
+xerj-progress phase=index basis=bytes pct=60.2 items=29927/47444 bytes=662159846/1099789983 rate=85866.7 eta_s=5096.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4835.0 elapsed_s=5100.1 waiting_on=elasticsearch/x-pack/plugin/esql/src/main/generated/org/elasticsearch/xpack/esql/expression/function/scalar/date/DateExtractConstantMillisEvaluator.java(18.3KB)
+autoindex: server healthy again; raising bulk concurrency 17 → 18
+autoindex: server healthy again; raising bulk concurrency 18 → 19
+autoindex: server healthy again; raising bulk concurrency 19 → 20
+autoindex: server healthy again; raising bulk concurrency 20 → 21
+xerj-progress phase=index basis=bytes pct=60.2 items=29955/47444 bytes=662580490/1099789983 rate=85518.8 eta_s=5112.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4840.0 elapsed_s=5105.1
+autoindex: server healthy again; raising bulk concurrency 21 → 22
+autoindex: server healthy again; raising bulk concurrency 22 → 23
+autoindex: server healthy again; raising bulk concurrency 23 → 24
+xerj-progress phase=index basis=bytes pct=60.3 items=29982/47444 bytes=663117783/1099789983 rate=89906.3 eta_s=4857.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4845.0 elapsed_s=5110.1 waiting_on=elasticsearch/x-pack/plugin/core/src/test/java/org/elasticsearch/xpack/core/transform/transforms/TransformConfigTests.java(99.6KB)
+autoindex: server healthy again; raising bulk concurrency 24 → 25
+autoindex: server healthy again; raising bulk concurrency 25 → 26
+autoindex: server healthy again; raising bulk concurrency 26 → 27
+xerj-bar [##############----------] 60.4% | index | 30009/47444 items | 94.0KB/s | eta 1h15m | waiting on …/StablePluginPlaceHolder.java(2.8KB)
+xerj-progress phase=index basis=bytes pct=60.4 items=30009/47444 bytes=663727044/1099789983 rate=96295.1 eta_s=4528.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4850.0 elapsed_s=5115.1 waiting_on=elasticsearch/server/src/main/java/org/elasticsearch/plugins/StablePluginPlaceHolder.java(2.8KB)
+autoindex: server healthy again; raising bulk concurrency 27 → 28
+autoindex: server healthy again; raising bulk concurrency 28 → 29
+autoindex: server healthy again; raising bulk concurrency 29 → 30
+autoindex: server healthy again; raising bulk concurrency 30 → 31
+xerj-progress phase=index basis=bytes pct=60.4 items=30036/47444 bytes=664119401/1099789983 rate=92730.0 eta_s=4698.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=4855.0 elapsed_s=5120.1 waiting_on=elasticsearch/libs/h3/src/test/resources/org/elasticsearch/h3/bc14r09centers.txt.gz(732B)
+autoindex: server healthy again; raising bulk concurrency 31 → 32
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 32 → 16 for this run
+xerj-done ok=false exit=1 reason=aborted wall=5122.5s
+error: prepared bulk contained 747 rejected items: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill","status":429}

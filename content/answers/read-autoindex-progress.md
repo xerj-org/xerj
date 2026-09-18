@@ -23,6 +23,7 @@ links_out:
   - "resume-interrupted-autoindex-run"
   - "estimate-autoindex-time-before-running"
   - "autoindex-dataset-refused-by-server"
+  - "autoindex-server-back-pressure-429"
 evidence:
   - claim: "With --no-graph, a 231-file repository reported 9 phases in order: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-refresh, finalize-verify, with 0 progress lines reading scan at pct=100.0, and ended xerj-done ok=true exit=3 reason=completed-with-junk wall=3.9s files=231 records=1663."
     source: "benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt"
@@ -36,6 +37,8 @@ evidence:
     source: "benchmarks/autoindex-resilience/README.md"
   - claim: "On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus."
     source: "benchmarks/autoindex-resilience/before-rc74.stderr.txt"
+  - claim: "A full-corpus run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected 429 by the node's memory circuit breaker."
+    source: "benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt"
 faq:
   - q: "How do I know autoindex is still working?"
     a: "Read the xerj-progress line on stderr. The elapsed_s and since_progress_s fields advance even when the percentage does not, and waiting_on names the current file."
@@ -49,6 +52,8 @@ faq:
     a: "Pass --progress plain and read the xerj-progress lines from stderr. Each line is a flat set of key=value pairs with no colors and no cursor control."
   - q: "What does the final autoindex line say?"
     a: "The xerj-done line carries ok, exit, reason, wall, files, records, datasets and junk_files. The captured run ended ok=true exit=0 reason=completed."
+  - q: "What does a server back-pressure line mean?"
+    a: "The node answered some bulk items with HTTP 429 and the run is re-sending only those after a backoff. `since_progress_s` climbs while it waits; the line names the delay and the patience left. The terminal line then carries `bulk_retries=N`."
   - q: "Can I combine --quiet with --progress plain?"
     a: "No. --quiet means no progress output, so the decision-JSON recipe and the progress-parsing recipe are separate invocations of autoindex."
 ---
@@ -153,6 +158,18 @@ xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 data
 `reason` distinguishes `completed`, `dry-run`, `completed-with-junk` and `aborted`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one.
 
 If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
+
+If the node pushed back with HTTP 429 during the run, the line carries `bulk_retries`, the number of bulks the run re-sent. It also appears only when it happened.
+
+## When the node pushes back
+
+A node that crosses its memory watermark answers writes with HTTP 429 until memory drops back, usually within seconds. The run lowers its bulk concurrency, re-sends only the rejected items after a backoff, and says so on stderr at most once every 5 seconds:
+
+```text
+autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: …); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
+```
+
+During the wait `since_progress_s` climbs, because nothing is landing. That is the honest reading, and the line above is what tells it apart from a hang. Before this change a full-corpus run aborted at 60.4% of its `index` phase, after 5122.5 seconds, on the first bulk that came back with 747 items rejected 429. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the rules and the exit-1 case.
 
 ## Progress and the decision gate are separate runs
 

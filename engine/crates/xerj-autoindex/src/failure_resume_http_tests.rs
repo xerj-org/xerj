@@ -129,6 +129,11 @@ struct MockState {
     /// the dataset's whole mapping — of every index whose name contains one of
     /// these, with the 400 a real engine returns for a field it cannot map.
     refused_dataset_indices: Vec<String>,
+    /// Opt-in (#944): answer this many data bulks — the next ones — with a
+    /// per-item 429 on EVERY item and apply nothing, the way the engine's
+    /// memory circuit breaker does for the moment it is engaged. Then behave
+    /// normally, so the client's re-send of exactly those items can land.
+    throttle_data_bulks: usize,
 }
 
 struct MockEndpoint {
@@ -598,6 +603,25 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
 
     let mut locked = state.lock().unwrap();
     locked.data_bulk_number += 1;
+    if locked.throttle_data_bulks > 0 {
+        locked.throttle_data_bulks -= 1;
+        let items: Vec<Value> = lines
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|_| {
+                json!({"index": {
+                    "status": 429,
+                    "error": {
+                        "type": "engine_exception",
+                        "reason": "[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill",
+                        "status": 429
+                    }
+                }})
+            })
+            .collect();
+        return json!({"errors": true, "items": items});
+    }
     if locked.block_writes {
         // Explicit write block: per-item 403 (never 429/5xx), nothing applied.
         let items: Vec<Value> = lines
@@ -886,6 +910,65 @@ fn the_legacy_terminal_line_and_run_document_report_code_coverage() {
             .as_str()
             .is_some_and(|defs| defs.contains("struct AlphaConfig")),
         "{ast}"
+    );
+}
+
+/// #944: the shape that aborted a 48,533-file run at 60% — one data bulk
+/// answered HTTP 200 with every item `status: 429` by the engine's memory
+/// circuit breaker, which engages and releases within a second. The legacy
+/// path treated `server_errors > 0` as fatal on the spot. The items are now
+/// re-sent once the moment passes, every record lands, the run exits 0, and
+/// the terminal line says it happened.
+#[test]
+fn a_per_item_429_on_a_data_bulk_is_resent_and_the_run_completes() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("rows.csv"),
+        "id,value\n1,first\n2,second\n3,third\n",
+    )
+    .unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint.state.lock().unwrap().throttle_data_bulks = 1;
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, _report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(code, 0, "a transient per-item 429 must not end the run");
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.starts_with("xerj-done ok=true exit=0 "), "{done}");
+    assert!(
+        done.contains(" bulk_retries=1"),
+        "the terminal line must say the run re-sent a bulk: {done}"
+    );
+    let locked = endpoint.state.lock().unwrap();
+    assert_eq!(
+        data_rows(&locked).len(),
+        3,
+        "every rejected record landed on the re-send"
+    );
+    assert_eq!(
+        locked.data_bulk_number, 2,
+        "the throttled bulk and its one re-send; nothing else was retried"
     );
 }
 

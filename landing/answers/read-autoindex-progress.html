@@ -194,15 +194,16 @@
     <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">51</span>Why would a folder search miss files that I can see on disk?</a>
     <a href="/answers/autoindex-dataset-refused-by-server" class=""><span class="eyebrow">52</span>One dataset was REFUSED by the server. Did I lose the whole index?</a>
     <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">53</span>The indexer exited 3 (or 4). Did it fail?</a>
-    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">54</span>Is there a single-binary local search engine I can just run?</a>
-    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">55</span>What can I use for low-volume log search?</a>
-    <a href="/answers/read-autoindex-progress" class="active"><span class="eyebrow">56</span>How do I read autoindex progress?</a>
-    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">57</span>The indexer died overnight. Do I have to start over?</a>
-    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">58</span>Reindexing my files is taking forever. What usually causes that?</a>
-    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">59</span>What is XERJ?</a>
-    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">60</span>How do I improve a basic FAISS RAG pipeline?</a>
-    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">61</span>Why did my filtered vector search get slower when I added a filter?</a>
-    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">62</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/autoindex-server-back-pressure-429" class=""><span class="eyebrow">54</span>The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a>
+    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">55</span>Is there a single-binary local search engine I can just run?</a>
+    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">56</span>What can I use for low-volume log search?</a>
+    <a href="/answers/read-autoindex-progress" class="active"><span class="eyebrow">57</span>How do I read autoindex progress?</a>
+    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">58</span>The indexer died overnight. Do I have to start over?</a>
+    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">59</span>Reindexing my files is taking forever. What usually causes that?</a>
+    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">60</span>What is XERJ?</a>
+    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">61</span>How do I improve a basic FAISS RAG pipeline?</a>
+    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">62</span>Why did my filtered vector search get slower when I added a filter?</a>
+    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">63</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
@@ -319,6 +320,12 @@
 </code></pre>
   <p><code class="inline">reason</code> distinguishes <code class="inline">completed</code>, <code class="inline">dry-run</code>, <code class="inline">completed-with-junk</code> and <code class="inline">aborted</code>, and the exit code follows it. Exit 3 with <code class="inline">completed-with-junk</code> means the run refused some files, and the catalog holds a reason for each one.</p>
   <p>If the server refused a whole dataset, the line also carries <code class="inline">datasets_refused</code> and <code class="inline">files_refused</code>. They appear only when it happened. The <a href="/answers/autoindex-dataset-refused-by-server">refused-dataset page</a> covers that case.</p>
+  <p>If the node pushed back with HTTP 429 during the run, the line carries <code class="inline">bulk_retries</code>, the number of bulks the run re-sent. It also appears only when it happened.</p>
+  <h2>When the node pushes back</h2>
+  <p>A node that crosses its memory watermark answers writes with HTTP 429 until memory drops back, usually within seconds. The run lowers its bulk concurrency, re-sends only the rejected items after a backoff, and says so on stderr at most once every 5 seconds:</p>
+  <pre class="code"><code class="language-text">autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: …); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
+</code></pre>
+  <p>During the wait <code class="inline">since_progress_s</code> climbs, because nothing is landing. That is the honest reading, and the line above is what tells it apart from a hang. Before this change a full-corpus run aborted at 60.4% of its <code class="inline">index</code> phase, after 5122.5 seconds, on the first bulk that came back with 747 items rejected 429. The <a href="/answers/autoindex-server-back-pressure-429">back-pressure page</a> covers the rules and the exit-1 case.</p>
   <h2>Progress and the decision gate are separate runs</h2>
   <p><code class="inline">--quiet</code> means no progress output, so it cannot share an invocation with <code class="inline">--progress plain</code>. The capture ran the 2 recipes as separate commands for that reason.</p>
   <p>Use <code class="inline">--progress plain</code> to follow a run. Use <code class="inline">--quiet</code> with <code class="inline">--max-minutes</code> to get the machine-readable decision JSON on stdout.</p>
@@ -335,6 +342,8 @@
   <p>Pass --progress plain and read the xerj-progress lines from stderr. Each line is a flat set of key=value pairs with no colors and no cursor control.</p>
   <h3>What does the final autoindex line say?</h3>
   <p>The xerj-done line carries ok, exit, reason, wall, files, records, datasets and junk_files. The captured run ended ok=true exit=0 reason=completed.</p>
+  <h3>What does a server back-pressure line mean?</h3>
+  <p>The node answered some bulk items with HTTP 429 and the run is re-sending only those after a backoff. <code class="inline">since_progress_s</code> climbs while it waits; the line names the delay and the patience left. The terminal line then carries <code class="inline">bulk_retries=N</code>.</p>
   <h3>Can I combine --quiet with --progress plain?</h3>
   <p>No. --quiet means no progress output, so the decision-JSON recipe and the progress-parsing recipe are separate invocations of autoindex.</p>
   <h2>Evidence</h2>
@@ -345,6 +354,7 @@
     <li>Resuming a full-corpus generation interrupted with 12,890 of 47,444 operations committed reported starting, then replay, then opened index at items=0/34554 bytes=0/805561870, and never reported scan or snapshot. — <code>benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt</code></li>
     <li>A probe of 60 index refreshes on a node holding 1,526 datasets took 6.36 s, about 106 ms each, which projects to about 160 seconds for all 1,526. — <code>benchmarks/autoindex-resilience/README.md</code></li>
     <li>On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus. — <code>benchmarks/autoindex-resilience/before-rc74.stderr.txt</code></li>
+    <li>A full-corpus run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected 429 by the node's memory circuit breaker. — <code>benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt</code></li>
   </ul>
   <h2>Related</h2>
   <ul>
@@ -352,6 +362,7 @@
     <li><a href="/answers/resume-interrupted-autoindex-run">The indexer died overnight. Do I have to start over?</a></li>
     <li><a href="/answers/estimate-autoindex-time-before-running">How do I estimate folder-indexing time?</a></li>
     <li><a href="/answers/autoindex-dataset-refused-by-server">One dataset was REFUSED by the server. Did I lose the whole index?</a></li>
+    <li><a href="/answers/autoindex-server-back-pressure-429">The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a></li>
   </ul>
 </main>
 </div>

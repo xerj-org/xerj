@@ -38,6 +38,8 @@ Nothing else was changed.
 | `refusal-e2e.run2-noop.stderr.txt` | A no-op re-run of the same command. |
 | `fresh-before-rc74.legacy-state.txt` | rc.74 refusing a state directory written before `generation-v1`. |
 | `fresh-before-rc74.committed-generation.txt` | rc.74 refusing `--fresh` over a committed generation. |
+| `before-944.full-corpus.stderr.txt` | This branch before #944 was fixed: the full corpus, aborted at 60.4% by a per-item 429. Trimmed to its first 30 and last 40 lines (the 1,479 lines in between are `index` progress and bulk-concurrency lines); the marker line says so. |
+| `before-944.node.governor.txt` | The node's governor log lines for that run: the memory cap it chose and every circuit-breaker engagement and release. ANSI colour stripped, nothing else changed. |
 
 ## The corpus and the command
 
@@ -127,11 +129,33 @@ explain two decisions; they are not benchmarks.
 | `_bulk` of one small document, 5 samples | about 4 ms after the first | Recorded in #933: the bulk round trip is not the cost. |
 | journal-style append + `fsync`, 20 samples | 0.5 ms median | Recorded in #933: the journal is not the cost. |
 
+## The full-corpus run found a fourth defect (#944)
+
+The full-corpus verification with the final binary of #929/#930/#931 did not
+finish. At 60.4% of the `index` phase, 5,122.5 s in, one bulk came back
+HTTP 200 with 747 of its items answered `status: 429` by the engine's real
+memory circuit breaker, and the client aborted:
+
+```text
+xerj-done ok=false exit=1 reason=aborted wall=5122.5s
+error: prepared bulk contained 747 rejected items: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill","status":429}
+```
+
+`before-944.node.governor.txt` is the node's side: a 16 GiB automatic cap on a
+119.2 GiB machine, and 14 breaker engagements in 27 minutes, every one
+released within 0.1–3.1 s. The condition the run died on had cleared about a
+second later. The same capture holds 117 `raising bulk concurrency` lines for
+11 shrinks.
+
+The fix (re-send only the rejected items while the node accepts something,
+give up after 120 s with nothing accepted, `bulk_retries=N` on the terminal
+line) is verified by unit tests on a stub server and by an end-to-end test on
+each of the two indexing paths. The full-corpus result is below.
+
 ## After, full corpus (this branch)
 
-PENDING — the run was still in its `index` phase when this file was first
-committed. This section is replaced with the terminal line, the record count
-and the per-phase summary when it ends.
+PENDING — this section is replaced with the terminal line, the record count
+and the per-phase summary when the run ends.
 
 ## What the after-run also showed
 

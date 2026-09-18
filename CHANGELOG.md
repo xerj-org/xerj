@@ -50,7 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer forwards the flag to autoindex (which refuses it once a generation has
   committed): it builds a replacement beside the old index, verifies
   `_count > 0`, switches the state file atomically and only then retires the old
-  indices by exact name. Captures: `benchmarks/autoindex-resilience/`.
+  indices by exact name. Found while verifying the above on the full corpus
+  ([#944](https://github.com/xerj-org/xerj/issues/944)): a per-item HTTP 429
+  inside one bulk — the node's memory circuit breaker, which engages and
+  releases within seconds — aborted the 48,533-file run at 60% after 85
+  minutes. The rejected items are now re-sent, and only those, after a backoff,
+  for as long as the node accepts something and for 120 s once it does not;
+  only then is it exit 1, resumable, with an error line that says so. The
+  terminal line carries `bulk_retries=N` when it happened, and the
+  `raising bulk concurrency` line is printed at most once per 10 s (117 lines
+  for 11 shrinks in the capture). Captures: `benchmarks/autoindex-resilience/`.
 
 ## [1.0.0-rc.74] - 2026-09-08
 

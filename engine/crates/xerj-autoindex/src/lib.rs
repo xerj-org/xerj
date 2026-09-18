@@ -1246,6 +1246,12 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value) {
         extra.push(("datasets_refused", count("datasets_refused")));
         extra.push(("files_refused", count("files_refused")));
     }
+    // #944: present only when the run re-sent items the server answered 429,
+    // so a run that fought back-pressure cannot print the same line as one
+    // that did not.
+    if count("bulk_retries") > 0 {
+        extra.push(("bulk_retries", count("bulk_retries")));
+    }
     extra.extend(coverage.fields());
     pr.finish(
         true,
@@ -1683,9 +1689,13 @@ fn record_bulk_outcome(
     match es.bulk(body) {
         Ok(outcome) => {
             if outcome.server_errors > 0 {
+                // Per-item 429s were already re-sent inside `Es::bulk` for as
+                // long as the server accepted anything (#944); what reaches
+                // here did not clear.
                 *send_err = Some(format!(
                     "bulk backend failed for {} item(s): {}. Source file was not journaled \
-                     complete; fix the server/embedding configuration and rerun autoindex",
+                     complete; fix the server condition (or wait for it to clear) and rerun \
+                     autoindex — the run resumes from the journal",
                     outcome.server_errors,
                     outcome
                         .first_server_error
@@ -3958,6 +3968,15 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         summary.get("generation").and_then(Value::as_u64) == Some(generation),
         "generated run summary generation disagrees with committed authority"
     );
+    // #944: THIS run's re-sends of items the server answered 429, not a
+    // property of the committed generation — a re-run that sent nothing
+    // reports nothing. Present only when it happened.
+    let mut summary = summary;
+    let bulk_retries = es.bulk_backpressure_retries();
+    if bulk_retries > 0 {
+        summary["bulk_retries"] = json!(bulk_retries);
+        summary["bulk_items_reissued"] = json!(es.bulk_items_reissued());
+    }
     journal.finish(&summary)?;
     if cfg.json {
         println!("{summary}");
@@ -7608,6 +7627,10 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         ("junk_files", junk_file_count as u64),
     ];
     done_fields.extend(code_coverage.fields());
+    // #944: present only when the run re-sent items the server answered 429.
+    if es.bulk_backpressure_retries() > 0 {
+        done_fields.push(("bulk_retries", es.bulk_backpressure_retries()));
+    }
     // #929: only when it happened, so a whole corpus prints the line it always
     // did and one that lost a dataset cannot print the same one.
     if !plan.refused_datasets.is_empty() {
