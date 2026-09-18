@@ -5,14 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Xerj Console · typography-first observability for Xerj</title>
 <meta name="color-scheme" content="dark light">
-<script>
-  // Theme bootstrap — runs before CSS to prevent a flash of wrong theme.
-  (function () {
-    var t = localStorage.getItem('xerj.theme');
-    if (t !== 'day' && t !== 'night') t = 'night';
-    document.documentElement.setAttribute('data-theme', t);
-  })();
-</script>
+<script src="src/theme-boot.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -23,72 +16,11 @@
 <body>
 <div id="app" aria-busy="true"></div>
 <!--
-  Auth guard.  Hits /_xerj-console/api/v1/me before app.js runs.  On 401 we
-  redirect to /_xerj-console/login (or /_xerj-console/setup when this is a fresh
-  install — the bootstrap banner already pointed the user at /setup,
-  but if they bookmarked / it's nicer to land on /setup than /login).
-  On 200 we cache the user record on `window.__xerjConsoleMe` so app.js can
-  pick it up synchronously without re-fetching, and import app.js.
+  src/boot.js picks the console for this tab: the read-only guest shell when a
+  share record is in sessionStorage, otherwise the operator auth guard + app.js.
+  No inline script anywhere on this page: it is served with a
+  `script-src 'self'` Content-Security-Policy (xerj-console-api/src/spa.rs).
 -->
-<script type="module">
-  (async () => {
-    try {
-      const r = await fetch('/_xerj-console/api/v1/me', {
-        credentials: 'same-origin',
-        headers: { 'accept': 'application/json' },
-      });
-      if (r.status === 401) {
-        // Decide: setup vs login. We probe /cluster/info — its
-        // `started_at_ms` tells us whether the server has been up
-        // long enough that someone almost certainly set it up; on a
-        // fresh boot we send the user to /setup.
-        try {
-          const info = await (await fetch('/_xerj-console/api/v1/cluster/info', {
-            credentials: 'same-origin',
-          })).json();
-          // No reliable "is bootstrapped?" probe yet; default to /login
-          // since /setup requires a magic-link token in the fragment.
-          // Operators on first boot reach /setup via the stderr banner.
-          void info;
-        } catch {}
-        window.location.href = '/_xerj-console/login';
-        return;
-      }
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const body = await r.json();
-      window.__xerjConsoleMe = body && body.data ? body.data.user : null;
-
-      // Pull /prefs + /views from the engine and seed localStorage
-      // BEFORE app.js boots — app.js reads localStorage at module-load
-      // time, so the pull has to complete first or the SPA renders
-      // with stale (or empty) state for one frame.
-      try {
-        const sync = await import('./src/xerj-console-sync.js');
-        await sync.pullAll();
-        // Start the periodic push tick once app.js has had a beat.
-        Promise.resolve().then(() => sync.startPush());
-      } catch (e) {
-        console.warn('[xerj-console sync]', e);
-      }
-
-      // Pull the durable dashboard set (GET /dashboards) BEFORE app.js's
-      // first paint so the nav + declarative panels render from the
-      // backend, not just the localStorage cache. Best-effort: on failure
-      // the store keeps its LS cache (offline/dev still works).
-      try {
-        const ds = await import('./src/data/dashboard-store.js');
-        await ds.hydrate();
-      } catch (e) {
-        console.warn('[xerj-console dashboards]', e);
-      }
-    } catch (e) {
-      // Engine unreachable (offline dev, hot-reload mid-flight) —
-      // load the SPA anyway so the user sees an error state instead
-      // of a redirect loop.
-      console.error('[xerj-console auth guard]', e);
-    }
-    await import('./src/app.js');
-  })();
-</script>
+<script type="module" src="src/boot.js"></script>
 </body>
 </html>

@@ -10,7 +10,6 @@ import { Nav, SceneHeader, TimeCtrl, RefreshCtrl, FilterBar, ClusterCtrl, SavedV
 import { query, dataSourceStatus } from './data/query.js';
 import { chartTypes, chartTypeList } from './ux/chart-types.js';
 import { esc } from './ux/text.js';
-import { mockSearch } from './data/mock.js';
 import { hitsToCsv, downloadText, svgToPng } from './data/export.js';
 import {
   mergedDashboards, renameDashboard, reorderDashboards, setHidden,
@@ -25,8 +24,13 @@ import {
 } from './data/data-sources.js';
 import { sbBrainsPresent } from './data/brains-probe.js';
 import { dataFeaturesPresent, emptyDataFeatures } from './data/data-probe.js';
-import { emailCorpusPresent } from './data/email-probe.js';
-import { indexNames, emailIndex as detectEmailIndex } from './data/schema.js';
+import { indexNames } from './data/schema.js';
+import { mount } from './ux/safe-dom.js';
+import { renderCorpus } from './ux/corpus-render.js';
+import { ReaderView, parseReaderRoute } from './ux/reader-view.js';
+import { readerHref } from './ux/reader-render.js';
+import { makeReaderApi } from './data/reader-api.js';
+import { makeConsoleTransport } from './data/transport-console.js';
 import { activeBackendId, backendBaseUrl } from './data/backends/index.js';
 
 // ---------- state -----------------------------------------
@@ -97,13 +101,35 @@ const state = {
   // `requiresLive: '<key>'` only appears in the NAV once the matching
   // key here is true (fed by a probe against the live engine). Routes
   // and MANAGE are never filtered — a deep link must always resolve.
-  liveFeatures: { brains: false, 'email-corpus': false, ...emptyDataFeatures() },
-  // Real index names on the engine (from the mapping), and the detected email
-  // corpus — both fed by the live probe so the search UI and Case Review align
-  // to what's actually indexed instead of a hardcoded demo list.
+  liveFeatures: { brains: false, ...emptyDataFeatures() },
+  // Real index names on the engine (from the mapping), fed by the live probe
+  // so the search UI aligns to what's actually indexed instead of a hardcoded
+  // demo list.
   indices: [],
-  emailIndex: null,
+  // The Corpus home's last payload (backends/xerj.js#liveCorpus) — kept so the
+  // Reader's index picker lists the catalogued datasets first.
+  corpus: null,
 };
+
+// The Reader (ux/reader-view.js) owns its own state and fetching; the shell
+// only hands it a mount point after each render and the parsed route on each
+// hash change. It renders through ux/safe-dom.js — record data never passes
+// through this file's HTML strings.
+const readerView = new ReaderView({
+  api: makeReaderApi(makeConsoleTransport()),
+  guest: false,
+  indices: () => {
+    const fromCatalog = (state.corpus?.datasets || []).map((d) => d.index);
+    const rest = state.indices.filter((n) => !fromCatalog.includes(n));
+    return [...fromCatalog, ...rest];
+  },
+  onStatus: ({ kind, label }) => {
+    if (state.section !== 'reader') return;
+    state.sourceKind = kind; state.sourceLabel = label;
+    const pill = document.querySelector('[data-nav-status]');
+    if (pill) pill.textContent = navStatus();
+  },
+});
 // Merge any URL-seeded filters into the current dashboard's filter set.
 if (_urlState.filters) {
   state.filters[_initial.route] = { ...(state.filters[_initial.route] || {}), ..._urlState.filters };
@@ -297,22 +323,19 @@ async function probeLiveFeatures() {
     // (chat-events, vector-ops, agent-memory, anomalies, logs-*). Each dashboard
     // gates its nav entry on its own key so a fresh / brain-only engine never
     // advertises a mock-filled telemetry dashboard.
-    const [brains, dataFeat, emailCorpus, idxNames, emlIdx] = await Promise.all([
+    const [brains, dataFeat, idxNames] = await Promise.all([
       sbBrainsPresent(base),
       dataFeaturesPresent(base),
-      emailCorpusPresent(base),
       indexNames(base),
-      detectEmailIndex(base),
     ]);
-    const next = { brains, 'email-corpus': emailCorpus, ...dataFeat };
+    const next = { brains, ...dataFeat };
     let changed = false;
     for (const k of Object.keys(next)) {
       if (next[k] !== state.liveFeatures[k]) { state.liveFeatures[k] = next[k]; changed = true; }
     }
-    // Real index list + detected email corpus. Re-render if either changed so
-    // the index picker and Case Review target actual data.
+    // Real index list. Re-render if it changed so the index picker targets
+    // actual data.
     if (JSON.stringify(idxNames) !== JSON.stringify(state.indices)) { state.indices = idxNames || []; changed = true; }
-    if (emlIdx !== state.emailIndex) { state.emailIndex = emlIdx; changed = true; }
     // If the selected index no longer exists (stale localStorage, renamed or
     // deleted index), fall back to a real one so the console lands on actual
     // data instead of an empty/erroring result. `*` is kept (backend resolves
@@ -396,20 +419,15 @@ function navStatus() {
 }
 
 function runSearchNow() {
-  // Optimistic placeholder so the table doesn't blank out while
-  // the live query is in flight. Replaced as soon as the engine
-  // responds with real hits.
-  state.search.result = mockSearch({
-    q: state.search.q,
-    type: state.search.type,
-    index: state.search.index,
-    filters: state.search.filters,
-    sort: state.search.sort,
-  });
-  // Live xerj search: turn the SearchBox state into a real
-  // `query()` ctx and overlay the live hits + facets when they
-  // arrive. Falls back to the mock above on backend error so the
-  // demo never serves a blank console.
+  // No optimistic placeholder: until the engine answers, the table says
+  // SEARCHING and holds nothing. This function used to seed the result with
+  // mockSearch() — fabricated service/host/level hits — and keep them on any
+  // backend error, so a failed search showed invented documents under a LIVE
+  // pill (#923 review finding 5). Every outcome is now one of: pending, the
+  // engine's hits, or an explicit error with zero rows.
+  const seq = (state.search._seq = (state.search._seq || 0) + 1);
+  const prev = state.search.result;
+  state.search.result = { hits: [], total: 0, facets: {}, roles: prev?.roles || null, pending: true };
   query({
     dashId: 'search-discover',
     range: state.time,
@@ -420,37 +438,43 @@ function runSearchNow() {
       q: state.search.q,
       type: state.search.type,
       index: state.search.index,
+      sort: state.search.sort,
     },
   })
     .then((res) => {
-      const live = res?.data;
-      if (!live || live.error) return;
-      const mock = state.search.result || {};
-      state.search.result = {
-        ...mock,
-        hits: live.hits || mock.hits || [],
-        total: live.total ?? (live.hits?.length ?? 0),
-        took: live.took,
-        max_score: live.max_score,
-        facets: live.facets || mock.facets,
-        roles: live.roles || mock.roles,
-        _live: true,
-      };
+      if (seq !== state.search._seq) return; // a newer search owns the table
+      const live = res?.data || {};
+      state.search.result = live.error
+        ? { hits: [], total: 0, facets: {}, roles: live.roles || null, error: String(live.error),
+            resolvedIndex: live.resolvedIndex ?? null, narrowed: !!live.narrowed, request: live.request || null }
+        : {
+          hits: live.hits || [],
+          total: live.total ?? (live.hits?.length ?? 0),
+          tookMs: live.took ?? 0,
+          maxScore: live.max_score ?? null,
+          facets: live.facets || {},
+          histogram: live.histogram || null,
+          histogramField: live.histogramField || null,
+          roles: live.roles || null,
+          resolvedIndex: live.resolvedIndex ?? null,
+          narrowed: !!live.narrowed,
+          request: live.request || null,
+          _live: true,
+        };
       state.fetchedAt = res.meta?.fetchedAt || Date.now();
       state.fetchMs   = res.meta?.durationMs ?? state.fetchMs;
-      // The visible hits are live — reflect that in the pill for search-driven
-      // views (discover, case-review), overriding any mock label.
       // Only relabel if we're still on the search-driven view — a late search
       // resolving after you've navigated away must not repaint the new view.
-      if (res.meta?.sourceLabel && (state.section === 'discover' || state.section === 'dashboards')) {
+      if (res.meta?.sourceLabel && state.section === 'discover') {
         state.sourceLabel = res.meta.sourceLabel; state.sourceKind = res.meta.sourceKind;
       }
-      // Re-render the page so the table swaps mock → live without
-      // requiring user interaction. Also covers the dashboards section, where
-      // Case Review reads the same live hits.
-      if (state.section === 'discover' || state.section === 'dashboards') render();
+      if (state.section === 'discover') render();
     })
-    .catch(() => { /* leave the optimistic mock in place */ });
+    .catch((err) => {
+      if (seq !== state.search._seq) return;
+      state.search.result = { hits: [], total: 0, facets: {}, roles: null, error: String(err && err.message || err) };
+      if (state.section === 'discover') render();
+    });
   // Persist the inputs (not the result — it rebuilds on demand)
   localStorage.setItem(LS.search, JSON.stringify({
     q: state.search.q,
@@ -488,10 +512,12 @@ function parseRoute() {
     return list[0]?.id;
   };
 
-  // Empty hash → dashboards section, first dashboard
+  // Empty hash → the Corpus home: what is indexed on this engine. It reads
+  // the live catalog and has an honest empty state (one command), so it is a
+  // safe landing on any engine — unlike a telemetry dashboard, it has nothing
+  // to fall back to.
   if (!parts.length) {
-    const first = firstOfSection('dashboards') || 'ai-overview';
-    return { section: 'dashboards', route: first };
+    return { section: 'corpus', route: 'corpus' };
   }
 
   // Legacy: #/manage → settings
@@ -983,19 +1009,6 @@ async function render() {
   if (dash.id === 'search-discover' && !state.search.result) {
     runSearchNow();
   }
-  // Case Review reads an email corpus. On first entry, preset the shared search
-  // to SEMANTIC over the email index and run it, so the reader has emails to
-  // open the moment the dashboard appears.
-  if (dash.id === 'case-review' && !state.search._reviewInit) {
-    state.search._reviewInit = true;
-    if (dash.preset) state.search.type = dash.preset.type;
-    // Target the index the engine actually holds the email corpus in — detected
-    // from the mapping, not a hardcoded name. Fall back to `*` (all indices).
-    state.search.index = state.emailIndex || '*';
-    if (!state.search.q) state.search.q = 'what does the deal say about valuation and earnout';
-    runSearchNow();
-  }
-
   const activeFilters = currentFilters();
   // A declarative (net-new) user dashboard runs a live query PER PANEL
   // (data/panel-query.js) rather than a single whole-dashboard fetch.
@@ -1046,6 +1059,7 @@ async function render() {
         filters: activeFilters,
       });
       data = result.data;
+      if (dash.id === 'corpus') state.corpus = data;
       state.fetchedAt = result.meta.fetchedAt;
       state.fetchMs = result.meta.durationMs;
       // Tie the nav pill to THIS dashboard's fetch, not a global last-writer.
@@ -1068,7 +1082,7 @@ async function render() {
     }
   }
 
-  const view = dash.render({ data, time: state.time, search: state.search, indices: state.indices, emailIndex: state.emailIndex });
+  const view = dash.render({ data, time: state.time, search: state.search, indices: state.indices });
   // Let a user rename override the scene title. User-cloned dashboards
   // always use the user-chosen name; defaults only override if the user
   // has explicitly set an xerj.dashboards.names entry.
@@ -1173,6 +1187,7 @@ async function render() {
     ${editFrame}
   `;
   app.setAttribute('aria-busy', 'false');
+  mountSafePanels(dash, data);
 
   // Restore focus on the search input (if we're on the search dashboard).
   if (state._focusSelector) {
@@ -1186,6 +1201,28 @@ async function render() {
     }
     state._focusSelector = null;
   }
+}
+
+/**
+ * Fill the panels that show document-derived content. Their `render()` emits
+ * only an empty `<div data-safe-mount="…">`; the content is built here as DOM
+ * nodes (ux/safe-dom.js), so nothing a document says can be parsed as markup.
+ * Runs after every shell render, because the shell replaces #app wholesale.
+ */
+function mountSafePanels(dash, data) {
+  const corpusEl = document.querySelector('[data-safe-mount="corpus"]');
+  if (corpusEl) {
+    const st = data && data.status ? data : { status: 'error', error: (data && data.error) || 'the catalog returned nothing' };
+    mount(corpusEl, renderCorpus(st, { guest: false }));
+  }
+  const readerEl = document.querySelector('[data-safe-mount="reader"]');
+  if (readerEl) {
+    readerView.attach(readerEl);
+    readerView.setRoute(parseReaderRoute(location.hash));
+  } else {
+    readerView.detach();
+  }
+  void dash;
 }
 
 // ==========================================================
@@ -1477,6 +1514,28 @@ document.addEventListener('input', (e) => { handleDeclInput(e); });
 let dragSrcId = null;
 
 document.addEventListener('click', (e) => {
+  // Corpus cards. The attribute values are DATA written by
+  // ux/corpus-render.js; they are parsed, validated and turned into state —
+  // never evaluated and never put back into markup.
+  const cq = e.target.closest && e.target.closest('[data-corpus-query]');
+  if (cq) {
+    e.preventDefault();
+    let spec = null;
+    try { spec = JSON.parse(cq.getAttribute('data-corpus-query')); } catch { spec = null; }
+    if (spec && typeof spec.index === 'string' && typeof spec.q === 'string') {
+      readerView.setQuery({ q: spec.q, type: String(spec.type || 'match') });
+      location.hash = readerHref({ index: spec.index });
+    }
+    return;
+  }
+  const cb = e.target.closest && e.target.closest('[data-corpus-browse]');
+  if (cb) {
+    e.preventDefault();
+    const idx = cb.getAttribute('data-corpus-browse');
+    if (idx) { state.search.index = idx; state.search.filters = {}; state.search.result = null; }
+    location.hash = '#/discover';
+    return;
+  }
   // Declarative user-dashboard chrome (builder + user-panel toolbar).
   // Handled first so its specific data-* attrs never fall through to the
   // default-dashboard handlers below.

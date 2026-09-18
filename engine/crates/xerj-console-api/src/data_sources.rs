@@ -270,12 +270,22 @@ pub async fn search(
         .hits
         .iter()
         .map(|h| {
-            json!({
+            let mut hit = json!({
                 "_index": index,
                 "_id": h.id,
                 "_score": h.score,
                 "_source": h.source,
-            })
+            });
+            // Pass the engine's highlight fragments through when the request
+            // asked for them, so the Reader can mark matches for a signed-in
+            // operator the same way it does for a guest on the ES-compat
+            // route. Fragments are raw document text with the caller's
+            // pre/post tags spliced in — the SPA never parses them as markup
+            // (`xerj-ux/src/ux/safe-dom.js#highlightChildren`).
+            if let Some(hl) = &h.highlight {
+                hit["highlight"] = json!(hl);
+            }
+            hit
         })
         .collect();
     let wire = json!({

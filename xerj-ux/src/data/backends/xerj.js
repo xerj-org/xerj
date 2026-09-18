@@ -10,7 +10,9 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
-import { schemaForSearch, indexNames, emailIndex } from '../schema.js';
+import { schemaForSearch, indexNames } from '../schema.js';
+import { buildSearchBody } from '../search-body.js';
+import { CATALOG_INDEX, catalogQueryBody, parseCatalogHits } from '../catalog.js';
 
 // Aggregation materialisation bypass.
 //
@@ -85,7 +87,7 @@ export async function listIndices(baseUrl, signal) {
  * Scope: single exact index name only — no wildcard/`_all` resolution.
  * See `xerj-console-api::data_sources::search`'s doc comment for why.
  */
-async function rawSearch(baseUrl, index, body, signal) {
+export async function rawSearch(baseUrl, index, body, signal) {
   const path = `/_xerj-console/api/v1/data-sources/connections/built-in/indices/${encodeURIComponent(index)}/search`;
   const r = await fetch(path, {
     method: 'POST',
@@ -111,7 +113,7 @@ async function rawSearch(baseUrl, index, body, signal) {
 export async function search(baseUrl, dashId, ctx, signal) {
   switch (dashId) {
     case 'search-discover':       return liveSearchDiscover(baseUrl, ctx, signal);
-    case 'case-review':           return liveCaseReview(baseUrl, ctx, signal);
+    case 'corpus':                return liveCorpus(baseUrl, ctx, signal);
     case 'system':                return liveSystem(baseUrl, ctx, signal);
     case 'logs-overview':         return liveLogsOverview(baseUrl, ctx, signal);
     case 'data':                  return liveData(baseUrl, ctx, signal);
@@ -130,12 +132,112 @@ export async function search(baseUrl, dashId, ctx, signal) {
   }
 }
 
-// ── case-review ─────────────────────────────────────────────────────
+// ── corpus ──────────────────────────────────────────────────────────
 //
-// The Case Review dashboard renders its email/PDF cards + reader from the
-// shared SEARCH result (state.search.result, fed by runSearchNow), not from
-// this `data` object. But without a live adapter here, query.js would see a
-// null return, fetch UNUSED mock data, and stamp the nav status "MOCK FALLBACK"
+// The Corpus home: every dataset `xerj brain` / `xerj autoindex` recorded in
+// the `autoindex-catalog` index, plus any other user index the engine holds
+// (listed by name and document count, so an engine that was filled some other
+// way does not read as "nothing indexed"). NEVER returns null and never
+// throws: data/query.js treats null as "fall back to mock", and a fabricated
+// corpus is the one thing this page must not be able to show.
+async function liveCorpus(baseUrl, _ctx, signal) {
+  let datasets = [];
+  let catalogError = null;
+  try {
+    const resp = await rawSearch(baseUrl, CATALOG_INDEX, catalogQueryBody(), signal);
+    datasets = parseCatalogHits(resp?.hits?.hits || []);
+  } catch (e) {
+    // No catalog index yet (HTTP 404) is the ordinary empty state, not an error.
+    if (!/HTTP 404/.test(String(e))) catalogError = String(e && e.message || e).slice(0, 200);
+  }
+  let others = [];
+  try {
+    const r = await fetch('/_xerj-console/api/v1/data-sources/connections/built-in/indices', { credentials: 'same-origin', signal });
+    if (r.ok) {
+      const body = await r.json();
+      const known = new Set(datasets.map((d) => d.index));
+      others = (body?.data?.indices || [])
+        .filter((it) => it && typeof it.name === 'string' && !it.name.startsWith('.') && it.name !== CATALOG_INDEX && !known.has(it.name))
+        .map((it) => ({ index: it.name, records: Number(it.docs || 0), emails: 0, attachments: 0, formats: [] }));
+    }
+  } catch { /* the catalog cards still stand on their own */ }
+  if (catalogError && !datasets.length && !others.length) return { status: 'error', error: catalogError, datasets: [], summaries: [] };
+  return { status: 'ok', datasets, summaries: others, _live: true };
+}
+
+// ── search-discover ────────────────────────────────────────────────
+//
+// The dashboard's `q` / `type` / `index` come in via ctx.search; the request
+// body is built by data/search-body.js — the SAME function the DSL preview
+// panel calls, so what is previewed is what runs (#923 review finding 8).
+// Hits, total and per-field facets all come from one round-trip. Every
+// failure is returned as `{ error }`; there is no fallback result set.
+async function liveSearchDiscover(baseUrl, ctx, signal) {
+  const search = ctx.search || {};
+  const q = search.q || '';
+  const type = search.type || 'match';
+  const requested = search.index || '*';
+  let index = requested === '*' ? '_all' : requested;
+
+  // The console's panel-search proxy resolves a single exact index only —
+  // wildcard/_all/multi-index is refused (501). `*` therefore runs against
+  // ONE index, and the result says which (`resolvedIndex`) so the page can
+  // show it: a picker that says `*` over results from one corpus is the
+  // "what I see is not what was indexed" bug (#923 review finding 3).
+  let narrowed = false;
+  if (index === '_all') {
+    const names = await indexNames(baseUrl, signal);
+    if (!names.length) return { error: 'no user index on this engine', hits: [], total: 0, took: 0, facets: {}, roles: null, resolvedIndex: null };
+    index = names[0];
+    narrowed = names.length > 1;
+  }
+
+  const roles = await schemaForSearch(baseUrl, index, signal);
+  const body = buildSearchBody(q, type, ctx.filters, roles, { sort: search.sort });
+  let response;
+  try {
+    response = await rawSearch(baseUrl, index, body, signal);
+  } catch (e) {
+    return { error: String(e && e.message || e), hits: [], total: 0, took: 0, facets: {}, roles, resolvedIndex: index, narrowed, request: body };
+  }
+
+  const total = response.hits?.total?.value ?? response.hits?.total ?? 0;
+  const hits = (response.hits?.hits || []).map((h) => ({
+    _id: h._id,
+    _index: h._index,
+    _score: h._score,
+    _source: h._source,
+    _ts: h._source?.[roles.dateField] || h._source?.['@timestamp'] || null,
+  }));
+  const facets = { _index: bucketsToFacet(response.aggregations?.by__index) };
+  for (const f of roles.keywordFields.slice(0, 3)) {
+    facets[f] = bucketsToFacet(response.aggregations?.[`by_${f}`]);
+  }
+  const dateBuckets = response.aggregations?.by_date?.buckets;
+  return {
+    total,
+    took: response.took ?? 0,
+    max_score: response.hits?.max_score ?? null,
+    hits,
+    facets,
+    histogram: Array.isArray(dateBuckets)
+      ? dateBuckets.map((b) => ({ label: String(b.key_as_string || b.key).slice(0, 10), value: Number(b.doc_count) || 0 }))
+      : null,
+    histogramField: roles.dateField || null,
+    roles,
+    resolvedIndex: index,
+    narrowed,
+    request: body,
+    _live: true,
+  };
+}
+
+function bucketsToFacet(agg) {
+  if (!agg || !Array.isArray(agg.buckets)) return [];
+  // ux/charts-ops.js#Facet reads { label, value, count }.
+  return agg.buckets.map((b) => ({ label: String(b.key), value: String(b.key), count: Number(b.doc_count) || 0 }));
+}
+
 // ── system ────────────────────────────────────────────────────────
 //
 // The system dashboard expects a rich infrastructure-monitoring

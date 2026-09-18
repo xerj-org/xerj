@@ -65,6 +65,7 @@ export function buildQueryClause(q, type, roles) {
  *   filters   — { field: value } click-to-filter terms
  *   roles     — schema.js#deriveRoles output
  *   opts.size — hits to return (default 25)
+ *   opts.aggs — false to omit the facet / histogram aggregations
  *   opts.sort — { field, dir }; `_score` / `_ts` / `_index` / `_id` are
  *               display sorts the engine cannot order by, so they are
  *               omitted (score order is the default).
@@ -78,15 +79,19 @@ export function buildSearchBody(q, type, filters, roles, opts = {}) {
       : { term: { [f]: v } }));
   const query = filterList.length ? { bool: { must: inner, filter: filterList } } : inner;
 
-  const aggs = { by__index: { terms: { field: '_index', size: 8 } } };
-  for (const f of (roles?.keywordFields || []).slice(0, FACET_FIELDS)) {
-    aggs[`by_${f}`] = { terms: { field: f, size: 8 } };
+  const body = { query, size: opts.size ?? 25, track_total_hits: true };
+  // The reader asks for hits only (`opts.aggs === false`); Discover also
+  // wants its facet sidebar and histogram.
+  if (opts.aggs !== false) {
+    const aggs = { by__index: { terms: { field: '_index', size: 8 } } };
+    for (const f of (roles?.keywordFields || []).slice(0, FACET_FIELDS)) {
+      aggs[`by_${f}`] = { terms: { field: f, size: 8 } };
+    }
+    if (roles?.dateField) {
+      aggs.by_date = { date_histogram: { field: roles.dateField, calendar_interval: 'day' } };
+    }
+    body.aggs = aggs;
   }
-  if (roles?.dateField) {
-    aggs.by_date = { date_histogram: { field: roles.dateField, calendar_interval: 'day' } };
-  }
-
-  const body = { query, size: opts.size ?? 25, track_total_hits: true, aggs };
   const sort = opts.sort;
   if (sort && sort.field && !sort.field.startsWith('_')) {
     body.sort = [{ [sort.field]: sort.dir === 'asc' ? 'asc' : 'desc' }];
