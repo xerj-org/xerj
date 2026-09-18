@@ -1479,7 +1479,13 @@ mod tests {
                 "NOT WORTH IT FOR",
                 "NEEDS A CONFIGURED PROVIDER",
                 "503",
-                "sends document text off the machine",
+                // The honest egress statement: rerank is the only SEARCH-TIME
+                // path, and the description names the other two so an agent
+                // never repeats "nothing else leaves the machine" on a node
+                // running proxy embeddings or a WAL tap.
+                "only search-time feature that sends document text off the node",
+                "default_endpoint",
+                "WAL tap",
                 "_rerank",
             ] {
                 assert!(d.contains(needle), "{tool}: description lacks `{needle}`");
