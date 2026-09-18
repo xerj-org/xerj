@@ -270,7 +270,10 @@ fn index_exists(state: &AppState, index: &str) -> bool {
 /// one comma-joined string (`"ax-mail,ax-pdfs"`), which is also a valid
 /// multi-index search expression — so that is what the meta doc holds.
 fn nodes_index_names(nodes_index: &str) -> impl Iterator<Item = &str> {
-    nodes_index.split(',').map(str::trim).filter(|n| !n.is_empty())
+    nodes_index
+        .split(',')
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
 }
 
 /// Authorize `read` on a brain's nodes index — every name in it.

@@ -32,13 +32,15 @@ DATA = os.environ.get("XERJ_DATA_DIR") or os.path.join(
     os.environ.get("XERJ_DATA_PARENT", os.path.dirname(os.path.abspath(__file__))), "data"
 )
 ADMIN = open(os.path.join(DATA, "admin.key")).read().strip()
+# The node's native REST listener (`server.rest_port`), when the caller knows it.
+NATIVE = os.environ.get("XERJ_NATIVE_URL", "").rstrip("/")
 # Set when the node was started with server.trusted_proxies = ["127.0.0.1"].
 TRUSTS_LOOPBACK = os.environ.get("XERJ_TRUSTS_LOOPBACK", "") == "1"
 
 PASSED = FAILED = 0
 
 
-def call(method, path, body=None, key=None, headers=None):
+def call(method, path, body=None, key=None, headers=None, base=None):
     """-> (status, parsed-json-or-{'raw':…}, response headers)"""
     h = {"content-type": "application/json"}
     if key:
@@ -49,7 +51,7 @@ def call(method, path, body=None, key=None, headers=None):
     elif body is not None:
         data = json.dumps(body).encode()
     h.update(headers or {})
-    req = urllib.request.Request(URL + path, data=data, method=method, headers=h)
+    req = urllib.request.Request((base or URL) + path, data=data, method=method, headers=h)
     try:
         resp = urllib.request.urlopen(req, timeout=30)
         status, raw, rh = resp.status, resp.read(), resp.headers
@@ -385,6 +387,21 @@ for method, path, body in [
 ]:
     s, r, _ = call(method, path, body, GK)
     ok(f"console API {path.rsplit('/v1/', 1)[1]} does not accept a guest key", s in (401, 403) and not leaks(r), (s, r))
+
+if NATIVE:
+    section("what the guest CANNOT reach: the native REST listener")
+    s, r, _ = call("GET", "/v1/indices", None, ADMIN, base=NATIVE)
+    ok("(the owner can list indices on the native port)", s == 200, (s, r))
+    for method, path, body in [
+        ("GET", "/v1/indices", None), ("GET", "/v1/indices/casefile", None),
+        ("POST", "/v1/indices/casefile/search", {"query": {"match_all": {}}}),
+        ("POST", "/v1/indices/private-diary/search", {"query": {"match_all": {}}}),
+        ("POST", "/v1/indices/casefile/docs", {"body": "tampered"}),
+        ("GET", "/v1/metrics", None), ("GET", "/_cat/indices", None),
+        ("POST", "/private-diary/_search", {"query": {"match_all": {}}}),
+    ]:
+        s, r, _ = call(method, path, body, GK, base=NATIVE)
+        ok(f"native port: {method} {path} → refused", s in (401, 403, 404, 405) and not leaks(r), (s, r))
 
 # ─────────────────────────────────────────────────────────────────────────────
 section("an alias is resolved when the share is made")

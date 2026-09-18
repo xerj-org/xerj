@@ -291,7 +291,14 @@ mod tests {
                 assert!(csp.contains(directive), "{path}: CSP lacks {directive}");
             }
             // Nothing that would let injected markup run or phone home.
-            for forbidden in ["unsafe-inline", "unsafe-eval", "data:", "blob:", "*", "http"] {
+            for forbidden in [
+                "unsafe-inline",
+                "unsafe-eval",
+                "data:",
+                "blob:",
+                "*",
+                "http",
+            ] {
                 assert!(!csp.contains(forbidden), "{path}: CSP contains {forbidden}");
             }
         }
@@ -317,14 +324,30 @@ mod tests {
         // Only the two spellings of the directory map anywhere.
         assert_eq!(resolve_request_path("share"), "share/index.html");
         assert_eq!(resolve_request_path("share/"), "share/index.html");
-        for other in ["shared", "share/x", "share//", "api/v1/me", "src/", "share/.."] {
+        for other in [
+            "shared",
+            "share/x",
+            "share//",
+            "api/v1/me",
+            "src/",
+            "share/..",
+        ] {
             assert_eq!(resolve_request_path(other), other);
         }
-        for bad in ["share/..", "share/../index.html", "share//share.js", "../share"] {
+        for bad in [
+            "share/..",
+            "share/../index.html",
+            "share//share.js",
+            "../share",
+        ] {
             assert_eq!(serve(bad, false).status(), StatusCode::BAD_REQUEST, "{bad}");
         }
         for missing in ["share/nope.js", "shared", "share/share", "share/index.htm"] {
-            assert_eq!(serve(missing, false).status(), StatusCode::NOT_FOUND, "{missing}");
+            assert_eq!(
+                serve(missing, false).status(),
+                StatusCode::NOT_FOUND,
+                "{missing}"
+            );
         }
         // The console's extensionless fallback (`setup` → `setup.html`) also
         // makes `share/index` the page. It is the same file, and it gets the
@@ -348,15 +371,32 @@ mod tests {
         // this fails the build before a browser has to.
         for (at, _) in lower.match_indices("<script") {
             let tag_end = lower[at..].find('>').map(|e| at + e).unwrap_or(lower.len());
-            assert!(lower[at..tag_end].contains("src="), "inline <script> at byte {at}");
+            assert!(
+                lower[at..tag_end].contains("src="),
+                "inline <script> at byte {at}"
+            );
         }
         // (`javascript:` is matched as an attribute value: the <noscript> text
         // legitimately says "This page needs JavaScript: …".)
         for forbidden in [
-            "<style", " style=", "=\"javascript:", "='javascript:", "=javascript:", "http://",
-            "https://", "src=\"//", "href=\"//", "<iframe", "<object", "<embed", "<base",
+            "<style",
+            " style=",
+            "=\"javascript:",
+            "='javascript:",
+            "=javascript:",
+            "http://",
+            "https://",
+            "src=\"//",
+            "href=\"//",
+            "<iframe",
+            "<object",
+            "<embed",
+            "<base",
         ] {
-            assert!(!lower.contains(forbidden), "guest page contains {forbidden}");
+            assert!(
+                !lower.contains(forbidden),
+                "guest page contains {forbidden}"
+            );
         }
         // No inline event handlers (` onclick=`, ` onerror=`, …).
         for (at, _) in lower.match_indices(" on") {

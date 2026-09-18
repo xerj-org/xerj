@@ -110,7 +110,9 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use argon2::password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::{
+    rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
+};
 use argon2::Argon2;
 use axum::{
     extract::{ConnectInfo, FromRequestParts, Path as AxumPath, State},
@@ -300,10 +302,14 @@ impl ShareStore {
                         records.insert(r.handle.clone(), r);
                     }
                 }
-                Err(e) => tracing::error!(path = %path.display(), error = %e, "shares.json does not parse; starting with no shares"),
+                Err(e) => {
+                    tracing::error!(path = %path.display(), error = %e, "shares.json does not parse; starting with no shares")
+                }
             },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => tracing::error!(path = %path.display(), error = %e, "shares.json unreadable; starting with no shares"),
+            Err(e) => {
+                tracing::error!(path = %path.display(), error = %e, "shares.json unreadable; starting with no shares")
+            }
         }
         Arc::new(Self {
             path,
@@ -339,9 +345,7 @@ impl ShareStore {
         if let Some(rec) = self.find_by_id(id_or_handle) {
             return Some(rec.handle);
         }
-        self.records
-            .get(id_or_handle)
-            .map(|r| r.handle.clone())
+        self.records.get(id_or_handle).map(|r| r.handle.clone())
     }
 
     /// Snapshot of every record, oldest first.
@@ -573,7 +577,12 @@ fn validate_share_index(name: &str) -> Result<(), String> {
         return Err(format!("index `{name}` is not an index name"));
     }
     for c in name.chars() {
-        if c.is_whitespace() || matches!(c, '*' | ',' | '/' | '\\' | '?' | '"' | '<' | '>' | '|' | '#') {
+        if c.is_whitespace()
+            || matches!(
+                c,
+                '*' | ',' | '/' | '\\' | '?' | '"' | '<' | '>' | '|' | '#'
+            )
+        {
             return Err(format!(
                 "index `{name}` contains `{c}`; a share names concrete indices, not patterns"
             ));
@@ -611,7 +620,11 @@ fn es_error(status: StatusCode, error_type: &str, reason: String) -> Response {
 }
 
 fn bad_request(reason: String) -> Response {
-    es_error(StatusCode::BAD_REQUEST, "illegal_argument_exception", reason)
+    es_error(
+        StatusCode::BAD_REQUEST,
+        "illegal_argument_exception",
+        reason,
+    )
 }
 
 /// Is this node enforcing authentication at all? Mirrors the open-mode test in
@@ -695,7 +708,10 @@ pub struct ClaimSource(pub String);
 impl FromRequestParts<AppState> for ClaimSource {
     type Rejection = std::convert::Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let peer = parts
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
@@ -753,14 +769,20 @@ async fn create_share_inner(
     body: Option<Json<Value>>,
 ) -> Response {
     if !auth_is_enforced(&state) {
-        state
-            .engine
-            .audit
-            .append("share.create", principal.label(), "_share", "denied", "node has authentication off");
+        state.engine.audit.append(
+            "share.create",
+            principal.label(),
+            "_share",
+            "denied",
+            "node has authentication off",
+        );
         return open_node_refusal();
     }
     if let Err(resp) = require_superuser(&principal) {
-        state.engine.audit.append("share.create", principal.label(), "_share", "denied", "");
+        state
+            .engine
+            .audit
+            .append("share.create", principal.label(), "_share", "denied", "");
         return resp;
     }
     let Some(Json(body)) = body else {
@@ -771,8 +793,19 @@ async fn create_share_inner(
     let mut indices: Vec<String> = Vec::new();
     let raw = body.get("index").or_else(|| body.get("indices"));
     match raw {
-        Some(Value::String(s)) => indices.extend(s.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from)),
-        Some(Value::Array(a)) => indices.extend(a.iter().filter_map(Value::as_str).map(str::trim).filter(|s| !s.is_empty()).map(String::from)),
+        Some(Value::String(s)) => indices.extend(
+            s.split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from),
+        ),
+        Some(Value::Array(a)) => indices.extend(
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from),
+        ),
         Some(_) => return bad_request("`index` must be a string or an array of strings".into()),
         None => {}
     }
@@ -790,7 +823,9 @@ async fn create_share_inner(
         Some(_) => return bad_request("`brain` must be a string".into()),
     };
     if indices.is_empty() && brain.is_none() {
-        return bad_request("`index` (or `brain`) is required — a share must name what it grants".into());
+        return bad_request(
+            "`index` (or `brain`) is required — a share must name what it grants".into(),
+        );
     }
     if indices.len() > MAX_INDICES {
         return bad_request(format!("a share may name at most {MAX_INDICES} indices"));
@@ -847,7 +882,9 @@ async fn create_share_inner(
             return es_error(
                 StatusCode::NOT_FOUND,
                 "resource_not_found_exception",
-                format!("no brain named [{b}] on this node (its edges index [{edges}] does not exist)"),
+                format!(
+                    "no brain named [{b}] on this node (its edges index [{edges}] does not exist)"
+                ),
             );
         }
     }
@@ -855,19 +892,29 @@ async fn create_share_inner(
     let expires_spec = match body.get("expires_in") {
         None | Some(Value::Null) => DEFAULT_EXPIRES_IN.to_string(),
         Some(Value::String(s)) => s.clone(),
-        Some(_) => return bad_request("`expires_in` must be a duration string like \"24h\"".into()),
+        Some(_) => {
+            return bad_request("`expires_in` must be a duration string like \"24h\"".into())
+        }
     };
     let Some(expires_in_ms) = parse_expires_in(&expires_spec) else {
-        return bad_request(format!("`expires_in`: cannot parse {expires_spec:?} — use e.g. \"30m\", \"24h\", \"7d\""));
+        return bad_request(format!(
+            "`expires_in`: cannot parse {expires_spec:?} — use e.g. \"30m\", \"24h\", \"7d\""
+        ));
     };
     if !(MIN_EXPIRES_MS..=MAX_EXPIRES_MS).contains(&expires_in_ms) {
-        return bad_request(format!("`expires_in` must be between 1s and 30d (got {expires_spec})"));
+        return bad_request(format!(
+            "`expires_in` must be between 1s and 30d (got {expires_spec})"
+        ));
     }
     let max_claims = match body.get("max_claims") {
         None | Some(Value::Null) => DEFAULT_MAX_CLAIMS,
         Some(v) => match v.as_u64() {
             Some(n) if (1..=MAX_MAX_CLAIMS as u64).contains(&n) => n as u32,
-            _ => return bad_request(format!("`max_claims` must be an integer from 1 to {MAX_MAX_CLAIMS}")),
+            _ => {
+                return bad_request(format!(
+                    "`max_claims` must be an integer from 1 to {MAX_MAX_CLAIMS}"
+                ))
+            }
         },
     };
     let (passcode, passcode_supplied) = match body.get("passcode") {
@@ -889,9 +936,15 @@ async fn create_share_inner(
         Some(Value::String(l)) => {
             let l = l.trim().to_string();
             if l.chars().count() > MAX_LABEL_CHARS {
-                return bad_request(format!("`label` must be at most {MAX_LABEL_CHARS} characters"));
+                return bad_request(format!(
+                    "`label` must be at most {MAX_LABEL_CHARS} characters"
+                ));
             }
-            if l.is_empty() { None } else { Some(l) }
+            if l.is_empty() {
+                None
+            } else {
+                Some(l)
+            }
         }
         Some(_) => return bad_request("`label` must be a string".into()),
     };
@@ -956,7 +1009,11 @@ async fn create_share_inner(
             indices.join(","),
             brain.as_deref().unwrap_or("-"),
             rfc3339(record.expires_ms),
-            if passcode_supplied { "supplied" } else { "generated" }
+            if passcode_supplied {
+                "supplied"
+            } else {
+                "generated"
+            }
         ),
     );
     state.engine.audit.sync_to_disk();
@@ -983,12 +1040,26 @@ pub async fn list_shares(State(state): State<AppState>, principal: Principal) ->
 
 async fn list_shares_inner(state: AppState, principal: Principal) -> Response {
     if let Err(resp) = require_superuser(&principal) {
-        state.engine.audit.append("share.list", principal.label(), "_share", "denied", "");
+        state
+            .engine
+            .audit
+            .append("share.list", principal.label(), "_share", "denied", "");
         return resp;
     }
     let now = now_ms();
-    let shares: Vec<Value> = state.shares.list().iter().map(|r| r.public_json(now)).collect();
-    state.engine.audit.append("share.list", principal.label(), "_share", "ok", &format!("count={}", shares.len()));
+    let shares: Vec<Value> = state
+        .shares
+        .list()
+        .iter()
+        .map(|r| r.public_json(now))
+        .collect();
+    state.engine.audit.append(
+        "share.list",
+        principal.label(),
+        "_share",
+        "ok",
+        &format!("count={}", shares.len()),
+    );
     Json(json!({ "shares": shares })).into_response()
 }
 
@@ -1005,17 +1076,34 @@ pub async fn revoke_share(
 
 async fn revoke_share_inner(state: AppState, principal: Principal, id: String) -> Response {
     if let Err(resp) = require_superuser(&principal) {
-        state.engine.audit.append("share.revoke", principal.label(), "_share", "denied", "");
+        state
+            .engine
+            .audit
+            .append("share.revoke", principal.label(), "_share", "denied", "");
         return resp;
     }
     let Some(handle) = state.shares.find_for_revoke(id.trim()) else {
-        state.engine.audit.append("share.revoke", principal.label(), "_share", "error", "unknown share");
-        return es_error(StatusCode::NOT_FOUND, "resource_not_found_exception", "unknown share".into());
+        state.engine.audit.append(
+            "share.revoke",
+            principal.label(),
+            "_share",
+            "error",
+            "unknown share",
+        );
+        return es_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            "unknown share".into(),
+        );
     };
     let now = now_ms();
     let key_ids = {
         let Some(mut rec) = state.shares.records.get_mut(&handle) else {
-            return es_error(StatusCode::NOT_FOUND, "resource_not_found_exception", "unknown share".into());
+            return es_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                "unknown share".into(),
+            );
         };
         let already = rec.revoked;
         rec.revoked = true;
@@ -1086,7 +1174,10 @@ async fn claim_share_inner(
         // bound tighter, never looser — and it cannot lock a real guest out,
         // because a real share id never reaches this branch.
         let bucket = format!("ip:{}", source_bucket(&source));
-        if let Err(t) = state.shares.charge(&bucket, IP_PER_MINUTE, IP_PER_HOUR, now) {
+        if let Err(t) = state
+            .shares
+            .charge(&bucket, IP_PER_MINUTE, IP_PER_HOUR, now)
+        {
             if t.first_in_window {
                 state.engine.audit.append(
                     "share.claim",
@@ -1098,13 +1189,25 @@ async fn claim_share_inner(
             }
             return too_many(t.retry_after_secs);
         }
-        state.engine.audit.append("share.claim", &subject, "_share", "error", "unknown share");
-        return es_error(StatusCode::NOT_FOUND, "resource_not_found_exception", "unknown share link".into());
+        state
+            .engine
+            .audit
+            .append("share.claim", &subject, "_share", "error", "unknown share");
+        return es_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            "unknown share link".into(),
+        );
     };
     let handle = record.handle.clone();
     // A real share: its own window, from anywhere. This is the passcode
     // lockout and it holds whoever is asking and however they got here.
-    if let Err(t) = state.shares.charge(&format!("share:{handle}"), SHARE_PER_MINUTE, SHARE_PER_HOUR, now) {
+    if let Err(t) = state.shares.charge(
+        &format!("share:{handle}"),
+        SHARE_PER_MINUTE,
+        SHARE_PER_HOUR,
+        now,
+    ) {
         if t.first_in_window {
             state.engine.audit.append(
                 "share.claim",
@@ -1117,7 +1220,10 @@ async fn claim_share_inner(
         return too_many(t.retry_after_secs);
     }
     if let Some(why) = record.unavailable(now) {
-        state.engine.audit.append("share.claim", &subject, &handle, "denied", why);
+        state
+            .engine
+            .audit
+            .append("share.claim", &subject, &handle, "denied", why);
         return es_error(StatusCode::GONE, "share_unavailable", why.into());
     }
     let presented = body
@@ -1135,9 +1241,16 @@ async fn claim_share_inner(
             .unwrap_or(false)
     };
     if !ok {
-        state.engine.audit.append("share.claim", &subject, &handle, "denied", "wrong passcode");
+        state
+            .engine
+            .audit
+            .append("share.claim", &subject, &handle, "denied", "wrong passcode");
         state.engine.audit.sync_to_disk();
-        return es_error(StatusCode::UNAUTHORIZED, "security_exception", "wrong passcode".into());
+        return es_error(
+            StatusCode::UNAUTHORIZED,
+            "security_exception",
+            "wrong passcode".into(),
+        );
     }
 
     // Mint the guest's key: read-only over exactly the granted indices,
@@ -1150,7 +1263,11 @@ async fn claim_share_inner(
         granted,
     )];
     let key_id = uuid::Uuid::new_v4().to_string();
-    let raw_secret = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
+    let raw_secret = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
     let api_key = crate::es_compat::base64_encode(&raw_secret);
     let encoded = crate::es_compat::base64_encode(&format!("{key_id}:{api_key}"));
     let key_record = xerj_engine::engine::ApiKeyRecord::new(
@@ -1165,10 +1282,17 @@ async fn claim_share_inner(
     // a one-claim share cannot both succeed.
     let claims_left = {
         let Some(mut rec) = state.shares.records.get_mut(&handle) else {
-            return es_error(StatusCode::NOT_FOUND, "resource_not_found_exception", "unknown share link".into());
+            return es_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                "unknown share link".into(),
+            );
         };
         if let Some(why) = rec.unavailable(now) {
-            state.engine.audit.append("share.claim", &subject, &handle, "denied", why);
+            state
+                .engine
+                .audit
+                .append("share.claim", &subject, &handle, "denied", why);
             return es_error(StatusCode::GONE, "share_unavailable", why.into());
         }
         rec.claims += 1;
@@ -1286,7 +1410,10 @@ mod tests {
             ".xerj_audit",
             ".anything-else",
         ] {
-            assert!(validate_share_index(system).is_err(), "{system} must not be shareable");
+            assert!(
+                validate_share_index(system).is_err(),
+                "{system} must not be shareable"
+            );
         }
         assert!(validate_share_index("_all").is_err());
         assert!(validate_share_index("Upper").is_err());
@@ -1299,7 +1426,9 @@ mod tests {
         let store = ShareStore::open(dir.path().to_str().unwrap());
         let now = 1_000_000;
         for _ in 0..SHARE_PER_MINUTE {
-            store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap();
+            store
+                .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+                .unwrap();
         }
         let refused = store
             .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
@@ -1314,7 +1443,9 @@ mod tests {
             .unwrap_err();
         assert!(!again.first_in_window);
         // A different share is untouched.
-        store.charge("share:y", SHARE_PER_MINUTE, SHARE_PER_HOUR, now).unwrap();
+        store
+            .charge("share:y", SHARE_PER_MINUTE, SHARE_PER_HOUR, now)
+            .unwrap();
         // The minute window rolls over; the hour window still counts.
         //
         // A minute-throttled attempt returns before the hour window is
@@ -1329,7 +1460,9 @@ mod tests {
                 if accepted == SHARE_PER_HOUR {
                     break;
                 }
-                store.charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t).unwrap();
+                store
+                    .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t)
+                    .unwrap();
                 accepted += 1;
             }
         }
@@ -1340,7 +1473,10 @@ mod tests {
             .charge("share:x", SHARE_PER_MINUTE, SHARE_PER_HOUR, t)
             .unwrap_err()
             .retry_after_secs;
-        assert!(retry > 60, "locked out by the hour window, not the minute one: {retry}s");
+        assert!(
+            retry > 60,
+            "locked out by the hour window, not the minute one: {retry}s"
+        );
         // And the throttled attempts above never counted as guesses.
         assert_eq!(accepted, SHARE_PER_HOUR);
     }
@@ -1354,7 +1490,10 @@ mod tests {
         );
         assert_eq!(source_bucket("2001:db8:1:2::1"), "2001:db8:1:2::/64");
         // A different /64 is a different bucket.
-        assert_ne!(source_bucket("2001:db8:1:3::1"), source_bucket("2001:db8:1:2::1"));
+        assert_ne!(
+            source_bucket("2001:db8:1:3::1"),
+            source_bucket("2001:db8:1:2::1")
+        );
         // IPv4 and the no-transport bucket are left alone.
         assert_eq!(source_bucket("203.0.113.9"), "203.0.113.9");
         assert_eq!(source_bucket("unknown"), "unknown");
@@ -1369,9 +1508,13 @@ mod tests {
         let now = 5_000_000;
         let junk = format!("ip:{}", source_bucket("127.0.0.1"));
         for _ in 0..IP_PER_MINUTE {
-            store.charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now).unwrap();
+            store
+                .charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now)
+                .unwrap();
         }
-        assert!(store.charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now).is_err());
+        assert!(store
+            .charge(&junk, IP_PER_MINUTE, IP_PER_HOUR, now)
+            .is_err());
         // …and a real share's window is untouched: `claim_share` charges a
         // known id to `share:<handle>` only, never to the source bucket.
         for _ in 0..SHARE_PER_MINUTE {
@@ -1462,16 +1605,31 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(dir.path().join(SHARES_FILE)).unwrap().permissions().mode() & 0o777;
+            let mode = std::fs::metadata(dir.path().join(SHARES_FILE))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
             assert_eq!(mode, 0o600);
         }
         let reloaded = ShareStore::open(data_dir);
-        let rec = reloaded.find_by_id(&share_id).expect("id resolves after reload");
+        let rec = reloaded
+            .find_by_id(&share_id)
+            .expect("id resolves after reload");
         assert_eq!(rec.handle, handle);
-        assert_eq!(rec.granted_indices(), vec!["ax-notes".to_string(), ".xerj-memory-notes-edges".to_string()]);
+        assert_eq!(
+            rec.granted_indices(),
+            vec![
+                "ax-notes".to_string(),
+                ".xerj-memory-notes-edges".to_string()
+            ]
+        );
         assert!(reloaded.find_by_id("0000").is_none());
         // The handle alone resolves for revoke, but never as a claim id.
-        assert_eq!(reloaded.find_for_revoke(&handle).as_deref(), Some(handle.as_str()));
+        assert_eq!(
+            reloaded.find_for_revoke(&handle).as_deref(),
+            Some(handle.as_str())
+        );
         assert!(reloaded.find_by_id(&handle).is_none());
     }
 }

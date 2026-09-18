@@ -1317,7 +1317,8 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     // A share-link guest gets a route allow-list on top of its index grants.
     // Checked first and separately so that everything below still runs for a
     // guest: this can only refuse, never permit.
-    if principal.is_share_guest() && !guest_route_allowed(&method, &segs, &target, req.uri().query())
+    if principal.is_share_guest()
+        && !guest_route_allowed(&method, &segs, &target, req.uri().query())
     {
         return guest_forbidden(&principal, &path);
     }
@@ -2067,8 +2068,16 @@ mod tests {
         let mixed = Principal::Scoped {
             key_id: "m".into(),
             roles: vec![
-                Role::new("share:x", HashSet::from([Privilege::ReadIndex]), vec!["a".into()]),
-                Role::new("ops", HashSet::from([Privilege::ReadIndex]), vec!["b".into()]),
+                Role::new(
+                    "share:x",
+                    HashSet::from([Privilege::ReadIndex]),
+                    vec!["a".into()],
+                ),
+                Role::new(
+                    "ops",
+                    HashSet::from([Privilege::ReadIndex]),
+                    vec!["b".into()],
+                ),
             ],
         };
         assert!(!mixed.is_share_guest());
@@ -2092,7 +2101,10 @@ mod tests {
             (Method::GET, "/_security/_authenticate"),
             (Method::GET, "/health/ready"),
         ] {
-            assert!(guest_check(method.clone(), path, ""), "{method} {path} must be allowed");
+            assert!(
+                guest_check(method.clone(), path, ""),
+                "{method} {path} must be allowed"
+            );
         }
         assert!(guest_check(
             Method::POST,
@@ -2177,7 +2189,10 @@ mod tests {
             (Method::GET, "/v1/indices/casefile"),
             (Method::GET, "/v1/indices"),
         ] {
-            assert!(!guest_check(method.clone(), path, ""), "{method} {path} must be refused");
+            assert!(
+                !guest_check(method.clone(), path, ""),
+                "{method} {path} must be refused"
+            );
         }
         // A body that reaches past the path index is refused by the index
         // decision, exactly as for any other scoped key.
@@ -2234,8 +2249,14 @@ mod tests {
             b"{\"index\":\"casefile\"}\n{\"query\":{\"match_all\":{}}}\n"
         ));
         assert!(!guest_body_denied(BodyShape::Query, b"not json"));
-        assert!(!guest_body_denied(BodyShape::None, br#"{"pit":{"id":"x"}}"#));
-        assert!(!guest_body_denied(BodyShape::MgetDocs, br#"{"pit":{"id":"x"}}"#));
+        assert!(!guest_body_denied(
+            BodyShape::None,
+            br#"{"pit":{"id":"x"}}"#
+        ));
+        assert!(!guest_body_denied(
+            BodyShape::MgetDocs,
+            br#"{"pit":{"id":"x"}}"#
+        ));
     }
 
     #[test]
@@ -2244,7 +2265,10 @@ mod tests {
         assert!(query_names_any(Some("a=b&Scroll=1m"), GUEST_DENIED_PARAMS));
         assert!(query_names_any(Some("%73%63roll=1m"), GUEST_DENIED_PARAMS));
         assert!(query_names_any(Some("scroll"), GUEST_DENIED_PARAMS));
-        assert!(!query_names_any(Some("q=scroll&size=1"), GUEST_DENIED_PARAMS));
+        assert!(!query_names_any(
+            Some("q=scroll&size=1"),
+            GUEST_DENIED_PARAMS
+        ));
         assert!(!query_names_any(Some("scroll_size=1"), GUEST_DENIED_PARAMS));
         assert!(!query_names_any(None, GUEST_DENIED_PARAMS));
     }

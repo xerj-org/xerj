@@ -99,7 +99,7 @@ phase "A. live security test (auth on, no trusted proxies)"
 boot a "$PORT" "" || exit 1
 A_URL="http://127.0.0.1:$PORT"; A_DATA="$ROOT/a/data"
 [ -s "$A_DATA/admin.key" ] || { echo "no admin.key — is auth on?"; exit 1; }
-if XERJ_URL="$A_URL" XERJ_DATA_DIR="$A_DATA" python3 "$LIVE"; then ok "share_security_live.py"; else bad "share_security_live.py failed"; fi
+if XERJ_URL="$A_URL" XERJ_NATIVE_URL="http://127.0.0.1:$((PORT + 1))" XERJ_DATA_DIR="$A_DATA" python3 "$LIVE"; then ok "share_security_live.py"; else bad "share_security_live.py failed"; fi
 # Nothing secret may reach the node's own log either. The test's secrets are
 # gone by now, so look for the *shape*: a 32-hex share id in a logged path.
 if grep -Eq '/_share/[0-9a-f]{32}' "$ROOT/a/server.log"; then bad "a share id was written to the server log"; else ok "no share id in the server log"; fi

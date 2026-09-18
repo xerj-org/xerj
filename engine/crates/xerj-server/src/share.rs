@@ -388,10 +388,8 @@ fn classify_target(
     if arg.is_empty() {
         return Err("name an index or a folder to share".into());
     }
-    let pathish = arg.contains('/')
-        || arg.contains('\\')
-        || arg.starts_with('.')
-        || arg.starts_with('~');
+    let pathish =
+        arg.contains('/') || arg.contains('\\') || arg.starts_with('.') || arg.starts_with('~');
     if force_index {
         if pathish {
             return Err(format!("--index {arg}: that is a path, not an index name"));
@@ -646,7 +644,10 @@ fn explain(status: u16, body: &Value, common: &Common) -> anyhow::Error {
             common.url
         ),
         _ if !reason.is_empty() => anyhow!("{reason} (HTTP {status})"),
-        _ => anyhow!("unexpected HTTP {status} from {}/_share: {body}", common.url),
+        _ => anyhow!(
+            "unexpected HTTP {status} from {}/_share: {body}",
+            common.url
+        ),
     }
 }
 
@@ -697,8 +698,7 @@ fn list(es: &Es, common: &Common) -> Result<i32> {
 }
 
 fn revoke(es: &Es, common: &Common, handle: &str) -> Result<i32> {
-    let (status, body) =
-        es.request_json("DELETE", &format!("/_share/{handle}"), None)?;
+    let (status, body) = es.request_json("DELETE", &format!("/_share/{handle}"), None)?;
     if status == 404 {
         bail!("no share with handle {handle} on this node (see `xerj share --list`)");
     }
@@ -1478,11 +1478,7 @@ mod tests {
         );
         // …but only a path with a fragment: an id in the path or the query
         // would be sent to the server and written to every log on the way.
-        for hostile in [
-            "/_xerj-console/share?id=x",
-            "https://evil.example/#x",
-            "",
-        ] {
+        for hostile in ["/_xerj-console/share?id=x", "https://evil.example/#x", ""] {
             let link = guest_link("http://h", Some(hostile), id);
             assert_eq!(link, format!("http://h/_xerj-console/share#{id}"));
         }
@@ -1512,8 +1508,10 @@ mod tests {
         }
         // Two URLs on one line: the tunnel is found past the first.
         assert_eq!(
-            parse_tunnel_url("terms https://www.cloudflare.com/x then https://a-b.trycloudflare.com/ ok")
-                .as_deref(),
+            parse_tunnel_url(
+                "terms https://www.cloudflare.com/x then https://a-b.trycloudflare.com/ ok"
+            )
+            .as_deref(),
             Some("https://a-b.trycloudflare.com")
         );
         assert!(tunnel_line_means_connected(
@@ -1568,7 +1566,10 @@ mod tests {
             local.contains("--tunnel"),
             "a localhost link must say it is local-only"
         );
-        assert!(local.contains("xerj share --revoke 1a2b3c4d5e6f\n"), "{local}");
+        assert!(
+            local.contains("xerj share --revoke 1a2b3c4d5e6f\n"),
+            "{local}"
+        );
         let public = render_created(
             &resp,
             "https://a.trycloudflare.com/_xerj-console/share#id",
@@ -1584,7 +1585,12 @@ mod tests {
             api_key: Some("never-printed".into()),
             json: false,
         };
-        let out = render_created(&resp, "http://localhost:9510/_xerj-console/share#id", true, &custom);
+        let out = render_created(
+            &resp,
+            "http://localhost:9510/_xerj-console/share#id",
+            true,
+            &custom,
+        );
         assert!(
             out.contains(
                 "xerj share --revoke 1a2b3c4d5e6f --url http://localhost:9510 --data-dir /srv/xerj\n"

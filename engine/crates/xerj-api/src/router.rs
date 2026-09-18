@@ -895,10 +895,7 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // the handler; `claim` is the one unauthenticated route on this
         // router (`auth::is_share_claim_path`) and is rate-limited instead.
         // See `share.rs`.
-        .route(
-            "/_share",
-            post(share::create_share).get(share::list_shares),
-        )
+        .route("/_share", post(share::create_share).get(share::list_shares))
         .route("/_share/:id", delete(share::revoke_share))
         .route("/_share/:id/claim", post(share::claim_share))
         // ── Second-Brain Graph API ─────────────────────────────────────────────

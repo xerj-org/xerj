@@ -379,7 +379,10 @@ fn run(cfg: BrainCfg) -> Result<i32> {
              \x20 documents and will pick up links on the next run:"
         );
         println!("  → {console_url}");
-        println!("{}", share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref()));
+        println!(
+            "{}",
+            share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref())
+        );
         if let Some(link) = &setup_link {
             println!("  one-time passkey setup (open once, valid 30 min):");
             println!("  → {link}");
@@ -410,7 +413,10 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     // praise into a commit message, comment, or PR.
     // One line, so the feature is discoverable at the moment it is useful:
     // the folder has just been indexed and the owner is looking at the result.
-    println!("{}", share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref()));
+    println!(
+        "{}",
+        share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref())
+    );
     println!("  if this saved you time, tell a teammate — that is how it spreads.");
     if let Some(link) = &setup_link {
         println!("  one-time passkey setup (open once, valid 30 min):");
@@ -818,8 +824,14 @@ mod tests {
         let hint = share_hint(Path::new("/home/u/notes"), "http://localhost:9200", None);
         assert_eq!(hint.lines().count(), 1, "{hint}");
         assert!(hint.contains("xerj share /home/u/notes "), "{hint}");
-        assert!(!hint.contains("--url"), "default url is not repeated: {hint}");
-        assert!(!hint.contains("--data-dir"), "default data dir is not repeated: {hint}");
+        assert!(
+            !hint.contains("--url"),
+            "default url is not repeated: {hint}"
+        );
+        assert!(
+            !hint.contains("--data-dir"),
+            "default data dir is not repeated: {hint}"
+        );
         let hint = share_hint(Path::new("notes"), "http://localhost:9510", None);
         assert!(
             hint.contains("xerj share notes --url http://localhost:9510 "),

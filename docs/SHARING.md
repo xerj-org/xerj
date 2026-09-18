@@ -155,6 +155,13 @@ named. Two things confine it, both enforced server-side:
 A pattern such as `_all` or `*` is not refused: it is expanded over what the
 key **holds**, so for a guest `_all` means "all of yours". It never means more.
 
+The allow-list covers both HTTP listeners (the ES-compatible port and the
+native REST port). The **gRPC listener** is outside it: it applies the same
+per-index grants — a guest key can search the shared index over gRPC and is
+refused any other index by name — but it has not been live-tested with a guest
+key. It binds to loopback by default and is not reachable through `--tunnel`,
+which fronts the ES-compatible port only.
+
 The `autoindex-catalog` index, which lists every corpus on the node, is
 deliberately **not** granted: the engine has no document-level security to
 filter it with, and the guest page is handed the index name directly.
