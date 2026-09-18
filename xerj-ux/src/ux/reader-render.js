@@ -349,7 +349,8 @@ export function edgeLabel(type) {
 }
 
 /**
- * An ego response → neighbours grouped by edge type, in edge order. Each
+ * An ego response → neighbours grouped by edge type (groups in first-seen
+ * order, neighbours by title). Each
  * item is the OTHER endpoint of an edge touching `focusId`, hydrated from
  * `ego.nodes` when the call asked for `include_nodes`.
  */
@@ -382,7 +383,12 @@ export function groupNeighbors(ego, focusId) {
     if (!groups.has(type)) groups.set(type, { type, label: edgeLabel(type), items: [] });
     groups.get(type).items.push(item);
   }
-  return [...groups.values()];
+  // The engine returns edges in no fixed order (two live runs over the same
+  // corpus listed the same two neighbours both ways round). Sort, so a record's
+  // panel reads the same every time it is opened.
+  const out = [...groups.values()];
+  for (const g of out) g.items.sort((a, b) => String(a.title).localeCompare(String(b.title)) || String(a.id).localeCompare(String(b.id)));
+  return out;
 }
 
 /**

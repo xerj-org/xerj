@@ -89,11 +89,16 @@ test('the graph panel of an email includes its FILE\'s links, and says so', asyn
   const g = await api.fetchGraph('casefile', msg, fileRec);
   assert.equal(g.status, 'ok');
   assert.equal(g.viaFile, 2);
-  assert.deepEqual(g.groups[0].items.map((i) => `${i.id}:${i.via}`), ['file-04:file', 'file-06:file'], 'the record itself is never its own neighbour');
+  assert.deepEqual(g.groups[0].items.map((i) => `${i.id}:${i.via}`).sort(), ['file-04:file', 'file-06:file'], 'the record itself is never its own neighbour');
   assert.deepEqual(t.calls.filter((c) => c.ego).map((c) => c.ego), ['msg-05', 'file-05']);
   const panel = renderGraphPanel({ ...g, brain: 'casefile', index: 'ax-docs' });
   assertInert(panel, 'merged graph');
   assert.match(textOf(panel), /2 linked records · brain casefile · 1 hop · 2 of them are links of the file this record came from/);
+
+  // same neighbours, edges listed the other way round → the same panel
+  const flipped = { ...egoByNode, 'file-05': { ...egoByNode['file-05'], edges: [...egoByNode['file-05'].edges].reverse() } };
+  const g2 = await makeReaderApi(transport({ egoByNode: flipped })).fetchGraph('casefile', msg, fileRec);
+  assert.deepEqual(g2.groups[0].items.map((i) => i.id), g.groups[0].items.map((i) => i.id), 'neighbour order does not depend on edge order');
 
   // the file record itself: one walk, nothing marked
   const own = await api.fetchGraph('casefile', fileRec, null);
