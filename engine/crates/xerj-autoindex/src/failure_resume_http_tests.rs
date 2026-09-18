@@ -125,6 +125,10 @@ struct MockState {
     /// and the type is not a block, so the run continues and must still
     /// report the rejection.
     reject_first_data_item: bool,
+    /// Opt-in (#929): refuse the create-index PUT — which on this path carries
+    /// the dataset's whole mapping — of every index whose name contains one of
+    /// these, with the 400 a real engine returns for a field it cannot map.
+    refused_dataset_indices: Vec<String>,
 }
 
 struct MockEndpoint {
@@ -245,6 +249,30 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 "semantic_contract": "semantic_text-derived-vector.v1",
                 "resumable": true
             }, "took_ms": 0, "request_id": "test"}),
+        )
+    } else if method == "PUT"
+        && !path.starts_with("/autoindex-catalog")
+        && state
+            .lock()
+            .unwrap()
+            .refused_dataset_indices
+            .iter()
+            .any(|needle| path.contains(needle.as_str()))
+    {
+        // #929. Deliberately worded without "exists": `Es::ensure_index` reads
+        // a 400 containing that word as "the index is already there".
+        let reason = "nested semantic_text field [a.b] is not supported; map semantic_text as a \
+                      top-level field";
+        (
+            400,
+            json!({
+                "error": {
+                    "root_cause": [{"type": "mapper_parsing_exception", "reason": reason}],
+                    "type": "mapper_parsing_exception",
+                    "reason": reason
+                },
+                "status": 400
+            }),
         )
     } else if method == "PUT" && path == "/autoindex-catalog" {
         if state.lock().unwrap().catalog_preexists {
@@ -3644,4 +3672,137 @@ fn a_junk_entry_for_a_completed_file_is_never_turned_into_a_catalog_row() {
         crate::shadowed_junk_entries(&borrowed, &std::collections::HashSet::new()).is_empty(),
         "with no completions nothing is shadowed"
     );
+}
+
+/// #929 on the legacy (graph-enabled) path. Here the dataset's whole mapping
+/// rides on the create-index PUT, and the loop that sends it used to `?` out on
+/// the first refusal exactly like the generated path did. Same contract: the
+/// refused dataset costs its own files, the rest of the folder is indexed, the
+/// run ends 3 and the terminal line and run document say what is missing — and
+/// a re-run does not quietly "fix" it by pretending the files never existed.
+#[test]
+fn a_refused_dataset_on_the_graph_path_costs_that_dataset_not_the_run() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        fs::write(root.join("rows.csv"), "id,value\n1,first\n2,second\n").unwrap();
+        fs::write(
+            root.join("notes.md"),
+            "# Notes\n\nTiered merge policy picks segments of similar size.\n",
+        )
+        .unwrap();
+    };
+
+    // Learn the tabular dataset's index from a clean run rather than
+    // hard-coding the slug scheme.
+    let tabular = {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        write_corpus(corpus.path());
+        let endpoint = MockEndpoint::start(usize::MAX);
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+        let prefix = config.prefix.clone();
+        assert_eq!(run_index(config).unwrap(), 0);
+        let locked = endpoint.state.lock().unwrap();
+        let slug = data_rows(&locked)
+            .into_iter()
+            .find(|doc| doc["ax_path"] == "rows.csv")
+            .and_then(|doc| doc["ax_dataset"].as_str())
+            .expect("rows.csv is indexed by the clean run")
+            .to_owned();
+        format!("{prefix}-{slug}")
+    };
+
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint.state.lock().unwrap().refused_dataset_indices = vec![tabular.clone()];
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config.clone())
+            .unwrap_or_else(|error| panic!("the refusal aborted the run: {error:#}"))
+    };
+    assert_eq!(code, 3, "a refused dataset is exit 3, never 0 and never 1");
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    assert!(
+        stream.contains("REFUSED by the server") && stream.contains(&tabular),
+        "the refusal names the dataset on the progress surface:\n{stream}"
+    );
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(
+        done.contains("ok=true")
+            && done.contains("exit=3")
+            && done.contains("datasets_refused=1")
+            && done.contains("files_refused=1"),
+        "{done}"
+    );
+    {
+        let locked = endpoint.state.lock().unwrap();
+        let mut indexed: Vec<&str> = data_rows(&locked)
+            .into_iter()
+            .filter_map(|doc| doc["ax_path"].as_str())
+            .collect();
+        indexed.sort_unstable();
+        indexed.dedup();
+        assert_eq!(indexed, ["notes.md"], "the other dataset is indexed whole");
+        let run = locked
+            .catalog_docs
+            .values()
+            .find(|doc| doc["doc_kind"] == "run")
+            .expect("the run document is published");
+        assert_eq!(run["datasets_refused"], 1, "{run}");
+        assert_eq!(run["files_refused"], 1, "{run}");
+        let detail: Vec<Value> =
+            serde_json::from_str(run["refused_datasets_json"].as_str().unwrap()).unwrap();
+        assert_eq!(detail[0]["index"], tabular.as_str());
+        assert!(detail[0]["reason"].as_str().unwrap().contains("400"));
+        let junked = locked
+            .catalog_docs
+            .values()
+            .find(|doc| doc["doc_kind"] == "file" && doc["path"] == "rows.csv")
+            .expect("the refused file has a catalog document");
+        assert_eq!(junked["status"], "junk", "{junked}");
+        assert!(
+            junked["reason"]
+                .as_str()
+                .is_some_and(|reason| reason.contains("was refused by the server")),
+            "{junked}"
+        );
+    }
+    let report = report.unwrap();
+    assert_eq!(report["datasets_refused"], 1, "{report}");
+
+    // A re-run resumes the durable plan: still exit 3, still names the refusal,
+    // and does not misreport the refused file as one that "appeared after the
+    // plan was frozen".
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (again, _) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(again, 3);
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    assert!(!stream.contains("appeared after the resume plan"), "{stream}");
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap();
+    assert!(done.contains("datasets_refused=1"), "{done}");
 }

@@ -33,6 +33,9 @@ XC_PATH = os.path.join(HERE, "..", "scripts", "xc.py")
 
 PREFIX = "xc-fixture"
 CORPUS = "fixture"
+# Every URL the mocked urlopen was asked for, so a test can assert on WHICH
+# indices a query addressed, not only on what came back.
+SEEN_URLS = []
 
 
 class FakeResp:
@@ -58,6 +61,7 @@ def make_urlopen(indices, search_hits):
     """
     def fake_urlopen(req, timeout=None):
         url = req.full_url if hasattr(req, "full_url") else str(req)
+        SEEN_URLS.append(url)
         if "/_cat/indices/" in url:
             return FakeResp(indices)
         if "/_mapping" in url:
@@ -179,6 +183,32 @@ def main():
     check("list exit code is 0", code == 0, f"got {code}")
     check("list flags the fixture as NOT loaded",
           "NOT loaded here" in blob, repr(blob))
+
+    # Case 5 (#930): a rebuilt corpus records the ONE verified build in
+    # `index_prefix`. xc.py must address that build, not the whole `xc-<corpus>`
+    # namespace — during `xc-index.sh --fresh` the namespace also holds the
+    # half-built replacement (or a retired build whose delete failed), and
+    # querying it would return every passage twice or from a partial index.
+    build = f"{PREFIX}-b20260918101500"
+    state_path = os.path.join(home, "state", f"{CORPUS}.json")
+    with open(state_path) as fh:
+        rebuilt = json.load(fh)
+    rebuilt.update({"build": "b20260918101500", "index_prefix": build})
+    with open(state_path, "w") as fh:
+        json.dump(rebuilt, fh)
+    del SEEN_URLS[:]
+    code, out, err = run_query(mod, indices=[{"index": f"{build}-1"}],
+                               search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    addressed = [u for u in SEEN_URLS if "/_cat/indices/" in u or "/_search" in u]
+    check("case5 exit code is 0", code == 0, f"got {code} {out + err!r}")
+    check("case5 state `prefix` is still the whole namespace",
+          rebuilt["prefix"] == PREFIX)
+    check("case5 every index-addressing request names the verified build",
+          bool(addressed) and all(f"/{build}*" in u for u in addressed),
+          repr(addressed))
+    check("case5 no request addresses the bare namespace glob",
+          not any(f"/{PREFIX}*" in u for u in addressed), repr(addressed))
 
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)

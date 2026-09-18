@@ -4278,7 +4278,10 @@ fn a_refused_dataset_mapping_costs_that_dataset_not_the_run() {
         assert_eq!(summary["datasets_refused"], 1);
         assert_eq!(summary["files_refused"], lost.len());
         assert_eq!(summary["files_junk"], lost.len());
-        assert_eq!(summary["datasets"], 1, "a refused dataset is not a dataset");
+        // Every file is still accounted for, and none is counted twice: what
+        // is indexed is exactly what was kept, and the rest is the refusal.
+        assert_eq!(summary["files_indexed"], kept.len(), "{summary}");
+        assert_eq!(summary["files_total"], kept.len() + lost.len(), "{summary}");
         let detail = refused_detail(&summary);
         assert_eq!(detail.len(), 1);
         assert_eq!(detail[0]["index"], refused_index.as_str());
