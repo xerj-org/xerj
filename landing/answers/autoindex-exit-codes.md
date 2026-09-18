@@ -2,7 +2,7 @@
 ---
 title: "What do the xerj autoindex exit codes mean?"
 canonical: "https://xerj.org/answers/autoindex-exit-codes"
-updated: "2026-08-23"
+updated: "2026-09-18"
 source: "content/answers/autoindex-exit-codes.md"
 ---
 

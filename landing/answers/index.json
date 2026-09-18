@@ -467,7 +467,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-08-23",
+      "updated": "2026-09-18",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
     },
     {
