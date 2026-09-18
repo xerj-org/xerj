@@ -323,8 +323,17 @@ mod tests {
         for bad in ["share/..", "share/../index.html", "share//share.js", "../share"] {
             assert_eq!(serve(bad, false).status(), StatusCode::BAD_REQUEST, "{bad}");
         }
-        for missing in ["share/nope.js", "shared", "share/index"] {
+        for missing in ["share/nope.js", "shared", "share/share", "share/index.htm"] {
             assert_eq!(serve(missing, false).status(), StatusCode::NOT_FOUND, "{missing}");
+        }
+        // The console's extensionless fallback (`setup` → `setup.html`) also
+        // makes `share/index` the page. It is the same file, and it gets the
+        // same policy — the guest header set is keyed on the asset served,
+        // not on the spelling of the request.
+        if bundled() {
+            let resp = serve("share/index", false);
+            assert_eq!(resp.status(), StatusCode::OK);
+            assert_eq!(header(&resp, "content-security-policy"), GUEST_CSP);
         }
     }
 
@@ -341,9 +350,11 @@ mod tests {
             let tag_end = lower[at..].find('>').map(|e| at + e).unwrap_or(lower.len());
             assert!(lower[at..tag_end].contains("src="), "inline <script> at byte {at}");
         }
+        // (`javascript:` is matched as an attribute value: the <noscript> text
+        // legitimately says "This page needs JavaScript: …".)
         for forbidden in [
-            "<style", " style=", "javascript:", "http://", "https://", "src=\"//", "href=\"//",
-            "<iframe", "<object", "<embed", "<base",
+            "<style", " style=", "=\"javascript:", "='javascript:", "=javascript:", "http://",
+            "https://", "src=\"//", "href=\"//", "<iframe", "<object", "<embed", "<base",
         ] {
             assert!(!lower.contains(forbidden), "guest page contains {forbidden}");
         }

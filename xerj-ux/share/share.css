@@ -153,6 +153,7 @@ button.quiet:hover { border-color: var(--mute); }
 .hit-title { display: block; font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .hit-meta { display: block; margin: 2px 0 6px; font: 12px/1.4 var(--font-data); color: var(--mute); overflow-wrap: anywhere; }
 .hit-snippet { display: block; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.hit-note { display: block; margin-top: 6px; font: 12px/1.4 var(--font-data); color: var(--mute); font-style: italic; }
 mark { background: var(--mark-bg); color: var(--mark-ink); border-radius: 2px; padding: 0 1px; }
 #more { margin: 24px 0 0; }
 

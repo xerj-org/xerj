@@ -379,7 +379,7 @@ fn run(cfg: BrainCfg) -> Result<i32> {
              \x20 documents and will pick up links on the next run:"
         );
         println!("  → {console_url}");
-        println!("{}", share_hint(&cfg.root, &cfg.url));
+        println!("{}", share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref()));
         if let Some(link) = &setup_link {
             println!("  one-time passkey setup (open once, valid 30 min):");
             println!("  → {link}");
@@ -410,7 +410,7 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     // praise into a commit message, comment, or PR.
     // One line, so the feature is discoverable at the moment it is useful:
     // the folder has just been indexed and the owner is looking at the result.
-    println!("{}", share_hint(&cfg.root, &cfg.url));
+    println!("{}", share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref()));
     println!("  if this saved you time, tell a teammate — that is how it spreads.");
     if let Some(link) = &setup_link {
         println!("  one-time passkey setup (open once, valid 30 min):");
@@ -552,16 +552,20 @@ fn mcp_env_with(url: &str, api_key: Option<&str>, env_key: Option<&str>) -> Stri
     }
 }
 
-/// The one-line pointer at `xerj share`. Carries `--url` only when the run
-/// used a non-default one, so the printed command works as pasted.
-fn share_hint(root: &Path, url: &str) -> String {
-    let url_arg = if url == "http://localhost:9200" {
-        String::new()
-    } else {
-        format!(" --url {url}")
-    };
+/// The one-line pointer at `xerj share`. Carries `--url` and `--data-dir`
+/// only when the run used non-default ones, so the printed command works as
+/// pasted: `xerj share` finds the admin key in the data dir, and without the
+/// flag it would look in `~/.xerj/brain` — another node's key, or none.
+fn share_hint(root: &Path, url: &str, data_dir: Option<&Path>) -> String {
+    let mut args = String::new();
+    if url != "http://localhost:9200" {
+        args.push_str(&format!(" --url {url}"));
+    }
+    if let Some(dir) = data_dir {
+        args.push_str(&format!(" --data-dir {}", dir.display()));
+    }
     format!(
-        "  share it: xerj share {}{url_arg}   (read-only link + passcode for one person; \
+        "  share it: xerj share {}{args}   (read-only link + passcode for one person; \
          nothing is uploaded)",
         root.display()
     )
@@ -811,15 +815,29 @@ mod tests {
 
     #[test]
     fn share_hint_is_one_pasteable_line() {
-        let hint = share_hint(Path::new("/home/u/notes"), "http://localhost:9200");
+        let hint = share_hint(Path::new("/home/u/notes"), "http://localhost:9200", None);
         assert_eq!(hint.lines().count(), 1, "{hint}");
         assert!(hint.contains("xerj share /home/u/notes "), "{hint}");
         assert!(!hint.contains("--url"), "default url is not repeated: {hint}");
-        let hint = share_hint(Path::new("notes"), "http://localhost:9510");
+        assert!(!hint.contains("--data-dir"), "default data dir is not repeated: {hint}");
+        let hint = share_hint(Path::new("notes"), "http://localhost:9510", None);
         assert!(
-            hint.contains("xerj share notes --url http://localhost:9510"),
+            hint.contains("xerj share notes --url http://localhost:9510 "),
             "{hint}"
         );
+        // A non-default data dir is where the admin key is; without it the
+        // pasted command looks in ~/.xerj/brain and fails (or finds another
+        // node's key).
+        let hint = share_hint(
+            Path::new("notes"),
+            "http://localhost:9510",
+            Some(Path::new("/srv/xerj")),
+        );
+        assert!(
+            hint.contains("xerj share notes --url http://localhost:9510 --data-dir /srv/xerj "),
+            "{hint}"
+        );
+        assert_eq!(hint.lines().count(), 1, "{hint}");
     }
 
     /// ONBOARDING-401-REPRO.md §3: `brain` resolves a credential itself (from

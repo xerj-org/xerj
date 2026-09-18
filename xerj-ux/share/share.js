@@ -43,7 +43,7 @@
   // Fields that usually name the document, best first.
   const TITLE_FIELDS = ['title', 'subject', 'email_subject', 'name', 'attachment_name', 'filename', 'file_name', 'path'];
   // Shown under a hit's title, in this order, when present.
-  const META_FIELDS = ['email_from', 'from', 'author', 'email_date', 'date', 'attachment_name', 'path', '_source_path'];
+  const META_FIELDS = ['email_from', 'from', 'author', 'email_date', 'date', 'attachment_name', 'ax_path', 'path', '_source_path'];
   const MAX_QUERY_FIELDS = 24;
   const MAX_INLINE_VALUE = 280;
 
@@ -528,6 +528,16 @@
       if (body) appendWithTerms(snippet, windowAround(body, state.terms, 280), state.terms);
     }
     if (snippet.firstChild) button.appendChild(snippet);
+    // The vector leg of a hybrid query ranks documents that share no word with
+    // the query. Say so on the hit, rather than let a reader hunt for a word
+    // that is not there.
+    const plan = state.plans.find((p) => p.index === hit._index);
+    if (plan && plan.semanticField && state.terms.length) {
+      const haystack = `${titleOf(hit)} ${firstString(source, BODY_FIELDS) || ''}`.toLowerCase();
+      if (!state.terms.some((t) => haystack.includes(t))) {
+        button.appendChild(el('span', 'hit-note', 'Does not contain your words — ranked here by vector similarity.'));
+      }
+    }
     button.addEventListener('click', () => openDoc(hit._index, hit._id));
     li.appendChild(button);
     return li;

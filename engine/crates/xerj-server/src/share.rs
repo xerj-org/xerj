@@ -42,6 +42,9 @@ use xerj_autoindex::esclient::Es;
 /// server returns (`xerj-api::share::create_share`); the server's value wins
 /// when it sends one.
 const GUEST_PAGE_PATH: &str = "/_xerj-console/share";
+/// Where a node listens unless told otherwise — the same default `xerj brain`
+/// uses.
+const DEFAULT_URL: &str = "http://localhost:9200";
 /// How long `cloudflared` gets to print its hostname.
 const TUNNEL_URL_TIMEOUT: Duration = Duration::from_secs(45);
 /// After the hostname is known, how long to wait for the first edge
@@ -125,7 +128,8 @@ pub fn help_text(feedback: bool) -> String {
          REFUSES against a node running with --insecure / auth off: every request is\n\
          already the superuser there, so a read-only guest key would restrict nothing.\n\
          \n\
-         EXIT CODES: 0 ok; 1 refused or failed; 2 usage\n",
+         EXIT CODES: 0 ok; 1 refused or failed; 2 usage; 130 interrupted before the tunnel\n\
+         was up (nothing was shared)\n",
         xerj_common::feedback::block(feedback),
         xerj_api::share::DEFAULT_EXPIRES_IN,
         xerj_api::share::DEFAULT_MAX_CLAIMS,
@@ -181,7 +185,7 @@ fn parse(args: Vec<String>, env_key: Option<String>) -> Result<Option<ShareCfg>,
     let mut target: Option<String> = None;
     let mut list = false;
     let mut revoke: Option<String> = None;
-    let mut url = "http://localhost:9200".to_string();
+    let mut url = DEFAULT_URL.to_string();
     let mut data_dir: Option<PathBuf> = None;
     let mut api_key = env_key.filter(|s| !s.is_empty());
     let mut json = false;
@@ -685,7 +689,10 @@ fn list(es: &Es, common: &Common) -> Result<i32> {
             g("label")
         );
     }
-    println!("\nrevoke one: xerj share --revoke <HANDLE>");
+    println!(
+        "\nrevoke one: xerj share --revoke <HANDLE>{}",
+        connection_args(common)
+    );
     Ok(0)
 }
 
@@ -807,7 +814,7 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
                 tunnel_note = Some(format!(
                     "--tunnel needs `cloudflared`, which is not installed (looked on PATH and \
                      in ~/.local/bin).\n{}\n  then run this command again. Until then the \
-                     link below only works on this machine.",
+                     link above only works on this machine.",
                     cloudflared_install_help()
                 ));
             }
@@ -826,7 +833,7 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
                     }
                     Err(OpenError::Failed(e)) => {
                         tunnel_note = Some(format!(
-                            "the tunnel did not come up: {e:#}\n  the link below only works on \
+                            "the tunnel did not come up: {e:#}\n  the link above only works on \
                              this machine."
                         ))
                     }
@@ -874,10 +881,13 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
         let mut out = resp.clone();
         out["link"] = json!(link);
         out["local_only"] = json!(local_only);
-        out["revoke"] = json!(format!("xerj share --revoke {handle}"));
+        out["revoke"] = json!(format!(
+            "xerj share --revoke {handle}{}",
+            connection_args(common)
+        ));
         println!("{}", serde_json::to_string_pretty(&out)?);
     } else {
-        print!("{}", render_created(&resp, &link, local_only, &common.url));
+        print!("{}", render_created(&resp, &link, local_only, common));
     }
     if let Some(note) = &tunnel_note {
         eprintln!("\n{note}");
@@ -914,7 +924,8 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
     if create.keep {
         eprintln!(
             "the share is still active on this node until it expires. End it: xerj share \
-             --revoke {handle}"
+             --revoke {handle}{}",
+            connection_args(common)
         );
         return Ok(0);
     }
@@ -927,18 +938,36 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
         ),
         Ok((status, _)) => eprintln!(
             "could not revoke share {handle} (HTTP {status}). Do it by hand: xerj share \
-             --revoke {handle}"
+             --revoke {handle}{}",
+            connection_args(common)
         ),
         Err(e) => eprintln!(
             "could not revoke share {handle} ({e:#}). Do it by hand: xerj share --revoke \
-             {handle}"
+             {handle}{}",
+            connection_args(common)
         ),
     }
     Ok(0)
 }
 
+/// The connection flags a follow-up command has to repeat to reach the same
+/// node: `--url` and `--data-dir`, each only when it is not the default. Never
+/// `--api-key` — a key is not something to echo back into a terminal
+/// scrollback, and `--data-dir` (or `XERJ_API_KEY`) already supplies it.
+fn connection_args(common: &Common) -> String {
+    let mut out = String::new();
+    if common.url != DEFAULT_URL {
+        out.push_str(&format!(" --url {}", common.url));
+    }
+    if let Some(dir) = &common.data_dir {
+        out.push_str(&format!(" --data-dir {}", dir.display()));
+    }
+    out
+}
+
 /// The human-readable result of a create. A value, so tests can read it.
-fn render_created(resp: &Value, link: &str, local_only: bool, node_url: &str) -> String {
+fn render_created(resp: &Value, link: &str, local_only: bool, common: &Common) -> String {
+    let node_url = common.url.as_str();
     let g = |k: &str| resp.get(k).and_then(Value::as_str).unwrap_or("");
     let mut what = format!("index {}", g("index"));
     if !g("brain").is_empty() {
@@ -966,8 +995,9 @@ fn render_created(resp: &Value, link: &str, local_only: bool, node_url: &str) ->
         if claims == 1 { "" } else { "s" }
     ));
     out.push_str(&format!(
-        "  revoke:    xerj share --revoke {}\n",
-        g("handle")
+        "  revoke:    xerj share --revoke {}{}\n",
+        g("handle"),
+        connection_args(common)
     ));
     out.push_str(
         "  the link and passcode are shown once — the node keeps only their hashes.\n\
@@ -1514,7 +1544,18 @@ mod tests {
             "brain": "mail", "expires_at": "2026-09-19T08:00:00Z", "max_claims": 1,
             "passcode": "k7mq-2xhd",
         });
-        let local = render_created(&resp, "http://localhost:9200/_xerj-console/share#id", true, "http://localhost:9200");
+        let default_node = Common {
+            url: DEFAULT_URL.to_string(),
+            data_dir: None,
+            api_key: Some("never-printed".into()),
+            json: false,
+        };
+        let local = render_created(
+            &resp,
+            "http://localhost:9200/_xerj-console/share#id",
+            true,
+            &default_node,
+        );
         assert!(local.contains("for Dana"));
         assert!(local.contains("ax-mail,ax-pdf"));
         assert!(local.contains("brain mail"));
@@ -1527,8 +1568,30 @@ mod tests {
             local.contains("--tunnel"),
             "a localhost link must say it is local-only"
         );
-        let public = render_created(&resp, "https://a.trycloudflare.com/_xerj-console/share#id", false, "http://localhost:9200");
+        assert!(local.contains("xerj share --revoke 1a2b3c4d5e6f\n"), "{local}");
+        let public = render_created(
+            &resp,
+            "https://a.trycloudflare.com/_xerj-console/share#id",
+            false,
+            &default_node,
+        );
         assert!(!public.contains("only this machine can reach"));
+        // On a non-default node the revoke line has to be pasteable: the same
+        // --url and --data-dir, and never the key.
+        let custom = Common {
+            url: "http://localhost:9510".into(),
+            data_dir: Some(PathBuf::from("/srv/xerj")),
+            api_key: Some("never-printed".into()),
+            json: false,
+        };
+        let out = render_created(&resp, "http://localhost:9510/_xerj-console/share#id", true, &custom);
+        assert!(
+            out.contains(
+                "xerj share --revoke 1a2b3c4d5e6f --url http://localhost:9510 --data-dir /srv/xerj\n"
+            ),
+            "{out}"
+        );
+        assert!(!out.contains("never-printed"));
     }
 
     #[test]

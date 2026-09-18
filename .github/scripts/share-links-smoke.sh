@@ -10,7 +10,10 @@
 #      headless Chrome (claim, search, read, XSS probe, sign-out);
 #   D. the same security test against a node that declares loopback a trusted
 #      proxy (the `--tunnel` + trusted_proxies configuration);
-#   E. the refusal: `xerj share` against an --insecure node exits 1 and says why.
+#   E. the refusal: `xerj share` against an --insecure node exits 1 and says why;
+#   F. the headline path: `xerj brain <folder>` boots a node and indexes notes
+#      and email, its output carries a pasteable `xerj share` hint, and
+#      `xerj share <folder>` resolves the folder to that brain and its indices.
 #
 # Not covered here, because it needs the public internet and a third party:
 # `xerj share --tunnel` actually opening a cloudflared quick tunnel. The
@@ -123,6 +126,11 @@ ERR="$(share "$ROOT/never-indexed" 2>&1)"; RC=$?
 ERR="$("$XERJ_BIN" share casefile --url "$A_URL" --api-key not-the-admin-key --disable-feedback 2>&1)"; RC=$?
 { [ $RC -eq 1 ] && printf '%s' "$ERR" | grep -qi "admin key"; } && ok "a wrong key is refused with the reason" || bad "wrong-key error (rc=$RC): $ERR"
 
+# `--tunnel` without cloudflared: install steps and the local link, not a failure.
+OUT="$(XERJ_CLOUDFLARED=/nonexistent/cloudflared share casefile --tunnel 2>&1)"; RC=$?
+{ [ $RC -eq 0 ] && printf '%s' "$OUT" | grep -q "install it" && printf '%s' "$OUT" | grep -qF "$A_URL/_xerj-console/share#"; } \
+  && ok "--tunnel without cloudflared prints install steps and the local link (exit 0)" || bad "--tunnel fallback (rc=$RC): $OUT"
+
 # ── C. the guest page in a real browser ────────────────────────────────────
 phase "C. guest page, headless Chrome"
 if command -v node >/dev/null; then
@@ -157,6 +165,45 @@ ERR="$("$XERJ_BIN" share open-index --url "$E_URL" --disable-feedback 2>&1)"; RC
   && ok "xerj share refuses, exit 1, and says why" || bad "refusal (rc=$RC): $ERR"
 CODE="$(curl -s -o "$ROOT/e/create.json" -w '%{http_code}' -XPOST "$E_URL/_share" -H 'content-type: application/json' -d '{"index":"open-index"}')"
 [ "$CODE" = 409 ] && ok "POST /_share on an open node → 409" || bad "POST /_share on an open node → $CODE $(cat "$ROOT/e/create.json")"
+
+# ── F. the headline path: xerj brain <folder> → xerj share <folder> ─────────
+phase "F. share the folder you gave xerj brain"
+stop e || exit 1
+F="$ROOT/f"; mkdir -p "$F/casefiles/notes" "$F/casefiles/mail"
+printf '# Lease dispute\n\nThe landlord refused to return the deposit. See [[inspection]].\n' >"$F/casefiles/notes/lease.md"
+printf '# Inspection\n\nMould in the bathroom, photographed in March. Related: [[lease]].\n' >"$F/casefiles/notes/inspection.md"
+printf 'From: Dana <dana@example.test>\nTo: Owner <owner@example.test>\nSubject: Deposit not returned\nDate: Tue, 03 Mar 2026 10:00:00 +0000\nMessage-ID: <1@example.test>\nContent-Type: text/plain; charset=utf-8\n\nThe deposit of 1200 has still not been returned.\n' >"$F/casefiles/mail/0001.eml"
+F_URL="http://localhost:$PORT"
+"$XERJ_BIN" brain "$F/casefiles" --url "$F_URL" --data-dir "$F/data" --no-open --disable-feedback >"$F/brain.out" 2>&1; RC=$?
+[ -s "$F/data/server.pid" ] && PIDS+=("$(cat "$F/data/server.pid")")
+{ [ $RC -eq 0 ] || [ $RC -eq 3 ]; } && ok "xerj brain indexed the folder (exit $RC)" || { bad "xerj brain failed (rc=$RC)"; tail -20 "$F/brain.out"; }
+HINT="$(grep -F 'share it: xerj share' "$F/brain.out" | head -1)"
+{ printf '%s' "$HINT" | grep -qF -- "--url $F_URL" && printf '%s' "$HINT" | grep -qF -- "--data-dir $F/data"; } \
+  && ok "xerj brain prints a pasteable share hint (with --url and --data-dir)" || bad "share hint: $HINT"
+OUT="$("$XERJ_BIN" share "$F/casefiles" --url "$F_URL" --data-dir "$F/data" --json --disable-feedback 2>"$F/share.err")"; RC=$?
+python3 - "$F_URL" "$OUT" <<'PYEOF' && ok "folder → brain → indices; the guest can search it and walk its links, and nothing else" || bad "folder share (rc=$RC): $(cat "$F/share.err")"
+import json, sys, urllib.request, urllib.error
+url, created = sys.argv[1], json.loads(sys.argv[2])
+assert created["brain"] == "casefiles" and created["indices"], created
+def call(method, path, body=None, key=None):
+    h = {"content-type": "application/json"}
+    if key: h["authorization"] = "ApiKey " + key
+    req = urllib.request.Request(url + path, data=None if body is None else json.dumps(body).encode(), method=method, headers=h)
+    try:
+        r = urllib.request.urlopen(req, timeout=30); return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+s, claim = call("POST", f"/_share/{created['share_id']}/claim", {"passcode": created["passcode"]})
+assert s == 200 and claim["brain"] == "casefiles", (s, claim)
+key, index = claim["api_key"], claim["index"]
+s, r = call("POST", f"/{index}/_search", {"query": {"simple_query_string": {"query": "deposit"}}}, key)
+assert s == 200 and r["hits"]["total"]["value"] >= 2, (s, r)
+s, r = call("GET", "/_graph/casefiles/overview", None, key)
+assert s == 200 and r["edges"]["live"] >= 2 and r["nodes"]["total"] >= 3, (s, r)
+for path in ("/autoindex-catalog/_search", "/_cat/indices", "/_share"):
+    s, _ = call("GET", path, None, key)
+    assert s == 403, (path, s)
+PYEOF
 
 echo
 if [ "$FAILED" -eq 0 ]; then echo "share-links smoke: all phases passed"; else echo "share-links smoke: $FAILED failure(s)"; fi

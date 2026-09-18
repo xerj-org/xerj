@@ -714,6 +714,21 @@ jobs:
           XERJ_MCP_BIN: ${{ github.workspace }}/engine/target/ci-test/xerj-mcp
         run: bash .github/scripts/usecase-smoke.sh
 
+      # Share links end to end, against throwaway nodes this script boots on
+      # 127.0.0.1:9510-9512: what a guest key can and cannot reach (the live
+      # security test, with and without a trusted proxy), the `xerj share` CLI,
+      # the guest page in the runner's headless Chrome (claim, search, read, an
+      # XSS probe document, sign-out), the open-node refusal, and the
+      # `xerj brain` -> `xerj share <folder>` path. No npm install: Chrome is
+      # driven over the DevTools pipe. NOT covered, because it needs the public
+      # internet and a third party: `--tunnel` opening a real cloudflared quick
+      # tunnel (its hostname parser and fallbacks are unit tests).
+      - name: Share links (guest reach, CLI, headless-Chrome guest flow)
+        env:
+          XERJ_BIN: ${{ github.workspace }}/engine/target/ci-test/xerj
+          XERJ_SHARE_REQUIRE_BROWSER: '1'
+        run: bash .github/scripts/share-links-smoke.sh
+
       # The published agent-facing schema vs what the server actually serves.
       # It drifted once already — six tools published against ten served, every
       # xerj_brain_* tool missing — and nothing failed, because nothing

@@ -267,6 +267,19 @@ async function main() {
       await evaluate(`document.getElementById('doc-title').textContent === 'Lease dispute' && /landlord refused/.test(document.getElementById('doc-body').textContent)`));
     await evaluate(`document.getElementById('doc-back').click()`);
 
+    // A query whose words are in NO document of the semantic_text index: the
+    // vector leg still ranks its one document, and the page has to say so.
+    await search('landlord');
+    await waitFor(`document.querySelectorAll('#results li').length === 2`, 'results for "landlord"');
+    ok('a hybrid hit that contains none of the words is labelled as similarity-ranked, and a real match is not',
+      await evaluate(`(() => {
+        const items = [...document.querySelectorAll('#results li')];
+        const receipt = items.find((li) => li.textContent.includes('Receipt'));
+        const lease = items.find((li) => li.textContent.includes('Lease dispute'));
+        return !!receipt && !!lease && !!receipt.querySelector('.hit-note') && !lease.querySelector('.hit-note');
+      })()`),
+      await evaluate(`document.getElementById('results').innerText`));
+
     // ── 5. the hostile document ─────────────────────────────────────────────
     await search('invoice');
     await waitFor(`[...document.querySelectorAll('#results .hit-title')].some((t) => t.textContent.includes('Quarterly invoice'))`, 'the hostile document in the results');
