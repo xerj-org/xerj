@@ -503,7 +503,7 @@
       "canonical_url": "https://xerj.org/answers/read-autoindex-progress",
       "markdown_url": "https://xerj.org/answers/read-autoindex-progress.md",
       "cluster": "Operations: progress",
-      "updated": "2026-08-23",
+      "updated": "2026-09-18",
       "summary": "XERJ prints xerj-bar, xerj-progress and a final xerj-done line. On a single large file the percentage stays at 0.0%, so read since_progress_s and waiting_on."
     },
     {
