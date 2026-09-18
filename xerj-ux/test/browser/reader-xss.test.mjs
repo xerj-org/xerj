@@ -179,6 +179,16 @@ test('the whole operator console runs under the shipped policy with zero violati
     await new Promise((res) => setTimeout(res, 150));
     const v = await page.eval('window.__cspViolations');
     assert.deepEqual(v, [], `${r}: Content-Security-Policy violation`);
+    // Honest data-source status, per view: this node holds no telemetry, so a
+    // telemetry dashboard is showing the in-memory sample — and must SAY so.
+    // Only the views that really read the engine may say LIVE.
+    const pill = await page.eval(`document.querySelector('[data-nav-status]')?.textContent || ''`);
+    const telemetry = /ai-overview|rag-quality|vector-index|agent-memory|logs-overview|anomaly-detect|ingest-pipeline|system|alerts|users/.test(r);
+    if (telemetry) {
+      assert.match(pill, /MOCK FALLBACK|SAMPLE DATA/, `${r}: a sample-backed view must be labelled (${pill})`);
+      assert.doesNotMatch(pill, /^LIVE/, `${r}: a sample-backed view must never claim LIVE`);
+    }
+    if (/corpus|discover|data$/.test(r)) assert.match(pill, /^LIVE/, `${r}: ${pill}`);
   }
   // theme switch + edit mode toggle exercise the shell's own handlers
   await page.eval(`(document.querySelector('[data-theme-set="day"], [data-theme="day"], [data-theme-toggle]')?.click(), true)`);
