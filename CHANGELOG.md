@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj autoindex` reads mbox mailboxes and Google Takeout exports** — an mbox
+  (Takeout, Thunderbird, Apple Mail, mutt) is detected by content, split in a
+  bounded-memory stream with `>From ` unquoting, CRLF/LF and a missing final
+  newline handled, and every message goes through the same extractor as a
+  standalone `.eml`, so message and attachment records (PDF pages included)
+  have one shape; messages are parsed on a `--workers`-wide pool and forwarded
+  in order, the progress bar moves inside the file, a Takeout root's
+  `archive_browser.html` and Keep `.html` twins are skipped by named rules,
+  Keep `.json` notes are indexed, unextracted archives get a junk reason
+  quoting the extraction command, and the new `email-thread@1` detector writes
+  `replies_to` (`In-Reply-To`/`References`) and `attachment_of` edges with
+  evidence. A per-item 429 from the server's memory circuit breaker is now
+  re-offered for up to ten minutes instead of aborting the run. Numbers,
+  machine and commands: `benchmarks/mbox-ingest/README.md` (synthetic mailbox;
+  not yet verified on a real Takeout export).
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
