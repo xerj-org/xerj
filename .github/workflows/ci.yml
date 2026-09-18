@@ -654,12 +654,25 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Node 22: the browser suite below drives Chrome over DevTools with the
+      # global WebSocket, so xerj-ux keeps having no package.json to install.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: THE MAP pipeline contract
+      - name: Console unit tests (THE MAP pipeline, safe-dom, reader, guest contract)
         run: node --test xerj-ux/test/*.test.mjs
+
+      # The reader shows other people's email and a guest's API key lives in
+      # sessionStorage: hostile documents must render inert in a REAL browser,
+      # under the Content-Security-Policy the server ships, and a guest tab
+      # must never call a console/admin endpoint. The runner image carries
+      # Chrome; XERJ_REQUIRE_BROWSER turns "no browser found" from a skip into
+      # a failure, so this can never go quietly green by not running.
+      - name: Console browser security suite (headless Chrome)
+        env:
+          XERJ_REQUIRE_BROWSER: '1'
+        run: node --test xerj-ux/test/browser/*.test.mjs
 
   # The harnesses under demo/usecases/ are the only executable proof that the
   # shipped use cases still work — the brain HTTP surface, the MCP tool surface
