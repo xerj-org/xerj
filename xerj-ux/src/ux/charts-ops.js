@@ -14,6 +14,7 @@
 // ============================================================
 
 import { esc, fmt } from './text.js';
+import { readerHref } from './reader-render.js';
 
 const minMax = (xs) => {
   let mn = Infinity, mx = -Infinity;
@@ -198,7 +199,7 @@ export const Hits = ({
       <div class="hit">
         <div class="hit-head mono ${showTime ? '' : 'no-time'}">
           <button type="button" class="hit-cell-clickable" data-facet-apply="_index:${esc(h._index)}" title="Filter for this">${esc(h._index)}</button>
-          <span class="faint">${esc(h._id)}</span>
+          <a class="hit-open" href="${esc(readerHref({ index: h._index, id: h._id }))}" title="Open in the Reader">${esc(h._id)}</a>
           <span class="accent">${(Number.isFinite(Number(h._score)) ? Number(h._score) : 0).toFixed(3)}</span>
           ${showTime ? `<span class="faint">${esc(h._ts || '')}</span>` : ''}
         </div>

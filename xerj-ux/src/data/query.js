@@ -122,7 +122,10 @@ export async function query(ctx = {}) {
     _lastSourceLabel = `${BACKENDS[backendId]?.meta?.label || backendId}: SAMPLE DATA`;
   } else {
     _lastSourceKind = 'live';
-    _lastSourceLabel = `LIVE · ${BACKENDS[backendId]?.meta?.label || backendId} · ${baseUrl || ''}`;
+    // The bundled console is served by the engine it shows; naming this
+    // page's own origin adds nothing (and pushed the pill off a 1440px nav).
+    const own = typeof window !== 'undefined' && window.location && baseUrl === window.location.origin;
+    _lastSourceLabel = `LIVE · ${BACKENDS[backendId]?.meta?.label || backendId}${baseUrl && !own ? ' · ' + baseUrl : ''}`;
   }
 
   const t1 = perfNow();

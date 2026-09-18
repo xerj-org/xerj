@@ -816,8 +816,10 @@ function renderPanel(p, data, editMode, ctx) {
     // Empty-state fallback: if the render produced nothing meaningful,
     // show a typography-first placeholder so users see WHY the slot is
     // blank (e.g. filtered everything out) rather than a broken panel.
+    // A safe-mount panel (Corpus, Reader) is an EMPTY element on purpose:
+    // mountSafePanels() fills it with DOM nodes after this string is parsed.
     const stripped = String(inner || '').replace(/<[^>]+>/g, '').trim();
-    if (!stripped) {
+    if (!stripped && !/\sdata-safe-mount="/.test(String(inner))) {
       inner = `<div class="panel-empty mono faint">NO DATA · ADJUST FILTERS OR TIME RANGE</div>`;
     }
   } catch (err) {

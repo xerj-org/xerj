@@ -55,7 +55,7 @@ export class ReaderView {
       index: null, id: null, brain: null, brainHint: null,
       q: '', type: 'match',
       result: null,          // { hits, total, took, error, pending }
-      hit: null, recordError: null, loading: false,
+      hit: null, recordError: null, recordKind: null, loading: false,
       related: {},           // { attachments, parent }
       graph: { status: 'idle' },
     };
@@ -79,8 +79,13 @@ export class ReaderView {
     this.s.brainHint = this.guest ? null : (brain || null);
     this.s.id = id || null;
     if (indexChanged) { this.s.result = null; this.s.hit = null; }
-    if (idx && (indexChanged || !this.s.result)) this.runSearch();
-    if (indexChanged || idChanged) this.loadRecord();
+    // Coming back to a view whose last load FAILED asks again (a refused or
+    // unreachable engine may have recovered). A record the engine answered
+    // "no such id" for is not re-asked on every repaint.
+    const searchFailed = !!(this.s.result && this.s.result.error);
+    const recordFailed = !!(this.s.id && !this.s.hit && !this.s.loading && this.s.recordKind !== 'not-found');
+    if (idx && (indexChanged || !this.s.result || searchFailed)) this.runSearch();
+    if (indexChanged || idChanged || recordFailed) this.loadRecord();
     this.paint();
   }
 
@@ -113,7 +118,7 @@ export class ReaderView {
     const ac = this.abort = new AbortController();
     const seq = ++this.seq;
     const { index, id } = this.s;
-    this.s.hit = null; this.s.recordError = null; this.s.related = {}; this.s.graph = { status: 'idle' };
+    this.s.hit = null; this.s.recordError = null; this.s.recordKind = null; this.s.related = {}; this.s.graph = { status: 'idle' };
     if (!index || !id) { this.s.loading = false; this.paintRecord(); this.paintGraph(); return; }
     this.s.loading = true;
     this.paintRecord(); this.paintGraph();
@@ -124,6 +129,7 @@ export class ReaderView {
       this.s.loading = false;
       this.s.hit = rec.hit;
       this.s.recordError = rec.hit ? null : (rec.error || 'Not found.');
+      this.s.recordKind = rec.hit ? null : (rec.kind || 'error');
       this.paintRecord(); this.paintList();
       if (!rec.hit) { this.paintGraph(); return; }
 
