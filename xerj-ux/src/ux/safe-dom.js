@@ -164,7 +164,12 @@ export function highlightRequest(fields, { fragmentSize = 160, fragments = 2 } =
   for (const name of fields || []) {
     if (typeof name === 'string' && name) f[name] = { fragment_size: fragmentSize, number_of_fragments: fragments };
   }
-  return { pre_tags: [HL_PRE], post_tags: [HL_POST], fields: f };
+  // Both spellings, because the engine has two request parsers: the ES-compat
+  // route (a guest) reads the plural arrays, the console's search proxy (an
+  // operator) reads the singular strings and ignores the rest. Sending only
+  // one silently falls back to `<em>` on the other route
+  // (pinned by xerj-console-api/tests/reader_proxy.rs).
+  return { pre_tags: [HL_PRE], post_tags: [HL_POST], pre_tag: HL_PRE, post_tag: HL_POST, fields: f };
 }
 
 function stripMarkers(s) {

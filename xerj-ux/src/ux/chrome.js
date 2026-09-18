@@ -116,7 +116,7 @@ export const Nav = ({
   ${EditCtrl({ active: edit })}
   ${MobileCtrl({ active: mobile })}
   ${ThemeCtrl({ active: theme })}
-  ${status ? `<span class="status">${esc(status)}</span>` : ''}
+  ${status ? `<span class="status" data-nav-status>${esc(status)}</span>` : ''}
 </nav>
 ${secondary}`;
 };

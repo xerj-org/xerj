@@ -30,7 +30,7 @@
 // not linked. No DOM, no fetch: testable under node.
 // ============================================================
 
-import { h, highlightChildren } from './safe-dom.js';
+import { h, highlightChildren, HL_PRE } from './safe-dom.js';
 
 // Vector / passage plumbing the reader never shows (it is huge and meaningless
 // to a person); counted, never silently dropped.
@@ -138,7 +138,11 @@ function highlightBlock(hit) {
     if (frags.length >= 2) break;
   }
   if (!frags.length) return null;
-  return frags.map((f) => h('span', { class: 'rd-card__frag' }, highlightChildren(f.replace(/\s+/g, ' '))));
+  // Our markers when the engine honoured them; otherwise its default
+  // `<em>…</em>`, matched literally. Either way the fragment becomes text
+  // nodes and <mark> elements — it is never parsed.
+  return frags.map((f) => h('span', { class: 'rd-card__frag' },
+    highlightChildren(f.replace(/\s+/g, ' '), { tags: f.includes(HL_PRE) ? 'markers' : 'em' })));
 }
 
 /** One clickable result card. `selectedId` marks the open record. */

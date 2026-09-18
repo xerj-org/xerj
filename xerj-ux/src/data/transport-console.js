@@ -1,18 +1,29 @@
 // ============================================================
 // XERJ Console — reader transport for the signed-in operator
 //
-//   search   the session-authenticated panel proxy (one exact index; the
-//            proxy refuses patterns, system indices and the reserved brain
-//            namespace — see xerj-console-api/src/data_sources.rs).
-//   mapping  same-origin `GET /{index}/_mapping`.
-//   ego      same-origin `GET /_graph/{brain}/ego`. The console session is
-//            NOT an engine credential: on an engine started without
-//            `--insecure` this answers 401, which the reader reports as
-//            "graph needs an engine API key" instead of pretending there are
-//            no links. (The proxy deliberately cannot read a brain — RC10 B1.)
+// A console session is NOT an engine credential. Everything the reader can
+// get through the session-authenticated console API, it gets there, so it
+// works the same on an auth-enabled engine (the default) as on `--insecure`:
+//
+//   search   the panel proxy (one exact index; the proxy refuses patterns,
+//            system indices and the reserved brain namespace — see
+//            xerj-console-api/src/data_sources.rs).
+//   mapping  the console's field list for the index, reshaped to the
+//            `_mapping` wire form data/reader-api.js reads.
+//
+// The graph has no such path, on purpose (the proxy cannot read a brain —
+// RC10 B1), so these two are direct same-origin calls:
+//
+//   ego            `GET /_graph/{brain}/ego`
+//   discoverBrain  `_cat/indices` + each brain's meta document
+//
+// On an auth-enabled engine they answer 401. The reader then says exactly
+// that — "the graph API refused this console session" — instead of claiming
+// the record has no links. Records, search and attachments still work.
 // ============================================================
 
 import { parseBrainIndices } from './brains-probe.js';
+import { fieldTypes } from './console-index-api.js';
 
 const PROXY = '/_xerj-console/api/v1/data-sources/connections/built-in/indices';
 const BRAIN_META_ID = '__xerj-brain-meta';
@@ -40,9 +51,10 @@ export function makeConsoleTransport() {
       return r.json(); // the proxy answers in ES `_search` wire shape, unwrapped
     },
     async mapping(index, signal) {
-      const r = await fetch(`/${enc(index)}/_mapping`, { signal, credentials: 'same-origin', headers: { accept: 'application/json' } });
-      if (!r.ok) throw httpError(r.status);
-      return r.json();
+      const types = await fieldTypes(index, signal);
+      const properties = {};
+      for (const [name, type] of Object.entries(types)) properties[name] = { type };
+      return { [index]: { mappings: { properties } } };
     },
     async ego(brain, params, signal) {
       const qs = new URLSearchParams(params);

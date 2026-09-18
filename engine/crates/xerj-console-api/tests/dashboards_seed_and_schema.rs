@@ -1,5 +1,5 @@
-//! Dashboards: rich panel schema round-trip, first-launch seeding of the 14
-//! built-ins as editable backend data, managed-default edit/delete rules, and
+//! Dashboards: rich panel schema round-trip, first-launch seeding of the
+//! built-ins (`seed::BUILTIN_DASHBOARD_COUNT` of them) as editable backend data, managed-default edit/delete rules, and
 //! the bulk endpoint.
 //!
 //! These exercise the backend half of the "Kibana-quality dashboards"
@@ -143,7 +143,7 @@ async fn list_dash(app: &TestApp) -> Value {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn seeds_fourteen_editable_defaults_on_first_boot() {
+async fn seeds_every_builtin_as_an_editable_default_on_first_boot() {
     let app = boot().await;
     let body = list_dash(&app).await;
     let arr = body["data"]["dashboards"].as_array().unwrap();
@@ -152,7 +152,11 @@ async fn seeds_fourteen_editable_defaults_on_first_boot() {
         .iter()
         .filter(|d| d["id"].as_str().unwrap_or("").starts_with("default-"))
         .collect();
-    assert_eq!(defaults.len(), 14, "must seed exactly 14 defaults: {body}");
+    assert_eq!(
+        defaults.len(),
+        xerj_console_api::seed::BUILTIN_DASHBOARD_COUNT,
+        "must seed exactly one default per built-in: {body}"
+    );
 
     // Every registry dashboard is present by its stable id.
     for id in [
@@ -165,7 +169,9 @@ async fn seeds_fourteen_editable_defaults_on_first_boot() {
         "default-anomaly-detect",
         "default-ingest-pipeline",
         "default-system",
+        "default-corpus",
         "default-search-discover",
+        "default-reader",
         "default-alerts",
         "default-data",
         "default-users",
@@ -252,7 +258,11 @@ async fn seeding_is_idempotent_and_preserves_edits() {
         .iter()
         .filter(|d| d["id"].as_str().unwrap_or("").starts_with("default-"))
         .collect();
-    assert_eq!(defaults.len(), 14, "re-seed must not duplicate defaults");
+    assert_eq!(
+        defaults.len(),
+        xerj_console_api::seed::BUILTIN_DASHBOARD_COUNT,
+        "re-seed must not duplicate defaults"
+    );
 
     // The edit survived the re-seed.
     let (_, sys) = get_dash(&app, "default-system").await;

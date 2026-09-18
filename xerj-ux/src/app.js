@@ -1560,14 +1560,6 @@ document.addEventListener('click', (e) => {
     location.hash = '#/dashboards/' + id;
     return;
   }
-  // Case Review: open the clicked email / attachment in the reader pane.
-  const rvw = e.target.closest('[data-review-open]');
-  if (rvw) {
-    e.preventDefault();
-    state.search.selectedId = rvw.getAttribute('data-review-open');
-    render();
-    return;
-  }
   // Secondary nav: a collapsed group tab — switch groups by landing
   // on the group's first dashboard.
   const groupBtn = e.target.closest('[data-dash-group]');

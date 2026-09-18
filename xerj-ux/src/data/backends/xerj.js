@@ -13,6 +13,7 @@ import { liveSecondBrain } from '../second-brain-api.js';
 import { schemaForSearch, indexNames } from '../schema.js';
 import { buildSearchBody } from '../search-body.js';
 import { CATALOG_INDEX, catalogQueryBody, parseCatalogHits } from '../catalog.js';
+import { listUserIndices, INTERNAL_INDICES } from '../console-index-api.js';
 
 // Aggregation materialisation bypass.
 //
@@ -152,15 +153,14 @@ async function liveCorpus(baseUrl, _ctx, signal) {
   }
   let others = [];
   try {
-    const r = await fetch('/_xerj-console/api/v1/data-sources/connections/built-in/indices', { credentials: 'same-origin', signal });
-    if (r.ok) {
-      const body = await r.json();
-      const known = new Set(datasets.map((d) => d.index));
-      others = (body?.data?.indices || [])
-        .filter((it) => it && typeof it.name === 'string' && !it.name.startsWith('.') && it.name !== CATALOG_INDEX && !known.has(it.name))
-        .map((it) => ({ index: it.name, records: Number(it.docs || 0), emails: 0, attachments: 0, formats: [] }));
-    }
-  } catch { /* the catalog cards still stand on their own */ }
+    const known = new Set(datasets.map((d) => d.index));
+    others = (await listUserIndices(signal))
+      .filter((it) => !INTERNAL_INDICES.has(it.name) && !known.has(it.name))
+      .map((it) => ({ index: it.name, records: it.docs, emails: 0, attachments: 0, formats: [] }));
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    /* the catalog cards still stand on their own */
+  }
   if (catalogError && !datasets.length && !others.length) return { status: 'error', error: catalogError, datasets: [], summaries: [] };
   return { status: 'ok', datasets, summaries: others, _live: true };
 }

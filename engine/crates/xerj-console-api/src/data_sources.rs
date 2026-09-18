@@ -197,6 +197,12 @@ pub async fn list_fields(
                 "type": f.field_type.to_string(),
                 "indexed": f.options.indexed,
                 "doc_values": f.options.doc_values,
+                // A `semantic_text` field is a text field with an embedding
+                // config; `type` alone reads "text". The console derives
+                // which field `semantic` / `hybrid` run against from this
+                // flag: it holds a session, not an engine API key, so on an
+                // auth-enabled engine it cannot read `GET /{index}/_mapping`.
+                "semantic": f.embedding.is_some(),
             })
         })
         .collect();
