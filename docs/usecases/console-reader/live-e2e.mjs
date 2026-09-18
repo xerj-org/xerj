@@ -21,9 +21,9 @@ const shot = async (page, name) => {
   const { data } = await page.send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(`${shots}/${name}.png`, Buffer.from(data, 'base64'));
 };
-const pwned = async (page, label) => {
+const pwned = async (page, label, base = origin) => {
   const f = await page.eval(`({ pwned: window.__xerjPwned || 0, csp: window.__cspViolations || [] })`);
-  const foreign = page.requests.map((r) => r.url).filter((u) => /^https?:/.test(u) && !u.startsWith(origin + '/') && !/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(u));
+  const foreign = page.requests.map((r) => r.url).filter((u) => /^https?:/.test(u) && !u.startsWith(base + '/') && !/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(u));
   out[label] = { pwned: f.pwned, cspViolations: f.csp, dialogs: page.dialogs.length, foreignRequests: foreign };
   if (f.pwned || f.csp.length || page.dialogs.length || foreign.length) throw new Error(`${label}: NOT INERT ${JSON.stringify(out[label])}`);
 };
@@ -35,7 +35,7 @@ const catalog = await api('POST', '/autoindex-catalog/_search', { query: { term:
 out.datasets = (catalog.json?.hits?.hits || []).map((h) => ({ index: h._source.index_name, records: h._source.record_count, formats: h._source.formats, semantic_field: h._source.semantic_field }));
 const emailIndex = out.datasets.find((d) => (d.formats || []).includes('eml'))?.index;
 if (!emailIndex) throw new Error('no email dataset in the catalog: ' + JSON.stringify(out.datasets));
-const hostile = await api('POST', `/${emailIndex}/_search`, { query: { term: { email_message_id: '<hostile-5@evil.example>' } }, size: 10 });
+const hostile = await api('POST', `/${emailIndex}/_search`, { query: { term: { email_message_id: 'hostile-5@evil.example' } }, size: 10 } /* the extractor stores the id without its <> */);
 out.hostileRecords = (hostile.json?.hits?.hits || []).map((h) => ({ id: h._id, subject: h._source.email_subject, attachment: h._source.attachment_name, page: h._source.page }));
 const hostileEmail = hostile.json.hits.hits.find((h) => !h._source.attachment_name);
 const hostileAtt = hostile.json.hits.hits.find((h) => h._source.attachment_name);
@@ -45,13 +45,26 @@ const hl = await api('POST', `/${emailIndex}/_search`, { query: { match: { email
 out.engineHighlight = (hl.json?.hits?.hits || []).map((h) => h.highlight?.email_subject?.[0]).filter(Boolean).slice(0, 2);
 
 const browser = await launch();
+// The console's WebAuthn relying-party origin is fixed at http://localhost:9200
+// (xerj-console-api/src/state.rs, RpConfig::default) — a node on any other
+// port refuses passkey enrolment ("relying party origin does not match").
+// So the OPERATOR half runs in a second Chrome that resolves localhost:9200 to
+// this run's node. Nothing is sent to whatever really listens on :9200: the
+// first request is a GET that only THIS branch's bundle answers, and the run
+// stops if it does not.
+const port = new URL(origin).port;
+const opOrigin = 'http://localhost:9200';
+const opBrowser = await launch({ extraArgs: [`--host-resolver-rules=MAP localhost:9200 127.0.0.1:${port}`] });
 try {
   // ================= A. operator =====================================
   if (setupLink && setupLink !== '-') {
-    const page = await browser.newPage();
+    const page = await opBrowser.newPage();
+    await page.goto(`${opOrigin}/_xerj-console/src/boot.js`);
+    const isOurs = await page.eval(`document.body.innerText.includes('guest-app.js')`);
+    if (!isOurs) throw new Error('host mapping is not in effect — refusing to touch the node on :9200');
     await page.send('WebAuthn.enable');
     await page.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
-    await page.goto(setupLink);
+    await page.goto(opOrigin + new URL(setupLink).pathname + new URL(setupLink).hash);
     await page.waitFor(`document.getElementById('btn-enrol') && !document.getElementById('btn-enrol').disabled && document.readyState === 'complete'`, { label: 'setup page' });
     await sleep(800);
     await page.eval(`(document.getElementById('email').value = 'op@acme.example', document.getElementById('display').value = 'Op', document.getElementById('btn-enrol').click(), true)`);
@@ -67,14 +80,14 @@ try {
     await shot(page, 'live-operator-corpus');
 
     await page.setHash(`#/reader?index=${encodeURIComponent(emailIndex)}&id=${encodeURIComponent(hostileEmail._id)}`);
-    await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('.rd-att').length >= 1 && !/Walking brain/.test(document.querySelector('.rd-graph').textContent)`, { label: 'hostile email + attachment + graph state', timeoutMs: 20000 });
+    await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('[data-rd-block="attachments"] .rd-att').length >= 1 && !/Walking brain/.test(document.querySelector('.rd-graph').textContent)`, { label: 'hostile email + attachment + graph state', timeoutMs: 20000 });
     await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'invoice'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
     await page.waitFor(`document.querySelectorAll('.rd-card').length >= 1 && !/SEARCHING/.test(document.querySelector('[data-rd-slot="list-head"]').textContent)`, { label: 'search results' });
     const rd = await census(page, '[data-safe-mount="reader"]');
     assertCensusInert(rd, 'live operator reader');
     out.operator.reader = {
       title: await page.eval(`document.querySelector('.rd-title').textContent.slice(0, 80)`),
-      attachments: await page.eval(`[...document.querySelectorAll('.rd-att__name')].map((a) => a.textContent.slice(0, 60))`),
+      attachments: await page.eval(`[...document.querySelectorAll('[data-rd-block="attachments"] .rd-att__name')].map((a) => a.textContent.slice(0, 60))`),
       marks: rd.marks,
       listHead: await page.eval(`document.querySelector('[data-rd-slot="list-head"]').textContent`),
       graph: await page.eval(`document.querySelector('.rd-graph').textContent.replace(/\\s+/g, ' ').slice(0, 260)`),
@@ -86,7 +99,7 @@ try {
     await page.waitFor(`document.querySelector('.hits-list .hit') || document.querySelector('[data-hits-state="error"]')`, { label: 'discover', timeoutMs: 20000 });
     out.operator.discover = await page.eval(`({ eyebrow: [...document.querySelectorAll('.panel .key')].map((k) => k.textContent).filter((t) => /RESULTS|DATE_HISTOGRAM|REQUEST/.test(t)), rows: document.querySelectorAll('.hits-list .hit').length, error: document.querySelector('[data-hits-state="error"]')?.textContent || null, facets: [...document.querySelectorAll('.facet > .key')].map((k) => k.textContent), indexButtons: [...document.querySelectorAll('[data-search-index]')].map((b) => b.textContent) })`);
     await shot(page, 'live-operator-discover');
-    await pwned(page, 'operatorInert');
+    await pwned(page, 'operatorInert', opOrigin);
     await page.close();
   }
 
@@ -114,7 +127,7 @@ try {
   await page.eval(`sessionStorage.setItem('xerj.share', ${JSON.stringify(JSON.stringify(record))}), true`);
   page.requests.length = 0;
   await page.goto(`${origin}/_xerj-console/#/reader?index=${encodeURIComponent(emailIndex)}&id=${encodeURIComponent(hostileEmail._id)}&brain=${brain}`);
-  await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('.rd-att').length >= 1 && !/Walking brain/.test(document.querySelector('.rd-graph').textContent)`, { label: 'guest: hostile email', timeoutMs: 20000 });
+  await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('[data-rd-block="attachments"] .rd-att').length >= 1 && !/Walking brain/.test(document.querySelector('.rd-graph').textContent)`, { label: 'guest: hostile email', timeoutMs: 20000 });
   await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'invoice'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
   await page.waitFor(`document.querySelectorAll('.rd-card mark').length >= 1`, { label: 'guest: highlighted results from the real engine' });
   const g = await census(page, '[data-guest-main]');
@@ -123,13 +136,13 @@ try {
     banner: await page.eval(`document.querySelector('[data-guest-banner-text]').textContent`),
     nav: await page.eval(`[...document.querySelectorAll('nav a')].map((a) => a.textContent)`),
     title: await page.eval(`document.querySelector('.rd-title').textContent.slice(0, 80)`),
-    attachments: await page.eval(`[...document.querySelectorAll('.rd-att__name')].map((a) => a.textContent.slice(0, 60))`),
+    attachments: await page.eval(`[...document.querySelectorAll('[data-rd-block="attachments"] .rd-att__name')].map((a) => a.textContent.slice(0, 60))`),
     marks: g.marks,
     graph: await page.eval(`document.querySelector('.rd-graph').textContent.replace(/\\s+/g, ' ').slice(0, 300)`),
   };
   await shot(page, 'live-guest-reader');
   // open the hostile-named attachment by clicking it
-  await page.eval(`(document.querySelector('.rd-att').click(), true)`);
+  await page.eval(`(document.querySelector('[data-rd-block="attachments"] .rd-att').click(), true)`);
   await page.waitFor(`document.querySelector('[data-shape="attachment"]') && /FROM EMAIL/.test(document.querySelector('[data-guest-main]').textContent)`, { label: 'guest: attachment page' });
   out.guest.attachmentPage = await page.eval(`({ eyebrow: document.querySelector('.rd-eyebrow').textContent, title: document.querySelector('.rd-title').textContent.slice(0, 70), bodyChars: document.querySelector('.rd-body').textContent.length })`);
   assertCensusInert(await census(page, '[data-guest-main]'), 'live guest attachment');
@@ -146,5 +159,6 @@ try {
   await api('DELETE', '/_security/api_key', { ids: [mint.json.id] });
 } finally {
   await browser.close();
+  await opBrowser.close();
 }
 console.log(JSON.stringify(out, null, 2));

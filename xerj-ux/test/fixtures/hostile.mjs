@@ -128,7 +128,17 @@ export const hostileGeneric = {
   _source: { [`key${PAYLOADS.imgOnerror}`]: PAYLOADS.script, nested: { [PAYLOADS.attrBreakout]: [PAYLOADS.svgOnload] }, body_vector: [0.1, 0.2] },
 };
 
-export const HOSTILE_HITS = [hostileEmail, hostileAttachment, hostileAttachment2, hostilePdf, hostileCode, hostileGeneric];
+/** The per-FILE record autoindex writes (`ax_locator: "file"`, no text): what
+ *  file-level graph edges point at. Its path is a filename — attacker-chosen. */
+export const HOSTILE_AX_FILE = 'axf2-hostile-0001';
+export const hostileFile = {
+  _index: 'ax-inbox', _id: 'file-1', _score: 0.6,
+  _source: { title: `05${PAYLOADS.script}.eml`, ax_path: `inbox/${PAYLOADS.attrBreakout}.eml`, ax_file: HOSTILE_AX_FILE, ax_locator: 'file', ax_format: `eml${PAYLOADS.imgOnerror}`, ax_dataset: 'docs' },
+};
+hostileEmail._source.ax_file = HOSTILE_AX_FILE;
+hostileEmail._source.ax_locator = 'msg-s0';
+
+export const HOSTILE_HITS = [hostileEmail, hostileAttachment, hostileAttachment2, hostilePdf, hostileCode, hostileGeneric, hostileFile];
 
 /** `GET /_graph/{brain}/ego` — every string a linked FILE controls. */
 export const hostileEgo = {

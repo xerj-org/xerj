@@ -14,6 +14,10 @@
 //   code-symbol  name / kind / line / language / path / code  (extract/code.rs)
 //   code-file    language / defs / symbols[]                  (extract/code.rs)
 //   note         title / body / ax_path  — markdown, docx, text, html
+//   file         ax_locator = "file" and no body — the one record autoindex
+//                writes per FILE. It carries no text of its own; it is what
+//                the file-level graph edges (same_dir, mdlink, pathcite, href)
+//                point at, so it lists the records that came out of the file.
 //   generic      anything else: the pretty-printed _source
 //
 // Plus the knowledge graph around it: `GET /_graph/{brain}/ego` edges grouped
@@ -36,7 +40,7 @@ import { h, highlightChildren, HL_PRE } from './safe-dom.js';
 // to a person); counted, never silently dropped.
 const HIDDEN_FIELD = /(_vector|_vector_chunks|_chunks)$|^__xerj_passage_meta__/;
 
-export const SHAPES = ['email', 'attachment', 'pdf', 'code-symbol', 'code-file', 'note', 'generic'];
+export const SHAPES = ['email', 'attachment', 'pdf', 'code-symbol', 'code-file', 'note', 'file', 'generic'];
 
 /** Which renderer a record gets. Order matters: an attachment record also
  *  carries its parent's email headers, so it is tested first. */
@@ -49,6 +53,7 @@ export function detectShape(src) {
   if (has('language') && (typeof s.defs === 'string' || Array.isArray(s.symbols))) return 'code-file';
   if (has('page') && Number.isFinite(Number(s.page)) && typeof s.body === 'string') return 'pdf';
   if (typeof s.body === 'string' || typeof s.text === 'string') return 'note';
+  if (s.ax_locator === 'file' && has('ax_file')) return 'file';
   return 'generic';
 }
 
@@ -73,6 +78,7 @@ export function recordTitle(src, id) {
     case 'code-file':   return str(s.title || s.path || s.ax_path || id);
     case 'pdf':         return `${str(s.title || s.ax_path) || 'document'} · p${str(s.page)}`;
     case 'note':        return str(s.title || s.ax_path || s.path || id);
+    case 'file':        return str(s.ax_path || s.title || id);
     default:            return str(s.title || s.name || id);
   }
 }
@@ -87,6 +93,7 @@ export function shapeBadge(shape, src) {
     case 'code-file':   return (str(s.language) || 'code').toUpperCase();
     case 'pdf':         return `PDF · p${str(s.page)}`;
     case 'note':        return (str(s.ax_format) || 'note').toUpperCase();
+    case 'file':        return `FILE${s.ax_format ? ' · ' + str(s.ax_format).toUpperCase() : ''}`;
     default:            return (str(s.ax_format) || 'record').toUpperCase();
   }
 }
@@ -192,7 +199,7 @@ function relatedLink(rec, brain, name, meta) {
 function attachmentsBlock(attachments, brain) {
   if (attachments === undefined) return h('div', { class: 'rd-sub faint' }, 'attachments: looking…');
   if (!attachments || !attachments.length) return null;
-  return h('div', { class: 'rd-sub' },
+  return h('div', { class: 'rd-sub', 'data-rd-block': 'attachments' },
     h('div', { class: 'key' }, `ATTACHMENTS · ${attachments.length}`),
     attachments.map((a) => {
       const s = a._source || {};
@@ -202,10 +209,31 @@ function attachmentsBlock(attachments, brain) {
     }));
 }
 
+/** The records that came out of one file (the `file` shape), or — on any
+ *  other record — a link up to its file. */
+function siblingsBlock(siblings, brain, truncated) {
+  if (siblings === undefined) return h('div', { class: 'rd-sub faint' }, 'records in this file: looking…');
+  if (!siblings || !siblings.length) return h('div', { class: 'rd-sub faint' }, 'No other record came out of this file.');
+  return h('div', { class: 'rd-sub', 'data-rd-block': 'siblings' },
+    h('div', { class: 'key' }, `RECORDS IN THIS FILE · ${siblings.length}${truncated ? '+' : ''}`),
+    siblings.map((r) => {
+      const rs = r._source || {};
+      return relatedLink(r, brain, recordTitle(rs, r._id), shapeBadge(detectShape(rs), rs));
+    }));
+}
+
+function fileBlock(fileRecord, brain) {
+  if (!fileRecord) return null;
+  const fs = fileRecord._source || {};
+  return h('div', { class: 'rd-sub', 'data-rd-block': 'file' },
+    h('div', { class: 'key' }, 'FROM FILE'),
+    relatedLink(fileRecord, brain, str(fs.ax_path || fs.title) || str(fileRecord._id), 'every record from this file'));
+}
+
 function parentBlock(parent, brain) {
   if (!parent) return null;
   const s = parent._source || {};
-  return h('div', { class: 'rd-sub' },
+  return h('div', { class: 'rd-sub', 'data-rd-block': 'parent' },
     h('div', { class: 'key' }, 'FROM EMAIL'),
     relatedLink(parent, brain, str(s.email_subject) || '(no subject)',
       `${fromName(s.email_from)}${s.email_date ? ' · ' + shortDate(s.email_date) : ''}`));
@@ -249,7 +277,7 @@ export function renderRecord(hit, ctx = {}) {
   const frame = (eyebrow, title, mono, ...rest) => h('div', { class: 'rd-read', 'data-shape': shape },
     h('div', { class: 'rd-eyebrow' }, eyebrow),
     h('h2', { class: mono ? 'rd-title mono' : 'rd-title' }, title),
-    rest, prov);
+    rest, shape === 'file' ? null : fileBlock(related.fileRecord, brain), prov);
 
   switch (shape) {
     case 'email':
@@ -289,6 +317,11 @@ export function renderRecord(hit, ctx = {}) {
     case 'note':
       return frame((str(s.ax_format) || 'NOTE').toUpperCase(), str(s.title || s.ax_path || s.path || hit._id), false,
         prose(s.body != null ? s.body : s.text, '(empty)'));
+    case 'file':
+      return frame(shapeBadge('file', s), str(s.ax_path || s.title || hit._id), true,
+        h('div', { class: 'rd-hdrs' }, hdr('Path', s.ax_path), hdr('Format', s.ax_format), hdr('Dataset', s.ax_dataset)),
+        h('div', { class: 'rd-body faint' }, 'This is the record for the file itself — what the brain\'s file-level links point at. Its text lives in the records below.'),
+        siblingsBlock(related.siblings, brain, related.siblingsTruncated));
     default:
       return frame('RECORD', recordTitle(s, hit._id), false, genericSource(s));
   }
@@ -396,10 +429,12 @@ export function renderGraphPanel(g = {}) {
             title: str(it.id),
           },
             h('span', { class: 'rd-neigh__dir mono' }, it.direction === 'out' ? '→' : '←'),
+            it.via === 'file' ? h('span', { class: 'rd-neigh__via mono faint', title: 'a link of the file this record came from' }, 'FILE') : null,
             h('span', { class: 'rd-neigh__title' }, str(it.title)),
             it.preview ? h('span', { class: 'rd-neigh__prev' }, str(it.preview).replace(/\s+/g, ' ').slice(0, 90)) : null))))),
         h('div', { class: 'rd-honest mono faint' },
           `${total} linked record${total === 1 ? '' : 's'} · brain ${brain} · 1 hop`,
+          g.viaFile ? ` · ${g.viaFile} of them are links of the file this record came from (${str(g.filePath) || 'its file record'}) — file-level detectors link files, not the records inside them` : '',
           clipped ? ` · ${clipped} more not shown (limit)` : '',
           dangling ? ` · ${dangling} link${dangling === 1 ? '' : 's'} to ids with no document behind them` : ''),
       ];

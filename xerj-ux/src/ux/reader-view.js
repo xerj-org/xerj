@@ -141,10 +141,15 @@ export class ReaderView {
       ]);
       if (seq !== this.seq) return;
       if (this.fatal(related.kind)) return;
-      this.s.related = { attachments: related.attachments || [], parent: related.parent || null };
+      this.s.related = {
+        attachments: related.attachments || [], parent: related.parent || null,
+        fileRecord: related.fileRecord || null,
+        siblings: related.siblings || (rec.hit._source.ax_locator === 'file' ? [] : undefined),
+        siblingsTruncated: !!related.siblingsTruncated,
+      };
       this.s.brain = brain;
       this.paintRecord();
-      const graph = await this.api.fetchEgo(brain, id, ac.signal);
+      const graph = await this.api.fetchGraph(brain, rec.hit, related.fileRecord || null, ac.signal);
       if (seq !== this.seq) return;
       if (graph.kind === 'expired' && this.fatal('expired')) return;
       this.s.graph = graph;

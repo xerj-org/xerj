@@ -2361,6 +2361,7 @@ button.sb-grouphead { width: 100%; }
 .rd-neigh { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--z-faint); color: inherit; text-decoration: none; font-size: var(--fs-13); min-width: 0; }
 .rd-neigh:hover .rd-neigh__title { color: var(--z-accent); }
 .rd-neigh__dir { color: var(--z-mute); flex-shrink: 0; }
+.rd-neigh__via { font-size: 9px; letter-spacing: .06em; border: 1px solid var(--z-faint); padding: 0 4px; flex-shrink: 0; }
 .rd-neigh__title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
 .rd-neigh__prev { color: var(--z-mute); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 0; }
 .rd-honest { margin-top: var(--sp-2); font-size: var(--fs-11); }

@@ -34,14 +34,14 @@ export function findChrome() {
 
 export const browserRequired = () => process.env.XERJ_REQUIRE_BROWSER === '1';
 
-export async function launch({ chrome = findChrome(), timeoutMs = 30_000 } = {}) {
+export async function launch({ chrome = findChrome(), timeoutMs = 30_000, extraArgs = [] } = {}) {
   if (!chrome) throw new Error('no Chrome/Chromium found (set CHROME_BIN)');
   if (typeof WebSocket !== 'function') throw new Error('global WebSocket missing — Node >= 22 required');
   const profile = mkdtempSync(join(tmpdir(), 'xerj-ux-chrome-'));
   const proc = spawn(chrome, [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--mute-audio',
-    '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
+    '--remote-debugging-port=0', `--user-data-dir=${profile}`, ...extraArgs, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
   const wsUrl = await new Promise((resolve, reject) => {

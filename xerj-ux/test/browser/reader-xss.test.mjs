@@ -25,7 +25,7 @@ test('CONTROL: the fixtures are live — the same subject through innerHTML gets
 
 test('guest reader: a hostile email with hostile attachments renders inert', { skip }, async () => {
   const page = await openGuest(ctx, { hash: readerHash(HOSTILE_ID) });
-  await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('.rd-att').length === 2 && document.querySelector('.rd-egroups')`, { label: 'email + attachments + graph' });
+  await page.waitFor(`document.querySelector('[data-shape="email"]') && document.querySelectorAll('[data-rd-block="attachments"] .rd-att').length === 2 && document.querySelector('.rd-egroups')`, { label: 'email + attachments + graph' });
   // Search like a person: type, press Enter. The fragments that come back
   // were shaped by the attacker (they forge our delimiters, close a </mark>…).
   await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'invoice'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
@@ -56,9 +56,9 @@ test('guest reader: a hostile email with hostile attachments renders inert', { s
 
 test('guest reader: clicking a hostile attachment opens IT — by route, not by its name', { skip }, async () => {
   const page = await openGuest(ctx, { hash: readerHash(HOSTILE_ID) });
-  await page.waitFor(`document.querySelectorAll('.rd-att').length === 2`);
+  await page.waitFor(`document.querySelectorAll('[data-rd-block="attachments"] .rd-att').length === 2`);
   // att-2 is NAMED "javascript:…". Click it like a person would.
-  await page.eval(`(document.querySelectorAll('.rd-att')[1].click(), true)`);
+  await page.eval(`(document.querySelectorAll('[data-rd-block="attachments"] .rd-att')[1].click(), true)`);
   await page.waitFor(`document.querySelector('[data-shape="attachment"]') && location.hash.includes('id=att-2') && /FROM EMAIL/.test(document.querySelector('[data-guest-main]').textContent)`, { label: 'the attachment record + its parent email' });
   const c = await census(page, '[data-guest-main]');
   assertCensusInert(c, 'attachment record');
@@ -66,11 +66,14 @@ test('guest reader: clicking a hostile attachment opens IT — by route, not by 
   assert.ok(c.text.includes('FROM EMAIL'), 'the parent email is linked back');
   await assertNotPwned(page, ctx.engine.origin, 'attachment click');
   // every other shape, by route
-  for (const [id, shape] of [['att-1', 'attachment'], ['pdf-1', 'pdf'], ['sym-1', 'code-symbol'], ['gen-1', 'generic']]) {
+  for (const [id, shape] of [['att-1', 'attachment'], ['pdf-1', 'pdf'], ['sym-1', 'code-symbol'], ['gen-1', 'generic'], ['file-1', 'file']]) {
     await page.setHash(readerHash(id));
     await page.waitFor(`document.querySelector('[data-shape="${shape}"]') && location.hash.includes(${JSON.stringify('id=' + id)})`, { label: shape });
     assertCensusInert(await census(page, '[data-guest-main]'), shape);
   }
+  // the file record lists the records that came out of the file, as links
+  await page.waitFor(`/RECORDS IN THIS FILE · 1/.test(document.querySelector('[data-guest-main]').textContent)`, { label: 'file record siblings' });
+  assertCensusInert(await census(page, '[data-guest-main]'), 'file record');
   await assertNotPwned(page, ctx.engine.origin, 'all shapes');
   await page.close();
 });
@@ -81,7 +84,7 @@ test('guest corpus home renders hostile format names inert', { skip }, async () 
   const c = await census(page, '[data-guest-main]');
   assertCensusInert(c, 'guest corpus');
   assert.ok(c.text.includes(`eml${PAYLOADS.imgOnerror}`), 'a hostile format bucket is text');
-  assert.ok(c.text.includes('6 records'));
+  assert.ok(c.text.includes('7 records'));
   await assertNotPwned(page, ctx.engine.origin, 'guest corpus');
   await page.close();
 });
@@ -102,7 +105,7 @@ test('a hostile hash route cannot inject or escape', { skip }, async () => {
 
 test('operator reader + corpus home: the same documents, through the session proxy, inert', { skip }, async () => {
   const page = await openOperator(ctx, readerHash(HOSTILE_ID));
-  await page.waitFor(`document.querySelector('[data-safe-mount="reader"] [data-shape="email"]') && document.querySelectorAll('.rd-att').length === 2`, { label: 'operator reader' });
+  await page.waitFor(`document.querySelector('[data-safe-mount="reader"] [data-shape="email"]') && document.querySelectorAll('[data-rd-block="attachments"] .rd-att').length === 2`, { label: 'operator reader' });
   await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'invoice'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
   await page.waitFor(`document.querySelectorAll('.rd-card mark').length >= 1`, { label: 'highlights through the session proxy' });
   const c = await census(page, '[data-safe-mount="reader"]');
@@ -126,7 +129,7 @@ test('operator reader + corpus home: the same documents, through the session pro
 
 test('operator Discover: hostile hits, facet values and FIELD NAMES stay text', { skip }, async () => {
   const page = await openOperator(ctx, '#/discover');
-  await page.waitFor(`document.querySelectorAll('.hits-list .hit').length >= 6 && document.querySelector('.facet')`, { label: 'Discover hits + facets' });
+  await page.waitFor(`document.querySelectorAll('.hits-list .hit').length >= 7 && document.querySelector('.facet')`, { label: 'Discover hits + facets' });
   // Discover is the shell's string-built HTML (esc() at every interpolation),
   // with legitimate <svg> bars and style="" attributes — so census every
   // panel that carries document data, allowing those two and nothing else.

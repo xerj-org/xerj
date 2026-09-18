@@ -63,6 +63,13 @@ function hitsOf(resp, index) {
   const list = resp && resp.hits && Array.isArray(resp.hits.hits) ? resp.hits.hits : [];
   return list.filter((h) => h && h._id != null).map((h) => shapeHit(h, index));
 }
+/** Sort key for a record's `ax_locator` ("msg-s0", "att0-p3-s1", "s12"):
+ *  numbers compare as numbers, so page 10 follows page 9. */
+function locatorKey(h) {
+  const loc = String((h._source && h._source.ax_locator) || '');
+  const pad = loc.replace(/\d+/g, (d) => d.padStart(8, '0'));
+  return `${loc.startsWith('msg') ? '0' : '1'}${pad}`;
+}
 function totalOf(resp) {
   const t = resp && resp.hits && resp.hits.total;
   if (t && typeof t === 'object') return Number(t.value) || 0;
@@ -154,16 +161,41 @@ export function makeReaderApi(transport) {
    */
   async function fetchRelated(hit, signal) {
     const s = (hit && hit._source) || {};
-    const mid = s.email_message_id;
-    if (typeof mid !== 'string' || !mid) return { attachments: [], parent: null };
     const index = hit._index;
+    const out = { attachments: [], parent: null, fileRecord: null };
+    try {
+      const af = typeof s.ax_file === 'string' && s.ax_file ? s.ax_file : null;
+      if (af && s.ax_locator === 'file') {
+        // The file's own record: list what came out of the file.
+        const resp = await transport.search(index, {
+          query: { bool: { filter: [{ term: { ax_file: af } }], must_not: [{ term: { ax_locator: 'file' } }] } },
+          size: 200,
+        }, signal);
+        const siblings = hitsOf(resp, index).sort((a, b) => locatorKey(a).localeCompare(locatorKey(b)));
+        return { ...out, siblings, siblingsTruncated: totalOf(resp) > siblings.length };
+      }
+      if (af) {
+        // Any other record: find its file's record — the node the brain's
+        // file-level links (same folder, markdown link, path citation) hang on.
+        const resp = await transport.search(index, {
+          query: { bool: { filter: [{ term: { ax_file: af } }, { term: { ax_locator: 'file' } }] } },
+          size: 1,
+        }, signal);
+        out.fileRecord = hitsOf(resp, index)[0] || null;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      if (FATAL_KINDS.has(e && e.kind)) return { ...out, kind: e.kind };
+    }
+    const mid = s.email_message_id;
+    if (typeof mid !== 'string' || !mid) return out;
     try {
       if (s.attachment_name) {
         const resp = await transport.search(index, {
           query: { bool: { filter: [{ term: { email_message_id: mid } }], must_not: [{ exists: { field: 'attachment_name' } }] } },
           size: 1,
         }, signal);
-        return { attachments: [], parent: hitsOf(resp, index)[0] || null };
+        return { ...out, parent: hitsOf(resp, index)[0] || null };
       }
       const resp = await transport.search(index, {
         query: { bool: { filter: [{ term: { email_message_id: mid } }, { exists: { field: 'attachment_name' } }] } },
@@ -180,10 +212,10 @@ export function makeReaderApi(transport) {
         const cur = byName.get(k);
         if (!cur || pageOf(a) < pageOf(cur)) byName.set(k, a);
       }
-      return { attachments: [...byName.values()], parent: null, truncated: totalOf(resp) > 200 };
+      return { ...out, attachments: [...byName.values()], truncated: totalOf(resp) > 200 };
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
-      return { attachments: [], parent: null, kind: e && e.kind };
+      return { ...out, kind: e && e.kind };
     }
   }
 
@@ -242,6 +274,36 @@ export function makeReaderApi(transport) {
   }
 
   /**
+   * The graph panel's data for an open record: its own 1-hop neighbourhood,
+   * plus — when it is not the file's record — the neighbourhood of the file it
+   * came from. autoindex's file-level detectors (same_dir, mdlink, pathcite,
+   * href) link FILE records; an email or a PDF page opened on its own would
+   * otherwise always read "no links" beside a file that has several.
+   */
+  async function fetchGraph(brain, hit, fileRecord, signal) {
+    const own = await fetchEgo(brain, hit._id, signal);
+    if (!fileRecord || fileRecord._id === hit._id) return own;
+    if (own.status !== 'ok' && own.status !== 'no-links') return own; // no brain / denied / error: the same answer would come back
+    const viaFile = await fetchEgo(brain, fileRecord._id, signal);
+    if (viaFile.status !== 'ok') return own;
+    const groups = (own.groups || []).map((g) => ({ ...g, items: [...g.items] }));
+    const seen = new Set(groups.flatMap((g) => g.items.map((it) => `${g.type}\n${it.id}`)));
+    let added = 0;
+    for (const g of viaFile.groups) {
+      for (const it of g.items) {
+        if (it.id === hit._id || seen.has(`${g.type}\n${it.id}`)) continue;
+        let into = groups.find((x) => x.type === g.type);
+        if (!into) { into = { type: g.type, label: g.label, items: [] }; groups.push(into); }
+        into.items.push({ ...it, via: 'file' });
+        added++;
+      }
+    }
+    if (!groups.length) return own;
+    const fs = fileRecord._source || {};
+    return { status: 'ok', groups, notShown: own.notShown || viaFile.notShown || {}, viaFile: added, filePath: typeof fs.ax_path === 'string' ? fs.ax_path : null };
+  }
+
+  /**
    * What one index holds, from the index itself (no catalog needed — a guest
    * is never granted `autoindex-catalog`, which lists every corpus on the
    * node). `{ index, records, emails, attachments, formats: [{key,count}],
@@ -274,5 +336,5 @@ export function makeReaderApi(transport) {
     }
   }
 
-  return { roles, search, fetchRecord, findRecord, fetchRelated, resolveBrain, fetchEgo, indexSummary };
+  return { roles, search, fetchRecord, findRecord, fetchRelated, resolveBrain, fetchEgo, fetchGraph, indexSummary };
 }

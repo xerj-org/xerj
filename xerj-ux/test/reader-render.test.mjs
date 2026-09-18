@@ -31,7 +31,7 @@ test('every record shape renders inert, and shows the hostile text as text', () 
     assert.equal(qs.get('id'), String(hit._id), 'the id round-trips through the hash route');
     assert.equal(qs.get('index'), hit._index);
   }
-  assert.deepEqual([...seen].sort(), ['attachment', 'code-symbol', 'email', 'generic', 'pdf']);
+  assert.deepEqual([...seen].sort(), ['attachment', 'code-symbol', 'email', 'file', 'generic', 'pdf']);
   for (const s of seen) assert.ok(SHAPES.includes(s));
 });
 
@@ -44,7 +44,7 @@ test('an email shows its headers, body and attachments — all as text', () => {
   assertShownAsText(rec, 'https://evil.example/pay', 'a URL in a document is displayed');
   // …and is NOT a link: the only anchors are in-app routes to other records.
   const anchors = findAll(rec, (n) => n.tag === 'a');
-  assert.equal(anchors.length, 2, 'one link per attachment, nothing else');
+  assert.equal(anchors.length, 2, 'one link per attachment, nothing else (no file record was passed)');
   for (const a of anchors) assert.match(a.attrs.href, /^#\/reader\?/);
   // hostile attachment FILENAMES are text inside the link
   assertShownAsText(anchors[0], hostileAttachment._source.attachment_name, 'attachment name');

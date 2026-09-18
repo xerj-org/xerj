@@ -17,7 +17,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join, normalize, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  HOSTILE_HITS, hostileEmail, hostileAttachment, hostileAttachment2, hostileEgo, hostileCatalogHit, ENGINE_403_BODY, PAYLOADS,
+  HOSTILE_HITS, hostileEmail, hostileAttachment, hostileAttachment2, hostileFile, hostileEgo, hostileCatalogHit, ENGINE_403_BODY, PAYLOADS,
 } from '../fixtures/hostile.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -50,7 +50,10 @@ function searchResponse(body) {
   const q = body && body.query;
   let hits = HOSTILE_HITS;
   if (q && q.ids) hits = HOSTILE_HITS.filter((h) => q.ids.values.includes(h._id));
-  else if (q && q.bool && Array.isArray(q.bool.filter) && q.bool.filter.some((c) => c.term && c.term.email_message_id)) {
+  else if (q && q.bool && Array.isArray(q.bool.filter) && q.bool.filter.some((c) => c.term && c.term.ax_file)) {
+    // the file record's siblings, or (from a sibling) the file record itself
+    hits = q.bool.filter.some((c) => c.term && c.term.ax_locator === 'file') ? [hostileFile] : [hostileEmail];
+  } else if (q && q.bool && Array.isArray(q.bool.filter) && q.bool.filter.some((c) => c.term && c.term.email_message_id)) {
     hits = q.bool.must_not ? [hostileEmail] : [hostileAttachment, hostileAttachment2];
   }
   const wantHl = !!(body && body.highlight);
