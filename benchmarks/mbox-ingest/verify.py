@@ -39,6 +39,10 @@ def main():
     ap.add_argument("--prefix", required=True)
     ap.add_argument("--brain", required=True)
     ap.add_argument("--truth", required=True)
+    ap.add_argument("--per-kind", type=int, default=60,
+                    help="needles checked per kind, the FIRST n in planting order so the choice is "
+                         "deterministic (0 = every needle). A 1 GB tree plants ~2,500; checking all of "
+                         "them against a node that is still merging took over 15 minutes.")
     a = ap.parse_args()
     truth = json.load(open(a.truth, encoding="utf-8"))
     nodes = "%s/%s-*/_search" % (a.url, a.prefix)
@@ -55,6 +59,9 @@ def main():
     for nd in truth["needles"]:
         kind = per[nd["where"]]
         kind["planted"] += 1
+        if a.per_kind and kind["planted"] > a.per_kind:
+            continue
+        kind["checked"] = kind.get("checked", 0) + 1
         res = post(nodes, {"size": 3, "track_total_hits": True, "query": {"match": {"body": nd["token"]}},
                            "_source": ["email_message_id", "ax_locator", "ax_path"]})
         n = total(res)
