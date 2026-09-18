@@ -20,10 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Keep `.json` notes are indexed, unextracted archives get a junk reason
   quoting the extraction command, and the new `email-thread@1` detector writes
   `replies_to` (`In-Reply-To`/`References`) and `attachment_of` edges with
-  evidence. A per-item 429 from the server's memory circuit breaker is now
-  re-offered for up to ten minutes instead of aborting the run. Numbers,
+  evidence. A loading run now waits the server's memory circuit breaker out
+  — a 429, per item or as the HTTP status, is re-offered (only the rejected
+  records) for up to ten minutes instead of aborting the run. Numbers,
   machine and commands: `benchmarks/mbox-ingest/README.md` (synthetic mailbox;
-  not yet verified on a real Takeout export).
+  not yet verified on a real Takeout export). Measured limit, filed as
+  [#948](https://github.com/xerj-org/xerj/issues/948): the client peaks under
+  300 MB on a 1 GB mailbox, but the node needs 68.5 GB of RSS to finish it
+  and does not finish under its default 16 GiB cap.
 
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**

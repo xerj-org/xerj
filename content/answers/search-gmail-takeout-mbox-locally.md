@@ -50,11 +50,13 @@ evidence:
     source: "engine/crates/xerj-autoindex/src/detect/e2e_mail.rs"
   - claim: "A per-item HTTP 429 from the server's memory circuit breaker is re-offered for up to 600 seconds instead of aborting the run; per-item 5xx and write blocks are not waited on."
     source: "engine/crates/xerj-autoindex/src/esclient.rs"
+  - claim: "On the 1 GB synthetic mailbox the client peaked at 296 MB and finished in 279 s with every needle exactly-once; the node needed 68.5 GB of peak RSS with its cap lifted, and under the default 16 GiB cap the run aborted after ten minutes at the memory watermark with 82,422 of 106,581 documents indexed."
+    source: "benchmarks/mbox-ingest/README.md"
 faq:
   - q: "How do I search a Google Takeout mbox file locally?"
     a: "Unzip the download, start a local XERJ node, and run `xerj autoindex <folder> --prefix mail`. The mbox is detected by content and streamed. Then query `mail-*` over HTTP with filters on `email_from`, `email_thread_id` or `attachment_name` and `match_phrase` on `body`."
   - q: "The mbox is 8 GB. Does it get loaded into memory?"
-    a: "No. The splitter streams the file and holds one message at a time, capped at 64 MB. Messages are parsed on a thread pool with a bounded in-flight budget, and the records are forwarded in message order."
+    a: "Not by autoindex: the splitter streams the file and holds one message at a time, capped at 64 MB, and the client peaked under 300 MB on a 1 GB mailbox. The node is the limit today: on that 1 GB mailbox the server needed 68.5 GB of RSS to finish and did not finish under its default 16 GiB cap. That is filed as #948; do not expect a multi-GB export to finish on a laptop until it is fixed."
   - q: "Can it search inside the PDFs people attached?"
     a: "Yes. A PDF attachment goes through the PDF extractor and becomes one record per page, carrying the parent's `email_message_id`, `email_subject` and `email_from`, and an `attachment_of` edge points back to the message."
   - q: "Does it keep the Gmail threads?"
@@ -121,4 +123,6 @@ The mailbox splitter and the message extractor were tested against a generated m
 
 The Takeout layout rules have only seen that synthetic tree. They are not verified on a real Takeout export. Outlook PST/OST and Maildir have no extractor, and undeclared Cyrillic or CJK legacy encodings are not detected.
 
-Wall time, throughput, memory and index size for a 1 GB synthetic mailbox are in the repository's `benchmarks/mbox-ingest/README.md`, with the machine and the exact commands.
+**Server memory is the limit today.** On the 1 GB synthetic mailbox, `xerj autoindex` itself peaked at 296 MB and finished in 279 s with every planted needle found exactly once, but the node needed **68.5 GB** of peak RSS to get there, with its process cap lifted. Under the default cap on the same machine (16 GiB), the server sat at its memory watermark from 87 % of the mailbox on and the run aborted after ten minutes of waiting, with 82,422 of 106,581 documents indexed. A 16 GiB laptop's default cap is 8 GiB. This is the engine's ingest memory, filed as [#948](https://github.com/xerj-org/xerj/issues/948); until it is fixed, treat a mailbox of a few hundred MB as the practical ceiling on a laptop. That ceiling is an expectation from the 1 GB run, not a measurement.
+
+Wall time, throughput, memory and index size for the 1 GB synthetic mailbox are in the repository's `benchmarks/mbox-ingest/README.md`, with the machine and the exact commands.

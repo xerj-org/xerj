@@ -1338,9 +1338,13 @@ const UNITY_SAMPLE_LIMIT: u64 = 512 << 20;
 /// Share of a container file's progress credited while it is being split and
 /// staged; the rest is credited as the staged records reach the engine.
 ///
-/// MEASURED, not chosen: on the 1 GB synthetic mailbox in
-/// `benchmarks/mbox-ingest/` extraction and sending took CONTAINER_SPLIT_NOTE of
-/// the file's wall time. It only shapes how the bar moves between 0 and 100 —
+/// A chosen split, informed by one measurement: on the 1 GB synthetic mailbox
+/// in `benchmarks/mbox-ingest/` (uncapped node, idle box) the whole mailbox
+/// was staged 39 s after its index was created and its records had all been
+/// accepted ~170 s in, so extraction was ~23 % of the file's Phase-B time;
+/// on a memory-capped node the sending half stretches by minutes while the
+/// extraction half does not, so a middle value is used rather than either
+/// measured extreme. It only shapes how the bar moves between 0 and 100 —
 /// both ends are exact whatever this is — so a mailbox with a different mix
 /// (all text, or all attachments) sees a bar that is uneven, never wrong.
 const CONTAINER_EXTRACT_PERCENT: u64 = 45;

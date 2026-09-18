@@ -143,7 +143,33 @@ curl -s -XPOST 'http://127.0.0.1:9200/.xerj-memory-mail-export-edges/_search' -H
 
 ## What was measured
 
-<!-- MEASURED-NUMBERS: filled from benchmarks/mbox-ingest/README.md before this page is published -->
+On a synthetic 1 GB Takeout (40,799 mbox entries, 12 Keep notes, Drive
+documents, two unextracted archives), default `xerj autoindex` settings, the
+default lexical embedder, a 32-thread desktop-class machine. The full table,
+the machine, every result file and the exact commands are in
+[`benchmarks/mbox-ingest/README.md`](../../benchmarks/mbox-ingest/README.md).
+
+- **Client.** 279 s wall for 106,581 documents (382 docs/s over the whole
+  run, a third of which is the final count phase); `xerj autoindex` peaked
+  at **296 MB** of RSS. The whole mailbox was staged 39 s in.
+- **Correctness.** Every planted needle — in bodies, in 8-bit bodies, after
+  an unquoted `From ` paragraph, on pages of attached PDFs, in text
+  attachments, in Keep notes — came back exactly once. `replies_to`: 21,544
+  of 21,544 resolvable replies. `attachment_of`: 39,619 of 39,619 attachment
+  records. No empty documents.
+- **Index on disk.** 760 MB for the 1,024 MB mailbox (0.71×), once merges
+  settled.
+- **Server memory — the limit you will hit.** That complete run needed the
+  node's process cap lifted (`XERJ_MAX_PROCESS_MEMORY_MB=off`) and took the
+  server to **68.5 GB** of peak RSS. Under the default cap on the same
+  119 GiB machine (16 GiB), the server sat at its memory watermark from 87 %
+  of the mailbox on and the run **aborted after ten minutes of waiting**,
+  with 82,422 documents indexed and 26.5 GB of peak RSS. A 16 GiB laptop's
+  default cap is 8 GiB. This is the engine's ingest memory, not the
+  extractor's; it is filed as
+  [#948](https://github.com/xerj-org/xerj/issues/948). Until it is fixed, a
+  multi-GB mailbox does not finish on a laptop-class node, and this recipe
+  says so rather than promising it.
 
 ## Verification
 

@@ -41,6 +41,9 @@ replies, 2,530 planted needles.
 benchmarks/mbox-ingest/run.sh engine/target/release/xerj /path/on/a/real/disk mixed 1G 9520
 # a 20 MB smoke first is a good idea:
 benchmarks/mbox-ingest/run.sh engine/target/release/xerj /path/on/a/real/disk mixed 20M 9520
+# the node's default memory cap does not let the 1 GB run finish (#948); the
+# complete run lifts it — spell it "off", a bare 0 is ignored by the governor:
+XERJ_MAX_PROCESS_MEMORY_MB=off LABEL=uncapped benchmarks/mbox-ingest/run.sh engine/target/release/xerj /path/on/a/real/disk mixed 1G 9520
 # then, read-only, against the still-running node (run.sh does this itself):
 python3 benchmarks/mbox-ingest/verify.py --url http://127.0.0.1:9520 --prefix bench --brain bench \
     --truth /path/on/a/real/disk/tree-mixed-1G.truth.json
@@ -174,4 +177,66 @@ mailbox is staged before its first bulk, and that staging halved on a box at
 load 40–58 with PDF parsing capped at 4 subprocesses. The progress bar
 reported `pct=40.0 eta_quality=good` at 60 s where it used to sit at 0.0.
 
-<!-- AFTER-1G-FINAL -->
+### 1 GB, run B — capped, the final binary ([json](./results/after-mixed-1G-runB-capped.json))
+
+Binary at `4c0c4685` (thread pool; per-item AND HTTP-level 429 re-asked for
+up to 600 s). Node at its default auto tier (16 GiB cap, watermark
+15,564 MB). Load 13 at the start, 0.7 at the end — a quiet box. **The run
+does not complete**: exit 1 at **1,281 s**, 82,422 documents on the node,
+autoindex peak 224.0 MB, server VmHWM **26,529 MB**, index 577 MB at exit.
+The breaker engaged 27 times; from 87.1 % of the mailbox on, the server's
+RSS sat at 15,548–15,633 MB against the watermark — engaged for 118 s and
+147 s at a stretch, released for 3–4 s between — and the client, having
+waited the full 600 s, aborted with the mailbox un-journaled. Verify on what
+landed: every checked needle exactly-once except after-unquoted-`From`
+32/41 (the tail was never sent); 0 edges (edges are written after a file's
+nodes are accepted).
+
+The client-side fixes on this branch turned "dies on the first 429" into
+"waits ten minutes and then dies". They cannot make this run complete,
+because the memory is the server's — see
+[#948](https://github.com/xerj-org/xerj/issues/948).
+
+### 1 GB, run C — uncapped, complete ([json](./results/after-mixed-1G-runC-uncapped.json))
+
+Same binary, `XERJ_MAX_PROCESS_MEMORY_MB=off` (no process cap; memtable
+budget 30,527 MB; the breaker never engaged). 1-minute load 11.3 at the
+start (a build of ours finishing), 25.6 at the end (the node's own merges).
+
+| | |
+|---|---|
+| exit | **3** — completed-with-junk (the two archives) |
+| wall | **279.0 s**: ~170 s index phase, ~1 s graph resolution, **~97 s `finalize-count`** (autoindex waiting on the node's counts) |
+| documents | **106,581** (106,551 from the mbox, 39,619 of them attachment records) |
+| docs/s | **382** over the whole wall; 3.85 MB of source per second |
+| peak RSS, autoindex | **296.3 MB** (largest in tree 296.3 MB) |
+| peak RSS, server | **68,527.6 MB** VmHWM, read after the post-run settle; 27.9 GB observed at 83 % of the index phase |
+| index on disk | 937.7 MB at exit, **760.4 MB settled** — **0.71 × the mbox** |
+| state dir peak | 252 MB |
+| verify | every needle kind exactly-once: body 60/60, latin-1 60/60, undeclared cp1252 60/60, **after-unquoted-`From` 41/41**, pdf-attachment 60/60, text-attachment 60/60, keep-note 12/12, drive-markdown 1/1; **`replies_to` 21,544 = truth 21,544**; **`attachment_of` 39,619 = attachment documents 39,619**; 0 empty documents |
+
+The mailbox was fully staged **39 s** after its index was created (the bar
+crossed its 45 % seam at 39.2 s), so the remaining ~130 s of the index phase
+is the node accepting 106k documents and 61k edges — ~820 docs/s at the file
+level. The node flushed its memtable 305 times (average 550 documents,
+largest 3,973) and ran 24 merges during ingest and 2 after.
+
+## What this says, plainly
+
+- **The extractor is correct on this corpus and cheap.** Under 300 MB of
+  client memory for a 1 GB mailbox, every planted needle found exactly once,
+  every edge accounted for, and the parallel path emits the same records as
+  the sequential one.
+- **The server is not cheap.** 26.5 GB under the 16 GiB cap — and the run
+  never finishes — or 68.5 GB uncapped, for an index that is 760 MB on disk.
+  On a 16 GiB laptop the auto cap is 8 GiB, so the same wall arrives with a
+  smaller mailbox; that is an expectation, not a measurement. Filed as
+  [#948](https://github.com/xerj-org/xerj/issues/948) with these numbers. It
+  is an engine issue; nothing in the extractor can fix it, and the docs on
+  this branch say so instead of promising a laptop-sized run.
+- **`docs/s` is a whole-run figure** and a third of the run is
+  `finalize-count`.
+- **Nothing here has run on a real Takeout export.** The corpus is synthetic
+  by design so that it can be verified; a real export may differ in ways the
+  generator did not think of.
+
