@@ -6965,6 +6965,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "xerj-common",
+ "xerj-rerank",
 ]
 
 [[package]]
