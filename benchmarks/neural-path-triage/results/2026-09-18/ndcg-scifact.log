@@ -1,0 +1,3 @@
+queries=300  docs=5183
+bm25                               nDCG@10=0.6572  empty=  0  p50=  23.9ms  p95=  30.1ms
+minilm (vector only)               nDCG@10=0.6764  empty=  0  p50= 389.1ms  p95= 467.2ms

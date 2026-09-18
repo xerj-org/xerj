@@ -1,0 +1,4 @@
+scifact semantic (unfiltered)    n= 57 exact-scan= 57  embed p50=  14.0  collect p50= 216.0  score p50= 107.0  topk+hits p50=  67.0  total p50= 410.0  scored_docs p50=5183
+scifact semantic + ids filter    n= 56 exact-scan= 56  embed p50=  12.0  collect p50= 197.0  score p50= 105.0  topk+hits p50=   0.0  total p50= 317.0  scored_docs p50=30
+scifact hybrid rrf               n= 58 exact-scan= 58  embed p50=  19.0  collect p50= 331.0  score p50= 105.5  topk+hits p50=  75.0  total p50= 542.0  scored_docs p50=5183
+b77 semantic (HNSW-eligible)     n= 37 exact-scan=  0  embed p50=  12.0  collect p50=   nan  score p50=   nan  topk+hits p50=   nan  total p50=  14.0  scored_docs p50=nan
