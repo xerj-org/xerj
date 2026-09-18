@@ -131,4 +131,47 @@ because the test binary has no PDF worker), text-attachment 6/6, keep-note
 
 ## After
 
-<!-- AFTER-RUNS: filled from the runs with the thread pool + 429 re-offer -->
+Binary at `22605dd0`: the mailbox parsed on a `--workers`-wide pool, per-item
+429s re-offered for up to 10 minutes. Same corpus, same node settings, same
+shared box (1-minute load 58 at the start of these runs).
+
+### 20 MB smoke ([json](./results/after-mixed-20M.json))
+
+**exit 3**, 10.5 s wall, 2,102 documents, autoindex peak 181.7 MB (largest in
+tree 178.7 MB), server peak 2,012.0 MB, index settled 15.2 MB (0.72 × mbox).
+Verify, every kind exactly-once: body 9/9, latin-1 31/31, undeclared cp1252
+12/12, after-unquoted-`From` 1/1, **pdf-attachment 5/5**, text-attachment
+6/6, keep-note 12/12, drive-markdown 1/1; `replies_to` 413 = 413;
+`attachment_of` 773 = 773; 0 empty documents. Identical to the pre-fix smoke
+on every verify figure — the pool changes nothing about what comes out, which
+is what the ordered-forwarding test promises. Wall time is the same at this
+size (10.5 s vs 9.7 s, both under load): the run is dominated by the fixed
+phases and the node, not by the 20 MB of extraction.
+
+### 1 GB, run A ([json](./results/after-mixed-1G-runA.json)) — found the third defect
+
+Same binary (`22605dd0`). **exit 1 at 236.4 s**, 61,442 documents on the
+node (vs 54,192 before the fixes), autoindex peak 227.2 MB, server VmHWM
+**22,112 MB**, index 390.6 MB at exit. The breaker tripped seven times; the
+per-item re-offer engaged once ("re-offering 3092 rejected record(s)") and
+the second offer was taken. Then the third trip held the server above the
+watermark for **57 s** (RSS 19,526 MB against a 15,564 MB watermark — the
+breaker stops admission, not work already admitted) and during it the server
+answered a bulk with an **HTTP 429 status carrying a full bulk body** — a
+shape the client had not seen: it went through the HTTP-level retry (six
+attempts, ~8 s of backoff) and aborted the run. Fixed in the next commit
+(`retry_loop`: a loading run re-asks a 429 for up to 10 minutes; a 429 whose
+body is a bulk response is read item by item so only rejected items go
+again; a one-shot client keeps the bounded budget). Verify on what landed: 60
+of 60 checked needles of every kind found exactly once, except
+after-unquoted-`From` 24/41 — the rest sat in the un-sent tail, as did every
+edge (edges are written after a file's nodes are accepted).
+
+What the pool changed, visible in the server log rather than in wall time
+(the breaker bounds both runs): documents started arriving **74 s** after
+the index was created, against **148 s** before the pool — the whole
+mailbox is staged before its first bulk, and that staging halved on a box at
+load 40–58 with PDF parsing capped at 4 subprocesses. The progress bar
+reported `pct=40.0 eta_quality=good` at 60 s where it used to sit at 0.0.
+
+<!-- AFTER-1G-FINAL -->

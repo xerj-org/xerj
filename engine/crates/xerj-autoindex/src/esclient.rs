@@ -259,6 +259,17 @@ pub const THROTTLE_PATIENCE: Duration = Duration::from_secs(600);
 /// the server does not look like a hang.
 const NOTICE_EVERY: Duration = Duration::from_secs(30);
 
+/// One attempt of a retried request, as [`Es::retry_loop`] sees it.
+enum Attempt<T> {
+    Done(T),
+    /// HTTP 429, with the server's stated reason when it gave one.
+    Throttled(Option<String>),
+    /// 5xx or a transport error.
+    Failed(anyhow::Error),
+    /// Not retryable: returned to the caller as-is.
+    Abort(anyhow::Error),
+}
+
 /// What one round of a bulk request said, item by item.
 struct Round {
     outcome: BulkOutcome,
@@ -316,6 +327,75 @@ fn select_bulk_items(body: &[u8], keep: &[usize], expected: usize) -> Option<Vec
     Some(out)
 }
 
+/// Read a bulk response body item by item.
+fn parse_round(v: &Value) -> Round {
+    let items = v.get("items").and_then(|i| i.as_array());
+    let mut round = Round {
+        outcome: BulkOutcome {
+            item_errors: 0,
+            server_errors: 0,
+            first_error: None,
+            first_server_error: None,
+        },
+        throttled: Vec::new(),
+        other_server_errors: 0,
+        first_settled_error: None,
+        throttle_reason: None,
+        items: items.map_or(0, Vec::len),
+    };
+    if !v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
+        return round;
+    }
+    for (i, it) in items.into_iter().flatten().enumerate() {
+        let op = it
+            .get("index")
+            .or_else(|| it.get("create"))
+            .or_else(|| it.get("update"))
+            .or_else(|| it.get("delete"));
+        let Some(op) = op else { continue };
+        if op.get("error").is_none() {
+            continue;
+        }
+        round.outcome.item_errors += 1;
+        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
+        let error_text = || {
+            op["error"]
+                .to_string()
+                .chars()
+                .take(500)
+                .collect::<String>()
+        };
+        if item_status == 429 {
+            round.throttled.push(i);
+            if round.throttle_reason.is_none() {
+                round.throttle_reason = Some(
+                    op["error"]
+                        .get("reason")
+                        .and_then(Value::as_str)
+                        .map(|r| r.chars().take(300).collect())
+                        .unwrap_or_else(error_text),
+                );
+            }
+        }
+        if item_status == 429 || item_status >= 500 || is_index_block_error(&op["error"]) {
+            round.outcome.server_errors += 1;
+            if item_status != 429 {
+                round.other_server_errors += 1;
+            }
+            if round.outcome.first_server_error.is_none() {
+                round.outcome.first_server_error = Some(error_text());
+            }
+        } else if round.first_settled_error.is_none() {
+            round.first_settled_error = Some(op["error"].to_string().chars().take(300).collect());
+        }
+        if round.outcome.first_error.is_none() {
+            round.outcome.first_error = Some(op["error"].to_string().chars().take(300).collect());
+        }
+    }
+    round
+}
+
+#[derive(Debug)]
 pub struct BulkOutcome {
     pub item_errors: u64,
     /// Per-item backend/admission failures — 5xx/429 statuses plus
@@ -663,44 +743,129 @@ impl Es {
         Ok(body)
     }
 
-    /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s, 6 attempts.
+    /// One attempt of a retried request, classified.
+    fn attempt_from<T>(
+        what: &str,
+        resp: reqwest::blocking::Response,
+        parse: impl FnOnce(reqwest::blocking::Response) -> Result<T>,
+    ) -> Attempt<T> {
+        let status = resp.status();
+        if status.as_u16() == 429 {
+            return Attempt::Throttled(server_reason(resp));
+        }
+        if status.is_server_error() {
+            return Attempt::Failed(match server_reason(resp) {
+                Some(reason) => anyhow!("{what}: HTTP {status}: {reason}"),
+                None => anyhow!("{what}: HTTP {status}"),
+            });
+        }
+        match parse(resp) {
+            Ok(v) => Attempt::Done(v),
+            Err(e) => Attempt::Abort(e),
+        }
+    }
+
+    /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s.
     ///
-    /// A 429 is also reported to the bulk admission window: sleeping is how
-    /// this request survives congestion, shrinking is how the *run* stops
-    /// causing it (#240 §8). 5xx is not congestion and does not shrink.
+    /// A 5xx or a transport error is retried 6 times. A 429 is reported to
+    /// the bulk admission window (sleeping is how this request survives
+    /// congestion, shrinking is how the *run* stops causing it, #240 §8) and,
+    /// for a loading run, re-asked for as long as [`THROTTLE_PATIENCE`]
+    /// lasts — see [`Es::retry_loop`].
     fn with_retry<T>(
         &self,
         what: &str,
         mut f: impl FnMut() -> Result<reqwest::blocking::Response>,
         parse: impl Fn(reqwest::blocking::Response) -> Result<T>,
     ) -> Result<T> {
+        self.retry_loop(what, || match f() {
+            Ok(resp) => Self::attempt_from(what, resp, &parse),
+            Err(e) => Attempt::Failed(e),
+        })
+    }
+
+    /// The one retry policy every request goes through.
+    ///
+    /// * `Failed` (5xx, transport): six attempts, five backoffs between them
+    ///   and none after the last — a bounded budget, because nothing says a
+    ///   5xx will clear.
+    /// * `Throttled` (HTTP 429): the server asked for time, and how much time
+    ///   is the server's call. A loading run (the admission gate is on) keeps
+    ///   re-asking at the capped backoff for up to `throttle_patience`,
+    ///   announcing the wait every [`NOTICE_EVERY`]; a one-shot client (gate
+    ///   off — a probe, a status read) treats a 429 like a 5xx and gives up
+    ///   after six, because a 10-minute wait is wrong for a question.
+    ///   Measured reason for the patience: the parent memory circuit breaker
+    ///   answered a bulk with HTTP 429 and held the server above the
+    ///   watermark for 57 s on the 1 GB mailbox run — the six attempts
+    ///   (~8 s of backoff) had run out at 233.8 s and the run was lost.
+    /// * `Abort`: not retried (a 4xx that is this client's fault, a body
+    ///   that does not parse).
+    fn retry_loop<T>(&self, what: &str, mut attempt: impl FnMut() -> Attempt<T>) -> Result<T> {
         const MAX_ATTEMPTS: usize = 6;
         let mut delay = self.retry_initial_delay;
-        let mut last_err = None;
-        for attempt in 0..MAX_ATTEMPTS {
-            match f() {
-                Ok(resp) => {
-                    let status = resp.status();
-                    if status.as_u16() == 429 || status.is_server_error() {
-                        if status.as_u16() == 429 {
-                            self.admission.on_congestion();
+        let mut failures = 0usize;
+        let started = Instant::now();
+        let mut last_notice: Option<Instant> = None;
+        loop {
+            match attempt() {
+                Attempt::Done(v) => return Ok(v),
+                Attempt::Abort(e) => return Err(e),
+                Attempt::Throttled(reason) => {
+                    self.admission.on_congestion();
+                    let err = match &reason {
+                        Some(r) => anyhow!("{what}: HTTP 429 Too Many Requests: {r}"),
+                        None => anyhow!("{what}: HTTP 429 Too Many Requests"),
+                    };
+                    if self.admission.enabled() {
+                        let waited = started.elapsed();
+                        if waited >= self.throttle_patience {
+                            return Err(err);
                         }
-                        last_err = Some(match server_reason(resp) {
-                            Some(reason) => anyhow!("{what}: HTTP {status}: {reason}"),
-                            None => anyhow!("{what}: HTTP {status}"),
-                        });
+                        self.throttle_notice(
+                            &mut last_notice,
+                            reason.as_deref().unwrap_or("HTTP 429"),
+                            &format!("retrying {what}"),
+                            waited,
+                        );
                     } else {
-                        return parse(resp);
+                        failures += 1;
+                        if failures >= MAX_ATTEMPTS {
+                            return Err(err);
+                        }
                     }
                 }
-                Err(e) => last_err = Some(e),
+                Attempt::Failed(e) => {
+                    failures += 1;
+                    if failures >= MAX_ATTEMPTS {
+                        return Err(e);
+                    }
+                }
             }
-            if attempt + 1 < MAX_ATTEMPTS {
-                self.backoff(delay);
-                delay = (delay * 2).min(self.retry_max_delay);
-            }
+            self.backoff(delay);
+            delay = (delay * 2).min(self.retry_max_delay);
         }
-        Err(last_err.unwrap_or_else(|| anyhow!("{what}: retries exhausted")))
+    }
+
+    /// Say on stderr that this run is waiting on the server, at most once per
+    /// [`NOTICE_EVERY`] per waiting request, so the wait does not read as a
+    /// hang. Silent for clients that do not announce (`--quiet`, probes).
+    fn throttle_notice(
+        &self,
+        last: &mut Option<Instant>,
+        reason: &str,
+        doing: &str,
+        waited: Duration,
+    ) {
+        if !self.admission.announces() || matches!(last, Some(t) if t.elapsed() < NOTICE_EVERY) {
+            return;
+        }
+        eprintln!(
+            "autoindex: server is shedding load — {reason}; {doing} (waited {}s, giving up after {}s)",
+            waited.as_secs(),
+            self.throttle_patience.as_secs()
+        );
+        *last = Some(Instant::now());
     }
 
     /// Sleep between attempts, recording how long was actually slept.
@@ -823,22 +988,15 @@ impl Es {
             if round.first_settled_error.is_some() {
                 settled_first_error = round.first_settled_error;
             }
-            if self.admission.announces()
-                && !matches!(last_notice, Some(t) if t.elapsed() < NOTICE_EVERY)
-            {
-                eprintln!(
-                    "autoindex: server is shedding load — {}; re-offering {} rejected \
-                     record(s) (waited {}s, giving up after {}s)",
-                    round
-                        .throttle_reason
-                        .as_deref()
-                        .unwrap_or("per-item HTTP 429"),
-                    round.throttled.len(),
-                    waited.as_secs(),
-                    self.throttle_patience.as_secs()
-                );
-                last_notice = Some(Instant::now());
-            }
+            self.throttle_notice(
+                &mut last_notice,
+                round
+                    .throttle_reason
+                    .as_deref()
+                    .unwrap_or("per-item HTTP 429"),
+                &format!("re-offering {} rejected record(s)", round.throttled.len()),
+                waited,
+            );
             body = retry;
             self.backoff(delay);
             delay = (delay * 2).min(self.retry_max_delay);
@@ -846,98 +1004,58 @@ impl Es {
     }
 
     /// One request of a bulk body, with the transport-level retries, parsed.
+    ///
+    /// A 429 STATUS whose body is a bulk response — the memory breaker's
+    /// other shape: `{"took":…,"errors":true,"items":[…]}` under HTTP 429,
+    /// taken items `201`, rejected ones `429` — is read as one, so the taken
+    /// items are settled and only the rejected ones are re-offered by
+    /// [`Es::bulk`]. A 429 with any other body is a plain throttle.
     fn bulk_round(&self, body: Vec<u8>) -> Result<Round> {
-        // A bulk can also be throttled *per item*: HTTP 200 with individual
-        // documents rejected `status: 429`. That is the same congestion
-        // signal wearing a different hat, and it must not be read as a
-        // clean bulk that earns concurrency back.
-        let item_throttled = std::cell::Cell::new(false);
-        let round = self.with_retry(
-            "_bulk",
-            || self.send_bulk(body.clone()),
-            |resp| {
-                let status = resp.status();
-                if !status.is_success() {
-                    return Err(anyhow!("bulk HTTP {status}"));
-                }
-                let v: Value = resp.json().context("parse bulk response")?;
-                let items = v.get("items").and_then(|i| i.as_array());
-                let mut round = Round {
-                    outcome: BulkOutcome {
-                        item_errors: 0,
-                        server_errors: 0,
-                        first_error: None,
-                        first_server_error: None,
-                    },
-                    throttled: Vec::new(),
-                    other_server_errors: 0,
-                    first_settled_error: None,
-                    throttle_reason: None,
-                    items: items.map_or(0, Vec::len),
+        let round = self.retry_loop("_bulk", || {
+            let resp = match self.send_bulk(body.clone()) {
+                Ok(resp) => resp,
+                Err(e) => return Attempt::Failed(e),
+            };
+            let status = resp.status();
+            if status.is_server_error() {
+                return Attempt::Failed(match server_reason(resp) {
+                    Some(reason) => anyhow!("_bulk: HTTP {status}: {reason}"),
+                    None => anyhow!("_bulk: HTTP {status}"),
+                });
+            }
+            if status.as_u16() == 429 {
+                let text = match resp.text() {
+                    Ok(text) => text,
+                    Err(e) => return Attempt::Failed(anyhow!(e).context("read bulk 429 body")),
                 };
-                if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
-                    for (i, it) in items.into_iter().flatten().enumerate() {
-                        let op = it
-                            .get("index")
-                            .or_else(|| it.get("create"))
-                            .or_else(|| it.get("update"))
-                            .or_else(|| it.get("delete"));
-                        let Some(op) = op else { continue };
-                        if op.get("error").is_none() {
-                            continue;
-                        }
-                        round.outcome.item_errors += 1;
-                        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
-                        let error_text = || {
-                            op["error"]
-                                .to_string()
-                                .chars()
-                                .take(500)
-                                .collect::<String>()
-                        };
-                        if item_status == 429 {
-                            round.throttled.push(i);
-                            if round.throttle_reason.is_none() {
-                                round.throttle_reason = Some(
-                                    op["error"]
-                                        .get("reason")
-                                        .and_then(Value::as_str)
-                                        .map(|r| r.chars().take(300).collect())
-                                        .unwrap_or_else(error_text),
-                                );
-                            }
-                        }
-                        if item_status == 429
-                            || item_status >= 500
-                            || is_index_block_error(&op["error"])
-                        {
-                            round.outcome.server_errors += 1;
-                            if item_status != 429 {
-                                round.other_server_errors += 1;
-                            }
-                            if round.outcome.first_server_error.is_none() {
-                                round.outcome.first_server_error = Some(error_text());
-                            }
-                        } else if round.first_settled_error.is_none() {
-                            round.first_settled_error =
-                                Some(op["error"].to_string().chars().take(300).collect());
-                        }
-                        if round.outcome.first_error.is_none() {
-                            round.outcome.first_error =
-                                Some(op["error"].to_string().chars().take(300).collect());
-                        }
+                return match serde_json::from_str::<Value>(&text)
+                    .ok()
+                    .filter(|v| v.get("items").is_some_and(Value::is_array))
+                {
+                    Some(v) => Attempt::Done(parse_round(&v)),
+                    None => {
+                        Attempt::Throttled(Some(text.chars().take(SERVER_REASON_MAX).collect()))
                     }
-                }
-                item_throttled.set(!round.throttled.is_empty());
-                Ok(round)
-            },
-        );
-        match (&round, item_throttled.get()) {
-            (Ok(_), false) => self.admission.on_success(),
-            (Ok(_), true) => self.admission.on_congestion(),
+                };
+            }
+            if !status.is_success() {
+                return Attempt::Abort(anyhow!("bulk HTTP {status}"));
+            }
+            match resp.json::<Value>() {
+                Ok(v) => Attempt::Done(parse_round(&v)),
+                Err(e) => Attempt::Abort(anyhow!(e).context("parse bulk response")),
+            }
+        });
+        match &round {
+            Ok(r) if r.throttled.is_empty() => self.admission.on_success(),
+            // A bulk can also be throttled *per item*: HTTP 200 with
+            // individual documents rejected `status: 429`. That is the same
+            // congestion signal wearing a different hat, and it must not be
+            // read as a clean bulk that earns concurrency back.
+            Ok(_) => self.admission.on_congestion(),
             // A failed bulk earns nothing back. If it failed *because* of a
-            // 429, `with_retry` has already shrunk the window.
-            (Err(_), _) => {}
+            // 429, `retry_loop` has already shrunk the window.
+            Err(_) => {}
         }
         round
     }
@@ -2173,5 +2291,102 @@ mod tests {
         // A final line without its newline is still one item.
         let body = b"{\"index\":{\"_id\":\"a\"}}\n{\"v\":1}";
         assert_eq!(bulk_item_ranges(body).unwrap().len(), 1);
+    }
+
+    // ── HTTP-level 429: the breaker's other shape ────────────────────────
+
+    fn respond_429_bulk_body(stream: &mut std::net::TcpStream, body: &[u8]) {
+        respond_status(stream, "429 Too Many Requests", body);
+    }
+
+    #[test]
+    fn an_http_429_carrying_a_bulk_body_settles_taken_items_and_re_offers_the_rest() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let seen = requests.clone();
+        let server = std::thread::spawn(move || {
+            let (mut first, _) = listener.accept().unwrap();
+            seen.lock().unwrap().push(read_request(&mut first));
+            // The shape observed on the 1 GB run: status 429, body a full
+            // bulk response, a taken, b rejected by the breaker.
+            respond_429_bulk_body(
+                &mut first,
+                &items_response(&[item("a", 201, None), item("b", 429, Some(BREAKER))], true),
+            );
+            let (mut second, _) = listener.accept().unwrap();
+            seen.lock().unwrap().push(read_request(&mut second));
+            respond_json(&mut second, &items_response(&[item("b", 201, None)], false));
+        });
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(outcome.server_errors, 0, "{:?}", outcome.first_server_error);
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(
+            request_body(&requests[1]),
+            pair("b"),
+            "a was taken; only b goes again"
+        );
+    }
+
+    #[test]
+    fn a_loading_run_re_asks_an_http_429_beyond_six_attempts_while_patience_lasts() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        // Nine throttled answers, then one clean one: the old six-attempt
+        // budget failed this at the seventh.
+        let mut plan = vec![false; 9];
+        plan.push(true);
+        let server = serve(listener, plan);
+        let es = client(address, 4);
+        es.bulk(BULK.to_vec()).expect("a run waits the server out");
+        assert!(es.bulk_congestion_events() >= 1);
+        assert_eq!(
+            es.backoff_delays.lock().unwrap().len(),
+            9,
+            "one backoff per throttled answer, none after the clean one"
+        );
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn a_loading_run_gives_up_an_http_429_when_patience_is_exhausted() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = serve(listener, vec![false]);
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
+        let error = es.bulk(BULK.to_vec()).unwrap_err();
+        assert!(format!("{error:#}").contains("429"), "{error:#}");
+        assert!(
+            es.backoff_delays.lock().unwrap().is_empty(),
+            "no sleep after the last attempt"
+        );
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn a_one_shot_client_keeps_the_bounded_budget_on_http_429() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = serve(listener, vec![false; 6]);
+        let es = Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_secs(5),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap();
+        let error = es.bulk(BULK.to_vec()).unwrap_err();
+        assert!(format!("{error:#}").contains("429"), "{error:#}");
+        assert_eq!(
+            es.backoff_delays.lock().unwrap().len(),
+            5,
+            "six attempts, five backoffs — a probe does not wait ten minutes"
+        );
+        server.join().unwrap();
     }
 }
