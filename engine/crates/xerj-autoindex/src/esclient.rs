@@ -2004,11 +2004,14 @@ mod tests {
             .into_bytes()
     }
 
+    /// The requests a mock server saw, one body per connection.
+    type SeenRequests = Arc<Mutex<Vec<Vec<u8>>>>;
+
     /// Serve `responses`, one per connection, recording each request.
     fn serve_bodies(
         listener: TcpListener,
         responses: Vec<Vec<u8>>,
-    ) -> (std::thread::JoinHandle<()>, Arc<Mutex<Vec<Vec<u8>>>>) {
+    ) -> (std::thread::JoinHandle<()>, SeenRequests) {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let seen = requests.clone();
         let handle = std::thread::spawn(move || {

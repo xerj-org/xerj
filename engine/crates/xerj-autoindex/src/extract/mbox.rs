@@ -1075,14 +1075,14 @@ mod tests {
     #[test]
     fn records_have_the_eml_shape_namespaced_by_offset() {
         let a = msg("a@x", "Acquisition — next steps", "term sheet at $420M");
-        let b = format!(
+        let b = String::from(
             "From: Bob <bob@example.org>\nTo: alice@example.org\nSubject: Re: Acquisition\n\
              Date: Tue, 2 Jan 2024 09:00:00 +0000\nMessage-ID: <b@x>\nIn-Reply-To: <a@x>\n\
              References: <root@x> <a@x>\nX-Gmail-Labels: Inbox,Important,=?UTF-8?B?w4RyZ2Vy?=\n\
              X-GM-THRID: 1787654321098765432\nMIME-Version: 1.0\n\
              Content-Type: multipart/mixed; boundary=\"b1\"\n\n--b1\nContent-Type: text/plain\n\n\
              agreed\n--b1\nContent-Type: text/plain; name=\"notes.txt\"\n\
-             Content-Disposition: attachment; filename=\"notes.txt\"\n\nsecret plan\n--b1--\n"
+             Content-Disposition: attachment; filename=\"notes.txt\"\n\nsecret plan\n--b1--\n",
         );
         let mbox = format!("{SEP_A}\n{a}\n{SEP_GMAIL}\n{b}\n");
         let (recs, stats) = records(mbox.as_bytes());
