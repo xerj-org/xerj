@@ -108,7 +108,10 @@ export function makeReaderApi(transport) {
       const r = await roles(index, signal);
       const body = buildSearchBody(q, type, {}, r, { size, aggs: false });
       if ((q || '').trim() && type !== 'semantic') {
-        body.highlight = highlightRequest([r.textField, 'email_subject', 'attachment_name'].filter(Boolean));
+        // Only fields this index really has (when the mapping was readable).
+        const known = new Set(r.allFields || []);
+        const extra = ['email_subject', 'attachment_name'].filter((f) => known.has(f));
+        body.highlight = highlightRequest([r.textField, ...extra].filter(Boolean));
       }
       const resp = await transport.search(index, body, signal);
       return { hits: hitsOf(resp, index), total: totalOf(resp), took: Number(resp && resp.took) || 0 };
@@ -164,18 +167,20 @@ export function makeReaderApi(transport) {
       }
       const resp = await transport.search(index, {
         query: { bool: { filter: [{ term: { email_message_id: mid } }, { exists: { field: 'attachment_name' } }] } },
-        size: 50,
+        size: 200,
       }, signal);
       // One record per attachment (a PDF contributes one per page): collapse
-      // to the first page so the list reads as attachments, not pages.
-      const seen = new Set();
-      const attachments = hitsOf(resp, index).filter((a) => {
+      // to each file's LOWEST page so the list reads as attachments, not
+      // pages, and a click opens page one. Filter hits arrive in no useful
+      // order, so the minimum is taken here rather than trusted from the sort.
+      const byName = new Map();
+      const pageOf = (a) => { const n = Number(a._source.page); return Number.isFinite(n) ? n : 0; };
+      for (const a of hitsOf(resp, index)) {
         const k = String(a._source.attachment_name);
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
-      return { attachments, parent: null };
+        const cur = byName.get(k);
+        if (!cur || pageOf(a) < pageOf(cur)) byName.set(k, a);
+      }
+      return { attachments: [...byName.values()], parent: null, truncated: totalOf(resp) > 200 };
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
       return { attachments: [], parent: null, kind: e && e.kind };

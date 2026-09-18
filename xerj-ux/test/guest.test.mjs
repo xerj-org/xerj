@@ -301,3 +301,25 @@ test('expiry fires once, re-checks the clock, and survives long timers', () => {
   now += 10 * 86_400_000; timers.at(-1).fn();
   assert.equal(cancelled, 0);
 });
+
+test('attachments collapse to each file\'s lowest page; highlight asks only for fields the index has', async () => {
+  const s = share();
+  const sent = [];
+  const mid = '<m@x>';
+  const pages = [3, 1, 2].map((p) => ({ _index: 'ax-inbox', _id: `big-${p}`, _source: { attachment_name: 'big.pdf', page: p, email_message_id: mid } }));
+  const other = { _index: 'ax-inbox', _id: 'img', _source: { attachment_name: 'logo.png', email_message_id: mid } };
+  const f = fakeFetch((url, init) => {
+    if (url.includes('_mapping')) return json(200, { 'ax-inbox': { mappings: { properties: { body: { type: 'semantic_text' }, email_subject: { type: 'text' } } } } });
+    sent.push(JSON.parse(init.body));
+    return json(200, { hits: { total: { value: 4 }, hits: [...pages, other] } });
+  });
+  const api = makeReaderApi(makeGuestTransport(s, { fetch: f, now: () => NOW }));
+  const rel = await api.fetchRelated({ _index: 'ax-inbox', _id: 'e', _source: { email_message_id: mid } });
+  assert.deepEqual(rel.attachments.map((a) => a._id), ['big-1', 'img']);
+  await api.search('ax-inbox', { q: 'invoice' });
+  assert.deepEqual(Object.keys(sent.at(-1).highlight.fields), ['body', 'email_subject'], 'attachment_name is not in this mapping, so it is not requested');
+  await api.search('ax-inbox', { q: '' });
+  assert.equal(sent.at(-1).highlight, undefined, 'no query, no highlight');
+  await api.search('ax-inbox', { q: 'x', type: 'semantic' });
+  assert.equal(sent.at(-1).highlight, undefined);
+});

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Console: a Corpus home, a Reader for any record, and a read-only guest
+  mode for share links** (supersedes
+  [#923](https://github.com/xerj-org/xerj/pull/923)). The console now lands on
+  what `xerj brain` / `xerj autoindex` indexed (one card per `autoindex-catalog`
+  dataset, or the one command to run on an empty engine), and the Reader opens
+  any record — an email with its attachments, a PDF page, a note, a code
+  symbol — beside the records the brain links it to. With
+  `sessionStorage['xerj.share']` set by a share link, the console boots a
+  separate guest shell: only that share's indices, only `_search` / `_count` /
+  `_mapping` / `ego`, a visible expiry, logout on expiry or `401`, and no call
+  to any console endpoint. Because the Reader displays other people's email,
+  document-derived DOM is built without an HTML parser
+  (`xerj-ux/src/ux/safe-dom.js`), email HTML is never rendered, document URLs
+  are never made clickable, and the console page is served with a
+  `script-src 'self'` Content-Security-Policy; a headless-Chrome suite with
+  hostile fixtures runs in CI. Discover no longer shows fabricated results —
+  `mockSearch`, the fake query plan and the hardcoded document counts are
+  removed; a failed search shows its error and zero rows. Details and limits
+  (the operator's graph panel is refused on an auth-enabled engine; PDF pages
+  and email HTML are shown as extracted text):
+  [`docs/CONSOLE_READER.md`](docs/CONSOLE_READER.md).
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
