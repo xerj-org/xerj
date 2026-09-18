@@ -41,6 +41,58 @@ pub struct Es {
     backoff_delays: Arc<std::sync::Mutex<Vec<(Duration, Duration)>>>,
 }
 
+/// The server understood a create-index or put-mapping request and REFUSED it.
+///
+/// This is a different event from "the endpoint is unreachable, overloaded or
+/// rejecting our credentials", and the difference decides how much of a run it
+/// may take down. A refusal is a statement about ONE index's mapping — a field
+/// type this server does not support, a field-count limit, a conflict with a
+/// mapping an earlier release left behind — so it can only ever be a reason to
+/// fail that one dataset. An endpoint failure says nothing about any particular
+/// dataset and still aborts the run. Before this type existed both arrived as
+/// the same stringly `anyhow!`, so the only safe reading was the pessimistic
+/// one, and a single unmappable field name aborted a 50,593-file run with zero
+/// documents indexed (#929).
+///
+/// Only HTTP 400 is classified as a refusal. 401/403 are credentials, 404 is a
+/// vanished index, 408/429/5xx are the endpoint — none of them is specific to
+/// the dataset being installed, so none of them is safe to route around.
+///
+/// `Display` is byte-identical to the message these calls produced before, so
+/// every log line, test expectation and operator runbook keyed on
+/// `PUT /<index>/_mapping failed: 400 …` keeps matching.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MappingRefused {
+    /// Request path, e.g. `/ax-logs/_mapping`.
+    pub path: String,
+    pub status: u16,
+    /// The server's response body, verbatim.
+    pub detail: String,
+}
+
+impl std::fmt::Display for MappingRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = reqwest::StatusCode::from_u16(self.status)
+            .map(|status| status.to_string())
+            .unwrap_or_else(|_| self.status.to_string());
+        write!(f, "PUT {} failed: {status} {}", self.path, self.detail)
+    }
+}
+
+impl std::error::Error for MappingRefused {}
+
+/// Classify a failed create-index / put-mapping response. See [`MappingRefused`].
+fn mapping_error(path: String, status: reqwest::StatusCode, detail: String) -> anyhow::Error {
+    if status.as_u16() == 400 {
+        return anyhow::Error::new(MappingRefused {
+            path,
+            status: status.as_u16(),
+            detail,
+        });
+    }
+    anyhow!("PUT {path} failed: {status} {detail}")
+}
+
 /// How many bulk requests a run may have in flight, and how a 429 changes
 /// that number (#240 §8).
 ///
@@ -657,7 +709,7 @@ impl Es {
         {
             return Ok(());
         }
-        Err(anyhow!("PUT /{index} failed: {status} {text}"))
+        Err(mapping_error(format!("/{index}"), status, text))
     }
 
     /// Additive mapping update for fields introduced after an index was created.
@@ -672,7 +724,7 @@ impl Es {
             return Ok(());
         }
         let text = resp.text().unwrap_or_default();
-        Err(anyhow!("PUT /{index}/_mapping failed: {status} {text}"))
+        Err(mapping_error(format!("/{index}/_mapping"), status, text))
     }
 
     /// Send one bulk request, holding a slot in the admission window for as

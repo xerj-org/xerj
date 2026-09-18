@@ -199,6 +199,25 @@ pub trait SyncOperationBackend {
     ) -> Result<()> {
         Ok(())
     }
+
+    /// Progress hooks for the replay loop (#931). The loop is where a
+    /// generated run spends its indexing time, and it used to report nothing:
+    /// the stream kept printing the PREVIOUS phase — `scan`, at 100%, with a
+    /// `since_progress_s` that only climbed — for as long as documents were
+    /// landing, which is exactly what a real hang looks like. A backend with a
+    /// progress surface overrides these; the defaults keep test backends silent.
+    ///
+    /// `items` is the number of operations still to apply and `bytes` the
+    /// sealed NDJSON they will send, so the phase has an honest denominator in
+    /// the unit the ETA is derived from.
+    fn replay_begins(&mut self, _items: u64, _bytes: u64) {}
+
+    /// One operation is about to be applied; `rel` names its source file so the
+    /// surface can say what a quiet tail is waiting on.
+    fn operation_begins(&mut self, _rel: &str, _bytes: u64) {}
+
+    /// The operation started by [`Self::operation_begins`] has been applied.
+    fn operation_applied(&mut self) {}
 }
 
 /// Production ES-compatible operation backend for graph-disabled generations.
@@ -217,6 +236,16 @@ pub struct EsSyncBackend<'a> {
     /// than a bare `eprintln!` that `--progress none` cannot silence and
     /// `--progress json` cannot parse.
     pr: &'a crate::progress::Progress,
+    /// `index_identity` of a plan whose dataset mappings this same process has
+    /// already installed (`preflight_generation_mappings`). Provisioning that
+    /// exact generation then skips the per-dataset loop — two round trips per
+    /// dataset, ~3,000 requests on the 1,526-dataset corpus that produced
+    /// #929 — and installs only the catalog mapping. A replayed generation
+    /// (any other identity, or none) is always provisioned in full.
+    installed_index_identity: Option<String>,
+    /// The operation the replay loop is inside; dropping it counts the
+    /// operation done and clears it from the surface's in-flight table.
+    in_flight: Option<crate::progress::FileGuard<'a>>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -232,7 +261,15 @@ impl<'a> EsSyncBackend<'a> {
             state_dir,
             bulk_bytes: bulk_bytes.max(64 * 1024),
             pr,
+            installed_index_identity: None,
+            in_flight: None,
         }
+    }
+
+    /// See `installed_index_identity`.
+    pub fn with_installed_mappings(mut self, index_identity: String) -> Self {
+        self.installed_index_identity = Some(index_identity);
+        self
     }
 
     fn delete_group(&self, group: &ManifestGroup, plan: &Plan) -> Result<()> {
@@ -530,6 +567,7 @@ impl<'a> EsSyncBackend<'a> {
                         .collect(),
                 },
             );
+            self.pr.item_done(0);
         }
         Ok(out)
     }
@@ -546,7 +584,23 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             execution.index_identity == index_identity,
             "desired generation index identity disagrees with its frozen mappings"
         );
+        if self.installed_index_identity.as_deref() == Some(index_identity.as_str()) {
+            return crate::ensure_generation_catalog_mapping(self.es, self.pr);
+        }
         crate::ensure_generation_mappings(self.es, &desired.plan, self.pr)
+    }
+
+    fn replay_begins(&mut self, items: u64, bytes: u64) {
+        self.pr.phase("index", items, bytes);
+    }
+
+    fn operation_begins(&mut self, rel: &str, bytes: u64) {
+        let pr = self.pr;
+        self.in_flight = Some(pr.file(rel, bytes));
+    }
+
+    fn operation_applied(&mut self) {
+        self.in_flight = None;
     }
 
     fn apply(
@@ -601,6 +655,10 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()> {
+        // #931: one exact read-back query per dataset. Named like the legacy
+        // path's phase so a reader of either route sees the same vocabulary.
+        self.pr
+            .phase("finalize-catalog", desired.plan.datasets.len() as u64, 0);
         for index in desired
             .plan
             .datasets
@@ -667,11 +725,18 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()> {
+        // #931: the generation-wide barrier reads every group back — three
+        // queries per file, serially — so on a large corpus it is minutes of
+        // work. It reports as its own phase with the group count as its
+        // denominator instead of hiding behind whatever phase came before it.
+        self.pr
+            .phase("finalize-verify", desired.groups.len() as u64, 0);
         for dataset in &desired.plan.datasets {
             self.es.refresh(&dataset.index)?;
         }
         self.es.refresh(crate::catalog::CATALOG_INDEX)?;
         for group in &desired.groups {
+            let _verifying = self.pr.file(&group.canonical.rel, 0);
             anyhow::ensure!(
                 self.exact_group_count(group, &desired.plan)? == group.expected_records,
                 "live record count disagrees with desired group {}",
@@ -766,6 +831,63 @@ pub fn replay_pending_operations(
     verify_snapshot_binding(&pending, &snapshot)?;
     backend.provision_generation(&pending.desired)?;
 
+    // #931: what is left to apply, in the units the progress surface reports.
+    // An operation already `Committed` by an earlier attempt is not work this
+    // run will do, so it is in neither the numerator nor the denominator — a
+    // resumed replay starts at 0% of what REMAINS, not at a percentage that
+    // credits this invocation with a previous one's writes.
+    let committed = |journal: &Journal, operation: &SyncOperation| {
+        journal
+            .pending_sync
+            .as_ref()
+            .and_then(|sync| sync.operation_states.get(&operation.operation_id))
+            == Some(&SyncOperationState::Committed)
+    };
+    let desired_by_group: HashMap<&str, &ManifestGroup> = pending
+        .desired
+        .groups
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let base_by_group: HashMap<&str, &ManifestGroup> = base
+        .groups
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let prepared_bytes: HashMap<&str, u64> = snapshot
+        .files
+        .iter()
+        .filter_map(|file| {
+            file.prepared
+                .as_ref()
+                .map(|artifact| (file.content_id.as_str(), artifact.bytes))
+        })
+        .collect();
+    // Only an upsert sends the sealed NDJSON; a delete or a metadata rewrite
+    // moves no prepared bytes, so it counts as an item and as zero bytes.
+    let operation_bytes = |operation: &SyncOperation| -> u64 {
+        if operation.kind != crate::sync::SyncOperationKind::Upsert {
+            return 0;
+        }
+        desired_by_group
+            .get(operation.group_id.as_str())
+            .and_then(|group| prepared_bytes.get(group.content_id.as_str()))
+            .copied()
+            .unwrap_or(0)
+    };
+    let remaining: Vec<&SyncOperation> = pending
+        .operations
+        .iter()
+        .filter(|operation| !committed(journal, operation))
+        .collect();
+    backend.replay_begins(
+        remaining.len() as u64,
+        remaining
+            .iter()
+            .map(|operation| operation_bytes(operation))
+            .sum(),
+    );
+
     for operation in &pending.operations {
         let state = journal
             .pending_sync
@@ -778,9 +900,17 @@ pub fn replay_pending_operations(
         if state.is_none() {
             journal.sync_operation_state(&operation.operation_id, SyncOperationState::Started)?;
         }
+        let rel = desired_by_group
+            .get(operation.group_id.as_str())
+            .or_else(|| base_by_group.get(operation.group_id.as_str()))
+            .map_or(operation.group_id.as_str(), |group| {
+                group.canonical.rel.as_str()
+            });
+        backend.operation_begins(rel, operation_bytes(operation));
         backend.apply(operation, &base, &pending.desired, &snapshot)?;
         replay_fail_after_apply()?;
         journal.sync_operation_state(&operation.operation_id, SyncOperationState::Committed)?;
+        backend.operation_applied();
     }
     backend.publish_generation_catalog(&base, &pending.desired, &snapshot)?;
     backend.validate(&base, &pending.desired, &snapshot)?;
@@ -1236,6 +1366,7 @@ pub fn create_snapshot(
         None,
         "source-snapshot-v1",
         u64::MAX,
+        &crate::progress::Progress::silent(),
     )
 }
 
@@ -1251,6 +1382,33 @@ pub fn create_prepared_snapshot(
     preparation_contract_digest: &str,
     hard_budget_bytes: u64,
 ) -> Result<SourceSnapshot> {
+    create_prepared_snapshot_reporting(
+        state_dir,
+        tx_id,
+        inventory,
+        plan,
+        preparation_contract_digest,
+        hard_budget_bytes,
+        &crate::progress::Progress::silent(),
+    )
+}
+
+/// [`create_prepared_snapshot`], reporting through the run's progress surface.
+///
+/// Sealing is the generated path's extraction pass — every file is verified,
+/// copied, verified again and parsed into sealed NDJSON, one at a time — and on
+/// the corpus that produced #931 it is minutes of work. It used to run with no
+/// phase of its own, so the stream kept describing the `scan` that had already
+/// finished. It is now the `snapshot` phase, with a byte denominator.
+pub fn create_prepared_snapshot_reporting(
+    state_dir: &Path,
+    tx_id: &str,
+    inventory: &Inventory,
+    plan: &Plan,
+    preparation_contract_digest: &str,
+    hard_budget_bytes: u64,
+    pr: &crate::progress::Progress,
+) -> Result<SourceSnapshot> {
     create_snapshot_inner(
         state_dir,
         tx_id,
@@ -1258,6 +1416,7 @@ pub fn create_prepared_snapshot(
         Some(plan),
         preparation_contract_digest,
         hard_budget_bytes,
+        pr,
     )
 }
 
@@ -1268,6 +1427,7 @@ fn create_snapshot_inner(
     plan: Option<&Plan>,
     preparation_contract_digest: &str,
     hard_budget_bytes: u64,
+    pr: &crate::progress::Progress,
 ) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     ensure_inventory_lengths(inventory)?;
@@ -1339,6 +1499,9 @@ fn create_snapshot_inner(
         limit: hard_budget_bytes,
     };
     let mut files = Vec::with_capacity(inventory.files.len());
+    // Entered only when there is work to report: a retry that reuses a verified
+    // final snapshot returned above and never claims a phase it did not run.
+    pr.phase("snapshot", inventory.files.len() as u64, source_bytes);
     for (ordinal, ((source, content_id), content_digest)) in inventory
         .files
         .iter()
@@ -1346,6 +1509,10 @@ fn create_snapshot_inner(
         .zip(&inventory.digests)
         .enumerate()
     {
+        // Counted done on every exit from this iteration, including the `?`s:
+        // the phase measures files drained, and the guard names the file a
+        // quiet tail is inside.
+        let _sealing = pr.file(&source.rel, source.size);
         crate::content::verify(&source.path, source.size, content_digest)?;
         let relative_blob = format!("blobs/{ordinal:08}");
         let destination = staging.join(&relative_blob);

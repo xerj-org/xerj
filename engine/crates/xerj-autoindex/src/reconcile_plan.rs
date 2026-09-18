@@ -7,7 +7,7 @@
 
 use crate::content::Inventory;
 use crate::infer::{FieldAcc, FieldSpec};
-use crate::state::{FileAssignment, JunkFile, Plan, PlanDataset};
+use crate::state::{FileAssignment, JunkFile, Plan, PlanDataset, RefusedDataset};
 use crate::FileScan;
 use anyhow::{Context, Result};
 use std::cmp::Ordering;
@@ -98,6 +98,57 @@ pub(crate) fn reconcile_plan(
         );
     }
 
+    // #929: a dataset the server refused at genesis stays refused. Its files
+    // are junk in the committed plan, so nothing above remembers them by path,
+    // and left to the ordinary projection they would be re-classified as NEW
+    // files needing a dataset that does not exist — which fails closed and
+    // aborts the whole run ("use a new prefix"). That would turn "one dataset
+    // was refused" into "this corpus can never be re-indexed", so refusals are
+    // projected explicitly: by content identity when the file is unchanged, and
+    // by schema (the refused definition competes as a classification candidate)
+    // when a new or changed file has the refused shape.
+    let refused_by_key: HashMap<&str, usize> = previous
+        .refused_datasets
+        .iter()
+        .enumerate()
+        .flat_map(|(owner, refusal)| {
+            refusal
+                .file_keys
+                .iter()
+                .map(move |key| (key.as_str(), owner))
+        })
+        .collect();
+    let refused_by_slug: HashMap<&str, usize> = previous
+        .refused_datasets
+        .iter()
+        .enumerate()
+        .map(|(owner, refusal)| (refusal.dataset.slug.as_str(), owner))
+        .collect();
+    anyhow::ensure!(
+        refused_by_slug.len() == previous.refused_datasets.len()
+            && refused_by_slug
+                .keys()
+                .all(|slug| !datasets.contains_key(slug)),
+        "frozen plan lists a refused dataset twice, or both refuses and publishes one"
+    );
+    let previous_junk: HashMap<&str, &JunkFile> = previous
+        .junk_files
+        .iter()
+        .map(|junk| (junk.file_key.as_str(), junk))
+        .collect();
+    let classification_candidates: Vec<PlanDataset> = previous
+        .datasets
+        .iter()
+        .chain(
+            previous
+                .refused_datasets
+                .iter()
+                .map(|refusal| &refusal.dataset),
+        )
+        .cloned()
+        .collect();
+    let mut refused_keys: Vec<Vec<String>> = vec![Vec::new(); previous.refused_datasets.len()];
+
     let mut files = HashMap::new();
     let mut junk_files = Vec::new();
     for (((file, content_id), content_digest), scan) in inventory
@@ -141,6 +192,24 @@ pub(crate) fn reconcile_plan(
                 );
                 continue;
             }
+        }
+        // Same content id as a file the refusal already cost: carry the junk
+        // entry forward verbatim (only the path may have moved), so a no-op
+        // re-run projects a byte-identical plan and commits nothing.
+        if let Some(&owner) = refused_by_key.get(content_id.as_str()) {
+            junk_files.push(JunkFile {
+                file_key: content_id.clone(),
+                rel: file.rel.clone(),
+                format: previous_junk.get(content_id.as_str()).map_or_else(
+                    || crate::format_str(scan.sniffed.as_ref()),
+                    |junk| junk.format.clone(),
+                ),
+                status: "junk".into(),
+                reason: previous.refused_datasets[owner].junk_reason(),
+                bytes: file.size,
+            });
+            refused_keys[owner].push(content_id.clone());
+            continue;
         }
         if let Some((status, reason)) = scan.junk {
             junk_files.push(JunkFile {
@@ -255,10 +324,30 @@ pub(crate) fn reconcile_plan(
                 } else {
                     sniffed.family.as_str()
                 };
-                classify_new(group, family, fields, &previous.datasets)
+                classify_new(group, family, fields, &classification_candidates)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
             assignments.push((group.clone(), slug));
+        }
+        // A new or changed file whose shape belongs to a refused dataset is
+        // refused with it — whole, for the reason `refuse_datasets` gives: a
+        // partially assigned file cannot be prepared. Attributed to the first
+        // refused slug so the choice does not depend on sketch order.
+        if let Some(owner) = assignments
+            .iter()
+            .filter_map(|(_, slug)| refused_by_slug.get(slug.as_str()).copied())
+            .min_by_key(|owner| previous.refused_datasets[*owner].dataset.slug.as_str())
+        {
+            junk_files.push(JunkFile {
+                file_key: content_id.clone(),
+                rel: file.rel.clone(),
+                format: crate::format_str(scan.sniffed.as_ref()),
+                status: "junk".into(),
+                reason: previous.refused_datasets[owner].junk_reason(),
+                bytes: file.size,
+            });
+            refused_keys[owner].push(content_id.clone());
+            continue;
         }
         assignments.sort();
         assignments.dedup();
@@ -318,12 +407,30 @@ pub(crate) fn reconcile_plan(
             .count();
     }
 
+    // The refused DEFINITIONS are frozen exactly like the published ones; only
+    // their membership is a projection of the current folder.
+    let refused_datasets = previous
+        .refused_datasets
+        .iter()
+        .zip(refused_keys)
+        .map(|(refusal, mut file_keys)| {
+            file_keys.sort();
+            file_keys.dedup();
+            RefusedDataset {
+                dataset: refusal.dataset.clone(),
+                reason: refusal.reason.clone(),
+                file_keys,
+            }
+        })
+        .collect();
+
     Ok(Plan {
         datasets: frozen_datasets,
         files,
         junk_files,
         duplicate_files,
         alias_paths_indexed: previous.alias_paths_indexed,
+        refused_datasets,
     })
 }
 

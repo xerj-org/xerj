@@ -519,6 +519,28 @@ fn validate_supported_manifest_delta(
             == canonical_json_bytes(&normalize_datasets(&desired.plan.datasets))?,
         "dataset schema/index plan changed without a schema-generation operation"
     );
+    // #929: a refusal is frozen with the schema it was refused under. Its
+    // membership (`file_keys`) is a projection of the folder and may move, but
+    // a later generation can neither forget that a dataset was refused nor
+    // invent one — either would let a corpus that lacks a dataset look whole.
+    let refused_definitions = |plan: &crate::state::Plan| -> Result<Vec<u8>> {
+        let mut refused: Vec<(Vec<crate::state::PlanDataset>, &str)> = plan
+            .refused_datasets
+            .iter()
+            .map(|refusal| {
+                (
+                    normalize_datasets(std::slice::from_ref(&refusal.dataset)),
+                    refusal.reason.as_str(),
+                )
+            })
+            .collect();
+        refused.sort_by(|left, right| left.0[0].slug.cmp(&right.0[0].slug));
+        canonical_json_bytes(&refused)
+    };
+    anyhow::ensure!(
+        refused_definitions(&base.plan)? == refused_definitions(&desired.plan)?,
+        "refused datasets changed without a schema-generation operation"
+    );
     Ok(())
 }
 
@@ -891,6 +913,35 @@ fn validate_plan_projection(plan: &Plan, groups: &[ManifestGroup]) -> Result<()>
         dataset_slugs.len() == plan.datasets.len(),
         "plan has duplicate dataset slugs"
     );
+    // #929: a refused dataset is recorded, never published. It cannot also be
+    // a live dataset, and every file it cost must be out of `files` and in
+    // `junk_files` — so the catalog that is projected from this plan names it.
+    let junk_keys: HashSet<&str> = plan
+        .junk_files
+        .iter()
+        .map(|junk| junk.file_key.as_str())
+        .collect();
+    let mut refused_slugs = HashSet::new();
+    for refusal in &plan.refused_datasets {
+        anyhow::ensure!(
+            refused_slugs.insert(refusal.dataset.slug.as_str())
+                && !dataset_slugs.contains(refusal.dataset.slug.as_str()),
+            "plan refuses dataset {} twice, or both refuses and publishes it",
+            refusal.dataset.slug
+        );
+        anyhow::ensure!(
+            refusal.file_keys.windows(2).all(|pair| pair[0] < pair[1]),
+            "refused dataset {} file keys are not canonical",
+            refusal.dataset.slug
+        );
+        for key in &refusal.file_keys {
+            anyhow::ensure!(
+                !plan.files.contains_key(key) && junk_keys.contains(key.as_str()),
+                "refused dataset {} lists {key}, which is not recorded as junk",
+                refusal.dataset.slug
+            );
+        }
+    }
     let groups_by_content: HashMap<&str, &ManifestGroup> = groups
         .iter()
         .map(|group| (group.content_id.as_str(), group))

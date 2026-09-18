@@ -268,7 +268,7 @@ pub fn project_generation(
         .sum::<usize>()
         .checked_add(desired.plan.junk_files.len())
         .context("catalog file count overflow")?;
-    let run_doc = json!({
+    let mut run_doc = json!({
         "doc_kind": "run",
         "run_id": metadata.generation_id,
         "root": execution.root_identity,
@@ -295,6 +295,11 @@ pub fn project_generation(
             .iter()
             .any(|dataset| dataset.semantic_field.is_some()),
     });
+    // #929: a generation that lacks a dataset says so in the one document every
+    // reader of the corpus starts from (`Plan::refused_run_fields`).
+    for (key, value) in desired.plan.refused_run_fields() {
+        run_doc[key] = value;
+    }
     insert_unique(
         &mut documents,
         format!("run:{}", metadata.generation_id),
