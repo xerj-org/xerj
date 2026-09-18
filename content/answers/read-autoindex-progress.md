@@ -22,13 +22,25 @@ links_out:
   - "check-codebase-index-is-complete"
   - "resume-interrupted-autoindex-run"
   - "estimate-autoindex-time-before-running"
+  - "autoindex-dataset-refused-by-server"
+evidence:
+  - claim: "With --no-graph, a 231-file repository reported 8 phases in order: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-verify, with 0 progress lines reading scan at pct=100.0, and ended xerj-done ok=true exit=3 reason=completed-with-junk wall=13.1s files=231 records=1663."
+    source: "benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt"
+  - claim: "The same run's index phase read phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 eta_s=0.6 eta_quality=good."
+    source: "benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt"
+  - claim: "The terminal bar drew the same 8 phases under a pseudo-terminal, including index at 96.8% with 221/231 items, 2.1MB/2.2MB and eta 1s."
+    source: "benchmarks/autoindex-resilience/after-fix.small-repo.tty.txt"
+  - claim: "On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus."
+    source: "benchmarks/autoindex-resilience/before-rc74.stderr.txt"
 faq:
   - q: "How do I know autoindex is still working?"
     a: "Read the xerj-progress line on stderr. The elapsed_s and since_progress_s fields advance even when the percentage does not, and waiting_on names the current file."
   - q: "Why does autoindex progress stay at 0%?"
     a: "The percentage counts items, and one large file is one item. The captured 16 MB run held 0.0% with items=0/1 for 15 seconds while it indexed normally."
   - q: "Which phases does autoindex report?"
-    a: "The capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog."
+    a: "The default capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog. With `--no-graph` a capture recorded 8: walk, hash, scan, prepare, snapshot, index, finalize-catalog and finalize-verify."
+  - q: "The progress says scan 100% and stalled. Is autoindex hung?"
+    a: "On a current build, `scan` at 100% means scan, so read `since_progress_s` and `waiting_on`. On v1.0.0-rc.74 and earlier, a `--no-graph` run printed that line for the whole indexing phase while it worked normally. Check `_count` on the node before you stop it."
   - q: "How do I parse autoindex progress in a script?"
     a: "Pass --progress plain and read the xerj-progress lines from stderr. Each line is a flat set of key=value pairs with no colors and no cursor control."
   - q: "What does the final autoindex line say?"
@@ -82,6 +94,43 @@ A run passes through fixed phases, and the capture recorded all of them in this 
 
 A run that sits in `finalize-count` waits on the node, not on the disk. The captured line names the index it waits for, as `waiting_on=log16-logs`.
 
+## The 8 phases of a --no-graph run
+
+`--no-graph` takes a different route. It seals every file into a snapshot first, then publishes from the snapshot. A capture of a 231-file repository recorded 8 phases in this order.
+
+| Phase | What it does | Counted in |
+| --- | --- | --- |
+| `walk`, `hash`, `scan` | Find, fingerprint and sample the files | files and source bytes |
+| `prepare` | Install one mapping per dataset | datasets |
+| `snapshot` | Verify, copy and extract every file into a sealed snapshot | source bytes |
+| `index` | Send the sealed bulk bytes to the node, one file at a time | sealed bulk bytes |
+| `finalize-catalog` | Publish the catalog and read it back | datasets |
+| `finalize-verify` | Read every file's documents back from the node | files |
+
+The `index` phase names the file it is inside and carries a real denominator in both units:
+
+```text
+xerj-progress phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 rate=241998.6 eta_s=0.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.9 elapsed_s=10.0 waiting_on=core/src/stopwords/zul.rs(1.6KB)
+```
+
+The byte total of `index` is larger than the byte total of `snapshot`. That is correct. `snapshot` counts source bytes, and `index` counts the extracted NDJSON that is actually sent.
+
+A resumed run starts at `replay`. Its `index` phase counts only the operations still to apply, so it starts at 0% of what remains. It does not credit this run with an earlier run's writes.
+
+The `index` phase applies one file at a time, so it is the slow one on a large corpus. Read `eta_s` once `eta_quality` leaves `unknown`.
+
+## scan at 100% now means scan
+
+Through v1.0.0-rc.74 the `--no-graph` route reported only `walk`, `hash` and `scan`. Mapping install, sealing, indexing and the read-back all ran with no phase of their own, so the stream kept describing the scan that had already finished:
+
+```text
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=15.0 phase_elapsed_s=25.7 elapsed_s=30.0
+```
+
+The rc.74 capture holds 48 such lines, with `since_progress_s` climbing to 250.0. A real hang at the end of the scan prints exactly the same thing. Neither a person nor an agent could tell the two apart.
+
+On a current build each of those steps is a phase, and the same small-repository capture holds 0 lines that read `scan` at `pct=100.0`. If you are on rc.74 or earlier and see that line, check `_count` on the node before you conclude the run is hung.
+
 ## The line that ends the run
 
 `xerj-done` is the only line a script must parse to decide success. The captured terminal line reads in full:
@@ -91,6 +140,8 @@ xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 data
 ```
 
 `reason` distinguishes `completed`, `dry-run`, `completed-with-junk` and `aborted`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one.
+
+If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
 
 ## Progress and the decision gate are separate runs
 

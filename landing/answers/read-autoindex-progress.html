@@ -284,11 +284,37 @@
     <li><code class="inline">finalize-refresh</code>, <code class="inline">finalize-count</code>, <code class="inline">finalize-correlate</code>, <code class="inline">finalize-histogram</code>, <code class="inline">finalize-catalog</code> — settle and catalog the result.</li>
   </ol>
   <p>A run that sits in <code class="inline">finalize-count</code> waits on the node, not on the disk. The captured line names the index it waits for, as <code class="inline">waiting_on=log16-logs</code>.</p>
+  <h2>The 8 phases of a --no-graph run</h2>
+  <p><code class="inline">--no-graph</code> takes a different route. It seals every file into a snapshot first, then publishes from the snapshot. A capture of a 231-file repository recorded 8 phases in this order.</p>
+  <table>
+    <thead><tr><th>Phase</th><th>What it does</th><th>Counted in</th></tr></thead>
+    <tbody>
+      <tr><td><code class="inline">walk</code>, <code class="inline">hash</code>, <code class="inline">scan</code></td><td>Find, fingerprint and sample the files</td><td>files and source bytes</td></tr>
+      <tr><td><code class="inline">prepare</code></td><td>Install one mapping per dataset</td><td>datasets</td></tr>
+      <tr><td><code class="inline">snapshot</code></td><td>Verify, copy and extract every file into a sealed snapshot</td><td>source bytes</td></tr>
+      <tr><td><code class="inline">index</code></td><td>Send the sealed bulk bytes to the node, one file at a time</td><td>sealed bulk bytes</td></tr>
+      <tr><td><code class="inline">finalize-catalog</code></td><td>Publish the catalog and read it back</td><td>datasets</td></tr>
+      <tr><td><code class="inline">finalize-verify</code></td><td>Read every file's documents back from the node</td><td>files</td></tr>
+    </tbody>
+  </table>
+  <p>The <code class="inline">index</code> phase names the file it is inside and carries a real denominator in both units:</p>
+  <pre class="code"><code class="language-text">xerj-progress phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 rate=241998.6 eta_s=0.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.9 elapsed_s=10.0 waiting_on=core/src/stopwords/zul.rs(1.6KB)
+</code></pre>
+  <p>The byte total of <code class="inline">index</code> is larger than the byte total of <code class="inline">snapshot</code>. That is correct. <code class="inline">snapshot</code> counts source bytes, and <code class="inline">index</code> counts the extracted NDJSON that is actually sent.</p>
+  <p>A resumed run starts at <code class="inline">replay</code>. Its <code class="inline">index</code> phase counts only the operations still to apply, so it starts at 0% of what remains. It does not credit this run with an earlier run's writes.</p>
+  <p>The <code class="inline">index</code> phase applies one file at a time, so it is the slow one on a large corpus. Read <code class="inline">eta_s</code> once <code class="inline">eta_quality</code> leaves <code class="inline">unknown</code>.</p>
+  <h2>scan at 100% now means scan</h2>
+  <p>Through v1.0.0-rc.74 the <code class="inline">--no-graph</code> route reported only <code class="inline">walk</code>, <code class="inline">hash</code> and <code class="inline">scan</code>. Mapping install, sealing, indexing and the read-back all ran with no phase of their own, so the stream kept describing the scan that had already finished:</p>
+  <pre class="code"><code class="language-text">xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=15.0 phase_elapsed_s=25.7 elapsed_s=30.0
+</code></pre>
+  <p>The rc.74 capture holds 48 such lines, with <code class="inline">since_progress_s</code> climbing to 250.0. A real hang at the end of the scan prints exactly the same thing. Neither a person nor an agent could tell the two apart.</p>
+  <p>On a current build each of those steps is a phase, and the same small-repository capture holds 0 lines that read <code class="inline">scan</code> at <code class="inline">pct=100.0</code>. If you are on rc.74 or earlier and see that line, check <code class="inline">_count</code> on the node before you conclude the run is hung.</p>
   <h2>The line that ends the run</h2>
   <p><code class="inline">xerj-done</code> is the only line a script must parse to decide success. The captured terminal line reads in full:</p>
   <pre class="code"><code class="language-text">xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 datasets=1 junk_files=0
 </code></pre>
   <p><code class="inline">reason</code> distinguishes <code class="inline">completed</code>, <code class="inline">dry-run</code>, <code class="inline">completed-with-junk</code> and <code class="inline">aborted</code>, and the exit code follows it. Exit 3 with <code class="inline">completed-with-junk</code> means the run refused some files, and the catalog holds a reason for each one.</p>
+  <p>If the server refused a whole dataset, the line also carries <code class="inline">datasets_refused</code> and <code class="inline">files_refused</code>. They appear only when it happened. The <a href="/answers/autoindex-dataset-refused-by-server">refused-dataset page</a> covers that case.</p>
   <h2>Progress and the decision gate are separate runs</h2>
   <p><code class="inline">--quiet</code> means no progress output, so it cannot share an invocation with <code class="inline">--progress plain</code>. The capture ran the 2 recipes as separate commands for that reason.</p>
   <p>Use <code class="inline">--progress plain</code> to follow a run. Use <code class="inline">--quiet</code> with <code class="inline">--max-minutes</code> to get the machine-readable decision JSON on stdout.</p>
@@ -298,18 +324,28 @@
   <h3>Why does autoindex progress stay at 0%?</h3>
   <p>The percentage counts items, and one large file is one item. The captured 16 MB run held 0.0% with items=0/1 for 15 seconds while it indexed normally.</p>
   <h3>Which phases does autoindex report?</h3>
-  <p>The capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog.</p>
+  <p>The default capture recorded 12 in order: walk, hash, scan, prepare, graph, index, graph-corpus, finalize-refresh, finalize-count, finalize-correlate, finalize-histogram and finalize-catalog. With <code class="inline">--no-graph</code> a capture recorded 8: walk, hash, scan, prepare, snapshot, index, finalize-catalog and finalize-verify.</p>
+  <h3>The progress says scan 100% and stalled. Is autoindex hung?</h3>
+  <p>On a current build, <code class="inline">scan</code> at 100% means scan, so read <code class="inline">since_progress_s</code> and <code class="inline">waiting_on</code>. On v1.0.0-rc.74 and earlier, a <code class="inline">--no-graph</code> run printed that line for the whole indexing phase while it worked normally. Check <code class="inline">_count</code> on the node before you stop it.</p>
   <h3>How do I parse autoindex progress in a script?</h3>
   <p>Pass --progress plain and read the xerj-progress lines from stderr. Each line is a flat set of key=value pairs with no colors and no cursor control.</p>
   <h3>What does the final autoindex line say?</h3>
   <p>The xerj-done line carries ok, exit, reason, wall, files, records, datasets and junk_files. The captured run ended ok=true exit=0 reason=completed.</p>
   <h3>Can I combine --quiet with --progress plain?</h3>
   <p>No. --quiet means no progress output, so the decision-JSON recipe and the progress-parsing recipe are separate invocations of autoindex.</p>
+  <h2>Evidence</h2>
+  <ul>
+    <li>With --no-graph, a 231-file repository reported 8 phases in order: walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-verify, with 0 progress lines reading scan at pct=100.0, and ended xerj-done ok=true exit=3 reason=completed-with-junk wall=13.1s files=231 records=1663. — <code>benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt</code></li>
+    <li>The same run's index phase read phase=index basis=bytes pct=93.8 items=203/231 bytes=2159904/2301706 eta_s=0.6 eta_quality=good. — <code>benchmarks/autoindex-resilience/after-fix.small-repo.stderr.txt</code></li>
+    <li>The terminal bar drew the same 8 phases under a pseudo-terminal, including index at 96.8% with 221/231 items, 2.1MB/2.2MB and eta 1s. — <code>benchmarks/autoindex-resilience/after-fix.small-repo.tty.txt</code></li>
+    <li>On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus. — <code>benchmarks/autoindex-resilience/before-rc74.stderr.txt</code></li>
+  </ul>
   <h2>Related</h2>
   <ul>
     <li><a href="/answers/check-codebase-index-is-complete">My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a></li>
     <li><a href="/answers/resume-interrupted-autoindex-run">The indexer died overnight. Do I have to start over?</a></li>
     <li><a href="/answers/estimate-autoindex-time-before-running">How do I estimate folder-indexing time?</a></li>
+    <li><a href="/answers/autoindex-dataset-refused-by-server">One dataset was REFUSED by the server. Did I lose the whole index?</a></li>
   </ul>
 </main>
 </div>
