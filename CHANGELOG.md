@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj share <index|folder>` — give one person read-only search over one
+  indexed folder: a link, a passcode, an expiry.** The guest opens the link,
+  types the passcode and gets a reading room (search, highlighted snippets, a
+  document view) served by the owner's node; nothing is uploaded and the guest
+  installs nothing. `POST /_share` (admin key only) stores only a SHA-256
+  digest of the share id and an Argon2id hash of the passcode; the
+  unauthenticated, rate-limited, audited `POST /_share/{id}/claim` mints a
+  scoped read-only key that expires with the share, and a guest-only route
+  allow-list closes `_cat`, `_cluster`, every other index, all writes, and
+  scroll / PIT / async contexts. `--tunnel` supervises your own `cloudflared`
+  quick tunnel and revokes the share on Ctrl-C; `--list` / `--revoke` manage
+  shares; the command refuses a node running with authentication off, where a
+  read-only key would restrict nothing. `xerj brain` now prints the share
+  command for the folder it indexed. Found and fixed on the way: the graph API
+  authorized a multi-dataset brain's comma-joined `nodes_index` as one literal
+  index name, so every scoped key got `403` on `overview` for any folder with
+  more than one dataset (and `overview` reported 0 notes for it); and the
+  Console asset bundle was not rebuilt when a new file appeared under
+  `xerj-ux/` on a warm target directory. Threat model, guest reach table and
+  the quick-tunnel trade-offs: [docs/SHARING.md](docs/SHARING.md).
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick

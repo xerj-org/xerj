@@ -58,7 +58,9 @@ COMMAND_TOKEN_RE = re.compile(r"^-{1,2}[A-Za-z][A-Za-z0-9-]*(?:=.*)?$")
 # (the binary answers `unknown argument`), while omitting `index` and `brain`,
 # which are — so it rejected a page documenting `xerj brain ./notes` and waved
 # through a command nobody can run. Check the binary before editing this.
-XERJ_COMMANDS = frozenset({"index", "autoindex", "brain", "mcp", "help", "version"})
+# `share` added 2026-09-18 with the subcommand itself (`xerj share --help`,
+# engine/crates/xerj-server/src/share.rs).
+XERJ_COMMANDS = frozenset({"index", "autoindex", "brain", "mcp", "share", "help", "version"})
 SHELL_PRIMITIVES = frozenset({
     "bash", "cd", "command", "curl", "env", "export", "git", "sh", "until", "wget",
 })
