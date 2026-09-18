@@ -346,3 +346,7 @@ runs the live security test with and without a trusted proxy, the CLI, the
 headless-browser guest flow (Chrome or Chromium; `CHROME_BIN` to point at one),
 the open-node refusal, and the `xerj brain` → `xerj share <folder>` path. CI
 runs the same script in the `usecase-smoke` job.
+
+The record of what was run on this branch, on which build, with which result —
+including the by-hand quick-tunnel run that CI cannot repeat — is
+[docs/usecases/share-links/VERIFICATION.md](./usecases/share-links/VERIFICATION.md).

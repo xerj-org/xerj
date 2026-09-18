@@ -193,15 +193,22 @@ async function main() {
       if (r.exceptionDetails) throw new Error(`page threw: ${r.exceptionDetails.text} ${r.exceptionDetails.exception?.description || ''}`);
       return r.result.value;
     };
+    // A predicate that throws is "not yet", not a failure: right after a
+    // navigation the document may still be the previous page (or about:blank),
+    // and `document.getElementById(…)` is null until the new one is parsed.
+    // Seen once under a load average of 54, when the first wait ran before the
+    // guest page had loaded.
     const waitFor = async (expression, what, ms = 15000) => {
       const deadline = Date.now() + ms;
       for (;;) {
-        if (await evaluate(`!!(${expression})`)) return true;
+        let hit = false;
+        try { hit = await evaluate(`!!(${expression})`); } catch { hit = false; }
+        if (hit) return true;
         if (Date.now() > deadline) { ok(`waited for: ${what}`, false, await evaluate('document.body.innerText.slice(0, 400)')); return false; }
         await new Promise((r) => setTimeout(r, 100));
       }
     };
-    const visible = (id) => `(!document.getElementById('${id}').hidden)`;
+    const visible = (id) => `(!!document.getElementById('${id}') && !document.getElementById('${id}').hidden)`;
     const submitPasscode = (code) => evaluate(`(() => {
       const i = document.getElementById('passcode'); i.value = ${JSON.stringify(code)};
       document.getElementById('claim-form').requestSubmit(); })()`);

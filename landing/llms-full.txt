@@ -747,7 +747,7 @@ Share an indexed folder with one person, read-only — `xerj share`:
     `scroll` / `_pit` / `_async_search`, and the Console API are refused. A share
     grants WHOLE indices — there is no per-document or per-field restriction, and a
     guest can copy what they read.
-  - Verified 2026-09-18 on Linux: a live test of 193 reach/limiter/header checks
+  - Verified 2026-09-18 on Linux: a live test of 202 reach/limiter/header checks
     against a node with authentication on, a headless-Chrome run of the guest page
     (claim, search, read, an XSS probe document that stayed inert, sign-out), and one
     manual run through a real quick tunnel. macOS / Windows: not verified.

@@ -172,6 +172,10 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [When does XERJ kNN use an exact scan instead of HNSW?](https://xerj.org/answers/filter-knn-exact-scan-caveat.md): Why is filtered kNN slower than unfiltered?
 - **Retrieval: selection**
   - [Vector database or full-text search for a folder?](https://xerj.org/answers/vector-database-vs-full-text-search.md): What's the actual difference between a vector database and full-text search?
+- **Sharing: read-only guest access**
+  - [Read-only search over a folder, without uploading it](https://xerj.org/answers/share-folder-read-only-search-without-uploading.md): I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?
+  - [Share a local search index through a tunnel](https://xerj.org/answers/share-local-search-index-through-a-tunnel.md): How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN?
+  - [What a XERJ share-link guest can and cannot reach](https://xerj.org/answers/what-a-share-link-guest-can-reach.md): If I give someone a read-only share link to one search index, can they see my other indices or anything else on the server?
 
 ## Comparisons
 
