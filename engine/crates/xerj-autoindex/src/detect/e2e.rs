@@ -259,6 +259,7 @@ const EDGES_INDEX: &str = ".xerj-memory-notes-edges";
 fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
     IndexCfg {
         root: root.to_owned(),
+        endpoint_url: None,
         url: url.to_owned(),
         api_key: None,
         api_key_file: None,

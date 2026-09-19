@@ -141,6 +141,15 @@ def transform(rel: str, src: str, dates: urlmap.DateSource,
     source_path = pathlib.Path(meta["_source_path"]) if meta.get("_source_path") else path
     published = meta.get("published") or dates.first_published(path)
     modified = meta.get("updated") or dates.last_modified(source_path)
+    # A page with no content source (the answers/ and compare/ hubs) would
+    # otherwise be dated from its own git history: writing the regenerated file
+    # changes the date the next run computes, so `--check` fails on main the
+    # first time a merge touches the file on a later date. build_articles.py
+    # dates those hubs from the articles they list; keep what it wrote.
+    if not meta.get("_source_path"):
+        kept = _existing_ld_dates(src)
+        published = kept.get("datePublished", published)
+        modified = kept.get("dateModified", modified)
     block = build_block(rel, title, desc, published, modified, meta)
     head = head.rstrip("\n \t") + "\n" + block + "\n"
 
@@ -154,6 +163,16 @@ def transform(rel: str, src: str, dates: urlmap.DateSource,
 
     return out
 
+
+
+def _existing_ld_dates(src: str) -> dict[str, str]:
+    """datePublished/dateModified already in the page's JSON-LD, if any."""
+    out: dict[str, str] = {}
+    for key in ("datePublished", "dateModified"):
+        m = re.search(r'"%s"\s*:\s*"(\d{4}-\d{2}-\d{2})"' % key, src)
+        if m:
+            out[key] = m.group(1)
+    return out
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])

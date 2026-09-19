@@ -7176,6 +7176,8 @@ name = "xerj-autoindex"
 version = "1.0.0-rc.74"
 dependencies = [
  "anyhow",
+ "aws-sdk-s3",
+ "aws-smithy-http-client",
  "base64 0.23.1",
  "chrono",
  "csv",
@@ -7198,6 +7200,7 @@ dependencies = [
  "simd-json",
  "streaming-iterator",
  "tempfile",
+ "tokio",
  "tree-sitter",
  "tree-sitter-bash",
  "tree-sitter-c",

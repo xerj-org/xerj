@@ -50,6 +50,12 @@ node_modules/
 
 # Rust build output
 target/
+# Per-task build directories. Parallel work in several worktrees sets
+# CARGO_TARGET_DIR=engine/target-<task> so the builds do not evict each other's
+# artifacts, and `target/` alone does not match those. One `git add -A` over a
+# tree with one of them staged 14,623 object files, which is why this is a rule
+# and not a habit.
+target-*/
 
 # cargo-fuzz working state. The harnesses and their SEEDS are tracked
 # (engine/fuzz/fuzz_targets/, engine/fuzz/seeds/) — the seeds are the

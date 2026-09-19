@@ -105,5 +105,23 @@ serde_yaml = "0.9"                               # YAML multi-doc
 rusqlite = { version = "0.32", features = ["bundled"] }
 mail-parser = "0.11.9"
 
+# --- Object-storage source (#s3source). `aws-sdk-s3` was already a workspace
+# dependency and unused; this is its first consumer. Apache-2.0.
+#
+# There is deliberately no `aws-config` here. Taking it would (a) bring the
+# default `default-https-client` feature path back in through cargo's feature
+# unification and with it aws-lc-rs — the C/asm crypto backend this workspace
+# keeps out of the cross-compile matrix — and (b) give this crate a second,
+# differently-configured S3 client with the SDK's own invisible retry layer.
+# Credentials come from the environment and the client is built explicitly in
+# `src/objsource.rs`, the same way `xerj-storage` builds its own; the feature
+# selection that keeps aws-lc-rs out is pinned in engine/Cargo.toml.
+aws-sdk-s3 = { workspace = true }
+aws-smithy-http-client = { workspace = true }
+# autoindex is synchronous (std threads + rayon); the AWS SDK is async-only, so
+# one current-thread runtime is created per object-store source and every call
+# is driven with `block_on`. No async leaks past `src/objsource.rs`.
+tokio = { workspace = true }
+
 [dev-dependencies]
 base64 = "0.23.1"

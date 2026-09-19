@@ -16,7 +16,17 @@ pub const MAX_BULK_MB: usize = 24;
 
 #[derive(Debug, Clone)]
 pub struct IndexCfg {
+    /// The positional argument: a folder, or `s3://bucket/prefix` /
+    /// `r2://bucket/prefix`. An object URL is turned into the local mirror the
+    /// run walks by [`crate::objsource::prepare`], which rewrites this field —
+    /// everything after that point sees a path, exactly as it did before object
+    /// storage existed.
     pub root: PathBuf,
+    /// `--endpoint-url`: the S3-compatible endpoint to talk to (MinIO, Ceph,
+    /// R2, localstack). Falls back to `AWS_ENDPOINT_URL_S3` then
+    /// `AWS_ENDPOINT_URL`. Meaningless for a folder, and refused there rather
+    /// than ignored.
+    pub endpoint_url: Option<String>,
     pub url: String,
     pub api_key: Option<String>,
     /// Set only when `api_key` was discovered on disk rather than supplied by
@@ -145,6 +155,9 @@ pub fn help_text_with(feedback: bool) -> String {
          {feedback_block}\
          USAGE:\n\
              xerj autoindex <folder> [OPTIONS]     discover + index a folder\n\
+             xerj autoindex s3://<bucket>/<prefix> [OPTIONS]\n\
+                                                   discover + index objects in a bucket\n\
+                                                   (r2:// too; see OBJECT STORAGE)\n\
              xerj autoindex map [OPTIONS]          print the discovered data map\n\
              xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
          \n\
@@ -165,7 +178,13 @@ pub fn help_text_with(feedback: bool) -> String {
                                   bulk HTTP request timeout in seconds (default 300;\n\
                                   valid range 1..=3600)\n\
              --prefix <P>         index prefix (default ax)\n\
-             --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/)\n\
+             --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/);\n\
+                                  for an s3:// source this is also where the local\n\
+                                  object mirror lives, so point it at a disk with room\n\
+             --endpoint-url <URL> S3-compatible endpoint for an s3:// source (MinIO,\n\
+                                  Ceph, R2, localstack). Defaults to\n\
+                                  $AWS_ENDPOINT_URL_S3, then $AWS_ENDPOINT_URL.\n\
+                                  Refused for a folder rather than ignored\n\
              --snapshot-max-gb <N> logical payload cap for sealed source+prepared records\n\
                                   bytes (default 64); excludes filesystem/manifest overhead\n\
              --fresh              {fresh_help}\n\
@@ -257,6 +276,35 @@ pub fn help_text_with(feedback: bool) -> String {
              ignored_files_in_pruned_dirs_exact=false to say so).\n\
              The folder you name is never rejected: if it is itself ignored, it is\n\
              indexed anyway and the run says which rule it would have matched.\n\
+         \n\
+         OBJECT STORAGE:\n\
+             `xerj autoindex s3://bucket/prefix` indexes objects instead of files.\n\
+             `r2://bucket/prefix` is the same thing and needs --endpoint-url with the\n\
+             account host. Credentials come from AWS_ACCESS_KEY_ID /\n\
+             AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN) in the ENVIRONMENT ONLY — no\n\
+             profile files, no instance metadata, no SSO — and never from the URL.\n\
+             A non-empty prefix is treated as a FOLDER: s3://b/docs lists docs/ and not\n\
+             docs-old/. The effective prefix is printed at the start of the run.\n\
+             CHANGE DETECTION is the object's ETag plus its size, recorded in\n\
+             <state-dir>/object-source.json. The ETag is treated as an opaque token, so\n\
+             a multipart upload's `-N` form is fine and nothing is compared to an MD5.\n\
+             A re-run downloads only what changed; an unchanged prefix downloads nothing.\n\
+             THE BYTES ARE MIRRORED to <state-dir>/object-cache/<bucket-prefix>/ and the\n\
+             ordinary walk runs over that mirror, so extraction sees exactly the bytes it\n\
+             sees for a folder. Budget local disk for the prefix you index. The INDEX\n\
+             still lives on the XERJ node at --url; nothing is written to the bucket.\n\
+             Objects whose keys cannot be a safe local path are skipped and named:\n\
+             `..`, an empty component, a backslash, a control character, a trailing dot\n\
+             or space, a Windows reserved name, and any dot-prefixed component (so a\n\
+             bucket's .env and .git/ stay out of the index, exactly as in a folder).\n\
+             COST: one run costs ceil(objects/1000) class-A LIST requests plus one\n\
+             class-B GET per changed object, and never writes. Counts are BILLED WIRE\n\
+             ATTEMPTS: a request the store throttled and the client retried counts once\n\
+             per attempt, because that is what the store bills. Every run prints what it\n\
+             spent and what running it hourly or every 5 minutes would spend against a\n\
+             1,000,000/month class-A allowance — read that line before adding a cron.\n\
+             A run that fails mid-transfer records the objects it already fetched, so a\n\
+             re-run pays for the rest only — but it re-lists, so the LIST cost recurs.\n\
          \n\
          PDF EXTRACTION:\n\
              Each PDF uses a fresh process. Limits: 512 MiB input, 32 MiB worker output,\n\
@@ -448,6 +496,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut bulk_timeout_explicit = false;
     let mut prefix = "ax".to_string();
     let mut state_dir: Option<PathBuf> = None;
+    let mut endpoint_url: Option<String> = None;
+    let mut endpoint_explicit = false;
     let mut fresh = false;
     let mut follow_symlinks = false;
     let mut follow_symlinks_outside_root = false;
@@ -546,6 +596,25 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             }
             "--prefix" => prefix = it.next().ok_or("--prefix needs a value")?,
             "--state-dir" => state_dir = it.next().map(PathBuf::from),
+            "--endpoint-url" => {
+                let value = it.next().ok_or(
+                    "--endpoint-url needs a URL, e.g. http://127.0.0.1:9000 (MinIO) or \
+                     https://<account-id>.r2.cloudflarestorage.com (R2)",
+                )?;
+                // Validated here rather than at the first request: a typo in an
+                // endpoint otherwise surfaces as a dispatch failure after the
+                // run has already opened state and printed three phases.
+                match reqwest::Url::parse(&value) {
+                    Ok(parsed) if matches!(parsed.scheme(), "http" | "https") => {}
+                    _ => {
+                        return Err(format!(
+                            "--endpoint-url must be an http:// or https:// URL, not {value:?}"
+                        ))
+                    }
+                }
+                endpoint_explicit = true;
+                endpoint_url = Some(value);
+            }
             "--fresh" => fresh = true,
             "--follow-symlinks" => follow_symlinks = true,
             "--follow-symlinks-outside-root" => follow_symlinks_outside_root = true,
@@ -794,6 +863,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 ignore_flags_used.join(" and "),
             ))
         }
+        (Some("map"), _) | (Some("status"), _) if endpoint_explicit => Err(format!(
+            "--endpoint-url applies only to indexing, not `autoindex {}`: that subcommand reads the \
+             XERJ node named by --url and never talks to an object store",
+            sub.as_deref().unwrap_or_default()
+        )),
         (Some("map"), _) if bulk_timeout_explicit => {
             Err("--bulk-timeout-secs applies only to indexing, not `autoindex map`".into())
         }
@@ -829,6 +903,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             let plan = crate::resources::plan(workers, pdf_workers, bulk_mb);
             Ok(Cmd::Index(Box::new(IndexCfg {
                 root,
+                endpoint_url,
                 url,
                 api_key,
                 api_key_file,
