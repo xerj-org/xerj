@@ -27,7 +27,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -57,7 +58,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -87,7 +89,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -117,7 +120,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -147,7 +151,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -177,7 +182,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -207,7 +213,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -237,7 +244,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -281,7 +289,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -311,7 +320,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -341,7 +351,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -371,7 +382,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -401,7 +413,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -431,7 +444,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -461,7 +475,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -491,7 +506,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -521,7 +537,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -551,7 +568,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -581,7 +599,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 1,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -611,7 +630,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -641,7 +661,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -671,7 +692,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -701,7 +723,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -731,7 +754,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -775,7 +799,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -805,7 +830,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -835,7 +861,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -865,7 +892,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -895,7 +923,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -925,7 +954,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -955,7 +985,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -985,7 +1016,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1015,7 +1047,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1045,7 +1078,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1075,7 +1109,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1105,7 +1140,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1135,7 +1171,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1165,7 +1202,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1195,7 +1233,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1225,7 +1264,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 55,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1255,7 +1295,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1285,7 +1326,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1315,7 +1357,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1345,7 +1388,8 @@
     "claude_mcp_add": 1,
     "mcpServers": 1,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1375,7 +1419,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1405,7 +1450,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1435,7 +1481,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1465,7 +1512,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1495,7 +1543,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1525,7 +1574,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1555,7 +1605,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1585,7 +1636,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1615,7 +1667,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1645,7 +1698,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1675,7 +1729,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1705,7 +1760,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1735,7 +1791,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1765,7 +1822,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1795,7 +1853,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1825,7 +1884,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1855,7 +1915,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -1885,7 +1946,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1915,7 +1977,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1945,7 +2008,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -1975,7 +2039,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2005,7 +2070,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2035,7 +2101,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2079,7 +2146,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2109,7 +2177,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2139,7 +2208,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2169,7 +2239,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2199,7 +2270,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2229,7 +2301,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2259,7 +2332,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2289,7 +2363,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2319,7 +2394,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2349,7 +2425,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2379,7 +2456,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2409,7 +2487,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2439,7 +2518,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2469,7 +2549,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2499,7 +2580,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2529,7 +2611,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2559,7 +2642,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2589,7 +2673,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2619,7 +2704,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2649,7 +2735,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2679,7 +2766,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2709,7 +2797,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2739,7 +2828,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2769,7 +2859,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2799,7 +2890,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2829,7 +2921,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2859,7 +2952,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2889,7 +2983,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -2919,7 +3014,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2949,7 +3045,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -2979,7 +3076,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3009,7 +3107,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3039,7 +3138,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3069,7 +3169,8 @@
     "claude_mcp_add": 1,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3099,7 +3200,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3129,7 +3231,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3159,7 +3262,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3189,7 +3293,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3219,7 +3324,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3249,7 +3355,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3279,7 +3386,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3309,7 +3417,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3339,7 +3448,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3369,7 +3479,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 1,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3399,7 +3510,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 1,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3429,7 +3541,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3459,7 +3572,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3489,7 +3603,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3519,7 +3634,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3549,7 +3665,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3579,7 +3696,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3609,7 +3727,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3639,7 +3758,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3669,7 +3789,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3699,7 +3820,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3729,7 +3851,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 0
    }
   },
   {
@@ -3759,7 +3882,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3789,7 +3913,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3833,7 +3958,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3863,7 +3989,8 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": false
+    "has_optional_h2": false,
+    "optional_section_demand_words": null
    }
   },
   {
@@ -3893,9 +4020,26 @@
     "claude_mcp_add": 0,
     "mcpServers": 0,
     "npx_skills_add": 0,
-    "has_optional_h2": true
+    "has_optional_h2": true,
+    "optional_section_demand_words": 2
    }
   }
  ],
- "proposal": null
+ "proposal": {
+  "bytes": 17155,
+  "lines": 162,
+  "prose_bytes": 3832,
+  "long_lines_400": 0,
+  "long_prose_lines_400": 0,
+  "longest_unfenced_line": 340,
+  "obligation_words": 12,
+  "code_fences": 4,
+  "install_command": "curl | sh",
+  "bytes_before_install": 2182,
+  "claude_mcp_add": 1,
+  "mcpServers": 3,
+  "npx_skills_add": 0,
+  "has_optional_h2": true,
+  "optional_section_demand_words": 0
+ }
 }

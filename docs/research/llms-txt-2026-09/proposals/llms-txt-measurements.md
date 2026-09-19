@@ -7,13 +7,13 @@ Produced by `scripts/measure_llms_txt.py`; do not edit by hand. Definitions are 
 
 | Measure | min | p25 | median | p75 | p90 | max | XERJ today | XERJ percentile | Proposal | Proposal percentile |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Bytes | 662 | 7,866 | 22,486 | 48,355 | 102,795 | 2,645,454 | 40,064 | 68th | — | — |
-| Lines | 14 | 89 | 189 | 410 | 796 | 61,194 | 234 | 56th | — | — |
-| Prose bytes | 0 | 167 | 388.5 | 1,191 | 3,568 | 869,417 | 9,200 | 96th | — | — |
-| Unfenced lines over 400 characters | 0 | 0 | 0 | 1 | 4 | 240 | 23 | 98th | — | — |
-| Prose lines over 400 characters (stricter) | 0 | 0 | 0 | 0 | 2 | 199 | 10 | 98th | — | — |
-| Longest unfenced line (characters) | 122 | 265 | 348.5 | 431 | 658 | 5,500 | 1,124 | 98th | — | — |
-| Obligation words | 0 | 0 | 0 | 3 | 7 | 452 | 21 | 97th | — | — |
+| Bytes | 662 | 7,866 | 22,486 | 48,355 | 102,795 | 2,645,454 | 40,064 | 68th | 17,155 | 41st |
+| Lines | 14 | 89 | 189 | 410 | 796 | 61,194 | 234 | 56th | 162 | 44th |
+| Prose bytes | 0 | 167 | 388.5 | 1,191 | 3,568 | 869,417 | 9,200 | 96th | 3,832 | 91st |
+| Unfenced lines over 400 characters | 0 | 0 | 0 | 1 | 4 | 240 | 23 | 98th | 0 | 64th |
+| Prose lines over 400 characters (stricter) | 0 | 0 | 0 | 0 | 2 | 199 | 10 | 98th | 0 | 81st |
+| Longest unfenced line (characters) | 122 | 265 | 348.5 | 431 | 658 | 5,500 | 1,124 | 98th | 340 | 47th |
+| Obligation words | 0 | 0 | 0 | 3 | 7 | 452 | 21 | 97th | 12 | 95th |
 
 ## Counts over the kept peer files
 
@@ -23,23 +23,23 @@ Produced by `scripts/measure_llms_txt.py`; do not edit by hand. Definitions are 
 - `claude mcp add` in llms.txt itself: **2 of 127** (Haystack, Tavily).
 - `mcpServers` in llms.txt itself: **2 of 127** (Gemini-CLI, Haystack).
 - `npx skills add` in llms.txt itself: **3 of 127**.
-- A `## Optional` heading: **38 of 127**.
+- A `## Optional` heading: **38 of 127**. Of those, files with "required", "must", "owe" or "obligat…" inside that section: **0**. XERJ's `## Optional` section contains **2**.
 
 ## XERJ today and the proposal
 
 | | XERJ today | Proposal |
 |---|---:|---:|
-| Bytes | 40,064 | — |
-| Lines | 234 | — |
-| Prose bytes | 9,200 | — |
-| Unfenced lines over 400 characters | 23 | — |
-| Prose lines over 400 characters (stricter) | 10 | — |
-| Longest unfenced line (characters) | 1,124 | — |
-| Obligation words | 21 | — |
-| Bytes before the first install command | 1,788 | — |
-| Fenced code blocks | 0 | — |
-| `claude mcp add` lines | 0 | — |
-| `mcpServers` occurrences | 0 | — |
+| Bytes | 40,064 | 17,155 |
+| Lines | 234 | 162 |
+| Prose bytes | 9,200 | 3,832 |
+| Unfenced lines over 400 characters | 23 | 0 |
+| Prose lines over 400 characters (stricter) | 10 | 0 |
+| Longest unfenced line (characters) | 1,124 | 340 |
+| Obligation words | 21 | 12 |
+| Bytes before the first install command | 1,788 | 2,182 |
+| Fenced code blocks | 0 | 4 |
+| `claude mcp add` lines | 0 | 1 |
+| `mcpServers` occurrences | 0 | 3 |
 
 ## Highest obligation-word counts among files under 100 KB
 

@@ -11,7 +11,7 @@
   "bytes": 2217,
   "lines": 46,
   "sha256": "104d1fb0c75d3ea9a276610421905582dbfb4097bce2d00cd3adb3b192a8c7e6",
-  "fetched_at": "2026-09-19T20:08:19Z",
+  "fetched_at": "2026-09-19T21:17:03Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -35,7 +35,7 @@
   "bytes": 4445,
   "lines": 50,
   "sha256": "8e081a7814f865b6aec3995fe74ce8e23553dcbd7e2433a8ddacda49c0f23c6e",
-  "fetched_at": "2026-09-19T20:08:20Z",
+  "fetched_at": "2026-09-19T21:17:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -59,7 +59,7 @@
   "bytes": 4967,
   "lines": 123,
   "sha256": "e7767c121e5a33218cf4af731135e530d98abc77a87bebf188722bb3caed0c04",
-  "fetched_at": "2026-09-19T20:08:20Z",
+  "fetched_at": "2026-09-19T21:17:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -83,7 +83,7 @@
   "bytes": 4967,
   "lines": 123,
   "sha256": "e7767c121e5a33218cf4af731135e530d98abc77a87bebf188722bb3caed0c04",
-  "fetched_at": "2026-09-19T20:08:20Z",
+  "fetched_at": "2026-09-19T21:17:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -107,7 +107,7 @@
   "bytes": 15073,
   "lines": 388,
   "sha256": "c736799721eb40c7b0ddd121ee7a9fd3626fba4842a906eb4dc88b7a0adf4656",
-  "fetched_at": "2026-09-19T20:08:23Z",
+  "fetched_at": "2026-09-19T21:17:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -131,7 +131,7 @@
   "bytes": 1484,
   "lines": 35,
   "sha256": "9c37f883e6d2e96eb054bf3aee9bdba0b851dd120e4433c57ab97a654c4b312d",
-  "fetched_at": "2026-09-19T20:08:24Z",
+  "fetched_at": "2026-09-19T21:17:06Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -155,7 +155,7 @@
   "bytes": 39737,
   "lines": 410,
   "sha256": "77e7e9248782e592759833144acc29da7c2afa4b166e2803045ff2923735a8f9",
-  "fetched_at": "2026-09-19T20:08:25Z",
+  "fetched_at": "2026-09-19T21:17:06Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -179,7 +179,7 @@
   "bytes": 5528,
   "lines": 86,
   "sha256": "fce556a5dce426f65e73b7579a08baee3fe5d72fbd457432710da0060d8c0a5f",
-  "fetched_at": "2026-09-19T20:08:26Z",
+  "fetched_at": "2026-09-19T21:17:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -203,7 +203,7 @@
   "bytes": 5528,
   "lines": 86,
   "sha256": "fce556a5dce426f65e73b7579a08baee3fe5d72fbd457432710da0060d8c0a5f",
-  "fetched_at": "2026-09-19T20:08:26Z",
+  "fetched_at": "2026-09-19T21:17:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -227,7 +227,7 @@
   "bytes": 8217,
   "lines": 161,
   "sha256": "7f9f0734d1d02f3f15804447727cf2d9ecf97a5bbaa271c6f5645bd6e4bb9cf3",
-  "fetched_at": "2026-09-19T20:08:27Z",
+  "fetched_at": "2026-09-19T21:17:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -248,10 +248,10 @@
   "status": 200,
   "content_type": "text/plain; charset=utf-8",
   "final_url": "https://pydantic.dev/docs/ai/llms.txt",
-  "bytes": 30776,
-  "lines": 437,
-  "sha256": "95a4117a93d03121f89580288bf323fb816f9f71f3c297196d4e7e84027e0479",
-  "fetched_at": "2026-09-19T20:08:27Z",
+  "bytes": 31603,
+  "lines": 440,
+  "sha256": "80236f026ab599421bf4e2e1d447588a5ca84dbf31f8c8e05e6bcec1e0411789",
+  "fetched_at": "2026-09-19T21:17:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -275,7 +275,7 @@
   "bytes": 14247,
   "lines": 233,
   "sha256": "372e020055522d84a54f478431ea15b18dc84265450baaf8e8ca2f34af613316",
-  "fetched_at": "2026-09-19T20:08:28Z",
+  "fetched_at": "2026-09-19T21:17:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -299,7 +299,7 @@
   "bytes": 8591,
   "lines": 81,
   "sha256": "c3dfe54365691cebff62ac89946571b61bb9b68719def6f6a41e5275c8afa080",
-  "fetched_at": "2026-09-19T20:08:28Z",
+  "fetched_at": "2026-09-19T21:17:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -323,7 +323,7 @@
   "bytes": 5049,
   "lines": 66,
   "sha256": "a9dc02d3456a6b79752c83a7fd6f7fdf35f15df4ee853e67d52429ac2e5b852a",
-  "fetched_at": "2026-09-19T20:08:29Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -347,7 +347,7 @@
   "bytes": 6527,
   "lines": 235,
   "sha256": "00395bc88edb76593f446b3780a1829e3cbb9a694385481a1f502a504f22ae5f",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -371,7 +371,7 @@
   "bytes": 26130,
   "lines": 536,
   "sha256": "54dabed97d84c99c46d89ccba578367d8bb084583724f13611675d71183e5ac6",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:10Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -395,7 +395,7 @@
   "bytes": 11618,
   "lines": 167,
   "sha256": "deb884197da93601adb970011d4b310560509e24b3e250f6e65533869b5d1491",
-  "fetched_at": "2026-09-19T20:08:31Z",
+  "fetched_at": "2026-09-19T21:17:11Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -419,7 +419,7 @@
   "bytes": 5690,
   "lines": 75,
   "sha256": "5853834b13f16a210a1a76b2359612432ecb42d8567d90780b2534ce2be7b475",
-  "fetched_at": "2026-09-19T20:08:32Z",
+  "fetched_at": "2026-09-19T21:17:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -443,7 +443,7 @@
   "bytes": 39201,
   "lines": 1023,
   "sha256": "f058d2a4bb9c243db5176cec0e2d22b622e4adf80321b2c3dbaee8da6e61365e",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -467,7 +467,7 @@
   "bytes": 4478,
   "lines": 112,
   "sha256": "cd2ff4f10c788c64b2daf2413e0495a022b5a9f983257526eed09b0f80c69718",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -491,7 +491,7 @@
   "bytes": 990,
   "lines": 29,
   "sha256": "785822be296d0941f17ff482f98235ed0034d3b061a2468681f1aeb35bddf97f",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -515,7 +515,7 @@
   "bytes": 40174,
   "lines": 315,
   "sha256": "a1f0b99033fdacbd5049bf39e09d6c397b3baec294f0d0b9711d4c6c0576bf20",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -539,7 +539,7 @@
   "bytes": 13606,
   "lines": 288,
   "sha256": "fefa01ba0fb6a5618abd759d8e865d52313bbe29aa63604709c5668851e69fff",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -563,7 +563,7 @@
   "bytes": 40064,
   "lines": 234,
   "sha256": "16bc45c5bbc8d24298970e93dd87a7493c78c73756dbf9e74fe43a08dad40752",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -587,7 +587,7 @@
   "bytes": 37386,
   "lines": 464,
   "sha256": "2b7a5563bc69f2f0e4932dc6b145805bf7ec0cf7f3e065896a6cfb77aa97b5ea",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -611,7 +611,7 @@
   "bytes": 5216,
   "lines": 102,
   "sha256": "2bfeb468fef8b03a8a4125c9b3ee348e3deb0a4a2de346016acee59868535de8",
-  "fetched_at": "2026-09-19T20:18:25Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -642,10 +642,10 @@
   "status": 200,
   "content_type": "text/html; charset=utf-8",
   "final_url": "https://www.mintlify.com/blog/install-md-standard-for-llm-executable-installation",
-  "bytes": 209455,
+  "bytes": 209369,
   "lines": 312,
-  "sha256": "3df36c00263c39e8cc0e616070042eda867182d435b9bb885af0a17126d32d01",
-  "fetched_at": "2026-09-19T20:18:26Z",
+  "sha256": "1eb0020661d95d01db86ef012ec6b4946d5f58cbe40d8e896bca9c83a1069e91",
+  "fetched_at": "2026-09-19T21:17:15Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -669,7 +669,7 @@
   "bytes": 611,
   "lines": 14,
   "sha256": "f0b1686de1bcfffce9c1932034fbbd60de7aac1f0ac754e9475013b54c0bff13",
-  "fetched_at": "2026-09-19T20:18:27Z",
+  "fetched_at": "2026-09-19T21:17:16Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -688,7 +688,7 @@
   "bytes": 689,
   "lines": 14,
   "sha256": "280b473e2cf2f2e130bc5778f168242ef60540cbe6b5f8cbc32ef43757df1cea",
-  "fetched_at": "2026-09-19T20:18:29Z",
+  "fetched_at": "2026-09-19T21:17:18Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -707,7 +707,7 @@
   "bytes": 605,
   "lines": 14,
   "sha256": "600cb08e8d22bae7a7c4a280b93538d487c537a27c3c09c11f3029cf867f78f2",
-  "fetched_at": "2026-09-19T20:18:30Z",
+  "fetched_at": "2026-09-19T21:17:19Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -726,7 +726,7 @@
   "bytes": 667,
   "lines": 14,
   "sha256": "ecde9c08145546539ac76594c791de7c26848a1e6e02efabd0a5c2b60c111d3f",
-  "fetched_at": "2026-09-19T20:18:32Z",
+  "fetched_at": "2026-09-19T21:17:20Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -745,7 +745,7 @@
   "bytes": 615,
   "lines": 14,
   "sha256": "8064dd78f9ea6053cb51c46540199e1b67ee5c6c8fc564119f4b71593f3bcc84",
-  "fetched_at": "2026-09-19T20:18:33Z",
+  "fetched_at": "2026-09-19T21:17:21Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -764,7 +764,7 @@
   "bytes": 19243,
   "lines": 189,
   "sha256": "0083059325267c380f4db0f8091176188273ebbb29d770903ad7187777bf1237",
-  "fetched_at": "2026-09-19T20:18:33Z",
+  "fetched_at": "2026-09-19T21:17:21Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -798,7 +798,7 @@
   "bytes": 19607,
   "lines": 130,
   "sha256": "bd6ad261059791c9703a8a277f42660fa3c6a962b9d66e62bd9f0df7b91bcd89",
-  "fetched_at": "2026-09-19T20:18:34Z",
+  "fetched_at": "2026-09-19T21:17:22Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -822,7 +822,7 @@
   "bytes": 92159,
   "lines": 707,
   "sha256": "2039c9bb6968b3c326bb4d856af14a5f82a1b6157e1e32f8182330a086a1f543",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -846,7 +846,7 @@
   "bytes": 17112,
   "lines": 554,
   "sha256": "caa2e400dbb98e87a0ebd4bb44344cb08f32f78ae5025d62d2a7ac5c70855d42",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -870,7 +870,7 @@
   "bytes": 23301,
   "lines": 753,
   "sha256": "0c0a74c71240057915b53f5c1b30e18dc965a59d3c6574fe366cb306251150ea",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -899,7 +899,7 @@
   "bytes": 113197,
   "lines": 1785,
   "sha256": "0686b41067fd437abbde4b473c394fe2365e5ad2ae81c21b9f988735359c9666",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -928,7 +928,7 @@
   "bytes": 15097,
   "lines": 275,
   "sha256": "80f529a79a5e33686e0db325d74b6dc26217aa0e19ee86778b16a9c86c6a6e01",
-  "fetched_at": "2026-09-19T20:18:36Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -957,7 +957,7 @@
   "bytes": 41902,
   "lines": 1286,
   "sha256": "bc0c6cfeb2fa3ea6d8074233040902e3f3ad864308f0cb57085ac805a9787477",
-  "fetched_at": "2026-09-19T20:18:36Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -981,7 +981,7 @@
   "bytes": 1781,
   "lines": 61,
   "sha256": "ba0bfc2f0dde9d780e29ad2b37446eeeff7c760052682c0f25e592a02bbffecf",
-  "fetched_at": "2026-09-19T20:18:36Z",
+  "fetched_at": "2026-09-19T21:17:25Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1005,7 +1005,7 @@
   "bytes": 24224,
   "lines": 598,
   "sha256": "31a3f1b02d941f4ccefd0c79399f82c412d382b6865b5c0f9f3ddf22aeeb5ca1",
-  "fetched_at": "2026-09-19T20:18:37Z",
+  "fetched_at": "2026-09-19T21:17:25Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1029,7 +1029,7 @@
   "bytes": 13917,
   "lines": 506,
   "sha256": "a8c9af4721d0553baa517c4fbd3f064fceadc18bf37bf2def649b5ace3d89d6c",
-  "fetched_at": "2026-09-19T20:18:37Z",
+  "fetched_at": "2026-09-19T21:17:26Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1058,7 +1058,7 @@
   "bytes": 10342,
   "lines": 261,
   "sha256": "431f81e535b0b7c17e7b628f590194fd7f1a4e4209b870d003f6db0b05e611c0",
-  "fetched_at": "2026-09-19T20:18:38Z",
+  "fetched_at": "2026-09-19T21:17:26Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1087,7 +1087,7 @@
   "bytes": 720,
   "lines": 1,
   "sha256": "f095c3be945779297aaf2e41e85ac0fee21f557d2b1ecf26464bf7382a51e821",
-  "fetched_at": "2026-09-19T20:18:39Z",
+  "fetched_at": "2026-09-19T21:17:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1111,7 +1111,7 @@
   "bytes": 8642,
   "lines": 172,
   "sha256": "f0dd6672a09f88f71b0f9ad432185ed34876781aff94db47515648fe2267e01f",
-  "fetched_at": "2026-09-19T20:18:39Z",
+  "fetched_at": "2026-09-19T21:17:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1135,7 +1135,7 @@
   "bytes": 3859,
   "lines": 97,
   "sha256": "f34b8730d2b61617045c61ea2d9bf3ab08561305bfac77ea061e755bf46aeac2",
-  "fetched_at": "2026-09-19T20:18:39Z",
+  "fetched_at": "2026-09-19T21:17:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1159,7 +1159,7 @@
   "bytes": 8157,
   "lines": 274,
   "sha256": "2b1dbb4fd80c31748d15812c4ebd3e66c09383d0c792801f617718684489e40d",
-  "fetched_at": "2026-09-19T20:18:40Z",
+  "fetched_at": "2026-09-19T21:17:28Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1183,7 +1183,7 @@
   "bytes": 81690,
   "lines": 0,
   "sha256": "cedbb3c7eb76aea08d83573531e05c9cfa3ac5f83b69c2968c554bc192e3ec4d",
-  "fetched_at": "2026-09-19T20:18:40Z",
+  "fetched_at": "2026-09-19T21:17:28Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -1207,7 +1207,7 @@
   "bytes": 81690,
   "lines": 0,
   "sha256": "cedbb3c7eb76aea08d83573531e05c9cfa3ac5f83b69c2968c554bc192e3ec4d",
-  "fetched_at": "2026-09-19T20:18:40Z",
+  "fetched_at": "2026-09-19T21:17:28Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -1231,7 +1231,7 @@
   "bytes": 1280,
   "lines": 49,
   "sha256": "711c532904ca42142f6c2e6d4b69a96c059bad7a49cdd4b2f4435b6910eda46e",
-  "fetched_at": "2026-09-19T20:20:25Z",
+  "fetched_at": "2026-09-19T21:17:29Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1255,7 +1255,7 @@
   "bytes": 990,
   "lines": 29,
   "sha256": "785822be296d0941f17ff482f98235ed0034d3b061a2468681f1aeb35bddf97f",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1284,7 +1284,7 @@
   "bytes": 1676,
   "lines": 23,
   "sha256": "70c9177e2461eaa3c00a3d02c90e5e84f806e030933e60cabed6307929975489",
-  "fetched_at": "2026-09-19T20:18:42Z",
+  "fetched_at": "2026-09-19T21:17:29Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1308,7 +1308,7 @@
   "bytes": 3531,
   "lines": 61,
   "sha256": "ff59893696ad293107901ad21769f619b064d0ddd450f193a20c2e6faca3ec81",
-  "fetched_at": "2026-09-19T20:18:42Z",
+  "fetched_at": "2026-09-19T21:17:30Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1331,8 +1331,8 @@
   "final_url": "https://developer.chrome.com/docs/lighthouse/agentic-browsing/llms-txt",
   "bytes": 109273,
   "lines": 3919,
-  "sha256": "9e78940a32862fc4a483ae26051fb34221e4526276b4ac5534bb344d2613463c",
-  "fetched_at": "2026-09-19T20:18:43Z",
+  "sha256": "0ac7115bb2ec521bd922c2ed5631224cbeffd7f3224c4fdf0b3792b9f472785f",
+  "fetched_at": "2026-09-19T21:17:30Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -1356,7 +1356,7 @@
   "bytes": 5049,
   "lines": 66,
   "sha256": "a9dc02d3456a6b79752c83a7fd6f7fdf35f15df4ee853e67d52429ac2e5b852a",
-  "fetched_at": "2026-09-19T20:08:29Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1390,7 +1390,7 @@
   "bytes": 13606,
   "lines": 288,
   "sha256": "fefa01ba0fb6a5618abd759d8e865d52313bbe29aa63604709c5668851e69fff",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1434,7 +1434,7 @@
   "bytes": 2177,
   "lines": 41,
   "sha256": "8947e976ba425a1922e1355cd42ad661ba676d3247c593f55d39a0133756cf36",
-  "fetched_at": "2026-09-19T20:18:44Z",
+  "fetched_at": "2026-09-19T21:17:31Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1458,7 +1458,7 @@
   "bytes": 9922,
   "lines": 156,
   "sha256": "e4eec32c94725f49b9194827b8bf8276d54273f6262f231fd4a32cdc26bd5f66",
-  "fetched_at": "2026-09-19T20:18:44Z",
+  "fetched_at": "2026-09-19T21:17:31Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1487,7 +1487,7 @@
   "bytes": 117610,
   "lines": 1533,
   "sha256": "d872a8aded51160476e935bad371f10a06e31d244f23f3f4f28f057c0f0ca36e",
-  "fetched_at": "2026-09-19T20:18:45Z",
+  "fetched_at": "2026-09-19T21:17:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1518,10 +1518,10 @@
   "status": 200,
   "content_type": "application/json",
   "final_url": "https://docs.browserbase.com/.well-known/agent-skills/index.json",
-  "bytes": 571,
+  "bytes": 587,
   "lines": 0,
-  "sha256": "124ef76c405b74a023a0c9af3f6a4f0306b702e83d8b32d082d98cfbb2682f6c",
-  "fetched_at": "2026-09-19T20:18:45Z",
+  "sha256": "7cb26cb06591edef969282b692bb313d49203182d45532c9bc0b72b55f7b47b4",
+  "fetched_at": "2026-09-19T21:17:33Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1545,7 +1545,7 @@
   "bytes": 612,
   "lines": 0,
   "sha256": "2cd39b705c320a13ef242c6359dfdd3b02e271faea4c1b3bac551080e6387ccc",
-  "fetched_at": "2026-09-19T20:18:46Z",
+  "fetched_at": "2026-09-19T21:17:33Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1569,7 +1569,7 @@
   "bytes": 9908,
   "lines": 0,
   "sha256": "b60705d9109988416195b8b4b40f96c9dc277d1aa04ae6dafc12233037aa8742",
-  "fetched_at": "2026-09-19T20:18:46Z",
+  "fetched_at": "2026-09-19T21:17:34Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1593,7 +1593,7 @@
   "bytes": 589,
   "lines": 0,
   "sha256": "9672f89738f433a66d739cfbe829a1d69a2922ecbe2d8733d1830c45425140ff",
-  "fetched_at": "2026-09-19T20:18:48Z",
+  "fetched_at": "2026-09-19T21:17:34Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1617,7 +1617,7 @@
   "bytes": 23881,
   "lines": 0,
   "sha256": "69e1ca71a9303b0e1d489944b34a49f2fd5dda2f8dbbdf42d7738581af2c3841",
-  "fetched_at": "2026-09-19T20:18:48Z",
+  "fetched_at": "2026-09-19T21:17:34Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -1636,7 +1636,7 @@
   "bytes": 7669,
   "lines": 0,
   "sha256": "d3d81cd8044d25af90bb0fb16e5e8636f16bb1bcf3677e445e2c84e7d836891d",
-  "fetched_at": "2026-09-19T20:18:49Z",
+  "fetched_at": "2026-09-19T21:17:35Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1660,7 +1660,7 @@
   "bytes": 14369,
   "lines": 263,
   "sha256": "f239f3bc3b4f06e3f70608a3b0a0b04b2b4b36c2ffd174fa57f30628c4feee69",
-  "fetched_at": "2026-09-19T20:18:49Z",
+  "fetched_at": "2026-09-19T21:17:36Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1684,7 +1684,7 @@
   "bytes": 11871,
   "lines": 202,
   "sha256": "9fae6f67048ebe6d16f94f99b3d1529a6b9164fd3d33fbe344e5be8da019edc9",
-  "fetched_at": "2026-09-19T20:18:50Z",
+  "fetched_at": "2026-09-19T21:17:36Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1708,7 +1708,7 @@
   "bytes": 12101,
   "lines": 247,
   "sha256": "2c13281cd9814ea800508aa9aaeecc9fa01a1719c7a6a240ba2e8dfaccb00db2",
-  "fetched_at": "2026-09-19T20:18:51Z",
+  "fetched_at": "2026-09-19T21:17:37Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1732,7 +1732,7 @@
   "bytes": 5972,
   "lines": 169,
   "sha256": "7ceb657892bdfa5d7a32f1168411fcaeb63c2f6ab41a5f0c45116a0a3f3a6bf4",
-  "fetched_at": "2026-09-19T20:18:52Z",
+  "fetched_at": "2026-09-19T21:17:38Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1760,8 +1760,8 @@
   "final_url": "https://redmonk.com/kholterhoff/2026/02/03/ai-slopageddon-and-the-oss-maintainers/",
   "bytes": 98221,
   "lines": 620,
-  "sha256": "97dfc9015f27c4d4f05b13f2c6eeda2d2914b919e79f784e25913adf9017b068",
-  "fetched_at": "2026-09-19T20:18:52Z",
+  "sha256": "36ce8662c6d386250c4135e943738a4d2fb07b55603e3dc3a6da6fc8d060c967",
+  "fetched_at": "2026-09-19T21:17:39Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -1785,7 +1785,7 @@
   "bytes": 2622,
   "lines": 39,
   "sha256": "205b46a2a743aaec47ea46ef7787dfae72eaa9dee4529fba4c635109c8cada9a",
-  "fetched_at": "2026-09-19T20:18:53Z",
+  "fetched_at": "2026-09-19T21:17:39Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1809,7 +1809,7 @@
   "bytes": 2497222,
   "lines": 76755,
   "sha256": "87d332277461a21178f4bba80b7159feba94e83238f7cc34690d359dbc1dae23",
-  "fetched_at": "2026-09-19T20:18:54Z",
+  "fetched_at": "2026-09-19T21:17:40Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1833,7 +1833,7 @@
   "bytes": 856608,
   "lines": 17659,
   "sha256": "e02074f44b8a06eea0b2cb955f77d0cd7c46aa4090e16b5cea244c82062d131d",
-  "fetched_at": "2026-09-19T20:18:55Z",
+  "fetched_at": "2026-09-19T21:17:41Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1857,7 +1857,7 @@
   "bytes": 2074,
   "lines": 61,
   "sha256": "bed65b89df64aa5f84bcdd98327fbaea3bb67e0dd6b94fdf9d744e6518503c3a",
-  "fetched_at": "2026-09-19T20:18:56Z",
+  "fetched_at": "2026-09-19T21:17:42Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1881,7 +1881,7 @@
   "bytes": 27938,
   "lines": 294,
   "sha256": "5d6ebb186e53cee5725a3886a6f559af6764c0d3c8567cbba7ff870ec4134847",
-  "fetched_at": "2026-09-19T20:18:56Z",
+  "fetched_at": "2026-09-19T21:17:42Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1905,7 +1905,7 @@
   "bytes": 21371,
   "lines": 334,
   "sha256": "41fa4180aa131408c7e52ca737bdfe38bc622fca337faa25fc96de630587e4d9",
-  "fetched_at": "2026-09-19T20:18:57Z",
+  "fetched_at": "2026-09-19T21:17:43Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1929,7 +1929,7 @@
   "bytes": 2792,
   "lines": 50,
   "sha256": "923214d2376e8b53657d52006b595cf4deccbc120ce33d02ab8ddcba85b18f98",
-  "fetched_at": "2026-09-19T20:18:57Z",
+  "fetched_at": "2026-09-19T21:17:43Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1953,7 +1953,7 @@
   "bytes": 6342,
   "lines": 93,
   "sha256": "a4a8a6a6d1926c43d128e3ce51e908c7c46b4ff1ac099ccf08ca7ec6159c46e6",
-  "fetched_at": "2026-09-19T20:18:57Z",
+  "fetched_at": "2026-09-19T21:17:43Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -1982,7 +1982,7 @@
   "bytes": 15805,
   "lines": 260,
   "sha256": "50b2de2118b265a5c4eb993adeffa9e084c66f0e1bb847f1a1cdf02d498588af",
-  "fetched_at": "2026-09-19T20:18:58Z",
+  "fetched_at": "2026-09-19T21:17:43Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2006,7 +2006,7 @@
   "bytes": 8981,
   "lines": 148,
   "sha256": "e6ae5c953a8bf1d764fd6705bb553550faf4ac38aca0c4ca8c54e0083df4723e",
-  "fetched_at": "2026-09-19T20:18:58Z",
+  "fetched_at": "2026-09-19T21:17:44Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2030,7 +2030,7 @@
   "bytes": 33460,
   "lines": 834,
   "sha256": "2962d1bd852f8e8fd78a978f290a48da8369dab03a324b3548be9153f2eb34db",
-  "fetched_at": "2026-09-19T20:19:00Z",
+  "fetched_at": "2026-09-19T21:17:46Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2059,7 +2059,7 @@
   "bytes": 39201,
   "lines": 1023,
   "sha256": "f058d2a4bb9c243db5176cec0e2d22b622e4adf80321b2c3dbaee8da6e61365e",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2088,7 +2088,7 @@
   "bytes": 12167,
   "lines": 186,
   "sha256": "baf9fe6b5d79ff07a7601bc2881684bc87594a51a3d349fdf2bfb6bb1b8353a7",
-  "fetched_at": "2026-09-19T20:19:00Z",
+  "fetched_at": "2026-09-19T21:17:46Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2112,7 +2112,7 @@
   "bytes": 10273,
   "lines": 193,
   "sha256": "946daa56bdb91c3666a8aa39f1155bd20ab03f263684058968f276d27b30caf1",
-  "fetched_at": "2026-09-19T20:19:00Z",
+  "fetched_at": "2026-09-19T21:17:47Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2136,7 +2136,7 @@
   "bytes": 13114,
   "lines": 116,
   "sha256": "87d34f7660ccfa76f16ca975ff658fa5a58fe00fa106d787ebb418d5564d51b0",
-  "fetched_at": "2026-09-19T20:19:00Z",
+  "fetched_at": "2026-09-19T21:17:47Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2160,7 +2160,7 @@
   "bytes": 13274,
   "lines": 0,
   "sha256": "5da7a6a4bf0e32cf211092fcf2e3992f0536b43e4bc7e28629c601fffc3ff9f3",
-  "fetched_at": "2026-09-19T20:19:01Z",
+  "fetched_at": "2026-09-19T21:17:47Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2184,7 +2184,7 @@
   "bytes": 2037,
   "lines": 27,
   "sha256": "75254e2fd431ef6bfda0af5febd7bde36f787151cc8b3aefd3eeef21b5785321",
-  "fetched_at": "2026-09-19T20:19:01Z",
+  "fetched_at": "2026-09-19T21:17:47Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2208,7 +2208,7 @@
   "bytes": 9777,
   "lines": 205,
   "sha256": "f540fcca690dc8407cb98a681fffa527f0e73e094de117edbce2fd3dee656f8f",
-  "fetched_at": "2026-09-19T20:19:02Z",
+  "fetched_at": "2026-09-19T21:17:48Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2232,7 +2232,7 @@
   "bytes": 17702,
   "lines": 256,
   "sha256": "39c5ed08fbaabfac70cded13e21e63bd9d13a1ae3db9c956cf2989a9191b1c1f",
-  "fetched_at": "2026-09-19T20:19:03Z",
+  "fetched_at": "2026-09-19T21:17:49Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2256,7 +2256,7 @@
   "bytes": 102795,
   "lines": 498,
   "sha256": "f4ef11cb428f6c173bc9e69b63e3447c5112fa948f9919b91687f1ad9b66e107",
-  "fetched_at": "2026-09-19T20:19:04Z",
+  "fetched_at": "2026-09-19T21:17:49Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2280,7 +2280,7 @@
   "bytes": 2217,
   "lines": 46,
   "sha256": "104d1fb0c75d3ea9a276610421905582dbfb4097bce2d00cd3adb3b192a8c7e6",
-  "fetched_at": "2026-09-19T20:08:19Z",
+  "fetched_at": "2026-09-19T21:17:03Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2309,7 +2309,7 @@
   "bytes": 5150,
   "lines": 162,
   "sha256": "5f99b56ef5791671f1b8407e2d9d6ee6264c06c86e596e3e187e9a3c9818830d",
-  "fetched_at": "2026-09-19T20:19:04Z",
+  "fetched_at": "2026-09-19T21:17:49Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2333,7 +2333,7 @@
   "bytes": 11618,
   "lines": 167,
   "sha256": "deb884197da93601adb970011d4b310560509e24b3e250f6e65533869b5d1491",
-  "fetched_at": "2026-09-19T20:08:31Z",
+  "fetched_at": "2026-09-19T21:17:11Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2357,7 +2357,7 @@
   "bytes": 14386,
   "lines": 261,
   "sha256": "aa79ae7f284e99b1e51bffaeedbfdc9927fa2d6fecc737596a31487ca4666d57",
-  "fetched_at": "2026-09-19T20:19:04Z",
+  "fetched_at": "2026-09-19T21:17:50Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2381,7 +2381,7 @@
   "bytes": 11780,
   "lines": 337,
   "sha256": "3cacd14eadc7ae26a2235e7b821808437f172390ff086195089d2c8dcb9a688c",
-  "fetched_at": "2026-09-19T20:19:06Z",
+  "fetched_at": "2026-09-19T21:17:51Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2410,7 +2410,7 @@
   "bytes": 1484,
   "lines": 35,
   "sha256": "9c37f883e6d2e96eb054bf3aee9bdba0b851dd120e4433c57ab97a654c4b312d",
-  "fetched_at": "2026-09-19T20:08:24Z",
+  "fetched_at": "2026-09-19T21:17:06Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2434,7 +2434,7 @@
   "bytes": 7866,
   "lines": 188,
   "sha256": "841d3a493f6551fa9eaf09adbc85fa9888037295f94bcc930017e3c8a6834f7d",
-  "fetched_at": "2026-09-19T20:19:08Z",
+  "fetched_at": "2026-09-19T21:17:53Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2458,7 +2458,7 @@
   "bytes": 18314,
   "lines": 517,
   "sha256": "0904781095a02900e428f1ef4750fb7234f01486bee7e628048192a4ba03bed2",
-  "fetched_at": "2026-09-19T20:19:08Z",
+  "fetched_at": "2026-09-19T21:17:53Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2482,7 +2482,7 @@
   "bytes": 113430,
   "lines": 69,
   "sha256": "b7799a0d7c26276b9c2215f02ebfc319706762172800ba0794e9a7763731228c",
-  "fetched_at": "2026-09-19T20:20:26Z",
+  "fetched_at": "2026-09-19T21:17:53Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -2506,7 +2506,7 @@
   "bytes": 3317,
   "lines": 40,
   "sha256": "8984e53e0a4f63f52df460fdb72471c025e6e532c62c7e64ab7cce763dcb956d",
-  "fetched_at": "2026-09-19T20:19:09Z",
+  "fetched_at": "2026-09-19T21:17:54Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2535,7 +2535,7 @@
   "bytes": 14386,
   "lines": 261,
   "sha256": "aa79ae7f284e99b1e51bffaeedbfdc9927fa2d6fecc737596a31487ca4666d57",
-  "fetched_at": "2026-09-19T20:19:04Z",
+  "fetched_at": "2026-09-19T21:17:50Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2559,7 +2559,7 @@
   "bytes": 5453,
   "lines": 89,
   "sha256": "f175e0246d95d56f8eb65a814623881a9b7ebf9c4963b18d660b53f98051c910",
-  "fetched_at": "2026-09-19T20:19:10Z",
+  "fetched_at": "2026-09-19T21:17:55Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2583,7 +2583,7 @@
   "bytes": 14247,
   "lines": 233,
   "sha256": "372e020055522d84a54f478431ea15b18dc84265450baaf8e8ca2f34af613316",
-  "fetched_at": "2026-09-19T20:08:28Z",
+  "fetched_at": "2026-09-19T21:17:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2617,7 +2617,7 @@
   "bytes": 4011,
   "lines": 73,
   "sha256": "4a423c5731c7d36e8cf5c976c37862095acaee95460b5df1e467f398b49f219f",
-  "fetched_at": "2026-09-19T20:19:11Z",
+  "fetched_at": "2026-09-19T21:17:55Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2641,7 +2641,7 @@
   "bytes": 15073,
   "lines": 388,
   "sha256": "c736799721eb40c7b0ddd121ee7a9fd3626fba4842a906eb4dc88b7a0adf4656",
-  "fetched_at": "2026-09-19T20:08:23Z",
+  "fetched_at": "2026-09-19T21:17:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2680,7 +2680,7 @@
   "bytes": 4900,
   "lines": 121,
   "sha256": "706c8039c8c2fc9aa3d6dbdf1656f072ea1f03a807ef18529870af725b08ba8a",
-  "fetched_at": "2026-09-19T20:19:11Z",
+  "fetched_at": "2026-09-19T21:17:55Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2704,7 +2704,7 @@
   "bytes": 6527,
   "lines": 235,
   "sha256": "00395bc88edb76593f446b3780a1829e3cbb9a694385481a1f502a504f22ae5f",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2758,7 +2758,7 @@
   "bytes": 26130,
   "lines": 536,
   "sha256": "54dabed97d84c99c46d89ccba578367d8bb084583724f13611675d71183e5ac6",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:10Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2782,7 +2782,7 @@
   "bytes": 21414,
   "lines": 672,
   "sha256": "822d5bdbb43e31f2a97569970ddad9b18a2d0c4e5027c9f2c8ba400bcf447af2",
-  "fetched_at": "2026-09-19T20:19:11Z",
+  "fetched_at": "2026-09-19T21:17:56Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2811,7 +2811,7 @@
   "bytes": 6818,
   "lines": 147,
   "sha256": "e44538654e470bdef70244059ebbbe5b732ade874b110952bf209df9262aa4f3",
-  "fetched_at": "2026-09-19T20:19:12Z",
+  "fetched_at": "2026-09-19T21:17:56Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2850,7 +2850,7 @@
   "bytes": 4967,
   "lines": 123,
   "sha256": "e7767c121e5a33218cf4af731135e530d98abc77a87bebf188722bb3caed0c04",
-  "fetched_at": "2026-09-19T20:08:20Z",
+  "fetched_at": "2026-09-19T21:17:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2884,7 +2884,7 @@
   "bytes": 2474,
   "lines": 66,
   "sha256": "7d51dfbe8b0882dc42d3d6b54cc587b8b52ac575f5dd686665c7e6b4ab8db95c",
-  "fetched_at": "2026-09-19T20:19:12Z",
+  "fetched_at": "2026-09-19T21:17:57Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2913,7 +2913,7 @@
   "bytes": 5715,
   "lines": 82,
   "sha256": "3eae7856cb486f89c6c08c653442a798b85811814422bf19f98a5c80cdd038c7",
-  "fetched_at": "2026-09-19T20:19:13Z",
+  "fetched_at": "2026-09-19T21:17:57Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2937,7 +2937,7 @@
   "bytes": 19373,
   "lines": 515,
   "sha256": "e4725a60cc3fa934e4869f53cde3e80d9ab3cf45c9ad8213ad3e602925732656",
-  "fetched_at": "2026-09-19T20:19:13Z",
+  "fetched_at": "2026-09-19T21:17:58Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2966,7 +2966,7 @@
   "bytes": 5553,
   "lines": 127,
   "sha256": "30fc1d8aa934a13ab1e2562991dccc50896356fa0d75f1d8e17b4e79e8194390",
-  "fetched_at": "2026-09-19T20:19:14Z",
+  "fetched_at": "2026-09-19T21:17:58Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -2990,7 +2990,7 @@
   "bytes": 4445,
   "lines": 50,
   "sha256": "8e081a7814f865b6aec3995fe74ce8e23553dcbd7e2433a8ddacda49c0f23c6e",
-  "fetched_at": "2026-09-19T20:08:20Z",
+  "fetched_at": "2026-09-19T21:17:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3014,7 +3014,7 @@
   "bytes": 21354,
   "lines": 615,
   "sha256": "9d01426a193fc7d61dcb2c94b4989bc7bcfa08845d3323ffdf98709b0e4a7d9d",
-  "fetched_at": "2026-09-19T20:19:15Z",
+  "fetched_at": "2026-09-19T21:17:59Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3038,7 +3038,7 @@
   "bytes": 21354,
   "lines": 615,
   "sha256": "9d01426a193fc7d61dcb2c94b4989bc7bcfa08845d3323ffdf98709b0e4a7d9d",
-  "fetched_at": "2026-09-19T20:19:15Z",
+  "fetched_at": "2026-09-19T21:17:59Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3059,10 +3059,10 @@
   "status": 200,
   "content_type": "text/markdown; charset=utf-8",
   "final_url": "https://developers.cloudflare.com/agent-setup/visual-studio-code/index.md",
-  "bytes": 20197,
+  "bytes": 20217,
   "lines": 310,
-  "sha256": "2c4514f2c885ebdaec9d369e817a0e02f9e30f87ff9809bcd752ef0087ab999f",
-  "fetched_at": "2026-09-19T20:19:15Z",
+  "sha256": "6d07db44eb524eca368c954b4455705b4882637deb5fcfa1b7aea6bcb54c9d57",
+  "fetched_at": "2026-09-19T21:17:59Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3086,7 +3086,7 @@
   "bytes": 18997,
   "lines": 678,
   "sha256": "4cfce605c50058c780afeaa002123d4f064ccae1d6805f5dcef23ab9e0271c22",
-  "fetched_at": "2026-09-19T20:19:15Z",
+  "fetched_at": "2026-09-19T21:18:00Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3115,7 +3115,7 @@
   "bytes": 18340,
   "lines": 213,
   "sha256": "f7d6c09976ab8be9013d89c03b96bea75fe918476c47608c1f3b895147c2aa04",
-  "fetched_at": "2026-09-19T20:19:16Z",
+  "fetched_at": "2026-09-19T21:18:01Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3139,7 +3139,7 @@
   "bytes": 9424,
   "lines": 248,
   "sha256": "7687846ca1c58600f45dbf5ef36a7c86171ced88f7ae76d2ba7cb50d8b68a3e9",
-  "fetched_at": "2026-09-19T20:19:17Z",
+  "fetched_at": "2026-09-19T21:18:02Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3173,7 +3173,7 @@
   "bytes": 7539,
   "lines": 187,
   "sha256": "f5b33285c7b49910d926e8c3c7d5483bea4f0f4bad2ce19f789f2efa0b724d8c",
-  "fetched_at": "2026-09-19T20:19:17Z",
+  "fetched_at": "2026-09-19T21:18:02Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3197,7 +3197,7 @@
   "bytes": 9620,
   "lines": 159,
   "sha256": "c513b9ec9c006a85c63d6ad0c9fe49af3eaa517f8e59b66de0af6029ccafda13",
-  "fetched_at": "2026-09-19T20:19:18Z",
+  "fetched_at": "2026-09-19T21:18:03Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3225,8 +3225,8 @@
   "final_url": "https://code.visualstudio.com/api/extension-guides/ai/mcp",
   "bytes": 108902,
   "lines": 1562,
-  "sha256": "64aac83c045059513685569fd215f417fe9ea1f43b919c778bc8b1badcd138ee",
-  "fetched_at": "2026-09-19T20:19:18Z",
+  "sha256": "68d521d81fce542a450d44be6b8ed5eff03aac1bcb0d3b413f1c36c0cb0ca952",
+  "fetched_at": "2026-09-19T21:18:03Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -3250,7 +3250,7 @@
   "bytes": 18483,
   "lines": 310,
   "sha256": "57c891fef57b5b525aaf981f02e9b34a873f8cd522855d0e95d03e2d2c1cacea",
-  "fetched_at": "2026-09-19T20:19:19Z",
+  "fetched_at": "2026-09-19T21:18:03Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3274,7 +3274,7 @@
   "bytes": 856608,
   "lines": 17659,
   "sha256": "e02074f44b8a06eea0b2cb955f77d0cd7c46aa4090e16b5cea244c82062d131d",
-  "fetched_at": "2026-09-19T20:18:55Z",
+  "fetched_at": "2026-09-19T21:17:41Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3298,7 +3298,7 @@
   "bytes": 27375,
   "lines": 591,
   "sha256": "f1835e9d5cc091a82b3ea75ec93bdd96e3c8f86187358ca046a3ac3acdb3983b",
-  "fetched_at": "2026-09-19T20:19:19Z",
+  "fetched_at": "2026-09-19T21:18:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3322,7 +3322,7 @@
   "bytes": 7540,
   "lines": 123,
   "sha256": "19b4b81cbd6b391f71d66538a85b71fc8febcd2aa093f1062b7aa7b766ce4628",
-  "fetched_at": "2026-09-19T20:19:19Z",
+  "fetched_at": "2026-09-19T21:18:04Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3351,7 +3351,7 @@
   "bytes": 1997,
   "lines": 39,
   "sha256": "b859cafa1273570af0cde46849b68733a65c138bc1b470e76c08dd16dec402ab",
-  "fetched_at": "2026-09-19T20:19:20Z",
+  "fetched_at": "2026-09-19T21:18:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3385,7 +3385,7 @@
   "bytes": 1288,
   "lines": 69,
   "sha256": "21976dccd4ed3f8e361306bc22b35c356d9ee395a8a0a858726f8825e776d50f",
-  "fetched_at": "2026-09-19T20:19:21Z",
+  "fetched_at": "2026-09-19T21:18:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3409,7 +3409,7 @@
   "bytes": 5276,
   "lines": 86,
   "sha256": "111840fb3b2cdcea0f5d4fdddd0a3cf8f36b2b6408fdcb728466afa2edde81dd",
-  "fetched_at": "2026-09-19T20:19:21Z",
+  "fetched_at": "2026-09-19T21:18:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3433,7 +3433,7 @@
   "bytes": 21414,
   "lines": 672,
   "sha256": "822d5bdbb43e31f2a97569970ddad9b18a2d0c4e5027c9f2c8ba400bcf447af2",
-  "fetched_at": "2026-09-19T20:19:11Z",
+  "fetched_at": "2026-09-19T21:17:56Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3457,7 +3457,7 @@
   "bytes": 26130,
   "lines": 536,
   "sha256": "54dabed97d84c99c46d89ccba578367d8bb084583724f13611675d71183e5ac6",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:10Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3481,7 +3481,7 @@
   "bytes": 17147,
   "lines": 346,
   "sha256": "25864865b153816a68423e59e23aab3711fec53fe7a41dc4ba3d21f37dcec13a",
-  "fetched_at": "2026-09-19T20:19:22Z",
+  "fetched_at": "2026-09-19T21:18:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3505,7 +3505,7 @@
   "bytes": 6818,
   "lines": 147,
   "sha256": "e44538654e470bdef70244059ebbbe5b732ade874b110952bf209df9262aa4f3",
-  "fetched_at": "2026-09-19T20:19:12Z",
+  "fetched_at": "2026-09-19T21:17:56Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3529,7 +3529,7 @@
   "bytes": 4419,
   "lines": 87,
   "sha256": "0f91d8b6ca87fe55fb031b81c1e75c1ce177c5257b26944fb5c3e8b28d3b8fa1",
-  "fetched_at": "2026-09-19T20:19:22Z",
+  "fetched_at": "2026-09-19T21:18:05Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3553,7 +3553,7 @@
   "bytes": 3813,
   "lines": 154,
   "sha256": "580dd4a5d83ff356c6506c4598f8ea9730f52f93eaef59c269598a274751ae23",
-  "fetched_at": "2026-09-19T20:19:23Z",
+  "fetched_at": "2026-09-19T21:18:06Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3582,7 +3582,7 @@
   "bytes": 39737,
   "lines": 410,
   "sha256": "77e7e9248782e592759833144acc29da7c2afa4b166e2803045ff2923735a8f9",
-  "fetched_at": "2026-09-19T20:08:25Z",
+  "fetched_at": "2026-09-19T21:17:06Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3606,7 +3606,7 @@
   "bytes": 16868,
   "lines": 410,
   "sha256": "8f6b54387a93616c82e2087ac5f2198c150832406c4c280880a7350e610c5e7e",
-  "fetched_at": "2026-09-19T20:19:23Z",
+  "fetched_at": "2026-09-19T21:18:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3630,7 +3630,7 @@
   "bytes": 29583,
   "lines": 732,
   "sha256": "4fb8b6812b90b83bb2f430d28d9aa70eca6aba684587518578d96e85884a98fa",
-  "fetched_at": "2026-09-19T20:19:25Z",
+  "fetched_at": "2026-09-19T21:18:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3654,7 +3654,7 @@
   "bytes": 81998,
   "lines": 796,
   "sha256": "84b1f2a4db8054b4857795a79e46cf42d4c98f40a7a852842aeda64ad4fa16e0",
-  "fetched_at": "2026-09-19T20:19:26Z",
+  "fetched_at": "2026-09-19T21:18:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3678,7 +3678,7 @@
   "bytes": 55257,
   "lines": 807,
   "sha256": "c7fa7ac9aa8656446e95b428de8be35510b9203ea001d5c85c2a313f51f7f24e",
-  "fetched_at": "2026-09-19T20:19:26Z",
+  "fetched_at": "2026-09-19T21:18:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3717,7 +3717,7 @@
   "bytes": 5547,
   "lines": 78,
   "sha256": "864e110a36c00975e5c5ddec68163dd0b5347b126a46d84d7369a2bbdbdb7754",
-  "fetched_at": "2026-09-19T20:19:27Z",
+  "fetched_at": "2026-09-19T21:18:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3741,7 +3741,7 @@
   "bytes": 3371,
   "lines": 37,
   "sha256": "085455bdcd8dbfb880fe2a08f16fc8620a11b5094557196cc50082c65e6407d7",
-  "fetched_at": "2026-09-19T20:19:27Z",
+  "fetched_at": "2026-09-19T21:18:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3765,7 +3765,7 @@
   "bytes": 92159,
   "lines": 707,
   "sha256": "2039c9bb6968b3c326bb4d856af14a5f82a1b6157e1e32f8182330a086a1f543",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3789,7 +3789,7 @@
   "bytes": 45940,
   "lines": 442,
   "sha256": "1a273d0b85bf9166a8f786794647c522de7794c32992af4be9d6a0ee3c3f5f9c",
-  "fetched_at": "2026-09-19T20:19:27Z",
+  "fetched_at": "2026-09-19T21:18:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3813,7 +3813,7 @@
   "bytes": 4726,
   "lines": 64,
   "sha256": "070dfe67479a3a0454afd3700b5d1f4cc277d340ae0b08aa007b7131066f1af0",
-  "fetched_at": "2026-09-19T20:19:27Z",
+  "fetched_at": "2026-09-19T21:18:10Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3852,7 +3852,7 @@
   "bytes": 163576,
   "lines": 1472,
   "sha256": "bb4a872649190d3aadd22ba2e4f38258b31873710acd6455025b046c00f5ef7d",
-  "fetched_at": "2026-09-19T20:19:28Z",
+  "fetched_at": "2026-09-19T21:18:11Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3876,7 +3876,7 @@
   "bytes": 5534,
   "lines": 81,
   "sha256": "a9348c5bff8088eb21aab58f3339c19aa9c920c7f2c210bda76dbf2940af8b52",
-  "fetched_at": "2026-09-19T20:19:29Z",
+  "fetched_at": "2026-09-19T21:18:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3905,7 +3905,7 @@
   "bytes": 7657,
   "lines": 175,
   "sha256": "ae1c1b9d5e339722bd6b4af8ea8f8108746a5b0f45b1b626582df68a186138a6",
-  "fetched_at": "2026-09-19T20:19:30Z",
+  "fetched_at": "2026-09-19T21:18:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3929,7 +3929,7 @@
   "bytes": 8217,
   "lines": 161,
   "sha256": "7f9f0734d1d02f3f15804447727cf2d9ecf97a5bbaa271c6f5645bd6e4bb9cf3",
-  "fetched_at": "2026-09-19T20:08:27Z",
+  "fetched_at": "2026-09-19T21:17:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3968,7 +3968,7 @@
   "bytes": 40174,
   "lines": 315,
   "sha256": "a1f0b99033fdacbd5049bf39e09d6c397b3baec294f0d0b9711d4c6c0576bf20",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -3992,7 +3992,7 @@
   "bytes": 110008,
   "lines": 630,
   "sha256": "72201e1682f1bdc04bcf7b892e072da1427094c84b2b26c20829e11cc23f2406",
-  "fetched_at": "2026-09-19T20:19:30Z",
+  "fetched_at": "2026-09-19T21:18:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4016,7 +4016,7 @@
   "bytes": 7686,
   "lines": 166,
   "sha256": "daec042c0427e068da28fcbbdb5d5db54f1d04ac7490c1985639a5f304f95b66",
-  "fetched_at": "2026-09-19T20:19:30Z",
+  "fetched_at": "2026-09-19T21:18:13Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4040,7 +4040,7 @@
   "bytes": 4478,
   "lines": 112,
   "sha256": "cd2ff4f10c788c64b2daf2413e0495a022b5a9f983257526eed09b0f80c69718",
-  "fetched_at": "2026-09-19T20:08:33Z",
+  "fetched_at": "2026-09-19T21:17:12Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4064,7 +4064,7 @@
   "bytes": 29312,
   "lines": 524,
   "sha256": "01f52b62e25e6ce6d179688d91cac4b4dc4afb3f8ae9e51e276b923bb3c2b80d",
-  "fetched_at": "2026-09-19T20:19:31Z",
+  "fetched_at": "2026-09-19T21:18:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4085,10 +4085,10 @@
   "status": 200,
   "content_type": "text/plain; charset=utf-8",
   "final_url": "https://pydantic.dev/docs/ai/llms.txt",
-  "bytes": 30776,
-  "lines": 437,
-  "sha256": "95a4117a93d03121f89580288bf323fb816f9f71f3c297196d4e7e84027e0479",
-  "fetched_at": "2026-09-19T20:08:27Z",
+  "bytes": 31603,
+  "lines": 440,
+  "sha256": "80236f026ab599421bf4e2e1d447588a5ca84dbf31f8c8e05e6bcec1e0411789",
+  "fetched_at": "2026-09-19T21:17:08Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4112,7 +4112,7 @@
   "bytes": 19243,
   "lines": 189,
   "sha256": "0083059325267c380f4db0f8091176188273ebbb29d770903ad7187777bf1237",
-  "fetched_at": "2026-09-19T20:18:33Z",
+  "fetched_at": "2026-09-19T21:17:21Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4146,7 +4146,7 @@
   "bytes": 29072,
   "lines": 30,
   "sha256": "5a29c0972a0f45f773010f505102f9998b5328084e4b817ed7187253d51f8e7e",
-  "fetched_at": "2026-09-19T20:19:31Z",
+  "fetched_at": "2026-09-19T21:18:14Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4165,7 +4165,7 @@
   "bytes": 376,
   "lines": 14,
   "sha256": "0c69416e012e432423a1f37700290d230f75caa331d66132813d5e26503b6b5b",
-  "fetched_at": "2026-09-19T20:19:31Z",
+  "fetched_at": "2026-09-19T21:18:14Z",
   "curl_exit": 0,
   "kind": "soft-404",
   "quotes": [],
@@ -4184,7 +4184,7 @@
   "bytes": 3213,
   "lines": 73,
   "sha256": "ffa1a8ccef73316430d80e9c6af4a6e069b9269433d7e2c394d28a4e651619e9",
-  "fetched_at": "2026-09-19T20:19:31Z",
+  "fetched_at": "2026-09-19T21:18:15Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4223,7 +4223,7 @@
   "bytes": 5930,
   "lines": 60,
   "sha256": "3173af913a74c3691f8788c4d1835d23a236f56fa3e5a1229b71eecf53f4ef71",
-  "fetched_at": "2026-09-19T20:19:32Z",
+  "fetched_at": "2026-09-19T21:18:16Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4257,7 +4257,7 @@
   "bytes": 13120,
   "lines": 238,
   "sha256": "9e6faddea3d5ce3291778f23363d842539e0c4c849805bcf0f97e6f0f33c4bd7",
-  "fetched_at": "2026-09-19T20:19:32Z",
+  "fetched_at": "2026-09-19T21:18:17Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4291,7 +4291,7 @@
   "bytes": 10052,
   "lines": 279,
   "sha256": "93918e5ab05521fb422d3de3d76a63b63a1073c112d7bcd26153bf83d5a1c527",
-  "fetched_at": "2026-09-19T20:19:33Z",
+  "fetched_at": "2026-09-19T21:18:17Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4325,7 +4325,7 @@
   "bytes": 92159,
   "lines": 707,
   "sha256": "2039c9bb6968b3c326bb4d856af14a5f82a1b6157e1e32f8182330a086a1f543",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4359,7 +4359,7 @@
   "bytes": 23881,
   "lines": 0,
   "sha256": "69e1ca71a9303b0e1d489944b34a49f2fd5dda2f8dbbdf42d7738581af2c3841",
-  "fetched_at": "2026-09-19T20:19:33Z",
+  "fetched_at": "2026-09-19T21:18:17Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4378,7 +4378,7 @@
   "bytes": 25655,
   "lines": 392,
   "sha256": "c05c3dd6c8ab434b39038b307d84f18b57eb0ae46df8daab357a1cb3afb578e7",
-  "fetched_at": "2026-09-19T20:19:34Z",
+  "fetched_at": "2026-09-19T21:18:18Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4417,7 +4417,7 @@
   "bytes": 3182,
   "lines": 45,
   "sha256": "2492a67b60611709838cf92b3f2a9ef189d20d87f359a782aee6a640384406bf",
-  "fetched_at": "2026-09-19T20:19:35Z",
+  "fetched_at": "2026-09-19T21:18:19Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4446,7 +4446,7 @@
   "bytes": 19607,
   "lines": 130,
   "sha256": "bd6ad261059791c9703a8a277f42660fa3c6a962b9d66e62bd9f0df7b91bcd89",
-  "fetched_at": "2026-09-19T20:18:34Z",
+  "fetched_at": "2026-09-19T21:17:22Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4475,7 +4475,7 @@
   "bytes": 768,
   "lines": 11,
   "sha256": "48a4ed65c7a09d14cdd6433325195e9e3badc5ef8cafe792518301f43b65a7cf",
-  "fetched_at": "2026-09-19T20:19:35Z",
+  "fetched_at": "2026-09-19T21:18:19Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4499,7 +4499,7 @@
   "bytes": 311,
   "lines": 8,
   "sha256": "d328f1248c208e8e79913f29233b7e70fa6ad8643b66c970f9300bce0b72617d",
-  "fetched_at": "2026-09-19T20:19:36Z",
+  "fetched_at": "2026-09-19T21:18:19Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4518,7 +4518,7 @@
   "bytes": 3621,
   "lines": 63,
   "sha256": "3877dfc9a8656607dc8b15cd928068861bfca6ae33519ceeb6e3c8c1dbe17f18",
-  "fetched_at": "2026-09-19T20:19:36Z",
+  "fetched_at": "2026-09-19T21:18:20Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4542,7 +4542,7 @@
   "bytes": 8883,
   "lines": 287,
   "sha256": "7fc77cfc993970748d44401e67da02df032da72d120f68d1f4169fb381fa6b5e",
-  "fetched_at": "2026-09-19T20:19:36Z",
+  "fetched_at": "2026-09-19T21:18:20Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4576,7 +4576,7 @@
   "bytes": 55257,
   "lines": 807,
   "sha256": "c7fa7ac9aa8656446e95b428de8be35510b9203ea001d5c85c2a313f51f7f24e",
-  "fetched_at": "2026-09-19T20:19:37Z",
+  "fetched_at": "2026-09-19T21:18:20Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4600,7 +4600,7 @@
   "bytes": 8217,
   "lines": 161,
   "sha256": "7f9f0734d1d02f3f15804447727cf2d9ecf97a5bbaa271c6f5645bd6e4bb9cf3",
-  "fetched_at": "2026-09-19T20:08:27Z",
+  "fetched_at": "2026-09-19T21:17:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4644,7 +4644,7 @@
   "bytes": 15971,
   "lines": 137,
   "sha256": "7551e45654f71f7757ce77bb5b1472c9f2cf4fe0b191e92c66930dd2ebeeeba9",
-  "fetched_at": "2026-09-19T20:19:37Z",
+  "fetched_at": "2026-09-19T21:18:21Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4688,7 +4688,7 @@
   "bytes": 112355,
   "lines": 0,
   "sha256": "c2918611f53215f9bef7260903c596a34059cee57115bb138bae174e32e17b7e",
-  "fetched_at": "2026-09-19T20:19:37Z",
+  "fetched_at": "2026-09-19T21:18:21Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4707,7 +4707,7 @@
   "bytes": 8161,
   "lines": 264,
   "sha256": "7042d774d856158eb978da4a1829ccdea6960492d823bdfa8c16e2ec0f12b7c0",
-  "fetched_at": "2026-09-19T20:19:37Z",
+  "fetched_at": "2026-09-19T21:18:21Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4746,7 +4746,7 @@
   "bytes": 535,
   "lines": 11,
   "sha256": "6cabe74f28a5d49b39de78240b48357d3eeb7e43451b078376dea22353b104c7",
-  "fetched_at": "2026-09-19T20:19:38Z",
+  "fetched_at": "2026-09-19T21:18:21Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4770,7 +4770,7 @@
   "bytes": 5846,
   "lines": 0,
   "sha256": "b162759476cabaf75d51d07601a050990892ddf7a7063eea41ebc3e983236905",
-  "fetched_at": "2026-09-19T20:19:38Z",
+  "fetched_at": "2026-09-19T21:18:22Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4794,7 +4794,7 @@
   "bytes": 4726,
   "lines": 64,
   "sha256": "070dfe67479a3a0454afd3700b5d1f4cc277d340ae0b08aa007b7131066f1af0",
-  "fetched_at": "2026-09-19T20:19:27Z",
+  "fetched_at": "2026-09-19T21:18:10Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4820,10 +4820,10 @@
   "status": 200,
   "content_type": "text/plain; charset=utf-8",
   "final_url": "https://vercel.com/docs/llms-full.txt",
-  "bytes": 9509006,
-  "lines": 207571,
-  "sha256": "e7ddf03126a8d469eb685cd7a87758e66c2b90efc16109b18f00ab318bfe8d03",
-  "fetched_at": "2026-09-19T20:19:38Z",
+  "bytes": 9506912,
+  "lines": 207553,
+  "sha256": "e5a572546adfe61f53430b26a253af90ff5da9a04a2a73b47be3dac9ccecd193",
+  "fetched_at": "2026-09-19T21:18:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4847,7 +4847,7 @@
   "bytes": 17112,
   "lines": 554,
   "sha256": "caa2e400dbb98e87a0ebd4bb44344cb08f32f78ae5025d62d2a7ac5c70855d42",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4891,7 +4891,7 @@
   "bytes": 20666,
   "lines": 716,
   "sha256": "373b19b1559c65aef0871c8a5ff493e1e22e81a533c5572cc82820f6ad65f3c1",
-  "fetched_at": "2026-09-19T20:19:39Z",
+  "fetched_at": "2026-09-19T21:18:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -4920,7 +4920,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:39Z",
+  "fetched_at": "2026-09-19T21:18:23Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4939,7 +4939,7 @@
   "bytes": 10176,
   "lines": 28,
   "sha256": "67509b705d143855df0b4ea6554159b1107bd80297a67e0d45210a77dba48769",
-  "fetched_at": "2026-09-19T20:19:39Z",
+  "fetched_at": "2026-09-19T21:18:24Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4958,7 +4958,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:39Z",
+  "fetched_at": "2026-09-19T21:18:24Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4977,7 +4977,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:40Z",
+  "fetched_at": "2026-09-19T21:18:24Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -4996,7 +4996,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:40Z",
+  "fetched_at": "2026-09-19T21:18:25Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5015,7 +5015,7 @@
   "bytes": 9379,
   "lines": 89,
   "sha256": "b620507312c5e97566a3c6cfaf99144fefc18a0da7d941401dfa0f5f58fb0368",
-  "fetched_at": "2026-09-19T20:19:40Z",
+  "fetched_at": "2026-09-19T21:18:25Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5034,7 +5034,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:40Z",
+  "fetched_at": "2026-09-19T21:18:25Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5053,7 +5053,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:41Z",
+  "fetched_at": "2026-09-19T21:18:25Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5072,7 +5072,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:41Z",
+  "fetched_at": "2026-09-19T21:18:26Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5091,7 +5091,7 @@
   "bytes": 14,
   "lines": 0,
   "sha256": "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed",
-  "fetched_at": "2026-09-19T20:19:41Z",
+  "fetched_at": "2026-09-19T21:18:26Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5110,7 +5110,7 @@
   "bytes": 23301,
   "lines": 753,
   "sha256": "0c0a74c71240057915b53f5c1b30e18dc965a59d3c6574fe366cb306251150ea",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5154,7 +5154,7 @@
   "bytes": 9,
   "lines": 0,
   "sha256": "6ebdb617a8104a7756d0cf36578ab01103dc9f07e4dc6feb751296b9c402faf7",
-  "fetched_at": "2026-09-19T20:19:41Z",
+  "fetched_at": "2026-09-19T21:18:26Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5178,7 +5178,7 @@
   "bytes": 12705,
   "lines": 342,
   "sha256": "49f3c66ee2f2a29833d223204cf52ce150c843ca03b8716357130e04c189e8a7",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:26Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5212,7 +5212,7 @@
   "bytes": 7578,
   "lines": 181,
   "sha256": "328a02df487361d70420bbf51627537d47f6c5cf87d38f97e1778c2860aa898a",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5241,7 +5241,7 @@
   "bytes": 6229,
   "lines": 200,
   "sha256": "1db4d0ed8f4d27db7983c949a22ed3f4130f5b11fdfd22b5055e570a6aa062bc",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5275,7 +5275,7 @@
   "bytes": 1844,
   "lines": 61,
   "sha256": "dad59264c3031b8fffa4edd4f95880f531918cf65d66b18d6e86c742f3362266",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5304,7 +5304,7 @@
   "bytes": 113197,
   "lines": 1785,
   "sha256": "0686b41067fd437abbde4b473c394fe2365e5ad2ae81c21b9f988735359c9666",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5333,7 +5333,7 @@
   "bytes": 15097,
   "lines": 275,
   "sha256": "80f529a79a5e33686e0db325d74b6dc26217aa0e19ee86778b16a9c86c6a6e01",
-  "fetched_at": "2026-09-19T20:18:36Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5362,7 +5362,7 @@
   "bytes": 29001,
   "lines": 760,
   "sha256": "e982d7a64fe22c34f5d6452dd26441235cd2419de49583c85b8593952a38397e",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5391,7 +5391,7 @@
   "bytes": 11,
   "lines": 1,
   "sha256": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:28Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5415,7 +5415,7 @@
   "bytes": 18227,
   "lines": 410,
   "sha256": "978cad2319d28ce8e888e890cb6bd5c5a0631d3dc0b463fc66928ba419982f1a",
-  "fetched_at": "2026-09-19T20:37:19Z",
+  "fetched_at": "2026-09-19T21:18:29Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5439,7 +5439,7 @@
   "bytes": 41902,
   "lines": 1286,
   "sha256": "bc0c6cfeb2fa3ea6d8074233040902e3f3ad864308f0cb57085ac805a9787477",
-  "fetched_at": "2026-09-19T20:18:36Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5468,7 +5468,7 @@
   "bytes": 4429,
   "lines": 136,
   "sha256": "afda6fed1a07b0f62bad78c25e89afd5a00e1a4d2399c34f00d446c6e4ad670e",
-  "fetched_at": "2026-09-19T20:37:20Z",
+  "fetched_at": "2026-09-19T21:18:29Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5492,7 +5492,7 @@
   "bytes": 6590,
   "lines": 128,
   "sha256": "c92ee5998031ae987d8fa14abaca8b9e7c03bb4645e39a3e5bf6a855195bd1c3",
-  "fetched_at": "2026-09-19T20:37:20Z",
+  "fetched_at": "2026-09-19T21:18:29Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5516,7 +5516,7 @@
   "bytes": 14044,
   "lines": 287,
   "sha256": "4285516d216fbd74839238bee3d1b8d160f1f89152bd90cc522b116b44232d15",
-  "fetched_at": "2026-09-19T20:37:22Z",
+  "fetched_at": "2026-09-19T21:18:30Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5550,7 +5550,7 @@
   "bytes": 16868,
   "lines": 410,
   "sha256": "8f6b54387a93616c82e2087ac5f2198c150832406c4c280880a7350e610c5e7e",
-  "fetched_at": "2026-09-19T20:19:23Z",
+  "fetched_at": "2026-09-19T21:18:07Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5579,7 +5579,7 @@
   "bytes": 7578,
   "lines": 181,
   "sha256": "328a02df487361d70420bbf51627537d47f6c5cf87d38f97e1778c2860aa898a",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:27Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5603,7 +5603,7 @@
   "bytes": 25655,
   "lines": 392,
   "sha256": "c05c3dd6c8ab434b39038b307d84f18b57eb0ae46df8daab357a1cb3afb578e7",
-  "fetched_at": "2026-09-19T20:19:34Z",
+  "fetched_at": "2026-09-19T21:18:18Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5627,7 +5627,7 @@
   "bytes": 117610,
   "lines": 1533,
   "sha256": "d872a8aded51160476e935bad371f10a06e31d244f23f3f4f28f057c0f0ca36e",
-  "fetched_at": "2026-09-19T20:18:45Z",
+  "fetched_at": "2026-09-19T21:17:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5656,7 +5656,7 @@
   "bytes": 23301,
   "lines": 753,
   "sha256": "0c0a74c71240057915b53f5c1b30e18dc965a59d3c6574fe366cb306251150ea",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:24Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5685,7 +5685,7 @@
   "bytes": 15870,
   "lines": 355,
   "sha256": "470aadc8401195a27943efc8aea74cb105d6e9dd6afb0fa6b0986753ea0848b3",
-  "fetched_at": "2026-09-19T20:51:21Z",
+  "fetched_at": "2026-09-19T21:18:30Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5714,7 +5714,7 @@
   "bytes": 6527,
   "lines": 235,
   "sha256": "00395bc88edb76593f446b3780a1829e3cbb9a694385481a1f502a504f22ae5f",
-  "fetched_at": "2026-09-19T20:08:30Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5743,7 +5743,7 @@
   "bytes": 92159,
   "lines": 707,
   "sha256": "2039c9bb6968b3c326bb4d856af14a5f82a1b6157e1e32f8182330a086a1f543",
-  "fetched_at": "2026-09-19T20:18:35Z",
+  "fetched_at": "2026-09-19T21:17:23Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5767,7 +5767,7 @@
   "bytes": 12705,
   "lines": 342,
   "sha256": "49f3c66ee2f2a29833d223204cf52ce150c843ca03b8716357130e04c189e8a7",
-  "fetched_at": "2026-09-19T20:19:42Z",
+  "fetched_at": "2026-09-19T21:18:26Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5791,7 +5791,7 @@
   "bytes": 5049,
   "lines": 66,
   "sha256": "a9dc02d3456a6b79752c83a7fd6f7fdf35f15df4ee853e67d52429ac2e5b852a",
-  "fetched_at": "2026-09-19T20:08:29Z",
+  "fetched_at": "2026-09-19T21:17:09Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5815,7 +5815,7 @@
   "bytes": 2598,
   "lines": 41,
   "sha256": "b7d381dd55800d242252e8bf89a40b026586d254e34908210931bc35582396a3",
-  "fetched_at": "2026-09-19T20:51:21Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -5833,6 +5833,184 @@
   "verdict": "confirmed"
  },
  {
+  "id": "C132",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's `mcp add` takes `-s, --scope` (user or project; default project) and `-e` for environment variables.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "bytes": 41902,
+  "lines": 1286,
+  "sha256": "bc0c6cfeb2fa3ea6d8074233040902e3f3ad864308f0cb57085ac805a9787477",
+  "fetched_at": "2026-09-19T21:17:24Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "`-s, --scope`: Configuration scope (user or project). [default: \"project\"]",
+    "result": "found",
+    "line": 1135
+   },
+   {
+    "quote": "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3",
+    "result": "found",
+    "line": 1155
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C133",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's local MCP server entry takes environment variables under the key `environment`.",
+  "expect": "present",
+  "url": "https://opencode.ai/docs/mcp-servers.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://opencode.ai/docs/mcp-servers.md",
+  "bytes": 13917,
+  "lines": 506,
+  "sha256": "a8c9af4721d0553baa517c4fbd3f064fceadc18bf37bf2def649b5ace3d89d6c",
+  "fetched_at": "2026-09-19T21:17:26Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "\"environment\": {",
+    "result": "found",
+    "line": 78
+   },
+   {
+    "quote": "You can also pass in a list of environment variables as well.",
+    "result": "found",
+    "line": 86
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C134",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file on Windows is under %APPDATA%\\Claude.",
+  "expect": "present",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers.md",
+  "bytes": 14044,
+  "lines": 287,
+  "sha256": "4285516d216fbd74839238bee3d1b8d160f1f89152bd90cc522b116b44232d15",
+  "fetched_at": "2026-09-19T21:18:30Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "`%APPDATA%\\Claude\\claude_desktop_config.json`",
+    "result": "found",
+    "line": 77
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C135",
+  "source": "new-2026-09-19",
+  "claim": "Codex keeps MCP servers in ~/.codex/config.toml as [mcp_servers.<name>] tables.",
+  "expect": "present",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://learn.chatgpt.com/docs/extend/mcp.md?surface=cli",
+  "bytes": 18227,
+  "lines": 410,
+  "sha256": "978cad2319d28ce8e888e890cb6bd5c5a0631d3dc0b463fc66928ba419982f1a",
+  "fetched_at": "2026-09-19T21:18:29Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "By default this is `~/.codex/config.toml`",
+    "result": "found",
+    "line": 37
+   },
+   {
+    "quote": "Configure each MCP server with a `[mcp_servers.<server-name>]` table in the configuration file.",
+    "result": "found",
+    "line": 87
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C136",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's MCP configuration maps servers under the root key `servers`, and a stdio entry requires `type`.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/microsoft/vscode-docs/main/docs/agents/reference/mcp-configuration.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/microsoft/vscode-docs/main/docs/agents/reference/mcp-configuration.md",
+  "bytes": 17893,
+  "lines": 337,
+  "sha256": "8e35398b280721d18c63bd3c3215e96b6eff836ac8589e3150d68437ea2ae77a",
+  "fetched_at": "2026-09-19T21:19:11Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "**`\"servers\": {}`**: an object that maps server names to their configurations.",
+    "result": "found",
+    "line": 32
+   },
+   {
+    "quote": "| `type` | Yes | Server connection type | `\"stdio\"` |",
+    "result": "found",
+    "line": 46
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C137",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /SKILL.md at the site root answers 200 with an HTML application shell (live soft-404).",
+  "expect": "status",
+  "url": "https://vercel.com/SKILL.md",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "final_url": "https://vercel.com/SKILL.md",
+  "bytes": 2607657,
+  "lines": 2065,
+  "sha256": "40b5463b73042bc0609be2c8184216487dc04d00444d49f1c2b372bc281eed6a",
+  "fetched_at": "2026-09-19T21:24:13Z",
+  "curl_exit": 0,
+  "kind": "soft-404",
+  "quotes": [],
+  "verdict": "confirmed",
+  "detail": "expected HTTP 404, got 200 (soft-404)"
+ },
+ {
+  "id": "C138",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /llms-full.txt at the site root answers 200 with an HTML application shell (live soft-404); the real file is under /docs/.",
+  "expect": "status",
+  "url": "https://vercel.com/llms-full.txt",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "final_url": "https://vercel.com/llms-full.txt",
+  "bytes": 2562790,
+  "lines": 1662,
+  "sha256": "8b0c40a26b8967882d56e43338831c0c910bfec01da3944ae55ebc042f320b89",
+  "fetched_at": "2026-09-19T21:24:14Z",
+  "curl_exit": 0,
+  "kind": "soft-404",
+  "quotes": [],
+  "verdict": "confirmed",
+  "detail": "expected HTTP 404, got 200 (soft-404)"
+ },
+ {
   "id": "D01",
   "source": "xerj-site",
   "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
@@ -5844,7 +6022,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5863,7 +6041,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5882,7 +6060,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5901,7 +6079,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5920,7 +6098,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:43Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5939,7 +6117,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5958,7 +6136,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5977,7 +6155,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -5996,7 +6174,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -6015,7 +6193,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -6034,7 +6212,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:31Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -6053,7 +6231,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -6072,7 +6250,7 @@
   "bytes": 11004,
   "lines": 262,
   "sha256": "37be7f1fa5af7158d3c6be7eeebbe97365ba610a3c85b408570769376d383f26",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "error",
   "quotes": [],
@@ -6091,7 +6269,7 @@
   "bytes": 40064,
   "lines": 234,
   "sha256": "16bc45c5bbc8d24298970e93dd87a7493c78c73756dbf9e74fe43a08dad40752",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6120,7 +6298,7 @@
   "bytes": 40064,
   "lines": 234,
   "sha256": "16bc45c5bbc8d24298970e93dd87a7493c78c73756dbf9e74fe43a08dad40752",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6149,7 +6327,7 @@
   "bytes": 36130,
   "lines": 468,
   "sha256": "5b76149dab96cda944873a9949f06fc919a9fe1460c1b7803bf996cef5badd72",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -6173,7 +6351,7 @@
   "bytes": 8537,
   "lines": 178,
   "sha256": "dde6e9978b5cf0f812c573daab1886054bb547eeeccce768bd4bb91da26b2a6f",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6197,7 +6375,7 @@
   "bytes": 9533,
   "lines": 211,
   "sha256": "430273ccb5523ec41eee30def4680b4aed5906341ecc0a58a3e64280915c8494",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6221,7 +6399,7 @@
   "bytes": 36130,
   "lines": 468,
   "sha256": "5b76149dab96cda944873a9949f06fc919a9fe1460c1b7803bf996cef5badd72",
-  "fetched_at": "2026-09-19T20:19:44Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -6245,7 +6423,7 @@
   "bytes": 8537,
   "lines": 178,
   "sha256": "dde6e9978b5cf0f812c573daab1886054bb547eeeccce768bd4bb91da26b2a6f",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6269,7 +6447,7 @@
   "bytes": 9533,
   "lines": 211,
   "sha256": "430273ccb5523ec41eee30def4680b4aed5906341ecc0a58a3e64280915c8494",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6293,7 +6471,7 @@
   "bytes": 37386,
   "lines": 464,
   "sha256": "2b7a5563bc69f2f0e4932dc6b145805bf7ec0cf7f3e065896a6cfb77aa97b5ea",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -6322,7 +6500,7 @@
   "bytes": 37386,
   "lines": 464,
   "sha256": "2b7a5563bc69f2f0e4932dc6b145805bf7ec0cf7f3e065896a6cfb77aa97b5ea",
-  "fetched_at": "2026-09-19T20:08:34Z",
+  "fetched_at": "2026-09-19T21:17:14Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -6346,7 +6524,7 @@
   "bytes": 37386,
   "lines": 479,
   "sha256": "3b72a2f6ed3d68fc4076420d1c999b01683e0fb8b15c7f5f5cf182b7881bee9f",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "html",
   "quotes": [
@@ -6375,7 +6553,7 @@
   "bytes": 17989,
   "lines": 463,
   "sha256": "43fc99085a918ea92fc6db59f1daf7816bc6abf3f91513691be4be3f6ade1927",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6399,7 +6577,7 @@
   "bytes": 16185,
   "lines": 276,
   "sha256": "82b939017341c5d48f6737e277b2d2cb5d06143c99041c2486dd9c4add5a410d",
-  "fetched_at": "2026-09-19T20:19:45Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6423,7 +6601,7 @@
   "bytes": 12794,
   "lines": 280,
   "sha256": "82f17235ec32ee4273701f4b70d37b8d4d4c3666efb7ceb286f34db53f8c6959",
-  "fetched_at": "2026-09-19T20:19:46Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6447,7 +6625,7 @@
   "bytes": 83712,
   "lines": 1235,
   "sha256": "a65010770040bf8b12661d71c124633419b9925b67e008e8d2e92f80de431636",
-  "fetched_at": "2026-09-19T20:19:46Z",
+  "fetched_at": "2026-09-19T21:18:32Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6471,7 +6649,7 @@
   "bytes": 11515,
   "lines": 225,
   "sha256": "e45fc5aca6c602f82bbb08bfaf4a64cc664b81ab97752a7bd80f802c323ae2d6",
-  "fetched_at": "2026-09-19T20:19:46Z",
+  "fetched_at": "2026-09-19T21:18:33Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [
@@ -6495,7 +6673,7 @@
   "bytes": 8037,
   "lines": 158,
   "sha256": "e18b71363bc6cdb5f674fae987aad7f16b3dc7790ef1f35fd60a650273469e6c",
-  "fetched_at": "2026-09-19T20:19:46Z",
+  "fetched_at": "2026-09-19T21:18:33Z",
   "curl_exit": 0,
   "kind": "text",
   "quotes": [

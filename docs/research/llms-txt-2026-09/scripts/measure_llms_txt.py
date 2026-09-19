@@ -53,6 +53,12 @@ INSTALL_RE = re.compile(
 STRUCT_RE = re.compile(r"^\s*(#|[-*+]\s|\d+[.)]\s|\||<)")
 
 
+def optional_demands(text: str):
+    """required / must / owe* / obligat* INSIDE the `## Optional` section; None when there is no such section."""
+    m = re.search(r"^## Optional\s*$(.*?)(?=^## |\Z)", text, flags=re.M | re.S)
+    return None if not m else len(re.findall(r"\b(required|must|owe[sd]?|obligat\w*)\b", m.group(1), flags=re.I))
+
+
 def measure(text: str) -> dict:
     fenced = False
     prose_bytes = long_lines = long_prose = fences = 0
@@ -87,6 +93,7 @@ def measure(text: str) -> dict:
         "mcpServers": text.count("mcpServers"),
         "npx_skills_add": len(re.findall(r"npx (?:-y )?skills add", text)),
         "has_optional_h2": bool(re.search(r"^## Optional\s*$", text, re.M)),
+        "optional_section_demand_words": optional_demands(text),
     }
 
 
@@ -100,6 +107,11 @@ def quantiles(vals):
 
 def pct(vals, v):
     return round(100 * sum(1 for x in vals if x <= v) / len(vals))
+
+
+def ordinal(k: int) -> str:
+    suffix = "th" if 10 <= k % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(k % 10, "th")
+    return f"{k}{suffix}"
 
 
 def fmt(v):
@@ -161,8 +173,8 @@ def main():
         sv = subject["measures"][k]
         pv = proposal[k] if proposal else None
         out.append(f"| {label} | {fmt(q['min'])} | {fmt(q['p25'])} | {fmt(q['median'])} | {fmt(q['p75'])} | {fmt(q['p90'])} | "
-                   f"{fmt(q['max'])} | {fmt(sv)} | {pct(vals, sv)}th | {fmt(pv)} | "
-                   f"{(str(pct(vals, pv)) + 'th') if pv is not None else '—'} |")
+                   f"{fmt(q['max'])} | {fmt(sv)} | {ordinal(pct(vals, sv))} | {fmt(pv)} | "
+                   f"{ordinal(pct(vals, pv)) if pv is not None else '—'} |")
     n = len(peers)
     has_install = [r for r in peers if r["measures"]["install_command"]]
     has_fence = [r for r in peers if r["measures"]["code_fences"]]
@@ -175,7 +187,10 @@ def main():
             f"- `mcpServers` in llms.txt itself: **{sum(1 for r in peers if r['measures']['mcpServers'])} of {n}**"
             f" ({', '.join(r['name'] for r in peers if r['measures']['mcpServers']) or 'none'}).",
             f"- `npx skills add` in llms.txt itself: **{sum(1 for r in peers if r['measures']['npx_skills_add'])} of {n}**.",
-            f"- A `## Optional` heading: **{sum(1 for r in peers if r['measures']['has_optional_h2'])} of {n}**.",
+            f"- A `## Optional` heading: **{sum(1 for r in peers if r['measures']['has_optional_h2'])} of {n}**. "
+            f"Of those, files with \"required\", \"must\", \"owe\" or \"obligat…\" inside that section: "
+            f"**{sum(1 for r in peers if r['measures']['optional_section_demand_words'])}**. "
+            f"XERJ's `## Optional` section contains **{subject['measures']['optional_section_demand_words']}**.",
             "", "## XERJ today and the proposal", "",
             "| | XERJ today | Proposal |", "|---|---:|---:|"]
     for k, label in keys + [("bytes_before_install", "Bytes before the first install command"), ("code_fences", "Fenced code blocks"),

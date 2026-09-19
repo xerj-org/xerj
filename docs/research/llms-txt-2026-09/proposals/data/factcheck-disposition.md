@@ -7,6 +7,7 @@
 | B46 | found (loose) — RedMonk: the body uses HTML entities for the apostrophes. | Kept, labelled "loose match", and labelled as RedMonk's characterisation rather than curl's statement (report §5.3). |
 | B03–B07 | confirmed as **404** — the five `install.md` examples listed by the install.md README. | Used as evidence in report §4. |
 | C071 | confirmed as a **soft 404** — `docs.sentry.io/SKILL.md` answers HTTP 200 with a "Page Not Found" body. | Recorded as not existing (per-project/sentry.md). |
+| C137, C138 | confirmed as **soft 404s** — `vercel.com/SKILL.md` and `vercel.com/llms-full.txt` answer HTTP 200 with a 2.6 MB HTML application shell. | Cited as soft-404 examples (report §0); Vercel's real `llms-full.txt` is under `/docs/` (per-project/vercel.md). |
 | C085 | `docs.expo.dev/llms-full.txt` answers 200 but its effective URL and body are `llms.txt`. | Recorded as "not published separately" (per-project/expo.md). |
 | D01–D13 | confirmed as **404** on xerj.org. | These are the surfaces the ship checklist (report §9) says nothing may link to yet. |
 

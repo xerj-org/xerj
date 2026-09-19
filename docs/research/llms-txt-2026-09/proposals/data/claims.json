@@ -2300,6 +2300,76 @@
   ]
  },
  {
+  "id": "C132",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's `mcp add` takes `-s, --scope` (user or project; default project) and `-e` for environment variables.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "`-s, --scope`: Configuration scope (user or project). [default: \"project\"]",
+   "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3"
+  ]
+ },
+ {
+  "id": "C133",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's local MCP server entry takes environment variables under the key `environment`.",
+  "url": "https://opencode.ai/docs/mcp-servers.md",
+  "expect": "present",
+  "quotes": [
+   "\"environment\": {",
+   "You can also pass in a list of environment variables as well."
+  ]
+ },
+ {
+  "id": "C134",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file on Windows is under %APPDATA%\\Claude.",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "expect": "present",
+  "quotes": [
+   "`%APPDATA%\\Claude\\claude_desktop_config.json`"
+  ]
+ },
+ {
+  "id": "C135",
+  "source": "new-2026-09-19",
+  "claim": "Codex keeps MCP servers in ~/.codex/config.toml as [mcp_servers.<name>] tables.",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "By default this is `~/.codex/config.toml`",
+   "Configure each MCP server with a `[mcp_servers.<server-name>]` table in the configuration file."
+  ]
+ },
+ {
+  "id": "C136",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's MCP configuration maps servers under the root key `servers`, and a stdio entry requires `type`.",
+  "url": "https://raw.githubusercontent.com/microsoft/vscode-docs/main/docs/agents/reference/mcp-configuration.md",
+  "expect": "present",
+  "quotes": [
+   "**`\"servers\": {}`**: an object that maps server names to their configurations.",
+   "| `type` | Yes | Server connection type | `\"stdio\"` |"
+  ]
+ },
+ {
+  "id": "C137",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /SKILL.md at the site root answers 200 with an HTML application shell (live soft-404).",
+  "url": "https://vercel.com/SKILL.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C138",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /llms-full.txt at the site root answers 200 with an HTML application shell (live soft-404); the real file is under /docs/.",
+  "url": "https://vercel.com/llms-full.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
   "id": "D01",
   "source": "xerj-site",
   "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
