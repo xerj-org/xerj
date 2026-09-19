@@ -4400,11 +4400,21 @@ fn truncation_note_message(rels: &[String]) -> Option<String> {
     } else {
         String::new()
     };
+    // Three different caps set `ExtractStats::truncated`, and the note used to
+    // name only the first — so a mailbox holding one 2.3 GB message was told it
+    // had "hit the per-file record cap (4096)" with 205 records, and to "raise
+    // the cap", which is advice for a cap it never reached (review finding on
+    // PR #949). The flag does not say which cap fired, so the note names all
+    // three and what each one kept.
     Some(format!(
-        "{} file(s) hit the per-file record cap ({}) and were truncated: {listed}{tail} — \
-         split them or raise the cap if the dropped tail matters (#381)",
+        "{} file(s) were cut short and their tail was NOT indexed: {listed}{tail} — one of: a \
+         single document over the per-document record cap ({} sections), a mail message over \
+         the {} MB per-message cap (its head was parsed), or a message with more MIME parts \
+         than the attachment cap. Split the document or the message if the dropped tail \
+         matters (#381)",
         names.len(),
-        extract::MAX_RECORDS_PER_FILE
+        extract::MAX_RECORDS_PER_FILE,
+        extract::eml::MAX_EML >> 20,
     ))
 }
 
@@ -4434,6 +4444,11 @@ mod truncation_note_tests {
         );
         assert!(msg.contains("4096") && msg.contains("#381"), "{msg}");
         assert!(!msg.contains("and 0 more"), "{msg}");
+        // Every cap that can set the flag is named — an oversized mail message
+        // is not a "record cap" and must not be reported as one.
+        assert!(msg.contains("64 MB per-message cap"), "{msg}");
+        assert!(msg.contains("MIME parts"), "{msg}");
+        assert!(!msg.contains("raise the cap"), "{msg}");
     }
 
     #[test]
