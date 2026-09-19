@@ -6,6 +6,7 @@ with file:line provenance, and it refuses to answer from a stale index rather
 than handing back code that no longer exists.
 """
 import argparse
+import http.client
 import json
 import os
 import re
@@ -233,7 +234,7 @@ def resolve_fields(prefix):
 
 
 def post(path, body, fatal=True):
-    """POST a search body. With fatal=False, an HTTP error is returned, not fatal.
+    """POST a search body; fatal=False returns HTTP/transport errors as data.
 
     The non-fatal path exists for the vector arm of hybrid retrieval: a corpus
     where no index supports `semantic` must degrade to BM25, not abort.
@@ -247,12 +248,25 @@ def post(path, body, fatal=True):
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.load(resp)
     except urllib.error.HTTPError as e:
-        msg = e.read()[:200].decode(errors="replace")
         if not fatal:
-            return {"_xc_error": f"{e.code}: {msg}"}
+            # The status already means fallback. Reading an optional error
+            # body can itself time out or fail on an interrupted response.
+            e.close()
+            return {"_xc_error": f"{e.code}: {e.reason}"}
+        try:
+            msg = e.read()[:200].decode(errors="replace")
+        except (OSError, http.client.HTTPException) as read_error:
+            msg = f"{e.reason}; error response could not be read: {read_error}"
+        finally:
+            e.close()
         die(f"search failed ({e.code}): {msg}")
-    except urllib.error.URLError as e:
-        die(f"cannot reach XERJ at {URL}: {e.reason}")
+    except (OSError, http.client.HTTPException) as e:
+        # URLError is an OSError; response reads can also raise socket or
+        # HTTP errors directly, without urllib wrapping them.
+        msg = f"cannot reach XERJ at {URL}: {getattr(e, 'reason', str(e))}"
+        if not fatal:
+            return {"_xc_error": msg}
+        die(msg)
 
 
 def bm25_query(query, lang, fields=None):
@@ -281,7 +295,7 @@ def search(prefix, query, k, lang, highlight=False):
     return post(f"{prefix}*/_search", body)
 
 
-def semantic_indices(prefix, field="body"):
+def semantic_indices(prefix, field="body", fatal=False):
     """Indices under `prefix*` whose `field` is mapped as semantic_text.
 
     A `semantic` query against an index where the field is plain `text` does not
@@ -292,13 +306,18 @@ def semantic_indices(prefix, field="body"):
     arm is aimed only at those indices.
 
     Returns (capable, total). An unreachable or unparseable mapping yields an
-    empty capable set, which degrades to BM25 rather than failing.
+    empty capable set, which degrades to BM25 rather than failing. Standalone
+    semantic retrieval uses fatal=True because it has no BM25 result to keep.
     """
     req = urllib.request.Request(f"{URL}/{prefix}*/_mapping")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             mapping = json.load(resp)
-    except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
+    except (OSError, http.client.HTTPException, ValueError) as e:
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
+        if fatal:
+            die(f"semantic mapping lookup failed at {URL}: {e}")
         return [], 0
     if not isinstance(mapping, dict):
         return [], 0
@@ -310,14 +329,14 @@ def semantic_indices(prefix, field="body"):
     return capable, len(mapping)
 
 
-def semantic_search(indices, query, k, lang, field="body"):
-    """The vector arm. Returns [] on any error — the caller degrades to BM25."""
+def semantic_search(indices, query, k, lang, field="body", fatal=False):
+    """Vector search; errors are optional only when BM25 fallback is allowed."""
     if not indices:
         return []
     q = {"semantic": {"field": field, "query": query}}
     if lang:
         q = {"bool": {"must": [q, {"match": {"language": lang}}]}}
-    res = post(f"{','.join(indices)}/_search", {"size": k, "query": q}, fatal=False)
+    res = post(f"{','.join(indices)}/_search", {"size": k, "query": q}, fatal=fatal)
     if "_xc_error" in res:
         return []
     return res.get("hits", {}).get("hits", [])
@@ -386,11 +405,11 @@ def hybrid_search(prefix, query, k, lang, depth=None):
                     "are not evidence of a match, so this is reported as a miss")
     capable, total = semantic_indices(prefix)
     if not capable:
-        return bm[:k], (f"BM25 only — no index under '{prefix}*' maps `body` as "
-                        f"semantic_text, so the vector arm cannot run")
+        return bm[:k], (f"BM25 only — no usable semantic_text mapping for `body` "
+                        f"could be discovered under '{prefix}*'")
     sem = semantic_search(capable, query, depth, lang)
     if not sem:
-        return bm[:k], (f"BM25 only — the vector arm returned nothing from the "
+        return bm[:k], (f"BM25 only — vector search failed or returned no hits from the "
                         f"{len(capable)} semantic_text index(es)")
     note = (f"hybrid RRF(k={RRF_K}) — BM25 over {total} index(es), vector over "
             f"{len(capable)} of {total}")
@@ -470,7 +489,7 @@ def symbol_passage(body, src, query, width):
 
 
 def best_window(body, query, width):
-    """The `width`-char slice of `body` densest in query terms, snapped to lines.
+    """The densest sampled `width`-char slice, snapped to lines when safe.
 
     Taking the HEAD of the file instead is the single worst bug this tool had.
     Measured on a real valkey+memcached corpus: retrieval ranked the correct
@@ -492,23 +511,29 @@ def best_window(body, query, width):
     terms = [t.lower() for t in re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", query)]
     if not terms:
         return body[:width], 0, total
-    low = body.lower()
     # Score every candidate start on a coarse stride: dense term hits win. The
     # stride keeps this linear-ish on multi-hundred-KB sources.
     stride = max(1, width // 8)
     best_start, best_score = 0, -1
     for start in range(0, total - width + stride, stride):
-        chunk = low[start:start + width]
+        # Slice before lowercasing: Unicode lowercase can expand a character,
+        # so offsets in a lowercased copy need not be offsets in the source.
+        chunk = body[start:start + width].lower()
         score = sum(chunk.count(t) for t in terms)
         if score > best_score:
             best_start, best_score = start, score
     if best_score <= 0:
         return body[:width], 0, total
-    # Snap to line boundaries so the excerpt is readable code, not a torn line.
+    # Prefer complete lines, but never discard query evidence just to align
+    # them. The final partial line may hold the match, or the previous newline
+    # may be far away in a source line longer than the requested width.
     nl = body.rfind("\n", 0, best_start)
     start = nl + 1 if nl != -1 else best_start
     end = body.rfind("\n", start, start + width)
     end = end if end > start else min(total, start + width)
+    snapped = body[start:end].lower()
+    if sum(snapped.count(t) for t in terms) < best_score:
+        return body[best_start:best_start + width], best_start, total
     return body[start:end], start, total
 
 
@@ -632,8 +657,8 @@ def main():
         hits, note = hybrid_search(state["prefix"], args.query, args.k, args.lang)
         res = {"hits": {"hits": hits}}
     elif args.mode == "semantic":
-        capable, total = semantic_indices(state["prefix"])
-        hits = semantic_search(capable, args.query, args.k, args.lang)
+        capable, total = semantic_indices(state["prefix"], fatal=True)
+        hits = semantic_search(capable, args.query, args.k, args.lang, fatal=True)
         res = {"hits": {"hits": hits}}
         note = (f"vector only over {len(capable)} of {total} index(es)" if capable
                 else f"no index under '{state['prefix']}*' maps `body` as semantic_text")
