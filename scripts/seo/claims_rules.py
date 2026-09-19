@@ -1496,9 +1496,19 @@ THING_MATRIX = [
      "aliases": [r"\bs3 bucket\b", r"s3://", r"object stor(?:e|age)",
                  r"\bs3\b[^\n]{0,20}\b(?:ingest|index|indexing|search|scan|crawl)\b",
                  r"\b(?:ingest|index|indexing|search|scan|crawl)\w*\b[^\n]{0,20}\bs3\b"]},
+    # Split in two when the .eml extractor landed (#921, extract/eml.rs): single
+    # RFC 822 / MIME message files ARE extracted, with their attachments, and a
+    # recorded live run indexes and reads them (docs/usecases/console-reader/).
+    # Mail ARCHIVES are still not - no mbox, no PST, no Maildir walk - so the RED
+    # row keeps every alias that names one, and only the bare word "email" moved.
+    {"thing": "Email messages (.eml / MIME)", "status": GREEN, "mech": "eml.rs - headers, text body, attachments",
+     "cite": "engine/crates/xerj-autoindex/src/extract/eml.rs",
+     "gate": "Write about .eml files. Never imply mbox / PST / IMAP / a live mailbox.",
+     "aliases": [r"\.eml\b", r"\beml\b"]},
     {"thing": "Email archive (mbox / PST)", "status": RED, "mech": "no extractor", "cite": RC + ":375",
      "gate": "Roadmap item. Real demand - worth an issue, not a page.",
-     "aliases": [r"\bmbox\b", r"\bpst\b", r"email archive", r"\bemails?\b", r"mailbox"]},
+     "aliases": [r"\bmbox\b", r"\bpst\b", r"email archive", r"mail archive", r"mailbox", r"\bmaildir\b",
+                 r"\bimap\b", r"\bgmail\b", r"\boutlook\b", r"takeout"]},
     {"thing": "Screenshots / scanned docs / OCR", "status": RED, "mech": "no extractor", "cite": RC + ":376",
      "gate": "Paperless-ngx owns this.", "aliases": [r"\bocr\b", r"scanned docs?", r"screenshots?", r"scanned documents?"]},
     {"thing": "Ebooks (EPUB)", "status": RED, "mech": "no extractor", "cite": RC + ":377", "gate": "-",

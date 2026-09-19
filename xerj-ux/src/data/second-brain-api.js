@@ -603,8 +603,10 @@ export async function liveSecondBrain(baseUrl, _ctx, signal) {
     S.brains = []; S.brain = null; S.overview = null; S.ego = null; S.timeline = null;
     const data = assemble();
     // Surface transport failure on the nav status pill too (query.js
-    // flags `data.error` as live-error — visibly NOT "live · ok").
-    data.error = `graph API unreachable: ${S.error}`;
+    // flags `data.error` as live-error — visibly NOT "live · ok"). A 401/403
+    // is a refusal (an auth-enabled engine, a console session — #936), not an
+    // outage; the pill says which.
+    data.error = /HTTP 40[13]\b/.test(S.error) ? `graph API refused this console session: ${S.error}` : `graph API unreachable: ${S.error}`;
     return data;
   }
 

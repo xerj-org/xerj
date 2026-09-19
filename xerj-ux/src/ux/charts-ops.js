@@ -14,6 +14,7 @@
 // ============================================================
 
 import { esc, fmt } from './text.js';
+import { readerHref } from './reader-render.js';
 
 const minMax = (xs) => {
   let mn = Infinity, mx = -Infinity;
@@ -39,7 +40,7 @@ const minMax = (xs) => {
  */
 export const SearchBox = ({
   value = '',
-  types = ['match', 'term', 'range', 'prefix', 'phrase', 'knn', 'semantic', 'hybrid'],
+  types = ['match', 'term', 'range', 'prefix', 'phrase', 'semantic', 'hybrid'],
   activeType = 'match',
   indices = ['*'],
   activeIndex = '*',
@@ -137,6 +138,8 @@ export const QueryPlanTree = (node, depth = 0, last = true) => {
  *   showTime:    boolean — whether to render the _ts column (default true)
  *   labels:      { _index: 'INDEX', _id: 'ID', _score: 'SCORE', _ts: 'TIME' }
  *   exportable:  boolean — render the EXPORT CSV link in the header (default true)
+ *   pending:     boolean — a search is in flight; render "Searching…" only
+ *   error:       string  — the search failed; render the error and ZERO rows
  */
 export const Hits = ({
   hits = [], total = 0, tookMs = 0, maxScore = null,
@@ -144,7 +147,21 @@ export const Hits = ({
   showTime = true,
   labels = { _index: 'INDEX', _id: 'ID', _score: 'SCORE', _ts: 'TIME' },
   exportable = true,
+  pending = false,
+  error = null,
 } = {}) => {
+  // Two states in which there is NO result to describe. Neither renders a
+  // count, a latency or a row: a failed search shows its error and nothing
+  // else — this table never holds a placeholder or a sample document.
+  if (pending) {
+    return `<div class="hits-meta"><span class="key">HITS</span></div>
+      <div class="mono faint" data-hits-state="pending" style="padding:var(--sp-3) 0;">Searching…</div>`;
+  }
+  if (error) {
+    return `<div class="hits-meta"><span class="key">HITS</span></div>
+      <div class="mono" data-hits-state="error" style="padding:var(--sp-3) 0;">Search failed: ${esc(error)}</div>
+      <div class="mono faint">No rows are shown in its place.</div>`;
+  }
   const sortIndicator = (field) => {
     if (sort?.field !== field) return '';
     return sort.dir === 'asc' ? ' ▲' : ' ▼';
@@ -157,7 +174,7 @@ export const Hits = ({
       <span class="key">HITS</span>
       <span class="mono" style="margin-left:var(--sp-3);"><span class="accent" style="font-size:var(--fs-20); font-weight:700;">${fmt(total)}</span> <span class="faint">documents</span></span>
       <span class="mono" style="margin-left:var(--sp-3);"><span class="accent">${fmt(tookMs)}</span> <span class="faint">ms</span></span>
-      ${maxScore != null ? `<span class="mono" style="margin-left:var(--sp-3);"><span class="faint">max_score</span> ${maxScore.toFixed(3)}</span>` : ''}
+      ${Number.isFinite(Number(maxScore)) && maxScore != null ? `<span class="mono" style="margin-left:var(--sp-3);"><span class="faint">max_score</span> ${Number(maxScore).toFixed(3)}</span>` : ''}
       <span style="flex:1;"></span>
       ${exportable ? `<button type="button" class="hits-action" data-export-csv title="GH#1992 · 372 reactions">↓ CSV</button>` : ''}
       <button type="button" class="hits-action" data-toggle-time aria-pressed="${showTime ? 'true' : 'false'}" title="GH#3319 · 44 reactions">${showTime ? 'HIDE TIME' : 'SHOW TIME'}</button>
@@ -182,8 +199,8 @@ export const Hits = ({
       <div class="hit">
         <div class="hit-head mono ${showTime ? '' : 'no-time'}">
           <button type="button" class="hit-cell-clickable" data-facet-apply="_index:${esc(h._index)}" title="Filter for this">${esc(h._index)}</button>
-          <span class="faint">${esc(h._id)}</span>
-          <span class="accent">${(h._score ?? 0).toFixed(3)}</span>
+          <a class="hit-open" href="${esc(readerHref({ index: h._index, id: h._id }))}" title="Open in the Reader">${esc(h._id)}</a>
+          <span class="accent">${(Number.isFinite(Number(h._score)) ? Number(h._score) : 0).toFixed(3)}</span>
           ${showTime ? `<span class="faint">${esc(h._ts || '')}</span>` : ''}
         </div>
         <div class="hit-body mono">${esc(body)}</div>

@@ -10,6 +10,10 @@
 // ============================================================
 
 import { liveSecondBrain } from '../second-brain-api.js';
+import { schemaForSearch, indexNamesStrict } from '../schema.js';
+import { buildSearchBody } from '../search-body.js';
+import { CATALOG_INDEX, catalogQueryBody, parseCatalogHits } from '../catalog.js';
+import { listUserIndices, INTERNAL_INDICES } from '../console-index-api.js';
 
 // Aggregation materialisation bypass.
 //
@@ -84,7 +88,7 @@ export async function listIndices(baseUrl, signal) {
  * Scope: single exact index name only — no wildcard/`_all` resolution.
  * See `xerj-console-api::data_sources::search`'s doc comment for why.
  */
-async function rawSearch(baseUrl, index, body, signal) {
+export async function rawSearch(baseUrl, index, body, signal) {
   const path = `/_xerj-console/api/v1/data-sources/connections/built-in/indices/${encodeURIComponent(index)}/search`;
   const r = await fetch(path, {
     method: 'POST',
@@ -110,6 +114,7 @@ async function rawSearch(baseUrl, index, body, signal) {
 export async function search(baseUrl, dashId, ctx, signal) {
   switch (dashId) {
     case 'search-discover':       return liveSearchDiscover(baseUrl, ctx, signal);
+    case 'corpus':                return liveCorpus(baseUrl, ctx, signal);
     case 'system':                return liveSystem(baseUrl, ctx, signal);
     case 'logs-overview':         return liveLogsOverview(baseUrl, ctx, signal);
     case 'data':                  return liveData(baseUrl, ctx, signal);
@@ -128,23 +133,80 @@ export async function search(baseUrl, dashId, ctx, signal) {
   }
 }
 
+// ── corpus ──────────────────────────────────────────────────────────
+//
+// The Corpus home: every dataset `xerj brain` / `xerj autoindex` recorded in
+// the `autoindex-catalog` index, plus any other user index the engine holds
+// (listed by name and document count, so an engine that was filled some other
+// way does not read as "nothing indexed"). NEVER returns null and never
+// throws: data/query.js treats null as "fall back to mock", and a fabricated
+// corpus is the one thing this page must not be able to show.
+async function liveCorpus(baseUrl, _ctx, signal) {
+  let datasets = [];
+  let catalogError = null;
+  try {
+    const resp = await rawSearch(baseUrl, CATALOG_INDEX, catalogQueryBody(), signal);
+    datasets = parseCatalogHits(resp?.hits?.hits || []);
+  } catch (e) {
+    // No catalog index yet (HTTP 404) is the ordinary empty state, not an error.
+    // A fetch that never reached the engine is a bare TypeError ("Failed to
+    // fetch"): say what it means, as the Reader and the guest shell do.
+    if (e instanceof TypeError) catalogError = 'engine unreachable';
+    else if (!/HTTP 404/.test(String(e))) catalogError = String(e && e.message || e).slice(0, 200);
+  }
+  let others = [];
+  try {
+    const known = new Set(datasets.map((d) => d.index));
+    others = (await listUserIndices(signal))
+      .filter((it) => !INTERNAL_INDICES.has(it.name) && !known.has(it.name))
+      .map((it) => ({ index: it.name, records: it.docs, emails: 0, attachments: 0, formats: [] }));
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    /* the catalog cards still stand on their own */
+  }
+  if (catalogError && !datasets.length && !others.length) return { status: 'error', error: catalogError, datasets: [], summaries: [] };
+  return { status: 'ok', datasets, summaries: others, _live: true };
+}
+
 // ── search-discover ────────────────────────────────────────────────
 //
-// The dashboard's `q` / `type` / `index` come in via ctx.search; we
-// translate to an ES-compat query body and run it. Hits, total,
-// per-field facets all come from one round-trip.
+// The dashboard's `q` / `type` / `index` come in via ctx.search; the request
+// body is built by data/search-body.js — the SAME function the DSL preview
+// panel calls, so what is previewed is what runs (#923 review finding 8).
+// Hits, total and per-field facets all come from one round-trip. Every
+// failure is returned as `{ error }`; there is no fallback result set.
 async function liveSearchDiscover(baseUrl, ctx, signal) {
   const search = ctx.search || {};
   const q = search.q || '';
   const type = search.type || 'match';
-  const index = search.index === '*' ? '_all' : (search.index || '_all');
+  const requested = search.index || '*';
+  let index = requested === '*' ? '_all' : requested;
 
-  const body = buildSearchBody(q, type, ctx);
+  // The console's panel-search proxy resolves a single exact index only —
+  // wildcard/_all/multi-index is refused (501). `*` therefore runs against
+  // ONE index, and the result says which (`resolvedIndex`) so the page can
+  // show it: a picker that says `*` over results from one corpus is the
+  // "what I see is not what was indexed" bug (#923 review finding 3).
+  let narrowed = false;
+  if (index === '_all') {
+    const none = (error) => ({ error, hits: [], total: 0, took: 0, facets: {}, roles: null, resolvedIndex: null });
+    let names;
+    try { names = await indexNamesStrict(signal); } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      return none(`could not read the index list (${String(e && e.message || e).slice(0, 80)})`);
+    }
+    if (!names.length) return none('nothing is indexed on this engine yet — run: xerj brain <folder>');
+    index = names[0];
+    narrowed = names.length > 1;
+  }
+
+  const roles = await schemaForSearch(baseUrl, index, signal);
+  const body = buildSearchBody(q, type, ctx.filters, roles, { sort: search.sort });
   let response;
   try {
     response = await rawSearch(baseUrl, index, body, signal);
   } catch (e) {
-    return { error: String(e), hits: [], total: 0, took: 0, facets: {} };
+    return { error: String(e && e.message || e), hits: [], total: 0, took: 0, facets: {}, roles, resolvedIndex: index, narrowed, request: body };
   }
 
   const total = response.hits?.total?.value ?? response.hits?.total ?? 0;
@@ -153,74 +215,35 @@ async function liveSearchDiscover(baseUrl, ctx, signal) {
     _index: h._index,
     _score: h._score,
     _source: h._source,
-    '@timestamp': h._source?.['@timestamp'] || null,
+    _ts: h._source?.[roles.dateField] || h._source?.['@timestamp'] || null,
   }));
-  const facets = {
-    by_level:   bucketsToFacet(response.aggregations?.by_level),
-    by_service: bucketsToFacet(response.aggregations?.by_service),
-    by_host:    bucketsToFacet(response.aggregations?.by_host),
-  };
+  const facets = { _index: bucketsToFacet(response.aggregations?.by__index) };
+  for (const f of roles.keywordFields.slice(0, 3)) {
+    facets[f] = bucketsToFacet(response.aggregations?.[`by_${f}`]);
+  }
+  const dateBuckets = response.aggregations?.by_date?.buckets;
   return {
     total,
     took: response.took ?? 0,
+    max_score: response.hits?.max_score ?? null,
     hits,
     facets,
-    raw: { query: body, response },
-  };
-}
-
-function buildSearchBody(q, type, ctx) {
-  const inner = (() => {
-    switch (type) {
-      case 'term': {
-        const m = (q || '').match(/^([a-z_]+)\s*=\s*(.+)$/i);
-        return m ? { term: { [m[1]]: m[2] } } : { match_all: {} };
-      }
-      case 'range': {
-        const m = (q || '').match(/^([a-z_]+)\s*(>=|<=|>|<)\s*(\d+(?:\.\d+)?)$/i);
-        if (!m) return { match_all: {} };
-        const [, f, op, v] = m;
-        const k = op === '>=' ? 'gte' : op === '<=' ? 'lte' : op === '>' ? 'gt' : 'lt';
-        return { range: { [f]: { [k]: Number(v) } } };
-      }
-      case 'prefix':   return q ? { prefix: { message: q } } : { match_all: {} };
-      case 'phrase':   return q ? { match_phrase: { message: q } } : { match_all: {} };
-      case 'semantic': return q ? { semantic: { field: 'embedding', query: q, k: 10 } }
-                                : { match_all: {} };
-      case 'hybrid':   return q ? {
-        hybrid: {
-          queries: [
-            { query: { match: { message: q } }, weight: 1.0 },
-            { query: { semantic: { field: 'embedding', query: q, k: 10 } }, weight: 0.8 },
-          ],
-          fusion: { type: 'rrf', k: 60 },
-        }
-      } : { match_all: {} };
-      case 'knn':      return { match_all: {} }; // raw knn needs vector input — UI shows DSL only
-      default:         return q ? { match: { message: q } } : { match_all: {} };
-    }
-  })();
-
-  const filterList = Object.entries(ctx.filters || {}).map(([f, v]) => ({ term: { [f]: v } }));
-  const query = filterList.length
-    ? { bool: { must: inner, filter: filterList } }
-    : inner;
-
-  return {
-    query,
-    size: 25,
-    track_total_hits: true,
-    aggs: {
-      by_level:   { terms: { field: 'level',   size: 8 } },
-      by_service: { terms: { field: 'service', size: 8 } },
-      by_host:    { terms: { field: 'host',    size: 8 } },
-    },
+    histogram: Array.isArray(dateBuckets)
+      ? dateBuckets.map((b) => ({ label: String(b.key_as_string || b.key).slice(0, 10), value: Number(b.doc_count) || 0 }))
+      : null,
+    histogramField: roles.dateField || null,
+    roles,
+    resolvedIndex: index,
+    narrowed,
+    request: body,
+    _live: true,
   };
 }
 
 function bucketsToFacet(agg) {
   if (!agg || !Array.isArray(agg.buckets)) return [];
-  return agg.buckets.map((b) => ({ key: String(b.key), count: b.doc_count }));
+  // ux/charts-ops.js#Facet reads { label, value, count }.
+  return agg.buckets.map((b) => ({ label: String(b.key), value: String(b.key), count: Number(b.doc_count) || 0 }));
 }
 
 // ── system ────────────────────────────────────────────────────────
@@ -233,25 +256,15 @@ function bucketsToFacet(agg) {
 // mock; once a metrics-ingest adapter lands in v0.7.x we'll fill
 // the live shape from the same xerj indices the user is watching.
 async function liveSystem(baseUrl, ctx, signal) {
-  // We don't have a host-metrics agent today, but `_cluster/stats`
-  // gives us real numbers we can drop into the headline tiles.
-  let stats;
-  try {
-    const r = await fetch(baseUrl + '/_cluster/stats', { signal });
-    if (!r.ok) return null;
-    stats = await r.json();
-  } catch (_e) { return null; }
+  // Every panel this dashboard shows (CPU/mem/net, per-host, top-processes,
+  // failed logins) is SAMPLE data — XERJ has no host-metrics agent, and the old
+  // `_cluster/stats` overlay never ran anyway (it fetched the logical
+  // backendBaseUrl :9200, which isn't reachable, so it returned null → mock).
+  // Return the sample shape flagged `_sample` (never null) so query.js labels
+  // the pill an honest "SAMPLE DATA" rather than "MOCK FALLBACK". The engine's
+  // real cluster figures (documents / indices / store) live on the Data tab.
   const base = await loadMock('system', ctx);
-  const docs    = stats?.indices?.docs?.count   || 0;
-  const bytes   = stats?.indices?.store?.size_in_bytes || 0;
-  const idxN    = stats?.indices?.count          || 0;
-  const shardN  = stats?.indices?.shards?.total  || 0;
-  base.metrics = base.metrics || {};
-  base.metrics.cpu     = base.metrics.cpu     || { value: 0, formatted: '—' };
-  base.metrics.disk    = { value: bytes, formatted: (bytes / 1e9).toFixed(2) + ' GB', hint: 'live · xerj · stored' };
-  base.metrics.docs    = { value: docs,  formatted: docs.toLocaleString('en-US'), hint: 'live · xerj' };
-  base.metrics.indices = { value: idxN,  formatted: String(idxN), hint: `live · xerj · ${shardN} shards` };
-  base._live = { source: '_cluster/stats', docs, bytes, indices: idxN, shards: shardN };
+  base._sample = true;
   return base;
 }
 

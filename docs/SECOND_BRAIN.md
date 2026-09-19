@@ -106,6 +106,28 @@ to the folder's name.
 You can also build a brain with no folder at all, by asserting edges through the
 HTTP API. The edges index is created lazily on the first `link` call.
 
+## Reading it in the console
+
+The bundled console has three surfaces for the documents a brain is built over,
+documented in [`CONSOLE_READER.md`](./CONSOLE_READER.md):
+
+- **Corpus** (`/_xerj-console/`, the landing route) — one card per dataset in
+  the `autoindex-catalog` index, or the one command to run on an empty engine.
+- **Reader** (`#/reader?index=<index>&id=<id>&brain=<brain>`) — any record,
+  rendered by its shape (an email with its attachments, a PDF page, a note, a
+  code symbol), beside a panel of what the brain links it to: one
+  `GET /_graph/{brain}/ego` call with `hops=1`, grouped by edge type.
+- **Guest mode** — a read-only view of exactly the shared indices for the
+  holder of a share link, with a visible expiry.
+
+Two limits worth knowing before you rely on it. On an auth-enabled engine (the
+default) the Reader's graph panel is refused for a signed-in operator, because
+a console session is not an engine API key and the console's proxy cannot read
+the reserved namespace (see [the tenant boundary](#the-reserved-namespace-is-a-tenant-boundary));
+records, search and attachments still work, and the panel says it was refused
+rather than claiming there are no links. And the Reader shows extracted text:
+it does not render PDF pages or email HTML.
+
 ## The endpoints
 
 All four graph routes are mounted on the ES-compatible router, alongside the
@@ -592,8 +614,10 @@ not.
 
 ## What is not covered here
 
-- Console and MCP surfaces for the second brain exist but are not documented in
-  this file.
+- The console's corpus home, reader and guest mode are documented in
+  [`CONSOLE_READER.md`](./CONSOLE_READER.md). The console's Second Brain
+  dashboard (THE MAP, the ego ledger) and the MCP surface exist but are not
+  documented in this file.
 - Edge fields `src_format` and `dst_format` are written by the detectors and are
   in the mapping, but no endpoint documented above returns them in a shaped
   response field of their own; they arrive as part of an edge's `_source` when

@@ -18,6 +18,7 @@ Primary sources:
 | Engine-side visibility funnel | `engine/crates/xerj-engine/src/index_guard.rs` |
 | Privileges, roles, `role_descriptors` parsing | `engine/crates/xerj-engine/src/rbac.rs` |
 | Console client identity and rate limiting | `engine/crates/xerj-console-api/src/client_ip.rs`, `.../auth/rate_limit.rs` |
+| Console page policy; document rendering; guest mode | `engine/crates/xerj-console-api/src/spa.rs`, `xerj-ux/src/ux/safe-dom.js`, `xerj-ux/src/data/guest.js` |
 | Cluster control-frame authentication | `engine/crates/xerj-cluster/src/auth.rs` |
 
 ## The two layers
@@ -436,6 +437,34 @@ startup rather than silently widening or narrowing trust
 Note that `ClientIp` is also used for audit fields on endpoints that are not
 rate limited, for example passkey enrolment (`auth/passkey.rs:168`). Only the
 three endpoints listed above charge a bucket.
+
+## The Console displays attacker-controlled text
+
+The Console's Reader shows documents — email subjects, attachment filenames,
+bodies, highlight fragments, graph node titles — that anyone who can get a file
+into your corpus controls. In guest mode a share's API key is in
+`sessionStorage` on the same origin. Three controls, each stated with its limit;
+the full design and its tests are in [`CONSOLE_READER.md`](./CONSOLE_READER.md).
+
+- **Document-derived DOM is built without an HTML parser.** The corpus home,
+  the reader and the guest shell render through `xerj-ux/src/ux/safe-dom.js`
+  (`createElement` / `createTextNode` / `setAttribute` only, closed tag and
+  attribute allow-lists, `href` kept only for in-app `#/` routes). The rest of
+  the operator console still builds HTML strings and escapes at each
+  interpolation; it is covered by the browser test suite and the policy below,
+  not by construction.
+- **`index.html` is served with a Content-Security-Policy**
+  (`spa.rs`, `CONSOLE_CSP`): `script-src 'self'`, `connect-src 'self'`,
+  `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`. It does not
+  cover `login` / `setup` (inline module scripts, no document data), and
+  `style-src` allows `'unsafe-inline'`.
+- **Guest mode is a UI restriction on top of a key, not instead of one.** The
+  guest shell can build only four requests (`_search`, `_count`, `_mapping` on
+  the shared indices, `ego` on the shared brain) and refuses everything else
+  before the network; it never calls a console endpoint. What actually stops a
+  guest reading another index is the key's grant, enforced by the
+  [authorization layers](#the-two-layers) above. A guest key is a bearer
+  secret in the guest's browser for as long as the share lasts.
 
 ## Reach: what a fresh node exposes (issue #228)
 

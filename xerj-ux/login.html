@@ -82,6 +82,7 @@
 
 <script type="module">
 import { beginLogin, finishLogin, b64uToBuf, bufToB64u } from './src/xerj-console-auth.js';
+import { takeNext } from './src/data/next-route.js';
 
 const $err = document.getElementById('err');
 const $form = document.getElementById('form');
@@ -127,7 +128,9 @@ $form.addEventListener('submit', async (ev) => {
     };
 
     await finishLogin(begin.challenge_id, credPayload);
-    window.location.href = '/_xerj-console/';
+    // Back to the deep link that sent the person here (boot.js stashed it);
+    // takeNext only ever returns an in-console `#/…` route, or ''.
+    window.location.href = '/_xerj-console/' + takeNext(window.sessionStorage);
   } catch (e) {
     showError(e.message || String(e));
     $btn.disabled = false;

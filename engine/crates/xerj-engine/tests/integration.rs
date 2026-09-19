@@ -5933,6 +5933,76 @@ async fn test_field_alias_resolution() {
     assert_eq!(result2.hits[0].id, "2");
 }
 
+/// `semantic` resolves a field alias the way `match`/`term` do (PR #923's
+/// engine change, previously untested). Schema: `body` is a semantic_text
+/// field (embedding config, vector in `body_vector`); `embedding` is an alias
+/// of `body`. A `semantic` query on the ALIAS must find the same documents as
+/// one on the concrete field — before the fix it treated the vectorless alias
+/// name as the vector field and matched nothing.
+#[tokio::test]
+async fn test_semantic_field_alias_resolution() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    let mut body = FieldConfig::new("body", FieldType::Text);
+    body.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("body_vector".to_string()),
+    });
+    schema.add_field(body).unwrap();
+    let mut alias_fc = FieldConfig::new("embedding", FieldType::Object);
+    alias_fc.options.null_value = Some(Value::String("__alias__:body".to_string()));
+    schema.add_field(alias_fc).unwrap();
+
+    engine.create_index("semantic_alias_test", schema).unwrap();
+    let idx = engine.get_index("semantic_alias_test").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({ "body": "quarterly liquidity and working capital review" }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("2".into()),
+        json!({ "body": "kitchen recipe for sourdough bread" }),
+    )
+    .await
+    .unwrap();
+
+    let direct = idx
+        .search(&make_search(json!({
+            "semantic": {"field": "body", "query": "quarterly liquidity", "k": 10}
+        })))
+        .await
+        .unwrap();
+    let via_alias = idx
+        .search(&make_search(json!({
+            "semantic": {"field": "embedding", "query": "quarterly liquidity", "k": 10}
+        })))
+        .await
+        .unwrap();
+
+    assert!(
+        direct.total.value > 0,
+        "semantic on the concrete field must match (got {})",
+        direct.total.value
+    );
+    assert_eq!(
+        via_alias.total.value, direct.total.value,
+        "semantic on the alias must resolve to the concrete field and match the same docs"
+    );
+    let direct_ids: Vec<&str> = direct.hits.iter().map(|h| h.id.as_str()).collect();
+    let alias_ids: Vec<&str> = via_alias.hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(alias_ids, direct_ids, "same ranking through the alias");
+    assert_eq!(
+        alias_ids[0], "1",
+        "the liquidity doc ranks first through the alias"
+    );
+}
+
 /// Test copy_to: indexing a doc copies the field value to the target field.
 #[tokio::test]
 async fn test_copy_to() {

@@ -404,6 +404,9 @@ limits each one does not lift:
 
 - [Second brain](./docs/SECOND_BRAIN.md) for the relationship layer over indexed documents:
   the `/_graph` routes, evidence on links, the eight detectors and the two-hop cap.
+- [Console reader](./docs/CONSOLE_READER.md) for the console's corpus home, the reader for
+  any record (an email with its attachments, a PDF page) and read-only guest mode, with
+  the rendering rules that keep a hostile document inert and what it does not render.
 - [Scripting](./docs/SCRIPTING.md) for the Painless subset, where scripts run, and the
   resource limits that bound them.
 - [Snapshot and restore](./docs/SNAPSHOT_AND_RESTORE.md) for the supported subset of the

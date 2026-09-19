@@ -67,7 +67,11 @@ use crate::time::now_iso;
 /// Shipped revision of the default-dashboard skeletons.  Bump this **only**
 /// when a change to the seeded skeletons should migrate onto installs that
 /// have not forked them.  See the module docs for the migration contract.
-pub const SEED_REVISION: u64 = 1;
+///
+/// * `2` — `search-discover` lost its `plan` / `qps` / `latency` panels (no
+///   live source) and its request preview went full width. `corpus` and
+///   `reader` are new ids and needed no bump: absent ids are always created.
+pub const SEED_REVISION: u64 = 2;
 
 /// Id of the bookkeeping row that stores [`SEED_REVISION`].  It lives in the
 /// same index but is not a dashboard: it fails to deserialize into
@@ -133,7 +137,7 @@ fn pd(
 /// with [`seed_specs`], so a reader had to guess which prose was current. Prose
 /// elsewhere links here instead of repeating the figure, and
 /// [`tests::seeds_every_registry_dashboard`] pins it to the actual list.
-pub const BUILTIN_DASHBOARD_COUNT: usize = 14;
+pub const BUILTIN_DASHBOARD_COUNT: usize = 16;
 
 /// The built-in dashboards ([`BUILTIN_DASHBOARD_COUNT`] of them), in registry
 /// order.  Titles are the panel `eyebrow` strings from the `.js` sources;
@@ -475,19 +479,20 @@ fn seed_specs() -> Vec<DashboardSpec> {
                     "QUERY · TYPE · INDEX · FILTERS",
                     12,
                 ),
-                p(
-                    "hits",
-                    "hits",
-                    "RESULTS · CLICK A COLUMN TO SORT · CLICK INDEX TO FILTER",
-                    8,
-                ),
+                p("hits", "hits", "RESULTS", 8),
                 p("facets", "facet", "FACETS · CLICK TO FILTER", 4),
-                p("histogram", "bar", "DATE_HISTOGRAM · INTERVAL=1H", 8),
-                p("searchMetrics", "metric", "INDEX · LIVE", 4),
-                p("dsl", "markdown", "REQUEST · POST /v1/indices/*/search", 6),
-                p("plan", "plan", "QUERY PLAN · FROM EXPLAIN-PLAN ENDPOINT", 6),
-                p("qps", "line", "QUERIES/s OVER TIME", 6),
-                p("latency", "line", "p95 LATENCY OVER TIME", 6),
+                p("histogram", "bar", "DATE_HISTOGRAM", 8),
+                p(
+                    "searchMetrics",
+                    "metric",
+                    "FIELDS THIS QUERY USES · FROM THE MAPPING",
+                    4,
+                ),
+                // The request that was sent, built by the same function that
+                // built it. The `plan` / `qps` / `latency` panels that used to
+                // follow had no live source (a fabricated plan tree and two
+                // empty series) and were removed from search-discover.js.
+                p("dsl", "markdown", "REQUEST", 12),
                 p(
                     "citations",
                     "citations",
@@ -602,6 +607,36 @@ fn seed_specs() -> Vec<DashboardSpec> {
                     12,
                 ),
             ],
+        },
+        // ── Corpus home + Reader (the `xerj brain <folder>` product path) ────
+        // Corpus: one card per autoindex-catalog dataset; the landing page.
+        DashboardSpec {
+            registry_id: "corpus",
+            name: "Corpus",
+            section: Some("corpus"),
+            group: None,
+            panels: vec![p(
+                "datasets",
+                "corpus",
+                "WHAT IS INDEXED · ONE CARD PER DATASET",
+                12,
+            )],
+        },
+        // Reader: any record from Discover / a graph click, rendered by shape,
+        // with the knowledge graph around it.
+        DashboardSpec {
+            registry_id: "reader",
+            name: "Reader",
+            section: Some("reader"),
+            group: None,
+            // One panel: reader.js renders a single mount point that
+            // ux/reader-view.js fills (search, list, record, linked records).
+            panels: vec![p(
+                "reader",
+                "reader",
+                "SEARCH · RECORD · LINKED RECORDS",
+                12,
+            )],
         },
     ]
 }

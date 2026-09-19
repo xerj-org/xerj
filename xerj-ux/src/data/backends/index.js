@@ -53,7 +53,17 @@ const URL_KEY = (id) => `xerj-console.backend.${id}.baseUrl`;
 
 export function backendBaseUrl(id) {
   if (typeof localStorage === 'undefined') return BACKENDS[id]?.meta?.defaultBaseUrl || '';
-  return localStorage.getItem(URL_KEY(id)) || BACKENDS[id]?.meta?.defaultBaseUrl || '';
+  const saved = localStorage.getItem(URL_KEY(id));
+  if (saved) return saved;
+  // The bundled console is served BY the engine it shows, so the engine is
+  // this page's own origin — not the documentation default `localhost:9200`.
+  // Falling back to :9200 made the live-feature probes (brains, data classes)
+  // ask a DIFFERENT node whenever the console ran on any other port: the nav
+  // then advertised dashboards for data this engine does not hold.
+  if (id === 'xerj' && typeof window !== 'undefined' && window.location && /^https?:$/.test(window.location.protocol)) {
+    return window.location.origin;
+  }
+  return BACKENDS[id]?.meta?.defaultBaseUrl || '';
 }
 
 export function setBackendBaseUrl(id, url) {

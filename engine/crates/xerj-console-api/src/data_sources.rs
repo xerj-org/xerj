@@ -197,6 +197,12 @@ pub async fn list_fields(
                 "type": f.field_type.to_string(),
                 "indexed": f.options.indexed,
                 "doc_values": f.options.doc_values,
+                // A `semantic_text` field is a text field with an embedding
+                // config; `type` alone reads "text". The console derives
+                // which field `semantic` / `hybrid` run against from this
+                // flag: it holds a session, not an engine API key, so on an
+                // auth-enabled engine it cannot read `GET /{index}/_mapping`.
+                "semantic": f.embedding.is_some(),
             })
         })
         .collect();
@@ -270,12 +276,22 @@ pub async fn search(
         .hits
         .iter()
         .map(|h| {
-            json!({
+            let mut hit = json!({
                 "_index": index,
                 "_id": h.id,
                 "_score": h.score,
                 "_source": h.source,
-            })
+            });
+            // Pass the engine's highlight fragments through when the request
+            // asked for them, so the Reader can mark matches for a signed-in
+            // operator the same way it does for a guest on the ES-compat
+            // route. Fragments are raw document text with the caller's
+            // pre/post tags spliced in — the SPA never parses them as markup
+            // (`xerj-ux/src/ux/safe-dom.js#highlightChildren`).
+            if let Some(hl) = &h.highlight {
+                hit["highlight"] = json!(hl);
+            }
+            hit
         })
         .collect();
     let wire = json!({

@@ -4,12 +4,12 @@
 // Two taxonomies at play:
 //
 //   1. SECTIONS are the primary product surface — the top nav.
-//      Order = what users look for first, per user-feedback/kibana/:
-//         dashboards → discover → alerts → data → users → settings
+//      Order = what a `xerj brain <folder>` user looks for first:
+//         corpus → discover → reader → dashboards → alerts → data → users → settings
 //
 //   2. DASHBOARDS live under SECTION='dashboards' and appear in
 //      the secondary nav row. Other sections each have exactly
-//      one view (discover, alerts, data, users, settings).
+//      one view (corpus, discover, reader, alerts, data, users, settings).
 // ============================================================
 
 import { aiOverview }     from './ai-overview.js';
@@ -22,7 +22,9 @@ import { ingestPipeline } from './ingest-pipeline.js';
 import { logsOverview }   from './logs-overview.js';
 import { system }         from './system.js';
 
+import { corpus }         from './corpus.js';            // CORPUS section (home)
 import { searchDiscover } from './search-discover.js';   // DISCOVER section
+import { reader }         from './reader.js';            // READER section
 import { alerts }         from './alerts.js';            // ALERTS section
 import { dataSection }    from './data.js';              // DATA section
 import { users }          from './users.js';             // USERS section
@@ -81,8 +83,12 @@ const all = [
   aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain,
   logsOverview, anomalyDetect, ingestPipeline,
   system,
-  // Top-level sections (one view each)
+  // Top-level sections (one view each). Corpus / Discover / Reader are
+  // the `xerj brain` product path — and the only three a shared-link
+  // guest ever sees (data/guest.js).
+  corpus,
   searchDiscover,
+  reader,
   alerts,
   dataSection,
   users,
@@ -92,13 +98,16 @@ const all = [
 export const defaults = all;
 export const registry = Object.fromEntries(all.map((d) => [d.id, d]));
 
-// Primary nav: one entry per section. Order matters — this is the
-// order corpus priority told us users scan. The label is uppercase
-// UI text; the id maps to a section. Each section knows which view
-// to render when clicked (the first dashboard in that section).
+// Primary nav: one entry per section. Order matters — a brain user
+// wants their data first: what is indexed (Corpus), search it
+// (Discover), read it (Reader). The label is uppercase UI text; the
+// id maps to a section. Each section knows which view to render when
+// clicked (the first dashboard in that section).
 export const SECTIONS = [
-  { id: 'dashboards', label: 'Dashboards' },
+  { id: 'corpus',     label: 'Corpus'     },
   { id: 'discover',   label: 'Discover'   },
+  { id: 'reader',     label: 'Reader'     },
+  { id: 'dashboards', label: 'Dashboards' },
   { id: 'alerts',     label: 'Alerts'     },
   { id: 'data',       label: 'Data'       },
   { id: 'users',      label: 'Users'      },

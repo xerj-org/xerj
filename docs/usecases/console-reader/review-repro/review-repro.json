@@ -1,0 +1,282 @@
+{
+  "recorded": "2026-09-19",
+  "mapping": {
+    "body": "text",
+    "text": "semantic_text",
+    "email_subject": "keyword",
+    "title": "keyword",
+    "attachment_name": "keyword"
+  },
+  "truth": {
+    "archive/03-dup.eml": {
+      "records": 3,
+      "attachments": {
+        "archive-only.txt": 1
+      },
+      "messageId": "dup@acme.example"
+    },
+    "inbox/01-plain.eml": {
+      "records": 2,
+      "attachments": {},
+      "messageId": "01-plain.eml@acme.example"
+    },
+    "inbox/02-nomid.eml": {
+      "records": 5,
+      "attachments": {
+        "nomid.pdf": 2,
+        "nomid-notes.txt": 1
+      },
+      "messageId": null
+    },
+    "inbox/03-dup.eml": {
+      "records": 3,
+      "attachments": {
+        "inbox-only.txt": 1
+      },
+      "messageId": "dup@acme.example"
+    },
+    "inbox/04-samename.eml": {
+      "records": 4,
+      "attachments": {
+        "scan.pdf": 2
+      },
+      "messageId": "04-samename.eml@acme.example"
+    },
+    "inbox/05-brief.eml": {
+      "records": 16,
+      "attachments": {
+        "brief.pdf": 14
+      },
+      "messageId": "05-brief.eml@acme.example"
+    },
+    "inbox/06-bigpdf.eml": {
+      "records": 303,
+      "attachments": {
+        "aaa-big.pdf": 300,
+        "zzz-last.txt": 1
+      },
+      "messageId": "06-bigpdf.eml@acme.example"
+    },
+    "inbox/07-verylong.eml": {
+      "records": 2,
+      "attachments": {},
+      "messageId": "07-verylong.eml@acme.example"
+    },
+    "inbox/08-retention.eml": {
+      "records": 2,
+      "attachments": {},
+      "messageId": "08-retention.eml@acme.example"
+    }
+  },
+  "before": {
+    "attachmentJoin_size200_byMessageId": {
+      "inbox/06-bigpdf.eml": {
+        "matching": 301,
+        "returned": 200,
+        "listedByName": [
+          "aaa-big.pdf"
+        ]
+      },
+      "inbox/04-samename.eml": {
+        "matching": 2,
+        "returned": 2,
+        "listedByName": [
+          "scan.pdf"
+        ]
+      },
+      "inbox/03-dup.eml (shares its id with archive/03-dup.eml)": {
+        "matching": 2,
+        "returned": 2,
+        "listedByName": [
+          "archive-only.txt",
+          "inbox-only.txt"
+        ]
+      }
+    },
+    "match_on_keyword_subject": {
+      "match email_subject:Lunch": 0,
+      "match email_subject:\"Lunch on Friday?\" (the whole value)": 1,
+      "match_phrase email_subject:\"Lunch on\"": 0
+    },
+    "readerMatch_singleTextField": {
+      "Duplicate": 0,
+      "Lunch": 0,
+      "nomid": 0,
+      "makefiletargetword": 0
+    },
+    "catalogSample": {
+      "field": "text",
+      "text": "makefiletargetword",
+      "catalogBodyVerbatim": 1
+    },
+    "guestCard_emails_by_message_id": 8
+  },
+  "engine": {
+    "searchFields": [
+      "body",
+      "text",
+      "email_subject",
+      "title",
+      "attachment_name"
+    ],
+    "wildcard_on_keyword_subject": {
+      "*lunch*": 1,
+      "*lunch on*": 1,
+      "lunch*": 1,
+      "prefix + case_insensitive (not used: returns)": 0
+    },
+    "readerBodies": {
+      "match Duplicate": 2,
+      "match Lunch": 1,
+      "match nomid": 4,
+      "phrase Lunch on": 1,
+      "prefix dup": 4,
+      "match makefiletargetword": 1
+    }
+  },
+  "after": {
+    "readerAttachmentList": {
+      "archive/03-dup.eml": {
+        "head": "ATTACHMENTS · 1",
+        "attachments": [
+          "archive-only.txt"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/01-plain.eml": {
+        "head": "no attachment block",
+        "attachments": [],
+        "saysIncomplete": false
+      },
+      "inbox/02-nomid.eml": {
+        "head": "ATTACHMENTS · 2",
+        "attachments": [
+          "nomid-notes.txt",
+          "nomid.pdf"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/03-dup.eml": {
+        "head": "ATTACHMENTS · 1",
+        "attachments": [
+          "inbox-only.txt"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/04-samename.eml": {
+        "head": "ATTACHMENTS · 2",
+        "attachments": [
+          "scan.pdf",
+          "scan.pdf"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/05-brief.eml": {
+        "head": "ATTACHMENTS · 1",
+        "attachments": [
+          "brief.pdf"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/06-bigpdf.eml": {
+        "head": "ATTACHMENTS · 2",
+        "attachments": [
+          "aaa-big.pdf",
+          "zzz-last.txt"
+        ],
+        "saysIncomplete": false
+      },
+      "inbox/07-verylong.eml": {
+        "head": "no attachment block",
+        "attachments": [],
+        "saysIncomplete": false
+      },
+      "inbox/08-retention.eml": {
+        "head": "no attachment block",
+        "attachments": [],
+        "saysIncomplete": false
+      }
+    },
+    "secondSameNamedAttachmentOpens": {
+      "text": "secondscan beta",
+      "fromEmail": "Two scans with the same file name"
+    },
+    "attachmentOfEmailWithoutMessageId_fromEmail": "No message id here",
+    "readerSearch": {
+      "match Duplicate": {
+        "head": "2 RESULTS · CLICK TO OPEN",
+        "first": [
+          "Duplicate id (inbox copy)",
+          "Duplicate id (archive copy)"
+        ],
+        "message": null
+      },
+      "match Lunch": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "Lunch on Friday?"
+        ],
+        "message": null
+      },
+      "match nomid": {
+        "head": "4 RESULTS · CLICK TO OPEN",
+        "first": [
+          "nomid-notes.txt",
+          "inbox/02-nomid.eml"
+        ],
+        "message": null
+      },
+      "phrase Lunch on": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "Lunch on Friday?"
+        ],
+        "message": null
+      },
+      "prefix dup": {
+        "head": "4 RESULTS · CLICK TO OPEN",
+        "first": [
+          "Duplicate id (inbox copy)",
+          "Duplicate id (archive copy)"
+        ],
+        "message": null
+      },
+      "match makefiletargetword": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "cfg/Makefile"
+        ],
+        "message": null
+      },
+      "term zebrafish": {
+        "head": "NOT SEARCHED",
+        "first": [],
+        "message": "TERM needs field=value — for example ax_format=eml. Nothing was searched."
+      },
+      "range hello": {
+        "head": "NOT SEARCHED",
+        "first": [],
+        "message": "RANGE needs field>=value (or >, <=, <) — for example page>=2. Nothing was searched."
+      },
+      "term ax_format=eml": {
+        "head": "340 RESULTS · SHOWING 25 · CLICK TO OPEN",
+        "first": [
+          "inbox/07-verylong.eml",
+          "verylongsubjectword in a subject only"
+        ],
+        "message": null
+      }
+    },
+    "showMore": {
+      "cardsBefore": 25,
+      "cardsAfter": 50,
+      "head": "340 RESULTS · SHOWING 50 · CLICK TO OPEN"
+    },
+    "guestCard": "DATASETax-docs344 recordsemails 9attachment records 322formats eml 340, txt-lines 4OPEN IN READER",
+    "inert": {
+      "pwned": 0,
+      "csp": 0,
+      "consoleApiRequests": 0
+    }
+  }
+}

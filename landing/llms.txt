@@ -115,6 +115,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [How do I full-text search a SQLite database?](https://xerj.org/answers/full-text-search-sqlite-database.md): How do I full-text search a SQLite database?
   - [How do I index a CSV with many columns?](https://xerj.org/answers/index-csv-with-many-columns.md): How to index CSV files with big number of columns/fields
   - [How do I index Markdown into Elasticsearch?](https://xerj.org/answers/index-markdown-into-elasticsearch-api.md): What is the best way to index Markdown documents into Elasticsearch?
+  - [How do I read email and PDFs after indexing a folder?](https://xerj.org/answers/read-indexed-email-and-pdf-folder.md): I indexed a folder of email and PDFs. How do I actually read what it found?
   - [How do I run syntax-aware code search?](https://xerj.org/answers/syntax-aware-code-search-refactoring.md): Is there a syntax-aware code search tool for refactoring?
   - [How do I search a Confluence export?](https://xerj.org/answers/search-confluence-html-export.md): How do I search my Confluence export?
   - [How do I search a folder of CSV exports?](https://xerj.org/answers/index-multiple-csv-files.md): I have a directory of CSV exports. How do I query them without opening each one in Excel?
@@ -217,6 +218,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
 
 - [Quickstart](https://xerj.org/docs/quickstart): the shortest path from install to a first answered query
 - [Queries](https://xerj.org/docs/queries) · [Vectors](https://xerj.org/docs/vectors) · [Aggregations](https://xerj.org/docs/aggregations) · [Ingest](https://xerj.org/docs/ingest): the query DSL, vector fields, aggregation surface and ingest paths in reference form
+- [Console: corpus home, reader, guest mode](https://github.com/xerj-org/xerj/blob/main/docs/CONSOLE_READER.md): when a person wants to READ what you indexed, hand them a link instead of pasting the document — `/_xerj-console/` lists every indexed dataset, and `/_xerj-console/#/reader?index=<index>&id=<_id>` opens one record (an email with its attachments, a PDF page, a note, a code symbol) beside the files the brain links it to. Extracted text only: it renders no email HTML and no PDF pages. Read-only guest mode runs on a share's scoped key. Two limits on an auth-enabled node: the operator's linked-records panel is refused (`401`) and passkey sign-in only works at `http://localhost:9200`
 - [Migration from Elasticsearch](https://xerj.org/docs/migration-from-es): what is wire-compatible, what is not, and what has no ES equivalent
 - [For AI agents](https://xerj.org/for-agents): the agent-facing overview of the same material · [docs/agents](https://xerj.org/docs/agents)
 
