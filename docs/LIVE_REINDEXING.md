@@ -266,6 +266,12 @@ is not implemented; `--watch` watches a local folder.)
 * The watcher does not watch the root's parent, so deleting the watched folder
   itself is reported by the pass, not by an event.
 * No `--watch` for `xerj autoindex map` or `status`; they are single-shot reads.
+* No automatic retry of a failed pass. A pass that fails — the endpoint went
+  away, a bulk was rejected — is reported as a warning and the session keeps
+  watching, but the work is retried on the **next change**, not on a timer. The
+  journal's resume contract means nothing is lost when it is retried; it does
+  mean an index can stay behind while the tree is quiet and the endpoint is
+  broken. Watch the `watch: pass N FAILED` lines.
 * No dataset re-election. A watched corpus keeps the dataset names it was built
   with, like any incremental run; a rename that would have produced a different
   dataset name on a fresh build does not rename the dataset.
