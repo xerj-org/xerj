@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **120 settings** versus
+//! Configuration is intentionally minimal: **127 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -97,9 +97,11 @@ pub struct Config {
     pub wal_tap: WalTapConfig,
     /// Second-stage reranking provider — 3 settings. Inert until a key is set.
     pub rerank: RerankProviderConfig,
+    /// In-process judge models (rerank provider `local`) — 7 settings.
+    pub judge: JudgeConfig,
 }
 
-// 22 sub-configs, 120 leaf settings in total. Do not maintain that sum by hand
+// 23 sub-configs, 127 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -208,6 +210,11 @@ impl Config {
         if let Err(reason) = self.wal_tap.check_limits() {
             return Err(XerjError::config(reason));
         }
+
+        // Judge: a thread or admission count of "everything" is a typo, not a
+        // wish, and an unknown default tier would 400 every request that
+        // relies on it — say so at boot instead.
+        self.judge.validate()?;
 
         // Rerank: the endpoint is where document text gets POSTed, and it is
         // echoed by `GET /_xerj/rerank`. Same two rules as the WAL tap target.
@@ -444,7 +451,7 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (120 user-facing settings total; counted by
+// Sub-configs  (127 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -2263,6 +2270,99 @@ impl RerankProviderConfig {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Local judge
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// In-process judge models — what rerank provider `local` runs on.
+///
+/// **7 settings.**
+///
+/// The local judge is a cross-encoder that scores `(query, document)` pairs
+/// inside this process. It sends nothing anywhere, so it is governed here and
+/// NOT by `[rerank] enabled`, which exists to forbid sending document text to
+/// a third party: an operator can forbid the hosted provider and keep this one.
+///
+/// The only network use is the one-time model download from huggingface.co on
+/// first use (no document or query text is part of it). `download = false`
+/// forbids that too; the model files then have to be on disk already — in the
+/// Hugging Face cache, or under `model_dir` for an air-gapped host. A request
+/// picks a tier by name (`small`, `base`, `large`) from a closed table in
+/// `xerj_ai::judge::MODELS` and can never make the server fetch another
+/// repository.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct JudgeConfig {
+    /// `false` refuses rerank provider `local` with a 403 (default: `true`).
+    pub enabled: bool,
+    /// Allow the one-time model download on first use (default: `true`).
+    /// `false` never opens a connection; models must already be on disk.
+    pub download: bool,
+    /// Hugging Face cache directory (default: empty → `HF_HOME`, then
+    /// `~/.cache/huggingface/hub`).
+    pub cache_dir: String,
+    /// Air-gapped model root (default: empty → use the cache). When set,
+    /// `<model_dir>/rerank-<tier>/` must hold `config.json`, `tokenizer.json`
+    /// and `model.safetensors`, and the hub is never contacted for that tier.
+    pub model_dir: String,
+    /// Threads in the judge's own pool (default: `0` → every core the resource
+    /// policy grants latency-critical work, capped at 16 — the measured knee).
+    pub threads: usize,
+    /// Scoring calls admitted at once; later ones wait inside their own
+    /// deadline and degrade if it runs out (default: `2`).
+    pub max_inflight: usize,
+    /// Tier used when a `rerank` block names no `model` (default: `"small"`).
+    pub rerank_model: String,
+}
+
+impl Default for JudgeConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            download: true,
+            cache_dir: String::new(),
+            model_dir: String::new(),
+            threads: 0,
+            max_inflight: 2,
+            rerank_model: "small".to_string(),
+        }
+    }
+}
+
+impl JudgeConfig {
+    /// Tier names a `rerank` block may use. Mirrors the rerank rows of
+    /// `xerj_ai::judge::MODELS`; this crate does not link `xerj-ai`, and the two
+    /// are pinned equal by a test in `xerj-api`, which links both.
+    pub const RERANK_MODELS: &'static [&'static str] = &["small", "base", "large"];
+    /// Ceiling on `threads`: past this it is a typo, not a machine.
+    pub const MAX_THREADS: usize = 1024;
+    /// Ceiling on `max_inflight`.
+    pub const MAX_INFLIGHT: usize = 64;
+
+    pub fn validate(&self) -> std::result::Result<(), XerjError> {
+        if self.threads > Self::MAX_THREADS {
+            return Err(XerjError::config(format!(
+                "judge.threads must be between 0 (auto) and {}",
+                Self::MAX_THREADS
+            )));
+        }
+        if self.max_inflight == 0 || self.max_inflight > Self::MAX_INFLIGHT {
+            return Err(XerjError::config(format!(
+                "judge.max_inflight must be between 1 and {}",
+                Self::MAX_INFLIGHT
+            )));
+        }
+        if !Self::RERANK_MODELS.contains(&self.rerank_model.as_str()) {
+            return Err(XerjError::config(format!(
+                "judge.rerank_model must be one of {}; got \"{}\"",
+                Self::RERANK_MODELS.join(", "),
+                self.rerank_model
+            )));
+        }
+        Ok(())
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tests
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2270,6 +2370,23 @@ impl RerankProviderConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn judge_config_refuses_what_would_fail_every_request() {
+        let ok = Config::from_toml_str("[judge]\nrerank_model = \"base\"\nthreads = 8\n").unwrap();
+        assert!(ok.validate().is_ok());
+        for bad in [
+            "[judge]\nrerank_model = \"huge\"\n",
+            "[judge]\nmax_inflight = 0\n",
+            "[judge]\nthreads = 100000\n",
+        ] {
+            // `from_toml_str` validates, so a bad value never becomes a Config.
+            let err = Config::from_toml_str(bad).unwrap_err().to_string();
+            assert!(err.contains("judge."), "{bad:?} -> {err}");
+        }
+        // A misspelt key is an error, not a silently ignored setting.
+        assert!(Config::from_toml_str("[judge]\nthread = 8\n").is_err());
+    }
 
     /// The documented refusal applies to the value the node will USE, from
     /// whichever place it came. Config wins, so a good config value shadows
@@ -2998,6 +3115,7 @@ mod tests {
         ("lifecycle", 1),
         ("wal_tap", 10),
         ("rerank", 3),
+        ("judge", 7),
     ];
 
     /// Count the settings by *counting them*.
@@ -3040,7 +3158,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 120,
+            total, 127,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \

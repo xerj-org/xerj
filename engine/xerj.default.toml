@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 55 of XERJ's 120 user-facing settings to their
+# This file sets 55 of XERJ's 127 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -600,3 +600,25 @@ access_log = false
 # enabled  = true
 # api_key  = "ts-..."                                  # not a default ("")
 # endpoint = "https://api.typesafe.ai/v1/systemone"    # not a default ("")
+
+# ── Local judge ─────────────────────────────────────────────
+# `"rerank": {"provider": "local"}` on _search scores the top-N hits with a
+# cross-encoder that runs INSIDE this process: no API key, no network call, no
+# per-token bill, and no document or query text leaves the host. Because it
+# sends nothing, `[rerank] enabled = false` (which forbids egress) does not
+# switch it off — `[judge] enabled = false` does.
+# The one network use is the one-time model download from huggingface.co on
+# first use: small ≈ 92 MB, base ≈ 1.1 GB, large ≈ 2.3 GB. `download = false`
+# forbids it; the files must then already be in the Hugging Face cache, or
+# under `model_dir/rerank-<tier>/` (config.json, tokenizer.json,
+# model.safetensors) for an air-gapped host. Licences and training-data notes
+# per tier: GET /_xerj/rerank and docs/RERANK.md.
+#
+# [judge]
+# enabled      = true
+# download     = true
+# cache_dir    = ""        # "" = HF_HOME, then ~/.cache/huggingface/hub
+# model_dir    = ""        # "" = use the cache
+# threads      = 0         # 0 = auto (cores, capped at 16)
+# max_inflight = 2
+# rerank_model = "small"   # small | base | large
