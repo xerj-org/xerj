@@ -1409,7 +1409,10 @@ impl Es {
         let Some(halves) = halves else {
             return match dimension {
                 TooLarge::Bytes => Err(anyhow!(
-                    "_bulk: HTTP 413 Payload Too Large for a request of one action                      ({} bytes): {reason}. One record is larger than the server accepts; raise                      limits.max_body_bytes on the node (or the proxy in front of it), or exclude                      the file",
+                    "_bulk: HTTP 413 Payload Too Large for a request of one action \
+                    ({} bytes): {reason}. One record is larger than the server accepts; raise \
+                    limits.max_body_bytes on the node (or the proxy in front of it), or exclude \
+                    the file",
                     body.len()
                 )),
                 TooLarge::Actions => Ok(SentWindow::Done(refused)),
@@ -1438,7 +1441,9 @@ impl Es {
                 .take(240)
                 .collect();
             eprintln!(
-                "autoindex: the server refused a bulk request of {actions} action(s)                  ({} bytes) as too large ({short}); nothing in it was written — sending it                  as two requests and keeping later requests under that size",
+                "autoindex: the server refused a bulk request of {actions} action(s) \
+                ({} bytes) as too large ({short}); nothing in it was written — sending it \
+                as two requests and keeping later requests under that size",
                 body.len()
             );
         }
@@ -3157,8 +3162,12 @@ mod tests {
         let es = client(server.address, 4);
         let error = es.bulk(PAIR_A.to_vec()).unwrap_err().to_string();
         assert!(
-            error.contains("HTTP 413") && error.contains("one action"),
+            error.contains("HTTP 413") && error.contains("one action ("),
             "{error}"
+        );
+        assert!(
+            !error.contains("  "),
+            "the message is one sentence, not a literal with its indentation baked in: {error}"
         );
         assert_eq!(server.refused(), 1, "asked once, not in a loop");
         assert_eq!(es.bulk_requests_split(), 0);
