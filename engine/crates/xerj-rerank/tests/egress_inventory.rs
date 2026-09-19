@@ -23,6 +23,12 @@ use std::path::{Path, PathBuf};
 /// Constructors and entry points of outbound network clients. Types used only
 /// for parsing (`reqwest::Url`) are deliberately absent.
 const MARKERS: &[&str] = &[
+    // Object storage: aws-sdk-s3 is already a workspace dependency and the
+    // S3 backend/source PRs put it on the engine path. Without these the
+    // inventory would stay green while a whole outbound client went unlisted.
+    "aws_sdk_s3::",
+    "aws_config::",
+    "object_store::",
     "reqwest::Client",
     "reqwest::ClientBuilder",
     "reqwest::blocking::Client",
@@ -115,6 +121,11 @@ const FALSE_CLAIMS: &[&str] = &[
 /// The surfaces that carry the rerank egress statement.
 const SURFACES: &[&str] = &[
     "docs/RERANK.md",
+    // ROADMAP.md and ZERO_TOKEN_DIRECTION.md repeated the false claim for a
+    // week after every other surface was fixed, because neither was scanned —
+    // and landing/llms.txt sends agents straight to ROADMAP.md#the-zero-token-direction.
+    "ROADMAP.md",
+    "docs/ZERO_TOKEN_DIRECTION.md",
     "docs/ARCHITECTURE.md",
     "docs/recipes/air-gapped-deployment.md",
     "README.md",
@@ -173,6 +184,18 @@ fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// The file with comment-only lines removed. A marker named in prose — a doc
+/// comment saying "in production replace this with `aws_sdk_s3::Client`" — is
+/// not an outbound client, and counting it would force a real entry in KNOWN
+/// for a file that opens no connection. Lines with code before a trailing `//`
+/// are kept whole, so a marker can never hide behind a comment.
+fn code_of(text: &str) -> String {
+    text.lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Every `.rs` file under `engine/crates/*/src` that names a network client,
 /// keyed by its path relative to `engine/crates`.
 fn files_with_outbound_clients() -> Vec<(String, String)> {
@@ -191,7 +214,7 @@ fn files_with_outbound_clients() -> Vec<(String, String)> {
         files.sort();
         for file in files {
             let text = read(&file);
-            if MARKERS.iter().any(|m| text.contains(m)) {
+            if MARKERS.iter().any(|m| code_of(&text).contains(m)) {
                 let rel = file
                     .strip_prefix(&crates)
                     .expect("under engine/crates")
