@@ -76,6 +76,9 @@ enum Fault {
     /// Answer every document correctly, under a `usage` block whose numbers
     /// are not the unsigned integers the documentation promises.
     OddUsage,
+    /// 200 with a valid JSON body of several megabytes: a provider (or
+    /// something answering in its place) that does not know when to stop.
+    HugeBody,
 }
 
 #[derive(Clone)]
@@ -187,6 +190,11 @@ async fn systemone(
                 .into_response();
         }
         Fault::Garbage => return (StatusCode::OK, "not json").into_response(),
+        Fault::HugeBody => {
+            let padding = "x".repeat(3 * 1024 * 1024);
+            return axum::Json(json!({"model": "m", "answers": {}, "padding": padding}))
+                .into_response();
+        }
         Fault::Delay(d) => tokio::time::sleep(d).await,
         _ => {}
     }
@@ -2950,8 +2958,45 @@ async fn odd_provider_usage_does_not_veto_a_valid_ranking() {
     assert_eq!(r["_rerank"]["applied"], true, "{r}");
     assert_eq!(r["_rerank"]["judged"], 4, "{r}");
     assert_eq!(ids(&r), INVERTED_IDS, "{r}");
-    // The count that parsed is kept; the one that did not meters as zero.
+    // Neither count is one a call can produce (`-5`; 2^63, far past what 30
+    // documents at the ceilings hold), so both meter as zero — and the
+    // operator's Prometheus counter is not poisoned by one bad response.
     assert_eq!(r["_rerank"]["usage"]["output_tokens"], 0, "{r}");
+    assert_eq!(r["_rerank"]["usage"]["input_tokens"], 0, "{r}");
+    let (_, metrics) = node.raw("GET", "/v1/metrics", String::new()).await;
+    let input_line = metrics
+        .lines()
+        .find(|l| l.starts_with("xerj_rerank_provider_tokens_total{kind=\"input\"}"))
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        input_line.is_empty() || input_line.ends_with(" 0"),
+        "an implausible token count reached the operator's meter: {input_line}"
+    );
+}
+
+/// The provider is a third party. A legitimate answer for 30 documents is a
+/// few kilobytes; a response of megabytes is not one, and reading it whole
+/// would let whatever answers at the endpoint choose how much memory a search
+/// allocates. It is a contract break — 502, no hits — not an allocation.
+#[tokio::test]
+async fn an_oversized_provider_response_is_a_502_not_an_allocation() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::HugeBody);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_GATEWAY, "{r}");
+    assert_eq!(r["error"]["type"], "rerank_exception", "{r}");
+    let why = reason(&r);
+    assert!(why.contains("larger than"), "{why}");
+    assert!(r["hits"].is_null(), "a surfaced fault returns no hits: {r}");
 }
 
 /// Each page request judges the window again — there is no verdict cache. The

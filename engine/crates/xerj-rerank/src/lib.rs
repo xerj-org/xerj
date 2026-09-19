@@ -138,6 +138,21 @@ pub const MAX_FIELDS: usize = 64;
 /// Ceiling on one `rerank.fields` entry, in characters — a field path.
 pub const MAX_FIELD_NAME_CHARS: usize = 256;
 
+/// Ceiling on one provider response body, in bytes.
+///
+/// A legitimate System One answer for a full 30-document call is one small
+/// object per document — a few kilobytes. The endpoint is a third party (or
+/// whatever answers at the configured URL), and reading its body whole let it
+/// choose how much memory one search allocates: `max_concurrency` calls in
+/// flight, each as large as the peer cared to make it. 2 MiB is hundreds of
+/// times a real answer; a larger body is a contract break (502), not an
+/// allocation.
+pub const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+
+/// How much of a non-2xx response body is read. Only its first 400 characters
+/// reach the error message, so there is no reason to read more.
+const ERROR_BODY_READ_BYTES: usize = 4 * 1024;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RerankError {
     #[error(
@@ -594,6 +609,14 @@ fn redact_key(text: &str, api_key: &str) -> String {
     text.replace(api_key, "<redacted>")
 }
 
+/// The part of a provider's error body that reaches the caller: the key
+/// redacted FIRST, then cut to 400 characters. Cutting first would leave a key
+/// that straddles the cut as a prefix `redact_key` no longer recognises — the
+/// first characters of the operator's key, in a search response.
+fn error_body(text: &str, api_key: &str) -> String {
+    clip(&redact_key(text, api_key), 400).to_string()
+}
+
 /// Build one System One request body for a batch of candidates.
 ///
 /// Split out from the HTTP call so the wire format is testable without a network
@@ -664,10 +687,24 @@ struct JevResponse {
     usage: Value,
 }
 
+/// The most tokens one provider call can plausibly bill for.
+///
+/// One call carries at most 30 documents of `2 × MAX_DOC_CHARS` characters plus
+/// the instructions, and the question once: about 544,000 characters. Even at
+/// several tokens per character that is a few million, so ten million is past
+/// anything a call can produce. A larger figure is not metering, it is a
+/// provider bug (review's test value was 2^63) — and because the counts feed a
+/// Prometheus counter that only ever goes up, one such response would poison
+/// `xerj_rerank_provider_tokens_total` until the node restarts.
+pub const MAX_PLAUSIBLE_TOKENS_PER_CALL: u64 = 10_000_000;
+
 /// One token count out of a provider `usage` block: a non-negative number, or
 /// zero. Zero rather than a guess — the meter under-reads instead of inventing.
+///
+/// A count above [`MAX_PLAUSIBLE_TOKENS_PER_CALL`] is also zero: it is not one a
+/// call can produce, and the counter it would feed never goes back down.
 fn token_count(usage: &Value, key: &str) -> u64 {
-    match usage.get(key) {
+    let n = match usage.get(key) {
         Some(n) => n.as_u64().unwrap_or_else(|| {
             n.as_f64()
                 .filter(|f| f.is_finite() && *f >= 0.0)
@@ -675,7 +712,48 @@ fn token_count(usage: &Value, key: &str) -> u64 {
                 .unwrap_or(0)
         }),
         None => 0,
+    };
+    if n > MAX_PLAUSIBLE_TOKENS_PER_CALL {
+        0
+    } else {
+        n
     }
+}
+
+/// Read a provider response body, stopping at `cap` bytes.
+///
+/// Returns the text read and whether the body went past `cap` (either by its
+/// declared `Content-Length`, checked before reading anything, or by what
+/// arrived). Past the cap nothing more is read: the connection is dropped with
+/// the response. Invalid UTF-8 is replaced rather than refused — the JSON parse
+/// that follows is what judges the content.
+async fn read_capped(
+    mut resp: reqwest::Response,
+    cap: usize,
+    deadline: &Deadline,
+) -> Result<(String, bool), RerankError> {
+    let io_err = |e: reqwest::Error| {
+        if e.is_timeout() {
+            deadline.err()
+        } else {
+            RerankError::Transport(e.to_string())
+        }
+    };
+    if resp.content_length().is_some_and(|n| n > cap as u64) {
+        return Ok((String::new(), true));
+    }
+    let mut buf: Vec<u8> = Vec::new();
+    let mut oversized = false;
+    while let Some(chunk) = resp.chunk().await.map_err(io_err)? {
+        let room = cap - buf.len();
+        if chunk.len() > room {
+            buf.extend_from_slice(&chunk[..room]);
+            oversized = true;
+            break;
+        }
+        buf.extend_from_slice(&chunk);
+    }
+    Ok((String::from_utf8_lossy(&buf).into_owned(), oversized))
 }
 
 /// Parse a System One response into scores keyed by the caller's ordinals.
@@ -1139,21 +1217,26 @@ impl JevProvider {
             })?;
 
         let status = resp.status();
-        let text = resp.text().await.map_err(|e| {
-            if e.is_timeout() {
-                deadline.err()
-            } else {
-                RerankError::Transport(e.to_string())
-            }
-        })?;
+        let cap = if status.is_success() {
+            MAX_RESPONSE_BYTES
+        } else {
+            ERROR_BODY_READ_BYTES
+        };
+        let (text, oversized) = read_capped(resp, cap, deadline).await?;
 
+        if status.is_success() && oversized {
+            return Err(RerankError::Malformed(format!(
+                "response body larger than {MAX_RESPONSE_BYTES} bytes; a verdict for \
+                 {JEV_MAX_DOCS_PER_CALL} documents is a few kilobytes"
+            )));
+        }
         if !status.is_success() {
             // 429 and 529 are the documented back-off codes. Surfaced rather
             // than retried here: the caller is inside a search request with a
             // deadline, and fail-open beats spending it on retries.
             return Err(RerankError::Status {
                 status: status.as_u16(),
-                body: redact_key(clip(&text, 400), &self.api_key),
+                body: error_body(&text, &self.api_key),
             });
         }
         let (scores, usage) = parse_jev_response_with_usage(&text)?;
@@ -1287,6 +1370,98 @@ mod tests {
         // pattern that matches between every character.
         assert_eq!(redact_key("rate limited", "sk-x"), "rate limited");
         assert_eq!(redact_key("rate limited", ""), "rate limited");
+    }
+
+    /// The error body is cut to 400 characters for the caller. A key that
+    /// straddles that cut must not survive as a prefix: cutting first left
+    /// `sk-operator-sec…` for `redact_key` to miss, in a search response.
+    #[test]
+    fn a_key_straddling_the_error_cut_leaks_no_prefix() {
+        let key = "sk-operator-secret-0123456789";
+        for pad in 380..400 {
+            let body = format!("{}{key} trailing", "x".repeat(pad));
+            let out = error_body(&body, key);
+            assert!(out.chars().count() <= 400, "pad {pad}: {out}");
+            assert!(
+                !out.contains("sk-op"),
+                "pad {pad} leaked a key prefix: {out}"
+            );
+        }
+    }
+
+    /// A 2xx body past [`MAX_RESPONSE_BYTES`] is a contract break, not an
+    /// allocation: whatever answers at the endpoint does not get to choose how
+    /// much memory a search uses. A body inside the ceiling still parses.
+    #[test]
+    fn an_oversized_provider_response_is_refused_not_read_whole() {
+        use std::io::{Read, Write};
+        fn serve(body: String, chunked: bool) -> String {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let addr = listener.local_addr().unwrap();
+            std::thread::spawn(move || {
+                let (mut s, _) = listener.accept().unwrap();
+                let mut buf = [0u8; 65536];
+                let _ = s.read(&mut buf);
+                let head = if chunked {
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
+                     transfer-encoding: chunked\r\nconnection: close\r\n\r\n"
+                        .to_string()
+                } else {
+                    format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
+                         content-length: {}\r\nconnection: close\r\n\r\n",
+                        body.len()
+                    )
+                };
+                let _ = s.write_all(head.as_bytes());
+                if chunked {
+                    // No Content-Length to refuse up front: the cap must hold
+                    // while the body streams in.
+                    for piece in body.as_bytes().chunks(64 * 1024) {
+                        let _ = s.write_all(format!("{:x}\r\n", piece.len()).as_bytes());
+                        let _ = s.write_all(piece);
+                        let _ = s.write_all(b"\r\n");
+                    }
+                    let _ = s.write_all(b"0\r\n\r\n");
+                } else {
+                    let _ = s.write_all(body.as_bytes());
+                }
+            });
+            format!("http://{addr}/v1/systemone")
+        }
+        let huge = format!(
+            r#"{{"answers":{{"d0":{{"noul":0.9}}}},"padding":"{}"}}"#,
+            "x".repeat(MAX_RESPONSE_BYTES)
+        );
+        let small = r#"{"answers":{"d0":{"noul":0.9}}}"#.to_string();
+        let cfg = RerankConfig::default();
+        let rt = rt();
+        for chunked in [false, true] {
+            let p = JevProvider::new(
+                "k".into(),
+                serve(huge.clone(), chunked),
+                Duration::from_secs(10),
+            );
+            let d = Deadline::new(Duration::from_secs(10));
+            let err = rt
+                .block_on(p.call_batch("q", &cands(1), &cfg, &d))
+                .expect_err("an oversized body must not parse");
+            assert!(
+                matches!(&err, RerankError::Malformed(m) if m.contains("larger than")),
+                "chunked={chunked}: {err}"
+            );
+            assert_eq!(err.policy(), Policy::Surface, "chunked={chunked}");
+
+            let p = JevProvider::new(
+                "k".into(),
+                serve(small.clone(), chunked),
+                Duration::from_secs(10),
+            );
+            let (scores, _) = rt
+                .block_on(p.call_batch("q", &cands(1), &cfg, &d))
+                .expect("a body inside the ceiling parses");
+            assert_eq!(scores.len(), 1, "chunked={chunked}");
+        }
     }
 
     #[test]
@@ -1677,10 +1852,22 @@ mod tests {
                 assert_eq!((u.input_tokens, u.output_tokens), (12, 3), "usage {usage}");
             }
             if usage.contains("-5") {
-                assert_eq!(u.input_tokens, 9_223_372_036_854_775_808, "usage {usage}");
-                assert_eq!(u.output_tokens, 0, "usage {usage}");
+                // 2^63 input tokens is a number, but not one a call of 30
+                // documents can produce: it must not reach the operator's
+                // counter, where one such response would poison the series.
+                assert_eq!(u, Usage::default(), "usage {usage}");
             }
         }
+        // The largest count one call could plausibly report is kept.
+        let (_, u) = parse_jev_response_with_usage(&format!(
+            r#"{{"answers":{{}},"usage":{{"input_tokens":{MAX_PLAUSIBLE_TOKENS_PER_CALL},"output_tokens":{}}}}}"#,
+            MAX_PLAUSIBLE_TOKENS_PER_CALL + 1
+        ))
+        .unwrap();
+        assert_eq!(
+            (u.input_tokens, u.output_tokens),
+            (MAX_PLAUSIBLE_TOKENS_PER_CALL, 0)
+        );
         // Malformed ANSWERS are still a contract break.
         assert!(parse_jev_response_with_usage(r#"{"answers":[1,2]}"#).is_err());
         assert!(parse_jev_response_with_usage(
