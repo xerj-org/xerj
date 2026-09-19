@@ -162,6 +162,13 @@ struct MockState {
     /// memory circuit breaker does for the moment it is engaged. Then behave
     /// normally, so the client's re-send of exactly those items can land.
     throttle_data_bulks: usize,
+    /// Opt-in (#955): the engine's `limits.max_actions_per_bulk`. A `_bulk` of
+    /// more than twice this many lines — data or catalog — is refused whole
+    /// with the engine's literal answer: HTTP 200, ONE item of status 413,
+    /// nothing applied.
+    max_actions_per_bulk: Option<usize>,
+    /// Line count of every bulk `max_actions_per_bulk` refused, in order.
+    oversize_bulks_refused: Vec<usize>,
 }
 
 struct MockEndpoint {
@@ -585,6 +592,35 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
     if is_graph {
         return json!({"errors": false, "items": []});
     }
+    {
+        // Checked before anything is applied and by LINES, as
+        // `xerj-engine/src/bulk.rs` does.
+        let mut locked = state.lock().unwrap();
+        if let Some(max_actions) = locked.max_actions_per_bulk {
+            if lines.len() > max_actions * 2 {
+                locked.oversize_bulks_refused.push(lines.len());
+                return json!({
+                    "took": 0,
+                    "errors": true,
+                    "items": [{"index": {
+                        "_index": "",
+                        "_id": "",
+                        "status": 413,
+                        "error": {
+                            "type": "engine_exception",
+                            "reason": format!(
+                                "bulk request contains {} lines (~{} actions); exceeds \
+                                 max_actions_per_bulk of {max_actions}",
+                                lines.len(),
+                                lines.len() / 2
+                            ),
+                            "status": 413
+                        }
+                    }}]
+                });
+            }
+        }
+    }
     if !is_data {
         // Catalog bulks mix `index` and `delete` actions (stale aliases, and
         // the junk sweep of #238), so walk the NDJSON rather than assuming
@@ -938,6 +974,111 @@ fn the_legacy_terminal_line_and_run_document_report_code_coverage() {
             .as_str()
             .is_some_and(|defs| defs.contains("struct AlphaConfig")),
         "{ast}"
+    );
+}
+
+/// #955 on the legacy (graph) path, where the defect was SILENT. The catalog
+/// went out as one `_bulk` whatever `--bulk-mb` said; past the engine's
+/// `max_actions_per_bulk` the answer is one item of status 413, which is
+/// neither a 429 nor a 5xx, so `write catalog` counted one ignorable
+/// `item_error` and the run reported success with no catalog at all — the map
+/// every later `xerj autoindex map` and agent query reads. The catalog is now
+/// windowed and a refused request is halved, so the whole catalog lands.
+#[test]
+fn a_catalog_bulk_the_server_refuses_as_too_large_still_lands_whole() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        for name in ["a", "b", "c", "d", "e", "f"] {
+            fs::write(
+                root.join(format!("{name}.csv")),
+                format!("id,value\n1,{name}-first\n2,{name}-second\n"),
+            )
+            .unwrap();
+        }
+    };
+    let catalog_ids = |endpoint: &MockEndpoint| {
+        let locked = endpoint.state.lock().unwrap();
+        let mut ids: Vec<String> = locked
+            .catalog_docs
+            .iter()
+            .map(|(id, doc)| {
+                // A run document's id carries the run's own timestamp.
+                if doc["doc_kind"] == "run" {
+                    "run".to_owned()
+                } else {
+                    id.clone()
+                }
+            })
+            .collect();
+        ids.sort();
+        ids
+    };
+
+    let control_corpus = tempfile::tempdir().unwrap();
+    let control_state = tempfile::tempdir().unwrap();
+    write_corpus(control_corpus.path());
+    let control = MockEndpoint::start(usize::MAX);
+    let (code, _) = run_index_report(cfg(
+        control_corpus.path(),
+        control_state.path(),
+        &control.url,
+    ))
+    .unwrap();
+    assert_eq!(code, 0);
+    let expected = catalog_ids(&control);
+    assert!(expected.len() > 4, "{expected:?}");
+
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = MockEndpoint::start(usize::MAX);
+    // Three actions a request: every data bulk here fits (one file, two rows),
+    // so the ONLY request over the limit is the catalog — the silent case.
+    endpoint.state.lock().unwrap().max_actions_per_bulk = Some(3);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, _report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(code, 0);
+    assert_eq!(
+        catalog_ids(&endpoint),
+        expected,
+        "the catalog is the one an unlimited server gets — before #955 it was empty"
+    );
+    {
+        let locked = endpoint.state.lock().unwrap();
+        assert!(
+            !locked.oversize_bulks_refused.is_empty(),
+            "the limit was actually met"
+        );
+        assert_eq!(
+            data_rows(&locked).len(),
+            12,
+            "six files of two rows: no data bulk was over the limit"
+        );
+    }
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.starts_with("xerj-done ok=true exit=0 "), "{done}");
+    assert!(
+        done.contains(" bulk_splits="),
+        "the terminal line must say the server refused a request for its size: {done}"
     );
 }
 

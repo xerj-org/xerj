@@ -1252,6 +1252,12 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value) {
     if count("bulk_retries") > 0 {
         extra.push(("bulk_retries", count("bulk_retries")));
     }
+    // #955: present only when the server refused a request as too large and
+    // the run halved it — a node with a tight `max_actions_per_bulk` or
+    // `max_body_bytes` is worth knowing about even when the run finished.
+    if count("bulk_splits") > 0 {
+        extra.push(("bulk_splits", count("bulk_splits")));
+    }
     extra.extend(coverage.fields());
     pr.finish(
         true,
@@ -4005,6 +4011,11 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         summary["bulk_retries"] = json!(bulk_retries);
         summary["bulk_items_reissued"] = json!(es.bulk_items_reissued());
     }
+    // #955: requests the server refused as too large and this run halved.
+    // Present only when it happened, like the line above.
+    if es.bulk_requests_split() > 0 {
+        summary["bulk_splits"] = json!(es.bulk_requests_split());
+    }
     journal.finish(&summary)?;
     if cfg.json {
         println!("{summary}");
@@ -4748,7 +4759,12 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         pr.phase("replay", 0, 0);
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         // Through the progress surface, never a bare `eprintln!`: stderr
         // belongs to that surface, so `--progress none` stays silent and
         // `--progress json` stays one parseable stream (#241).
@@ -4978,7 +4994,12 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         )?;
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
         finish_generated_progress(&pr, code, &summary);
@@ -5682,7 +5703,12 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
                 .with_installed_mappings(installed_identity);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
         finish_generated_progress(&pr, code, &summary);
@@ -7481,7 +7507,14 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     push_doc(&format!("run:{run_id}"), &run_doc, &mut cat_buf);
 
     if !cat_buf.is_empty() {
-        let outcome = es.bulk(cat_buf).context("write catalog")?;
+        // #955: one document per file — this body grows with the corpus, and
+        // it used to go out as ONE request whatever `--bulk-mb` said. Past the
+        // engine's 50,000-action limit the answer is a single 413 item, which
+        // is not a `server_error`, so the check below let a run report success
+        // with NO catalog written. Windowed like every other bulk.
+        let outcome = es
+            .bulk_windowed(cat_buf, cfg.bulk_mb << 20)
+            .context("write catalog")?;
         // The catalog is the data map every later `map`/`status`/agent query
         // reads; a rejected catalog bulk (e.g. a write block that engaged
         // mid-run) must not be swallowed into a "success" exit (#195).
@@ -7495,6 +7528,17 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                     .as_deref()
                     .unwrap_or("unknown server error")
             );
+        }
+        // A catalog document the server refused is a file or dataset that
+        // `xerj autoindex map` will not show. It has never ended a run and
+        // does not now, but it is no longer silent either (#955).
+        if outcome.item_errors > 0 {
+            pr.note(&format!(
+                "autoindex: WARNING — the server refused {} catalog document(s): {}. The \
+                 records are indexed; `xerj autoindex map` will be missing those entries",
+                outcome.item_errors,
+                outcome.first_error.as_deref().unwrap_or("no reason given")
+            ));
         }
     }
     es.refresh(catalog::CATALOG_INDEX).ok();
@@ -7658,6 +7702,10 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // #944: present only when the run re-sent items the server answered 429.
     if es.bulk_backpressure_retries() > 0 {
         done_fields.push(("bulk_retries", es.bulk_backpressure_retries()));
+    }
+    // #955: present only when the server refused a request as too large.
+    if es.bulk_requests_split() > 0 {
+        done_fields.push(("bulk_splits", es.bulk_requests_split()));
     }
     // #929: only when it happened, so a whole corpus prints the line it always
     // did and one that lost a dataset cannot print the same one.

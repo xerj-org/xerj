@@ -81,6 +81,16 @@ struct HttpState {
     /// Action count of every data bulk answered, in order — how a test proves
     /// a re-send carried only the rejected items.
     data_bulk_item_counts: Vec<usize>,
+    /// Opt-in (#955): the engine's `limits.max_actions_per_bulk`. A `_bulk` of
+    /// more than twice this many lines — data or catalog — is refused whole,
+    /// before anything is applied, with the engine's literal answer: HTTP 200
+    /// carrying ONE item of status 413. That response ended the 48,533-file
+    /// run in `finalize-catalog` after every operation had been applied.
+    max_actions_per_bulk: Option<usize>,
+    /// Line count of every bulk refused by `max_actions_per_bulk`, in order.
+    oversize_bulks_refused: Vec<usize>,
+    /// Line count of every bulk that got past `max_actions_per_bulk`.
+    bulk_line_counts: Vec<usize>,
 }
 
 struct HttpEndpoint {
@@ -367,6 +377,35 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
             .unwrap_or(false)
     });
     let mut locked = state.lock().unwrap();
+    if let Some(max_actions) = locked.max_actions_per_bulk {
+        // Checked first and by LINES, as `xerj-engine/src/bulk.rs` does.
+        if lines.len() > max_actions * 2 {
+            locked.oversize_bulks_refused.push(lines.len());
+            return (
+                200,
+                json!({
+                    "took": 0,
+                    "errors": true,
+                    "items": [{"index": {
+                        "_index": "",
+                        "_id": "",
+                        "status": 413,
+                        "error": {
+                            "type": "engine_exception",
+                            "reason": format!(
+                                "bulk request contains {} lines (~{} actions); exceeds \
+                                 max_actions_per_bulk of {max_actions}",
+                                lines.len(),
+                                lines.len() / 2
+                            ),
+                            "status": 413
+                        }
+                    }}]
+                }),
+            );
+        }
+        locked.bulk_line_counts.push(lines.len());
+    }
     if is_data {
         locked.data_bulk_requests += 1;
         let numbered = locked.fail_data_bulk_number == Some(locked.data_bulk_requests);
@@ -4891,6 +4930,136 @@ fn a_per_item_429_in_a_sealed_bulk_is_resent_and_the_generation_commits() {
         &counts[..2],
         &[4, 2],
         "the re-send carried exactly the two rejected items: {counts:?}"
+    );
+}
+
+/// #955 on the generated (`--no-graph`) path — the literal end of the
+/// full-corpus verification run, scaled down. The engine refuses a `_bulk` of
+/// more than `max_actions_per_bulk` actions whole, with ONE item of status 413.
+/// The catalog projection holds a document per file and went out as one
+/// request, so on a 48,533-file corpus (51,129 actions against a limit of
+/// 50,000) the run ended `exit=1 reason=aborted` in `finalize-catalog`, after
+/// all 47,444 operations had been applied:
+///
+/// ```text
+/// error: prepared bulk contained 1 rejected items: {"type":"engine_exception",
+/// "reason":"bulk request contains 102258 lines (~51129 actions); exceeds
+/// max_actions_per_bulk of 50000","status":413}
+/// ```
+///
+/// Here the limit is 2 actions and the corpus has seven files. Every refused
+/// request — a data bulk and the catalog alike — is halved until it lands; the
+/// generation commits; the catalog the run publishes is the one an unlimited
+/// server gets; and the summary says the server pushed back on size.
+#[test]
+fn a_bulk_the_server_refuses_as_too_large_is_halved_and_the_generation_commits() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        fs::write(
+            root.join("rows.csv"),
+            "id,value\n1,first\n2,second\n3,third\n4,fourth\n5,fifth\n",
+        )
+        .unwrap();
+        for name in ["a", "b", "c", "d", "e", "f"] {
+            fs::write(
+                root.join(format!("{name}.md")),
+                format!("# {name}\n\nNotes about {name}, long enough to be prose.\n"),
+            )
+            .unwrap();
+        }
+    };
+    let catalog_shape = |endpoint: &HttpEndpoint| {
+        let mut kinds: Vec<String> = endpoint
+            .catalog_docs()
+            .iter()
+            .map(|doc| {
+                format!(
+                    "{}:{}:{}",
+                    doc["doc_kind"].as_str().unwrap_or("?"),
+                    doc["path"]
+                        .as_str()
+                        .or_else(|| doc["slug"].as_str())
+                        .unwrap_or(""),
+                    doc["records"]
+                        .as_u64()
+                        .or_else(|| doc["record_count"].as_u64())
+                        .unwrap_or(0)
+                )
+            })
+            .collect();
+        kinds.sort();
+        kinds
+    };
+
+    // Control: the same corpus against a server with no limit.
+    let control_corpus = tempfile::tempdir().unwrap();
+    let control_state = tempfile::tempdir().unwrap();
+    write_corpus(control_corpus.path());
+    let control = HttpEndpoint::start();
+    let (code, summary) = run_index_report(cfg(
+        control_corpus.path(),
+        control_state.path(),
+        &control.url,
+        false,
+    ))
+    .unwrap();
+    assert_eq!(code, 0);
+    assert!(
+        summary.unwrap().get("bulk_splits").is_none(),
+        "a run the server never refused for size reports nothing"
+    );
+    let expected_catalog = catalog_shape(&control);
+    assert!(
+        expected_catalog.len() > 4,
+        "the control catalog must be larger than the limit for this test to mean anything: \
+         {expected_catalog:?}"
+    );
+
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = HttpEndpoint::start();
+    endpoint.state.lock().unwrap().max_actions_per_bulk = Some(2);
+    let (code, summary) =
+        run_index_report(cfg(corpus.path(), state_dir.path(), &endpoint.url, false)).unwrap();
+    assert_eq!(
+        code, 0,
+        "a request the server calls too large must not end the run"
+    );
+    let summary = summary.unwrap();
+    assert!(
+        summary["bulk_splits"].as_u64().unwrap_or(0) >= 1,
+        "{summary}"
+    );
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+    assert_eq!(
+        endpoint.data_docs().len(),
+        control.data_docs().len(),
+        "every record landed"
+    );
+    assert_eq!(
+        catalog_shape(&endpoint),
+        expected_catalog,
+        "the catalog is the one an unlimited server gets"
+    );
+    let locked = endpoint.state.lock().unwrap();
+    assert!(
+        !locked.oversize_bulks_refused.is_empty(),
+        "the limit was actually met"
+    );
+    assert!(
+        locked.bulk_line_counts.iter().all(|lines| *lines <= 4),
+        "{:?}",
+        locked.bulk_line_counts
+    );
+    // The bound is learned, not rediscovered by every request: with a limit
+    // of 2 the run halves its way down once per dimension it meets, not once
+    // per bulk.
+    assert!(
+        locked.oversize_bulks_refused.len() <= 6,
+        "refused {} requests: {:?}",
+        locked.oversize_bulks_refused.len(),
+        locked.oversize_bulks_refused
     );
 }
 

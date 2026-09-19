@@ -1,0 +1,14 @@
+# Node side of the run in before-955.stderr.txt (throwaway node, XERJ_MAX_PROCESS_MEMORY_MB=49152).
+# ANSI colour stripped, local paths shortened; nothing else changed.
+
+## every xerj_engine::governor line in the node log (2) — the memory circuit breaker never engaged
+2026-09-18T14:31:44.273522Z  INFO xerj_engine::governor: memory: detected 119.2 GiB usable, using a 48 GiB cap (explicit XERJ_MAX_PROCESS_MEMORY_MB); change with limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB (0 = whole machine)
+2026-09-18T14:31:44.273551Z  INFO xerj_engine::governor: resource governor initialised (parent circuit breaker) memtable_budget_mb=12288 memory_limit_mb=49152 memory_limit_source=Env memory_watermark_mb=46694 memory_watermark_pct=95 max_query_memory_mb=512 max_concurrent_searches=64 max_concurrent_bulks=8 disk_flood_pct=95 segment_hydration_cache_mb=9830 segment_hydration_cache_source=Auto
+
+## ingest-memory trace at shutdown: logical peaks (bytes)
+{"cache_decoded_stored": 0, "cache_doc_values": 325156757, "cache_fts_reader": 310474909, "cache_id_positions": 67400896, "cache_row_sequences": 7040080, "cache_sort_shadow": 2176, "cache_stored_slices": 5623816082, "cache_stored_values": 531782791, "flush_drained": 175753320, "http_body": 31910392, "http_rewrite_buffer": 6002, "memtable_active": 1103458981, "merge_decoded": 0, "merge_encoded": 0, "merge_json_buffer": 0, "merge_parsed": 0, "merge_survivor": 0, "parsed_source": 14473891, "parsed_vector": 0, "prepared_document": 1440948, "prepared_vector": 33411168, "raw_source": 8118959}
+
+## resident memory, sampled every 60 s from /proc/<pid>/status (rss-945.csv, 799 samples)
+first  2026-09-18T14:34:25Z VmRSS=460544 kB docs=0
+peak   2026-09-18T21:24:01Z VmRSS=20209284 kB RssAnon=19925116 kB docs=820234
+last   2026-09-19T19:55:36Z VmRSS=19035908 kB RssAnon=18710272 kB RssFile=325636 kB docs=821840
