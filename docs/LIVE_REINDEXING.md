@@ -107,7 +107,7 @@ re-run splits that 42-second run in two (section 3 of the measurement record):
 Both are O(corpus) per change, both are shared with a plain re-run, and neither is
 touched by `--watch`; the per-change lever is there, not in the walk `--watch`
 removes. It belongs to the transactional publish path and is filed as its own
-issue. (An earlier version of this page attributed the whole tail to the snapshot.
+issue ([#971](https://github.com/xerj-org/xerj/issues/971)). (An earlier version of this page attributed the whole tail to the snapshot.
 That was an inference and the sampling above disproved it.)
 
 ### Idle cost, stated as numbers

@@ -160,8 +160,8 @@ So a one-file change on a 10,000-file corpus is **two** O(corpus) costs, not one
    a 16-segment merge with `live_docs=50021`.
 
 Neither cost is touched by `--watch`, and both are shared with a plain re-run.
-Filed as a follow-up issue (linked from the PR); it belongs to the transactional
-publish path, not to this feature.
+Filed as [issue #971](https://github.com/xerj-org/xerj/issues/971); it belongs to
+the transactional publish path, not to this feature.
 
 A third, smaller observation from the same run: the progress bar reports
 `phase=scan 100% … (stalled)` for the entire 39-second tail, because neither the
