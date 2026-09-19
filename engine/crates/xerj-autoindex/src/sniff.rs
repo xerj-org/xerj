@@ -1225,6 +1225,9 @@ fn header_name(line: &str) -> Option<&str> {
 fn looks_like_mbox(nonblank: &[&str]) -> bool {
     match nonblank.split_first() {
         Some((first, rest)) => {
+            // A UTF-8 BOM in front of the first separator is still a mailbox;
+            // the splitter drops the same three bytes at offset 0.
+            let first = first.strip_prefix('\u{feff}').unwrap_or(first);
             crate::extract::mbox::is_from_line(first.as_bytes()) && looks_like_email(rest)
         }
         None => false,
@@ -3794,6 +3797,10 @@ mod mail_and_archive_sniff_tests {
         }
         // Blank lines before the first separator are tolerated.
         assert_eq!(family(&format!("\n\n{lf}"), "Inbox"), Family::Mbox);
+        // So is a UTF-8 byte-order mark (review finding on PR #949: such a
+        // file was junked as a "yaml candidate" and none of its mail indexed).
+        assert_eq!(family(&format!("\u{feff}{lf}"), "bom.mbox"), Family::Mbox);
+        assert_eq!(family(&format!("\u{feff}{crlf}"), "bom.mbox"), Family::Mbox);
         // Thunderbird and mutt separators.
         for sep in [
             "From - Tue Oct 10 12:34:56 2023",

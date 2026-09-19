@@ -102,6 +102,9 @@ use std::sync::{mpsc, Arc, Condvar, Mutex, OnceLock};
 /// still going after this many bytes is body, whatever it starts with.
 const HEAD_CAP: usize = 1024;
 
+/// UTF-8 byte-order mark.
+pub(crate) const UTF8_BOM: &[u8] = b"\xef\xbb\xbf";
+
 /// One message cut out of a mailbox.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawMessage {
@@ -270,6 +273,15 @@ impl<R: BufRead> Splitter<R> {
             if matches!(kind, Head::Eof) && self.head.is_empty() {
                 self.eof = true;
                 return Ok(self.cur.take().map(Self::finish));
+            }
+            // A UTF-8 byte-order mark in front of the FIRST separator. Some
+            // Windows tools write one when they save or convert a mailbox, and
+            // with it the first line is not `From …`: the whole first message
+            // was preamble, and `sniff` junked the file before it got here
+            // (review finding on PR #949). Dropped at offset 0 only — anywhere
+            // else `EF BB BF` is three bytes of somebody's text.
+            if line_start == 0 && self.head.starts_with(UTF8_BOM) {
+                self.head.drain(..UTF8_BOM.len());
             }
             if complete && is_from_line(&self.head) {
                 let done = self.cur.take().map(Self::finish);
@@ -1050,6 +1062,28 @@ mod tests {
     /// A message over the cap keeps its head, reports its real size, and does
     /// not stop the messages after it from being found. The cut lands in the
     /// middle of multi-byte text on purpose.
+    #[test]
+    fn a_byte_order_mark_before_the_first_separator_is_not_preamble() {
+        let mut mbox = UTF8_BOM.to_vec();
+        mbox.extend_from_slice(
+            b"From a@x.org Mon Jan  1 10:00:00 2024\nSubject: first\n\nxqbom one\n\n\
+              From b@x.org Mon Jan  1 11:00:00 2024\nSubject: second\n\n\xef\xbb\xbfnot a bom here\n",
+        );
+        let mut split = Splitter::new(Cursor::new(mbox));
+        let first = split.next_message().unwrap().expect("the first message");
+        assert_eq!(
+            first.offset, 0,
+            "the separator is still the start of the file"
+        );
+        assert_eq!(first.from_line, "From a@x.org Mon Jan  1 10:00:00 2024");
+        assert!(first.bytes.starts_with(b"Subject: first"));
+        let second = split.next_message().unwrap().expect("the second message");
+        // Mid-file the same three bytes are text and stay where they are.
+        assert!(second.bytes.ends_with(b"\xef\xbb\xbfnot a bom here\n"));
+        assert!(split.next_message().unwrap().is_none());
+        assert_eq!(split.preamble_bytes, 0);
+    }
+
     #[test]
     fn an_oversized_message_is_capped_and_the_next_one_still_splits() {
         let big_body = "設計書مرحبا".repeat(400);
