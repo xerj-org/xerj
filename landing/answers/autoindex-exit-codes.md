@@ -129,7 +129,7 @@ autoindex: stopped by server back-pressure while applying <file>: N operation(s)
 xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
 ```
 
-The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
+Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
 
 A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one `_bulk` request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's `limits.max_actions_per_bulk` (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the `--no-graph` run ended 10,336 seconds in:
 
@@ -138,7 +138,7 @@ xerj-done ok=false exit=1 reason=aborted wall=10336.0s
 error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
 ```
 
-Every `_bulk` body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries `bulk_splits=N` when that happened. Resuming that same generation with the change committed it:
+Every `_bulk` body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries `bulk_splits=N` when that happened. Against real nodes with `max_actions_per_bulk = 64` and with `max_body_bytes = 98304`, each run ended `ok=true exit=3 records=1663 bulk_splits=1`, the same records as a control run. Resuming that same generation with the change committed it:
 
 ```text
 xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1 code_files=34324 code_files_indexed=34324 code_files_junked=0
@@ -174,7 +174,7 @@ Pair this with the four-number reconciliation on the [completeness page](/answer
 
 The codes above were read from `xerj autoindex --help` on a built binary and cross-checked against the help string in `engine/crates/xerj-autoindex/src/cli.rs`. Both agree.
 
-One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`, together with the full-corpus exit 1 in `finalize-catalog` and the exit 3 of the same generation resumed after issue #955 was fixed (`before-955.stderr.txt`, `after-955.full-corpus-resume.stderr.txt`). The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
+One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`, together with the full-corpus exit 1 in `finalize-catalog`, the exit 3 of the same generation resumed after issue #955 was fixed (`before-955.stderr.txt`, `after-955.full-corpus-resume.stderr.txt`), and a `reason=server-backpressure` exit 1 forced with a 64 MiB memory cap (`limits-real-node.txt`). The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
 
 ## FAQ
 
@@ -217,7 +217,7 @@ Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2
 - A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — `benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt`
 - Before issue #955 was fixed, a 48,533-file --no-graph run applied every operation and then ended xerj-done ok=false exit=1 reason=aborted wall=10336.0s, because the catalog went out as one bulk request of 51,129 actions and the engine's max_actions_per_bulk is 50,000. — `benchmarks/autoindex-resilience/before-955.stderr.txt`
 - Resuming that same generation with the fix ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1. — `benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt`
-- A --no-graph run whose back-pressure patience runs out ends with reason=server-backpressure, ops_applied and ops_remaining on the terminal line, and exit 1. — `engine/crates/xerj-autoindex/src/sync_executor.rs`
+- On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231; against real nodes with max_actions_per_bulk = 64 and with max_body_bytes = 98304, each run ended ok=true exit=3 records=1663 bulk_splits=1. — `benchmarks/autoindex-resilience/limits-real-node.txt`
 - Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either. — `engine/crates/xerj-autoindex/src/lib.rs:277`
 
 ## Related

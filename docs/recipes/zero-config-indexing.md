@@ -353,7 +353,10 @@ xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_
 ```
 
 It stays exit 1, not 3: exit 3 means "a finished run, retry nothing", and this
-generation is not finished.
+generation is not finished. Forced on a real node with a 64 MiB memory cap, the
+line read `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s
+ops_applied=0 ops_remaining=231`; after a restart on the default cap, the same
+command committed the generation with the control run's 1,663 records.
 
 The stream says what is happening at most once every 5 s (`autoindex: server
 back-pressure: N of M bulk item(s) rejected … re-sending only the rejected
@@ -399,6 +402,14 @@ data: `xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s
 files=47444 records=821840 generation=1`, with 51,129 catalog documents and the
 node's largest request body at 8,388,241 bytes (was 31,910,392). Captures:
 `benchmarks/autoindex-resilience/before-955.*` and `after-955.*`.
+
+Both refusal shapes were also run against real nodes on the `sonic`
+repository (`limits-real-node.txt`): with `max_actions_per_bulk = 64` and with
+`max_body_bytes = 98304`, each run halved one request and ended
+`ok=true exit=3 records=1663 bulk_splits=1`, the same records and catalog as a
+control run on default limits. With `max_body_bytes = 65536` one 70,477-byte
+record could not be cut, and the run ended exit 1 with the error that names
+`limits.max_body_bytes`.
 
 ## 10. Reading progress on the `--no-graph` path
 

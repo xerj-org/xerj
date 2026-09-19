@@ -116,6 +116,8 @@ error: the server kept rejecting …
 
 `reason=server-backpressure` tells this stop apart from `reason=aborted`, which also covers a broken journal or an unreachable node. The exit code stays 1: exit 3 means a finished run with nothing to retry, and a half-applied generation is not finished.
 
+This was forced on a real node by starting it with a 64 MiB memory cap, so the breaker was engaged from the first write. After 16 re-sends the run ended `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231`. The node was then restarted on its default cap and the same command was run again. It printed `resumed and committed` and ended `ok=true exit=3` with the same 1,663 records as a control run.
+
 Read the node log: it names the cap it chose (`memory: detected … usable, using a … cap`) and the setting that changes it, `limits.max_process_memory_mb` or `XERJ_MAX_PROCESS_MEMORY_MB`. Then rerun the same command. Nothing from the rejected bulk was journaled as applied, so the run resumes from its last committed operation and sends that bulk again.
 
 One cause is known and is not transient. After a large ingest into many indices the node's resident memory can stay pinned above the watermark: after the run behind this page the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk, unchanged 2.5 hours after the last write, and every write was 429 until the node was restarted ([#950](https://github.com/xerj-org/xerj/issues/950)). No client-side wait fixes that. Restart the node, or raise the cap, then rerun.
@@ -162,8 +164,8 @@ No. A 429 on create-index or put-mapping is the endpoint saying it is busy, not 
 - After that run the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk 2.5 hours after the last write, its breaker stayed engaged, and every write was answered 429 until the node was restarted. — [https://github.com/xerj-org/xerj/issues/950](https://github.com/xerj-org/xerj/issues/950)
 - Only a bulk whose every failed item is a 429 is re-sent; the rejected actions are cut out of the sent body by position and re-issued after a backoff that starts at 250 ms and doubles to 8 s; the client gives up only after 120 s with nothing accepted, measured from the last response that accepted an item. — `engine/crates/xerj-autoindex/src/esclient.rs`
 - The 'raising bulk concurrency' line is printed at most once every 10 s, plus the step that reaches the ceiling; the capture that motivated this holds 117 such lines for 11 shrinks. — `engine/crates/xerj-autoindex/src/esclient.rs`
-- A --no-graph run whose back-pressure patience runs out ends with reason=server-backpressure, ops_applied and ops_remaining on the terminal line, and exit 1. — `engine/crates/xerj-autoindex/src/sync_executor.rs`
-- A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency, and the terminal line carries bulk_splits=N when that happened. — `engine/crates/xerj-autoindex/src/esclient.rs`
+- On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231 after 16 re-sends, and the same command on the restarted node committed the generation with 1,663 records, the same as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
+- A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency; on real nodes with max_actions_per_bulk = 64 and max_body_bytes = 98304 each run ended ok=true exit=3 records=1663 bulk_splits=1, the same records as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
 
 ## Related
 

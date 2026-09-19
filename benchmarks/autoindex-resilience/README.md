@@ -41,6 +41,7 @@ Nothing else was changed.
 | `after-955.node.txt` | The node side of that resume: counts, catalog size, request-body peak, memory, how the client reached the node. |
 | `before-955.stderr.txt` | This branch before #955: the full corpus, every operation applied, then exit 1 in `finalize-catalog`. First 30 and last 40 of 2,815 lines. |
 | `before-955.node.txt` | The node side of that run: governor lines, ingest-memory peaks, sampled resident memory. |
+| `limits-real-node.txt` | #955 and the #944 terminal case against a real engine: `max_actions_per_bulk = 64`, `max_body_bytes` of 96 KiB and 64 KiB, a 64 MiB memory cap, and the resume after it, each beside a control run. |
 | `results.json` | `summarize.py` over the four complete captures: `before-rc74`, `slice-rc74`, `slice-after`, `after-955.full-corpus-resume`. |
 | `after-fix.small-repo.stderr.txt` | This branch, a 231-file repository, `--progress plain --progress-interval 1`: a complete stream that fits on a screen. |
 | `after-fix.resume-probe.stderr.txt` | This branch: resuming the full-corpus generation after it was interrupted. Stopped on purpose after 100 s. |
@@ -243,6 +244,21 @@ reached it through a local TCP forwarder (`HTTP_PROXY`). Nothing listened on
 | #955: the catalog write that failed commits, on the same data | yes, with the #955 binary, by resuming | `after-955.*` |
 | One uninterrupted run from an empty node to a commit with the final binary | **no** | — |
 | Any full-corpus run on the default 16 GiB memory tier | **no, and it cannot finish there today** | `before-944.*`, [#950](https://github.com/xerj-org/xerj/issues/950) |
+
+## The size and back-pressure paths against a real engine (this branch)
+
+The end-to-end tests for #955 and #944 run against a stub. `limits-real-node.txt`
+runs the same paths against the engine, on the sonic repository, one fresh
+node per setting, each compared with a control run on default limits
+(`records=1663`, 236 catalog documents):
+
+| Node setting | Result |
+| --- | --- |
+| `max_actions_per_bulk = 64` | one 73-action request refused (item 413), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
+| `max_body_bytes = 98304` | one 120,737-byte request refused (HTTP 413, `length limit exceeded`), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
+| `max_body_bytes = 65536` | a single 70,477-byte record cannot be cut: `exit=1 reason=aborted`, error names `limits.max_body_bytes` |
+| `XERJ_MAX_PROCESS_MEMORY_MB=64` | breaker engaged from start-up; 16 re-sends, then `ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231` |
+| the same state directory, node restarted on the default cap, same command | `resumed and committed`; `ok=true exit=3 records=1663`, 236 catalog documents |
 
 ## After, a slice that holds the rc.74 trigger (this branch)
 
