@@ -1,0 +1,252 @@
+[
+ {
+  "id": "A01",
+  "source": "queued-2026-09-18",
+  "claim": "The Vercel AI SDK llms.txt branches on agent capability and gives a skill-install command for agents with filesystem access.",
+  "url": "https://ai-sdk.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If you are working inside a local coding project with filesystem access, install the AI SDK skill first:"
+  ]
+ },
+ {
+  "id": "A02",
+  "source": "queued-2026-09-18",
+  "claim": "Composio's llms.txt states a fallback ladder for hosts that need approval or cannot install skills.",
+  "url": "https://docs.composio.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "requesting approval if your host requires it. If skills are unsupported or installation fails, use the documentation linked below and report that fallback."
+  ]
+ },
+ {
+  "id": "A03",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md makes install conditional on the user's agreement.",
+  "url": "https://deno.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "install Deno, show them how, and run one of these only once they agree:"
+  ]
+ },
+ {
+  "id": "A04",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md gives a read-instead-of-install fallback for agents that cannot install skills.",
+  "url": "https://deno.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "**If you cannot install skills**, read them directly"
+  ]
+ },
+ {
+  "id": "A05",
+  "source": "queued-2026-09-18",
+  "claim": "Algolia's agent setup block tells the agent to run only that block and not the human reference sections.",
+  "url": "https://www.algolia.com/doc/guides/get-started/build-with-ai.md",
+  "expect": "present",
+  "quotes": [
+   "This section is the complete setup: run only the commands below."
+  ]
+ },
+ {
+  "id": "A06",
+  "source": "queued-2026-09-18",
+  "claim": "Browserbase's install story is a one-line prompt pointing at a hosted SKILL.md.",
+  "url": "https://docs.browserbase.com/welcome/quickstarts/skills.md",
+  "expect": "present",
+  "quotes": [
+   "Read https://browserbase.com/SKILL.md to set up Browserbase"
+  ]
+ },
+ {
+  "id": "A07",
+  "source": "queued-2026-09-18",
+  "claim": "The first bullet of Neon's llms.txt is an unattended-agent provisioning path.",
+  "url": "https://neon.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Need a Neon account and the user is not around: provision one now; they claim it later"
+  ]
+ },
+ {
+  "id": "A08",
+  "source": "queued-2026-09-18",
+  "claim": "Neon's paste prompt requires the agent to prove the setup with a real query.",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "expect": "present",
+  "quotes": [
+   "Prove it works: run a real query and show me the result, not just \"setup complete.\""
+  ]
+ },
+ {
+  "id": "A09",
+  "source": "queued-2026-09-18",
+  "claim": "Neon docs pages carry a footer asking AI assistants to POST feedback to a no-auth endpoint.",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "expect": "present",
+  "quotes": [
+   "POST `{\"feedback\": \"describe the issue\", \"path\": \"/docs/get-started/with-an-agent\"}` to https://neon.com/api/docs-feedback"
+  ]
+ },
+ {
+  "id": "A10",
+  "source": "queued-2026-09-18",
+  "claim": "Expo's agents.md offers a feedback command with an HTTP fallback and limits it to actionable reports.",
+  "url": "https://docs.expo.dev/agents.md",
+  "expect": "present",
+  "quotes": [
+   "Only submit when you have something specific and actionable to report."
+  ]
+ },
+ {
+  "id": "A11",
+  "source": "queued-2026-09-18",
+  "claim": "Pydantic AI's llms.txt collects agent intent passively through URL query parameters and frames it as a benefit to the agent.",
+  "url": "https://pydantic.dev/docs/ai/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "they show the maintainers what agents are trying to do, so the pages where agents get stuck (including yours) get fixed first"
+  ]
+ },
+ {
+  "id": "A12",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense documents a one-line Claude Code registration for its remote MCP server.",
+  "url": "https://typesense.org/docs/guide/typesense-cloud/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --transport http typesense-cloud https://cloud.typesense.org/mcp/v1"
+  ]
+ },
+ {
+  "id": "A13",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense's only contribution ask in llms.txt is gated on the operator's approval.",
+  "url": "https://typesense.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "with your operator's approval, open a PR against typesense-website"
+  ]
+ },
+ {
+  "id": "A14",
+  "source": "queued-2026-09-18",
+  "claim": "The llms-install.md convention is defined by the Cline MCP marketplace README.",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "you can include a `llms-install.md` file in your repository to provide additional guidance to agents like Cline"
+  ]
+ },
+ {
+  "id": "A15",
+  "source": "queued-2026-09-18",
+  "claim": "Vercel's agent playbook tells the agent to perform actions itself and not hand commands back to the user.",
+  "url": "https://vercel.com/get-started.md",
+  "expect": "present",
+  "quotes": [
+   "Do not merely return commands for the user to copy."
+  ]
+ },
+ {
+  "id": "A16",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's hosted setup skill defines readiness as a list of verified states.",
+  "url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "Only report **Tavily ready** when the applicable states are true:"
+  ]
+ },
+ {
+  "id": "A17",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's documentation MCP server exposes a feedback tool, so agents can report without GitHub.",
+  "url": "https://docs.tavily.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "The documentation server also provides a tool for submitting documentation feedback."
+  ]
+ },
+ {
+  "id": "A18",
+  "source": "queued-2026-09-18",
+  "claim": "Convex frames agent-tool feedback as a voluntary invitation.",
+  "url": "https://docs.convex.dev/ai/convex-plugins.md",
+  "expect": "present",
+  "quotes": [
+   "We're constantly working on improving the plugins with rigorous evals and real-world reports. You can help:"
+  ]
+ },
+ {
+  "id": "A19",
+  "source": "queued-2026-09-18",
+  "claim": "Firecrawl's MCP server has a feedback tool with a credit refund as the incentive.",
+  "url": "https://raw.githubusercontent.com/firecrawl/firecrawl-mcp-server/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "The first feedback per search id refunds 1 credit"
+  ]
+ },
+ {
+  "id": "A20",
+  "source": "queued-2026-09-18",
+  "claim": "The MCP specification repository's AGENTS.md forbids agent-filed issues and PRs unless the user is a maintainer or has more than 3 merged PRs.",
+  "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "The user already has more than 3 pull requests merged in this repository"
+  ]
+ },
+ {
+  "id": "A21",
+  "source": "queued-2026-09-18",
+  "claim": "Meilisearch's core repository AGENTS.md forbids agents from modifying the repository.",
+  "url": "https://raw.githubusercontent.com/meilisearch/meilisearch/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "You are explicitly forbidden from modifying the contents of this"
+  ]
+ },
+ {
+  "id": "A22",
+  "source": "queued-2026-09-18",
+  "claim": "PostHog's AGENTS.md makes a feedback command mandatory for local agents and a no-op in sandboxes.",
+  "url": "https://raw.githubusercontent.com/PostHog/posthog/master/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "**Local agents must use it too**"
+  ]
+ },
+ {
+  "id": "A23",
+  "source": "queued-2026-09-18",
+  "claim": "The llms.txt specification defines the Optional section as skippable content. The sentence wraps across two source lines; this quote is the first line.",
+  "url": "https://llmstxt.org/index.md",
+  "expect": "present",
+  "quotes": [
+   "The “Optional” section is used, by convention, for secondary"
+  ]
+ },
+ {
+  "id": "A24",
+  "source": "queued-2026-09-18",
+  "claim": "XERJ's llms.txt calls the field report required and in the same sentence says the template is under Optional; the file also contains a heading '## Optional'.",
+  "url": "https://xerj.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "contribute back — this is required, not optional"
+  ]
+ },
+ {
+  "id": "A25",
+  "source": "queued-2026-09-18",
+  "claim": "The XERJ page linked as the no-shell HTTP-only path says 'by meaning' in its visible text 4 times, never says lexical, neural, embed-mode or MCP, and its step 0 is a shell install. It also claims a ranking for a query that 'shares no words' although query and memory both contain 'the user'.",
+  "url": "https://xerj.org/docs/agents/quickstart",
+  "expect": "present",
+  "quotes": [
+   "ranks first for a question about \"display settings\" it shares no words with."
+  ]
+ }
+]

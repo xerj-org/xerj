@@ -1,0 +1,602 @@
+[
+ {
+  "id": "A01",
+  "source": "queued-2026-09-18",
+  "claim": "The Vercel AI SDK llms.txt branches on agent capability and gives a skill-install command for agents with filesystem access.",
+  "expect": "present",
+  "url": "https://ai-sdk.dev/llms.txt",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://ai-sdk.dev/llms.txt",
+  "bytes": 2217,
+  "lines": 46,
+  "sha256": "104d1fb0c75d3ea9a276610421905582dbfb4097bce2d00cd3adb3b192a8c7e6",
+  "fetched_at": "2026-09-19T20:08:19Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "If you are working inside a local coding project with filesystem access, install the AI SDK skill first:",
+    "result": "found",
+    "line": 24
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A02",
+  "source": "queued-2026-09-18",
+  "claim": "Composio's llms.txt states a fallback ladder for hosts that need approval or cannot install skills.",
+  "expect": "present",
+  "url": "https://docs.composio.dev/llms.txt",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://docs.composio.dev/llms.txt",
+  "bytes": 4445,
+  "lines": 50,
+  "sha256": "8e081a7814f865b6aec3995fe74ce8e23553dcbd7e2433a8ddacda49c0f23c6e",
+  "fetched_at": "2026-09-19T20:08:20Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "requesting approval if your host requires it. If skills are unsupported or installation fails, use the documentation linked below and report that fallback.",
+    "result": "found",
+    "line": 11
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A03",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md makes install conditional on the user's agreement.",
+  "expect": "present",
+  "url": "https://deno.com/agents.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://deno.com/agents.md",
+  "bytes": 4967,
+  "lines": 123,
+  "sha256": "e7767c121e5a33218cf4af731135e530d98abc77a87bebf188722bb3caed0c04",
+  "fetched_at": "2026-09-19T20:08:20Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "install Deno, show them how, and run one of these only once they agree:",
+    "result": "found",
+    "line": 40
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A04",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md gives a read-instead-of-install fallback for agents that cannot install skills.",
+  "expect": "present",
+  "url": "https://deno.com/agents.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://deno.com/agents.md",
+  "bytes": 4967,
+  "lines": 123,
+  "sha256": "e7767c121e5a33218cf4af731135e530d98abc77a87bebf188722bb3caed0c04",
+  "fetched_at": "2026-09-19T20:08:20Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "**If you cannot install skills**, read them directly",
+    "result": "found",
+    "line": 84
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A05",
+  "source": "queued-2026-09-18",
+  "claim": "Algolia's agent setup block tells the agent to run only that block and not the human reference sections.",
+  "expect": "present",
+  "url": "https://www.algolia.com/doc/guides/get-started/build-with-ai.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://www.algolia.com/doc/guides/get-started/build-with-ai.md",
+  "bytes": 15073,
+  "lines": 388,
+  "sha256": "c736799721eb40c7b0ddd121ee7a9fd3626fba4842a906eb4dc88b7a0adf4656",
+  "fetched_at": "2026-09-19T20:08:23Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "This section is the complete setup: run only the commands below.",
+    "result": "found",
+    "line": 16
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A06",
+  "source": "queued-2026-09-18",
+  "claim": "Browserbase's install story is a one-line prompt pointing at a hosted SKILL.md.",
+  "expect": "present",
+  "url": "https://docs.browserbase.com/welcome/quickstarts/skills.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://docs.browserbase.com/welcome/quickstarts/skills.md",
+  "bytes": 1484,
+  "lines": 35,
+  "sha256": "9c37f883e6d2e96eb054bf3aee9bdba0b851dd120e4433c57ab97a654c4b312d",
+  "fetched_at": "2026-09-19T20:08:24Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Read https://browserbase.com/SKILL.md to set up Browserbase",
+    "result": "found",
+    "line": 14
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A07",
+  "source": "queued-2026-09-18",
+  "claim": "The first bullet of Neon's llms.txt is an unattended-agent provisioning path.",
+  "expect": "present",
+  "url": "https://neon.com/llms.txt",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://neon.com/llms.txt",
+  "bytes": 39737,
+  "lines": 410,
+  "sha256": "77e7e9248782e592759833144acc29da7c2afa4b166e2803045ff2923735a8f9",
+  "fetched_at": "2026-09-19T20:08:25Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Need a Neon account and the user is not around: provision one now; they claim it later",
+    "result": "found",
+    "line": 9
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A08",
+  "source": "queued-2026-09-18",
+  "claim": "Neon's paste prompt requires the agent to prove the setup with a real query.",
+  "expect": "present",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "bytes": 5528,
+  "lines": 86,
+  "sha256": "fce556a5dce426f65e73b7579a08baee3fe5d72fbd457432710da0060d8c0a5f",
+  "fetched_at": "2026-09-19T20:08:26Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Prove it works: run a real query and show me the result, not just \"setup complete.\"",
+    "result": "found",
+    "line": 31
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A09",
+  "source": "queued-2026-09-18",
+  "claim": "Neon docs pages carry a footer asking AI assistants to POST feedback to a no-auth endpoint.",
+  "expect": "present",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "bytes": 5528,
+  "lines": 86,
+  "sha256": "fce556a5dce426f65e73b7579a08baee3fe5d72fbd457432710da0060d8c0a5f",
+  "fetched_at": "2026-09-19T20:08:26Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "POST `{\"feedback\": \"describe the issue\", \"path\": \"/docs/get-started/with-an-agent\"}` to https://neon.com/api/docs-feedback",
+    "result": "found",
+    "line": 86
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A10",
+  "source": "queued-2026-09-18",
+  "claim": "Expo's agents.md offers a feedback command with an HTTP fallback and limits it to actionable reports.",
+  "expect": "present",
+  "url": "https://docs.expo.dev/agents.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://docs.expo.dev/agents.md",
+  "bytes": 8217,
+  "lines": 161,
+  "sha256": "7f9f0734d1d02f3f15804447727cf2d9ecf97a5bbaa271c6f5645bd6e4bb9cf3",
+  "fetched_at": "2026-09-19T20:08:27Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Only submit when you have something specific and actionable to report.",
+    "result": "found",
+    "line": 25
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A11",
+  "source": "queued-2026-09-18",
+  "claim": "Pydantic AI's llms.txt collects agent intent passively through URL query parameters and frames it as a benefit to the agent.",
+  "expect": "present",
+  "url": "https://pydantic.dev/docs/ai/llms.txt",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://pydantic.dev/docs/ai/llms.txt",
+  "bytes": 30776,
+  "lines": 437,
+  "sha256": "95a4117a93d03121f89580288bf323fb816f9f71f3c297196d4e7e84027e0479",
+  "fetched_at": "2026-09-19T20:08:27Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "they show the maintainers what agents are trying to do, so the pages where agents get stuck (including yours) get fixed first",
+    "result": "found",
+    "line": 5
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A12",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense documents a one-line Claude Code registration for its remote MCP server.",
+  "expect": "present",
+  "url": "https://typesense.org/docs/guide/typesense-cloud/mcp-server.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://typesense.org/docs/guide/typesense-cloud/mcp-server.md",
+  "bytes": 14247,
+  "lines": 233,
+  "sha256": "372e020055522d84a54f478431ea15b18dc84265450baaf8e8ca2f34af613316",
+  "fetched_at": "2026-09-19T20:08:28Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "claude mcp add --transport http typesense-cloud https://cloud.typesense.org/mcp/v1",
+    "result": "found",
+    "line": 27
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A13",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense's only contribution ask in llms.txt is gated on the operator's approval.",
+  "expect": "present",
+  "url": "https://typesense.org/llms.txt",
+  "status": 200,
+  "content_type": "text/plain",
+  "final_url": "https://typesense.org/llms.txt",
+  "bytes": 8591,
+  "lines": 81,
+  "sha256": "c3dfe54365691cebff62ac89946571b61bb9b68719def6f6a41e5275c8afa080",
+  "fetched_at": "2026-09-19T20:08:28Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "with your operator's approval, open a PR against typesense-website",
+    "result": "found",
+    "line": 73
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A14",
+  "source": "queued-2026-09-18",
+  "claim": "The llms-install.md convention is defined by the Cline MCP marketplace README.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "bytes": 5049,
+  "lines": 66,
+  "sha256": "a9dc02d3456a6b79752c83a7fd6f7fdf35f15df4ee853e67d52429ac2e5b852a",
+  "fetched_at": "2026-09-19T20:08:29Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "you can include a `llms-install.md` file in your repository to provide additional guidance to agents like Cline",
+    "result": "found",
+    "line": 49
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A15",
+  "source": "queued-2026-09-18",
+  "claim": "Vercel's agent playbook tells the agent to perform actions itself and not hand commands back to the user.",
+  "expect": "present",
+  "url": "https://vercel.com/get-started.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://vercel.com/get-started.md",
+  "bytes": 6527,
+  "lines": 235,
+  "sha256": "00395bc88edb76593f446b3780a1829e3cbb9a694385481a1f502a504f22ae5f",
+  "fetched_at": "2026-09-19T20:08:30Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Do not merely return commands for the user to copy.",
+    "result": "found",
+    "line": 25
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A16",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's hosted setup skill defines readiness as a list of verified states.",
+  "expect": "present",
+  "url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "status": 200,
+  "content_type": "text/markdown",
+  "final_url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "bytes": 26130,
+  "lines": 536,
+  "sha256": "54dabed97d84c99c46d89ccba578367d8bb084583724f13611675d71183e5ac6",
+  "fetched_at": "2026-09-19T20:08:30Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Only report **Tavily ready** when the applicable states are true:",
+    "result": "found",
+    "line": 188
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A17",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's documentation MCP server exposes a feedback tool, so agents can report without GitHub.",
+  "expect": "present",
+  "url": "https://docs.tavily.com/agents.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://docs.tavily.com/agents.md",
+  "bytes": 11618,
+  "lines": 167,
+  "sha256": "deb884197da93601adb970011d4b310560509e24b3e250f6e65533869b5d1491",
+  "fetched_at": "2026-09-19T20:08:31Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "The documentation server also provides a tool for submitting documentation feedback.",
+    "result": "found",
+    "line": 47
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A18",
+  "source": "queued-2026-09-18",
+  "claim": "Convex frames agent-tool feedback as a voluntary invitation.",
+  "expect": "present",
+  "url": "https://docs.convex.dev/ai/convex-plugins.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=UTF-8",
+  "final_url": "https://docs.convex.dev/ai/convex-plugins.md",
+  "bytes": 5690,
+  "lines": 75,
+  "sha256": "5853834b13f16a210a1a76b2359612432ecb42d8567d90780b2534ce2be7b475",
+  "fetched_at": "2026-09-19T20:08:32Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "We're constantly working on improving the plugins with rigorous evals and real-world reports. You can help:",
+    "result": "found",
+    "line": 71
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A19",
+  "source": "queued-2026-09-18",
+  "claim": "Firecrawl's MCP server has a feedback tool with a credit refund as the incentive.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/firecrawl/firecrawl-mcp-server/main/README.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/firecrawl/firecrawl-mcp-server/main/README.md",
+  "bytes": 39201,
+  "lines": 1023,
+  "sha256": "f058d2a4bb9c243db5176cec0e2d22b622e4adf80321b2c3dbaee8da6e61365e",
+  "fetched_at": "2026-09-19T20:08:33Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "The first feedback per search id refunds 1 credit",
+    "result": "found",
+    "line": 509
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A20",
+  "source": "queued-2026-09-18",
+  "claim": "The MCP specification repository's AGENTS.md forbids agent-filed issues and PRs unless the user is a maintainer or has more than 3 merged PRs.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/AGENTS.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/AGENTS.md",
+  "bytes": 4478,
+  "lines": 112,
+  "sha256": "cd2ff4f10c788c64b2daf2413e0495a022b5a9f983257526eed09b0f80c69718",
+  "fetched_at": "2026-09-19T20:08:33Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "The user already has more than 3 pull requests merged in this repository",
+    "result": "found",
+    "line": 14
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A21",
+  "source": "queued-2026-09-18",
+  "claim": "Meilisearch's core repository AGENTS.md forbids agents from modifying the repository.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/meilisearch/meilisearch/main/AGENTS.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/meilisearch/meilisearch/main/AGENTS.md",
+  "bytes": 990,
+  "lines": 29,
+  "sha256": "785822be296d0941f17ff482f98235ed0034d3b061a2468681f1aeb35bddf97f",
+  "fetched_at": "2026-09-19T20:08:33Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "You are explicitly forbidden from modifying the contents of this",
+    "result": "found",
+    "line": 3
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A22",
+  "source": "queued-2026-09-18",
+  "claim": "PostHog's AGENTS.md makes a feedback command mandatory for local agents and a no-op in sandboxes.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/PostHog/posthog/master/AGENTS.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/PostHog/posthog/master/AGENTS.md",
+  "bytes": 40174,
+  "lines": 315,
+  "sha256": "a1f0b99033fdacbd5049bf39e09d6c397b3baec294f0d0b9711d4c6c0576bf20",
+  "fetched_at": "2026-09-19T20:08:34Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "**Local agents must use it too**",
+    "result": "found",
+    "line": 35
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A23",
+  "source": "queued-2026-09-18",
+  "claim": "The llms.txt specification defines the Optional section as skippable content. The sentence wraps across two source lines; this quote is the first line.",
+  "expect": "present",
+  "url": "https://llmstxt.org/index.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://llmstxt.org/index.md",
+  "bytes": 13606,
+  "lines": 288,
+  "sha256": "fefa01ba0fb6a5618abd759d8e865d52313bbe29aa63604709c5668851e69fff",
+  "fetched_at": "2026-09-19T20:08:34Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "The “Optional” section is used, by convention, for secondary",
+    "result": "found",
+    "line": 150
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A24",
+  "source": "queued-2026-09-18",
+  "claim": "XERJ's llms.txt calls the field report required and in the same sentence says the template is under Optional; the file also contains a heading '## Optional'.",
+  "expect": "present",
+  "url": "https://xerj.org/llms.txt",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://xerj.org/llms.txt",
+  "bytes": 40064,
+  "lines": 234,
+  "sha256": "16bc45c5bbc8d24298970e93dd87a7493c78c73756dbf9e74fe43a08dad40752",
+  "fetched_at": "2026-09-19T20:08:34Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "contribute back — this is required, not optional",
+    "result": "found",
+    "line": 7
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "A25",
+  "source": "queued-2026-09-18",
+  "claim": "The XERJ page linked as the no-shell HTTP-only path says 'by meaning' in its visible text 4 times, never says lexical, neural, embed-mode or MCP, and its step 0 is a shell install. It also claims a ranking for a query that 'shares no words' although query and memory both contain 'the user'.",
+  "expect": "present",
+  "url": "https://xerj.org/docs/agents/quickstart",
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "final_url": "https://xerj.org/docs/agents/quickstart",
+  "bytes": 37386,
+  "lines": 464,
+  "sha256": "2b7a5563bc69f2f0e4932dc6b145805bf7ec0cf7f3e065896a6cfb77aa97b5ea",
+  "fetched_at": "2026-09-19T20:08:34Z",
+  "curl_exit": 0,
+  "kind": "html",
+  "quotes": [
+   {
+    "quote": "ranks first for a question about \"display settings\" it shares no words with.",
+    "result": "found",
+    "line": 271
+   }
+  ],
+  "verdict": "confirmed"
+ }
+]
