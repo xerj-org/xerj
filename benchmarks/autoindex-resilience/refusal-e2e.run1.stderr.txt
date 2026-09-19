@@ -1,0 +1,30 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=62789 safe_zone_mib=47525]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 3 files (0 MB) under ./corpus
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/3 bytes=0/102 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/3 bytes=0/102 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+phase A: sniffing + sampling 3 files with 32 threads…
+phase A: 2 datasets inferred, 0 junk/skipped files
+estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 3 file(s) / 102 B read end to end across 2 family/families, scheduled over 32 worker(s). Covers 102 B of the 102 B planned (100% of planned bytes). Client-side extraction only.
+  estimate: csv            2 files      41 B at 23.9 KB/s measured over 2 file(s) / 41 B → 0.0 s
+  estimate: txt-prose      1 files      61 B at 45.2 KB/s measured over 1 file(s) / 61 B → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (1 files, 61 B) → data (2 files, 41 B) — biggest first inside each band at 32 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  data             structured data: rows, records and tables
+gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-progress phase=prepare basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+autoindex: dataset csv REFUSED by the server — 2 file(s) recorded as junk and NOT indexed; every other dataset continues. install generation mapping for e2e-refuse-csv: PUT /e2e-refuse-csv/_mapping failed: 400 Bad Request {"error":{"root_cause":[{"type":"illegal_argument_exception","reason":"mapper [value] cannot be changed from type [long] to [keyword]"}],"type":"illegal_argument_exception","reason":"mapper [value] cannot be changed from type [long] to [keyword]"},"status":400}
+autoindex: 1 of 2 dataset(s) refused, 2 of 3 file(s) not indexed — this run will exit 3 and name them in its summary (`datasets_refused`)
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/3 bytes=0/102 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=index basis=bytes pct=0.0 items=0/1 bytes=0/370 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.5
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/2 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/1 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0

@@ -1,0 +1,9 @@
+# xerj v1.0.0-rc.74 — a state directory written before the generation-v1 format (issue #930, case 1)
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=96177 safe_zone_mib=61054]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 3 files (0 MB) under ./tiny
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/3 bytes=0/102 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+xerj-done ok=false exit=1 reason=aborted wall=0.0s
+error: this state directory contains a legacy nonempty plan that cannot become generation authority: this state directory holds a pre-generation autoindex resume plan (3 planned files); the durable corpus-generation format (v1) requires a stable group identity, content byte length, and validated output counts that a resume plan never recorded, so it cannot be adopted in place and must be rebuilt. Start an independent rebuild using this argv JSON (no shell quoting required): ["xerj", "autoindex", "./tiny", "--no-graph", "--url", "http://localhost:9540", "--state-dir", "./state-tiny-legacy.generation-v1", "--prefix", "xc-tiny-generation-v1", "--workers", "32", "--pdf-workers", "4", "--pdf-timeout-secs", "120", "--bulk-mb", "8", "--bulk-timeout-secs", "300", "--snapshot-max-gb", "64", "--max-file-gb", "2", "--sample", "500"]. Keep XERJ_API_KEY set when the endpoint requires authentication

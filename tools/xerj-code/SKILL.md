@@ -66,11 +66,48 @@ bucket a repo is in; `hub/README.md` explains the three.
 - **Nothing under `/tmp`.** Clones live in `~/.xerj-code/corpora/`, the index in
   `~/.xerj-code/data`. A `/tmp` data dir is lost on reboot and the whole corpus
   silently retrieves nothing.
-- **`--fresh` is required after the data dir is wiped or moved.** `autoindex`
-  keeps incremental state in `~/.xerj/autoindex/`; run it without `--fresh`
-  against an empty instance and every file is skipped as "already indexed",
-  leaving **0 documents** and a corpus that returns nothing without erroring.
-  Always verify: `curl -s "$URL/xc-<corpus>*/_count"` must be > 0.
+- **`xc-index.sh <corpus> --fresh` is the rebuild, and it never costs you a
+  working index.** It builds a replacement *beside* the existing one — under
+  `xc-<corpus>-b<stamp>-*`, with an autoindex `--state-dir` of its own in
+  `~/.xerj-code/autoindex-state/<corpus>/` — verifies it (autoindex exited `0`
+  or `3` **and** `_count > 0`), switches `state/<corpus>.json` to it by atomic
+  rename, and only then deletes the old indices, by exact name. A build that
+  fails or comes back empty is removed and the old index, the old state file
+  and the old state directory stay exactly as they were. Use it after the data
+  dir was wiped or moved, when `xc.py` says the index is older than 30 days, or
+  when a plain re-run says the state directory "cannot become generation
+  authority". It is **not** `xerj autoindex --fresh`, which the script never
+  forwards: that flag only discards autoindex's resume journal and is refused
+  outright once a corpus generation has committed — which is why `--fresh` used
+  to fail on every corpus that had been indexed before
+  ([#930](https://github.com/xerj-org/xerj/issues/930)).
+- **A record count the node does not answer is never read as zero.** The
+  script asks up to 6 times (`XC_COUNT_TRIES`, `XC_COUNT_PAUSE`). If the node
+  still cannot count the existing index, it is presumed to be a working one and
+  no failed build is kept over it; if it cannot count the new build, nothing is
+  deleted and nothing is switched. Only a number — or a 404, no index matches —
+  authorises a delete or a swap.
+- **An interrupted FIRST build is kept, and `xc.py` says so.** When a build
+  fails after writing records and there is no working index to fall back to,
+  the script keeps it rather than leave no corpus at all, and records
+  `salvaged: true` plus the real `autoindex_exit` in the state file. Such a
+  build can be partial, so `xc.py` warns on stderr with every query that
+  coverage is INCOMPLETE — **a miss is then not evidence that the code is
+  absent** — and `xc.py --list` marks the corpus. A plain `xc-index.sh <corpus>`
+  resumes it (same prefix, same state directory) and clears the mark when it
+  finishes.
+- **A plain `xc-index.sh <corpus>` updates in place.** It re-runs autoindex
+  against the recorded build's prefix and state directory, so additions,
+  edits, deletions and renames reconcile incrementally.
+- **The state file has two prefixes on purpose.** `prefix` is always
+  `xc-<corpus>` — the whole namespace, so anything that globs `xc-<corpus>*`
+  keeps working across rebuilds. `index_prefix` is the one verified build, and
+  it is what `xc.py` queries, so a half-built replacement never leaks into
+  answers during a rebuild.
+- **During a rebuild both builds exist**, so the node briefly holds the corpus
+  twice. Budget disk for it on a large corpus.
+- Always verify: `curl -s "$URL/xc-<corpus>*/_count"` must be > 0. The script
+  does this itself and says so; do it again if you are scripting around it.
 
 ## When this is worth it
 

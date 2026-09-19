@@ -1,0 +1,32 @@
+# Node side of after-955.full-corpus-resume.stderr.txt.
+# The node is the one behind before-955.*: its data directory (copied), restarted
+# with this branch's #955 binary, same XERJ_MAX_PROCESS_MEMORY_MB=49152, auth on.
+# The resumed journal is the one behind before-955.stderr.txt (copied). It pins
+# url=http://localhost:9540, so the client reached the restarted node on another
+# port through a local TCP forwarder (HTTP_PROXY); nothing else differs.
+# ANSI colour stripped; nothing else changed.
+
+## before the resume
+_count xc-xerj-search-*: 821840 in 1526 indices   (autoindex-catalog: 0 documents — the catalog write had died)
+
+## every xerj_engine::governor line in the node log (2) — the memory circuit breaker never engaged
+2026-09-19T21:17:22.618876Z  INFO xerj_engine::governor: memory: detected 119.2 GiB usable, using a 48 GiB cap (explicit XERJ_MAX_PROCESS_MEMORY_MB); change with limits.max_process_memory_mb or XERJ_MAX_PROCESS_MEMORY_MB (0 = whole machine)
+2026-09-19T21:17:22.618911Z  INFO xerj_engine::governor: resource governor initialised (parent circuit breaker) memtable_budget_mb=12288 memory_limit_mb=49152 memory_limit_source=Env memory_watermark_mb=46694 memory_watermark_pct=95 max_query_memory_mb=512 max_concurrent_searches=64 max_concurrent_bulks=8 disk_flood_pct=95 segment_hydration_cache_mb=9830 segment_hydration_cache_source=Auto
+
+## after the resume
+_count xc-xerj-search-*: 821840 in 1526 indices
+_count autoindex-catalog: 51129   (the 51,129 actions the single refused request carried in before-955)
+mapping of xc-xerj-search-elasticsearch-modules-10-basic-13, the rc.74 trigger field:
+  "Check streams can't be enabled with existing logs.otel indices": type text   (semantic_text fields in that index: ["Original logs stream deprecated"])
+xerj autoindex map: no "Refused datasets" section
+
+## ingest-memory trace at shutdown: logical peaks (bytes)
+{"cache_decoded_stored": 0, "cache_doc_values": 298733247, "cache_fts_reader": 15160328, "cache_id_positions": 72719601, "cache_row_sequences": 7439256, "cache_sort_shadow": 3672, "cache_stored_slices": 4416825195, "cache_stored_values": 531782791, "flush_drained": 39706877, "http_body": 8388241, "http_rewrite_buffer": 0, "memtable_active": 60772219, "merge_decoded": 0, "merge_encoded": 0, "merge_json_buffer": 0, "merge_parsed": 0, "merge_survivor": 0, "parsed_source": 0, "parsed_vector": 0, "prepared_document": 0, "prepared_vector": 0, "raw_source": 0}
+# http_body peak 8388241 (<= --bulk-mb 8 = 8388608) — before-955.node.txt: 31910392, the unwindowed catalog body
+
+## resident memory, sampled every 15 s from /proc/<pid>/status (32 samples)
+first  2026-09-19T21:17:56Z VmRSS: 756884 kB RssAnon: 720392 kB 
+peak   2026-09-19T21:18:41Z VmRSS: 8656232 kB RssAnon: 8315908 kB 
+last   2026-09-19T21:26:41Z VmRSS: 4880080 kB RssAnon: 4440560 kB 
+VmHWM at the end of the run: 14105892 kB   (the 15 s sampler missed the peak; VmHWM did not)
+segment hydration cache after the run (_nodes/stats): current 5279509003, peak 5334013865, limit 10307921510

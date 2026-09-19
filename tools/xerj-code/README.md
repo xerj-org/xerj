@@ -11,7 +11,8 @@ project could run them ([#319](https://github.com/xerj-org/xerj/issues/319)).
 
 ```sh
 scripts/xc-corpus.sh xerj-storage https://github.com/spacejam/sled …  # clone the peers, once
-scripts/xc-index.sh  xerj-storage                                     # xerj autoindex, once per corpus
+scripts/xc-index.sh  xerj-storage                                     # xerj autoindex; re-run to update in place
+scripts/xc-index.sh  xerj-storage --fresh                             # rebuild beside the old index, verify, then swap
 scripts/xc.py        xerj-storage "how does sled fsync its WAL segment on rotation?"
 ```
 
@@ -91,5 +92,7 @@ carry the measured numbers, including the cases where this loses.
 ## Tests
 
 ```sh
-tools/xerj-code/tests/test_xc_corpus.sh      # offline; local git fixtures over file://
+tools/xerj-code/tests/test_xc_corpus.sh         # offline; local git fixtures over file://
+tools/xerj-code/tests/test_xc_index_fresh.py    # offline; fake node + fake xerj: the --fresh build-verify-swap contract (#930)
+tools/xerj-code/tests/test_state_ledger.py      # offline; xc.py's "in state/ but not loaded here" guard
 ```

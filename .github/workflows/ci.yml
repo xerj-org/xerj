@@ -88,7 +88,9 @@ jobs:
             bash -n "$f"
           done
           python3 -m py_compile tools/xerj-code/scripts/xc.py \
-                                tools/xerj-code/tests/validate_manifest.py
+                                tools/xerj-code/tests/validate_manifest.py \
+                                tools/xerj-code/tests/test_xc_index_fresh.py \
+                                tools/xerj-code/tests/test_state_ledger.py
 
       # The corpus manifests are the shareable artifact (issue #319): if they
       # cannot rebuild a corpus, publishing them is worse than not shipping
@@ -98,6 +100,19 @@ jobs:
 
       - name: Vetted hub manifests validate
         run: python3 tools/xerj-code/tests/validate_manifest.py --hub tools/xerj-code/hub/*.json
+
+      # #930: `xc-index.sh <corpus> --fresh` failed on every corpus that had been
+      # indexed before, and nothing ran the script, so nothing noticed. Offline:
+      # a fake node and a fake `xerj` that refuses exactly what the real one
+      # refuses. Pins build-verify-swap: the old index is never deleted before
+      # the replacement has a count > 0, and never by wildcard.
+      - name: xc-index --fresh builds beside, verifies, then swaps
+        run: python3 tools/xerj-code/tests/test_xc_index_fresh.py
+
+      # xc.py's prefix resolution changed with #930 (it queries the verified
+      # build, not the whole namespace), so its ledger guard is gated too.
+      - name: xc.py state-ledger guard
+        run: python3 tools/xerj-code/tests/test_state_ledger.py
 
   # #489: this script existed, worked, and had been failing locally for three
   # releases — the version footer, headline and narrative on landing/index.html

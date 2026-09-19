@@ -107,7 +107,17 @@ usage · `1` any error at all (read the `error:` line before acting) · `4`
 needs a decision (gate above; answer with `--approve`, never a retry). Exit `3`
 also carries `reason=catalog-alias-sweep-failed`: the corpus **is** indexed and
 the journal committed, and only the catalog's duplicate-alias cleanup could not
-run — read `reason`, not the bare code, to tell the two apart. Percent,
+run — read `reason`, not the bare code, to tell the two apart. Exit `3` can
+also mean a **whole dataset is missing**: if the server answers HTTP 400 to one
+dataset's mapping, that dataset's files are recorded as junk with the server's
+reason, every other dataset is indexed, and `xerj-done` carries
+`datasets_refused=N files_refused=M` — present only when it happened, so read
+them before you call a corpus searchable, and do not retry (the refusal is part
+of the committed generation; fix the cause and rebuild under a new `--prefix`
+and `--state-dir`). The phase name is honest too: on `--no-graph` the phases are
+`walk, hash, scan, prepare, snapshot, index, finalize-catalog, finalize-refresh,
+finalize-verify`,
+so `scan` at 100% means scan, never indexing. Percent,
 ETA and the drawn bar are honest or absent: `unknown` / `[????…]` when there is
 no denominator, and a full bar only at a real 100%. The short version is under
 "Running an index on someone's machine" in
