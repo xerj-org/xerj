@@ -137,6 +137,12 @@ export const hostileFile = {
 };
 hostileEmail._source.ax_file = HOSTILE_AX_FILE;
 hostileEmail._source.ax_locator = 'msg-s0';
+// …and its attachments, as extract/eml.rs numbers them: every record of one
+// .eml shares the file's `ax_file`; the locator carries the attachment ordinal.
+hostileAttachment._source.ax_file = HOSTILE_AX_FILE;
+hostileAttachment._source.ax_locator = 'att0-p2-s0';
+hostileAttachment2._source.ax_file = HOSTILE_AX_FILE;
+hostileAttachment2._source.ax_locator = 'att1-card';
 
 export const HOSTILE_HITS = [hostileEmail, hostileAttachment, hostileAttachment2, hostilePdf, hostileCode, hostileGeneric, hostileFile];
 
@@ -178,6 +184,9 @@ export const hostileCatalogHit = {
     sample_queries_json: [
       JSON.stringify({ class: 'fulltext', title: `T ${PAYLOADS.attrBreakout}`, request: 'POST /ax-inbox/_search', body: { query: { match: { body: `invoice ${PAYLOADS.imgOnerror}` } } } }),
       JSON.stringify({ class: 'term', title: 't', body: { query: { term: { email_from: `x"}]});${PWN}//` } } } }),
+      // A sample written for a field the Reader would not search on its own
+      // (a keyword that is not title-like): its field must ride along.
+      JSON.stringify({ class: 'fulltext', title: 'by format', body: { query: { match: { ax_format: 'samplefieldword' } }, size: 3 } }),
     ],
     notes: [PAYLOADS.script],
   },

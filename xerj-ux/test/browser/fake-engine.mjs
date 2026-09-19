@@ -17,8 +17,9 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { dirname, join, normalize, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  HOSTILE_HITS, hostileEmail, hostileAttachment, hostileAttachment2, hostileFile, hostileEgo, hostileCatalogHit, ENGINE_403_BODY, PAYLOADS,
+  HOSTILE_HITS, hostileEmail, hostileEgo, hostileCatalogHit, ENGINE_403_BODY, PAYLOADS,
 } from '../fixtures/hostile.mjs';
+import { miniSearch } from '../fixtures/mini-engine.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const UX_ROOT = resolve(HERE, '..', '..');
@@ -38,27 +39,39 @@ export const GUEST_KEY = 'Z3Vlc3Qta2V5LWlkOmd1ZXN0LWtleS1zZWNyZXQtMDEyMzQ1Njc4OQ
 
 const MAPPING = {
   'ax-inbox': { mappings: { properties: {
-    body: { type: 'semantic_text' }, email_subject: { type: 'text' }, email_from: { type: 'keyword' }, email_date: { type: 'date' },
+    // `email_subject` is KEYWORD, as autoindex really types it on a mailbox with
+    // PDF attachments (PR #945 review: a fake that hardcoded `text` hid that).
+    body: { type: 'semantic_text' }, email_subject: { type: 'keyword' }, email_from: { type: 'keyword' }, email_date: { type: 'date' },
     attachment_name: { type: 'keyword' }, email_message_id: { type: 'keyword' }, ax_format: { type: 'keyword' },
     [`field${PAYLOADS.imgOnerror}`]: { type: 'keyword' },
   } } },
 };
 const FIELDS = Object.entries(MAPPING['ax-inbox'].mappings.properties).map(([name, cfg]) => ({ name, type: cfg.type === 'semantic_text' ? 'text' : cfg.type, semantic: cfg.type === 'semantic_text' }));
 
+/** Is this one of the reader's structural joins (by id, by file, by message
+ *  id) rather than the search box? Those are answered by really evaluating the
+ *  filter; any text query returns every hostile hit. */
+function isJoin(q) {
+  if (!q) return false;
+  if (q.ids) return true;
+  const f = q.bool && Array.isArray(q.bool.filter) ? q.bool.filter : [];
+  return f.some((c) => c.term && (c.term.ax_file || c.term.email_message_id));
+}
+
 /** Answer a `_search` body the way the engine would, over the hostile hits. */
-function searchResponse(body) {
+function searchResponse(body, state) {
   const q = body && body.query;
-  let hits = HOSTILE_HITS;
-  if (q && q.ids) hits = HOSTILE_HITS.filter((h) => q.ids.values.includes(h._id));
-  else if (q && q.bool && Array.isArray(q.bool.filter) && q.bool.filter.some((c) => c.term && c.term.ax_file)) {
-    // the file record's siblings, or (from a sibling) the file record itself
-    hits = q.bool.filter.some((c) => c.term && c.term.ax_locator === 'file') ? [hostileFile] : [hostileEmail];
-  } else if (q && q.bool && Array.isArray(q.bool.filter) && q.bool.filter.some((c) => c.term && c.term.email_message_id)) {
-    hits = q.bool.must_not ? [hostileEmail] : [hostileAttachment, hostileAttachment2];
+  if (isJoin(q)) {
+    const resp = miniSearch(HOSTILE_HITS, body);
+    // A test can claim the engine holds more attachment records than it returns
+    // (one 6000-page PDF), to drive the reader's "list may be incomplete" state.
+    const attJoin = JSON.stringify(q).includes('"exists":{"field":"attachment_name"}') && !(q.bool.must_not || []).length;
+    if (attJoin && state && state.attachmentRecords) resp.hits.total.value = state.attachmentRecords;
+    return resp;
   }
   const wantHl = !!(body && body.highlight);
-  const out = hits.map((h) => ({ _index: h._index, _id: h._id, _score: h._score, _source: h._source, ...(wantHl && h.highlight ? { highlight: h.highlight } : {}) }));
-  const resp = { took: 2, timed_out: false, hits: { total: { value: out.length, relation: 'eq' }, max_score: 3.2, hits: body && body.size === 0 ? [] : out } };
+  const out = HOSTILE_HITS.map((h) => ({ _index: h._index, _id: h._id, _score: h._score, _source: h._source, ...(wantHl && h.highlight ? { highlight: h.highlight } : {}) }));
+  const resp = { took: 2, timed_out: false, hits: { total: { value: state && state.searchTotal ? state.searchTotal : out.length, relation: 'eq' }, max_score: 3.2, hits: body && body.size === 0 ? [] : out.slice(0, body && body.size != null ? body.size : 10) } };
   if (body && body.aggs) {
     resp.aggregations = {
       emails: { doc_count: 1 }, attachments: { doc_count: 2 },
@@ -85,6 +98,10 @@ export async function startFakeEngine() {
      *  `brains` is the `_cat` order; only `inbox` holds edges for the fixtures. */
     openGraph: false,
     brains: ['inbox'],
+    /** claim this many attachment records exist (0 = the truth) */
+    attachmentRecords: 0,
+    /** claim this many search results exist (0 = the truth) */
+    searchTotal: 0,
   };
 
   const server = createServer(async (req, res) => {
@@ -146,7 +163,7 @@ export async function startFakeEngine() {
         if (state.fail.proxySearch) { refuse(state.fail.proxySearch); return; }
         if (m[1] === 'autoindex-catalog') { send(200, { took: 1, hits: { total: { value: 1 }, hits: [hostileCatalogHit] } }); return; }
         if (m[1] !== 'ax-inbox') { send(404, { error: { code: 'not_found' } }); return; }
-        send(200, searchResponse(body));
+        send(200, searchResponse(body, state));
         return;
       }
       send(404, { error: { code: 'not_found', message: p } });
@@ -176,7 +193,7 @@ export async function startFakeEngine() {
       if (index !== 'ax-inbox') { refuse(403); return; }
       if (op === '_mapping') { send(200, MAPPING); return; }
       if (op === '_count') { send(200, { count: HOSTILE_HITS.length }); return; }
-      send(200, searchResponse(body));
+      send(200, searchResponse(body, state));
       return;
     }
     if (path === '/_graph/inbox/ego') {
@@ -187,12 +204,13 @@ export async function startFakeEngine() {
     refuse(403);
   });
 
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  // An OS-assigned port by default; XERJ_TEST_ENGINE_PORT pins it (see cdp.mjs).
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(Number(process.env.XERJ_TEST_ENGINE_PORT) || 0, '127.0.0.1', resolve); });
   const { port } = server.address();
   const origin = `http://127.0.0.1:${port}`;
   return {
     origin, state, csp,
-    reset() { state.log.length = 0; state.fail = {}; state.openGraph = false; state.brains = ['inbox']; },
+    reset() { state.log.length = 0; state.fail = {}; state.openGraph = false; state.brains = ['inbox']; state.attachmentRecords = 0; state.searchTotal = 0; },
     /** requests that were NOT static SPA assets */
     apiLog() { return state.log.filter((r) => !(r.path.startsWith('/_xerj-console/') && !r.path.startsWith('/_xerj-console/api/')) && !r.path.startsWith('/__') && r.path !== '/favicon.ico'); },
     close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }),

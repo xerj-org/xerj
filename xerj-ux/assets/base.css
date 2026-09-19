@@ -2365,6 +2365,7 @@ button.sb-grouphead { width: 100%; }
 .rd-neigh__title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
 .rd-neigh__prev { color: var(--z-mute); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 0; }
 .rd-honest { margin-top: var(--sp-2); font-size: var(--fs-11); }
+.rd-more { display: block; margin-top: var(--sp-2); font-size: var(--fs-11); text-align: left; }
 
 /* guest shell */
 .guest-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--sp-2); padding: 10px var(--page-x); background: var(--z-accent); color: #0D0D0D; font-size: var(--fs-13); }

@@ -3,7 +3,7 @@
 // Run: node --test xerj-ux/test/browser/     (needs Chrome; Node >= 22)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setup, skipReason, openGuest, shareRecord, census, assertNotPwned, GUEST_KEY } from './harness.mjs';
+import { setup, skipReason, openGuest, shareRecord, census, assertCensusInert, assertNotPwned, GUEST_KEY } from './harness.mjs';
 import { sleep } from './cdp.mjs';
 import { LEAK_MARKERS, HOSTILE_ID } from '../fixtures/hostile.mjs';
 
@@ -181,5 +181,64 @@ test('without a share record the tab is the operator console: /me → login', { 
   await page.waitFor(`location.pathname === '/_xerj-console/login'`, { label: 'redirect to login' });
   const api = ctx.engine.apiLog();
   assert.deepEqual(api.map((r) => `${r.method} ${r.path}`), ['GET /_xerj-console/api/v1/me']);
+  await page.close();
+});
+
+test('MAJOR (PR #945 review): the guest CORPUS view asks again after a failed load — it does not cache "could not read" for the life of the tab', { skip }, async () => {
+  // Reviewer's repro on a real node: kill the engine, open #/corpus ("Could not
+  // read this index: engine unreachable"), restart the engine — the Reader
+  // recovers, the corpus view kept the failure until the tab was reloaded.
+  ctx.engine.state.fail = { search: 503 };
+  const page = await openGuest(ctx, { hash: '#/corpus' });
+  await page.waitFor(`/Could not read this index/.test(document.querySelector('[data-guest-corpus]')?.textContent || '')`, { label: 'the failed card' });
+  assert.match(await page.eval(`document.querySelector('[data-guest-corpus]').textContent`), /asks again/i, 'the failed card says the page retries');
+  ctx.engine.state.fail = {};
+  await page.setHash('#/reader'); await page.setHash('#/corpus');
+  await page.waitFor(`document.querySelector('[data-corpus-index="ax-inbox"] .cp-card__nums')`, { label: 'the recovered card — with NO reload' });
+  assert.ok(!/Could not read/.test(await page.eval(`document.querySelector('[data-guest-corpus]').textContent`)));
+  // a good answer IS kept: coming back does not ask again
+  const n = ctx.engine.apiLog().filter((r) => r.body && r.body.aggs).length;
+  await page.setHash('#/reader'); await page.setHash('#/corpus');
+  await sleep(250);
+  assert.equal(ctx.engine.apiLog().filter((r) => r.body && r.body.aggs).length, n, 'a successful summary is cached');
+  await page.close();
+});
+
+test('BLOCKER (PR #945 review): an incomplete attachment list SAYS so in the page; the join is by file and asks for light records', { skip }, async () => {
+  ctx.engine.state.attachmentRecords = 6000; // the engine holds more attachment records than the reader will read
+  const page = await openGuest(ctx, { hash: readerHash });
+  await page.waitFor(`document.querySelector('[data-rd-block="attachments-truncated"]')`, { label: 'the incomplete-list notice' });
+  const t = await page.eval(`document.querySelector('[data-rd-block="attachments"]').textContent`);
+  assert.match(t, /ATTACHMENTS · 2\+/);
+  assert.match(t, /6000 attachment records/);
+  assert.match(t, /not listed/);
+  const join = ctx.engine.apiLog().map((r) => r.body).find((b) => b && b._source && JSON.stringify(b.query).includes('attachment_name'));
+  assert.ok(join, 'the attachment join was sent');
+  assert.ok(JSON.stringify(join.query).includes('"ax_file"') && !JSON.stringify(join.query).includes('email_message_id'), 'joined on the file, not the Message-ID');
+  assert.ok(!join._source.includes('body'), 'page text is not fetched for a list of names');
+  assertCensusInert(await census(page, '[data-guest-main]'), 'reader with the notice');
+  await assertNotPwned(page, ctx.engine.origin, 'reader with the notice');
+  await page.close();
+});
+
+test('minors (PR #945 review): TERM with free text searches NOTHING and says the syntax; SHOW MORE pages past the first 25', { skip }, async () => {
+  const page = await openGuest(ctx, { hash: '#/reader' });
+  await page.waitFor(`document.querySelectorAll('.rd-card').length > 0`, { label: 'first results' });
+  const before = ctx.engine.apiLog().length;
+  await page.eval(`(() => { const i = document.querySelector('.rd-q'); i.value = 'zebrafish'; const s = document.querySelector('.rd-type'); s.value = 'term'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+  await page.waitFor(`/TERM needs field=value/.test(document.querySelector('[data-guest-main]')?.textContent || '')`, { label: 'the syntax message' });
+  assert.equal(await page.eval(`document.querySelectorAll('.rd-card').length`), 0, 'no record is presented as a result');
+  assert.equal(ctx.engine.apiLog().length, before, 'and nothing was asked of the engine (it used to be match_all)');
+  assert.match(await page.eval(`document.querySelector('.rd-q').getAttribute('placeholder')`), /field=value/);
+
+  ctx.engine.state.searchTotal = 60;
+  await page.eval(`(() => { const s = document.querySelector('.rd-type'); s.value = 'match'; const i = document.querySelector('.rd-q'); i.value = 'invoice'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+  await page.waitFor(`document.querySelector('[data-rd-more]')`, { label: 'SHOW MORE' });
+  assert.match(await page.eval(`document.querySelector('[data-rd-slot="list-head"]').textContent`), /60 RESULTS · SHOWING/);
+  await page.eval(`(document.querySelector('[data-rd-more]').click(), true)`);
+  await page.waitFor(`true`, {});
+  await sleep(250);
+  const sizes = ctx.engine.apiLog().map((r) => r.body).filter((b) => b && b.highlight).map((b) => b.size);
+  assert.deepEqual(sizes.slice(-2), [25, 50], 'the next request asks for 25 more');
   await page.close();
 });

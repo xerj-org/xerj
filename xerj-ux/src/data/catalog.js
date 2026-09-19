@@ -104,11 +104,11 @@ function firstMatchText(clause) {
   if (clause.match) {
     const [field, v] = Object.entries(clause.match)[0] || [];
     if (!field) return null;
-    return { type: 'match', q: typeof v === 'object' && v ? str(v.query) : str(v) };
+    return { type: 'match', q: typeof v === 'object' && v ? str(v.query) : str(v), field };
   }
   if (clause.match_phrase) {
-    const [, v] = Object.entries(clause.match_phrase)[0] || [];
-    return { type: 'phrase', q: typeof v === 'object' && v ? str(v.query) : str(v) };
+    const [field, v] = Object.entries(clause.match_phrase)[0] || [];
+    return { type: 'phrase', q: typeof v === 'object' && v ? str(v.query) : str(v), field };
   }
   if (clause.multi_match) return { type: 'match', q: str(clause.multi_match.query) };
   if (clause.semantic) return { type: 'semantic', q: str(clause.semantic.query) };
@@ -119,7 +119,7 @@ function firstMatchText(clause) {
   if (clause.hybrid && Array.isArray(clause.hybrid.queries)) {
     for (const entry of clause.hybrid.queries) {
       const inner = firstMatchText(entry && (entry.query || entry));
-      if (inner && inner.q) return { type: 'hybrid', q: inner.q };
+      if (inner && inner.q) return { type: 'hybrid', q: inner.q, ...(inner.field ? { field: inner.field } : {}) };
     }
     return null;
   }
@@ -136,16 +136,23 @@ function firstMatchText(clause) {
 }
 
 /**
- * A catalog sample query → the Discover SearchBox state that reproduces it,
- * or null for an analytics-only sample (aggregations with no text query —
- * there is nothing for a search box to run).
+ * A catalog sample query → the Reader search state that runs it, or null for
+ * an analytics-only sample (aggregations with no text query — there is nothing
+ * for a search box to run).
+ *
+ * `field` is the field the sample was WRITTEN for (`match` / `match_phrase`
+ * and the lexical leg of a `hybrid`). The Reader adds it to the fields it
+ * searches (schema-roles.js#withSearchField): the first version kept only the
+ * text, so a sample over `text` ran over `body` and found nothing while the
+ * catalog's own body found five (PR #945 review). A `term` sample already
+ * names its field in `q` (`field=value`).
  */
 export function sampleQueryToSearch(sq) {
   const body = sq && sq.body;
   if (!body || typeof body !== 'object') return null;
   const found = firstMatchText(body.query);
   if (!found || !found.q) return null;
-  return { type: found.type, q: found.q };
+  return { type: found.type, q: found.q, ...(found.field ? { field: found.field } : {}) };
 }
 
 /** Human byte count. */

@@ -196,26 +196,36 @@ function relatedLink(rec, brain, name, meta) {
   }, h('span', { class: 'rd-att__name' }, name), h('span', { class: 'rd-att__meta' }, meta));
 }
 
-function attachmentsBlock(attachments, brain) {
+function attachmentsBlock(related, brain) {
+  const attachments = related.attachments;
   if (attachments === undefined) return h('div', { class: 'rd-sub faint' }, 'attachments: looking…');
+  // A join that FAILED is not "no attachments".
+  if (related.attachmentsError) {
+    return h('div', { class: 'rd-sub faint', 'data-rd-block': 'attachments-error' }, `This email's attachments could not be read (${str(related.attachmentsError)}).`);
+  }
   if (!attachments || !attachments.length) return null;
+  const cut = related.attachmentsTruncated && typeof related.attachmentsTruncated === 'object' ? related.attachmentsTruncated : null;
   return h('div', { class: 'rd-sub', 'data-rd-block': 'attachments' },
-    h('div', { class: 'key' }, `ATTACHMENTS · ${attachments.length}`),
+    h('div', { class: 'key' }, `ATTACHMENTS · ${attachments.length}${cut ? '+' : ''}`),
     attachments.map((a) => {
       const s = a._source || {};
       const bits = [str(s.attachment_content_type), fmtBytes(s.attachment_bytes), s.page != null ? `page ${str(s.page)}` : '']
         .filter(Boolean).join(' · ');
       return relatedLink(a, brain, str(s.attachment_name) || str(a._id), bits);
-    }));
+    }),
+    cut ? h('div', { class: 'rd-honest mono faint', 'data-rd-block': 'attachments-truncated' },
+      `This list may be incomplete: this email has ${str(cut.total)} attachment records and the first ${str(cut.read)} were read, so an attachment past them is not listed. Open the file record below for the file's records.`) : null);
 }
 
 /** The records that came out of one file (the `file` shape), or — on any
  *  other record — a link up to its file. */
-function siblingsBlock(siblings, brain, truncated) {
+function siblingsBlock(siblings, brain, truncated, total) {
   if (siblings === undefined) return h('div', { class: 'rd-sub faint' }, 'records in this file: looking…');
   if (!siblings || !siblings.length) return h('div', { class: 'rd-sub faint' }, 'No other record came out of this file.');
   return h('div', { class: 'rd-sub', 'data-rd-block': 'siblings' },
-    h('div', { class: 'key' }, `RECORDS IN THIS FILE · ${siblings.length}${truncated ? '+' : ''}`),
+    h('div', { class: 'key' }, truncated && Number(total) > siblings.length
+      ? `RECORDS IN THIS FILE · ${siblings.length} OF ${str(total)} SHOWN`
+      : `RECORDS IN THIS FILE · ${siblings.length}${truncated ? '+' : ''}`),
     siblings.map((r) => {
       const rs = r._source || {};
       return relatedLink(r, brain, recordTitle(rs, r._id), shapeBadge(detectShape(rs), rs));
@@ -286,7 +296,7 @@ export function renderRecord(hit, ctx = {}) {
           hdr('From', s.email_from), hdr('To', s.email_to), hdr('Cc', s.email_cc), hdr('Date', s.email_date),
           hdr('Message-ID', s.email_message_id), hdr('In-Reply-To', s.email_in_reply_to)),
         prose(s.body, '(no body text)'),
-        attachmentsBlock(related.attachments, brain));
+        attachmentsBlock(related, brain));
     case 'attachment':
       return frame(s.page != null ? `PDF ATTACHMENT · PAGE ${str(s.page)}` : 'ATTACHMENT', str(s.attachment_name), false,
         h('div', { class: 'rd-hdrs' },
@@ -321,7 +331,7 @@ export function renderRecord(hit, ctx = {}) {
       return frame(shapeBadge('file', s), str(s.ax_path || s.title || hit._id), true,
         h('div', { class: 'rd-hdrs' }, hdr('Path', s.ax_path), hdr('Format', s.ax_format), hdr('Dataset', s.ax_dataset)),
         h('div', { class: 'rd-body faint' }, 'This is the record for the file itself — what the brain\'s file-level links point at. Its text lives in the records below.'),
-        siblingsBlock(related.siblings, brain, related.siblingsTruncated));
+        siblingsBlock(related.siblings, brain, related.siblingsTruncated, related.siblingsTotal));
     default:
       return frame('RECORD', recordTitle(s, hit._id), false, genericSource(s));
   }

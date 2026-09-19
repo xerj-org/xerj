@@ -29,13 +29,29 @@
 
 import { groupNeighbors } from '../ux/reader-render.js';
 import { highlightRequest } from '../ux/safe-dom.js';
-import { buildSearchBody, searchFieldsOf } from './search-body.js';
-import { deriveRoles } from './schema-roles.js';
+import { buildSearchBody, searchFieldsOf, queryProblem } from './search-body.js';
+import { deriveRoles, withSearchField } from './schema-roles.js';
 
 /** Error kinds that end a guest session (the shell logs the guest out). */
 export const FATAL_KINDS = new Set(['unauthorized', 'expired']);
 /** How many brains a record's graph panel walks when several list its index. */
 export const MAX_BRAINS = 4;
+/**
+ * An email's attachment RECORDS are read in pages of ATTACHMENT_PAGE, at most
+ * ATTACHMENT_RECORDS_READ of them. A PDF contributes one record per page
+ * section, so one attachment can be hundreds of records; autoindex writes at
+ * most 4096 records for one file (extract/mod.rs#MAX_RECORDS_PER_FILE), which
+ * this covers. Past the limit the list is marked incomplete — with the numbers
+ * — never silently cut (PR #945 review: a fixed `size: 200` hid every
+ * attachment after a 200-page PDF and said nothing).
+ */
+export const ATTACHMENT_PAGE = 1000;
+export const ATTACHMENT_RECORDS_READ = 5000;
+/** The fields an attachment list entry shows. The join asks for these and
+ *  nothing else: never the page text, never a vector. */
+const ATTACHMENT_SOURCE = ['attachment_name', 'attachment_content_type', 'attachment_bytes', 'page', 'ax_locator', 'ax_file', 'email_message_id'];
+/** How many records of a file are listed on its file record. */
+export const SIBLINGS_SHOWN = 200;
 
 function errText(e) {
   if (!e) return 'unknown error';
@@ -72,6 +88,14 @@ function locatorKey(h) {
   const loc = String((h._source && h._source.ax_locator) || '');
   const pad = loc.replace(/\d+/g, (d) => d.padStart(8, '0'));
   return `${loc.startsWith('msg') ? '0' : '1'}${pad}`;
+}
+/** The attachment a record belongs to. autoindex's EML extractor numbers the
+ *  attachments of one message and puts the ordinal in the locator
+ *  (`att0-p3-s1`, `att2-s0`, `att5-card`), so two attachments that share a FILE
+ *  NAME stay two. Records from anywhere else fall back to the name. */
+function attachmentKey(h) {
+  const m = /^att(\d+)(?:-|$)/.exec(String((h._source && h._source.ax_locator) || ''));
+  return m ? { key: `#${m[1]}`, ordinal: Number(m[1]) } : { key: `name:${String(h._source && h._source.attachment_name)}`, ordinal: Infinity };
 }
 function totalOf(resp) {
   const t = resp && resp.hits && resp.hits.total;
@@ -112,19 +136,28 @@ export function makeReaderApi(transport) {
   /**
    * Run the reader's search box. `{ hits, total, took, error, kind }` —
    * `hits` is `[]` on any failure; it is never padded or invented.
+   *
+   *   field  a corpus card's sample query names the field it was written for;
+   *          it joins the search fields (schema-roles.js#withSearchField)
+   *   size   how many hits to return (the view's SHOW MORE raises it)
+   *
+   * `{ hits: [], hint }` when the query cannot run as typed (TERM / RANGE
+   * without `field=value`): nothing is sent, and above all not `match_all`.
    */
-  async function search(index, { q = '', type = 'match', size = 25 } = {}, signal) {
+  async function search(index, { q = '', type = 'match', size = 25, field = null } = {}, signal) {
+    const hint = queryProblem(q, type);
+    if (hint) return { hits: [], total: 0, took: 0, hint };
     try {
-      const r = await roles(index, signal);
+      const r = withSearchField(await roles(index, signal), field);
       const body = buildSearchBody(q, type, {}, r, { size, aggs: false });
       if ((q || '').trim() && type !== 'semantic') {
         // Exactly the fields the query ran over (schema-roles.js#searchFields:
-        // the text field plus subject / title / attachment name when the
+        // every text field plus subject / title / attachment name when the
         // mapping has them), so a match in a subject line is marked too.
         body.highlight = highlightRequest(searchFieldsOf(r));
       }
       const resp = await transport.search(index, body, signal);
-      return { hits: hitsOf(resp, index), total: totalOf(resp), took: Number(resp && resp.took) || 0 };
+      return { hits: hitsOf(resp, index), total: totalOf(resp), took: Number(resp && resp.took) || 0, fields: searchFieldsOf(r) };
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
       return { hits: [], total: 0, took: 0, error: errText(e), kind: e && e.kind };
@@ -157,25 +190,75 @@ export function makeReaderApi(transport) {
   }
 
   /**
-   * An email's attachment records, or an attachment's parent email. Joined
-   * on `email_message_id` (extract/eml.rs stamps it on the email AND on every
-   * attachment record it emits). `{ attachments: [], parent: null }` when
-   * there is nothing to join on.
+   * Read every attachment record matching `filter`, a light page at a time,
+   * and collapse them to ONE entry per attachment at its lowest page (a click
+   * opens page one). `{ attachments, truncated }` — `truncated` is
+   * `{ read, total }` when the engine holds more records than were read.
+   */
+  async function readAttachments(index, filter, sorted, signal) {
+    const best = new Map();
+    const pageOf = (a) => { const n = Number(a._source.page); return Number.isFinite(n) ? n : 0; };
+    const lower = (a, b) => (pageOf(a) - pageOf(b)) || locatorKey(a).localeCompare(locatorKey(b));
+    let read = 0;
+    let total = 0;
+    while (read < ATTACHMENT_RECORDS_READ) {
+      const resp = await transport.search(index, {
+        query: { bool: { filter: [...filter, { exists: { field: 'attachment_name' } }] } },
+        // A filter has no useful order of its own; paging needs a stable one.
+        // (`ax_locator` is only known to exist beside `ax_file`.)
+        ...(sorted ? { sort: [{ ax_locator: 'asc' }] } : {}),
+        from: read,
+        size: Math.min(ATTACHMENT_PAGE, ATTACHMENT_RECORDS_READ - read),
+        track_total_hits: true,
+        _source: ATTACHMENT_SOURCE,
+      }, signal);
+      const hits = hitsOf(resp, index);
+      total = Math.max(total, totalOf(resp));
+      for (const a of hits) {
+        const { key, ordinal } = attachmentKey(a);
+        const cur = best.get(key);
+        if (!cur || lower(a, cur.hit) < 0) best.set(key, { hit: a, ordinal });
+      }
+      read += hits.length;
+      if (!hits.length || read >= total) break;
+    }
+    const attachments = [...best.values()]
+      .sort((x, y) => (x.ordinal - y.ordinal) || String(x.hit._source.attachment_name).localeCompare(String(y.hit._source.attachment_name)))
+      .map((x) => x.hit);
+    return { attachments, truncated: total > read ? { read, total } : null };
+  }
+
+  /**
+   * An email's attachment records, or an attachment's parent email.
+   *
+   * Joined on `ax_file` — the id autoindex stamps on EVERY record that came
+   * out of one file. An .eml is one message, so "same file" is exactly "this
+   * message and its attachments". The first version joined on
+   * `email_message_id`, which the PR #945 review showed is wrong twice: the
+   * extractor stamps it only when the message HAS a Message-ID header (an
+   * email without one listed no attachments), and two files can carry the same
+   * id (each copy listed the other's attachments). `email_message_id` remains
+   * the fallback for records that carry no `ax_file` (not written by
+   * autoindex). `{ attachments: [], parent: null }` when there is nothing to
+   * join on; `attachmentsError` when the join itself failed.
    */
   async function fetchRelated(hit, signal) {
     const s = (hit && hit._source) || {};
     const index = hit._index;
-    const out = { attachments: [], parent: null, fileRecord: null };
+    const out = { attachments: [], attachmentsTruncated: null, parent: null, fileRecord: null };
+    const af = typeof s.ax_file === 'string' && s.ax_file ? s.ax_file : null;
     try {
-      const af = typeof s.ax_file === 'string' && s.ax_file ? s.ax_file : null;
       if (af && s.ax_locator === 'file') {
         // The file's own record: list what came out of the file.
         const resp = await transport.search(index, {
           query: { bool: { filter: [{ term: { ax_file: af } }], must_not: [{ term: { ax_locator: 'file' } }] } },
-          size: 200,
+          sort: [{ ax_locator: 'asc' }],
+          size: SIBLINGS_SHOWN,
+          track_total_hits: true,
         }, signal);
         const siblings = hitsOf(resp, index).sort((a, b) => locatorKey(a).localeCompare(locatorKey(b)));
-        return { ...out, siblings, siblingsTruncated: totalOf(resp) > siblings.length };
+        const total = totalOf(resp);
+        return { ...out, siblings, siblingsTruncated: total > siblings.length, siblingsTotal: total };
       }
       if (af) {
         // Any other record: find its file's record — the node the brain's
@@ -190,35 +273,28 @@ export function makeReaderApi(transport) {
       if (e && e.name === 'AbortError') throw e;
       if (FATAL_KINDS.has(e && e.kind)) return { ...out, kind: e.kind };
     }
-    const mid = s.email_message_id;
-    if (typeof mid !== 'string' || !mid) return out;
+    const mid = typeof s.email_message_id === 'string' && s.email_message_id ? s.email_message_id : null;
+    const join = af ? [{ term: { ax_file: af } }] : (mid ? [{ term: { email_message_id: mid } }] : null);
+    if (!join) return out;
+    const isEmailish = s.attachment_name != null || s.email_subject != null || s.email_from != null || mid || s.ax_format === 'eml';
+    if (!isEmailish) return out; // a note or a PDF page: nothing to join
     try {
       if (s.attachment_name) {
+        // The message this attachment came with: the file's records that are
+        // neither an attachment nor the file record; its first section.
         const resp = await transport.search(index, {
-          query: { bool: { filter: [{ term: { email_message_id: mid } }], must_not: [{ exists: { field: 'attachment_name' } }] } },
-          size: 1,
+          query: { bool: { filter: join, must_not: [{ exists: { field: 'attachment_name' } }, { term: { ax_locator: 'file' } }] } },
+          ...(af ? { sort: [{ ax_locator: 'asc' }] } : {}),
+          size: 20,
         }, signal);
-        return { ...out, parent: hitsOf(resp, index)[0] || null };
+        const parent = hitsOf(resp, index).sort((a, b) => locatorKey(a).localeCompare(locatorKey(b)))[0] || null;
+        return { ...out, parent };
       }
-      const resp = await transport.search(index, {
-        query: { bool: { filter: [{ term: { email_message_id: mid } }, { exists: { field: 'attachment_name' } }] } },
-        size: 200,
-      }, signal);
-      // One record per attachment (a PDF contributes one per page): collapse
-      // to each file's LOWEST page so the list reads as attachments, not
-      // pages, and a click opens page one. Filter hits arrive in no useful
-      // order, so the minimum is taken here rather than trusted from the sort.
-      const byName = new Map();
-      const pageOf = (a) => { const n = Number(a._source.page); return Number.isFinite(n) ? n : 0; };
-      for (const a of hitsOf(resp, index)) {
-        const k = String(a._source.attachment_name);
-        const cur = byName.get(k);
-        if (!cur || pageOf(a) < pageOf(cur)) byName.set(k, a);
-      }
-      return { ...out, attachments: [...byName.values()], truncated: totalOf(resp) > 200 };
+      const { attachments, truncated } = await readAttachments(index, join, !!af, signal);
+      return { ...out, attachments, attachmentsTruncated: truncated };
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
-      return { ...out, kind: e && e.kind };
+      return { ...out, kind: e && e.kind, attachmentsError: errText(e) };
     }
   }
 

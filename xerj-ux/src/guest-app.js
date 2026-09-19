@@ -49,6 +49,11 @@ export function endedScreen(reason) {
     h('p', null, body));
 }
 
+/** Did every shared index answer? Only then is the corpus view's data kept. */
+export function corpusComplete(summaries) {
+  return Array.isArray(summaries) && summaries.length > 0 && summaries.every((x) => x && !x.error);
+}
+
 export function bootGuest(win = window) {
   const doc = win.document;
   const app = doc.getElementById('app');
@@ -123,6 +128,7 @@ export function bootGuest(win = window) {
   app.querySelector('[data-guest-leave]').addEventListener('click', () => end('left'));
 
   // ----- routes ------------------------------------------------------
+  let corpusSeq = 0;
   async function showCorpus() {
     view.detach();
     mount(main, h('div', { class: 'guest-scene' },
@@ -131,11 +137,17 @@ export function bootGuest(win = window) {
       h('div', { 'data-guest-corpus': '1' })));
     const slot = main.querySelector('[data-guest-corpus]');
     mount(slot, renderCorpus(corpusState, { guest: true, brain: null }));
-    if (corpusState.status === 'ok') return;
+    // Only a COMPLETE answer is kept. A summary that failed (the engine was
+    // restarting, the network blinked) is shown — and asked for again every
+    // time this view is entered, exactly as the Reader re-asks after a failed
+    // search. The first version cached whatever came back, so one failed load
+    // read "engine unreachable" for the life of the tab (PR #945 review).
+    if (corpusState.status === 'ok' && corpusComplete(corpusState.summaries)) return;
     const s = live();
     if (!s) return;
+    const seq = ++corpusSeq;
     const summaries = await Promise.all(s.indices.map((i) => api.indexSummary(i)));
-    if (ended) return;
+    if (ended || seq !== corpusSeq) return;
     const fatal = summaries.find((x) => FATAL_KINDS.has(x.kind));
     if (fatal) { end(fatal.kind === 'expired' ? 'expired' : 'unauthorized'); return; }
     corpusState = { status: 'ok', summaries };

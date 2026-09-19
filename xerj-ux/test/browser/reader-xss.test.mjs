@@ -2,6 +2,7 @@
 // Run: node --test xerj-ux/test/browser/     (needs Chrome; Node >= 22)
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { sleep } from './cdp.mjs';
 import { setup, skipReason, openGuest, openOperator, census, assertCensusInert, assertNotPwned } from './harness.mjs';
 import { PAYLOADS, HOSTILE_ID, hostileAttachment, hostileAttachment2, HL_PRE, HL_POST } from '../fixtures/hostile.mjs';
 
@@ -72,7 +73,9 @@ test('guest reader: clicking a hostile attachment opens IT — by route, not by 
     assertCensusInert(await census(page, '[data-guest-main]'), shape);
   }
   // the file record lists the records that came out of the file, as links
-  await page.waitFor(`/RECORDS IN THIS FILE · 1/.test(document.querySelector('[data-guest-main]').textContent)`, { label: 'file record siblings' });
+  // (the message and its two attachments — every record of one .eml shares its ax_file)
+  await page.waitFor(`/RECORDS IN THIS FILE · 3/.test(document.querySelector('[data-guest-main]').textContent)`, { label: 'file record siblings' });
+  assert.equal(await page.eval(`document.querySelectorAll('[data-rd-block="siblings"] .rd-att').length`), 3);
   assertCensusInert(await census(page, '[data-guest-main]'), 'file record');
   await assertNotPwned(page, ctx.engine.origin, 'all shapes');
   await page.close();
@@ -123,6 +126,18 @@ test('operator reader + corpus home: the same documents, through the session pro
   await page.eval(`(document.querySelector('[data-corpus-query]').click(), true)`);
   await page.waitFor(`location.hash.startsWith('#/reader?index=ax-inbox') && document.querySelector('.rd-q')?.value.includes('invoice')`, { label: 'sample query → reader' });
   assertCensusInert(await census(page, '[data-safe-mount="reader"]'), 'reader after sample query');
+  // PR #945 review: a sample query ran its TEXT over the Reader's one text
+  // field and dropped the FIELD it was written for (0 results where the
+  // catalog's own body found 5). The sample's field now rides along.
+  await page.setHash('#/corpus');
+  await page.waitFor(`document.querySelectorAll('[data-corpus-query]').length >= 3`, { label: 'sample buttons' });
+  await page.eval(`([...document.querySelectorAll('[data-corpus-query]')].find((b) => b.textContent.includes('samplefieldword')).click(), true)`);
+  await page.waitFor(`document.querySelector('.rd-q')?.value === 'samplefieldword'`, { label: 'second sample → reader' });
+  await sleep(250);
+  const sent = ctx.engine.apiLog().map((r) => r.body).filter((b) => b && JSON.stringify(b.query || {}).includes('samplefieldword')).at(-1);
+  assert.ok(sent, 'the sample ran');
+  assert.ok(JSON.stringify(sent.query).includes('"ax_format"'), `the sample's own field is searched: ${JSON.stringify(sent.query)}`);
+  assert.ok(JSON.stringify(sent.query).includes('"wildcard":{"email_subject"'), 'a keyword-typed subject gets the contains clause');
   await assertNotPwned(page, ctx.engine.origin, 'operator corpus');
   await page.close();
 });
@@ -145,8 +160,15 @@ test('operator reader: changing the query type runs the text in the box, not the
   const text = JSON.stringify(sent);
   assert.ok(text.includes('customer') && !text.includes('invoice'), `the request carries the box text: ${text}`);
   assert.ok(text.includes('match_phrase'), 'and the picked type');
-  // the picked type searched the subject and attachment-name fields too (fixture mapping has them)
-  assert.deepEqual(sent.bool.should.map((c) => Object.keys(c.match_phrase)[0]), ['body', 'email_subject', 'attachment_name']);
+  // the picked type searched the subject and attachment-name fields too (fixture mapping has them).
+  // Both are KEYWORD in the fixture mapping, as autoindex types them on a real
+  // mailbox: they get a case-insensitive contains clause, because `match_phrase`
+  // on a keyword needs the whole value (PR #945 review, measured on a live node).
+  const [onBody, onSubject, onName] = sent.bool.should;
+  assert.deepEqual(onBody, { match_phrase: { body: 'customer' } });
+  assert.deepEqual(onSubject, { bool: { must: [{ wildcard: { email_subject: { value: '*customer*', case_insensitive: true } } }], must_not: [{ exists: { field: 'attachment_name' } }] } });
+  assert.deepEqual(onName, { wildcard: { attachment_name: { value: '*customer*', case_insensitive: true } } });
+  assert.equal(sent.bool.should.length, 3);
   assert.deepEqual(Object.keys(searches().at(-1).body.highlight.fields), ['body', 'email_subject', 'attachment_name'], 'highlights are asked for the same fields');
   assert.equal(await page.eval(`document.querySelector('.rd-q').value`), 'customer');
   await assertNotPwned(page, ctx.engine.origin, 'type change');

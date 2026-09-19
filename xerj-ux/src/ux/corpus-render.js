@@ -42,7 +42,7 @@ function sampleButtons(card) {
       class: 'cp-sq',
       // Consumed by the shell's click handler as DATA (JSON.parse → search
       // state). It is an attribute value: inert whatever it contains.
-      'data-corpus-query': JSON.stringify({ index: card.index, type: s.type, q: s.q }),
+      'data-corpus-query': JSON.stringify({ index: card.index, type: s.type, q: s.q, ...(s.field ? { field: s.field } : {}) }),
       title: sq.title || '',
     }, h('span', { class: 'cp-sq__type mono' }, s.type.toUpperCase()), h('span', { class: 'cp-sq__q' }, s.q)));
     if (out.length >= 6) break;
@@ -93,7 +93,8 @@ export function renderSummaryCard(sum, { brain } = {}) {
     return h('article', { class: 'cp-card', 'data-corpus-index': sum.index },
       h('div', { class: 'key' }, 'DATASET'),
       h('h2', { class: 'cp-card__name mono' }, sum.index),
-      h('div', { class: 'cp-empty' }, `Could not read this index: ${sum.error}`));
+      h('div', { class: 'cp-empty' }, `Could not read this index: ${sum.error}`),
+      h('div', { class: 'cp-card__facts mono faint' }, 'This page asks again each time you open it — come back to CORPUS, or reload the tab.'));
   }
   return h('article', { class: 'cp-card', 'data-corpus-index': sum.index },
     h('div', { class: 'cp-card__head' },

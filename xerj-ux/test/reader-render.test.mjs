@@ -131,7 +131,9 @@ test('corpus cards: a hostile catalog entry renders inert', () => {
   assertShownAsText(card, `email_from${PAYLOADS.imgOnerror}`, 'field name');
   // sample-query buttons carry DATA, as JSON, in an attribute.
   const btns = findAll(card, (n) => n.tag === 'button');
-  assert.equal(btns.length, 2);
+  assert.equal(btns.length, 3, 'two text samples and one term sample (the fixture gained a sample written for a field of its own)');
+  // …including the FIELD a match sample was written for (PR #945 review)
+  assert.deepEqual(btns.map((b) => JSON.parse(b.attrs['data-corpus-query']).field), ['body', undefined, 'ax_format']);
   for (const b of btns) {
     const spec = JSON.parse(b.attrs['data-corpus-query']);
     assert.equal(spec.index, 'ax-inbox');
@@ -157,7 +159,8 @@ test('corpus home never shows a sample: empty → one command, error → the err
 });
 
 test('a catalog sample query becomes a search only when it has a text query', () => {
-  assert.deepEqual(sampleQueryToSearch({ body: { query: { match: { body: { query: 'term sheet' } } } } }), { type: 'match', q: 'term sheet' });
+  // the sample's own field rides along (PR #945 review: dropping it ran a sample over `text` against `body` — 0 results)
+  assert.deepEqual(sampleQueryToSearch({ body: { query: { match: { body: { query: 'term sheet' } } } } }), { type: 'match', q: 'term sheet', field: 'body' });
   assert.deepEqual(sampleQueryToSearch({ body: { query: { semantic: { field: 'body', query: 'who approved it' } } } }), { type: 'semantic', q: 'who approved it' });
   assert.deepEqual(sampleQueryToSearch({ body: { query: { bool: { filter: [{ term: { email_from: 'a@b' } }] } } } }), { type: 'term', q: 'email_from=a@b' });
   assert.equal(sampleQueryToSearch({ body: { size: 0, aggs: { x: { terms: { field: 'y' } } } } }), null);

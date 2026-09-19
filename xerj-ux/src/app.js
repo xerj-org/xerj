@@ -1536,7 +1536,7 @@ document.addEventListener('click', (e) => {
     let spec = null;
     try { spec = JSON.parse(cq.getAttribute('data-corpus-query')); } catch { spec = null; }
     if (spec && typeof spec.index === 'string' && typeof spec.q === 'string') {
-      readerView.setQuery({ q: spec.q, type: String(spec.type || 'match') });
+      readerView.setQuery({ q: spec.q, type: String(spec.type || 'match'), field: typeof spec.field === 'string' ? spec.field : null });
       location.hash = readerHref({ index: spec.index });
     }
     return;

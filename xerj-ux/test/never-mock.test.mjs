@@ -11,8 +11,9 @@ const json = (status, body) => ({ status, ok: status >= 200 && status < 300, jso
 const { query, NEVER_MOCK } = await import('../src/data/query.js');
 const { resetSchemaCache } = await import('../src/data/schema.js');
 const { previewRequest } = await import('../src/dashboards/search-discover.js');
-const { buildSearchBody, buildQueryClause, QUERY_TYPES, requestPath } = await import('../src/data/search-body.js');
-const { deriveRoles } = await import('../src/data/schema-roles.js');
+const { buildSearchBody, buildQueryClause, QUERY_TYPES, requestPath, queryWords, queryProblem, queryPlaceholder } = await import('../src/data/search-body.js');
+const { deriveRoles, withSearchField, MAX_TEXT_SEARCH_FIELDS } = await import('../src/data/schema-roles.js');
+const { sampleQueryToSearch } = await import('../src/data/catalog.js');
 const { searchFieldsOf } = await import('../src/data/search-body.js');
 
 const LOOKS_FABRICATED = ['hits', 'datasets', 'summaries'];
@@ -129,19 +130,25 @@ test('the query builder: real fields, an engine-accepted hybrid shape, no raw kN
   assert.deepEqual(buildSearchBody('x', 'match', {}, logs, { sort: { field: 'level', dir: 'asc' } }).sort, [{ level: 'asc' }]);
 });
 
-test('MATCH / PHRASE / PREFIX search the subject, title and attachment-name fields the index has — one OR-ed clause per field', () => {
+test('MATCH / PHRASE / PREFIX search every text field plus the subject, title and attachment-name fields the index has — one OR-ed clause per field', () => {
   // PR #945 review: "Lunch" returned 0 results although an email's SUBJECT was
   // "Lunch on Friday?" — only `body` was searched. Now every title-like field
   // the mapping has is searched (and highlighted, reader-api.js).
-  const roles = deriveRoles({ body: 'semantic_text', email_subject: 'text', title: 'keyword', attachment_name: 'keyword', email_from: 'keyword' });
+  const roles = deriveRoles({ body: 'semantic_text', email_subject: 'text', title: 'text', attachment_name: 'text', email_from: 'keyword' });
   assert.deepEqual(roles.searchFields, ['body', 'email_subject', 'title', 'attachment_name']);
+  assert.deepEqual(roles.keywordSearchFields, []);
   assert.deepEqual(searchFieldsOf(roles), roles.searchFields);
   const m = buildQueryClause('Lunch', 'match', roles);
+  // The subject clause matches the MESSAGE's records: every attachment record
+  // carries a copy of its parent's subject, and one hit per PDF page is noise.
+  const subj = (c) => ({ bool: { must: [c], must_not: [{ exists: { field: 'attachment_name' } }] } });
   assert.deepEqual(m, { bool: { should: [
-    { match: { body: 'Lunch' } }, { match: { email_subject: 'Lunch' } }, { match: { title: 'Lunch' } }, { match: { attachment_name: 'Lunch' } },
+    { match: { body: 'Lunch' } }, subj({ match: { email_subject: 'Lunch' } }), { match: { title: 'Lunch' } }, { match: { attachment_name: 'Lunch' } },
   ], minimum_should_match: 1 } });
-  assert.deepEqual(buildQueryClause('term sheet', 'phrase', roles).bool.should.map((c) => Object.keys(c)[0]), ['match_phrase', 'match_phrase', 'match_phrase', 'match_phrase']);
-  assert.deepEqual(buildQueryClause('lun', 'prefix', roles).bool.should[1], { prefix: { email_subject: 'lun' } });
+  assert.deepEqual(buildQueryClause('term sheet', 'phrase', roles).bool.should.map((c) => Object.keys(c.bool ? c.bool.must[0] : c)[0]), ['match_phrase', 'match_phrase', 'match_phrase', 'match_phrase']);
+  assert.deepEqual(buildQueryClause('lun', 'prefix', roles).bool.should[1], subj({ prefix: { email_subject: 'lun' } }));
+  // an index with no attachments has nothing to keep out of the subject clause
+  assert.deepEqual(buildQueryClause('x', 'match', deriveRoles({ body: 'text', email_subject: 'text' })).bool.should[1], { match: { email_subject: 'x' } });
   // the lexical leg of HYBRID is the same clause
   assert.deepEqual(buildQueryClause('Lunch', 'hybrid', roles).hybrid.queries[0].query, m);
   // a filter wraps it once: bool{must: <should-clause>, filter}
@@ -160,4 +167,80 @@ test('MATCH / PHRASE / PREFIX search the subject, title and attachment-name fiel
   assert.deepEqual(buildQueryClause('x', 'match', deriveRoles({})), { match: { body: 'x' } });
   // an empty box is match_all whatever the fields
   assert.deepEqual(buildQueryClause('  ', 'match', roles), { match_all: {} });
+  // paging: `from` only when there is an offset
+  assert.equal(buildSearchBody('x', 'match', {}, one, { aggs: false }).from, undefined);
+  assert.equal(buildSearchBody('x', 'match', {}, one, { aggs: false, from: 25 }).from, 25);
+});
+
+test('MAJOR (PR #945 review): a KEYWORD-typed subject / title / file name is searched by the words in it — `match` on a keyword needs the whole string', () => {
+  // The mapping autoindex really wrote for the review's mailbox (live node,
+  // 2026-09-19): every per-page attachment record copies its parent's subject,
+  // the cardinality ratio collapses, and the inferrer picks `keyword`.
+  //   {"match":{"email_subject":"Lunch"}}            → 0   ("Lunch on Friday?" exists)
+  //   {"wildcard":{"email_subject":{"value":"*lunch*","case_insensitive":true}}} → 1
+  // The first version of this fix was tested only against a fake engine that
+  // hardcoded `email_subject: text`.
+  const roles = deriveRoles({ body: 'text', email_subject: 'keyword', title: 'keyword', attachment_name: 'keyword', email_from: 'keyword', page: 'long' });
+  assert.deepEqual(roles.searchFields, ['body', 'email_subject', 'title', 'attachment_name']);
+  assert.deepEqual(roles.keywordSearchFields, ['email_subject', 'title', 'attachment_name']);
+  const has = (f, value) => ({ wildcard: { [f]: { value, case_insensitive: true } } });
+  const subj = (c) => ({ bool: { must: [c], must_not: [{ exists: { field: 'attachment_name' } }] } });
+  assert.deepEqual(buildQueryClause('Lunch', 'match', roles), { bool: { should: [
+    { match: { body: 'Lunch' } }, subj(has('email_subject', '*Lunch*')), has('title', '*Lunch*'), has('attachment_name', '*Lunch*'),
+  ], minimum_should_match: 1 } });
+  // several words: OR, like `match` — a record matching more of them scores higher
+  assert.deepEqual(buildQueryClause('Lunch on Friday?', 'match', roles).bool.should[2],
+    { bool: { should: [has('title', '*Lunch*'), has('title', '*on*'), has('title', '*Friday*')], minimum_should_match: 1 } });
+  assert.deepEqual(queryWords('résumé – 设计 v2.pdf'), ['résumé', '设计', 'v2', 'pdf'], 'words are runs of letters/digits in any script');
+  // PHRASE is "contains this, as typed"; PREFIX is "starts with this" — both case-insensitive
+  assert.deepEqual(buildQueryClause('Lunch on', 'phrase', roles).bool.should[2], has('title', '*Lunch on*'));
+  assert.deepEqual(buildQueryClause('Lun', 'prefix', roles).bool.should[3], has('attachment_name', 'Lun*'));
+  // nothing a person types can widen the pattern: * ? \ become "any one character"
+  assert.deepEqual(buildQueryClause('a*b?c\\d', 'phrase', roles).bool.should[2], has('title', '*a?b?c?d*'));
+  assert.deepEqual(buildQueryClause('***', 'match', roles).bool.should[2], has('title', '*???*'));
+  // a title-like field of a type there is no clause for is not searched
+  assert.deepEqual(deriveRoles({ body: 'text', title: 'long' }).searchFields, ['body']);
+});
+
+test('MAJOR (PR #945 review): EVERY text-typed field is searched — a record whose text lives in `text` is findable, and a sample query runs over its own field', () => {
+  // Live node, 2026-09-19: autoindex's prose extractors write `body`, its line
+  // extractor (Makefile, .ini) writes `text`; both land in ax-docs. The catalog's
+  // own sample `{"match":{"text":"makefiletargetword"}}` returned 1 hit while the
+  // Reader — which searched `body` only — returned 0 for the same word.
+  const roles = deriveRoles({ body: 'text', text: 'semantic_text', notes: 'text', email_subject: 'keyword', ax_path: 'keyword' });
+  assert.equal(roles.textField, 'body');
+  assert.deepEqual(roles.searchFields, ['body', 'text', 'notes', 'email_subject'], 'preferred names first, then mapping order, then the title-like extras');
+  assert.deepEqual(buildQueryClause('makefiletargetword', 'match', roles).bool.should.slice(0, 3), [
+    { match: { body: 'makefiletargetword' } }, { match: { text: 'makefiletargetword' } }, { match: { notes: 'makefiletargetword' } },
+  ]);
+  // the cap bounds the request on a mapping with dozens of text fields, and says so
+  const many = Object.fromEntries(Array.from({ length: MAX_TEXT_SEARCH_FIELDS + 5 }, (_, i) => [`t${i}`, 'text']));
+  const capped = deriveRoles(many);
+  assert.equal(capped.searchFields.length, MAX_TEXT_SEARCH_FIELDS);
+  assert.equal(capped.searchFieldsCapped, true);
+  assert.equal(roles.searchFieldsCapped, false);
+  // a sample query's OWN field is always searched, whatever its rank or type
+  assert.deepEqual(withSearchField(capped, `t${MAX_TEXT_SEARCH_FIELDS + 2}`).searchFields.at(-1), `t${MAX_TEXT_SEARCH_FIELDS + 2}`);
+  const kw = withSearchField(roles, 'ax_path');
+  assert.deepEqual(kw.searchFields.at(-1), 'ax_path');
+  assert.ok(kw.keywordSearchFields.includes('ax_path'), 'a keyword sample field gets the contains clause, not `match`');
+  assert.equal(withSearchField(roles, 'body'), roles, 'already searched: unchanged');
+  assert.equal(withSearchField(roles, 'no_such_field'), roles, 'a field the mapping does not have changes nothing');
+  assert.equal(withSearchField(roles, 'page'), roles);
+  // and the catalog sample carries its field through (catalog.js)
+  assert.deepEqual(sampleQueryToSearch({ body: { query: { match: { text: 'makefiletargetword' } }, size: 3 } }), { type: 'match', q: 'makefiletargetword', field: 'text' });
+  assert.deepEqual(sampleQueryToSearch({ body: { query: { match_phrase: { body: { query: 'term sheet' } } } } }), { type: 'phrase', q: 'term sheet', field: 'body' });
+  assert.deepEqual(sampleQueryToSearch({ body: { query: { hybrid: { queries: [{ query: { match: { text: 'x' } } }] } } } }), { type: 'hybrid', q: 'x', field: 'text' });
+  assert.deepEqual(sampleQueryToSearch({ body: { query: { term: { title: 'A title' } } } }), { type: 'term', q: 'title=A title' });
+});
+
+test('minor (PR #945 review): TERM / RANGE with free text is refused with the syntax — it used to run match_all and show every record as a result', () => {
+  assert.match(queryProblem('zebrafish', 'term'), /TERM needs field=value/);
+  assert.match(queryProblem('hello', 'range'), /RANGE needs field>=value/);
+  for (const [q, type] of [['ax_format=eml', 'term'], ['page>=2', 'range'], ['', 'term'], ['   ', 'range'], ['zebrafish', 'match'], ['x', 'semantic']]) {
+    assert.equal(queryProblem(q, type), null, `${type} "${q}" runs`);
+  }
+  assert.match(queryPlaceholder('term'), /field=value/);
+  assert.match(queryPlaceholder('range'), /field>=value/);
+  assert.match(queryPlaceholder('match'), /search this corpus/);
 });

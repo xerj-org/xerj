@@ -41,7 +41,10 @@ export async function launch({ chrome = findChrome(), timeoutMs = 30_000, extraA
   const proc = spawn(chrome, [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--mute-audio',
-    '--remote-debugging-port=0', `--user-data-dir=${profile}`, ...extraArgs, 'about:blank',
+    // An OS-assigned port by default. XERJ_TEST_CDP_PORT pins it, for a shared
+    // machine where each run is given its own port block (then run the browser
+    // files one at a time: `--test-concurrency=1`).
+    `--remote-debugging-port=${Number(process.env.XERJ_TEST_CDP_PORT) || 0}`, `--user-data-dir=${profile}`, ...extraArgs, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
   const wsUrl = await new Promise((resolve, reject) => {

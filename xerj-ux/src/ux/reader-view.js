@@ -15,7 +15,7 @@
 
 import { h, mount } from './safe-dom.js';
 import { renderResultList, renderRecord, renderGraphPanel, readerHref } from './reader-render.js';
-import { QUERY_TYPES } from '../data/search-body.js';
+import { QUERY_TYPES, queryPlaceholder } from '../data/search-body.js';
 import { FATAL_KINDS } from '../data/reader-api.js';
 
 /** `#/reader?index=a&id=b&brain=c` → { index, id, brain } (strings or null). */
@@ -26,6 +26,30 @@ export function parseReaderRoute(hash) {
   const get = (k) => { const v = qs.get(k); return v == null || v === '' ? null : v; };
   return { index: get('index'), id: get('id'), brain: get('brain') };
 }
+
+/**
+ * What the view keeps of `reader-api.js#fetchRelated`'s answer. EVERYTHING it
+ * returned, with the list defaults the renderer relies on — the first version
+ * copied four named keys and so dropped the join's `truncated` flag on the
+ * floor (PR #945 review): the data layer knew the attachment list was
+ * incomplete and the page never said so.
+ */
+export function relatedForView(related, hit) {
+  const r = related || {};
+  const isFile = !!(hit && hit._source && hit._source.ax_locator === 'file');
+  return {
+    ...r,
+    attachments: r.attachments || [],
+    parent: r.parent || null,
+    fileRecord: r.fileRecord || null,
+    siblings: r.siblings || (isFile ? [] : undefined),
+    siblingsTruncated: !!r.siblingsTruncated,
+  };
+}
+
+/** Results per page of the list, and the most SHOW MORE will ever ask for. */
+export const PAGE_SIZE = 25;
+export const MAX_SHOWN = 200;
 
 export class ReaderView {
   /**
@@ -54,13 +78,16 @@ export class ReaderView {
     this.s = {
       index: null, id: null, brain: null, brains: [], brainHint: null,
       q: '', type: 'match',
-      result: null,          // { hits, total, took, error, pending }
+      field: null,           // a sample query's own field (cleared by the next typed search)
+      size: PAGE_SIZE,
+      result: null,          // { hits, total, took, error, hint, pending }
       hit: null, recordError: null, recordKind: null, loading: false,
       related: {},           // { attachments, parent }
       graph: { status: 'idle' },
     };
     this._onKey = (e) => this.handleKey(e);
     this._onChange = (e) => this.handleChange(e);
+    this._onClick = (e) => this.handleClick(e);
   }
 
   // ----- routing -------------------------------------------------------
@@ -80,7 +107,11 @@ export class ReaderView {
     this.s.index = idx;
     this.s.brainHint = hint;
     this.s.id = id || null;
-    if (indexChanged) { this.s.result = null; this.s.hit = null; }
+    if (indexChanged) { this.s.result = null; this.s.hit = null; this.s.size = PAGE_SIZE; }
+    // No index at all (an empty engine): there is nothing to load, and the
+    // shell's status pill must not sit on "LOADING…" forever waiting for a
+    // search that will never run (PR #945 review).
+    if (!idx) this.onStatus({ kind: 'live', label: this.guest ? 'NOTHING SHARED' : 'LIVE · NOTHING INDEXED' });
     // Coming back to a view whose last load FAILED asks again (a refused or
     // unreachable engine may have recovered). A record the engine answered
     // "no such id" for is not re-asked on every repaint.
@@ -107,10 +138,12 @@ export class ReaderView {
     if (this.searchAbort) this.searchAbort.abort();
     const ac = this.searchAbort = new AbortController();
     const seq = ++this.searchSeq;
-    this.s.result = { hits: [], total: 0, pending: true };
+    // SHOW MORE keeps the list on screen while the longer one loads.
+    const keep = this.s.size > PAGE_SIZE && this.s.result && !this.s.result.error ? this.s.result.hits : [];
+    this.s.result = { hits: keep, total: keep.length ? this.s.result.total : 0, pending: true };
     this.paintList();
     let r;
-    try { r = await this.api.search(index, { q: this.s.q, type: this.s.type }, ac.signal); } catch { return; }
+    try { r = await this.api.search(index, { q: this.s.q, type: this.s.type, size: this.s.size, field: this.s.field }, ac.signal); } catch { return; }
     if (seq !== this.searchSeq) return;
     if (this.fatal(r.kind)) return;
     this.s.result = r;
@@ -146,12 +179,7 @@ export class ReaderView {
       ]);
       if (seq !== this.seq) return;
       if (this.fatal(related.kind)) return;
-      this.s.related = {
-        attachments: related.attachments || [], parent: related.parent || null,
-        fileRecord: related.fileRecord || null,
-        siblings: related.siblings || (rec.hit._source.ax_locator === 'file' ? [] : undefined),
-        siblingsTruncated: !!related.siblingsTruncated,
-      };
+      this.s.related = relatedForView(related, rec.hit);
       this.s.brains = brains;
       this.s.brain = brains[0] || null;
       this.paintRecord();
@@ -199,7 +227,7 @@ export class ReaderView {
     mount(container, h('div', { class: 'rd-root' },
       h('div', { class: 'rd-search' },
         h('input', { type: 'search', class: 'rd-q', name: 'rd-q', value: this.s.q, 'aria-label': 'Search this corpus',
-          placeholder: 'search this corpus · press Enter · empty lists records', autocomplete: 'off', spellcheck: 'false' }),
+          placeholder: queryPlaceholder(this.s.type), autocomplete: 'off', spellcheck: 'false' }),
         h('select', { class: 'rd-type', name: 'rd-type', 'aria-label': 'Query type' },
           QUERY_TYPES.map((t) => h('option', { value: t, selected: t === this.s.type }, t.toUpperCase()))),
         indices.length > 1
@@ -214,6 +242,7 @@ export class ReaderView {
     this.slots = { listHead: slot('list-head'), list: slot('list'), record: slot('record'), graph: slot('graph') };
     container.addEventListener('keydown', this._onKey);
     container.addEventListener('change', this._onChange);
+    container.addEventListener('click', this._onClick);
     this.paint();
   }
 
@@ -221,6 +250,7 @@ export class ReaderView {
     if (this.root) {
       this.root.removeEventListener('keydown', this._onKey);
       this.root.removeEventListener('change', this._onChange);
+      this.root.removeEventListener('click', this._onClick);
     }
     this.root = null; this.slots = null;
   }
@@ -243,15 +273,23 @@ export class ReaderView {
     const hits = (r && r.hits) || [];
     let head = 'RESULTS';
     let empty;
+    let more = null;
     if (!this.s.index) empty = this.guest ? 'Nothing is shared.' : 'Nothing is indexed yet. Run: xerj brain <folder>';
-    else if (!r || r.pending) { head = 'SEARCHING…'; empty = 'Searching…'; }
+    else if (!r || (r.pending && !hits.length)) { head = 'SEARCHING…'; empty = 'Searching…'; }
     else if (r.error) { head = 'SEARCH FAILED'; empty = `Search failed: ${r.error}. Nothing is shown in its place.`; }
+    else if (r.hint) { head = 'NOT SEARCHED'; empty = r.hint; }
     else {
       head = `${r.total} RESULT${r.total === 1 ? '' : 'S'}${hits.length < r.total ? ` · SHOWING ${hits.length}` : ''} · CLICK TO OPEN`;
       empty = (this.s.q || '').trim() ? 'No matches. Try a broader query or another query type.' : `No records in ${this.s.index}.`;
+      if (hits.length < r.total) {
+        more = r.pending ? h('div', { class: 'rd-more faint mono' }, 'Loading more…')
+          : hits.length < MAX_SHOWN
+            ? h('button', { class: 'text-btn rd-more', type: 'button', 'data-rd-more': '1' }, `SHOW ${Math.min(PAGE_SIZE, r.total - hits.length, MAX_SHOWN - hits.length)} MORE`)
+            : h('div', { class: 'rd-more faint mono' }, `The list stops at the top ${MAX_SHOWN} of ${r.total}. Narrow the query to see the rest.`);
+      }
     }
     mount(this.slots.listHead, head);
-    mount(this.slots.list, renderResultList(hits, { selectedId: this.s.id, brain: this.s.brainHint, emptyText: empty }));
+    mount(this.slots.list, [renderResultList(hits, { selectedId: this.s.id, brain: this.s.brainHint, emptyText: empty }), more]);
   }
 
   paintRecord() {
@@ -277,6 +315,17 @@ export class ReaderView {
     if (e.key !== 'Enter' || !t || !t.classList || !t.classList.contains('rd-q')) return;
     e.preventDefault();
     this.s.q = String(t.value || '');
+    this.s.field = null;       // a typed search runs over the Reader's own fields
+    this.s.size = PAGE_SIZE;
+    this.runSearch();
+  }
+
+  handleClick(e) {
+    const t = e.target;
+    const more = t && t.closest ? t.closest('[data-rd-more]') : null;
+    if (!more) return;
+    e.preventDefault();
+    this.s.size = Math.min(MAX_SHOWN, this.s.size + PAGE_SIZE);
     this.runSearch();
   }
 
@@ -289,8 +338,10 @@ export class ReaderView {
         // typed a new query and then picked a type saw results for the old one
         // under the new text (PR #945 review).
         const box = this.root && this.root.querySelector('.rd-q');
-        if (box) this.s.q = String(box.value || '');
+        if (box) { this.s.q = String(box.value || ''); box.setAttribute('placeholder', queryPlaceholder(t.value)); }
         this.s.type = t.value;
+        this.s.field = null;
+        this.s.size = PAGE_SIZE;
         this.runSearch();
       }
     } else if (t.classList.contains('rd-index')) {
@@ -299,10 +350,13 @@ export class ReaderView {
     }
   }
 
-  /** Run a query chosen elsewhere (a corpus card's sample query). */
-  setQuery({ q, type }) {
+  /** Run a query chosen elsewhere (a corpus card's sample query). `field` is
+   *  the field the sample was written for; it is searched too. */
+  setQuery({ q, type, field }) {
     this.s.q = String(q || '');
     if (QUERY_TYPES.includes(type)) this.s.type = type;
+    this.s.field = typeof field === 'string' && field ? field : null;
+    this.s.size = PAGE_SIZE;
     this.s.result = null;
   }
 }
