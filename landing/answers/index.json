@@ -405,7 +405,7 @@
       "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
       "cluster": "Folder indexing",
       "updated": "2026-09-18",
-      "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed and stays on your machine."
+      "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
     },
     {
       "title": "RAG without a vector database",

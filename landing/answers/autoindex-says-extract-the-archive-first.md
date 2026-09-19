@@ -8,19 +8,19 @@ source: "content/answers/autoindex-says-extract-the-archive-first.md"
 
 # xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?
 
-**TL;DR** — autoindex does not open archives. When it meets a `.zip`, `.tgz`, `.7z`, `.rar` or `.xz`, it marks the file as junk with a reason that quotes the extraction command. The run finishes with exit code 3 and the rest of the folder is indexed. Extract the archive and run the same command on the extracted folder.
+**TL;DR** — autoindex does not open archives. When it meets a `.zip`, `.tgz`, `.7z`, `.rar` or `.xz`, it marks the file as junk with a reason that quotes the extraction command, and prints that under the run's summary. The run finishes with exit code 3 and the rest of the folder is indexed. Extract the archive and run the same command on the extracted folder.
 
 ## Agent prompt
 
 ```text
-Act as a coding agent. Read https://xerj.org/llms.txt. If a run prints a junk reason that begins 'unextracted', run the command quoted in that reason (unzip, tar -xzf, 7z x, unrar x, xz -dk), then run the same xerj autoindex command again on the extracted folder. Exit code 3 with that reason is a completed run, not a failure.
+Act as a coding agent. Read https://xerj.org/llms.txt. If a run prints 'not indexed — archives are never opened' under its summary (or its --json summary has a non-empty unextracted_archives list), run the command each line names (unzip, tar -xzf, 7z x, unrar x, xz -dk) on that file, then run xerj autoindex again on the extracted folder. Exit code 3 with those lines is a completed run, not a failure, but if the archive was the only thing in the folder nothing was indexed: tell the user.
 ```
 
 ## Commands
 
 ### Command 1
 
-Note: A run over a folder that holds an archive finishes with exit 3 and names the archive in its junk list.
+Note: A run over a folder that holds an archive finishes with exit 3 and prints the archive, with the command to extract it, under its summary.
 
 ```sh
 xerj autoindex ~/downloads --url http://127.0.0.1:9200 --prefix dl --progress plain
@@ -42,13 +42,16 @@ Note: Index the extracted folder. Its mbox, notes and documents are sniffed by c
 xerj autoindex ~/mail-export --url http://127.0.0.1:9200 --prefix mail --progress plain
 ```
 
-## What the reason says
+## What the run prints
 
-The junk list names the file and gives a reason of this shape:
+Under its summary, the run lists every unextracted archive with its reason:
 
 ```text
-unextracted zip archive: autoindex does not open archives — extract it first (unzip <file>), then run autoindex on the extracted folder
+not indexed — archives are never opened; extract, then run this command on the extracted folder:
+  takeout-20260101T000000Z-001.zip — unextracted zip archive: autoindex does not open archives — extract it first (unzip <file>), then run autoindex on the extracted folder
 ```
+
+The same lines are in the `--json` summary as `unextracted_archives`. After ten archives the list stops and says how many more there are; `xerj autoindex map` lists every one under "Junk / skipped".
 
 The kind and the command change with the bytes. A tar gets `tar -xf`, a gzip-compressed tar `tar -xzf`, a 7z `7z x`, a rar `unrar x`, an xz file `xz -dk`. Detection is by the file's leading bytes. A tar is recognised by its header checksum, not by the word `ustar` appearing in a text file. So a renamed archive gets the same treatment.
 
@@ -73,7 +76,7 @@ Because it never opens archives. Extracting is one command it quotes in the reas
 
 ### Is the run a failure?
 
-No. The archive is recorded as junk with its reason and everything else in the folder is indexed. The exit code is 3, completed-with-junk.
+No. The archive is recorded as junk with its reason and everything else in the folder is indexed. The exit code is 3, completed-with-junk. If the archive was the only file, the run indexed nothing, and the lines it prints under its summary say why.
 
 ### Which archive kinds does it recognise?
 
@@ -87,6 +90,7 @@ A plain gzip-compressed file is streamed through decompression and sniffed like 
 
 - The junk reason for an archive reads 'unextracted <kind>: autoindex does not open archives — extract it first (<command>), then run autoindex on the extracted folder', with the command chosen per kind: unzip, tar -xf, tar -xzf, 7z x, unrar x, xz -dk. — `engine/crates/xerj-autoindex/src/sniff.rs`
 - Archives are detected by magic bytes — a tar by its ustar header checksum, not by text that happens to say ustar — so a renamed archive gets the same reason. — `engine/crates/xerj-autoindex/src/sniff.rs`
+- The run prints every unextracted archive under its summary, after 'not indexed — archives are never opened', with the archive's path and its reason (at most ten lines, then a count and a pointer to xerj autoindex map), and puts the same lines in its --json summary as unextracted_archives. — `engine/crates/xerj-autoindex/src/lib.rs`
 - Exit code 3 is completed-with-junk; junk is recorded, never fatal. — `engine/crates/xerj-autoindex/src/cli.rs`
 
 ## Related
