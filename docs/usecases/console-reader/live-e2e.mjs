@@ -55,7 +55,7 @@ const browser = await launch();
 // stops if it does not.
 const port = new URL(origin).port;
 const opOrigin = 'http://localhost:9200';
-const opBrowser = await launch({ extraArgs: [`--host-resolver-rules=MAP localhost:9200 127.0.0.1:${port}`] });
+const opBrowser = await launch({ extraArgs: [`--host-resolver-rules=MAP localhost:9200 127.0.0.1:${port}`], debugPort: Number(process.env.XERJ_TEST_CDP_PORT2) || 0 });
 try {
   // ================= A. operator =====================================
   if (setupLink && setupLink !== '-') {
@@ -63,6 +63,17 @@ try {
     await page.goto(`${opOrigin}/_xerj-console/src/boot.js`);
     const isOurs = await page.eval(`document.body.innerText.includes('guest-app.js')`);
     if (!isOurs) throw new Error('host mapping is not in effect — refusing to touch the node on :9200');
+    // …and prove it is THIS run's node, not merely one built from this branch:
+    // an index with a random name is created on the node this script booted
+    // (direct origin, its own admin key) and must be visible through the mapped
+    // origin. It is removed again before any page that lists indices opens.
+    const nonce = `e2e-own-${Math.random().toString(36).slice(2, 12)}`;
+    const made = await api('PUT', `/${nonce}`, { settings: { number_of_shards: 1 } });
+    if (made.status >= 300) throw new Error(`could not create the ownership probe index: ${made.text.slice(0, 200)}`);
+    const seenThroughMap = await page.eval(`fetch(${JSON.stringify(`/${nonce}/_count`)}, { headers: { authorization: ${JSON.stringify(`ApiKey ${adminKey}`)} } }).then((r) => r.status).catch(() => 0)`);
+    await api('DELETE', `/${nonce}`);
+    if (seenThroughMap !== 200) throw new Error(`the node behind ${opOrigin} is not the node this run booted (probe index answered ${seenThroughMap}) — refusing to enrol a passkey on it`);
+    out.operatorNodeIsOurs = true;
     await page.send('WebAuthn.enable');
     await page.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
     await page.goto(opOrigin + new URL(setupLink).pathname + new URL(setupLink).hash);

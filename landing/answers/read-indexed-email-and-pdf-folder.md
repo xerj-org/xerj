@@ -28,18 +28,18 @@ xerj brain ./casefile --no-open
 
 ### Command 2
 
-Note: Find an email by a word in its subject; the _id of a hit is what the Reader link takes.
+Note: Find an email by a word in its subject; the _id of a hit is what the Reader link takes, and ax_file is what its attachments share.
 
 ```sh
-curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"match":{"email_subject":"invoice"}},"_source":["email_subject","email_from","email_date"],"size":5}'
+curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'
 ```
 
 ### Command 3
 
-Note: List the attachment records of one email: they share its email_message_id, stored without the angle brackets.
+Note: List the attachment records of one email: every record that came out of one .eml file shares its ax_file.
 
 ```sh
-curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"email_message_id":"msg-1@acme.example"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page"],"size":50}'
+curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 ```
 
 ## Index the folder, then open the console
@@ -54,7 +54,9 @@ In a recorded run, a folder of 10 files became 81 records in one dataset, `ax-do
 
 ## Corpus lists what was indexed
 
-The console's landing page is Corpus. It reads the `autoindex-catalog` index and shows one card per dataset: record, file and byte counts, the formats, the date range, the fields with their types, and the sample queries the catalog entry carries. A sample query opens in the Reader with that query already run.
+The console's landing page is Corpus. It reads the `autoindex-catalog` index and shows one card per dataset: record, file and byte counts, the formats, the date range, the fields with their types, and the sample queries the catalog entry carries. A sample query opens the Reader with the sample's text in the search box and already run, over the Reader's search fields and the field the sample was written for.
+
+A card describes the last `xerj brain` or `xerj autoindex` run over that dataset. The record count is the index total. The file count, the formats and the field types are that run's own, and the card labels them `last run`.
 
 An empty node shows one command, `xerj brain <folder>`, and no sample data. If the catalog cannot be read, the page shows the error and nothing in its place.
 
@@ -65,8 +67,10 @@ The route is `/_xerj-console/#/reader?index=<index>&id=<id>`. Every hit in the c
 ```sh
 curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
-  -d '{"query":{"match":{"email_subject":"invoice"}},"_source":["email_subject","email_from","email_date"],"size":5}'
+  -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'
 ```
+
+The query is a `wildcard` and not a `match` for a reason. `xerj autoindex` usually types `email_subject` as `keyword`, because every attachment page record copies its email's subject and the field then holds few distinct values. On a `keyword` field a `match` finds only the whole subject. In a recorded check, `match` on `email_subject` for `Lunch` returned 0 hits while the subject `Lunch on Friday?` was indexed, and the `wildcard` for `*lunch*` returned 1. The `must_not` keeps the attachment records out, because each one carries a copy of the subject. The Reader's own search box does the same.
 
 The Reader renders a record by its shape:
 
@@ -79,13 +83,15 @@ The Reader renders a record by its shape:
 
 ## How one email is stored
 
-`xerj autoindex` writes one record for the file, one for the message, and one for each page section of each attachment. The message and its attachment records share `email_message_id`, which is stored without the angle brackets. In the recorded run the shared index held 6 emails and 43 attachment records.
+`xerj autoindex` writes one record for the file, one for the message, and one for each page section of each attachment. All of them share `ax_file`, and the Reader joins an email to its attachments on it. The attachment records also copy `email_message_id`, stored without the angle brackets, but only when the message has a `Message-ID` header, and two files can carry the same id. The `ax_locator` field numbers the attachments: `att0-p3-s0` is page 3 of the first attachment. In the recorded run the shared index held 6 emails and 43 attachment records.
 
 ```sh
 curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
-  -d '{"query":{"bool":{"filter":[{"term":{"email_message_id":"msg-1@acme.example"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page"],"size":50}'
+  -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 ```
+
+Replace `AX_FILE_OF_THE_EMAIL` with the `ax_file` value of the email hit. A long PDF is many records, so raise `size` or page with `from` when one email carries more than 50.
 
 ## The linked records come from the brain
 
@@ -123,7 +129,7 @@ No. It shows the text the extractor indexed. XERJ stores extracted text, not att
 
 ### How are an email and its attachments connected in the index?
 
-Every attachment record carries the email_message_id of its email, without the angle brackets. A PDF attachment becomes one record per page section, so the Reader lists each attached file once.
+Every record that came out of one .eml file carries the same ax_file, and that is what the Reader joins on. A PDF attachment becomes one record per page section, so the Reader lists each attachment once. The email_message_id field is also copied to the attachments, but only when the message has a Message-ID header.
 
 ### Why does the panel of linked records say the links belong to the file?
 
@@ -146,6 +152,7 @@ The console has a read-only guest mode driven by a share record that names one k
 - In the recorded run xerj brain turned 10 files into 81 records in one dataset, ax-docs, and wrote 33 links into the brain casefile. — `docs/usecases/console-reader/live-e2e.json`
 - The shared index held 6 emails and 43 attachment records; the guest key got 200 on its own index and on the brain, 403 on another index, on autoindex-catalog and on a write, and 401 from the console API; the guest tab made 0 console API requests. — `docs/usecases/console-reader/live-e2e.json`
 - The graph panel of the hostile email showed 2 linked records, both same_dir links of the file the email came from; the signed-in operator's graph panel was refused with HTTP 401 on the auth-enabled node. — `docs/usecases/console-reader/live-e2e.json`
+- On an index where autoindex typed email_subject as keyword, match on email_subject for Lunch returned 0 hits with the subject Lunch on Friday? indexed, and the case-insensitive wildcard *lunch* returned 1. — `docs/usecases/console-reader/review-repro/review-repro.json`
 - The console page is served with a Content-Security-Policy whose script-src and connect-src are 'self'. — `engine/crates/xerj-console-api/src/spa.rs`
 - A guest session can build only _search, _count, _mapping and ego requests, and fails closed on a malformed or expired record. — `xerj-ux/src/data/guest.js`
 

@@ -20,8 +20,20 @@ indexed on this engine?".
   (`engine/crates/xerj-autoindex/src/catalog.rs`). A card shows the index name,
   record / file / byte counts, formats, the time span, the `semantic_text`
   field if there is one, the best-covered fields with their types, and the
-  sample queries the catalog entry carries. A sample query opens in the Reader
-  with that query already run.
+  sample queries the catalog entry carries.
+- **A card describes the last run, not the whole index.** The catalog entry is
+  rewritten by each `xerj brain` / `xerj autoindex` run over the dataset. The
+  record count is the index's total at the end of that run; the file count,
+  bytes, formats, `semantic_text` field and field types are that run's own.
+  After a second `xerj brain` over another folder that lands in the same
+  index, the card shows the second folder's files and formats beside the
+  combined record count. The card labels those facts `last run`. A guest's
+  card is counted from the index itself and does not have this limit.
+- A sample query opens the Reader with the sample's **text** in the search box
+  and run over the Reader's search fields (below). The field the sample was
+  written for is always among them, so the Reader finds what the catalog's own
+  request finds; because it searches more fields than the sample did, it can
+  find more. It is not a byte-for-byte replay of the catalog's request.
 - Any other user index the engine holds is listed by name and document count,
   so an engine filled some other way does not read as empty.
 - **Empty engine:** the page shows one command, `xerj brain <folder>`, and
@@ -53,12 +65,69 @@ extractors are the contract — `engine/crates/xerj-autoindex/src/extract/`):
 | file | `ax_locator: "file"` and no text | the one record autoindex writes per *file*: path, format, and the records that came out of it (the message first, then pages in order) |
 | anything else | — | the `_source` as JSON; vector and passage plumbing fields are counted, not dumped |
 
-An email's attachments and an attachment's parent are joined on
-`email_message_id`, which the EML extractor stamps on the email record and on
-every attachment record it emits (stored without its angle brackets). A PDF
-attachment contributes one record per page section; the attachment list shows
-each file once, at its lowest page. Every record also links up to its file's
-record (`FROM FILE`), joined on `ax_file`.
+An email's attachments and an attachment's parent are joined on **`ax_file`**,
+the id autoindex stamps on every record that came out of one file, narrowed to
+the record's **message** by its `ax_locator`. The attachment list is the file's
+records whose locator starts with the message part followed by `att`; an
+attachment's parent is the file's record whose locator starts with the message
+part followed by `msg-`, its first section. For an `.eml` the message part is
+empty (one file, one message: `msg-s0`, `att0-p3-s0`). A locator can also carry
+a message part `m<offset>-` (`m812-msg-s0`, `m812-att0-p3-s0`), which is the
+shape of the mailbox (mbox) ingest in
+[#949](https://github.com/xerj-org/xerj/pull/949): one file holds many
+messages, and joined on the file alone one email would list the attachments of
+every message in the mailbox. A record whose locator has neither shape joins on
+`ax_file` alone.
+
+The join does not use `email_message_id`. The extractor stamps that field only
+when the message has a `Message-ID` header, and two files can carry the same id
+(a copy in `inbox/` and one in `archive/`). Joined on it, the first email
+showed no attachments at all and the second pair pooled each other's.
+`email_message_id` is the fallback only for records that carry no `ax_file`
+(written by something other than autoindex).
+
+A PDF attachment contributes one record per page section. The attachment list
+shows each attachment once, at its lowest page, in the order the email carries
+them. Attachments are told apart by the ordinal the extractor puts in the
+record's locator (`att0-p3-s0`, `att1-s0`), not by file name, so two attachments
+both named `scan.pdf` are two entries. To build the list the Reader reads the
+email's attachment records a page of 1,000 at a time — seven small fields each,
+never the page text — up to 5,000 records. If an email holds more, the list is
+headed `ATTACHMENTS · N+` and says how many records exist and how many were
+read. If the join fails, the email says its attachments could not be read; it
+does not show an empty list. Every record also links up to its file's record
+(`FROM FILE`), joined on `ax_file`; a file record lists the first 200 of its
+records and says `200 OF 303 SHOWN` when there are more.
+
+#### What the search box searches
+
+`MATCH`, `PHRASE` and `PREFIX` (and the lexical leg of `HYBRID`) run over
+**every text-typed field in the mapping** — `body` first, then `message`,
+`content`, `text`, then the rest in mapping order, at most 12 — plus
+`email_subject`, `title` and `attachment_name` when the mapping has them. One
+index can hold its text under more than one name: autoindex's prose extractors
+write `body`, its line extractor (Makefile, `.ini`, logs) writes `text`.
+
+autoindex usually types an email's subject, a title and an attachment's file
+name as **`keyword`**, not `text`: every attachment page record copies its
+parent's subject, the field's cardinality ratio collapses, and the type
+inferrer picks `keyword`. On a keyword field the engine's `match` needs the
+whole value — measured on a live node, `{"match":{"email_subject":"Lunch"}}`
+returns 0 hits with the subject `Lunch on Friday?` indexed
+([`review-repro.json`](./usecases/console-reader/review-repro/review-repro.json),
+recorded 2026-09-19). So for a
+keyword-typed search field the Reader sends a case-insensitive `wildcard`
+instead: `MATCH` is one `*word*` clause per word, OR-ed; `PHRASE` is
+`*the words as typed*`; `PREFIX` is `typed*`. That is a **substring** test, not
+token matching: `on` also finds `Duplication`. `*`, `?` and `\` typed into the
+box are matched as "any one character", never as a pattern. The subject clause
+matches the message's own records only; an attachment record carries a copy of
+its parent's subject and is found by its own name and text instead.
+
+`TERM` needs `field=value` and `RANGE` needs `field>=value` (or `>`, `<=`,
+`<`). Anything else is not sent: the list says `NOT SEARCHED` and shows the
+syntax. The list shows 25 results; `SHOW 25 MORE` extends it up to 200, and past
+that it says so.
 
 What the Reader does **not** do: it does not render a PDF's pages or an
 email's HTML. It shows the text the extractor indexed. The engine stores
@@ -245,6 +314,22 @@ skip (CI does).
   (`#/second-brain?brain=<name>`); the Corpus home is where a bare
   `/_xerj-console/` lands.
 - `*` in Discover searches one index at a time.
+- An operator's Corpus card describes the last `xerj brain` / `xerj autoindex`
+  run over the dataset, not the whole index (above).
+- Subject, title and file-name search is a substring test when autoindex typed
+  the field `keyword`, which it usually does (above). A text + keyword
+  multi-field for those fields would make it token search; that is an autoindex
+  change and is not part of this work.
+- The Reader's result list stops at 200. An email's attachment list reads at
+  most 5,000 attachment records and says so when there are more.
+- A reader deep link opened without a session returns to the same record after
+  sign-in (the route is kept in `sessionStorage` across the `/login` redirect;
+  only an in-console `#/…` route is ever kept). First-boot `/setup` links use
+  their own `&next=`.
+- After a share ends in a tab — expiry, revocation or LEAVE — that tab keeps
+  showing the ended screen on reload, through a `sessionStorage` marker that
+  holds the reason and nothing else. The screen has an `OPERATOR SIGN-IN`
+  button that clears it.
 - PDF pages and email HTML are shown as extracted text, never rendered.
 - The console loads its fonts from Google Fonts, in guest mode too. The page is
   served with `Referrer-Policy: no-referrer`; an air-gapped deployment sees

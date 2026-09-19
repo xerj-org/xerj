@@ -10,9 +10,17 @@ signed-in operator, once as a share-link guest holding a read-only key.
 ```
 
 Needs Node >= 22, Chrome (or `CHROME_BIN`) and `python3`. Everything it writes
-goes under a temp dir (`$WORK`); the node it boots is stopped at the end.
+goes under a temp dir (`$WORK`); the node it boots is stopped at the end. The
+script **refuses to start when its port is already in use**: `xerj brain`
+attaches to a server that is already running, and this corpus — hostile email
+included — must only ever be indexed into the node the script booted itself.
 [`live-e2e.json`](./live-e2e.json) is the output of the run recorded for this
 change; the numbers quoted in the docs and the article come from it.
+[`live-e2e-2026-09-19.json`](./live-e2e-2026-09-19.json) is the same script run
+again after the review fixes below: the same 81 records, 10 files, key
+statuses, linked records and guest request list; record ids differ (the `.eml`
+files are regenerated with new MIME boundaries), and the `invoice` search now
+lists 3 results instead of 2 because the Reader searches more fields.
 
 ## The folder
 
@@ -52,9 +60,12 @@ The console's WebAuthn relying-party origin is fixed at
 ([#935](https://github.com/xerj-org/xerj/issues/935)). To run the operator half
 at all on a test port, that half uses a second Chrome started with
 `--host-resolver-rules=MAP localhost:9200 127.0.0.1:<port>`. It first fetches a
-file only this branch's bundle serves and stops if the answer is not ours, so
-nothing is ever sent to a node that really listens on `:9200`. The guest half
-needs no sign-in and uses the real origin.
+file only this branch's bundle serves and stops if the answer is not ours.
+Then it proves the mapped origin is the node **this run** booted: it creates an
+index with a random name on its own node, asks for it through the mapped
+origin, deletes it, and stops unless that answered `200`
+(`operatorNodeIsOurs` in the output). Only after that is a passkey enrolled.
+The guest half needs no sign-in and uses the real origin.
 
 ## What the recorded run shows
 
@@ -83,3 +94,35 @@ are in [`shots/`](./shots/). In short:
   records, 6 emails, 43 attachment records.
 
 ![The guest reader showing the hostile email as text](./shots/live-guest-reader.png)
+
+## The review's edge cases, replayed on a real node
+
+[`review-repro/`](./review-repro/) is a second, smaller run written for the
+correctness review of this change. `mkrepro.py` builds a folder in which every
+file makes one defect visible: an email with a 300-page PDF followed by a text
+attachment, one with two attachments both named `scan.pdf`, one with no
+`Message-ID` header, two files that share a `Message-ID`, ordinary subjects
+(which autoindex types `keyword`), and a `Makefile` / `.ini` pair whose text
+lands in `text` instead of `body`.
+
+```sh
+./review-repro/run.sh /path/to/xerj [port]     # default 9560 (+1 REST, +2 gRPC)
+```
+
+[`review-repro.json`](./review-repro/review-repro.json) (2026-09-19) records
+three things from one node: **truth** (what the engine holds, by aggregation),
+**before** (the requests the first version of the Reader made, replayed
+verbatim) and **after** (what the bundled console shows in headless Chrome as a
+guest). In short:
+
+| | before | after |
+| --- | --- | --- |
+| email with `aaa-big.pdf` (300 page records) + `zzz-last.txt` | 301 attachment records matched, 200 read, 1 attachment listed | `ATTACHMENTS · 2`, both listed |
+| two attachments named `scan.pdf` | 1 listed | 2 listed; the second opens its own text |
+| email with no `Message-ID` | no attachment list | 2 attachments; each links back to the email |
+| two files sharing a `Message-ID` | each listed both files' attachments | each lists its own |
+| `MATCH Lunch` (subject `Lunch on Friday?`, typed `keyword`) | 0 results | 1 |
+| `MATCH Duplicate` / `nomid` / `PHRASE Lunch on` | 0 / 0 / 0 | 2 / 4 / 1 |
+| the catalog's own sample (`match` on `text`) | catalog body 1 hit, Reader 0 | Reader 1 |
+| `TERM zebrafish` | ran `match_all` | `NOT SEARCHED`, with the syntax |
+| guest card, 9 emails of which 1 has no `Message-ID` | `emails 8` | `emails 9` |

@@ -39,11 +39,11 @@ export const MAX_BRAINS = 4;
 /**
  * An email's attachment RECORDS are read in pages of ATTACHMENT_PAGE, at most
  * ATTACHMENT_RECORDS_READ of them. A PDF contributes one record per page
- * section, so one attachment can be hundreds of records; autoindex writes at
- * most 4096 records for one file (extract/mod.rs#MAX_RECORDS_PER_FILE), which
- * this covers. Past the limit the list is marked incomplete — with the numbers
- * — never silently cut (PR #945 review: a fixed `size: 200` hid every
- * attachment after a 200-page PDF and said nothing).
+ * section, so one attachment can be hundreds of records (autoindex's
+ * per-document cap, extract/mod.rs#MAX_RECORDS_PER_FILE, is 4096; an email can
+ * carry several documents). Past the limit the list is marked incomplete —
+ * with the numbers — never silently cut (PR #945 review: a fixed `size: 200`
+ * hid every attachment after a 200-page PDF and said nothing).
  */
 export const ATTACHMENT_PAGE = 1000;
 export const ATTACHMENT_RECORDS_READ = 5000;

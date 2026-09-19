@@ -34,17 +34,17 @@ export function findChrome() {
 
 export const browserRequired = () => process.env.XERJ_REQUIRE_BROWSER === '1';
 
-export async function launch({ chrome = findChrome(), timeoutMs = 30_000, extraArgs = [] } = {}) {
+export async function launch({ chrome = findChrome(), timeoutMs = 30_000, extraArgs = [], debugPort = Number(process.env.XERJ_TEST_CDP_PORT) || 0 } = {}) {
   if (!chrome) throw new Error('no Chrome/Chromium found (set CHROME_BIN)');
   if (typeof WebSocket !== 'function') throw new Error('global WebSocket missing — Node >= 22 required');
   const profile = mkdtempSync(join(tmpdir(), 'xerj-ux-chrome-'));
   const proc = spawn(chrome, [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--mute-audio',
-    // An OS-assigned port by default. XERJ_TEST_CDP_PORT pins it, for a shared
-    // machine where each run is given its own port block (then run the browser
-    // files one at a time: `--test-concurrency=1`).
-    `--remote-debugging-port=${Number(process.env.XERJ_TEST_CDP_PORT) || 0}`, `--user-data-dir=${profile}`, ...extraArgs, 'about:blank',
+    // An OS-assigned port by default. XERJ_TEST_CDP_PORT (or `debugPort`) pins
+    // it, for a shared machine where each run is given its own port block
+    // (then run the browser files one at a time: `--test-concurrency=1`).
+    `--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, ...extraArgs, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
   const wsUrl = await new Promise((resolve, reject) => {

@@ -26,7 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `script-src 'self'` Content-Security-Policy; a headless-Chrome suite with
   hostile fixtures runs in CI. Discover no longer shows fabricated results —
   `mockSearch`, the fake query plan and the hardcoded document counts are
-  removed; a failed search shows its error and zero rows. Details and limits
+  removed; a failed search shows its error and zero rows. An email's
+  attachments are joined on `ax_file` and the message part of `ax_locator` (so
+  an email without a `Message-ID` lists them, two files sharing an id do not
+  pool them, messages that share one mailbox file do not pool them, and a
+  300-page PDF does not hide the attachment after it), and the search box
+  covers every text field plus keyword-typed subjects, titles and file names by
+  the words in them; the review's edge cases are replayed on a real node in
+  `docs/usecases/console-reader/review-repro/`. Details and limits
   (the operator's graph panel is refused on an auth-enabled engine; PDF pages
   and email HTML are shown as extracted text):
   [`docs/CONSOLE_READER.md`](docs/CONSOLE_READER.md).

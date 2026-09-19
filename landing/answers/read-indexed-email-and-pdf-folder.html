@@ -243,15 +243,15 @@
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"match":{"email_subject":"invoice"}},"_source":["email_subject","email_from","email_date"],"size":5}'</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://localhost:9200/ax-docs/_search -H &quot;Authorization: ApiKey $XERJ_API_KEY&quot; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;match&quot;:{&quot;email_subject&quot;:&quot;invoice&quot;}},&quot;_source&quot;:[&quot;email_subject&quot;,&quot;email_from&quot;,&quot;email_date&quot;],&quot;size&quot;:5}&#x27;">COPY COMMAND</button>
-    <span class="hero-proof">Find an email by a word in its subject; the _id of a hit is what the Reader link takes.</span>
+    <code>curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://localhost:9200/ax-docs/_search -H &quot;Authorization: ApiKey $XERJ_API_KEY&quot; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;bool&quot;:{&quot;filter&quot;:[{&quot;wildcard&quot;:{&quot;email_subject&quot;:{&quot;value&quot;:&quot;*invoice*&quot;,&quot;case_insensitive&quot;:true}}}],&quot;must_not&quot;:[{&quot;exists&quot;:{&quot;field&quot;:&quot;attachment_name&quot;}}]}},&quot;_source&quot;:[&quot;email_subject&quot;,&quot;email_from&quot;,&quot;email_date&quot;,&quot;ax_file&quot;],&quot;size&quot;:5}&#x27;">COPY COMMAND</button>
+    <span class="hero-proof">Find an email by a word in its subject; the _id of a hit is what the Reader link takes, and ax_file is what its attachments share.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"email_message_id":"msg-1@acme.example"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page"],"size":50}'</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://localhost:9200/ax-docs/_search -H &quot;Authorization: ApiKey $XERJ_API_KEY&quot; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;bool&quot;:{&quot;filter&quot;:[{&quot;term&quot;:{&quot;email_message_id&quot;:&quot;msg-1@acme.example&quot;}},{&quot;exists&quot;:{&quot;field&quot;:&quot;attachment_name&quot;}}]}},&quot;_source&quot;:[&quot;attachment_name&quot;,&quot;page&quot;],&quot;size&quot;:50}&#x27;">COPY COMMAND</button>
-    <span class="hero-proof">List the attachment records of one email: they share its email_message_id, stored without the angle brackets.</span>
+    <code>curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://localhost:9200/ax-docs/_search -H &quot;Authorization: ApiKey $XERJ_API_KEY&quot; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;bool&quot;:{&quot;filter&quot;:[{&quot;term&quot;:{&quot;ax_file&quot;:&quot;AX_FILE_OF_THE_EMAIL&quot;}},{&quot;exists&quot;:{&quot;field&quot;:&quot;attachment_name&quot;}}]}},&quot;_source&quot;:[&quot;attachment_name&quot;,&quot;page&quot;,&quot;ax_locator&quot;],&quot;size&quot;:50}&#x27;">COPY COMMAND</button>
+    <span class="hero-proof">List the attachment records of one email: every record that came out of one .eml file shares its ax_file.</span>
   </div>
   <h2>Index the folder, then open the console</h2>
   <p><code class="inline">xerj brain &lt;folder&gt;</code> starts a local node if none is running, indexes every readable file, detects the links between files, and prints a console URL. A first run also prints a one-time passkey setup link. The node it starts has auth on, and its admin key is in <code class="inline">&lt;data-dir&gt;/admin.key</code>.</p>
@@ -259,14 +259,16 @@
 </code></pre>
   <p>In a recorded run, a folder of 10 files became 81 records in one dataset, <code class="inline">ax-docs</code>, and the brain <code class="inline">casefile</code> received 33 links. The folder held 6 <code class="inline">.eml</code> messages, two of them with a PDF attached, 2 more PDFs and 2 Markdown notes. The run is scripted in <code class="inline">docs/usecases/console-reader/</code> in the repository.</p>
   <h2>Corpus lists what was indexed</h2>
-  <p>The console's landing page is Corpus. It reads the <code class="inline">autoindex-catalog</code> index and shows one card per dataset: record, file and byte counts, the formats, the date range, the fields with their types, and the sample queries the catalog entry carries. A sample query opens in the Reader with that query already run.</p>
+  <p>The console's landing page is Corpus. It reads the <code class="inline">autoindex-catalog</code> index and shows one card per dataset: record, file and byte counts, the formats, the date range, the fields with their types, and the sample queries the catalog entry carries. A sample query opens the Reader with the sample's text in the search box and already run, over the Reader's search fields and the field the sample was written for.</p>
+  <p>A card describes the last <code class="inline">xerj brain</code> or <code class="inline">xerj autoindex</code> run over that dataset. The record count is the index total. The file count, the formats and the field types are that run's own, and the card labels them <code class="inline">last run</code>.</p>
   <p>An empty node shows one command, <code class="inline">xerj brain &lt;folder&gt;</code>, and no sample data. If the catalog cannot be read, the page shows the error and nothing in its place.</p>
   <h2>The Reader opens one record</h2>
   <p>The route is <code class="inline">/_xerj-console/#/reader?index=&lt;index&gt;&amp;id=&lt;id&gt;</code>. Every hit in the console's Discover page links there, and an agent can hand a person that link instead of pasting a document into a chat. Find the id with an ordinary search:</p>
   <pre class="code"><code class="language-sh">curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
-  -d '{"query":{"match":{"email_subject":"invoice"}},"_source":["email_subject","email_from","email_date"],"size":5}'
+  -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'
 </code></pre>
+  <p>The query is a <code class="inline">wildcard</code> and not a <code class="inline">match</code> for a reason. <code class="inline">xerj autoindex</code> usually types <code class="inline">email_subject</code> as <code class="inline">keyword</code>, because every attachment page record copies its email's subject and the field then holds few distinct values. On a <code class="inline">keyword</code> field a <code class="inline">match</code> finds only the whole subject. In a recorded check, <code class="inline">match</code> on <code class="inline">email_subject</code> for <code class="inline">Lunch</code> returned 0 hits while the subject <code class="inline">Lunch on Friday?</code> was indexed, and the <code class="inline">wildcard</code> for <code class="inline">*lunch*</code> returned 1. The <code class="inline">must_not</code> keeps the attachment records out, because each one carries a copy of the subject. The Reader's own search box does the same.</p>
   <p>The Reader renders a record by its shape:</p>
   <table>
     <thead><tr><th>Record</th><th>What the Reader shows</th></tr></thead>
@@ -278,11 +280,12 @@
     </tbody>
   </table>
   <h2>How one email is stored</h2>
-  <p><code class="inline">xerj autoindex</code> writes one record for the file, one for the message, and one for each page section of each attachment. The message and its attachment records share <code class="inline">email_message_id</code>, which is stored without the angle brackets. In the recorded run the shared index held 6 emails and 43 attachment records.</p>
+  <p><code class="inline">xerj autoindex</code> writes one record for the file, one for the message, and one for each page section of each attachment. All of them share <code class="inline">ax_file</code>, and the Reader joins an email to its attachments on it. The attachment records also copy <code class="inline">email_message_id</code>, stored without the angle brackets, but only when the message has a <code class="inline">Message-ID</code> header, and two files can carry the same id. The <code class="inline">ax_locator</code> field numbers the attachments: <code class="inline">att0-p3-s0</code> is page 3 of the first attachment. In the recorded run the shared index held 6 emails and 43 attachment records.</p>
   <pre class="code"><code class="language-sh">curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
-  -d '{"query":{"bool":{"filter":[{"term":{"email_message_id":"msg-1@acme.example"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page"],"size":50}'
+  -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 </code></pre>
+  <p>Replace <code class="inline">AX_FILE_OF_THE_EMAIL</code> with the <code class="inline">ax_file</code> value of the email hit. A long PDF is many records, so raise <code class="inline">size</code> or page with <code class="inline">from</code> when one email carries more than 50.</p>
   <h2>The linked records come from the brain</h2>
   <p>Under the record, the Reader shows its one-hop neighbours from <code class="inline">GET /_graph/{brain}/ego</code>, grouped by link type. The same-folder, Markdown-link and path-citation detectors link file records, not the records inside a file. So the Reader also reads the links of the record's file and marks those <code class="inline">FILE</code>. In the recorded run the hostile email had 2 linked records, and both were same-folder links of its file.</p>
   <p>The detectors are structural. No detector reads meaning from the text.</p>
@@ -301,7 +304,7 @@
   <h3>Does the Reader show the original PDF or the HTML version of an email?</h3>
   <p>No. It shows the text the extractor indexed. XERJ stores extracted text, not attachment bytes, and the Reader never renders email HTML: an HTML body is displayed as its source.</p>
   <h3>How are an email and its attachments connected in the index?</h3>
-  <p>Every attachment record carries the email_message_id of its email, without the angle brackets. A PDF attachment becomes one record per page section, so the Reader lists each attached file once.</p>
+  <p>Every record that came out of one .eml file carries the same ax_file, and that is what the Reader joins on. A PDF attachment becomes one record per page section, so the Reader lists each attachment once. The email_message_id field is also copied to the attachments, but only when the message has a Message-ID header.</p>
   <h3>Why does the panel of linked records say the links belong to the file?</h3>
   <p>The same-folder, Markdown-link and path-citation detectors link file records, not the records inside a file. The Reader reads the links of the email's file as well and marks them FILE.</p>
   <h3>Is it safe to open a hostile email in the Reader?</h3>
@@ -315,6 +318,7 @@
     <li>In the recorded run xerj brain turned 10 files into 81 records in one dataset, ax-docs, and wrote 33 links into the brain casefile. — <code>docs/usecases/console-reader/live-e2e.json</code></li>
     <li>The shared index held 6 emails and 43 attachment records; the guest key got 200 on its own index and on the brain, 403 on another index, on autoindex-catalog and on a write, and 401 from the console API; the guest tab made 0 console API requests. — <code>docs/usecases/console-reader/live-e2e.json</code></li>
     <li>The graph panel of the hostile email showed 2 linked records, both same_dir links of the file the email came from; the signed-in operator's graph panel was refused with HTTP 401 on the auth-enabled node. — <code>docs/usecases/console-reader/live-e2e.json</code></li>
+    <li>On an index where autoindex typed email_subject as keyword, match on email_subject for Lunch returned 0 hits with the subject Lunch on Friday? indexed, and the case-insensitive wildcard <em>lunch</em> returned 1. — <code>docs/usecases/console-reader/review-repro/review-repro.json</code></li>
     <li>The console page is served with a Content-Security-Policy whose script-src and connect-src are 'self'. — <code>engine/crates/xerj-console-api/src/spa.rs</code></li>
     <li>A guest session can build only _search, _count, _mapping and ego requests, and fails closed on a malformed or expired record. — <code>xerj-ux/src/data/guest.js</code></li>
   </ul>
