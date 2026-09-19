@@ -59,6 +59,15 @@
 //! document rather than one `choice` across them is deliberate, because real
 //! corpora have more than one relevant document and a `choice` forces a single
 //! winner.
+//!
+//! The Local arm ([`local`]) makes no network call at all: a cross-encoder runs
+//! in this process on the operator's own CPU. It exists so calibrated relevance
+//! does not require an account, a key, a network or a per-token bill, and so
+//! it is available on corpora whose text may not leave the host. It follows the
+//! same fail policy and returns the same [`RerankOutcome`], so the API layer
+//! cannot tell the two apart except by what `_rerank.provider` says.
+
+pub mod local;
 
 use std::time::Duration;
 
@@ -136,6 +145,25 @@ pub enum RerankError {
          document text to a third-party provider, and the operator has forbidden that"
     )]
     DisabledByOperator,
+    /// This binary cannot run a local model (built without `neural`).
+    #[error("{0}")]
+    LocalUnavailable(String),
+    /// The operator switched local models off (`[judge] enabled = false`).
+    /// Separate from [`Self::DisabledByOperator`], which is about egress: the
+    /// local provider sends nothing anywhere, so the egress switch does not
+    /// govern it and this one does.
+    #[error(
+        "the local judge is disabled on this server (`[judge] enabled = false`), so provider \
+         `local` is refused"
+    )]
+    LocalDisabledByOperator,
+    /// The local model cannot be loaded on this server as configured: not on
+    /// disk with downloads off, a checksum mismatch, or not enough memory.
+    #[error("{0}")]
+    LocalModel(String),
+    /// The local model loaded and then failed to score.
+    #[error("{0}")]
+    LocalInference(String),
 }
 
 /// What the caller should do with a failure.
@@ -161,6 +189,10 @@ impl RerankError {
             | Self::Config(_)
             | Self::Malformed(_)
             | Self::DisabledByOperator
+            | Self::LocalUnavailable(_)
+            | Self::LocalDisabledByOperator
+            | Self::LocalModel(_)
+            | Self::LocalInference(_)
             | Self::Status { .. } => Policy::Surface,
         }
     }
@@ -226,6 +258,12 @@ pub enum RerankOutcome {
         /// answered. Reranking is a paid call inside a search, so the caller
         /// gets the meter reading rather than having to infer it.
         usage: Usage,
+        /// Provider-specific facts about this call, reported verbatim as
+        /// `_rerank.<provider>`. The local provider uses it for what a caller
+        /// cannot otherwise see: which repository scored, which calibration
+        /// produced the probabilities, how many documents were cut at the
+        /// model's token limit. `None` for providers with nothing to add.
+        detail: Option<Value>,
     },
     /// Reranking did not run. The engine's order stands.
     Degraded { reason: String },
@@ -477,6 +515,10 @@ impl RerankConfig {
                 ));
             }
             cfg.fields = Some(fields);
+        }
+
+        if local::is_local(&cfg.provider) {
+            local::adjust_request(obj, &mut cfg)?;
         }
 
         Ok(cfg)
@@ -731,6 +773,9 @@ pub struct ProviderSettings {
     endpoint: String,
     endpoint_source: SettingSource,
     client: reqwest::Client,
+    /// The in-process judge behind provider `local`. Not governed by
+    /// `enabled` above — that switch forbids egress and this sends nothing.
+    local: local::LocalJudge,
 }
 
 impl std::fmt::Debug for ProviderSettings {
@@ -794,7 +839,20 @@ impl ProviderSettings {
             endpoint,
             endpoint_source,
             client: reqwest::Client::new(),
+            local: local::LocalJudge::default(),
         }
+    }
+
+    /// Install the server's local judge (`[judge]`). Without this call the
+    /// settings carry a default one: enabled, downloads allowed, tier `small`.
+    pub fn with_local(mut self, local: local::LocalJudge) -> Self {
+        self.local = local;
+        self
+    }
+
+    /// The in-process judge behind provider `local`.
+    pub fn local(&self) -> &local::LocalJudge {
+        &self.local
     }
 
     /// Config fields first, then `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT`.
@@ -844,6 +902,8 @@ impl ProviderSettings {
 /// A configured reranking backend.
 pub enum Provider {
     Jev(JevProvider),
+    /// A cross-encoder in this process. No key, no network, no egress.
+    Local(local::LocalJudge),
     /// Configured but inert. An empty API key lands here rather than erroring,
     /// so a deployment that has not set one yet still serves searches.
     Disabled,
@@ -872,6 +932,12 @@ impl Provider {
                 }
                 JevProvider::from_settings(settings).map(Self::Jev)
             }
+            // `settings.enabled` is deliberately not consulted: it forbids
+            // sending document text to a third party, and this arm sends none.
+            "local" => {
+                settings.local.check_request(cfg)?;
+                Ok(Self::Local(settings.local.clone()))
+            }
             other => Err(RerankError::UnknownProvider(other.to_string())),
         }
     }
@@ -893,6 +959,7 @@ impl Provider {
                 scores: Vec::new(),
                 partial_failures: 0,
                 usage: Usage::default(),
+                detail: None,
             });
         }
         if deadline.exceeded() {
@@ -911,6 +978,23 @@ impl Provider {
                 }),
                 Err(e) => Err(e),
             },
+            Self::Local(judge) => match judge.rerank(query, candidates, cfg, deadline).await {
+                Ok(outcome) => Ok(outcome),
+                Err(e) if e.policy() == Policy::Degrade => Ok(RerankOutcome::Degraded {
+                    reason: e.to_string(),
+                }),
+                Err(e) => Err(e),
+            },
+        }
+    }
+
+    /// The model name to report for this call: what the request named, or —
+    /// for the local provider, where a request may name none — the tier the
+    /// server resolved it to.
+    pub fn model_label(&self, cfg: &RerankConfig) -> String {
+        match self {
+            Self::Local(judge) => judge.rerank_tier(&cfg.model).to_string(),
+            _ => cfg.model.clone(),
         }
     }
 }
@@ -1070,6 +1154,7 @@ impl JevProvider {
                 scores: Vec::new(),
                 partial_failures: 0,
                 usage: Usage::default(),
+                detail: None,
             });
         }
         let batch_size = cfg.batch.clamp(1, JEV_MAX_DOCS_PER_CALL);
@@ -1148,6 +1233,7 @@ impl JevProvider {
             scores,
             partial_failures,
             usage,
+            detail: None,
         })
     }
 

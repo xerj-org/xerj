@@ -67,7 +67,9 @@ prost.workspace = true
 # `--no-default-features` for a slimmer binary without the neural backend
 # (the lexical + proxy backends still work).
 default = ["neural"]
-neural = ["xerj-engine/neural"]
+# `xerj-api/neural` brings the in-process judge (rerank provider `local`) along
+# with the embedder: one feature, one candle toolchain, both in the shipped binary.
+neural = ["xerj-engine/neural", "xerj-api/neural"]
 onnx-experimental = ["xerj-engine/onnx-experimental"]
 # Diagnostic-only profiling. It is excluded from all shipped feature sets:
 # jemalloc profiling changes allocator fast paths and pprof installs SIGPROF.

@@ -490,6 +490,9 @@ impl RerankPlan {
 
         // Misconfiguration surfaces whether or not this search had hits.
         let provider = Provider::from_settings(&self.cfg, settings)?;
+        // What the response reports as `model`: the request's own value, or
+        // for provider `local` the tier the server resolved an absent one to.
+        let model_label = provider.model_label(&self.cfg);
 
         if window > 0 && sendable.is_empty() {
             return Err(RerankError::Config(format!(
@@ -523,6 +526,7 @@ impl RerankPlan {
                 scores,
                 partial_failures,
                 usage,
+                detail,
             } => {
                 // A verdict counts only for a document that was actually sent.
                 // The provider is a third party: an answer keyed to a hit that
@@ -582,7 +586,7 @@ impl RerankPlan {
                                     "description": format!(
                                         "rerank: relevance probability from provider `{}` \
                                          (model `{}`); replaces the engine score explained below",
-                                        self.cfg.provider, self.cfg.model
+                                        self.cfg.provider, model_label
                                     ),
                                     "details": [engine],
                                 }));
@@ -630,10 +634,10 @@ impl RerankPlan {
                 // the first hit's score is the maximum of every `_score` on the
                 // page — the invariant `max_score` is for.
                 *max_score = hits.first().and_then(|h| h.score);
-                json!({
+                let mut info = json!({
                     "applied": true,
                     "provider": self.cfg.provider,
-                    "model": self.cfg.model,
+                    "model": model_label,
                     "score_kind": "probability",
                     "window": window,
                     "judged": judged,
@@ -646,7 +650,13 @@ impl RerankPlan {
                         "input_tokens": usage.input_tokens,
                         "output_tokens": usage.output_tokens,
                     },
-                })
+                });
+                // Provider-specific facts, under the provider's own name so a
+                // client can tell at a glance whose they are.
+                if let Some(detail) = detail {
+                    info[self.cfg.provider.as_str()] = detail;
+                }
+                info
             }
         };
         if let Some(obj) = info.as_object_mut() {
@@ -729,7 +739,9 @@ pub fn record_outcome(
             "applied"
         }
         Ok(_) => "degraded",
-        Err(e) if status_for(e) == 502 => "failed",
+        // 502: the hosted provider was called and the contract broke.
+        // 500: the local model was run and failed. Both did the work.
+        Err(e) if matches!(status_for(e), 500 | 502) => "failed",
         Err(_) => "refused",
     };
     metrics.rerank_requests.with_label_values(&[outcome]).inc();
@@ -741,7 +753,16 @@ pub fn status_for(e: &RerankError) -> u16 {
         RerankError::Config(_) | RerankError::UnknownProvider(_) => 400,
         // The operator has forbidden it. Not the caller's syntax (400) and not
         // something a retry or a key fixes (503).
-        RerankError::DisabledByOperator => 403,
+        RerankError::DisabledByOperator | RerankError::LocalDisabledByOperator => 403,
+        // This binary has no local judge compiled in: the request is
+        // well-formed and no configuration change on this build can serve it.
+        RerankError::LocalUnavailable(_) => 501,
+        // The local model cannot be loaded as this server is set up (not on
+        // disk with downloads off, checksum mismatch, not enough memory):
+        // the same "not configured to serve this" as a missing key.
+        RerankError::LocalModel(_) => 503,
+        // Loaded, then failed to score. Ours, not a gateway's.
+        RerankError::LocalInference(_) => 500,
         // The server is not configured to reach the provider: not the
         // caller's mistake, and not a gateway fault either.
         RerankError::MissingKey(_) => 503,
@@ -805,7 +826,8 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
     json!({
         "enabled": settings.enabled,
         "configured": settings.enabled && settings.has_key(),
-        "providers": ["jev"],
+        "providers": ["jev", "local"],
+        "local": settings.local().status(),
         "api_key": {
             "set": settings.has_key(),
             "source": settings.key_source().map(|s| s.as_str()),
@@ -830,8 +852,10 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
             "max_doc_chars": xerj_rerank::MAX_DOC_CHARS,
             "max_timeout_ms": xerj_rerank::MAX_TIMEOUT_MS,
         },
-        "data_egress": "A search that carries a `rerank` block sends the text of up to \
-                        `window` hits, and the query, to the endpoint above. It is the \
+        "data_egress": "A search that carries a `rerank` block for the hosted provider \
+                        (`jev`) sends the text of up to `window` hits, and the query, to the \
+                        endpoint above. Provider `local` sends nothing: it scores in this \
+                        process (see `local.data_egress`). The hosted provider is the \
                         only search-time feature that sends document text off the node. \
                         Two other outbound paths exist and are operator configuration, \
                         inert by default: `[embedding] default_endpoint` (`--embed-mode \
@@ -882,6 +906,16 @@ mod tests {
                 body: String::new()
             }),
             502
+        );
+        // The local provider's faults: forbidden, not compiled in, not
+        // loadable as configured, and failed while scoring.
+        assert_eq!(status_for(&RerankError::LocalDisabledByOperator), 403);
+        assert_eq!(status_for(&RerankError::LocalUnavailable("x".into())), 501);
+        assert_eq!(status_for(&RerankError::LocalModel("x".into())), 503);
+        assert_eq!(status_for(&RerankError::LocalInference("x".into())), 500);
+        assert_eq!(
+            error_type_for(&RerankError::LocalModel("x".into())),
+            "rerank_exception"
         );
         assert_eq!(
             error_type_for(&RerankError::Config("x".into())),

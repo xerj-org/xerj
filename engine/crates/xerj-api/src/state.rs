@@ -573,11 +573,31 @@ impl AppState {
         } else {
             (Arc::new(DashMap::new()), Arc::new(DashMap::new()))
         };
-        let rerank = Arc::new(xerj_rerank::ProviderSettings::from_config_and_env(
-            config.rerank.enabled,
-            &config.rerank.api_key,
-            &config.rerank.endpoint,
-        ));
+        let non_empty_path = |s: &str| {
+            let s = s.trim();
+            (!s.is_empty()).then(|| std::path::PathBuf::from(s))
+        };
+        let rerank = Arc::new(
+            xerj_rerank::ProviderSettings::from_config_and_env(
+                config.rerank.enabled,
+                &config.rerank.api_key,
+                &config.rerank.endpoint,
+            )
+            // The in-process judge behind provider `local`. Nothing is loaded
+            // or spawned here: the model and its thread pool come up on the
+            // first request that asks for them.
+            .with_local(xerj_rerank::local::LocalJudge::new(
+                xerj_rerank::local::LocalJudgeConfig {
+                    enabled: config.judge.enabled,
+                    download: config.judge.download,
+                    cache_dir: non_empty_path(&config.judge.cache_dir),
+                    model_dir: non_empty_path(&config.judge.model_dir),
+                    threads: config.judge.threads,
+                    max_inflight: config.judge.max_inflight,
+                    rerank_model: config.judge.rerank_model.clone(),
+                },
+            )),
+        );
         Self {
             rerank,
             config: Arc::new(config),

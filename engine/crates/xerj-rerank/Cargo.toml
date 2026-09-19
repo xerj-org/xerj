@@ -6,7 +6,16 @@ license.workspace = true
 authors.workspace = true
 description = "Pluggable relevance reranking for xerj — calibrated second-stage scoring over retrieved candidates"
 
+[features]
+default = []
+# The in-process `local` provider: a candle cross-encoder from `xerj-ai`. Off by
+# default so this crate stays a light leaf; `xerj-server`'s default `neural`
+# feature turns it on, which is how it reaches the release binaries. Without it
+# provider `local` answers 501 and says why.
+local = ["dep:xerj-ai", "xerj-ai/neural"]
+
 [dependencies]
+xerj-ai = { path = "../xerj-ai", optional = true }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

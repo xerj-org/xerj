@@ -9,7 +9,9 @@ authors.workspace = true
 # Built-in Candle neural embedder, for the `binary_bulk_throughput`
 # example (#903) and for anyone linking this crate directly. The shipped
 # binary turns it on through `xerj-server`'s own `neural` feature.
-neural = ["xerj-engine/neural"]
+# It also carries the in-process judge (`xerj-rerank/local`): same candle
+# toolchain, same "model downloads itself on first use" contract.
+neural = ["xerj-engine/neural", "xerj-rerank/local"]
 onnx-experimental = ["xerj-engine/onnx-experimental"]
 
 [dependencies]
