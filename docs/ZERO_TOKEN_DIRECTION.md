@@ -25,7 +25,7 @@ it. Every number comes from a run whose harness and literal output are in
 | Mail ingest | `.eml` / MIME extraction in `xerj autoindex` (unreleased) | `mbox` / Takeout in flight: `feat/ingest-mbox-takeout` |
 | `autoindex` resilience | one refused dataset aborts the run (#929) | in flight: `fix/autoindex-resilience` |
 | Semantic detections | `percolate` works; `_watcher` stores and never evaluates; alert rules have schemas and no evaluator | planned |
-| Object-storage backend | `S3Backend` is a local-directory simulation; `storage.backend = "s3"` refuses to start | planned |
+| Object-storage backend | real S3/R2/MinIO client + read-through cache land in `xerj-storage`; the index path still does not use them, so `storage.backend = "s3"` refuses to start | in flight: `feat/object-storage-backend` |
 | Block index mode for logs | `xerj-logs` crate is compiled in and called from no non-test code | planned |
 | User-code ingest plugins | built-in native plugins run; no wasmtime backend in the tree | planned |
 | Corpus hub (signed packs) | nothing | planned |
@@ -135,19 +135,39 @@ or refuse them. Today it is an accepted-and-ignored surface.
 
 ## 5. A real object-storage backend
 
-**Today.** `S3Backend` in `engine/crates/xerj-storage/src/backend.rs` is a
-**local-directory simulation**. It maps an S3 key layout onto a local path,
-writes with a temporary file and a rename, and contains no network client. The
-configuration selector knows this and **fails loud on purpose**:
-`storage.backend = "s3"` stops the server at startup with *"the S3 storage
-backend is not implemented in this build; only "local" is supported"*
-(`engine/crates/xerj-common/src/config.rs`). An operator who sets that value
-believes their data lands in a bucket, so silence would be worse than refusal.
+**Today.** The client is real. `engine/crates/xerj-storage/src/s3.rs`
+implements `StorageBackend` over `aws-sdk-s3`: ranged `GetObject`,
+`PutObject`, paginated `ListObjectsV2`, `HeadObject`, `DeleteObject`, with an
+endpoint override so one type covers Cloudflare R2, MinIO and AWS S3. It is
+tested against both MinIO and R2, and it counts every billed request by class
+so an operator can see what it spends. `SegmentCache` serves byte ranges
+through it with a bounded local cache. The old local-directory simulation is
+kept as `SimulatedObjectStore`, a test double, because unit tests want a
+backend with no network and no cost.
 
-**Planned.** A real client behind the existing `StorageBackend` trait — range
-reads, atomic object PUT — with the local segment cache in front of it, and
-crash-consistency tests against a real endpoint **before** the selector is
-allowed to accept the value.
+**Still missing, and this is why the selector still refuses.** The index does
+not use any of it. `StorageMode::ObjectStore` exists with a flush-upload and a
+read-through open path, but the only `StorageMode` built outside tests is in
+`engine/crates/xerj-engine/src/index.rs` and it is `Local`. The upload path
+sends one file per segment — the `.seg` — where a real 25-field segment writes
+104, and `snapshot.json` never leaves local disk, so a fresh node pointed at
+the bucket sees zero segments. That is measured, not assumed:
+`object_store_mode_does_not_yet_make_an_index_stateless` runs exactly that
+experiment. So `storage.backend = "s3"` still stops the server at startup, now
+with a message that says which half is missing
+(`engine/crates/xerj-common/src/config.rs`).
+
+The same test found the encouraging half: asked for a segment by id, a fresh
+node with an empty disk does fetch it from the bucket and read it correctly.
+The bytes survive losing the node; the catalogue that tells a node what to ask
+for does not.
+
+**Planned.** Bundle a segment's files into a single object with a byte-offset
+footer — one object per segment rather than 104, which the free-tier arithmetic
+in `docs/OBJECT_STORAGE.md` shows is the difference between 9% and 899% of
+Cloudflare R2's monthly Class A allowance. Then atomic snapshot publication to
+the bucket, and crash-consistency tests against a real endpoint **before** the
+selector is allowed to accept the value.
 
 ## 6. A block index mode for logs
 
