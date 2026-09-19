@@ -35,6 +35,13 @@
 //!   1.00 on the official bench query); filtered kNN and other ineligible shapes
 //!   (non-cosine, SQ8, small indexes) run the exact brute-force scan. The tool
 //!   description says so.
+//! * `rerank` on `xerj_search` / `xerj_hybrid_search` is **opt-in and needs a
+//!   provider the node's operator configured**; this server cannot supply the
+//!   key. It is also the one argument that makes the node send document text to
+//!   a third party, and the tool description says so in those words. Ranking
+//!   quality with the real provider model has **not been verified by this
+//!   project** — the description promises the mechanism (a calibrated
+//!   probability replaces `_score`), never an accuracy figure.
 //! * `hybrid` supports `fusion: "rrf"` and `"linear"` only. `"learned"` is
 //!   forwarded verbatim and the engine rejects it loudly; the schema therefore
 //!   advertises only `rrf`/`linear`.
@@ -332,6 +339,12 @@ fn initialize_result(msg: &Value) -> Value {
              kNN over a dense_vector field, xerj_hybrid_search to fuse \
              lexical + vector results (rrf|linear), and xerj_memory_store / \
              xerj_memory_recall for durable agent memory recalled by meaning. \
+             xerj_search and xerj_hybrid_search take an optional `rerank` \
+             argument: a second stage that re-judges the top hits with an \
+             external relevance model. It only works if the node's operator \
+             configured a provider key, and it sends the returned document \
+             text off the machine — leave it out unless first-stage order is \
+             the problem and the user is fine with that. \
              The xerj_brain_* tools work a second brain (a bi-temporal, \
              evidence-carrying link index built by `xerj brain <folder>`): \
              xerj_brain_overview to orient, then xerj_brain_ego for one node's \
@@ -371,6 +384,68 @@ const BRAIN_HONESTY: &str = " Honesty: links come from deterministic lexical \
      search engine with a graph-shaped index over its own documents, not a \
      graph database.";
 
+/// JSON-schema fragment for the optional `rerank` argument, shared by
+/// `xerj_search` and `xerj_hybrid_search` so the two descriptions cannot drift.
+///
+/// The description is written for the reader that will act on it — an agent
+/// deciding whether to spend a paid third-party call. It therefore says three
+/// things a schema normally would not: when the stage is worth it, that it
+/// needs a provider only the node's operator can configure, and that it is the
+/// only search-time feature that sends document text off the node.
+fn rerank_arg_schema(query_required: bool) -> Value {
+    let defaults = xerj_rerank::RerankConfig::default();
+    let question = if query_required {
+        "`query` (string, REQUIRED for this tool): the natural-language question to \
+         judge documents against."
+    } else {
+        "`query` (string): the natural-language question to judge documents against. \
+         Filled in for you when the tool's `query` is a plain string (that mode also \
+         returns the matching passage, which leads the text the judge reads); REQUIRED when \
+         the tool's `query` is a `bool`, a `knn`, or anything else with no single \
+         question in it (the node refuses rather than guess)."
+    };
+    let description = format!(
+        "Optional second-stage reranking. XERJ sends the text of the top `window` hits \
+         plus the question to an external relevance model, which returns a calibrated \
+         probability (0..1) per document. Hits are reordered by it, that probability \
+         REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, \
+         which a BM25 score cannot give you. \
+         WORTH IT WHEN: a natural-language question over prose where the right document \
+         is probably in the top {default_window} but not at the top; or you need a yes/no relevance \
+         threshold rather than a relative rank. \
+         NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already \
+         ranks the definition first), filters, sorted or aggregation-only requests — it \
+         adds a paid network round-trip per search. \
+         NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key \
+         (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. \
+         Without it the search fails with HTTP 503 `rerank_exception`; do not retry, \
+         repeat the search without `rerank`. HTTP 403 means the operator disabled it. \
+         PRIVACY: this is the only search-time feature that sends document text off the \
+         node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send \
+         text off the node when an operator configures them, so never tell a user that \
+         nothing else leaves the machine — do not use rerank on data that must stay local \
+         unless the user has agreed. Only fields \
+         the response returns are sent, so `_source` filtering also limits what leaves. \
+         Pass true or {{}} for defaults, or an object with: {question} \
+         `window` (int, default {default_window}, max {max_window}): how many top hits \
+         are judged — every one is a paid judgement; `from`+`size` must fit inside it. \
+         `min_score` (0..1): drop hits judged below this probability. \
+         `fields` (string[]): which returned fields to send; default is every returned \
+         string field. `instructions` (string): override what \"relevant\" means for \
+         this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
+         Cannot be combined with `sort`. \
+         READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
+         judge's and every `_score` is a probability or null (a hit with no verdict, \
+         counted in `unjudged`, sorts last); `applied: false` means the provider missed \
+         the deadline or answered nothing usable, and you are looking at the engine's own \
+         order with engine scores, stated in `reason`.",
+        default_window = defaults.window,
+        max_window = xerj_rerank::MAX_WINDOW,
+        default_timeout_ms = defaults.timeout.as_millis(),
+    );
+    json!({ "type": ["object", "boolean"], "description": description })
+}
+
 /// The ten tool specifications advertised via `tools/list`. Input schemas are
 /// plain JSON Schema; every property maps onto a field the engine accepts.
 ///
@@ -389,7 +464,11 @@ pub fn tool_specs() -> Value {
                  definition-first code search (ranks the file that defines a symbol \
                  above files that merely mention it — the right default for code), \
                  or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, \
-                 or a bool clause) for structured queries. Omit `query` for match_all.",
+                 or a bool clause) for structured queries. Omit `query` for match_all. \
+                 Optional `rerank` adds a second stage that re-judges the top hits with \
+                 an external relevance model — read that argument's description before \
+                 using it: it needs a provider the operator configured, and it sends \
+                 document text off the machine.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -401,7 +480,8 @@ pub fn tool_specs() -> Value {
                     "size": { "type": "integer", "description": "Max hits to return (default engine value)." },
                     "from": { "type": "integer", "description": "Offset for pagination." },
                     "sort": { "description": "ES sort clause (array or object)." },
-                    "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." }
+                    "_source": { "description": "Source filtering (bool, field, or {includes,excludes})." },
+                    "rerank": rerank_arg_schema(false)
                 },
                 "required": ["index"]
             }
@@ -458,7 +538,10 @@ pub fn tool_specs() -> Value {
                 "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a \
                  vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or \
                  `linear` (weighted). Proxies POST /{index}/_search with \
-                 {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}.",
+                 {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}. \
+                 Optional `rerank` re-judges the fused top hits with an external \
+                 relevance model; here `rerank.query` is REQUIRED, because a hybrid \
+                 search has several sub-queries and no single question to read.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -482,7 +565,8 @@ pub fn tool_specs() -> Value {
                         "enum": ["rrf", "linear"],
                         "description": "Fusion strategy (default rrf)."
                     },
-                    "size": { "type": "integer", "description": "Max fused hits to return." }
+                    "size": { "type": "integer", "description": "Max fused hits to return." },
+                    "rerank": rerank_arg_schema(true)
                 },
                 "required": ["index", "queries"]
             }
@@ -810,6 +894,71 @@ fn opt_typed<'a, T>(
 
 // ── Per-tool request builders → (method, path, body) ────────────────────────
 
+/// Normalise the optional `rerank` argument into the `_search` body.
+///
+/// `plain_query` is the tool's `query` when the caller passed a plain string.
+/// It matters because the string path expands into the definition-first `bool`
+/// shape, and the node refuses to read a question out of a `bool` tree — so
+/// without this every plain-string search that asked for reranking would come
+/// back 400. The caller's words ARE the question; they are carried across.
+///
+/// Refusals here mirror the node's, using the node's own validator
+/// ([`xerj_rerank::RerankConfig::from_json`]), so an agent is told about a
+/// misspelt key without paying for a round trip. Present-but-mistyped is an
+/// error, never a silent drop (the `opt_typed` policy): an agent that asked for
+/// reranking and silently did not get it would trust an order nobody judged.
+fn apply_rerank(
+    args: &Value,
+    body: &mut serde_json::Map<String, Value>,
+    plain_query: Option<&str>,
+    query_required: bool,
+) -> Result<(), String> {
+    let mut block = match args.get("rerank") {
+        None | Some(Value::Null) | Some(Value::Bool(false)) => return Ok(()),
+        Some(Value::Bool(true)) => serde_json::Map::new(),
+        Some(Value::Object(o)) => o.clone(),
+        Some(_) => {
+            return Err(
+                "`rerank` must be true, or an object such as {\"min_score\": 0.5} \
+                 (pass {} for defaults)"
+                    .to_string(),
+            )
+        }
+    };
+    if body.contains_key("sort") {
+        return Err(
+            "`rerank` cannot be combined with `sort`: an explicit sort already fixes the \
+             order, and reranking would discard it. Drop one of them"
+                .to_string(),
+        );
+    }
+    if !block.contains_key("query") {
+        match plain_query {
+            Some(q) => {
+                block.insert("query".into(), json!(q));
+            }
+            None if query_required => {
+                return Err(
+                    "`rerank.query` is required for a hybrid search: it fuses several \
+                     sub-queries, so there is no single question to judge documents \
+                     against. Pass the natural-language question, e.g. \
+                     {\"rerank\": {\"query\": \"why did the vpn drop?\"}}"
+                        .to_string(),
+                )
+            }
+            // A DSL object: the node reads the question from `match`,
+            // `match_phrase`, `multi_match`, `semantic` and `simple_query_string`,
+            // and refuses by name for anything else. Left to it, so there is
+            // one implementation of that rule.
+            None => {}
+        }
+    }
+    let block = Value::Object(block);
+    xerj_rerank::RerankConfig::from_json(&block).map_err(|e| e.to_string())?;
+    body.insert("rerank".into(), block);
+    Ok(())
+}
+
 fn build_search(args: &Value) -> Result<BuiltRequest, String> {
     let index = req_str(args, "index")?;
     let mut body = serde_json::Map::new();
@@ -845,6 +994,11 @@ fn build_search(args: &Value) -> Result<BuiltRequest, String> {
     for k in ["size", "from", "sort", "_source"] {
         copy_opt(args, &mut body, k);
     }
+    let plain_query = match args.get("query") {
+        Some(Value::String(q)) if plain_string => Some(q.as_str()),
+        _ => None,
+    };
+    apply_rerank(args, &mut body, plain_query, false)?;
     // String-mode defaults, only where the caller left them unset: project
     // `_source` down to the citation fields and ask for `_passage` so the
     // response is the matching snippet, not the whole file body (measured ~9x
@@ -932,6 +1086,7 @@ fn build_hybrid(args: &Value) -> Result<BuiltRequest, String> {
     let mut body = serde_json::Map::new();
     body.insert("query".into(), json!({ "hybrid": Value::Object(hybrid) }));
     copy_opt(args, &mut body, "size");
+    apply_rerank(args, &mut body, None, true)?;
     Ok((
         Method::Post,
         format!("/{index}/_search"),
@@ -1208,6 +1363,156 @@ mod tests {
             2
         );
         assert_eq!(body["size"], 10);
+    }
+
+    // ── `rerank` argument ───────────────────────────────────────────────────
+
+    #[test]
+    fn rerank_is_absent_unless_asked_for() {
+        for args in [
+            json!({ "index": "d", "query": "how do refunds work" }),
+            json!({ "index": "d", "query": "how do refunds work", "rerank": null }),
+            json!({ "index": "d", "query": "how do refunds work", "rerank": false }),
+        ] {
+            let (_, _, body) = built(build_search(&args));
+            assert!(
+                body.get("rerank").is_none(),
+                "no `rerank` block means no provider call and no egress: {body}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_plain_string_query_becomes_the_rerank_question() {
+        // The string path expands to a `bool`, which the node refuses to read a
+        // question from. Without carrying the string across, every plain-string
+        // search that asked for reranking would be a 400.
+        let (_, _, body) = built(build_search(&json!({
+            "index": "d", "query": "how do refunds work", "rerank": true
+        })));
+        assert!(body["query"]["bool"].is_object(), "still definition-first");
+        assert_eq!(body["rerank"]["query"], "how do refunds work");
+
+        let (_, _, body) = built(build_search(&json!({
+            "index": "d", "query": "how do refunds work", "rerank": { "min_score": 0.5 }
+        })));
+        assert_eq!(body["rerank"]["query"], "how do refunds work");
+        assert_eq!(body["rerank"]["min_score"], 0.5);
+    }
+
+    #[test]
+    fn an_explicit_rerank_query_is_never_overwritten() {
+        let (_, _, body) = built(build_search(&json!({
+            "index": "d", "query": "refund",
+            "rerank": { "query": "What is the refund window for annual plans?" }
+        })));
+        assert_eq!(
+            body["rerank"]["query"],
+            "What is the refund window for annual plans?"
+        );
+    }
+
+    #[test]
+    fn a_dsl_query_leaves_question_inference_to_the_node() {
+        let (_, _, body) = built(build_search(&json!({
+            "index": "d", "query": { "match": { "body": "refund window" } }, "rerank": {}
+        })));
+        assert_eq!(
+            body["rerank"],
+            json!({}),
+            "one implementation of inference: the node's"
+        );
+    }
+
+    #[test]
+    fn rerank_refusals_happen_before_the_round_trip() {
+        let bad = |args: Value| build_search(&args).expect_err("must be refused");
+
+        let e = bad(json!({ "index": "d", "query": "q", "rerank": "yes" }));
+        assert!(e.contains("must be true, or an object"), "{e}");
+
+        let e = bad(json!({ "index": "d", "query": "q", "sort": ["_doc"], "rerank": true }));
+        assert!(e.contains("sort"), "{e}");
+
+        // The node's own validator: a misspelt key is named, not dropped.
+        let e = bad(json!({ "index": "d", "query": "q", "rerank": { "treshold": 0.5 } }));
+        assert!(e.contains("treshold"), "{e}");
+
+        let e = bad(json!({ "index": "d", "query": "q", "rerank": { "min_score": 7 } }));
+        assert!(e.contains("probability"), "{e}");
+
+        let e = bad(json!({ "index": "d", "query": "q", "rerank": { "window": 100000 } }));
+        assert!(e.contains("rerank.window"), "{e}");
+    }
+
+    #[test]
+    fn hybrid_rerank_requires_the_question() {
+        let queries = json!([{ "query": { "match": { "body": "vpn" } } }]);
+        let e = build_hybrid(&json!({ "index": "h", "queries": queries, "rerank": true }))
+            .expect_err("a hybrid has no single question");
+        assert!(e.contains("rerank.query"), "{e}");
+
+        let (_, path, body) = built(build_hybrid(&json!({
+            "index": "h", "queries": queries,
+            "rerank": { "query": "why did the vpn drop?", "window": 20 }
+        })));
+        assert_eq!(path, "/h/_search");
+        assert_eq!(body["rerank"]["query"], "why did the vpn drop?");
+        assert_eq!(body["rerank"]["window"], 20);
+        assert!(body["query"]["hybrid"].is_object());
+    }
+
+    #[test]
+    fn the_rerank_description_tells_an_agent_what_it_needs_to_decide() {
+        let specs = tool_specs();
+        for tool in ["xerj_search", "xerj_hybrid_search"] {
+            let spec = specs
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|t| t["name"] == tool)
+                .unwrap();
+            let d = spec["inputSchema"]["properties"]["rerank"]["description"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{tool} must describe `rerank`"));
+            for needle in [
+                "WORTH IT WHEN",
+                "NOT WORTH IT FOR",
+                "NEEDS A CONFIGURED PROVIDER",
+                "503",
+                // The honest egress statement: rerank is the only SEARCH-TIME
+                // path, and the description names the other two that send text
+                // so an agent never repeats "nothing else leaves the machine"
+                // on a node running proxy embeddings or a WAL tap.
+                "only search-time feature that sends document text off the node",
+                "default_endpoint",
+                "WAL tap",
+                "never tell a user that nothing else leaves the machine",
+                "_rerank",
+            ] {
+                assert!(d.contains(needle), "{tool}: description lacks `{needle}`");
+            }
+            // The first corrected wording ("two other ... paths") was incomplete: the neural model
+            // download and cluster Raft traffic are outbound too (they carry no
+            // document text). docs/RERANK.md holds the complete list.
+            assert!(
+                !d.to_lowercase().contains("other outbound paths"),
+                "{tool}: {d}"
+            );
+            // The quoted ceilings are the node's, not a copy of them.
+            assert!(
+                d.contains(&format!("max {}", xerj_rerank::MAX_WINDOW)),
+                "{d}"
+            );
+            assert!(
+                !spec["inputSchema"]["required"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|r| r == "rerank"),
+                "{tool}: `rerank` is optional"
+            );
+        }
     }
 
     #[test]

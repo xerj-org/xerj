@@ -6692,6 +6692,7 @@ dependencies = [
  "xerj-common",
  "xerj-engine",
  "xerj-query",
+ "xerj-rerank",
  "xerj-wasm",
  "xxhash-rust",
 ]
@@ -6964,6 +6965,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "xerj-common",
+ "xerj-rerank",
 ]
 
 [[package]]
@@ -6979,6 +6981,18 @@ dependencies = [
  "thiserror 2.0.18",
  "tracing",
  "xerj-common",
+]
+
+[[package]]
+name = "xerj-rerank"
+version = "1.0.0-rc.74"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

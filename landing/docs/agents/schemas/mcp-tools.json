@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "xerj_search",
-      "description": "Full-text / keyword / structured search over a XERJ index. Proxies POST /{index}/_search. Pass `query` as a PLAIN STRING for the definition-first code search (ranks the file that defines a symbol above files that merely mention it — the right default for code), or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, or a bool clause) for structured queries. Omit `query` for match_all.",
+      "description": "Full-text / keyword / structured search over a XERJ index. Proxies POST /{index}/_search. Pass `query` as a PLAIN STRING for the definition-first code search (ranks the file that defines a symbol above files that merely mention it — the right default for code), or as an ES query-DSL object (e.g. {\"term\":{\"status\":\"open\"}}, or a bool clause) for structured queries. Omit `query` for match_all. Optional `rerank` adds a second stage that re-judges the top hits with an external relevance model — read that argument's description before using it: it needs a provider the operator configured, and it sends document text off the machine.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -30,6 +30,13 @@
           },
           "_source": {
             "description": "Source filtering (bool, field, or {includes,excludes})."
+          },
+          "rerank": {
+            "type": [
+              "object",
+              "boolean"
+            ],
+            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string): the natural-language question to judge documents against. Filled in for you when the tool's `query` is a plain string (that mode also returns the matching passage, which leads the text the judge reads); REQUIRED when the tool's `query` is a `bool`, a `knn`, or anything else with no single question in it (the node refuses rather than guess). `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
           }
         },
         "required": [
@@ -112,7 +119,7 @@
     },
     {
       "name": "xerj_hybrid_search",
-      "description": "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or `linear` (weighted). Proxies POST /{index}/_search with {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}.",
+      "description": "Hybrid search: fuse several sub-queries (e.g. a lexical `match` plus a vector `knn`) into one ranked list. Fusion is `rrf` (reciprocal-rank) or `linear` (weighted). Proxies POST /{index}/_search with {\"query\":{\"hybrid\":{\"queries\":[...],\"fusion\":...}}}. Optional `rerank` re-judges the fused top hits with an external relevance model; here `rerank.query` is REQUIRED, because a hybrid search has several sub-queries and no single question to read.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -148,6 +155,13 @@
           "size": {
             "type": "integer",
             "description": "Max fused hits to return."
+          },
+          "rerank": {
+            "type": [
+              "object",
+              "boolean"
+            ],
+            "description": "Optional second-stage reranking. XERJ sends the text of the top `window` hits plus the question to an external relevance model, which returns a calibrated probability (0..1) per document. Hits are reordered by it, that probability REPLACES `_score`, and `min_score` prunes by it — an absolute relevance cut, which a BM25 score cannot give you. WORTH IT WHEN: a natural-language question over prose where the right document is probably in the top 30 but not at the top; or you need a yes/no relevance threshold rather than a relative rank. NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already ranks the definition first), filters, sorted or aggregation-only requests — it adds a paid network round-trip per search. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. Without it the search fails with HTTP 503 `rerank_exception`; do not retry, repeat the search without `rerank`. HTTP 403 means the operator disabled it. PRIVACY: this is the only search-time feature that sends document text off the node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send text off the node when an operator configures them, so never tell a user that nothing else leaves the machine — do not use rerank on data that must stay local unless the user has agreed. Only fields the response returns are sent, so `_source` filtering also limits what leaves. Pass true or {} for defaults, or an object with: `query` (string, REQUIRED for this tool): the natural-language question to judge documents against. `window` (int, default 30, max 300): how many top hits are judged — every one is a paid judgement; `from`+`size` must fit inside it. `min_score` (0..1): drop hits judged below this probability. `fields` (string[]): which returned fields to send; default is every returned string field. `instructions` (string): override what \"relevant\" means for this corpus. `timeout_ms` (int, default 10000). `model` (string). Cannot be combined with `sort`. READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the judge's and every `_score` is a probability or null (a hit with no verdict, counted in `unjudged`, sorts last); `applied: false` means the provider missed the deadline or answered nothing usable, and you are looking at the engine's own order with engine scores, stated in `reason`."
           }
         },
         "required": [

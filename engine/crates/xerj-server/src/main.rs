@@ -513,6 +513,15 @@ fn load_config(args: &CliArgs) -> Result<Config> {
         cfg.server.data_dir = dir.clone();
     }
 
+    // `rerank.endpoint` is where document text gets POSTed. `Config::validate`
+    // checked the file's value; the `TYPESAFE_ENDPOINT` fallback is only
+    // known here, at boot, and gets the same two rules — the docs promise the
+    // node refuses to start on a credentialed or non-http endpoint, whichever
+    // place it came from.
+    if let Err(reason) = cfg.rerank.check_environment() {
+        anyhow::bail!("config error: {reason}");
+    }
+
     // Merge settings this build accepts but does not act on. An operator who
     // throttles merges to protect query latency was getting no throttle and no
     // signal (#207); the signal is the minimum. See
