@@ -10,6 +10,11 @@ use std::time::Duration;
 /// and `--max-minutes 0` already exists to mean "never ask".
 pub const MAX_MAX_MINUTES: u64 = 7 * 24 * 60;
 
+/// Largest `--debounce` accepted: one minute. A quiet period longer than that
+/// is not debouncing, it is a timer — and `xerj autoindex` on a cron schedule
+/// already is one, without holding watches open.
+pub const MAX_DEBOUNCE_MS: u64 = 60_000;
+
 /// Largest `--bulk-mb` accepted. Past this a single bulk body stops being a
 /// unit of work and starts being a memory incident on the server.
 pub const MAX_BULK_MB: usize = 24;
@@ -79,6 +84,11 @@ pub struct IndexCfg {
     /// Progress cadence. `None` means "the surface's default" — 1 s on a
     /// terminal, 5 s for a pipe.
     pub progress_interval: Option<Duration>,
+    /// `--watch`: after the first pass, stay resident and reindex what changes.
+    pub watch: bool,
+    /// `--watch`'s quiet period. One editor save is several filesystem events,
+    /// so a pass waits for the tree to go quiet for this long before running.
+    pub debounce: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -203,6 +213,13 @@ pub fn help_text_with(feedback: bool) -> String {
                                   .xerj-memory-<NAME>-edges (default: folder name slug)\n\
              --no-graph           skip relationship detection (wikilinks, local links,\n\
                                   section order, directory chains) — no edges are written\n\
+             --watch              index once, then stay resident and reindex what changes.\n\
+                                  Needs --no-graph (only that route reindexes a changed\n\
+                                  file incrementally). One OS watch per indexed directory,\n\
+                                  no polling; respects the same ignore rules as a re-run.\n\
+                                  See LIVE REINDEXING below.\n\
+             --debounce <MS>      --watch quiet period before a pass (default 400, max\n\
+                                  60000). One editor save is several filesystem events.\n\
              --max-minutes <N>    stop and ask before indexing if phase A's MEASURED estimate\n\
                                   is longer than this (default 10; 0 disables the gate;\n\
                                   max 10080). See ESTIMATE + DECISION GATE below.\n\
@@ -459,6 +476,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut no_semantic = false;
     let mut brain: Option<String> = None;
     let mut no_graph = false;
+    let mut watch = false;
+    let mut debounce_ms: Option<u64> = None;
     let mut dry_run = false;
     let mut max_minutes = DEFAULT_MAX_MINUTES;
     let mut max_minutes_explicit = false;
@@ -574,6 +593,22 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 brain = Some(name);
             }
             "--no-graph" => no_graph = true,
+            "--watch" => watch = true,
+            "--debounce" => {
+                let raw = it
+                    .next()
+                    .ok_or("--debounce needs a number of milliseconds (0 disables the wait)")?;
+                let parsed: u64 = raw.parse().map_err(|_| {
+                    format!("--debounce needs an integer from 0 to {MAX_DEBOUNCE_MS}")
+                })?;
+                if parsed > MAX_DEBOUNCE_MS {
+                    return Err(format!(
+                        "--debounce must be from 0 to {MAX_DEBOUNCE_MS} milliseconds; past that a \
+                         change you just made would sit unindexed for minutes"
+                    ));
+                }
+                debounce_ms = Some(parsed);
+            }
             "--max-minutes" => {
                 max_minutes_explicit = true;
                 max_minutes = it
@@ -724,6 +759,49 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
+    // `--watch` is refused rather than quietly downgraded in each of these
+    // cases. Accepting a flag and not doing what it says is the #204 class, and
+    // for a watcher the symptom is the worst one available: an index the
+    // operator believes is live and is not.
+    if watch {
+        if dry_run {
+            return Err(
+                "--watch and --dry-run contradict each other: a dry run indexes nothing, and a \
+                 watcher exists to index changes as they land. Drop one of the two"
+                    .into(),
+            );
+        }
+        if fresh {
+            return Err(
+                "--watch and --fresh contradict each other: --fresh discards the resume journal \
+                 and rebuilds the plan, which a watcher would then redo on every change. Run \
+                 `xerj autoindex <folder> --fresh` once, then start the watcher without it"
+                    .into(),
+            );
+        }
+        if !no_graph {
+            return Err(
+                "--watch needs --no-graph today, and that is a real limitation rather than a \
+                 formality: incremental reindexing of a CHANGED file exists only on the \
+                 --no-graph (generated) route. On the default graph path a re-run resumes a \
+                 frozen plan, so a file whose content changed is reported as 'appeared after \
+                 the resume plan was frozen' and is NOT indexed until the whole corpus is \
+                 rebuilt with --fresh — a --watch session there would look live while serving \
+                 stale documents. Re-run as `xerj autoindex <folder> --watch --no-graph` \
+                 (relationship detection off), or keep rebuilding a graph corpus with `xerj \
+                 autoindex <folder> --fresh`"
+                    .into(),
+            );
+        }
+    }
+    if debounce_ms.is_some() && !watch {
+        return Err(
+            "--debounce sets the quiet period of a watcher that is not running. Add --watch, or \
+             drop --debounce"
+                .into(),
+        );
+    }
+
     // `map` reads the catalog off the server and `status` reads the local
     // journal; neither walks a filesystem, so an ignore flag on either cannot
     // change one byte of the output. Measured before this check existed:
@@ -870,6 +948,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 quiet,
                 progress,
                 progress_interval,
+                watch,
+                debounce: Duration::from_millis(
+                    debounce_ms.unwrap_or(crate::watch::DEFAULT_DEBOUNCE_MS),
+                ),
             })))
         }
         _ => Ok(Cmd::Help),

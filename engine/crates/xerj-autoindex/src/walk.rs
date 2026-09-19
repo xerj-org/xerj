@@ -201,6 +201,51 @@ pub fn walk_reporting_opts(
     allow_outside_root: bool,
     ignore: IgnoreOptions,
 ) -> Result<(Vec<FileEntry>, IgnoreReport)> {
+    walk_impl(root, follow_symlinks, allow_outside_root, ignore, None)
+}
+
+/// The directories this walk ADMITS, and nothing else.
+///
+/// `--watch` places one filesystem watch per admitted directory instead of one
+/// recursive watch on the root, and this is where that set comes from: the same
+/// traversal, the same hidden-name rule, the same `.gitignore`/`.xerjignore`
+/// stack, the same marker-gated prunes. Deriving the watch set any other way is
+/// how a watched run and a re-run start disagreeing about what is indexed — an
+/// ignored `target/` would be watched (thousands of events per build), and a
+/// re-included directory would not be watched at all.
+///
+/// Files are not stat'ed on this route: the caller wants watch targets, not an
+/// inventory, and the root is always included (it is admitted at depth 0
+/// exactly like the file walk admits it).
+pub fn walk_dirs_opts(
+    root: &Path,
+    follow_symlinks: bool,
+    allow_outside_root: bool,
+    ignore: IgnoreOptions,
+) -> Result<Vec<PathBuf>> {
+    let mut dirs = Vec::new();
+    walk_impl(
+        root,
+        follow_symlinks,
+        allow_outside_root,
+        ignore,
+        Some(&mut dirs),
+    )?;
+    dirs.sort();
+    dirs.dedup();
+    Ok(dirs)
+}
+
+/// One traversal, two callers: the file inventory and (`dirs_out`) the watch
+/// set. With `dirs_out` set, every admitted directory is collected and files are
+/// not examined at all.
+fn walk_impl(
+    root: &Path,
+    follow_symlinks: bool,
+    allow_outside_root: bool,
+    ignore: IgnoreOptions,
+    mut dirs_out: Option<&mut Vec<PathBuf>>,
+) -> Result<(Vec<FileEntry>, IgnoreReport)> {
     let root_canon = root
         .canonicalize()
         .with_context(|| format!("resolve root folder {}", root.display()))?;
@@ -371,6 +416,17 @@ pub fn walk_reporting_opts(
                 }
             }
             stack.enter_dir(entry.path(), entry.depth());
+            if let Some(dirs) = dirs_out.as_mut() {
+                // The path the watcher must watch is the path the walk arrived
+                // by — the same one `rel` is derived from — so a followed link
+                // is watched where the operator pointed, not where it resolves.
+                dirs.push(entry.path().to_path_buf());
+            }
+            continue;
+        }
+        // Watch-set mode wants directories only; a file's metadata is a syscall
+        // per entry that nothing on this route reads.
+        if dirs_out.is_some() {
             continue;
         }
         if !entry.file_type().is_file() {

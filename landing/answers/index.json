@@ -98,7 +98,7 @@
       "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
     },
     {
@@ -469,6 +469,15 @@
       "cluster": "Operations: exit codes",
       "updated": "2026-08-23",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
+    },
+    {
+      "title": "How do I keep a XERJ index up to date as files change?",
+      "question": "How do I keep a search index up to date as files change, without re-indexing everything?",
+      "canonical_url": "https://xerj.org/answers/keep-index-current-as-files-change",
+      "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
+      "cluster": "Operations: freshness",
+      "updated": "2026-09-19",
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0 CPU at idle vs 0.93 s and a full re-read per poll."
     },
     {
       "title": "Is there a single-binary local search engine?",
