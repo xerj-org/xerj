@@ -42,10 +42,22 @@
 //!   (`DetectorCounters::unresolved`), never invented.
 //! - Subject-line threading (`Re: …` with no ids) is deliberately absent. It is
 //!   a guess, and this detector's confidence says it does not guess.
-//! - An incremental run only re-reads the files that changed, so a reply in a
-//!   changed file resolves against the messages read in the same run — the
-//!   same limit `sharedterm` documents. Within one mailbox, which is the normal
-//!   case, every message is read together and nothing is missed.
+//!
+//! ## Runs that do not re-read every mailbox
+//! An incremental run re-reads only the files that changed, and a resumed run
+//! only the files the interrupted one had not finished. Resolution is still a
+//! function of the CORPUS: the message nodes of every mail file this run did
+//! not re-read are loaded back from the index (`carry_over`, fed by
+//! `lib.rs::carry_over_unread_mail`) and take part in `detect_corpus` exactly
+//! as if they had been read — both as parents (`by_id`) and as replies
+//! (`pending`). Without that, `Inbox` + `Sent` — the normal layout of
+//! Thunderbird, Apple Mail and mutt — lost every reply edge that crossed the
+//! two files as soon as one of them changed, and an edge into a compacted
+//! mailbox stayed live while pointing at a node id that no longer existed
+//! (review finding on PR #949). Re-emitting an unchanged edge is free: its
+//! `edge_id` is a function of (src, type, dst, file mtime), so it overwrites
+//! itself. An edge of an un-re-read file that is NOT re-emitted — its parent
+//! moved, or left the corpus — is soft-invalidated by the caller.
 
 use super::{clip_quote, CorpusIndex, DetectorCounters, EdgeDetector, EdgeDraft, RecordCtx};
 use serde_json::Value;
@@ -141,6 +153,72 @@ fn node_hex(node: u128) -> String {
     format!("{node:032x}")
 }
 
+impl EmailThread {
+    /// Register one message NODE: its own Message-ID as a possible parent, and
+    /// its reply headers as a pending edge. Shared by `detect_record` (a
+    /// message read in this run) and `carry_over` (one loaded from the index).
+    fn observe_message(&self, ctx: &RecordCtx<'_>) {
+        let text = |k: &str| ctx.fields.get(k).and_then(Value::as_str);
+        let Ok(node) = u128::from_str_radix(ctx.doc_id, 16) else {
+            return;
+        };
+        let mut candidates: Vec<(u128, bool)> = Vec::new();
+        if let Some(h) = text("email_in_reply_to").and_then(id_hash) {
+            candidates.push((h, true));
+        }
+        if let Some(refs) = ctx.fields.get("email_references").and_then(Value::as_array) {
+            // Nearest ancestor first: `References` lists oldest → newest.
+            for r in refs.iter().rev().filter_map(Value::as_str) {
+                if candidates.len() >= MAX_CANDIDATES {
+                    break;
+                }
+                if let Some(h) = id_hash(r) {
+                    if !candidates.iter().any(|(c, _)| *c == h) {
+                        candidates.push((h, false));
+                    }
+                }
+            }
+        }
+        let own = text("email_message_id").and_then(|id| Some((id_hash(id)?, id)));
+        if own.is_none() && candidates.is_empty() {
+            return;
+        }
+        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some((hash, id)) = own {
+            match state.by_id.get_mut(&hash) {
+                // The same NODE offered twice (a caller that both re-read and
+                // carried a file over) is one message, not an ambiguity.
+                Some(seen) if seen.node == node => {}
+                Some(seen) => {
+                    // The same Message-ID on two nodes. Smallest node id wins,
+                    // whatever order the workers delivered them in.
+                    self.ambiguous.fetch_add(1, Ordering::Relaxed);
+                    if node < seen.node {
+                        seen.node = node;
+                    }
+                }
+                None => {
+                    state.by_id.insert(
+                        hash,
+                        Seen {
+                            node,
+                            message_id: id.trim().to_string(),
+                        },
+                    );
+                }
+            }
+        }
+        if !candidates.is_empty() {
+            let file = state.file(&ctx.file.rel);
+            state.pending.push(Pending {
+                src: node,
+                file,
+                candidates,
+            });
+        }
+    }
+}
+
 impl EdgeDetector for EmailThread {
     fn tag(&self) -> &'static str {
         TAG
@@ -185,62 +263,20 @@ impl EdgeDetector for EmailThread {
         }
 
         // ── the message node itself ──
-        if rest != "msg-s0" {
+        if rest == "msg-s0" {
+            self.observe_message(ctx);
+        }
+    }
+
+    /// A message node of a mail file this run did NOT re-read, loaded back
+    /// from the index. It joins the same tables a freshly read message joins,
+    /// so `detect_corpus` cannot tell the two apart — which is the point.
+    fn carry_over(&self, ctx: &RecordCtx<'_>) {
+        if !matches!(ctx.file.family.as_str(), "eml" | "mbox") {
             return;
         }
-        let Ok(node) = u128::from_str_radix(ctx.doc_id, 16) else {
-            return;
-        };
-        let mut candidates: Vec<(u128, bool)> = Vec::new();
-        if let Some(h) = text("email_in_reply_to").and_then(id_hash) {
-            candidates.push((h, true));
-        }
-        if let Some(refs) = ctx.fields.get("email_references").and_then(Value::as_array) {
-            // Nearest ancestor first: `References` lists oldest → newest.
-            for r in refs.iter().rev().filter_map(Value::as_str) {
-                if candidates.len() >= MAX_CANDIDATES {
-                    break;
-                }
-                if let Some(h) = id_hash(r) {
-                    if !candidates.iter().any(|(c, _)| *c == h) {
-                        candidates.push((h, false));
-                    }
-                }
-            }
-        }
-        let own = text("email_message_id").and_then(|id| Some((id_hash(id)?, id)));
-        if own.is_none() && candidates.is_empty() {
-            return;
-        }
-        let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some((hash, id)) = own {
-            match state.by_id.get_mut(&hash) {
-                Some(seen) => {
-                    // The same Message-ID on two nodes. Smallest node id wins,
-                    // whatever order the workers delivered them in.
-                    self.ambiguous.fetch_add(1, Ordering::Relaxed);
-                    if node < seen.node {
-                        seen.node = node;
-                    }
-                }
-                None => {
-                    state.by_id.insert(
-                        hash,
-                        Seen {
-                            node,
-                            message_id: id.trim().to_string(),
-                        },
-                    );
-                }
-            }
-        }
-        if !candidates.is_empty() {
-            let file = state.file(&ctx.file.rel);
-            state.pending.push(Pending {
-                src: node,
-                file,
-                candidates,
-            });
+        if split_container_prefix(ctx.locator).1 == "msg-s0" {
+            self.observe_message(ctx);
         }
     }
 
@@ -249,6 +285,8 @@ impl EdgeDetector for EmailThread {
         // Worker interleaving decided the push order; the node id decides the
         // output order.
         state.pending.sort_by_key(|p| p.src);
+        // One reply per node, however many times the node was offered.
+        state.pending.dedup_by_key(|p| p.src);
         let state = &*state;
         for reply in &state.pending {
             let parent = reply.candidates.iter().find_map(|(hash, direct)| {

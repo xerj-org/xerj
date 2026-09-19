@@ -528,6 +528,256 @@ fn rerunning_never_duplicates_a_message() {
     );
 }
 
+// ─── runs that do not re-read every mailbox (review finding, PR #949) ─────
+
+/// One mbox entry. Fixed-width on purpose: every message of a tree built from
+/// these is the same length, so removing one moves each later message onto the
+/// byte offset — and therefore the node id — of its successor. That is the
+/// nastiest form of the compaction defect: not a dangling edge, a WRONG one.
+fn entry(id: &str, from: &str, subject: &str, body: &str, reply_to: Option<&str>) -> String {
+    let mut m = format!(
+        "From {from} Tue Nov 14 22:13:20 2023\nFrom: {from}\nTo: bob@example.org\n\
+         Subject: {subject}\nDate: Tue, 14 Nov 2023 22:13:20 +0000\nMessage-ID: <{id}>\n"
+    );
+    if let Some(parent) = reply_to {
+        m.push_str(&format!("In-Reply-To: <{parent}>\n"));
+    }
+    m.push_str(&format!("\n{body}\n\n"));
+    m
+}
+
+/// Live `replies_to` edges as (file that taught it, evidence quote, dst node).
+fn live_replies(es: &MockEs) -> BTreeSet<(String, String, String)> {
+    es.index(EDGES_INDEX)
+        .values()
+        .filter(|e| s(e, "type") == REPLIES_TO && e.get("invalid_at").is_none())
+        .map(|e| {
+            (
+                s(e, "src_file").to_string(),
+                e.pointer("/evidence/quote")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                s(e, "dst").to_string(),
+            )
+        })
+        .collect()
+}
+
+/// Node id of the message with this Message-ID, from the published docs.
+fn node_of(es: &MockEs, message_id: &str) -> String {
+    let docs = es.docs.lock().unwrap();
+    let mut found = docs
+        .iter()
+        .filter(|(index, _)| index.starts_with("ax-"))
+        .flat_map(|(_, store)| store.iter())
+        .filter(|(_, d)| {
+            s(d, "email_message_id") == message_id && s(d, "ax_locator").ends_with("msg-s0")
+        })
+        .map(|(id, _)| id.clone());
+    let id = found
+        .next()
+        .unwrap_or_else(|| panic!("no node for <{message_id}>"));
+    assert!(found.next().is_none(), "<{message_id}> indexed twice");
+    id
+}
+
+fn run_ok(corpus: &Path, state: &Path, es: &MockEs) {
+    assert_eq!(crate::run_index(cfg(corpus, state, &es.url)).unwrap(), 0);
+}
+
+/// `Inbox` + `Sent` is how Thunderbird, Apple Mail and mutt store mail, and a
+/// conversation crosses the two files on every turn. An incremental run
+/// re-reads only the file that changed; the reply edges must not depend on
+/// which one that was.
+///
+/// Before the fix: appending one unrelated message to `Inbox` invalidated
+/// `Inbox`'s edges (correct), re-read `Inbox` alone, could not see `<s2@x>` in
+/// the un-re-read `Sent`, and the Inbox → Sent reply edge was gone — 2 live
+/// edges became 1, with `unresolved: 1`, while both messages were still there.
+#[test]
+fn a_reply_across_two_mailboxes_survives_an_incremental_run() {
+    let corpus = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let mail = corpus.path().join("Mail");
+    std::fs::create_dir_all(&mail).unwrap();
+    let inbox = entry(
+        "a1@x",
+        "alice@example.org",
+        "Budget",
+        "how much is left",
+        None,
+    ) + &entry(
+        "a3@x",
+        "alice@example.org",
+        "Re: Budget",
+        "thanks",
+        Some("s2@x"),
+    );
+    std::fs::write(mail.join("Inbox"), &inbox).unwrap();
+    std::fs::write(
+        mail.join("Sent"),
+        entry(
+            "s2@x",
+            "bob@example.org",
+            "Re: Budget",
+            "about four thousand",
+            Some("a1@x"),
+        ),
+    )
+    .unwrap();
+    let es = MockEs::start();
+    run_ok(corpus.path(), state.path(), &es);
+
+    let expected = |es: &MockEs| -> BTreeSet<(String, String, String)> {
+        [
+            ("Mail/Inbox", "In-Reply-To: <s2@x>", node_of(es, "s2@x")),
+            ("Mail/Sent", "In-Reply-To: <a1@x>", node_of(es, "a1@x")),
+        ]
+        .into_iter()
+        .map(|(f, q, d)| (f.to_string(), q.to_string(), d))
+        .collect()
+    };
+    assert_eq!(live_replies(&es), expected(&es), "full run");
+
+    // One unrelated new mail lands in Inbox. Sent is untouched and not re-read.
+    let appended = inbox + &entry("a4@x", "dora@example.org", "Lunch", "friday?", None);
+    std::fs::write(mail.join("Inbox"), appended).unwrap();
+    run_ok(corpus.path(), state.path(), &es);
+    assert_eq!(
+        live_replies(&es),
+        expected(&es),
+        "the Inbox → Sent reply must survive a run that re-read only Inbox"
+    );
+    let graph = journal_graph_summary(state.path());
+    assert_eq!(graph["edges_unresolved"], 0, "{graph}");
+
+    // And the other direction: a reply lands in the un-re-read file's PARENT
+    // position — a new Sent message answering the new Inbox mail, then only
+    // Sent changes. Inbox is carried over this time.
+    let sent = std::fs::read_to_string(mail.join("Sent")).unwrap()
+        + &entry("s5@x", "bob@example.org", "Re: Lunch", "yes", Some("a4@x"));
+    std::fs::write(mail.join("Sent"), sent).unwrap();
+    run_ok(corpus.path(), state.path(), &es);
+    let mut want = expected(&es);
+    want.insert((
+        "Mail/Sent".into(),
+        "In-Reply-To: <a4@x>".into(),
+        node_of(&es, "a4@x"),
+    ));
+    assert_eq!(live_replies(&es), want);
+
+    // What an incremental history converges to is what a clean index holds.
+    // Compared without node ids: a file's key survives an in-place edit, so an
+    // edited history and a clean index name the same messages by different ids
+    // (each side's ids were checked against its own docs above).
+    let clean = MockEs::start();
+    let clean_state = tempfile::tempdir().unwrap();
+    run_ok(corpus.path(), clean_state.path(), &clean);
+    let shape = |es: &MockEs| -> BTreeSet<(String, String)> {
+        live_replies(es)
+            .into_iter()
+            .map(|(f, q, _)| (f, q))
+            .collect()
+    };
+    assert_eq!(shape(&es), shape(&clean));
+    assert_eq!(shape(&clean).len(), 3);
+}
+
+/// Thunderbird's "compact folder" removes deleted messages and every later
+/// message moves down. Node ids are positional (`m{offset}-msg-s0`), so a
+/// saved `.eml` that replies into the mailbox — a file the run does NOT
+/// re-read — holds an edge to the parent's OLD node id.
+///
+/// Before the fix that edge stayed live. With equal-length messages it is not
+/// even dangling: the old id of `<b4@x>` is now the id of `<b5@x>`, so the
+/// graph said, with 0.95 confidence and the quote `In-Reply-To: <b4@x>`, that
+/// the reply answers a different message.
+#[test]
+fn a_reply_into_a_compacted_mailbox_follows_its_parent() {
+    let corpus = tempfile::tempdir().unwrap();
+    let state = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(corpus.path().join("Mail")).unwrap();
+    std::fs::create_dir_all(corpus.path().join("saved")).unwrap();
+    let msgs: Vec<String> = (1..=5)
+        .map(|i| {
+            entry(
+                &format!("b{i}@x"),
+                "bea@example.org",
+                &format!("Topic {i}"),
+                &format!("body of message {i}"),
+                None,
+            )
+        })
+        .collect();
+    let mbox = corpus.path().join("Mail/Inbox.mbox");
+    std::fs::write(&mbox, msgs.concat()).unwrap();
+    std::fs::write(
+        corpus.path().join("saved/reply.eml"),
+        "From: bob@example.org\nTo: bea@example.org\nSubject: Re: Topic 4\n\
+         Date: Wed, 15 Nov 2023 09:00:00 +0000\nMessage-ID: <r4@x>\nIn-Reply-To: <b4@x>\n\n\
+         replying to topic four\n",
+    )
+    .unwrap();
+    let es = MockEs::start();
+    run_ok(corpus.path(), state.path(), &es);
+    let before = node_of(&es, "b4@x");
+    let one = |dst: String| -> BTreeSet<(String, String, String)> {
+        [(
+            "saved/reply.eml".to_string(),
+            "In-Reply-To: <b4@x>".to_string(),
+            dst,
+        )]
+        .into()
+    };
+    assert_eq!(live_replies(&es), one(before.clone()));
+
+    // Compact: <b2@x> is gone, every later message moves down one slot.
+    let compacted: String = msgs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, m)| m.as_str())
+        .collect();
+    std::fs::write(&mbox, compacted).unwrap();
+    run_ok(corpus.path(), state.path(), &es);
+
+    let after = node_of(&es, "b4@x");
+    assert_ne!(after, before, "the parent moved — that is the scenario");
+    assert_eq!(
+        node_of(&es, "b5@x"),
+        before,
+        "…onto an id that is now a DIFFERENT message, so a stale edge is wrong, not just dangling"
+    );
+    assert_eq!(
+        live_replies(&es),
+        one(after),
+        "the un-re-read .eml's reply edge must follow <b4@x> to its new node"
+    );
+    // The superseded edge is history, not gone: invalidated, still stored.
+    let superseded: Vec<Value> = es
+        .index(EDGES_INDEX)
+        .values()
+        .filter(|e| s(e, "type") == REPLIES_TO && s(e, "dst") == before)
+        .cloned()
+        .collect();
+    assert_eq!(superseded.len(), 1);
+    assert!(superseded[0].get("invalid_at").is_some());
+    assert!(journal_graph_summary(state.path())["edges_invalidated"].as_u64() >= Some(1));
+
+    // The parent leaves the corpus altogether: no live edge, one unresolved.
+    let without_b4: String = msgs
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != 1 && *i != 3)
+        .map(|(_, m)| m.as_str())
+        .collect();
+    std::fs::write(&mbox, without_b4).unwrap();
+    run_ok(corpus.path(), state.path(), &es);
+    assert!(live_replies(&es).is_empty(), "{:?}", live_replies(&es));
+    assert_eq!(journal_graph_summary(state.path())["edges_unresolved"], 1);
+}
+
 /// The committed fixture must be exactly what `scripts/synthetic-takeout.py`
 /// writes for [`FIXTURE_ARGS`] — otherwise "the tests use the generator" stops
 /// being true the first time someone edits one and not the other.

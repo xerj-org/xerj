@@ -397,6 +397,15 @@ pub trait EdgeDetector: Sync {
     /// implements it must return early for families it does not read — this is
     /// the hot path of Phase B.
     fn detect_record(&self, _ctx: &RecordCtx<'_>, _out: &mut Vec<EdgeDraft>) {}
+    /// A record of a file this run did NOT re-read — unchanged since an earlier
+    /// run, or finished by an interrupted one — loaded back from the index by
+    /// the caller and offered before `detect_corpus`. For detectors whose
+    /// corpus pass must be a function of the corpus rather than of which files
+    /// this invocation happened to read (email-thread: a reply in `Inbox`
+    /// names a parent in an unchanged `Sent`). The detector itself still does
+    /// no network: `ctx.fields` holds what the caller fetched. Emits nothing
+    /// here; whatever it learns comes out of `detect_corpus`. Default: no-op.
+    fn carry_over(&self, _ctx: &RecordCtx<'_>) {}
     /// Corpus-structural detection, called once after Phase A — before any
     /// file is read, so it sees identities and paths only. Default: no-op.
     fn detect_structure(&self, _corpus: &CorpusIndex, _out: &mut Vec<EdgeDraft>) {}
@@ -763,6 +772,132 @@ pub fn invalidate_edges_by_field(
     Err(anyhow!(
         "edge invalidation for {field}={value} still found live edges after {MAX_PASSES} passes"
     ))
+}
+
+/// Hits per page of the carry-over scans ([`scan_by_id`]).
+pub const SCAN_PAGE: usize = 1000;
+/// Values per `terms` filter in the carry-over scans. A corpus can hold tens
+/// of thousands of un-re-read `.eml` files; one filter naming all of them is a
+/// request body nobody sized, so the list is walked in slices.
+pub const SCAN_TERMS: usize = 256;
+
+/// Every hit of `query` on `index`, in `_id` order, paged with `search_after`
+/// so the walk is complete at any size (a `from`/`size` window is not). A
+/// missing index holds nothing and is not an error. Returns the hit count.
+pub fn scan_by_id(
+    es: &Es,
+    index: &str,
+    query: &Value,
+    source: &Value,
+    each: &mut dyn FnMut(&str, &serde_json::Map<String, Value>),
+) -> Result<u64> {
+    let mut seen = 0u64;
+    let mut search_after: Option<Value> = None;
+    loop {
+        let mut body = json!({
+            "size": SCAN_PAGE,
+            "sort": [{"_id": "asc"}],
+            "_source": source,
+            "query": query,
+        });
+        if let Some(after) = &search_after {
+            body["search_after"] = after.clone();
+        }
+        let Some(resp) = es.search_present(index, &body)? else {
+            return Ok(seen);
+        };
+        let hits = resp
+            .pointer("/hits/hits")
+            .and_then(Value::as_array)
+            .ok_or_else(|| anyhow!("scan of {index} returned no hits array"))?;
+        let empty = serde_json::Map::new();
+        for hit in hits {
+            let id = hit
+                .get("_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("scan hit without _id in {index}"))?;
+            let fields = hit
+                .get("_source")
+                .and_then(Value::as_object)
+                .unwrap_or(&empty);
+            each(id, fields);
+            seen += 1;
+        }
+        if hits.len() < SCAN_PAGE {
+            return Ok(seen);
+        }
+        search_after = hits.last().and_then(|hit| hit.get("sort")).cloned();
+        if search_after.is_none() {
+            return Err(anyhow!(
+                "a full page of {index} came back without a continuation sort key"
+            ));
+        }
+    }
+}
+
+/// Soft-invalidate every LIVE edge of `edge_type` taught by one of `src_files`
+/// whose `edge_id` is not in `keep`.
+///
+/// The counterpart of [`EdgeDetector::carry_over`]: the caller re-derived the
+/// edges of files it did not re-read and hands over the ids that still hold.
+/// A live edge that is not among them names a parent that moved (a compacted
+/// mailbox shifts every later node id) or left the corpus — it would otherwise
+/// stay live pointing at a node that no longer exists. Same soft-invalidate as
+/// [`invalidate_edges_by_field`]: the bi-temporal record survives.
+pub fn invalidate_edges_except(
+    es: &Es,
+    edges_index: &str,
+    edge_type: &str,
+    src_files: &[&str],
+    keep: &std::collections::HashSet<String>,
+    now_ms: i64,
+) -> Result<u64> {
+    let mut stale: Vec<(String, serde_json::Map<String, Value>)> = Vec::new();
+    for slice in src_files.chunks(SCAN_TERMS) {
+        let query = json!({"bool": {
+            "filter": [
+                {"term": {"type": edge_type}},
+                {"terms": {"src_file": slice}}
+            ],
+            "must_not": [{"exists": {"field": "invalid_at"}}]
+        }});
+        scan_by_id(es, edges_index, &query, &json!(true), &mut |id, source| {
+            if !keep.contains(id) {
+                stale.push((id.to_string(), source.clone()));
+            }
+        })?;
+    }
+    if stale.is_empty() {
+        return Ok(0);
+    }
+    for batch in stale.chunks(SCAN_PAGE) {
+        let mut body = Vec::new();
+        for (id, source) in batch {
+            let mut source = source.clone();
+            source.insert("invalid_at".into(), json!(now_ms));
+            source.insert("expired_at".into(), json!(now_ms));
+            body.extend_from_slice(
+                json!({"index": {"_index": edges_index, "_id": id}})
+                    .to_string()
+                    .as_bytes(),
+            );
+            body.push(b'\n');
+            body.extend_from_slice(Value::Object(source).to_string().as_bytes());
+            body.push(b'\n');
+        }
+        let outcome = es.bulk(body).context("invalidate superseded edges")?;
+        if outcome.server_errors > 0 || outcome.item_errors > 0 {
+            return Err(anyhow!(
+                "invalidation of superseded {edge_type} edges was partial: {}",
+                outcome
+                    .first_server_error
+                    .or(outcome.first_error)
+                    .unwrap_or_else(|| "unknown bulk error".into())
+            ));
+        }
+    }
+    es.refresh(edges_index)?;
+    Ok(stale.len() as u64)
 }
 
 /// Soft-invalidate every live edge a file taught (`src_file` == `rel`). The

@@ -1526,8 +1526,10 @@ struct GraphRt {
     /// detector tag → edges written this run (run-summary honesty §6.6.4).
     written: Mutex<std::collections::BTreeMap<&'static str, u64>>,
     self_dropped: AtomicU64,
-    /// Prior-generation edges soft-invalidated before this run's writes.
-    invalidated: u64,
+    /// Edges soft-invalidated by this run: prior-generation edges of replaced
+    /// files (before this run's writes) plus edges of un-re-read mail files
+    /// that the corpus-wide pass superseded (after them).
+    invalidated: AtomicU64,
 }
 
 /// Text-section locator → human label ("section 3", "page 2 section 0").
@@ -4067,6 +4069,117 @@ fn sweep_excluded_groups(
     Ok(())
 }
 
+/// What [`carry_over_unread_mail`] loaded.
+#[derive(Default)]
+struct CarriedMail {
+    /// Rel paths of the mail files that were carried over (sorted).
+    rels: std::collections::BTreeSet<String>,
+    /// Message nodes offered to the detectors.
+    messages: u64,
+}
+
+/// Offer the detectors the message nodes of every mail file this run did NOT
+/// re-read, loaded back from the index (`EdgeDetector::carry_over`).
+///
+/// `email-thread@1` resolves replies at the end of a run, over the messages it
+/// was shown. Shown only the files an incremental run re-read, a reply in a
+/// changed `Inbox` to a message in an unchanged `Sent` resolved against
+/// nothing and its edge was lost; and an unchanged file's reply into a
+/// compacted mailbox kept a live edge to a node id that no longer existed
+/// (review finding on PR #949). Both are the same defect — resolution over the
+/// run instead of over the corpus — and this is the other half of the corpus.
+///
+/// It runs only when it can matter: some mail file was NOT re-read, and either
+/// some mail file WAS, or the previous invocation never reached its summary
+/// (its corpus pass may not have run), or an exclusion sweep removed files
+/// (`force`). A one-mailbox Takeout never pays for it — a changed mailbox is
+/// re-read whole, an unchanged one changes nothing — and neither does a no-op
+/// re-run of a finished corpus.
+///
+/// Read-only. The scan names the files it wants (`ax_file`, in slices) and the
+/// one locator shape that is a message node, and asks for five small fields.
+fn carry_over_unread_mail(
+    es: &Es,
+    gr: &GraphRt,
+    index_of_slug: &HashMap<&str, &str>,
+    reread: &std::collections::HashSet<&str>,
+    force: bool,
+) -> Result<CarriedMail> {
+    let is_mail = |f: &detect::CorpusFile| matches!(f.family.as_str(), "eml" | "mbox");
+    let mut unread: Vec<&detect::CorpusFile> = Vec::new();
+    let mut reread_mail = false;
+    for f in gr.corpus.files.values().filter(|f| is_mail(f)) {
+        if reread.contains(f.rel.as_str()) {
+            reread_mail = true;
+        } else {
+            unread.push(f);
+        }
+    }
+    if unread.is_empty() || !(reread_mail || force) {
+        return Ok(CarriedMail::default());
+    }
+    // One scan per (index, slice of files). BTreeMap: request order is a
+    // function of the corpus.
+    let mut by_index: std::collections::BTreeMap<&str, Vec<&detect::CorpusFile>> =
+        std::collections::BTreeMap::new();
+    for f in &unread {
+        if let Some(index) = index_of_slug.get(f.dataset_slug.as_str()) {
+            by_index.entry(index).or_default().push(f);
+        }
+    }
+    let source = json!([
+        "ax_path",
+        "ax_locator",
+        "email_message_id",
+        "email_in_reply_to",
+        "email_references"
+    ]);
+    let mut carried = CarriedMail::default();
+    for (index, group) in by_index {
+        // What an interrupted run published is not searchable until refreshed.
+        es.refresh(index)
+            .with_context(|| format!("refresh {index} before the mail carry-over scan"))?;
+        for slice in group.chunks(detect::SCAN_TERMS) {
+            let keys: Vec<&str> = slice.iter().map(|f| f.file_key.as_str()).collect();
+            let query = json!({"bool": {"filter": [
+                {"terms": {"ax_file": keys}},
+                {"bool": {"should": [
+                    {"term": {"ax_locator": "msg-s0"}},
+                    {"wildcard": {"ax_locator": "m*-msg-s0"}}
+                ], "minimum_should_match": 1}}
+            ]}});
+            detect::scan_by_id(es, index, &query, &source, &mut |id, fields| {
+                let file = fields
+                    .get("ax_path")
+                    .and_then(Value::as_str)
+                    .and_then(|rel| gr.corpus.files.get(rel))
+                    .filter(|f| is_mail(f) && !reread.contains(f.rel.as_str()));
+                let (Some(file), Some(locator)) =
+                    (file, fields.get("ax_locator").and_then(Value::as_str))
+                else {
+                    return;
+                };
+                let ctx = detect::RecordCtx {
+                    corpus: &gr.corpus,
+                    file,
+                    locator,
+                    doc_id: id,
+                    fields,
+                };
+                for det in &gr.detectors {
+                    det.carry_over(&ctx);
+                }
+                carried.messages += 1;
+            })
+            .with_context(|| format!("scan {index} for the message nodes of un-re-read mail"))?;
+        }
+    }
+    // Every un-re-read mail file is "carried", including one whose scan found
+    // nothing: its live edges are re-judged either way.
+    carried.rels = unread.iter().map(|f| f.rel.clone()).collect();
+    Ok(carried)
+}
+
 /// The edges index this run's graph writes to, or `None` when there is none to
 /// sweep: `--no-graph`, or a brain name that fails validation (a run that could
 /// never have written edges — the graph phase bails on it before any write).
@@ -5107,6 +5220,11 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     //
     // It runs before the #238 junk sweep below on purpose: a refused rerun
     // must compute nothing and mutate nothing.
+    // An exclusion sweep removes a file's documents without this run re-reading
+    // anything; a reply edge from a surviving mailbox into the swept one would
+    // stay live. The corpus-wide mail pass below re-derives those edges when
+    // this is set (see `carry_over_unread_mail`).
+    let mut swept_excluded = false;
     if resumed_with_plan {
         let delta = UnsupportedInventoryDelta::between(&cfg.root, &files, &keys, &plan);
         if delta.refuses() {
@@ -5115,6 +5233,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         // #589: sweep documents left behind by a widened exclusion (see gate
         // above). Genuine deletions still refuse; never mutate under --dry-run.
         if !delta.excluded_content_groups.is_empty() && !cfg.dry_run {
+            swept_excluded = true;
             let edges_index = graph_edges_index(&cfg);
             sweep_excluded_groups(
                 &es,
@@ -5485,6 +5604,9 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // Snapshot whether live records may already exist before this run starts
     // any new publication intents. Fresh first publications can skip the
     // delete/refresh round trip; replacements and crash repairs cannot.
+    // Read before the journal moves behind its mutex: did the previous
+    // invocation reach its summary? (`Journal::interrupted`.)
+    let journal_interrupted = journal.interrupted;
     let mut cleanup_required: std::collections::HashSet<String> = journal
         .done
         .keys()
@@ -5824,7 +5946,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
             created_at_ms,
             written: Mutex::new(written),
             self_dropped: AtomicU64::new(assembled.self_dropped),
-            invalidated,
+            invalidated: AtomicU64::new(invalidated),
         })
     };
 
@@ -6543,11 +6665,55 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     if let Some(gr) = &graph {
         if bulk_errors.lock().unwrap().is_empty() {
             pr.phase("graph-corpus", gr.detectors.len() as u64, 0);
+            // Mail files this run did not re-read still belong to the corpus
+            // the thread edges are a function of. Their message nodes come
+            // back from the index BEFORE the corpus pass, so the pass resolves
+            // over every message, not over the ones this invocation read.
+            let reread: std::collections::HashSet<&str> =
+                todo_set.iter().map(|&i| files[i].rel.as_str()).collect();
+            let index_of_slug: HashMap<&str, &str> = ds_rt
+                .iter()
+                .map(|(slug, rt)| (slug.as_str(), rt.index.as_str()))
+                .collect();
+            let carried = match carry_over_unread_mail(
+                &es,
+                gr,
+                &index_of_slug,
+                &reread,
+                journal_interrupted || swept_excluded,
+            ) {
+                Ok(carried) => carried,
+                Err(e) => {
+                    bulk_errors.lock().unwrap().push(format!(
+                        "carry over un-re-read mail for thread edges: {e:#}"
+                    ));
+                    CarriedMail::default()
+                }
+            };
+            if carried.messages > 0 {
+                pr.note(&format!(
+                    "graph: {} message(s) of {} mail file(s) this run did not re-read were \
+                     loaded back from the index so reply edges resolve over the whole corpus",
+                    carried.messages,
+                    carried.rels.len()
+                ));
+            }
             let mut drafts = Vec::new();
             for det in &gr.detectors {
                 det.detect_corpus(&gr.corpus, &mut drafts);
                 pr.item_done(0);
             }
+            // The edges of carried files that STILL hold, by id. Anything live
+            // under those files that is not in here was superseded.
+            let carried_keep: std::collections::HashSet<String> = drafts
+                .iter()
+                .filter(|d| {
+                    d.edge_type == detect::emailthread::REPLIES_TO
+                        && carried.rels.contains(&d.src_file)
+                        && d.src != d.dst
+                })
+                .map(|d| detect::edge_id(&d.src, d.edge_type, &d.dst, d.valid_at_ms))
+                .collect();
             if !drafts.is_empty() {
                 let out = detect::assemble(&drafts, &gr.edges_index, gr.created_at_ms);
                 gr.self_dropped
@@ -6582,6 +6748,28 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
                             *written.entry(edge.detector).or_default() += 1;
                         }
                     }
+                }
+            }
+            // AFTER the new edges are written, never before: a crash between
+            // the two leaves a superseded edge live for one more run, not a
+            // reply with no edge at all.
+            if !carried.rels.is_empty() && bulk_errors.lock().unwrap().is_empty() {
+                let rels: Vec<&str> = carried.rels.iter().map(String::as_str).collect();
+                match detect::invalidate_edges_except(
+                    &es,
+                    &gr.edges_index,
+                    detect::emailthread::REPLIES_TO,
+                    &rels,
+                    &carried_keep,
+                    gr.created_at_ms,
+                ) {
+                    Ok(n) => {
+                        gr.invalidated.fetch_add(n, Ordering::Relaxed);
+                    }
+                    Err(e) => bulk_errors
+                        .lock()
+                        .unwrap()
+                        .push(format!("invalidate superseded reply edges: {e:#}")),
                 }
             }
         }
@@ -7085,7 +7273,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
             "edges_ambiguous": counters.ambiguous,
             "edges_capped": counters.capped,
             "edges_self_dropped": gr.self_dropped.load(Ordering::Relaxed),
-            "edges_invalidated": gr.invalidated,
+            "edges_invalidated": gr.invalidated.load(Ordering::Relaxed),
         })
     });
     // A resume intentionally reuses and upserts the durable run id. Timing
