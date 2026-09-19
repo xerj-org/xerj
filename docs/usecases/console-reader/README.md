@@ -126,3 +126,32 @@ guest). In short:
 | the catalog's own sample (`match` on `text`) | catalog body 1 hit, Reader 0 | Reader 1 |
 | `TERM zebrafish` | ran `match_all` | `NOT SEARCHED`, with the syntax |
 | guest card, 9 emails of which 1 has no `Message-ID` | `emails 8` | `emails 9` |
+
+### A mailbox file
+
+A mailbox (mbox) holds many messages in one file, so every record of it shares
+one `ax_file`. The mbox ingest in [#949](https://github.com/xerj-org/xerj/pull/949)
+tells the messages apart by a locator prefix, `m<offset>-` (`m812-msg-s0`,
+`m812-att0-p3-s0`), and the Reader narrows its join to that prefix.
+`mkmbox.py` writes one mailbox with five messages; `run-mbox.sh` indexes it and
+`mbox-repro.mjs` records what the Reader shows. The binary has to carry the
+mbox extractor: a binary built from this branch alone indexes no mailbox
+messages, and the script stops.
+
+```sh
+./review-repro/run-mbox.sh /path/to/xerj [port]     # default 9570 (+1 REST, +2 gRPC)
+```
+
+[`mbox-repro.json`](./review-repro/mbox-repro.json) (2026-09-19) is a run of a
+binary built from this branch merged locally with #949's head `69b0e8ba` (the
+merge was a throwaway and was not pushed). In short:
+
+| | joined on `ax_file` alone | this branch |
+| --- | --- | --- |
+| attachments listed for each of the 5 messages | all 5 names of the mailbox, for every message | each message's own: `report.pdf`, `notes.txt` / none / `scan.pdf` ×2 / `nomid.txt` / `invoice.pdf` |
+| `FROM EMAIL` of `invoice.pdf` | `Quarterly report 2026` (the mailbox's first message) | `Invoice 9120 attached` |
+| guest card, 5 messages, 1 without a `Message-ID` | 4 by `email_message_id` | `emails 5` |
+
+With #949, `match` on `body` for `Quarterly` finds the message (1 hit),
+because #949 puts the subject at the head of the first body section, while
+`match` on the keyword `email_subject` finds 0. The Reader searches both.

@@ -28,7 +28,10 @@ indexed on this engine?".
   After a second `xerj brain` over another folder that lands in the same
   index, the card shows the second folder's files and formats beside the
   combined record count. The card labels those facts `last run`. A guest's
-  card is counted from the index itself and does not have this limit.
+  card is counted from the index itself and does not have this limit: records,
+  emails (one per message: a `msg-s0` or `m<offset>-msg-s0` record, so an
+  email without a `Message-ID` and a long email each count once), attachment
+  records and formats.
 - A sample query opens the Reader with the sample's **text** in the search box
   and run over the Reader's search fields (below). The field the sample was
   written for is always among them, so the Reader finds what the catalog's own

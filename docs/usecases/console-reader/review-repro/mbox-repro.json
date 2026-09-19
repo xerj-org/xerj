@@ -1,0 +1,186 @@
+{
+  "recorded": "2026-09-19",
+  "truth": {
+    "Quarterly report 2026": [
+      "report.pdf",
+      "notes.txt"
+    ],
+    "Lunch on Friday?": [],
+    "Two scans, same name": [
+      "scan.pdf",
+      "scan.pdf"
+    ],
+    "No message id in this one": [
+      "nomid.txt"
+    ],
+    "Invoice 9120 attached": [
+      "invoice.pdf"
+    ]
+  },
+  "index": "ax-docs",
+  "mapping": {
+    "body": "text",
+    "email_subject": "keyword",
+    "title": "text",
+    "attachment_name": "keyword",
+    "ax_locator": "keyword",
+    "ax_file": "keyword"
+  },
+  "messages": [
+    {
+      "subject": "Quarterly report 2026",
+      "locator": "m0-msg-s0",
+      "format": "mbox",
+      "messageId": "q1@acme.example"
+    },
+    {
+      "subject": "Lunch on Friday?",
+      "locator": "m2424-msg-s0",
+      "format": "mbox",
+      "messageId": "lunch@acme.example"
+    },
+    {
+      "subject": "Two scans, same name",
+      "locator": "m2743-msg-s0",
+      "format": "mbox",
+      "messageId": "scans@acme.example"
+    },
+    {
+      "subject": "No message id in this one",
+      "locator": "m5199-msg-s0",
+      "format": "mbox",
+      "messageId": null
+    },
+    {
+      "subject": "Invoice 9120 attached",
+      "locator": "m5889-msg-s0",
+      "format": "mbox",
+      "messageId": "inv@acme.example"
+    }
+  ],
+  "filesHoldingTheMessages": 1,
+  "before": {
+    "Quarterly report 2026": {
+      "attachmentRecordsJoined": 9,
+      "names": [
+        "invoice.pdf",
+        "nomid.txt",
+        "notes.txt",
+        "report.pdf",
+        "scan.pdf"
+      ]
+    },
+    "Lunch on Friday?": {
+      "attachmentRecordsJoined": 9,
+      "names": [
+        "invoice.pdf",
+        "nomid.txt",
+        "notes.txt",
+        "report.pdf",
+        "scan.pdf"
+      ]
+    },
+    "Two scans, same name": {
+      "attachmentRecordsJoined": 9,
+      "names": [
+        "invoice.pdf",
+        "nomid.txt",
+        "notes.txt",
+        "report.pdf",
+        "scan.pdf"
+      ]
+    },
+    "No message id in this one": {
+      "attachmentRecordsJoined": 9,
+      "names": [
+        "invoice.pdf",
+        "nomid.txt",
+        "notes.txt",
+        "report.pdf",
+        "scan.pdf"
+      ]
+    },
+    "Invoice 9120 attached": {
+      "attachmentRecordsJoined": 9,
+      "names": [
+        "invoice.pdf",
+        "nomid.txt",
+        "notes.txt",
+        "report.pdf",
+        "scan.pdf"
+      ]
+    },
+    "parentOf_invoice_pdf": "Quarterly report 2026",
+    "emailsCountedByMessageId": 4
+  },
+  "engine": {
+    "match body Quarterly": 1,
+    "match email_subject Quarterly": 0
+  },
+  "after": {
+    "readerAttachmentList": {
+      "Quarterly report 2026": {
+        "head": "ATTACHMENTS · 2",
+        "attachments": [
+          "report.pdf",
+          "notes.txt"
+        ],
+        "saysIncomplete": false
+      },
+      "Lunch on Friday?": {
+        "head": "no attachment block",
+        "attachments": [],
+        "saysIncomplete": false
+      },
+      "Two scans, same name": {
+        "head": "ATTACHMENTS · 2",
+        "attachments": [
+          "scan.pdf",
+          "scan.pdf"
+        ],
+        "saysIncomplete": false
+      },
+      "No message id in this one": {
+        "head": "ATTACHMENTS · 1",
+        "attachments": [
+          "nomid.txt"
+        ],
+        "saysIncomplete": false
+      },
+      "Invoice 9120 attached": {
+        "head": "ATTACHMENTS · 1",
+        "attachments": [
+          "invoice.pdf"
+        ],
+        "saysIncomplete": false
+      }
+    },
+    "parentOf_invoice_pdf": "Invoice 9120 attached",
+    "readerSearch": {
+      "match Quarterly": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "Quarterly report 2026"
+        ]
+      },
+      "match lunch": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "Lunch on Friday?"
+        ]
+      },
+      "phrase Lunch on": {
+        "head": "1 RESULT · CLICK TO OPEN",
+        "first": [
+          "Lunch on Friday?"
+        ]
+      }
+    },
+    "guestCard": "DATASETax-docs15 recordsemails 5attachment records 9formats mbox 15OPEN IN READER",
+    "inert": {
+      "pwned": 0,
+      "csp": 0,
+      "consoleApiRequests": 0
+    }
+  }
+}
