@@ -93,6 +93,15 @@
       "summary": "Our capture ran agent memory on one XERJ process with three loopback sockets, no second data service, and a peak resident size of 100,928 kB."
     },
     {
+      "title": "Does XERJ support S3, alerting or custom plugins?",
+      "question": "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?",
+      "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
+      "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
+      "cluster": "Capabilities and limits",
+      "updated": "2026-09-19",
+      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+    },
+    {
       "title": "Audit a PHP codebase with an index, not grep",
       "question": "How do I search a large PHP repo for dangerous sinks without reading every file?",
       "canonical_url": "https://xerj.org/answers/audit-php-codebase-with-an-index",
@@ -404,7 +413,7 @@
       "canonical_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally",
       "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
       "cluster": "Folder indexing",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
     },
     {
@@ -476,7 +485,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first",
       "markdown_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with the exact extraction command; the run continues. Index the extracted folder."
     },
     {

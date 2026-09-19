@@ -1,0 +1,15 @@
+# AMD RYZEN AI MAX+ 395 w/ Radeon 8060S, 32 hardware threads; shared box, loadavg at start: 21.08 19.72 19.85
+# args: corpus.jsonl 400 <callers> <passages_per_call>
+# default intra-op threads, 1 caller, 64-passage windows (what one _bulk request does today)
+rayon_threads=default workers=1   window=64  passages=1542 mean_tokens=98 wall=49.52s passages/s=31.1 cpu_s=173.9 avg_cores_busy=3.5
+# RAYON_NUM_THREADS=1, N callers sharing one model, 16-passage calls
+rayon_threads=1   workers=1   window=16  passages=1542 mean_tokens=98 wall=85.74s passages/s=18.0 cpu_s=85.7 avg_cores_busy=1.0
+rayon_threads=1   workers=4   window=16  passages=1542 mean_tokens=98 wall=23.08s passages/s=66.8 cpu_s=91.2 avg_cores_busy=4.0
+rayon_threads=1   workers=8   window=16  passages=1542 mean_tokens=98 wall=13.55s passages/s=113.8 cpu_s=104.2 avg_cores_busy=7.7
+rayon_threads=1   workers=16  window=16  passages=1542 mean_tokens=98 wall=9.63s passages/s=160.1 cpu_s=141.6 avg_cores_busy=14.7
+rayon_threads=1   workers=32  window=16  passages=1542 mean_tokens=98 wall=9.12s passages/s=169.1 cpu_s=168.1 avg_cores_busy=18.4
+# default intra-op threads, N callers, 16-passage calls
+rayon_threads=default workers=4   window=16  passages=1542 mean_tokens=98 wall=19.95s passages/s=77.3 cpu_s=237.8 avg_cores_busy=11.9
+rayon_threads=default workers=8   window=16  passages=1542 mean_tokens=98 wall=13.57s passages/s=113.7 cpu_s=227.7 avg_cores_busy=16.8
+rayon_threads=default workers=16  window=16  passages=1542 mean_tokens=98 wall=11.41s passages/s=135.1 cpu_s=213.1 avg_cores_busy=18.7
+# loadavg at end: 31.34 21.10 20.07

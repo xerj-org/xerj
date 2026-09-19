@@ -2,7 +2,7 @@
 ---
 title: "Why autoindex refuses a .zip and asks you to extract it"
 canonical: "https://xerj.org/answers/autoindex-says-extract-the-archive-first"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/autoindex-says-extract-the-archive-first.md"
 ---
 

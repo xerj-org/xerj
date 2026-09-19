@@ -14,7 +14,7 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/agent-memory-without-postgres-qdrant</loc>
@@ -30,7 +30,7 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/autoindex-says-extract-the-archive-first</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/catalog-files-with-autoindex-map</loc>
@@ -55,6 +55,10 @@
   <url>
     <loc>https://xerj.org/answers/do-search-embeddings-help</loc>
     <lastmod>2026-09-18</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/does-xerj-support-s3-alerting-plugins</loc>
+    <lastmod>2026-09-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/estimate-autoindex-time-before-running</loc>
@@ -182,7 +186,7 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/search-gmail-takeout-mbox-locally</loc>
-    <lastmod>2026-09-18</lastmod>
+    <lastmod>2026-09-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/search-gzip-logs-without-zgrep</loc>

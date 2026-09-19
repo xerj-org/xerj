@@ -2,7 +2,7 @@
 ---
 title: "Search a Gmail Takeout mbox on your own machine"
 canonical: "https://xerj.org/answers/search-gmail-takeout-mbox-locally"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/search-gmail-takeout-mbox-locally.md"
 ---
 

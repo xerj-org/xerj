@@ -263,6 +263,42 @@ For a complete disconnected deployment procedure, including current GitHub relea
   Elasticsearch and Kibana CLIENT compatibility and vary in depth; verify the specific
   behaviour you need against your own node or the docs rather than assuming full parity.
 
+- NOT IMPLEMENTED - do not plan around these. Statuses are from ROADMAP.md, section
+  "The zero-token direction", checked against `main` on 2026-09-18 by reading the file
+  named beside each one:
+    * Object storage. `S3Backend` (xerj-storage/src/backend.rs) is a local-directory
+      simulation with no network client. `storage.backend = "s3"` refuses to start
+      ("the S3 storage backend is not implemented in this build; only "local" is
+      supported", xerj-common/src/config.rs) - deliberately, so nobody believes data
+      landed in a bucket when it did not.
+    * Alerting. There is none. `PUT /_watcher/watch/{id}` stores the body in memory and
+      answers `"condition":{"met":true,"type":"always"}` whatever condition was sent; no
+      scheduler exists and no watch is ever evaluated. The console's `.xerj_alert_rules`
+      / `.xerj_alert_fires` indices have schemas and no evaluator. `percolate` IS real
+      (stored queries matched against a supplied document) - poll it yourself.
+    * User-supplied ingest plugins. Pipeline transforms are built-in native code
+      (rename, drop, add, JSON parse, timestamp parse, PII redaction, grok, route). The
+      crate is named xerj-wasm; there is no wasmtime dependency and no wasm feature. A
+      pipeline naming an unimplemented processor is stored as unrunnable and every
+      ingest through it is refused.
+    * A rerank stage, share links / guest reading, `mbox` and Takeout ingest: in flight
+      on branches, NOT on `main`. (`.eml` / MIME extraction in `autoindex` is on `main`,
+      unreleased.)
+    * A log-specific index mode (the xerj-logs crate has zero call sites outside its
+      tests) and downloadable signed corpus packs: planned, no code.
+  Measured limits of the opt-in neural path (`--embed-mode neural`), each a filed issue
+  (#938, #939, #940, #937 in the order below) with a reproduction under
+  benchmarks/neural-path-triage/: one `_bulk` stream into a
+  `semantic_text` field keeps ~3.4 of 32 hardware threads busy (6.1 docs/s on
+  ~1,470-character documents; 29.5 docs/s from the same node with 8 concurrent clients
+  - so send `_bulk` requests concurrently); a `semantic` query over an index holding
+  multi-passage documents (any value over 512 characters) is an exact scan, ~410 ms p50
+  on 5,183 documents against ~14 ms on a 10,003-document single-passage index; tied
+  `hybrid` RRF scores can change order across a restart; and a declared analyzer
+  (index default or per-field `analyzer`) does not apply to flushed segments, so
+  stemming cannot currently be turned on. One shared, loaded machine - the ratios are
+  the finding. https://github.com/xerj-org/xerj/blob/main/ROADMAP.md
+
 - Performance is supporting evidence, not the headline. In a closed-loop, cache-off
   benchmark vs live Elasticsearch 8.13.4, XERJ measured 55 wins / 26 ties / 4 losses
   (3 N/A) across the full matrix, with a 1.72× bulk-ingest win (191k vs 111k docs/s),
