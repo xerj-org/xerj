@@ -8,12 +8,12 @@ source: "content/answers/search-gmail-takeout-mbox-locally.md"
 
 # I exported my Gmail with Google Takeout. How do I search that mbox file locally?
 
-**TL;DR** — Unzip the Takeout download, run `xerj autoindex` on the folder with its own `--prefix`, then search the mailbox over HTTP. The mbox is recognised by its content and streamed one message at a time. Attached PDFs become per-page documents linked to their message. Senders are filterable by bare address, and Gmail thread ids and reply headers become filters and graph edges. With the default embedder, which is lexical (feature hashing, not neural), no message text leaves your machine. The node's memory is the limit today: plan on a few hundred MB of mail on a laptop, not gigabytes.
+**TL;DR** — Unzip the Takeout download, run `xerj autoindex` on the folder with its own `--prefix`, then search the mailbox over HTTP. The mbox is recognised by its content and streamed one message at a time. Attached PDFs become per-page documents linked to their message. Senders are filterable by bare address, and Gmail thread ids and reply headers become filters and graph edges. With the default embedder, which is lexical (feature hashing, not neural), no message text leaves your machine. The node's memory is the limit today: at a 16 GiB laptop's memory cap, a 300 MB mailbox already drove the node past that laptop's RAM in our runs.
 
 ## Agent prompt
 
 ```text
-Act as a coding agent. Read https://xerj.org/llms.txt. The user has a Google Takeout download, which is private mail. Unzip it first (autoindex does not open archives), start a node with `xerj --insecure --data-dir ~/xerj-data` on the user's own machine, run `xerj autoindex <unzipped folder> --url http://127.0.0.1:9200 --prefix mail --progress plain`, and relay the xerj-bar line while it runs. Before a mailbox over a few hundred MB, tell the user the node's memory limit (#948). Answer questions with term filters on email_from_address / email_thread_id (hex) / attachment_name and match or match_phrase on body, which also holds the subject. Cite ax_locator and email_subject for every hit. If you file a field report, pass --pointed-at "a private mailbox" so the folder path is not published.
+Act as a coding agent. Read https://xerj.org/llms.txt. The user has a Google Takeout download, which is private mail. Unzip it first (autoindex does not open archives), start a node with `xerj --insecure --data-dir ~/xerj-data` on the user's own machine, run `xerj autoindex <unzipped folder> --url http://127.0.0.1:9200 --prefix mail --progress plain`, and relay the xerj-bar line while it runs. Before indexing, tell the user the node's memory limit (#948): at a 16 GiB laptop's cap, a 300 MB mailbox drove the node to 18-20 GiB. Answer questions with term filters on email_from_address / email_thread_id (hex) / attachment_name and match or match_phrase on body, which also holds the subject. Cite ax_locator and email_subject for every hit. If you file a field report, pass --pointed-at "a private mailbox" so the folder path is not published.
 ```
 
 ## Commands
@@ -136,9 +136,9 @@ A 16 GiB laptop's default cap is 8 GiB. A 300 MB synthetic mailbox run at that c
 
 The breaker stops accepting new work at the cap, but work already accepted keeps growing. We have not run it on a 16 GiB machine. This is the engine's memory while it indexes, filed as [#948](https://github.com/xerj-org/xerj/issues/948).
 
-Until it is fixed, treat a few hundred MB of mail as the most a laptop-class node can take.
+Until it is fixed, do not count on a 16 GiB laptop for more than a small mailbox. We have not measured where that limit is, only that 300 MB is past it on our machine.
 
-**Searching after a restart is uneven.** We reopened the same 1 GB index on a fresh node under the default cap. Some first-time questions took about 10–25 ms, and others took several seconds. In two measurements, 16 and 17 of 40 queries took over a second, and the slowest took 16.6 s.
+**Searching after a restart is uneven.** We reopened the same 1 GB index on a fresh node under the default cap. Most first-time questions took under 50 ms, and others took several seconds. In two measurements, 16 and 17 of 40 queries took over a second, and the slowest took 16.6 s.
 
 With the cap lifted, 4 of 40 did. Every answer was correct. The machine was shared during those runs, so treat the seconds as upper bounds. This is reported on #948 as well.
 

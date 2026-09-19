@@ -249,14 +249,14 @@ bytes; the two are not mixed in one ratio.
   its own cap and more than a 16 GiB laptop has: the memory breaker stops
   *admitting* work at the watermark, and work already admitted keeps growing.
   On an actual 16 GiB laptop that means swapping or an out-of-memory kill; we
-  have not run it on one. Treat a mailbox of a few hundred MB as the most a
-  laptop-class node can take today, and a multi-GB export as not yet
-  feasible there
+  have not run it on one, and we have not measured where the laptop limit
+  is — only that 300 MB is past it here. Treat a multi-GB export as not yet
+  feasible on a laptop-class node
   ([run 1](../../benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run1.json),
   [run 2](../../benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run2.json)).
 - **Searching after a restart — the second limit.** The correctness figures
   above come from a warm node. The same 1 GB index reopened by a fresh node
-  answers a first-time question in either ~10–25 ms or **several seconds**.
+  answers a first-time question in either under 50 ms or **several seconds**.
   Under the **default** cap, 16 and 17 of 40 sampled single-term queries took
   over a second in the first pass (slowest 8.7 s and 16.6 s in two separate
   measurements), and 8 of 40 *different* queries did again in a second pass.

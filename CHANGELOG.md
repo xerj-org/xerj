@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and does not finish under its default 16 GiB cap; at a 16 GiB laptop's
   8 GiB cap a 300 MB mailbox completes with the node peaking at 18–20 GiB;
   and after a restart, a first-time query on the 1 GB index takes either
-  ~10–25 ms or seconds (up to 16.6 s measured) until the node warms.
+  under 50 ms or seconds (up to 16.6 s measured) until the node warms.
 
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**

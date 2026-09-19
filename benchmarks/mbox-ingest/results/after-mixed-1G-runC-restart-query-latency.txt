@@ -12,8 +12,8 @@
 #       the commits between them change xerj-autoindex only, not the engine's search path).
 # Every answer in every pass was correct: 40/40, one document, from the right message.
 #
-# THE FINDING (same shape in every measurement): a first-time query is either ~10-25 ms or
-# seconds, and the server log puts the whole cost in `segment_loop` of `search_inner`
+# THE FINDING (same shape in every measurement): a first-time query is either under 50 ms or
+# seconds (all 240 samples: 181 under 50 ms, 5 at 0.5-1 s, 54 over 1 s), and the server log puts the whole cost in `segment_loop` of `search_inner`
 # (e.g. "slow search_inner ... total_ms=16550 ... segment_loop=16549ms"). Under the DEFAULT cap
 # (16 GiB on this 119 GiB machine; 8 GiB on a 16 GiB laptop) the slow share stays high into the
 # second pass; with the cap lifted it falls to 1 of 40 by the second pass. The node's

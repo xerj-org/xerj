@@ -321,8 +321,8 @@ needles on the same node.
 | M2 | default 16 GiB cap | 16 → 18 | 16/40 (8.69 s) | 8/40 (8.11 s) |
 | M3 | cap lifted (`off`) | 16 → 13 | 4/40 (9.10 s) | 1/40 (1.56 s) |
 
-Every answer in every pass was right. A query is either ~10–25 ms or
-seconds, and the server log puts the whole cost in `search_inner`'s
+Every answer in every pass was right. A query is either under 50 ms or
+seconds (181 of the 240 samples under 50 ms, 54 over 1 s), and the server log puts the whole cost in `search_inner`'s
 `segment_loop`. The node logs `segment_hydration_cache_mb=3276` under the
 default cap and `24421` with it lifted; that this cache is the difference is
 an inference, not profiled. Server VmHWM after the passes: ~13.5 GB in both
