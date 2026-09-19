@@ -356,3 +356,47 @@ XERJ_MINIO_ACCESS_KEY=… XERJ_MINIO_SECRET_KEY=… \
 All load testing and every sub-second interval belongs there. Running them
 against a metered bucket would spend Class A operations from a real allowance
 for no extra information.
+
+`tests/objwatch_r2.rs` is the other half: one bounded run against Cloudflare R2,
+because only R2 can prove R2. It is capped in the code at 24 objects of at most
+512 bytes, deletes what it created through `catch_unwind` so a failed assertion
+cannot leave objects in a metered bucket, and needs `XERJ_R2_SPEND_ACK=1` on top
+of the endpoint and credentials — the other variables could plausibly be set by a
+CI environment; that one cannot be set by accident.
+
+### The measured R2 run (2026-09-19)
+
+24 objects of 100-124 bytes under one prefix, `--page-size 10` so three pages
+exercise R2's continuation tokens:
+
+| cycle | what changed | list calls | GETs | bytes read | wall |
+|---|---|---|---|---|---|
+| 0 | first poll, 24 added | 3 | 24 | 3.2 KB | 19.91 s |
+| 1 | nothing | 3 | **0** | 0 B | 1.64 s |
+| 2 | 1 edit, 1 new, 1 delete | 3 | 2 | 53 B | 3.01 s |
+| 3 | nothing | 3 | 0 | 0 B | 1.84 s |
+| 4 | `--append-only`, fresh journal (a full pass by definition) | 3 | 24 | 2.9 KB | 14.88 s |
+| 5 | `--append-only`, tail only | **1** | 0 | 0 B | 0.51 s |
+
+The whole run cost **42 Class A operations** (26 `PutObject` to build and mutate
+the corpus, 16 `ListObjectsV2`), 50 Class B `GetObject`, and 25 free
+`DeleteObject`. The prefix was deleted afterwards and verified empty.
+
+Two things it confirmed rather than assumed:
+
+* **The quiet poll issues zero GETs against R2.** Every cost figure on this page
+  rests on that, and cycles 1 and 3 measured it.
+* **R2 changes the ETag on a rewrite**, so `reason: "etag"` is what drove the
+  re-read. The size and last-modified fallbacks exist for gateways that do not,
+  and they were not needed here.
+
+The first cycle's 19.91 s is 24 sequential HTTPS round trips from this host to
+R2, not throughput: the watcher fetches one object at a time on purpose, because
+a bucket-wide first poll that opened 24 connections would be a thundering herd
+against the store it is watching. Concurrency there is a legitimate improvement
+and is not implemented.
+
+The 1,000-key page boundary is not re-tested against R2: `--page-size 10`
+establishes the continuation-token path for 24 objects, and proving it at the
+natural page size would cost ~1,200 more Class A operations to learn the same
+fact.
