@@ -41,9 +41,9 @@ export const aiOverview = {
           delta: data.metrics.cost.delta, deltaGood: 'down', emphasis: false,
         }),
       },
-      { id: 'savings', eyebrow: 'vs. ES + PINECONE + SPLUNK', cols: 2, type: 'metric',
+      { id: 'savings', eyebrow: 'EST · vs ES + PINECONE + SPLUNK', cols: 2, type: 'metric',
         render: () => Num({
-          value: data.metrics.savings.formatted, unit: 'saved',
+          value: data.metrics.savings.formatted, unit: 'saved (est)',
           hint:  data.metrics.savings.note,
           emphasis: false,
         }),
