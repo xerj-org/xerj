@@ -823,7 +823,7 @@ def render_hub(category: str, articles: list[article_data.Article],
         modified = max(article_modified(a, context) for a in listed)
         published = min(a.published for a in listed if a.published) or modified
     else:
-        modified = published = dt.date.today().isoformat()
+        modified = published = dt.datetime.now(dt.timezone.utc).date().isoformat()
     block = seo_head.build_block(rel, meta["title"], meta["description"],
                                  published, modified, meta)
     groups: dict[str, list[article_data.Article]] = collections.defaultdict(list)
