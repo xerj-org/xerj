@@ -4201,7 +4201,8 @@ fn a_rerun_changes_nothing(config: &IndexCfg, endpoint: &HttpEndpoint, context: 
     assert_eq!(
         published(endpoint),
         before,
-        "{context}: a full-hash re-run after a watched pass must change nothing —          the watched pass missed something"
+        "{context}: a full-hash re-run after a watched pass must change nothing — \
+         the watched pass missed something"
     );
 }
 

@@ -603,7 +603,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 })?;
                 if parsed > MAX_DEBOUNCE_MS {
                     return Err(format!(
-                        "--debounce must be from 0 to {MAX_DEBOUNCE_MS} milliseconds; past that a                          change you just made would sit unindexed for minutes"
+                        "--debounce must be from 0 to {MAX_DEBOUNCE_MS} milliseconds; past that a \
+                         change you just made would sit unindexed for minutes"
                     ));
                 }
                 debounce_ms = Some(parsed);

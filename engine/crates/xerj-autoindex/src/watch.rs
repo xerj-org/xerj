@@ -758,7 +758,11 @@ pub fn run(cfg: IndexCfg) -> Result<i32> {
     let resolved_state = state_dir.canonicalize().unwrap_or(state_dir.clone());
     anyhow::ensure!(
         !resolved_state.starts_with(&root),
-        "--watch refuses a --state-dir inside the folder it watches ({} is under {}). Every pass          writes the resume journal there, those writes are filesystem events, and the events          would start the next pass — the session would reindex forever. Put the state directory          outside the tree, or leave --state-dir off and let it default under ~/.xerj/autoindex/.",
+        "--watch refuses a --state-dir inside the folder it watches ({} is under {}). Every pass \
+         writes the resume journal there, those writes are filesystem events, and the \
+         events would start the next pass — the session would reindex forever. Put the \
+         state directory outside the tree, or leave --state-dir off and let it default \
+         under ~/.xerj/autoindex/.",
         resolved_state.display(),
         root.display()
     );
