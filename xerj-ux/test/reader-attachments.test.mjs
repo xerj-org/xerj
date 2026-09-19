@@ -212,13 +212,20 @@ test('the guest card counts one email per MESSAGE — with or without a Message-
     ...mailbox('inbox', [{ offset: 0, subject: 'first', mid: 'm1@x' }, { offset: 4711, subject: 'second', sections: 2, atts: [{ name: 's.pdf', pages: 2 }] }]),
     rec('inbox-raw', { ax_file: 'axf2-inbox', ax_locator: 'm9000-raw-s0', title: '(unparseable message)', body: 'garbage' }),
   ];
-  let sent = null;
+  // miniSearch has no aggs: the aggregation request is answered empty, the
+  // email-count QUERY is evaluated by the same clause matcher.
   const t = miniTransport(docs);
-  t.search = async (index, body) => { sent = body; return { hits: { total: { value: docs.length }, hits: [] }, aggregations: {} }; };
-  await makeReaderApi(t).indexSummary(I);
+  const inner = t.search;
+  t.search = async (index, body) => (body.aggs ? { hits: { total: { value: docs.length }, hits: [] }, aggregations: {} } : inner(index, body));
+  const summary = await makeReaderApi(t).indexSummary(I);
+  assert.equal(summary.emails, 5);
   const { miniSearch } = await import('./fixtures/mini-engine.mjs');
-  const counted = miniSearch(docs, { query: sent.aggs.emails.filter, size: 100 }).hits.hits.map((h) => h._id).sort();
+  const { EMAIL_MESSAGE_QUERY } = await import('../src/data/reader-api.js');
+  const counted = miniSearch(docs, { query: EMAIL_MESSAGE_QUERY, size: 100 }).hits.hits.map((h) => h._id).sort();
   assert.deepEqual(counted, ['a-msg', 'foreign', 'inbox-0-msg-s0', 'inbox-4711-msg-s0', 'no-id-msg']);
+  // …and it is a QUERY, never a filter aggregation: the engine's filter
+  // aggregation counts a wildcard with an inner `*` as 0 (#959).
+  assert.ok(!t.calls.some((b) => JSON.stringify(b.aggs || {}).includes('wildcard')));
 });
 
 test('PR #949 interplay: inside a MAILBOX (one ax_file, many messages) each email lists only its own attachments, and an attachment finds its own email', async () => {

@@ -52,6 +52,20 @@ export const ATTACHMENT_RECORDS_READ = 5000;
 const ATTACHMENT_SOURCE = ['attachment_name', 'attachment_content_type', 'attachment_bytes', 'page', 'ax_locator', 'ax_file', 'email_message_id'];
 /** How many records of a file are listed on its file record. */
 export const SIBLINGS_SHOWN = 200;
+/**
+ * One hit per email MESSAGE. autoindex writes `msg-s0` as the first (usually
+ * only) section of every .eml and `m<offset>-msg-s0` for every message of a
+ * mailbox (PR #949). Counting records that carry `email_message_id` instead
+ * missed every email without a Message-ID header (the PR #945 review corpus
+ * holds 9 emails and the guest card said 8) and counted a long email once per
+ * section. Records not written by autoindex (no `ax_locator`) still count by
+ * message id.
+ */
+export const EMAIL_MESSAGE_QUERY = { bool: { should: [
+  { term: { ax_locator: 'msg-s0' } },
+  { wildcard: { ax_locator: { value: 'm*-msg-s0' } } },
+  { bool: { filter: [{ exists: { field: 'email_message_id' } }], must_not: [{ exists: { field: 'attachment_name' } }, { exists: { field: 'ax_locator' } }] } },
+], minimum_should_match: 1 } };
 
 function errText(e) {
   if (!e) return 'unknown error';
@@ -488,33 +502,28 @@ export function makeReaderApi(transport) {
    */
   async function indexSummary(index, signal) {
     try {
-      const resp = await transport.search(index, {
-        size: 0,
-        track_total_hits: true,
-        query: { match_all: {} },
-        aggs: {
-          // One per MESSAGE: autoindex writes `msg-s0` as the first (usually
-          // only) section of every .eml, and `m<offset>-msg-s0` for every
-          // message of a mailbox (PR #949). Counting `email_message_id`
-          // instead missed every email without a Message-ID header (the PR
-          // #945 review corpus holds 9 emails and the card said 8) and counted
-          // a long email once per section. Records not written by autoindex
-          // (no `ax_locator`) still count by message id.
-          emails: { filter: { bool: { should: [
-            { term: { ax_locator: 'msg-s0' } },
-            { wildcard: { ax_locator: { value: 'm*-msg-s0' } } },
-            { bool: { filter: [{ exists: { field: 'email_message_id' } }], must_not: [{ exists: { field: 'attachment_name' } }, { exists: { field: 'ax_locator' } }] } },
-          ], minimum_should_match: 1 } } },
-          attachments: { filter: { exists: { field: 'attachment_name' } } },
-          formats: { terms: { field: 'ax_format', size: 12 } },
-        },
-      }, signal);
+      const [resp, emails] = await Promise.all([
+        transport.search(index, {
+          size: 0,
+          track_total_hits: true,
+          query: { match_all: {} },
+          aggs: {
+            attachments: { filter: { exists: { field: 'attachment_name' } } },
+            formats: { terms: { field: 'ax_format', size: 12 } },
+          },
+        }, signal),
+        // Emails are counted with a QUERY, not a filter aggregation: the
+        // engine's filter aggregation counts 0 for a wildcard with an inner
+        // `*` (`m*-msg-s0`) while `_count` / a query answers right (#959,
+        // measured on a mailbox: 0 vs 5).
+        transport.search(index, { size: 0, track_total_hits: true, query: EMAIL_MESSAGE_QUERY }, signal),
+      ]);
       const a = (resp && resp.aggregations) || {};
       const buckets = (a.formats && Array.isArray(a.formats.buckets)) ? a.formats.buckets : [];
       return {
         index,
         records: totalOf(resp),
-        emails: Number(a.emails && a.emails.doc_count) || 0,
+        emails: totalOf(emails),
         attachments: Number(a.attachments && a.attachments.doc_count) || 0,
         formats: buckets.map((b) => ({ key: String(b.key), count: Number(b.doc_count) || 0 })),
       };

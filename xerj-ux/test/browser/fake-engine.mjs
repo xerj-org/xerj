@@ -61,6 +61,9 @@ function isJoin(q) {
 /** Answer a `_search` body the way the engine would, over the hostile hits. */
 function searchResponse(body, state) {
   const q = body && body.query;
+  // The guest card's email count is a query of its own (reader-api.js
+  // EMAIL_MESSAGE_QUERY — not a filter aggregation, #959): evaluate it.
+  if (body && body.size === 0 && !body.aggs && q && q.bool && JSON.stringify(q).includes('m*-msg-s0')) return miniSearch(HOSTILE_HITS, body);
   if (isJoin(q)) {
     const resp = miniSearch(HOSTILE_HITS, body);
     // A test can claim the engine holds more attachment records than it returns
@@ -74,7 +77,7 @@ function searchResponse(body, state) {
   const resp = { took: 2, timed_out: false, hits: { total: { value: state && state.searchTotal ? state.searchTotal : out.length, relation: 'eq' }, max_score: 3.2, hits: body && body.size === 0 ? [] : out.slice(0, body && body.size != null ? body.size : 10) } };
   if (body && body.aggs) {
     resp.aggregations = {
-      emails: { doc_count: 1 }, attachments: { doc_count: 2 },
+      attachments: { doc_count: 2 },
       formats: { buckets: [{ key: `eml${PAYLOADS.imgOnerror}`, doc_count: 3 }, { key: 'pdf', doc_count: 2 }] },
       by__index: { buckets: [{ key: 'ax-inbox', doc_count: out.length }] },
       by_email_from: { buckets: [{ key: hostileEmail._source.email_from, doc_count: 3 }, { key: PAYLOADS.attrBreakout, doc_count: 1 }] },
