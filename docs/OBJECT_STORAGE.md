@@ -91,6 +91,18 @@ resume journal:
 {
   "version": 1,
   "source": "s3://acme-docs/handbook/",
+  "last_run": {
+    "finished": "2026-09-19T10:04:11.899Z",
+    "objects_listed": 6,
+    "objects_admitted": 5,
+    "objects_downloaded": 0,
+    "bytes_downloaded": 0,
+    "objects_unchanged_not_downloaded": 5,
+    "objects_removed_locally": 0,
+    "list_requests_class_a": 1,
+    "get_requests_class_b": 0,
+    "transfer_ms": 1
+  },
   "objects": {
     "intro.md": {
       "change_token": "etag:\"9bb58f26…\"|size:842",
@@ -105,6 +117,11 @@ resume journal:
 
 It is a transfer cache, not an index record: losing it costs a re-download and
 nothing else, which is why it is a sidecar rather than a journal entry.
+
+`last_run` beside it records what the most recent materialisation cost — the two
+request counts, what was downloaded, what was skipped as unchanged — so "what did
+this run charge me" is answerable after the terminal has scrolled, and on the
+unchanged re-run path where no fresh run document is written.
 
 A second condition has to hold as well as the token matching: the mirrored file
 must be present at the size the store reports. That is what makes a run killed
@@ -233,7 +250,18 @@ refused is named in the report rather than silently missing.
 
 An object that disappears from the bucket stops appearing in search results on
 the next run, and it does so through the reconcile machinery that already handles
-a deleted file — there is no second mechanism.
+a deleted file — there is no second mechanism. **That machinery is the generated
+`--no-graph` journal**, which reconciles add, change, delete, rename and no-op
+runs. A bucket indexed on the default graph-enabled path inherits the same limit
+a *folder* has there: the run refuses, makes no remote mutation, and prints which
+content groups vanished and the three recovery routes. This is not an
+object-store restriction — it is where corpus-generation reconcile has landed so
+far — but it decides which flag you want when the source is a live bucket:
+
+```sh
+# a bucket whose objects get deleted: use the generated journal
+xerj autoindex s3://acme-docs/handbook --no-graph
+```
 
 The mechanism: after listing, the mirror is walked and every file the store no
 longer lists is deleted from it (along with stale `.part` files and any directory
@@ -290,3 +318,32 @@ Against MinIO (`quay.io/minio/minio:latest`, loopback), from the suite in
 The suite is skipped with a printed reason when `XERJ_MINIO_ENDPOINT` is unset,
 so it never needs an account and never touches a paid store. The big-object and
 many-object cases exist so they do not have to.
+
+### End to end, against a running node
+
+The suite above stops at the mirror. These runs go all the way to search results,
+against a real `xerj` node (v1.0.0-rc.74, auth on, throwaway data dir) and a
+loopback MinIO holding six keys under `handbook/` — four small text/code objects,
+a 12 MiB log uploaded as a **real 3-part multipart** (`…-3` ETag), plus `.env`
+and a sibling `handbook-old/` prefix that must not be indexed:
+
+| Run | Requests | Result |
+| --- | --- | --- |
+| first index | **1 LIST + 5 GET** | 5 objects, 9,997 documents live in 11.3 s; `.env` skipped, `handbook-old/` never listed; searches for terms in each object return that object |
+| unchanged re-run | **1 LIST + 0 GET** | 0 records submitted, 0.1 s; the multipart object is not re-fetched |
+| one object changed | **1 LIST + 1 GET** | only the changed key is fetched, and its new text is searchable on that run |
+| one object deleted (`--no-graph`) | **1 LIST + 0 GET** | the deleted object's documents are gone from the index; every other document survives |
+
+Two facts worth stating because they were checked rather than assumed:
+
+- The mirrored 12 MiB multipart object is **byte-identical** to what was
+  uploaded (same MD5), and the same corpus indexed from a plain folder produces
+  the same document count as indexing it from the bucket — the object path is
+  not a second, weaker extraction path.
+- The deletion row needs `--no-graph`, for the reason in [Deletions](#deletions).
+
+Everything measured here is MinIO, which is S3-compatible but is not Amazon S3
+and is not R2. The `r2://` scheme, the account-host endpoint and the R2 pricing
+arithmetic above are implemented and reasoned from Cloudflare's published
+pricing; the numbers in these tables were not taken from a paid store, and this
+page does not claim they were.

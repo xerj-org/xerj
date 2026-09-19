@@ -340,11 +340,11 @@ autoindex: re-running this at the same size costs 2 class-A request(s) each time
   <p><code class="inline">.gitignore</code> and <code class="inline">.xerjignore</code> are the two exceptions to the dotfile rule: they are fetched so the bucket's own ignore rules still apply, and then not indexed.</p>
   <p>A skipped key is also money not spent — the filter runs on the listing, so <code class="inline">node_modules/</code> never costs a GET.</p>
   <h2>Deletions</h2>
-  <p>An object that disappears from the bucket stops appearing in search results on the next run, through the reconcile machinery that already handles a deleted file.</p>
+  <p>An object that disappears from the bucket stops appearing in search results on the next run, through the reconcile machinery that already handles a deleted file. That machinery is the generated <code class="inline">--no-graph</code> journal. Index a bucket whose objects get deleted with <code class="inline">xerj autoindex s3://bucket/prefix --no-graph</code>. On the default graph-enabled journal the run refuses and writes nothing. It names the content groups that vanished and the ways to rebuild. That is the same limit a deleted <em>file</em> hits there, not an object-store restriction.</p>
   <p>After listing, the mirror is walked and everything the store no longer lists is deleted from it. The walk then sees a smaller corpus and the incremental reconcile removes those documents. The mirror is walked rather than the recorded manifest diffed, on purpose. A lost manifest must not be able to leave a deleted object searchable forever.</p>
   <p>One asymmetry worth knowing. An object that is listed and then 404s was deleted between the LIST and the GET. That race is normal on a live bucket, so the run treats it as deleted and carries on. Any <strong>other</strong> GET failure aborts the run before anything is indexed. Skipping a failed download would present that object to the reconcile step as deleted, and a transient 500 would then delete live documents.</p>
   <h2>How this page was checked</h2>
-  <p>Every number above comes from the MinIO suite in <code class="inline">engine/crates/xerj-autoindex/src/objsource_minio_tests.rs</code>. It was run against <code class="inline">quay.io/minio/minio:latest</code> on loopback.</p>
+  <p>Most numbers above come from the MinIO suite in <code class="inline">engine/crates/xerj-autoindex/src/objsource_minio_tests.rs</code>, run against <code class="inline">quay.io/minio/minio:latest</code> on loopback. The last row is the shipped binary, end to end against a live XERJ node and the same MinIO. Every measurement on this page is MinIO on loopback, not Amazon S3 and not R2. The request arithmetic for R2 comes from Cloudflare's published pricing, not from a bill.</p>
   <table>
     <thead><tr><th>Case</th><th>Measured</th></tr></thead>
     <tbody>
@@ -354,6 +354,7 @@ autoindex: re-running this at the same size costs 2 class-A request(s) each time
       <tr><td>1,200 keys</td><td>2 LIST pages</td></tr>
       <tr><td>real multipart upload</td><td>ETag ending <code class="inline">-2</code>, not re-downloaded</td></tr>
       <tr><td>1 GiB object</td><td>692 ms, RSS 25 MB to 29 MB</td></tr>
+      <tr><td>end to end against a node, 6 keys incl. a 12 MiB multipart</td><td>first run 1 LIST + 5 GET, searches hit; re-run 1 LIST + 0 GET; one change 1 LIST + 1 GET; one delete (<code class="inline">--no-graph</code>) removes only that object's documents</td></tr>
     </tbody>
   </table>
   <p>The request arithmetic in the table is multiplication, not measurement: LIST requests per run times runs per month.</p>
@@ -369,7 +370,7 @@ autoindex: re-running this at the same size costs 2 class-A request(s) each time
   <h3>Does the index live in the bucket?</h3>
   <p>No, and that matters for sizing. The objects are mirrored to local disk under the state dir and the index is written to the XERJ node's own disk. Keeping the index in object storage is not implemented.</p>
   <h3>What happens to search results when someone deletes an object?</h3>
-  <p>The next run removes it from the local mirror, and the existing incremental reconcile deletes its documents. There is no second deletion mechanism to configure.</p>
+  <p>Run with <code class="inline">--no-graph</code>. The next run removes the object from the local mirror and the generated journal's incremental reconcile deletes its documents. On the default graph-enabled journal a deletion is refused instead, exactly as it is for a folder, and the run tells you how to rebuild.</p>
   <h3>Is a multipart-uploaded object handled correctly?</h3>
   <p>Yes. A multipart ETag is a digest of digests with a <code class="inline">-N</code> suffix, so it is not an MD5 of the body. XERJ never treats it as one: it stores the string and asks only whether it changed.</p>
   <h3>My bucket has 40,000 objects. What does one run cost?</h3>

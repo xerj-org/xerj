@@ -162,7 +162,7 @@ A skipped key is also money not spent — the filter runs on the listing, so `no
 
 ## Deletions
 
-An object that disappears from the bucket stops appearing in search results on the next run, through the reconcile machinery that already handles a deleted file.
+An object that disappears from the bucket stops appearing in search results on the next run, through the reconcile machinery that already handles a deleted file. That machinery is the generated `--no-graph` journal. Index a bucket whose objects get deleted with `xerj autoindex s3://bucket/prefix --no-graph`. On the default graph-enabled journal the run refuses and writes nothing. It names the content groups that vanished and the ways to rebuild. That is the same limit a deleted *file* hits there, not an object-store restriction.
 
 After listing, the mirror is walked and everything the store no longer lists is deleted from it. The walk then sees a smaller corpus and the incremental reconcile removes those documents. The mirror is walked rather than the recorded manifest diffed, on purpose. A lost manifest must not be able to leave a deleted object searchable forever.
 
@@ -170,7 +170,7 @@ One asymmetry worth knowing. An object that is listed and then 404s was deleted 
 
 ## How this page was checked
 
-Every number above comes from the MinIO suite in `engine/crates/xerj-autoindex/src/objsource_minio_tests.rs`. It was run against `quay.io/minio/minio:latest` on loopback.
+Most numbers above come from the MinIO suite in `engine/crates/xerj-autoindex/src/objsource_minio_tests.rs`, run against `quay.io/minio/minio:latest` on loopback. The last row is the shipped binary, end to end against a live XERJ node and the same MinIO. Every measurement on this page is MinIO on loopback, not Amazon S3 and not R2. The request arithmetic for R2 comes from Cloudflare's published pricing, not from a bill.
 
 | Case | Measured |
 | --- | --- |
@@ -180,6 +180,7 @@ Every number above comes from the MinIO suite in `engine/crates/xerj-autoindex/s
 | 1,200 keys | 2 LIST pages |
 | real multipart upload | ETag ending `-2`, not re-downloaded |
 | 1 GiB object | 692 ms, RSS 25 MB to 29 MB |
+| end to end against a node, 6 keys incl. a 12 MiB multipart | first run 1 LIST + 5 GET, searches hit; re-run 1 LIST + 0 GET; one change 1 LIST + 1 GET; one delete (`--no-graph`) removes only that object's documents |
 
 The request arithmetic in the table is multiplication, not measurement: LIST requests per run times runs per month.
 
@@ -207,7 +208,7 @@ No, and that matters for sizing. The objects are mirrored to local disk under th
 
 ### What happens to search results when someone deletes an object?
 
-The next run removes it from the local mirror, and the existing incremental reconcile deletes its documents. There is no second deletion mechanism to configure.
+Run with `--no-graph`. The next run removes the object from the local mirror and the generated journal's incremental reconcile deletes its documents. On the default graph-enabled journal a deletion is refused instead, exactly as it is for a folder, and the run tells you how to rebuild.
 
 ### Is a multipart-uploaded object handled correctly?
 

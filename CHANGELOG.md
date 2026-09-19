@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj autoindex s3://bucket/prefix` indexes an S3-compatible bucket** —
+  Amazon S3, Cloudflare R2 (`r2://`), MinIO, Ceph or anything else that speaks
+  S3, via `--endpoint-url` (falling back to `AWS_ENDPOINT_URL_S3` /
+  `AWS_ENDPOINT_URL`). The bucket is a *source*, not a second product: the
+  prefix is listed with ListObjectsV2, each object is streamed into a local
+  mirror under `--state-dir`, and the ordinary discovery pipeline — sniffing,
+  the code and document extractors, the plan, the resume journal, the
+  incremental reconcile — runs over that mirror unchanged. Credentials come
+  only from the standard AWS chain, never from the URL (`s3://key:secret@…` is
+  refused by name). Change detection is the ETag plus the size, treated as an
+  opaque token: a multipart `-N` ETag is stored and compared verbatim and never
+  mistaken for an MD5, and a store that returns no ETag falls back to
+  last-modified plus size with the count of such objects reported. Keys that
+  cannot become a safe portable path (`..`, control characters, Windows
+  reserved names, case collisions), dotfiles and the built-in build-output
+  list are filtered out of the listing, so they never cost a request. Cost is
+  printed by every run, in the two classes that are billed: a scan is
+  `ceil(N/1000)` LIST (class A) plus one GET (class B) per changed object, and
+  the run also prints what the same command would cost daily, hourly and every
+  five minutes against a 1,000,000/month free allowance. Measured end to end
+  against a live node and MinIO: first index of six keys (including a 12 MiB
+  real multipart object) 1 LIST + 5 GET; unchanged re-run 1 LIST + **0 GET**;
+  one changed object 1 LIST + 1 GET; one deleted object (`--no-graph`, the
+  journal that reconciles deletions) removes exactly that object's documents.
+  A 1 GiB object streams through in 351 ms for 2 MB of RSS growth. Nothing is
+  ever written to the bucket, and the index stays on the node's local disk —
+  `docs/OBJECT_STORAGE.md` states both, with the request arithmetic and the
+  measured runs.
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
