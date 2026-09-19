@@ -1,0 +1,4 @@
+docs=400 mean_chars=1470 cores=32
+loadavg=20.51 clients=1 bulk=50 docs=400 indexed=400 errors=0 wall=  65.8s docs/s=   6.1 server_cpu_s=  225.6 avg_cores_busy=  3.4
+loadavg=21.80 clients=4 bulk=50 docs=400 indexed=400 errors=0 wall=  21.2s docs/s=  18.9 server_cpu_s=  228.6 avg_cores_busy= 10.8
+loadavg=24.41 clients=8 bulk=50 docs=400 indexed=400 errors=0 wall=  13.6s docs/s=  29.5 server_cpu_s=  212.5 avg_cores_busy= 15.7

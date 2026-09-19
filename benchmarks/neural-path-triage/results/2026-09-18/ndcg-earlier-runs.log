@@ -1,0 +1,30 @@
+# Two earlier runs of the same four arms against the SAME indices (same node data,
+# same request bodies; harness was the predecessor of eval.py). Kept because they are
+# where the 0.699 / 0.345 figures come from and because, next to ndcg-*.log, they show
+# the hybrid arm is the only one that does not reproduce. Latency columns are NOT
+# comparable across runs (result cache, machine load) and must not be quoted.
+#
+# --- run 1, SciFact
+queries=300  docs=5183
+bm25                               nDCG@10=0.6572  empty=  0  p50=  18.6ms  p95=  23.2ms
+minilm (vector only)               nDCG@10=0.6764  empty=  0  p50=   0.4ms  p95= 262.2ms
+hybrid rrf (server)                nDCG@10=0.6993  empty=  0  p50= 371.7ms  p95= 387.6ms
+bm25 top-30 -> minilm rerank       nDCG@10=0.6855  empty=  0  p50= 297.8ms  p95= 343.2ms
+# --- run 1, NFCorpus
+queries=323  docs=3633
+bm25                               nDCG@10=0.3016  empty= 25  p50=  17.0ms  p95=  46.8ms
+minilm (vector only)               nDCG@10=0.3291  empty=  0  p50= 230.6ms  p95= 268.9ms
+hybrid rrf (server)                nDCG@10=0.3448  empty=  0  p50= 280.1ms  p95= 317.6ms
+bm25 top-30 -> minilm rerank       nDCG@10=0.3323  empty= 25  p50= 223.8ms  p95= 261.2ms
+# --- run 2, SciFact
+queries=300  docs=5183
+bm25                               nDCG@10=0.6572  empty=  0  p50=  43.9ms  p95= 104.9ms
+minilm (vector only)               nDCG@10=0.6764  empty=  0  p50= 345.1ms  p95= 412.8ms
+hybrid rrf (server)                nDCG@10=0.7023  empty=  0  p50= 384.4ms  p95= 418.7ms
+bm25 top-30 -> minilm rerank       nDCG@10=0.6855  empty=  0  p50= 300.4ms  p95= 342.0ms
+# --- run 2, NFCorpus
+queries=323  docs=3633
+bm25                               nDCG@10=0.3016  empty= 25  p50=   3.8ms  p95=  20.6ms
+minilm (vector only)               nDCG@10=0.3291  empty=  0  p50= 226.7ms  p95= 272.1ms
+hybrid rrf (server)                nDCG@10=0.3446  empty=  0  p50= 259.9ms  p95= 293.8ms
+bm25 top-30 -> minilm rerank       nDCG@10=0.3323  empty= 25  p50= 268.7ms  p95= 345.8ms
