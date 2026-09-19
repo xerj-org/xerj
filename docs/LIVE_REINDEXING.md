@@ -210,6 +210,13 @@ needs, the `sysctl` that raises it, and the two ways out that need no root
 It stops rather than continuing because a half-watched tree is the worst
 outcome available: the index looks live and silently is not.
 
+Honest scope of that claim: the message's content is asserted by a unit test
+(`the_watch_limit_message_names_the_limit_the_count_and_a_way_out`), and the
+`ErrorKind::MaxFilesWatch` branch it comes from is the one `notify` raises for
+`ENOSPC` (`notify-8.2.0/src/inotify.rs:449`). The kernel refusal itself was not
+provoked on the machine these numbers come from: doing that means lowering
+`fs.inotify.max_user_watches` while the run is in flight, which needs root.
+
 ## Progress and machine-readable output
 
 Each pass reports through the ordinary progress surface, so `--progress plain`
