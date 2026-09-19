@@ -534,8 +534,14 @@ impl S3Backend {
             }
         } else {
             // Inclusive end, hence the -1 (quickwit builds the same header at
-            // s3_compatible_storage.rs:668).
-            Some(format!("bytes={}-{}", offset, offset + length - 1))
+            // s3_compatible_storage.rs:668). Saturating, because `offset +
+            // length` on absurd inputs would panic in a debug build and wrap
+            // into a nonsense header in a release one.
+            Some(format!(
+                "bytes={}-{}",
+                offset,
+                offset.saturating_add(length).saturating_sub(1)
+            ))
         }
     }
 }
@@ -715,10 +721,25 @@ impl StorageBackend for S3Backend {
                 }
             }
 
-            token = page
+            let next = page
                 .next_continuation_token()
                 .filter(|_| page.is_truncated().unwrap_or(false))
                 .map(|t| t.to_owned());
+
+            // A server that keeps replying "truncated" with the same
+            // continuation token would spin here forever, and every turn of
+            // that loop is a billed Class A operation. Refusing is the only
+            // safe response: an unbounded list is how a bug turns into an
+            // invoice. (An `OpBudget` would eventually stop it too, but the
+            // budget is optional and this is not.)
+            if next.is_some() && next == this_token {
+                return Err(StorageError::Backend(format!(
+                    "ListObjectsV2 s3://{}/{full_prefix} returned the same continuation \
+                     token twice after {pages} page(s); refusing to keep listing",
+                    self.cfg.bucket
+                )));
+            }
+            token = next;
             if token.is_none() {
                 break;
             }
@@ -803,6 +824,24 @@ mod tests {
         // bytes 6..=11 is the six-byte range the R2 probe verified by hand.
         assert_eq!(S3Backend::range_header(6, 6).as_deref(), Some("bytes=6-11"));
         assert_eq!(S3Backend::range_header(0, 1).as_deref(), Some("bytes=0-0"));
+    }
+
+    #[test]
+    fn range_header_saturates_instead_of_overflowing() {
+        // Absurd, but it must not panic in debug or wrap in release. The end
+        // saturates at u64::MAX and then loses the inclusive -1, so start and
+        // end coincide — a one-byte range, which is nonsense the service will
+        // reject cleanly rather than a wrapped range that asks for something
+        // else entirely.
+        assert_eq!(
+            S3Backend::range_header(u64::MAX - 1, 10).as_deref(),
+            Some("bytes=18446744073709551614-18446744073709551614")
+        );
+        // The ordinary case is unaffected.
+        assert_eq!(
+            S3Backend::range_header(10, 5).as_deref(),
+            Some("bytes=10-14")
+        );
     }
 
     #[test]
