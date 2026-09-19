@@ -431,7 +431,7 @@
       "canonical_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge",
       "markdown_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge.md",
       "cluster": "Hybrid retrieval: reranking",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge, a 0 to 1 probability replaces the score, and min_score becomes a real cut-off."
     },
     {

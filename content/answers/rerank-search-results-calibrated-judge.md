@@ -129,7 +129,7 @@ Every document in the window is a paid judgement. The window defaults to 30 and 
 
 XERJ sends 8 calls at once by default and 16 at most. The `usage` field is the provider's own token count for the search. XERJ does not price it.
 
-Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. Fetch the window once and page client-side when cost matters. Page two continues page one only if the provider returns the same probabilities on a repeat call, which XERJ has not verified for the real model.
+Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. To keep the cost down, fetch the window once and cut the pages out of it in your own code. Page two continues page one only if the provider returns the same probabilities on a repeat call, which XERJ has not verified for the real model.
 
 The strings have ceilings too. `instructions` is limited to 2,000 characters, because the provider's wire format repeats it once per judged document. The question is limited to 4,000 characters and `model` to 128. A longer value is an HTTP 400 that names the field and the limit.
 
