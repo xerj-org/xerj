@@ -851,8 +851,12 @@ fn next_burst_or_idle(
         if !burst.is_empty() {
             return Some(burst);
         }
+        // `filtered` counts every path the burst discarded: the pass's own
+        // reads, hidden names, and paths no run would index. Saying "hidden"
+        // alone would misdescribe the common case, which is reads.
         pr.note(&format!(
-            "watch: {} event(s) ignored ({} hidden/ignored path(s)); no pass needed",
+            "watch: {} event(s) ignored ({} path(s): reads, hidden names or ignored paths); \
+             no pass needed",
             burst.events, burst.filtered
         ));
     }
