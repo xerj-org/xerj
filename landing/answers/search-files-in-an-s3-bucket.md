@@ -2,7 +2,7 @@
 ---
 title: "How do I search files that live in an S3 bucket?"
 canonical: "https://xerj.org/answers/search-files-in-an-s3-bucket"
-updated: "2026-09-19"
+updated: "2026-09-20"
 source: "content/answers/search-files-in-an-s3-bucket.md"
 ---
 

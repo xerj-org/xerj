@@ -2,7 +2,7 @@
 ---
 title: "Does XERJ support S3, alerting or custom plugins?"
 canonical: "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins"
-updated: "2026-09-19"
+updated: "2026-09-20"
 source: "content/answers/does-xerj-support-s3-alerting-plugins.md"
 ---
 
