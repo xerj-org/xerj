@@ -11,7 +11,8 @@ command someone else can run.
 | Host | 32 cores, 119 GB RAM, NVMe, Linux 7.0.0-27-generic |
 | Binary | `cargo build --release -p xerj-server` on branch `feat/autoindex-watch` |
 | Server | one throwaway node, `xerj --port 13240 --data-dir <tmp>`, auth on, default (lexical) embedder |
-| Corpus | 10,001 files / 6,150,427 bytes of content / 101 directories, synthetic mixed `.md`/`.txt`/`.py`/`.json`/`.csv` |
+| Corpus | 10,002 files / 6,150,458 bytes of content / 101 directories, synthetic mixed `.md`/`.txt`/`.py`/`.json`/`.csv` |
+| Load | **shared box.** Other agents were running `cargo build --release` (fat LTO) throughout; `uptime` read `load average: 9.40, 10.93, 11.63` during the watch session. Section 1's numbers were captured earlier, on a quieter box; sections 2-4 come from one script run under that load. Where the two overlap the difference is stated rather than averaged away. |
 
 The embedder is XERJ's default **lexical** feature hashing. No neural embedding
 ran, and none of these numbers is a semantic-search measurement.
@@ -23,16 +24,25 @@ that `quick` is never valid for published measurement.
 ## Corpus
 
 ```sh
-# 100 directories x 100 files: .md / .txt / .py / .json / .csv, ~600 bytes each
-find /home/claude/scratch-watchlocal/corpus10k -type f | wc -l     # 10000
+# 100 directories x 100 files: .md / .txt / .py / .json / .csv, ~600 bytes each,
+# plus two files a shell append created (see section 4 for why that matters)
+find /home/claude/scratch-watchlocal/corpus10k -type f | wc -l     # 10002
 find /home/claude/scratch-watchlocal/corpus10k -type d | wc -l     # 101
-find ... -type f -printf '%s\n' | awk '{t+=$1} END{print t}'       # 6150427
+find ... -type f -printf '%s\n' | awk '{t+=$1} END{print t}'       # 6150458
 ```
 
-`autoindex` counts 10,001 files because it also sees the `.gitignore`-less root's
-own entries; the number the run prints is the number quoted throughout.
+`find` and the run agree: `autoindex` prints `10002 files` for this tree.
 
-## 1. The default graph path cannot reindex a changed file
+## 1. The default graph path does not index a content change on a re-run
+
+Captured earlier in the session, on the quieter box (same commands, same corpus,
+before the concurrent builds started).
+
+**Read the caveat in section 4 before quoting this section as "a CHANGED file":**
+the shell append below wrote `pkg042/file017.md` for a file whose generated
+extension is `.txt`, so it created a NEW file rather than modifying one. Both
+cases take the same branch — a new content identity is not in the frozen plan —
+but only section 4 measures the modification itself.
 
 ```
 $ xerj autoindex $CORPUS --url http://localhost:13240 --state-dir state-base \
