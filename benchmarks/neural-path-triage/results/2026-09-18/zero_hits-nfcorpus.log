@@ -1,0 +1,27 @@
+test queries=323  zero-hit=25
+PLAIN-510   'airport scanners'     relevant=  6 docs_with_token={'airport': 0, 'scanners': 0} docs_with_singular={'airport': 0, 'scanners': 3}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-520   'Alli'                 relevant=  1 docs_with_token={'alli': 0} docs_with_singular={'alli': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-551   'amnesia'              relevant=  2 docs_with_token={'amnesia': 0} docs_with_singular={'amnesia': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-583   'antinutrients'        relevant= 44 docs_with_token={'antinutrients': 0} docs_with_singular={'antinutrients': 1}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-645   'bagels'               relevant= 29 docs_with_token={'bagels': 0} docs_with_singular={'bagels': 1}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-817   'canker sores'         relevant=  1 docs_with_token={'canker': 0, 'sores': 0} docs_with_singular={'canker': 0, 'sores': 4}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-997   'Czechoslovakia'       relevant=  2 docs_with_token={'czechoslovakia': 0} docs_with_singular={'czechoslovakia': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1008  'deafness'             relevant=  5 docs_with_token={'deafness': 0} docs_with_singular={'deafness': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1098  'eggnog'               relevant=  5 docs_with_token={'eggnog': 0} docs_with_singular={'eggnog': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1214  'Fosamax'              relevant= 17 docs_with_token={'fosamax': 0} docs_with_singular={'fosamax': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1309  'halibut'              relevant=  4 docs_with_token={'halibut': 0} docs_with_singular={'halibut': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1496  'leeks'                relevant=  1 docs_with_token={'leeks': 0} docs_with_singular={'leeks': 2}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-1611  'mesquite'             relevant=  6 docs_with_token={'mesquite': 0} docs_with_singular={'mesquite': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1621  'Mevacor'              relevant=  4 docs_with_token={'mevacor': 0} docs_with_singular={'mevacor': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1679  'myelopathy'           relevant=  1 docs_with_token={'myelopathy': 0} docs_with_singular={'myelopathy': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1752  'okra'                 relevant=  1 docs_with_token={'okra': 0} docs_with_singular={'okra': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1827  'Peoria'               relevant=  3 docs_with_token={'peoria': 0} docs_with_singular={'peoria': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-1867  'pineapples'           relevant=  7 docs_with_token={'pineapples': 0} docs_with_singular={'pineapples': 2}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-2134  'Splenda'              relevant= 12 docs_with_token={'splenda': 0} docs_with_singular={'splenda': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-2209  'taro'                 relevant=  2 docs_with_token={'taro': 0} docs_with_singular={'taro': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-2271  'Tufts'                relevant= 10 docs_with_token={'tufts': 0} docs_with_singular={'tufts': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-2281  'turnips'              relevant=  1 docs_with_token={'turnips': 0} docs_with_singular={'turnips': 3}  -> legitimate under `standard`; a stemming analyzer would match the singular
+PLAIN-2375  'whiting'              relevant=  2 docs_with_token={'whiting': 0} docs_with_singular={'whiting': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-2396  'Yale'                 relevant= 18 docs_with_token={'yale': 0} docs_with_singular={'yale': 0}  -> legitimate: no query token occurs in the corpus
+PLAIN-2408  'Zoloft'               relevant=  5 docs_with_token={'zoloft': 0} docs_with_singular={'zoloft': 0}  -> legitimate: no query token occurs in the corpus
+absent=18  singular-only=7  engine-bug=0

@@ -1,0 +1,19 @@
+# engine/crates/xerj-ai/examples/neural_throughput.rs (the repo's own harness, unmodified),
+# XERJ_NEURAL_CORPUS = 400 SciFact documents written one per file as "<title>. <text>", XERJ_NEURAL_CORPUS_FILES=400.
+# Shared box under load; passages/s is noisy, padded/real is exact.
+loaded model dims=384 in 0.06s on 32 cores
+
+single (1 passage/call)      passages=128   forwards=128  wall=   2.32s     55.1 passages/s  padded/real=1.00  rect/real=1.00
+uniform short (window 64)    passages=320   forwards=5    wall=   2.37s    135.2 passages/s  padded/real=1.01  rect/real=1.01
+mixed 4 long + 60 short      passages=320   forwards=10   wall=   2.91s    110.0 passages/s  padded/real=1.00  rect/real=2.66
+sweep short batch=1          passages=512   forwards=512  wall=   9.69s     52.8 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=8          passages=512   forwards=64   wall=   5.31s     96.5 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=16         passages=512   forwards=32   wall=   4.34s    117.9 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=32         passages=512   forwards=16   wall=   3.72s    137.6 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=64         passages=512   forwards=8    wall=   3.48s    147.2 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=128        passages=512   forwards=8    wall=   3.53s    145.1 passages/s  padded/real=1.00  rect/real=1.00
+sweep short batch=256        passages=512   forwards=8    wall=   3.32s    154.2 passages/s  padded/real=1.00  rect/real=1.00
+all long (control)           passages=64    forwards=2    wall=   1.66s     38.6 passages/s  padded/real=1.00  rect/real=1.00
+one 210 KB document          passages=547   forwards=13   wall=  11.83s     46.3 passages/s  padded/real=1.02  rect/real=1.13
+corpus <scifact-400-files>: 400 files, 1542 passages
+real corpus (window 64)      passages=1542  forwards=63   wall=  60.51s     25.5 passages/s  padded/real=1.26  rect/real=1.64
