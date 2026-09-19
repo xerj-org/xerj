@@ -18,10 +18,17 @@
 # corpus, the index and the staging file all live in RAM, and every memory
 # figure this prints would be wrong.
 #
+#   VERIFY_PER_KIND=0          needles verify.py checks per kind (0 = every planted
+#                              needle, the default here; the published 1 GB figures
+#                              say which was used)
+#
 # It boots a THROWAWAY node on <es-port> (+1 rest, +2 grpc) with its own data
-# directory, the default LEXICAL embedder and auth off, indexes the tree with
-# default autoindex settings, and writes <work-dir>/result-<profile>-<size>.json.
-# Nothing here talks to any other node.
+# directory, the default LEXICAL embedder and AUTH ON (the node writes its admin
+# key to <data-dir>/admin.key; every request below sends it), indexes the tree
+# with default autoindex settings, and writes
+# <work-dir>/result-<profile>-<size>.json. Nothing here talks to any other node:
+# before the first write it checks that the listener on <es-port> is the process
+# it just started.
 set -euo pipefail
 XERJ=$(readlink -f "$1"); WORK=$(readlink -f "$2"); PROFILE=$3; SIZE=$4; PORT=$5
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/../.." && pwd)
@@ -48,16 +55,23 @@ grpc_port = $((PORT+2))
 data_dir = "$DATA"
 [tls]
 enabled = false
-[auth]
-enabled = false
 [embedding]
 mode = "lexical"
 TOML
-nohup "$XERJ" -c "$WORK/node-$TAG.toml" --insecure --embed-mode lexical > "$WORK/server-$RUN.log" 2>&1 &
+nohup "$XERJ" -c "$WORK/node-$TAG.toml" --embed-mode lexical > "$WORK/server-$RUN.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
-for _ in $(seq 1 120); do curl -fsS "$URL/_cluster/health" >/dev/null 2>&1 && break; sleep 0.5; done
-curl -fsS "$URL/_cluster/health" >/dev/null || { echo "node did not come up"; exit 1; }
+KEY=""
+for _ in $(seq 1 120); do
+  [ -s "$DATA/admin.key" ] && KEY=$(cat "$DATA/admin.key")
+  [ -n "$KEY" ] && curl -fsS -H "Authorization: ApiKey $KEY" "$URL/_cluster/health" >/dev/null 2>&1 && break
+  sleep 0.5
+done
+curl -fsS -H "Authorization: ApiKey $KEY" "$URL/_cluster/health" >/dev/null || { echo "node did not come up"; exit 1; }
+# A node that failed to bind plus a curl that succeeds means SOMEBODY ELSE's node
+# answered. Never write into it.
+LISTENER=$(ss -ltnp 2>/dev/null | grep -E ":$PORT\b" | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)
+[ "$LISTENER" = "$SERVER" ] || { echo "refusing: :$PORT is held by pid ${LISTENER:-?}, not by the node this script started ($SERVER)"; exit 2; }
 
 hwm() { awk '/^VmHWM:/{print $2}' "/proc/$1/status" 2>/dev/null || echo 0; }   # kB
 SERVER_IDLE_KB=$(hwm $SERVER)
@@ -69,11 +83,14 @@ LOAD_BEFORE=$(cut -d' ' -f1-3 /proc/loadavg)
 # (getrusage RUSAGE_CHILDREN). PDF workers live ~50 ms each, so polling cannot
 # see them; this can.
 START=$(date +%s.%N)
-/usr/bin/time -v -o "$WORK/time-$RUN.txt" \
+# The key goes by environment, not argv: argv is world-readable in /proc.
+XERJ_API_KEY="$KEY" /usr/bin/time -v -o "$WORK/time-$RUN.txt" \
   "$XERJ" autoindex "$TREE" --url "$URL" --prefix bench --brain bench --state-dir "$STATE" \
     --yes --progress plain --json $AX_FLAGS > "$WORK/autoindex-$RUN.json" 2> "$WORK/autoindex-$RUN.log" &
 TIMEPID=$!
-AX=""; for _ in $(seq 1 50); do AX=$(pgrep -P $TIMEPID -x xerj 2>/dev/null | head -1 || true); [ -n "$AX" ] && break; sleep 0.1; done
+# time's only child is autoindex. No `-x xerj`: a binary copied under another
+# name (xerj-final) never matched, and autoindex_process was recorded as 0.0.
+AX=""; for _ in $(seq 1 50); do AX=$(pgrep -P $TIMEPID 2>/dev/null | head -1 || true); [ -n "$AX" ] && break; sleep 0.1; done
 # The autoindex process's OWN peak: VmHWM is a high-water mark, so the last
 # sample before exit is its peak to within one interval.
 AX_KB=0; STATE_B=0
@@ -85,11 +102,14 @@ done
 set +e; wait $TIMEPID; RC=$?; set -e
 END=$(date +%s.%N)
 KIDS_KB=$(awk -F': ' '/Maximum resident set size/{print $2}' "$WORK/time-$RUN.txt")
-SERVER_PEAK_KB=$(hwm $SERVER)
+# Two server figures, because they answer different questions: the peak while
+# autoindex was sending (what the ingest itself cost) and the peak after the
+# post-run flush and merges below (what the node needed in total).
+SERVER_AT_EXIT_KB=$(hwm $SERVER)
 INDEX_B_AT_EXIT=$(du -sb "$DATA" | cut -f1)
 
 # Let flush + background merges settle: size is stable for 30 s.
-curl -fsS -XPOST "$URL/_flush" >/dev/null 2>&1 || true
+curl -fsS -H "Authorization: ApiKey $KEY" -XPOST "$URL/_flush" >/dev/null 2>&1 || true
 prev=-1; stable=0
 for _ in $(seq 1 120); do
   cur=$(du -sb "$DATA" | cut -f1)
@@ -99,7 +119,8 @@ done
 INDEX_B_SETTLED=$(du -sb "$DATA" | cut -f1)
 SERVER_PEAK_KB=$(hwm $SERVER)
 
-python3 "$HERE/verify.py" --url "$URL" --prefix bench --brain bench --truth "$TRUTH" > "$WORK/verify-$RUN.json" || true
+XERJ_API_KEY="$KEY" python3 "$HERE/verify.py" --url "$URL" --prefix bench --brain bench --truth "$TRUTH" \
+    --per-kind "${VERIFY_PER_KIND:-0}" > "$WORK/verify-$RUN.json" || true
 
 python3 - "$OUT" <<PY
 import json, os, sys
@@ -120,9 +141,14 @@ json.dump({
   "node_docs_indexed": docs,
   "docs_per_second": round(docs / wall, 1) if wall else None,
   "source_mb_per_second": round(truth["mbox"]["bytes"] / 1e6 / wall, 2) if wall else None,
+  "peak_rss_unit": "MiB (VmHWM kB / 1024) - the key says mb for compatibility with earlier result files",
   "peak_rss_mb": {"autoindex_process": round($AX_KB / 1024, 1),
                   "largest_single_process_in_autoindex_tree": round($KIDS_KB / 1024, 1),
-                  "server": round($SERVER_PEAK_KB / 1024, 1), "server_idle_before_run": round($SERVER_IDLE_KB / 1024, 1)},
+                  "server": round($SERVER_PEAK_KB / 1024, 1),
+                  "server_at_autoindex_exit": round($SERVER_AT_EXIT_KB / 1024, 1),
+                  "server_idle_before_run": round($SERVER_IDLE_KB / 1024, 1)},
+  "server_memory_cap": os.environ.get("XERJ_MAX_PROCESS_MEMORY_MB") or "auto tier (see the node log)",
+  "server_breaker_engagements": open("$WORK/server-$RUN.log", errors="replace").read().count("engaging the parent memory circuit breaker"),
   "disk_bytes": {"index_at_autoindex_exit": $INDEX_B_AT_EXIT, "index_settled": $INDEX_B_SETTLED,
                  "index_settled_over_mbox": round($INDEX_B_SETTLED / truth["mbox"]["bytes"], 3),
                  "state_dir_peak_during_run": $STATE_B},
