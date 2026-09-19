@@ -98,8 +98,8 @@
       "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
-      "updated": "2026-09-19",
-      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+      "updated": "2026-09-20",
+      "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
     },
     {
       "title": "Audit a PHP codebase with an index, not grep",
@@ -433,6 +433,15 @@
       "cluster": "Hybrid search",
       "updated": "2026-08-23",
       "summary": "One hybrid request carries a BM25 sub-query and a kNN sub-query against one index, and Reciprocal Rank Fusion merges their ranked lists into a single result list."
+    },
+    {
+      "title": "How do I search files that live in an S3 bucket?",
+      "question": "How do I search files that live in an S3 bucket?",
+      "canonical_url": "https://xerj.org/answers/search-files-in-an-s3-bucket",
+      "markdown_url": "https://xerj.org/answers/search-files-in-an-s3-bucket.md",
+      "cluster": "Ingest: object storage",
+      "updated": "2026-09-20",
+      "summary": "Point xerj autoindex at s3://bucket/prefix. It lists the prefix, streams only the objects whose ETag changed, and indexes them. One LIST request per 1,000 keys."
     },
     {
       "title": "How do I check my code index actually finished?",

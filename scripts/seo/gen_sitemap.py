@@ -56,7 +56,10 @@ def build(root: pathlib.Path, dates: urlmap.DateSource) -> str:
         rows.append((urlmap.deployed_url(rel), dates.last_modified(root / rel)))
     rows.sort()
 
-    today = dt.date.today().isoformat()
+    # UTC, like the dates themselves: dt.date.today() is the runner's local
+    # date, so this clamp used to rewrite a legitimate date on one machine and
+    # not on another.
+    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            f'<urlset xmlns="{SITEMAP_NS}">']
     for loc, lastmod in rows:

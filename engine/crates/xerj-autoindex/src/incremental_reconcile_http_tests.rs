@@ -613,6 +613,7 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
 fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
     IndexCfg {
         root: root.to_owned(),
+        endpoint_url: None,
         stub_globs: Vec::new(),
         url: url.to_owned(),
         api_key: None,

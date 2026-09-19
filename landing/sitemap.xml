@@ -117,10 +117,6 @@
     <lastmod>2026-09-19</lastmod>
   </url>
   <url>
-    <loc>https://xerj.org/answers/keep-index-current-as-files-change</loc>
-    <lastmod>2026-09-19</lastmod>
-  </url>
-  <url>
     <loc>https://xerj.org/answers/knowledge-graphs-for-agent-memory</loc>
     <lastmod>2026-09-19</lastmod>
   </url>
@@ -182,6 +178,10 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/search-file-contents-in-a-folder</loc>
+    <lastmod>2026-09-19</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/search-files-in-an-s3-bucket</loc>
     <lastmod>2026-09-19</lastmod>
   </url>
   <url>

@@ -148,6 +148,8 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [What is Reciprocal Rank Fusion?](https://xerj.org/answers/reciprocal-rank-fusion-when-to-use.md): What is reciprocal rank fusion and when should I use it?
 - **Hybrid search**
   - [How does XERJ combine BM25 and kNN?](https://xerj.org/answers/how-xerj-combines-search.md): How does XERJ combine BM25 and kNN?
+- **Ingest: object storage**
+  - [How do I search files that live in an S3 bucket?](https://xerj.org/answers/search-files-in-an-s3-bucket.md): How do I search files that live in an S3 bucket?
 - **Operations: completeness**
   - [How do I check my code index actually finished?](https://xerj.org/answers/check-codebase-index-is-complete.md): My codebase indexer says indexed but I don't see my code. How do I check it actually finished?
 - **Operations: estimation**
