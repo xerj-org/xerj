@@ -3763,48 +3763,6 @@
    }
   },
   {
-   "name": "ParadeDB",
-   "origin": "dissected-2026-09-18",
-   "url": "https://www.paradedb.com/docs/llms.txt (docs.paradedb.com/llms.txt 301-redirects here)",
-   "status": 0,
-   "content_type": "",
-   "final_url": "https://www.paradedb.com/docs/llms.txt (docs.paradedb.com/llms.txt 301-redirects here)",
-   "bytes": 0,
-   "lines": 0,
-   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-   "fetched_at": "2026-09-19T20:28:54Z",
-   "curl_exit": 3,
-   "kind": "error"
-  },
-  {
-   "name": "Claude Code docs",
-   "origin": "dissected-2026-09-18",
-   "url": "https://code.claude.com/llms.txt (identical bytes at https://code.claude.com/docs/llms.txt; https://code.claude.com/docs/en/llms.txt is 404)",
-   "status": 0,
-   "content_type": "",
-   "final_url": "https://code.claude.com/llms.txt (identical bytes at https://code.claude.com/docs/llms.txt; https://code.claude.com/docs/en/llms.txt is 404)",
-   "bytes": 0,
-   "lines": 0,
-   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-   "fetched_at": "2026-09-19T20:28:54Z",
-   "curl_exit": 3,
-   "kind": "error"
-  },
-  {
-   "name": "Anthropic",
-   "origin": "dissected-2026-09-18",
-   "url": "https://platform.claude.com/llms.txt (fetched via https://docs.anthropic.com/llms.txt, 301-redirected)",
-   "status": 0,
-   "content_type": "",
-   "final_url": "https://platform.claude.com/llms.txt (fetched via https://docs.anthropic.com/llms.txt, 301-redirected)",
-   "bytes": 0,
-   "lines": 0,
-   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-   "fetched_at": "2026-09-19T20:28:54Z",
-   "curl_exit": 3,
-   "kind": "error"
-  },
-  {
    "name": "LlamaIndex",
    "origin": "dissected-2026-09-18",
    "url": "https://developers.llamaindex.ai/llms.txt",
@@ -3835,20 +3793,6 @@
    }
   },
   {
-   "name": "Pydantic AI",
-   "origin": "dissected-2026-09-18",
-   "url": "https://pydantic.dev/docs/ai/llms.txt (redirect target of https://ai.pydantic.dev/llms.txt)",
-   "status": 0,
-   "content_type": "",
-   "final_url": "https://pydantic.dev/docs/ai/llms.txt (redirect target of https://ai.pydantic.dev/llms.txt)",
-   "bytes": 0,
-   "lines": 0,
-   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-   "fetched_at": "2026-09-19T20:28:55Z",
-   "curl_exit": 3,
-   "kind": "error"
-  },
-  {
    "name": "Bun",
    "origin": "dissected-2026-09-18",
    "url": "https://bun.com/llms.txt",
@@ -3861,20 +3805,6 @@
    "fetched_at": "2026-09-19T20:28:57Z",
    "curl_exit": 0,
    "kind": "duplicate of https://bun.sh/llms.txt"
-  },
-  {
-   "name": "Exa",
-   "origin": "dissected-2026-09-18",
-   "url": "https://exa.ai/docs/llms.txt (fetched via https://docs.exa.ai/llms.txt, 301 -> 200)",
-   "status": 0,
-   "content_type": "",
-   "final_url": "https://exa.ai/docs/llms.txt (fetched via https://docs.exa.ai/llms.txt, 301 -> 200)",
-   "bytes": 0,
-   "lines": 0,
-   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-   "fetched_at": "2026-09-19T20:28:57Z",
-   "curl_exit": 3,
-   "kind": "error"
   },
   {
    "name": "FastMCP",

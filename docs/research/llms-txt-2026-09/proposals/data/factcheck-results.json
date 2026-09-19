@@ -5404,6 +5404,276 @@
   "verdict": "confirmed"
  },
  {
+  "id": "C116",
+  "source": "new-2026-09-19",
+  "claim": "OpenAI's Codex docs give the stdio add syntax.",
+  "expect": "present",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://learn.chatgpt.com/docs/extend/mcp.md?surface=cli",
+  "bytes": 18227,
+  "lines": 410,
+  "sha256": "978cad2319d28ce8e888e890cb6bd5c5a0631d3dc0b463fc66928ba419982f1a",
+  "fetched_at": "2026-09-19T20:37:19Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "codex mcp add <server-name> --env VAR1=VALUE1 --env VAR2=VALUE2 -- <stdio server-command>",
+    "result": "found",
+    "line": 56
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C117",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's add command takes a stdio command and a scope that defaults to project.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "bytes": 41902,
+  "lines": 1286,
+  "sha256": "bc0c6cfeb2fa3ea6d8074233040902e3f3ad864308f0cb57085ac805a9787477",
+  "fetched_at": "2026-09-19T20:18:36Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3",
+    "result": "found",
+    "line": 1155
+   },
+   {
+    "quote": "Configuration scope (user or project). [default: \"project\"]",
+    "result": "found",
+    "line": 1135
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C118",
+  "source": "new-2026-09-19",
+  "claim": "Windsurf's MCP config file path.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-windsurf.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-windsurf.md",
+  "bytes": 4429,
+  "lines": 136,
+  "sha256": "afda6fed1a07b0f62bad78c25e89afd5a00e1a4d2399c34f00d446c6e4ad670e",
+  "fetched_at": "2026-09-19T20:37:20Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "`~/.codeium/windsurf/mcp_config.json`",
+    "result": "found",
+    "line": 94
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C119",
+  "source": "new-2026-09-19",
+  "claim": "Zed's MCP settings key.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-zed.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-zed.md",
+  "bytes": 6590,
+  "lines": 128,
+  "sha256": "c92ee5998031ae987d8fa14abaca8b9e7c03bb4645e39a3e5bf6a855195bd1c3",
+  "fetched_at": "2026-09-19T20:37:20Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Zed exposes MCP servers under the `context_servers` settings key.",
+    "result": "found",
+    "line": 3
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C120",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file paths, and the absolute-path rule.",
+  "expect": "present",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://modelcontextprotocol.io/docs/2026-07-28/develop/connect-local-servers.md",
+  "bytes": 14044,
+  "lines": 287,
+  "sha256": "4285516d216fbd74839238bee3d1b8d160f1f89152bd90cc522b116b44232d15",
+  "fetched_at": "2026-09-19T20:37:22Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "`~/Library/Application Support/Claude/claude_desktop_config.json`",
+    "result": "found",
+    "line": 76
+   },
+   {
+    "quote": "claude_desktop_config.json",
+    "result": "found",
+    "line": 76
+   },
+   {
+    "quote": "are valid and that they are absolute and not relative",
+    "result": "found",
+    "line": 183
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C121",
+  "source": "new-2026-09-19",
+  "claim": "Cursor's project and global MCP config paths.",
+  "expect": "present",
+  "url": "https://cursor.com/docs/mcp.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://cursor.com/docs/mcp.md",
+  "bytes": 16868,
+  "lines": 410,
+  "sha256": "8f6b54387a93616c82e2087ac5f2198c150832406c4c280880a7350e610c5e7e",
+  "fetched_at": "2026-09-19T20:19:23Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "Create `.cursor/mcp.json` in your project for project-specific tools.",
+    "result": "found",
+    "line": 192
+   },
+   {
+    "quote": "Create `~/.cursor/mcp.json` in your home directory for tools available everywhere.",
+    "result": "found",
+    "line": 196
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C122",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's config file locations.",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-opencode.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-opencode.md",
+  "bytes": 7578,
+  "lines": 181,
+  "sha256": "328a02df487361d70420bbf51627537d47f6c5cf87d38f97e1778c2860aa898a",
+  "fetched_at": "2026-09-19T20:19:42Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "typically `~/.config/opencode/opencode.json`, or `opencode.json` in your project root",
+    "result": "found",
+    "line": 16
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C123",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's workspace MCP file.",
+  "expect": "present",
+  "url": "https://docs.stripe.com/mcp.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://docs.stripe.com/mcp.md",
+  "bytes": 25655,
+  "lines": 392,
+  "sha256": "c05c3dd6c8ab434b39038b307d84f18b57eb0ae46df8daab357a1cb3afb578e7",
+  "fetched_at": "2026-09-19T20:19:34Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "add the following configuration to `.vscode/mcp.json` in your workspace",
+    "result": "found",
+    "line": 28
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C124",
+  "source": "new-2026-09-19",
+  "claim": "Claude Code documents local, project and user scopes.",
+  "expect": "present",
+  "url": "https://code.claude.com/docs/en/mcp.md",
+  "status": 200,
+  "content_type": "text/markdown; charset=utf-8",
+  "final_url": "https://code.claude.com/docs/en/mcp.md",
+  "bytes": 117610,
+  "lines": 1533,
+  "sha256": "d872a8aded51160476e935bad371f10a06e31d244f23f3f4f28f057c0f0ca36e",
+  "fetched_at": "2026-09-19T20:18:45Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "--scope user",
+    "result": "found",
+    "line": 166
+   },
+   {
+    "quote": "--scope local",
+    "result": "found",
+    "line": 533
+   }
+  ],
+  "verdict": "confirmed"
+ },
+ {
+  "id": "C125",
+  "source": "new-2026-09-19",
+  "claim": "Cline's MCP settings file (as described by a third-party README).",
+  "expect": "present",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "status": 200,
+  "content_type": "text/plain; charset=utf-8",
+  "final_url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "bytes": 23301,
+  "lines": 753,
+  "sha256": "0c0a74c71240057915b53f5c1b30e18dc965a59d3c6574fe366cb306251150ea",
+  "fetched_at": "2026-09-19T20:18:35Z",
+  "curl_exit": 0,
+  "kind": "text",
+  "quotes": [
+   {
+    "quote": "select the **Installed** tab, then click **Advanced MCP Settings**",
+    "result": "found (loose)",
+    "line": null
+   },
+   {
+    "quote": "In the `cline_mcp_settings.json` file",
+    "result": "found",
+    "line": 299
+   }
+  ],
+  "verdict": "confirmed (loose match — wording differs in markup only)"
+ },
+ {
   "id": "D01",
   "source": "xerj-site",
   "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",

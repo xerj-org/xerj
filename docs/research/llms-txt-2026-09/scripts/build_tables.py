@@ -80,38 +80,62 @@ def median(sorted_vals):
     return sorted_vals[k // 2] if k % 2 else (sorted_vals[k // 2 - 1] + sorted_vals[k // 2]) // 2
 
 
+def published(rec) -> bool:
+    l = rec["llms_txt"]
+    return l.get("status") == 200 and bool(l.get("bytes"))
+
+
 def table(recs, n_first, n_extra) -> str:
-    recs = sorted(recs, key=lambda r: r["llms_txt"].get("bytes") or 0)
-    sizes = [r["llms_txt"].get("bytes") or 0 for r in recs]
-    k = len(recs)
+    recs = sorted(recs, key=lambda r: (not published(r), r["llms_txt"].get("bytes") or 0, r["project"]))
+    pub = [r for r in recs if published(r)]
+    none = [r for r in recs if not published(r)]
+    sizes = [r["llms_txt"]["bytes"] for r in pub]
+    k, kp = len(recs), len(pub)
     rank = sum(1 for s in sizes if s < XERJ["bytes"]) + 1
-    absent = sum(1 for r in recs if install_cell(r["llms_txt"]) == "absent")
-    agent = sum(1 for r in recs if r["llms_txt"].get("agent_prompt_verbatim"))
-    oneclick = sum(1 for r in recs if r["llms_txt"].get("one_click_links"))
-    mcp = sum(1 for r in recs if r["llms_txt"].get("mcp_snippet_verbatim"))
-    fb = sum(1 for r in recs if r["llms_txt"].get("feedback_cta_verbatim"))
-    full = sum(1 for r in recs if full_bytes(r))
-    when = "measured 2026-09-18" if not n_extra else f"{k - n_extra} measured 2026-09-18, {n_extra} added 2026-09-19"
-    src = "`data/dissections.json`" + (" and `data/dissections-2026-09-19.json`" if n_extra else "")
+    absent = sum(1 for r in pub if install_cell(r["llms_txt"]) == "absent")
+    agent = sum(1 for r in pub if r["llms_txt"].get("agent_prompt_verbatim"))
+    oneclick = sum(1 for r in pub if r["llms_txt"].get("one_click_links"))
+    mcp = sum(1 for r in pub if r["llms_txt"].get("mcp_snippet_verbatim"))
+    fb = sum(1 for r in pub if r["llms_txt"].get("feedback_cta_verbatim"))
+    full = sum(1 for r in pub if full_bytes(r))
+    if n_extra:
+        title = (f"# Comparison table — {k} projects, {kp} of which publish an llms.txt "
+                 f"({k - n_extra} measured 2026-09-18, {n_extra} added 2026-09-19)")
+        src = ("Generated mechanically from `data/dissections.json` and `data/dissections-2026-09-19.json` by "
+               "`scripts/build_tables.py` (`--check` fails if this file is stale)")
+    else:
+        title = f"# Comparison table — {k} projects' llms.txt, measured 2026-09-18"
+        src = "Generated mechanically from `data/dissections.json`"
     out = [
-        f"# Comparison table — {k} projects' llms.txt, {when}",
+        title,
         "",
-        f"Generated mechanically from {src}"
-        + (" by `scripts/build_tables.py`" if n_extra else "")
-        + '. Sorted by llms.txt size. "Install" = whether installation commands appear in llms.txt itself.',
+        src + '. Sorted by llms.txt size. "Install" = whether installation commands appear in llms.txt itself.',
         "",
         f"**Distribution of llms.txt size (bytes):** min {n(sizes[0])} · p25 {n(quantile(sizes, .25))} · "
         f"median {n(median(sizes))} · p75 {n(quantile(sizes, .75))} · max {n(sizes[-1])}. "
-        f"**XERJ: {n(XERJ['bytes'])} bytes, {XERJ['lines']} lines — rank {rank} of {k + 1}.**",
+        f"**XERJ: {n(XERJ['bytes'])} bytes, {XERJ['lines']} lines — rank {rank} of {kp + 1}.**",
         "",
-        f"**Counts:** install commands absent from llms.txt in {absent}/{k} · agent-addressed text in {agent} · "
+        f"**Counts:** install commands absent from llms.txt in {absent}/{kp} · agent-addressed text in {agent} · "
         f"one-click links in {oneclick} · MCP snippet in {mcp} · a feedback/contribution ask in {fb} · "
         f"llms-full.txt published by {full}.",
         "",
+    ]
+    if none:
+        out += [
+            "The columns record what a dissecting pass wrote down for each project, so \"MCP snippet: yes\" can mean a snippet "
+            "quoted from a linked page. What is literally inside each llms.txt — code fences, install commands, `claude mcp add` — "
+            "is measured by script over a larger set in [`proposals/llms-txt-measurements.md`](proposals/llms-txt-measurements.md).",
+            "",
+            f"{len(none)} of the {n_extra} projects added on 2026-09-19 publish **no llms.txt at all**. They are XERJ's nearest "
+            "functional peers (local code-search and MCP-server projects); their README is the agent-install surface. "
+            "They are listed last and are excluded from the distribution and the counts above.",
+            "",
+        ]
+    out += [
         "| Project | llms.txt bytes | lines | llms-full bytes | Install in llms.txt | Agent text | One-click | MCP snippet | Feedback ask |",
         "|---|---:|---:|---:|---|---|---:|---|---|",
     ]
-    for r in recs:
+    for r in pub:
         l = r["llms_txt"]
         out.append(
             f"| [{display(r['project'])}](per-project/{slug(r['project'])}.md) | {n(l.get('bytes'))} | {n(l.get('lines'))} | "
@@ -123,6 +147,13 @@ def table(recs, n_first, n_extra) -> str:
         f"| **XERJ (for reference)** | **{n(XERJ['bytes'])}** | **{XERJ['lines']}** | **{n(XERJ['full'])}** | "
         "line 11, inside 'Start here' | yes | 0 | — | yes |"
     )
+    for r in none:
+        l = r["llms_txt"]
+        out.append(
+            f"| [{display(r['project'])}](per-project/{slug(r['project'])}.md) | none published | — | — | "
+            f"README only ({len(l.get('install_commands') or [])} install lines recorded) | — | "
+            f"{len(l.get('one_click_links') or [])} | {'README' if l.get('mcp_snippet_verbatim') else '—'} | — |"
+        )
     return "\n".join(out) + "\n"
 
 

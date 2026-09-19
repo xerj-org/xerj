@@ -126,13 +126,8 @@ Zep	https://help.getzep.com/docs/llms.txt	probe-2026-09-18
 Zep	https://help.getzep.com/llms.txt	probe-2026-09-18
 turbopuffer	https://turbopuffer.com/llms.txt	dissected-2026-09-18
 Algolia	https://www.algolia.com/llms.txt	dissected-2026-09-18
-ParadeDB	https://www.paradedb.com/docs/llms.txt (docs.paradedb.com/llms.txt 301-redirects here)	dissected-2026-09-18
-Claude Code docs	https://code.claude.com/llms.txt (identical bytes at https://code.claude.com/docs/llms.txt; https://code.claude.com/docs/en/llms.txt is 404)	dissected-2026-09-18
-Anthropic	https://platform.claude.com/llms.txt (fetched via https://docs.anthropic.com/llms.txt, 301-redirected)	dissected-2026-09-18
 LlamaIndex	https://developers.llamaindex.ai/llms.txt	dissected-2026-09-18
-Pydantic AI	https://pydantic.dev/docs/ai/llms.txt (redirect target of https://ai.pydantic.dev/llms.txt)	dissected-2026-09-18
 Bun	https://bun.com/llms.txt	dissected-2026-09-18
-Exa	https://exa.ai/docs/llms.txt (fetched via https://docs.exa.ai/llms.txt, 301 -> 200)	dissected-2026-09-18
 FastMCP	https://gofastmcp.com/llms.txt	dissected-2026-09-18
 Expo	https://docs.expo.dev/llms.txt	added-2026-09-19
 XERJ	https://xerj.org/llms.txt	subject

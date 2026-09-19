@@ -2,7 +2,7 @@
 
 Produced by `scripts/measure_llms_txt.py`; do not edit by hand. Definitions are in the script's docstring. Per-file rows (URL, status, bytes, SHA-256, fetch time, every measure) are in `data/llms-txt-manifest.json`. Third-party bodies are not committed.
 
-- URLs fetched: **137** (2026-09-19T20:08:19Z – 2026-09-19T20:28:58Z UTC). Kept: **128** (127 peers + XERJ). Dropped: **9** (duplicate, error).
+- URLs fetched: **132** (2026-09-19T20:08:19Z – 2026-09-19T20:28:58Z UTC). Kept: **128** (127 peers + XERJ). Dropped: **4** (duplicate).
 - Generated index files change daily; re-run before quoting a number.
 
 | Measure | min | p25 | median | p75 | p90 | max | XERJ today | XERJ percentile | Proposal | Proposal percentile |

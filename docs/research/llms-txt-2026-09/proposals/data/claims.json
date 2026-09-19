@@ -2131,6 +2131,112 @@
   ]
  },
  {
+  "id": "C116",
+  "source": "new-2026-09-19",
+  "claim": "OpenAI's Codex docs give the stdio add syntax.",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "codex mcp add <server-name> --env VAR1=VALUE1 --env VAR2=VALUE2 -- <stdio server-command>"
+  ]
+ },
+ {
+  "id": "C117",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's add command takes a stdio command and a scope that defaults to project.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3",
+   "Configuration scope (user or project). [default: \"project\"]"
+  ]
+ },
+ {
+  "id": "C118",
+  "source": "new-2026-09-19",
+  "claim": "Windsurf's MCP config file path.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-windsurf.md",
+  "expect": "present",
+  "quotes": [
+   "`~/.codeium/windsurf/mcp_config.json`"
+  ]
+ },
+ {
+  "id": "C119",
+  "source": "new-2026-09-19",
+  "claim": "Zed's MCP settings key.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-zed.md",
+  "expect": "present",
+  "quotes": [
+   "Zed exposes MCP servers under the `context_servers` settings key."
+  ]
+ },
+ {
+  "id": "C120",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file paths, and the absolute-path rule.",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "expect": "present",
+  "quotes": [
+   "`~/Library/Application Support/Claude/claude_desktop_config.json`",
+   "claude_desktop_config.json",
+   "are valid and that they are absolute and not relative"
+  ]
+ },
+ {
+  "id": "C121",
+  "source": "new-2026-09-19",
+  "claim": "Cursor's project and global MCP config paths.",
+  "url": "https://cursor.com/docs/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "Create `.cursor/mcp.json` in your project for project-specific tools.",
+   "Create `~/.cursor/mcp.json` in your home directory for tools available everywhere."
+  ]
+ },
+ {
+  "id": "C122",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's config file locations.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-opencode.md",
+  "expect": "present",
+  "quotes": [
+   "typically `~/.config/opencode/opencode.json`, or `opencode.json` in your project root"
+  ]
+ },
+ {
+  "id": "C123",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's workspace MCP file.",
+  "url": "https://docs.stripe.com/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "add the following configuration to `.vscode/mcp.json` in your workspace"
+  ]
+ },
+ {
+  "id": "C124",
+  "source": "new-2026-09-19",
+  "claim": "Claude Code documents local, project and user scopes.",
+  "url": "https://code.claude.com/docs/en/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "--scope user",
+   "--scope local"
+  ]
+ },
+ {
+  "id": "C125",
+  "source": "new-2026-09-19",
+  "claim": "Cline's MCP settings file (as described by a third-party README).",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "expect": "present",
+  "quotes": [
+   "select the **Installed** tab, then click **Advanced MCP Settings**",
+   "In the `cline_mcp_settings.json` file"
+  ]
+ },
+ {
   "id": "D01",
   "source": "xerj-site",
   "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
