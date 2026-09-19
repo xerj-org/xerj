@@ -35,6 +35,7 @@ pub mod state;
 mod sync;
 mod sync_executor;
 pub mod walk;
+pub mod watch;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -2120,6 +2121,8 @@ mod phase_a_grouping_tests {
             quiet: true,
             progress: crate::progress::ProgressMode::None,
             progress_interval: None,
+            watch: false,
+            debounce: std::time::Duration::from_millis(0),
         }
     }
 
@@ -4118,6 +4121,9 @@ mod tcorr_id_tests {
 }
 
 fn run_index(cfg: IndexCfg) -> Result<i32> {
+    if cfg.watch {
+        return watch::run(cfg);
+    }
     run_index_report(cfg).map(|(code, _)| code)
 }
 
@@ -4217,6 +4223,28 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 /// generated route's `project_reconcile_plan` — is handed this one tally, so
 /// "files parsed by this run" is exactly what it holds.
 fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Option<Value>)> {
+    run_index_report_inner(cfg, tally, None)
+}
+
+/// One pass of a `--watch` session.
+///
+/// Identical to [`run_index_report`] in every respect but one: the pass carries
+/// a digest cache ([`watch::Pass`]) that lets a file the watcher knows did not
+/// change skip its re-hash. Nothing else about the run changes — same journal,
+/// same plan projection, same publish path, same summary — because a second
+/// indexing path is exactly what a watcher must not be.
+pub(crate) fn run_index_report_watched(
+    cfg: IndexCfg,
+    pass: &watch::Pass,
+) -> Result<(i32, Option<Value>)> {
+    run_index_report_inner(cfg, &ScanTally::default(), Some(pass))
+}
+
+fn run_index_report_inner(
+    cfg: IndexCfg,
+    tally: &ScanTally,
+    watch: Option<&watch::Pass>,
+) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
@@ -4517,8 +4545,39 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // forever after a same-size rewrite with restored or stale timestamps.
     // Hashing reads every byte of the corpus. On a large tree it is minutes of
     // real work, and before #241 it was minutes with no output at all.
-    pr.phase("hash", discovered_files.len() as u64, discovered_bytes);
-    let mut inventory = content::resolve_reporting(discovered_files, &|bytes| pr.item_done(bytes))?;
+    let mut inventory = match watch {
+        // A plain run hashes the whole corpus, every time, on purpose: see
+        // `content::resolve_reporting`.
+        None => {
+            pr.phase("hash", discovered_files.len() as u64, discovered_bytes);
+            content::resolve_reporting(discovered_files, &|bytes| pr.item_done(bytes))?
+        }
+        // A `--watch` pass hashes what the watcher could not prove unchanged.
+        // The phase's totals are the files this pass will actually read, so the
+        // percent and the ETA describe the work being done rather than the work
+        // a full run would have done.
+        Some(pass) => {
+            let plan = pass.plan(&discovered_files);
+            let (carried_files, carried_bytes) = (plan.carried_files, plan.carried_bytes);
+            pr.phase("hash", plan.hash_files, plan.hash_bytes);
+            pr.note(&format!(
+                "autoindex: --watch: re-hashing {} file(s) ({} MB); {carried_files} file(s) \
+                 ({} MB) carried from the previous pass",
+                plan.hash_files,
+                plan.hash_bytes >> 20,
+                carried_bytes >> 20,
+            ));
+            let root = pass.root().to_path_buf();
+            let inventory = content::resolve_reporting_carried(
+                discovered_files,
+                &|entry| plan.carried(entry),
+                &|entry, digest, fresh| plan.observe(&root, entry, digest, fresh),
+                &|bytes| pr.item_done(bytes),
+            )?;
+            pass.commit(plan);
+            inventory
+        }
+    };
     if cfg.no_graph && preflight.committed_manifest.is_some() && !genesis_recovery {
         if cfg.dry_run {
             let base = preflight
