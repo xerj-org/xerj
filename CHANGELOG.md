@@ -31,8 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
   `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
   cannot be. **It is the only search-time feature that sends document text
-  off the node** (the other outbound paths, `[embedding] default_endpoint` and
-  the WAL tap, are operator configuration, inert by default too): inert until
+  off the node** (`[embedding] default_endpoint` and the WAL tap also send text
+  off the node when an operator configures them; docs/RERANK.md lists every
+  outbound connection a node can open, and a test fails when the engine source
+  gains one that list does not name): inert until
   an operator sets `[rerank] api_key` (or
   `TYPESAFE_API_KEY`; config wins over env), opt-in per request, forbidden
   outright by `[rerank] enabled = false`, and only fields the response returns
@@ -51,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caller-chosen cost knob has a server-side ceiling, the strings included:
   `instructions` is capped at 2,000 characters because the provider's wire
   format repeats it once per judged document, the question at 4,000 and
-  `model` at 128. `GET /_xerj/rerank` reports whether a provider is configured
+  `model` at 128; a provider response over 2 MiB is a 502, not an allocation.
+  `GET /_xerj/rerank` reports whether a provider is configured
   and never the key; `/v1/metrics` gains `xerj_rerank_requests_total{outcome}`,
   `xerj_rerank_documents_judged_total` and
   `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and

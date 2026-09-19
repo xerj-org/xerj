@@ -22,9 +22,10 @@
 //! projected `_source`, then the hit's `fields`. Nothing the response does not
 //! return is sent to the provider. That is a privacy property as much as a
 //! design one: reranking is the only search-time feature that sends document
-//! text off the node (the other two outbound paths, `[embedding]
-//! default_endpoint` and the WAL tap, are operator configuration, not
-//! something a search request can trigger), and "exactly what you were about
+//! text off the node (proxy embeddings send query text at search time and
+//! document text at write time; the WAL tap sends writes; the full list is
+//! `docs/RERANK.md`, "Every way data leaves a XERJ node", kept complete by
+//! `xerj-rerank/tests/egress_inventory.rs`), and "exactly what you were about
 //! to receive, no more" is a rule a caller can audit. The cost is that
 //! `_source` filtering which removes the text also removes it from the judge,
 //! so that combination is refused by name instead of being judged blind.
@@ -931,15 +932,7 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
             "max_fields": xerj_rerank::MAX_FIELDS,
             "max_field_name_chars": xerj_rerank::MAX_FIELD_NAME_CHARS,
         },
-        "data_egress": "A search that carries a `rerank` block sends the text of up to \
-                        `window` hits, and the query, to the endpoint above. It is the \
-                        only search-time feature that sends document text off the node. \
-                        Two other outbound paths exist and are operator configuration, \
-                        inert by default: `[embedding] default_endpoint` (`--embed-mode \
-                        proxy`) sends document text at ingest and query text at search \
-                        time to an external embeddings API, and the WAL tap \
-                        (`PUT /_xerj/wal_tap`) replays every write on tapped indices to \
-                        an external `_bulk` endpoint.",
+        "data_egress": xerj_rerank::DATA_EGRESS,
     })
 }
 

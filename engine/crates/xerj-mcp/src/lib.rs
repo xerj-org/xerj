@@ -421,9 +421,10 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          Without it the search fails with HTTP 503 `rerank_exception`; do not retry, \
          repeat the search without `rerank`. HTTP 403 means the operator disabled it. \
          PRIVACY: this is the only search-time feature that sends document text off the \
-         node (the two other outbound paths, `[embedding] default_endpoint` proxy \
-         embeddings and the WAL tap, are operator configuration, inert by default) — do \
-         not use it on data that must stay local unless the user has agreed. Only fields \
+         node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send \
+         text off the node when an operator configures them, so never tell a user that \
+         nothing else leaves the machine — do not use rerank on data that must stay local \
+         unless the user has agreed. Only fields \
          the response returns are sent, so `_source` filtering also limits what leaves. \
          Pass true or {{}} for defaults, or an object with: {question} \
          `window` (int, default {default_window}, max {max_window}): how many top hits \
@@ -1480,16 +1481,24 @@ mod tests {
                 "NEEDS A CONFIGURED PROVIDER",
                 "503",
                 // The honest egress statement: rerank is the only SEARCH-TIME
-                // path, and the description names the other two so an agent
-                // never repeats "nothing else leaves the machine" on a node
-                // running proxy embeddings or a WAL tap.
+                // path, and the description names the other two that send text
+                // so an agent never repeats "nothing else leaves the machine"
+                // on a node running proxy embeddings or a WAL tap.
                 "only search-time feature that sends document text off the node",
                 "default_endpoint",
                 "WAL tap",
+                "never tell a user that nothing else leaves the machine",
                 "_rerank",
             ] {
                 assert!(d.contains(needle), "{tool}: description lacks `{needle}`");
             }
+            // The first corrected wording ("two other ... paths") was incomplete: the neural model
+            // download and cluster Raft traffic are outbound too (they carry no
+            // document text). docs/RERANK.md holds the complete list.
+            assert!(
+                !d.to_lowercase().contains("other outbound paths"),
+                "{tool}: {d}"
+            );
             // The quoted ceilings are the node's, not a copy of them.
             assert!(
                 d.contains(&format!("max {}", xerj_rerank::MAX_WINDOW)),

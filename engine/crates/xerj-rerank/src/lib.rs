@@ -138,6 +138,25 @@ pub const MAX_FIELDS: usize = 64;
 /// Ceiling on one `rerank.fields` entry, in characters — a field path.
 pub const MAX_FIELD_NAME_CHARS: usize = 256;
 
+/// What `GET /_xerj/rerank` says leaves the node, as `data_egress`.
+///
+/// A privacy statement an operator — or an agent quoting it to one — will rely
+/// on, so it is complete rather than flattering: reranking is the only
+/// SEARCH-TIME feature that sends document text off the node, it is not the
+/// only feature that sends text, and it is not the only outbound connection.
+/// `tests/egress_inventory.rs` checks it names every path the engine source
+/// contains, and that `docs/RERANK.md` quotes it verbatim.
+pub const DATA_EGRESS: &str = "A search that carries a `rerank` block sends the text of up to \
+     `window` hits, and the query, to the endpoint above. It is the only search-time feature \
+     that sends document text off the node. Two other features send text off the node, both \
+     operator configuration and off by default: `[embedding] default_endpoint` \
+     (`--embed-mode proxy`) sends document text at write time and query text at search time \
+     to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every \
+     write on tapped indices to an external `_bulk` endpoint. The node's other outbound \
+     connections carry no document or query text: the one-time HuggingFace model download \
+     for `--embed-mode neural`, and Raft messages (index names, mappings, shard assignments) \
+     to the configured peers in cluster mode.";
+
 /// Ceiling on one provider response body, in bytes.
 ///
 /// A legitimate System One answer for a full 30-document call is one small

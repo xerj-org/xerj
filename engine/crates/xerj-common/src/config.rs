@@ -2129,8 +2129,11 @@ impl Default for SearchContextConfig {
 ///
 /// Reranking is the only search-time feature that sends document text off
 /// this node: the text of the top-N hits is POSTed to a third-party judge.
-/// (The other outbound paths — `[embedding] default_endpoint` and the WAL tap
-/// — are operator configuration, not something a search request triggers.)
+/// (Two other features send text off the node, both operator configuration:
+/// `[embedding] default_endpoint` — document text at write time, query text at
+/// search time — and the WAL tap. The complete list of outbound connections,
+/// including the neural model download and cluster Raft traffic, is in
+/// `docs/RERANK.md`, "Every way data leaves a XERJ node".)
 /// It therefore does nothing until an operator supplies a key, and it can be
 /// forbidden outright.
 ///

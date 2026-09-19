@@ -4,14 +4,18 @@
 > `rerank` block POSTs the question and the text of up to `window` hits
 > (default 30, maximum 300) to a third-party API. It is the only
 > **search-time** feature that sends document text off the node. Two other
-> outbound paths exist, and both are operator configuration, inert by default:
-> `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at
-> ingest and query text at search time to an external embeddings API, and the
-> WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an
-> external `_bulk` endpoint. Reranking is off until an operator supplies a
-> provider key, a request only triggers it by asking for it, and an operator
-> can forbid it outright with `[rerank] enabled = false`. Read
-> [What leaves the machine](#what-leaves-the-machine) before you turn it on.
+> features send text off the node, both operator configuration and off by
+> default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document
+> text at write time and query text at search time to an external embeddings
+> API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped
+> indices to an external `_bulk` endpoint. The node's other outbound
+> connections carry no document or query text: the one-time HuggingFace model
+> download for `--embed-mode neural`, and Raft messages to your own peers in
+> cluster mode. Reranking is off until an operator supplies a provider key, a
+> request only triggers it by asking for it, and an operator can forbid it
+> outright with `[rerank] enabled = false`. Read
+> [Every way data leaves a XERJ node](#every-way-data-leaves-a-xerj-node) before
+> you turn it on.
 
 `rerank` is an optional second stage on `POST /{index}/_search`. The engine
 retrieves and ranks as usual; the stage then hands the top hits to an external
@@ -84,7 +88,7 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
                 "max_doc_chars": 8000, "max_timeout_ms": 60000,
                 "max_instructions_chars": 2000, "max_query_chars": 4000,
                 "max_model_chars": 128, "max_fields": 64, "max_field_name_chars": 256 },
-  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other outbound paths exist and are operator configuration, inert by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at ingest and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint."
+  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other features send text off the node, both operator configuration and off by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at write time and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint. The node's other outbound connections carry no document or query text: the one-time HuggingFace model download for `--embed-mode neural`, and Raft messages (index names, mappings, shard assignments) to the configured peers in cluster mode."
 }
 ```
 
@@ -328,14 +332,36 @@ Never sent: document `_id`s and index names (documents are keyed `d0`, `d1`, …
 position), numbers, booleans, vectors, nested objects, and any field the
 response does not return.
 
-For the record, the other ways data can leave a node, none of which a search
-request can trigger: `[embedding] default_endpoint` / `--embed-mode proxy`
-sends document text at ingest and query text at search time to the embeddings
-API you configured; the WAL tap (`PUT /_xerj/wal_tap`) replays every write on
-the indices you tapped to the `_bulk` endpoint you named; and `--embed-mode
-neural` downloads its model weights from the HuggingFace Hub on first use, and
-sends no text. All three are off unless an operator turns them on. The
-[air-gapped recipe](./recipes/air-gapped-deployment.md) lists them together.
+### Every way data leaves a XERJ node
+
+Reranking is the only thing a **search request** can do that sends document
+text off the node. It is not the only outbound connection a node can make. This
+is the complete list, taken from the engine source — every outbound HTTP or TCP
+client under `engine/crates` — and kept complete by a test
+(`engine/crates/xerj-rerank/tests/egress_inventory.rs`) that fails when a new
+client appears in a source file this list does not account for:
+
+| Path | What leaves the node | When | Default |
+|---|---|---|---|
+| **Rerank provider** — `[rerank]`, `TYPESAFE_API_KEY` / `TYPESAFE_ENDPOINT` | The question, `rerank.instructions`, the model name, and the returned text of up to `window` hits (above) | A search that carries a `rerank` block | Off: no key is configured |
+| **Proxy embeddings** — `[embedding] default_endpoint`, `--embed-mode proxy` | Document text of the fields it embeds, and the text of queries it embeds | Document text at write time (index, `_bulk`, update, reindex); query text at search time, for every query it embeds (`semantic`, hybrid, semantic memory recall) | Off: `default_endpoint` is empty |
+| **WAL tap** — `[wal_tap]`, `PUT /_xerj/wal_tap` | Every write on the tapped indices (indexed documents and deletes), as `_bulk` to `{target_url}/_bulk`; never system indices | Continuously, every `poll_interval_ms` | Off: `enabled = false` |
+| **Neural model download** — `--embed-mode neural` | HTTPS requests to the HuggingFace Hub naming the model (`config.json`, `tokenizer.json`, `model.safetensors`); no document or query text | The first time the neural embedder loads without `embedding.local_model_dir`; later starts read the local cache | Off: the default embedder is lexical |
+| **Cluster transport** — `[cluster] enabled = true` | Raft messages to the configured `peers`: index names, mappings, shard assignments, node addresses, cluster settings; no document text and no queries | While cluster mode runs | Off: single node |
+
+A node started with the defaults opens none of these connections, and makes no
+telemetry, update-check or licence call. Two things outside the node complete
+the picture:
+
+- **The Console in a browser** asks Google Fonts for its typefaces. That is
+  the browser's request, not the node's, and it carries no index data; the
+  [air-gapped recipe](./recipes/air-gapped-deployment.md) names the three pages
+  that link the fonts, and a blocked request falls back to system fonts.
+- **The command-line clients in the same binary** (`xerj autoindex`,
+  `xerj mcp`, `xerj search` and the others) send what they read to the node URL
+  you give them, `http://localhost:9200` unless you say otherwise.
+  `xerj feedback --open-pr` runs your `gh` to open a GitHub pull request with
+  the report it drafted; without that flag it does nothing over the network.
 
 So `_source` filtering is also an egress control:
 
@@ -394,6 +420,7 @@ order has been misled. So the policy is split:
 | No key configured | **503** `rerank_exception`, naming `[rerank] api_key` and `TYPESAFE_API_KEY`. Nothing is sent. A search **without** `rerank` on the same node is unaffected. |
 | Provider answered 401 / 403 / another 4xx | **502** `rerank_exception` with the provider's status. Not retried. |
 | Provider answered 200 with a body that is not the documented shape | **502** `rerank_exception`. |
+| Provider answered 200 with a body over 2 MiB | **502** `rerank_exception` ("larger than 2097152 bytes"). A real answer for 30 documents is a few kilobytes; the node stops reading at the ceiling instead of letting the endpoint choose how much memory a search allocates. |
 | Provider unreachable | **502** `rerank_exception`. |
 | Provider answered 429, 529 or 5xx | Retried, up to 3 attempts per call, with a short exponential back-off and an extra pause after a 429 — but never past the deadline. If the deadline runs out first, degrade; if the retries run out first, 502. |
 

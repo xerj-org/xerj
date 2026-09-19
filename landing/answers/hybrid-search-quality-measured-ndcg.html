@@ -303,7 +303,7 @@
   <p>What the table supports is narrow. On NFCorpus the local hybrid figure sits inside the range of the published reranker figures. On SciFact it is lower than all three. A controlled comparison needs a provider key and XERJ's <code class="inline">rerank</code> stage, and XERJ has not run one.</p>
   <h2>When to choose a hosted reranker instead</h2>
   <p>Choose a hosted reranker when ranking quality on hard queries matters most. You pay for it in latency, in cost, and in text that leaves the machine. The published SciFact figures for all three hosted systems are higher than XERJ's local hybrid figure. A reranker also returns a calibrated probability, which a fused score is not.</p>
-  <p>Choose local hybrid when text must stay on the machine, or when a paid call per search is not acceptable. XERJ supports both. <code class="inline">hybrid</code> runs on the node. The <code class="inline">rerank</code> stage calls a judge when an operator has set a key.</p>
+  <p>Choose local hybrid when text must stay on the machine, or when a paid call per search is not acceptable. XERJ supports both. <code class="inline">hybrid</code> runs on the node with the built-in lexical or neural embedder. With proxy embeddings, the query text goes to that embeddings API. The <code class="inline">rerank</code> stage calls a judge when an operator has set a key.</p>
   <h2>What this run does not show</h2>
   <p>Two datasets, one model and one run each. Both datasets are scientific and medical text, so the gap may differ on code, logs or chat. The node was a single shard on a shared host. These figures show the ordering of the four arms on this data, not what your corpus will score.</p>
   <h2>FAQ</h2>

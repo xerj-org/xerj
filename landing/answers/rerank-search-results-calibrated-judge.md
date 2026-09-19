@@ -66,7 +66,11 @@ A calibrated probability means the same thing on every query. `rerank.min_score:
 
 ## This sends your data off the machine
 
-Reranking is the only search-time feature that sends document text to a third party. Two other outbound paths exist, and both are off by default. `[embedding] default_endpoint` (proxy embeddings) sends document text at indexing time, and query text at search time, to an external embeddings API. The WAL tap replays every write on tapped indices to an external `_bulk` endpoint. An operator has to turn either one on. Indexing, search, the built-in embedders and agent memory run on the node. A rerank request POSTs the question and the text of up to `window` hits to the provider.
+Reranking is the only search-time feature that sends document text to a third party. Two other features send text off the node, and both are off by default. Proxy embeddings (`[embedding] default_endpoint`) send document text at indexing time and query text at search time to an external embeddings API. The WAL tap replays every write on tapped indices to an external `_bulk` endpoint. An operator has to turn either one on.
+
+The node has two more outbound connections, and neither carries document or query text. Neural mode downloads its model from the HuggingFace Hub once. Cluster mode, which a default single-node deployment never starts, sends Raft messages, such as index names and mappings, to your own peers. The reference, `docs/RERANK.md`, lists every outbound connection a node can open.
+
+A rerank request POSTs the question and the text of up to `window` hits to the provider.
 
 Three controls exist. Reranking does nothing until an operator sets a provider key. A search only triggers it by carrying a `rerank` block. An operator can forbid it with `enabled = false` under `[rerank]`, which refuses every rerank request with HTTP 403.
 
@@ -142,7 +146,7 @@ Add a `rerank` object to the body of `POST /{index}/_search`. An empty object us
 
 ### Does reranking send my documents to a third party?
 
-Yes. It is the only search-time feature that sends document text off the node; proxy embeddings and the WAL tap are the other outbound paths, and all three are operator-configured and inert by default. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent.
+Yes. It is the only search-time feature that sends document text off the node. Proxy embeddings and the WAL tap also send text off the node when an operator configures them, and all three are off by default. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent.
 
 ### What happens when the rerank provider is slow?
 
@@ -166,6 +170,7 @@ Yes. The `xerj_search` and `xerj_hybrid_search` tools take an optional `rerank` 
 
 ## Evidence
 
+- Reranking is the only search-time feature that sends document text off the node. Proxy embeddings and the WAL tap also send text off the node when configured; the neural model download and cluster Raft messages carry no document or query text. A test checks that list against every outbound network client in the engine source. — `engine/crates/xerj-rerank/tests/egress_inventory.rs`
 - The rerank stage defaults to a window of 30 hits, allows at most 300, sends at most 30 documents per provider call, runs 8 calls in flight by default and 16 at most, and defaults to a 10000 ms stage budget capped at 60000 ms. — `engine/crates/xerj-rerank/src/lib.rs`
 - The failure policy, every refused combination, the 400, 403, 502 and 503 statuses, paging inside the window, and the rule that only returned text is sent are each pinned by an HTTP test against an in-process stub of the provider wire format. — `engine/crates/xerj-api/tests/rerank_stage_http.rs`
 - The nDCG@10 figures for Jev (0.768 SciFact, 0.358 NFCorpus), Voyage rerank-3 (0.755, 0.357) and Cohere rerank-v3.5 (0.745, 0.340) are published in the hev/jev-rerank README. XERJ did not run them, and they rerank that project's own first-stage shortlist. — [https://github.com/hev/jev-rerank](https://github.com/hev/jev-rerank)
