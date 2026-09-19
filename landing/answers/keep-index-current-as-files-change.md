@@ -137,6 +137,11 @@ target), truncate-then-write, a metadata-only touch, and a deleted file. Also a
 file replaced by a directory, a moved directory, and a burst of thousands of
 events. A kernel watch-queue overflow forces a full re-hash for that pass.
 
+One more case matters for whether a session settles. On Linux the kernel also
+reports file OPENS, so every file a pass reads reports an event. The watcher
+classifies events by kind and drops reads. Without that step each pass would
+trigger the next one forever.
+
 ## Does it converge?
 
 Yes, and two tests assert it. The first property is the strict one: after the

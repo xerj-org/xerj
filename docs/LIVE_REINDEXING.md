@@ -114,12 +114,29 @@ Handled, with a test for each (`incremental_reconcile_http_tests.rs`,
 |---|---|
 | atomic save (write temp, rename over) | indexes the new content; the temp name never becomes a document |
 | truncate-then-write | indexes the new content |
-| chmod / metadata touch only | the fingerprint changes, the file is re-hashed, the digest is unchanged, nothing is republished |
+| chmod / metadata touch only | a pass runs (a file that just became unreadable stops being indexable) but the digest is not invalidated, so nothing is re-read and nothing is republished |
 | file deleted | its records stop appearing in search |
 | file replaced by a directory | the subtree is re-read and converges |
 | whole directory moved or deleted | the subtree is invalidated and converges |
 | burst of thousands of events | coalesced into one pass; above 20,000 distinct paths the pass re-hashes everything instead of tracking them (bounded memory) |
 | dropped events (kernel queue overflow) | the platform's rescan notice forces a full re-hash for that pass |
+
+### The watcher's own reads are not changes
+
+Worth knowing because it decides whether a session settles at all. On Linux the
+watch mask `notify` installs includes `IN_OPEN` and `IN_CLOSE`
+(`notify-8.2.0/src/inotify.rs:418`), so **every file a pass reads reports an
+event** — and a pass reads the whole corpus (the hash, then the generation
+snapshot's copy and its two verifications). Treated as changes, those events make
+every pass trigger the next one: measured, before this was fixed, as 48 passes
+over an untouched 3-file tree with the digest cache invalidated every time.
+
+So `watch.rs::classify` decides per event kind: reads are dropped,
+`Access(Close(Write))` is a finished write and is kept, `Modify(Metadata)` is the
+weak signal above, and anything unknown is treated as a change. The same loop is
+possible from a plausible command line — `--state-dir ./state` inside the watched
+folder, where every pass writes the journal — so `--watch` refuses a state
+directory inside the tree it watches.
 
 ## The correctness contract
 
