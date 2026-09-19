@@ -410,6 +410,18 @@ mod tests {
                 "inline event handler `{word}=` in the guest page"
             );
         }
+        // What the page tells a guest has to be true through a tunnel too
+        // (review of PR #947): it used to say the browser "talks to their
+        // machine" and that nothing goes "to a third party", on a page served
+        // through Cloudflare. The Cloudflare notice ships hidden; share.js
+        // shows it on a quick-tunnel hostname.
+        for untrue in ["third party", "talks to their machine"] {
+            assert!(!lower.contains(untrue), "guest page still says `{untrue}`");
+        }
+        for id in ["id=\"via-tunnel\" hidden", "id=\"room-via-tunnel\" hidden"] {
+            assert!(html.contains(id), "guest page lacks {id}");
+        }
+        assert!(lower.contains("cloudflare carries the connection and can read"));
         // Every asset it names is one the bundle actually carries.
         for asset in ["share/share.js", "share/share.css", "share/icon.svg"] {
             assert!(find_asset(asset).is_some(), "{asset} is not bundled");
@@ -448,6 +460,16 @@ mod tests {
         // The one storage contract the console's guest mode depends on.
         assert!(code.contains("'xerj.share'"));
         assert!(code.contains("sessionStorage.setItem(SHARE_KEY"));
+        // The share id goes to the node in the claim BODY. A path built from
+        // it is what put the id into access logs (review of PR #947).
+        assert!(code.contains("'/_share/claim'"), "claim route");
+        assert!(
+            !code.contains("/_share/${"),
+            "share.js builds a /_share path from a variable — the id must stay out of URLs"
+        );
+        assert!(code.contains("{ id: state.shareId, passcode }"));
+        // A link pasted over another differs only in its fragment.
+        assert!(code.contains("'hashchange'"));
         // The highlight delimiters are private-use code points, which are
         // invisible in an editor and in review: they must be written as
         // escapes, never as the characters themselves.
