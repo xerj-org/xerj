@@ -2,7 +2,7 @@
 ---
 title: "Share a local search index through a tunnel"
 canonical: "https://xerj.org/answers/share-local-search-index-through-a-tunnel"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/share-local-search-index-through-a-tunnel.md"
 ---
 

@@ -548,8 +548,8 @@
       "canonical_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading",
       "markdown_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading.md",
       "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-18",
-      "summary": "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. Nothing is uploaded."
+      "updated": "2026-09-19",
+      "summary": "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded."
     },
     {
       "title": "Share a local search index through a tunnel",
@@ -557,7 +557,7 @@
       "canonical_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel",
       "markdown_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel.md",
       "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "xerj share --tunnel starts your own cloudflared, prints a public guest link, and closes the tunnel and revokes the share on Ctrl-C. What the trade is."
     },
     {
@@ -566,7 +566,7 @@
       "canonical_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach",
       "markdown_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach.md",
       "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "A share-link guest key reads the shared index and nothing else: no other index, no _cat or _cluster, no writes, no scroll or PIT. Each refusal is a live test."
     }
   ]

@@ -2,7 +2,7 @@
 ---
 title: "Read-only search over a folder, without uploading it"
 canonical: "https://xerj.org/answers/share-folder-read-only-search-without-uploading"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/share-folder-read-only-search-without-uploading.md"
 ---
 

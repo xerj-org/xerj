@@ -1,7 +1,7 @@
 ---
 title: "Read-only search over a folder, without uploading it"
 h1: "How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?"
-description: "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. Nothing is uploaded."
+description: "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded."
 slug: "share-folder-read-only-search-without-uploading"
 cluster: "Sharing: read-only guest access"
 question: "I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?"
