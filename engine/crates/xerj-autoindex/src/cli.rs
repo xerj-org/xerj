@@ -782,14 +782,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         if !no_graph {
             return Err(
                 "--watch needs --no-graph today, and that is a real limitation rather than a \
-                 formality: incremental reindexing of a CHANGED file exists only on the \
-                 --no-graph (generated) route. On the default graph path a re-run resumes a \
-                 frozen plan, so a file whose content changed is reported as 'appeared after \
-                 the resume plan was frozen' and is NOT indexed until the whole corpus is \
-                 rebuilt with --fresh — a --watch session there would look live while serving \
-                 stale documents. Re-run as `xerj autoindex <folder> --watch --no-graph` \
-                 (relationship detection off), or keep rebuilding a graph corpus with `xerj \
-                 autoindex <folder> --fresh`"
+                 formality: reconciling an ADDED or DELETED file exists only on the --no-graph \
+                 (generated) route. On the default graph path a re-run resumes a frozen plan, \
+                 so a file created after that plan was frozen is reported as 'appeared after \
+                 the resume plan was frozen' and is NOT indexed until the corpus is rebuilt \
+                 with --fresh, and a file deleted from the folder ABORTS the run — and every \
+                 re-run after it — because its documents are still live in the destination. \
+                 (A file whose CONTENT changed is reconciled there; additions and deletions \
+                 are what a watcher on that route could not keep current.) Re-run as `xerj \
+                 autoindex <folder> --watch --no-graph` (relationship detection off), or keep \
+                 rebuilding a graph corpus with `xerj autoindex <folder> --fresh`"
                     .into(),
             );
         }
@@ -1060,6 +1062,37 @@ mod tests {
 
     fn err(args: &[&str]) -> String {
         parse(args.iter().map(|s| s.to_string()).collect()).expect_err("must be refused")
+    }
+
+    /// The `--watch` refusal must name the limitation it actually has. Measured
+    /// on the graph route against a 10,000-file corpus
+    /// (`docs/measurements/autoindex-watch-2026-09-19.md`, section 4): a re-run
+    /// after a file's CONTENT changed indexes it (3.07 s, `files=1`, searchable),
+    /// a re-run after an ADDITION skips the file with exit 3, and a re-run after a
+    /// DELETION aborts with exit 1 and keeps aborting. The message used to claim
+    /// the opposite about a changed file, which came from a measurement whose
+    /// shell append had created a new file rather than modifying one.
+    #[test]
+    fn the_watch_refusal_names_additions_and_deletions_not_content_changes() {
+        let text = err(&["data", "--watch"]);
+        assert!(
+            text.contains("--no-graph"),
+            "the message must name the flag that makes it work: {text}"
+        );
+        assert!(
+            text.contains("ADDED") && text.contains("DELETED"),
+            "the message must say which changes the graph route cannot reconcile: {text}"
+        );
+        assert!(
+            text.contains("CONTENT changed is reconciled"),
+            "the message must not leave the operator thinking an edit is lost too: {text}"
+        );
+        assert!(
+            !text.contains("a file whose content changed is reported"),
+            "the corrected claim must not come back: {text}"
+        );
+        // With --no-graph it parses, and the watcher is on.
+        assert!(index(&["data", "--watch", "--no-graph"]).watch);
     }
 
     /// `xerj autoindex` reads its endpoint from `--url` only; setting `XERJ_URL`
