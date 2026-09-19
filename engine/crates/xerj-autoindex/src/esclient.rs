@@ -565,6 +565,38 @@ impl Es {
         Ok(body)
     }
 
+    /// One JSON request, one attempt, status handed back to the caller.
+    ///
+    /// For interactive commands whose statuses *are* the answer — `xerj share`
+    /// reads a 403 as "that key is not the admin key", a 404 as "no such
+    /// index" and a 409 as "this node has authentication off". `get_json`
+    /// folds every non-2xx into one opaque error, and the retry wrapper would
+    /// spend ~16s re-asking a question whose answer will not change. A body
+    /// that is not JSON comes back as `Value::Null` rather than an error: the
+    /// status is still the caller's to interpret.
+    ///
+    /// `method` is the verb as text (`"GET"`, `"POST"`, `"DELETE"`) so that a
+    /// caller in another crate does not need `reqwest` as a dependency of its
+    /// own just to name one.
+    pub fn request_json(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<(u16, Value)> {
+        let method = reqwest::Method::from_bytes(method.as_bytes())
+            .with_context(|| format!("not an HTTP method: {method}"))?;
+        let mut r = self.req(method, path);
+        if let Some(b) = body {
+            r = r.json(b);
+        }
+        let resp = r
+            .send()
+            .with_context(|| format!("no response from {}{}", self.base, path))?;
+        let status = resp.status().as_u16();
+        Ok((status, resp.json().unwrap_or(Value::Null)))
+    }
+
     /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s, 6 attempts.
     ///
     /// A 429 is also reported to the bulk admission window: sleeping is how

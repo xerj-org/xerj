@@ -18,6 +18,8 @@ Primary sources:
 | Engine-side visibility funnel | `engine/crates/xerj-engine/src/index_guard.rs` |
 | Privileges, roles, `role_descriptors` parsing | `engine/crates/xerj-engine/src/rbac.rs` |
 | Console client identity and rate limiting | `engine/crates/xerj-console-api/src/client_ip.rs`, `.../auth/rate_limit.rs` |
+| Share links: records, claim route, claim limiter | `engine/crates/xerj-api/src/share.rs` |
+| Share-link guest route allow-list | `engine/crates/xerj-api/src/authz.rs` (`guest_route_allowed`, `guest_body_denied`) |
 | Cluster control-frame authentication | `engine/crates/xerj-cluster/src/auth.rs` |
 
 ## The two layers
@@ -369,6 +371,109 @@ inert. The same is true of the application-privilege store behind
 Broad RBAC over the general ES-compatible surface is not implemented. What is
 enforced is the reserved namespace and the confinement of a `Scoped` key to its
 named indices (`authz.rs:94-101`).
+
+## Share-link guests
+
+`xerj share` (`POST /_share`) lets the owner hand one person read-only access
+to named indices through a link and a passcode. The full description, including
+the threat model, is [SHARING.md](./SHARING.md); this section records where it
+sits in the model above.
+
+**A guest is a `Scoped` principal with one extra rule.** A successful claim
+mints an ordinary API key whose single role is named `share:<handle>`, with
+`read` on the share's indices and, when a brain is named, on that brain's edges
+index. It expires when the share does. Everything in
+[What a scoped key can and cannot do](#what-a-scoped-key-can-and-cannot-do)
+applies to it. On top of that, a key whose roles are *all* named `share:…`
+(`Principal::is_share_guest`, `auth.rs`) is subject to a **route allow-list**
+(`authz.rs`, `guest_route_allowed`) checked before the index decision:
+
+- index-scoped `_search`, `_count`, `_msearch`, `_mget`, `_mapping`,
+  `_field_caps`; `GET _doc/{id}`; `GET /_graph/{brain}/ego|overview`; the
+  exempt probes. Nothing else. (`GET _source/{id}` is not a route on this node,
+  and is not on the list.)
+- The cluster surface an ordinary scoped key sees *filtered* (`_cat`,
+  `_cluster/*`, `_nodes`, `_snapshot`, the global `_search`) is closed to a
+  guest outright, as are the native `/v1/*` router and `/v1/metrics`.
+- No server-side context: `scroll` as a query parameter (percent-decoded and
+  case-folded before it is compared), `_search/scroll`, `_pit` and
+  `_async_search` are refused. A `pit` clause in a `_search` or `_msearch` body
+  is refused too (`guest_body_denied`): a PIT, not the path, decides which index
+  a search runs against, and a guest can never have opened one. Before that
+  rule existed the engine funnel already refused the owner's PIT presented by a
+  guest — with a `404` that echoed the other index's name.
+
+Recognition is by role name and nothing else, which is safe in the only
+direction that matters: being recognised as a guest only ever *removes* reach.
+An operator who mints an ordinary key with a role descriptor called `share:x`
+gets a key that is more confined than they asked for, never less.
+
+**The allow-list can only refuse.** A route it permits still goes through the
+index decision and the engine funnel, so an index the guest was not granted is a
+`403` on a permitted route exactly as it is for any scoped key.
+
+**The claim route is the node's one unauthenticated credential-issuing route.**
+`POST /_share/claim` is exempted from authentication by exact path and method
+(`auth::is_share_claim_path`), never by prefix. Its body is `{id, passcode}`,
+capped at 4 KiB. The share id is in the body and never in a path, because a
+path is what an access log records: the first cut claimed at
+`POST /_share/{id}/claim`, and with `logging.access_log = true` the node wrote
+the id to its own log, as would any reverse proxy or tunnel in front of it. It
+is rate-limited (next section), answers `Cache-Control: no-store` on every
+outcome, and audits every outcome with the source address — only the first
+refusal per throttle window, so a flood cannot evict the ring. It refuses with
+`409` on a node running with authentication off, where a scoped key would
+restrict nothing.
+
+**Management is superuser-only.** `POST /_share`, `GET /_share` and
+`DELETE /_share/{handle}` return `403` to every principal except the admin key
+(`share.rs`, `require_superuser`). A scoped key must not widen its own reach by
+minting a share, and an unscoped key must not hand a guest a brain it cannot
+reach itself. A refusal is audited whichever layer produced it: the handler
+records the ones it sees, and the request-level audit layer records the ones
+the authorization middleware stopped before any handler ran
+(`authz::RefusedBeforeHandler`, `audit_mw.rs`) — which is every management call
+a guest key makes, and a guest's `POST /_security/api_key` as well.
+
+**Nothing a guest receives may be cached.** Every response to a guest key, and
+every response under `/_share` including the `401` and `403` the middleware
+produces, carries `Cache-Control: no-store`.
+
+**At rest.** `<data_dir>/shares.json`, mode `0600`, written by the same atomic
+secret-file writer as `api_keys.json`. It holds a SHA-256 digest of the share id
+and an Argon2id hash of the passcode — a slow hash here, unlike minted API-key
+secrets, because a passcode is short and may have been chosen by a person. The
+guest's key is minted at claim time; the record keeps only key *ids*, so a
+revoke can invalidate every key the share produced.
+
+All of the above is exercised against a running node by
+`engine/crates/xerj-api/tests/live/share_security_live.py`.
+
+## The share-claim limiter, and why it does not key on the source first
+
+`share.rs` carries its own sliding-window limiter (same shape as the Console's,
+re-implemented because this crate must not depend on the Console):
+
+- a claim against a **known** share id charges that share's window — 10 a
+  minute, 30 an hour, from anywhere. This is the passcode lockout;
+- a claim against an **unknown** id charges the source address's window — 10 a
+  minute, 100 an hour. IPv6 sources are keyed by their /64. State is bounded at
+  50,000 windows; past that, unseen sources share one overflow bucket.
+
+The source address is resolved exactly as the Console resolves it (`share.rs`
+`ClaimSource`; the rules are in
+[The Console rate limiter keys on the socket peer](#the-console-rate-limiter-keys-on-the-socket-peer)):
+the TCP peer, with `X-Forwarded-For` believed only when the peer is in
+`server.trusted_proxies`.
+
+The two are not stacked, because of tunnels. Behind `xerj share --tunnel`, or
+any reverse proxy on the same host, every request arrives from `127.0.0.1`. A
+limiter that charged the source first would put every guest in one bucket, and
+ten junk requests a minute would answer every real guest with `429`. Rather
+than believe a header a direct client can write, the collapsed bucket is made
+not to matter: a real share id is governed by its own window, which junk cannot
+touch. An operator who wants real guest addresses in the audit log declares
+loopback in `server.trusted_proxies`; the lockout holds either way.
 
 ## Snapshot and restore
 
@@ -723,9 +828,12 @@ it is on a schedule this document can promise.
   `AuditRead`. Every mutating request that passes authentication leaves one
   entry naming the caller — a bulk is one entry with its item counts, not one
   per document — and a refused request is recorded as `denied`, reads included:
-  a `403` on `_search`, on `GET _doc`, or on `/_audit/*` itself leaves an entry
+  a `403` on `_search`, on `GET _doc`, on `/_audit/*` itself, or on the
+  self-auditing `/_share` and `/_security/api_key` routes leaves an entry
   naming the credential that reached for it. What is **not** in it: reads that
-  *succeeded*, other than `_search` (`_mget`, `_count`, `GET _doc`, `_cat`),
+  *succeeded*, other than `_search` (`_msearch`, `_mget`, `_count`, `_mapping`,
+  `_field_caps`, `GET _doc`, `_cat`) — a share-link guest can read a whole
+  shared index through those without a line —
   unauthenticated attempts (recorded nowhere but the access log — auditing them
   would let anyone who can reach the port evict the ring), and anything older
   than the last 4096 entries. Long-term retention means shipping entries off
@@ -762,6 +870,22 @@ it is on a schedule this document can promise.
   [Transport encryption](#transport-encryption-listener-by-listener).
 - **No encryption at rest at the engine level.** The startup banner says to use
   OS full-disk encryption or bucket-side encryption instead (`main.rs:318`).
-- **Rate limiting covers three Console auth endpoints only.** There is no
-  general per-IP request throttle on the data plane (`rate_limit.rs`, and the
-  three call sites listed above).
+- **Rate limiting covers three Console auth endpoints and the share-claim
+  route only.** There is no general per-IP request throttle on the data plane
+  (`rate_limit.rs` and the three call sites listed above; `share.rs` for the
+  claim route). A share-link guest's searches are not rate-limited.
+- **A share grants whole indices.** There is no document-level or field-level
+  restriction to apply to a guest, so a share exposes every document in the
+  indices it names, and their mappings. The `autoindex-catalog` index is never
+  granted for the same reason — it could not be filtered — and `POST /_share`
+  refuses it by name, in a list and through an alias.
+- **`xerj share --tunnel` puts a third party on the path.** A Cloudflare quick
+  tunnel terminates TLS at Cloudflare, so everything between the guest's browser
+  and the node crosses Cloudflare's network in a form its operator could read:
+  the passcode, the minted guest key, every search and every document opened.
+  The corpus is not uploaded there. The CLI prints this with the link
+  and the guest page shows it on a `trycloudflare.com` hostname. Use your own
+  hostname and certificate (`--public-url`) when that matters.
+- **No guest passkeys.** A passkey binds to a hostname and a quick tunnel gets
+  a new one on every start, so guests authenticate with link + passcode
+  ([SHARING.md](./SHARING.md#passkeys-and-why-guests-use-a-link-and-a-passcode)).

@@ -76,6 +76,7 @@ pub mod memory_api;
 pub mod native;
 pub mod responses;
 pub mod router;
+pub mod share;
 pub mod state;
 pub mod stub;
 pub mod wal_tap_api;

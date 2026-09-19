@@ -92,6 +92,17 @@ struct Audited {
     /// It is also the only way a *denied* search gets recorded at all, since
     /// the handler that would have appended never runs.
     only_if_denied: bool,
+    /// The handler writes its own entries (`_security/api_key`, `_share`), so
+    /// record this one **only** when the request never reached it — i.e. the
+    /// response carries [`crate::authz::RefusedBeforeHandler`].
+    ///
+    /// These paths used to be skipped outright, on the reasoning that the
+    /// handler audits them. It does — when it runs. A share-link guest's
+    /// `POST /_share`, `DELETE /_share/{handle}` and `POST /_security/api_key`
+    /// are refused by the authorization middleware, so neither layer wrote a
+    /// line for the very requests that are attempts to widen a credential
+    /// (review of PR #947: four such calls, zero entries).
+    handler_audits: bool,
 }
 
 /// Path segments, empty ones dropped.
@@ -157,9 +168,27 @@ fn classify(method: &Method, path: &str) -> Option<Audited> {
     }
     // The three `_security/api_key` operations append their own entries (with
     // a `sync_to_disk` barrier a generic layer should not impose on every
-    // write); auditing them here as well would double every one.
+    // write); auditing them here as well would double every one. What the
+    // handler cannot record is a request that never reached it.
     if segs.first() == Some(&"_security") && segs.get(1) == Some(&"api_key") {
-        return None;
+        let op = match *method {
+            Method::GET | Method::HEAD => "security.api_key.get",
+            Method::DELETE => "security.api_key.invalidate",
+            _ => "security.api_key.create",
+        };
+        return Some(Audited {
+            op: op.to_string(),
+            resource: "_security/api_key".to_string(),
+            only_if_denied: true,
+            handler_audits: true,
+        });
+    }
+    // Share links audit themselves with the outcome detail that matters
+    // (which share, wrong passcode vs exhausted vs throttled, the source
+    // address of an unauthenticated claim) — see `crate::share`. Same rule:
+    // only the requests the handler never saw are recorded here.
+    if segs.first() == Some(&"_share") {
+        return Some(classify_share(method, &segs));
     }
     // `/_xerj-console/*` is a separate application mounted at the server level
     // with its own `.xerj_audit` trail; the SPA's own traffic is not node data.
@@ -192,6 +221,7 @@ fn classify(method: &Method, path: &str) -> Option<Audited> {
             op: op.to_string(),
             resource: index.to_string(),
             only_if_denied: false,
+            handler_audits: false,
         });
     }
     // The endpoint keyword is the first `_`-prefixed segment.
@@ -218,7 +248,35 @@ fn classify(method: &Method, path: &str) -> Option<Audited> {
         op,
         resource: index.to_string(),
         only_if_denied: false,
+        handler_audits: false,
     })
+}
+
+/// `/_share/…`, with the op tags `crate::share` uses for the same routes.
+///
+/// The resource is `_share`, or the share's public **handle** when the path
+/// names one. Never any other path segment: `DELETE /_share/{id}` also accepts
+/// the full share id, and the audit log must not be the place a share id is
+/// written down.
+fn classify_share(method: &Method, segs: &[&str]) -> Audited {
+    let op = match (method, segs.get(1).copied()) {
+        (&Method::POST, None) => "share.create",
+        (&Method::GET, None) | (&Method::HEAD, None) => "share.list",
+        (&Method::POST, Some("claim")) => "share.claim",
+        (&Method::DELETE, Some(_)) => "share.revoke",
+        _ => "share.other",
+    };
+    let is_handle = |s: &str| s.len() == 12 && s.bytes().all(|b| b.is_ascii_hexdigit());
+    let resource = match segs.get(1).copied() {
+        Some(handle) if segs.len() == 2 && is_handle(handle) => handle.to_string(),
+        _ => "_share".to_string(),
+    };
+    Audited {
+        op: op.to_string(),
+        resource,
+        only_if_denied: true,
+        handler_audits: true,
+    }
 }
 
 /// A read, described well enough to be worth an entry **if it was refused**.
@@ -239,6 +297,7 @@ fn classify_read(segs: &[&str]) -> Option<Audited> {
             ),
             resource: "_audit".to_string(),
             only_if_denied: true,
+            handler_audits: false,
         });
     }
     let (op, resource) = match segs {
@@ -265,6 +324,7 @@ fn classify_read(segs: &[&str]) -> Option<Audited> {
         op: op.to_string(),
         resource,
         only_if_denied: true,
+        handler_audits: false,
     })
 }
 
@@ -276,6 +336,7 @@ fn classify_native(method: &Method, segs: &[&str]) -> Option<Audited> {
             op: "index.create".to_string(),
             resource: "_indices".to_string(),
             only_if_denied: false,
+            handler_audits: false,
         }),
         ["v1", "indices", name] => Some(Audited {
             op: if *method == Method::DELETE {
@@ -285,6 +346,7 @@ fn classify_native(method: &Method, segs: &[&str]) -> Option<Audited> {
             },
             resource: (*name).to_string(),
             only_if_denied: false,
+            handler_audits: false,
         }),
         ["v1", "indices", name, tail @ ..] => {
             let op = match tail {
@@ -308,6 +370,7 @@ fn classify_native(method: &Method, segs: &[&str]) -> Option<Audited> {
                 op,
                 resource: (*name).to_string(),
                 only_if_denied: false,
+                handler_audits: false,
             })
         }
         ["v1", rest @ ..] => Some(Audited {
@@ -318,6 +381,7 @@ fn classify_native(method: &Method, segs: &[&str]) -> Option<Audited> {
             ),
             resource: format!("/v1/{}", rest.join("/")),
             only_if_denied: false,
+            handler_audits: false,
         }),
         _ => None,
     }
@@ -381,6 +445,15 @@ pub async fn audit_middleware(State(state): State<AppState>, req: Request, next:
 
     let response = next.run(req).await;
 
+    // A self-auditing route is recorded here only when its handler never ran.
+    if audited.handler_audits
+        && response
+            .extensions()
+            .get::<crate::authz::RefusedBeforeHandler>()
+            .is_none()
+    {
+        return response;
+    }
     // A read that succeeded is not recorded: the ring is small, shared, and
     // better spent on changes and refusals.
     if audited.only_if_denied && response.status() != StatusCode::FORBIDDEN {
@@ -525,6 +598,72 @@ mod tests {
             c(Method::PUT, "/_security/role/auditor"),
             Some(("security.put".into(), "_security".into()))
         );
+    }
+
+    /// A self-auditing route: `(op, resource)` when the layer would record a
+    /// request the handler never saw, `None` when it would not look at all.
+    fn upstream_refusal(method: Method, path: &str) -> Option<(String, String)> {
+        classify(&method, path)
+            .filter(|a| a.handler_audits && a.only_if_denied)
+            .map(|a| (a.op, a.resource))
+    }
+
+    /// Review of PR #947: a share-link guest's `POST /_share`, `GET /_share`,
+    /// `DELETE /_share/{handle}` and `POST /_security/api_key` were refused in
+    /// the authorization middleware and recorded by nobody, because this layer
+    /// skipped both prefixes outright. They are classified now — as entries
+    /// that are written only for a request the handler never saw.
+    #[test]
+    fn self_auditing_routes_are_recorded_when_the_handler_never_ran() {
+        assert_eq!(
+            upstream_refusal(Method::POST, "/_share"),
+            Some(("share.create".into(), "_share".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::GET, "/_share"),
+            Some(("share.list".into(), "_share".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::DELETE, "/_share/1a2b3c4d5e6f"),
+            Some(("share.revoke".into(), "1a2b3c4d5e6f".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::POST, "/_share/claim"),
+            Some(("share.claim".into(), "_share".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::POST, "/_security/api_key"),
+            Some(("security.api_key.create".into(), "_security/api_key".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::GET, "/_security/api_key"),
+            Some(("security.api_key.get".into(), "_security/api_key".into()))
+        );
+        assert_eq!(
+            upstream_refusal(Method::DELETE, "/_security/api_key"),
+            Some((
+                "security.api_key.invalidate".into(),
+                "_security/api_key".into()
+            ))
+        );
+    }
+
+    /// `DELETE /_share/{id}` accepts the full share id as well as the handle.
+    /// Only the handle — 12 hex characters, public, opens nothing — may become
+    /// the entry's resource; a share id must never be written to the log.
+    #[test]
+    fn a_share_id_in_a_path_never_becomes_an_audit_resource() {
+        let id = "0123456789abcdef0123456789abcdef";
+        for path in [
+            format!("/_share/{id}"),
+            format!("/_share/{id}/claim"),
+            format!("/_share/{}", &id[..13]),
+            "/_share/not-a-handle".to_string(),
+        ] {
+            let a = classify(&Method::DELETE, &path).expect("classified");
+            assert_eq!(a.resource, "_share", "{path}");
+            assert!(!a.op.contains(id), "{path}");
+        }
     }
 
     /// Every native write path is covered without being enumerated by hand —

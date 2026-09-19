@@ -264,6 +264,42 @@ fn index_exists(state: &AppState, index: &str) -> bool {
     state.engine.get_index(index).is_ok()
 }
 
+/// The concrete names in a `nodes_index` value.
+///
+/// `xerj brain <folder>` records every dataset index the folder produced as
+/// one comma-joined string (`"ax-mail,ax-pdfs"`), which is also a valid
+/// multi-index search expression — so that is what the meta doc holds.
+fn nodes_index_names(nodes_index: &str) -> impl Iterator<Item = &str> {
+    nodes_index
+        .split(',')
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+}
+
+/// Authorize `read` on a brain's nodes index — every name in it.
+///
+/// This used to hand the whole string to [`authz::authorize_index`], which
+/// compares it to the principal's grants as ONE name. A key granted `ax-mail`
+/// and `ax-pdfs` does not hold an index called `"ax-mail,ax-pdfs"`, so for any
+/// brain over more than one dataset — the ordinary result of pointing
+/// `xerj brain` at a real folder — every scoped key, and therefore every
+/// share-link guest, was refused `overview` and node hydration with a 403
+/// naming an index that does not exist (live-verified 2026-09-18). Each name is
+/// authorized in its own right; one ungranted name still refuses the request.
+fn authorize_nodes_index(principal: &Principal, nodes_index: &str) -> Result<(), Response> {
+    let mut any = false;
+    for name in nodes_index_names(nodes_index) {
+        authz::authorize_index(principal, name, Privilege::ReadIndex)?;
+        any = true;
+    }
+    if any {
+        Ok(())
+    } else {
+        // Nothing but separators: decide it as the literal it is.
+        authz::authorize_index(principal, nodes_index, Privilege::ReadIndex)
+    }
+}
+
 /// Parse a timestamp that may be an epoch-ms JSON number or an RFC3339 string
 /// (inputs accept both; outputs are always numbers).
 fn parse_ms_value(v: &Value) -> Option<i64> {
@@ -726,7 +762,7 @@ pub async fn ego(
     // so it is authorized separately — otherwise a grant on one brain would be
     // a read primitive for any index on the node.
     if let Some(nodes_index) = params.nodes_index.as_deref() {
-        if let Err(denied) = authz::authorize_index(&principal, nodes_index, Privilege::ReadIndex) {
+        if let Err(denied) = authorize_nodes_index(&principal, nodes_index) {
             return denied;
         }
     }
@@ -904,8 +940,7 @@ pub async fn ego(
         // authorized against the RESOLVED index, not just the brain. Without
         // this, write on one brain would be a read primitive for every index
         // on the node.
-        if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex)
-        {
+        if let Err(denied) = authorize_nodes_index(&principal, &nodes_index) {
             return denied;
         }
         let mut found: HashSet<String> = HashSet::new();
@@ -1309,17 +1344,22 @@ pub async fn overview(
     // The nodes index comes from the brain's meta doc, which is writable by
     // anyone with write on the brain — so it is authorized in its own right
     // (see the matching check in `ego`).
-    if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex) {
+    if let Err(denied) = authorize_nodes_index(&principal, &nodes_index) {
         return denied;
     }
-    let nodes_total = if index_exists(&state, &nodes_index) {
+    // Counted over the names that exist. `index_exists` on the joined string
+    // is false for any multi-dataset brain, which reported 0 notes for it.
+    let existing: Vec<&str> = nodes_index_names(&nodes_index)
+        .filter(|name| index_exists(&state, name))
+        .collect();
+    let nodes_total = if !existing.is_empty() {
         let count_body = EsSearchBody {
             query: Some(json!({ "match_all": {} })),
             size: 0,
             track_total_hits: Some(json!(true)),
             ..Default::default()
         };
-        match overview_search(&state, &nodes_index, &principal, count_body).await {
+        match overview_search(&state, &existing.join(","), &principal, count_body).await {
             Ok(v) => v
                 .pointer("/hits/total/value")
                 .and_then(Value::as_u64)
@@ -1367,6 +1407,38 @@ mod tests {
     use std::collections::BTreeMap;
     use xerj_common::{config::Config, metrics::Metrics};
     use xerj_engine::Engine;
+
+    /// `xerj brain <folder>` records a multi-dataset folder as a comma-joined
+    /// `nodes_index`. A key that holds every name in it must be let through;
+    /// a key missing any one of them must not.
+    #[test]
+    fn a_multi_dataset_nodes_index_is_authorized_name_by_name() {
+        let guest = Principal::Scoped {
+            key_id: "g".into(),
+            roles: vec![xerj_engine::rbac::Role::new(
+                "share:1a2b3c4d5e6f",
+                HashSet::from([Privilege::ReadIndex]),
+                vec!["ax-mail".to_string(), "ax-pdfs".to_string()],
+            )],
+        };
+        assert!(authorize_nodes_index(&guest, "ax-mail,ax-pdfs").is_ok());
+        assert!(authorize_nodes_index(&guest, "ax-mail, ax-pdfs").is_ok());
+        assert!(authorize_nodes_index(&guest, "ax-pdfs").is_ok());
+        // One ungranted name refuses the whole request — splitting the list
+        // must not become a way to smuggle a second index past the check.
+        assert!(authorize_nodes_index(&guest, "ax-mail,private-diary").is_err());
+        assert!(authorize_nodes_index(&guest, "private-diary").is_err());
+        assert!(authorize_nodes_index(&guest, "ax-mail,.xerj-memory-other").is_err());
+        // Patterns and empty lists are decided as the literals they are.
+        assert!(authorize_nodes_index(&guest, "*").is_err());
+        assert!(authorize_nodes_index(&guest, "ax-*").is_err());
+        assert!(authorize_nodes_index(&guest, ",").is_err());
+        assert!(authorize_nodes_index(&guest, "").is_err());
+        assert_eq!(
+            nodes_index_names(" a, ,b,").collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+    }
 
     const T0: i64 = 1_753_600_000_000; // fixture valid_at / created_at
     const AS_OF: i64 = 1_753_700_000_000; // fixture as-of instant
