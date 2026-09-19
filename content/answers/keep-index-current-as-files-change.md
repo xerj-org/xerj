@@ -1,7 +1,7 @@
 ---
 title: "How do I keep a XERJ index up to date as files change?"
 h1: "How do I keep a search index up to date as files change, without re-indexing everything?"
-description: "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0 CPU at idle vs 0.93 s and a full re-read per poll."
+description: "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
 slug: "keep-index-current-as-files-change"
 cluster: "Operations: freshness"
 question: "How do I keep a search index up to date as files change, without re-indexing everything?"
@@ -26,11 +26,11 @@ faq:
   - q: "How do I keep a search index up to date as files change, without re-indexing everything?"
     a: "Run xerj autoindex with --watch --no-graph. It indexes the folder once, then stays resident and reindexes only what the filesystem reports as changed, using one OS watch per indexed directory and no polling."
   - q: "Why does --watch require --no-graph?"
-    a: "Incremental reindexing of a changed file exists only on the --no-graph route. On the default graph path a re-run resumes a frozen plan and reports a changed file as appeared after the resume plan was frozen without indexing it, so a watcher there would look live and serve stale documents."
+    a: "Reconciling an added or deleted file exists only on the --no-graph route. On the default graph path a re-run resumes a frozen plan: a file added after that plan was frozen is reported as appeared after the resume plan was frozen and is not indexed until a --fresh rebuild, and a deleted file aborts the run and every re-run after it. A file whose content changed is reconciled there, so the limitation is additions and deletions, not edits."
   - q: "Is a file watcher cheaper than re-running the indexer on a timer?"
-    a: "At idle, yes, and measurably. On a 10,001-file tree a re-run with nothing changed took 0.93 s and re-read all 6.1 MB, while an idle watcher used 0.00 CPU-seconds over 60 s and read nothing."
+    a: "At idle, yes, and measurably. On a 10,000-file tree a re-run with nothing changed took 1.7 s and re-read all 4,576,300 bytes, while an idle watcher used 0.00 CPU-seconds over 60 s and read nothing. It does hold about 157 MiB resident between passes."
   - q: "Does --watch use less CPU per change than a re-run?"
-    a: "It removes the corpus re-hash, but not the rest. On a 10,001-file tree editing one file cost 5.80 s of CPU by re-running and 4.73 s under --watch, because each pass still seals a generation snapshot over the whole corpus."
+    a: "A little: it removes the corpus re-hash and nothing else. On a 10,000-file tree, modifying one file cost 7.6 CPU-seconds by re-running and 6.6 under --watch, and the wall clock was no better (44.3 s against 47.6 s), because each pass still seals a snapshot over the whole corpus and rewrites one catalog document per file. Against re-indexing the folder from scratch, which took 293.8 s and 127.9 CPU-seconds, both incremental routes win by an order of magnitude."
   - q: "Will a watched index match a full re-index?"
     a: "Two tests assert it. After any sequence of changes a plain re-run that re-hashes every byte must change nothing, and that is asserted after a randomised create, modify, rename, delete and recreate sequence. A watched index also equals an independently built full index, except that an incremental run keeps the dataset name it was built with."
   - q: "What happens when the index hits the inotify watch limit?"
@@ -53,27 +53,37 @@ re-reads every byte of it, because size and mtime cannot prove byte identity on
 every filesystem XERJ supports.
 
 Measured on one machine (32 cores, NVMe, one local node) against a tree of
-**10,001 files / 6.1 MB of content / 101 directories**:
+**10,000 files / 4,576,300 bytes / 101 directories**, one file modified. The
+machine was shared with other builds. Each figure is one sample, so read the
+large gaps and not the small ones. Commands and captured output:
+`docs/measurements/autoindex-watch-2026-09-19.md`.
 
-| Keeping the index current | Wall | CPU (user+sys) | Bytes re-read |
+| Keeping the index current | Wall | Client CPU | Server CPU |
 |---|---|---|---|
-| Re-run, nothing changed | 0.93 s | 1.18 s | all 6.1 MB |
-| Re-run, one file changed | 39.4 s | 5.80 s | all 6.1 MB |
-| `--watch`, idle | none | 0.00 s per minute | none |
-| `--watch`, one file changed | 39.2 s | 4.73 s | the changed file only |
+| Index the folder again from scratch | 293.8 s | 127.9 s | 167.5 s |
+| Re-run the same command, nothing changed | 1.7 s | 2.1 s | 0.01 s |
+| Re-run it, one file modified | 44.3 s | 7.6 s | 27.9 s |
+| `--watch`, idle | — | 0.00 s per minute | 0.07 s per minute |
+| `--watch`, one file modified | 47.6 s | 6.6 s | 34.5 s |
 
-The table says two different things. Read both.
+The table says three things. Read all three.
 
-**Idle is where the watcher wins outright.** It waits on an event channel. It
-holds one OS watch per indexed directory. A poll loop instead pays 0.93 s and
-re-reads 6.1 MB every tick to find nothing. It also waits half a tick to notice
-a real change.
+**Idle is where the watcher wins outright.** It waits on an event channel and
+holds one OS watch per indexed directory: 0.00 CPU-seconds per minute, measured
+twice. A poll loop instead pays 1.7 s and re-reads every byte on every tick to
+find nothing, and waits half a tick to notice a real change. What the watcher
+does hold at idle is memory: 157 MiB and 295 worker threads between passes.
 
-**Per change, the watcher removes the corpus re-read.** Today that is not where
-the time goes. Each pass still seals a generation snapshot. That snapshot copies
-and re-verifies every file in the corpus. On a large tree the snapshot therefore
-sets the per-change latency, not the walk that `--watch` removes. This page says
-so because the fact decides whether the feature helps your tree.
+**Per change, the watcher is not faster than re-running the same command.** It
+removes the corpus re-hash, worth about one CPU-second here, and that is all. The
+pass that follows costs the same either way. A one-file change still seals a
+snapshot over the whole corpus: ~13 s, one blob per file, each copied, twice
+verified and fsynced. It still rewrites one catalog document per file on the
+server, at ~27 s of server CPU. Both terms are O(corpus), both are shared with a
+plain re-run, and both are filed as the next lever.
+
+**Against re-indexing the folder from scratch, incremental wins by an order of
+magnitude** — 44-48 s against 294 s, and 7 CPU-seconds against 128.
 
 ## Start it
 
@@ -91,7 +101,7 @@ The second command never returns; stop it with Ctrl-C. Each pass prints one
 line you can read or parse:
 
 ```text
-watch: pass 1 finished in 39.2s exit=0 events=2 paths=1 hashed=1/0MB carried=10000/5MB cache=10001 files
+watch: pass 1 finished in 47.0s exit=0 events=3 paths=1 hashed=1/0MB carried=9999/4MB cache=10000 files
 ```
 
 `hashed=` versus `carried=` is the number to watch: it says whether the session
@@ -104,15 +114,18 @@ than a formality:
 
 * On the `--no-graph` route, a run reconciles the folder against a committed
   generation: added, changed, renamed and deleted files are all handled.
-* On the default graph path, a run resumes a *frozen* plan. Editing a file gives
-  it a new content identity. The run then reports
-  `1 file(s) appeared after the resume plan was frozen and were NOT indexed` and
-  tells you to rebuild with `--fresh`. Measured on the same tree: that re-run
-  took 1.9 s, indexed nothing, and left the old document live.
+* On the default graph path, a run resumes a *frozen* plan. A file whose content
+  changed **is** reconciled there (measured: 3.07 s, `files=1`, the new text
+  searchable). A file that was **added** is not. The run reports
+  `1 file(s) appeared after the resume plan was frozen and were NOT indexed`,
+  exits 3, and tells you to rebuild with `--fresh`. A file that was **deleted** is
+  worse. The run aborts in 0.24 s with "removing files from an indexed folder is
+  not reconciled yet". Its documents stay live, and every later re-run aborts the
+  same way.
 
-A watcher on the graph path would therefore look live while serving stale
-documents. The price of `--no-graph` is relationship detection: no wikilink,
-local-link, section-order or directory-chain edges.
+A watcher on the graph path would therefore go stale on the first new file and
+stop reindexing on the first deletion. The price of `--no-graph` is relationship
+detection: no wikilink, local-link, section-order or directory-chain edges.
 
 ## Which directories the watcher covers
 

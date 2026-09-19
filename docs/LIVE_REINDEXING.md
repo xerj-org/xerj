@@ -21,64 +21,110 @@ is worth stating exactly what it means:
   against a committed generation. Added, changed, renamed and deleted files are
   all handled (`lib.rs::project_reconcile_plan`,
   `reconcile_plan::reconcile_plan`).
-* On the **default graph path**, a re-run *resumes a frozen plan*. A file whose
-  content changed gets a new content identity, so the run reports it as
-  `1 file(s) appeared after the resume plan was frozen and were NOT indexed`
-  and tells you to rebuild with `--fresh`. Measured on a 10,001-file tree: the
-  re-run finished in 1.9 s having indexed nothing, and the old document stayed
-  live.
+* On the **default graph path**, a re-run *resumes a frozen plan*, and what that
+  costs depends on the kind of change. Measured on a 10,000-file tree
+  (`docs/measurements/autoindex-watch-2026-09-19.md`, section 4):
 
-A `--watch` session on the graph path would therefore look live and serve stale
-documents, which is worse than no watcher at all. So `--watch` requires the
-route that can actually reconcile a change, and says so instead of quietly
-downgrading. The cost of `--no-graph` is relationship detection: no wikilink,
-local-link, section-order or directory-chain edges, so no second-brain graph
-over a watched corpus.
+  | Graph-route re-run after… | Result |
+  |---|---|
+  | a file's **content** changed | indexed: 3.07 s, `files=1`, exit 0, the new text searchable |
+  | a file was **added** | 3.32 s, **exit 3**, `1 file(s) appeared after the resume plan was frozen and were NOT indexed`; the new file stays unsearchable until `--fresh` |
+  | a file was **deleted** | **exit 1, aborted in 0.24 s** — "removing files from an indexed folder is not reconciled yet". Its documents stay live, and every later re-run aborts the same way until the corpus is rebuilt |
+
+So the limitation is **additions and deletions**, not edits. A watcher on the
+graph path would serve a folder that goes stale on the first new file and stops
+reindexing entirely on the first deletion — worse than no watcher at all. That is
+why `--watch` requires the route that reconciles all four cases, and says so
+instead of quietly downgrading. (An earlier version of this page said a *changed*
+file is not indexed on the graph path. It is; that claim came from a measurement
+whose shell append had created a file instead of modifying one.) The cost of
+`--no-graph` is relationship detection: no wikilink, local-link, section-order or
+directory-chain edges, so no second-brain graph over a watched corpus.
 
 ## What it costs
 
-Measured on this box (32 cores, NVMe, one local node), on a tree of **10,001
-files / 6.1 MB of content / 101 directories**. Every number below comes from
-`docs/measurements/autoindex-watch-2026-09-19.md`, which holds the commands and
-the captured output.
+Measured on one box (32 cores, NVMe, one local node) on a tree of **10,000 files
+/ 4,576,300 bytes / 101 directories**, one file modified, added and deleted on
+each of three routes. Every number comes from
+`docs/measurements/autoindex-watch-2026-09-19.md`, which holds the commands, the
+captured output and the verification that each change really was searchable
+afterwards. The box was **shared** with other agents' fat-LTO builds
+(one-minute load average 7.6–17.7 across the runs, recorded per run), and every
+figure is a single sample: read the order-of-magnitude gaps, not the small ones.
 
-| Keeping the index current | Wall | CPU (user+sys) | Bytes re-read |
+| Keeping a 10,000-file index current | Wall | Client CPU | Server CPU |
 |---|---|---|---|
-| Re-run, nothing changed | 0.93 s | 1.18 s | all 6.1 MB |
-| Re-run, one file changed | 39.4 s | 5.80 s | all 6.1 MB |
-| `--watch`, idle | 0 | 0.00 s per minute | 0 |
-| `--watch`, one file changed | 39.2 s | 4.73 s | 0.6 KB (the file) |
+| index the folder again from scratch (one file modified) | 293.8 s | 127.9 s | 167.5 s |
+| re-run the same `--no-graph` command, nothing changed | 1.7 s | 2.1 s | 0.01 s |
+| re-run it, one file modified | 44.3 s | 7.6 s | 27.9 s |
+| re-run it, one file added | 42.7 s | 7.9 s | 28.3 s |
+| re-run it, one file deleted | 39.1 s | 7.5 s | 23.1 s |
+| `--watch`, idle | — | **0.00 s per minute** | 0.07 s per minute |
+| `--watch`, one file modified | 47.6 s | 6.6 s | 34.5 s |
+| `--watch`, one file added | 45.9 s | 6.9 s | 32.8 s |
+| `--watch`, one file deleted | 40.8 s | 6.5 s | 27.6 s |
 
-Read that table honestly, because it says two different things:
+The `--watch` wall times are measured from the change hitting the filesystem to
+the session's own `watch: pass N finished` line, so the 400 ms debounce is inside
+them. `Client CPU` is `user+sys` of the indexing process; `server CPU` is the
+node's own `utime+sys` over the same window — work a client-side timer cannot see.
 
-1. **At idle, `--watch` is free and re-running is not.** A watcher parked on its
-   channel uses no measurable CPU and reads nothing. Staying current by
-   re-running means a full walk and a full re-hash of the corpus on every tick
-   — 0.93 s of work and 6.1 MB re-read per tick even when nothing changed, and
-   a mean detection latency of half your tick interval.
-2. **Per change, the win is the corpus re-read, and that is not where the time
-   goes today.** `--watch` skips the hash of everything it knows did not change
-   (10,000 of 10,001 files here), but the pass that follows still costs ~39 s on
-   this tree, because the `--no-graph` generation seals a snapshot that copies
-   and re-verifies **every** file in the corpus, changed or not
-   (`sync_executor.rs::create_snapshot_inner` — one `copy_synced` plus two
-   `content::verify` calls per file, serially, with an fsync each). That is the
-   next lever for this feature and it is not fixed here: it belongs to the
-   snapshot path, which is shared with non-watch runs and is transactional.
+Read the table honestly, because it says three things and only one of them is the
+obvious one:
 
-So: `--watch` is the right way to keep a *small or moderate* tree current with
-no polling and no stale window, and on a large tree the per-change latency is
-today dominated by the generation snapshot, not by the walk it removes.
+1. **Against re-indexing the folder from scratch, incremental wins by an order of
+   magnitude** — 47.6 s against 293.8 s, 6.6 CPU-seconds against 127.9. That gap
+   is far larger than the load noise, and it holds for a modify, an add and a
+   delete alike.
+2. **Against a re-run of the same command, `--watch` is not faster per change.**
+   47.6 / 45.9 / 40.8 s against 44.3 / 42.7 / 39.1 s. What it saves is about **one
+   CPU-second per change** — the re-hash of the whole corpus, which the no-op
+   re-run above measures on its own at 2.1 CPU-seconds for 4.58 MB. On a corpus of
+   large files, where that hash is minutes rather than a second, the saved term is
+   the one that grows.
+3. **At idle, `--watch` is free and a timer is not.** 0.00 CPU-seconds per minute
+   against 1.7–2.2 s of wall and a full 4,576,300-byte re-read on every tick,
+   forever, plus a mean staleness of half the tick. A watcher's staleness is the
+   debounce plus the pass.
+
+So the case for `--watch` is idle cost, detection latency and not having to
+remember to re-run — not throughput per change.
+
+### Why a one-file pass still costs ~40 s, and what it is not
+
+Sampling the staging snapshot and the node once a second through a one-file
+re-run splits that 42-second run in two (section 3 of the measurement record):
+
+* **~13 s, client side**: `sync_executor.rs::create_snapshot_inner` seals a
+  snapshot over the *whole* inventory — per file, `content::verify` on the source,
+  `copy_synced` (an `fsync` each) into the staging blob store, `content::verify`
+  again on the copy, serially. The snapshot for a one-file change holds **10,000
+  blobs**, one per corpus file.
+* **~27 s, server side**, while the client is nearly idle: the catalog is rewritten
+  file-by-file per generation — after the run, all 10,000 `doc_kind: file` catalog
+  documents carry the newest `run_id`.
+
+Both are O(corpus) per change, both are shared with a plain re-run, and neither is
+touched by `--watch`; the per-change lever is there, not in the walk `--watch`
+removes. It belongs to the transactional publish path and is filed as its own
+issue. (An earlier version of this page attributed the whole tail to the snapshot.
+That was an inference and the sampling above disproved it.)
 
 ### Idle cost, stated as numbers
+
+Idle cost is a reported customer problem, so it was sampled directly, twice — once
+after the first pass and once after three change passes:
 
 * One OS watch per **indexed** directory — 101 on the tree above, not one per
   directory on disk.
 * No polling thread, no timer, no busy loop. The session blocks on the event
   channel (`watch.rs::next_burst`).
-* Measured idle CPU: 0.00 CPU-seconds over 60 s of an untouched tree.
-* Measured resident set while idle: 137 MB after the first pass of the
-  10,001-file tree.
+* **0.00 CPU-seconds over 60 s** of an untouched tree, both times; the node itself
+  spent 0.07 s in the same minute.
+* **157 MiB resident** between passes (160,712 kB, unchanged over the 60 s sample;
+  158 MiB after the three passes), against a 258 MB peak *during* a pass.
+* **295 threads** resident at idle — the scan and index worker pools sized from
+  this box's 32 cores. They cost no measurable CPU, but they are not free RAM.
 
 ## What it watches, and what it ignores
 
@@ -228,8 +274,8 @@ would have done. Per pass the session adds one line:
 
 ```
 watch: 101 directories watched under /home/me/notes (debounce 400 ms); one watch per indexed directory, no polling thread
-autoindex: --watch: re-hashing 1 file(s) (0 MB); 10000 file(s) (5 MB) carried from the previous pass
-watch: pass 1 finished in 39.2s exit=0 events=2 paths=1 hashed=1/0MB carried=10000/5MB cache=10001 files
+autoindex: --watch: re-hashing 1 file(s) (0 MB); 9999 file(s) (4 MB) carried from the previous pass
+watch: pass 1 finished in 47.0s exit=0 events=3 paths=1 hashed=1/0MB carried=9999/4MB cache=10000 files
 ```
 
 `hashed=` versus `carried=` is the operation count this feature has to make
@@ -247,9 +293,9 @@ the index to be, while watching does not:
 
 | Strategy | Detection latency | Work per minute on the tree above |
 |---|---|---|
-| `--watch` | debounce (0.4 s) + the pass | 0 while nothing changes |
-| re-run every 60 s | 30 s mean | 1 full walk + 6.1 MB re-hashed |
-| re-run every 5 s | 2.5 s mean | 12 full walks + 73 MB re-hashed |
+| `--watch` | debounce (0.4 s) + the pass | 0 CPU while nothing changes |
+| re-run every 60 s | 30 s mean | 1 full walk + 4.58 MB re-hashed, ~2.1 CPU-s |
+| re-run every 5 s | 2.5 s mean | 12 full walks + 55 MB re-hashed, ~25 CPU-s |
 
 The same arithmetic is much harsher when the source is object storage rather
 than a local disk, which is worth stating here because it is the reason not to

@@ -334,7 +334,7 @@
   </ul>
   <h2>Operations: freshness</h2>
   <ul>
-    <li><a href="/answers/keep-index-current-as-files-change">How do I keep a search index up to date as files change, without re-indexing everything?</a> — Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0 CPU at idle vs 0.93 s and a full re-read per poll.</li>
+    <li><a href="/answers/keep-index-current-as-files-change">How do I keep a search index up to date as files change, without re-indexing everything?</a> — Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll.</li>
   </ul>
   <h2>Operations: installation</h2>
   <ul>

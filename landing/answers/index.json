@@ -477,7 +477,7 @@
       "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
       "cluster": "Operations: freshness",
       "updated": "2026-09-19",
-      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0 CPU at idle vs 0.93 s and a full re-read per poll."
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
     },
     {
       "title": "Is there a single-binary local search engine?",

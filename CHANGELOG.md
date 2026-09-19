@@ -19,18 +19,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A file skips its re-hash only when no event named it or an ancestor AND its
   `(size, mtime, inode)` fingerprint is unchanged; the cache is in-memory, so a
   restart re-hashes in full. Requires `--no-graph`, refused rather than
-  downgraded: incremental reindexing of a CHANGED file exists only on that
-  route — on the graph path a re-run resumes a frozen plan and reports the
-  change as `appeared after the resume plan was frozen` without indexing it, so
-  a watcher there would look live while serving stale documents. Measured on a
-  10,001-file tree: idle costs 0.00 CPU-seconds per minute and 0 bytes read,
-  against 0.93 s and a full 6.1 MB re-read for every poll of a re-run loop; per
-  change the re-hash disappears but the pass still costs ~39 s, because the
-  `--no-graph` generation seals a snapshot over the whole corpus
-  (`sync_executor::create_snapshot_inner`) — the measured next lever, not fixed
-  here. Hitting `fs.inotify.max_user_watches` stops the run with the limit, the
-  directory count and the `sysctl`, because a half-watched tree looks live and
-  silently is not. Docs: `docs/LIVE_REINDEXING.md`, measurement record in
+  downgraded: reconciling an ADDED or DELETED file exists only on that route —
+  on the graph path a re-run skips a file added after the resume plan was frozen
+  (exit 3, `appeared after the resume plan was frozen`) and ABORTS on a deleted
+  one (exit 1, and every re-run after it), so a watcher there would go stale on
+  the first new file and stop reindexing on the first deletion. A file whose
+  CONTENT changed is reconciled on the graph path, measured at 3.07 s; the
+  earlier claim that it is not came from a measurement whose shell append had
+  created a file instead of modifying one. Measured on a 10,000-file /
+  4,576,300-byte tree, single samples on a shared box: idle costs 0.00
+  CPU-seconds per minute and 0 bytes read (holding 157 MiB and 295 threads),
+  against 1.7 s wall / 2.1 CPU-s and a full corpus re-read for every poll of a
+  re-run loop. Per change `--watch` is not faster than re-running the same
+  command (47.6 s / 6.6 CPU-s against 44.3 s / 7.6 CPU-s for one modified file);
+  both beat re-indexing the folder from scratch (293.8 s / 127.9 CPU-s) by an
+  order of magnitude. The pass cost is two O(corpus) terms neither route avoids
+  — a ~13 s snapshot over the whole inventory
+  (`sync_executor::create_snapshot_inner`) and ~27 s of server CPU rewriting one
+  catalog document per file — the measured next lever, not fixed here. Hitting
+  `fs.inotify.max_user_watches` stops the run with the limit, the directory
+  count and the `sysctl`, because a half-watched tree looks live and silently is
+  not. Docs: `docs/LIVE_REINDEXING.md`, measurement record in
   `docs/measurements/autoindex-watch-2026-09-19.md`.
 
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
