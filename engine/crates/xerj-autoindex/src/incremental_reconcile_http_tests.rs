@@ -4343,6 +4343,42 @@ fn a_deleted_files_records_stop_appearing() {
 }
 
 #[test]
+fn a_deleted_directorys_documents_stop_appearing() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::create_dir_all(root.join("doomed/deeper")).unwrap();
+    fs::write(root.join("keep.csv"), "id,value\n1,keep\n").unwrap();
+    fs::write(root.join("doomed/a.csv"), "id,value\n2,doomed-a\n").unwrap();
+    fs::write(root.join("doomed/deeper/b.csv"), "id,value\n3,doomed-b\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["doomed/a.csv", "doomed/deeper/b.csv", "keep.csv"]
+    );
+
+    // A whole directory, gone. The watcher is told about the directory; the
+    // files inside it produce no events of their own.
+    fs::remove_dir_all(root.join("doomed")).unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("doomed")]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["keep.csv"],
+        "every document under a deleted directory must stop appearing in search"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "deleted directory");
+}
+
+#[test]
 fn an_atomic_save_rename_dance_lands_as_the_new_content() {
     let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let corpus = tempfile::tempdir().unwrap();

@@ -117,7 +117,8 @@ Handled, with a test for each (`incremental_reconcile_http_tests.rs`,
 | chmod / metadata touch only | a pass runs (a file that just became unreadable stops being indexable) but the digest is not invalidated, so nothing is re-read and nothing is republished |
 | file deleted | its records stop appearing in search |
 | file replaced by a directory | the subtree is re-read and converges |
-| whole directory moved or deleted | the subtree is invalidated and converges |
+| whole directory moved | the subtree is invalidated; the documents follow the new path |
+| whole directory deleted | every document under it stops appearing in search |
 | burst of thousands of events | coalesced into one pass; above 20,000 distinct paths the pass re-hashes everything instead of tracking them (bounded memory) |
 | dropped events (kernel queue overflow) | the platform's rescan notice forces a full re-hash for that pass |
 
