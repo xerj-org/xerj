@@ -5812,15 +5812,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn object_store_flush_uploads_segment() {
-        use crate::backend::S3Backend;
+        use crate::backend::SimulatedObjectStore;
         use std::sync::Arc;
 
         let data_dir = tempfile::tempdir().unwrap();
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> =
-            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
+        let backend: Arc<dyn StorageBackend> = Arc::new(SimulatedObjectStore::new(
+            s3_dir.path(),
+            "test-bucket",
+            "xerj/",
+        ));
 
         let store = IndexStore::open(
             data_dir.path(),
@@ -5854,15 +5857,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn object_store_read_through_cache() {
-        use crate::backend::S3Backend;
+        use crate::backend::SimulatedObjectStore;
         use std::sync::Arc;
 
         let data_dir = tempfile::tempdir().unwrap();
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> =
-            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
+        let backend: Arc<dyn StorageBackend> = Arc::new(SimulatedObjectStore::new(
+            s3_dir.path(),
+            "test-bucket",
+            "xerj/",
+        ));
 
         let store = IndexStore::open(
             data_dir.path(),
