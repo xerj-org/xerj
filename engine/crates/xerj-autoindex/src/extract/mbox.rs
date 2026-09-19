@@ -58,9 +58,10 @@
 //! thread and hands each message to a pool that runs [`emit_message`], and
 //! the calling thread forwards the results to the sink IN MESSAGE ORDER, so
 //! the record stream is byte-for-byte what the sequential path produces (a
-//! test pins that). Memory stays bounded by [`IN_FLIGHT_BUDGET`]: the
-//! splitter waits before reading a message that would push the bytes held
-//! across the pool and the reorder buffer over it, and a single message
+//! test pins that). Memory stays bounded by [`IN_FLIGHT_BUDGET`], which is
+//! process-wide like the slots below: a splitter waits before reading a
+//! message that would push the bytes held across every mailbox's pool and
+//! reorder buffer over it, and a single message
 //! larger than the whole budget is admitted alone. Phase-A sampling (a byte
 //! limit) stays sequential so that what gets sampled is a function of the
 //! bytes, not of scheduling. Slots are process-wide (`configure_parallelism`,
@@ -475,10 +476,11 @@ pub fn extract(
     extract_from(reader, limit_bytes, sink)
 }
 
-/// Bytes of messages a mailbox may hold in flight across its worker pool and
-/// the reorder buffer (see the module docs, "Parallelism"). One message over
-/// this is admitted on its own, so a 64 MB message (the `MAX_EML` cap) never
-/// deadlocks the pipeline; it just runs alone.
+/// Bytes of messages the PROCESS may hold in flight across every open
+/// mailbox's worker pool and reorder buffer (see the module docs,
+/// "Parallelism", and [`shared_budget`]). One message over this is admitted on
+/// its own, so a 64 MB message (the `MAX_EML` cap) never deadlocks the
+/// pipeline; it just runs alone.
 pub const IN_FLIGHT_BUDGET: usize = 256 << 20;
 
 /// Message-extraction slots shared by every mailbox open in this process.
@@ -574,6 +576,60 @@ impl Budget {
         *used = used.saturating_sub(bytes);
         drop(used);
         self.freed.notify_all();
+    }
+}
+
+/// THE byte budget: one for the process, like the parse gate. It used to be one
+/// per `extract_parallel` call, which bounded a MAILBOX, not the run — Phase B
+/// reads up to `--workers` files at once, so a tree of twelve Thunderbird
+/// folders full of large attachments held twelve budgets (measured by the
+/// review of PR #949: 1.71 GB of client RSS against the ~0.3 GB documented for
+/// the one-mailbox Takeout case).
+fn shared_budget() -> &'static Budget {
+    static BUDGET: OnceLock<Budget> = OnceLock::new();
+    BUDGET.get_or_init(|| Budget::new(IN_FLIGHT_BUDGET))
+}
+
+/// One mailbox's claim on a shared [`Budget`]. Whatever it still holds when
+/// the mailbox is done with — a splitter error, a sink that said stop, a job
+/// that could not be handed over — goes back on drop, so no exit path of one
+/// mailbox can shrink the budget for every mailbox after it.
+struct Lease<'a> {
+    budget: &'a Budget,
+    held: Mutex<usize>,
+}
+
+impl<'a> Lease<'a> {
+    fn new(budget: &'a Budget) -> Self {
+        Self {
+            budget,
+            held: Mutex::new(0),
+        }
+    }
+
+    fn acquire(&self, bytes: usize) {
+        self.budget.acquire(bytes);
+        let mut held = self.held.lock().expect("mbox lease poisoned");
+        *held = held.saturating_add(bytes);
+    }
+
+    fn release(&self, bytes: usize) {
+        let bytes = {
+            let mut held = self.held.lock().expect("mbox lease poisoned");
+            let bytes = bytes.min(*held);
+            *held -= bytes;
+            bytes
+        };
+        self.budget.release(bytes);
+    }
+}
+
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        let rest = std::mem::take(&mut *self.held.lock().unwrap_or_else(|p| p.into_inner()));
+        if rest > 0 {
+            self.budget.release(rest);
+        }
     }
 }
 
@@ -685,7 +741,7 @@ fn extract_parallel<R: BufRead + Send>(
     let job_rx = Arc::new(Mutex::new(job_rx));
     let (done_tx, done_rx) = mpsc::channel::<Done>();
     let stop = AtomicBool::new(false);
-    let budget = Budget::new(IN_FLIGHT_BUDGET);
+    let budget = Lease::new(shared_budget());
     let mut stats = ExtractStats::default();
     let mut failure: Option<std::io::Error> = None;
 
@@ -702,7 +758,9 @@ fn extract_parallel<R: BufRead + Send>(
                 match split.next_message() {
                     Ok(Some(msg)) => {
                         budget_ref.acquire(msg.bytes.len());
-                        if job_tx.send(Job { seq, msg }).is_err() {
+                        if let Err(mpsc::SendError(job)) = job_tx.send(Job { seq, msg }) {
+                            // Never handed over, so nobody will release it.
+                            budget_ref.release(job.msg.bytes.len());
                             break;
                         }
                         seq += 1;
@@ -1558,6 +1616,26 @@ mod tests {
             );
             assert_eq!(shape(&par), shape(&seq), "workers={workers}");
         }
+    }
+
+    #[test]
+    fn a_lease_gives_back_whatever_it_still_holds() {
+        let budget = Budget::new(100);
+        {
+            let lease = Lease::new(&budget);
+            lease.acquire(60);
+            lease.acquire(30);
+            lease.release(30);
+            // Releasing more than is held must not underflow the shared pool.
+            lease.release(1_000);
+            lease.acquire(70);
+            assert_eq!(*budget.used.lock().unwrap(), 70);
+        } // a stopped sink / splitter error: the mailbox ends still holding 70
+        assert_eq!(
+            *budget.used.lock().unwrap(),
+            0,
+            "one mailbox's exit path must not shrink the process budget"
+        );
     }
 
     #[test]
