@@ -467,7 +467,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
     },
     {
@@ -485,7 +485,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
       "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal."
     },
     {
@@ -512,7 +512,7 @@
       "canonical_url": "https://xerj.org/answers/read-autoindex-progress",
       "markdown_url": "https://xerj.org/answers/read-autoindex-progress.md",
       "cluster": "Operations: progress",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "XERJ prints xerj-bar, xerj-progress and a final xerj-done line. On a single large file the percentage stays at 0.0%, so read since_progress_s and waiting_on."
     },
     {

@@ -2,7 +2,7 @@
 ---
 title: "Why does xerj autoindex say the server pushed back (429)?"
 canonical: "https://xerj.org/answers/autoindex-server-back-pressure-429"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/autoindex-server-back-pressure-429.md"
 ---
 

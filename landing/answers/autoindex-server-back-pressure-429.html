@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-09-18",
-  "dateModified": "2026-09-18",
+  "dateModified": "2026-09-19",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -230,7 +230,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>THE SERVER PUSHED BACK WITH HTTP 429. DID XERJ AUTOINDEX LOSE THE RUN?</div>
   <div class="kicker"><span>ANSWERS · OPERATIONS: EXIT CODES</span></div>
   <h1>The server pushed back with HTTP 429. Did xerj autoindex lose the run?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-18</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-19</div>
   <p><strong>TL;DR</strong> — No. A per-item HTTP 429 is the node shedding load for a moment. <code class="inline">xerj autoindex</code> lowers its bulk concurrency, re-sends only the items the node rejected, and continues. The terminal line then carries <code class="inline">bulk_retries=N</code>. The run exits 1 only after 120 seconds in which the node accepted nothing, and the same command resumes it.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>

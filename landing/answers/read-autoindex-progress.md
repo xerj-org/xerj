@@ -2,7 +2,7 @@
 ---
 title: "How do I read autoindex progress?"
 canonical: "https://xerj.org/answers/read-autoindex-progress"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/read-autoindex-progress.md"
 ---
 
