@@ -304,6 +304,20 @@
   <p><code class="inline">2 usage</code> is a bad command line. Nothing ran, and a retry of the same command will fail the same way.</p>
   <p><code class="inline">1</code> is an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. The last two are refusals by design, not crashes: removing an indexed file is refused before any remote mutation, because its documents are already live and nothing on that path deletes them.</p>
   <p>So a 1 is not always something to retry. Read the error line first.</p>
+  <h3>Two exit-1 endings that name themselves</h3>
+  <p>On the <code class="inline">--no-graph</code> path, a run whose node answered its writes with HTTP 429 for 120 seconds, with nothing accepted, ends with a reason of its own instead of <code class="inline">aborted</code>:</p>
+  <pre class="code"><code class="language-text">autoindex: stopped by server back-pressure while applying &lt;file&gt;: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again
+xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
+</code></pre>
+  <p>The applied operations are journaled, so the same command resumes with the <code class="inline">M</code> that remain once the node accepts writes again. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The <a href="/answers/autoindex-server-back-pressure-429">back-pressure page</a> covers the node side.</p>
+  <p>A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one <code class="inline">_bulk</code> request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's <code class="inline">limits.max_actions_per_bulk</code> (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the <code class="inline">--no-graph</code> run ended 10,336 seconds in:</p>
+  <pre class="code"><code class="language-text">xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
+</code></pre>
+  <p>Every <code class="inline">_bulk</code> body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries <code class="inline">bulk_splits=N</code> when that happened. Resuming that same generation with the change committed it:</p>
+  <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1 code_files=34324 code_files_indexed=34324 code_files_junked=0
+</code></pre>
+  <p>One record that is larger than the node's <code class="inline">limits.max_body_bytes</code> cannot be cut, and it still ends the run with exit 1 and an error that names that setting.</p>
   <h2>Do not read the code alone</h2>
   <p>Every run that reaches an exit, success or error, ends with one terminal line in every progress mode except <code class="inline">none</code>.</p>
   <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=0.6s files=4 records=1 generation=1
@@ -324,7 +338,7 @@
   <p>Pair this with the four-number reconciliation on the <a href="/answers/check-codebase-index-is-complete">completeness page</a>. The exit code tells you how the process ended; only the counts tell you what is in the index.</p>
   <h2>How this page was checked</h2>
   <p>The codes above were read from <code class="inline">xerj autoindex --help</code> on a built binary and cross-checked against the help string in <code class="inline">engine/crates/xerj-autoindex/src/cli.rs</code>. Both agree.</p>
-  <p>One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under <code class="inline">benchmarks/autoindex-resilience/</code>. The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, <code class="inline">xerj autoindex --help</code> prints them in one screen.</p>
+  <p>One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under <code class="inline">benchmarks/autoindex-resilience/</code>, together with the full-corpus exit 1 in <code class="inline">finalize-catalog</code> and the exit 3 of the same generation resumed after issue #955 was fixed (<code class="inline">before-955.stderr.txt</code>, <code class="inline">after-955.full-corpus-resume.stderr.txt</code>). The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, <code class="inline">xerj autoindex --help</code> prints them in one screen.</p>
   <h2>FAQ</h2>
   <h3>What does indexer exit code 3 mean?</h3>
   <p>It means the run completed and recorded junk. <code class="inline">xerj autoindex --help</code> states it as <code class="inline">3 completed-with-junk (junk recorded, never fatal)</code>. Treat it as a success with a refusal list to read.</p>
@@ -335,18 +349,21 @@
   <h3>How do I tell a failed index from a completed one with junk files?</h3>
   <p>Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the <code class="inline">xerj-done</code> line carries <code class="inline">datasets_refused</code> and <code class="inline">files_refused</code>. 1 is an endpoint or journal failure and nothing about it is a junk report.</p>
   <h3>Is exit 1 the code for any error?</h3>
-  <p>No, and that shorthand is wrong. <code class="inline">--help</code> scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2.</p>
+  <p>No, and that shorthand is wrong. <code class="inline">--help</code> scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the <code class="inline">--no-graph</code> path, an exit 1 whose terminal line reads <code class="inline">reason=server-backpressure</code> means the node accepted no writes for 120 s; the line carries <code class="inline">ops_applied</code> and <code class="inline">ops_remaining</code>.</p>
   <h3>Does exit 0 always mean the folder was indexed?</h3>
   <p>No. Answering the decision gate with <code class="inline">--approve cancel</code> also exits 0, and that run indexes nothing on purpose. Read the terminal line or the journal before you report a corpus as searchable.</p>
   <h3>Why did my run print no terminal line at all?</h3>
   <p>Either <code class="inline">--quiet</code> or <code class="inline">--progress none</code> was in force, which prints no terminal line, or the process was killed by a signal. A missing terminal line after the process is gone means it died, not that it finished.</p>
   <h3>Which codes should an agent retry?</h3>
-  <p>Retry nothing on 0 or 3. Re-run with <code class="inline">--approve</code> on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal.</p>
+  <p>Retry nothing on 0 or 3. Re-run with <code class="inline">--approve</code> on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is <code class="inline">reason=server-backpressure</code>, once the node accepts writes again: it resumes with the operations that remain.</p>
   <h2>Evidence</h2>
   <ul>
     <li>EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — <code>engine/crates/xerj-autoindex/src/cli.rs:395</code></li>
     <li>Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — <code>engine/crates/xerj-autoindex/src/cli.rs:395</code></li>
     <li>A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — <code>benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt</code></li>
+    <li>Before issue #955 was fixed, a 48,533-file --no-graph run applied every operation and then ended xerj-done ok=false exit=1 reason=aborted wall=10336.0s, because the catalog went out as one bulk request of 51,129 actions and the engine's max_actions_per_bulk is 50,000. — <code>benchmarks/autoindex-resilience/before-955.stderr.txt</code></li>
+    <li>Resuming that same generation with the fix ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1. — <code>benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt</code></li>
+    <li>A --no-graph run whose back-pressure patience runs out ends with reason=server-backpressure, ops_applied and ops_remaining on the terminal line, and exit 1. — <code>engine/crates/xerj-autoindex/src/sync_executor.rs</code></li>
     <li>Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either. — <code>engine/crates/xerj-autoindex/src/lib.rs:277</code></li>
   </ul>
   <h2>Related</h2>

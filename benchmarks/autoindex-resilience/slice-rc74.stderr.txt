@@ -1,0 +1,58 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=85967 safe_zone_mib=61054]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 4365 files (88 MB) under ./slice
+autoindex: ignore rules: skipped 30 files and pruned 16 directories (contents never walked, so not counted); 11 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 30 files, 14 directories pruned
+autoindex: ignore rules:   <built-in>:build/ — 2 directories pruned
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/4365 bytes=0/92996182 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.1
+autoindex: 294 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v3-14.snap → meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v2_from_meilisearch_v0_22_0_issue_3435-11.snap
+  duplicate: meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v3-5.snap → meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v2_from_meilisearch_v0_22_0_issue_3435-5.snap
+  duplicate: meilisearch/crates/dump/src/reader/v3/meta.rs → meilisearch/crates/dump/src/reader/v2/meta.rs
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/batches_test.rs/batch_skip_creation_with_deletion/2.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/batches_test.rs/batch_deletion_by_filter_and_addition/2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_disable_auto_deletion_of_tasks/task_deletion_have_not_been_enqueued.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_auto_deletion_of_tasks/task_queue_is_full.snap
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_disable_auto_deletion_of_tasks/task_queue_is_full.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_auto_deletion_of_tasks/task_queue_is_full.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test__settings_update.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test__settings_update-2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test_embedders__import_vectors.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test_embedders__import_vectors-2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/cancel_succeeded_task/registered_the_first_task.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/cancel_processing_task/registered_the_first_task.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/process_tasks_inserted_without_new_signal/registered_the_first_task.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/document_addition_and_index_deletion/registered_the_first_task.snap
+  … and 284 more
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/4071 bytes=0/92703093 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.2
+phase A: sniffing + sampling 4071 files with 32 threads…
+phase A: 373 datasets inferred, 391 junk/skipped files
+estimate: at least 10.0 s–10.7 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 3666 file(s) / 38.7 MB read end to end across 9 family/families, scheduled over 32 worker(s). Covers 64.5 MB of the 64.5 MB planned (100% of planned bytes). Client-side extraction only.
+  estimate: code        2256 files   28.4 MB at 1.4 MB/s measured over 2256 file(s) / 28.4 MB → 19.7 s
+  estimate: jsonl         14 files   25.5 MB at 2.1 MB/s measured over 4 file(s) / 58.3 KB → 12.0 s
+  estimate: yaml         542 files    3.2 MB at 3.5 MB/s measured over 542 file(s) / 3.2 MB → 0.9 s
+  estimate: csv           17 files  112.4 KB at 155.3 KB/s measured over 16 file(s) / 4.7 KB → 0.7 s
+  estimate: txt-prose    376 files    3.5 MB at 14.6 MB/s measured over 375 file(s) / 3.5 MB → 0.2 s
+  estimate: html           4 files  928.2 KB at 6.5 MB/s measured over 4 file(s) / 928.2 KB → 0.1 s
+  estimate: json          68 files  928.6 KB at 7.1 MB/s measured over 66 file(s) / 695.8 KB → 0.1 s
+  estimate: txt-lines    388 files    1.7 MB at 21.3 MB/s measured over 388 file(s) / 1.7 MB → 0.1 s
+  estimate: xml           15 files  250.8 KB at 13.1 MB/s measured over 15 file(s) / 250.8 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (2633 files, 32.2 MB) → config (625 files, 4.3 MB) → data (31 files, 25.7 MB) → bulk (387 files, 1.4 MB) → vendored (4 files, 932.7 KB) — biggest first inside each band at 32 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  config           configuration and small structured trees — dense, high signal per byte
+  data             structured data: rows, records and tables
+  bulk             logs and plain line files — voluminous, low signal per byte
+  vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
+gate: not triggered — the measured extraction floor 10.0 s–10.7 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-bar [########################] 100.0% | scan | 4071/4071 items | 18.4MB/s | eta unknown
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=4.8 elapsed_s=5.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=0.0 eta_quality=good since_progress_s=5.0 phase_elapsed_s=9.8 elapsed_s=10.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=0.0 eta_quality=good since_progress_s=10.0 phase_elapsed_s=14.8 elapsed_s=15.0
+xerj-bar [########################] 100.0% | scan | 4071/4071 items | 18.4MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=unknown eta_quality=stalled since_progress_s=15.0 phase_elapsed_s=19.8 elapsed_s=20.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=unknown eta_quality=stalled since_progress_s=20.0 phase_elapsed_s=24.8 elapsed_s=25.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=unknown eta_quality=stalled since_progress_s=25.0 phase_elapsed_s=29.8 elapsed_s=30.0
+xerj-bar [########################] 100.0% | scan | 4071/4071 items | 18.4MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=4071/4071 bytes=92703093/92703093 rate=19299560.8 eta_s=unknown eta_quality=stalled since_progress_s=30.0 phase_elapsed_s=34.8 elapsed_s=35.0
+xerj-done ok=false exit=1 reason=aborted wall=39.6s
+error: install generation mapping for slice-elasticsearch-modules-10-basic-13: PUT /slice-elasticsearch-modules-10-basic-13/_mapping failed: 400 Bad Request {"error":{"root_cause":[{"type":"mapper_parsing_exception","reason":"nested semantic_text field [Check streams can't be enabled with existing logs.otel indices] is not supported; map semantic_text as a top-level field"}],"type":"mapper_parsing_exception","reason":"nested semantic_text field [Check streams can't be enabled with existing logs.otel indices] is not supported; map semantic_text as a top-level field"},"status":400}

@@ -5,7 +5,7 @@ Every number in this folder's README — and in the docs pages that cite it — 
 produced by this script from a raw capture committed beside it, so none of them
 is hand-copied:
 
-    python3 summarize.py before-rc74.stderr.txt after-fix.stderr.txt > results.json
+    python3 summarize.py > results.json   # the four complete captures in CAPTURES
     python3 summarize.py --check          # results.json is what the captures produce
 
 A capture is summarized as: the ordered list of phases with how many
@@ -19,7 +19,13 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CAPTURES = ["before-rc74.stderr.txt", "after-fix.stderr.txt"]
+# Complete, untrimmed captures only: a trimmed one would under-count its phases.
+CAPTURES = [
+    "before-rc74.stderr.txt",
+    "slice-rc74.stderr.txt",
+    "slice-after.stderr.txt",
+    "after-955.full-corpus-resume.stderr.txt",
+]
 
 
 def fields(line):

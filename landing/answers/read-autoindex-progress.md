@@ -109,7 +109,9 @@ The byte total of `index` is larger than the byte total of `snapshot`. That is c
 
 `eta_s` reads `unknown` there because the phase was 1.0 s old. That is the honest answer. The estimate appears once it has settled.
 
-`finalize-refresh` is a phase of its own for a reason. On a node holding 1,526 datasets, a probe of 60 refreshes took 6.36 s, about 106 ms each. That projects to about 160 seconds for all of them. It is a projection, not a timed run. Folded into `finalize-verify`, that time would have held the phase at zero with a climbing `since_progress_s`.
+`finalize-refresh` is a phase of its own for a reason. On a node holding 1,526 datasets, a probe of 60 refreshes took 6.36 s, about 106 ms each, while that node was also indexing. That projects to about 160 seconds for all of them. Folded into `finalize-verify`, that time would have held the phase at zero with a climbing `since_progress_s`.
+
+The finalize phases were later timed on the full corpus, on a node restarted onto the same data. Resuming a generation whose 47,444 operations were all applied, `finalize-catalog` took 49.7 s, `finalize-refresh` took 9.2 s for 1,527 indices, and `finalize-verify` took 331.6 s for 47,444 read-backs. Those are one run on a shared machine, not a benchmark, and the refresh time depends on how busy the node is.
 
 A resumed run skips `walk`, `hash`, `scan` and `snapshot`. It reports `replay`, then `index`. Its `index` phase counts only the operations still to apply, so it starts at 0% of what remains. It does not credit this run with an earlier run's writes. In a capture of a full-corpus run interrupted with 12,890 of 47,444 operations committed, the resumed `index` phase opened at `items=0/34554`.
 
@@ -137,11 +139,11 @@ On a current build each of those steps is a phase, and the small-repository capt
 xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 datasets=1 junk_files=0
 ```
 
-`reason` distinguishes `completed`, `dry-run`, `completed-with-junk` and `aborted`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one.
+`reason` distinguishes `completed`, `dry-run`, `completed-with-junk`, `aborted` and, on the `--no-graph` path, `server-backpressure`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one. `server-backpressure` is exit 1: the node accepted nothing for 120 s of re-sends, and the line adds `ops_applied` and `ops_remaining` so you know how much the same command still has to do.
 
 If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
 
-If the node pushed back with HTTP 429 during the run, the line carries `bulk_retries`, the number of bulks the run re-sent. It also appears only when it happened.
+If the node pushed back with HTTP 429 during the run, the line carries `bulk_retries`, the number of bulks the run re-sent. It also appears only when it happened. If the node refused a request for its size (HTTP 413) and the run cut it in two, the line carries `bulk_splits`, also only when it happened.
 
 ## When the node pushes back
 
@@ -200,8 +202,10 @@ No. --quiet means no progress output, so the decision-JSON recipe and the progre
 - The terminal bar drew the same 9 phases under a pseudo-terminal, including index at 78.1% with 160/231 items and 1.7MB/2.2MB. — `benchmarks/autoindex-resilience/after-fix.small-repo.tty.txt`
 - Resuming a full-corpus generation interrupted with 12,890 of 47,444 operations committed reported starting, then replay, then opened index at items=0/34554 bytes=0/805561870, and never reported scan or snapshot. — `benchmarks/autoindex-resilience/after-fix.resume-probe.stderr.txt`
 - A probe of 60 index refreshes on a node holding 1,526 datasets took 6.36 s, about 106 ms each, which projects to about 160 seconds for all 1,526. — `benchmarks/autoindex-resilience/README.md`
+- Resuming a full-corpus generation whose 47,444 operations were all applied, on a node restarted onto the same data, finalize-catalog took 49.7 s, finalize-refresh 9.2 s for 1,527 indices and finalize-verify 331.6 s for 47,444 read-backs, and the run ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s. — `benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt`
 - On v1.0.0-rc.74 the --no-graph path reported only walk, hash and scan: 48 progress lines read phase=scan pct=100.0 eta_quality=stalled, since_progress_s climbed to 250.0, and the run ended exit=1 aborted wall=270.0s on a 48,533-file corpus. — `benchmarks/autoindex-resilience/before-rc74.stderr.txt`
 - A full-corpus run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected 429 by the node's memory circuit breaker. — `benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt`
+- A --no-graph run whose node accepts nothing for 120 s of back-pressure re-sends ends with reason=server-backpressure and exit 1, and its terminal line carries ops_applied and ops_remaining. — `engine/crates/xerj-autoindex/src/sync_executor.rs`
 
 ## Related
 

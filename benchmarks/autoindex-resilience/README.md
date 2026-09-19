@@ -5,7 +5,12 @@ Raw captures behind the numbers quoted for
 the whole run), [#931](https://github.com/xerj-org/xerj/issues/931) (progress
 read `scan 100% / stalled` for the whole indexing phase) and
 [#930](https://github.com/xerj-org/xerj/issues/930) (`xc-index.sh --fresh`
-failed on every previously indexed corpus).
+failed on every previously indexed corpus), and the two defects the full-corpus
+verification found after them:
+[#944](https://github.com/xerj-org/xerj/issues/944) (an HTTP 429 from the
+node's memory circuit breaker ended the run) and
+[#955](https://github.com/xerj-org/xerj/issues/955) (the catalog was one
+`_bulk` request, over the engine's 50,000-action limit).
 
 This is a correctness record, not a performance benchmark. Nothing here is a
 speed claim. Timings are included because they are in the captures; they were
@@ -16,7 +21,7 @@ Every number in the docs that cites this folder is derived from these files by
 `summarize.py`, not copied by hand:
 
 ```sh
-python3 summarize.py                 # prints results.json from the two full-corpus captures
+python3 summarize.py                 # prints results.json from the four complete captures
 python3 summarize.py --check         # exit 1 if results.json is stale
 python3 summarize.py some.stderr.txt # summarize any `--progress plain` capture
 ```
@@ -29,8 +34,14 @@ Nothing else was changed.
 | File | What it is |
 | --- | --- |
 | `before-rc74.stderr.txt` | v1.0.0-rc.74, full corpus, `--no-graph --progress plain`. #929 and #931 in one run. |
-| `after-fix.stderr.txt` | This branch, same command, same corpus. |
-| `results.json` | `summarize.py` over the two files above. |
+| `slice-rc74.stderr.txt` | v1.0.0-rc.74 client on the slice (see below): the same #929 refusal on the same field, 39.6 s in. |
+| `slice-after.stderr.txt` | This branch's client, same slice, same command: completes, exit 3. |
+| `slice-after.node.txt` | The node side of both slice runs: counts per repository, the trigger field's mapping, memory. |
+| `after-955.full-corpus-resume.stderr.txt` | This branch with #955 fixed, resuming the full-corpus generation that `before-955.stderr.txt` could not finish. Complete, nothing trimmed. |
+| `after-955.node.txt` | The node side of that resume: counts, catalog size, request-body peak, memory, how the client reached the node. |
+| `before-955.stderr.txt` | This branch before #955: the full corpus, every operation applied, then exit 1 in `finalize-catalog`. First 30 and last 40 of 2,815 lines. |
+| `before-955.node.txt` | The node side of that run: governor lines, ingest-memory peaks, sampled resident memory. |
+| `results.json` | `summarize.py` over the four complete captures: `before-rc74`, `slice-rc74`, `slice-after`, `after-955.full-corpus-resume`. |
 | `after-fix.small-repo.stderr.txt` | This branch, a 231-file repository, `--progress plain --progress-interval 1`: a complete stream that fits on a screen. |
 | `after-fix.resume-probe.stderr.txt` | This branch: resuming the full-corpus generation after it was interrupted. Stopped on purpose after 100 s. |
 | `after-fix.small-repo.tty.txt` | The same repository under a pseudo-terminal: what the TTY bar draws. |
@@ -176,10 +187,85 @@ nothing was ever accepted again. On the default 16 GiB tier this corpus cannot
 finish on that node; the full-corpus result below was taken with a raised
 `XERJ_MAX_PROCESS_MEMORY_MB`, and says so.
 
+## The full-corpus run found a fifth defect (#955)
+
+The verification run on a raised cap (`XERJ_MAX_PROCESS_MEMORY_MB=49152`,
+fresh node, this branch at `702d4188` as server and client) indexed the whole corpus. It
+applied all 47,444 sealed operations, 821,840 records, and its node never
+engaged the breaker. Then it failed at the very end, 10,336 s in
+(`before-955.stderr.txt`):
+
+```text
+xerj-progress phase=finalize-catalog basis=items pct=99.7 items=1521/1526 … elapsed_s=10335.5
+xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
+```
+
+The catalog, one document per file, per dataset and per run, went out as ONE
+`_bulk`: 51,129 actions in 31.9 MB (`http_body` peak 31,910,392 bytes in
+`before-955.node.txt`), over the engine's default `limits.max_actions_per_bulk`
+of 50,000. The fix windows every body at 10,000 actions (the catalog also at
+`--bulk-mb`) and halves a request the node still refuses for its size.
+
 ## After, full corpus (this branch)
 
-PENDING — this section is replaced with the terminal line, the record count
-and the per-phase summary when the run ends.
+Resuming the generation above, with its journal and its node's data copied, on
+the #955 binary (`after-955.*`):
+
+```text
+autoindex: resumed and committed pending corpus generation from durable source
+xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1 code_files=34324 code_files_indexed=34324 code_files_junked=0
+```
+
+- Phases: `starting`, `replay`, `index` (0/0, nothing left to apply),
+  `finalize-catalog` 49.7 s, `finalize-refresh` 9.2 s for 1,527 indices,
+  `finalize-verify` 331.6 s for 47,444 read-backs.
+- `autoindex-catalog`: 0 documents before, 51,129 after.
+- The node's largest request body: 8,388,241 bytes, under `--bulk-mb 8`
+  (was 31,910,392).
+- The rc.74 trigger field, `Check streams can't be enabled with existing
+  logs.otel indices` in `xc-xerj-search-elasticsearch-modules-10-basic-13`, is
+  mapped `text`; `xerj autoindex map` prints no refused datasets.
+- The exit is 3 because 1,089 files were junk or skipped, as in every capture
+  of this corpus.
+
+How the client reached the node: the journal pins
+`url=http://localhost:9540`, and a resume must use the URL the journal was
+created with. The restarted node listened on a private port, and the client
+reached it through a local TCP forwarder (`HTTP_PROXY`). Nothing listened on
+9540 during the run.
+
+### What was and was not verified at full scale
+
+| | Verified? | Evidence |
+| --- | --- | --- |
+| #929/#931 on the full corpus: no refusal, the phases through `finalize-catalog`, 47,444 operations applied | yes, with the branch at `702d4188` | `before-955.stderr.txt` |
+| #955: the catalog write that failed commits, on the same data | yes, with the #955 binary, by resuming | `after-955.*` |
+| One uninterrupted run from an empty node to a commit with the final binary | **no** | — |
+| Any full-corpus run on the default 16 GiB memory tier | **no, and it cannot finish there today** | `before-944.*`, [#950](https://github.com/xerj-org/xerj/issues/950) |
+
+## After, a slice that holds the rc.74 trigger (this branch)
+
+A corpus that completes in minutes and still contains what the full corpus
+failed on: tantivy, quickwit, meilisearch and sonic whole, plus 419 files of
+`elasticsearch/modules` (every `src/yamlRestTest` file and all of
+`modules/streams`, which holds the YAML test whose key rc.74 elected
+`semantic_text`). 4,479 files, fresh node per run, default configuration
+(16 GiB auto tier).
+
+- rc.74 client (`slice-rc74.stderr.txt`): `xerj-done ok=false exit=1
+  reason=aborted wall=39.6s`, on the same mapping refusal of the same field,
+  `nested semantic_text field [Check streams can't be enabled with existing
+  logs.otel indices] is not supported`, in
+  `slice-elasticsearch-modules-10-basic-13`. 0 records. Its stream also shows
+  #931: 4 lines of `scan` at `pct=100.0` reading `stalled`.
+- This branch's client (`slice-after.stderr.txt`): `xerj-done ok=true exit=3
+  reason=completed-with-junk wall=525.6s files=3680 records=159666
+  generation=1`, all nine phases, 0 `scan` lines at 100%. `_count` 159,666:
+  tantivy 111,612, quickwit 29,883, meilisearch 13,607, sonic 1,663,
+  elasticsearch 2,901. The trigger dataset holds 8 records and maps the field
+  as `text`. The node's peak resident memory was 3.8 GB and its breaker never
+  engaged.
 
 ## What the after-run also showed
 

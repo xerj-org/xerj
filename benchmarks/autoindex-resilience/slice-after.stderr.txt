@@ -1,0 +1,196 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=75501 safe_zone_mib=60238]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 4365 files (88 MB) under ./slice
+autoindex: ignore rules: skipped 30 files and pruned 16 directories (contents never walked, so not counted); 11 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 30 files, 14 directories pruned
+autoindex: ignore rules:   <built-in>:build/ — 2 directories pruned
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/4365 bytes=0/92996182 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.1
+autoindex: 294 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v3-14.snap → meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v2_from_meilisearch_v0_22_0_issue_3435-11.snap
+  duplicate: meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v3-5.snap → meilisearch/crates/dump/src/reader/snapshots/dump__reader__test__import_dump_v2_from_meilisearch_v0_22_0_issue_3435-5.snap
+  duplicate: meilisearch/crates/dump/src/reader/v3/meta.rs → meilisearch/crates/dump/src/reader/v2/meta.rs
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/batches_test.rs/batch_skip_creation_with_deletion/2.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/batches_test.rs/batch_deletion_by_filter_and_addition/2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_disable_auto_deletion_of_tasks/task_deletion_have_not_been_enqueued.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_auto_deletion_of_tasks/task_queue_is_full.snap
+  duplicate: meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_disable_auto_deletion_of_tasks/task_queue_is_full.snap → meilisearch/crates/index-scheduler/src/queue/snapshots/test.rs/test_auto_deletion_of_tasks/task_queue_is_full.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test__settings_update.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test__settings_update-2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test_embedders__import_vectors.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/index_scheduler__scheduler__test_embedders__import_vectors-2.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/cancel_succeeded_task/registered_the_first_task.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/cancel_processing_task/registered_the_first_task.snap
+  duplicate: meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/process_tasks_inserted_without_new_signal/registered_the_first_task.snap → meilisearch/crates/index-scheduler/src/scheduler/snapshots/test.rs/document_addition_and_index_deletion/registered_the_first_task.snap
+  … and 284 more
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/4071 bytes=0/92703093 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.1
+phase A: sniffing + sampling 4071 files with 32 threads…
+phase A: 373 datasets inferred, 391 junk/skipped files
+estimate: at least 5.3 s–6.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 3666 file(s) / 38.7 MB read end to end across 9 family/families, scheduled over 32 worker(s). Covers 64.5 MB of the 64.5 MB planned (100% of planned bytes). Client-side extraction only.
+  estimate: code        2256 files   28.4 MB at 1.5 MB/s measured over 2256 file(s) / 28.4 MB → 19.2 s
+  estimate: jsonl         14 files   25.5 MB at 4.1 MB/s measured over 4 file(s) / 58.3 KB → 6.3 s
+  estimate: yaml         542 files    3.2 MB at 3.5 MB/s measured over 542 file(s) / 3.2 MB → 0.9 s
+  estimate: csv           17 files  112.4 KB at 125.4 KB/s measured over 16 file(s) / 4.7 KB → 0.9 s
+  estimate: html           4 files  928.2 KB at 4.2 MB/s measured over 4 file(s) / 928.2 KB → 0.2 s
+  estimate: txt-lines    388 files    1.7 MB at 15.0 MB/s measured over 388 file(s) / 1.7 MB → 0.1 s
+  estimate: json          68 files  928.6 KB at 8.8 MB/s measured over 66 file(s) / 695.8 KB → 0.1 s
+  estimate: txt-prose    376 files    3.5 MB at 36.6 MB/s measured over 375 file(s) / 3.5 MB → 0.1 s
+  estimate: xml           15 files  250.8 KB at 71.4 MB/s measured over 15 file(s) / 250.8 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (2633 files, 32.2 MB) → config (625 files, 4.3 MB) → data (31 files, 25.7 MB) → bulk (387 files, 1.4 MB) → vendored (4 files, 932.7 KB) — biggest first inside each band at 32 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  config           configuration and small structured trees — dense, high signal per byte
+  data             structured data: rows, records and tables
+  bulk             logs and plain line files — voluminous, low signal per byte
+  vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
+gate: not triggered — the measured extraction floor 5.3 s–6.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-bar [------------------------] 0.0% | prepare | 0/373 items | eta unknown
+xerj-progress phase=prepare basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=2.2
+xerj-progress phase=prepare basis=items pct=30.8 items=115/373 bytes=0/0 rate=40.9 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=2.8 elapsed_s=5.0
+xerj-progress phase=prepare basis=items pct=88.5 items=330/373 bytes=0/0 rate=41.3 eta_s=1.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=7.8 elapsed_s=10.0
+xerj-bar [------------------------] 0.0% | snapshot | 0/4071 items | eta unknown
+xerj-progress phase=snapshot basis=bytes pct=0.0 items=0/4071 bytes=0/92703093 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=11.1
+xerj-progress phase=snapshot basis=bytes pct=27.3 items=776/4071 bytes=25262927/92703093 rate=6410443.6 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=3.9 elapsed_s=15.0 waiting_on=meilisearch/crates/index-scheduler/src/scheduler/snapshots/test_document_addition.rs/document_addition_and_document_deletion/registered_the_first_task.snap(2.2KB)
+xerj-progress phase=snapshot basis=bytes pct=36.4 items=1583/4071 bytes=33729098/92703093 rate=5466988.2 eta_s=10.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.9 elapsed_s=20.0 waiting_on=meilisearch/crates/milli/src/update/index_documents/snapshots/mod_test.rs/filtered_placeholder_search_should_not_return_deleted_documents/facet_id_f64_docids.snap(81B)
+xerj-progress phase=snapshot basis=bytes pct=44.5 items=1986/4071 bytes=41295990/92703093 rate=4676256.7 eta_s=11.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=13.9 elapsed_s=25.0 waiting_on=quickwit/docs/internals/RUST_STYLE.md(12.3KB)
+xerj-bar [###########-------------] 48.6% | snapshot | 2259/4071 items | 3.7MB/s | eta 12s | waiting on …/src/control_plane.rs(109.6KB)
+xerj-progress phase=snapshot basis=bytes pct=48.6 items=2259/4071 bytes=45074986/92703093 rate=3892160.3 eta_s=12.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=18.9 elapsed_s=30.0 waiting_on=quickwit/quickwit/quickwit-control-plane/src/control_plane.rs(109.6KB)
+xerj-progress phase=snapshot basis=bytes pct=54.7 items=2564/4071 bytes=50699025/92703093 rate=3338681.8 eta_s=12.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=23.9 elapsed_s=35.0 waiting_on=quickwit/quickwit/quickwit-lambda-client/src/deploy.rs(34.6KB)
+xerj-progress phase=snapshot basis=bytes pct=62.8 items=3111/4071 bytes=58180049/92703093 rate=2970178.3 eta_s=11.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=28.9 elapsed_s=40.0 waiting_on=quickwit/quickwit/quickwit-telemetry-exporters/src/otlp/logs.rs(2.3KB)
+xerj-bar [#######################-] 96.7% | snapshot | 3794/4071 items | 3.5MB/s | eta 9s | waiting on …/collector/sort_key/sort_by_bytes.rs(5.7KB)
+xerj-progress phase=snapshot basis=bytes pct=96.7 items=3794/4071 bytes=89603172/92703093 rate=3633032.6 eta_s=9.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=33.9 elapsed_s=45.0 waiting_on=tantivy/src/collector/sort_key/sort_by_bytes.rs(5.7KB)
+xerj-bar [------------------------] 0.0% | index | 0/3680 items | eta unknown
+xerj-progress phase=index basis=bytes pct=0.0 items=0/3680 bytes=0/145552501 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=48.3
+xerj-progress phase=index basis=bytes pct=0.7 items=53/3680 bytes=1089678/145552501 rate=624632.7 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=1.7 elapsed_s=50.0 waiting_on=quickwit/quickwit/quickwit-config/src/metastore_config.rs(37.1KB)
+xerj-progress phase=index basis=bytes pct=2.6 items=179/3680 bytes=3853324/145552501 rate=610249.0 eta_s=232.2 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=6.7 elapsed_s=55.0 waiting_on=elasticsearch/modules/reindex-management/src/yamlRestTest/resources/rest-api-spec/test/reindex/10_get_reindex.yml(4.8KB)
+xerj-progress phase=index basis=bytes pct=4.1 items=290/3680 bytes=5936023/145552501 rate=571505.1 eta_s=244.3 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=11.7 elapsed_s=60.0 waiting_on=quickwit/quickwit/quickwit-common/src/tower/metrics.rs(26.8KB)
+xerj-bar [#-----------------------] 5.4% | index | 394/3680 items | 518.8KB/s | eta ~4m19s (rough) | waiting on …/milli/src/update/update_step.rs(3.8KB)
+xerj-progress phase=index basis=bytes pct=5.4 items=394/3680 bytes=7787633/145552501 rate=531223.0 eta_s=259.3 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=16.7 elapsed_s=65.0 waiting_on=meilisearch/crates/milli/src/update/update_step.rs(3.8KB)
+xerj-progress phase=index basis=bytes pct=6.7 items=493/3680 bytes=9807202/145552501 rate=505759.2 eta_s=268.4 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=21.7 elapsed_s=70.0 waiting_on=sonic/client/examples/search_parallel_blocking.rs(7.6KB)
+xerj-progress phase=index basis=bytes pct=8.0 items=588/3680 bytes=11654310/145552501 rate=478490.0 eta_s=279.8 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=26.7 elapsed_s=75.0 waiting_on=quickwit/quickwit/quickwit-indexing/src/merge_policy/nop_merge_policy.rs(7.6KB)
+xerj-bar [##----------------------] 9.5% | index | 676/3680 items | 457.0KB/s | eta ~4m41s (rough)
+xerj-progress phase=index basis=bytes pct=9.5 items=676/3680 bytes=13784233/145552501 rate=467986.8 eta_s=281.6 eta_quality=rough since_progress_s=0.0 phase_elapsed_s=31.7 elapsed_s=80.0
+xerj-progress phase=index basis=bytes pct=10.5 items=761/3680 bytes=15310274/145552501 rate=435429.5 eta_s=299.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=36.7 elapsed_s=85.0
+xerj-progress phase=index basis=bytes pct=11.6 items=843/3680 bytes=16832156/145552501 rate=409217.7 eta_s=314.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=41.7 elapsed_s=90.0 waiting_on=tantivy/src/collector/sort_key/sort_by_erased_type.rs(35.7KB)
+xerj-bar [###---------------------] 13.2% | index | 917/3680 items | 411.6KB/s | eta 4m59s | waiting on …/src/doc_mapper/date_time_type.rs(30.2KB)
+xerj-progress phase=index basis=bytes pct=13.2 items=917/3680 bytes=19185383/145552501 rate=421500.5 eta_s=299.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=46.7 elapsed_s=95.0 waiting_on=quickwit/quickwit/quickwit-doc-mapper/src/doc_mapper/date_time_type.rs(30.2KB)
+xerj-progress phase=index basis=bytes pct=14.4 items=988/3680 bytes=20978750/145552501 rate=408932.1 eta_s=304.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=51.7 elapsed_s=100.0
+xerj-progress phase=index basis=bytes pct=15.3 items=1057/3680 bytes=22256957/145552501 rate=378273.2 eta_s=325.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=56.7 elapsed_s=105.0
+xerj-bar [####--------------------] 19.4% | index | 1098/3680 items | 530.9KB/s | eta 4m20s | waiting on …/protos/quickwit/ingester.proto(17.5KB)
+xerj-progress phase=index basis=bytes pct=19.4 items=1098/3680 bytes=28281804/145552501 rate=543606.0 eta_s=260.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=61.7 elapsed_s=110.0 waiting_on=quickwit/quickwit/quickwit-proto/protos/quickwit/ingester.proto(17.5KB)
+xerj-progress phase=index basis=bytes pct=20.4 items=1141/3680 bytes=29685429/145552501 rate=491028.2 eta_s=236.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=66.7 elapsed_s=115.0 waiting_on=quickwit/quickwit/quickwit-metastore/migrations/postgresql/16_create-index-split-uid.up.sql(623B)
+xerj-progress phase=index basis=bytes pct=20.9 items=1177/3680 bytes=30435023/145552501 rate=422805.5 eta_s=272.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=71.7 elapsed_s=120.0 waiting_on=tantivy/src/query/term_query/term_scorer.rs(29.3KB)
+xerj-bar [#####-------------------] 21.4% | index | 1223/3680 items | 357.9KB/s | eta 5m12s | waiting on …/v1_12/v1_12_0.ms/instance-uid(505B)
+xerj-progress phase=index basis=bytes pct=21.4 items=1223/3680 bytes=31140524/145552501 rate=366463.7 eta_s=312.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=76.7 elapsed_s=125.0 waiting_on=meilisearch/crates/meilisearch/tests/upgrade/v1_12/v1_12_0.ms/instance-uid(505B)
+xerj-progress phase=index basis=bytes pct=22.3 items=1275/3680 bytes=32492468/145552501 rate=347246.9 eta_s=325.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=81.7 elapsed_s=130.0 waiting_on=meilisearch/crates/filter-parser/src/main.rs(1.4KB)
+xerj-progress phase=index basis=bytes pct=23.2 items=1330/3680 bytes=33825137/145552501 rate=331101.4 eta_s=337.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=86.7 elapsed_s=135.0
+xerj-bar [#####-------------------] 24.3% | index | 1380/3680 items | 320.6KB/s | eta 5m35s | waiting on …/async-openai/src/types/users.rs(4.9KB)
+xerj-progress phase=index basis=bytes pct=24.3 items=1380/3680 bytes=35410895/145552501 rate=328309.9 eta_s=335.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=91.7 elapsed_s=140.0 waiting_on=meilisearch/external-crates/async-openai/src/types/users.rs(4.9KB)
+xerj-progress phase=index basis=bytes pct=25.1 items=1430/3680 bytes=36511400/145552501 rate=306666.8 eta_s=355.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=96.8 elapsed_s=145.0 waiting_on=quickwit/quickwit/quickwit-metastore/src/metastore/postgres/queries/shards/prune_count.sql(776B)
+xerj-progress phase=index basis=bytes pct=25.6 items=1483/3680 bytes=37235861/145552501 rate=274309.6 eta_s=394.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=101.8 elapsed_s=150.0 waiting_on=meilisearch/Cargo.toml(2.7KB)
+xerj-bar [######------------------] 26.0% | index | 1535/3680 items | 237.5KB/s | eta 7m23s | waiting on …/quickwit-metastore/build.rs(1.7KB)
+xerj-progress phase=index basis=bytes pct=26.0 items=1535/3680 bytes=37829065/145552501 rate=243162.1 eta_s=443.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=106.8 elapsed_s=155.0 waiting_on=quickwit/quickwit/quickwit-metastore/build.rs(1.7KB)
+xerj-progress phase=index basis=bytes pct=26.6 items=1586/3680 bytes=38738065/145552501 rate=230888.7 eta_s=462.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=111.8 elapsed_s=160.0 waiting_on=quickwit/quickwit/quickwit-proto/src/codegen/quickwit/quickwit.developer.rs(95.4KB)
+xerj-progress phase=index basis=bytes pct=28.7 items=1637/3680 bytes=41834917/145552501 rate=308581.9 eta_s=370.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=116.8 elapsed_s=165.0 waiting_on=tantivy/src/collector/sort_key/order.rs(54.9KB)
+xerj-bar [#######-----------------] 29.4% | index | 1688/3680 items | 279.3KB/s | eta 5m59s | waiting on …/src/routes/export_analytics.rs(7.9KB)
+xerj-progress phase=index basis=bytes pct=29.4 items=1688/3680 bytes=42813122/145552501 rate=285992.7 eta_s=359.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=121.8 elapsed_s=170.0 waiting_on=meilisearch/crates/meilisearch/src/routes/export_analytics.rs(7.9KB)
+xerj-progress phase=index basis=bytes pct=29.9 items=1741/3680 bytes=43587489/145552501 rate=259768.0 eta_s=392.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=126.8 elapsed_s=175.0 waiting_on=quickwit/quickwit/quickwit-indexing/src/actors/packager.rs(40.5KB)
+xerj-progress phase=index basis=bytes pct=30.6 items=1794/3680 bytes=44576802/145552501 rate=247385.3 eta_s=408.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=131.8 elapsed_s=180.0 waiting_on=sonic/packaging/debian/source/format(378B)
+xerj-bar [#######-----------------] 31.2% | index | 1846/3680 items | 226.6KB/s | eta 7m11s | waiting on …/index/rankeval/RankEvalYamlIT.java(5.9KB)
+xerj-progress phase=index basis=bytes pct=31.2 items=1846/3680 bytes=45429380/145552501 rate=232010.6 eta_s=431.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=136.8 elapsed_s=185.0 waiting_on=elasticsearch/modules/rank-eval/src/yamlRestTest/java/org/elasticsearch/index/rankeval/RankEvalYamlIT.java(5.9KB)
+xerj-progress phase=index basis=bytes pct=32.3 items=1895/3680 bytes=46999482/145552501 rate=248410.7 eta_s=396.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=141.8 elapsed_s=190.0 waiting_on=tantivy/columnar/src/column_index/serialize.rs(7.6KB)
+xerj-progress phase=index basis=bytes pct=33.1 items=1948/3680 bytes=48160084/145552501 rate=245151.6 eta_s=397.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=146.8 elapsed_s=195.0
+xerj-bar [########----------------] 33.6% | index | 1998/3680 items | 220.1KB/s | eta 7m08s | waiting on meilisearch/PROFILING.md(2.1KB)
+xerj-progress phase=index basis=bytes pct=33.6 items=1998/3680 bytes=48891434/145552501 rate=225374.6 eta_s=428.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=151.8 elapsed_s=200.0 waiting_on=meilisearch/PROFILING.md(2.1KB)
+xerj-progress phase=index basis=bytes pct=34.5 items=2048/3680 bytes=50169926/145552501 rate=231438.2 eta_s=412.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=156.8 elapsed_s=205.0 waiting_on=quickwit/quickwit/scripts/check_license_headers.sh(1.1KB)
+xerj-progress phase=index basis=bytes pct=35.2 items=2098/3680 bytes=51288351/145552501 rate=229886.6 eta_s=410.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=161.8 elapsed_s=210.0 waiting_on=elasticsearch/modules/reindex/src/yamlRestTest/resources/rest-api-spec/test/update_by_query/85_script_cancellation.yml(1.6KB)
+xerj-bar [########----------------] 36.3% | index | 2148/3680 items | 241.6KB/s | eta 6m14s | waiting on …/quickwit-ui/src/utils/theme.ts(12.5KB)
+xerj-progress phase=index basis=bytes pct=36.3 items=2148/3680 bytes=52876399/145552501 rate=247429.6 eta_s=374.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=166.8 elapsed_s=215.0 waiting_on=quickwit/quickwit/quickwit-ui/src/utils/theme.ts(12.5KB)
+xerj-progress phase=index basis=bytes pct=36.7 items=2196/3680 bytes=53457498/145552501 rate=221187.0 eta_s=416.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=171.8 elapsed_s=220.0 waiting_on=meilisearch/crates/milli/src/update/facet/snapshots/bulk.rs/insert_string/large_group_small_min_level.hash.snap(589B)
+xerj-progress phase=index basis=bytes pct=37.4 items=2246/3680 bytes=54383675/145552501 rate=213995.7 eta_s=426.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=176.8 elapsed_s=225.0 waiting_on=quickwit/quickwit/quickwit-index-management/src/index.rs(48.6KB)
+xerj-bar [#########---------------] 37.9% | index | 2295/3680 items | 197.0KB/s | eta 7m28s | waiting on sonic/core/src/stopwords/afr.rs(1.6KB)
+xerj-progress phase=index basis=bytes pct=37.9 items=2295/3680 bytes=55147334/145552501 rate=201741.9 eta_s=448.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=181.8 elapsed_s=230.0 waiting_on=sonic/core/src/stopwords/afr.rs(1.6KB)
+xerj-progress phase=index basis=bytes pct=38.5 items=2344/3680 bytes=56010680/145552501 rate=195926.4 eta_s=457.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=186.8 elapsed_s=235.0 waiting_on=quickwit/quickwit/quickwit-metastore/src/metastore/file_backed/mod.rs(186.1KB)
+xerj-progress phase=index basis=bytes pct=39.2 items=2393/3680 bytes=57032080/145552501 rate=197593.7 eta_s=448.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=191.8 elapsed_s=240.0 waiting_on=tantivy/src/tokenizer/tokenizer_manager.rs(7.1KB)
+xerj-bar [#########---------------] 40.1% | index | 2441/3680 items | 204.7KB/s | eta 6m56s | waiting on …/src/cluster_api/rest_handler.rs(4.5KB)
+xerj-progress phase=index basis=bytes pct=40.1 items=2441/3680 bytes=58321011/145552501 rate=209631.0 eta_s=416.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=196.8 elapsed_s=245.0 waiting_on=quickwit/quickwit/quickwit-serve/src/cluster_api/rest_handler.rs(4.5KB)
+xerj-progress phase=index basis=bytes pct=40.8 items=2489/3680 bytes=59395862/145552501 rate=210697.9 eta_s=408.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=201.8 elapsed_s=250.0 waiting_on=meilisearch/crates/index-scheduler/src/scheduler/snapshots/test_embedders.rs/import_vectors/adding Intel succeeds.snap(10.3KB)
+xerj-progress phase=index basis=bytes pct=41.3 items=2537/3680 bytes=60111321/145552501 rate=197173.9 eta_s=433.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=206.8 elapsed_s=255.0 waiting_on=meilisearch/crates/index-scheduler/src/queue/snapshots/batches_test.rs/batch_deletion_nothing_and_add_documents_no_guess_pk/1.snap(8.4KB)
+xerj-bar [##########--------------] 42.7% | index | 2584/3680 items | 233.0KB/s | eta 5m49s | waiting on …/aggregations/random_sampler.yml(15.4KB)
+xerj-progress phase=index basis=bytes pct=42.7 items=2584/3680 bytes=62132844/145552501 rate=238597.9 eta_s=349.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=211.8 elapsed_s=260.0 waiting_on=elasticsearch/modules/aggregations/src/yamlRestTest/resources/rest-api-spec/test/aggregations/random_sampler.yml(15.4KB)
+xerj-progress phase=index basis=bytes pct=43.3 items=2631/3680 bytes=62956322/145552501 rate=223816.5 eta_s=369.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=216.8 elapsed_s=265.0 waiting_on=meilisearch/crates/routes-macros/src/path.rs(10.3KB)
+xerj-progress phase=index basis=bytes pct=43.9 items=2677/3680 bytes=63862812/145552501 rate=215311.8 eta_s=379.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=221.8 elapsed_s=270.0 waiting_on=sonic/packaging/README.md(3.3KB)
+xerj-bar [##########--------------] 44.5% | index | 2723/3680 items | 205.6KB/s | eta 6m23s | waiting on …/5_add-delete-opstamp-splits.up.sql(647B)
+xerj-progress phase=index basis=bytes pct=44.5 items=2723/3680 bytes=64819990/145552501 rate=210535.5 eta_s=383.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=226.8 elapsed_s=275.0 waiting_on=quickwit/quickwit/quickwit-metastore/migrations/postgresql/5_add-delete-opstamp-splits.up.sql(647B)
+xerj-progress phase=index basis=bytes pct=45.2 items=2769/3680 bytes=65859331/145552501 rate=210000.7 eta_s=379.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=231.8 elapsed_s=280.0 waiting_on=quickwit/quickwit/quickwit-proto/src/codegen/opentelemetry/opentelemetry.proto.collector.logs.v1.rs(44.0KB)
+xerj-progress phase=index basis=bytes pct=45.9 items=2816/3680 bytes=66791957/145552501 rate=205304.7 eta_s=383.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=236.8 elapsed_s=285.0 waiting_on=quickwit/quickwit/quickwit-ui/mocks/monacoMock.js(1.9KB)
+xerj-bar [###########-------------] 46.9% | index | 2862/3680 items | 216.7KB/s | eta 5m48s | waiting on …/ranking_rule_graph/exactness/mod.rs(9.3KB)
+xerj-progress phase=index basis=bytes pct=46.9 items=2862/3680 bytes=68232939/145552501 rate=221881.3 eta_s=348.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=241.8 elapsed_s=290.0 waiting_on=meilisearch/crates/milli/src/search/new/ranking_rule_graph/exactness/mod.rs(9.3KB)
+xerj-progress phase=index basis=bytes pct=47.4 items=2909/3680 bytes=69022625/145552501 rate=209091.5 eta_s=366.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=246.8 elapsed_s=295.0 waiting_on=quickwit/quickwit/quickwit-datafusion/src/sources/metrics/mod.rs(32.6KB)
+xerj-progress phase=index basis=bytes pct=47.8 items=2955/3680 bytes=69575134/145552501 rate=189373.0 eta_s=401.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=251.8 elapsed_s=300.0 waiting_on=meilisearch/crates/milli/src/heed_codec/field_id_word_count_codec.rs(4.8KB)
+xerj-bar [###########-------------] 48.3% | index | 3001/3680 items | 175.7KB/s | eta 6m58s | waiting on …/models/time_windowed_compaction.rs(42.8KB)
+xerj-progress phase=index basis=bytes pct=48.3 items=3001/3680 bytes=70286200/145552501 rate=179940.4 eta_s=418.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=256.8 elapsed_s=305.0 waiting_on=quickwit/quickwit/quickwit-dst/src/models/time_windowed_compaction.rs(42.8KB)
+xerj-progress phase=index basis=bytes pct=49.0 items=3045/3680 bytes=71337933/145552501 rate=186018.0 eta_s=399.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=261.8 elapsed_s=310.0 waiting_on=meilisearch/crates/index-scheduler/src/scheduler/snapshots/test_document_addition.rs/test_document_replace_without_autobatching/five_tasks_processed.snap(11.2KB)
+xerj-progress phase=index basis=bytes pct=49.7 items=3091/3680 bytes=72300155/145552501 rate=187302.3 eta_s=391.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=266.8 elapsed_s=315.0 waiting_on=quickwit/quickwit/quickwit-common/src/binary_heap.rs(24.5KB)
+xerj-bar [############------------] 50.6% | index | 3136/3680 items | 200.1KB/s | eta 5m50s | waiting on …large_group_small_min_level.hash.snap(575B)
+xerj-progress phase=index basis=bytes pct=50.6 items=3136/3680 bytes=73677190/145552501 rate=204919.0 eta_s=350.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=271.8 elapsed_s=320.0 waiting_on=meilisearch/crates/milli/src/update/facet/snapshots/bulk.rs/insert/large_group_small_min_level.hash.snap(575B)
+xerj-progress phase=index basis=bytes pct=51.1 items=3181/3680 bytes=74359581/145552501 rate=191230.1 eta_s=372.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=276.8 elapsed_s=325.0 waiting_on=quickwit/quickwit/quickwit-compaction/src/metrics.rs(10.5KB)
+xerj-progress phase=index basis=bytes pct=52.7 items=3227/3680 bytes=76702507/145552501 rate=246699.0 eta_s=297.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=281.8 elapsed_s=330.0 waiting_on=meilisearch/crates/index-scheduler/src/scheduler/snapshots/test_document_addition.rs/test_document_addition_with_set_and_null_primary_key/all_other_tasks_succeeds.snap(9.2KB)
+xerj-bar [############------------] 53.1% | index | 3264/3680 items | 214.5KB/s | eta 5m10s | waiting on tantivy/benches/hdfs.json(56.5MB)
+xerj-progress phase=index basis=bytes pct=53.1 items=3264/3680 bytes=77259162/145552501 rate=219624.9 eta_s=311.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=286.8 elapsed_s=335.0 waiting_on=tantivy/benches/hdfs.json(56.5MB)
+xerj-progress phase=index basis=bytes pct=53.1 items=3264/3680 bytes=77259162/145552501 rate=219624.9 eta_s=311.0 eta_quality=good since_progress_s=5.0 phase_elapsed_s=291.8 elapsed_s=340.0 waiting_on=tantivy/benches/hdfs.json(56.5MB)
+xerj-progress phase=index basis=bytes pct=94.7 items=3297/3680 bytes=137903013/145552501 rate=1388519.1 eta_s=248.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=296.8 elapsed_s=345.0
+xerj-bar [######################--] 95.2% | index | 3337/3680 items | 1.1MB/s | eta 3m19s | waiting on …/gharchive-bulk.json.gz(341.6KB)
+xerj-progress phase=index basis=bytes pct=95.2 items=3337/3680 bytes=138602503/145552501 rate=1138794.3 eta_s=199.0 eta_quality=good since_progress_s=0.0 phase_elapsed_s=301.8 elapsed_s=350.0 waiting_on=quickwit/quickwit/rest-api-tests/scenarii/es_compatibility/gharchive-bulk.json.gz(341.6KB)
+xerj-progress phase=index basis=bytes pct=96.0 items=3375/3680 bytes=139664057/145552501 rate=953496.8 eta_s=159.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=306.8 elapsed_s=355.0 waiting_on=quickwit/quickwit/quickwit-cluster/src/member.rs(30.8KB)
+xerj-progress phase=index basis=bytes pct=96.4 items=3415/3680 bytes=140272953/145552501 rate=787152.7 eta_s=127.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=311.8 elapsed_s=360.0 waiting_on=tantivy/stacker/src/lib.rs(4.7KB)
+xerj-bar [#######################-] 96.8% | index | 3452/3680 items | 638.8KB/s | eta 1m41s | waiting on …/src/search/new/tests/stop_words.rs(16.7KB)
+xerj-progress phase=index basis=bytes pct=96.8 items=3452/3680 bytes=140883154/145552501 rate=654129.7 eta_s=101.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=316.8 elapsed_s=365.0 waiting_on=meilisearch/crates/milli/src/search/new/tests/stop_words.rs(16.7KB)
+xerj-progress phase=index basis=bytes pct=97.3 items=3488/3680 bytes=141673740/145552501 rate=554926.3 eta_s=81.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=321.8 elapsed_s=370.0 waiting_on=quickwit/docs/internals/adr/gaps/001-no-parquet-compaction.md(8.8KB)
+xerj-progress phase=index basis=bytes pct=97.9 items=3521/3680 bytes=142430039/145552501 rate=474187.1 eta_s=65.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=326.8 elapsed_s=375.0 waiting_on=quickwit/quickwit/quickwit-parquet-engine/src/merge/policy/const_write_amplification.rs(72.2KB)
+xerj-bar [#######################-] 98.3% | index | 3555/3680 items | 395.1KB/s | eta 52s | waiting on …/phase-1-sorted-splits.md(84.1KB)
+xerj-progress phase=index basis=bytes pct=98.3 items=3555/3680 bytes=143062087/145552501 rate=404631.1 eta_s=52.2 eta_quality=good since_progress_s=0.0 phase_elapsed_s=331.8 elapsed_s=380.0 waiting_on=quickwit/docs/internals/locality-compaction/phase-1-sorted-splits.md(84.1KB)
+xerj-progress phase=index basis=bytes pct=98.8 items=3588/3680 bytes=143867649/145552501 rate=355926.5 eta_s=41.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=336.8 elapsed_s=385.0 waiting_on=quickwit/quickwit/quickwit-storage/src/cache/stored_item.rs(6.2KB)
+xerj-progress phase=index basis=bytes pct=99.3 items=3621/3680 bytes=144581470/145552501 rate=313293.2 eta_s=33.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=341.8 elapsed_s=390.0 waiting_on=elasticsearch/modules/runtime-fields-common/src/yamlRestTest/resources/rest-api-spec/test/runtime_fields/41_date_from_source.yml(3.8KB)
+xerj-bar [#######################-] 99.8% | index | 3654/3680 items | 270.3KB/s | eta 27s
+xerj-progress phase=index basis=bytes pct=99.8 items=3654/3680 bytes=145234674/145552501 rate=276757.0 eta_s=26.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=346.8 elapsed_s=395.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=398.8
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=1.2 phase_elapsed_s=1.2 elapsed_s=400.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=6.2 phase_elapsed_s=6.2 elapsed_s=405.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=11.2 phase_elapsed_s=11.2 elapsed_s=410.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=16.2 phase_elapsed_s=16.2 elapsed_s=415.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=21.2 phase_elapsed_s=21.2 elapsed_s=420.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=26.2 phase_elapsed_s=26.2 elapsed_s=425.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=31.2 phase_elapsed_s=31.2 elapsed_s=430.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=36.2 phase_elapsed_s=36.2 elapsed_s=435.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=41.2 phase_elapsed_s=41.2 elapsed_s=440.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=46.2 phase_elapsed_s=46.2 elapsed_s=445.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=51.2 phase_elapsed_s=51.2 elapsed_s=450.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=56.2 phase_elapsed_s=56.2 elapsed_s=455.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=61.2 phase_elapsed_s=61.2 elapsed_s=460.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=66.2 phase_elapsed_s=66.2 elapsed_s=465.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=71.2 phase_elapsed_s=71.2 elapsed_s=470.0
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/373 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=76.2 phase_elapsed_s=76.2 elapsed_s=475.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=81.2 phase_elapsed_s=81.2 elapsed_s=480.0
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/373 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=86.2 phase_elapsed_s=86.2 elapsed_s=485.0
+xerj-bar [#######################-] 99.2% | finalize-catalog | 370/373 items | 4.1 items/s | eta 1s
+xerj-progress phase=finalize-catalog basis=items pct=99.2 items=370/373 bytes=0/0 rate=4.1 eta_s=0.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=91.2 elapsed_s=490.0
+xerj-bar [------------------------] 0.0% | finalize-refresh | 0/374 items | eta unknown
+xerj-progress phase=finalize-refresh basis=items pct=0.0 items=0/374 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=493.5
+xerj-progress phase=finalize-refresh basis=items pct=47.3 items=177/374 bytes=0/0 rate=119.1 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=1.5 elapsed_s=495.0 waiting_on=slice-elasticsearch-modules-50-routing
+xerj-bar [------------------------] 0.0% | finalize-verify | 0/3680 items | eta unknown
+xerj-progress phase=finalize-verify basis=items pct=0.0 items=0/3680 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=496.4
+xerj-progress phase=finalize-verify basis=items pct=12.4 items=455/3680 bytes=0/0 rate=123.7 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=3.7 elapsed_s=500.0 waiting_on=elasticsearch/modules/mapper-extras/src/yamlRestTest/resources/rest-api-spec/test/rank_features/10_basic.yml
+xerj-progress phase=finalize-verify basis=items pct=29.7 items=1092/3680 bytes=0/0 rate=124.4 eta_s=20.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=8.7 elapsed_s=505.0 waiting_on=meilisearch/crates/routes/src/lib.rs
+xerj-progress phase=finalize-verify basis=items pct=46.1 items=1697/3680 bytes=0/0 rate=123.8 eta_s=16.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=13.7 elapsed_s=510.0 waiting_on=quickwit/quickwit/quickwit-control-plane/README.md
+xerj-bar [###############---------] 63.8% | finalize-verify | 2348/3680 items | 125.0 items/s | eta 13s | waiting on …/src/query/phrase_query/phrase_weight.rs
+xerj-progress phase=finalize-verify basis=items pct=63.8 items=2348/3680 bytes=0/0 rate=125.0 eta_s=13.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=18.7 elapsed_s=515.0 waiting_on=tantivy/src/query/phrase_query/phrase_weight.rs
+xerj-progress phase=finalize-verify basis=items pct=82.0 items=3019/3680 bytes=0/0 rate=126.9 eta_s=10.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=23.7 elapsed_s=520.0 waiting_on=meilisearch/crates/milli/src/search/new/sort.rs
+xerj-progress phase=finalize-verify basis=items pct=98.3 items=3617/3680 bytes=0/0 rate=125.4 eta_s=8.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=28.7 elapsed_s=525.0 waiting_on=meilisearch/crates/milli/src/update/facet/snapshots/incremental_test.rs/delete_shuffled/127.hash.snap
+xerj-done ok=true exit=3 reason=completed-with-junk wall=525.6s files=3680 records=159666 generation=1 code_files=2256 code_files_indexed=2256 code_files_junked=0

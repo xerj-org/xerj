@@ -344,7 +344,16 @@ memory for 1.2 GB on disk 2.5 hours after the last write, and every write was
 ([#950](https://github.com/xerj-org/xerj/issues/950)). The run then exits 1
 with `the server kept rejecting`; restart the node, or raise
 `XERJ_MAX_PROCESS_MEMORY_MB` / `limits.max_process_memory_mb`, and rerun the
-same command to resume.
+same command to resume. On the `--no-graph` path the terminal line names that
+stop instead of calling it an abort, and says how much is left:
+
+```text
+autoindex: stopped by server back-pressure while applying <file>: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again
+xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
+```
+
+It stays exit 1, not 3: exit 3 means "a finished run, retry nothing", and this
+generation is not finished.
 
 The stream says what is happening at most once every 5 s (`autoindex: server
 back-pressure: N of M bulk item(s) rejected … re-sending only the rejected
@@ -354,7 +363,44 @@ present only when it happened. The `raising bulk concurrency` line after
 recovery is printed at most once every 10 s (the motivating capture held 117 of
 them for 11 shrinks).
 
-## 8. Reading progress on the `--no-graph` path
+## 9. A request the node calls too large is split, not fatal
+
+The engine refuses a `_bulk` request above two operator limits:
+`limits.max_body_bytes` (HTTP 413 on the request, 100 MiB by default) and
+`limits.max_actions_per_bulk` (HTTP 200 with one item answered 413, 50,000
+actions by default). Until [#955](https://github.com/xerj-org/xerj/issues/955)
+the catalog write — one document per file, per dataset, per run — went out as
+ONE request on both paths, so it grew with the corpus. On the 48,533-file
+corpus that was 51,129 actions in 31.9 MB, and a `--no-graph` run that had
+applied all 47,444 operations ended in `finalize-catalog`, 10,336 s in:
+
+```text
+xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
+```
+
+The default (graph) path counted the same answer as one ignorable item error
+and exited 0 with an empty catalog; a test against a stub that answers the
+engine's literal 413 shows it.
+
+Now every `_bulk` body goes out in windows of at most 10,000 actions, and the
+catalog write also stays under `--bulk-mb`. A request the node still refuses as
+too large is cut in two by actions and re-sent, and the run keeps the
+smallest bound it has learned for every later request, so later bodies are cut
+before they are sent instead of being refused again. A
+refusal of size is not congestion: the bulk concurrency does not drop. The
+terminal line carries `bulk_splits=N` when the node refused a request for its
+size; cutting a body before it is sent is not counted. One action the node
+calls too large cannot be cut and still ends the run with an error that names
+`limits.max_body_bytes`.
+
+Resuming the generation above with this change committed it, on the same node
+data: `xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s
+files=47444 records=821840 generation=1`, with 51,129 catalog documents and the
+node's largest request body at 8,388,241 bytes (was 31,910,392). Captures:
+`benchmarks/autoindex-resilience/before-955.*` and `after-955.*`.
+
+## 10. Reading progress on the `--no-graph` path
 
 Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
 `prepare` (install mappings, counted in datasets), `snapshot` (seal and extract

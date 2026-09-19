@@ -69,6 +69,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `raising bulk concurrency` line is printed at most once per 10 s (117 lines
   for 11 shrinks in the capture). Captures: `benchmarks/autoindex-resilience/`.
 
+- **`xerj autoindex`: a corpus whose catalog holds more documents than the
+  server takes in one request no longer fails at the very end**
+  ([#955](https://github.com/xerj-org/xerj/issues/955)). Both indexing paths
+  sent the catalog (one document per file, per dataset, per run) as ONE
+  `_bulk`. On the 48,533-file reference corpus that was 51,129 actions in
+  31.9 MB against the engine's default `limits.max_actions_per_bulk` of 50,000:
+  the `--no-graph` run applied all 47,444 operations, then ended
+  `exit=1 reason=aborted` in `finalize-catalog` after 10,336 s. On the default
+  path the same answer was silent: exit 0 with an empty catalog (reproduced by
+  a test against a stub that returns the engine's literal 413). Every `_bulk`
+  body now goes out in windows of at most 10,000 actions, and the catalog also
+  under `--bulk-mb`. A request the server still refuses as too large (HTTP 413,
+  or one item answered 413 for a body of several actions) is halved and
+  re-sent, and the bound is kept for the rest of the run; the terminal line
+  carries `bulk_splits=N` when that happened. Resuming that same generation
+  with the fix committed it (`ok=true exit=3 … records=821840`, 51,129 catalog
+  documents). A `--no-graph` run that runs out of back-pressure patience now
+  ends `reason=server-backpressure` with `ops_applied` / `ops_remaining`
+  instead of `reason=aborted`; it is still exit 1 and resumable.
+
 ## [1.0.0-rc.74] - 2026-09-08
 
 ### Added
