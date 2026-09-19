@@ -175,15 +175,16 @@
     <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">51</span>How do I estimate folder-indexing time?</a>
     <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">52</span>Why would a folder search miss files that I can see on disk?</a>
     <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">53</span>The indexer exited 3 (or 4). Did it fail?</a>
-    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">54</span>Is there a single-binary local search engine I can just run?</a>
-    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">55</span>What can I use for low-volume log search?</a>
-    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">56</span>How do I read autoindex progress?</a>
-    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">57</span>The indexer died overnight. Do I have to start over?</a>
-    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">58</span>Reindexing my files is taking forever. What usually causes that?</a>
-    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">59</span>What is XERJ?</a>
-    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">60</span>How do I improve a basic FAISS RAG pipeline?</a>
-    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">61</span>Why did my filtered vector search get slower when I added a filter?</a>
-    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">62</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/keep-index-current-as-files-change" class=""><span class="eyebrow">54</span>How do I keep a search index up to date as files change, without re-indexing everything?</a>
+    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">55</span>Is there a single-binary local search engine I can just run?</a>
+    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">56</span>What can I use for low-volume log search?</a>
+    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">57</span>How do I read autoindex progress?</a>
+    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">58</span>The indexer died overnight. Do I have to start over?</a>
+    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">59</span>Reindexing my files is taking forever. What usually causes that?</a>
+    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">60</span>What is XERJ?</a>
+    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">61</span>How do I improve a basic FAISS RAG pipeline?</a>
+    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">62</span>Why did my filtered vector search get slower when I added a filter?</a>
+    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">63</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
@@ -335,6 +336,10 @@
   <h2>Operations: exit codes</h2>
   <ul>
     <li><a href="/answers/autoindex-exit-codes">The indexer exited 3 (or 4). Did it fail?</a> — xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.</li>
+  </ul>
+  <h2>Operations: freshness</h2>
+  <ul>
+    <li><a href="/answers/keep-index-current-as-files-change">How do I keep a search index up to date as files change, without re-indexing everything?</a> — Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll.</li>
   </ul>
   <h2>Operations: installation</h2>
   <ul>

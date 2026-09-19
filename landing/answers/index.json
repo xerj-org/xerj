@@ -98,7 +98,7 @@
       "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
-      "updated": "2026-09-20",
+      "updated": "2026-09-19",
       "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
     },
     {
@@ -440,7 +440,7 @@
       "canonical_url": "https://xerj.org/answers/search-files-in-an-s3-bucket",
       "markdown_url": "https://xerj.org/answers/search-files-in-an-s3-bucket.md",
       "cluster": "Ingest: object storage",
-      "updated": "2026-09-20",
+      "updated": "2026-09-19",
       "summary": "Point xerj autoindex at s3://bucket/prefix. It lists the prefix, streams only the objects whose ETag changed, and indexes them. One LIST request per 1,000 keys."
     },
     {
