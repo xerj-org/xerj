@@ -1,5 +1,5 @@
 // A small in-memory `_search` for the reader-api tests: bool filter / must_not
-// over term · terms · exists · prefix · ids, `sort` on one keyword field,
+// over term · terms · exists · prefix · wildcard · ids, `sort` on one keyword field,
 // `from` / `size`, `_source` includes — and, unlike a canned response, a
 // `hits.total` that is the number of MATCHES, not the number returned. The
 // review of PR #945 found a truncation bug that a transport answering
@@ -15,6 +15,14 @@ function matches(doc, clause) {
   if (clause.terms) return Object.entries(clause.terms).every(([k, v]) => asList(v).includes(s[k]));
   if (clause.exists) return s[clause.exists.field] != null && s[clause.exists.field] !== '';
   if (clause.prefix) return Object.entries(clause.prefix).every(([k, v]) => typeof s[k] === 'string' && s[k].startsWith(v && typeof v === 'object' ? v.value : v));
+  if (clause.wildcard) {
+    // keyword `wildcard`: `*` = any run, `?` = one character, over the WHOLE value
+    return Object.entries(clause.wildcard).every(([k, v]) => {
+      const pat = v && typeof v === 'object' ? v.value : v;
+      const re = new RegExp(`^${String(pat).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, v && v.case_insensitive ? 'is' : 's');
+      return typeof s[k] === 'string' && re.test(s[k]);
+    });
+  }
   if (clause.bool) {
     const b = clause.bool;
     return asList(b.filter).every((c) => matches(doc, c)) && asList(b.must).every((c) => matches(doc, c))

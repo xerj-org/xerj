@@ -82,20 +82,47 @@ function hitsOf(resp, index) {
   const list = resp && resp.hits && Array.isArray(resp.hits.hits) ? resp.hits.hits : [];
   return list.filter((h) => h && h._id != null).map((h) => shapeHit(h, index));
 }
-/** Sort key for a record's `ax_locator` ("msg-s0", "att0-p3-s1", "s12"):
- *  numbers compare as numbers, so page 10 follows page 9. */
+/**
+ * Where a record sits inside its file, read from its `ax_locator`.
+ *
+ * autoindex writes ONE message per `.eml` — `msg-s0` (its sections `msg-s1`…),
+ * `att<N>-s0`, `att<N>-p<page>-s0`, `att<N>-card` — and, for a mailbox (mbox /
+ * Google Takeout, PR #949), MANY messages per file, each namespaced by its
+ * byte offset: `m1048-msg-s0`, `m1048-att0-p3-s0`, `m2210-raw-s0`. Every record
+ * of one mailbox shares ONE `ax_file`, so "this message's attachments" is the
+ * file AND the message prefix; joined on the file alone, one email of a
+ * mailbox would list the attachments of every other message in it.
+ *
+ * `{ message, part, ordinal }` — `message` is `''` for an `.eml` and
+ * `m<offset>-` inside a mailbox; `part` is `msg` | `att` | `raw`; `ordinal` is
+ * the attachment's number. `null` for any other locator (`file`, `s12`, a
+ * record not written by autoindex).
+ */
+export function locatorParts(loc) {
+  const m = /^(m\d+-)?(msg|att(\d+)|raw)(?=-|$)/.exec(String(loc || ''));
+  if (!m) return null;
+  return { message: m[1] || '', part: m[3] != null ? 'att' : m[2], ordinal: m[3] != null ? Number(m[3]) : null };
+}
+/** Sort key for a record's `ax_locator` ("msg-s0", "att0-p3-s1", "s12",
+ *  "m1048-att0-p3-s0"): numbers compare as numbers, so page 10 follows page 9
+ *  and a mailbox's messages follow their byte offsets; within one message the
+ *  message's own sections come before its attachments. */
 function locatorKey(h) {
   const loc = String((h._source && h._source.ax_locator) || '');
-  const pad = loc.replace(/\d+/g, (d) => d.padStart(8, '0'));
-  return `${loc.startsWith('msg') ? '0' : '1'}${pad}`;
+  const pad = (x) => x.replace(/\d+/g, (d) => d.padStart(20, '0'));
+  const [, message = '', rest] = /^(m\d+-)?(.*)$/s.exec(loc);
+  return `${pad(message)}${rest.startsWith('msg') ? '0' : '1'}${pad(rest)}`;
 }
 /** The attachment a record belongs to. autoindex's EML extractor numbers the
  *  attachments of one message and puts the ordinal in the locator
- *  (`att0-p3-s1`, `att2-s0`, `att5-card`), so two attachments that share a FILE
- *  NAME stay two. Records from anywhere else fall back to the name. */
+ *  (`att0-p3-s1`, `att2-s0`, `att5-card`, in a mailbox `m1048-att0-…`), so two
+ *  attachments that share a FILE NAME stay two. Records from anywhere else
+ *  fall back to the name. */
 function attachmentKey(h) {
-  const m = /^att(\d+)(?:-|$)/.exec(String((h._source && h._source.ax_locator) || ''));
-  return m ? { key: `#${m[1]}`, ordinal: Number(m[1]) } : { key: `name:${String(h._source && h._source.attachment_name)}`, ordinal: Infinity };
+  const lp = locatorParts(h._source && h._source.ax_locator);
+  return lp && lp.part === 'att'
+    ? { key: `${lp.message}#${lp.ordinal}`, ordinal: lp.ordinal }
+    : { key: `name:${String(h._source && h._source.attachment_name)}`, ordinal: Infinity };
 }
 function totalOf(resp) {
   const t = resp && resp.hits && resp.hits.total;
@@ -232,15 +259,19 @@ export function makeReaderApi(transport) {
    * An email's attachment records, or an attachment's parent email.
    *
    * Joined on `ax_file` — the id autoindex stamps on EVERY record that came
-   * out of one file. An .eml is one message, so "same file" is exactly "this
-   * message and its attachments". The first version joined on
-   * `email_message_id`, which the PR #945 review showed is wrong twice: the
-   * extractor stamps it only when the message HAS a Message-ID header (an
-   * email without one listed no attachments), and two files can carry the same
-   * id (each copy listed the other's attachments). `email_message_id` remains
-   * the fallback for records that carry no `ax_file` (not written by
-   * autoindex). `{ attachments: [], parent: null }` when there is nothing to
-   * join on; `attachmentsError` when the join itself failed.
+   * out of one file — narrowed to the record's MESSAGE by its locator
+   * (`locatorParts`): an attachment list is the file's `<message>att…`
+   * records, a parent is the file's `<message>msg-…` record. For an `.eml` the
+   * message part is empty (one file, one message); inside a mailbox it is the
+   * message's `m<offset>-`. The first version joined on `email_message_id`,
+   * which the PR #945 review showed is wrong twice: the extractor stamps it
+   * only when the message HAS a Message-ID header (an email without one
+   * listed no attachments), and two files can carry the same id (each copy
+   * listed the other's attachments). `email_message_id` remains the fallback
+   * for records that carry no `ax_file` (not written by autoindex); a record
+   * with an `ax_file` but a locator of another shape joins on the file alone.
+   * `{ attachments: [], parent: null }` when there is nothing to join on;
+   * `attachmentsError` when the join itself failed.
    */
   async function fetchRelated(hit, signal) {
     const s = (hit && hit._source) || {};
@@ -278,19 +309,24 @@ export function makeReaderApi(transport) {
     if (!join) return out;
     const isEmailish = s.attachment_name != null || s.email_subject != null || s.email_from != null || mid || s.ax_format === 'eml';
     if (!isEmailish) return out; // a note or a PDF page: nothing to join
+    // The message inside the file (see locatorParts): `m1048-` in a mailbox,
+    // empty for an .eml. Only an autoindex locator narrows the join.
+    const lp = af ? locatorParts(s.ax_locator) : null;
+    const inMessage = (part) => (lp ? [{ prefix: { ax_locator: `${lp.message}${part}` } }] : []);
     try {
       if (s.attachment_name) {
-        // The message this attachment came with: the file's records that are
-        // neither an attachment nor the file record; its first section.
+        // The message this attachment came with: the message's own records
+        // (neither an attachment nor the file record); its first section.
         const resp = await transport.search(index, {
-          query: { bool: { filter: join, must_not: [{ exists: { field: 'attachment_name' } }, { term: { ax_locator: 'file' } }] } },
+          query: { bool: { filter: [...join, ...inMessage('msg-')], must_not: [{ exists: { field: 'attachment_name' } }, { term: { ax_locator: 'file' } }] } },
           ...(af ? { sort: [{ ax_locator: 'asc' }] } : {}),
           size: 20,
         }, signal);
         const parent = hitsOf(resp, index).sort((a, b) => locatorKey(a).localeCompare(locatorKey(b)))[0] || null;
         return { ...out, parent };
       }
-      const { attachments, truncated } = await readAttachments(index, join, !!af, signal);
+      if (lp && lp.part === 'raw') return out; // a mailbox message autoindex could not parse: no attachments were read from it
+      const { attachments, truncated } = await readAttachments(index, [...join, ...inMessage('att')], !!af, signal);
       return { ...out, attachments, attachmentsTruncated: truncated };
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
@@ -457,7 +493,18 @@ export function makeReaderApi(transport) {
         track_total_hits: true,
         query: { match_all: {} },
         aggs: {
-          emails: { filter: { bool: { filter: [{ exists: { field: 'email_message_id' } }], must_not: [{ exists: { field: 'attachment_name' } }] } } },
+          // One per MESSAGE: autoindex writes `msg-s0` as the first (usually
+          // only) section of every .eml, and `m<offset>-msg-s0` for every
+          // message of a mailbox (PR #949). Counting `email_message_id`
+          // instead missed every email without a Message-ID header (the PR
+          // #945 review corpus holds 9 emails and the card said 8) and counted
+          // a long email once per section. Records not written by autoindex
+          // (no `ax_locator`) still count by message id.
+          emails: { filter: { bool: { should: [
+            { term: { ax_locator: 'msg-s0' } },
+            { wildcard: { ax_locator: { value: 'm*-msg-s0' } } },
+            { bool: { filter: [{ exists: { field: 'email_message_id' } }], must_not: [{ exists: { field: 'attachment_name' } }, { exists: { field: 'ax_locator' } }] } },
+          ], minimum_should_match: 1 } } },
           attachments: { filter: { exists: { field: 'attachment_name' } } },
           formats: { terms: { field: 'ax_format', size: 12 } },
         },

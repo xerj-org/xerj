@@ -35,6 +35,27 @@ function eml(tag, { mid, subject = tag, atts = [] } = {}) {
   return out;
 }
 const byId = (docs, id) => docs.find((d) => d._id === id);
+/** One MAILBOX as autoindex writes it once PR #949 (mbox / Google Takeout
+ *  ingest) is in: ONE file record, and every message's records namespaced by
+ *  the message's byte offset — `m<offset>-msg-s0`, `m<offset>-att<N>-p<page>-s0`
+ *  (extract/mbox.rs#emit_raw_message) — all sharing the mailbox's `ax_file`.
+ *  `msgs`: [{ offset, subject, mid?, sections?, atts: [{ name, pages? }] }] */
+function mailbox(tag, msgs) {
+  const ax_file = `axf2-${tag}`;
+  const base = { ax_file, ax_path: `Takeout/Mail/${tag}.mbox`, ax_format: 'mbox' };
+  const out = [rec(`${tag}-file`, { ...base, ax_locator: 'file', title: `${tag}.mbox` })];
+  for (const m of msgs) {
+    const pre = `m${m.offset}-`;
+    const hdr = { email_subject: m.subject, email_from: 'dana@acme.example', ...(m.mid ? { email_message_id: m.mid } : {}) };
+    for (let i = 0; i < (m.sections || 1); i++) out.push(rec(`${tag}-${m.offset}-msg-s${i}`, { ...base, ...hdr, ax_locator: `${pre}msg-s${i}`, title: m.subject, body: `section ${i} of ${m.subject}` }));
+    (m.atts || []).forEach((a, n) => {
+      const link = { ...base, ...hdr, attachment_name: a.name, attachment_content_type: a.pages ? 'application/pdf' : 'text/plain' };
+      if (a.pages) for (let p = 1; p <= a.pages; p++) out.push(rec(`${tag}-${m.offset}-att${n}-p${p}`, { ...link, ax_locator: `${pre}att${n}-p${p}-s0`, page: p, body: `${a.name} page ${p}` }));
+      else out.push(rec(`${tag}-${m.offset}-att${n}`, { ...link, ax_locator: `${pre}att${n}-s0`, body: `${a.name} text` }));
+    });
+  }
+  return out;
+}
 
 test('BLOCKER (PR #945 review): an email with a 300-page PDF and a trailing text file lists BOTH attachments', async () => {
   // Live truth: inbox/06-bigpdf.eml → 303 records, att=[('aaa-big.pdf',300),('zzz-last.txt',1)].
@@ -176,4 +197,63 @@ test('minor (PR #945 review): the OPERATOR transport names a dead engine "engine
     globalThis.fetch = async () => { throw Object.assign(new Error('aborted'), { name: 'AbortError' }); };
     await assert.rejects(() => makeConsoleTransport().search(I, {}), { name: 'AbortError' });
   } finally { globalThis.fetch = realFetch; }
+});
+
+test('the guest card counts one email per MESSAGE — with or without a Message-ID, however many sections, .eml or mailbox', async () => {
+  // Live, PR #945 review corpus: 9 emails, one without a Message-ID header. The
+  // card said "emails 8": it counted `email_message_id`. miniSearch has no aggs,
+  // so this pins the filter and evaluates it with the same clause matcher.
+  const docs = [
+    ...eml('a', { mid: 'a@x', atts: [{ name: 'a.pdf', pages: 3 }] }),
+    ...eml('no-id'),
+    rec('a-msg-s1', { ax_file: 'axf2-a', ax_locator: 'msg-s1', email_subject: 'a', email_message_id: 'a@x', body: 'second section of a long email' }),
+    rec('foreign', { email_subject: 'not from autoindex', email_message_id: 'f@x', body: 'b' }),
+    // a mailbox (PR #949): two messages, the second long, one attachment
+    ...mailbox('inbox', [{ offset: 0, subject: 'first', mid: 'm1@x' }, { offset: 4711, subject: 'second', sections: 2, atts: [{ name: 's.pdf', pages: 2 }] }]),
+    rec('inbox-raw', { ax_file: 'axf2-inbox', ax_locator: 'm9000-raw-s0', title: '(unparseable message)', body: 'garbage' }),
+  ];
+  let sent = null;
+  const t = miniTransport(docs);
+  t.search = async (index, body) => { sent = body; return { hits: { total: { value: docs.length }, hits: [] }, aggregations: {} }; };
+  await makeReaderApi(t).indexSummary(I);
+  const { miniSearch } = await import('./fixtures/mini-engine.mjs');
+  const counted = miniSearch(docs, { query: sent.aggs.emails.filter, size: 100 }).hits.hits.map((h) => h._id).sort();
+  assert.deepEqual(counted, ['a-msg', 'foreign', 'inbox-0-msg-s0', 'inbox-4711-msg-s0', 'no-id-msg']);
+});
+
+test('PR #949 interplay: inside a MAILBOX (one ax_file, many messages) each email lists only its own attachments, and an attachment finds its own email', async () => {
+  // Joined on ax_file alone, every message of a Takeout mailbox shares one
+  // file: the first email would list the attachments of all of them, and every
+  // attachment's FROM EMAIL would be the mailbox's first message.
+  const docs = mailbox('takeout', [
+    { offset: 0, subject: 'no attachments here', mid: 'a@x' },
+    { offset: 812, subject: 'the contract', mid: 'b@x', atts: [{ name: 'contract.pdf', pages: 3 }, { name: 'notes.txt' }] },
+    { offset: 9120, subject: 'the invoice', atts: [{ name: 'invoice.pdf', pages: 2 }] },
+    { offset: 91205, subject: 'offset shares a prefix with 9120', atts: [{ name: 'other.pdf', pages: 1 }] },
+  ]);
+  const api = makeReaderApi(miniTransport(docs));
+  const names = async (id) => (await api.fetchRelated(byId(docs, id))).attachments.map((a) => `${a._source.attachment_name}@${a._id}`);
+  assert.deepEqual(await names('takeout-0-msg-s0'), [], 'a message without attachments lists none — not its neighbours\'');
+  assert.deepEqual(await names('takeout-812-msg-s0'), ['contract.pdf@takeout-812-att0-p1', 'notes.txt@takeout-812-att1']);
+  assert.deepEqual(await names('takeout-9120-msg-s0'), ['invoice.pdf@takeout-9120-att0-p1'], '`m9120-` must not match `m91205-`');
+  const up = await api.fetchRelated(byId(docs, 'takeout-9120-att0-p2'));
+  assert.equal(up.parent && up.parent._id, 'takeout-9120-msg-s0', 'FROM EMAIL is the message the attachment came with');
+  assert.equal(up.fileRecord._id, 'takeout-file');
+  assert.equal((await api.fetchRelated(byId(docs, 'takeout-812-att1'))).parent._id, 'takeout-812-msg-s0');
+  // the .eml join is unchanged: `att` / `msg-` prefixes with no message part
+  const e = eml('plain', { atts: [{ name: 'x.txt' }] });
+  const eApi = makeReaderApi(miniTransport(e));
+  assert.deepEqual((await eApi.fetchRelated(byId(e, 'plain-msg'))).attachments.map((a) => a._id), ['plain-att0']);
+  assert.equal((await eApi.fetchRelated(byId(e, 'plain-att0'))).parent._id, 'plain-msg');
+});
+
+test('locatorParts reads every locator autoindex writes, and nothing else', async () => {
+  const { locatorParts } = await import('../src/data/reader-api.js');
+  assert.deepEqual(locatorParts('msg-s0'), { message: '', part: 'msg', ordinal: null });
+  assert.deepEqual(locatorParts('att3-p12-s1'), { message: '', part: 'att', ordinal: 3 });
+  assert.deepEqual(locatorParts('att0-card'), { message: '', part: 'att', ordinal: 0 });
+  assert.deepEqual(locatorParts('m1073777879-att2-p3-s1'), { message: 'm1073777879-', part: 'att', ordinal: 2 });
+  assert.deepEqual(locatorParts('m0-msg-s0'), { message: 'm0-', part: 'msg', ordinal: null });
+  assert.deepEqual(locatorParts('m18-raw-s0'), { message: 'm18-', part: 'raw', ordinal: null });
+  for (const other of ['file', 's12', '', null, undefined, 'message-s0', 'attx-s0', 'm-msg-s0', 'mx1-msg-s0', 'msgs-s0']) assert.equal(locatorParts(other), null, String(other));
 });

@@ -118,7 +118,7 @@ export const searchDiscover = {
             if (!roles) return '<div class="mono faint">Reading the mapping…</div>';
             return `<div class="stack-3">
               ${row('index', resolved || '—')}
-              ${row('match / phrase / prefix', roles.textField || '—')}
+              ${row('match / phrase / prefix', ((roles.searchFields && roles.searchFields.length ? roles.searchFields : [roles.textField]).filter(Boolean).join(', ') || '—') + (roles.searchFieldsCapped ? ' (the first 12 text fields)' : ''))}
               ${row('semantic / hybrid', roles.semanticField || '—')}
               ${row('time', roles.dateField || '— none —')}
               ${row('facets', (roles.keywordFields || []).slice(0, 3).join(', ') || '— none —')}
