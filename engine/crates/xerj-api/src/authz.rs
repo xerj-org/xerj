@@ -501,7 +501,7 @@ fn classify(path: &str) -> Target {
     if AUTH_EXEMPT_PATHS.contains(&path)
         || path == "/v1/metrics"
         || path == "/_security/_authenticate"
-        // `POST /_share/{id}/claim` is unauthenticated by design (the guest
+        // `POST /_share/claim` is unauthenticated by design (the guest
         // has no key yet) and names no index; the handler decides everything.
         || crate::auth::is_share_claim_path(path)
     {
@@ -1267,6 +1267,26 @@ fn authorize_expression(
 /// so a pathological response cannot be turned into an OOM.
 const MAX_PRUNABLE_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 
+/// Set on every response this middleware produced itself — a refusal, so the
+/// handler never ran.
+///
+/// [`crate::audit_mw`] needs the distinction. The `_share` and
+/// `_security/api_key` handlers write their own audit entries, so the
+/// request-level layer used to skip those paths entirely — and a request that
+/// was stopped *here* reached neither: a share-link guest's `POST /_share`,
+/// `DELETE /_share/{handle}` and `POST /_security/api_key` all answered `403`
+/// and left no trace (review of PR #947, reproduced 2026-09-19: four refused
+/// calls, zero audit lines). Those are the escalation probes an owner most
+/// wants recorded. The marker lets the audit layer record exactly the requests
+/// the handler could not, without doubling the ones it could.
+#[derive(Clone, Copy, Debug)]
+pub struct RefusedBeforeHandler;
+
+fn refused(mut resp: Response) -> Response {
+    resp.extensions_mut().insert(RefusedBeforeHandler);
+    resp
+}
+
 /// Authorization middleware for both routers.
 ///
 /// Layered *inside* [`crate::auth::auth_middleware`] (added to the router
@@ -1295,7 +1315,7 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
                     .and_then(|v| v.to_str().ok()),
             );
             if principal.is_share_guest() {
-                return guest_forbidden(&principal, &path);
+                return refused(guest_forbidden(&principal, &path));
             }
         }
         return next.run(req).await;
@@ -1320,7 +1340,7 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     if principal.is_share_guest()
         && !guest_route_allowed(&method, &segs, &target, req.uri().query())
     {
-        return guest_forbidden(&principal, &path);
+        return refused(guest_forbidden(&principal, &path));
     }
     let shape = body_shape(&method, &segs);
 
@@ -1345,11 +1365,16 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     };
 
     if principal.is_share_guest() && guest_body_denied(shape, &body) {
-        return guest_forbidden(&principal, &path);
+        return refused(guest_forbidden(&principal, &path));
     }
 
     if let Err(denied) = decide(&principal, &method, &segs, &target, shape, &body, &state) {
-        return denied;
+        let denied = refused(denied);
+        return if principal.is_share_guest() {
+            crate::share::no_store(denied)
+        } else {
+            denied
+        };
     }
 
     // Layer 2: whatever the handler resolves from here on — including names
@@ -1357,7 +1382,15 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     // engine's index funnel.
     let response =
         xerj_engine::index_guard::scoped(visibility_for(&principal), next.run(req)).await;
-    prune_response(response, &segs, &principal, &state).await
+    let response = prune_response(response, &segs, &principal, &state).await;
+    // What a guest reads is somebody's documents, and the road to the guest
+    // may run through a tunnel or a proxy the owner does not operate. Nothing
+    // on that road may keep a copy.
+    if principal.is_share_guest() {
+        crate::share::no_store(response)
+    } else {
+        response
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1381,7 +1414,12 @@ const GUEST_INDEX_OPS: &[&str] = &[
     "_field_caps",
 ];
 /// The same, for the ops that take a document id as one further segment.
-const GUEST_DOC_OPS: &[&str] = &["_doc", "_source"];
+///
+/// `_source` was on this list and in the docs' "a guest can" table, but the
+/// router has no `/{index}/_source/{id}` route — `404` for the admin key too
+/// (review of PR #947). An allow-list entry for a route that does not exist
+/// is a permission nobody tested; whoever adds the route decides then.
+const GUEST_DOC_OPS: &[&str] = &["_doc"];
 /// The read half of the graph API.
 const GUEST_GRAPH_OPS: &[&str] = &["ego", "overview"];
 /// Query-string parameters that turn a permitted search into something else.
@@ -1491,12 +1529,12 @@ fn guest_forbidden(principal: &Principal, path: &str) -> Response {
         path,
         "share-link guest denied a route outside the reading-room allow-list"
     );
-    es_error(
+    crate::share::no_store(es_error(
         StatusCode::FORBIDDEN,
         "this credential is a share-link guest key: it can search and read the shared \
          index (and walk the shared brain's links), and nothing else on this node"
             .to_string(),
-    )
+    ))
 }
 
 /// The whole decision, split out so it can be unit-tested without a router.
@@ -2092,7 +2130,6 @@ mod tests {
             (Method::POST, "/casefile/_count"),
             (Method::GET, "/casefile/_doc/1"),
             (Method::HEAD, "/casefile/_doc/1"),
-            (Method::GET, "/casefile/_source/1"),
             (Method::GET, "/casefile/_mapping"),
             (Method::POST, "/casefile/_field_caps"),
             (Method::GET, "/_graph/case/ego"),
@@ -2164,6 +2201,14 @@ mod tests {
             (Method::POST, "/casefile/_search/template"),
             (Method::POST, "/casefile/_sql"),
             (Method::POST, "/casefile/_analyze"),
+            // no such route on this node; not pre-approved for a guest either
+            (Method::GET, "/casefile/_source/1"),
+            (Method::HEAD, "/casefile/_source/1"),
+            // the retired claim shape is not a door of any kind
+            (
+                Method::POST,
+                "/_share/0123456789abcdef0123456789abcdef/claim",
+            ),
             (Method::POST, "/casefile/_doc/1"),
             (Method::PUT, "/casefile/_doc/1"),
             (Method::DELETE, "/casefile/_doc/1"),

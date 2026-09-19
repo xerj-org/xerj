@@ -35,15 +35,27 @@
 //!
 //! | Route | Who |
 //! |---|---|
-//! | `POST /_share`, `GET /_share`, `DELETE /_share/{id}` | superuser only (the admin key) — a scoped or unscoped key gets 403 |
-//! | `POST /_share/{id}/claim` | **nobody in particular** — it is exempt from authentication (`auth::is_share_claim_path`) the way `/v1/metrics` is for the scrape token, and rate-limited per source address and per share instead |
+//! | `POST /_share`, `GET /_share`, `DELETE /_share/{handle}` | superuser only (the admin key) — a scoped or unscoped key gets 403 |
+//! | `POST /_share/claim` | **nobody in particular** — it is exempt from authentication (`auth::is_share_claim_path`) the way `/v1/metrics` is for the scrape token, and rate-limited per source address and per share instead |
 //!
 //! The claim route is the only unauthenticated door that hands out a
-//! credential, so it is narrow on purpose: one exact path shape, `POST` only,
-//! a fixed-size body, a sliding-window throttle, `Cache-Control: no-store` on
-//! every answer, and every outcome — success, wrong passcode, exhausted,
-//! expired, revoked, unknown, throttled — in the audit log with the source
-//! address.
+//! credential, so it is narrow on purpose: one exact path, `POST` only, a body
+//! capped at [`MAX_CLAIM_BODY_BYTES`], a sliding-window throttle,
+//! `Cache-Control: no-store` on every answer, and every outcome — success,
+//! wrong passcode, exhausted, expired, revoked, unknown, throttled — in the
+//! audit log with the source address.
+//!
+//! ## The share id is never part of a request path
+//!
+//! The claim body is `{id, passcode}`. The first cut put the id in the path
+//! (`POST /_share/{id}/claim`), and the guest page's care to keep the id in the
+//! URL *fragment* was undone one request later: a request path is exactly what
+//! an access log records. With `logging.access_log = true` this node wrote the
+//! id to `server.log` twice per claim, and any reverse proxy or tunnel in front
+//! of it logged the same line (review of PR #947, reproduced 2026-09-19). A
+//! body is in none of those logs. `DELETE /_share/{handle}` takes the public
+//! handle, which opens nothing; it also still accepts the full id — by then a
+//! revoked one.
 //!
 //! ## The two throttles, and why a tunnel does not break them
 //!
@@ -93,17 +105,22 @@
 //!    gets, in the middleware and again in the engine's index funnel;
 //! 2. a **route allow-list** that applies to share guests only
 //!    (`authz::guest_route_allowed`, keyed on [`GUEST_ROLE_PREFIX`]):
-//!    `_search`, `_count`, `_msearch`, `_mget`, `_mapping`, `_field_caps`,
-//!    `GET _doc/{id}` and `GET _source/{id}` on the granted indices, and
+//!    `_search`, `_count`, `_msearch`, `_mget`, `_mapping`, `_field_caps` and
+//!    `GET _doc/{id}` on the granted indices, and
 //!    `GET /_graph/{brain}/ego|overview`. An ordinary scoped key is given a
 //!    *filtered* view of `_cat`, `_cluster/*`, `_nodes` and friends because
 //!    Kibana needs one; a guest is given none of it. No `scroll`, no `_pit`,
 //!    no `_async_search` either — nothing that parks state on the owner's
 //!    machine.
 //!
-//! The `autoindex-catalog` index is **not** granted: it lists every corpus on
-//! the node, the engine has no document-level security to filter it with, and
-//! the guest page already receives the index name directly.
+//! The `autoindex-catalog` index is **never** granted, and cannot be named in a
+//! share ([`CATALOG_INDEX`], refused by `validate_share_index`): it lists every
+//! corpus on the node, the engine has no document-level security to filter it
+//! with, and the guest page already receives the index name directly.
+//!
+//! Every response to a guest key is `Cache-Control: no-store`
+//! (`authz::authz_middleware`): it is somebody's documents, on its way through
+//! whatever proxy or tunnel the owner put in front of the node.
 
 use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
@@ -150,6 +167,18 @@ pub const MAX_PASSCODE_CHARS: usize = 128;
 pub const MAX_LABEL_CHARS: usize = 120;
 /// How many indices one share may name.
 pub const MAX_INDICES: usize = 32;
+/// Largest body the unauthenticated claim route reads: a 32-hex id and a
+/// passcode of at most [`MAX_PASSCODE_CHARS`] characters (four bytes each at
+/// worst), with room for JSON around them. The router enforces it
+/// (`router.rs`, the `/_share/claim` route) — the node-wide
+/// `limits.max_body_bytes` is sized for bulk ingest, not for a caller who has
+/// not authenticated.
+pub const MAX_CLAIM_BODY_BYTES: usize = 4096;
+/// `xerj autoindex`'s catalog: one row per corpus on the node — index names,
+/// file counts, sample queries. Same value as
+/// `xerj_autoindex::catalog::CATALOG_INDEX` (this crate does not depend on
+/// that one; `xerj-server` has a test that the two agree).
+pub const CATALOG_INDEX: &str = "autoindex-catalog";
 
 /// Claim attempts per source address per minute / per hour.
 pub const IP_PER_MINUTE: u32 = 10;
@@ -580,6 +609,18 @@ fn validate_share_index(name: &str) -> Result<(), String> {
     if name.starts_with('_') {
         return Err(format!("index `{name}` is not an index name"));
     }
+    // The catalog describes EVERY corpus on the node. The docs said it was
+    // "never granted" while `xerj share autoindex-catalog` minted a guest key
+    // that read all of it (review of PR #947). A guest is handed one corpus;
+    // the list of the others is not part of it, and there is no
+    // document-level security to filter the list down.
+    if name == CATALOG_INDEX {
+        return Err(format!(
+            "index `{name}` is the autoindex catalog: it describes every corpus on this \
+             node, not one of them, so it cannot be shared. Share the corpus index itself \
+             (`xerj autoindex map` lists them)"
+        ));
+    }
     for c in name.chars() {
         if c.is_whitespace()
             || matches!(
@@ -656,7 +697,7 @@ fn open_node_refusal() -> Response {
 /// a live credential, and an error body says whether a share exists.
 /// `no-store` for HTTP/1.1 caches, `Pragma` for the HTTP/1.0 ones still found
 /// in front of things.
-fn no_store(mut resp: Response) -> Response {
+pub(crate) fn no_store(mut resp: Response) -> Response {
     let headers = resp.headers_mut();
     headers.insert(
         header::CACHE_CONTROL,
@@ -1141,31 +1182,37 @@ async fn revoke_share_inner(state: AppState, principal: Principal, id: String) -
     .into_response()
 }
 
-/// `POST /_share/{id}/claim` — the guest's one call. **Unauthenticated**
-/// (see the module docs for why that is safe), rate-limited, audited.
+/// `POST /_share/claim` — the guest's one call. **Unauthenticated** (see the
+/// module docs for why that is safe), rate-limited, audited.
 ///
-/// Body: `{passcode}`. On success: `{api_key, index, indices, brain,
-/// expires_at, label, claims_left}` — `api_key` is ready for
-/// `Authorization: ApiKey <api_key>`. `index` is the comma-joined list, which
-/// is a valid ES multi-index expression for `/{index}/_search`.
+/// Body: `{id, passcode}` — the share id travels in the body, never in the
+/// path (module docs, "The share id is never part of a request path"). On
+/// success: `{api_key, index, indices, brain, expires_at, label, claims_left}`
+/// — `api_key` is ready for `Authorization: ApiKey <api_key>`. `index` is the
+/// comma-joined list, which is a valid ES multi-index expression for
+/// `/{index}/_search`.
 pub async fn claim_share(
     State(state): State<AppState>,
     ClaimSource(source): ClaimSource,
-    AxumPath(id): AxumPath<String>,
     body: Option<Json<Value>>,
 ) -> Response {
-    no_store(claim_share_inner(state, source, id, body).await)
+    no_store(claim_share_inner(state, source, body).await)
 }
 
-async fn claim_share_inner(
-    state: AppState,
-    source: String,
-    id: String,
-    body: Option<Json<Value>>,
-) -> Response {
+/// The share id a claim body names. Anything that is not a string is the
+/// empty id, which no share has: a body without one is answered like any other
+/// unknown link — charged to the source window, audited, `404`.
+fn claim_id(body: Option<&Value>) -> String {
+    body.and_then(|b| b.get("id"))
+        .and_then(Value::as_str)
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+async fn claim_share_inner(state: AppState, source: String, body: Option<Json<Value>>) -> Response {
     let subject = format!("guest@{source}");
     let now = now_ms();
-    let id = id.trim().to_string();
+    let id = claim_id(body.as_ref().map(|Json(b)| b));
     if !auth_is_enforced(&state) {
         return open_node_refusal();
     }
@@ -1422,6 +1469,45 @@ mod tests {
         assert!(validate_share_index("_all").is_err());
         assert!(validate_share_index("Upper").is_err());
         assert!(validate_share_index("").is_err());
+    }
+
+    /// Review of PR #947: three public docs said the catalog is "never
+    /// granted" while `validate_share_index` accepted it and a guest read
+    /// every corpus's row.
+    #[test]
+    fn the_autoindex_catalog_cannot_be_shared() {
+        let why = validate_share_index(CATALOG_INDEX).unwrap_err();
+        assert!(why.contains("every corpus"), "{why}");
+        assert!(why.contains("autoindex map"), "{why}");
+        // A user's own index that merely resembles it is theirs to share.
+        assert!(validate_share_index("autoindex-catalog-2").is_ok());
+        assert!(validate_share_index("my-autoindex-catalog").is_ok());
+    }
+
+    /// The id comes out of the claim BODY. A body without a usable one is the
+    /// empty id — never a panic, and never a record.
+    #[test]
+    fn the_claim_id_is_read_from_the_body() {
+        let id = "0123456789abcdef0123456789abcdef";
+        assert_eq!(claim_id(Some(&json!({"id": id, "passcode": "x"}))), id);
+        assert_eq!(claim_id(Some(&json!({"id": format!("  {id}\n")}))), id);
+        for junk in [
+            json!({}),
+            json!({"passcode": "x"}),
+            json!({"id": 7}),
+            json!({"id": [id]}),
+            json!({"id": {"$ne": ""}}),
+            json!([id]),
+            json!(id),
+        ] {
+            assert_eq!(claim_id(Some(&junk)), "", "{junk}");
+        }
+        assert_eq!(claim_id(None), "");
+        // And the empty id is nobody's share.
+        let dir = tempfile::tempdir().unwrap();
+        let store = ShareStore::open(dir.path().to_str().unwrap());
+        assert!(store.find_by_id("").is_none());
+        assert!((MAX_PASSCODE_CHARS * 4 + 32 + 64) < MAX_CLAIM_BODY_BYTES);
     }
 
     #[test]

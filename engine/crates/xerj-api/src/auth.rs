@@ -40,20 +40,25 @@ use crate::state::AppState;
 /// `"live"`/`"ready"` string), so leaving them open is safe.
 pub const AUTH_EXEMPT_PATHS: [&str; 2] = ["/health/live", "/health/ready"];
 
-/// Is `path` the share-claim route, `/_share/{id}/claim`?
+/// Is `path` the share-claim route, `/_share/claim`?
 ///
 /// The one unauthenticated route that hands out a credential: a guest who
 /// opens a share link has, by definition, no key yet. It is exempted the way
-/// `/v1/metrics` is for the scrape token — by exact shape, `POST` only (the
+/// `/v1/metrics` is for the scrape token — by exact path, `POST` only (the
 /// method check is the caller's), never by prefix — and the handler
 /// (`crate::share::claim_share`) rate-limits per source address and per share
 /// and audits every outcome. Everything else under `/_share` stays behind
 /// authentication and is superuser-only in its handler.
+///
+/// The share id is in the request **body**. The first cut matched
+/// `/_share/{id}/claim`, which put the id into every access log between the
+/// guest and the node; that shape is deliberately not exempt any more, so a
+/// stale client gets a plain `401` instead of a second, id-leaking way in.
 pub fn is_share_claim_path(path: &str) -> bool {
     let mut segs = path.split('/').filter(|s| !s.is_empty());
     matches!(
-        (segs.next(), segs.next(), segs.next(), segs.next()),
-        (Some("_share"), Some(id), Some("claim"), None) if !id.is_empty()
+        (segs.next(), segs.next(), segs.next()),
+        (Some("_share"), Some("claim"), None)
     )
 }
 

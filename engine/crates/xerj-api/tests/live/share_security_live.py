@@ -15,9 +15,16 @@ What it proves, in order:
      cross-index lookups inside a query, server-side contexts, the console
      API, the native router, another brain, writes of any kind;
   3. an alias is resolved when the share is made, not when it is used;
-  4. nothing under /_share is cacheable; the guest page ships a strict CSP;
+  4. nothing under /_share — and nothing a guest reads — is cacheable; the
+     guest page ships a strict CSP;
   5. the claim limiter: per-share lockout, junk traffic cannot lock a real
-     guest out (the tunnel case), and a spoofed X-Forwarded-For buys nothing.
+     guest out (the tunnel case), and a spoofed X-Forwarded-For buys nothing;
+  6. the share id is never part of a request path: a claim is
+     `POST /_share/claim` with `{id, passcode}`, and with XERJ_SERVER_LOG set
+     (a node started with `logging.access_log = true`) no share id this test
+     created is anywhere in the node's log;
+  7. a guest's refused attempts to list, create or revoke a share, or to mint
+     a key, are in the audit log.
 
 Exit status is the number of failed checks (0 = all passed).
 """
@@ -36,6 +43,8 @@ ADMIN = open(os.path.join(DATA, "admin.key")).read().strip()
 NATIVE = os.environ.get("XERJ_NATIVE_URL", "").rstrip("/")
 # Set when the node was started with server.trusted_proxies = ["127.0.0.1"].
 TRUSTS_LOOPBACK = os.environ.get("XERJ_TRUSTS_LOOPBACK", "") == "1"
+# The node's own log, when the caller started it with logging.access_log = true.
+SERVER_LOG = os.environ.get("XERJ_SERVER_LOG", "")
 
 PASSED = FAILED = 0
 
@@ -76,6 +85,15 @@ def ok(name, cond, detail=""):
 
 def section(title):
     print(f"\n── {title}")
+
+
+def claim(share_id, passcode, **kw):
+    """The guest's one call. The id is in the BODY — never in the path."""
+    return call("POST", "/_share/claim", {"id": share_id, "passcode": passcode}, **kw)
+
+
+def audit_lines():
+    return [json.loads(l) for l in open(os.path.join(DATA, "audit.jsonl")) if l.strip()]
 
 
 def hits_outside(resp, allowed):
@@ -151,19 +169,37 @@ for bad, why in [("case*", "wildcard"), ("casefile,private-*", "pattern in a lis
     ok(f"cannot share {why} ({bad})", s == 400, (s, r))
 s, r, _ = call("POST", "/_share", {"index": "no-such-index"}, ADMIN)
 ok("cannot share an index that does not exist", s == 404, (s, r))
+# The catalog lists every corpus on the node. The docs say it is never granted;
+# it has to exist here for the refusal to be about WHAT it is.
+s, r, _ = call("PUT", "/autoindex-catalog/_doc/x?refresh=true", {"index_name": "private-diary", "file_count": 1}, ADMIN)
+ok("autoindex-catalog seeded", s in (200, 201), (s, r))
+call("POST", "/_aliases", {"actions": [{"add": {"index": "autoindex-catalog", "alias": "whats-here"}}]}, ADMIN)
+for bad, why in [("autoindex-catalog", "by name"), (["casefile", "autoindex-catalog"], "in a list"),
+                 ("whats-here", "through an alias")]:
+    s, r, _ = call("POST", "/_share", {"index": bad}, ADMIN)
+    ok(f"cannot share the autoindex catalog {why}", s == 400 and "every corpus" in json.dumps(r), (s, r))
 
 # ─────────────────────────────────────────────────────────────────────────────
 section("claiming")
-s, r, h = call("POST", f"/_share/{SID}/claim", {"passcode": "wrong-code"})
+s, r, h = claim(SID, "wrong-code")
 ok("wrong passcode refused", s == 401, (s, r))
 ok("a refusal is never cached either", "no-store" in (h.get("cache-control") or ""), h.get("cache-control"))
-s, r, _ = call("POST", f"/_share/{'0' * 32}/claim", {"passcode": PW})
+s, r, _ = claim("0" * 32, PW)
 ok("unknown share id refused without detail", s == 404 and PW not in json.dumps(r), (s, r))
-s, r, _ = call("POST", f"/_share/{HANDLE}/claim", {"passcode": PW})
+s, r, _ = claim(HANDLE, PW)
 ok("the public handle is not a claim id", s == 404, (s, r))
-s, r, _ = call("GET", f"/_share/{SID}/claim")
+s, r, _ = call("POST", "/_share/claim", {"passcode": PW})
+ok("a claim that names no id is an unknown link", s == 404, (s, r))
+s, r, _ = call("GET", "/_share/claim")
 ok("claim is POST-only (GET is not the open door)", s in (401, 403, 405), (s, r))
-s, g, h = call("POST", f"/_share/{SID}/claim", {"passcode": PW})
+# The retired shape put the share id in the request path — and so in every
+# access log on the way. It must not be a second way in. (A made-up id: the
+# smoke script greps the node's log for real ones.)
+s, r, _ = call("POST", f"/_share/{'f' * 32}/claim", {"passcode": PW})
+ok("POST /_share/{id}/claim — the id-in-path shape — is not an open door", s == 401 and "api_key" not in r, (s, r))
+s, r, _ = call("POST", "/_share/claim", {"id": SID, "passcode": PW, "pad": "x" * 16384})
+ok("a claim body past the route's few-KiB cap is not read", s != 200 and "api_key" not in r, (s, r))
+s, g, h = claim(SID, PW)
 ok("right passcode yields a key", s == 200 and g.get("api_key"), (s, g))
 ok("claim response is never cached",
    "no-store" in (h.get("cache-control") or "") and (h.get("pragma") or "") == "no-cache",
@@ -172,7 +208,7 @@ ok("claim response is the guest-page contract",
    all(k in g for k in ("api_key", "index", "brain", "expires_at", "label"))
    and g["index"] == "casefile,casefile-pdfs" and g["brain"] == "case" and g["label"] == "my lawyer", g)
 GK = g.get("api_key")
-s, r, _ = call("POST", f"/_share/{SID}/claim", {"passcode": PW})
+s, r, _ = claim(SID, PW)
 ok("max_claims=1: second claim refused", s == 410, (s, r))
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -184,8 +220,26 @@ s, r, _ = call("POST", "/casefile/_search",
                 "highlight": {"pre_tags": ["\uE000"], "post_tags": ["\uE001"], "fields": {"subject": {}, "body": {}}}}, GK)
 ok("highlighted snippets with the page's private-use delimiters",
    s == 200 and "\uE000" in json.dumps(r, ensure_ascii=False), (s, r))
-s, r, _ = call("GET", "/casefile/_doc/1", None, GK)
+s, r, h = call("GET", "/casefile/_doc/1", None, GK)
 ok("read one document", s == 200 and r.get("found"), (s, r))
+ok("…and what a guest reads is never cached", "no-store" in (h.get("cache-control") or ""), h.get("cache-control"))
+s, r, _ = call("HEAD", "/casefile/_doc/1", None, GK)
+ok("HEAD one document", s == 200, (s, r))
+s, r, _ = call("POST", "/casefile/_field_caps?fields=*", None, GK)
+ok("_field_caps on the shared index", s == 200, (s, r))
+# `GET _source/{id}` used to be in the docs' "a guest can" table. The node has
+# no such route — 404 for the owner — and a guest is not pre-approved for it.
+s, r, _ = call("GET", "/casefile/_source/1", None, ADMIN)
+ok("there is no /{index}/_source/{id} route (owner: 404)", s == 404, (s, r))
+s, r, _ = call("GET", "/casefile/_source/1", None, GK)
+ok("…and it is not on the guest allow-list (guest: 403)", s == 403, (s, r))
+# The last "a guest can" row: who-am-I, the banner, the probes. None names an index.
+for path in ("/", "/_security/_authenticate", "/health/ready", "/health/live"):
+    s, r, _ = call("GET", path, None, GK)
+    ok(f"GET {path} answers a guest", s == 200 and not leaks(r), (s, r))
+s, r, _ = call("GET", "/_security/_authenticate", None, GK)
+ok("…and who-am-I shows the guest role and nothing wider",
+   s == 200 and r.get("roles") == [f"share:{HANDLE}"], (s, r))
 s, r, _ = call("GET", "/casefile/_mapping", None, GK)
 ok("read the shared index's mapping", s == 200 and "casefile" in r, (s, r))
 s, r, _ = call("POST", "/casefile/_count", {"query": {"match_all": {}}}, GK)
@@ -410,7 +464,7 @@ s, r, _ = call("POST", "/_share", {"index": "looks-harmless", "max_claims": 1}, 
 ok("sharing an alias records the concrete index it points at",
    s == 200 and r.get("indices") == ["private-diary"], (s, r))
 asid, apw = r.get("share_id"), r.get("passcode")
-s, ag, _ = call("POST", f"/_share/{asid}/claim", {"passcode": apw})
+s, ag, _ = claim(asid, apw)
 AK = ag.get("api_key")
 s, r, _ = call("POST", "/private-diary/_search", {"query": {"match_all": {}}}, AK)
 ok("that guest reads what the owner chose to share", s == 200 and r["hits"]["total"]["value"] == 1, (s, r))
@@ -430,6 +484,30 @@ s, l, h = call("GET", "/_share", None, ADMIN)
 ok("owner lists shares, no secrets in the listing",
    s == 200 and PW not in json.dumps(l) and SID not in json.dumps(l) and "hash" not in json.dumps(l), (s, l))
 ok("listing is never cached", "no-store" in (h.get("cache-control") or ""))
+# "Every /_share response — success or error": the 401 and 403 come from the
+# middleware, not from a share handler, and used to carry no Cache-Control.
+for method, path, key, want in [("GET", "/_share", None, 401), ("POST", "/_share", None, 401),
+                                ("DELETE", f"/_share/{HANDLE}", None, 401), ("GET", "/_share/claim", None, 401),
+                                ("GET", "/_share", GK, 403), ("POST", "/_share", GK, 403)]:
+    s, r, h = call(method, path, {} if method == "POST" else None, key)
+    ok(f"{method} {path} as {'a guest' if key else 'nobody'} → {want}, no-store",
+       s == want and "no-store" in (h.get("cache-control") or ""), (s, h.get("cache-control")))
+
+# A guest reaching for the share and key management surface is the escalation
+# attempt an owner most wants on record. These are refused in the
+# authorization middleware, so no handler ever audited them.
+before = len(audit_lines())
+for method, path in [("POST", "/_share"), ("GET", "/_share"), ("DELETE", f"/_share/{HANDLE}"),
+                     ("POST", "/_security/api_key"), ("GET", "/_security/api_key")]:
+    s, r, _ = call(method, path, {} if method == "POST" else None, GK)
+    ok(f"guest {method} {path} → 403", s == 403, (s, r))
+new = audit_lines()[before:]
+for op, resource in [("share.create", "_share"), ("share.list", "_share"), ("share.revoke", HANDLE),
+                     ("security.api_key.create", "_security/api_key"), ("security.api_key.get", "_security/api_key")]:
+    found = [e for e in new if e.get("op") == op and e.get("outcome") == "denied"]
+    ok(f"…and the refused {op} is in the audit log, once, against {resource}",
+       len(found) == 1 and found[0].get("resource") == resource
+       and found[0].get("subject") not in (None, "", "superuser", "unauthenticated"), new)
 s, r, _ = call("DELETE", f"/_share/{HANDLE}", None, ADMIN)
 ok("owner revokes by handle", s == 200 and r.get("keys_invalidated") == 1, (s, r))
 s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}}, GK)
@@ -460,9 +538,9 @@ ok("the console API still needs a session", s == 401, (s, r))
 section("the claim limiter")
 s, r, _ = call("POST", "/_share", {"index": "casefile", "max_claims": 5}, ADMIN)
 sid2, pw2 = r["share_id"], r["passcode"]
-codes = [call("POST", f"/_share/{sid2}/claim", {"passcode": "guess"})[0] for _ in range(14)]
+codes = [claim(sid2, "guess")[0] for _ in range(14)]
 ok("wrong-passcode hammering is locked out with 429", codes[:10] == [401] * 10 and set(codes[10:]) == {429}, codes)
-s, r, h = call("POST", f"/_share/{sid2}/claim", {"passcode": pw2})
+s, r, h = claim(sid2, pw2)
 ok("…and while locked, even the right passcode waits (with Retry-After)",
    s == 429 and int(h.get("retry-after") or 0) >= 1, (s, dict(h)))
 
@@ -470,8 +548,7 @@ ok("…and while locked, even the right passcode waits (with Retry-After)",
 # 127.0.0.1 — which is also where this test runs from. Flood the junk bucket…
 s, r, _ = call("POST", "/_share", {"index": "casefile", "max_claims": 2}, ADMIN)
 sid3, pw3 = r["share_id"], r["passcode"]
-junk = [call("POST", f"/_share/{i:032x}/claim", {"passcode": "x"},
-             headers={"x-forwarded-for": f"198.51.100.{i % 250}"})[0] for i in range(1, 16)]
+junk = [claim(f"{i:032x}", "x", headers={"x-forwarded-for": f"198.51.100.{i % 250}"})[0] for i in range(1, 16)]
 if TRUSTS_LOOPBACK:
     ok("trusted loopback proxy: each forwarded address gets its own junk bucket", 429 not in junk, junk)
 else:
@@ -480,7 +557,7 @@ else:
        0 < first_429 < len(junk) and set(junk[:first_429]) == {404} and set(junk[first_429:]) == {429}, junk)
     ok("a rotating X-Forwarded-For from a direct client buys no fresh bucket", junk[-1] == 429, junk)
 # …and a real guest, from the same address, is not locked out by it.
-s, r, _ = call("POST", f"/_share/{sid3}/claim", {"passcode": pw3})
+s, r, _ = claim(sid3, pw3)
 ok("a junk flood from the same address does NOT lock a real guest out", s == 200 and r.get("api_key"), (s, r))
 
 audit = open(os.path.join(DATA, "audit.jsonl")).read()
@@ -492,7 +569,18 @@ else:
     ok("audit records the TCP peer, never a header the client wrote",
        "guest@127.0.0.1" in audit and "198.51.100." not in audit)
 ok("no passcode, share id or guest key is written to the audit log",
-   all(x not in audit for x in (PW, SID, GK, pw2, sid2, pw3, sid3)))
+   all(x not in audit for x in (PW, SID, GK, pw2, sid2, pw3, sid3, asid, apw)))
+
+# The node's own log. The guest page keeps the id in the URL fragment so that
+# no server sees it; the first cut then posted it as part of a request PATH,
+# and with `logging.access_log = true` every claim wrote the id to server.log
+# (twice). Only meaningful against a node that logs requests — so insist on it.
+if SERVER_LOG:
+    log = open(SERVER_LOG, errors="replace").read()
+    ok("the node is logging requests (logging.access_log = true), so the next check tests something",
+       "/_share/claim" in log, log[-300:])
+    ok("no share id, passcode or guest key is anywhere in the node's log",
+       all(x not in log for x in (SID, sid2, sid3, asid, PW, pw2, pw3, apw, GK)))
 
 print(f"\npassed={PASSED} failed={FAILED}")
 sys.exit(min(FAILED, 255))
