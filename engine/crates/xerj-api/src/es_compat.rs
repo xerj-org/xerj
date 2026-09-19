@@ -37447,12 +37447,13 @@ pub async fn rank_eval(
         // handler cannot run, and nothing is sent to the provider.
         if crate::rerank_stage::carries_rerank(&req_spec.request) {
             crate::rerank_stage::record_refused(&state.metrics);
-            record_failure(
-                &mut failures,
-                &req_spec.id,
-                xerj_common::XerjError::invalid_query(crate::rerank_stage::unsupported_reason(
-                    "_rank_eval",
-                )),
+            // The same `illegal_argument_exception` body every other surface
+            // that does not run the stage answers with, not the
+            // `search_phase_execution_exception` a failed search gets: the
+            // request was never run.
+            failures.insert(
+                req_spec.id.clone(),
+                crate::rerank_stage::unsupported_on("_rank_eval")["error"].clone(),
             );
             continue;
         }

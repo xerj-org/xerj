@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and
   `xerj_hybrid_search` tools take an optional `rerank` argument. **Ranking
   quality with the real model is not verified** — no provider key was
-  available, and the 41 HTTP tests run against an in-process test double.
+  available, and every HTTP test runs against an in-process test double.
   New crate `xerj-rerank`; reference in `docs/RERANK.md`; two benchmarks,
   `benchmarks/beir-hybrid` and `benchmarks/decisions-as-retrieval`, both
   measured with `--embed-mode neural`, not the default lexical embedder. The

@@ -2841,6 +2841,10 @@ async fn rank_eval_refuses_a_rerank_block_instead_of_scoring_the_engines_order()
     let why = failure["reason"].as_str().unwrap_or_default();
     assert!(why.contains("rerank"), "{r}");
     assert!(why.contains("_rank_eval"), "{r}");
+    assert_eq!(
+        failure["type"], "illegal_argument_exception",
+        "the same refusal every other surface gives, not a failed search: {r}"
+    );
     assert!(
         r["details"]["with_rerank"].is_null(),
         "no metric may be published for it: {r}"
