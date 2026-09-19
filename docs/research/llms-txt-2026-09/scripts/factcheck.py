@@ -85,6 +85,24 @@ def kind_of(meta: dict, text: str) -> str:
     return "html" if is_html else "text"
 
 
+def json_strings(text: str) -> str:
+    """Every string value of a JSON body, decoded, one per line (so \\u2013 matches an en dash)."""
+    try:
+        doc = json.loads(text)
+    except ValueError:
+        return ""
+    out, stack = [], [doc]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, str):
+            out.append(v)
+        elif isinstance(v, dict):
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return "\n".join(out)
+
+
 def squash(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
@@ -103,6 +121,8 @@ def check(claim: dict, cache: Path, offline: bool) -> dict:
     body_path = meta.pop("_body")
     text = body_path.read_bytes().decode("utf-8", "replace") if body_path.exists() else ""
     kind = kind_of(meta, text) if meta.get("status") else "error"
+    if "json" in (meta.get("content_type") or "") and kind == "text":
+        text = text + "\n" + json_strings(text)  # quotes are matched against decoded string values too
     res = {"id": claim["id"], "source": claim.get("source", ""), "claim": claim["claim"],
            "expect": claim.get("expect", "present"), **meta, "kind": kind, "quotes": []}
     if res["expect"] == "status":
