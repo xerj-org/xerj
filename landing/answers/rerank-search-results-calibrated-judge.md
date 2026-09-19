@@ -112,13 +112,17 @@ The policy is split: degrade on deadline, surface on contract.
 | No provider key on the node | HTTP 503, nothing sent. |
 | The provider answered 401 or a malformed body | HTTP 502, no hits. |
 
-A slow third party is not a reason to deny you results you already have. A wrong key does not fix itself, and hiding it would mislead you about which ranking you hold. This split follows the approach Meilisearch uses in its personalization module. The approach was adapted and no code was copied.
+A slow third party is not a reason to deny you results you already have. A wrong key does not fix itself, and hiding it would mislead you about which ranking you hold. This split follows the approach Meilisearch uses in its personalization module (MIT). The approach and the retry back-off constants were adapted from it, and the code cites the lines.
 
 ## Cost facts
 
 Every document in the window is a paid judgement. The window defaults to 30 and the server caps it at 300. A provider call carries at most 30 documents, so `window: 35` is two calls. Scores from different calls stay comparable, because each one is an absolute probability rather than a rank inside its batch.
 
 XERJ sends 8 calls at once by default and 16 at most. The `usage` field is the provider's own token count for the search. XERJ does not price it.
+
+Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. Fetch the window once and page client-side when cost matters. Page two continues page one only if the provider returns the same probabilities on a repeat call, which XERJ has not verified for the real model.
+
+The strings have ceilings too. `instructions` is limited to 2,000 characters, because the provider's wire format repeats it once per judged document. The question is limited to 4,000 characters and `model` to 128. A longer value is an HTTP 400 that names the field and the limit.
 
 ## What is not verified
 

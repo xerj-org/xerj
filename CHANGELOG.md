@@ -46,8 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `hits.total` and `aggs`
   stay the engine's; paging happens inside the window; `sort`, `search_after`,
   `collapse`, scroll and `size: 0` are 400s; and `_msearch`, search templates,
-  `_async_search`, the native `/v1` search API and gRPC refuse the block instead
-  of dropping it. `GET /_xerj/rerank` reports whether a provider is configured
+  `_async_search`, `_rank_eval` (per request, under `failures`), the native
+  `/v1` search API and gRPC refuse the block instead of dropping it. Every
+  caller-chosen cost knob has a server-side ceiling, the strings included:
+  `instructions` is capped at 2,000 characters because the provider's wire
+  format repeats it once per judged document, the question at 4,000 and
+  `model` at 128. `GET /_xerj/rerank` reports whether a provider is configured
   and never the key; `/v1/metrics` gains `xerj_rerank_requests_total{outcome}`,
   `xerj_rerank_documents_judged_total` and
   `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and
@@ -58,8 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `benchmarks/beir-hybrid` and `benchmarks/decisions-as-retrieval`, both
   measured with `--embed-mode neural`, not the default lexical embedder. The
   one-question-per-document request shape follows `hev/jev-rerank`
-  (Apache-2.0); the failure policy follows Meilisearch's personalization module
-  (approach adapted, no code copied).
+  (Apache-2.0); the failure policy and the retry back-off constants follow
+  Meilisearch's personalization module (MIT; adapted, cited in code).
 
 ## [1.0.0-rc.74] - 2026-09-08
 

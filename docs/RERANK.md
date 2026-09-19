@@ -81,7 +81,9 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
   "defaults": { "provider": "jev", "model": "jev-latest", "window": 30, "batch": 30,
                 "max_concurrency": 8, "max_doc_chars": 1200, "timeout_ms": 10000 },
   "limits":   { "max_docs_per_call": 30, "max_window": 300, "max_concurrency": 16,
-                "max_doc_chars": 8000, "max_timeout_ms": 60000 },
+                "max_doc_chars": 8000, "max_timeout_ms": 60000,
+                "max_instructions_chars": 2000, "max_query_chars": 4000,
+                "max_model_chars": 128, "max_fields": 64, "max_field_name_chars": 256 },
   "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other outbound paths exist and are operator configuration, inert by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at ingest and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint."
 }
 ```
@@ -112,12 +114,12 @@ POST /kb/_search
 | Field | Type | Default | Limit | Meaning |
 |---|---|---|---|---|
 | `provider` | string | `"jev"` | `jev`, `typesafe` (alias), `none`, `disabled` | `none` / `disabled` skips the call and reports `applied: false`. Anything else is a 400. |
-| `model` | string | `"jev-latest"` | | Sent to the provider verbatim. |
+| `model` | string | `"jev-latest"` | ≤ 128 characters | Sent to the provider verbatim. |
 | `window` | integer | 30 | 1–300 | How many of the engine's top hits are judged. **Every document in the window is a paid judgement.** |
 | `min_score` | number | none | 0–1 | Drop hits whose probability is below this. It is a probability; 7 is a 400. |
-| `query` | string | inferred | non-empty | The question documents are judged against. See [The question](#the-question). |
-| `fields` | string[] | every returned string field | non-empty | Which returned fields are sent. **Exhaustive**: `["body"]` sends the body and nothing else, not even the title. See [What leaves the machine](#what-leaves-the-machine). |
-| `instructions` | string | a generic relevance question | | Overrides what "relevant" means. A support corpus and a code corpus do not mean the same thing by it. |
+| `query` | string | inferred | non-empty, ≤ 4,000 characters | The question documents are judged against. The limit also applies to a question read from the search query. See [The question](#the-question). |
+| `fields` | string[] | every returned string field | 1–64 names, each ≤ 256 characters | Which returned fields are sent. **Exhaustive**: `["body"]` sends the body and nothing else, not even the title. See [What leaves the machine](#what-leaves-the-machine). |
+| `instructions` | string | a generic relevance question | ≤ 2,000 characters | Overrides what "relevant" means. A support corpus and a code corpus do not mean the same thing by it. The provider's wire format carries the instructions inside **every** per-document question, so this string is sent once per judged document — which is why it has a ceiling. |
 | `timeout_ms` | integer | 10000 | 1–60000 | Wall-clock budget for the **whole stage**, not per call. |
 | `max_doc_chars` | integer | 1200 | 1–8000 | Title and text are each cut to this many characters, on a character boundary. |
 | `batch` | integer | 30 | clamped to 30 | Documents per provider call. Values above 30 are lowered to 30, not refused: the ceiling is the provider's, not a caller mistake. |
@@ -128,7 +130,18 @@ Unknown keys are **refused by name**, not ignored. A caller who misspells
 results that look pruned.
 
 The ceilings are the server's because the caller picks the window and the
-operator pays for it.
+operator pays for it. That includes the strings. `instructions` is repeated
+once per judged document, so before it had a ceiling a single `size: 1` search
+carrying a 1 MB `instructions` string at `window: 40` put 40 MB on the wire to
+the provider (measured in review, against a test double). With the ceilings,
+the most one search can send is window × (title + text, each cut at
+`max_doc_chars`, + `instructions`) plus the question once per call. That is
+arithmetic, not a measurement: at the default window and `max_doc_chars` with
+instructions at their limit, 30 × (1,200 + 1,200 + 2,000) + 4,000 = 136,000
+characters; at every maximum at once, 300 × (8,000 + 8,000 + 2,000) +
+10 × 4,000 = 5.44 million characters, before JSON framing. An over-long value
+is a 400 that names the field and the limit; the value itself is never echoed
+back. The ceilings are also readable from `GET /_xerj/rerank` under `limits`.
 
 ### The question
 
@@ -242,11 +255,11 @@ by a test in `rerank_stage_http.rs`.
 |---|---|
 | `aggs` | **Unchanged.** Aggregations are computed over every matching document, and are identical with and without `rerank` — including when `min_score` prunes the page to nothing. |
 | `hits.total`, `track_total_hits` | **The engine's total.** `true`, an integer cap and `false` each report exactly what they report without `rerank`. Four documents matched and two were judged irrelevant: `total` is 4, and `pruned_below_min_score` is 2. Both facts are true and the response says both. |
-| `size`, `from` | Paging happens **inside the reranked window**. XERJ widens the engine's page to `window`, judges all of it, then cuts `from`/`size` out of the judge's order, so page two continues page one. `from + size` must be ≤ `window`, or the request is a 400: a page cut across the window boundary would mix two rankings. |
+| `size`, `from` | Paging happens **inside the reranked window**. XERJ widens the engine's page to `window`, judges all of it, then cuts `from`/`size` out of the judge's order, so page two continues page one **as long as the provider gives the same probabilities on a repeat call** — there is no verdict cache, so every page request judges the whole window again (and pays for it again; see [Cost and concurrency facts](#cost-and-concurrency-facts)). Whether the real model is deterministic has not been verified by this project. To page without that dependency, ask for the window once (`size` = `window`) and page client-side. `from + size` must be ≤ `window`, or the request is a 400: a page cut across the window boundary would mix two rankings. |
 | `highlight`, `fields`, `inner_hits`, `matched_queries` | **Travel with their hit.** The stage moves rendered hits, so nothing is recomputed and nothing is swapped between hits. |
 | `"fields": ["_passage"]` | The matching passage is **judgeable**, and leads the text the judge reads. Name it in `rerank.fields` to send only the passage. |
 | the large-response hint (`_xerj.hints`) | Its ready-to-send corrected request **keeps the `rerank` block**. A suggestion without it would be a different search, returning the engine's order. Its narrower projection also narrows what the judge is sent. |
-| `_source` filtering | Decides what the judge sees — see the next section. `_source: false` with no `fields`, `docvalue_fields`, `stored_fields` or `script_fields` clause is a 400 (nothing can be judged); beside one that returns the text, it works, and the judge reads what came back. |
+| `_source` filtering | Decides what the judge sees — see the next section. `_source: false` with no `fields`, `docvalue_fields`, `stored_fields` or `script_fields` clause is a 400 (nothing can be judged); beside one that returns the text, it works, and the judge reads what came back — with or without `rerank.fields`: `"_source": false, "fields": ["body"], "rerank": {}` judges the `body` values returned under `fields`. |
 | `explain` | The engine's explanation is kept, unaltered, under a new top node whose `value` equals the new `_score` and whose description says the score is a rerank probability. An `_explanation.value` that disagreed with `_score` would mislead. |
 | `profile` | Unchanged; it profiles the engine. The stage reports its own time in `_rerank.took_ms`. |
 | top-level `min_score` | The **engine's** threshold, applied to **engine** scores before the window is cut. It shapes the match set and `hits.total` exactly as it does without `rerank`, and it is never compared against a probability. `rerank.min_score` is the probability threshold. The two compose: engine bar first, probability bar second. |
@@ -272,6 +285,13 @@ rather than dropping the key and returning the engine's order under a 200:
 | `_search/template`, `_msearch/template` | 400 when the *rendered* template contains `rerank` (per item for `_msearch/template`). |
 | `_async_search` | 400. A stored search would also be a stored third-party call that nobody is waiting on. |
 | `_search_scroll`, `?scroll=`, and the `_search/scroll` continuation | 400. A scroll streams the engine's order. |
+| `_rank_eval` | **Per request.** A `requests[]` entry whose `request` carries `rerank` is reported under `failures` by its id and contributes nothing to `metric_score`; the other requests are still evaluated. `_rank_eval` runs the engine's ranking only, so scoring it while ignoring the block would publish "reranking changed nothing" about an order the judge never saw. To measure a reranked order, run the `_search` requests yourself and score the returned ids. |
+
+`_count`, `_validate/query` and `_explain` take a query, not a search body, and
+return no ordering; they ignore a `rerank` key as they ignore every other
+search-body key. The native `/v1` search API and the gRPC Search RPC refuse the
+block the same way the endpoints above do, and `"rerank": null` is an absent
+block on all of them.
 
 ## What leaves the machine
 
@@ -288,7 +308,11 @@ Sent to the provider, per search:
   - with no `rerank.fields`: the `title` field if the hit returns one; then the
     matching passage, if the request asked for `"fields": ["_passage"]`; then
     every other top-level string field (and array of strings) in the returned
-    `_source`. The passage goes **first** because text is cut at
+    `_source`; then every string value the hit returns under `fields` — which
+    is where `fields`, `docvalue_fields`, `stored_fields` and `script_fields`
+    put theirs — for a name `_source` did not already return, in name order.
+    A value present in both is sent once. The passage goes **first** because
+    text is cut at
     `max_doc_chars`: on a long document an appended passage would be the part
     that gets cut, and it is the part that says why the hit matched;
   - with `rerank.fields`: **those fields and nothing else.** The list is
@@ -410,7 +434,14 @@ the lines.
   (Apache-2.0).
 - The node keeps one HTTP connection pool for the provider, so consecutive
   searches do not pay a TLS handshake each.
+- **Every request is judged from scratch.** There is no verdict cache: three
+  page requests (`from` 0, 10, 20) over one 30-document window are three
+  provider calls and 90 paid judgements, not 30. Fetch the window once and page
+  client-side when cost or page-to-page consistency matters.
 - `_rerank.usage` is the meter reading for the search. XERJ does not price it.
+  It is advisory: a provider that reports a token count that is not a
+  non-negative number meters as zero for that count, and never costs the
+  caller a ranking whose verdicts were all valid.
 
 ## From an agent (MCP)
 
