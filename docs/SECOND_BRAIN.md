@@ -604,17 +604,20 @@ not.
 
 `xerj share <folder>` gives one other person read-only search over the folder
 `xerj brain` indexed, through a link and a passcode. `xerj brain` prints the
-exact command when it finishes:
+exact command in its closing summary, with each argument quoted when it needs to
+be (a folder called `case files` pastes as one argument):
 
 ```
-  share it: xerj share /home/you/casefiles   (read-only link + passcode for one person; nothing is uploaded)
+  share it: xerj share /home/you/casefiles   (read-only link + passcode for one person; the documents stay on this machine)
 ```
 
 A folder argument resolves the way `xerj brain` named things: the brain is
 `derive_brain_name(<folder>)` (or `--brain`), and the indices are the
 `nodes_index` list in that brain's meta document
 (`engine/crates/xerj-server/src/share.rs`, `resolve_target`). A folder that was
-never indexed on this node is an error that says so, never a guess.
+never indexed on this node is an error that says so, never a guess — and a wrong
+or non-admin key is reported as a key problem, not as a folder that was never
+indexed.
 
 The guest's key gets `read` on those indices and on the brain's edges index,
 and nothing else in the reserved namespace — not the `.xerj-memory-{brain}`

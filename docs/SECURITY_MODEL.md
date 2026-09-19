@@ -389,8 +389,9 @@ applies to it. On top of that, a key whose roles are *all* named `share:…`
 (`authz.rs`, `guest_route_allowed`) checked before the index decision:
 
 - index-scoped `_search`, `_count`, `_msearch`, `_mget`, `_mapping`,
-  `_field_caps`; `GET _doc/{id}` and `GET _source/{id}`;
-  `GET /_graph/{brain}/ego|overview`; the exempt probes. Nothing else.
+  `_field_caps`; `GET _doc/{id}`; `GET /_graph/{brain}/ego|overview`; the
+  exempt probes. Nothing else. (`GET _source/{id}` is not a route on this node,
+  and is not on the list.)
 - The cluster surface an ordinary scoped key sees *filtered* (`_cat`,
   `_cluster/*`, `_nodes`, `_snapshot`, the global `_search`) is closed to a
   guest outright, as are the native `/v1/*` router and `/v1/metrics`.
@@ -412,18 +413,31 @@ index decision and the engine funnel, so an index the guest was not granted is a
 `403` on a permitted route exactly as it is for any scoped key.
 
 **The claim route is the node's one unauthenticated credential-issuing route.**
-`POST /_share/{id}/claim` is exempted from authentication by exact path shape
-and method (`auth::is_share_claim_path`), never by prefix. It is rate-limited
-(next section), answers `Cache-Control: no-store` on every outcome, and audits
-every outcome with the source address — only the first refusal per throttle
-window, so a flood cannot evict the ring. It refuses with `409` on a node
-running with authentication off, where a scoped key would restrict nothing.
+`POST /_share/claim` is exempted from authentication by exact path and method
+(`auth::is_share_claim_path`), never by prefix. Its body is `{id, passcode}`,
+capped at 4 KiB. The share id is in the body and never in a path, because a
+path is what an access log records: the first cut claimed at
+`POST /_share/{id}/claim`, and with `logging.access_log = true` the node wrote
+the id to its own log, as would any reverse proxy or tunnel in front of it. It
+is rate-limited (next section), answers `Cache-Control: no-store` on every
+outcome, and audits every outcome with the source address — only the first
+refusal per throttle window, so a flood cannot evict the ring. It refuses with
+`409` on a node running with authentication off, where a scoped key would
+restrict nothing.
 
 **Management is superuser-only.** `POST /_share`, `GET /_share` and
-`DELETE /_share/{id}` return `403` to every principal except the admin key
+`DELETE /_share/{handle}` return `403` to every principal except the admin key
 (`share.rs`, `require_superuser`). A scoped key must not widen its own reach by
 minting a share, and an unscoped key must not hand a guest a brain it cannot
-reach itself.
+reach itself. A refusal is audited whichever layer produced it: the handler
+records the ones it sees, and the request-level audit layer records the ones
+the authorization middleware stopped before any handler ran
+(`authz::RefusedBeforeHandler`, `audit_mw.rs`) — which is every management call
+a guest key makes, and a guest's `POST /_security/api_key` as well.
+
+**Nothing a guest receives may be cached.** Every response to a guest key, and
+every response under `/_share` including the `401` and `403` the middleware
+produces, carries `Cache-Control: no-store`.
 
 **At rest.** `<data_dir>/shares.json`, mode `0600`, written by the same atomic
 secret-file writer as `api_keys.json`. It holds a SHA-256 digest of the share id
@@ -814,9 +828,12 @@ it is on a schedule this document can promise.
   `AuditRead`. Every mutating request that passes authentication leaves one
   entry naming the caller — a bulk is one entry with its item counts, not one
   per document — and a refused request is recorded as `denied`, reads included:
-  a `403` on `_search`, on `GET _doc`, or on `/_audit/*` itself leaves an entry
+  a `403` on `_search`, on `GET _doc`, on `/_audit/*` itself, or on the
+  self-auditing `/_share` and `/_security/api_key` routes leaves an entry
   naming the credential that reached for it. What is **not** in it: reads that
-  *succeeded*, other than `_search` (`_mget`, `_count`, `GET _doc`, `_cat`),
+  *succeeded*, other than `_search` (`_msearch`, `_mget`, `_count`, `_mapping`,
+  `_field_caps`, `GET _doc`, `_cat`) — a share-link guest can read a whole
+  shared index through those without a line —
   unauthenticated attempts (recorded nowhere but the access log — auditing them
   would let anyone who can reach the port evict the ring), and anything older
   than the last 4096 entries. Long-term retention means shipping entries off
@@ -860,12 +877,15 @@ it is on a schedule this document can promise.
 - **A share grants whole indices.** There is no document-level or field-level
   restriction to apply to a guest, so a share exposes every document in the
   indices it names, and their mappings. The `autoindex-catalog` index is never
-  granted for the same reason: it could not be filtered.
+  granted for the same reason — it could not be filtered — and `POST /_share`
+  refuses it by name, in a list and through an alias.
 - **`xerj share --tunnel` puts a third party on the path.** A Cloudflare quick
-  tunnel terminates TLS at Cloudflare, so what a guest requests crosses
-  Cloudflare's network in a form its operator could read. The corpus is not
-  uploaded or stored there. Use your own hostname and certificate
-  (`--public-url`) when that matters.
+  tunnel terminates TLS at Cloudflare, so everything between the guest's browser
+  and the node crosses Cloudflare's network in a form its operator could read:
+  the passcode, the minted guest key, every search and every document opened.
+  The corpus is not uploaded there. The CLI prints this with the link
+  and the guest page shows it on a `trycloudflare.com` hostname. Use your own
+  hostname and certificate (`--public-url`) when that matters.
 - **No guest passkeys.** A passkey binds to a hostname and a quick tunnel gets
   a new one on every start, so guests authenticate with link + passcode
   ([SHARING.md](./SHARING.md#passkeys-and-why-guests-use-a-link-and-a-passcode)).

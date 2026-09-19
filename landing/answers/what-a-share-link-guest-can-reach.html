@@ -231,11 +231,11 @@
   <div class="kicker"><span>ANSWERS · SHARING: READ-ONLY GUEST ACCESS</span></div>
   <h1>If I share one index with a link and a passcode, what can that person actually reach on my node?</h1>
   <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-18</div>
-  <p><strong>TL;DR</strong> — A share-link guest gets a key with <code class="inline">read</code> on the shared index and nothing else. A route allow-list, used for guests only, closes <code class="inline">_cat</code>, <code class="inline">_cluster</code>, every other index, all writes, and scroll and point-in-time contexts. Each refusal is a check in a live test that ran 202 checks on 2026-09-18, with 0 failures.</p>
+  <p><strong>TL;DR</strong> — A share-link guest gets a key with <code class="inline">read</code> on the shared index and nothing else. A route allow-list, used for guests only, closes <code class="inline">_cat</code>, <code class="inline">_cluster</code>, every other index, all writes, and scroll and point-in-time contexts. Each refusal is a check in a live test that ran 237 checks on 2026-09-19, with 0 failures.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
-    <code>Act as a coding agent. Read https://xerj.org/llms.txt. On a throwaway XERJ node with authentication on, create a share with POST /_share, claim it with POST /_share/{id}/claim, then use the returned api_key to call /_cat/indices, /_cluster/health, a search on another index, a write to the shared index and a search with ?scroll=1m, and report the status code of each call.</code>
-    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt. On a throwaway XERJ node with authentication on, create a share with POST /_share, claim it with POST /_share/{id}/claim, then use the returned api_key to call /_cat/indices, /_cluster/health, a search on another index, a write to the shared index and a search with ?scroll=1m, and report the status code of each call.">COPY THE PROMPT</button>
+    <code>Act as a coding agent. Read https://xerj.org/llms.txt. On a throwaway XERJ node with authentication on, create a share with POST /_share, claim it with POST /_share/claim and a JSON body of {id, passcode}, then use the returned api_key to call /_cat/indices, /_cluster/health, a search on another index, a write to the shared index and a search with ?scroll=1m, and report the status code of each call.</code>
+    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt. On a throwaway XERJ node with authentication on, create a share with POST /_share, claim it with POST /_share/claim and a JSON body of {id, passcode}, then use the returned api_key to call /_cat/indices, /_cluster/health, a search on another index, a write to the shared index and a search with ?scroll=1m, and report the status code of each call.">COPY THE PROMPT</button>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -245,9 +245,9 @@
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XPOST 'http://127.0.0.1:9200/_share/0123456789abcdef0123456789abcdef/claim' -H 'content-type: application/json' -d '{"passcode":"abcd-2345"}'</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST &#x27;http://127.0.0.1:9200/_share/0123456789abcdef0123456789abcdef/claim&#x27; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;passcode&quot;:&quot;abcd-2345&quot;}&#x27;">COPY COMMAND</button>
-    <span class="hero-proof">What the guest page does: exchange the share id and the passcode for a read-only key. This id and passcode are placeholders and return 404.</span>
+    <code>curl -s -XPOST 'http://127.0.0.1:9200/_share/claim' -H 'content-type: application/json' -d '{"id":"0123456789abcdef0123456789abcdef","passcode":"abcd-2345"}'</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST &#x27;http://127.0.0.1:9200/_share/claim&#x27; -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;id&quot;:&quot;0123456789abcdef0123456789abcdef&quot;,&quot;passcode&quot;:&quot;abcd-2345&quot;}&#x27;">COPY COMMAND</button>
+    <span class="hero-proof">What the guest page does: exchange the share id and the passcode for a read-only key. Both travel in the body, so the id is not in the request line an access log records. This id and passcode are placeholders and return 404.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -263,7 +263,7 @@
     <thead><tr><th>A guest can call</th><th>On</th></tr></thead>
     <tbody>
       <tr><td><code class="inline">_search</code>, <code class="inline">_count</code>, <code class="inline">_msearch</code>, <code class="inline">_mget</code></td><td>the shared indices</td></tr>
-      <tr><td><code class="inline">GET _doc/{id}</code>, <code class="inline">GET _source/{id}</code></td><td>the shared indices</td></tr>
+      <tr><td><code class="inline">GET _doc/{id}</code></td><td>the shared indices</td></tr>
       <tr><td><code class="inline">_mapping</code>, <code class="inline">_field_caps</code></td><td>the shared indices</td></tr>
       <tr><td><code class="inline">GET /_graph/{brain}/ego</code> and <code class="inline">/overview</code></td><td>the shared brain</td></tr>
       <tr><td><code class="inline">GET /</code>, <code class="inline">_security/_authenticate</code>, health probes</td><td>the node</td></tr>
@@ -292,11 +292,13 @@
   <h2>An alias is fixed when the share is made</h2>
   <p>Sharing an alias pins the concrete indices it points at now. The test shares an alias, re-points it at another index, and confirms the guest still reads the first index and gets a 403 on the second.</p>
   <h2>The claim route</h2>
-  <p><code class="inline">POST /_share/{id}/claim</code> is the one route on the node that hands out a credential without authentication, so it is narrow. It is <code class="inline">POST</code> only, it is never cached, and every outcome goes to the audit log with the source address.</p>
+  <p><code class="inline">POST /_share/claim</code> is the one route on the node that hands out a credential without authentication, so it is narrow. It is <code class="inline">POST</code> only, its body is <code class="inline">{id, passcode}</code> and at most 4 KiB, it is never cached, and every outcome goes to the audit log with the source address.</p>
+  <p>The share id is in the body and not in the path. A request path is what an access log, a reverse proxy and a tunnel write down by default; a body is not, unless a proxy is set up to log bodies. The test runs against a node with <code class="inline">logging.access_log = true</code> and looks in that log for every share id it made. It finds none.</p>
   <p>A claim against a known share is charged to that share: 10 a minute and 30 an hour, from anywhere. A claim against an unknown id is charged to the source address: 10 a minute and 100 an hour. The two are not stacked, so a flood of made-up ids cannot lock a real guest out, even when a tunnel makes every client arrive from the same address. The test floods the source bucket with a rotating <code class="inline">X-Forwarded-For</code> and then claims successfully from the same address.</p>
   <h2>What this does not cover</h2>
-  <p>A guest can read every document in the shared index, and its mapping. There is no per-document or per-field restriction in XERJ, which is also why the <code class="inline">autoindex-catalog</code> index is never granted: it lists every corpus on the node and could not be filtered.</p>
-  <p>Successful reads are only partly audited. The audit log holds a line for every claim outcome, every refused request and every <code class="inline">_search</code>, and none for a successful <code class="inline">GET _doc</code>.</p>
+  <p>A guest can read every document in the shared index, and its mapping. XERJ has no per-document or per-field restriction. That is also why the <code class="inline">autoindex-catalog</code> index is never granted: it lists every corpus on the node and could not be filtered. <code class="inline">POST /_share</code> refuses it by name, in a list and through an alias.</p>
+  <p>Successful reads are only partly audited. The audit log holds a line for every claim outcome and every <code class="inline">_search</code>. It also holds a line for every request refused to an authenticated key, such as a guest's attempt to list, create or revoke a share or to mint a key. It holds no line for a successful <code class="inline">_msearch</code>, <code class="inline">_mget</code>, <code class="inline">_count</code>, <code class="inline">_mapping</code>, <code class="inline">_field_caps</code> or <code class="inline">GET _doc</code>. So a guest can read the whole shared index through those without a trace. It holds no line for an unauthenticated request other than a claim.</p>
+  <p>Through <code class="inline">xerj share --tunnel</code>, Cloudflare ends TLS and can read the passcode, the guest key, the searches and the documents.</p>
   <p>Guest searches are not rate-limited. Authorization in XERJ comes from scoped API keys; roles are stored but not enforced. XERJ is single-node, so the share is only as available as that one host.</p>
   <p>The test ran on Linux. macOS and Windows were not run.</p>
   <h2>FAQ</h2>
@@ -309,13 +311,13 @@
   <h3>Can a guest keep a scroll or a point-in-time open on my machine?</h3>
   <p>No. <code class="inline">scroll</code>, <code class="inline">_search/scroll</code>, <code class="inline">_pit</code> and <code class="inline">_async_search</code> are refused, and so is a <code class="inline">pit</code> clause in a search body, so a guest cannot ride a point-in-time that someone else opened.</p>
   <h3>What is stored on disk about a share?</h3>
-  <p>A SHA-256 digest of the share id and an Argon2id hash of the passcode, in <code class="inline">shares.json</code> with mode 0600. No share id, passcode or guest key is written to disk or to the audit log.</p>
+  <p>A SHA-256 digest of the share id and an Argon2id hash of the passcode, in <code class="inline">shares.json</code> with mode 0600. No share id, passcode or guest key is written to that file, to the API-key file or to the audit log. The guest page sends the share id in a request body and never in a URL, so the node's access log does not hold it either.</p>
   <h3>What can a guest still do that I should think about?</h3>
   <p>Read every document in the shared index and copy what they read. A share grants whole indices. There is no per-document or per-field restriction to apply.</p>
   <h2>Evidence</h2>
   <ul>
-    <li>The guest route allow-list: _search, _count, _msearch, _mget, _mapping, _field_caps, GET _doc and _source, and the graph ego and overview routes. — <code>engine/crates/xerj-api/src/authz.rs</code></li>
-    <li>The live test makes 202 checks against a node with authentication on (192 without the native-listener section); all passed on 2026-09-18. — <code>docs/usecases/share-links/VERIFICATION.md</code></li>
+    <li>The guest route allow-list: _search, _count, _msearch, _mget, _mapping, _field_caps, GET _doc, and the graph ego and overview routes. — <code>engine/crates/xerj-api/src/authz.rs</code></li>
+    <li>The live test makes 237 checks against a node with authentication on and the access log on (225 without the native-listener section); all passed on 2026-09-19. — <code>docs/usecases/share-links/VERIFICATION.md</code></li>
     <li>A share id is 128 bits and is stored as a SHA-256 digest; the passcode is stored as an Argon2id hash in a file with mode 0600. — <code>engine/crates/xerj-api/src/share.rs</code></li>
     <li>Unknown share ids are limited to 10 a minute and 100 an hour per source address; a known share to 10 a minute and 30 an hour. — <code>engine/crates/xerj-api/src/share.rs</code></li>
     <li>The guest page is served with default-src 'none' and frame-ancestors 'none'. — <code>engine/crates/xerj-console-api/src/spa.rs</code></li>

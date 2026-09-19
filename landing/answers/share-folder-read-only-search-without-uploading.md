@@ -61,11 +61,13 @@ xerj share --list
   shares:    index ax-docs · brain casefiles (its links) — read-only
   link:      http://localhost:9200/_xerj-console/share#…
   passcode:  ….-….     (send it separately from the link)
-  expires:   2026-09-25T08:41:09Z · can be opened 1 time
+  expires:   2026-09-25T08:41:09Z · can be opened 1 time — one browser tab; --max-claims <N> for a guest who will come back
   revoke:    xerj share --revoke 8a1e546d4ee8
 ```
 
 Send the link and the passcode through different channels. Either one alone opens nothing.
+
+One open is one browser tab. The guest's key lives in that tab. Opening the same link again in the same tab keeps the session and spends nothing. A closed tab is a spent open. With the default of 1 open, a guest who closes the tab cannot come back, even if the share has 7 days left. For someone who will read over several days, add `--max-claims 5`.
 
 ## What the other person sees
 
@@ -79,7 +81,7 @@ Search here means search. No text is generated and no model is called. Where the
 
 The documents and the index are not uploaded, synced or copied to a hosting service. The guest installs nothing. What does leave your machine is what the guest asks to see: search results and the documents they open, sent to their browser.
 
-With `--tunnel` that traffic passes through Cloudflare, which terminates the HTTPS connection. Nothing is stored there, but the operator of a TLS endpoint can read what passes through it. The second article linked below covers that trade.
+With `--tunnel` that traffic passes through Cloudflare, which terminates the HTTPS connection. The folder is not uploaded there, but the operator of a TLS endpoint can read what passes through it: the passcode, the guest key, every search and every document the guest opens. The command prints this with the link, and the guest page shows it before the passcode is typed. The second article linked below covers that trade.
 
 ## The limits on a share
 
@@ -128,7 +130,11 @@ Run the `xerj share --revoke` command that was printed when you created the shar
 
 ### What if they are not on my network?
 
-Add `--tunnel`. XERJ starts your own `cloudflared`, prints a public link, and closes the tunnel and revokes the share when you press Ctrl-C.
+Add `--tunnel`. XERJ starts your own `cloudflared`, prints a public link, and closes the tunnel and revokes the share when you press Ctrl-C. That traffic passes through Cloudflare, which can read it: the passcode, the guest key, the searches and the documents. The command prints this with the link.
+
+### Can they come back to the link later?
+
+Only while the browser tab stays open, unless you allow more than one open. One open is one browser tab. Opening the same link again in that tab keeps the session. A closed tab is a spent open, so give `--max-claims 5` to someone who will read over several days.
 
 ### Is the search AI? Does it write answers?
 

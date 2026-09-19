@@ -268,17 +268,18 @@
   shares:    index ax-docs · brain casefiles (its links) — read-only
   link:      http://localhost:9200/_xerj-console/share#…
   passcode:  ….-….     (send it separately from the link)
-  expires:   2026-09-25T08:41:09Z · can be opened 1 time
+  expires:   2026-09-25T08:41:09Z · can be opened 1 time — one browser tab; --max-claims &lt;N&gt; for a guest who will come back
   revoke:    xerj share --revoke 8a1e546d4ee8
 </code></pre>
   <p>Send the link and the passcode through different channels. Either one alone opens nothing.</p>
+  <p>One open is one browser tab. The guest's key lives in that tab. Opening the same link again in the same tab keeps the session and spends nothing. A closed tab is a spent open. With the default of 1 open, a guest who closes the tab cannot come back, even if the share has 7 days left. For someone who will read over several days, add <code class="inline">--max-claims 5</code>.</p>
   <h2>What the other person sees</h2>
   <p>A page that asks for the passcode, then a reading room over that one index: a search field, highlighted passages, and a document view. The page states that access is read-only, shows when it ends, and has a sign-out button.</p>
   <p>Email is shown as text. HTML in a message body is displayed as its source and never rendered, and addresses inside documents are not turned into links, because document text is other people's content.</p>
   <p>Search here means search. No text is generated and no model is called. Where the index has a <code class="inline">semantic_text</code> field the page uses the <code class="inline">hybrid</code> query, which fuses BM25 with the node's embedder. The default embedder is lexical feature hashing, so that ranking is word and sub-word overlap, not meaning. The page says which mode it is using.</p>
   <h2>What stays on your machine</h2>
   <p>The documents and the index are not uploaded, synced or copied to a hosting service. The guest installs nothing. What does leave your machine is what the guest asks to see: search results and the documents they open, sent to their browser.</p>
-  <p>With <code class="inline">--tunnel</code> that traffic passes through Cloudflare, which terminates the HTTPS connection. Nothing is stored there, but the operator of a TLS endpoint can read what passes through it. The second article linked below covers that trade.</p>
+  <p>With <code class="inline">--tunnel</code> that traffic passes through Cloudflare, which terminates the HTTPS connection. The folder is not uploaded there, but the operator of a TLS endpoint can read what passes through it: the passcode, the guest key, every search and every document the guest opens. The command prints this with the link, and the guest page shows it before the passcode is typed. The second article linked below covers that trade.</p>
   <h2>The limits on a share</h2>
   <table>
     <thead><tr><th>Setting</th><th>Default</th><th>Bound</th></tr></thead>
@@ -308,7 +309,9 @@
   <h3>How do I stop the access?</h3>
   <p>Run the <code class="inline">xerj share --revoke</code> command that was printed when you created the share. The guest's next request is refused. A share also ends on its own: the default lifetime is 24h.</p>
   <h3>What if they are not on my network?</h3>
-  <p>Add <code class="inline">--tunnel</code>. XERJ starts your own <code class="inline">cloudflared</code>, prints a public link, and closes the tunnel and revokes the share when you press Ctrl-C.</p>
+  <p>Add <code class="inline">--tunnel</code>. XERJ starts your own <code class="inline">cloudflared</code>, prints a public link, and closes the tunnel and revokes the share when you press Ctrl-C. That traffic passes through Cloudflare, which can read it: the passcode, the guest key, the searches and the documents. The command prints this with the link.</p>
+  <h3>Can they come back to the link later?</h3>
+  <p>Only while the browser tab stays open, unless you allow more than one open. One open is one browser tab. Opening the same link again in that tab keeps the session. A closed tab is a spent open, so give <code class="inline">--max-claims 5</code> to someone who will read over several days.</p>
   <h3>Is the search AI? Does it write answers?</h3>
   <p>No. It is search and reading only: no text is generated and no model is called. The default embedder is lexical feature hashing, so ranking is by word and sub-word overlap plus BM25.</p>
   <h2>Evidence</h2>

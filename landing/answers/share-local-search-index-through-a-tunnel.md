@@ -66,13 +66,17 @@ On 2026-09-18 the command was run against a real quick tunnel from a Linux host 
 
 After SIGINT the `cloudflared` process was gone, the share listed as `revoked` with 1 key invalidated, and the guest key answered 401.
 
-That run cannot be repeated in CI, because it needs the public internet and a third party. CI covers the hostname parser, the missing-`cloudflared` fallback, and everything that does not need the tunnel itself. A browser was not driven through the tunnel; the browser test runs against the node directly.
+That run cannot be repeated in CI, because it needs the public internet and a third party. It also predates the review fixes: the claim then carried the share id in its path, and the command did not yet print the Cloudflare notice. CI covers the hostname parser, the missing-`cloudflared` fallback, and a stub `cloudflared` that checks the notice and what happens when the tunnel dies. A browser was not driven through a real tunnel. The browser test serves the page under a `trycloudflare.com` name that points at the local node, and checks the page's notice there.
 
 ## Three properties of a quick tunnel
 
 **The hostname is random and new on every start.** A link stops working when the command stops. That is the intended lifetime.
 
-**Cloudflare terminates TLS.** The corpus is not uploaded or stored there. The results your guest requests do cross Cloudflare's network, and the operator of a TLS endpoint can read what passes through it. When that is not acceptable, publish the node at your own hostname behind your own certificate and pass it as `--public-url`.
+**Cloudflare terminates TLS.** The corpus is not uploaded there. Everything between the guest's browser and your node does cross Cloudflare's network, and the operator of a TLS endpoint can read what passes through it. That includes the passcode, the guest's API key, every search and every document the guest opens. `xerj share --tunnel` prints this with the link. The guest page shows it on a `trycloudflare.com` address before the passcode is typed. When that is not acceptable, publish the node at your own hostname behind your own certificate and pass it as `--public-url`.
+
+**The share id is never in a URL the page requests.** The id is in the link's fragment, which a browser does not send. The page then sends it in the body of `POST /_share/claim`. So the id is not in the request line that a proxy or a tunnel logs. Cloudflare still carries that body and can read it, together with the passcode.
+
+**When the tunnel drops on its own, the command says why.** It prints the last lines `cloudflared` wrote, closes the tunnel and revokes the share.
 
 **It is temporary by design.** Cloudflare offers quick tunnels without an account and makes no promise about how long one stays up. For a standing arrangement use a named tunnel on your own domain, or your own reverse proxy.
 
@@ -114,7 +118,7 @@ Not for a quick tunnel. You do need the `cloudflared` binary. If it is missing, 
 
 ### Can Cloudflare read what my guest searches for?
 
-It terminates the HTTPS connection, so in principle yes. Nothing is uploaded or stored there, but the results your guest requests cross its network. Use your own hostname and certificate with `--public-url` when that matters.
+It terminates the HTTPS connection, so in principle yes. The folder is not uploaded there, but everything between the guest's browser and your node crosses its network: the passcode, the guest key, the searches and the documents the guest opens. The command prints this with the link, and the guest page shows it. Use your own hostname and certificate with `--public-url` when that matters.
 
 ### Why does the guest get a passcode and not a passkey?
 

@@ -26,7 +26,7 @@
 //      list, in the snippet and in the document view;
 //   5. the page talks to its own origin and nowhere else, and the share id is
 //      in NO URL the browser requests — it travels in the body of the claim
-//      POST (`/_share/claim`), so it reaches no access log;
+//      POST (`/_share/claim`), so no request line an access log records holds it;
 //   6. opening the same link again in the same tab keeps the session (and does
 //      not spend a second claim — on a one-open share that would lock the
 //      guest out), and a link pasted over another one, which changes only the
