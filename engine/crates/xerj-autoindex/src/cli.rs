@@ -1289,6 +1289,159 @@ mod tests {
         assert!(cfg.follow_symlinks && cfg.follow_symlinks_outside_root);
     }
 
+    fn watch(args: &[&str]) -> super::WatchCfg {
+        match parse(args.iter().map(|s| s.to_string()).collect()).unwrap() {
+            Cmd::Watch(cfg) => *cfg,
+            other => panic!("expected watch config, got {other:?}"),
+        }
+    }
+
+    /// The default an operator gets when they pass nothing but a bucket. It is
+    /// the free-tier-safe one, and asserting it here means a later edit to the
+    /// constant has to be deliberate.
+    #[test]
+    fn a_bare_watch_defaults_to_the_free_tier_safe_interval_and_budget() {
+        let cfg = watch(&["s3://logs/2026/09/", "--watch"]);
+        assert_eq!(cfg.url, "s3://logs/2026/09/");
+        assert_eq!(
+            cfg.poll_interval,
+            Duration::from_secs(crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS)
+        );
+        assert_eq!(
+            cfg.max_monthly_ops,
+            crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A
+        );
+        assert_eq!(cfg.max_cycles, None, "a bare watch runs until stopped");
+        assert!(cfg.fetch, "digests are on by default");
+        assert!(!cfg.append_only);
+        assert!(!cfg.allow_cost);
+        assert_eq!(cfg.page_size, crate::objwatch::cost::MAX_KEYS_PER_LIST);
+        assert_eq!(cfg.region, "auto", "which is what R2 wants");
+    }
+
+    /// `r2://` has to reach the runner as something the S3 parser accepts, or it
+    /// is a scheme that parses and then fails — the accepted-and-ignored shape.
+    #[test]
+    fn the_r2_scheme_routes_to_a_watch_like_the_s3_one() {
+        assert_eq!(watch(&["r2://logs/", "--watch"]).url, "r2://logs/");
+        assert_eq!(
+            crate::objwatch::run::normalize_object_url(&watch(&["r2://logs/", "--watch"]).url),
+            "s3://logs/"
+        );
+    }
+
+    #[test]
+    fn once_and_dry_run_are_one_cycle_and_dry_run_never_reads_bytes() {
+        assert_eq!(watch(&["s3://b/", "--watch", "--once"]).max_cycles, Some(1));
+        assert_eq!(
+            watch(&["s3://b/", "--watch", "--max-cycles", "7"]).max_cycles,
+            Some(7)
+        );
+        let dry = watch(&["s3://b/", "--watch", "--dry-run"]);
+        assert_eq!(dry.max_cycles, Some(1), "pricing a poll is one cycle");
+        assert!(!dry.fetch, "and it must not spend Class B operations");
+        assert!(dry.dry_run);
+    }
+
+    /// Every one of these is a flag that would otherwise parse and do nothing.
+    /// The message has to name the flag, because an operator who passed it
+    /// believes it took effect.
+    #[test]
+    fn index_only_flags_are_refused_on_a_watch_rather_than_silently_ignored() {
+        for (args, needle) in [
+            (
+                vec!["s3://b/", "--watch", "--url", "http://x:9200"],
+                "--url",
+            ),
+            (
+                vec!["s3://b/", "--watch", "--max-minutes", "5"],
+                "--max-minutes",
+            ),
+            (vec!["s3://b/", "--watch", "--yes"], "--max-minutes"),
+            (
+                vec!["s3://b/", "--watch", "--progress", "plain"],
+                "--progress",
+            ),
+            (vec!["s3://b/", "--watch", "--no-ignore"], "folder walk"),
+        ] {
+            let text = err(&args);
+            assert!(
+                text.contains(needle),
+                "refusing {args:?} must name what does not apply ({needle}): {text}"
+            );
+        }
+    }
+
+    /// The mirror image: a watch-only flag without `--watch`.
+    #[test]
+    fn watch_only_flags_without_watch_are_refused() {
+        let text = err(&["data", "--poll-interval", "60"]);
+        assert!(
+            text.contains("--poll-interval") && text.contains("--watch"),
+            "{text}"
+        );
+        let text = err(&["data", "--append-only", "--no-fetch"]);
+        assert!(
+            text.contains("--append-only") && text.contains("--no-fetch"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_watch_needs_an_object_url_and_an_object_url_needs_a_watch() {
+        let text = err(&["/tmp/folder", "--watch"]);
+        assert!(
+            text.contains("s3://") && text.contains("local path"),
+            "{text}"
+        );
+        let text = err(&["--watch"]);
+        assert!(text.contains("No root was given"), "{text}");
+        // And the reverse, so `xerj autoindex s3://…` cannot look like it indexes.
+        let text = err(&["s3://logs/"]);
+        assert!(
+            text.contains("only supported with --watch"),
+            "an object root without --watch must say what it does NOT do: {text}"
+        );
+    }
+
+    #[test]
+    fn contradictory_and_out_of_range_watch_flags_are_refused() {
+        assert!(err(&["s3://b/", "--watch", "--once", "--max-cycles", "3"]).contains("contradict"));
+        // 0 seconds and more than a day are both outside the accepted range.
+        assert!(err(&["s3://b/", "--watch", "--poll-interval", "0"]).contains("--poll-interval"));
+        assert!(
+            err(&["s3://b/", "--watch", "--poll-interval", "86401"]).contains("--poll-interval")
+        );
+        // A page size above the API maximum would misreport the billing unit.
+        assert!(err(&["s3://b/", "--watch", "--page-size", "1001"]).contains("1000"));
+        assert!(
+            err(&["s3://b/", "--watch", "--max-monthly-ops", "0"]).contains("--max-monthly-ops")
+        );
+    }
+
+    #[test]
+    fn the_help_text_carries_the_cost_table_and_the_defaults_it_enforces() {
+        let help = super::help_text_with(false);
+        assert!(
+            help.contains("CLASS A"),
+            "the expensive class must be named"
+        );
+        assert!(
+            help.contains("1,000,000"),
+            "the free-tier allowance must be stated"
+        );
+        assert!(
+            help.contains(&crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS.to_string()),
+            "the default interval in the help must come from the constant"
+        );
+        assert!(
+            help.contains(&crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A.to_string()),
+            "and so must the default budget"
+        );
+        assert!(help.contains("--append-only"));
+        assert!(help.contains("exit 4") || help.contains("NEEDS A DECISION"));
+    }
+
     fn index(args: &[&str]) -> super::IndexCfg {
         match parse(args.iter().map(|s| s.to_string()).collect()).unwrap() {
             Cmd::Index(cfg) => *cfg,
