@@ -163,6 +163,16 @@ regenerates (`--write`) and gates (default) them, and
 diverge from what the server serves. That guard exists because the file once
 advertised six tools while the binary served ten.
 
+## Before you touch `llms.txt`, install text, or a feedback ask
+
+Read [docs/research/llms-txt-2026-09/README.md](./docs/research/llms-txt-2026-09/README.md)
+first. It records a study of 46 projects' agent-facing files, the twelve verified defects
+in XERJ's own `llms.txt` (an obligation filed under `## Optional`, a shell assumed from
+line 1, no MCP registration snippet, no verify step, two list items numbered `4.`), why
+field reports do not arrive when they are asked for as pull requests, and the twelve
+rules a change to these files should satisfy. Only one open PR edits `landing/llms.txt`
+at a time.
+
 ## Working on the website (`landing/`)
 
 `landing/` is deployed **verbatim** by Cloudflare Pages (`pages_build_output_dir
