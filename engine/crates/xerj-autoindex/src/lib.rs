@@ -26,6 +26,8 @@ pub mod infer;
 pub mod init;
 pub mod objsource;
 #[cfg(test)]
+mod objsource_minio_tests;
+#[cfg(test)]
 mod objsource_s3_tests;
 pub mod order;
 pub mod pool;
