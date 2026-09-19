@@ -47,6 +47,17 @@ const MAX_ATTACH_BYTES: usize = 24 << 20;
 /// nearest resolvable one, and the tail of the list is the nearest.
 const MAX_REFERENCES: usize = 64;
 
+/// Bare addresses kept per address header (`email_to_address`, …). A mailing
+/// list blast can name thousands of recipients; the full header text stays in
+/// `email_to`, and the filterable list is bounded like every other per-message
+/// list here.
+const MAX_ADDRESSES: usize = 1024;
+
+/// Characters of the subject repeated at the head of the searchable body. The
+/// whole subject is always in `email_subject`; this bounds what a pathological
+/// 100 KB subject can add to the first section.
+const SUBJECT_IN_BODY_CHARS: usize = 512;
+
 /// Where a message sits when it is not a file of its own.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct MessageEnvelope<'a> {
@@ -110,6 +121,15 @@ pub(crate) fn emit_message(
     sink: Sink,
     stats: &mut ExtractStats,
 ) -> MessageOutcome {
+    // Raw 8-bit bytes in the HEADER block (no RFC 2047 encoded-word, not
+    // UTF-8) are what a generation of European desktop clients wrote. The
+    // parser reads headers as UTF-8, so `Grüße` became `Gr\u{fffd}\u{fffd}e`
+    // and `Zoë Müller` lost her name — while the body of the same message was
+    // already rescued by `undeclared_8bit_body`. Same situation, same rule:
+    // UTF-8, else Windows-1252. Only the header block is re-read; the body
+    // bytes are passed through untouched so every MIME offset stays valid.
+    let transcoded = transcode_8bit_headers(bytes);
+    let bytes = transcoded.as_deref().unwrap_or(bytes);
     let Some(msg) = MessageParser::default().parse(bytes) else {
         return MessageOutcome::Unparseable;
     };
@@ -122,6 +142,23 @@ pub(crate) fn emit_message(
     put(&mut headers, "email_from", addr_string(msg.from()));
     put(&mut headers, "email_to", addr_string(msg.to()));
     put(&mut headers, "email_cc", addr_string(msg.cc()));
+    // `email_from` is the header as a person reads it — `Dana Klein
+    // <dklein@amazon.com>` — and it is a keyword, so a `term` filter on the
+    // bare address matches NOTHING (review finding on PR #949: the documented
+    // "every message from one sender" query returned 0 hits on every mailbox
+    // whose senders have display names, which is nearly all of them). The
+    // bare, lower-cased addresses are what a filter is written against, so
+    // they get fields of their own; the display form stays for reading.
+    for (field, header) in [
+        ("email_from_address", msg.from()),
+        ("email_to_address", msg.to()),
+        ("email_cc_address", msg.cc()),
+    ] {
+        let list = addr_list(header);
+        if !list.is_empty() {
+            headers.insert(field.into(), Value::Array(list));
+        }
+    }
     if let Some(d) = msg.date() {
         put(&mut headers, "email_date", d.to_rfc3339());
     }
@@ -211,11 +248,21 @@ pub(crate) fn emit_message(
         }
     }
 
+    // The subject opens the searchable text. `title` and `email_subject` are
+    // inferred as KEYWORD on a mailbox (few distinct values per record: every
+    // section and attachment of a thread repeats them), and a keyword matches
+    // only as a whole — so `xerj search Rechnung` and `match` on any field
+    // found nothing for a word that was only in a Subject, which is the first
+    // place a person looks (review finding on PR #949). A subject is a line of
+    // the message a reader sees above the body, so that is where it goes: the
+    // first paragraph of the first section, once, never on attachments.
+    let searchable = with_subject(&subject, body.trim());
+
     // Emit the message itself as document section(s) carrying the headers.
     if !emit_document_with_fields(
         &headers,
         &title,
-        body.trim(),
+        &searchable,
         &format!("{pre}msg"),
         sink,
         stats,
@@ -309,6 +356,13 @@ fn route_pdf(
         for (k, v) in link.iter() {
             rec.fields.entry(k.clone()).or_insert_with(|| v.clone());
         }
+        // The PDF extractor titles a page after its file's stem, and the file
+        // here is a temp file: every page was titled `.tmpXXXXXX`, a different
+        // name on every run. The attachment has a real name — the same title a
+        // text attachment gets — and it makes the record stream deterministic.
+        if let Some(name) = link.get("attachment_name") {
+            rec.fields.insert("title".into(), name.clone());
+        }
         rec.locator = format!("{prefix}{}", rec.locator);
         rec.origin = FieldOrigin::Extractor;
         pages += 1;
@@ -375,6 +429,7 @@ fn attach_link(
     for k in [
         "email_subject",
         "email_from",
+        "email_from_address",
         "email_date",
         "email_message_id",
         "email_labels",
@@ -402,6 +457,84 @@ fn addr_string(a: Option<&mail_parser::Address>) -> String {
         }
     }
     out.join(", ")
+}
+
+/// The bare addresses of an address header, lower-cased, in header order,
+/// without repeats — the form a `term` filter is written against. The domain
+/// is case-insensitive by definition and the local part is in practice; a
+/// filter that had to reproduce the sender's capitalisation would miss.
+fn addr_list(a: Option<&mail_parser::Address>) -> Vec<Value> {
+    let Some(a) = a else { return Vec::new() };
+    let mut out: Vec<Value> = Vec::new();
+    for addr in a.iter() {
+        if out.len() >= MAX_ADDRESSES {
+            break;
+        }
+        let Some(email) = addr.address() else {
+            continue;
+        };
+        let email = email.trim().to_lowercase();
+        if email.is_empty() {
+            continue;
+        }
+        let v = Value::String(email);
+        if !out.contains(&v) {
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// `subject` + blank line + `body`: the text a message is searched by. Cut by
+/// CHARACTERS, never bytes (panic = abort, and subjects are where CJK lives).
+fn with_subject(subject: &str, body: &str) -> String {
+    if subject.is_empty() {
+        return body.to_string();
+    }
+    let head: String = subject.chars().take(SUBJECT_IN_BODY_CHARS).collect();
+    if body.is_empty() {
+        head
+    } else {
+        format!("{head}\n\n{body}")
+    }
+}
+
+/// The message with an undeclared 8-bit HEADER BLOCK re-read as Windows-1252,
+/// or `None` when the block is already UTF-8 (the overwhelmingly common case,
+/// which costs one validation pass over the headers and no copy).
+///
+/// The block ends at the first empty line. Everything after it is copied
+/// byte for byte, so part offsets inside the body keep their meaning.
+fn transcode_8bit_headers(bytes: &[u8]) -> Option<Vec<u8>> {
+    let end = header_block_end(bytes);
+    let head = bytes.get(..end)?;
+    if std::str::from_utf8(head).is_ok() {
+        return None;
+    }
+    let (text, _) = encoding_rs::WINDOWS_1252.decode_without_bom_handling(head);
+    let mut out = Vec::with_capacity(text.len() + bytes.len().saturating_sub(end));
+    out.extend_from_slice(text.as_bytes());
+    out.extend_from_slice(bytes.get(end..)?);
+    Some(out)
+}
+
+/// Index just past the header block: the first `\n` that is followed by an
+/// empty line (`\n` or `\r\n`), or the whole input when there is none.
+fn header_block_end(bytes: &[u8]) -> usize {
+    // An input that OPENS with an empty line has no header block at all; what
+    // follows is body, and the body has its own rule.
+    if matches!(bytes, [b'\n', ..] | [b'\r', b'\n', ..]) {
+        return 0;
+    }
+    let mut from = 0usize;
+    while let Some(i) = memchr::memchr(b'\n', bytes.get(from..).unwrap_or(&[])) {
+        let nl = from + i;
+        match bytes.get(nl + 1..) {
+            Some([b'\n', ..]) | Some([b'\r', b'\n', ..]) => return nl + 1,
+            _ => from = nl + 1,
+        }
+    }
+    bytes.len()
 }
 
 fn is_pdf(name: &str, data: &[u8]) -> bool {
@@ -719,7 +852,13 @@ mod tests {
         let body_of = |rest: &[u8]| -> String {
             let mut eml = head.to_vec();
             eml.extend_from_slice(rest);
-            field(&run(&eml)[0], "body").unwrap().to_string()
+            // The subject opens the searchable body (`with_subject`); what is
+            // under test here is the decoding of the bytes after it.
+            field(&run(&eml)[0], "body")
+                .unwrap()
+                .strip_prefix("old mail\n\n")
+                .expect("the subject opens the body")
+                .to_string()
         };
         // cp1252: 0x93/0x94 curly quotes, 0x80 euro, 0xe9 e-acute — with the
         // 8-bit byte as the LAST byte too, where a "tolerate a cut prefix"
@@ -749,6 +888,164 @@ mod tests {
         );
         // FF FE opens the body: two bytes of text, never a UTF-16 BOM.
         assert_eq!(body_of(b"\n\xff\xfeabc"), "\u{ff}\u{fe}abc");
+    }
+
+    /// Review finding (PR #949, major): the documented "every message from one
+    /// sender" filter — `term email_from = alice@example.org` — returned 0 hits,
+    /// because `email_from` is a keyword holding `Display Name <addr>`. The
+    /// bare address now has a field of its own, lower-cased, multi-valued, and
+    /// copied onto attachments so "PDFs from alice@…" is one filter too.
+    #[test]
+    fn senders_and_recipients_are_filterable_by_bare_address() {
+        let b64 = base64::engine::general_purpose::STANDARD.encode("plain notes");
+        let eml = format!(
+            "From: =?utf-8?q?Chlo=C3=A9_Lef=C3=A8vre?= <Chloe@Example.COM>\r\n\
+             To: Liam O'Connor <liam@example.org>, liam@example.org, \"Team, The\" <team@example.org>\r\n\
+             Cc: undisclosed-recipients:;\r\n\
+             Subject: addresses\r\nMessage-ID: <addr-1@example.com>\r\nMIME-Version: 1.0\r\n\
+             Content-Type: multipart/mixed; boundary=\"b\"\r\n\r\n\
+             --b\r\nContent-Type: text/plain\r\n\r\nhello\r\n\
+             --b\r\nContent-Type: text/plain; name=\"n.txt\"\r\n\
+             Content-Disposition: attachment; filename=\"n.txt\"\r\n\
+             Content-Transfer-Encoding: base64\r\n\r\n{b64}\r\n--b--\r\n"
+        );
+        let recs = run(eml.as_bytes());
+        let msg = recs.iter().find(|r| r.locator == "msg-s0").unwrap();
+        let list = |r: &RawRecord, k: &str| -> Vec<String> {
+            r.fields
+                .get(k)
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        // The display form is unchanged — it is what a person reads.
+        assert_eq!(
+            field(msg, "email_from"),
+            Some("Chloé Lefèvre <Chloe@Example.COM>")
+        );
+        // The filter form: bare, lower-cased, no repeats, header order.
+        assert_eq!(list(msg, "email_from_address"), ["chloe@example.com"]);
+        assert_eq!(
+            list(msg, "email_to_address"),
+            ["liam@example.org", "team@example.org"]
+        );
+        // An empty group has no address: no field, not an empty array.
+        assert!(msg.fields.get("email_cc_address").is_none());
+        // The attachment is one `term` filter away from its sender too.
+        let att = recs
+            .iter()
+            .find(|r| field(r, "attachment_name") == Some("n.txt"))
+            .unwrap();
+        assert_eq!(list(att, "email_from_address"), ["chloe@example.com"]);
+    }
+
+    /// Review finding (PR #949, major): a word that exists only in a Subject
+    /// was not findable by `xerj search` or any `match` query — `title` and
+    /// `email_subject` are keywords on a mailbox. The subject now opens the
+    /// searchable body of the message's FIRST section, and only there.
+    #[test]
+    fn subject_words_are_in_the_searchable_body_once() {
+        // Short message: the subject is the first paragraph of the body.
+        let recs = run(
+            b"From: a@x.org\nSubject: Rechnung 2024-117\nMessage-ID: <s@x.org>\n\nBitte zahlen.\n",
+        );
+        assert_eq!(
+            field(&recs[0], "body"),
+            Some("Rechnung 2024-117\n\nBitte zahlen.")
+        );
+        assert_eq!(field(&recs[0], "email_subject"), Some("Rechnung 2024-117"));
+        assert_eq!(field(&recs[0], "title"), Some("Rechnung 2024-117"));
+
+        // Subject only: the subject IS the text. No subject: the body alone —
+        // never a literal "(no subject)" in the searchable text.
+        let only = run(b"Subject: nur betreff\nMessage-ID: <o@x.org>\n\n");
+        assert_eq!(field(&only[0], "body"), Some("nur betreff"));
+        let none = run(b"From: a@x.org\nMessage-ID: <n@x.org>\n\njust text\n");
+        assert_eq!(field(&none[0], "body"), Some("just text"));
+
+        // Long message + attachment: section 0 carries it, later sections and
+        // the attachment do not (one hit per needle, not one per section).
+        let para = "term sheet paragraph ".repeat(40);
+        let long = vec![para.trim_end().to_string(); 30].join("\n\n");
+        let b64 = base64::engine::general_purpose::STANDARD.encode("attached words");
+        let eml = format!(
+            "From: a@x.org\nSubject: xqsubjectneedle\nMessage-ID: <l2@x.org>\nMIME-Version: 1.0\n\
+             Content-Type: multipart/mixed; boundary=\"b\"\n\n\
+             --b\nContent-Type: text/plain; charset=utf-8\n\n{long}\n\
+             --b\nContent-Type: text/plain; name=\"n.txt\"\n\
+             Content-Disposition: attachment; filename=\"n.txt\"\n\
+             Content-Transfer-Encoding: base64\n\n{b64}\n--b--\n"
+        );
+        let recs = run(eml.as_bytes());
+        assert!(recs.len() > 2, "sectioned body plus an attachment");
+        let with_needle: Vec<&str> = recs
+            .iter()
+            .filter(|r| field(r, "body").is_some_and(|b| b.contains("xqsubjectneedle")))
+            .map(|r| r.locator.as_str())
+            .collect();
+        assert_eq!(with_needle, ["msg-s0"]);
+
+        // A pathological subject is cut by characters, not bytes, and bounded.
+        let huge = "設計".repeat(100_000);
+        let eml = format!("Subject: {huge}\nMessage-ID: <h@x.org>\n\nbody text\n");
+        let recs = run(eml.as_bytes());
+        let body = field(&recs[0], "body").unwrap();
+        assert!(body.starts_with("設計設計") && body.ends_with("body text"));
+        assert!(
+            body.chars().count() <= SUBJECT_IN_BODY_CHARS + 2 + "body text".len(),
+            "subject in body not bounded: {} chars",
+            body.chars().count()
+        );
+    }
+
+    /// Review finding (PR #949, minor): raw 8-bit header bytes (no encoded-word,
+    /// not UTF-8) were indexed as U+FFFD while the same message's body was
+    /// rescued. Same rule for both now: UTF-8, else Windows-1252.
+    #[test]
+    fn undeclared_8bit_headers_are_read_as_windows_1252() {
+        let eml = b"From: Zo\xeb M\xfcller <zoe@example.org>\nTo: b@x.org\n\
+                    Subject: Gr\xfc\xdfe xqlatinsubj\nMessage-ID: <h8@x.org>\n\nK\xf6ln xqlatinbody\n";
+        let recs = run(eml);
+        assert_eq!(field(&recs[0], "email_subject"), Some("Grüße xqlatinsubj"));
+        assert_eq!(
+            field(&recs[0], "email_from"),
+            Some("Zoë Müller <zoe@example.org>")
+        );
+        assert_eq!(
+            field(&recs[0], "body"),
+            Some("Grüße xqlatinsubj\n\nKöln xqlatinbody")
+        );
+        for r in &recs {
+            assert!(!r
+                .fields
+                .values()
+                .any(|v| v.to_string().contains('\u{fffd}')));
+        }
+        // Raw UTF-8 headers (RFC 6532) are already right and are not re-read.
+        let utf8 = "From: Zoë Müller <zoe@example.org>\nSubject: Grüße 設計\nMessage-ID: <u8@x.org>\n\nhi\n";
+        assert!(transcode_8bit_headers(utf8.as_bytes()).is_none());
+        assert_eq!(
+            field(&run(utf8.as_bytes())[0], "email_subject"),
+            Some("Grüße 設計")
+        );
+        // Only the HEADER block is re-read: a body in a DECLARED charset keeps
+        // its bytes, and its offsets, exactly.
+        let mixed =
+            b"Subject: caf\xe9\nContent-Type: text/plain; charset=iso-8859-1\n\ncaf\xe9 au lait\n";
+        let recs = run(mixed);
+        assert_eq!(field(&recs[0], "body"), Some("café\n\ncafé au lait"));
+        // No header block at all: nothing to re-read, and no slice panics on a
+        // leading blank line, a lone newline, or an empty input.
+        assert_eq!(header_block_end(b"\njust a body \xe9\n\nmore"), 0);
+        assert_eq!(header_block_end(b"\r\nbody"), 0);
+        assert_eq!(header_block_end(b""), 0);
+        assert_eq!(header_block_end(b"A: b\r\n\r\nbody"), 6);
+        assert_eq!(header_block_end(b"A: b\nB: c"), 9);
     }
 
     /// A non-text, non-PDF attachment gets a name/type/size card so it stays

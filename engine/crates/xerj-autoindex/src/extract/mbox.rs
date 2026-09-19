@@ -1250,7 +1250,10 @@ mod tests {
             .iter()
             .find(|r| field(r, "body").is_some_and(|b| b.contains("Köln")))
             .expect("declared latin-1 body is decoded, not dropped");
-        assert_eq!(field(latin, "body"), Some("Grüße aus Köln"));
+        // The subject opens the searchable body — and it is a RAW Latin-1
+        // `caf\xe9` in the header, which the Windows-1252 header rule rescues
+        // (it used to be indexed as `caf\u{fffd}`).
+        assert_eq!(field(latin, "body"), Some("café\n\nGrüße aus Köln"));
         assert!(stats.records >= 3, "{stats:?}");
     }
 
@@ -1288,7 +1291,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(whole.len(), 1);
-        assert_eq!(field(&whole[0], "body"), Some("b"));
+        // Subject `s`, blank line, body `b` (`eml::with_subject`).
+        assert_eq!(field(&whole[0], "body"), Some("s\n\nb"));
     }
 
     /// One message may still not exceed the per-DOCUMENT record cap (#381),
