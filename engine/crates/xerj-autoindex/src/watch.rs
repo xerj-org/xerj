@@ -520,7 +520,7 @@ impl<'a> Pass<'a> {
     }
 
     /// `(carried files, carried bytes, hashed files, hashed bytes)`.
-    pub(crate) fn stats(&self) -> (u64, u64, u64, u64) {
+    pub(crate) fn stats(&self) -> PassWork {
         self.stats.get()
     }
 
@@ -528,6 +528,12 @@ impl<'a> Pass<'a> {
         self.next.into_inner()
     }
 }
+
+/// `(carried files, carried bytes, hashed files, hashed bytes)` for one pass.
+pub(crate) type PassWork = (u64, u64, u64, u64);
+
+/// What one pass returns: the run's own result, and what it cost.
+pub(crate) type PassResult = (Result<(i32, Option<serde_json::Value>)>, PassWork);
 
 /// Run exactly one pass and adopt the digest cache it produced.
 ///
@@ -545,10 +551,7 @@ pub(crate) fn one_pass(
     root: &Path,
     carry: &mut Carry,
     change: &ChangeSet,
-) -> (
-    Result<(i32, Option<serde_json::Value>)>,
-    (u64, u64, u64, u64),
-) {
+) -> PassResult {
     let pass = Pass::new(root, carry, change);
     let outcome = crate::run_index_report_watched(cfg.clone(), &pass);
     let stats = pass.stats();
@@ -758,7 +761,7 @@ fn next_burst_or_idle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::event::{CreateKind, EventKind, ModifyKind, RemoveKind, RenameMode};
+    use notify::event::{CreateKind, EventKind, ModifyKind, RenameMode};
     use std::fs;
 
     fn silent() -> std::sync::Arc<Progress> {

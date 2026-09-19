@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj autoindex <folder> --watch` keeps an index current from filesystem
+  events instead of a re-run.** The session indexes once, then places one OS
+  watch per *indexed* directory (`notify`: inotify / FSEvents /
+  ReadDirectoryChangesW) and reindexes what changed, debounced (`--debounce`,
+  default 400 ms) so one editor save is one pass. The watch set comes from the
+  same walk the indexer uses, so an ignored `target/` costs no watch and
+  produces no events, and a watched run and a re-run agree on what is indexed.
+  A file skips its re-hash only when no event named it or an ancestor AND its
+  `(size, mtime, inode)` fingerprint is unchanged; the cache is in-memory, so a
+  restart re-hashes in full. Requires `--no-graph`, refused rather than
+  downgraded: incremental reindexing of a CHANGED file exists only on that
+  route — on the graph path a re-run resumes a frozen plan and reports the
+  change as `appeared after the resume plan was frozen` without indexing it, so
+  a watcher there would look live while serving stale documents. Measured on a
+  10,001-file tree: idle costs 0.00 CPU-seconds per minute and 0 bytes read,
+  against 0.93 s and a full 6.1 MB re-read for every poll of a re-run loop; per
+  change the re-hash disappears but the pass still costs ~39 s, because the
+  `--no-graph` generation seals a snapshot over the whole corpus
+  (`sync_executor::create_snapshot_inner`) — the measured next lever, not fixed
+  here. Hitting `fs.inotify.max_user_watches` stops the run with the limit, the
+  directory count and the `sysctl`, because a half-watched tree looks live and
+  silently is not. Docs: `docs/LIVE_REINDEXING.md`, measurement record in
+  `docs/measurements/autoindex-watch-2026-09-19.md`.
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
