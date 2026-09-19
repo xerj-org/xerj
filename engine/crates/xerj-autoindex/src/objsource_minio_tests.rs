@@ -96,14 +96,7 @@ impl Minio {
         self.runtime.block_on(async {
             // Drain and drop any bucket left by an earlier run: these tests
             // assert on exact counts, so a stale object is a false failure.
-            if self
-                .client
-                .head_bucket()
-                .bucket(name)
-                .send()
-                .await
-                .is_ok()
-            {
+            if self.client.head_bucket().bucket(name).send().await.is_ok() {
                 let mut token: Option<String> = None;
                 loop {
                     let page = self
@@ -131,7 +124,12 @@ impl Minio {
                     token = page.next_continuation_token().map(str::to_string);
                 }
             } else {
-                self.client.create_bucket().bucket(name).send().await.unwrap();
+                self.client
+                    .create_bucket()
+                    .bucket(name)
+                    .send()
+                    .await
+                    .unwrap();
             }
         });
         name.to_string()
@@ -241,7 +239,14 @@ impl Harness {
 
     fn materialize(&self) -> MaterializeReport {
         let source = ObjectStoreSource::connect(&self.run.spec).unwrap();
-        materialize_from(&self.run, &source, &self.progress, 8, MaterializeMode::Fetch).unwrap()
+        materialize_from(
+            &self.run,
+            &source,
+            &self.progress,
+            8,
+            MaterializeMode::Fetch,
+        )
+        .unwrap()
     }
 
     fn mirror_rels(&self) -> Vec<String> {
@@ -270,7 +275,11 @@ impl Harness {
 fn minio_incremental_matrix() {
     let Some(minio) = minio() else { return };
     let bucket = minio.bucket("xerj-s3source-matrix");
-    minio.put(&bucket, "docs/alpha.md", b"# alpha\n\nthe first document.\n");
+    minio.put(
+        &bucket,
+        "docs/alpha.md",
+        b"# alpha\n\nthe first document.\n",
+    );
     minio.put(&bucket, "docs/beta.txt", b"beta beta beta\n");
     minio.put(&bucket, "docs/sub/gamma.md", b"# gamma\n");
     minio.put(&bucket, "outside/delta.md", b"# not in the prefix\n");
@@ -283,7 +292,10 @@ fn minio_incremental_matrix() {
     assert_eq!(first.downloaded, 3);
     assert_eq!(first.list_requests, 1);
     assert_eq!(first.read_requests, 3);
-    assert_eq!(h.mirror_rels(), vec!["alpha.md", "beta.txt", "sub/gamma.md"]);
+    assert_eq!(
+        h.mirror_rels(),
+        vec!["alpha.md", "beta.txt", "sub/gamma.md"]
+    );
     assert!(
         !h.run.mirror.join(".env").exists(),
         "a bucket's dotfiles stay out of the mirror and out of the index"
@@ -292,7 +304,10 @@ fn minio_incremental_matrix() {
     let second = h.materialize();
     println!("MinIO unchanged re-run: {second:?}");
     assert_eq!(second.unchanged, 3, "{second:?}");
-    assert_eq!(second.downloaded, 0, "an unchanged bucket downloads nothing");
+    assert_eq!(
+        second.downloaded, 0,
+        "an unchanged bucket downloads nothing"
+    );
     assert_eq!(second.read_requests, 0, "and makes no GET requests at all");
     assert_eq!(second.list_requests, 1);
 
@@ -301,10 +316,16 @@ fn minio_incremental_matrix() {
     minio.delete(&bucket, "docs/beta.txt");
     let third = h.materialize();
     println!("MinIO changed+new+deleted run: {third:?}");
-    assert_eq!(third.downloaded, 2, "the changed one and the new one: {third:?}");
+    assert_eq!(
+        third.downloaded, 2,
+        "the changed one and the new one: {third:?}"
+    );
     assert_eq!(third.unchanged, 1);
     assert_eq!(third.removed, 1);
-    assert_eq!(h.mirror_rels(), vec!["alpha.md", "epsilon.md", "sub/gamma.md"]);
+    assert_eq!(
+        h.mirror_rels(),
+        vec!["alpha.md", "epsilon.md", "sub/gamma.md"]
+    );
     assert_eq!(
         std::fs::read_to_string(h.run.mirror.join("alpha.md")).unwrap(),
         "# alpha\n\nrevised.\n"
@@ -345,7 +366,11 @@ fn minio_pagination_past_one_thousand_keys() {
     let Some(minio) = minio() else { return };
     let bucket = minio.bucket("xerj-s3source-pages");
     for i in 0..1_200u32 {
-        minio.put(&bucket, &format!("many/{i:05}.txt"), format!("row {i}\n").as_bytes());
+        minio.put(
+            &bucket,
+            &format!("many/{i:05}.txt"),
+            format!("row {i}\n").as_bytes(),
+        );
     }
     let h = Harness::new(&minio, &bucket, "many/");
     let report = h.materialize();
@@ -395,7 +420,9 @@ fn minio_one_gigabyte_object_streams_through_a_bounded_buffer() {
     assert_eq!(report.downloaded, 1);
     assert_eq!(report.bytes_downloaded, 1 << 30);
     assert_eq!(
-        std::fs::metadata(h.run.mirror.join("one-gig.bin")).unwrap().len(),
+        std::fs::metadata(h.run.mirror.join("one-gig.bin"))
+            .unwrap()
+            .len(),
         1 << 30,
         "every byte landed"
     );

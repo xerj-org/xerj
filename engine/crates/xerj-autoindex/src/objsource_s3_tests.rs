@@ -207,7 +207,10 @@ fn serve(stream: TcpStream, state: &Arc<Mutex<StubState>>) -> std::io::Result<()
             .get("max-keys")
             .and_then(|v| v.parse().ok())
             .unwrap_or(1000);
-        let after = params.get("continuation-token").cloned().unwrap_or_default();
+        let after = params
+            .get("continuation-token")
+            .cloned()
+            .unwrap_or_default();
         let (page, truncated, next) = {
             let mut state = state.lock().unwrap();
             state.list_requests += 1;
@@ -413,7 +416,10 @@ fn first_run_fetches_every_object_and_a_second_run_fetches_none() {
     h.stub.reset_counters();
     let second = h.materialize().unwrap();
     assert_eq!(second.unchanged, 3, "{second:?}");
-    assert_eq!(second.downloaded, 0, "an unchanged prefix downloads nothing");
+    assert_eq!(
+        second.downloaded, 0,
+        "an unchanged prefix downloads nothing"
+    );
     assert_eq!(second.bytes_downloaded, 0);
     let (lists, gets) = h.stub.counters();
     assert_eq!(
@@ -490,7 +496,8 @@ fn a_multipart_etag_is_a_change_token_like_any_other() {
 fn listing_pages_past_one_thousand_keys() {
     let h = Harness::new("bulk/");
     for i in 0..2_500u32 {
-        h.stub.put(&format!("bulk/{i:05}.txt"), format!("row {i}\n").as_bytes());
+        h.stub
+            .put(&format!("bulk/{i:05}.txt"), format!("row {i}\n").as_bytes());
     }
     let report = h.materialize().unwrap();
     assert_eq!(report.objects_listed, 2_500, "{report:?}");
@@ -515,7 +522,8 @@ fn hidden_and_unportable_keys_cost_no_requests() {
     h.stub.put("ok.md", b"fine\n");
     h.stub.put(".env", b"SECRET=hunter2\n");
     h.stub.put(".git/config", b"[core]\n");
-    h.stub.put("node_modules/react/index.js", b"module.exports={}\n");
+    h.stub
+        .put("node_modules/react/index.js", b"module.exports={}\n");
     h.stub.put("docs/", b"");
     h.stub.put("a//b.txt", b"double slash\n");
     h.stub.put("weird\tname.txt", b"control char\n");
@@ -694,7 +702,8 @@ fn a_missing_bucket_says_which_bucket_and_what_to_check() {
 #[test]
 fn prepare_rewrites_the_root_for_an_object_url_and_leaves_folders_alone() {
     let state = tempfile::tempdir().unwrap();
-    let mut cfg = crate::phase_a_grouping_tests::cfg_for(std::path::Path::new("s3://acme-docs/handbook"));
+    let mut cfg =
+        crate::phase_a_grouping_tests::cfg_for(std::path::Path::new("s3://acme-docs/handbook"));
     cfg.state_dir = Some(state.path().to_path_buf());
     let run = crate::objsource::prepare(&mut cfg).unwrap().unwrap();
     assert_eq!(run.identity, "s3://acme-docs/handbook/");

@@ -380,7 +380,12 @@ impl MaterializeReport {
         let hourly = class_a.saturating_mul(720);
         let five_min = class_a.saturating_mul(8_640);
         let daily = class_a.saturating_mul(30);
-        let pct = |n: u64| format!("{:.1}%", (n as f64) * 100.0 / (CLASS_A_FREE_PER_MONTH as f64));
+        let pct = |n: u64| {
+            format!(
+                "{:.1}%",
+                (n as f64) * 100.0 / (CLASS_A_FREE_PER_MONTH as f64)
+            )
+        };
         vec![
             format!(
                 "object store requests this run: {class_a} LIST (class A) + {} GET (class B), {} MB \
@@ -487,7 +492,8 @@ pub fn materialize_from(
         let recorded = manifest.objects.get(&entry.rel);
         let unchanged = match (recorded, entry.change_token.as_deref()) {
             (Some(recorded), Some(token)) => {
-                recorded.change_token == token && mirror_file_ready(&run.mirror, &entry.rel, entry.size)
+                recorded.change_token == token
+                    && mirror_file_ready(&run.mirror, &entry.rel, entry.size)
             }
             _ => false,
         };
@@ -665,8 +671,8 @@ fn fetch_one(run: &ObjectRun, source: &dyn DocSource, entry: &SourceEntry) -> Re
         std::process::id()
     ));
     let bytes = {
-        let file = std::fs::File::create(&temp)
-            .with_context(|| format!("create {}", temp.display()))?;
+        let file =
+            std::fs::File::create(&temp).with_context(|| format!("create {}", temp.display()))?;
         let mut writer = std::io::BufWriter::with_capacity(COPY_BUFFER_BYTES, file);
         // `io::copy` with a bounded buffer: the object is never in memory whole,
         // whatever its size. This is the streaming guarantee, and it is why a
@@ -695,7 +701,10 @@ fn fetch_one(run: &ObjectRun, source: &dyn DocSource, entry: &SourceEntry) -> Re
 fn prune_mirror(mirror: &Path, keep: &BTreeSet<&str>) -> Result<u64> {
     let mut removed = 0u64;
     let mut directories: Vec<PathBuf> = Vec::new();
-    for entry in walkdir::WalkDir::new(mirror).into_iter().filter_map(|e| e.ok()) {
+    for entry in walkdir::WalkDir::new(mirror)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
         if entry.file_type().is_dir() {
             if path != mirror {
@@ -850,9 +859,9 @@ impl DocSource for ObjectStoreSource {
                     }
                     KeyVerdict::Admit => {
                         let size = object.size().unwrap_or(0).max(0) as u64;
-                        let last_modified = object
-                            .last_modified()
-                            .and_then(|t| t.fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime).ok());
+                        let last_modified = object.last_modified().and_then(|t| {
+                            t.fmt(aws_sdk_s3::primitives::DateTimeFormat::DateTime).ok()
+                        });
                         listing.entries.push(SourceEntry {
                             rel: rel.to_string(),
                             size,
@@ -1006,7 +1015,8 @@ mod tests {
     #[test]
     fn etag_is_an_opaque_token_including_multipart() {
         let single = change_token(Some("\"9bb58f26192e4ba00f01e2e7b136bbd8\""), 11, None).unwrap();
-        let multipart = change_token(Some("\"a1b2c3d4e5f60718293a4b5c6d7e8f90-7\""), 11, None).unwrap();
+        let multipart =
+            change_token(Some("\"a1b2c3d4e5f60718293a4b5c6d7e8f90-7\""), 11, None).unwrap();
         assert!(single.contains("etag:"));
         assert!(
             multipart.contains("-7"),
@@ -1060,7 +1070,10 @@ mod tests {
         let (manifest, reason) =
             ObjectManifest::load(&dir.path().join("nope.json"), "s3://bucket/");
         assert!(manifest.objects.is_empty());
-        assert!(reason.is_none(), "a first run has no manifest and no warning");
+        assert!(
+            reason.is_none(),
+            "a first run has no manifest and no warning"
+        );
     }
 
     #[test]
@@ -1104,13 +1117,19 @@ mod tests {
         std::env::remove_var("AWS_REGION");
         std::env::remove_var("AWS_DEFAULT_REGION");
         assert_eq!(resolve_region(&spec(ObjectScheme::S3, None)), "us-east-1");
-        assert_eq!(resolve_region(&spec(ObjectScheme::R2, Some("http://x"))), "auto");
+        assert_eq!(
+            resolve_region(&spec(ObjectScheme::R2, Some("http://x"))),
+            "auto"
+        );
         assert_eq!(
             resolve_region(&spec(ObjectScheme::S3, Some("http://127.0.0.1:9000"))),
             "auto"
         );
         std::env::set_var("AWS_REGION", "eu-central-1");
-        assert_eq!(resolve_region(&spec(ObjectScheme::S3, None)), "eu-central-1");
+        assert_eq!(
+            resolve_region(&spec(ObjectScheme::S3, None)),
+            "eu-central-1"
+        );
         match saved {
             Some(v) => std::env::set_var("AWS_REGION", v),
             None => std::env::remove_var("AWS_REGION"),
@@ -1134,7 +1153,11 @@ mod tests {
         // 3 per run, hourly = 720 runs a month.
         assert!(lines[1].contains("2160/month hourly"), "{:?}", lines);
         assert!(lines[1].contains("25920/month every 5"), "{:?}", lines);
-        assert!(lines[1].contains("1,000,000/month free allowance"), "{:?}", lines);
+        assert!(
+            lines[1].contains("1,000,000/month free allowance"),
+            "{:?}",
+            lines
+        );
     }
 
     #[test]

@@ -442,7 +442,9 @@ impl DocSource for LocalDirSource {
         // hand back `../`, and a source must not read outside its root.
         match classify_key(&entry.rel) {
             KeyVerdict::Admit => {}
-            KeyVerdict::Skip(rule) => bail!("{} is not a readable relative path ({rule})", entry.rel),
+            KeyVerdict::Skip(rule) => {
+                bail!("{} is not a readable relative path ({rule})", entry.rel)
+            }
         }
         let path = self.root.join(&entry.rel);
         Ok(Box::new(std::fs::File::open(&path)?))
@@ -517,12 +519,17 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("invalid bucket name"), "{err}");
-        assert!(err.contains("Credentials do not belong in the URL"), "{err}");
+        assert!(
+            err.contains("Credentials do not belong in the URL"),
+            "{err}"
+        );
     }
 
     #[test]
     fn empty_bucket_is_refused_with_the_shape_to_type() {
-        let err = parse_source(Path::new("s3://"), None).unwrap_err().to_string();
+        let err = parse_source(Path::new("s3://"), None)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("names no bucket"), "{err}");
         assert!(err.contains("s3://<bucket>/<prefix>"), "{err}");
     }
@@ -540,7 +547,10 @@ mod tests {
 
     #[test]
     fn slug_is_a_stable_directory_name() {
-        assert_eq!(object("s3://my-bucket/docs/2026").slug(), "my-bucket-docs-2026");
+        assert_eq!(
+            object("s3://my-bucket/docs/2026").slug(),
+            "my-bucket-docs-2026"
+        );
         assert_eq!(object("s3://my-bucket").slug(), "my-bucket");
         // Two prefixes of one bucket never share a mirror directory.
         assert_ne!(object("s3://b/a").slug(), object("s3://b/c").slug());
@@ -549,7 +559,10 @@ mod tests {
     #[test]
     fn folder_markers_are_not_documents() {
         assert_eq!(classify_key(""), KeyVerdict::Skip(rules::FOLDER_MARKER));
-        assert_eq!(classify_key("docs/"), KeyVerdict::Skip(rules::FOLDER_MARKER));
+        assert_eq!(
+            classify_key("docs/"),
+            KeyVerdict::Skip(rules::FOLDER_MARKER)
+        );
     }
 
     #[test]
@@ -644,7 +657,11 @@ mod tests {
             .find(|e| e.rel == "sub/b.txt")
             .unwrap();
         let mut body = String::new();
-        source.open(entry).unwrap().read_to_string(&mut body).unwrap();
+        source
+            .open(entry)
+            .unwrap()
+            .read_to_string(&mut body)
+            .unwrap();
         assert_eq!(body, "beta");
         // A local folder cannot answer "did this change" cheaply, and says so.
         assert!(entry.change_token.is_none());
