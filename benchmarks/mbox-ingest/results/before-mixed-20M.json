@@ -1,0 +1,114 @@
+{
+ "profile": "mixed",
+ "target_size": "20M",
+ "autoindex_exit_code": 3,
+ "source": {
+  "mbox_bytes": 21124262,
+  "tree_bytes": 21140515,
+  "entries": 790,
+  "attachments": {
+   "binary": 103,
+   "pdf": 84,
+   "text": 83
+  },
+  "mbox_sha256": "7c8d8752533a3b676b21e9589fa8f2f4a090bae3568796c775b1cf3f177ee2a7"
+ },
+ "wall_seconds": 9.7,
+ "node_docs_indexed": 2102,
+ "docs_per_second": 216.9,
+ "source_mb_per_second": 2.18,
+ "peak_rss_mb": {
+  "autoindex_process": 145.9,
+  "largest_single_process_in_autoindex_tree": 145.9,
+  "server": 1874.1,
+  "server_idle_before_run": 126.6
+ },
+ "disk_bytes": {
+  "index_at_autoindex_exit": 20895070,
+  "index_settled": 15225759,
+  "index_settled_over_mbox": 0.721,
+  "state_dir_peak_during_run": 4917469
+ },
+ "loadavg_before": "31.72 21.35 20.15",
+ "loadavg_after": [
+  "19.76",
+  "19.62",
+  "19.62"
+ ],
+ "verify": {
+  "node_docs": 2102,
+  "mbox_docs": 2072,
+  "attachment_docs": 773,
+  "needles": {
+   "body": {
+    "planted": 9,
+    "found_exactly_once": 9,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "latin1-8bit-body": {
+    "planted": 31,
+    "found_exactly_once": 31,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "cp1252-undeclared-body": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "after-unquoted-prose-from": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "pdf-attachment": {
+    "planted": 5,
+    "found_exactly_once": 5,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "text-attachment": {
+    "planted": 6,
+    "found_exactly_once": 6,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0
+   }
+  },
+  "needle_examples_of_failure": [],
+  "edges": {
+   "replies_to": {
+    "written": 413,
+    "truth_resolvable_replies": 413
+   },
+   "attachment_of": {
+    "written": 773,
+    "attachment_docs": 773
+   }
+  },
+  "empty_no_subject_docs": 0
+ },
+ "binary": "branch feat/ingest-mbox-takeout at 2d5f0af6 (before the thread pool and the 429 re-offer)"
+}

@@ -1,0 +1,99 @@
+{
+ "archives": [
+  "takeout-20240101T000000Z-002.zip",
+  "takeout-20240101T000000Z-003.tgz"
+ ],
+ "attachments": {
+  "binary": 2,
+  "pdf": 5,
+  "text": 6
+ },
+ "attachments_malformed": {
+  "pdf": 1
+ },
+ "bodies_cp1252_undeclared": 1,
+ "bodies_latin1_8bit": 1,
+ "entries": 44,
+ "entries_empty": 1,
+ "entries_malformed_block": 8,
+ "expected_skips": {
+  "default:takeout-index": 1,
+  "default:takeout-keep-html-twin": 4
+ },
+ "from_lines_in_bodies": 3,
+ "generator": "synthetic-takeout.py",
+ "keep_notes": 4,
+ "mbox": {
+  "bytes": 204762,
+  "eol": "crlf",
+  "path": "Takeout/Mail/All mail Including Spam and Trash.mbox",
+  "sha256": "e59a18351c26ed7936b38a3becd4239dfd47ed9cb2e1e83cf2476ef49d89b66b",
+  "trailing_newline": false
+ },
+ "messages_regular": 36,
+ "messages_with_attachments": 8,
+ "needles": [
+  {
+   "message_id": "617b1d72.000002@example.com",
+   "token": "xqbiwopojuzo",
+   "where": "body"
+  },
+  {
+   "message_id": "9f53c664.000003@example.org",
+   "token": "xqguzatelaca",
+   "where": "latin1-8bit-body"
+  },
+  {
+   "message_id": "7b7d92ee.000004@mail.example.net",
+   "token": "xqnorozefefo",
+   "where": "cp1252-undeclared-body"
+  },
+  {
+   "message_id": "prosefrom-7@example.org",
+   "token": "xqdijedubuco",
+   "where": "after-unquoted-prose-from"
+  },
+  {
+   "message_id": "b3069947.000009@example.org",
+   "token": "xqwihefahele",
+   "where": "pdf-attachment"
+  },
+  {
+   "message_id": "2a54d4fd.000012@mail.example.net",
+   "token": "xqvefuranigu",
+   "where": "text-attachment"
+  },
+  {
+   "message_id": null,
+   "token": "xqfepihiwuha",
+   "where": "keep-note"
+  },
+  {
+   "message_id": null,
+   "token": "xqzetagolote",
+   "where": "keep-note"
+  },
+  {
+   "message_id": null,
+   "token": "xqkopesahuwo",
+   "where": "keep-note"
+  },
+  {
+   "message_id": null,
+   "token": "xqverekabodu",
+   "where": "keep-note"
+  },
+  {
+   "message_id": null,
+   "token": "xqjisuwajebi",
+   "where": "drive-markdown"
+  }
+ ],
+ "profile": "mixed",
+ "quoted_from_lines_in_bodies": 1,
+ "replies_dangling": 2,
+ "replies_resolvable": 17,
+ "replies_via_references": 2,
+ "seed": 42,
+ "threads": 17
+}

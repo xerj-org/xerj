@@ -513,10 +513,15 @@ impl Progress {
             progress: self,
             seq,
             bytes,
+            credited: AtomicU64::new(0),
         }
     }
 
-    fn file_finished(&self, seq: u64, bytes: u64) {
+    /// `bytes` is what is still UNcredited for this file — all of it unless
+    /// the guard reported positions through `FileGuard::advance_to`. The item
+    /// is counted here either way, including for a file whose every byte was
+    /// already credited (`item_done` alone skips the add when `bytes` is 0).
+    fn file_finished_partial(&self, seq: u64, bytes: u64) {
         if self.enabled() {
             let mut state = self.state.lock().unwrap();
             state
@@ -953,11 +958,42 @@ pub struct FileGuard<'a> {
     progress: &'a Progress,
     seq: u64,
     bytes: u64,
+    /// Bytes of this file already credited to the phase by [`Self::advance_to`].
+    credited: AtomicU64,
+}
+
+impl FileGuard<'_> {
+    /// Credit the part of this file that has been consumed SO FAR.
+    ///
+    /// Bytes are otherwise credited when a file finishes, which is fine for a
+    /// tree of many files and useless for a container that IS the corpus: a
+    /// Google Takeout mailbox is one multi-GB file, so the bar sat at 0.0% with
+    /// `eta unknown` for the whole run while `since_progress_s` climbed — the
+    /// exact signature of a hang, to a person and to an agent watching stderr.
+    ///
+    /// `consumed` is an absolute position in the file, not a delta. It is
+    /// clamped to the file's size and only ever moves forward, so a caller may
+    /// report positions from a decompressed stream (which can exceed the size
+    /// on disk) or report the same position twice. Whatever was not credited
+    /// here is credited on drop, so the phase still ends on exactly the file's
+    /// size and nothing is counted twice.
+    pub fn advance_to(&self, consumed: u64) {
+        let target = consumed.min(self.bytes);
+        let previous = self.credited.fetch_max(target, Ordering::Relaxed);
+        if target > previous {
+            self.progress
+                .bytes_done
+                .fetch_add(target - previous, Ordering::Relaxed);
+        }
+    }
 }
 
 impl Drop for FileGuard<'_> {
     fn drop(&mut self) {
-        self.progress.file_finished(self.seq, self.bytes);
+        let remainder = self
+            .bytes
+            .saturating_sub(self.credited.load(Ordering::Relaxed));
+        self.progress.file_finished_partial(self.seq, remainder);
     }
 }
 
@@ -1913,6 +1949,58 @@ mod tests {
         drop(guard);
         assert_eq!(progress.items_done.load(Ordering::Relaxed), 1);
         assert_eq!(progress.bytes_done.load(Ordering::Relaxed), 23_488_102);
+    }
+
+    /// A container file reports positions as it is consumed. The phase must
+    /// see them at once, and the total must still land EXACTLY on the file's
+    /// size — no byte counted twice, whatever the caller reports.
+    #[test]
+    fn a_file_guard_credits_progress_inside_one_file() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        let size = 1_073_777_879u64;
+        progress.phase("index", 1, size);
+        let guard = progress.file("Takeout/Mail/All mail.mbox", size);
+        let bytes = || progress.bytes_done.load(Ordering::Relaxed);
+        assert_eq!(bytes(), 0);
+
+        guard.advance_to(100);
+        assert_eq!(bytes(), 100, "visible immediately, not at file end");
+        guard.advance_to(100);
+        assert_eq!(bytes(), 100, "the same position twice adds nothing");
+        guard.advance_to(40);
+        assert_eq!(bytes(), 100, "a position never moves backwards");
+        guard.advance_to(size / 2);
+        assert_eq!(bytes(), size / 2);
+        progress.tick();
+        let text = captured(&buffer);
+        assert!(text.contains("pct=50.0"), "the bar moves mid-file: {text}");
+        assert_eq!(
+            progress.items_done.load(Ordering::Relaxed),
+            0,
+            "not done yet"
+        );
+
+        // A decompressed stream's offsets run past the size on disk: clamped.
+        guard.advance_to(u64::MAX);
+        assert_eq!(bytes(), size);
+        drop(guard);
+        assert_eq!(
+            bytes(),
+            size,
+            "drop credits only the remainder — here, none"
+        );
+        assert_eq!(progress.items_done.load(Ordering::Relaxed), 1);
+
+        // …and a guard that never reported anything still credits everything.
+        let silent = progress.file("b.jsonl", 500);
+        drop(silent);
+        assert_eq!(bytes(), size + 500);
+        // …and one abandoned half-way (junk, error path) credits the rest.
+        let half = progress.file("c.mbox", 1000);
+        half.advance_to(300);
+        drop(half);
+        assert_eq!(bytes(), size + 1500);
+        assert_eq!(progress.items_done.load(Ordering::Relaxed), 3);
     }
 
     #[test]
