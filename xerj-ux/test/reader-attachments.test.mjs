@@ -160,3 +160,20 @@ test('search(): TERM / RANGE free text sends NOTHING and says why; a sample quer
   assert.deepEqual(viaSample.fields, ['body', 'text', 'email_subject', 'ax_path']);
   assert.deepEqual(sent.at(-1).query.bool.should.at(-1), { wildcard: { ax_path: { value: '*inbox*', case_insensitive: true } } });
 });
+
+test('minor (PR #945 review): the OPERATOR transport names a dead engine "engine unreachable" — not the browser\'s "Failed to fetch"', async () => {
+  const { makeConsoleTransport } = await import('../src/data/transport-console.js');
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
+  try {
+    const api = makeReaderApi(makeConsoleTransport());
+    const r = await api.search(I, { q: 'x' });
+    assert.deepEqual([r.hits, r.error, r.kind], [[], 'engine unreachable', 'network']);
+    const rec = await api.fetchRecord(I, 'abc');
+    assert.deepEqual([rec.hit, rec.error], [null, 'engine unreachable']);
+    assert.equal((await api.fetchGraph('b', { _id: 'x', _index: I, _source: {} }, null)).error, 'engine unreachable');
+    // an aborted request is still an abort, not a network error
+    globalThis.fetch = async () => { throw Object.assign(new Error('aborted'), { name: 'AbortError' }); };
+    await assert.rejects(() => makeConsoleTransport().search(I, {}), { name: 'AbortError' });
+  } finally { globalThis.fetch = realFetch; }
+});

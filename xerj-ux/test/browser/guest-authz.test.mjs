@@ -242,3 +242,33 @@ test('minors (PR #945 review): TERM with free text searches NOTHING and says the
   assert.deepEqual(sizes.slice(-2), [25, 50], 'the next request asks for 25 more');
   await page.close();
 });
+
+test('minor (PR #945 review): a guest who RELOADS after the share ended sees the ended screen again — not the operator passkey login', { skip }, async () => {
+  const page = await openGuest(ctx, { hash: '#/corpus' });
+  await page.waitFor(`document.querySelector('[data-guest-leave]')`);
+  await page.eval(`(document.querySelector('[data-guest-leave]').click(), true)`);
+  await page.waitFor(`document.querySelector('[data-guest-ended="left"]')`, { label: 'ended: left' });
+  const n = ctx.engine.apiLog().length;
+  await page.goto(`${ctx.engine.origin}/_xerj-console/#/reader?index=ax-inbox`);
+  await page.waitFor(`document.querySelector('[data-guest-ended="left"]')`, { label: 'the same ended screen after a reload' });
+  const st = await page.eval(`({ path: location.pathname, share: sessionStorage.getItem('xerj.share'), ended: sessionStorage.getItem('xerj.share.ended'), all: JSON.stringify(Object.entries(sessionStorage)) })`);
+  assert.equal(st.path, '/_xerj-console/', 'no bounce to /login');
+  assert.equal(st.share, null);
+  assert.equal(st.ended, 'left');
+  assert.ok(!st.all.includes(GUEST_KEY), 'the marker holds no key');
+  assert.equal(ctx.engine.apiLog().length, n, 'and the reload asked the engine for nothing — not even /me');
+  // the engine's operator has a way out of it
+  await page.eval(`(document.querySelector('[data-guest-operator]').click(), true)`);
+  await page.waitFor(`location.pathname === '/_xerj-console/login'`, { label: 'operator sign-in' });
+  assert.equal(await page.eval(`sessionStorage.getItem('xerj.share.ended')`), null);
+  await page.close();
+});
+
+test('minor (PR #945 review): a reader deep link opened without a session is remembered across the login redirect', { skip }, async () => {
+  const page = await ctx.browser.newPage();
+  const link = '#/reader?index=ax-inbox&id=abc%22%3E';
+  await page.goto(`${ctx.engine.origin}/_xerj-console/${link}`);
+  await page.waitFor(`location.pathname === '/_xerj-console/login'`, { label: 'redirect to login' });
+  assert.equal(await page.eval(`sessionStorage.getItem('xerj.next')`), link, 'login.html takes this back out after the passkey ceremony (data/next-route.js#takeNext)');
+  await page.close();
+});

@@ -13,16 +13,21 @@
 //
 // A record that is present but invalid or expired does NOT fall through to
 // the operator path (which would bounce a confused guest to a passkey login):
-// the guest shell clears it and says the share is over.
+// the guest shell clears it and says the share is over — and leaves a marker
+// (no secret in it) so a RELOAD says the same thing. The ended screen offers
+// the operator sign-in, which removes the marker.
 //
 // Lives in a file, not inline in index.html, so the page can be served with
 // `script-src 'self'`.
 // ============================================================
 
-import { SHARE_KEY } from './data/guest.js';
+import { SHARE_KEY, ENDED_KEY } from './data/guest.js';
 
 function hasShareRecord() {
-  try { return window.sessionStorage.getItem(SHARE_KEY) != null; } catch { return false; }
+  // A share that has ENDED in this tab (expired, revoked, LEAVE) leaves a
+  // non-secret marker behind: a guest who reloads then sees "this share has
+  // ended" again, not the operator's passkey login (PR #945 review).
+  try { return window.sessionStorage.getItem(SHARE_KEY) != null || window.sessionStorage.getItem(ENDED_KEY) != null; } catch { return false; }
 }
 
 async function bootOperator() {
@@ -35,6 +40,13 @@ async function bootOperator() {
       // No reliable "is bootstrapped?" probe yet; default to /login since
       // /setup requires a magic-link token in the fragment. Operators on
       // first boot reach /setup via the stderr banner.
+      // Remember the deep link (`#/reader?index=…&id=…`) so sign-in returns
+      // to it instead of the home page (data/next-route.js — loaded here, on
+      // the operator path only; a guest tab statically imports guest.js alone).
+      try {
+        const { stashNext } = await import('./data/next-route.js');
+        stashNext(window.sessionStorage, window.location.hash);
+      } catch { /* the person lands on the home page after sign-in, as before */ }
       window.location.href = '/_xerj-console/login';
       return;
     }

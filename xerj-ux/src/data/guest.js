@@ -109,6 +109,24 @@ export function readShare(storage, now = Date.now()) {
   return parseShare(raw, now);
 }
 
+/**
+ * "A share ended in this tab" — the REASON only ('expired' | 'unauthorized' |
+ * 'left' | 'invalid'), never the key, the index or the label. boot.js boots
+ * the guest shell when it is present, so a reload shows the ended screen again
+ * instead of bouncing a guest to the operator's passkey login.
+ */
+export const ENDED_KEY = 'xerj.share.ended';
+const ENDED_REASONS = new Set(['expired', 'unauthorized', 'left', 'invalid']);
+export function markEnded(storage, reason) {
+  try { if (storage && typeof storage.setItem === 'function') storage.setItem(ENDED_KEY, ENDED_REASONS.has(reason) ? reason : 'invalid'); } catch { /* storage blocked */ }
+}
+export function readEnded(storage) {
+  try { const r = storage && storage.getItem(ENDED_KEY); return ENDED_REASONS.has(r) ? r : (r != null ? 'invalid' : null); } catch { return null; }
+}
+export function clearEnded(storage) {
+  try { if (storage && typeof storage.removeItem === 'function') storage.removeItem(ENDED_KEY); } catch { /* storage blocked */ }
+}
+
 /** Forget the share. Called on expiry, on a 401, and on "leave". */
 export function clearShare(storage) {
   try { if (storage && typeof storage.removeItem === 'function') storage.removeItem(SHARE_KEY); } catch { /* storage blocked */ }

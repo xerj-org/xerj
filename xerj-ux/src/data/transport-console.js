@@ -41,11 +41,28 @@ function httpError(status) {
   return e;
 }
 
+/**
+ * `fetch`, with a network failure given a KIND. A browser reports "the engine
+ * is not there" as a bare `TypeError: Failed to fetch`; reader-api.js only
+ * translates errors that carry `.kind`, so the operator read the raw browser
+ * string where a guest read "engine unreachable" (PR #945 review).
+ */
+async function request(url, init) {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    const err = new Error('engine unreachable');
+    err.kind = 'network';
+    throw err;
+  }
+}
+
 export function makeConsoleTransport() {
   return {
     guest: false,
     async search(index, body, signal) {
-      const r = await fetch(`${PROXY}/${enc(index)}/search`, {
+      const r = await request(`${PROXY}/${enc(index)}/search`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
@@ -63,7 +80,7 @@ export function makeConsoleTransport() {
     },
     async ego(brain, params, signal) {
       const qs = new URLSearchParams(params);
-      const r = await fetch(`/_graph/${enc(brain)}/ego?${qs}`, { signal, credentials: 'same-origin', headers: { accept: 'application/json' } });
+      const r = await request(`/_graph/${enc(brain)}/ego?${qs}`, { signal, credentials: 'same-origin', headers: { accept: 'application/json' } });
       let body = null;
       try { body = await r.json(); } catch { body = null; }
       return { status: r.status, body };

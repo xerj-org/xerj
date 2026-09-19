@@ -149,7 +149,10 @@ async function liveCorpus(baseUrl, _ctx, signal) {
     datasets = parseCatalogHits(resp?.hits?.hits || []);
   } catch (e) {
     // No catalog index yet (HTTP 404) is the ordinary empty state, not an error.
-    if (!/HTTP 404/.test(String(e))) catalogError = String(e && e.message || e).slice(0, 200);
+    // A fetch that never reached the engine is a bare TypeError ("Failed to
+    // fetch"): say what it means, as the Reader and the guest shell do.
+    if (e instanceof TypeError) catalogError = 'engine unreachable';
+    else if (!/HTTP 404/.test(String(e))) catalogError = String(e && e.message || e).slice(0, 200);
   }
   let others = [];
   try {

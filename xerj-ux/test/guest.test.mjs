@@ -358,3 +358,42 @@ test('attachments collapse to each file\'s lowest page; highlight asks only for 
   await api.search('ax-inbox', { q: 'x', type: 'semantic' });
   assert.equal(sent.at(-1).highlight, undefined);
 });
+
+test('minor (PR #945 review): a deep link survives the sign-in page — only ever as an in-console route', async () => {
+  const { stashNext, takeNext, safeRoute, NEXT_KEY } = await import('../src/data/next-route.js');
+  const st = storage();
+  const link = '#/reader?index=ax-docs&id=3eeb8e72%22%3E&brain=case-file';
+  assert.equal(stashNext(st, link), link);
+  assert.equal(st.getItem(NEXT_KEY), link);
+  assert.equal(takeNext(st), link);
+  assert.equal(st.getItem(NEXT_KEY), null, 'read once');
+  assert.equal(takeNext(st), '');
+  // nothing but `#/…` route characters is kept — or returned, if something else wrote the key
+  for (const bad of ['', '#', '#/', 'https://evil.example/', '#//evil.example', '//evil.example', 'javascript:alert(1)', '#/reader?x=javascript:alert(1)', '#/a b', '#/a<script>', `#/${'a'.repeat(3000)}`, null, 42]) {
+    assert.equal(safeRoute(bad), '', `rejected: ${String(bad).slice(0, 40)}`);
+    assert.equal(stashNext(st, bad), '');
+    assert.equal(st.getItem(NEXT_KEY), null);
+  }
+  st.setItem(NEXT_KEY, 'https://evil.example/');
+  assert.equal(takeNext(st), '', 'a planted value is dropped, and removed');
+  assert.equal(st.getItem(NEXT_KEY), null);
+  // a blocked storage is not an error
+  const blocked = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
+  assert.equal(stashNext(blocked, link), link);
+  assert.equal(takeNext(blocked), '');
+});
+
+test('minor (PR #945 review): an ended share leaves a marker that holds the REASON and nothing else', async () => {
+  const { markEnded, readEnded, clearEnded, ENDED_KEY } = await import('../src/data/guest.js');
+  const st = storage();
+  assert.equal(readEnded(st), null);
+  markEnded(st, 'expired');
+  assert.equal(st.getItem(ENDED_KEY), 'expired');
+  assert.equal(readEnded(st), 'expired');
+  markEnded(st, 'Z3Vlc3Qta2V5LWlkOnNlY3JldA=='); // anything that is not a known reason is not stored
+  assert.equal(st.getItem(ENDED_KEY), 'invalid');
+  st.setItem(ENDED_KEY, '<img src=x onerror=1>');
+  assert.equal(readEnded(st), 'invalid', 'a planted value reads as "invalid", never as text');
+  clearEnded(st);
+  assert.equal(readEnded(st), null);
+});

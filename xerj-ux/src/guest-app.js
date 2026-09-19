@@ -25,6 +25,7 @@
 
 import {
   readShare, clearShare, isExpired, guestBanner, installGuestGuard, watchExpiry, SHARE_KEY,
+  markEnded, readEnded, clearEnded,
 } from './data/guest.js';
 import { makeGuestTransport } from './data/transport-guest.js';
 import { makeReaderApi, FATAL_KINDS } from './data/reader-api.js';
@@ -46,7 +47,16 @@ export function endedScreen(reason) {
   return h('div', { class: 'guest-ended', role: 'status', 'data-guest-ended': reason in ENDED_TEXT ? reason : 'invalid' },
     h('div', { class: 'key' }, 'XERJ · SHARED VIEW'),
     h('h1', { class: 'h-scene' }, title),
-    h('p', null, body));
+    h('p', null, body),
+    // This tab keeps showing this screen on reload (data/guest.js#markEnded).
+    // The way out for the engine's own operator: forget that, go to sign-in.
+    h('p', { class: 'faint' }, h('button', { class: 'text-btn', type: 'button', 'data-guest-operator': '1' }, 'OPERATOR SIGN-IN')));
+}
+
+/** Wire the ended screen's one button: forget the marker, open the login. */
+function wireEnded(app, win) {
+  const btn = app.querySelector('[data-guest-operator]');
+  if (btn) btn.addEventListener('click', () => { clearEnded(win.sessionStorage); win.location.href = '/_xerj-console/login'; });
 }
 
 /** Did every shared index answer? Only then is the corpus view's data kept. */
@@ -59,11 +69,18 @@ export function bootGuest(win = window) {
   const app = doc.getElementById('app');
   const share0 = readShare(win.sessionStorage);
   if (!share0) {
+    // No usable record: either one that fails validation (cleared here), or a
+    // reload after a share ended in this tab — say again how it ended.
+    const hadRecord = (() => { try { return win.sessionStorage.getItem(SHARE_KEY) != null; } catch { return false; } })();
+    const reason = hadRecord ? 'invalid' : (readEnded(win.sessionStorage) || 'invalid');
     clearShare(win.sessionStorage);
-    mount(app, endedScreen('invalid'));
+    markEnded(win.sessionStorage, reason);
+    mount(app, endedScreen(reason));
+    wireEnded(app, win);
     app.setAttribute('aria-busy', 'false');
     return null;
   }
+  clearEnded(win.sessionStorage); // a live share: whatever ended here before is history
 
   // The live session. `end()` nulls it, after which every transport call
   // refuses locally ('expired') — nothing keeps using a key we dropped.
@@ -100,10 +117,12 @@ export function bootGuest(win = window) {
     if (bannerTimer) win.clearInterval(bannerTimer);
     view.detach();
     clearShare(win.sessionStorage);
+    markEnded(win.sessionStorage, reason);
     win.removeEventListener('hashchange', route);
     doc.removeEventListener('visibilitychange', onVisible);
     win.removeEventListener('storage', onStorage);
     mount(app, endedScreen(reason));
+    wireEnded(app, win);
   }
 
   // ----- chrome ------------------------------------------------------
