@@ -180,6 +180,50 @@ def main():
     check("list flags the fixture as NOT loaded",
           "NOT loaded here" in blob, repr(blob))
 
+    # --json must be parseable for a genuine miss as well as a match. Keep the
+    # existing exit codes and the raw response (including BM25 metadata).
+    for mode, extra in (("bm25", []), ("hybrid", []), ("semantic", []),
+                        ("bm25", ["--meatl"])):
+        label = mode + (" +meatl" if extra else "")
+        code, out, err = run_query(
+            mod, indices=[{"index": f"{PREFIX}-1"}], search_hits=[],
+            argv=[CORPUS, "nonexistent xyzzy plugh", "--json", "--mode", mode]
+                 + extra)
+        expected = {"hits": {"hits": []}}
+        if mode == "bm25":
+            expected["hits"]["total"] = {"value": 0}
+        try:
+            payload = json.loads(out)
+        except ValueError:
+            payload = None
+        check(f"json {label} miss keeps exit code 1", code == 1, f"got {code}")
+        check(f"json {label} miss emits the empty response",
+              payload == expected, repr(out))
+        check(f"json {label} miss has no stderr", err == "", repr(err))
+
+    code, out, err = run_query(
+        mod, indices=[{"index": f"{PREFIX}-1"}], search_hits=HIT,
+        argv=[CORPUS, "two way parse_two_way", "--json"])
+    check("json match keeps exit code 0", code == 0, f"got {code}")
+    check("json match preserves the raw response",
+          json.loads(out) == {"hits": {"total": {"value": 1}, "hits": HIT}},
+          repr(out))
+
+    code, out, err = run_query(mod, indices=[], search_hits=[],
+                               argv=[CORPUS, "two way string search", "--json"])
+    check("json unloaded corpus keeps exit code 3", code == 3, f"got {code}")
+    check("json unloaded corpus has no search response", out == "", repr(out))
+    check("json unloaded corpus keeps its actionable stderr",
+          "0 live indices" in err and "xc-index.sh" in err, repr(err))
+
+    code, out, err = run_query(
+        mod, indices=[{"index": f"{PREFIX}-1"}], search_hits=[],
+        argv=[CORPUS, "nonexistent xyzzy plugh", "--meatl"])
+    check("meatl miss keeps exit code 1", code == 1, f"got {code}")
+    check("meatl miss keeps its no-match record",
+          out == '@no q="nonexistent xyzzy plugh" why=no-match-in-corpus\n',
+          repr(out))
+
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
 

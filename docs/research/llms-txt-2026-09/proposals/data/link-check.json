@@ -1,0 +1,430 @@
+[
+ {
+  "url": "https://api.github.com/repos/xerj-org/xerj/releases/latest",
+  "in": [
+   "proposed-llms-install.md"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 29299,
+  "fetched_at": "2026-09-19T21:23:16Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://github.com/xerj-org/xerj",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 439906,
+  "fetched_at": "2026-09-19T21:23:17Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://github.com/xerj-org/xerj/blob/main/AGENTS.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 327316,
+  "fetched_at": "2026-09-19T21:23:17Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://github.com/xerj-org/xerj/blob/main/CONTRIBUTING.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 306478,
+  "fetched_at": "2026-09-19T21:23:18Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://github.com/xerj-org/xerj/blob/main/SECURITY.md",
+  "in": [
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 264000,
+  "fetched_at": "2026-09-19T21:23:18Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://github.com/xerj-org/xerj/issues/new/choose",
+  "in": [
+   "install-prompt-library.md",
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 47758,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/answers/",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 38838,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/answers/autoindex-exit-codes.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 10803,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/answers/estimate-autoindex-time-before-running.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 7073,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/answers/index-reference-library-for-coding-agent.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 10863,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/answers/read-autoindex-progress.md",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 6245,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/api/field-report",
+  "in": [
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 404,
+  "kind": "error",
+  "bytes": 11004,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "missing \u2014 declared: marked (proposed \u2014 not implemented) where it is printed"
+ },
+ {
+  "url": "https://xerj.org/benchmarks",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 35965,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/case-studies",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 23580,
+  "fetched_at": "2026-09-19T21:23:19Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/case-studies/reference-coding",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 46204,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 36232,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/agents/endpoints",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 43951,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/agents/schemas/anthropic-tools.json",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 16185,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/agents/schemas/mcp-tools.json",
+  "in": [
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 17989,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/agents/schemas/openai-tools.json",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 12794,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/aggregations",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 33459,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/api-es-compat",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 34707,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/cli",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 36130,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/ingest",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 29530,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/install",
+  "in": [
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 37386,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/migration-from-es",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 32687,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/queries",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 34590,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/recipes/",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 33022,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/recipes/air-gapped-deployment",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 39123,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/recipes/zero-config-autoindex",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 49691,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/security",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 30680,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/docs/vectors",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 36061,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/get",
+  "in": [
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 11515,
+  "fetched_at": "2026-09-19T21:18:33Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/get.ps1",
+  "in": [
+   "proposed-llms-install.md"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 8037,
+  "fetched_at": "2026-09-19T21:18:33Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/llms-full.txt",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 83712,
+  "fetched_at": "2026-09-19T21:18:32Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/llms-install.md",
+  "in": [
+   "install-prompt-library.md",
+   "proposed-llms-install.md",
+   "proposed-llms.txt"
+  ],
+  "status": 404,
+  "kind": "error",
+  "bytes": 11004,
+  "fetched_at": "2026-09-19T21:18:31Z",
+  "verdict": "missing \u2014 declared: introduced by this proposal (ship checklist step 1)"
+ },
+ {
+  "url": "https://xerj.org/llms.txt",
+  "in": [
+   "install-prompt-library.md",
+   "proposed-llms-install.md"
+  ],
+  "status": 200,
+  "kind": "text",
+  "bytes": 40064,
+  "fetched_at": "2026-09-19T21:17:14Z",
+  "verdict": "ok"
+ },
+ {
+  "url": "https://xerj.org/use-cases",
+  "in": [
+   "proposed-llms.txt"
+  ],
+  "status": 200,
+  "kind": "html",
+  "bytes": 37031,
+  "fetched_at": "2026-09-19T21:23:20Z",
+  "verdict": "ok"
+ }
+]

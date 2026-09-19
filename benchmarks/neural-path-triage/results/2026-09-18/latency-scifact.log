@@ -1,0 +1,17 @@
+ 10:13:46 up  5:17,  3 users,  load average: 15.86, 20.18, 19.82
+ARM_START bm25 2026-09-18T08:13:46
+bm25                               n=60 p50=   11.0ms p95=   14.9ms  server took p50=9ms
+ARM_END bm25 2026-09-18T08:13:46
+ARM_START semantic (unfiltered) 2026-09-18T08:13:46
+semantic (unfiltered)              n=60 p50=  427.7ms p95=  555.0ms  server took p50=426ms
+ARM_END semantic (unfiltered) 2026-09-18T08:14:12
+ARM_START semantic + ids filter (30 docs) 2026-09-18T08:14:12
+semantic + ids filter (30 docs)    n=60 p50=  322.1ms p95=  387.8ms  server took p50=319ms
+ARM_END semantic + ids filter (30 docs) 2026-09-18T08:14:32
+ARM_START hybrid rrf 2026-09-18T08:14:32
+hybrid rrf                         n=60 p50=  567.9ms p95=  691.7ms  server took p50=566ms
+ARM_END hybrid rrf 2026-09-18T08:15:06
+ARM_START semantic, SAME query repeated 2026-09-18T08:15:06
+semantic, SAME query repeated      n=60 p50=    1.0ms p95=    1.9ms  server took p50=0ms
+ARM_END semantic, SAME query repeated 2026-09-18T08:15:06
+ 10:15:06 up  5:19,  3 users,  load average: 22.56, 21.01, 20.12
