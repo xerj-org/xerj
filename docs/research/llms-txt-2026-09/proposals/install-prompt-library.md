@@ -3,7 +3,7 @@
 
 Ten prompts a person pastes into an agent. Each is under 8 lines, says what the agent must ask before it acts, and ends with what "done" looks like. Every command and flag in them was checked against `xerj v1.0.0-rc.74` on 2026-09-19 (`data/xerj-cli-verification-2026-09-19.md`). Prompt 2 keeps the current website hero prompt word for word and adds two lines.
 
-None of them asks the agent to file anything. Prompt 10 is the only one about feedback, and it ends with the user deciding.
+None of them asks the agent to file anything. Feedback appears in prompt 10 alone, and that prompt ends with the user deciding.
 
 ## 1. Claude Code — install, index, register MCP
 

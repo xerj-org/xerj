@@ -359,6 +359,7 @@ RAN 2026-09-19 (`scripts/check_links.py`): the three proposal files print 38 dis
 4. **Before or with it**: the `--open-pr` repository check (P0 #1). If it has not shipped, the bullet that limits `--open-pr` to "a clone or fork of `github.com/xerj-org/xerj`" stays in, in both files.
 5. **Not before they exist**: links to `/SKILL.md`, `/answers/llms.txt`, either `.well-known` index, or `.md` twins of `/docs/*`. The proposed file links none of them.
 6. **After**: re-run the first-time-agent harness on the shell-less personas (P3) and record the result next to this report.
+7. **If any of this text moves into `content/answers/`**: the site gate `scripts/seo/factcheck.py` rejects it today. Its rule `FC-CLI-SUBCOMMAND` (`scripts/seo/claims_rules.py`) still lists `search` among subcommands that "do not exist", although `xerj search` shipped in rc.73 (RAN: 10 ERRORs over the three proposal files, 8 of them this rule; the other two are the comparison rules firing on a link titled "Migration from Elasticsearch"). Update the rule first. `landing/llms.txt` itself is not scanned by that gate.
 
 ## 10. What was done with the critic's items
 
