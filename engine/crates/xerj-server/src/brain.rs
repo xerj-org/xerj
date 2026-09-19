@@ -562,18 +562,29 @@ fn mcp_env_with(url: &str, api_key: Option<&str>, env_key: Option<&str>) -> Stri
 /// only when the run used non-default ones, so the printed command works as
 /// pasted: `xerj share` finds the admin key in the data dir, and without the
 /// flag it would look in `~/.xerj/brain` — another node's key, or none.
+///
+/// Every argument is one shell word (`share::sh_quote`): a folder called
+/// `case files` used to come out as two arguments, and the "exact command"
+/// failed with `unknown argument: files`. The parenthesis says what is true in
+/// every mode — the documents stay here. It used to say "nothing is uploaded",
+/// which reads as "nobody else sees the traffic"; with `--tunnel` Cloudflare
+/// does, and `xerj share` says so when it prints the link.
 fn share_hint(root: &Path, url: &str, data_dir: Option<&Path>) -> String {
+    use crate::share::sh_quote;
     let mut args = String::new();
     if url != "http://localhost:9200" {
-        args.push_str(&format!(" --url {url}"));
+        args.push_str(&format!(" --url {}", sh_quote(url)));
     }
     if let Some(dir) = data_dir {
-        args.push_str(&format!(" --data-dir {}", dir.display()));
+        args.push_str(&format!(
+            " --data-dir {}",
+            sh_quote(&dir.display().to_string())
+        ));
     }
     format!(
         "  share it: xerj share {}{args}   (read-only link + passcode for one person; \
-         nothing is uploaded)",
-        root.display()
+         the documents stay on this machine)",
+        sh_quote(&root.display().to_string())
     )
 }
 
@@ -850,6 +861,26 @@ mod tests {
             "{hint}"
         );
         assert_eq!(hint.lines().count(), 1, "{hint}");
+    }
+
+    /// Review of PR #947: `xerj brain "case files"` printed a share command
+    /// that failed when pasted (`unknown argument: files`).
+    #[test]
+    #[cfg(not(windows))]
+    fn share_hint_quotes_a_folder_with_a_space() {
+        let hint = share_hint(
+            Path::new("/home/u/case files"),
+            "http://localhost:9510",
+            Some(Path::new("/srv/my data")),
+        );
+        assert!(
+            hint.contains(
+                "xerj share '/home/u/case files' --url http://localhost:9510 --data-dir '/srv/my data' "
+            ),
+            "{hint}"
+        );
+        assert!(hint.contains("stay on this machine"), "{hint}");
+        assert!(!hint.contains("nothing is uploaded"), "{hint}");
     }
 
     /// ONBOARDING-401-REPRO.md §3: `brain` resolves a credential itself (from

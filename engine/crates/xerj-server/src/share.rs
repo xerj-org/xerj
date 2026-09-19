@@ -16,6 +16,17 @@
 //! - `--tunnel` runs the operator's own `cloudflared` as a child process and
 //!   reads the public hostname off its log. No tunnel code lives here.
 //!
+//! ## What the owner is told about the road to the guest
+//!
+//! The documents never leave this machine as a copy — that sentence is true in
+//! every mode. *Who can read the traffic* is not the same in every mode, and
+//! the first cut said "the guest's browser reads from this node" under
+//! `--tunnel` too, where the browser talks to Cloudflare, which ends TLS and
+//! can read the passcode, the guest key and every document opened (review of
+//! PR #947). [`Reach`] is how the link gets to this node, and
+//! [`render_created`] says what that means at the moment the owner is about to
+//! send it — not only in the docs.
+//!
 //! ## The one refusal
 //!
 //! A node running with authentication off (`--insecure`, `auth.enabled =
@@ -85,8 +96,9 @@ pub fn help_text(feedback: bool) -> String {
          \n\
          The guest opens the link, types the passcode, and gets a reading room over\n\
          that one index: search, highlighted snippets, a document view. Read-only.\n\
-         Nothing is uploaded — the documents stay on this machine and the guest's\n\
-         browser talks to this node. Revoke any time.\n\
+         The documents stay on this machine: nothing is uploaded or stored anywhere\n\
+         else, and this node answers the guest's browser. With --tunnel that traffic\n\
+         passes through Cloudflare, which can read it (see --tunnel). Revoke any time.\n\
          \n\
          {}\
          USAGE:\n\
@@ -100,7 +112,10 @@ pub fn help_text(feedback: bool) -> String {
          OPTIONS:\n\
              --expires <D>      lifetime: 30m, 24h, 7d … (default {}; longest 30d)\n\
              --max-claims <N>   how many times the link can be opened (default {},\n\
-                                most {}). Each open mints its own guest key\n\
+                                most {}). Each open mints its own guest key. One\n\
+                                open is one browser tab: a guest who closes the tab\n\
+                                needs another open to come back — give a few to\n\
+                                someone who will read over several days\n\
              --passcode <CODE>  choose the passcode ({}–{} chars). Default: a generated\n\
                                 xxxx-xxxx. A passcode typed here lands in your shell\n\
                                 history; the generated one does not\n\
@@ -112,11 +127,19 @@ pub fn help_text(feedback: bool) -> String {
              --tunnel           open a temporary public address with `cloudflared`, print\n\
                                 the full guest link, run until Ctrl-C, then close the\n\
                                 tunnel and revoke the share. Without `cloudflared`\n\
-                                installed you get install steps and the local link\n\
+                                installed you get install steps and the local link.\n\
+                                The tunnel is Cloudflare's: it ends TLS there, so\n\
+                                Cloudflare can read what passes through — the\n\
+                                passcode, the guest's key, the searches and every\n\
+                                document the guest opens. Nothing is stored there.\n\
+                                If that is not acceptable, use --public-url with\n\
+                                your own certificate\n\
              --keep             with --tunnel: leave the share active after Ctrl-C\n\
              --public-url <U>   the https:// address this node is reachable at (your own\n\
-                                hostname or reverse proxy); the printed link uses it\n\
-             --url <U>          the node (default http://localhost:9200)\n\
+                                hostname or reverse proxy); the printed link uses it.\n\
+                                http:// is accepted with a warning: the passcode and\n\
+                                the guest's key would cross the network unencrypted\n\
+             --url <U>          the node, scheme included (default http://localhost:9200)\n\
              --data-dir <PATH>  where the node's admin.key is (default ~/.xerj/brain)\n\
              --api-key <K>      the node's ADMIN key (or env XERJ_API_KEY). Shares can\n\
                                 only be managed with the admin key\n\
@@ -291,7 +314,18 @@ fn parse(args: Vec<String>, env_key: Option<String>) -> Result<Option<ShareCfg>,
                 create.public_url = Some(u.trim_end_matches('/').to_string());
                 create_flags.push("--public-url");
             }
-            "--url" => url = it.next().ok_or("--url needs a value")?,
+            "--url" => {
+                // Without a scheme the HTTP client fails before it connects,
+                // and that used to be reported as "no xerj node answers" while
+                // the node was up (review of PR #947).
+                let u = it.next().ok_or("--url needs a value")?;
+                if !(u.starts_with("http://") || u.starts_with("https://")) {
+                    return Err(format!(
+                        "--url {u}: include the scheme — for example http://{u}"
+                    ));
+                }
+                url = u;
+            }
             "--data-dir" => {
                 data_dir = Some(PathBuf::from(it.next().ok_or("--data-dir needs a value")?))
             }
@@ -417,10 +451,86 @@ fn classify_target(
     Ok(Target::Indices(indices))
 }
 
+/// How the printed link reaches this node. It decides what the owner is told
+/// about who else can read the traffic — see the module docs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reach {
+    /// The node's own URL, and the host is loopback: only this machine.
+    Loopback,
+    /// The node's own URL, and the host is NOT loopback — a LAN or public
+    /// address. The first cut called this "only this machine can reach" too,
+    /// because it looked at the flags and not at the URL.
+    Direct,
+    /// `--public-url`: the owner's hostname or reverse proxy.
+    PublicUrl,
+    /// `--tunnel`: a Cloudflare quick tunnel, which terminates TLS.
+    CloudflareTunnel,
+}
+
+impl Reach {
+    /// The `via` field of `--json` output.
+    fn as_str(self) -> &'static str {
+        match self {
+            Reach::Loopback => "loopback",
+            Reach::Direct => "direct",
+            Reach::PublicUrl => "public_url",
+            Reach::CloudflareTunnel => "cloudflare_tunnel",
+        }
+    }
+}
+
+/// What a quick tunnel means for the traffic, in the words the owner reads
+/// before sending the link. One constant: the human banner, `--json`
+/// (`transit_notice`) and the tests all use it.
+pub const CLOUDFLARE_TRANSIT_NOTICE: &str =
+    "this link goes through Cloudflare. A quick tunnel ends TLS at Cloudflare, so Cloudflare \
+     can read everything that passes through it: the passcode, the guest's key, the searches \
+     and every document the guest opens. Nothing is stored there. If that is not acceptable, \
+     publish the node under your own certificate and use --public-url instead";
+
+/// The host part of an `http(s)://host[:port]/…` URL, brackets kept.
+fn url_host(url: &str) -> Option<&str> {
+    let rest = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
+    let hostport = rest.split(['/', '?', '#']).next().unwrap_or(rest);
+    let host = match hostport.strip_prefix('[') {
+        // [::1]:9200
+        Some(v6) => v6.split(']').next().unwrap_or(v6),
+        None => hostport.rsplit_once(':').map_or(hostport, |(h, _)| h),
+    };
+    (!host.is_empty()).then_some(host)
+}
+
+/// Does `url` name this machine and nothing else?
+fn is_loopback_url(url: &str) -> bool {
+    match url_host(url) {
+        Some("localhost") => true,
+        Some(host) => host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback()),
+        None => false,
+    }
+}
+
+/// How the link for this create reaches the node.
+fn reach_of(tunnel_up: bool, public_url: Option<&str>, node_url: &str) -> Reach {
+    if tunnel_up {
+        Reach::CloudflareTunnel
+    } else if public_url.is_some() {
+        Reach::PublicUrl
+    } else if is_loopback_url(node_url) {
+        Reach::Loopback
+    } else {
+        Reach::Direct
+    }
+}
+
 /// The link a guest opens. The share id rides in the **fragment**: a browser
-/// never sends a fragment to the server, so the id reaches no access log, no
-/// proxy log and no `Referer` — only the page's own script, which posts it to
-/// the claim route.
+/// never sends a fragment to the server, so the page request carries no id and
+/// neither does any `Referer`. The page's own script then sends the id in the
+/// **body** of the claim `POST` (`/_share/claim`) — never in a path, which is
+/// what an access log, a reverse proxy and a tunnel's edge would record.
 pub fn guest_link(base_url: &str, url_path: Option<&str>, share_id: &str) -> String {
     let base = base_url.trim_end_matches('/');
     match url_path {
@@ -729,7 +839,38 @@ struct Resolved {
     how: Option<String>,
 }
 
-fn resolve_target(es: &Es, create: &CreateCfg) -> Result<Resolved> {
+/// What the brain-meta lookup for a folder argument came back with.
+#[derive(Debug, PartialEq)]
+enum BrainMeta {
+    Found(Value),
+    /// The node answered and there is no such brain.
+    NotIndexed,
+    /// The node did not answer the question — most often `401`/`403`, a wrong
+    /// or non-admin key.
+    Refused,
+}
+
+/// Read a `GET /{edges}/_doc/__brain_meta__` answer.
+///
+/// This went through `Es::get_doc`, which turns *every* body without
+/// `found: true` into "no document" — including a `401`. So a wrong key with a
+/// folder argument was reported as "<folder> has not been indexed … run `xerj
+/// brain` first", sending the owner to re-index a folder that was indexed all
+/// along, while the same key with an index argument got the right sentence
+/// (review of PR #947). Only a `404`, or a `200` that says `found: false`,
+/// means the brain is not there.
+fn brain_meta(status: u16, body: &Value) -> BrainMeta {
+    match status {
+        200 if body.get("found").and_then(Value::as_bool) == Some(true) => body
+            .get("_source")
+            .cloned()
+            .map_or(BrainMeta::NotIndexed, BrainMeta::Found),
+        200 | 404 => BrainMeta::NotIndexed,
+        _ => BrainMeta::Refused,
+    }
+}
+
+fn resolve_target(es: &Es, common: &Common, create: &CreateCfg) -> Result<Resolved> {
     let target = classify_target(&create.target, create.force_index, |p| p.is_dir())
         .map_err(|e| anyhow!(e))?;
     match target {
@@ -753,16 +894,22 @@ fn resolve_target(es: &Es, create: &CreateCfg) -> Result<Resolved> {
                 }
             };
             let edges_index = detect::edges_index_name(&brain);
-            let meta = es
-                .get_doc(&edges_index, detect::BRAIN_META_ID)
+            let (status, body) = es
+                .request_json(
+                    "GET",
+                    &format!("/{edges_index}/_doc/{}", detect::BRAIN_META_ID),
+                    None,
+                )
                 .with_context(|| format!("look up brain '{brain}'"))?;
-            let Some(meta) = meta else {
-                bail!(
+            let meta = match brain_meta(status, &body) {
+                BrainMeta::Found(meta) => meta,
+                BrainMeta::NotIndexed => bail!(
                     "{} has not been indexed on this node: there is no brain named '{brain}'. \
                      Run `xerj brain {}` first, or pass an index name",
                     folder.display(),
                     folder.display()
-                );
+                ),
+                BrainMeta::Refused => return Err(explain(status, &body, common)),
             };
             let indices: Vec<String> = meta
                 .get("nodes_index")
@@ -795,7 +942,7 @@ fn resolve_target(es: &Es, create: &CreateCfg) -> Result<Resolved> {
 }
 
 fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
-    let resolved = resolve_target(es, create)?;
+    let resolved = resolve_target(es, common, create)?;
     if let Some(how) = &resolved.how {
         eprintln!("sharing {how}");
     }
@@ -875,19 +1022,23 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
         .or_else(|| create.public_url.clone())
         .unwrap_or_else(|| common.url.clone());
     let link = guest_link(&base, url_path, share_id);
-    let local_only = tunnel.is_none() && create.public_url.is_none();
+    let reach = reach_of(tunnel.is_some(), create.public_url.as_deref(), &common.url);
 
     if common.json {
         let mut out = resp.clone();
         out["link"] = json!(link);
-        out["local_only"] = json!(local_only);
+        out["local_only"] = json!(reach == Reach::Loopback);
+        out["via"] = json!(reach.as_str());
+        if reach == Reach::CloudflareTunnel {
+            out["transit_notice"] = json!(CLOUDFLARE_TRANSIT_NOTICE);
+        }
         out["revoke"] = json!(format!(
             "xerj share --revoke {handle}{}",
             connection_args(common)
         ));
         println!("{}", serde_json::to_string_pretty(&out)?);
     } else {
-        print!("{}", render_created(&resp, &link, local_only, common));
+        print!("{}", render_created(&resp, &link, reach, common));
     }
     if let Some(note) = &tunnel_note {
         eprintln!("\n{note}");
@@ -920,6 +1071,13 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
     );
     let why = tunnel.wait(interrupts.as_ref().expect("listening when --tunnel is set"));
     eprintln!("\n{why} — closing the tunnel.");
+    if why == CLOUDFLARED_STOPPED {
+        // Nobody asked it to stop: its own last words are the only reason.
+        let tail = tunnel_log_tail(&tunnel.log);
+        if !tail.is_empty() {
+            eprintln!("{}", tail.trim_start_matches('\n'));
+        }
+    }
     drop(tunnel);
     if create.keep {
         eprintln!(
@@ -957,16 +1115,52 @@ fn create_share(es: &Es, common: &Common, create: &CreateCfg) -> Result<i32> {
 fn connection_args(common: &Common) -> String {
     let mut out = String::new();
     if common.url != DEFAULT_URL {
-        out.push_str(&format!(" --url {}", common.url));
+        out.push_str(&format!(" --url {}", sh_quote(&common.url)));
     }
     if let Some(dir) = &common.data_dir {
-        out.push_str(&format!(" --data-dir {}", dir.display()));
+        out.push_str(&format!(
+            " --data-dir {}",
+            sh_quote(&dir.display().to_string())
+        ));
     }
     out
 }
 
+/// `arg` as one shell word, for a command the owner is meant to paste.
+///
+/// `xerj brain "case files"` printed `xerj share /…/case files --url …`, and
+/// pasting it failed with `unknown argument: files` (review of PR #947). An
+/// argument made only of characters no shell treats specially is left alone,
+/// so the common case still reads cleanly; anything else is quoted — single
+/// quotes on unix (`'` itself as `'\''`), double quotes on Windows, where
+/// `cmd.exe` and PowerShell both accept them around a path.
+pub(crate) fn sh_quote(arg: &str) -> String {
+    let plain = !arg.is_empty()
+        && arg.chars().all(|c| {
+            c.is_ascii_alphanumeric()
+                || matches!(c, '_' | '-' | '.' | '/' | ':' | ',' | '+' | '=' | '@' | '%')
+        });
+    if plain {
+        return arg.to_string();
+    }
+    if cfg!(windows) {
+        // A Windows path legitimately holds `\` and `:`; neither needs more
+        // than the surrounding quotes.
+        let bare_ok = !arg.is_empty()
+            && arg.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '/' | '\\' | ':')
+            });
+        return if bare_ok {
+            arg.to_string()
+        } else {
+            format!("\"{}\"", arg.replace('"', "\\\""))
+        };
+    }
+    format!("'{}'", arg.replace('\'', "'\\''"))
+}
+
 /// The human-readable result of a create. A value, so tests can read it.
-fn render_created(resp: &Value, link: &str, local_only: bool, common: &Common) -> String {
+fn render_created(resp: &Value, link: &str, reach: Reach, common: &Common) -> String {
     let node_url = common.url.as_str();
     let g = |k: &str| resp.get(k).and_then(Value::as_str).unwrap_or("");
     let mut what = format!("index {}", g("index"));
@@ -990,26 +1184,86 @@ fn render_created(resp: &Value, link: &str, local_only: bool, common: &Common) -
         g("passcode")
     ));
     out.push_str(&format!(
-        "  expires:   {} · can be opened {claims} time{}\n",
+        "  expires:   {} · can be opened {claims} time{}{}\n",
         g("expires_at"),
-        if claims == 1 { "" } else { "s" }
+        if claims == 1 { "" } else { "s" },
+        // sessionStorage is per tab: a closed tab is a spent open. Say so
+        // where the number is, not only in the docs.
+        if claims == 1 {
+            " — one browser tab; --max-claims <N> for a guest who will come back"
+        } else {
+            ""
+        }
     ));
     out.push_str(&format!(
         "  revoke:    xerj share --revoke {}{}\n",
         g("handle"),
         connection_args(common)
     ));
-    out.push_str(
-        "  the link and passcode are shown once — the node keeps only their hashes.\n\
-         \x20 your documents stay on this machine; the guest's browser reads from this node.\n",
-    );
-    if local_only {
-        out.push_str(&format!(
-            "\n  this link points at {node_url}, which only this machine can reach.\n\
-             \x20 for someone elsewhere: `xerj share … --tunnel` (temporary public address), \
-             or\n\
-             \x20 --public-url https://<your-hostname> if the node is already published.\n"
-        ));
+    out.push_str("  the link and passcode are shown once — the node keeps only their hashes.\n");
+    let plain_http = link.starts_with("http://");
+    match reach {
+        Reach::CloudflareTunnel => {
+            // NOT "the guest's browser reads from this node": it reads from
+            // Cloudflare, which reads from this node.
+            out.push_str(
+                "  your documents stay on this machine — nothing is uploaded or stored \
+                 elsewhere.\n",
+            );
+            out.push_str(&format!(
+                "\n  {}.\n",
+                wrap(CLOUDFLARE_TRANSIT_NOTICE, 76, "  ")
+            ));
+        }
+        Reach::Loopback => {
+            out.push_str(
+                "  your documents stay on this machine; the guest's browser reads from this \
+                 node.\n",
+            );
+            out.push_str(&format!(
+                "\n  this link points at {node_url}, which only this machine can reach.\n\
+                 \x20 for someone elsewhere: `xerj share … --tunnel` (temporary public address \
+                 through\n\
+                 \x20 Cloudflare), or --public-url https://<your-hostname> if the node is \
+                 already published.\n"
+            ));
+        }
+        Reach::Direct | Reach::PublicUrl => {
+            out.push_str(
+                "  your documents stay on this machine; the guest's browser reads from this \
+                 node.\n",
+            );
+            if plain_http {
+                out.push_str(
+                    "\n  this link is plain http: the passcode, the guest's key and every \
+                     document the guest\n\
+                     \x20 opens cross the network unencrypted, readable by anyone on the path. \
+                     Use it on a\n\
+                     \x20 network you trust, or put the node behind https and pass that address \
+                     as --public-url.\n",
+                );
+            }
+        }
+    }
+    out
+}
+
+/// Greedy word wrap at `width`, continuation lines prefixed with `indent`.
+fn wrap(text: &str, width: usize, indent: &str) -> String {
+    let mut out = String::new();
+    let mut line = 0usize;
+    for word in text.split_whitespace() {
+        let n = word.chars().count();
+        if line > 0 && line + 1 + n > width {
+            out.push('\n');
+            out.push_str(indent);
+            line = 0;
+        } else if line > 0 {
+            out.push(' ');
+            line += 1;
+        }
+        out.push_str(word);
+        line += n;
     }
     out
 }
@@ -1073,6 +1327,33 @@ struct Tunnel {
     child: Child,
     public_url: String,
     events: mpsc::Receiver<TunnelEvent>,
+    log: TunnelLog,
+}
+
+/// The last lines `cloudflared` wrote. Its output is not shown while it works
+/// — it is a wall of connection chatter — but when it dies on its own those
+/// lines are the only explanation there is, and the first cut threw them away:
+/// the owner saw "cloudflared stopped" and a revoked share, and nothing else
+/// (review of PR #947, a real quick tunnel that dropped after two minutes).
+type TunnelLog = std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>;
+/// How many of them are kept.
+const TUNNEL_LOG_LINES: usize = 20;
+
+/// `\n  cloudflared's last lines:\n    …` — or nothing, if it never wrote any.
+fn tunnel_log_tail(log: &TunnelLog) -> String {
+    let lines = match log.lock() {
+        Ok(l) => l,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if lines.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from("\n  cloudflared's last lines:");
+    for line in lines.iter() {
+        out.push_str("\n    ");
+        out.push_str(line);
+    }
+    out
 }
 
 /// Why a tunnel did not open. The two cases end differently: an interrupt
@@ -1086,6 +1367,8 @@ enum OpenError {
 /// How often the wait loops look up from the tunnel's log to check for a
 /// signal.
 const TICK: Duration = Duration::from_millis(200);
+/// What [`Tunnel::wait`] returns when the tunnel went away by itself.
+const CLOUDFLARED_STOPPED: &str = "cloudflared stopped";
 
 impl Tunnel {
     /// Spawn `cloudflared tunnel --url http://127.0.0.1:<port>` and wait for
@@ -1129,14 +1412,15 @@ impl Tunnel {
             .map_err(|e| failed(format!("start {}: {e}", bin.display())))?;
 
         let (tx, rx) = mpsc::channel::<TunnelEvent>();
+        let log = TunnelLog::default();
         let mut readers = Vec::new();
         // cloudflared logs to stderr; read stdout too so neither pipe can fill
         // and stall it.
         if let Some(err) = child.stderr.take() {
-            readers.push(spawn_reader(err, tx.clone()));
+            readers.push(spawn_reader(err, tx.clone(), log.clone()));
         }
         if let Some(out) = child.stdout.take() {
-            readers.push(spawn_reader(out, tx.clone()));
+            readers.push(spawn_reader(out, tx.clone(), log.clone()));
         }
         // When both pipes close, the process is gone.
         std::thread::spawn(move || {
@@ -1152,6 +1436,7 @@ impl Tunnel {
             child,
             public_url: String::new(),
             events: rx,
+            log,
         };
         let deadline = std::time::Instant::now() + TUNNEL_URL_TIMEOUT;
         loop {
@@ -1165,9 +1450,10 @@ impl Tunnel {
                 }
                 Ok(TunnelEvent::Connected) => {}
                 Ok(TunnelEvent::Exited) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(failed(
-                        "cloudflared exited before printing an address".into(),
-                    ));
+                    return Err(failed(format!(
+                        "cloudflared exited before printing an address{}",
+                        tunnel_log_tail(&tunnel.log)
+                    )));
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     if std::time::Instant::now() > deadline {
@@ -1191,7 +1477,10 @@ impl Tunnel {
                 Ok(TunnelEvent::Connected) => break,
                 Ok(TunnelEvent::Url(_)) => {}
                 Ok(TunnelEvent::Exited) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(failed("cloudflared exited while connecting".into()));
+                    return Err(failed(format!(
+                        "cloudflared exited while connecting{}",
+                        tunnel_log_tail(&tunnel.log)
+                    )));
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     if std::time::Instant::now() > deadline {
@@ -1215,7 +1504,7 @@ impl Tunnel {
             }
             match self.events.recv_timeout(TICK) {
                 Ok(TunnelEvent::Exited) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return "cloudflared stopped"
+                    return CLOUDFLARED_STOPPED
                 }
                 _ => {}
             }
@@ -1248,11 +1537,13 @@ impl Drop for Tunnel {
 fn spawn_reader<R: std::io::Read + Send + 'static>(
     pipe: R,
     tx: mpsc::Sender<TunnelEvent>,
+    log: TunnelLog,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut sent_url = false;
         for line in BufReader::new(pipe).lines() {
             let Ok(line) = line else { break };
+            remember_tunnel_line(&log, &line);
             if !sent_url {
                 if let Some(u) = parse_tunnel_url(&line) {
                     sent_url = true;
@@ -1265,6 +1556,23 @@ fn spawn_reader<R: std::io::Read + Send + 'static>(
             }
         }
     })
+}
+
+/// Keep `line` as one of the last [`TUNNEL_LOG_LINES`]; long lines are cut.
+fn remember_tunnel_line(log: &TunnelLog, line: &str) {
+    let line = line.trim_end();
+    if line.is_empty() {
+        return;
+    }
+    let kept: String = line.chars().take(300).collect();
+    let mut lines = match log.lock() {
+        Ok(l) => l,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if lines.len() == TUNNEL_LOG_LINES {
+        lines.pop_front();
+    }
+    lines.push_back(kept);
 }
 
 #[cfg(test)]
@@ -1551,7 +1859,7 @@ mod tests {
         let local = render_created(
             &resp,
             "http://localhost:9200/_xerj-console/share#id",
-            true,
+            Reach::Loopback,
             &default_node,
         );
         assert!(local.contains("for Dana"));
@@ -1573,10 +1881,13 @@ mod tests {
         let public = render_created(
             &resp,
             "https://a.trycloudflare.com/_xerj-console/share#id",
-            false,
+            Reach::CloudflareTunnel,
             &default_node,
         );
         assert!(!public.contains("only this machine can reach"));
+        // One open is one browser tab; the banner says so next to the number.
+        assert!(local.contains("one browser tab"), "{local}");
+        assert!(local.contains("--max-claims"), "{local}");
         // On a non-default node the revoke line has to be pasteable: the same
         // --url and --data-dir, and never the key.
         let custom = Common {
@@ -1588,7 +1899,7 @@ mod tests {
         let out = render_created(
             &resp,
             "http://localhost:9510/_xerj-console/share#id",
-            true,
+            Reach::Loopback,
             &custom,
         );
         assert!(
@@ -1598,6 +1909,264 @@ mod tests {
             "{out}"
         );
         assert!(!out.contains("never-printed"));
+    }
+
+    fn banner(link: &str, reach: Reach, node_url: &str) -> String {
+        let resp = json!({
+            "handle": "1a2b3c4d5e6f", "index": "ax-mail",
+            "expires_at": "2026-09-19T08:00:00Z", "max_claims": 3, "passcode": "k7mq-2xhd",
+        });
+        let common = Common {
+            url: node_url.to_string(),
+            data_dir: None,
+            api_key: None,
+            json: false,
+        };
+        render_created(&resp, link, reach, &common)
+    }
+
+    /// Review of PR #947 (blocker): under `--tunnel` the banner said "the
+    /// guest's browser reads from this node" and never said "Cloudflare",
+    /// while every byte — passcode and guest key included — went through
+    /// Cloudflare's TLS termination. The owner reads this banner, not the docs,
+    /// in the second before sending the link.
+    #[test]
+    fn a_tunnel_link_says_cloudflare_can_read_the_traffic() {
+        let out = banner(
+            "https://a-b-c.trycloudflare.com/_xerj-console/share#id",
+            Reach::CloudflareTunnel,
+            DEFAULT_URL,
+        );
+        let flat = out.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(flat.contains("goes through Cloudflare"), "{out}");
+        assert!(flat.contains("ends TLS at Cloudflare"), "{out}");
+        for crosses in [
+            "the passcode",
+            "the guest's key",
+            "every document the guest opens",
+        ] {
+            assert!(flat.contains(crosses), "must name {crosses:?}: {out}");
+        }
+        assert!(
+            flat.contains("--public-url"),
+            "must name the alternative: {out}"
+        );
+        assert!(flat.contains("Nothing is stored there"), "{out}");
+        assert!(
+            !flat.contains("browser reads from this node"),
+            "in tunnel mode the browser reads from Cloudflare: {out}"
+        );
+        assert!(flat.contains("stay on this machine"), "{out}");
+        assert!(out.lines().all(|l| l.chars().count() <= 100), "{out}");
+        // No other mode mentions a third party that is not there.
+        for (link, reach, node) in [
+            (
+                "http://localhost:9200/_xerj-console/share#id",
+                Reach::Loopback,
+                DEFAULT_URL,
+            ),
+            (
+                "https://files.example.org/_xerj-console/share#id",
+                Reach::PublicUrl,
+                DEFAULT_URL,
+            ),
+        ] {
+            let other = banner(link, reach, node);
+            assert!(!other.contains("ends TLS at Cloudflare"), "{other}");
+            assert!(other.contains("browser reads from this node"), "{other}");
+        }
+        // `--help` says it where `--tunnel` is described, and no longer says
+        // the guest's browser "talks to this node" without qualification.
+        let help = help_text(false);
+        let flat = help.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(
+            flat.contains("Cloudflare can read what passes through"),
+            "{help}"
+        );
+        assert!(!flat.contains("browser talks to this node"), "{help}");
+    }
+
+    /// Review of PR #947 (minor): "only this machine can reach" was printed for
+    /// any `--url`, and `--public-url http://…` printed a cleartext link with
+    /// no warning although the docs call it the https:// address.
+    #[test]
+    fn the_banner_is_about_the_address_the_link_really_has() {
+        assert_eq!(
+            reach_of(false, None, "http://localhost:9200"),
+            Reach::Loopback
+        );
+        assert_eq!(
+            reach_of(false, None, "http://127.0.0.1:9510"),
+            Reach::Loopback
+        );
+        assert_eq!(
+            reach_of(false, None, "http://127.8.9.1:9510"),
+            Reach::Loopback
+        );
+        assert_eq!(reach_of(false, None, "http://[::1]:9200"), Reach::Loopback);
+        assert_eq!(
+            reach_of(false, None, "http://192.168.1.20:9200"),
+            Reach::Direct
+        );
+        assert_eq!(
+            reach_of(false, None, "https://search.example.org"),
+            Reach::Direct
+        );
+        assert_eq!(
+            reach_of(false, None, "http://localhost.evil.example:9200"),
+            Reach::Direct
+        );
+        assert_eq!(
+            reach_of(false, Some("https://x.example"), "http://localhost:9200"),
+            Reach::PublicUrl
+        );
+        assert_eq!(
+            reach_of(true, None, "http://localhost:9200"),
+            Reach::CloudflareTunnel
+        );
+
+        let lan = banner(
+            "http://192.168.1.20:9200/_xerj-console/share#id",
+            Reach::Direct,
+            "http://192.168.1.20:9200",
+        );
+        assert!(!lan.contains("only this machine can reach"), "{lan}");
+        assert!(lan.contains("plain http"), "{lan}");
+        assert!(lan.contains("unencrypted"), "{lan}");
+
+        let cleartext = banner(
+            "http://plain.example/_xerj-console/share#id",
+            Reach::PublicUrl,
+            DEFAULT_URL,
+        );
+        assert!(cleartext.contains("plain http"), "{cleartext}");
+        assert!(cleartext.contains("the passcode"), "{cleartext}");
+        let tls = banner(
+            "https://files.example.org/_xerj-console/share#id",
+            Reach::PublicUrl,
+            DEFAULT_URL,
+        );
+        assert!(!tls.contains("plain http"), "{tls}");
+        // More than one open: no one-tab hint to read past.
+        assert!(!tls.contains("one browser tab"), "{tls}");
+    }
+
+    /// Review of PR #947 (major): with a folder argument a wrong or non-admin
+    /// key was reported as "<folder> has not been indexed … run `xerj brain`
+    /// first" — `Es::get_doc` reads a `401` as "no document".
+    #[test]
+    fn a_refused_brain_lookup_is_a_key_problem_not_a_missing_brain() {
+        let unauthorized =
+            json!({"error": {"type": "security_exception", "reason": "x"}, "status": 401});
+        assert_eq!(brain_meta(401, &unauthorized), BrainMeta::Refused);
+        assert_eq!(brain_meta(403, &json!({})), BrainMeta::Refused);
+        assert_eq!(brain_meta(500, &Value::Null), BrainMeta::Refused);
+        assert_eq!(
+            brain_meta(404, &json!({"found": false})),
+            BrainMeta::NotIndexed
+        );
+        assert_eq!(brain_meta(404, &Value::Null), BrainMeta::NotIndexed);
+        assert_eq!(
+            brain_meta(200, &json!({"found": false})),
+            BrainMeta::NotIndexed
+        );
+        assert_eq!(
+            brain_meta(
+                200,
+                &json!({"found": true, "_source": {"nodes_index": "ax-docs"}})
+            ),
+            BrainMeta::Found(json!({"nodes_index": "ax-docs"}))
+        );
+        // …and a refusal becomes the sentence about the key, never about
+        // indexing.
+        let common = Common {
+            url: "http://localhost:9200".into(),
+            data_dir: None,
+            api_key: None,
+            json: false,
+        };
+        for status in [401, 403] {
+            let text = format!("{:#}", explain(status, &unauthorized, &common));
+            assert!(text.to_lowercase().contains("admin key"), "{text}");
+            assert!(!text.contains("has not been indexed"), "{text}");
+        }
+    }
+
+    /// Review of PR #947 (minor): `--url localhost:9613` was reported as "no
+    /// xerj node answers" while the node was up.
+    #[test]
+    fn a_url_without_a_scheme_is_a_usage_error_that_says_what_to_type() {
+        let err = parse(args(&["notes", "--url", "localhost:9613"]), None).unwrap_err();
+        assert!(err.contains("http://localhost:9613"), "{err}");
+        assert!(parse(args(&["notes", "--url", "https://node.example"]), None).is_ok());
+        assert_eq!(url_host("http://localhost:9200/x"), Some("localhost"));
+        assert_eq!(url_host("https://[::1]:9200"), Some("::1"));
+        assert_eq!(url_host("http://10.0.0.7"), Some("10.0.0.7"));
+        assert_eq!(url_host("localhost:9200"), None);
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pasted_follow_up_commands_survive_spaces_and_quotes() {
+        assert_eq!(sh_quote("/home/u/notes"), "/home/u/notes");
+        assert_eq!(sh_quote("http://localhost:9510"), "http://localhost:9510");
+        assert_eq!(sh_quote("/tmp/case files"), "'/tmp/case files'");
+        assert_eq!(sh_quote("it's here"), "'it'\\''s here'");
+        assert_eq!(sh_quote("$(rm -rf ~)"), "'$(rm -rf ~)'");
+        assert_eq!(sh_quote(""), "''");
+        let common = Common {
+            url: "http://localhost:9510".into(),
+            data_dir: Some(PathBuf::from("/srv/my data")),
+            api_key: None,
+            json: false,
+        };
+        assert_eq!(
+            connection_args(&common),
+            " --url http://localhost:9510 --data-dir '/srv/my data'"
+        );
+    }
+
+    /// Review of PR #947 (minor): when `cloudflared` died on its own the owner
+    /// was told "cloudflared stopped" and nothing else.
+    #[test]
+    fn cloudflareds_last_lines_are_kept_for_when_it_dies() {
+        let log = TunnelLog::default();
+        assert_eq!(tunnel_log_tail(&log), "");
+        for i in 0..(TUNNEL_LOG_LINES + 5) {
+            remember_tunnel_line(&log, &format!("INF line {i}  "));
+        }
+        remember_tunnel_line(&log, "");
+        remember_tunnel_line(&log, &format!("ERR {}", "x".repeat(1000)));
+        let tail = tunnel_log_tail(&log);
+        assert!(tail.contains("cloudflared's last lines"), "{tail}");
+        assert!(
+            !tail.contains("INF line 0\n"),
+            "oldest lines are dropped: {tail}"
+        );
+        assert!(!tail.contains("INF line 5\n"), "{tail}");
+        assert!(
+            tail.contains(&format!("INF line {}", TUNNEL_LOG_LINES + 4)),
+            "{tail}"
+        );
+        assert!(tail.contains("ERR xxx"), "{tail}");
+        assert_eq!(
+            tail.lines().filter(|l| l.starts_with("    ")).count(),
+            TUNNEL_LOG_LINES
+        );
+        assert!(
+            tail.lines().all(|l| l.chars().count() <= 304),
+            "long lines are cut"
+        );
+    }
+
+    /// `xerj-api` cannot depend on `xerj-autoindex`, so it carries its own copy
+    /// of the catalog's name for the "cannot be shared" rule. They must agree.
+    #[test]
+    fn the_unshareable_catalog_is_the_catalog_autoindex_writes() {
+        assert_eq!(
+            xerj_api::share::CATALOG_INDEX,
+            xerj_autoindex::catalog::CATALOG_INDEX
+        );
     }
 
     #[test]
@@ -1634,6 +2203,7 @@ mod tests {
         assert!(help.contains("REFUSES"));
         assert!(help.contains("Read-only"));
         assert!(help.contains("stay on this machine"));
+        assert!(help.contains("one browser tab"), "{help}");
     }
 
     #[test]

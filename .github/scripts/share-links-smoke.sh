@@ -3,9 +3,12 @@
 #
 # Boots THROWAWAY nodes on private ports and drives, in order:
 #   A. engine/crates/xerj-api/tests/live/share_security_live.py against a node
-#      with authentication on — what a guest key can and cannot reach;
+#      with authentication on AND `logging.access_log = true` — what a guest
+#      key can and cannot reach, and that no share id reaches the node's log;
 #   B. the `xerj share` CLI against that node: create / --list / --revoke /
-#      --json, the folder-not-indexed error, and the wrong-key error;
+#      --json, the folder-not-indexed error, the wrong-key error (index AND
+#      folder argument), a --url with no scheme, and --tunnel with a stub
+#      `cloudflared` — the Cloudflare notice, and its last lines when it dies;
 #   C. xerj-ux/test/share-guest-flow.e2e.mjs — the guest page in a real
 #      headless Chrome (claim, search, read, XSS probe, sign-out);
 #   D. the same security test against a node that declares loopback a trusted
@@ -60,6 +63,7 @@ command -v python3 >/dev/null || { echo "python3 is required"; exit 1; }
 
 # boot <name> <es_port> <extra [server] toml> <extra cli args…>
 # ports: es = $2, rest = $2+1, grpc = $2+2. Auth is ON unless --insecure is passed.
+# BOOT_ACCESS_LOG=true turns on `logging.access_log` for that node.
 boot() {
   local name="$1" es="$2" extra="$3"; shift 3
   local dir="$ROOT/$name"
@@ -81,6 +85,9 @@ $extra
 
 [tls]
 enabled = false
+
+[logging]
+access_log = ${BOOT_ACCESS_LOG:-false}
 EOF
   nohup "$XERJ_BIN" --config "$dir/xerj.toml" --data-dir "$dir/data" "$@" >"$dir/server.log" 2>&1 &
   PIDS+=("$!")
@@ -95,14 +102,19 @@ EOF
 }
 
 # ── A. what a guest key can and cannot reach ───────────────────────────────
-phase "A. live security test (auth on, no trusted proxies)"
-boot a "$PORT" "" || exit 1
+phase "A. live security test (auth on, no trusted proxies, access log ON)"
+# With the access log OFF (the default) the "no share id in the log" check
+# below passes whatever the claim route looks like — which is how the first cut
+# shipped a claim path that carried the id. This node logs every request.
+BOOT_ACCESS_LOG=true boot a "$PORT" "" || exit 1
 A_URL="http://127.0.0.1:$PORT"; A_DATA="$ROOT/a/data"
 [ -s "$A_DATA/admin.key" ] || { echo "no admin.key — is auth on?"; exit 1; }
-if XERJ_URL="$A_URL" XERJ_NATIVE_URL="http://127.0.0.1:$((PORT + 1))" XERJ_DATA_DIR="$A_DATA" python3 "$LIVE"; then ok "share_security_live.py"; else bad "share_security_live.py failed"; fi
-# Nothing secret may reach the node's own log either. The test's secrets are
-# gone by now, so look for the *shape*: a 32-hex share id in a logged path.
-if grep -Eq '/_share/[0-9a-f]{32}' "$ROOT/a/server.log"; then bad "a share id was written to the server log"; else ok "no share id in the server log"; fi
+if XERJ_URL="$A_URL" XERJ_NATIVE_URL="http://127.0.0.1:$((PORT + 1))" XERJ_DATA_DIR="$A_DATA" XERJ_SERVER_LOG="$ROOT/a/server.log" python3 "$LIVE"; then ok "share_security_live.py"; else bad "share_security_live.py failed"; fi
+# The live test checks the log for the exact ids it created. This is the same
+# thing by *shape*, for anything else that ran: a 32-hex id in a logged path.
+# (`f`×32 is the live test's probe of the retired id-in-path claim shape.)
+grep -q '/_share/claim' "$ROOT/a/server.log" && ok "the node logged its requests (access log on)" || bad "access log is not on — the next check would test nothing"
+if grep -E '/_share/[0-9a-f]{32}' "$ROOT/a/server.log" | grep -vq "/_share/$(printf 'f%.0s' $(seq 1 32))"; then bad "a share id was written to the server log"; else ok "no share id in the server log"; fi
 
 # ── B. the CLI ─────────────────────────────────────────────────────────────
 phase "B. xerj share CLI"
@@ -131,11 +143,46 @@ ERR="$(share "$ROOT/never-indexed" 2>&1)"; RC=$?
 { [ $RC -eq 1 ] && printf '%s' "$ERR" | grep -q "has not been indexed"; } && ok "a folder nobody indexed is an error that says so" || bad "folder error (rc=$RC): $ERR"
 ERR="$("$XERJ_BIN" share casefile --url "$A_URL" --api-key not-the-admin-key --disable-feedback 2>&1)"; RC=$?
 { [ $RC -eq 1 ] && printf '%s' "$ERR" | grep -qi "admin key"; } && ok "a wrong key is refused with the reason" || bad "wrong-key error (rc=$RC): $ERR"
+# The same wrong key with a FOLDER argument used to be reported as "has not
+# been indexed — run xerj brain first": the brain lookup read its 401 as "no
+# such brain".
+ERR="$("$XERJ_BIN" share "$ROOT/never-indexed" --url "$A_URL" --api-key not-the-admin-key --disable-feedback 2>&1)"; RC=$?
+{ [ $RC -eq 1 ] && printf '%s' "$ERR" | grep -qi "admin key" && ! printf '%s' "$ERR" | grep -q "has not been indexed"; } \
+  && ok "a wrong key with a folder argument is a key error, not \"not indexed\"" || bad "wrong-key + folder (rc=$RC): $ERR"
+ERR="$("$XERJ_BIN" share casefile --url "127.0.0.1:$PORT" --data-dir "$A_DATA" --disable-feedback 2>&1)"; RC=$?
+{ [ $RC -eq 2 ] && printf '%s' "$ERR" | grep -qF "http://127.0.0.1:$PORT"; } && ok "--url without a scheme is a usage error that says what to type" || bad "--url without scheme (rc=$RC): $ERR"
+ERR="$(share autoindex-catalog 2>&1)"; RC=$?
+{ [ $RC -eq 1 ] && printf '%s' "$ERR" | grep -q "every corpus"; } && ok "the autoindex catalog cannot be shared" || bad "autoindex-catalog (rc=$RC): $ERR"
+OUT="$(share casefile --public-url http://plain.example 2>&1)"
+printf '%s' "$OUT" | grep -q "plain http" && ok "--public-url http:// warns that the passcode and key travel unencrypted" || bad "--public-url http:// printed no warning: $OUT"
 
 # `--tunnel` without cloudflared: install steps and the local link, not a failure.
 OUT="$(XERJ_CLOUDFLARED=/nonexistent/cloudflared share casefile --tunnel 2>&1)"; RC=$?
 { [ $RC -eq 0 ] && printf '%s' "$OUT" | grep -q "install it" && printf '%s' "$OUT" | grep -qF "$A_URL/_xerj-console/share#"; } \
   && ok "--tunnel without cloudflared prints install steps and the local link (exit 0)" || bad "--tunnel fallback (rc=$RC): $OUT"
+
+# `--tunnel` with a STUB cloudflared: prints a quick-tunnel banner, registers,
+# then dies on its own. No network. What the owner must see: that the link goes
+# through Cloudflare and what Cloudflare can read — at the moment the link is
+# printed, not only in the docs — and, when the tunnel drops, its last lines.
+STUB="$ROOT/cloudflared-stub.sh"
+cat >"$STUB" <<'STUBEOF'
+#!/usr/bin/env bash
+echo "2026-01-01T00:00:00Z INF |  https://smoke-stub-tunnel.trycloudflare.com  |" >&2
+echo "2026-01-01T00:00:01Z INF Registered tunnel connection connIndex=0" >&2
+sleep 2
+echo "2026-01-01T00:00:03Z ERR failed to serve tunnel connection error=\"stub: edge went away\"" >&2
+exit 1
+STUBEOF
+chmod +x "$STUB"
+OUT="$(XERJ_CLOUDFLARED="$STUB" share casefile --tunnel 2>&1)"; RC=$?
+FLAT="$(printf '%s' "$OUT" | tr -s '[:space:]' ' ')"
+{ [ $RC -eq 0 ] && printf '%s' "$FLAT" | grep -qF "https://smoke-stub-tunnel.trycloudflare.com/_xerj-console/share#" \
+  && printf '%s' "$FLAT" | grep -q "goes through Cloudflare" && printf '%s' "$FLAT" | grep -q "the passcode, the guest's key" \
+  && ! printf '%s' "$FLAT" | grep -q "browser reads from this node"; } \
+  && ok "--tunnel says the link goes through Cloudflare, and what Cloudflare can read" || bad "--tunnel banner (rc=$RC): $OUT"
+{ printf '%s' "$OUT" | grep -q "cloudflared stopped" && printf '%s' "$OUT" | grep -q "stub: edge went away" && printf '%s' "$OUT" | grep -q "revoked"; } \
+  && ok "when cloudflared dies on its own: its last lines are shown and the share is revoked" || bad "tunnel death: $OUT"
 
 # ── C. the guest page in a real browser ────────────────────────────────────
 phase "C. guest page, headless Chrome"
@@ -199,7 +246,7 @@ def call(method, path, body=None, key=None):
         r = urllib.request.urlopen(req, timeout=30); return r.status, json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         return e.code, {}
-s, claim = call("POST", f"/_share/{created['share_id']}/claim", {"passcode": created["passcode"]})
+s, claim = call("POST", "/_share/claim", {"id": created["share_id"], "passcode": created["passcode"]})
 assert s == 200 and claim["brain"] == "casefiles", (s, claim)
 key, index = claim["api_key"], claim["index"]
 s, r = call("POST", f"/{index}/_search", {"query": {"simple_query_string": {"query": "deposit"}}}, key)
