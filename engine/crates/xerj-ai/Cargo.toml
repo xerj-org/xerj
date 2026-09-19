@@ -34,11 +34,15 @@ ort = { version = "2.0.0-rc.12", optional = true, default-features = false, feat
     "copy-dylibs", "api-24",
 ] }
 sha2 = { version = "0.10", optional = true }
+# The local judge (`seqcls` + `judge`) runs candle on its own rayon pool: candle's
+# CPU matmul parallelises on whichever pool calls it, so a dedicated pool IS the
+# thread budget. Already in the tree through candle; only named here.
+rayon = { workspace = true, optional = true }
 
 [features]
 default = []
 # Bundles the neural BERT embedder. Adds ~candle + tokenizers to the build.
-neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub", "dep:sha2"]
+neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub", "dep:sha2", "dep:rayon"]
 # Experimental local ONNX backend; xerj-server exposes it only when the
 # feature is propagated and explicitly selected at runtime.
 onnx-experimental = ["dep:ort", "dep:tokenizers", "dep:sha2"]
@@ -54,4 +58,11 @@ required-features = ["onnx-experimental"]
 # MiniLM on first run; not built unless `neural` is on.
 [[example]]
 name = "neural_throughput"
+required-features = ["neural"]
+
+# Offline scorer for the local judge benchmarks (`benchmarks/local-judge/`):
+# reads text pairs as JSON lines, writes raw logits. Same code path the server
+# scores with.
+[[example]]
+name = "pair_score"
 required-features = ["neural"]

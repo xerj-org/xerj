@@ -6654,6 +6654,7 @@ dependencies = [
  "candle-transformers",
  "hf-hub",
  "ort",
+ "rayon",
  "reqwest",
  "serde",
  "serde_json",

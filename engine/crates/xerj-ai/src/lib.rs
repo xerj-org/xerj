@@ -13,6 +13,10 @@
 //! - `onnx`      — Experimental MiniLM-compatible FP32 ONNX backend
 //!   (feature `onnx-experimental`; server feature + explicit runtime selection required)
 //! - [`chunker`] — Text chunking with sentence-aware splitting and overlap
+//! - `seqcls`    — In-process sequence-pair classifiers via candle: cross-encoder
+//!   rerankers and zero-shot NLI (feature `neural`)
+//! - `judge`     — The local judge runtime around `seqcls`: the closed model
+//!   table, lazy loading, thread budget, admission (feature `neural`)
 //!
 //! Agent memory does NOT live here. The real memory store is index-backed
 //! (`/_memory/*` in xerj-api over ordinary XERJ indices — durable, WAL-replayed,
@@ -23,6 +27,8 @@
 pub mod chunker;
 pub mod embed;
 pub mod embedder;
+#[cfg(feature = "neural")]
+pub mod judge;
 pub mod local;
 #[cfg(any(feature = "neural", feature = "onnx-experimental"))]
 pub mod microbatch;
@@ -30,6 +36,8 @@ pub mod microbatch;
 pub mod neural;
 #[cfg(feature = "onnx-experimental")]
 pub mod onnx;
+#[cfg(feature = "neural")]
+pub mod seqcls;
 
 pub use chunker::{Chunk, TextChunker};
 pub use embed::{EmbeddingProxy, EmbeddingProxyConfig};
