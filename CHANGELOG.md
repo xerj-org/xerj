@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A real S3-compatible object-storage backend — Cloudflare R2, MinIO and AWS
+  S3 — with per-request cost accounting.** `xerj-storage`'s `S3Backend` was a
+  local-directory simulation that its own doc comment admitted to; it is now an
+  `aws-sdk-s3` client doing ranged `GetObject`, `PutObject`, paginated
+  `ListObjectsV2` and `HeadObject`, verified against both MinIO and R2
+  (including the 1,200-object `ListObjectsV2` page boundary, listed in exactly
+  two Class A operations). The simulation is kept as `SimulatedObjectStore`, a
+  test double, because unit tests want a backend with no network and no cost.
+  Because object stores bill per request and Cloudflare R2's free tier allows
+  1,000,000 Class A operations a month *per account* — about 23 a minute for
+  everything — the backend counts every billed attempt by class and exposes it
+  through `StorageBackend::ops()`, and `OpBudget` refuses to send more past a
+  ceiling. Counted per wire attempt, which is why the AWS SDK's retry layer is
+  disabled in favour of XERJ's own: an SDK-internal retry is invisible to a
+  counter wrapped around the call. `SegmentCache` gained hit/miss/bytes
+  accounting, `get_range` (whole-object fetch on miss, then slice) and
+  `get_range_uncached` (fetch the range only) — measured against MinIO on
+  loopback at 5.98 ms cold, 1.67 ms range-only and 0.068 ms warm, and against
+  R2 over a ~1 MB/s link at 3.72 s, 0.67 s and 0.12 ms. **`storage.backend =
+  "s3"` still refuses to start**: nothing routes the index's segment reads and
+  writes through the backend, the flush path that exists uploads 1 of a
+  segment's 104 files, and `snapshot.json` never leaves local disk, so a fresh
+  node pointed at a bucket sees zero segments — asserted by
+  `object_store_mode_does_not_yet_make_an_index_stateless`, which also shows
+  that a fresh node *can* fetch and read a segment from the bucket by id. Full
+  arithmetic, measurements and remaining work in
+  [docs/OBJECT_STORAGE.md](docs/OBJECT_STORAGE.md).
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
