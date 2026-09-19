@@ -1,0 +1,116 @@
+---
+title: "Does XERJ support S3, alerting or custom plugins?"
+h1: "Does XERJ support S3 storage, alerting or custom plugins yet?"
+description: "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+slug: "does-xerj-support-s3-alerting-plugins"
+cluster: "Capabilities and limits"
+question: "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?"
+intent: "informational"
+published: "2026-09-18"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Do not design for S3 storage, alerting, user-supplied ingest plugins or downloadable corpus packs: none of them is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today."
+commands:
+  - cmd: "curl -s -XPUT http://127.0.0.1:9200/_watcher/watch/demo -H 'content-type: application/json' -d '{\"trigger\":{\"schedule\":{\"interval\":\"10s\"}},\"input\":{\"simple\":{}},\"condition\":{\"never\":{}}}'"
+    note: "The request is accepted and the watch is stored. Nothing will ever evaluate it, and the reply says the condition was met although the watch asked for never."
+  - cmd: "curl -s -XGET http://127.0.0.1:9200/_watcher/watch/demo"
+    note: "The stored body comes back unchanged. That is all this API does today."
+  - cmd: "curl -s -XPOST http://127.0.0.1:9200/detections/_search -H 'content-type: application/json' -d '{\"query\":{\"percolate\":{\"field\":\"query\",\"document\":{\"message\":\"disk full on node 7\"}}}}'"
+    note: "The percolate query is real. It matches stored queries against the document you supply, which is the piece a future detection feature builds on."
+links_out:
+  - "what-is-xerj"
+  - "how-xerj-combines-search"
+  - "filter-knn-exact-scan-caveat"
+  - "cheap-low-volume-log-search"
+  - "local-embeddings-without-openai-api"
+evidence:
+  - claim: "S3Backend is a local-directory simulation: it maps an S3 key layout onto a local path and contains no network client."
+    source: "engine/crates/xerj-storage/src/backend.rs"
+  - claim: "Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported."
+    source: "engine/crates/xerj-common/src/config.rs"
+  - claim: "PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch."
+    source: "engine/crates/xerj-api/src/es_compat.rs"
+  - claim: "The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them."
+    source: "engine/crates/xerj-console-api/src/indices.rs"
+  - claim: "Ingest transforms are built-in native Rust plugins; xerj-wasm has no wasmtime dependency and no wasm feature."
+    source: "engine/crates/xerj-wasm/Cargo.toml"
+  - claim: "The xerj-logs crate is compiled in as a dependency and is not wired: it has zero call sites in non-test code."
+    source: "ROADMAP.md"
+  - claim: "The roadmap section that carries these statuses, and the design page behind it."
+    source: "docs/ZERO_TOKEN_DIRECTION.md"
+faq:
+  - q: "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?"
+    a: "No to all three today. Each one is on the roadmap as planned work, and each has a surface in the code that looks closer to done than it is. This page says exactly what exists."
+  - q: "Does XERJ support S3 or object storage?"
+    a: "No. The S3 backend in the source tree is a local-directory simulation with no network client. Setting `storage.backend = \"s3\"` stops the server at startup with an error, on purpose."
+  - q: "Does XERJ have alerting or a working watcher?"
+    a: "No. XERJ has no alerting. `_watcher` stores watches and no scheduler ever evaluates them, and the console alert-rule indices have schemas and no evaluator."
+  - q: "Can I write my own ingest plugin for XERJ?"
+    a: "Not yet. The ingest pipeline runs built-in native transforms only. The crate is named `xerj-wasm`, but the wasmtime backend is not in the tree."
+  - q: "Why does the server refuse to start when I set the storage backend to s3?"
+    a: "Because accepting it would be worse. An operator who sets that value believes data lands in a bucket. The S3 backend is not implemented, so the config check fails loudly instead of writing to local disk in silence."
+  - q: "Is there anything real to build a detection on today?"
+    a: "Yes, one piece. The `percolate` query is a dispatched query type and matches stored queries against a document you supply. The judging and alerting stages that would sit after it do not exist."
+  - q: "Can I download a pre-indexed corpus for XERJ?"
+    a: "No. A hub of signed, pre-indexed packs is planned and no code exists. The open questions are redistribution licence, pack safety and format stability, and they decide whether it ships."
+  - q: "Where is the authoritative status?"
+    a: "`ROADMAP.md` in the repository. If this page and the roadmap disagree, the roadmap wins, and the disagreement is a bug worth an issue."
+---
+
+**TL;DR** — Not yet, for all three. XERJ has no object-storage backend, no alerting and no user-supplied plugins. Each of them has a surface in the code that looks closer to done than it is, so this page says exactly what exists, with the file that proves it. The authoritative list is [`ROADMAP.md`](https://github.com/xerj-org/xerj/blob/main/ROADMAP.md).
+
+## Why this page exists
+
+A search engine that speaks a familiar wire protocol invites assumptions. An agent that sees a `_watcher` route may plan around it, and it should not: XERJ does not run watches. An operator who sees `backend = "s3"` in a config schema may expect a bucket to work, and S3 is not implemented.
+
+XERJ's rule is that an input is either honoured or refused loudly. Two of the items below follow that rule today and one does not. All of them were checked against the `main` branch on 2026-09-18 by reading the named file.
+
+## S3 and object storage: not implemented
+
+The storage crate has a type called `S3Backend`. It is a **local-directory simulation**. It maps an S3-style key layout onto a local path and writes with a temporary file and a rename. It contains no network client. The file is `engine/crates/xerj-storage/src/backend.rs`.
+
+The config check knows this. If you set `storage.backend = "s3"`, the server does not start. It prints that the S3 storage backend is not implemented in this build and that only `"local"` is supported. That check is in `engine/crates/xerj-common/src/config.rs`, and its comment explains the reason: an operator who sets that value believes their data lands in S3, and it does not.
+
+So S3 is not supported, and the refusal is deliberate. Data lives on the local filesystem under the data directory.
+
+## Alerting: there is none
+
+XERJ has no alerting. Two surfaces make it look otherwise.
+
+The first is `_watcher`. `PUT /_watcher/watch/{id}` is accepted. The handler puts the body into an in-memory map and replies that the condition was met, whatever condition you sent. `GET` and `DELETE` work on the same map. There is no scheduler, and no code ever evaluates a stored watch. This one is an accepted-and-ignored input, and the roadmap says it must either run watches or refuse them.
+
+The second is the console. It owns two system indices, `.xerj_alert_rules` and `.xerj_alert_fires`. Both have schemas and both are created at start-up. No evaluator reads the first or writes the second, so there are no alerts and no notifications from them either.
+
+One piece underneath is real. The `percolate` query is a dispatched query type: you store queries as documents, and a `percolate` search returns the stored queries that match a document you supply. A future detection feature would use that as its cheap first stage. The stages after it, a typed judgment and an alert that carries a calibrated probability, are planned and do not exist.
+
+## Custom ingest plugins: built-in only
+
+The ingest pipeline does run transforms on `_bulk`. They are built-in native Rust code: rename, drop, add, JSON parse, timestamp parse, PII redaction, grok and route.
+
+The crate that holds them is named `xerj-wasm`, which suggests more than is there. Its `Cargo.toml` has no `wasmtime` dependency and no `wasm` feature. You cannot load your own module.
+
+The refusal rule holds here. A pipeline that names a processor this build does not implement is stored as unrunnable, and every ingest through it is refused. It is never run as a shorter pipeline in silence.
+
+## Two more that are planned, not shipped
+
+**A log-specific index mode.** The `xerj-logs` crate is in the workspace and is compiled in as a dependency, but it is not wired: it has zero call sites outside its own tests. Logs you index today go through the general segment format and the ordinary aggregations. The [low-volume log search page](/answers/cheap-low-volume-log-search) describes what does work.
+
+**Downloadable corpus packs.** A hub of signed, pre-indexed packs is on the roadmap and no code exists. The design work is the pack format: a format version that readers refuse when they do not know it, per-file checksums, a signature, and licence and provenance on every record. Three risks decide whether it ships: whether the source licence allows redistribution, whether a pack is safe to open, and whether the format can stay stable after packs are published.
+
+## What to do instead today
+
+| You wanted | What works now |
+| --- | --- |
+| index data in S3 | local disk only; S3 is not implemented and the server refuses the setting |
+| an alert when a document matches | there is no alerting; run a `percolate` or an ordinary search on your own schedule and act on the result yourself |
+| a custom transform at ingest | one of the built-in transforms, or transform the document before you send it |
+| a ready-made reference corpus | clone the source and run `xerj autoindex` on it |
+
+## What this page does not claim
+
+It does not claim a date for any of these. The roadmap lists them as planned, which means no code exists yet.
+
+It does not claim the search side is limited in the same way. Full-text search, the `hybrid` query and vector search are shipping, and the default embedder is lexical feature hashing, not a neural model. The [hybrid retrieval page](/answers/how-xerj-combines-search) covers that.
+
+XERJ is single-node. Everything on this page describes one process on one host.
