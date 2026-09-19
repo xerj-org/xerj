@@ -158,8 +158,8 @@ pub fn parse_source(arg: &Path, endpoint_flag: Option<&str>) -> Result<SourceSpe
         bail!(
             "{raw} has an invalid bucket name {bucket:?} (character {bad:?}). A bucket name may \
              hold letters, digits, '.', '-' and '_' only. Credentials do not belong in the URL — \
-             they come from the environment (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY, a profile, \
-             or an instance role), and an endpoint goes in --endpoint-url"
+             they come from the environment (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY), and an \
+             endpoint goes in --endpoint-url"
         );
     }
     let prefix = normalise_prefix(prefix);

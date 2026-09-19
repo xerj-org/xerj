@@ -1372,9 +1372,9 @@ impl ObjectStoreSource {
         } else if has("InvalidAccessKeyId") || has("SignatureDoesNotMatch") {
             format!(
                 "{endpoint} rejected the credentials. AWS_ACCESS_KEY_ID / \
-                 AWS_SECRET_ACCESS_KEY (or the profile in AWS_PROFILE) do not match a key on that \
-                 account — for R2 the pair comes from R2 → Manage API tokens, and the endpoint must \
-                 be the account's own https://<account-id>.r2.cloudflarestorage.com"
+                 AWS_SECRET_ACCESS_KEY do not match a key on that account — for R2 the pair comes \
+                 from R2 → Manage API tokens, and the endpoint must be the account's own \
+                 https://<account-id>.r2.cloudflarestorage.com"
             )
         } else if has("AccessDenied") || has("403") {
             format!(

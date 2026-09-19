@@ -326,9 +326,13 @@ fn serve(stream: TcpStream, state: &Arc<Mutex<StubState>>) -> std::io::Result<()
         return write_response(&mut writer, 500, "application/xml", body.as_bytes(), None);
     }
     match (body, etag) {
-        (Some(body), Some(etag)) if !missing => {
-            write_response(&mut writer, 200, "binary/octet-stream", &body[..], Some(&etag))
-        }
+        (Some(body), Some(etag)) if !missing => write_response(
+            &mut writer,
+            200,
+            "binary/octet-stream",
+            &body[..],
+            Some(&etag),
+        ),
         _ => {
             let body = "<?xml version=\"1.0\"?><Error><Code>NoSuchKey</Code><Message>The \
                         specified key does not exist.</Message></Error>";
