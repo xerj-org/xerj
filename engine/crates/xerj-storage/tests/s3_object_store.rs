@@ -501,3 +501,64 @@ async fn read_through_cache_measured_cold_and_warm() {
 
     clean(&b).await;
 }
+
+/// 966-m4: a missing BUCKET is an HTTP 404 too, and treating it as a missing
+/// OBJECT hides a configuration mistake behind an empty store.
+///
+/// `list()` carries the provider's `NoSuchBucket` code in its response body and
+/// is now classified as permanent rather than "not found" — so it errors, and
+/// it is not retried (a bucket does not appear because we asked four times).
+///
+/// The `HeadObject` path (`exists`/`metadata`) genuinely cannot tell the two
+/// apart: a HEAD response has no body, so there is no error code to read and
+/// every 404 looks identical. That limitation is asserted here too, so it
+/// cannot be discovered by surprise, and `docs/OBJECT_STORAGE.md` says to probe
+/// with a `list()` at startup when it matters.
+///
+/// Costs two Class A/B requests and writes nothing.
+#[tokio::test]
+async fn a_missing_bucket_is_an_error_not_an_absent_object() {
+    let Some(reference) = backend("missing-bucket") else {
+        return;
+    };
+    // A bucket name that cannot exist on the endpoint under test, built from
+    // the real one so the credentials and endpoint are unchanged.
+    let absent = format!("{}-absent-xerj-test", reference.bucket());
+    let Ok(backend) = S3Backend::connect(
+        S3Config::new(absent)
+            .with_prefix("xerj-it/missing-bucket/")
+            .with_endpoint(std::env::var("XERJ_S3_TEST_ENDPOINT").unwrap())
+            .with_region(std::env::var("XERJ_S3_TEST_REGION").unwrap_or_else(|_| "auto".into()))
+            .with_retry(RetryPolicy::none()),
+    ) else {
+        println!("SKIP: could not build a client for the absent bucket");
+        return;
+    };
+
+    let err = backend
+        .list("")
+        .await
+        .expect_err("listing a bucket that does not exist must fail");
+    println!("missing bucket: {err}");
+    assert!(
+        err.to_string().contains("NoSuchBucket"),
+        "the provider's own code must survive: {err}"
+    );
+    assert!(
+        err.to_string().contains("not retryable"),
+        "a missing bucket must not be retried: {err}"
+    );
+
+    // The documented limitation, pinned: HEAD cannot distinguish.
+    assert_eq!(
+        backend.exists("anything.bin").await.ok(),
+        Some(false),
+        "if this ever starts erroring, HeadObject gained a distinguishable \
+         response and docs/OBJECT_STORAGE.md's note should be removed"
+    );
+
+    let ops = backend.ops().expect("an S3 backend has counters");
+    assert_eq!(ops.class_a, 1, "{ops:?}");
+    assert_eq!(ops.class_b, 1, "{ops:?}");
+    assert_eq!(ops.retried, 0, "{ops:?}");
+}

@@ -5977,9 +5977,11 @@ mod tests {
              directory; local: {local_files:?}, uploaded: {uploaded:?}"
         );
         // The skip index is the concrete example inside this crate. In the
-        // running engine there are many more: a real 25-field segment writes
-        // 104 files (.seg, .sidx, .dv, .ids, and .fst/.meta/.norms/.post per
-        // indexed field), of which this path uploads exactly one.
+        // running engine there are many more: a hand count of one real
+        // 25-field segment came to 104 files (.seg, .sidx, .dv, .ids, and
+        // .fst/.meta/.norms/.post per indexed field), of which this path
+        // uploads exactly one. This test asserts the inequality below, not the
+        // number 104 — see docs/OBJECT_STORAGE.md, which says the same.
         assert!(
             local_files.iter().any(|f| f.ends_with(".sidx")),
             "a flush writes a .sidx skip index locally: {local_files:?}"

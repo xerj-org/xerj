@@ -128,10 +128,23 @@ impl SegmentCache {
     /// `path` is a flat object key, so a key containing `..` would otherwise
     /// escape the cache directory. Each component is checked and a traversal
     /// attempt is refused rather than normalised away.
+    ///
+    /// A backslash anywhere in the key is refused outright, not split on.
+    /// `PathBuf::join` treats `\` as a separator on Windows, so a key like
+    /// `a..\..\..\etc\x` has no `/`-delimited `..` component and would escape
+    /// there while looking like one harmless filename on Linux — a guard that
+    /// holds on the developer's machine and not on the shipped Windows binary
+    /// is the worst kind. `xerj-autoindex`'s key classifier takes the same
+    /// position (`source.rs`, `classify_key`).
     fn cache_path(&self, path: &str) -> Result<PathBuf> {
         let rel = path.trim_start_matches('/');
         if rel.is_empty() {
             return Err(StorageError::Backend("empty object key".into()));
+        }
+        if rel.contains('\\') {
+            return Err(StorageError::Backend(format!(
+                "object key contains a backslash, which is a path separator on Windows: {path}"
+            )));
         }
         for component in rel.split('/') {
             if component == ".." {

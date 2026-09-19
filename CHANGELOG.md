@@ -23,11 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through `StorageBackend::ops()`, and `OpBudget` refuses to send more past a
   ceiling. Counted per wire attempt, which is why the AWS SDK's retry layer is
   disabled in favour of XERJ's own: an SDK-internal retry is invisible to a
-  counter wrapped around the call. `SegmentCache` gained hit/miss/bytes
+  counter wrapped around the call. A listing is bounded by a seen-token check
+  (which catches a continuation-token cycle of any length, not only an
+  immediately repeated token) and by `S3Config::max_list_pages`, so a broken or
+  hostile endpoint cannot bill a Class A request per page without end. `SegmentCache` gained hit/miss/bytes
   accounting, `get_range` (whole-object fetch on miss, then slice) and
   `get_range_uncached` (fetch the range only) — measured against MinIO on
-  loopback at 5.98 ms cold, 1.67 ms range-only and 0.068 ms warm, and against
-  R2 over a ~1 MB/s link at 3.72 s, 0.67 s and 0.12 ms. **`storage.backend =
+  loopback at 5.98 ms cold, 1.67 ms range-only and 0.068 ms warm, and, in a
+  single unrepeated run over a ~1 MB/s link that is not a performance claim
+  about R2, against R2 at 3.72 s, 0.67 s and 0.12 ms. **`storage.backend =
   "s3"` still refuses to start**: nothing routes the index's segment reads and
   writes through the backend, the flush path that exists uploads 1 of a
   segment's 104 files, and `snapshot.json` never leaves local disk, so a fresh

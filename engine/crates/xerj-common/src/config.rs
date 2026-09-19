@@ -808,8 +808,11 @@ pub struct StorageConfig {
     pub s3_region: String,
     /// Local NVMe cache directory for S3 segments (default: `"./cache"`).
     ///
-    /// Segments are cached here after the first fetch from S3.  The cache is
-    /// evicted by the background `SegmentCache::maybe_evict` task.
+    /// Segments are cached here after the first fetch from S3. Eviction is
+    /// **not** automatic: `SegmentCache::maybe_evict` exists but nothing calls
+    /// it yet outside tests, so whatever drives the cache has to drive eviction
+    /// too or the directory grows without bound. (This line used to claim a
+    /// "background task"; there is none.)
     pub local_cache_dir: String,
 }
 

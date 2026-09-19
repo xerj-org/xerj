@@ -134,11 +134,14 @@ operations a month — 9% of the tier, fine. But a segment is not one file:
 | 30 s | 86,400 (9%) | 8,985,600 (**899%**) |
 | 5 min | 8,640 (0.9%) | 898,560 (90%) |
 
-104 is measured, not hypothetical: a real 25-field index in this repository
-writes 104 files for a single segment (`.seg`, `.sidx`, `.dv`, `.ids`, and
-`.fst`/`.meta`/`.norms`/`.post` per indexed field). Uploading a segment as one
-object per file would cost nine times the free tier at a 30-second flush
-interval. Any future wiring of the index path has to bundle a segment into one
+104 is a hand count of one real 25-field index in this repository — `.seg`,
+`.sidx`, `.dv`, `.ids`, and `.fst`/`.meta`/`.norms`/`.post` per indexed field —
+not a figure any test asserts. `object_store_mode_does_not_yet_make_an_index_stateless`
+asserts only the part the conclusion rests on: the local directory holds many
+more files than the bucket does. The conclusion does not depend on the exact
+number. Uploading a segment as one object per file would cost nine times the
+free tier at a 30-second flush interval, and it would still be several times
+over at a tenth of 104. Any future wiring of the index path has to bundle a segment into one
 object; see [What is not wired](#what-is-not-wired).
 
 ## The operation budget
@@ -157,6 +160,13 @@ once and succeeds on retry is billed twice and counted twice. This is why the
 AWS SDK's own retry layer is switched off and retries happen in XERJ's code: an
 SDK-internal retry is invisible to a counter wrapped around the call, and an
 undercount is the number that produces a surprise invoice.
+
+A listing is bounded twice, because a store that keeps answering "truncated"
+bills a Class A request per page for as long as it likes. A continuation token
+that has already been seen ends the listing with an error (any cycle length, not
+just an immediately repeated token), and `S3Config::max_list_pages` (default
+10,000 pages, i.e. 10 million keys and 1% of R2's monthly free allowance) ends
+it even when the tokens never repeat.
 
 `OpBudget` puts a ceiling on it:
 
@@ -221,9 +231,19 @@ Two read paths, and the difference matters:
   single billed request either way, so the saving is bandwidth and latency, not
   operations.
 
-`maybe_evict()` keeps the directory under `max_size_bytes`, removing
-oldest-by-mtime first. Cache entries are written temp-file-plus-rename, because
-a half-written entry `exists()` and would serve short reads forever.
+`maybe_evict()` brings the directory under `max_size_bytes`, removing
+oldest-by-mtime first — **when something calls it**. Nothing does yet outside
+tests: there is no background evictor, so whatever drives the cache has to drive
+eviction, or the directory grows until the disk does. Cache entries are written
+temp-file-plus-rename, because a half-written entry `exists()` and would serve
+short reads forever.
+
+The cache also never revalidates: a cached key is served from disk forever, with
+no `ETag`/`If-None-Match` check. That is correct for the only thing it is used
+for — segment files, which are immutable once written and replaced by a new id
+rather than edited — and wrong for anything mutable. Before caching a key whose
+bytes can change under the same name, add revalidation; do not assume the cache
+will notice.
 
 ## Measurements
 
@@ -239,7 +259,10 @@ the software path, with effectively no network:
 | Uncached ranged read (64 KiB only) | 1.67 ms | 1.41–2.01 ms |
 | Warm range read (from local cache) | 0.068 ms | 0.065–0.109 ms |
 
-**Cloudflare R2** over the internet from a sandboxed CI-style box, single run:
+**Cloudflare R2** over the internet from a sandboxed CI-style box, one run on
+2026-09-19 that has not been repeated (R2 traffic from this repository is
+currently frozen, so treat the row as a recorded observation rather than a
+reproducible measurement):
 
 | | Measured |
 |---|---|
@@ -279,7 +302,16 @@ use this backend. See below.
   whole-operation timeout: a 4 GiB upload and a 4 KiB footer read have no
   shared deadline, so the caller owns that.
 - A missing object is an `io::ErrorKind::NotFound`, the same as a missing local
-  file, rather than a generic backend error.
+  file, rather than a generic backend error. A missing **bucket** is not: it
+  carries the provider's `NoSuchBucket` code and is a permanent error, because a
+  mistyped bucket reported as "the object is absent" is a configuration mistake
+  hidden behind an empty store.
+  The `HeadObject` path (`exists`, `metadata`) is the one exception and cannot
+  be fixed here: a HEAD response has no body, so there is no error code to read
+  and a missing bucket is indistinguishable from a missing key — `exists()`
+  answers `false`. Probe a bucket once with `list()` at startup if that
+  distinction matters to you. (Pinned by
+  `a_missing_bucket_is_an_error_not_an_absent_object`.)
 
 All of it is `RetryPolicy` / `S3Config`, and `RetryPolicy::none()` makes one
 logical call cost exactly one billed request.
@@ -386,6 +418,9 @@ Every test writes under its own key prefix and deletes what it wrote.
 1,000-key page boundary. It writes 1,200 objects, which is **1,200 Class A
 operations** — free on MinIO, metered on R2. That is why it is opt-in.
 
-The same suite passes against R2 by pointing `XERJ_S3_TEST_ENDPOINT` at
-`https://<account>.r2.cloudflarestorage.com` with `XERJ_S3_TEST_REGION=auto`.
-Read the operation counts each test prints before you do it on a metered bucket.
+The same suite ran green against R2 once, on 2026-09-19, by pointing
+`XERJ_S3_TEST_ENDPOINT` at `https://<account>.r2.cloudflarestorage.com` with
+`XERJ_S3_TEST_REGION=auto`. That run is not repeated on demand and no CI job
+does it: every number this repository re-verifies comes from MinIO. Read the
+operation counts each test prints before you point it at a metered bucket —
+the pagination test alone is 1,200 Class A operations.

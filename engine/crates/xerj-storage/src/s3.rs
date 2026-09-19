@@ -90,6 +90,19 @@ use crate::backend::{
 };
 use crate::{Result, StorageError};
 
+/// Pages one `list()` may fetch before it refuses to continue.
+///
+/// A money guard, not a performance one. Each page is a billed Class A request
+/// covering at most 1,000 keys, so this caps one listing at 10,000 requests —
+/// already 1% of Cloudflare R2's free monthly Class A allowance, and 10 million
+/// keys. A prefix that large is a configuration mistake far more often than it
+/// is a real prefix, and a broken or hostile endpoint that keeps answering
+/// "truncated" with a fresh token has no other bound at all: the continuation
+/// token check below cannot see a cycle that never repeats a token, and
+/// `OpBudget` defaults to unlimited. `xerj-autoindex`'s object source uses the
+/// same figure for the same reason (`objsource.rs`, `MAX_LIST_PAGES`).
+const MAX_LIST_PAGES: u32 = 10_000;
+
 /// S3 error codes worth another billed attempt.
 const RETRYABLE_CODES: &[&str] = &[
     "SlowDown",
@@ -174,6 +187,10 @@ pub struct S3Config {
     /// read [`OpBudget`] before relying on it, because it is a circuit breaker
     /// and not a monthly quota.
     pub budget: OpBudget,
+    /// Pages one [`StorageBackend::list`] may fetch before refusing to
+    /// continue. Defaults to [`MAX_LIST_PAGES`]; configurable so a test can
+    /// reach the bound without sending ten thousand requests.
+    pub max_list_pages: u32,
 }
 
 impl Default for S3Config {
@@ -192,6 +209,7 @@ impl Default for S3Config {
             attempt_timeout: Duration::from_secs(30),
             retry: RetryPolicy::default(),
             budget: OpBudget::unlimited(),
+            max_list_pages: MAX_LIST_PAGES,
         }
     }
 }
@@ -230,6 +248,12 @@ impl S3Config {
     }
 
     /// Set the retry policy.
+    /// Override the page cap on one listing. See [`MAX_LIST_PAGES`].
+    pub fn with_max_list_pages(mut self, pages: u32) -> Self {
+        self.max_list_pages = pages;
+        self
+    }
+
     pub fn with_retry(mut self, retry: RetryPolicy) -> Self {
         self.retry = retry;
         self
@@ -312,6 +336,13 @@ where
     if matches!(code.as_str(), "NoSuchKey" | "NotFound") {
         return OpError::NotFound;
     }
+    // A missing BUCKET is also an HTTP 404, and mapping it to NotFound would
+    // make `exists()` answer "that object is not there" for every key in a
+    // misconfigured bucket — a permanently empty store and no error. It is a
+    // configuration failure, so it is permanent, not absent.
+    if code == "NoSuchBucket" {
+        return OpError::Permanent(format!("{}", DisplayErrorContext(err)));
+    }
     // `DisplayErrorContext` walks the whole source chain; the bare Display of
     // an SdkError is usually just "service error" with the cause hidden.
     let msg = format!("{}", DisplayErrorContext(err));
@@ -322,6 +353,8 @@ where
         SdkError::ServiceError(ctx) => {
             let status = ctx.raw().status().as_u16();
             if status == 404 {
+                // Code-based checks above have already taken NoSuchBucket out
+                // of this branch.
                 OpError::NotFound
             } else if status >= 500 || status == 429 || RETRYABLE_CODES.contains(&code.as_str()) {
                 OpError::Retryable(msg)
@@ -686,6 +719,11 @@ impl StorageBackend for S3Backend {
         let mut keys = Vec::new();
         let mut token: Option<String> = None;
         let mut pages: u32 = 0;
+        // Every token the store has handed back. A server that cycles through
+        // two or more tokens is not caught by comparing against the previous
+        // one, and each turn of that loop is a billed Class A request — see
+        // MAX_LIST_PAGES.
+        let mut seen_tokens: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         loop {
             let this_token = token.clone();
@@ -726,18 +764,38 @@ impl StorageBackend for S3Backend {
                 .filter(|_| page.is_truncated().unwrap_or(false))
                 .map(|t| t.to_owned());
 
-            // A server that keeps replying "truncated" with the same
-            // continuation token would spin here forever, and every turn of
-            // that loop is a billed Class A operation. Refusing is the only
-            // safe response: an unbounded list is how a bug turns into an
-            // invoice. (An `OpBudget` would eventually stop it too, but the
-            // budget is optional and this is not.)
-            if next.is_some() && next == this_token {
-                return Err(StorageError::Backend(format!(
-                    "ListObjectsV2 s3://{}/{full_prefix} returned the same continuation \
-                     token twice after {pages} page(s); refusing to keep listing",
-                    self.cfg.bucket
-                )));
+            // A server that keeps replying "truncated" would spin here forever,
+            // and every turn of that loop is a billed Class A operation.
+            // Refusing is the only safe response: an unbounded list is how a bug
+            // turns into an invoice. (An `OpBudget` would eventually stop it
+            // too, but the budget is optional and this is not.)
+            //
+            // Two bounds, because one is not enough. The token check catches a
+            // cycle of ANY length — the previous version compared only against
+            // the immediately preceding token, so an endpoint alternating
+            // A/B/A/B walked straight past it and billed a Class A request per
+            // page. The page cap catches what no token check can: a store that
+            // hands back a fresh token every time.
+            if let Some(next) = next.as_deref() {
+                if !seen_tokens.insert(next.to_owned()) {
+                    return Err(StorageError::Backend(format!(
+                        "ListObjectsV2 s3://{}/{full_prefix} returned a continuation token it had \
+                         already used after {pages} page(s) ({pages} billed Class A request(s)); \
+                         the listing is cycling, so refusing to keep paying for it",
+                        self.cfg.bucket
+                    )));
+                }
+                let cap = self.cfg.max_list_pages;
+                if pages >= cap {
+                    return Err(StorageError::Backend(format!(
+                        "ListObjectsV2 s3://{}/{full_prefix} is still truncated after {cap} \
+                         page(s) — {cap} billed Class A request(s), up to {} keys. Refusing to \
+                         keep listing: list a narrower prefix, or raise S3Config::max_list_pages \
+                         if a prefix really is this large",
+                        self.cfg.bucket,
+                        cap as u64 * 1000
+                    )));
+                }
             }
             token = next;
             if token.is_none() {
@@ -987,5 +1045,161 @@ mod tests {
         }
         std::env::remove_var("AWS_ACCESS_KEY_ID");
         std::env::remove_var("AWS_SECRET_ACCESS_KEY");
+    }
+
+    /// An endpoint that answers every `ListObjectsV2` with "truncated", handing
+    /// back continuation tokens from `tokens` in a loop.
+    ///
+    /// Hermetic, so the bound can be tested without a bucket and without
+    /// spending anything: the failure being tested is one where a real store
+    /// would bill per page.
+    struct ForeverTruncatedStub {
+        url: String,
+        pages: Arc<AtomicU64>,
+        stop: Arc<std::sync::atomic::AtomicBool>,
+        address: std::net::SocketAddr,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl ForeverTruncatedStub {
+        /// `tokens` is cycled; `None` means "a fresh token every page".
+        fn start(tokens: Option<Vec<&'static str>>) -> Self {
+            use std::io::{BufRead, BufReader, Write};
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let pages = Arc::new(AtomicU64::new(0));
+            let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let thread = {
+                let pages = Arc::clone(&pages);
+                let stop = Arc::clone(&stop);
+                std::thread::spawn(move || {
+                    for incoming in listener.incoming() {
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        let Ok(mut stream) = incoming else { continue };
+                        let n = pages.fetch_add(1, Ordering::Relaxed);
+                        let token = match &tokens {
+                            Some(cycle) => cycle[(n as usize) % cycle.len()].to_string(),
+                            None => format!("fresh-token-{n}"),
+                        };
+                        // Drain the request.
+                        {
+                            let mut reader = BufReader::new(stream.try_clone().unwrap());
+                            loop {
+                                let mut line = String::new();
+                                match reader.read_line(&mut line) {
+                                    Ok(0) => break,
+                                    Ok(_) if line == "\r\n" || line == "\n" => break,
+                                    Ok(_) => continue,
+                                    Err(_) => break,
+                                }
+                            }
+                        }
+                        let body = format!(
+                            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListBucketResult \
+                             xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Name>b</Name>\
+                             <KeyCount>0</KeyCount><MaxKeys>1000</MaxKeys><IsTruncated>true\
+                             </IsTruncated><NextContinuationToken>{token}</NextContinuationToken>\
+                             </ListBucketResult>"
+                        );
+                        let head = format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/xml\r\nContent-Length: \
+                             {}\r\nConnection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = stream.write_all(head.as_bytes());
+                        let _ = stream.write_all(body.as_bytes());
+                        let _ = stream.flush();
+                    }
+                })
+            };
+            Self {
+                url: format!("http://{address}"),
+                pages,
+                stop,
+                address,
+                thread: Some(thread),
+            }
+        }
+
+        fn wire_pages(&self) -> u64 {
+            self.pages.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Drop for ForeverTruncatedStub {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+            let _ = std::net::TcpStream::connect(self.address);
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
+        }
+    }
+
+    fn stub_backend(stub: &ForeverTruncatedStub, max_pages: u32) -> S3Backend {
+        std::env::set_var("AWS_ACCESS_KEY_ID", "test-key-id");
+        std::env::set_var("AWS_SECRET_ACCESS_KEY", "test-secret");
+        let backend = S3Backend::connect(
+            S3Config::new("bucket")
+                .with_endpoint(&stub.url)
+                .with_retry(RetryPolicy::none())
+                .with_max_list_pages(max_pages),
+        )
+        .unwrap();
+        std::env::remove_var("AWS_ACCESS_KEY_ID");
+        std::env::remove_var("AWS_SECRET_ACCESS_KEY");
+        backend
+    }
+
+    /// 966-M1: the old guard compared the new continuation token with the
+    /// PREVIOUS one only, so an endpoint alternating two tokens listed forever
+    /// — 201 billed Class A requests on an empty bucket in the reviewer's
+    /// repro. A token that has been seen at any point is now the bound.
+    #[tokio::test]
+    async fn an_alternating_continuation_token_stops_the_listing() {
+        let stub = ForeverTruncatedStub::start(Some(vec!["TOKEN-A", "TOKEN-B"]));
+        // The guard covers only the env-var window inside `stub_backend`; it is
+        // dropped before the await, because holding a std Mutex across one is
+        // how a test deadlocks a runtime.
+        let backend = {
+            let _guard = ENV_LOCK.lock().unwrap();
+            stub_backend(&stub, MAX_LIST_PAGES)
+        };
+
+        let err = backend.list("").await.unwrap_err().to_string();
+
+        assert!(
+            err.contains("already used"),
+            "the cycle must be named: {err}"
+        );
+        // Page 1 -> TOKEN-A (new), page 2 -> TOKEN-B (new), page 3 -> TOKEN-A
+        // (seen). Three billed requests, and no more.
+        assert_eq!(stub.wire_pages(), 3, "{err}");
+        assert_eq!(backend.ops().unwrap().class_a, 3, "{err}");
+    }
+
+    /// 966-M1, the half a token check cannot catch: an endpoint whose tokens
+    /// never repeat. Only a page cap bounds that, and the cap is what the
+    /// operator is billed at worst.
+    #[tokio::test]
+    async fn a_never_repeating_continuation_token_is_capped() {
+        let stub = ForeverTruncatedStub::start(None);
+        // Three rather than MAX_LIST_PAGES so the test costs three requests
+        // instead of ten thousand; the code path is the same one.
+        let backend = {
+            let _guard = ENV_LOCK.lock().unwrap();
+            stub_backend(&stub, 3)
+        };
+
+        let err = backend.list("").await.unwrap_err().to_string();
+
+        assert!(
+            err.contains("still truncated after 3 page(s)"),
+            "the cap must say what it cost: {err}"
+        );
+        assert_eq!(stub.wire_pages(), 3, "{err}");
+        assert_eq!(backend.ops().unwrap().class_a, 3, "{err}");
     }
 }
