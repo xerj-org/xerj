@@ -4406,12 +4406,18 @@ fn truncation_note_message(rels: &[String]) -> Option<String> {
     // the cap", which is advice for a cap it never reached (review finding on
     // PR #949). The flag does not say which cap fired, so the note names all
     // three and what each one kept.
+    //
+    // "The file's tail" is right only for the first cause. A mailbox with one
+    // oversized message loses THAT message's tail; every message after it is
+    // indexed (review of PR #949: 201 of 201 messages after a 2.3 GB one were
+    // found), so the note says what was dropped per cause.
     Some(format!(
-        "{} file(s) were cut short and their tail was NOT indexed: {listed}{tail} — one of: a \
-         single document over the per-document record cap ({} sections), a mail message over \
-         the {} MB per-message cap (its head was parsed), or a message with more MIME parts \
-         than the attachment cap. Split the document or the message if the dropped tail \
-         matters (#381)",
+        "{} file(s) had content cut short that was NOT indexed: {listed}{tail} — one of: a \
+         single document over the per-document record cap ({} sections; its later sections \
+         were dropped), a mail message over the {} MB per-message cap (only that message's \
+         head was parsed; the messages after it are indexed), or a message with more MIME \
+         parts than the attachment cap (its later parts were dropped). Split the document or \
+         the message if the dropped part matters (#381)",
         names.len(),
         extract::MAX_RECORDS_PER_FILE,
         extract::eml::MAX_EML >> 20,
@@ -4449,6 +4455,10 @@ mod truncation_note_tests {
         assert!(msg.contains("64 MB per-message cap"), "{msg}");
         assert!(msg.contains("MIME parts"), "{msg}");
         assert!(!msg.contains("raise the cap"), "{msg}");
+        // An oversized message costs that message's tail, not the mailbox's:
+        // the note must not tell a mailbox owner the rest of the file is gone.
+        assert!(!msg.contains("their tail"), "{msg}");
+        assert!(msg.contains("the messages after it are indexed"), "{msg}");
     }
 
     #[test]
