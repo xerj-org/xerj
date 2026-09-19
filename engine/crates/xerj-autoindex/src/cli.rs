@@ -214,10 +214,12 @@ pub fn help_text_with(feedback: bool) -> String {
              --no-graph           skip relationship detection (wikilinks, local links,\n\
                                   section order, directory chains) — no edges are written\n\
              --watch              index once, then stay resident and reindex what changes.\n\
-                                  Needs --no-graph (only that route reindexes a changed\n\
-                                  file incrementally). One OS watch per indexed directory,\n\
-                                  no polling; respects the same ignore rules as a re-run.\n\
-                                  See LIVE REINDEXING below.\n\
+                                  Needs --no-graph: the graph route refuses an ADDED file\n\
+                                  (exit 3, skipped until --fresh) and ABORTS on a deletion\n\
+                                  (exit 1, and every later re-run aborts too). It does\n\
+                                  reindex a MODIFIED file. One OS watch per indexed\n\
+                                  directory, no polling; respects the same ignore rules as\n\
+                                  a re-run. docs/LIVE_REINDEXING.md has the measurements.\n\
              --debounce <MS>      --watch quiet period before a pass (default 400, max\n\
                                   60000). One editor save is several filesystem events.\n\
              --max-minutes <N>    stop and ask before indexing if phase A's MEASURED estimate\n\
@@ -1432,6 +1434,29 @@ mod tests {
             let err = parse(args.into_iter().map(str::to_string).collect()).unwrap_err();
             assert!(err.contains("apply only to indexing"), "{err}");
         }
+    }
+
+    /// The graph route DOES reindex a modified file; what it cannot do is an
+    /// add or a delete. The help asserted the retracted version for as long as
+    /// the docs did, and pointed at a help section that does not exist.
+    #[test]
+    fn the_watch_help_does_not_repeat_the_retracted_graph_claim() {
+        let help = super::help_text();
+        assert!(
+            !help.contains("only that route reindexes"),
+            "the --watch help repeats the retracted claim about the graph route"
+        );
+        for expected in ["refuses an ADDED file", "ABORTS on a deletion"] {
+            assert!(
+                help.contains(expected),
+                "--watch help is missing {expected:?}"
+            );
+        }
+        // It pointed at a help section that does not exist.
+        assert!(
+            !help.contains("See LIVE REINDEXING below"),
+            "the help points at a LIVE REINDEXING section it does not have"
+        );
     }
 
     /// A flag the engine honours but never mentions is only half-shipped, and

@@ -30,7 +30,7 @@ faq:
   - q: "Is a file watcher cheaper than re-running the indexer on a timer?"
     a: "At idle, yes, and measurably. On a 10,000-file tree a re-run with nothing changed took 1.7 s and re-read all 4,576,300 bytes, while an idle watcher used 0.00 CPU-seconds over 60 s and read nothing. It does hold about 157 MiB resident between passes."
   - q: "Does --watch use less CPU per change than a re-run?"
-    a: "A little: it removes the corpus re-hash and nothing else. On a 10,000-file tree, modifying one file cost 7.6 CPU-seconds by re-running and 6.6 under --watch, and the wall clock was no better (44.3 s against 47.6 s), because each pass still seals a snapshot over the whole corpus and rewrites one catalog document per file. Against re-indexing the folder from scratch, which took 293.8 s and 127.9 CPU-seconds, both incremental routes win by an order of magnitude."
+    a: "Not measurably. It skips the corpus re-hash, but that saving is inside the run-to-run noise: on a 10,000-file tree, modifying one file cost 7.6 CPU-seconds by re-running against 6.6 under --watch in one measurement and 5.6 against 7.2 in another, and the wall clock was no better (44.3 s against 47.6 s), because each pass still seals a snapshot over the whole corpus and rewrites one catalog document per file. Against re-indexing the folder from scratch, which took 293.8 s and 127.9 CPU-seconds, both incremental routes win by an order of magnitude."
   - q: "Will a watched index match a full re-index?"
     a: "Two tests assert it. After any sequence of changes a plain re-run that re-hashes every byte must change nothing, and that is asserted after a randomised create, modify, rename, delete and recreate sequence. A watched index also equals an independently built full index, except that an incremental run keeps the dataset name it was built with."
   - q: "What happens when the index hits the inotify watch limit?"
@@ -75,7 +75,9 @@ find nothing, and waits half a tick to notice a real change. What the watcher
 does hold at idle is memory: 157 MiB and 295 worker threads between passes.
 
 **Per change, the watcher is not faster than re-running the same command.** It
-removes the corpus re-hash, worth about one CPU-second here, and that is all. The
+skips the corpus re-hash, but that saving is smaller than the run-to-run noise
+here and we could not measure it: an independent re-run of the same case came
+out the other way (5.6 CPU-seconds re-running against 7.2 under `--watch`). The
 pass that follows costs the same either way. A one-file change still seals a
 snapshot over the whole corpus: ~13 s, one blob per file, each copied, twice
 verified and fsynced. It still rewrites one catalog document per file on the

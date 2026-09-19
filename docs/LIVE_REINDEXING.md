@@ -77,11 +77,15 @@ obvious one:
    is far larger than the load noise, and it holds for a modify, an add and a
    delete alike.
 2. **Against a re-run of the same command, `--watch` is not faster per change.**
-   47.6 / 45.9 / 40.8 s against 44.3 / 42.7 / 39.1 s. What it saves is about **one
-   CPU-second per change** — the re-hash of the whole corpus, which the no-op
-   re-run above measures on its own at 2.1 CPU-seconds for 4.58 MB. On a corpus of
-   large files, where that hash is minutes rather than a second, the saved term is
-   the one that grows.
+   47.6 / 45.9 / 40.8 s against 44.3 / 42.7 / 39.1 s. In principle it skips the
+   re-hash of the whole corpus, which the no-op re-run above measures on its own
+   at 2.1 CPU-seconds for 4.58 MB — but **that saving is smaller than the noise on
+   this corpus and we could not measure it**: an independent re-run of the modify
+   case on the same binary and node came out the other way (re-run 5.61 CPU-s
+   against watch 7.19), and the re-run case alone moved 7.64 → 5.61 between runs.
+   Read only the order-of-magnitude gap in point 1. On a corpus of large files,
+   where the hash is minutes rather than a second, the skipped term is the one
+   that grows — that is an argument from what the code does, not a measurement.
 3. **At idle, `--watch` is free and a timer is not.** 0.00 CPU-seconds per minute
    against 1.7–2.2 s of wall and a full 4,576,300-byte re-read on every tick,
    forever, plus a mean staleness of half the tick. A watcher's staleness is the
