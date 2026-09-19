@@ -37438,6 +37438,24 @@ pub async fn rank_eval(
         };
 
     for req_spec in &body.requests {
+        // `_rank_eval` runs the engine's ranking and nothing else: the request
+        // below is rebuilt from `query` and `size`, so a `rerank` block would
+        // vanish and the metric would be computed over the engine's order —
+        // "reranking changed nothing", under a 200, from the one endpoint whose
+        // job is measuring ranking quality. Reported per request in `failures`
+        // (the rest of the batch still runs), like every other request this
+        // handler cannot run, and nothing is sent to the provider.
+        if crate::rerank_stage::carries_rerank(&req_spec.request) {
+            crate::rerank_stage::record_refused(&state.metrics);
+            record_failure(
+                &mut failures,
+                &req_spec.id,
+                xerj_common::XerjError::invalid_query(crate::rerank_stage::unsupported_reason(
+                    "_rank_eval",
+                )),
+            );
+            continue;
+        }
         let query_val = req_spec
             .request
             .get("query")

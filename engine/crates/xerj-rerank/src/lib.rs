@@ -108,6 +108,36 @@ pub const MAX_TIMEOUT_MS: u64 = 60_000;
 /// context budget that limits how many candidates fit per call.
 pub const DEFAULT_MAX_DOC_CHARS: usize = 1200;
 
+/// Ceiling on `rerank.instructions`, in characters.
+///
+/// The instructions are not sent once: the System One wire format carries them
+/// inside EVERY per-document question, so whatever the caller writes here is
+/// multiplied by the window. Uncapped, a 1 MB string at `window: 40` and
+/// `max_doc_chars: 1` put 40 MB on the wire to the provider (measured in
+/// review), and an 8 MB one grew the node's peak RSS by 700 MB for a single
+/// `size: 1` search — every other cost knob had a ceiling and this, the one
+/// multiplied by the window, did not. 2,000 characters is a dozen sentences of
+/// domain guidance; at the largest window (300) it is 600 KB of instructions,
+/// well under the 4.8 MB of document text the same window may already carry.
+pub const MAX_INSTRUCTIONS_CHARS: usize = 2_000;
+
+/// Ceiling on the question — `rerank.query`, or the one read from the search
+/// query. Sent once per provider call (at most ten calls per search), and
+/// echoed in `_rerank.query`. A question is a sentence or a short paragraph;
+/// anything longer is a document, and the judge's context is the scarce thing.
+pub const MAX_QUERY_CHARS: usize = 4_000;
+
+/// Ceiling on `rerank.model` and `rerank.provider`: identifiers, not prose.
+pub const MAX_MODEL_CHARS: usize = 128;
+
+/// Ceiling on the number of `rerank.fields` entries. Every entry is looked up
+/// on every hit in the window, and entries that returned no text are echoed in
+/// `_rerank.fields_without_text`.
+pub const MAX_FIELDS: usize = 64;
+
+/// Ceiling on one `rerank.fields` entry, in characters — a field path.
+pub const MAX_FIELD_NAME_CHARS: usize = 256;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RerankError {
     #[error(
@@ -345,8 +375,12 @@ impl RerankConfig {
         ];
         for k in obj.keys() {
             if !KNOWN.contains(&k.as_str()) {
+                // Named, but never echoed whole: the key is the caller's, and a
+                // megabyte-long one must not come back in the 400.
+                let shown = clip(k, MAX_ECHOED_NAME_CHARS);
+                let ellipsis = if shown.len() < k.len() { "…" } else { "" };
                 return Err(RerankError::Config(format!(
-                    "unknown `rerank` field `{k}`; supported: {}",
+                    "unknown `rerank` field `{shown}{ellipsis}`; supported: {}",
                     KNOWN.join(", ")
                 )));
             }
@@ -355,16 +389,10 @@ impl RerankConfig {
         let mut cfg = Self::default();
 
         if let Some(p) = obj.get("provider") {
-            cfg.provider = p
-                .as_str()
-                .ok_or_else(|| RerankError::Config("`rerank.provider` must be a string".into()))?
-                .to_string();
+            cfg.provider = bounded_string("provider", p, MAX_MODEL_CHARS)?;
         }
         if let Some(m) = obj.get("model") {
-            cfg.model = m
-                .as_str()
-                .ok_or_else(|| RerankError::Config("`rerank.model` must be a string".into()))?
-                .to_string();
+            cfg.model = bounded_string("model", m, MAX_MODEL_CHARS)?;
         }
         if let Some(w) = obj.get("window") {
             let w = w
@@ -437,39 +465,44 @@ impl RerankConfig {
             cfg.timeout = Duration::from_millis(t);
         }
         if let Some(i) = obj.get("instructions") {
-            cfg.instructions = Some(
-                i.as_str()
-                    .ok_or_else(|| {
-                        RerankError::Config("`rerank.instructions` must be a string".into())
-                    })?
-                    .to_string(),
-            );
+            // The one string that is multiplied by the window: it rides inside
+            // every per-document question (see `build_jev_request`).
+            cfg.instructions = Some(bounded_string("instructions", i, MAX_INSTRUCTIONS_CHARS)?);
         }
 
         if let Some(q) = obj.get("query") {
-            let q = q
-                .as_str()
-                .ok_or_else(|| RerankError::Config("`rerank.query` must be a string".into()))?;
+            let q = bounded_string("query", q, MAX_QUERY_CHARS)?;
             if q.trim().is_empty() {
                 return Err(RerankError::Config(
                     "`rerank.query` must not be empty".into(),
                 ));
             }
-            cfg.query = Some(q.to_string());
+            cfg.query = Some(q);
         }
         if let Some(f) = obj.get("fields") {
             let arr = f.as_array().ok_or_else(|| {
                 RerankError::Config("`rerank.fields` must be an array of field names".into())
             })?;
+            if arr.len() > MAX_FIELDS {
+                return Err(RerankError::Config(format!(
+                    "`rerank.fields` must name at most {MAX_FIELDS} fields (got {}): every name \
+                     is looked up on every hit in the window",
+                    arr.len()
+                )));
+            }
             let mut fields = Vec::with_capacity(arr.len());
             for v in arr {
-                fields.push(
-                    v.as_str()
-                        .ok_or_else(|| {
-                            RerankError::Config("`rerank.fields` entries must be strings".into())
-                        })?
-                        .to_string(),
-                );
+                let name = v.as_str().ok_or_else(|| {
+                    RerankError::Config("`rerank.fields` entries must be strings".into())
+                })?;
+                if longer_than(name, MAX_FIELD_NAME_CHARS) {
+                    return Err(RerankError::Config(format!(
+                        "`rerank.fields` entries must be at most {MAX_FIELD_NAME_CHARS} \
+                         characters — they are field paths (one entry is {} bytes)",
+                        name.len()
+                    )));
+                }
+                fields.push(name.to_string());
             }
             if fields.is_empty() {
                 return Err(RerankError::Config(
@@ -494,11 +527,57 @@ impl RerankConfig {
 /// Truncate on a char boundary. Byte slicing a `&str` here would panic on any
 /// multi-byte character — the exact defect that crash-looped `autoindex` on
 /// non-ASCII input, so it is not repeated.
-fn clip(s: &str, max_chars: usize) -> &str {
+pub fn clip(s: &str, max_chars: usize) -> &str {
     match s.char_indices().nth(max_chars) {
         Some((byte_idx, _)) => &s[..byte_idx],
         None => s,
     }
+}
+
+/// Whether `s` is longer than `max` characters, without walking all of it: a
+/// caller can send a 100 MB string, and the answer is known after `max` of
+/// them. Byte length is a free first test — `max` bytes cannot hold more than
+/// `max` characters.
+pub fn longer_than(s: &str, max: usize) -> bool {
+    s.len() > max && s.char_indices().nth(max).is_some()
+}
+
+/// How much of a caller-supplied NAME (an unknown key) a refusal echoes back.
+const MAX_ECHOED_NAME_CHARS: usize = 64;
+
+/// A `rerank.<key>` string under its server-side ceiling.
+///
+/// The refusal names the field and the limit and reports the size in bytes
+/// (known without reading the string); it never echoes the value, which is the
+/// caller's and may be megabytes.
+fn bounded_string(key: &str, v: &Value, max_chars: usize) -> Result<String, RerankError> {
+    let s = v
+        .as_str()
+        .ok_or_else(|| RerankError::Config(format!("`rerank.{key}` must be a string")))?;
+    if longer_than(s, max_chars) {
+        return Err(RerankError::Config(format!(
+            "`rerank.{key}` must be at most {max_chars} characters (this one is {} bytes): \
+             it is sent to the provider on the operator's key, so the ceiling is the server's",
+            s.len()
+        )));
+    }
+    Ok(s.to_string())
+}
+
+/// The ceiling on the question, for a question the API layer read out of the
+/// search query rather than out of `rerank.query`. Same string, same wire, same
+/// limit — and the refusal says what to do about it.
+pub fn check_inferred_question(q: &str) -> Result<(), RerankError> {
+    if longer_than(q, MAX_QUERY_CHARS) {
+        return Err(RerankError::Config(format!(
+            "the question read from the search query is longer than the {MAX_QUERY_CHARS} \
+             characters `rerank.query` allows (this one is {} bytes). Pass a shorter question \
+             as `rerank.query`: it is sent to the provider with every call, and the judge's \
+             context is what limits how many documents fit in one",
+            q.len()
+        )));
+    }
+    Ok(())
 }
 
 /// Remove the provider key from text that is about to reach a caller or a log.
@@ -519,9 +598,18 @@ fn redact_key(text: &str, api_key: &str) -> String {
 ///
 /// Split out from the HTTP call so the wire format is testable without a network
 /// or an API key.
+///
+/// Every caller-supplied string is cut to its ceiling HERE as well as refused
+/// in [`RerankConfig::from_json`]. `RerankConfig`'s fields are public, so the
+/// parser is not the only way to build one, and what one call can put on the
+/// wire — on the operator's key, to a third party — should be bounded by
+/// construction rather than by every caller remembering to validate. For a
+/// request that came through the parser the cuts change nothing.
 pub fn build_jev_request(query: &str, batch: &[Candidate], cfg: &RerankConfig) -> Value {
     let mut documents = Map::new();
     let mut questions = Map::new();
+    let instructions = clip(cfg.question(), MAX_INSTRUCTIONS_CHARS);
+    let max_doc_chars = cfg.max_doc_chars.min(MAX_DOC_CHARS);
 
     for cand in batch {
         // Keyed by the caller's ordinal, so a reordered or partial response
@@ -529,16 +617,16 @@ pub fn build_jev_request(query: &str, batch: &[Candidate], cfg: &RerankConfig) -
         let key = format!("d{}", cand.ordinal);
         let mut doc = Map::new();
         if let Some(t) = &cand.title {
-            doc.insert("title".into(), json!(clip(t, cfg.max_doc_chars)));
+            doc.insert("title".into(), json!(clip(t, max_doc_chars)));
         }
-        doc.insert("text".into(), json!(clip(&cand.text, cfg.max_doc_chars)));
+        doc.insert("text".into(), json!(clip(&cand.text, max_doc_chars)));
         documents.insert(key.clone(), Value::Object(doc));
 
         questions.insert(
             key,
             json!({
                 "type": "noul",
-                "instructions": cfg.question(),
+                "instructions": instructions,
                 "criteria": {
                     "true":  "The document is relevant to the query.",
                     "false": "The document is not relevant to the query."
@@ -548,8 +636,11 @@ pub fn build_jev_request(query: &str, batch: &[Candidate], cfg: &RerankConfig) -
     }
 
     json!({
-        "state": { "query": query, "documents": Value::Object(documents) },
-        "model": cfg.model,
+        "state": {
+            "query": clip(query, MAX_QUERY_CHARS),
+            "documents": Value::Object(documents),
+        },
+        "model": clip(&cfg.model, MAX_MODEL_CHARS),
         "questions": Value::Object(questions),
     })
 }
@@ -560,20 +651,31 @@ struct JevAnswer {
     noul: Option<f64>,
 }
 
-#[derive(Deserialize, Default)]
-struct JevUsage {
-    #[serde(default)]
-    input_tokens: u64,
-    #[serde(default)]
-    output_tokens: u64,
-}
-
 #[derive(Deserialize)]
 struct JevResponse {
     #[serde(default)]
     answers: std::collections::HashMap<String, JevAnswer>,
+    /// Read as loose JSON on purpose. `usage` is advisory metering and not part
+    /// of the ranking contract: typed as `{input_tokens: u64, output_tokens:
+    /// u64}` it made a provider reporting `-5` (or a float, a string, `null`)
+    /// fail the whole call with a 502 and no hits, although every verdict in
+    /// `answers` was valid. `answers` stays strict — that IS the contract.
     #[serde(default)]
-    usage: JevUsage,
+    usage: Value,
+}
+
+/// One token count out of a provider `usage` block: a non-negative number, or
+/// zero. Zero rather than a guess — the meter under-reads instead of inventing.
+fn token_count(usage: &Value, key: &str) -> u64 {
+    match usage.get(key) {
+        Some(n) => n.as_u64().unwrap_or_else(|| {
+            n.as_f64()
+                .filter(|f| f.is_finite() && *f >= 0.0)
+                .map(|f| f as u64)
+                .unwrap_or(0)
+        }),
+        None => 0,
+    }
 }
 
 /// Parse a System One response into scores keyed by the caller's ordinals.
@@ -590,8 +692,8 @@ pub fn parse_jev_response_with_usage(body: &str) -> Result<(Vec<Scored>, Usage),
     let parsed: JevResponse =
         serde_json::from_str(body).map_err(|e| RerankError::Malformed(e.to_string()))?;
     let usage = Usage {
-        input_tokens: parsed.usage.input_tokens,
-        output_tokens: parsed.usage.output_tokens,
+        input_tokens: token_count(&parsed.usage, "input_tokens"),
+        output_tokens: token_count(&parsed.usage, "output_tokens"),
     };
 
     let mut out = Vec::with_capacity(parsed.answers.len());
@@ -1442,6 +1544,149 @@ mod tests {
             assert!(err.to_string().contains(needle), "{err}");
         }
         assert!(RerankConfig::from_json(&json!({"window": MAX_WINDOW})).is_ok());
+    }
+
+    /// The strings a caller writes are cost knobs too — `instructions` most of
+    /// all, because the wire format repeats it once per judged document.
+    #[test]
+    fn caller_written_strings_have_server_side_ceilings() {
+        let long = |n: usize| "y".repeat(n);
+        for (body, needle) in [
+            (
+                json!({"instructions": long(MAX_INSTRUCTIONS_CHARS + 1)}),
+                "rerank.instructions",
+            ),
+            (json!({"query": long(MAX_QUERY_CHARS + 1)}), "rerank.query"),
+            (json!({"model": long(MAX_MODEL_CHARS + 1)}), "rerank.model"),
+            (
+                json!({"provider": long(MAX_MODEL_CHARS + 1)}),
+                "rerank.provider",
+            ),
+            (
+                json!({"fields": vec!["f"; MAX_FIELDS + 1]}),
+                "rerank.fields",
+            ),
+            (
+                json!({"fields": [long(MAX_FIELD_NAME_CHARS + 1)]}),
+                "rerank.fields",
+            ),
+        ] {
+            let err = match RerankConfig::from_json(&body) {
+                Err(e) => e.to_string(),
+                Ok(_) => panic!("over the ceiling must be refused: needle {needle}"),
+            };
+            assert!(err.contains(needle), "{err}");
+            // The refusal names the limit and never echoes the oversized value.
+            assert!(
+                err.len() < 400,
+                "refusal must not echo the value: {} bytes",
+                err.len()
+            );
+        }
+        // Exactly at the ceiling is accepted, and the ceiling counts
+        // characters, not bytes: a multi-byte string of the same length fits.
+        assert!(RerankConfig::from_json(&json!({
+            "instructions": long(MAX_INSTRUCTIONS_CHARS),
+            "query": long(MAX_QUERY_CHARS),
+            "model": long(MAX_MODEL_CHARS),
+            "fields": vec![long(MAX_FIELD_NAME_CHARS); MAX_FIELDS],
+        }))
+        .is_ok());
+        assert!(RerankConfig::from_json(&json!({
+            "instructions": "é".repeat(MAX_INSTRUCTIONS_CHARS),
+        }))
+        .is_ok());
+    }
+
+    /// An unknown key or provider is named in the refusal, but a caller must
+    /// not be able to make the node echo megabytes back by naming a huge one.
+    #[test]
+    fn refusals_do_not_echo_oversized_names() {
+        let huge = "k".repeat(1_000_000);
+        let mut block = Map::new();
+        block.insert(huge, json!(1));
+        let err = RerankConfig::from_json(&Value::Object(block))
+            .expect_err("unknown key")
+            .to_string();
+        assert!(
+            err.contains("unknown `rerank` field"),
+            "{}",
+            &err[..200.min(err.len())]
+        );
+        assert!(err.len() < 1_000, "echoed {} bytes", err.len());
+    }
+
+    /// The wire is bounded by construction, whatever built the `RerankConfig`:
+    /// the fields are public, so the parser's refusal is not the only guard.
+    #[test]
+    fn one_provider_call_is_bounded_whatever_the_config_holds() {
+        let cfg = RerankConfig {
+            instructions: Some("i".repeat(5_000_000)),
+            model: "m".repeat(1_000_000),
+            max_doc_chars: MAX_DOC_CHARS,
+            ..RerankConfig::default()
+        };
+        let batch: Vec<Candidate> = (0..JEV_MAX_DOCS_PER_CALL)
+            .map(|i| Candidate {
+                ordinal: i,
+                title: Some("t".repeat(100_000)),
+                text: "x".repeat(100_000),
+            })
+            .collect();
+        let question = "q".repeat(3_000_000);
+        let body = build_jev_request(&question, &batch, &cfg).to_string();
+        // 30 documents x (title + text at the ceiling + instructions at the
+        // ceiling) + the question + the model + JSON framing.
+        let bound = JEV_MAX_DOCS_PER_CALL * (2 * MAX_DOC_CHARS + MAX_INSTRUCTIONS_CHARS + 512)
+            + MAX_QUERY_CHARS
+            + MAX_MODEL_CHARS
+            + 1_024;
+        assert!(
+            body.len() <= bound,
+            "one call put {} bytes on the wire; the bound is {bound}",
+            body.len()
+        );
+    }
+
+    /// `usage` is advisory metering. It must never veto a ranking whose
+    /// verdicts all parsed — a provider that reports `-5`, a float, a string
+    /// or `null` there used to fail the whole call with a 502 and no hits.
+    #[test]
+    fn odd_usage_never_discards_valid_verdicts() {
+        for usage in [
+            r#"{"input_tokens":9223372036854775808,"output_tokens":-5}"#,
+            r#"{"input_tokens":"many","output_tokens":null}"#,
+            r#"{"input_tokens":12.0,"output_tokens":3.9}"#,
+            r#""n/a""#,
+            r#"null"#,
+            r#"[1,2]"#,
+        ] {
+            let body = format!(
+                r#"{{"answers":{{"d0":{{"type":"noul","noul":0.5}},"d1":{{"type":"noul","noul":0.25}}}},"usage":{usage}}}"#
+            );
+            let (mut scores, u) = match parse_jev_response_with_usage(&body) {
+                Ok(v) => v,
+                Err(e) => panic!("usage {usage} vetoed two valid verdicts: {e}"),
+            };
+            scores.sort_by_key(|s| s.ordinal);
+            assert_eq!(scores.len(), 2, "usage {usage}");
+            assert_eq!(scores[0].score, 0.5);
+            // A number that is a whole, non-negative count is kept; anything
+            // else meters as zero rather than as a guess.
+            if usage.contains("12.0") {
+                assert_eq!((u.input_tokens, u.output_tokens), (12, 3), "usage {usage}");
+            }
+            if usage.contains("-5") {
+                assert_eq!(u.input_tokens, 9_223_372_036_854_775_808, "usage {usage}");
+                assert_eq!(u.output_tokens, 0, "usage {usage}");
+            }
+        }
+        // Malformed ANSWERS are still a contract break.
+        assert!(parse_jev_response_with_usage(r#"{"answers":[1,2]}"#).is_err());
+        assert!(parse_jev_response_with_usage(
+            r#"{"answers":{"d0":{"type":"noul","noul":"high"}}}"#
+        )
+        .is_err());
     }
 
     // ── server-side settings: the env-free seam ─────────────────────────────

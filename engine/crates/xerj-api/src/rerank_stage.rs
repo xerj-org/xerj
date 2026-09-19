@@ -43,8 +43,8 @@
 //! means pages would be cut from two different orderings. Both are a 400 rather
 //! than quietly honoured in a way that misleads. Surfaces that do not run the
 //! stage at all (`_msearch`, search templates, `_async_search`, scroll and its
-//! `_search/scroll` continuation, the native `/v1` search API and the gRPC
-//! Search RPC) refuse a body carrying `rerank` for the same reason: dropping
+//! `_search/scroll` continuation, `_rank_eval`, the native `/v1` search API and
+//! the gRPC Search RPC) refuse a body carrying `rerank` for the same reason: dropping
 //! the key silently returns lexical order to a caller who asked for something
 //! else. `"rerank": null` is the same as no `rerank` key on every surface.
 //!
@@ -191,21 +191,70 @@ fn fields_requests(fields: Option<&Value>, field: &str) -> bool {
     })
 }
 
-/// Append every string under `v` — a string, or an array of strings. Numbers,
-/// booleans, vectors and nested objects are not prose and are not sent.
-fn push_text(v: &Value, out: &mut String) {
-    match v {
-        Value::String(s) if !s.trim().is_empty() => {
-            if !out.is_empty() {
-                out.push('\n');
-            }
-            out.push_str(s);
+/// Prose collected for the judge, cut at `max_doc_chars` WHILE it is
+/// collected.
+///
+/// The provider crate cuts title and text to `max_doc_chars` when it builds the
+/// request, so nothing past that point is ever sent. The first draft collected
+/// every returned string field whole, cloned the result into `sendable`, into
+/// per-call batches and into each task, and only then cut it: on a window of
+/// 300 documents of ~1 MB each that was roughly 0.45 GB of transient copies of
+/// text that could never leave the node (measured in review). Stopping at the
+/// budget here bounds every later copy by `window × 2 × max_doc_chars`
+/// characters, and what is sent is character-for-character what it was.
+struct Prose {
+    buf: String,
+    /// Characters still allowed.
+    room: usize,
+}
+
+impl Prose {
+    fn new(max_chars: usize) -> Self {
+        Self {
+            buf: String::new(),
+            room: max_chars,
         }
-        Value::Array(items) => items
-            .iter()
-            .filter(|i| i.is_string())
-            .for_each(|i| push_text(i, out)),
-        _ => {}
+    }
+
+    /// Append one piece of prose, newline-separated from the last.
+    fn push_str(&mut self, s: &str) {
+        if self.room == 0 || s.trim().is_empty() {
+            return;
+        }
+        if !self.buf.is_empty() {
+            self.buf.push('\n');
+            self.room -= 1;
+            if self.room == 0 {
+                return;
+            }
+        }
+        let cut = xerj_rerank::clip(s, self.room);
+        // `cut` is at most `room` characters; the count is only walked when
+        // the piece fit whole.
+        self.room = if cut.len() < s.len() {
+            0
+        } else {
+            self.room - cut.chars().count()
+        };
+        self.buf.push_str(cut);
+    }
+
+    /// Append every string under `v` — a string, or an array of strings.
+    /// Numbers, booleans, vectors and nested objects are not prose and are not
+    /// sent.
+    fn push(&mut self, v: &Value) {
+        match v {
+            Value::String(s) => self.push_str(s),
+            Value::Array(items) => items
+                .iter()
+                .filter(|i| i.is_string())
+                .for_each(|i| self.push(i)),
+            _ => {}
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.buf.is_empty()
     }
 }
 
@@ -287,12 +336,23 @@ impl RerankPlan {
                     .into(),
             );
         }
-        if body.from + body.size > cfg.window {
+        // `checked_add`, not `+`: `from` is the caller's, and `u64::MAX + 1`
+        // wrapped to 0 in a release build (overflow checks are off there),
+        // passed this check, paid for a whole window of judgements and
+        // returned an empty page under a 200 — while the same request without
+        // `rerank` is the engine's 400. `from` is zeroed below, so the engine's
+        // own `from + size` guard never sees the caller's value; this is the
+        // only place it can be refused.
+        let page_end = body.from.checked_add(body.size);
+        if page_end.is_none_or(|end| end > cfg.window) {
             return Err(format!(
                 "`from` + `size` ({}) exceeds `rerank.window` ({}): results past the window \
                  keep the engine's order, so a page cut across the boundary would mix two \
                  rankings. Raise `rerank.window` or page within it",
-                body.from + body.size,
+                page_end.map_or_else(
+                    || format!("{} + {}", body.from, body.size),
+                    |end| end.to_string()
+                ),
                 cfg.window
             ));
         }
@@ -334,6 +394,13 @@ impl RerankPlan {
             })?,
         };
 
+        // `rerank.query` was checked against its ceiling by the parser; a
+        // question read out of the search query is the same string on the same
+        // wire and gets the same ceiling.
+        if cfg.query.is_none() {
+            xerj_rerank::check_inferred_question(&query).map_err(|e| e.to_string())?;
+        }
+
         let requested_size = body.size;
         let from = body.from;
         body.size = body.size.max(cfg.window);
@@ -366,11 +433,11 @@ impl RerankPlan {
         self.cfg.window
     }
 
-    /// The prose a hit returns under one field name: `_source` first, then the
-    /// hit's `fields` — which is how fetched-not-stored values get judged.
-    fn field_text(hit: &EsHit, name: &str) -> String {
+    /// Collect the prose a hit returns under one field name: `_source` first,
+    /// then the hit's `fields` — which is how fetched-not-stored values get
+    /// judged.
+    fn field_text(hit: &EsHit, name: &str, out: &mut Prose) {
         let src = hit.source.as_ref().and_then(Value::as_object);
-        let mut out = String::new();
         if let Some(v) = src
             .and_then(|o| lookup(o, name))
             .or_else(|| hit.fields.as_ref().and_then(|f| f.get(name)))
@@ -382,14 +449,13 @@ impl RerankPlan {
                 // and its `text` is by construction a slice of a returned field.
                 for passage in v.as_array().into_iter().flatten() {
                     if let Some(text) = passage.get("text") {
-                        push_text(text, &mut out);
+                        out.push(text);
                     }
                 }
             } else {
-                push_text(v, &mut out);
+                out.push(v);
             }
         }
-        out
     }
 
     fn candidate(&self, ordinal: usize, hit: &EsHit) -> Candidate {
@@ -401,23 +467,18 @@ impl RerankPlan {
             None => true,
             Some(fields) => fields.iter().any(|f| f == "title"),
         };
-        let title = if title_allowed {
-            Self::field_text(hit, "title")
-        } else {
-            String::new()
-        };
+        // Title and text are each cut at `max_doc_chars` as they are
+        // collected — see [`Prose`].
+        let mut title = Prose::new(self.cfg.max_doc_chars);
+        if title_allowed {
+            Self::field_text(hit, "title", &mut title);
+        }
 
-        let mut text = String::new();
+        let mut text = Prose::new(self.cfg.max_doc_chars);
         match &self.cfg.fields {
             Some(fields) => {
                 for f in fields.iter().filter(|f| f.as_str() != "title") {
-                    let t = Self::field_text(hit, f);
-                    if !t.is_empty() {
-                        if !text.is_empty() {
-                            text.push('\n');
-                        }
-                        text.push_str(&t);
-                    }
+                    Self::field_text(hit, f, &mut text);
                 }
             }
             None => {
@@ -425,18 +486,46 @@ impl RerankPlan {
                 // one. Text is cut at `max_doc_chars`, so on a long document an
                 // appended passage would be the part that gets cut — and it is
                 // the part that says why this hit matched.
-                text = Self::field_text(hit, xerj_query::executor::PASSAGE_RESPONSE_FIELD);
-                if let Some(obj) = hit.source.as_ref().and_then(Value::as_object) {
+                let passage = xerj_query::executor::PASSAGE_RESPONSE_FIELD;
+                Self::field_text(hit, passage, &mut text);
+                let source = hit.source.as_ref().and_then(Value::as_object);
+                if let Some(obj) = source {
                     obj.iter()
                         .filter(|(k, _)| k.as_str() != "title")
-                        .for_each(|(_, v)| push_text(v, &mut text));
+                        .for_each(|(_, v)| text.push(v));
+                }
+                // Then what the hit returns under `fields` — where `fields`,
+                // `docvalue_fields`, `stored_fields` and `script_fields` put
+                // their values. "The judge sees what the response returns"
+                // includes them: the docs and `prepare`'s own refusal both say
+                // "return the text through `fields`", and until this loop
+                // existed `_source: false` + `fields: ["body"]` + `rerank: {}`
+                // followed that advice into a second 400 ("nothing to judge").
+                // A name `_source` already returned at the top level is
+                // skipped, so a value present in both is sent once. `fields`
+                // is a `HashMap`; the names are sorted so the same response
+                // always sends the same text (the cut at `max_doc_chars` would
+                // otherwise fall on a different field from call to call).
+                if let Some(returned) = &hit.fields {
+                    let mut names: Vec<&String> = returned
+                        .keys()
+                        .filter(|k| {
+                            k.as_str() != "title"
+                                && k.as_str() != passage
+                                && !source.is_some_and(|o| o.contains_key(k.as_str()))
+                        })
+                        .collect();
+                    names.sort();
+                    for name in names {
+                        text.push(&returned[name]);
+                    }
                 }
             }
         }
         Candidate {
             ordinal,
-            title: (!title.is_empty()).then_some(title),
-            text,
+            title: (!title.is_empty()).then_some(title.buf),
+            text: text.buf,
         }
     }
 
@@ -456,7 +545,14 @@ impl RerankPlan {
         };
         fields
             .iter()
-            .filter(|f| window.iter().all(|h| Self::field_text(h, f).is_empty()))
+            .filter(|f| {
+                window.iter().all(|h| {
+                    // One character is enough to know the field had prose.
+                    let mut probe = Prose::new(1);
+                    Self::field_text(h, f, &mut probe);
+                    probe.is_empty()
+                })
+            })
             .cloned()
             .collect()
     }
@@ -829,6 +925,11 @@ pub fn status_document(settings: &ProviderSettings) -> Value {
             "max_concurrency": xerj_rerank::MAX_CONCURRENCY,
             "max_doc_chars": xerj_rerank::MAX_DOC_CHARS,
             "max_timeout_ms": xerj_rerank::MAX_TIMEOUT_MS,
+            "max_instructions_chars": xerj_rerank::MAX_INSTRUCTIONS_CHARS,
+            "max_query_chars": xerj_rerank::MAX_QUERY_CHARS,
+            "max_model_chars": xerj_rerank::MAX_MODEL_CHARS,
+            "max_fields": xerj_rerank::MAX_FIELDS,
+            "max_field_name_chars": xerj_rerank::MAX_FIELD_NAME_CHARS,
         },
         "data_egress": "A search that carries a `rerank` block sends the text of up to \
                         `window` hits, and the query, to the endpoint above. It is the \
@@ -933,14 +1034,111 @@ mod tests {
 
     #[test]
     fn text_is_strings_and_string_arrays_only() {
-        let mut out = String::new();
-        push_text(&json!("alpha"), &mut out);
-        push_text(&json!(["beta", 7, "gamma"]), &mut out);
-        push_text(&json!(42), &mut out);
-        push_text(&json!({"nested": "no"}), &mut out);
-        push_text(&json!([0.1, 0.2]), &mut out);
-        push_text(&json!("   "), &mut out);
-        assert_eq!(out, "alpha\nbeta\ngamma");
+        let mut out = Prose::new(1_000);
+        out.push(&json!("alpha"));
+        out.push(&json!(["beta", 7, "gamma"]));
+        out.push(&json!(42));
+        out.push(&json!({"nested": "no"}));
+        out.push(&json!([0.1, 0.2]));
+        out.push(&json!("   "));
+        assert_eq!(out.buf, "alpha\nbeta\ngamma");
+    }
+
+    /// Cutting while collecting must send exactly what collecting everything
+    /// and cutting afterwards sent — for every budget, across piece
+    /// boundaries, on the separator itself, and inside multi-byte text — while
+    /// never holding more than the budget.
+    #[test]
+    fn prose_cut_while_collected_equals_collected_then_cut() {
+        let pieces = [
+            "héllo wörld",
+            "  ",
+            "второй кусок",
+            "",
+            "日本語のテキスト",
+            "tail",
+        ];
+        let whole = pieces
+            .iter()
+            .filter(|p| !p.trim().is_empty())
+            .copied()
+            .collect::<Vec<_>>()
+            .join("\n");
+        for budget in 0..=whole.chars().count() + 2 {
+            let mut prose = Prose::new(budget);
+            for p in pieces {
+                prose.push_str(p);
+            }
+            assert_eq!(
+                prose.buf,
+                xerj_rerank::clip(&whole, budget),
+                "budget {budget}"
+            );
+            assert!(prose.buf.chars().count() <= budget, "budget {budget}");
+        }
+    }
+
+    fn hit(source: Value, fields: Option<Value>) -> EsHit {
+        let mut value = json!({
+            "_index": "i", "_id": "1", "_score": 1.0, "_source": source,
+            "matched_queries": null
+        });
+        if let Some(f) = fields {
+            value["fields"] = f;
+        }
+        serde_json::from_value(value).expect("an EsHit")
+    }
+
+    fn plan(rerank: Value) -> RerankPlan {
+        RerankPlan {
+            cfg: RerankConfig::from_json(&rerank).expect("a valid block"),
+            query: "q".into(),
+            requested_size: 10,
+            from: 0,
+        }
+    }
+
+    /// A megabyte-sized field costs the stage `max_doc_chars`, not a megabyte:
+    /// the candidate is what gets cloned into batches and tasks.
+    #[test]
+    fn a_candidate_never_holds_more_than_max_doc_chars_of_each_part() {
+        let big = "x".repeat(1_000_000);
+        let h = hit(json!({"title": big, "body": big, "more": [big, big]}), None);
+        let c = plan(json!({"max_doc_chars": 50})).candidate(0, &h);
+        assert_eq!(c.title.as_deref().map(|t| t.chars().count()), Some(50));
+        assert_eq!(c.text.chars().count(), 50);
+        let c = plan(json!({"max_doc_chars": 50, "fields": ["more", "body"]})).candidate(0, &h);
+        assert_eq!(c.title, None, "`rerank.fields` is exhaustive");
+        assert_eq!(c.text.chars().count(), 50);
+    }
+
+    /// Default mode reads `_source`, then the hit's `fields` for names
+    /// `_source` did not already return — once, and in a stable order.
+    #[test]
+    fn default_mode_reads_returned_fields_once_and_in_name_order() {
+        let h = hit(
+            json!({"title": "T", "body": "from source"}),
+            Some(json!({
+                "body": ["from source"],
+                "zeta": ["last"],
+                "alpha": ["first"],
+                "n": [7],
+                "title": ["T"]
+            })),
+        );
+        let c = plan(json!({})).candidate(0, &h);
+        assert_eq!(c.title.as_deref(), Some("T"));
+        assert_eq!(c.text, "from source\nfirst\nlast");
+
+        // `_source: false`: everything comes from `fields`, title included.
+        let mut h = hit(
+            json!({}),
+            Some(json!({"body": ["only here"], "title": ["T"]})),
+        );
+        h.source = None;
+        let c = plan(json!({})).candidate(0, &h);
+        assert_eq!(c.title.as_deref(), Some("T"));
+        assert_eq!(c.text, "only here");
     }
 
     #[test]
