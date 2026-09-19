@@ -441,7 +441,7 @@ fn thread_and_attachment_edges_match_the_ground_truth_and_carry_evidence() {
 fn takeout_noise_is_skipped_and_archives_say_extract_me_first() {
     let _pdf = NoPdfWorker::pin();
     let truth = truth();
-    let (ix, _es, _corpus, _state) = index_fixture();
+    let (ix, _es, _corpus, state) = index_fixture();
 
     let paths: BTreeSet<&str> = ix.nodes.values().map(|d| s(d, "ax_path")).collect();
     assert!(
@@ -486,6 +486,32 @@ fn takeout_noise_is_skipped_and_archives_say_extract_me_first() {
         s(tgz, "reason").contains("tar -xzf"),
         "a .tgz gets the tar command, not unzip"
     );
+
+    // …and the RUN says so, not only the catalog (review finding on PR #949: a
+    // folder holding just the Takeout .zip ended `ok=true exit=3`, 0 records,
+    // and never mentioned extracting). The run summary names every archive
+    // with its command; the human summary prints the same lines.
+    let journal = std::fs::read_to_string(state.path().join("journal.ndjson")).unwrap();
+    let summary = journal
+        .lines()
+        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+        .rfind(|v| v.get("kind").and_then(Value::as_str) == Some("finish"))
+        .map(|v| v["summary"].clone())
+        .unwrap();
+    let said: Vec<&str> = summary["unextracted_archives"]
+        .as_array()
+        .expect("the run summary lists unextracted archives")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    for archive in truth["archives"].as_array().unwrap() {
+        let name = archive.as_str().unwrap();
+        assert!(
+            said.iter()
+                .any(|line| line.starts_with(name) && line.contains("extract it first")),
+            "{name} missing from the run's own summary: {said:?}"
+        );
+    }
 }
 
 /// Same bytes → same ids. A second run over the same state, and a run from a

@@ -3703,6 +3703,12 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         .context("generated run finished without execution identity")?;
     let generation = committed.generation;
     let dataset_count = committed.plan.datasets.len();
+    // Same lines the graph route prints (`unextracted_archive_lines`): the
+    // `--no-graph` route has its own, shorter summary and said nothing either.
+    let unextracted_archives = {
+        let junk: Vec<&JunkFile> = committed.plan.junk_files.iter().collect();
+        unextracted_archive_lines(&junk)
+    };
     let sync::SourceExecutionPolicy::DurableSnapshot { reference, .. } = &execution.source_policy
     else {
         anyhow::bail!("generated run does not reference a durable snapshot");
@@ -3751,6 +3757,12 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
                 .and_then(Value::as_u64)
                 .unwrap_or(0)
         );
+        if !unextracted_archives.is_empty() {
+            println!("not indexed — archives are never opened; extract, then run this command on the extracted folder:");
+            for line in &unextracted_archives {
+                println!("  {line}");
+            }
+        }
     }
     Ok(summary)
 }
@@ -4278,6 +4290,91 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
 #[cfg(test)]
 fn run_index_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<i32> {
     run_index_report_tallied(cfg, tally).map(|(code, _)| code)
+}
+
+/// Prefix of the junk reason `sniff::archive_advice` writes for an archive.
+const UNEXTRACTED_PREFIX: &str = "unextracted ";
+
+/// The junk files whose reason is an ACTION the user can take right now — an
+/// archive autoindex will not open — as `path — reason` lines, sorted, capped.
+///
+/// A junk reason normally lives in the catalog and in `xerj autoindex map`, and
+/// the run prints only a count. For an archive that is the wrong place: someone
+/// whose whole Google Takeout download is one `.zip` saw `0 datasets, 0 records
+/// live … 1 junk/skipped files … ok=true exit=3` and nothing else — a
+/// "successful" empty index with the one sentence that explains it filed where
+/// they would never look (review finding on PR #949). These few lines are the
+/// run saying it.
+fn unextracted_archive_lines(junk: &[&JunkFile]) -> Vec<String> {
+    const SHOWN: usize = 10;
+    let mut hits: Vec<&&JunkFile> = junk
+        .iter()
+        .filter(|jf| jf.reason.starts_with(UNEXTRACTED_PREFIX))
+        .collect();
+    hits.sort_by(|a, b| a.rel.cmp(&b.rel));
+    let mut lines: Vec<String> = hits
+        .iter()
+        .take(SHOWN)
+        .map(|jf| format!("{} — {}", jf.rel, jf.reason))
+        .collect();
+    if hits.len() > SHOWN {
+        lines.push(format!(
+            "… and {} more archive(s); `xerj autoindex map` lists every one",
+            hits.len() - SHOWN
+        ));
+    }
+    lines
+}
+
+#[cfg(test)]
+mod unextracted_archive_tests {
+    use super::{unextracted_archive_lines, JunkFile};
+
+    fn junk(rel: &str, reason: &str) -> JunkFile {
+        JunkFile {
+            file_key: rel.into(),
+            rel: rel.into(),
+            format: "binary".into(),
+            status: "junk".into(),
+            reason: reason.into(),
+            bytes: 1,
+        }
+    }
+
+    #[test]
+    fn names_archives_with_their_command_and_nothing_else() {
+        let zip = junk(
+            "takeout-001.zip",
+            &crate::sniff::archive_advice("zip", false).unwrap(),
+        );
+        let tgz = junk(
+            "a/backup.tgz",
+            &crate::sniff::archive_advice("tar", true).unwrap(),
+        );
+        let png = junk("logo.png", "binary content (png)");
+        let lines = unextracted_archive_lines(&[&zip, &png, &tgz]);
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        // Sorted by path; each line carries the file AND the command to run.
+        assert!(
+            lines[0].starts_with("a/backup.tgz — unextracted") && lines[0].contains("tar -xzf")
+        );
+        assert!(
+            lines[1].starts_with("takeout-001.zip — unextracted") && lines[1].contains("unzip")
+        );
+        assert!(unextracted_archive_lines(&[&png]).is_empty());
+    }
+
+    #[test]
+    fn a_folder_of_archives_is_capped_and_says_so() {
+        let reason = crate::sniff::archive_advice("zip", false).unwrap();
+        let many: Vec<JunkFile> = (0..14)
+            .map(|i| junk(&format!("p{i:02}.zip"), &reason))
+            .collect();
+        let refs: Vec<&JunkFile> = many.iter().collect();
+        let lines = unextracted_archive_lines(&refs);
+        assert_eq!(lines.len(), 11);
+        assert!(lines[10].contains("4 more archive(s)"), "{}", lines[10]);
+    }
 }
 
 /// #381/#759: the per-file record cap dropped these files' tails. Name them (up
@@ -7180,6 +7277,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // `all_junk` holds on `plan` and `new_unplanned`, which the durable
     // junk-plan update below mutates.
     let junk_file_count = all_junk.len();
+    let unextracted_archives = unextracted_archive_lines(&all_junk);
     for jf in &all_junk {
         code_coverage.observe(&jf.format, 0);
         let (id, doc) = catalog::file_doc(
@@ -7293,6 +7391,10 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
         "files_indexed": journal_mx.lock().unwrap().done.len(),
         "duplicate_files": plan.duplicate_files.len(),
         "files_junk": junk_file_count,
+        // The junk a user can act on, by name and with the command to run —
+        // so a `--json` caller sees why a Takeout `.zip` indexed nothing
+        // without a second command (`unextracted_archive_lines`).
+        "unextracted_archives": unextracted_archives,
         "records_total": total_records,
         // Two numbers, one definition each, neither of them overlapping.
         //
@@ -7438,6 +7540,12 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
             records_total.load(Ordering::Relaxed),
             files_done.load(Ordering::Relaxed),
         );
+        if !unextracted_archives.is_empty() {
+            println!("not indexed — archives are never opened; extract, then run this command on the extracted folder:");
+            for line in &unextracted_archives {
+                println!("  {line}");
+            }
+        }
         let mut rows: Vec<(&String, u64)> = plan
             .datasets
             .iter()
