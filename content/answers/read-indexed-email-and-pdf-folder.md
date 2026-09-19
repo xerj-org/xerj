@@ -105,7 +105,7 @@ curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 ```
 
-Replace `AX_FILE_OF_THE_EMAIL` with the `ax_file` value of the email hit. A long PDF is many records, so raise `size` or page with `from` when one email carries more than 50.
+Replace `AX_FILE_OF_THE_EMAIL` with the `ax_file` value of the email hit. A long PDF becomes many records. If one email carries more than 50, raise `size` or add `from` to read the next 50.
 
 ## The linked records come from the brain
 

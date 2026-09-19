@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-09-18",
-  "dateModified": "2026-09-18",
+  "dateModified": "2026-09-19",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -228,7 +228,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>I INDEXED A FOLDER OF EMAIL AND PDFS. HOW DO I ACTUALLY READ WHAT IT FOUND?</div>
   <div class="kicker"><span>ANSWERS · FILES AND FORMATS</span></div>
   <h1>I indexed a folder of email and PDFs. How do I actually read what it found?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-18</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-19</div>
   <p><strong>TL;DR</strong> — Run <code class="inline">xerj brain &lt;folder&gt;</code>, then open the console it prints. The Corpus page lists what was indexed, and the Reader opens any record: an email with its headers, body and attachments, or one PDF page, beside the files it links to. The Reader shows extracted text only. It renders no email HTML and no PDF pages.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -285,7 +285,7 @@
   -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
   -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 </code></pre>
-  <p>Replace <code class="inline">AX_FILE_OF_THE_EMAIL</code> with the <code class="inline">ax_file</code> value of the email hit. A long PDF is many records, so raise <code class="inline">size</code> or page with <code class="inline">from</code> when one email carries more than 50.</p>
+  <p>Replace <code class="inline">AX_FILE_OF_THE_EMAIL</code> with the <code class="inline">ax_file</code> value of the email hit. A long PDF becomes many records. If one email carries more than 50, raise <code class="inline">size</code> or add <code class="inline">from</code> to read the next 50.</p>
   <h2>The linked records come from the brain</h2>
   <p>Under the record, the Reader shows its one-hop neighbours from <code class="inline">GET /_graph/{brain}/ego</code>, grouped by link type. The same-folder, Markdown-link and path-citation detectors link file records, not the records inside a file. So the Reader also reads the links of the record's file and marks those <code class="inline">FILE</code>. In the recorded run the hostile email had 2 linked records, and both were same-folder links of its file.</p>
   <p>The detectors are structural. No detector reads meaning from the text.</p>

@@ -197,7 +197,7 @@
       "canonical_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder",
       "markdown_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder.md",
       "cluster": "Files and formats",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "xerj brain indexes the folder and the console opens any record: an email with its attachments, a PDF page, and the files it links to. Extracted text only."
     },
     {
