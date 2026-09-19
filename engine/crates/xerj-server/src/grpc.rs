@@ -1132,6 +1132,9 @@ mod tests {
     /// which only a transport can build. It authorizes each item with the same
     /// `authorize(…, WriteIndex)` call that `index` makes.
     #[tokio::test]
+    // `as_caller` returns the interceptor's `tonic::Status`; same rationale as
+    // the allow on `authorize`.
+    #[allow(clippy::result_large_err)]
     async fn a_share_guest_key_reads_its_index_over_grpc_and_nothing_else() {
         use axum::extract::State;
         use axum::Json;

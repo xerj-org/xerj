@@ -54,8 +54,9 @@
 //! id to `server.log` twice per claim, and any reverse proxy or tunnel in front
 //! of it logged the same line (review of PR #947, reproduced 2026-09-19). A
 //! body is in none of those logs. `DELETE /_share/{handle}` takes the public
-//! handle, which opens nothing; it also still accepts the full id — by then a
-//! revoked one.
+//! handle, which opens nothing. It also accepts the full id, for an API caller
+//! who kept only that — such a call puts the id in its own request path, which
+//! is why `xerj share --revoke` sends only the handle.
 //!
 //! ## The two throttles, and why a tunnel does not break them
 //!
@@ -1507,7 +1508,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = ShareStore::open(dir.path().to_str().unwrap());
         assert!(store.find_by_id("").is_none());
-        assert!((MAX_PASSCODE_CHARS * 4 + 32 + 64) < MAX_CLAIM_BODY_BYTES);
+        const { assert!((MAX_PASSCODE_CHARS * 4 + 32 + 64) < MAX_CLAIM_BODY_BYTES) };
     }
 
     #[test]

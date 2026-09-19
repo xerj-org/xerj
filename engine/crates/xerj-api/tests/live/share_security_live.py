@@ -196,7 +196,10 @@ ok("claim is POST-only (GET is not the open door)", s in (401, 403, 405), (s, r)
 # access log on the way. It must not be a second way in. (A made-up id: the
 # smoke script greps the node's log for real ones.)
 s, r, _ = call("POST", f"/_share/{'f' * 32}/claim", {"passcode": PW})
-ok("POST /_share/{id}/claim — the id-in-path shape — is not an open door", s == 401 and "api_key" not in r, (s, r))
+# On the full server an unrouted path is a bare 404 from the router's fallback
+# (before authentication); the ES router on its own answers 401. Either way no
+# handler ran and no key was minted.
+ok("POST /_share/{id}/claim — the id-in-path shape — is not an open door", s in (401, 404) and "api_key" not in r, (s, r))
 s, r, _ = call("POST", "/_share/claim", {"id": SID, "passcode": PW, "pad": "x" * 16384})
 ok("a claim body past the route's few-KiB cap is not read", s != 200 and "api_key" not in r, (s, r))
 s, g, h = claim(SID, PW)
@@ -232,7 +235,9 @@ ok("_field_caps on the shared index", s == 200, (s, r))
 s, r, _ = call("GET", "/casefile/_source/1", None, ADMIN)
 ok("there is no /{index}/_source/{id} route (owner: 404)", s == 404, (s, r))
 s, r, _ = call("GET", "/casefile/_source/1", None, GK)
-ok("…and it is not on the guest allow-list (guest: 403)", s == 403, (s, r))
+# 404 from the full server's fallback, 403 where authz sees it first; the
+# allow-list itself is pinned by the authz unit tests (`GUEST_DOC_OPS`).
+ok("…and a guest gets nothing from it either", s in (403, 404) and not r.get("_source"), (s, r))
 # The last "a guest can" row: who-am-I, the banner, the probes. None names an index.
 for path in ("/", "/_security/_authenticate", "/health/ready", "/health/live"):
     s, r, _ = call("GET", path, None, GK)
@@ -463,7 +468,7 @@ section("an alias is resolved when the share is made")
 s, r, _ = call("POST", "/_share", {"index": "looks-harmless", "max_claims": 1}, ADMIN)
 ok("sharing an alias records the concrete index it points at",
    s == 200 and r.get("indices") == ["private-diary"], (s, r))
-asid, apw = r.get("share_id"), r.get("passcode")
+asid, apw, ahandle = r.get("share_id"), r.get("passcode"), r.get("handle")
 s, ag, _ = claim(asid, apw)
 AK = ag.get("api_key")
 s, r, _ = call("POST", "/private-diary/_search", {"query": {"match_all": {}}}, AK)
@@ -472,7 +477,9 @@ call("POST", "/_aliases", {"actions": [{"remove": {"index": "private-diary", "al
                                         {"add": {"index": "casefile", "alias": "looks-harmless"}}]}, ADMIN)
 s, r, _ = call("POST", "/casefile/_search", {"query": {"match_all": {}}}, AK)
 ok("re-pointing the alias afterwards does not move the guest", s == 403, (s, r))
-call("DELETE", f"/_share/{asid}", None, ADMIN)
+# By the handle, as the CLI does: a DELETE naming the full id would put that
+# id in the request line, which the log check at the end would (rightly) find.
+call("DELETE", f"/_share/{ahandle}", None, ADMIN)
 
 # ─────────────────────────────────────────────────────────────────────────────
 section("at rest, listing, revoke")

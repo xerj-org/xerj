@@ -131,7 +131,7 @@ pub fn help_text(feedback: bool) -> String {
                                 The tunnel is Cloudflare's: it ends TLS there, so\n\
                                 Cloudflare can read what passes through — the\n\
                                 passcode, the guest's key, the searches and every\n\
-                                document the guest opens. Nothing is stored there.\n\
+                                document the guest opens.\n\
                                 If that is not acceptable, use --public-url with\n\
                                 your own certificate\n\
              --keep             with --tunnel: leave the share active after Ctrl-C\n\
@@ -378,9 +378,22 @@ fn parse(args: Vec<String>, env_key: Option<String>) -> Result<Option<ShareCfg>,
         Action::List
     } else if let Some(handle) = revoke {
         let handle = handle.trim().to_string();
-        if handle.is_empty() || !handle.chars().all(|c| c.is_ascii_hexdigit()) {
+        // Exactly the 12-hex handle. The 32-hex share id from a link would
+        // work on the server, but it would travel in the DELETE's request
+        // path, and the docs say the CLI never puts a share id in a URL.
+        let hex = handle.chars().all(|c| c.is_ascii_hexdigit());
+        if handle.len() == 32 && hex {
+            // Not echoed: the error line may end up in a terminal log.
+            return Err(
+                "--revoke <share id>: that is the share id from the link, which is \
+                 never sent in a URL — revoke by the handle `xerj share --list` prints"
+                    .into(),
+            );
+        }
+        if handle.len() != 12 || !hex {
             return Err(format!(
-                "--revoke {handle}: a share handle is the hex id `xerj share --list` prints"
+                "--revoke {handle}: a share handle is the 12 hex characters `xerj share \
+                 --list` prints"
             ));
         }
         Action::Revoke(handle)
@@ -485,7 +498,7 @@ impl Reach {
 pub const CLOUDFLARE_TRANSIT_NOTICE: &str =
     "this link goes through Cloudflare. A quick tunnel ends TLS at Cloudflare, so Cloudflare \
      can read everything that passes through it: the passcode, the guest's key, the searches \
-     and every document the guest opens. Nothing is stored there. If that is not acceptable, \
+     and every document the guest opens. If that is not acceptable, \
      publish the node under your own certificate and use --public-url instead";
 
 /// The host part of an `http(s)://host[:port]/…` URL, brackets kept.
@@ -1229,10 +1242,22 @@ fn render_created(resp: &Value, link: &str, reach: Reach, common: &Common) -> St
             ));
         }
         Reach::Direct | Reach::PublicUrl => {
-            out.push_str(
-                "  your documents stay on this machine; the guest's browser reads from this \
-                 node.\n",
-            );
+            if reach == Reach::PublicUrl {
+                // The browser talks to whatever serves that address — the
+                // owner's reverse proxy, or a CDN in front of it — not
+                // necessarily to this node directly.
+                out.push_str(
+                    "  your documents stay on this machine; the guest's browser reaches this \
+                     node through the\n\
+                     \x20 address above, and whoever ends TLS for that address can read what \
+                     passes through it.\n",
+                );
+            } else {
+                out.push_str(
+                    "  your documents stay on this machine; the guest's browser reads from \
+                     this node.\n",
+                );
+            }
             if plain_http {
                 out.push_str(
                     "\n  this link is plain http: the passcode, the guest's key and every \
@@ -1720,6 +1745,12 @@ mod tests {
         assert!(parse(args(&["--revoke", "abc", "--tunnel"]), None).is_err());
         // A handle is hex. A pasted link or a path is a mistake worth naming.
         assert!(parse(args(&["--revoke", "not-hex!"]), None).is_err());
+        // The share id is refused, and the error does not echo it back.
+        let id = "0123456789abcdef0123456789abcdef";
+        let err = parse(args(&["--revoke", id]), None).unwrap_err();
+        assert!(err.contains("never sent in a URL"), "{err}");
+        assert!(!err.contains(id), "{err}");
+        assert!(parse(args(&["--revoke", "1a2b3c"]), None).is_err());
         assert!(parse(args(&["--revoke"]), None).is_err());
     }
 
@@ -1951,7 +1982,9 @@ mod tests {
             flat.contains("--public-url"),
             "must name the alternative: {out}"
         );
-        assert!(flat.contains("Nothing is stored there"), "{out}");
+        // What Cloudflare keeps is Cloudflare's business; the notice does not
+        // promise anything about it.
+        assert!(!flat.contains("stored there"), "{out}");
         assert!(
             !flat.contains("browser reads from this node"),
             "in tunnel mode the browser reads from Cloudflare: {out}"
@@ -1959,22 +1992,32 @@ mod tests {
         assert!(flat.contains("stay on this machine"), "{out}");
         assert!(out.lines().all(|l| l.chars().count() <= 100), "{out}");
         // No other mode mentions a third party that is not there.
-        for (link, reach, node) in [
-            (
-                "http://localhost:9200/_xerj-console/share#id",
-                Reach::Loopback,
-                DEFAULT_URL,
-            ),
-            (
-                "https://files.example.org/_xerj-console/share#id",
-                Reach::PublicUrl,
-                DEFAULT_URL,
-            ),
-        ] {
-            let other = banner(link, reach, node);
-            assert!(!other.contains("ends TLS at Cloudflare"), "{other}");
-            assert!(other.contains("browser reads from this node"), "{other}");
-        }
+        let local = banner(
+            "http://localhost:9200/_xerj-console/share#id",
+            Reach::Loopback,
+            DEFAULT_URL,
+        );
+        assert!(!local.contains("ends TLS at Cloudflare"), "{local}");
+        assert!(local.contains("browser reads from this node"), "{local}");
+        // Behind --public-url the browser talks to whatever serves that
+        // address (a reverse proxy, maybe a CDN), so the banner does not say
+        // it reads from this node — it says who can read the traffic.
+        let public = banner(
+            "https://files.example.org/_xerj-console/share#id",
+            Reach::PublicUrl,
+            DEFAULT_URL,
+        );
+        let flat_public = public.split_whitespace().collect::<Vec<_>>().join(" ");
+        assert!(!public.contains("ends TLS at Cloudflare"), "{public}");
+        assert!(
+            !flat_public.contains("browser reads from this node"),
+            "{public}"
+        );
+        assert!(
+            flat_public.contains("whoever ends TLS for that address can read"),
+            "{public}"
+        );
+        assert!(public.lines().all(|l| l.chars().count() <= 100), "{public}");
         // `--help` says it where `--tunnel` is described, and no longer says
         // the guest's browser "talks to this node" without qualification.
         let help = help_text(false);

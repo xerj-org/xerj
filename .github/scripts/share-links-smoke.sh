@@ -10,7 +10,8 @@
 #      folder argument), a --url with no scheme, and --tunnel with a stub
 #      `cloudflared` — the Cloudflare notice, and its last lines when it dies;
 #   C. xerj-ux/test/share-guest-flow.e2e.mjs — the guest page in a real
-#      headless Chrome (claim, search, read, XSS probe, sign-out);
+#      headless Chrome (claim, search, read, XSS probe, sign-out), on a fresh
+#      node with the access log on;
 #   D. the same security test against a node that declares loopback a trusted
 #      proxy (the `--tunnel` + trusted_proxies configuration);
 #   E. the refusal: `xerj share` against an --insecure node exits 1 and says why;
@@ -185,21 +186,28 @@ FLAT="$(printf '%s' "$OUT" | tr -s '[:space:]' ' ')"
   && ok "when cloudflared dies on its own: its last lines are shown and the share is revoked" || bad "tunnel death: $OUT"
 
 # ── C. the guest page in a real browser ────────────────────────────────────
-phase "C. guest page, headless Chrome"
+phase "C. guest page, headless Chrome (a fresh node, access log ON)"
+# Its own node: phase A spent 127.0.0.1's junk-id claim budget on purpose, and
+# the page's "this link is not recognised" view needs one unknown-id claim to
+# get a 404 rather than a 429. The access log is on so the shape check below
+# covers what the page itself requests.
+stop a || exit 1
 if command -v node >/dev/null; then
-  XERJ_URL="$A_URL" XERJ_DATA_DIR="$A_DATA" node "$E2E"; RC=$?
+  BOOT_ACCESS_LOG=true boot c "$PORT" "" || exit 1
+  XERJ_URL="http://127.0.0.1:$PORT" XERJ_DATA_DIR="$ROOT/c/data" node "$E2E"; RC=$?
   case $RC in
     0)  ok "share-guest-flow.e2e.mjs" ;;
     77) echo "  SKIP: no Chrome/Chromium on this machine (set CHROME_BIN)" ;;
     *)  bad "share-guest-flow.e2e.mjs failed (rc=$RC)" ;;
   esac
+  if grep -E '/_share/[0-9a-f]{32}' "$ROOT/c/server.log" >/dev/null; then bad "the guest page put a share id in a logged path"; else ok "no share id in the server log after the browser flow"; fi
+  stop c || exit 1
 else
   [ "${XERJ_SHARE_REQUIRE_BROWSER:-0}" = 1 ] && bad "node is required for the browser test" || echo "  SKIP: node not installed"
 fi
 
 # ── D. the tunnel configuration: loopback declared a trusted proxy ─────────
 phase "D. live security test (server.trusted_proxies = [\"127.0.0.1\", \"::1\"])"
-stop a || exit 1
 boot d "$PORT" 'trusted_proxies = ["127.0.0.1", "::1"]' || exit 1
 if XERJ_URL="http://127.0.0.1:$PORT" XERJ_DATA_DIR="$ROOT/d/data" XERJ_TRUSTS_LOOPBACK=1 python3 "$LIVE" >"$ROOT/d/live.out" 2>&1; then
   ok "share_security_live.py ($(tail -1 "$ROOT/d/live.out"))"
