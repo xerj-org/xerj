@@ -406,7 +406,7 @@ fn first_run_fetches_every_object_and_a_second_run_fetches_none() {
     assert_eq!(first.read_requests, 3);
     assert_eq!(
         h.mirror_rels(),
-        vec!["docs/alpha.md", "docs/beta.txt", "docs/sub/gamma.md"]
+        ["docs/alpha.md", "docs/beta.txt", "docs/sub/gamma.md"]
             .iter()
             .map(|r| r.trim_start_matches("docs/").to_string())
             .collect::<Vec<_>>()

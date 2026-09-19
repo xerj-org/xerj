@@ -158,8 +158,31 @@ pub struct ObjectManifest {
     pub version: u32,
     /// [`ObjectSpec::identity`] of the source these records describe.
     pub source: String,
+    /// What the last transfer cost, for an operator or an agent reading this
+    /// file after the terminal has scrolled. The run document carries the same
+    /// numbers, but only on the path that writes a fresh one — an unchanged
+    /// `--no-graph` re-run republishes the previous generation's summary from
+    /// the catalog — and "what did this cost" must be answerable on every path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_run: Option<LastRun>,
     /// Root-relative path → what was fetched.
     pub objects: BTreeMap<String, ObjectRecord>,
+}
+
+/// The cost of one materialisation, as recorded in the manifest.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LastRun {
+    pub finished: String,
+    pub objects_listed: u64,
+    pub objects_admitted: u64,
+    pub objects_downloaded: u64,
+    pub bytes_downloaded: u64,
+    pub objects_unchanged_not_downloaded: u64,
+    pub objects_removed_locally: u64,
+    /// LIST pages — the scarce, class-A requests.
+    pub list_requests_class_a: u64,
+    pub get_requests_class_b: u64,
+    pub transfer_ms: u64,
 }
 
 pub const MANIFEST_VERSION: u32 = 1;
@@ -170,6 +193,7 @@ impl ObjectManifest {
         Self {
             version: MANIFEST_VERSION,
             source: source.to_string(),
+            last_run: None,
             objects: BTreeMap::new(),
         }
     }
@@ -579,12 +603,24 @@ pub fn materialize_from(
     manifest
         .objects
         .retain(|rel, _| keep.contains(rel.as_str()));
-    manifest.save(&run.manifest_path)?;
 
     let ops = source.ops();
     report.list_requests = ops.list_requests;
     report.read_requests = ops.read_requests;
     report.elapsed_ms = started.elapsed().as_millis() as u64;
+    manifest.last_run = Some(LastRun {
+        finished: chrono::Utc::now().to_rfc3339(),
+        objects_listed: report.objects_listed,
+        objects_admitted: report.admitted,
+        objects_downloaded: report.downloaded,
+        bytes_downloaded: report.bytes_downloaded,
+        objects_unchanged_not_downloaded: report.unchanged,
+        objects_removed_locally: report.removed,
+        list_requests_class_a: report.list_requests,
+        get_requests_class_b: report.read_requests,
+        transfer_ms: report.elapsed_ms,
+    });
+    manifest.save(&run.manifest_path)?;
     Ok(report)
 }
 
@@ -716,10 +752,8 @@ fn prune_mirror(mirror: &Path, keep: &BTreeSet<&str>) -> Result<u64> {
             continue;
         };
         let rel = rel.to_string_lossy().replace('\\', "/");
-        if !keep.contains(rel.as_str()) {
-            if std::fs::remove_file(path).is_ok() {
-                removed += 1;
-            }
+        if !keep.contains(rel.as_str()) && std::fs::remove_file(path).is_ok() {
+            removed += 1;
         }
     }
     // Deepest first, so a directory whose only contents were removed files goes
@@ -1062,6 +1096,40 @@ mod tests {
         let (other, reason) = ObjectManifest::load(&path, "s3://bucket/other/");
         assert!(other.objects.is_empty());
         assert!(reason.unwrap().contains("was last used for"));
+    }
+
+    #[test]
+    fn last_run_records_what_the_transfer_cost() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(MANIFEST_FILE);
+        let mut manifest = ObjectManifest::empty("s3://bucket/");
+        manifest.last_run = Some(LastRun {
+            finished: "2026-09-19T00:00:00Z".into(),
+            objects_listed: 6,
+            objects_admitted: 5,
+            objects_downloaded: 2,
+            bytes_downloaded: 611,
+            objects_unchanged_not_downloaded: 3,
+            objects_removed_locally: 1,
+            list_requests_class_a: 1,
+            get_requests_class_b: 2,
+            transfer_ms: 5,
+        });
+        manifest.save(&path).unwrap();
+        let (loaded, reason) = ObjectManifest::load(&path, "s3://bucket/");
+        assert!(reason.is_none());
+        let last = loaded.last_run.unwrap();
+        assert_eq!(last.list_requests_class_a, 1);
+        assert_eq!(last.get_requests_class_b, 2);
+        assert_eq!(last.objects_unchanged_not_downloaded, 3);
+        // A manifest written before this field existed still loads.
+        let older = format!(
+            "{{\"version\":{MANIFEST_VERSION},\"source\":\"s3://bucket/\",\"objects\":{{}}}}"
+        );
+        std::fs::write(&path, older).unwrap();
+        let (loaded, reason) = ObjectManifest::load(&path, "s3://bucket/");
+        assert!(reason.is_none(), "{reason:?}");
+        assert!(loaded.last_run.is_none());
     }
 
     #[test]

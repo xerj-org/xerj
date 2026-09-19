@@ -300,7 +300,7 @@ pub fn classify_key(rel: &str) -> KeyVerdict {
         .iter()
         .any(|pattern| {
             let dir = pattern.trim_end_matches('/');
-            components[..last].iter().any(|c| *c == dir)
+            components[..last].contains(&dir)
         })
     {
         // Reported under the same label shape the walk uses for a pruned
