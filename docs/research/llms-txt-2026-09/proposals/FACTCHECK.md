@@ -2,8 +2,8 @@
 
 Produced by `scripts/factcheck.py` from `proposals/data/claims.json`. Do not edit by hand; re-run the script. The machine-readable copy, with SHA-256 of every body, is `proposals/data/factcheck-results.json`.
 
-- Fetched: 2026-09-19T20:08:19Z – 2026-09-19T20:37:22Z (UTC), with `curl -sL --compressed` and the User-Agent `Mozilla/5.0 (compatible; xerj-llms-factcheck/1.0; +https://xerj.org)`.
-- Claims checked: **246** · confirmed: **245** · not confirmed: **1**.
+- Fetched: 2026-09-19T20:08:19Z – 2026-09-19T20:51:21Z (UTC), with `curl -sL --compressed` and the User-Agent `Mozilla/5.0 (compatible; xerj-llms-factcheck/1.0; +https://xerj.org)`.
+- Claims checked: **252** · confirmed: **251** · not confirmed: **1**.
 - "found" = the quote occurs in the body as a fixed string after collapsing whitespace. "found (loose)" = it occurs only after case-folding and removing Markdown/HTML markup and typographic quotes; that is not a verbatim match and the report does not present it as one.
 - A 200 whose body is a not-found page is recorded as `soft-404` and counts as not found.
 - A claim that was not confirmed is either corrected in `report.md` or removed from it; the "Disposition" section at the end says which.
@@ -238,6 +238,12 @@ Produced by `scripts/factcheck.py` from `proposals/data/claims.json`. Do not edi
 | C123 | https://docs.stripe.com/mcp.md | VS Code's workspace MCP file.<br>“add the following configuration to `.vscode/mcp.json` in your workspace” → **found** (line 28) | **confirmed** | 200 · 25,655 · text | 2026-09-19T20:19:34Z |
 | C124 | https://code.claude.com/docs/en/mcp.md | Claude Code documents local, project and user scopes.<br>“--scope user” → **found** (line 166)<br>“--scope local” → **found** (line 533) | **confirmed** | 200 · 117,610 · text | 2026-09-19T20:18:45Z |
 | C125 | https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md | Cline's MCP settings file (as described by a third-party README).<br>“select the **Installed** tab, then click **Advanced MCP Settings**” → **found (loose)**<br>“In the `cline_mcp_settings.json` file” → **found** (line 299) | **confirmed (loose match — wording differs in markup only)** | 200 · 23,301 · text | 2026-09-19T20:18:35Z |
+| C126 | https://vercel.com/docs/agent-resources/vercel-mcp.md | Vercel's MCP page leads with a one-command installer for every detected client; the playbook names a CLI subcommand for it.<br>“npx -y add-mcp https://mcp.vercel.com -g” → **found** (line 50)<br>“The `add-mcp` tool automatically detects your installed AI clients and configures Vercel MCP for each one.” → **found** (line 111) | **confirmed** | 200 · 15,870 · text | 2026-09-19T20:51:21Z |
+| C127 | https://vercel.com/get-started.md | Vercel's playbook configures supported clients through its CLI and tells Codex users to inspect first.<br>“vercel mcp --clients "<client>"” → **found** (line 102)<br>“codex mcp list” → **found** (line 128) | **confirmed** | 200 · 6,527 · text | 2026-09-19T20:08:30Z |
+| C128 | https://docs.stripe.com/llms.txt | Stripe's agent section uses its strongest words for API-choice correctness.<br>“never recommend the Charges API” → **found** (line 160) | **confirmed** | 200 · 92,159 · text | 2026-09-19T20:18:35Z |
+| C129 | https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-claude.md | The GitHub MCP server's Claude guide prints a PowerShell form of the registration line.<br>“Bearer $env:GITHUB_PAT” → **found** (line 50) | **confirmed** | 200 · 12,705 · text | 2026-09-19T20:19:42Z |
+| C130 | https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md | Cline's marketplace installs from the README.<br>“he will try to use your `README.md` to guide him through the setup process” → **found** (line 49) | **confirmed** | 200 · 5,049 · text | 2026-09-19T20:08:29Z |
+| C131 | https://raw.githubusercontent.com/expo/expo/main/packages/create-expo/template/agent-files/AGENTS.md | The AGENTS.md that create-expo-app writes into every new project repeats the prior correction.<br>“## Expo has changed — do not trust your training data” → **found** (line 3)<br>“never answer from” → **found** (line 9) | **confirmed** | 200 · 2,598 · text | 2026-09-19T20:51:21Z |
 
 ## D. XERJ's own site — what exists and what returns 404
 
@@ -273,3 +279,70 @@ Produced by `scripts/factcheck.py` from `proposals/data/claims.json`. Do not edi
 | D28 | https://xerj.org/llms-full.txt | llms-full.txt resolves.<br>“XERJ” → **found** (line 1) | **confirmed** | 200 · 83,712 · text | 2026-09-19T20:19:46Z |
 | D29 | https://xerj.org/get | The installer script resolves and states its verification behaviour.<br>“sha256” → **found** (line 115) | **confirmed** | 200 · 11,515 · text | 2026-09-19T20:19:46Z |
 | D30 | https://xerj.org/get.ps1 | The PowerShell installer resolves.<br>“SHA256” → **found** (line 94) | **confirmed** | 200 · 8,037 · text | 2026-09-19T20:19:46Z |
+## E. Every URL printed in the three proposal files
+
+Produced by `scripts/check_links.py`. A proposal may link only to pages that exist; the two exceptions are declared in that script and are what `report.md` §9 (the ship checklist) is about.
+
+| URL | Printed in | Result | HTTP · bytes · kind | Fetched (UTC) |
+|---|---|---|---|---|
+| https://api.github.com/repos/xerj-org/xerj/releases/latest | llms-install | **ok** | 200 · 29,299 · text | 2026-09-19T20:45:39Z |
+| https://github.com/xerj-org/xerj | llms | **ok** | 200 · 439,905 · html | 2026-09-19T20:45:40Z |
+| https://github.com/xerj-org/xerj/blob/main/AGENTS.md | llms | **ok** | 200 · 327,316 · html | 2026-09-19T20:45:40Z |
+| https://github.com/xerj-org/xerj/blob/main/CONTRIBUTING.md | llms | **ok** | 200 · 306,478 · html | 2026-09-19T20:45:41Z |
+| https://github.com/xerj-org/xerj/blob/main/SECURITY.md | llms-install, llms | **ok** | 200 · 263,991 · html | 2026-09-19T20:45:41Z |
+| https://github.com/xerj-org/xerj/issues/new/choose | install-prompt-library, llms-install, llms | **ok** | 200 · 47,762 · html | 2026-09-19T20:45:42Z |
+| https://xerj.org/answers/ | llms | **ok** | 200 · 38,838 · text | 2026-09-19T20:45:42Z |
+| https://xerj.org/answers/autoindex-exit-codes.md | llms | **ok** | 200 · 10,803 · text | 2026-09-19T20:45:42Z |
+| https://xerj.org/answers/estimate-autoindex-time-before-running.md | llms | **ok** | 200 · 7,073 · text | 2026-09-19T20:45:43Z |
+| https://xerj.org/answers/index-reference-library-for-coding-agent.md | llms | **ok** | 200 · 10,863 · text | 2026-09-19T20:45:43Z |
+| https://xerj.org/answers/read-autoindex-progress.md | llms | **ok** | 200 · 6,245 · text | 2026-09-19T20:45:43Z |
+| https://xerj.org/api/field-report | llms-install, llms | **missing — declared: marked (proposed — not implemented) where it is printed** | 404 · 11,004 · error | 2026-09-19T20:45:43Z |
+| https://xerj.org/benchmarks | llms | **ok** | 200 · 35,965 · html | 2026-09-19T20:45:44Z |
+| https://xerj.org/case-studies | llms | **ok** | 200 · 23,580 · html | 2026-09-19T20:45:44Z |
+| https://xerj.org/case-studies/reference-coding | llms | **ok** | 200 · 46,204 · html | 2026-09-19T20:45:44Z |
+| https://xerj.org/docs | llms | **ok** | 200 · 36,232 · html | 2026-09-19T20:45:44Z |
+| https://xerj.org/docs/agents/endpoints | llms | **ok** | 200 · 43,951 · html | 2026-09-19T20:45:44Z |
+| https://xerj.org/docs/agents/schemas/anthropic-tools.json | llms | **ok** | 200 · 16,185 · text | 2026-09-19T20:19:45Z |
+| https://xerj.org/docs/agents/schemas/mcp-tools.json | llms-install, llms | **ok** | 200 · 17,989 · text | 2026-09-19T20:19:45Z |
+| https://xerj.org/docs/agents/schemas/openai-tools.json | llms | **ok** | 200 · 12,794 · text | 2026-09-19T20:19:46Z |
+| https://xerj.org/docs/aggregations | llms | **ok** | 200 · 33,459 · html | 2026-09-19T20:45:45Z |
+| https://xerj.org/docs/api-es-compat | llms | **ok** | 200 · 34,707 · html | 2026-09-19T20:45:45Z |
+| https://xerj.org/docs/cli | llms | **ok** | 200 · 36,130 · html | 2026-09-19T20:19:44Z |
+| https://xerj.org/docs/ingest | llms | **ok** | 200 · 29,530 · html | 2026-09-19T20:45:45Z |
+| https://xerj.org/docs/install | llms-install, llms | **ok** | 200 · 37,386 · html | 2026-09-19T20:19:45Z |
+| https://xerj.org/docs/migration-from-es | llms | **ok** | 200 · 32,687 · html | 2026-09-19T20:45:46Z |
+| https://xerj.org/docs/queries | llms | **ok** | 200 · 34,590 · html | 2026-09-19T20:45:46Z |
+| https://xerj.org/docs/recipes/ | llms | **ok** | 200 · 33,022 · html | 2026-09-19T20:45:46Z |
+| https://xerj.org/docs/recipes/air-gapped-deployment | llms | **ok** | 200 · 39,123 · html | 2026-09-19T20:45:46Z |
+| https://xerj.org/docs/recipes/zero-config-autoindex | llms | **ok** | 200 · 49,691 · html | 2026-09-19T20:45:47Z |
+| https://xerj.org/docs/security | llms | **ok** | 200 · 30,680 · html | 2026-09-19T20:45:47Z |
+| https://xerj.org/docs/vectors | llms | **ok** | 200 · 36,061 · html | 2026-09-19T20:45:47Z |
+| https://xerj.org/get | llms-install, llms | **ok** | 200 · 11,515 · text | 2026-09-19T20:19:46Z |
+| https://xerj.org/get.ps1 | llms-install | **ok** | 200 · 8,037 · text | 2026-09-19T20:19:46Z |
+| https://xerj.org/llms-full.txt | llms | **ok** | 200 · 83,712 · text | 2026-09-19T20:19:46Z |
+| https://xerj.org/llms-install.md | install-prompt-library, llms-install, llms | **missing — declared: introduced by this proposal (ship checklist step 1)** | 404 · 11,004 · error | 2026-09-19T20:19:43Z |
+| https://xerj.org/llms.txt | install-prompt-library, llms-install | **ok** | 200 · 40,064 · text | 2026-09-19T20:08:34Z |
+| https://xerj.org/use-cases | llms | **ok** | 200 · 37,031 · html | 2026-09-19T20:45:47Z |
+
+## Disposition — what happened to everything that was not a clean "found"
+
+| Id | Result | What was done |
+|---|---|---|
+| C028 | NOT CONFIRMED — the sentence "copy the above MCP information into their expected format (json, yaml, etc)" is not on `supabase.com/docs/guides/ai-tools/mcp.md` (200, text). The 2026-09-18 draft quoted it in §3.6. | **Removed from the report.** The Supabase one-liner on the same page (C027) is confirmed and kept. The claim stays in this list so the removal is visible. |
+| B30 | found (loose) — Lighthouse: the sentence is on the page, inside HTML markup. | Kept, and labelled "loose match" where it is used (report §3.16). |
+| B46 | found (loose) — RedMonk: the body uses HTML entities for the apostrophes. | Kept, labelled "loose match", and labelled as RedMonk's characterisation rather than curl's statement (report §5.3). |
+| B03–B07 | confirmed as **404** — the five `install.md` examples listed by the install.md README. | Used as evidence in report §4. |
+| C071 | confirmed as a **soft 404** — `docs.sentry.io/SKILL.md` answers HTTP 200 with a "Page Not Found" body. | Recorded as not existing (per-project/sentry.md). |
+| C085 | `docs.expo.dev/llms-full.txt` answers 200 but its effective URL and body are `llms.txt`. | Recorded as "not published separately" (per-project/expo.md). |
+| D01–D13 | confirmed as **404** on xerj.org. | These are the surfaces the ship checklist (report §9) says nothing may link to yet. |
+
+Corrections made to claims while checking them (the claim text now reflects the source that actually holds the quote):
+
+- **Cloudflare (C009).** The paste prompt is in the clipboard script of `https://developers.cloudflare.com/agent-setup/` (HTML). It is not in `/agent-setup/index.md`, which is where the draft's URL pointed.
+- **no-agents.md (B26).** `https://codeberg.org/rossabaker/no-agents.md` is a repository whose *name* ends in `.md`; the page is HTML by design. The checker's soft-404 rule misfired on it, so the claim reads the raw README, and the rule now exempts code-host file viewers (`github.com/<o>/<r>/blob/…`, a Codeberg repository root).
+- **SurrealDB (B50, B51).** The draft attributed "**surrealdb** should be listed as connected." to SurrealDB without a URL. It is on `/docs/agents/claude-code.md`, and it is confirmed *absent* from `surrealdb.com/llms.txt`.
+- **Sources found for quotes the draft left without a URL:** MicroPython (B61, the wiki's ContributorGuidelines), QuantEcon (B62, qeps issue 12 through the GitHub API), ClickHouse's `AGENT` env var (B57), Neon's unknown-agent rule (B56), Sonarr (B53, pinned commit), Vexa (B54, pinned commit), GreptimeDB (B55), Anthropic's skills overview (B52).
+- **Deleted, because no source could be found:** "Meilisearch's prompt-sequence tutorial" (the string occurs in neither data file nor on any fetched page).
+- **Deleted, because they depended on a corpus that was never committed:** the draft's counts "`claude mcp add` appears in 34 probed files", "`npx skills add` … 36 probed files", "19 probed files", "29 probed domains", "appears in 7 probed files", "104 of the 131 files". The report now uses the counts in `llms-txt-measurements.md`, which anyone can re-run.
+
+What this file does **not** check: that a quote means what the report says it means (that is a reader's job), anything behind a login, and the numbers other projects publish about themselves — those are labelled "published by X, not run by us" wherever they appear.

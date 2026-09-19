@@ -44,6 +44,10 @@ NOT_FOUND_MARKERS = ("page not found", "404 not found", "404: not found", "404 -
                      "<title>404", "# 404", "not found | ")
 
 
+# Code hosts render a file whose NAME ends in .md as an HTML page; that is the file, not a not-found page.
+HTML_VIEWER = re.compile(r"^https://(github\.com/[^/]+/[^/]+/(blob|tree)/|codeberg\.org/[^/]+/[^/]+/?$)")
+
+
 def fetch(url: str, cache: Path, offline: bool) -> dict:
     key = hashlib.sha1(url.encode()).hexdigest()[:16]
     body_path, meta_path = cache / f"{key}.body", cache / f"{key}.json"
@@ -80,7 +84,7 @@ def kind_of(meta: dict, text: str) -> str:
     is_html = head.lstrip().startswith(("<!doctype", "<html"))
     if any(m in head for m in NOT_FOUND_MARKERS) and len(text) < 400_000 and (is_html or len(text) < 6000):
         return "soft-404"
-    if wants_text and is_html:
+    if wants_text and is_html and not HTML_VIEWER.search(meta["url"]):
         return "soft-404"
     return "html" if is_html else "text"
 
@@ -209,6 +213,21 @@ def report(results: list) -> str:
     return "\n".join(out)
 
 
+def links_section() -> str:
+    path = ROOT / "proposals/data/link-check.json"
+    if not path.exists():
+        return ""
+    rows = json.loads(path.read_text())
+    out = ["## E. Every URL printed in the three proposal files", "",
+           "Produced by `scripts/check_links.py`. A proposal may link only to pages that exist; the two exceptions are declared "
+           "in that script and are what `report.md` §9 (the ship checklist) is about.", "",
+           "| URL | Printed in | Result | HTTP · bytes · kind | Fetched (UTC) |", "|---|---|---|---|---|"]
+    for r in rows:
+        out.append(f"| {r['url']} | {', '.join(x.replace('proposed-', '').replace('.md', '').replace('.txt', '') for x in r['in'])} | "
+                   f"**{r['verdict']}** | {r['status']} · {r['bytes'] or 0:,} · {r['kind']} | {r['fetched_at'] or ''} |")
+    return "\n".join(out) + "\n\n"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default=str(Path.home() / ".cache/xerj-llms-factcheck"))
@@ -225,7 +244,7 @@ def main():
         return
     RESULTS.write_text(json.dumps(results, indent=1, ensure_ascii=False) + "\n")
     disposition = ROOT / "proposals/data/factcheck-disposition.md"
-    REPORT.write_text(report(results) + (disposition.read_text() if disposition.exists() else ""))
+    REPORT.write_text(report(results) + links_section() + (disposition.read_text() if disposition.exists() else ""))
     bad = [r for r in results if not r["verdict"].startswith("confirmed")]
     print(f"{len(results)} claims, {len(results) - len(bad)} confirmed, {len(bad)} not confirmed")
     for r in bad:

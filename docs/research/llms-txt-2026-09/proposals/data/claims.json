@@ -2237,6 +2237,69 @@
   ]
  },
  {
+  "id": "C126",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's MCP page leads with a one-command installer for every detected client; the playbook names a CLI subcommand for it.",
+  "url": "https://vercel.com/docs/agent-resources/vercel-mcp.md",
+  "expect": "present",
+  "quotes": [
+   "npx -y add-mcp https://mcp.vercel.com -g",
+   "The `add-mcp` tool automatically detects your installed AI clients and configures Vercel MCP for each one."
+  ]
+ },
+ {
+  "id": "C127",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's playbook configures supported clients through its CLI and tells Codex users to inspect first.",
+  "url": "https://vercel.com/get-started.md",
+  "expect": "present",
+  "quotes": [
+   "vercel mcp --clients \"<client>\"",
+   "codex mcp list"
+  ]
+ },
+ {
+  "id": "C128",
+  "source": "new-2026-09-19",
+  "claim": "Stripe's agent section uses its strongest words for API-choice correctness.",
+  "url": "https://docs.stripe.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "never recommend the Charges API"
+  ]
+ },
+ {
+  "id": "C129",
+  "source": "new-2026-09-19",
+  "claim": "The GitHub MCP server's Claude guide prints a PowerShell form of the registration line.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-claude.md",
+  "expect": "present",
+  "quotes": [
+   "Bearer $env:GITHUB_PAT"
+  ]
+ },
+ {
+  "id": "C130",
+  "source": "new-2026-09-19",
+  "claim": "Cline's marketplace installs from the README.",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "he will try to use your `README.md` to guide him through the setup process"
+  ]
+ },
+ {
+  "id": "C131",
+  "source": "new-2026-09-19",
+  "claim": "The AGENTS.md that create-expo-app writes into every new project repeats the prior correction.",
+  "url": "https://raw.githubusercontent.com/expo/expo/main/packages/create-expo/template/agent-files/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "## Expo has changed — do not trust your training data",
+   "never answer from"
+  ]
+ },
+ {
   "id": "D01",
   "source": "xerj-site",
   "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
