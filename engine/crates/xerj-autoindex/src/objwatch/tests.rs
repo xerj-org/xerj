@@ -34,6 +34,9 @@ struct FakeStore {
     after_get: Mutex<Option<AfterGet>>,
     /// Drop the ETag from GET responses, the way some gateways and proxies do.
     no_etag_on_get: AtomicU64,
+    /// Fail the list call with this 0-based number, the way a 503 SlowDown
+    /// does. `u64::MAX` = never.
+    fail_list_call: AtomicU64,
 }
 
 impl FakeStore {
@@ -44,6 +47,7 @@ impl FakeStore {
             gets: AtomicU64::new(0),
             after_get: Mutex::new(None),
             no_etag_on_get: AtomicU64::new(0),
+            fail_list_call: AtomicU64::new(u64::MAX),
         }
     }
 
@@ -87,7 +91,10 @@ impl ObjectSource for FakeStore {
     }
 
     fn list(&self, req: &ListRequest) -> Result<ListPage> {
-        self.list_calls.fetch_add(1, Ordering::SeqCst);
+        let n = self.list_calls.fetch_add(1, Ordering::SeqCst);
+        if n == self.fail_list_call.load(Ordering::SeqCst) {
+            anyhow::bail!("ListObjectsV2 returned 503 Service Unavailable: SlowDown");
+        }
         let m = self.objects.lock().unwrap();
         let after = req.continuation_token.or(req.start_after);
         let mut objects: Vec<ObjectMeta> = Vec::new();
@@ -193,9 +200,11 @@ fn opts() -> WatchOptions {
         max_object_bytes: 1 << 20,
         append_only: false,
         max_monthly_class_a: cost::DEFAULT_MAX_MONTHLY_CLASS_A,
+        max_monthly_class_b: cost::DEFAULT_MAX_MONTHLY_CLASS_B,
         allow_cost: false,
         page_size: 1_000,
         status_path: None,
+        dry_run: false,
     }
 }
 
@@ -952,4 +961,454 @@ fn append_only_is_priced_at_the_tail_it_lists_not_at_the_journal_it_remembers() 
         refused.to_string().contains("--append-only"),
         "the refusal must point at the cheaper mode: {refused}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests for the #968 adversarial review (F1-F9). Each one failed on
+// 0f785c19; the MinIO half of the same scenarios is in tests/objwatch_minio.rs.
+// ---------------------------------------------------------------------------
+
+/// F1: a dry run must record nothing. It used to feed a counting sink and then
+/// record + save every object, so the next REAL run emitted nothing at all.
+#[test]
+fn f1_a_dry_run_records_nothing_and_the_real_run_still_emits_everything() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..3 {
+        store.put(&format!("d{i}.txt"), "content");
+    }
+    let mut totals = CostTotals::default();
+    let mut sink = RecordingSink::default();
+    {
+        let mut j = journal(dir.path());
+        let dry = WatchOptions {
+            dry_run: true,
+            fetch: false,
+            ..opts()
+        };
+        let r = poll_once(
+            &store,
+            &mut j,
+            &dry,
+            &mut sink,
+            0,
+            &mut totals,
+            &never_stop(),
+        )
+        .unwrap();
+        assert_eq!(r.added, 3, "the dry run reports what it would emit");
+        assert!(sink.events.is_empty(), "and emits none of it");
+        assert_eq!(store.gets(), 0, "and fetches nothing");
+        assert!(j.is_empty(), "and records nothing in memory");
+        assert_eq!(j.saves(), 0, "and writes no journal");
+    }
+    assert!(
+        !WatchJournal::path_in(dir.path()).exists(),
+        "no journal file may exist after a dry run on a fresh state dir"
+    );
+    // The spend it made IS recorded: those list calls were real.
+    assert_eq!(SpendLedger::open(dir.path()).unwrap().spend.class_a, 1);
+
+    let mut j = journal(dir.path());
+    let r = poll_once(
+        &store,
+        &mut j,
+        &opts(),
+        &mut sink,
+        0,
+        &mut totals,
+        &never_stop(),
+    )
+    .unwrap();
+    assert_eq!(r.added, 3, "the real run after a dry run emits all 3");
+    assert_eq!(sink.keys("added").len(), 3);
+}
+
+/// F2: the projection is priced at the page size the watch actually lists
+/// with. 25 keys at --page-size 10 is 3 calls a cycle, not 1.
+#[test]
+fn f2_the_projection_uses_the_actual_page_size() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..25 {
+        store.put(&format!("k{i:03}"), "x");
+    }
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    for (page, calls) in [(10u64, 3u64), (1, 25), (1_000, 1)] {
+        let mut j2 =
+            WatchJournal::open(dir.path(), "http://memory", "fake", "", false, true).unwrap();
+        let o = WatchOptions {
+            page_size: page,
+            fetch: false,
+            allow_cost: true,
+            ..opts()
+        };
+        let r = poll_once(
+            &store,
+            &mut j2,
+            &o,
+            &mut sink,
+            0,
+            &mut totals,
+            &never_stop(),
+        )
+        .unwrap();
+        assert_eq!(r.list_calls, calls, "page {page}: real calls");
+        assert_eq!(
+            r.projection.list_calls_per_cycle, r.list_calls,
+            "page {page}: the projection must price what the store actually served"
+        );
+        assert_eq!(r.projection.monthly_class_a, calls * 8_640);
+    }
+    // And the guard acts on it: page size 1 at a budget the 1,000-key page fits.
+    let o = WatchOptions {
+        page_size: 1,
+        fetch: false,
+        max_monthly_class_a: 100_000,
+        ..opts()
+    };
+    let err = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap_err();
+    let refused = err.downcast_ref::<PollCostRefused>().expect("refusal");
+    assert_eq!(refused.projection.list_calls_per_cycle, 25);
+    assert_eq!(refused.projection.monthly_class_a, 216_000);
+}
+
+/// F4: an edit past --max-object-mb changes the ETag but not the fetched
+/// prefix. It used to hash "identical" and be dropped without a trace.
+#[test]
+fn f4_a_change_past_the_byte_cap_is_emitted_and_counted() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    store.put("big.bin", "AAAAAAAAAAXXXX");
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let o = WatchOptions {
+        max_object_bytes: 10,
+        ..opts()
+    };
+    let r0 = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r0.added, 1);
+    assert_eq!(r0.truncated, 1);
+    assert!(r0.warnings.iter().any(|w| w.contains("--max-object-mb")));
+    // Same size, same first 10 bytes, different tail.
+    store.put("big.bin", "AAAAAAAAAAZZZZ");
+    sink.clear();
+    let r1 = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    assert_eq!(
+        r1.changed,
+        1,
+        "the tail edit must be emitted: {}",
+        r1.line()
+    );
+    assert_eq!(r1.content_identical, 0);
+    assert_eq!(r1.truncated, 1);
+    assert_eq!(sink.keys("changed"), vec!["big.bin"]);
+    // And an untouched capped object still costs nothing on the next cycle.
+    sink.clear();
+    let r2 = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
+    assert_eq!((r2.changed, r2.gets), (0, 0));
+}
+
+/// F6: --append-only's first cycle lists the whole space once (the backfill).
+/// Pricing that one-time scan as the recurring cost refused the mode the
+/// refusal itself recommends.
+#[test]
+fn f6_append_only_backfill_is_not_refused_on_cycle_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..1_100 {
+        store.put(&format!("log/{i:06}"), "x");
+    }
+    let mut j =
+        WatchJournal::open(dir.path(), "http://memory", "fake", "log/", true, false).unwrap();
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    // 1 call x 8,640 cycles fits 10,000; the 2-page backfill projected as
+    // recurring (17,280) does not.
+    let o = WatchOptions {
+        append_only: true,
+        fetch: false,
+        max_monthly_class_a: 10_000,
+        ..opts()
+    };
+    let r0 = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop())
+        .expect("the append-only backfill must not be refused");
+    assert_eq!(r0.added, 1_100);
+    assert_eq!(r0.list_calls, 2);
+    assert_eq!(r0.projection.list_calls_per_cycle, 1);
+    assert_eq!(r0.projection.monthly_class_a, 8_640);
+    assert!(r0.warnings.iter().any(|w| w.contains("backfill")));
+    let r1 = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r1.list_calls, 1);
+    assert_eq!(r1.projection.list_calls_per_cycle, 1);
+}
+
+/// F8, projection breaker: a bucket that grows past the budget while it is
+/// being watched STOPS the watch. It used to warn and keep spending.
+#[test]
+fn f8_a_bucket_that_grows_past_the_budget_trips_the_breaker_after_cycle_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    store.put("g/seed", "x");
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let o = WatchOptions {
+        fetch: false,
+        max_monthly_class_a: 10_000,
+        ..opts()
+    };
+    let r0 = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    assert!(!r0.projection.over_budget());
+    for i in 0..1_100 {
+        store.put(&format!("g/{i:06}"), "x");
+    }
+    let calls_before = store.list_calls();
+    let err = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap_err();
+    let refused = err
+        .downcast_ref::<PollCostRefused>()
+        .expect("a breaker trip, not a warning");
+    assert_eq!(refused.reason, RefusalReason::ProjectedOverBudget);
+    assert_eq!(refused.cycle, 1);
+    assert_eq!(refused.projection.list_calls_per_cycle, 2);
+    assert!(refused.to_string().contains("circuit breaker"), "{refused}");
+    assert_eq!(refused.to_json()["exit_code"], 4);
+    assert_eq!(
+        sink.events.len(),
+        1,
+        "nothing from the grown bucket was emitted"
+    );
+    assert_eq!(
+        store.list_calls() - calls_before,
+        2,
+        "the listing that measured it"
+    );
+
+    // run_watch propagates it instead of sleeping and polling again.
+    let o = WatchOptions {
+        poll_interval: Duration::from_millis(1),
+        max_cycles: Some(10),
+        ..o
+    };
+    let dir2 = tempfile::tempdir().unwrap();
+    let mut j = journal(dir2.path());
+    let before = store.list_calls();
+    let err = run_watch(&store, &mut j, &o, &mut sink, &|| false, &mut |_| {}).unwrap_err();
+    assert!(err.downcast_ref::<PollCostRefused>().is_some());
+    assert!(
+        store.list_calls() - before <= 2,
+        "one cycle's listing, then stop"
+    );
+}
+
+/// F8, spend breaker: the month's budget is counted across restarts in the
+/// state dir. A watcher restarted by a supervisor must not get a fresh budget
+/// every time it starts.
+#[test]
+fn f8_the_monthly_spend_is_capped_across_restarts() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..30 {
+        store.put(&format!("k{i:03}"), "x");
+    }
+    let mut sink = RecordingSink::default();
+    // 30 keys at page size 10 = 3 calls a cycle. At one cycle a month the
+    // projection (3) fits a budget of 10, so what stops the restart loop below
+    // can only be the ledger of real spend.
+    let o = WatchOptions {
+        fetch: false,
+        page_size: 10,
+        max_monthly_class_a: 10,
+        poll_interval: Duration::from_secs(cost::SECONDS_PER_MONTH),
+        ..opts()
+    };
+    let mut spent_cycles = 0;
+    let mut tripped = None;
+    for restart in 0..10u64 {
+        // A fresh process each time: new journal handle, new totals.
+        let mut j = journal(dir.path());
+        let mut totals = CostTotals::default();
+        match poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()) {
+            Ok(_) => spent_cycles += 1,
+            Err(e) => {
+                tripped = Some((restart, e));
+                break;
+            }
+        }
+    }
+    let (restart, e) = tripped.expect("the ledger must stop a restart loop");
+    let refused = e.downcast_ref::<PollCostRefused>().unwrap();
+    assert_eq!(refused.reason, RefusalReason::ClassABudgetSpent);
+    assert_eq!(
+        spent_cycles, 3,
+        "3 cycles x 3 calls = 9 of 10; the 4th needs 3 more"
+    );
+    assert_eq!(restart, 3);
+    assert_eq!(refused.spent.class_a, 9);
+    assert_eq!(store.list_calls(), 9, "not one call past the budget");
+    assert_eq!(refused.to_json()["reason"], "monthly_class_a_budget_spent");
+}
+
+/// F8, Class B: GETs have their own breaker, checked before any fetch.
+#[test]
+fn f8_the_class_b_budget_refuses_before_fetching() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..5 {
+        store.put(&format!("k{i}"), "x");
+    }
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let o = WatchOptions {
+        max_monthly_class_b: 4,
+        ..opts()
+    };
+    let err = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap_err();
+    let refused = err.downcast_ref::<PollCostRefused>().unwrap();
+    assert_eq!(refused.reason, RefusalReason::ClassBBudgetSpent);
+    assert_eq!(refused.needed, 5);
+    assert_eq!(store.gets(), 0);
+    assert!(sink.events.is_empty());
+    assert!(refused.to_string().contains("--no-fetch"));
+}
+
+/// F9: the first scan's journal writes are O(n), not one full rewrite per
+/// object. 10,000 objects used to mean 10,000 fsynced rewrites (310.91 s
+/// against MinIO in the review).
+#[test]
+fn f9_a_large_first_scan_saves_the_journal_in_batches() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..10_000 {
+        store.put(&format!("bulk/{i:06}"), "x");
+    }
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let o = WatchOptions {
+        fetch: false,
+        ..opts()
+    };
+    let r = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r.added, 10_000);
+    // 10,000 / 256 batch saves + the time-based ones + the end-of-cycle one.
+    assert!(
+        j.saves() <= 10_000 / 256 + 1 + r.wall.as_secs() / 2 + 2,
+        "{} journal saves for 10,000 objects",
+        j.saves()
+    );
+    // Nothing lost: every object is in the saved file.
+    let re = WatchJournal::open(dir.path(), "http://memory", "fake", "", false, false).unwrap();
+    assert_eq!(re.len(), 10_000);
+}
+
+/// F9: GETs run with bounded concurrency, and events still come out in listing
+/// order with the right digest per key.
+#[test]
+fn f9_parallel_fetches_keep_listing_order_and_per_key_digests() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..100 {
+        store.put(&format!("p/{i:03}"), &format!("body-{i}"));
+    }
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let r = poll_once(
+        &store,
+        &mut j,
+        &opts(),
+        &mut sink,
+        0,
+        &mut totals,
+        &never_stop(),
+    )
+    .unwrap();
+    assert_eq!(r.added, 100);
+    assert_eq!(r.gets, 100);
+    assert_eq!(store.gets(), 100);
+    let keys = sink.keys("added");
+    let mut sorted = keys.clone();
+    sorted.sort();
+    assert_eq!(keys, sorted, "events in listing order");
+    for i in 0..100 {
+        let want = format!(
+            "{:016x}",
+            xxhash_rust::xxh3::xxh3_64(format!("body-{i}").as_bytes())
+        );
+        assert_eq!(
+            j.get(&format!("p/{i:03}")).unwrap().digest.as_deref(),
+            Some(want.as_str())
+        );
+    }
+}
+
+/// One transient list failure (a 503 SlowDown) after the first cycle is
+/// reported and retried at the next poll; it used to end a long-lived watch.
+/// The failed call is still charged to the ledger.
+#[test]
+fn a_transient_list_failure_after_cycle_zero_is_retried_not_fatal() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    store.put("a", "x");
+    store.fail_list_call.store(1, Ordering::SeqCst);
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let o = WatchOptions {
+        poll_interval: Duration::from_millis(5),
+        max_cycles: Some(4),
+        allow_cost: true,
+        ..opts()
+    };
+    let mut seen: Vec<(u64, usize)> = Vec::new();
+    let out = run_watch(&store, &mut j, &o, &mut sink, &|| false, &mut |r| {
+        seen.push((r.cycle, r.errors.len()))
+    })
+    .expect("one 503 must not end the watch");
+    assert_eq!(seen.len(), 4);
+    assert_eq!(seen[1].1, 1, "cycle 1 is reported as failed: {seen:?}");
+    assert_eq!(out.totals.failed_cycles, 1);
+    assert_eq!(out.totals.cycles, 3, "three cycles completed");
+    assert_eq!(SpendLedger::open(dir.path()).unwrap().spend.class_a, 4);
+
+    // Persistent failure still ends it.
+    let store = FakeStore::new();
+    store.put("a", "x");
+    let dir2 = tempfile::tempdir().unwrap();
+    let mut j = journal(dir2.path());
+    let o = WatchOptions {
+        max_cycles: Some(50),
+        ..o
+    };
+    struct AlwaysFailAfterFirst<'a>(&'a FakeStore);
+    impl ObjectSource for AlwaysFailAfterFirst<'_> {
+        fn describe(&self) -> String {
+            self.0.describe()
+        }
+        fn list(&self, req: &ListRequest) -> Result<ListPage> {
+            if self.0.list_calls() >= 1 {
+                self.0.list_calls.fetch_add(1, Ordering::SeqCst);
+                anyhow::bail!("503");
+            }
+            self.0.list(req)
+        }
+        fn get(&self, key: &str, max: u64) -> Result<FetchedObject> {
+            self.0.get(key, max)
+        }
+    }
+    let err = run_watch(
+        &AlwaysFailAfterFirst(&store),
+        &mut j,
+        &o,
+        &mut sink,
+        &|| false,
+        &mut |_| {},
+    )
+    .unwrap_err();
+    assert!(format!("{err:#}").contains("in a row"), "{err:#}");
+    assert_eq!(store.list_calls(), 1 + MAX_CONSECUTIVE_FAILED_CYCLES);
 }

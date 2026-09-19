@@ -45,10 +45,29 @@ pub const DEFAULT_MAX_MONTHLY_CLASS_A: u64 = 200_000;
 /// EMPTY bucket — half the free tier to watch nothing.
 pub const DEFAULT_POLL_INTERVAL_SECS: u64 = 300;
 
-/// List calls one full scan of `keys` objects costs. An empty bucket still
-/// costs one call: you have to ask to learn it is empty.
+/// Default ceiling on Class B operations (GETs) per calendar month: 20% of the
+/// free tier, for the same reason as the Class A default. A first scan of a
+/// large bucket fetches every object once, and a churning bucket re-fetches
+/// every changed one, so GETs need a breaker of their own.
+pub const DEFAULT_MAX_MONTHLY_CLASS_B: u64 = 2_000_000;
+
+/// List calls one full scan of `keys` objects costs at the API's maximum page
+/// size. An empty bucket still costs one call: you have to ask to learn it is
+/// empty.
 pub fn list_calls_for_keys(keys: u64) -> u64 {
-    keys.div_ceil(MAX_KEYS_PER_LIST).max(1)
+    list_calls_for_keys_at(keys, MAX_KEYS_PER_LIST)
+}
+
+/// List calls one full scan of `keys` objects costs at `page_size` keys per
+/// call: `ceil(keys / page_size)`, at least 1.
+///
+/// The page size is the billing unit. Pricing every scan at 1,000 keys a page
+/// while the watcher actually asked for 10 under-projected the Class A spend
+/// 100x — `--page-size 1` on a 26-object prefix was projected at 1 call a cycle
+/// and cost 26.
+pub fn list_calls_for_keys_at(keys: u64, page_size: u64) -> u64 {
+    let page = page_size.clamp(1, MAX_KEYS_PER_LIST);
+    keys.div_ceil(page).max(1)
 }
 
 /// Poll cycles a month at this interval.
@@ -201,6 +220,9 @@ pub struct CostTotals {
     /// Deadlines that passed while a cycle was still running.
     pub skipped_deadlines: u64,
     pub errors: u64,
+    /// Cycles that failed outright (the listing itself errored) and were
+    /// retried at the next poll.
+    pub failed_cycles: u64,
 }
 
 impl CostTotals {
@@ -214,13 +236,162 @@ impl CostTotals {
             "events": self.events,
             "skipped_deadlines": self.skipped_deadlines,
             "errors": self.errors,
+            "failed_cycles": self.failed_cycles,
         })
+    }
+}
+
+/// Operations actually spent in one calendar month (UTC), persisted next to the
+/// journal so the budget survives a restart.
+///
+/// The projection answers "will this interval fit?"; the ledger answers "has it
+/// fit so far?". Without it a watcher under a supervisor that restarts it —
+/// every crash, every deploy — would begin a fresh process-local count each time
+/// and could re-scan a large bucket all month long without ever tripping. The
+/// ledger is what makes the budget a monthly cap rather than a per-process one.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MonthSpend {
+    /// `YYYY-MM`, UTC. A different month on load means a new allowance.
+    pub month: String,
+    /// `ListObjectsV2` calls, including failed ones: whether a failed request
+    /// is billed is the provider's call, so the ledger assumes it is.
+    pub class_a: u64,
+    /// `GetObject` calls, same rule.
+    pub class_b: u64,
+}
+
+pub fn current_month() -> String {
+    chrono::Utc::now().format("%Y-%m").to_string()
+}
+
+/// [`MonthSpend`] plus where it lives.
+#[derive(Debug, Clone)]
+pub struct SpendLedger {
+    path: Option<std::path::PathBuf>,
+    pub spend: MonthSpend,
+}
+
+impl SpendLedger {
+    pub const FILE: &'static str = "objwatch-spend.json";
+
+    /// Load `<state_dir>/objwatch-spend.json`, or start at zero. A ledger for a
+    /// past month is a new month's allowance; an unreadable one is an error,
+    /// because treating it as zero would hand a broken watcher a fresh budget.
+    pub fn open(state_dir: &std::path::Path) -> anyhow::Result<SpendLedger> {
+        use anyhow::Context;
+        let path = state_dir.join(Self::FILE);
+        let month = current_month();
+        let spend = if path.exists() {
+            let raw = std::fs::read_to_string(&path)
+                .with_context(|| format!("read spend ledger {}", path.display()))?;
+            let s: MonthSpend = serde_json::from_str(&raw).with_context(|| {
+                format!(
+                    "parse spend ledger {} (delete it only if you know this month's spend)",
+                    path.display()
+                )
+            })?;
+            if s.month == month {
+                s
+            } else {
+                MonthSpend {
+                    month,
+                    ..Default::default()
+                }
+            }
+        } else {
+            MonthSpend {
+                month,
+                ..Default::default()
+            }
+        };
+        Ok(SpendLedger {
+            path: Some(path),
+            spend,
+        })
+    }
+
+    /// A ledger that is never written. For callers without a state directory.
+    pub fn in_memory() -> SpendLedger {
+        SpendLedger {
+            path: None,
+            spend: MonthSpend {
+                month: current_month(),
+                ..Default::default()
+            },
+        }
+    }
+
+    fn roll(&mut self) {
+        let m = current_month();
+        if self.spend.month != m {
+            self.spend = MonthSpend {
+                month: m,
+                ..Default::default()
+            };
+        }
+    }
+
+    pub fn add(&mut self, class_a: u64, class_b: u64) {
+        self.roll();
+        self.spend.class_a = self.spend.class_a.saturating_add(class_a);
+        self.spend.class_b = self.spend.class_b.saturating_add(class_b);
+    }
+
+    /// Atomic write (temp file + rename), so a crash never leaves a half file
+    /// that would fail to parse.
+    pub fn save(&self) -> anyhow::Result<()> {
+        use anyhow::Context;
+        let Some(path) = &self.path else {
+            return Ok(());
+        };
+        let tmp = path.with_extension(format!("json.tmp.{}", std::process::id()));
+        std::fs::write(&tmp, serde_json::to_vec(&self.spend)?)
+            .with_context(|| format!("write {}", tmp.display()))?;
+        std::fs::rename(&tmp, path).with_context(|| format!("rename into {}", path.display()))?;
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// F2 of the #968 review: the projection must use the page size the watcher
+    /// actually lists with. 26 objects at `--page-size 1` is 26 calls a cycle.
+    #[test]
+    fn list_calls_are_counted_at_the_page_size_actually_used() {
+        assert_eq!(list_calls_for_keys_at(26, 1), 26);
+        assert_eq!(list_calls_for_keys_at(25, 10), 3);
+        assert_eq!(list_calls_for_keys_at(0, 10), 1);
+        assert_eq!(list_calls_for_keys_at(10_000, 100), 100);
+        assert_eq!(list_calls_for_keys_at(10_000, 1_000), 10);
+        // A page size above the API maximum is priced at the maximum, which is
+        // what the store actually serves.
+        assert_eq!(list_calls_for_keys_at(10_000, 5_000), 10);
+    }
+
+    #[test]
+    fn the_spend_ledger_persists_and_rolls_over_at_a_new_month() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut l = SpendLedger::open(dir.path()).unwrap();
+        assert_eq!(l.spend.class_a, 0);
+        l.add(7, 3);
+        l.save().unwrap();
+        let again = SpendLedger::open(dir.path()).unwrap();
+        assert_eq!((again.spend.class_a, again.spend.class_b), (7, 3));
+        // A ledger from a past month is a fresh allowance.
+        std::fs::write(
+            dir.path().join(SpendLedger::FILE),
+            r#"{"month":"1999-01","class_a":999999,"class_b":5}"#,
+        )
+        .unwrap();
+        let rolled = SpendLedger::open(dir.path()).unwrap();
+        assert_eq!(rolled.spend.class_a, 0);
+        assert_eq!(rolled.spend.month, current_month());
+        // A corrupt one is refused, not read as zero.
+        std::fs::write(dir.path().join(SpendLedger::FILE), "{not json").unwrap();
+        assert!(SpendLedger::open(dir.path()).is_err());
+    }
 
     #[test]
     fn a_list_call_covers_a_thousand_keys_and_an_empty_bucket_still_costs_one() {

@@ -4,11 +4,14 @@
 //! digest)`. The next poll compares a fresh listing against it and that
 //! comparison IS the change set. Three properties matter more than the format:
 //!
-//! * **Per-object durability.** The journal is saved after each object the sink
-//!   accepted, not once at the end of a cycle, so a watcher killed mid-cycle
-//!   re-processes only what it had not finished. A cycle-scoped save would
-//!   either re-index everything (save at end, crash) or lose updates (save at
-//!   start, crash).
+//! * **Bounded-window durability.** The journal is saved every 256 accepted
+//!   objects or every 2 seconds, whichever comes first, and at the end of every
+//!   cycle — so a watcher killed mid-cycle re-emits at most that window, never
+//!   the whole cycle, and never loses an update (an entry is recorded only
+//!   after the sink accepted its event). It used to save after EVERY object,
+//!   which rewrote and fsynced a growing file once per object: a quadratic
+//!   first scan that the #968 review measured at 310.91 s for 10,000 objects.
+//!   The feed is at-least-once either way; the ids downstream are idempotent.
 //! * **Identity.** It records the endpoint, bucket and prefix it was built
 //!   from and refuses to be reused for a different one. Silently adopting
 //!   another bucket's state would report that bucket's keys as deleted.
@@ -82,6 +85,10 @@ pub struct WatchJournal {
     path: PathBuf,
     #[serde(skip)]
     dirty: bool,
+    /// Saves performed by this process. Observability for the write-amplification
+    /// regression test; not persisted.
+    #[serde(skip)]
+    saves: u64,
 }
 
 impl WatchJournal {
@@ -111,6 +118,7 @@ impl WatchJournal {
             objects: BTreeMap::new(),
             path,
             dirty: false,
+            saves: 0,
         }
     }
 
@@ -183,6 +191,15 @@ impl WatchJournal {
         &self.path
     }
 
+    /// The directory the journal lives in, which is where the rest of the
+    /// watch's state (the spend ledger, the lock, the status file) lives too.
+    pub fn state_dir(&self) -> &Path {
+        match self.path.parent() {
+            Some(p) if !p.as_os_str().is_empty() => p,
+            _ => Path::new("."),
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.objects.len()
     }
@@ -223,7 +240,9 @@ impl WatchJournal {
     /// empty" — which would re-index everything.
     pub fn save(&mut self) -> Result<()> {
         self.updated_at = now_rfc3339();
-        let body = serde_json::to_vec_pretty(self).context("serialise watch journal")?;
+        // Compact, not pretty: the journal is rewritten on every save and a
+        // pretty-printed one is ~40% larger for nobody's benefit (`jq .` reads it).
+        let body = serde_json::to_vec(self).context("serialise watch journal")?;
         let dir = self
             .path
             .parent()
@@ -242,7 +261,13 @@ impl WatchJournal {
             let _ = d.sync_all();
         }
         self.dirty = false;
+        self.saves += 1;
         Ok(())
+    }
+
+    /// How many times this process has written the journal.
+    pub fn saves(&self) -> u64 {
+        self.saves
     }
 
     pub fn save_if_dirty(&mut self) -> Result<()> {

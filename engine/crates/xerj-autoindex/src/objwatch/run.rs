@@ -129,6 +129,7 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
         max_object_bytes: cfg.max_object_bytes,
         append_only: cfg.append_only,
         max_monthly_class_a: cfg.max_monthly_ops,
+        max_monthly_class_b: cfg.max_monthly_gets,
         allow_cost: cfg.allow_cost,
         page_size: cfg.page_size,
         status_path: Some(
@@ -136,6 +137,7 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
                 .clone()
                 .unwrap_or_else(|| state_dir.join("objwatch-status.json")),
         ),
+        dry_run: cfg.dry_run,
     };
 
     if !cfg.quiet {
@@ -149,7 +151,8 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
         );
         if cfg.dry_run {
             eprintln!(
-                "xerj-watch: dry run — one cycle, no GETs, nothing emitted. It prices the poll."
+                "xerj-watch: dry run — one cycle, no GETs, nothing emitted, nothing recorded. It \
+                 prices the poll."
             );
         }
     }
@@ -159,7 +162,8 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
 
     // stdout is the feed unless --events-out redirects it. --dry-run emits
     // nothing at all: it exists to price a poll, and writing a bucket-sized
-    // first change set to a terminal would defeat that.
+    // first change set to a terminal would defeat that. (`poll_once` never
+    // calls the sink in a dry run; the counting sink is belt and braces.)
     let mut counting = CountingSink::default();
     let mut file_sink;
     let mut stdout_sink;
@@ -207,6 +211,11 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
             // The cost refusal is a decision request, not a failure: same
             // document and same exit code as the indexing gate, so one
             // agent-side branch handles both.
+            //
+            // A breaker can trip after events were written (a bucket that grew
+            // mid-watch). The decision request is then the LAST line of the
+            // feed, told apart by `"xerj":"objwatch-decision-request"` where every
+            // event says `"xerj":"objwatch-change"`.
             if let Some(refused) = e.downcast_ref::<PollCostRefused>() {
                 println!("{}", refused.to_json());
                 eprintln!("xerj-watch: {refused}");
@@ -236,8 +245,9 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
             if let Some(last) = &outcome.last {
                 eprintln!("xerj-watch: {}", last.projection.line());
                 eprintln!(
-                    "xerj-watch: dry run saw {} change(s) it did not emit",
-                    counting.accepted
+                    "xerj-watch: dry run saw {} added, {} changed, {} deleted; it emitted and \
+                     recorded none of them, so the next real run starts from the same state",
+                    last.added, last.changed, last.deleted
                 );
             }
         }

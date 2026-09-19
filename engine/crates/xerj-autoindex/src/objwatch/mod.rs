@@ -20,10 +20,14 @@
 //! implemented.
 //!
 //! The cost model is not an afterthought: `ListObjectsV2` is a Class A
-//! operation, one call per 1,000 keys, so the poll interval spends money on
-//! every cycle whether anything changed or not. [`cost`] holds the arithmetic,
-//! the guard refuses an interval that cannot stay inside the budget, and every
-//! cycle reports what it spent.
+//! operation, one call per page of up to 1,000 keys, so the poll interval
+//! spends money on every cycle whether anything changed or not. [`cost`] holds
+//! the arithmetic. Two breakers enforce it, on EVERY cycle, not only the first:
+//! the projection (does this interval fit the monthly budget at the size the
+//! bucket is now?) and the spend ledger (has this month's budget already been
+//! spent, across restarts?). Either one stops the watch with a decision request
+//! (exit 4) unless the operator passed `--allow-cost`. A shipped default must
+//! never be able to spend an account's free tier by itself.
 //!
 //! WHAT THIS MODULE DOES NOT DO: it does not index. It produces a change feed —
 //! added / changed / deleted, with content digests — and hands each event to a
@@ -40,7 +44,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-pub use cost::{CostTotals, Projection};
+pub use cost::{CostTotals, MonthSpend, Projection, SpendLedger};
 pub use journal::{WatchJournal, WatchLock, WatchedObject};
 
 /// One object as the store described it in a listing.
@@ -82,11 +86,15 @@ pub struct FetchedObject {
 
 /// The minimum an object store must do for the watcher: list, and read.
 ///
+/// `Sync` because changed objects are fetched with bounded concurrency
+/// ([`FETCH_CONCURRENCY`]): a first scan of 10,000 objects over a
+/// 50-100 ms-latency link is 8-17 minutes serially.
+///
 /// Deliberately two methods. A richer object source (streaming reads,
 /// multipart-aware fetch, a shared credential resolver) can implement this
 /// without the watcher changing, which is how this stream stays independent of
 /// the one adding `xerj autoindex s3://…`.
-pub trait ObjectSource {
+pub trait ObjectSource: Sync {
     /// Human-readable location. Must never contain credentials.
     fn describe(&self) -> String;
     fn list(&self, req: &ListRequest) -> Result<ListPage>;
@@ -206,10 +214,17 @@ pub struct WatchOptions {
     /// deletes or edits to older keys, which is why it is opt-in.
     pub append_only: bool,
     pub max_monthly_class_a: u64,
+    /// Class B (GET) budget per calendar month.
+    pub max_monthly_class_b: u64,
     pub allow_cost: bool,
     pub page_size: u64,
     /// Where to write the operator-readable running count.
     pub status_path: Option<PathBuf>,
+    /// Price the poll and report the change set WITHOUT recording anything:
+    /// no GETs, no sink, and the journal is neither changed nor saved. A dry
+    /// run that recorded what it saw would make the next real run believe the
+    /// whole bucket was already indexed.
+    pub dry_run: bool,
 }
 
 impl Default for WatchOptions {
@@ -221,37 +236,104 @@ impl Default for WatchOptions {
             max_object_bytes: 64 << 20,
             append_only: false,
             max_monthly_class_a: cost::DEFAULT_MAX_MONTHLY_CLASS_A,
+            max_monthly_class_b: cost::DEFAULT_MAX_MONTHLY_CLASS_B,
             allow_cost: false,
             page_size: cost::MAX_KEYS_PER_LIST,
             status_path: None,
+            dry_run: false,
         }
     }
 }
 
-/// The projected poll cost exceeded the budget and nothing was polled further.
+/// Which breaker stopped the watch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefusalReason {
+    /// The projection at the bucket's current size is over the Class A budget.
+    ProjectedOverBudget,
+    /// This calendar month's Class A budget is spent (the spend ledger).
+    ClassABudgetSpent,
+    /// This calendar month's Class B (GET) budget would be exceeded.
+    ClassBBudgetSpent,
+}
+
+impl RefusalReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RefusalReason::ProjectedOverBudget => "poll_cost_over_budget",
+            RefusalReason::ClassABudgetSpent => "monthly_class_a_budget_spent",
+            RefusalReason::ClassBBudgetSpent => "monthly_class_b_budget_spent",
+        }
+    }
+}
+
+/// A cost breaker tripped and nothing further was polled.
 ///
 /// A distinct type so the CLI can answer with the same "needs a decision"
-/// contract the indexing gate uses (exit 4) instead of a generic failure.
+/// contract the indexing gate uses (exit 4) instead of a generic failure. It is
+/// returned on ANY cycle, not only the first: a bucket that grows past the
+/// budget while it is being watched stops the watch. Warning and carrying on is
+/// what spends a free tier while nobody is reading the log.
 #[derive(Debug)]
 pub struct PollCostRefused {
+    pub reason: RefusalReason,
     pub projection: Projection,
     pub location: String,
+    /// The cycle that tripped. 0 = before anything was emitted.
+    pub cycle: u64,
+    /// Month-to-date spend when it tripped.
+    pub spent: MonthSpend,
+    pub budget_class_b: u64,
+    /// Operations the refused step needed (list calls, or GETs).
+    pub needed: u64,
 }
 
 impl std::fmt::Display for PollCostRefused {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "refusing to poll {} every {}s: {}. That is over the budget of {} Class A \
-             operations/month. Poll every {}s or more, scope the watch with a narrower prefix, \
-             pass --append-only if the key space only grows, or pass --allow-cost to accept the \
-             spend.",
-            self.location,
-            self.projection.interval_secs,
-            self.projection.line(),
-            self.projection.budget,
-            self.projection.min_safe_interval_secs
-        )
+        let when = if self.cycle == 0 {
+            "refusing to poll".to_string()
+        } else {
+            format!(
+                "circuit breaker: stopping after cycle {} instead of polling",
+                self.cycle
+            )
+        };
+        match self.reason {
+            RefusalReason::ProjectedOverBudget => write!(
+                f,
+                "{when} {} every {}s: {}. That is over the budget of {} Class A \
+                 operations/month. Poll every {}s or more, scope the watch with a narrower prefix, \
+                 pass --append-only if the key space only grows, or pass --allow-cost to accept the \
+                 spend.",
+                self.location,
+                self.projection.interval_secs,
+                self.projection.line(),
+                self.projection.budget,
+                self.projection.min_safe_interval_secs
+            ),
+            RefusalReason::ClassABudgetSpent => write!(
+                f,
+                "{when} {}: {} of the {} Class A operations budgeted for {} are already spent \
+                 (ledger: {}), and the next listing needs {} more. Nothing more is listed until \
+                 next month. Raise --max-monthly-ops, or pass --allow-cost to accept the spend.",
+                self.location,
+                self.spent.class_a,
+                self.projection.budget,
+                self.spent.month,
+                cost::SpendLedger::FILE,
+                self.needed
+            ),
+            RefusalReason::ClassBBudgetSpent => write!(
+                f,
+                "{when} {}: this cycle needs {} GET(s) and {} of the {} Class B operations \
+                 budgeted for {} are already spent. Nothing was fetched or emitted. Pass --no-fetch \
+                 (metadata-only, zero GETs), raise --max-monthly-gets, or pass --allow-cost.",
+                self.location,
+                self.needed,
+                self.spent.class_b,
+                self.budget_class_b,
+                self.spent.month
+            ),
+        }
     }
 }
 
@@ -261,14 +343,32 @@ impl PollCostRefused {
     /// Same shape as the indexing gate's decision request, so one agent-side
     /// branch handles both.
     pub fn to_json(&self) -> serde_json::Value {
+        let answers: &[&str] = match self.reason {
+            RefusalReason::ProjectedOverBudget => {
+                &["--poll-interval <secs>", "--append-only", "--allow-cost"]
+            }
+            RefusalReason::ClassABudgetSpent => &["--max-monthly-ops <n>", "--allow-cost"],
+            RefusalReason::ClassBBudgetSpent => {
+                &["--no-fetch", "--max-monthly-gets <n>", "--allow-cost"]
+            }
+        };
         serde_json::json!({
             "xerj": "objwatch-decision-request",
             "exit_code": crate::gate::EXIT_NEEDS_DECISION,
-            "reason": "poll_cost_over_budget",
+            "reason": self.reason.as_str(),
             "location": self.location,
+            "cycle": self.cycle,
             "projection": self.projection.to_json(),
+            "month_to_date": {
+                "month": self.spent.month,
+                "class_a": self.spent.class_a,
+                "class_b": self.spent.class_b,
+                "budget_class_a": self.projection.budget,
+                "budget_class_b": self.budget_class_b,
+            },
+            "needed": self.needed,
             "message": self.to_string(),
-            "answers": ["--poll-interval <secs>", "--append-only", "--allow-cost"],
+            "answers": answers,
         })
     }
 }
@@ -291,6 +391,12 @@ pub struct CycleReport {
     /// what was already recorded — ETag churn, not an edit. Counted, fetched,
     /// and deliberately NOT sent to the sink.
     pub content_identical: u64,
+    /// Objects fetched only up to `--max-object-mb`. Their digest covers a
+    /// prefix, so it can never prove "same bytes": a metadata change on one is
+    /// always emitted, and counted here so the cap is visible.
+    pub truncated: u64,
+    /// Month-to-date spend after this cycle, from the ledger.
+    pub month_to_date: MonthSpend,
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
     pub projection: Projection,
@@ -302,8 +408,9 @@ impl CycleReport {
     pub fn line(&self) -> String {
         let mut line = format!(
             "xerj-watch cycle={} added={} changed={} deleted={} unchanged={} same_bytes={} \
-             list_calls={} gets={} fetched={} wall={:.2}s | month-to-date: \
-             list_calls={} gets={} ({:.1}% of free-tier Class A if sustained)",
+             list_calls={} gets={} fetched={} wall={:.2}s | this process: list_calls={} gets={} \
+             | month-to-date {}: Class A {}/{} budget, Class B {} | projected {:.1}% of the \
+             free-tier Class A if sustained",
             self.cycle,
             self.added,
             self.changed,
@@ -316,8 +423,15 @@ impl CycleReport {
             self.wall.as_secs_f64(),
             self.totals.list_calls,
             self.totals.gets,
+            self.month_to_date.month,
+            self.month_to_date.class_a,
+            self.projection.budget,
+            self.month_to_date.class_b,
             self.projection.free_tier_percent,
         );
+        if self.truncated > 0 {
+            line.push_str(&format!(" truncated={}", self.truncated));
+        }
         if self.totals.skipped_deadlines > 0 {
             // An overrun means the real interval is longer than the one the
             // budget was computed from, so it belongs on the line an operator
@@ -346,6 +460,12 @@ impl CycleReport {
             "deleted": self.deleted,
             "unchanged": self.unchanged,
             "content_identical": self.content_identical,
+            "truncated": self.truncated,
+            "month_to_date": {
+                "month": self.month_to_date.month,
+                "class_a": self.month_to_date.class_a,
+                "class_b": self.month_to_date.class_b,
+            },
             "errors": self.errors,
             "warnings": self.warnings,
             "projection": self.projection.to_json(),
@@ -417,23 +537,91 @@ pub fn diff(journal: &WatchJournal, listed: &[ObjectMeta], detect_deletes: bool)
     plan
 }
 
-/// Flush the journal after every accepted object while it is small; batch once
-/// it is big, because a save rewrites the whole file.
-const JOURNAL_FLUSH_BATCH_ABOVE: usize = 10_000;
-const JOURNAL_FLUSH_EVERY_WHEN_BIG: u64 = 64;
+/// Journal saves are batched: at most this many recorded objects, or this long,
+/// between two saves.
+///
+/// A save rewrites the whole file and fsyncs it, so saving after EVERY object
+/// made a first scan quadratic: 10,000 objects meant 10,000 rewrites of a file
+/// growing to ~2 MB, and the #968 review measured 310.91 s for a 10,000-object
+/// `--no-fetch` first cycle against a local MinIO. Batching bounds what a crash
+/// can cost to re-emitting the last window of events (the feed is
+/// at-least-once; the object-storage indexer's ids are idempotent) and turns
+/// the save cost from O(n^2) into O(n).
+const JOURNAL_SAVE_EVERY_OBJECTS: u64 = 256;
+const JOURNAL_SAVE_EVERY: Duration = Duration::from_secs(2);
+
+/// GETs in flight at once when fetching changed objects. Bounded, as every
+/// object-store client bounds bulk operations (quickwit bounds its bulk delete
+/// with `buffer_unordered(100)`, quickwit-storage s3_compatible_storage.rs:726;
+/// this is the same idea on std threads, far lower because a watcher shares the
+/// account with production traffic).
+pub const FETCH_CONCURRENCY: usize = 8;
+/// Objects fetched per batch before their events are emitted in listing order.
+const FETCH_BATCH_OBJECTS: usize = 32;
+/// Upper bound on the bytes one batch may hold in memory, estimated from the
+/// listed sizes capped at `--max-object-mb`. A batch always holds at least one
+/// object.
+const FETCH_BATCH_BYTES: u64 = 256 << 20;
+
+/// A cycle that fails (a 503, a timeout, a dropped connection) is retried at the
+/// next scheduled poll — never immediately, so a failing store is not hammered
+/// with Class A calls. This many failures IN A ROW end the watch.
+pub const MAX_CONSECUTIVE_FAILED_CYCLES: u64 = 5;
+
+struct JournalSaver {
+    pending: u64,
+    last: Instant,
+}
+
+impl JournalSaver {
+    fn new() -> JournalSaver {
+        JournalSaver {
+            pending: 0,
+            last: Instant::now(),
+        }
+    }
+
+    fn note(&mut self, journal: &mut WatchJournal) -> Result<()> {
+        self.pending += 1;
+        if self.pending >= JOURNAL_SAVE_EVERY_OBJECTS || self.last.elapsed() >= JOURNAL_SAVE_EVERY {
+            journal.save()?;
+            self.pending = 0;
+            self.last = Instant::now();
+        }
+        Ok(())
+    }
+}
+
+enum ScanOutcome {
+    Complete(Vec<ObjectMeta>),
+    /// The Class A allowance left this month ran out before the listing did.
+    /// A partial listing is not the truth, so nothing is derived from it.
+    BudgetExhausted,
+}
 
 /// List the whole watched key space (or, in append-only mode, its tail).
+///
+/// `calls` is incremented per request SENT, including one that then fails, so a
+/// failing listing is still charged to the ledger. `max_calls` is the Class A
+/// allowance left this month; the scan stops before exceeding it.
 fn scan(
     src: &dyn ObjectSource,
     prefix: &str,
     start_after: Option<&str>,
     page_size: u64,
+    max_calls: u64,
+    calls: &mut u64,
     stop: &dyn Fn() -> bool,
-) -> Result<(Vec<ObjectMeta>, u64)> {
+) -> Result<ScanOutcome> {
     let mut out: Vec<ObjectMeta> = Vec::new();
     let mut token: Option<String> = None;
-    let mut calls = 0u64;
+    let mut made = 0u64;
     loop {
+        if made >= max_calls {
+            return Ok(ScanOutcome::BudgetExhausted);
+        }
+        made += 1;
+        *calls += 1;
         let page = src.list(&ListRequest {
             prefix,
             continuation_token: token.as_deref(),
@@ -441,7 +629,6 @@ fn scan(
             delimiter: None,
             max_keys: page_size,
         })?;
-        calls += 1;
         out.extend(page.objects);
         match page.next_token {
             Some(t) => token = Some(t),
@@ -451,18 +638,54 @@ fn scan(
             // A cancelled scan is a partial listing: the caller must not treat
             // it as authoritative, so say so rather than returning a truncated
             // "truth".
-            bail!("listing cancelled after {calls} call(s); no change set was derived");
+            bail!("listing cancelled after {made} call(s); no change set was derived");
         }
     }
-    Ok((out, calls))
+    Ok(ScanOutcome::Complete(out))
 }
 
-/// One poll cycle: list, diff, fetch what changed, feed the sink, record.
+/// Fetch `keys` with at most [`FETCH_CONCURRENCY`] GETs in flight. Results come
+/// back in the order of `keys`, so events are still emitted in listing order.
+fn fetch_batch(
+    src: &dyn ObjectSource,
+    keys: &[&str],
+    max_bytes: u64,
+) -> Vec<Result<FetchedObject>> {
+    if keys.len() <= 1 {
+        return keys.iter().map(|k| src.get(k, max_bytes)).collect();
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let slots: Vec<std::sync::Mutex<Option<Result<FetchedObject>>>> =
+        keys.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..FETCH_CONCURRENCY.min(keys.len()) {
+            scope.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if i >= keys.len() {
+                    break;
+                }
+                let r = src.get(keys[i], max_bytes);
+                *slots[i].lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+            });
+        }
+    });
+    slots
+        .into_iter()
+        .map(|m| {
+            m.into_inner()
+                .unwrap_or_else(|e| e.into_inner())
+                .unwrap_or_else(|| Err(anyhow::anyhow!("fetch was never attempted")))
+        })
+        .collect()
+}
+
+/// One poll cycle: check the budget, list, diff, fetch what changed, feed the
+/// sink, record.
 ///
-/// `cycle_index` is 0 for the first cycle of this process, which is the only one
-/// that can refuse on cost (a later cycle warns instead: the bucket grew while
-/// we were running, and stopping a live watcher is worse than telling its
-/// operator).
+/// Every cycle can refuse on cost, not only the first. A bucket that grows
+/// past the budget while it is watched, or a month whose allowance is spent,
+/// stops the watch with a [`PollCostRefused`] (exit 4) unless the operator
+/// passed `--allow-cost`. `cycle_index` only changes the wording.
 #[allow(clippy::too_many_arguments)]
 pub fn poll_once(
     src: &dyn ObjectSource,
@@ -476,52 +699,132 @@ pub fn poll_once(
     let started = Instant::now();
     let started_at = journal::now_rfc3339();
     let prefix = journal.prefix.clone();
+    let interval_millis = opts.poll_interval.as_millis().min(u128::from(u64::MAX)) as u64;
+    let mut ledger = SpendLedger::open(journal.state_dir())?;
+
+    // An append-only watch with nothing recorded yet has to list the whole key
+    // space once to find its highest key. That backfill is a one-time cost; the
+    // RECURRING cost is the tail above `start-after`.
+    let append_backfill = opts.append_only && journal.max_key_seen.is_none();
     let start_after = if opts.append_only {
         journal.max_key_seen.clone()
     } else {
         None
     };
-    let (listed, list_calls) = scan(src, &prefix, start_after.as_deref(), opts.page_size, stop)?;
+
+    let refuse = |reason: RefusalReason, projection: Projection, spent: MonthSpend, needed: u64| {
+        anyhow::Error::from(PollCostRefused {
+            reason,
+            projection,
+            location: src.describe(),
+            cycle: cycle_index,
+            spent,
+            budget_class_b: opts.max_monthly_class_b,
+            needed,
+        })
+    };
+
+    // Breaker 1, before a single call: is there Class A allowance left this
+    // month for the listing this cycle is about to make?
+    let expected_calls = if opts.append_only && !append_backfill {
+        1
+    } else {
+        cost::list_calls_for_keys_at(journal.len() as u64, opts.page_size)
+    };
+    let allowance_left = if opts.allow_cost {
+        u64::MAX
+    } else {
+        opts.max_monthly_class_a
+            .saturating_sub(ledger.spend.class_a)
+    };
+    let pre_projection = |keys: u64, calls: u64| {
+        Projection::from_millis(keys, calls, interval_millis, opts.max_monthly_class_a)
+    };
+    if expected_calls > allowance_left {
+        return Err(refuse(
+            RefusalReason::ClassABudgetSpent,
+            pre_projection(journal.len() as u64, expected_calls),
+            ledger.spend.clone(),
+            expected_calls,
+        ));
+    }
+
+    let mut list_calls = 0u64;
+    let scanned = scan(
+        src,
+        &prefix,
+        start_after.as_deref(),
+        opts.page_size,
+        allowance_left,
+        &mut list_calls,
+        stop,
+    );
     totals.list_calls += list_calls;
+    ledger.add(list_calls, 0);
+    ledger.save()?;
+    let listed = match scanned? {
+        ScanOutcome::Complete(listed) => listed,
+        ScanOutcome::BudgetExhausted => {
+            let needed = cost::list_calls_for_keys_at(journal.len() as u64, opts.page_size);
+            return Err(refuse(
+                RefusalReason::ClassABudgetSpent,
+                pre_projection(journal.len() as u64, needed.max(list_calls + 1)),
+                ledger.spend.clone(),
+                needed.max(list_calls + 1),
+            ));
+        }
+    };
     totals.keys_listed += listed.len() as u64;
 
-    // The cost of a cycle is knowable only after the listing, and the listing
-    // is the cheapest thing we do — so the guard runs here, before any GET and
-    // before the sink is told anything.
-    // What the NEXT cycle will list, which is what the recurring cost is.
+    // Breaker 2: what the NEXT cycle will list, priced at the page size this
+    // watch actually uses. That is the recurring cost.
     //
-    // In full-scan mode that is the whole key space, and the journal is a better
-    // estimate of it than one listing (a listing taken mid-delete is smaller than
-    // the space it covers). In APPEND-ONLY mode it is only the tail above
-    // `start-after`, and using the journal size there would be a straight bug:
-    // `--append-only` is the documented answer to a bucket too large to scan, and
-    // projecting it at journal size would make the guard refuse the very escape
-    // hatch it recommends. A 1,000,000-key append-only journal costs ONE list
-    // call per cycle, not 1,000.
-    let known_keys = if opts.append_only {
-        listed.len() as u64
+    // Full scan: the whole key space, for which the journal is a better
+    // estimate than one listing (a listing taken mid-delete is smaller than
+    // the space it covers).
+    //
+    // Append-only: only the tail above `start-after`. Pricing it at journal
+    // size refused the very escape hatch the refusal recommends, and pricing
+    // the one-time backfill as if it recurred did the same thing on cycle 0.
+    let (projected_keys, projected_calls) = if opts.append_only {
+        if append_backfill {
+            (0, 1)
+        } else {
+            let tail = listed.len() as u64;
+            (tail, cost::list_calls_for_keys_at(tail, opts.page_size))
+        }
     } else {
-        (journal.len() as u64).max(listed.len() as u64)
+        let keys = (journal.len() as u64).max(listed.len() as u64);
+        // `.max(list_calls)`: a store serves one extra empty page when the key
+        // count is an exact multiple of the page size, and a gateway may page
+        // differently again. The arithmetic is the floor; what the store
+        // actually served this cycle is the truth, and the projection takes
+        // whichever is larger.
+        (
+            keys,
+            cost::list_calls_for_keys_at(keys, opts.page_size).max(list_calls),
+        )
     };
-    let projection = Projection::from_millis(
-        known_keys,
-        cost::list_calls_for_keys(known_keys),
-        // Milliseconds, not `as_secs()`: a sub-second interval truncates to 0 s,
-        // which projects as unbounded and refuses for the wrong reason.
-        opts.poll_interval.as_millis().min(u128::from(u64::MAX)) as u64,
-        opts.max_monthly_class_a,
-    );
+    let projection = pre_projection(projected_keys, projected_calls);
     let mut warnings: Vec<String> = Vec::new();
+    if append_backfill && list_calls > 1 {
+        warnings.push(format!(
+            "append-only backfill: this first cycle listed {} key(s) in {list_calls} call(s), \
+             once; later cycles list only the keys above the highest one seen",
+            listed.len()
+        ));
+    }
     if projection.over_budget() {
-        if cycle_index == 0 && !opts.allow_cost {
-            return Err(PollCostRefused {
+        if !opts.allow_cost {
+            return Err(refuse(
+                RefusalReason::ProjectedOverBudget,
                 projection,
-                location: src.describe(),
-            }
-            .into());
+                ledger.spend.clone(),
+                projected_calls,
+            ));
         }
         warnings.push(format!(
-            "poll cost is over budget and the watch is continuing: {}",
+            "poll cost is over budget and --allow-cost accepted it: {}",
             projection.line()
         ));
     }
@@ -540,18 +843,47 @@ pub fn poll_once(
         deleted: 0,
         unchanged: plan.unchanged,
         content_identical: 0,
+        truncated: 0,
+        month_to_date: ledger.spend.clone(),
         errors: Vec::new(),
         warnings,
         projection,
         totals: totals.clone(),
     };
 
-    let flush_every = if journal.len() > JOURNAL_FLUSH_BATCH_ABOVE {
-        JOURNAL_FLUSH_EVERY_WHEN_BIG
+    // A dry run reports the change set it WOULD emit and records nothing: no
+    // GET, no sink, no journal write. Recording it would make the next real run
+    // treat the whole bucket as already indexed.
+    if opts.dry_run {
+        report.added = plan.added.len() as u64;
+        report.changed = plan.changed.len() as u64;
+        report.deleted = plan.deleted.len() as u64;
+        totals.cycles += 1;
+        report.wall = started.elapsed();
+        report.totals = totals.clone();
+        return Ok(report);
+    }
+
+    // Breaker 3, before any GET: does this cycle's fetching fit the Class B
+    // budget? Checked up front so a refused cycle has emitted nothing.
+    let planned_gets = if opts.fetch {
+        (plan.added.len() + plan.changed.len()) as u64
     } else {
-        1
+        0
     };
-    let mut since_flush = 0u64;
+    if !opts.allow_cost
+        && planned_gets > 0
+        && ledger.spend.class_b.saturating_add(planned_gets) > opts.max_monthly_class_b
+    {
+        return Err(refuse(
+            RefusalReason::ClassBBudgetSpent,
+            report.projection.clone(),
+            ledger.spend.clone(),
+            planned_gets,
+        ));
+    }
+
+    let mut saver = JournalSaver::new();
 
     // Deletes first: dropping a gone object's records before re-reading a
     // changed one keeps the index from briefly holding both.
@@ -576,13 +908,9 @@ pub fn poll_once(
                 journal.forget(key);
                 report.deleted += 1;
                 totals.events += 1;
-                since_flush += 1;
+                saver.note(journal)?;
             }
             Err(e) => record_error(&mut report, totals, format!("delete {key}: {e}")),
-        }
-        if since_flush >= flush_every {
-            journal.save()?;
-            since_flush = 0;
         }
     }
 
@@ -597,21 +925,52 @@ pub fn poll_once(
         )
         .collect();
 
-    for (meta, kind, reason) in work {
+    let mut at = 0usize;
+    while at < work.len() {
         if stop() {
             break;
         }
-        let prev_digest = journal.get(&meta.key).and_then(|k| k.digest.clone());
-        let mut digest = None;
-        let mut etag_used = meta.etag.clone();
-        let mut fetch_had_no_etag = false;
-        let mut truncated = false;
-        let mut bytes_fetched = 0u64;
-        if opts.fetch {
-            match src.get(&meta.key, opts.max_object_bytes) {
-                Ok(f) => {
-                    report.gets += 1;
-                    totals.gets += 1;
+        // The next batch: bounded by count and by the bytes it may hold.
+        let mut end = at;
+        let mut batch_bytes = 0u64;
+        while end < work.len() && end - at < FETCH_BATCH_OBJECTS {
+            let est = work[end].0.size.min(opts.max_object_bytes);
+            if end > at && batch_bytes.saturating_add(est) > FETCH_BATCH_BYTES {
+                break;
+            }
+            batch_bytes = batch_bytes.saturating_add(est);
+            end += 1;
+        }
+        let batch = &work[at..end];
+        at = end;
+
+        let mut fetched: Vec<Option<Result<FetchedObject>>> = if opts.fetch {
+            let keys: Vec<&str> = batch.iter().map(|(m, _, _)| m.key.as_str()).collect();
+            let results = fetch_batch(src, &keys, opts.max_object_bytes);
+            // Every GET sent is counted, including one that failed: the
+            // ledger assumes the provider bills it.
+            let sent = results.len() as u64;
+            report.gets += sent;
+            totals.gets += sent;
+            ledger.add(0, sent);
+            results.into_iter().map(Some).collect()
+        } else {
+            batch.iter().map(|_| None).collect()
+        };
+
+        for ((meta, kind, reason), fetch) in batch.iter().zip(fetched.drain(..)) {
+            let (kind, reason) = (*kind, *reason);
+            let prev = journal.get(&meta.key);
+            let prev_digest = prev.and_then(|k| k.digest.clone());
+            let prev_truncated = prev.map(|k| k.truncated).unwrap_or(false);
+            let mut digest = None;
+            let mut etag_used = meta.etag.clone();
+            let mut fetch_had_no_etag = false;
+            let mut truncated = false;
+            let mut bytes_fetched = 0u64;
+            match fetch {
+                None => {}
+                Some(Ok(f)) => {
                     bytes_fetched = f.bytes.len() as u64;
                     report.bytes_fetched += bytes_fetched;
                     totals.bytes_fetched += bytes_fetched;
@@ -627,94 +986,99 @@ pub fn poll_once(
                         None => fetch_had_no_etag = true,
                     }
                 }
-                Err(e) => {
+                Some(Err(e)) => {
                     record_error(&mut report, totals, format!("fetch {}: {e}", meta.key));
                     // Leave the journal entry alone so the next cycle retries.
                     continue;
                 }
             }
-        }
-        // The bytes hash the same as what is already recorded, so the metadata
-        // change was ETag or mtime churn (a copy, a lifecycle rewrite, a
-        // gateway that re-stamps on read) and not an edit. Update the journal so
-        // the next cycle is free again, and do NOT re-index: an unchanged
-        // document rewritten is a bulk request, a merge and a refresh for
-        // nothing.
-        let content_identical = opts.fetch && prev_digest.is_some() && prev_digest == digest;
-        // A GET that carried no ETag means the recorded ETag came from the
-        // listing and might describe bytes we did not read. Flag it so the next
-        // cycle re-reads once and confirms by digest — and clear the flag as
-        // soon as that confirmation happens, so a store that never sends ETags
-        // costs one extra GET per change rather than one per cycle forever.
-        let etag_unverified = fetch_had_no_etag && !content_identical;
-        if content_identical {
-            journal.record(
-                &meta.key,
-                WatchedObject {
-                    etag: etag_used,
-                    size: meta.size,
-                    last_modified: meta.last_modified.clone(),
-                    digest,
-                    etag_unverified,
-                    seen_at: journal::now_rfc3339(),
-                    truncated,
-                },
-            );
-            report.content_identical += 1;
-            report.unchanged += 1;
-            since_flush += 1;
-            if since_flush >= flush_every {
-                journal.save()?;
-                since_flush = 0;
+            if truncated {
+                report.truncated += 1;
             }
-            continue;
-        }
-        let ev = ChangeEvent {
-            kind,
-            key: meta.key.clone(),
-            size: meta.size,
-            etag: etag_used.clone(),
-            last_modified: meta.last_modified.clone(),
-            digest: digest.clone(),
-            bytes_fetched,
-            reason,
-            truncated,
-        };
-        match sink.accept(&ev) {
-            Ok(()) => {
-                journal.record(
-                    &meta.key,
-                    WatchedObject {
-                        etag: etag_used,
-                        size: meta.size,
-                        last_modified: meta.last_modified.clone(),
-                        digest,
-                        etag_unverified,
-                        seen_at: journal::now_rfc3339(),
-                        truncated,
-                    },
-                );
-                match kind {
-                    ChangeKind::Added => report.added += 1,
-                    ChangeKind::Changed => report.changed += 1,
-                    ChangeKind::Deleted => {}
+            // The bytes hash the same as what is already recorded, so the
+            // metadata change was ETag or mtime churn (a copy, a lifecycle
+            // rewrite, a gateway that re-stamps on read) and not an edit. Update
+            // the journal so the next cycle is free again, and do NOT re-index.
+            //
+            // Only when BOTH digests cover the whole object. A digest of a
+            // capped fetch covers a prefix, so "same prefix" says nothing about
+            // the tail: an edit past `--max-object-mb` hashed identical and was
+            // silently dropped (F4 of the #968 review). A capped object whose
+            // metadata changed is always emitted, flagged `truncated`.
+            let content_identical = opts.fetch
+                && !truncated
+                && !prev_truncated
+                && prev_digest.is_some()
+                && prev_digest == digest;
+            // A GET that carried no ETag means the recorded ETag came from the
+            // listing and might describe bytes we did not read. Flag it so the
+            // next cycle re-reads once and confirms by digest — and clear the
+            // flag as soon as that confirmation happens, so a store that never
+            // sends ETags costs one extra GET per change rather than one per
+            // cycle forever.
+            let etag_unverified = fetch_had_no_etag && !content_identical;
+            let entry = WatchedObject {
+                etag: etag_used.clone(),
+                size: meta.size,
+                last_modified: meta.last_modified.clone(),
+                digest: digest.clone(),
+                etag_unverified,
+                seen_at: journal::now_rfc3339(),
+                truncated,
+            };
+            if content_identical {
+                journal.record(&meta.key, entry);
+                report.content_identical += 1;
+                report.unchanged += 1;
+                saver.note(journal)?;
+                continue;
+            }
+            let ev = ChangeEvent {
+                kind,
+                key: meta.key.clone(),
+                size: meta.size,
+                etag: etag_used,
+                last_modified: meta.last_modified.clone(),
+                digest,
+                bytes_fetched,
+                reason,
+                truncated,
+            };
+            match sink.accept(&ev) {
+                Ok(()) => {
+                    journal.record(&meta.key, entry);
+                    match kind {
+                        ChangeKind::Added => report.added += 1,
+                        ChangeKind::Changed => report.changed += 1,
+                        ChangeKind::Deleted => {}
+                    }
+                    totals.events += 1;
+                    saver.note(journal)?;
                 }
-                totals.events += 1;
-                since_flush += 1;
+                Err(e) => record_error(&mut report, totals, format!("index {}: {e}", meta.key)),
             }
-            Err(e) => record_error(&mut report, totals, format!("index {}: {e}", meta.key)),
         }
-        if since_flush >= flush_every {
-            journal.save()?;
-            since_flush = 0;
-        }
+        ledger.save()?;
+    }
+
+    if report.truncated > 0 {
+        report.warnings.push(format!(
+            "{} object(s) are larger than --max-object-mb ({}): their digest covers only the \
+             first {}, so a change to one is detected from its ETag/size/mtime and always \
+             emitted with truncated=true",
+            report.truncated,
+            human_bytes(opts.max_object_bytes),
+            human_bytes(opts.max_object_bytes)
+        ));
     }
 
     sink.flush()?;
     journal.note_cycle();
     journal.save()?;
+    ledger.save()?;
     totals.cycles += 1;
     report.wall = started.elapsed();
+    report.month_to_date = ledger.spend.clone();
     report.totals = totals.clone();
     Ok(report)
 }
@@ -735,12 +1099,18 @@ pub struct WatchOutcome {
     pub last: Option<CycleReport>,
 }
 
-/// Poll until `stop()`, `max_cycles`, or a fatal error.
+/// Poll until `stop()`, `max_cycles`, a cost breaker, or a fatal error.
 ///
 /// A cycle that overruns the interval does not queue: the missed deadlines are
 /// counted (`skipped_deadlines`) and the next cycle starts immediately. Cycles
 /// never overlap, which is what makes "no double index" structural rather than
 /// a race the sink has to defend against.
+///
+/// A cycle that FAILS after the first one (a 503, a timeout) is reported and
+/// retried at the next scheduled poll; [`MAX_CONSECUTIVE_FAILED_CYCLES`] in a
+/// row end the watch. The first cycle's failure is returned at once, because on
+/// a fresh start it is almost always configuration (wrong endpoint, key, or
+/// bucket), which waiting will not fix. A cost refusal is never retried.
 pub fn run_watch(
     src: &dyn ObjectSource,
     journal: &mut WatchJournal,
@@ -750,14 +1120,65 @@ pub fn run_watch(
     report: &mut dyn FnMut(&CycleReport),
 ) -> Result<WatchOutcome> {
     let mut totals = CostTotals::default();
-    let mut last: Option<CycleReport>;
+    let mut last: Option<CycleReport> = None;
     let mut cycle = 0u64;
+    let mut failed_in_a_row = 0u64;
     // Cycle k is scheduled for t0 + k * interval. Fixing the schedule up front
     // is what lets an overrun be *reported* (`skipped_deadlines`) instead of
     // silently stretching the interval an operator budgeted with.
     let mut next_start = Instant::now() + opts.poll_interval;
     loop {
-        let r = poll_once(src, journal, opts, sink, cycle, &mut totals, stop)?;
+        let (r, ok) = match poll_once(src, journal, opts, sink, cycle, &mut totals, stop) {
+            Ok(r) => {
+                failed_in_a_row = 0;
+                (r, true)
+            }
+            Err(e) if stop() => {
+                // A cancelled listing is how ^C looks mid-scan: not a failure.
+                let _ = e;
+                break;
+            }
+            Err(e) => {
+                let retryable = e.downcast_ref::<PollCostRefused>().is_none();
+                let Some(prev) = last.as_ref().filter(|_| retryable) else {
+                    return Err(e);
+                };
+                failed_in_a_row += 1;
+                totals.errors += 1;
+                totals.failed_cycles += 1;
+                if failed_in_a_row >= MAX_CONSECUTIVE_FAILED_CYCLES {
+                    return Err(e.context(format!(
+                        "{failed_in_a_row} poll cycles failed in a row; stopping the watch"
+                    )));
+                }
+                let failed = CycleReport {
+                    cycle,
+                    started_at: journal::now_rfc3339(),
+                    wall: Duration::ZERO,
+                    list_calls: 0,
+                    keys_listed: 0,
+                    gets: 0,
+                    bytes_fetched: 0,
+                    added: 0,
+                    changed: 0,
+                    deleted: 0,
+                    unchanged: 0,
+                    content_identical: 0,
+                    truncated: 0,
+                    month_to_date: SpendLedger::open(journal.state_dir())
+                        .map(|l| l.spend)
+                        .unwrap_or_else(|_| prev.month_to_date.clone()),
+                    errors: vec![format!(
+                        "cycle failed ({failed_in_a_row} of {MAX_CONSECUTIVE_FAILED_CYCLES} \
+                         allowed in a row); retrying at the next poll: {e:#}"
+                    )],
+                    warnings: Vec::new(),
+                    projection: prev.projection.clone(),
+                    totals: totals.clone(),
+                };
+                (failed, false)
+            }
+        };
         if let Some(path) = &opts.status_path {
             // Best effort: a watcher must not die because a status file could
             // not be written, but the operator must be able to see that it
@@ -771,7 +1192,11 @@ pub fn run_watch(
             }
         }
         report(&r);
-        last = Some(r);
+        // A failed cycle's report is shown, but `last` keeps the last cycle
+        // that actually listed, so the projection it carries is real.
+        if ok {
+            last = Some(r);
+        }
         cycle += 1;
         if let Some(max) = opts.max_cycles {
             if cycle >= max {
@@ -785,10 +1210,7 @@ pub fn run_watch(
         if now >= next_start {
             // The cycle outlasted its own slot. Count every whole interval that
             // elapsed inside it, resync the schedule to now rather than chasing
-            // a backlog forever, and start the next cycle immediately. Cycles
-            // never overlap and never queue, which is what makes "no double
-            // index, no lost update" structural instead of a race the sink has
-            // to defend against.
+            // a backlog forever, and start the next cycle immediately.
             let late_by = now.duration_since(next_start);
             let interval_nanos = opts.poll_interval.as_nanos().max(1);
             totals.skipped_deadlines += 1 + (late_by.as_nanos() / interval_nanos) as u64;

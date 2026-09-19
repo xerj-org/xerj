@@ -97,18 +97,55 @@ fn source(env: &MinioEnv, test: &str) -> Result<(S3Source, String)> {
 
 fn cleanup(src: &S3Source, prefix: &str) {
     // Best effort: a leaked key in a throwaway MinIO bucket is noise, but a
-    // panicking cleanup would hide the real assertion failure.
-    if let Ok(page) = src.list(&objwatch::ListRequest {
-        prefix,
-        continuation_token: None,
-        start_after: None,
-        delimiter: None,
-        max_keys: 1000,
-    }) {
-        for o in page.objects {
-            let _ = src.delete_object(&o.key);
+    // panicking cleanup would hide the real assertion failure. Every page, so
+    // the 10,000-object test leaves nothing behind either.
+    let mut token: Option<String> = None;
+    loop {
+        let Ok(page) = src.list(&objwatch::ListRequest {
+            prefix,
+            continuation_token: token.as_deref(),
+            start_after: None,
+            delimiter: None,
+            max_keys: 1000,
+        }) else {
+            return;
+        };
+        let keys: Vec<String> = page.objects.into_iter().map(|o| o.key).collect();
+        std::thread::scope(|s| {
+            for chunk in keys.chunks(keys.len().div_ceil(16).max(1)) {
+                s.spawn(move || {
+                    for k in chunk {
+                        let _ = src.delete_object(k);
+                    }
+                });
+            }
+        });
+        match page.next_token {
+            Some(t) => token = Some(t),
+            None => return,
         }
     }
+}
+
+/// PUT `n` objects with 16 writers, so seeding a 10,000-object prefix takes
+/// seconds rather than minutes.
+fn seed(src: &S3Source, keys: &[String], body: &[u8]) -> Result<()> {
+    let failures = AtomicU64::new(0);
+    std::thread::scope(|s| {
+        for chunk in keys.chunks(keys.len().div_ceil(16).max(1)) {
+            let failures = &failures;
+            s.spawn(move || {
+                for k in chunk {
+                    if src.put_object(k, body).is_err() {
+                        failures.fetch_add(1, Ordering::SeqCst);
+                    }
+                }
+            });
+        }
+    });
+    let f = failures.load(Ordering::SeqCst);
+    anyhow::ensure!(f == 0, "{f} PUT(s) failed while seeding");
+    Ok(())
 }
 
 /// Records every event, in order, and can be told to be slow.
@@ -156,9 +193,11 @@ fn opts(interval_ms: u64) -> WatchOptions {
         // should) refuse. Raising the budget here rather than disabling the
         // guard keeps the guard itself under test in the unit suite.
         max_monthly_class_a: u64::MAX,
+        max_monthly_class_b: u64::MAX,
         allow_cost: false,
         page_size: 1000,
         status_path: None,
+        dry_run: false,
     }
 }
 
@@ -663,5 +702,406 @@ fn a_journal_reopened_from_disk_does_not_re_index_what_was_already_accepted() ->
     assert_eq!(r.unchanged, 4);
 
     cleanup(&src, &prefix);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests for the #968 adversarial review, against a real server.
+// Ported from the reviewer's repro files (rv_objwatch_attack.rs,
+// rv_trailing_key.rs, rv_xml_keys.rs, rv_transient.rs); each failed on
+// 0f785c19.
+// ---------------------------------------------------------------------------
+
+fn journal_for(env: &MinioEnv, dir: &std::path::Path, prefix: &str, append: bool) -> WatchJournal {
+    WatchJournal::open(dir, &env.endpoint, &env.bucket, prefix, append, false).unwrap()
+}
+
+/// F1, end to end through the CLI: `--dry-run` then a real `--once` on the same
+/// state dir. The real run must emit every object.
+#[test]
+fn f1_a_dry_run_does_not_poison_the_next_real_run() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "dryrun")?;
+    for i in 0..3 {
+        src.put_object(&format!("{prefix}d{i}.txt"), b"content")?;
+    }
+    // The CLI reads credentials from the environment only.
+    std::env::set_var("AWS_ACCESS_KEY_ID", &env.creds.access_key_id);
+    std::env::set_var("AWS_SECRET_ACCESS_KEY", &env.creds.secret_access_key);
+    let dir = tempfile::tempdir()?;
+    let state = dir.path().join("state");
+    let run = |extra: &[&str], feed: &std::path::Path| -> i32 {
+        let mut args: Vec<String> = vec![
+            format!("s3://{}/{prefix}", env.bucket),
+            "--watch".into(),
+            "--endpoint-url".into(),
+            env.endpoint.clone(),
+            "--state-dir".into(),
+            state.display().to_string(),
+            "--events-out".into(),
+            feed.display().to_string(),
+            "--quiet".into(),
+        ];
+        args.extend(extra.iter().map(|s| s.to_string()));
+        match xerj_autoindex::cli::parse(args) {
+            Ok(xerj_autoindex::cli::Cmd::Watch(cfg)) => {
+                xerj_autoindex::objwatch::run::run(*cfg).expect("watch run")
+            }
+            other => panic!("expected a watch, got {other:?}"),
+        }
+    };
+    let lines = |p: &std::path::Path| {
+        std::fs::read_to_string(p)
+            .map(|s| s.lines().count())
+            .unwrap_or(0)
+    };
+    let feed1 = dir.path().join("dry.jsonl");
+    assert_eq!(run(&["--dry-run"], &feed1), 0);
+    assert_eq!(lines(&feed1), 0, "a dry run emits nothing");
+    assert!(
+        !state.join("objwatch.json").exists(),
+        "a dry run writes no journal"
+    );
+    let feed2 = dir.path().join("real.jsonl");
+    assert_eq!(run(&["--once"], &feed2), 0);
+    assert_eq!(lines(&feed2), 3, "the real run after a dry run emits all 3");
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F2 on the wire: the projection prices what MinIO actually served.
+#[test]
+fn f2_the_projection_matches_the_calls_the_server_served() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "pagesize")?;
+    let keys: Vec<String> = (0..26).map(|i| format!("{prefix}k{i:03}.txt")).collect();
+    seed(&src, &keys, b"hello")?;
+    for page in [1u64, 10, 1000] {
+        let dir = tempfile::tempdir()?;
+        let mut j = journal_for(&env, dir.path(), &prefix, false);
+        let mut o = opts(300_000);
+        o.page_size = page;
+        o.fetch = false;
+        let r = objwatch::poll_once(
+            &src,
+            &mut j,
+            &o,
+            &mut Recorder::default(),
+            0,
+            &mut CostTotals::default(),
+            &|| false,
+        )?;
+        // 26 objects at `page` keys a page, plus the empty page a store serves
+        // when the count divides exactly.
+        let floor = 26u64.div_ceil(page);
+        assert!(
+            (floor..=floor + 1).contains(&r.list_calls),
+            "page {page}: {} call(s) for 26 keys",
+            r.list_calls
+        );
+        assert_eq!(
+            r.projection.list_calls_per_cycle,
+            r.list_calls,
+            "page {page}: the projection must price what the server actually served: {}",
+            r.line()
+        );
+    }
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F4 on the wire: rewrite only the tail of a 2 MB object past a 1 MB cap.
+#[test]
+fn f4_an_edit_past_the_byte_cap_is_emitted_on_a_real_server() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "trunc")?;
+    let key = format!("{prefix}big.bin");
+    let mut v1 = vec![b'A'; 2 << 20];
+    v1.extend_from_slice(&[b'X'; 1024]);
+    src.put_object(&key, &v1)?;
+    let dir = tempfile::tempdir()?;
+    let mut j = journal_for(&env, dir.path(), &prefix, false);
+    let mut o = opts(300_000);
+    o.max_object_bytes = 1 << 20;
+    let mut sink = Recorder::default();
+    let seen = sink.shared();
+    let mut totals = CostTotals::default();
+    let r0 = objwatch::poll_once(&src, &mut j, &o, &mut sink, 0, &mut totals, &|| false)?;
+    assert_eq!((r0.added, r0.truncated), (1, 1));
+    let mut v2 = vec![b'A'; 2 << 20];
+    v2.extend_from_slice(&[b'Z'; 1024]);
+    src.put_object(&key, &v2)?;
+    let r1 = objwatch::poll_once(&src, &mut j, &o, &mut sink, 1, &mut totals, &|| false)?;
+    assert_eq!(r1.changed, 1, "{}", r1.line());
+    assert_eq!(r1.content_identical, 0);
+    let ev = seen.lock().unwrap().last().cloned().unwrap();
+    assert_eq!(ev.kind.as_str(), "changed");
+    assert!(
+        ev.truncated,
+        "the event must say its digest covers a prefix"
+    );
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F5: every awkward key survives list -> journal -> GET, and a second cycle
+/// is quiet (zero GETs, zero errors). Trailing spaces and spaces around `&`
+/// used to be trimmed out of the listing, so the GET 404ed on every cycle.
+#[test]
+fn f5_awkward_keys_round_trip_list_and_get() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "keys")?;
+    // 200, not 400: MinIO's filesystem backend refuses a path component longer
+    // than the 255-byte filename limit, which is the server's rule, not ours.
+    let long = "l".repeat(200);
+    let keys = vec![
+        format!("{prefix} leading.txt"),
+        format!("{prefix}trailing .txt"),
+        format!("{prefix}ends "),
+        format!("{prefix}a & b.txt"),
+        format!("{prefix}x & y"),
+        format!("{prefix}a &amp; b"),
+        format!("{prefix}amp&nospace.txt"),
+        format!("{prefix}hash#frag.txt"),
+        format!("{prefix}query?x=1.txt"),
+        format!("{prefix}ünïcodé-文字.txt"),
+        format!("{prefix}plus+sign.txt"),
+        format!("{prefix}pct%20literal.txt"),
+        format!("{prefix}lt<gt>.txt"),
+        format!("{prefix}{long}.txt"),
+        format!("{prefix}double//slash.txt"),
+        format!("{prefix}zero.bin"),
+    ];
+    // A gateway may refuse a key outright (MinIO rejects some characters its
+    // backend cannot store). That is its rule; the test asserts on the keys it
+    // accepted, and insists on the ones this defect was about.
+    let mut stored: Vec<String> = Vec::new();
+    for k in &keys {
+        let body: &[u8] = if k.ends_with("zero.bin") {
+            b""
+        } else {
+            b"payload"
+        };
+        match src.put_object(k, body) {
+            Ok(_) => stored.push(k.clone()),
+            Err(e) => eprintln!("F5: this server refuses the key {k:?}: {e}"),
+        }
+    }
+    for must in [
+        "trailing .txt",
+        "ends ",
+        "a & b.txt",
+        "x & y",
+        " leading.txt",
+    ] {
+        assert!(
+            stored.iter().any(|k| k == &format!("{prefix}{must}")),
+            "the server must accept {must:?} for this regression to mean anything"
+        );
+    }
+    let dir = tempfile::tempdir()?;
+    let mut j = journal_for(&env, dir.path(), &prefix, false);
+    let mut sink = Recorder::default();
+    let mut totals = CostTotals::default();
+    let o = opts(300_000);
+    let r0 = objwatch::poll_once(&src, &mut j, &o, &mut sink, 0, &mut totals, &|| false)?;
+    assert!(r0.errors.is_empty(), "{:?}", r0.errors);
+    assert_eq!(r0.added as usize, stored.len());
+    let mut want = stored.clone();
+    want.sort();
+    let got: Vec<String> = j.objects.keys().cloned().collect();
+    assert_eq!(
+        got, want,
+        "the journal holds exactly the keys that were PUT"
+    );
+    let r1 = objwatch::poll_once(&src, &mut j, &o, &mut sink, 1, &mut totals, &|| false)?;
+    assert!(r1.errors.is_empty(), "{:?}", r1.errors);
+    assert_eq!((r1.gets, r1.added, r1.changed, r1.deleted), (0, 0, 0, 0));
+
+    // A dot-segment key cannot be addressed over HTTP. It is refused before a
+    // request is sent, with a message that says why, not 404ed forever.
+    let dots = format!("{prefix}dots/../up.txt");
+    let err = src.get(&dots, 10).err().expect("refused").to_string();
+    assert!(err.contains("cannot be addressed"), "{err}");
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F6 on the wire: --append-only's 2-page backfill is not refused.
+#[test]
+fn f6_append_only_backfill_is_accepted_on_a_real_server() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "append")?;
+    let keys: Vec<String> = (0..1_100).map(|i| format!("{prefix}a{i:06}")).collect();
+    seed(&src, &keys, b"x")?;
+    let dir = tempfile::tempdir()?;
+    let mut j = journal_for(&env, dir.path(), &prefix, true);
+    let mut o = opts(300_000);
+    o.append_only = true;
+    o.fetch = false;
+    o.max_monthly_class_a = 10_000;
+    let r = objwatch::poll_once(
+        &src,
+        &mut j,
+        &o,
+        &mut Recorder::default(),
+        0,
+        &mut CostTotals::default(),
+        &|| false,
+    )?;
+    assert_eq!(r.added, 1_100);
+    assert_eq!(r.list_calls, 2);
+    assert_eq!(r.projection.monthly_class_a, 8_640);
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F8 on the wire: a watched prefix that grows past the budget stops the watch
+/// at the next cycle, through `run_watch`, with a decision request.
+#[test]
+fn f8_growth_past_the_budget_stops_a_running_watch() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "grow")?;
+    src.put_object(&format!("{prefix}seed"), b"x")?;
+    let dir = tempfile::tempdir()?;
+    let mut j = journal_for(&env, dir.path(), &prefix, false);
+    // 100 ms interval x 1 call = 25,920,000/month; the budget allows 1 page a
+    // cycle and not 2.
+    let mut o = opts(100);
+    o.fetch = false;
+    o.max_cycles = Some(20);
+    o.max_monthly_class_a = 26_000_000;
+    let keys: Vec<String> = (0..1_100).map(|i| format!("{prefix}g{i:06}")).collect();
+    let grown = std::sync::atomic::AtomicBool::new(false);
+    let mut cycles = 0u64;
+    let res = objwatch::run_watch(
+        &src,
+        &mut j,
+        &o,
+        &mut Recorder::default(),
+        &|| false,
+        &mut |r| {
+            cycles += 1;
+            if r.cycle == 0 && !grown.swap(true, Ordering::SeqCst) {
+                seed(&src, &keys, b"x").unwrap();
+            }
+        },
+    );
+    let err = res.expect_err("the breaker must stop the watch, not warn");
+    let refused = err
+        .downcast_ref::<objwatch::PollCostRefused>()
+        .expect("a cost refusal");
+    assert_eq!(refused.cycle, 1);
+    assert_eq!(refused.projection.list_calls_per_cycle, 2);
+    assert_eq!(cycles, 1, "no cycle ran after the trip");
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// One 503 on a later cycle's listing does not end a watch against a real
+/// server (the reviewer's rv_transient.rs).
+#[test]
+fn a_transient_list_failure_is_survived_on_a_real_server() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let (src, prefix) = source(&env, "flaky")?;
+    for i in 0..3 {
+        src.put_object(&format!("{prefix}f{i}.txt"), b"body")?;
+    }
+    struct Flaky<'a> {
+        inner: &'a S3Source,
+        calls: AtomicU64,
+    }
+    impl ObjectSource for Flaky<'_> {
+        fn describe(&self) -> String {
+            self.inner.describe()
+        }
+        fn list(&self, req: &objwatch::ListRequest) -> Result<objwatch::ListPage> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 1 {
+                anyhow::bail!("ListObjectsV2 returned 503 Service Unavailable: SlowDown");
+            }
+            self.inner.list(req)
+        }
+        fn get(&self, key: &str, max: u64) -> Result<objwatch::FetchedObject> {
+            self.inner.get(key, max)
+        }
+    }
+    let flaky = Flaky {
+        inner: &src,
+        calls: AtomicU64::new(0),
+    };
+    let dir = tempfile::tempdir()?;
+    let mut j = journal_for(&env, dir.path(), &prefix, false);
+    let mut o = opts(200);
+    o.max_cycles = Some(4);
+    let out = objwatch::run_watch(
+        &flaky,
+        &mut j,
+        &o,
+        &mut Recorder::default(),
+        &|| false,
+        &mut |_| {},
+    )?;
+    assert_eq!(out.totals.failed_cycles, 1);
+    assert_eq!(out.totals.cycles, 3);
+    cleanup(&src, &prefix);
+    Ok(())
+}
+
+/// F9: a 10,000-object first scan. The review measured 310.91 s for the
+/// `--no-fetch` case against MinIO; the cause was one fsynced rewrite of the
+/// whole journal per object. Times are printed, and the assertion bound is
+/// deliberately loose (a shared CI runner is not a benchmark); the saves count
+/// is the exact regression guard.
+#[test]
+fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
+    let Some(env) = minio() else { return Ok(()) };
+    let n: usize = std::env::var("XERJ_MINIO_BULK_N")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(10_000);
+    let (src, prefix) = source(&env, "bulk")?;
+    let keys: Vec<String> = (0..n).map(|i| format!("{prefix}b{i:06}.txt")).collect();
+    let t = std::time::Instant::now();
+    seed(&src, &keys, b"bulk object body")?;
+    eprintln!("F9 seeded {n} objects in {:.2}s", t.elapsed().as_secs_f64());
+
+    for fetch in [false, true] {
+        let dir = tempfile::tempdir()?;
+        let mut j = journal_for(&env, dir.path(), &prefix, false);
+        let mut o = opts(300_000);
+        o.fetch = fetch;
+        let r = objwatch::poll_once(
+            &src,
+            &mut j,
+            &o,
+            &mut Recorder::default(),
+            0,
+            &mut CostTotals::default(),
+            &|| false,
+        )?;
+        eprintln!(
+            "F9 first scan fetch={fetch}: {} objects, {} list calls, {} GETs, {} journal saves, \
+             wall {:.2}s",
+            r.added,
+            r.list_calls,
+            r.gets,
+            j.saves(),
+            r.wall.as_secs_f64()
+        );
+        assert_eq!(r.added as usize, n);
+        assert!(
+            j.saves() <= (n as u64) / 256 + 2 + r.wall.as_secs() / 2,
+            "{} saves",
+            j.saves()
+        );
+        assert!(
+            r.wall.as_secs() < 120,
+            "a {n}-object first scan took {:.2}s",
+            r.wall.as_secs_f64()
+        );
+    }
+    let t = std::time::Instant::now();
+    cleanup(&src, &prefix);
+    eprintln!("F9 cleanup {:.2}s", t.elapsed().as_secs_f64());
     Ok(())
 }

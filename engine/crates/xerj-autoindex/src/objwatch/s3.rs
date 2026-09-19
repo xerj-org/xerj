@@ -208,6 +208,28 @@ impl S3Source {
             url.push('?');
             url.push_str(&canonical_query);
         }
+        // The URL parser normalises dot segments (`a/../b` -> `b`, and `%2E`
+        // counts as a dot under WHATWG rules), so a key such as `x/../y.txt`
+        // would be SENT as a different path than the one signed and meant. Refuse
+        // it before spending a request on a guaranteed failure — or worse, on
+        // another object's bytes.
+        let parsed =
+            reqwest::Url::parse(&url).with_context(|| format!("parse {}", redact(&url)))?;
+        let sent_path = parsed.path();
+        let meant_path = match self.endpoint.find("://").map(|i| &self.endpoint[i + 3..]) {
+            Some(rest) => match rest.find('/') {
+                Some(i) => format!("{}{canonical_path}", &rest[i..]),
+                None => canonical_path.clone(),
+            },
+            None => canonical_path.clone(),
+        };
+        if sent_path != meant_path {
+            bail!(
+                "key {key_path:?} cannot be addressed over HTTP: the URL parser rewrites its path \
+                 ({meant_path} -> {sent_path}), usually because of a '.' or '..' path segment. \
+                 Rename the object; it was not requested"
+            );
+        }
         let mut req = match method {
             "GET" => self.client.get(&url),
             "PUT" => self.client.put(&url),
@@ -521,8 +543,15 @@ fn redact(url: &str) -> String {
 /// response as AWS documents it and as MinIO and R2 emit it; `Key` values are
 /// XML-unescaped, which matters for keys containing `&`.
 pub fn parse_list_v2(body: &str) -> Result<ListPage> {
+    // NOT `trim_text(true)`: that trims every text event, and quick-xml emits
+    // an entity (`&amp;`) as its own event, so `a &amp; b` arrived as "a", "&",
+    // "b" and became `a&b`, and a key ending in a space lost it. Either way the
+    // watcher then asked for a key that does not exist and got a 404 on every
+    // cycle, forever (F5 of the #968 review). Whitespace between elements is
+    // discarded anyway: `text` is cleared at every start and end tag. Fields
+    // that are not keys are trimmed where they are read.
     let mut reader = Reader::from_str(body);
-    reader.config_mut().trim_text(true);
+    reader.config_mut().trim_text(false);
 
     let mut objects: Vec<ObjectMeta> = Vec::new();
     let mut common_prefixes: Vec<String> = Vec::new();
@@ -573,7 +602,7 @@ pub fn parse_list_v2(body: &str) -> Result<ListPage> {
                     "Size" if in_contents => cur.size = text.trim().parse().unwrap_or(0),
                     "LastModified" if in_contents => cur.last_modified = text.trim().to_string(),
                     "Prefix" if in_common => common_prefixes.push(text.clone()),
-                    "NextContinuationToken" => next_token = Some(text.clone()),
+                    "NextContinuationToken" => next_token = Some(text.trim().to_string()),
                     "IsTruncated" => truncated = text.trim().eq_ignore_ascii_case("true"),
                     _ => {}
                 }
@@ -754,6 +783,80 @@ mod tests {
         assert_eq!(page.objects[1].size, 10_485_760);
         assert_eq!(page.next_token.as_deref(), Some("tok-1"));
         assert_eq!(page.common_prefixes, vec!["docs/sub/".to_string()]);
+    }
+
+    /// F5 of the #968 review, as a table: every key the parser used to change.
+    /// A key is opaque bytes; the listing must hand back exactly what was PUT.
+    #[test]
+    fn keys_come_back_from_the_listing_byte_for_byte() {
+        fn page(key_xml: &str) -> String {
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ListBucketResult>\
+                 <IsTruncated>false</IsTruncated><Contents><Key>{key_xml}</Key>\
+                 <LastModified>2026-09-19T10:00:00.000Z</LastModified>\
+                 <ETag>&quot;abc&quot;</ETag><Size> 7 </Size></Contents></ListBucketResult>"
+            )
+        }
+        for (xml, want) in [
+            ("docs/a &amp; b.md", "docs/a & b.md"),
+            ("&#32;leading.txt", " leading.txt"),
+            ("trailing&#32;.txt", "trailing .txt"),
+            ("a&amp;b.md", "a&b.md"),
+            ("tab&#9;sep.txt", "tab\tsep.txt"),
+            ("x &lt;y&gt; z", "x <y> z"),
+            ("new&#10;line.txt", "new\nline.txt"),
+            (" rawlead.txt", " rawlead.txt"),
+            ("rawtrail.txt ", "rawtrail.txt "),
+            ("a &amp;&amp; b", "a && b"),
+            ("mid  double.txt", "mid  double.txt"),
+            ("ends ", "ends "),
+            ("   ", "   "),
+        ] {
+            let got = parse_list_v2(&page(xml)).unwrap();
+            assert_eq!(got.objects.len(), 1, "{xml:?}");
+            assert_eq!(got.objects[0].key, want, "listing XML {xml:?}");
+            assert_eq!(got.objects[0].size, 7, "numeric fields are still trimmed");
+            assert_eq!(got.objects[0].etag, "abc");
+        }
+    }
+
+    /// Whitespace-only text between elements must not leak into a field once
+    /// trimming is off: pretty-printed XML is what MinIO and R2 both emit.
+    #[test]
+    fn indentation_between_elements_does_not_leak_into_fields() {
+        let xml = "<ListBucketResult>\n  <IsTruncated>true</IsTruncated>\n  \
+                   <NextContinuationToken>\n tok \n</NextContinuationToken>\n  <Contents>\n    \
+                   <Key>k</Key>\n    <ETag>\"e\"</ETag>\n    <Size>\n3\n</Size>\n  </Contents>\n\
+                   </ListBucketResult>";
+        let p = parse_list_v2(xml).unwrap();
+        assert_eq!(p.objects[0].key, "k");
+        assert_eq!(p.objects[0].size, 3);
+        assert_eq!(p.next_token.as_deref(), Some("tok"));
+    }
+
+    /// A dot-segment key would be sent as a different path than the one signed.
+    /// It must be refused before any request goes out.
+    #[test]
+    fn a_key_the_url_parser_would_rewrite_is_refused_before_sending() {
+        let src = S3Source::new(
+            "http://127.0.0.1:9",
+            "auto",
+            Credentials {
+                access_key_id: "k".into(),
+                secret_access_key: "s".into(),
+                session_token: None,
+            },
+            S3Location {
+                bucket: "b".into(),
+                prefix: String::new(),
+            },
+            Duration::from_secs(1),
+        )
+        .unwrap();
+        for key in ["dots/../up.txt", "a/./b.txt", "..", "x/.."] {
+            let err = src.get(key, 10).err().expect(key).to_string();
+            assert!(err.contains("cannot be addressed"), "{key}: {err}");
+        }
     }
 
     #[test]

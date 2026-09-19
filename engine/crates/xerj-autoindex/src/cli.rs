@@ -128,6 +128,8 @@ pub struct WatchCfg {
     pub max_object_bytes: u64,
     pub append_only: bool,
     pub max_monthly_ops: u64,
+    /// Class B (GET) budget per calendar month.
+    pub max_monthly_gets: u64,
     pub allow_cost: bool,
     pub page_size: u64,
     pub state_dir: Option<PathBuf>,
@@ -440,7 +442,8 @@ pub fn help_text_with(feedback: bool) -> String {
              deleted) on stdout, or to --events-out. It does NOT index: pipe the feed into\n\
              the indexer. Deletes are detected only by a full scan (not --append-only).\n\
              A bucket has no inotify, so this is polling, and polling costs money:\n\
-             ListObjectsV2 is a CLASS A operation, one call per 1,000 keys, EVERY cycle,\n\
+             ListObjectsV2 is a CLASS A operation, one call per page (--page-size keys,\n\
+             1,000 by default and at most), EVERY cycle,\n\
              whether anything changed or not. Cloudflare R2's free tier is 1,000,000\n\
              Class A operations a month, which is ~23 per minute for the whole account:\n\
                  objects   list calls/cycle   every 60s      every 300s (default)\n\
@@ -449,11 +452,13 @@ pub fn help_text_with(feedback: bool) -> String {
                  100,000   100                4,320,000/mo   864,000/mo\n\
                  1,000,000 1,000              43,200,000/mo  8,640,000/mo\n\
              The default interval is {default_poll}s and the default budget is\n\
-             {default_budget} Class A operations a month (20% of the free tier, because the\n\
-             rest of the account spends from it too). A first cycle whose projection is over\n\
-             budget is REFUSED with exit 4 and the minimum safe interval; --allow-cost\n\
-             accepts the spend, --append-only makes a growing key space cost one call per\n\
-             cycle instead of one per 1,000 keys, and a narrower prefix is free.\n\
+             {default_budget} Class A and {default_gets} Class B operations a month (20% of each\n\
+             free tier, because the rest of the account spends from it too). The budget is a\n\
+             CIRCUIT BREAKER, checked on every cycle: a projection over budget (also when the\n\
+             bucket grows mid-watch), or a month whose budget is spent (counted across\n\
+             restarts in <state-dir>/objwatch-spend.json), STOPS the watch with exit 4 and a\n\
+             decision request. --allow-cost accepts the spend, --append-only makes a growing\n\
+             key space cost one call per cycle, and a narrower prefix is free.\n\
              --poll-interval <secs>   seconds between cycles (default {default_poll}, max {max_poll})\n\
              --once / --max-cycles N  stop after one / N cycles\n\
              --no-fetch               metadata-only: compare ETag+size+mtime, never GET\n\
@@ -461,12 +466,14 @@ pub fn help_text_with(feedback: bool) -> String {
                                       one list call per cycle, and NO delete or older-key\n\
                                       change detection — opt in only for an append-only\n\
                                       key space such as date-partitioned logs\n\
-             --dry-run                one cycle, no GETs, nothing emitted: price the poll\n\
+             --dry-run                one cycle, no GETs, nothing emitted or recorded: price\n\
+                                      the poll\n\
              --endpoint-url <URL>     S3 endpoint (else AWS_ENDPOINT_URL). R2:\n\
                                       https://<account>.r2.cloudflarestorage.com\n\
              --region <R>             signing region (else AWS_REGION, else auto)\n\
              --max-object-mb <N>      byte cap per fetched object (default 64)\n\
-             --max-monthly-ops <N>    Class A budget for the projection (default {default_budget})\n\
+             --max-monthly-ops <N>    Class A budget per month (default {default_budget})\n\
+             --max-monthly-gets <N>   Class B (GET) budget per month (default {default_gets})\n\
              --allow-cost             proceed although the projection is over budget\n\
              --page-size <N>          keys per list call (default 1000, the API maximum)\n\
              --events-out <PATH>      write the JSONL change feed here instead of stdout\n\
@@ -490,6 +497,7 @@ pub fn help_text_with(feedback: bool) -> String {
         feedback_block = xerj_common::feedback::block(feedback),
         default_poll = crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS,
         default_budget = crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A,
+        default_gets = crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_B,
         max_poll = MAX_POLL_INTERVAL_SECS,
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
@@ -580,6 +588,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut region: Option<String> = None;
     let mut max_object_mb: u64 = 64;
     let mut max_monthly_ops: Option<u64> = None;
+    let mut max_monthly_gets: Option<u64> = None;
     let mut allow_cost = false;
     let mut page_size: u64 = crate::objwatch::cost::MAX_KEYS_PER_LIST;
     let mut events_out: Option<PathBuf> = None;
@@ -818,6 +827,15 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                         .and_then(|s| s.parse().ok())
                         .filter(|n: &u64| *n >= 1)
                         .ok_or("--max-monthly-ops needs a number of operations, 1 or more")?,
+                );
+            }
+            "--max-monthly-gets" => {
+                watch_flags_used.push("--max-monthly-gets");
+                max_monthly_gets = Some(
+                    it.next()
+                        .and_then(|s| s.parse().ok())
+                        .filter(|n: &u64| *n >= 1)
+                        .ok_or("--max-monthly-gets needs a number of operations, 1 or more")?,
                 );
             }
             "--allow-cost" => {
@@ -1078,6 +1096,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             append_only,
             max_monthly_ops: max_monthly_ops
                 .unwrap_or(crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A),
+            max_monthly_gets: max_monthly_gets
+                .unwrap_or(crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_B),
             allow_cost,
             page_size,
             state_dir,
