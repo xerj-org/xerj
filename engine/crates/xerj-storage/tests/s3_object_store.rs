@@ -84,10 +84,22 @@ fn backend(tag: &str) -> Option<S3Backend> {
 
 /// Remove every key under the backend's prefix. Deletes are free on R2, so a
 /// test has no excuse for leaving objects behind.
+///
+/// Concurrent in batches of 16 because a serial sweep of 1,200 keys over a WAN
+/// takes about ten minutes — long enough that a test would be killed before it
+/// finished cleaning up, which is the one failure mode that leaves objects
+/// behind in a metered bucket.
 async fn clean(b: &S3Backend) {
-    if let Ok(keys) = b.list("").await {
-        for key in keys {
-            let _ = b.delete(&key).await;
+    let Ok(keys) = b.list("").await else { return };
+    for chunk in keys.chunks(16) {
+        let mut handles = Vec::with_capacity(chunk.len());
+        for key in chunk {
+            let b = b.clone();
+            let key = key.clone();
+            handles.push(tokio::spawn(async move { b.delete(&key).await }));
+        }
+        for handle in handles {
+            let _ = handle.await;
         }
     }
 }
@@ -302,7 +314,7 @@ async fn budget_stops_spending_at_the_ceiling() {
         return;
     };
     let cfg = S3Config::new(probe.bucket())
-        .with_prefix(format!("{}", probe.prefix()))
+        .with_prefix(probe.prefix())
         .with_endpoint(std::env::var("XERJ_S3_TEST_ENDPOINT").unwrap())
         .with_region(std::env::var("XERJ_S3_TEST_REGION").unwrap_or_else(|_| "auto".into()))
         // Two Class A and one Class B for the whole process.

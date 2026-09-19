@@ -776,9 +776,44 @@ mod tests {
 
         let mut paths = backend.list("segments/").await.unwrap();
         paths.sort();
-        assert_eq!(paths.len(), 2);
-        assert!(paths[0].contains("a.seg"), "got: {:?}", paths);
-        assert!(paths[1].contains("b.seg"), "got: {:?}", paths);
+        // Keys come back WITHOUT the configured prefix, so list() output is
+        // directly usable. The old behaviour returned "xerj/segments/a.seg",
+        // which read_range() then resolved as "xerj/xerj/segments/a.seg".
+        assert_eq!(paths, vec!["segments/a.seg", "segments/b.seg"]);
+        for key in &paths {
+            let got = backend
+                .read_range(key, 0, u64::MAX)
+                .await
+                .unwrap_or_else(|e| {
+                    panic!("list() output must feed straight into read_range(): {key}: {e}")
+                });
+            assert_eq!(got.len(), 1, "one byte per object");
+        }
+    }
+
+    /// The same contract the real backend is held to in
+    /// `tests/s3_object_store.rs::list_strips_the_prefix_so_its_output_round_trips`.
+    /// Keeping it here too means the test double cannot drift away from the
+    /// thing it stands in for without a test noticing.
+    #[tokio::test]
+    async fn simulated_object_store_list_is_scoped_to_the_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let backend = SimulatedObjectStore::new(dir.path(), "test-bucket", "tenant-a/");
+
+        backend.write("segments/a.seg", b"A").await.unwrap();
+        backend.write("other/c.seg", b"C").await.unwrap();
+
+        assert_eq!(
+            backend.list("segments/").await.unwrap(),
+            vec!["segments/a.seg"]
+        );
+        let mut all = backend.list("").await.unwrap();
+        all.sort();
+        assert_eq!(all, vec!["other/c.seg", "segments/a.seg"]);
+
+        // A second tenant sharing the same bucket must see nothing of the first.
+        let other = SimulatedObjectStore::new(dir.path(), "test-bucket", "tenant-b/");
+        assert!(other.list("").await.unwrap().is_empty());
     }
 
     #[tokio::test]
