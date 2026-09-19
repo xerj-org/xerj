@@ -142,6 +142,12 @@ RULES = [
                     % (_S3_TERMS, _S3_TERMS, _S3_TERMS, _S3_TERMS)),
         "exempt": [
             _neg_near(_S3_TERMS, 120),
+            # "<object-store noun> ... does not work / cannot / will not" — the
+            # shape `_neg_near` misses, because it only looks for a negation
+            # BEFORE the noun or for "<noun> is not". A sentence that says
+            # "storing the index in a bucket does not work" is the correct
+            # phrasing and must never be flagged as the claim it denies.
+            r"\b(?:%s)\b[^.\n]{0,60}\b(?:does|do|did|can|will|would|could)\s+not\b" % _S3_TERMS,
             # The honest phrasings, which must never trip: the index on the node,
             # the mirror on local disk, the source-only scope.
             r"index (?:still )?(?:lives|stays|remains|sits|is) on (?:the )?local disk|"
