@@ -31,7 +31,7 @@ evidence:
   - claim: "Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported."
     source: "engine/crates/xerj-common/src/config.rs"
   - claim: "The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket."
-    source: "docs/OBJECT_STORAGE.md:206"
+    source: "docs/OBJECT_STORAGE.md:255"
   - claim: "PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch."
     source: "engine/crates/xerj-api/src/es_compat.rs"
   - claim: "The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them."

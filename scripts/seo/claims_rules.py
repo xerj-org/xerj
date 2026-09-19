@@ -163,7 +163,7 @@ RULES = [
                    "startup, and no segment, shard or WAL file is ever written to a bucket. "
                    "A reader who believes otherwise sizes a host with no disk for the corpus "
                    "and no disk for the index."),
-        "evidence": ["docs/OBJECT_STORAGE.md:206", "docs/OBJECT_STORAGE.md:260"],
+        "evidence": ["docs/OBJECT_STORAGE.md:255", "docs/OBJECT_STORAGE.md:320"],
         "rewrite": ("XERJ reads DOCUMENTS from object storage: `xerj autoindex "
                     "s3://bucket/prefix` (also `r2://`, or any S3-compatible store with "
                     "`--endpoint-url`). The objects are mirrored to local disk under "

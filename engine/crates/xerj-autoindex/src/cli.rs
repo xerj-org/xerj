@@ -280,8 +280,9 @@ pub fn help_text_with(feedback: bool) -> String {
          OBJECT STORAGE:\n\
              `xerj autoindex s3://bucket/prefix` indexes objects instead of files.\n\
              `r2://bucket/prefix` is the same thing and needs --endpoint-url with the\n\
-             account host. Credentials come from the standard AWS chain (environment,\n\
-             AWS_PROFILE, instance role) and are never read from the URL.\n\
+             account host. Credentials come from AWS_ACCESS_KEY_ID /\n\
+             AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN) in the ENVIRONMENT ONLY — no\n\
+             profile files, no instance metadata, no SSO — and never from the URL.\n\
              A non-empty prefix is treated as a FOLDER: s3://b/docs lists docs/ and not\n\
              docs-old/. The effective prefix is printed at the start of the run.\n\
              CHANGE DETECTION is the object's ETag plus its size, recorded in\n\
@@ -297,9 +298,13 @@ pub fn help_text_with(feedback: bool) -> String {
              or space, a Windows reserved name, and any dot-prefixed component (so a\n\
              bucket's .env and .git/ stay out of the index, exactly as in a folder).\n\
              COST: one run costs ceil(objects/1000) class-A LIST requests plus one\n\
-             class-B GET per changed object, and never writes. Every run prints what it\n\
+             class-B GET per changed object, and never writes. Counts are BILLED WIRE\n\
+             ATTEMPTS: a request the store throttled and the client retried counts once\n\
+             per attempt, because that is what the store bills. Every run prints what it\n\
              spent and what running it hourly or every 5 minutes would spend against a\n\
              1,000,000/month class-A allowance — read that line before adding a cron.\n\
+             A run that fails mid-transfer records the objects it already fetched, so a\n\
+             re-run pays for the rest only — but it re-lists, so the LIST cost recurs.\n\
          \n\
          PDF EXTRACTION:\n\
              Each PDF uses a fresh process. Limits: 512 MiB input, 32 MiB worker output,\n\

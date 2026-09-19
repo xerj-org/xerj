@@ -23,11 +23,25 @@ incremental reconcile. The bucket is a *source*, not a different product.
 
 ## What it needs
 
-**Credentials** come from the standard AWS chain and from nowhere else:
-`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` in the environment, a profile named
-by `AWS_PROFILE`, or an instance role. They are never taken from the URL — a URL
-of the form `s3://key:secret@bucket/p` is refused by name, because that shape
-puts a credential in every request line and every log that records one.
+**Credentials** come from the environment and from nowhere else:
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, plus `AWS_SESSION_TOKEN` for
+temporary credentials. **Profile files (`AWS_PROFILE`, `~/.aws/credentials`),
+instance metadata (IMDS) and SSO are not read** — `aws-config` is deliberately
+not a dependency of this crate, for two reasons: a chain that reaches the
+network has failure modes an indexing run should not inherit (IMDS on a machine
+that is not an EC2 instance hangs until its timeout), and taking it re-enables
+the SDK's default HTTPS client, which pulls in the `aws-lc-rs` C/assembly crypto
+backend that XERJ's cross-compile matrix excludes. `xerj-storage`'s index-side
+client takes the same position. If your keys live in a profile, export them for
+the run:
+
+```sh
+env AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=… xerj autoindex s3://acme-docs/handbook
+```
+
+Credentials are never taken from the URL — a URL of the form
+`s3://key:secret@bucket/p` is refused by name, because that shape puts a
+credential in every request line and every log that records one.
 
 **An endpoint** is needed for anything that is not Amazon S3:
 
@@ -143,6 +157,24 @@ class-A per run = ceil(objects_under_the_prefix / 1000)
 class-B per run = one GET per object whose ETag or size changed
 ```
 
+Both lines assume every request succeeds first time. **The printed counts are
+wire attempts, not logical calls**: the client's own retry loop charges the
+counter before each attempt, so a LIST that the store throttles twice before
+answering is reported as three requests, which is what the store bills. The
+AWS SDK's own retry layer is switched off for exactly this reason — an
+SDK-internal retry is invisible to a counter wrapped around the call, and the
+undercount would be worst precisely when throttling makes the number matter. A
+run that hits throttling also prints how many of its requests were retries.
+
+**A failed run is not free, and is not paid for twice.** If a download fails
+(anything other than "the object is gone", which is a normal LIST/GET race), the
+run aborts rather than presenting the object as deleted. Every object whose
+bytes had already landed is recorded in the manifest before the error is
+returned — and during a long transfer the manifest is checkpointed every ten
+seconds — so the re-run pays one GET per object it had *not* already fetched,
+not N again. Its LIST cost is paid again in full: a resumed run re-lists, so
+`ceil(objects / 1000)` class-A requests are spent every time. The partial
+manifest records the run as `aborted`, with what it spent.
 The number that empties a free tier is never a single run — it is a schedule. At
 1,000,000 class-A a month you have about **23 operations a minute for the whole
 account**:
@@ -313,7 +345,15 @@ Against MinIO (`quay.io/minio/minio:latest`, loopback), from the suite in
 | one changed, one new, one deleted | 2 downloaded, 1 unchanged, 1 removed, 2 GET, 4 ms |
 | 1,200 keys | **2 LIST pages**, 1,200 GET, 252 ms; re-run 1,200 unchanged, 2 LIST, **0 GET** |
 | real multipart upload | ETag `"ab484de63d3380a7a74265e4771c85fd-2"`; re-run 0 GET |
-| 1 GiB object | 1,024 MB in 692 ms, **RSS 25 MB → 29 MB**; not re-downloaded on the second run |
+| 1 GiB object | 1,024 MB, **RSS 22 MB → 26 MB**, 281–318 ms over four runs; not re-downloaded on the second run |
+
+The 1 GiB row is the one worth reading carefully. The RSS figure is the claim —
+a gigabyte moves through a 256 KiB copy buffer, so memory does not track object
+size — and the millisecond figure is not: it is a loopback transfer from a
+container on the same host with the object in page cache, on an idle 32-core /
+119 GiB box (load average ~2.4), and it varies by ±10% run to run. Four runs on
+2026-09-20 gave 281, 294, 300 and 318 ms. Do not read it as a throughput
+benchmark; nothing here is one.
 
 The suite is skipped with a printed reason when `XERJ_MINIO_ENDPOINT` is unset,
 so it never needs an account and never touches a paid store. The big-object and

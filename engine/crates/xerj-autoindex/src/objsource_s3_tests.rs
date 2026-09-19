@@ -40,13 +40,28 @@ fn ensure_credentials() {
 #[derive(Default)]
 struct StubState {
     /// key → (bytes, ETag exactly as the store would report it)
-    objects: BTreeMap<String, (Vec<u8>, String)>,
+    ///
+    /// The bytes are behind an `Arc` and are never copied to answer a request.
+    /// This stub runs INSIDE the test process, and
+    /// `a_large_object_streams_rather_than_buffering` asserts on the process's
+    /// own RSS: a stub that cloned a 64 MiB body to write it would add 64 MiB
+    /// of RSS itself and fail the test with the subject under test innocent.
+    /// That is exactly what happened on CI (2026-09-19, run 35470348250) while
+    /// the same test passed locally, because whether the clone reuses the freed
+    /// arena or maps fresh pages is an allocator's choice, not a fact about
+    /// XERJ.
+    objects: BTreeMap<String, (std::sync::Arc<Vec<u8>>, String)>,
     list_requests: u64,
     get_requests: u64,
     /// Keys the store answers with a 500.
     fail_get: BTreeSet<String>,
     /// Keys that are listed and then not there — the LIST/GET race.
     missing_get: BTreeSet<String>,
+    /// Answer this many more LIST requests with a 503 SlowDown before serving
+    /// one. Every one of them is a billed request the caller must see.
+    throttle_list: u64,
+    /// Never stop throttling: the "retries exhausted" path.
+    throttle_list_forever: bool,
 }
 
 struct S3Stub {
@@ -97,7 +112,7 @@ impl S3Stub {
             .lock()
             .unwrap()
             .objects
-            .insert(key.to_string(), (body.to_vec(), etag));
+            .insert(key.to_string(), (std::sync::Arc::new(body.to_vec()), etag));
     }
 
     /// Store an object whose ETag is the multipart form (`…-N`), which is NOT an
@@ -108,11 +123,27 @@ impl S3Stub {
             .lock()
             .unwrap()
             .objects
-            .insert(key.to_string(), (body.to_vec(), etag));
+            .insert(key.to_string(), (std::sync::Arc::new(body.to_vec()), etag));
     }
 
     fn delete(&self, key: &str) {
         self.state.lock().unwrap().objects.remove(key);
+    }
+
+    /// Make the next `n` LIST requests answer 503 SlowDown (the code R2 and S3
+    /// both use to throttle), or every one of them when `forever`.
+    fn throttle_list(&self, n: u64, forever: bool) {
+        let mut state = self.state.lock().unwrap();
+        state.throttle_list = n;
+        state.throttle_list_forever = forever;
+    }
+
+    fn fail_get(&self, key: &str) {
+        self.state.lock().unwrap().fail_get.insert(key.to_string());
+    }
+
+    fn stop_failing_get(&self, key: &str) {
+        self.state.lock().unwrap().fail_get.remove(key);
     }
 
     fn counters(&self) -> (u64, u64) {
@@ -211,10 +242,28 @@ fn serve(stream: TcpStream, state: &Arc<Mutex<StubState>>) -> std::io::Result<()
             .get("continuation-token")
             .cloned()
             .unwrap_or_default();
-        let (page, truncated, next) = {
+        let throttled = {
             let mut state = state.lock().unwrap();
+            // Counted first: a throttled request is a request the store
+            // answered, and the store bills for it.
             state.list_requests += 1;
-            let matching: Vec<(String, Vec<u8>, String)> = state
+            if state.throttle_list_forever {
+                true
+            } else if state.throttle_list > 0 {
+                state.throttle_list -= 1;
+                true
+            } else {
+                false
+            }
+        };
+        if throttled {
+            let body = "<?xml version=\"1.0\"?><Error><Code>SlowDown</Code><Message>Please reduce \
+                        your request rate.</Message></Error>";
+            return write_response(&mut writer, 503, "application/xml", body.as_bytes(), None);
+        }
+        let (page, truncated, next) = {
+            let state = state.lock().unwrap();
+            let matching: Vec<(String, std::sync::Arc<Vec<u8>>, String)> = state
                 .objects
                 .iter()
                 .filter(|(k, _)| k.starts_with(&prefix) && **k > after)
@@ -278,7 +327,7 @@ fn serve(stream: TcpStream, state: &Arc<Mutex<StubState>>) -> std::io::Result<()
     }
     match (body, etag) {
         (Some(body), Some(etag)) if !missing => {
-            write_response(&mut writer, 200, "binary/octet-stream", &body, Some(&etag))
+            write_response(&mut writer, 200, "binary/octet-stream", &body[..], Some(&etag))
         }
         _ => {
             let body = "<?xml version=\"1.0\"?><Error><Code>NoSuchKey</Code><Message>The \
@@ -298,6 +347,7 @@ fn write_response(
     let reason = match status {
         200 => "OK",
         404 => "Not Found",
+        503 => "Service Unavailable",
         _ => "Internal Server Error",
     };
     let mut head = format!(
@@ -573,21 +623,103 @@ fn a_failed_get_aborts_the_run_rather_than_looking_like_a_deletion() {
     let h = Harness::new("");
     h.stub.put("a.md", b"one\n");
     h.stub.put("b.md", b"two\n");
-    h.stub
-        .state
-        .lock()
-        .unwrap()
-        .fail_get
-        .insert("b.md".to_string());
+    h.stub.fail_get("b.md");
     let err = h.materialize().unwrap_err().to_string();
     assert!(
         err.contains("b.md") || err.contains("failed against"),
         "the failure must name what it was doing: {err}"
     );
-    // The manifest is not rewritten, so nothing was recorded as fetched and the
-    // next run retries. Critically, `b.md` was NOT treated as deleted.
+    // The run failed, so `b.md` was NOT recorded and was NOT treated as
+    // deleted. `a.md` DID land and was paid for, so it IS recorded — see
+    // `an_aborted_run_does_not_pay_twice_for_the_objects_it_already_fetched`.
     let (manifest, _) = ObjectManifest::load(&h.run.manifest_path, &h.run.identity);
-    assert!(manifest.objects.is_empty(), "{manifest:?}");
+    assert!(!manifest.objects.contains_key("b.md"), "{manifest:?}");
+    assert!(manifest.objects.contains_key("a.md"), "{manifest:?}");
+    assert!(
+        manifest.last_run.as_ref().is_some_and(|r| r.aborted),
+        "a partial manifest must say so: {manifest:?}"
+    );
+}
+
+/// 970-B1: the SDK's own retry layer is disabled and every WIRE attempt is
+/// counted, so a throttled request reports what the store will bill.
+///
+/// Before the fix (`aws_config::defaults`, default retry mode "standard",
+/// counter incremented after a successful `send()`), this stub's three wire
+/// requests were reported as one.
+#[test]
+fn a_throttled_request_counts_every_billed_attempt_not_just_the_one_that_worked() {
+    let h = Harness::new("");
+    h.stub.put("a.md", b"one\n");
+    // Two 503 SlowDown answers, then the real listing.
+    h.stub.throttle_list(2, false);
+    let source = h.source();
+    let listing = source.list().unwrap();
+    assert_eq!(listing.entries.len(), 1, "the retry must still succeed");
+    let (wire_lists, _) = h.stub.counters();
+    let ops = source.ops();
+    assert_eq!(wire_lists, 3, "the stub saw three LIST requests");
+    assert_eq!(
+        ops.list_requests, wire_lists,
+        "every billed attempt must be counted, not only the one that succeeded"
+    );
+    assert_eq!(ops.retried_requests, 2, "{ops:?}");
+}
+
+/// 970-B1, the worse half: a request that exhausts its retries used to count
+/// ZERO while costing four.
+#[test]
+fn a_request_that_exhausts_its_retries_reports_all_of_them() {
+    let h = Harness::new("");
+    h.stub.put("a.md", b"one\n");
+    h.stub.throttle_list(0, true);
+    let source = h.source();
+    let err = source.list().unwrap_err().to_string();
+    let (wire_lists, _) = h.stub.counters();
+    let ops = source.ops();
+    assert_eq!(wire_lists, 4, "attempts are bounded: {err}");
+    assert_eq!(
+        ops.list_requests, wire_lists,
+        "a failed request still costs money and must still be reported: {err}"
+    );
+    assert!(
+        err.contains("4 billed requests"),
+        "the operator is told what the failure cost: {err}"
+    );
+}
+
+/// 970-M2: an aborted run keeps the receipts for the objects whose bytes
+/// landed, so the next run pays only for the rest.
+///
+/// Before the fix the manifest was written only after the last object, so a run
+/// that failed on object N paid for N-1 downloads it then threw away — 2N GETs
+/// against a documented N.
+#[test]
+fn an_aborted_run_does_not_pay_twice_for_the_objects_it_already_fetched() {
+    let h = Harness::new("");
+    for name in ["a.md", "b.md", "c.md", "d.md"] {
+        h.stub.put(name, format!("contents of {name}\n").as_bytes());
+    }
+    h.stub.fail_get("d.md");
+    h.stub.reset_counters();
+    assert!(h.materialize().is_err(), "the run must still fail");
+    let (_, first_gets) = h.stub.counters();
+    assert!(first_gets >= 4, "every object was attempted: {first_gets}");
+
+    h.stub.stop_failing_get("d.md");
+    h.stub.reset_counters();
+    let report = h.materialize().unwrap();
+    let (_, second_gets) = h.stub.counters();
+    assert_eq!(
+        report.downloaded, 1,
+        "only the object that failed is fetched again: {report:?}"
+    );
+    assert_eq!(report.unchanged, 3, "{report:?}");
+    assert_eq!(
+        second_gets, 1,
+        "the re-run must not re-GET objects the aborted run already paid for"
+    );
+    assert_eq!(h.mirror_rels(), ["a.md", "b.md", "c.md", "d.md"]);
 }
 
 #[test]

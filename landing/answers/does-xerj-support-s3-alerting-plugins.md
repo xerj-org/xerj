@@ -142,7 +142,7 @@ No. A hub of signed, pre-indexed packs is planned and no code exists. The open q
 
 - S3Backend is a local-directory simulation: it maps an S3 key layout onto a local path and contains no network client. — `engine/crates/xerj-storage/src/backend.rs`
 - Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported. — `engine/crates/xerj-common/src/config.rs`
-- The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket. — `docs/OBJECT_STORAGE.md:206`
+- The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket. — `docs/OBJECT_STORAGE.md:255`
 - PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch. — `engine/crates/xerj-api/src/es_compat.rs`
 - The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them. — `engine/crates/xerj-console-api/src/indices.rs`
 - Ingest transforms are built-in native Rust plugins; xerj-wasm has no wasmtime dependency and no wasm feature. — `engine/crates/xerj-wasm/Cargo.toml`

@@ -341,9 +341,16 @@ pub struct SourceEntry {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SourceOps {
     /// LIST pages (R2/S3 "Class A" — the scarce one).
+    ///
+    /// **Wire attempts, not logical calls.** A page the store throttles twice
+    /// before answering is three billed requests and counts as three, because
+    /// this number exists to predict an invoice.
     pub list_requests: u64,
-    /// GET/HEAD requests ("Class B").
+    /// GET/HEAD requests ("Class B"), counted the same way.
     pub read_requests: u64,
+    /// How many of the above were retries of an earlier attempt. Informational:
+    /// they are already included in the two counts.
+    pub retried_requests: u64,
     pub bytes_read: u64,
 }
 

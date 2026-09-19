@@ -62,14 +62,29 @@ fn minio() -> Option<Minio> {
         .enable_all()
         .build()
         .unwrap();
+    // The seeding client is built the same way the source builds its own — no
+    // `aws-config`, an explicitly named rustls+ring TLS stack — because that is
+    // the only client this crate is allowed to depend on (engine/Cargo.toml
+    // explains why: the SDK's default HTTPS client drags in aws-lc-rs).
     let client = runtime.block_on(async {
-        let shared = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .region(aws_sdk_s3::config::Region::new("us-east-1"))
-            .endpoint_url(&endpoint)
-            .load()
-            .await;
+        let http_client = aws_smithy_http_client::Builder::new()
+            .tls_provider(aws_smithy_http_client::tls::Provider::rustls(
+                aws_smithy_http_client::tls::rustls_provider::CryptoMode::Ring,
+            ))
+            .build_https();
         aws_sdk_s3::Client::from_conf(
-            aws_sdk_s3::config::Builder::from(&shared)
+            aws_sdk_s3::config::Builder::new()
+                .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
+                .region(aws_sdk_s3::config::Region::new("us-east-1"))
+                .credentials_provider(aws_sdk_s3::config::Credentials::new(
+                    access.clone(),
+                    secret.clone(),
+                    None,
+                    None,
+                    "xerj-minio-test",
+                ))
+                .http_client(http_client)
+                .endpoint_url(&endpoint)
                 .force_path_style(true)
                 .build(),
         )

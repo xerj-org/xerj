@@ -173,6 +173,12 @@ pub struct ObjectManifest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LastRun {
     pub finished: String,
+    /// True when the transfer phase failed and this record describes only what
+    /// had been paid for by then. The object records beside it are still valid
+    /// — that is the point of writing it — but the counts are partial, and a
+    /// reader must not report them as the cost of a completed run.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub aborted: bool,
     pub objects_listed: u64,
     pub objects_admitted: u64,
     pub objects_downloaded: u64,
@@ -259,6 +265,142 @@ impl ObjectManifest {
     }
 }
 
+/// How long the transfer may run before the manifest is written again.
+///
+/// The bound this sets is *money lost to a crash*: a run killed between
+/// checkpoints re-downloads at most the objects fetched in the last interval.
+/// Ten seconds keeps that small while keeping the manifest rewrites (the whole
+/// file, atomically) to a handful per minute even on a 40,000-object first run.
+const CHECKPOINT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// The manifest, written as the transfer proceeds instead of only at the end.
+///
+/// **Why this exists.** The mirror keeps the bytes of every object that
+/// finished, but until the manifest records an object those bytes are not
+/// trusted (`unchanged` requires a manifest record AND a mirror file at the
+/// right size). Saving the manifest only after the last object therefore made
+/// an aborted run cost twice: N class-B GETs for the attempt, then N again on
+/// the next run, against a documented formula of N. Recording each object as it
+/// lands — durably, via the same atomic replace [`ObjectManifest::save`] uses —
+/// means a resumed run pays only for what it had not already fetched.
+struct ManifestCheckpoint {
+    path: PathBuf,
+    state: std::sync::Mutex<CheckpointState>,
+}
+
+struct CheckpointState {
+    manifest: ObjectManifest,
+    /// Records added since the last durable write.
+    unsaved: u64,
+    last_save: std::time::Instant,
+}
+
+impl ManifestCheckpoint {
+    fn new(path: &Path, manifest: ObjectManifest) -> Self {
+        Self {
+            path: path.to_path_buf(),
+            state: std::sync::Mutex::new(CheckpointState {
+                manifest,
+                unsaved: 0,
+                last_save: std::time::Instant::now(),
+            }),
+        }
+    }
+
+    /// Record one fetched object, and write the manifest if the interval is up.
+    ///
+    /// A failed checkpoint write is **not** a failed run: the bytes are on disk
+    /// and the run can finish. It is reported, because the consequence — paying
+    /// for those GETs again — is the operator's money.
+    fn record(&self, rel: &str, record: ObjectRecord, pr: &Progress) {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.manifest.objects.insert(rel.to_string(), record);
+        state.unsaved += 1;
+        if state.last_save.elapsed() >= CHECKPOINT_INTERVAL {
+            let CheckpointState {
+                manifest,
+                unsaved,
+                last_save,
+            } = &mut *state;
+            match manifest.save(&self.path) {
+                Ok(()) => {
+                    *unsaved = 0;
+                    *last_save = std::time::Instant::now();
+                }
+                Err(e) => pr.warn(&format!(
+                    "object source: could not checkpoint {} ({e}); a run that dies now will \
+                     re-download what it already paid for",
+                    self.path.display()
+                )),
+            }
+        }
+    }
+
+    /// Write what has been fetched so far, with a partial [`LastRun`] marked
+    /// `aborted`, and return the error the caller was about to propagate.
+    fn abort(&self, spent: SourceOps, report: &MaterializeReport, elapsed_ms: u64, pr: &Progress) {
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let kept = state.manifest.objects.len() as u64;
+        state.manifest.last_run = Some(LastRun {
+            finished: chrono::Utc::now().to_rfc3339(),
+            aborted: true,
+            objects_listed: report.objects_listed,
+            objects_admitted: report.admitted,
+            objects_downloaded: kept,
+            bytes_downloaded: spent.bytes_read,
+            objects_unchanged_not_downloaded: report.unchanged,
+            objects_removed_locally: 0,
+            list_requests_class_a: spent.list_requests,
+            get_requests_class_b: spent.read_requests,
+            transfer_ms: elapsed_ms,
+        });
+        match state.manifest.save(&self.path) {
+            Ok(()) => pr.warn(&format!(
+                "object source: the transfer failed; {kept} object(s) already fetched are recorded \
+                 in {}, so a re-run pays for the rest only. This run spent {} class-A and {} \
+                 class-B request(s)",
+                self.path.display(),
+                spent.list_requests,
+                spent.read_requests
+            )),
+            Err(e) => pr.warn(&format!(
+                "object source: the transfer failed AND {} could not be written ({e}); the next \
+                 run will download every object again",
+                self.path.display()
+            )),
+        }
+    }
+
+    fn into_manifest(self) -> ObjectManifest {
+        self.state
+            .into_inner()
+            .unwrap_or_else(|e| e.into_inner())
+            .manifest
+    }
+}
+
+impl ObjectRecord {
+    /// What to record for an object whose bytes just landed.
+    fn for_entry(entry: &SourceEntry) -> Self {
+        Self {
+            change_token: entry.change_token.clone().unwrap_or_else(|| {
+                // No token at all: record one that can never match, so the
+                // object is fetched again next run rather than assumed fresh.
+                format!("unversioned:{}", chrono::Utc::now().to_rfc3339())
+            }),
+            size: entry.size,
+            etag: entry
+                .change_token
+                .as_deref()
+                .and_then(|t| t.strip_prefix("etag:"))
+                .and_then(|t| t.split("|size:").next())
+                .map(str::to_string),
+            last_modified: entry.last_modified.clone(),
+            fetched: chrono::Utc::now().to_rfc3339(),
+        }
+    }
+}
+
 /// Everything about an object-store run that is decided before any state is
 /// opened: where its bytes land locally, and what the journal knows it as.
 #[derive(Debug, Clone)]
@@ -335,6 +477,10 @@ pub struct MaterializeReport {
     pub vanished: u64,
     pub removed: u64,
     pub read_requests: u64,
+    /// How many of `list_requests + read_requests` were retries. Already
+    /// included in those two; reported separately because a run whose cost is
+    /// mostly retries is a run against a store that is throttling it.
+    pub retried_requests: u64,
     /// Objects with no ETag, which fall back to last-modified + size.
     pub without_etag: u64,
     /// Objects whose bytes are NOT already in the mirror. Equal to
@@ -399,6 +545,12 @@ impl MaterializeReport {
     /// this run's — it is what a cron entry would spend. Class-A requests are
     /// the scarce ones (R2 gives 1,000,000 a month free), and listing is the
     /// only class-A operation an autoindex run performs.
+    ///
+    /// Every count here is **wire attempts**: a throttled request that the
+    /// client retried twice before it succeeded appears as three, because three
+    /// is what the store bills. The projection multiplies whatever this run
+    /// actually spent, so a run that hit throttling projects a higher schedule
+    /// cost than an unthrottled one — which is the honest answer.
     pub fn cost_lines(&self) -> Vec<String> {
         let class_a = self.list_requests;
         let hourly = class_a.saturating_mul(720);
@@ -410,7 +562,7 @@ impl MaterializeReport {
                 (n as f64) * 100.0 / (CLASS_A_FREE_PER_MONTH as f64)
             )
         };
-        vec![
+        let mut lines = vec![
             format!(
                 "object store requests this run: {class_a} LIST (class A) + {} GET (class B), {} MB \
                  transferred",
@@ -425,7 +577,15 @@ impl MaterializeReport {
                 pct(hourly),
                 pct(five_min)
             ),
-        ]
+        ];
+        if self.retried_requests > 0 {
+            lines.push(format!(
+                "object store: {} of those request(s) were retries after the store failed or \
+                 throttled an attempt — they are billed, so they are counted",
+                self.retried_requests
+            ));
+        }
+        lines
     }
 }
 
@@ -460,7 +620,7 @@ pub fn materialize_from(
 ) -> Result<MaterializeReport> {
     let started = std::time::Instant::now();
     let mut report = MaterializeReport::default();
-    let (mut manifest, reset_reason) = ObjectManifest::load(&run.manifest_path, &run.identity);
+    let (manifest, reset_reason) = ObjectManifest::load(&run.manifest_path, &run.identity);
     if let Some(reason) = reset_reason {
         pr.warn(&format!("object source: {reason}"));
     }
@@ -537,6 +697,7 @@ pub fn materialize_from(
         let ops = source.ops();
         report.list_requests = ops.list_requests;
         report.read_requests = ops.read_requests;
+        report.retried_requests = ops.retried_requests;
         report.elapsed_ms = started.elapsed().as_millis() as u64;
         return Ok(report);
     }
@@ -549,37 +710,35 @@ pub fn materialize_from(
         ));
     }
     pr.phase("fetch", fetch.len() as u64, fetch_bytes);
-    let fetched = fetch_objects(run, source, &fetch, pr, fetch_concurrency(scan_workers))?;
+    // From here the manifest is owned by the checkpoint, which records each
+    // object as its bytes land. An abort below therefore keeps what was paid
+    // for instead of throwing the receipts away.
+    let checkpoint = ManifestCheckpoint::new(&run.manifest_path, manifest);
+    let fetched = match fetch_objects(
+        run,
+        source,
+        &fetch,
+        pr,
+        fetch_concurrency(scan_workers),
+        &checkpoint,
+    ) {
+        Ok(fetched) => fetched,
+        Err(e) => {
+            let spent = source.ops();
+            report.list_requests = spent.list_requests;
+            report.read_requests = spent.read_requests;
+            report.retried_requests = spent.retried_requests;
+            checkpoint.abort(spent, &report, started.elapsed().as_millis() as u64, pr);
+            return Err(e);
+        }
+    };
+    let mut manifest = checkpoint.into_manifest();
     let mut vanished: BTreeSet<&str> = BTreeSet::new();
     for outcome in &fetched {
         match outcome {
-            FetchOutcome::Fetched { rel, bytes } => {
+            FetchOutcome::Fetched { bytes } => {
                 report.downloaded += 1;
                 report.bytes_downloaded += bytes;
-                let entry = admitted
-                    .iter()
-                    .find(|e| &e.rel == rel)
-                    .context("fetched an object that was not admitted")?;
-                manifest.objects.insert(
-                    rel.clone(),
-                    ObjectRecord {
-                        change_token: entry.change_token.clone().unwrap_or_else(|| {
-                            // No token at all: record one that can never match,
-                            // so the object is fetched again next run rather
-                            // than assumed fresh.
-                            format!("unversioned:{}", chrono::Utc::now().to_rfc3339())
-                        }),
-                        size: entry.size,
-                        etag: entry
-                            .change_token
-                            .as_deref()
-                            .and_then(|t| t.strip_prefix("etag:"))
-                            .and_then(|t| t.split("|size:").next())
-                            .map(str::to_string),
-                        last_modified: entry.last_modified.clone(),
-                        fetched: chrono::Utc::now().to_rfc3339(),
-                    },
-                );
             }
             FetchOutcome::Vanished { rel } => {
                 report.vanished += 1;
@@ -607,9 +766,11 @@ pub fn materialize_from(
     let ops = source.ops();
     report.list_requests = ops.list_requests;
     report.read_requests = ops.read_requests;
+    report.retried_requests = ops.retried_requests;
     report.elapsed_ms = started.elapsed().as_millis() as u64;
     manifest.last_run = Some(LastRun {
         finished: chrono::Utc::now().to_rfc3339(),
+        aborted: false,
         objects_listed: report.objects_listed,
         objects_admitted: report.admitted,
         objects_downloaded: report.downloaded,
@@ -630,7 +791,7 @@ fn mirror_file_ready(mirror: &Path, rel: &str, size: u64) -> bool {
 }
 
 enum FetchOutcome {
-    Fetched { rel: String, bytes: u64 },
+    Fetched { bytes: u64 },
     Vanished { rel: String },
 }
 
@@ -647,6 +808,7 @@ fn fetch_objects(
     pending: &[&SourceEntry],
     pr: &Progress,
     concurrency: usize,
+    checkpoint: &ManifestCheckpoint,
 ) -> Result<Vec<FetchOutcome>> {
     if pending.is_empty() {
         return Ok(Vec::new());
@@ -664,15 +826,31 @@ fn fetch_objects(
                 let guard = pr.file(&entry.rel, entry.size);
                 let outcome = fetch_one(run, source, entry);
                 drop(guard);
+                // Recorded here, inside the pool, so the manifest knows about
+                // an object the moment its bytes are installed — not only if
+                // every other object also succeeds.
+                if matches!(outcome, Ok(FetchOutcome::Fetched { .. })) {
+                    checkpoint.record(&entry.rel, ObjectRecord::for_entry(entry), pr);
+                }
                 outcome
             })
             .collect()
     });
     let mut outcomes = Vec::with_capacity(results.len());
+    let mut failure: Option<anyhow::Error> = None;
     for result in results {
-        outcomes.push(result?);
+        match result {
+            Ok(outcome) => outcomes.push(outcome),
+            // Keep the first failure and keep draining: every other object in
+            // this batch already succeeded or failed, and the successes must
+            // reach the caller's checkpoint either way.
+            Err(e) => failure = failure.or(Some(e)),
+        }
     }
-    Ok(outcomes)
+    match failure {
+        Some(e) => Err(e),
+        None => Ok(outcomes),
+    }
 }
 
 fn fetch_one(run: &ObjectRun, source: &dyn DocSource, entry: &SourceEntry) -> Result<FetchOutcome> {
@@ -726,10 +904,7 @@ fn fetch_one(run: &ObjectRun, source: &dyn DocSource, entry: &SourceEntry) -> Re
     };
     xerj_common::fsio::replace_file_durable(&temp, &destination)
         .with_context(|| format!("install {}", destination.display()))?;
-    Ok(FetchOutcome::Fetched {
-        rel: entry.rel.clone(),
-        bytes,
-    })
+    Ok(FetchOutcome::Fetched { bytes })
 }
 
 /// Delete every file under `mirror` whose relative path is not in `keep`, and
@@ -766,6 +941,83 @@ fn prune_mirror(mirror: &Path, keep: &BTreeSet<&str>) -> Result<u64> {
     Ok(removed)
 }
 
+/// Total wire attempts for one logical request, the first included.
+///
+/// Matches `xerj-storage`'s `RetryPolicy::default()` so the two S3 clients in
+/// this workspace spend money at the same rate.
+const MAX_ATTEMPTS: u32 = 4;
+/// Backoff before the second attempt; doubles up to [`MAX_BACKOFF`].
+const INITIAL_BACKOFF: std::time::Duration = std::time::Duration::from_millis(100);
+const MAX_BACKOFF: std::time::Duration = std::time::Duration::from_secs(5);
+/// TCP + TLS handshake deadline.
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Deadline for one attempt, handshake included.
+const ATTEMPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// S3 error codes worth another billed attempt. Same list as
+/// `xerj-storage`'s `RETRYABLE_CODES`.
+const RETRYABLE_CODES: &[&str] = &[
+    "SlowDown",
+    "RequestTimeout",
+    "RequestTimeoutException",
+    "InternalError",
+    "ServiceUnavailable",
+    "RequestTimeTooSkewed",
+    "ThrottlingException",
+    "TooManyRequests",
+];
+
+/// Credentials for the object store, from the environment and nowhere else.
+///
+/// XERJ does not read `~/.aws/credentials`, instance metadata or SSO: a
+/// credential chain that reaches the network has a failure mode (IMDS on a
+/// machine that is not an EC2 instance hangs until its timeout) that an
+/// indexing run should not inherit, and "which of five sources did this key
+/// come from" is not a question an operator should have to answer when a run
+/// is denied. `xerj-storage` takes the same position for the index-side client
+/// (`credentials_from_env`, engine/crates/xerj-storage/src/s3.rs). Put the pair
+/// in the environment — `env AWS_ACCESS_KEY_ID=… AWS_SECRET_ACCESS_KEY=… xerj
+/// autoindex s3://…` — and nothing else needs configuring.
+fn credentials_from_env() -> Result<aws_sdk_s3::config::Credentials> {
+    fn non_empty(var: &str) -> Option<String> {
+        std::env::var(var).ok().filter(|v| !v.trim().is_empty())
+    }
+    match (
+        non_empty("AWS_ACCESS_KEY_ID"),
+        non_empty("AWS_SECRET_ACCESS_KEY"),
+    ) {
+        (Some(key_id), Some(secret)) => Ok(aws_sdk_s3::config::Credentials::new(
+            key_id,
+            secret,
+            non_empty("AWS_SESSION_TOKEN"),
+            None,
+            "xerj-env",
+        )),
+        (None, Some(_)) => bail!(
+            "AWS_SECRET_ACCESS_KEY is set but AWS_ACCESS_KEY_ID is not, so the request cannot be \
+             signed. Set both"
+        ),
+        (Some(_), None) => bail!(
+            "AWS_ACCESS_KEY_ID is set but AWS_SECRET_ACCESS_KEY is not, so the request cannot be \
+             signed. Set both"
+        ),
+        (None, None) => bail!(
+            "no object-store credentials in the environment. Set AWS_ACCESS_KEY_ID and \
+             AWS_SECRET_ACCESS_KEY (plus AWS_SESSION_TOKEN for temporary credentials). XERJ reads \
+             them from the environment only — no profile files, no instance metadata, no SSO — \
+             and never stores them. For R2 the pair comes from R2 → Manage API tokens"
+        ),
+    }
+}
+
+/// What to do about a failed wire attempt.
+enum Disposition {
+    /// Worth another billed attempt.
+    Retry,
+    /// Will fail the same way forever; retrying only spends money.
+    GiveUp,
+}
+
 /// The S3 client, a runtime to drive it, and the request counters.
 pub struct ObjectStoreSource {
     spec: ObjectSpec,
@@ -773,11 +1025,12 @@ pub struct ObjectStoreSource {
     client: aws_sdk_s3::Client,
     list_requests: AtomicU64,
     read_requests: AtomicU64,
-    bytes_read: AtomicU64,
+    retried_requests: AtomicU64,
+    bytes_read: std::sync::Arc<AtomicU64>,
 }
 
 impl ObjectStoreSource {
-    /// Build the client from the standard credential chain.
+    /// Build the client, with credentials from the environment.
     ///
     /// autoindex is synchronous — std threads and rayon — and the AWS SDK is
     /// async-only, so one runtime is created here and every call is driven
@@ -786,6 +1039,25 @@ impl ObjectStoreSource {
     /// only driven while the thread that owns it sits in `block_on`, so the
     /// blocking reader below — called from the fetch pool's threads — would
     /// deadlock waiting for a runtime nobody is polling.
+    ///
+    /// Two choices here are load-bearing rather than stylistic, and both are
+    /// about money:
+    ///
+    /// - **The SDK's retry layer is disabled.** `aws-config`'s default is
+    ///   `standard` with three attempts, so one `.send()` can be three billed
+    ///   requests that a counter wrapped around the call cannot see. Retrying
+    ///   in [`ObjectStoreSource::charged`] instead means one increment per wire
+    ///   attempt, which is what the provider invoices. (`xerj-storage` reached
+    ///   the same conclusion for the index-side client; see s3.rs's module
+    ///   docs.)
+    /// - **The TLS stack is named explicitly** (rustls + ring) instead of taken
+    ///   from the SDK default, which selects aws-lc-rs and breaks the
+    ///   musl/aarch64/windows cross-compile matrix. See engine/Cargo.toml.
+    ///
+    /// No network I/O and no billed request happens here: nothing verifies that
+    /// the bucket exists or that the credentials work, because a probe would be
+    /// a class-A request on every run. The first real request reports the
+    /// store's own error.
     pub fn connect(spec: &ObjectSpec) -> Result<Self> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -793,17 +1065,32 @@ impl ObjectStoreSource {
             .thread_name("xerj-s3")
             .build()
             .context("start the runtime for object-store requests")?;
+        let credentials = credentials_from_env()?;
         let region = resolve_region(spec);
         let endpoint = spec.endpoint.clone();
+        // Built inside the runtime: the hyper connector registers with the
+        // reactor of whatever runtime is current when it is created.
         let client = runtime.block_on(async move {
-            let mut loader = aws_config::defaults(aws_config::BehaviorVersion::latest())
-                .region(aws_sdk_s3::config::Region::new(region));
+            let http_client = aws_smithy_http_client::Builder::new()
+                .tls_provider(aws_smithy_http_client::tls::Provider::rustls(
+                    aws_smithy_http_client::tls::rustls_provider::CryptoMode::Ring,
+                ))
+                .build_https();
+            let mut builder = aws_sdk_s3::config::Builder::new()
+                .behavior_version(aws_sdk_s3::config::BehaviorVersion::latest())
+                .region(aws_sdk_s3::config::Region::new(region))
+                .credentials_provider(credentials)
+                .http_client(http_client)
+                // Retries are ours, not the SDK's — see above.
+                .retry_config(aws_sdk_s3::config::retry::RetryConfig::disabled())
+                .timeout_config(
+                    aws_sdk_s3::config::timeout::TimeoutConfig::builder()
+                        .connect_timeout(CONNECT_TIMEOUT)
+                        .operation_attempt_timeout(ATTEMPT_TIMEOUT)
+                        .build(),
+                );
             if let Some(endpoint) = endpoint.as_deref() {
-                loader = loader.endpoint_url(endpoint);
-            }
-            let shared = loader.load().await;
-            let mut builder = aws_sdk_s3::config::Builder::from(&shared);
-            if endpoint.is_some() {
+                builder = builder.endpoint_url(endpoint);
                 // A custom endpoint means MinIO, Ceph, R2, localstack or an
                 // in-process test: virtual-host addressing there needs DNS
                 // nobody set up, so address the bucket in the path.
@@ -818,12 +1105,99 @@ impl ObjectStoreSource {
             client,
             list_requests: AtomicU64::new(0),
             read_requests: AtomicU64::new(0),
-            bytes_read: AtomicU64::new(0),
+            retried_requests: AtomicU64::new(0),
+            bytes_read: std::sync::Arc::new(AtomicU64::new(0)),
         })
     }
 
     fn key_for(&self, rel: &str) -> String {
         format!("{}{}", self.spec.prefix, rel)
+    }
+
+    /// Send one logical request, counting and retrying per **wire attempt**.
+    ///
+    /// `counter` is incremented BEFORE each attempt, never after a success.
+    /// That ordering is the whole point: a request that is throttled twice and
+    /// then succeeds costs three billed requests, and a request that exhausts
+    /// its attempts and fails costs [`MAX_ATTEMPTS`] — both of which the
+    /// operator is charged for and must therefore see. Counting successes
+    /// instead reports 1 and 0.
+    ///
+    /// `send` is a closure rather than a future because the SDK's fluent
+    /// builders are consumed by `.send()`, so each attempt rebuilds its
+    /// request.
+    /// (The error is boxed by the caller: an `SdkError` is several hundred
+    /// bytes, and clippy's `result_large_err` is right that it should not be
+    /// returned by value.)
+    fn charged<T, E, F>(
+        &self,
+        counter: &AtomicU64,
+        operation: &'static str,
+        key: Option<&str>,
+        send: F,
+    ) -> Result<T>
+    where
+        F: Fn() -> std::result::Result<T, Box<aws_sdk_s3::error::SdkError<E>>>,
+        E: aws_sdk_s3::error::ProvideErrorMetadata + std::error::Error + Send + Sync + 'static,
+    {
+        let mut attempt: u32 = 1;
+        loop {
+            counter.fetch_add(1, Ordering::Relaxed);
+            let error = match send() {
+                Ok(value) => return Ok(value),
+                Err(error) => error,
+            };
+            if attempt >= MAX_ATTEMPTS || matches!(disposition(&error), Disposition::GiveUp) {
+                return Err(self.explain(operation, key, *error, attempt));
+            }
+            self.retried_requests.fetch_add(1, Ordering::Relaxed);
+            std::thread::sleep(backoff(attempt));
+            attempt += 1;
+        }
+    }
+}
+
+/// Exponential backoff with full jitter in the lower half of the interval, so a
+/// fleet of runs that hit the same throttle do not resynchronise on it.
+fn backoff(attempt: u32) -> std::time::Duration {
+    let base = INITIAL_BACKOFF
+        .saturating_mul(1u32 << (attempt - 1).min(16))
+        .min(MAX_BACKOFF);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos() as u64)
+        .unwrap_or(0);
+    let frac = (nanos % 1000) as f64 / 1000.0;
+    base.mul_f64(0.5 + 0.5 * frac)
+}
+
+/// Whether another billed attempt can plausibly succeed.
+///
+/// 5xx, 429 and the throttling codes are transient by definition. A rejected
+/// signature, a missing bucket or a denied read will be rejected identically
+/// forever, and retrying those spends money for nothing.
+fn disposition<E>(error: &aws_sdk_s3::error::SdkError<E>) -> Disposition
+where
+    E: aws_sdk_s3::error::ProvideErrorMetadata + std::error::Error + Send + Sync + 'static,
+{
+    use aws_sdk_s3::error::{ProvideErrorMetadata, SdkError};
+    let code = error.code().unwrap_or_default();
+    if RETRYABLE_CODES.contains(&code) {
+        return Disposition::Retry;
+    }
+    match error {
+        SdkError::TimeoutError(_) | SdkError::DispatchFailure(_) | SdkError::ResponseError(_) => {
+            Disposition::Retry
+        }
+        SdkError::ServiceError(ctx) => {
+            let status = ctx.raw().status().as_u16();
+            if status >= 500 || status == 429 {
+                Disposition::Retry
+            } else {
+                Disposition::GiveUp
+            }
+        }
+        _ => Disposition::GiveUp,
     }
 }
 
@@ -870,19 +1244,21 @@ impl DocSource for ObjectStoreSource {
                 );
             }
             let prefix = (!self.spec.prefix.is_empty()).then(|| self.spec.prefix.clone());
-            let page = self
-                .runtime
-                .block_on(
-                    self.client
-                        .list_objects_v2()
-                        .bucket(&self.spec.bucket)
-                        .set_prefix(prefix)
-                        .max_keys(LIST_PAGE_KEYS)
-                        .set_continuation_token(continuation.clone())
-                        .send(),
-                )
-                .map_err(|e| self.explain("list", None, e))?;
-            self.list_requests.fetch_add(1, Ordering::Relaxed);
+            // `charged` counts every wire attempt, including the retries the
+            // store makes us pay for, and counts them before they are sent.
+            let page = self.charged(&self.list_requests, "list", None, || {
+                self.runtime
+                    .block_on(
+                        self.client
+                            .list_objects_v2()
+                            .bucket(&self.spec.bucket)
+                            .set_prefix(prefix.clone())
+                            .max_keys(LIST_PAGE_KEYS)
+                            .set_continuation_token(continuation.clone())
+                            .send(),
+                    )
+                    .map_err(Box::new)
+            })?;
             for object in page.contents() {
                 let Some(key) = object.key() else { continue };
                 listing.seen += 1;
@@ -920,20 +1296,21 @@ impl DocSource for ObjectStoreSource {
 
     fn open(&self, entry: &SourceEntry) -> Result<Box<dyn Read + Send>> {
         let key = self.key_for(&entry.rel);
-        let output = self
-            .runtime
-            .block_on(
-                self.client
-                    .get_object()
-                    .bucket(&self.spec.bucket)
-                    .key(&key)
-                    .send(),
-            )
-            .map_err(|e| self.explain("get", Some(&key), e))?;
-        self.read_requests.fetch_add(1, Ordering::Relaxed);
+        let output = self.charged(&self.read_requests, "get", Some(&key), || {
+            self.runtime
+                .block_on(
+                    self.client
+                        .get_object()
+                        .bucket(&self.spec.bucket)
+                        .key(&key)
+                        .send(),
+                )
+                .map_err(Box::new)
+        })?;
         Ok(Box::new(BlockingObjectReader {
             handle: self.runtime.handle().clone(),
             inner: Box::pin(output.body.into_async_read()),
+            bytes_read: std::sync::Arc::clone(&self.bytes_read),
         }))
     }
 
@@ -941,6 +1318,7 @@ impl DocSource for ObjectStoreSource {
         SourceOps {
             list_requests: self.list_requests.load(Ordering::Relaxed),
             read_requests: self.read_requests.load(Ordering::Relaxed),
+            retried_requests: self.retried_requests.load(Ordering::Relaxed),
             bytes_read: self.bytes_read.load(Ordering::Relaxed),
         }
     }
@@ -958,11 +1336,15 @@ impl ObjectStoreSource {
     ///
     /// None of these messages include a credential: what is echoed back is the
     /// bucket, the key and the endpoint.
+    ///
+    /// `attempts` is how many billed wire attempts the failure cost, so the
+    /// message does not undersell what the operator was charged for.
     fn explain<E, R>(
         &self,
         operation: &str,
         key: Option<&str>,
         error: aws_sdk_s3::error::SdkError<E, R>,
+        attempts: u32,
     ) -> anyhow::Error
     where
         E: std::error::Error + Send + Sync + 'static,
@@ -1004,11 +1386,15 @@ impl ObjectStoreSource {
         } else if has("no credentials")
             || has("credentials were not provided")
             || has("CredentialsNotLoaded")
-            || has("credential")
         {
-            "no credentials were found. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in the \
-             environment, or AWS_PROFILE for a profile in ~/.aws/credentials, or run on an instance \
-             with a role. XERJ reads them through the standard AWS chain and never stores them"
+            // Deliberately NOT a bare `contains("credential")`: a
+            // credential-scope or clock-skew error also carries that substring
+            // and sending an operator to look for missing keys would be the
+            // wrong path.
+            "no credentials were found. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (plus \
+             AWS_SESSION_TOKEN for temporary credentials) in the environment. XERJ reads them from \
+             the environment only — no profile files, no instance metadata, no SSO — and never \
+             stores them"
                 .to_string()
         } else if has("dispatch failure") || has("connect") || has("dns") || has("timeout") {
             format!(
@@ -1022,7 +1408,14 @@ impl ObjectStoreSource {
             Some(key) => format!("{identity} (key {key})"),
             None => identity,
         };
-        anyhow::anyhow!("{advice}\n  while listing/reading {where_}\n  store said: {rendered}")
+        let cost = match attempts {
+            1 => "1 billed request".to_string(),
+            n => format!("{n} billed requests (the first plus {} retries)", n - 1),
+        };
+        anyhow::anyhow!(
+            "{advice}\n  while listing/reading {where_}\n  this failure cost {cost}\n  store said: \
+             {rendered}"
+        )
     }
 }
 
@@ -1033,12 +1426,17 @@ impl ObjectStoreSource {
 struct BlockingObjectReader {
     handle: tokio::runtime::Handle,
     inner: std::pin::Pin<Box<dyn tokio::io::AsyncRead + Send>>,
+    /// Shared with the source, so `SourceOps::bytes_read` reports what actually
+    /// came off the wire rather than the 0 it used to be stuck at.
+    bytes_read: std::sync::Arc<AtomicU64>,
 }
 
 impl Read for BlockingObjectReader {
     fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
         use tokio::io::AsyncReadExt;
-        self.handle.block_on(self.inner.read(out))
+        let read = self.handle.block_on(self.inner.read(out))?;
+        self.bytes_read.fetch_add(read as u64, Ordering::Relaxed);
+        Ok(read)
     }
 }
 
@@ -1105,6 +1503,7 @@ mod tests {
         let mut manifest = ObjectManifest::empty("s3://bucket/");
         manifest.last_run = Some(LastRun {
             finished: "2026-09-19T00:00:00Z".into(),
+            aborted: false,
             objects_listed: 6,
             objects_admitted: 5,
             objects_downloaded: 2,

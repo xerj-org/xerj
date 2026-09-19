@@ -13,9 +13,9 @@ schema_type: "TechArticle"
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, then index the bucket with xerj autoindex s3://bucket/prefix, taking credentials from the environment and adding --endpoint-url for any store that is not Amazon S3. Re-run the same command to pick up changes: objects whose ETag and size are unchanged are not downloaded again. Report the LIST and GET counts the run prints before you put the command in a schedule, and remember the index itself is on the node's local disk, not in the bucket."
 commands:
   - cmd: "xerj autoindex s3://acme-docs/handbook"
-    note: "Index one prefix. Credentials come from the standard AWS chain in the environment."
-  - cmd: "export AWS_PROFILE=acme"
-    note: "Or name a profile from ~/.aws/credentials instead of exporting a key pair."
+    note: "Index one prefix. Credentials come from AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in the environment."
+  - cmd: "export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=..."
+    note: "The environment is the only place XERJ reads keys from: no profile files, no instance metadata, no SSO."
   - cmd: "xerj autoindex s3://acme-docs/handbook --dry-run"
     note: "List and price the transfer without downloading anything."
   - cmd: "xerj autoindex r2://acme-docs/handbook --endpoint-url https://accountid.r2.cloudflarestorage.com"
@@ -35,10 +35,10 @@ evidence:
     source: "engine/crates/xerj-autoindex/src/objsource.rs"
   - claim: "Change identity is the object's ETag plus its size, treated as an opaque token: a multipart ETag's -N suffix is used verbatim and nothing is compared to a locally computed MD5."
     source: "engine/crates/xerj-autoindex/src/objsource.rs"
-  - claim: "Measured against MinIO: first run over 4 keys = 1 LIST + 3 GET; unchanged re-run = 1 LIST + 0 GET, 0 bytes; 1,200 keys = 2 LIST pages; a 1 GiB object moved in 692 ms with RSS growing from 25 MB to 29 MB."
+  - claim: "Measured against MinIO: first run over 4 keys = 1 LIST + 3 GET; unchanged re-run = 1 LIST + 0 GET, 0 bytes; 1,200 keys = 2 LIST pages; a 1 GiB object moved with RSS growing from 22 MB to 26 MB, in 281-318 ms over four loopback runs."
     source: "engine/crates/xerj-autoindex/src/objsource_minio_tests.rs"
   - claim: "The index still lives on the XERJ node's local disk. Setting storage.backend to s3 refuses to start, and no segment or WAL file is ever written to a bucket."
-    source: "docs/OBJECT_STORAGE.md:206"
+    source: "docs/OBJECT_STORAGE.md:255"
   - claim: "Keys whose components are hidden, unsafe or unportable are skipped by name and reported: a bucket's .env and .git/ never reach the index."
     source: "engine/crates/xerj-autoindex/src/source.rs"
 faq:
@@ -47,7 +47,7 @@ faq:
   - q: "Does it download the whole bucket every time I run it?"
     a: "No. Each object's ETag and size are recorded in the state dir, and a re-run downloads only what changed. Measured against MinIO, an unchanged prefix costs 1 LIST request and zero GETs."
   - q: "Will this blow through my R2 or S3 free tier?"
-    a: "A run makes no writes, so its only class-A cost is listing: one request per 1,000 keys. Daily or hourly over a normal corpus is a fraction of a percent. Every run prints what a schedule would cost."
+    a: "A run makes no writes, so its only class-A cost is listing: one request per 1,000 keys, plus any attempt the store throttled and made the client retry. The printed counts are billed wire attempts, not logical calls, so what a run reports is what the store bills. Daily or hourly over a normal corpus is a fraction of a percent, and every run prints what a schedule would cost."
   - q: "Can I use MinIO, Ceph or Cloudflare R2?"
     a: "Yes. Pass `--endpoint-url`, or set AWS_ENDPOINT_URL_S3. R2 needs the account host because there is no default for it. The bucket is then addressed in the path rather than as a subdomain."
   - q: "Does the index live in the bucket?"
@@ -82,7 +82,7 @@ xerj autoindex r2://mybucket/docs --endpoint-url https://accountid.r2.cloudflare
 
 `--endpoint-url` falls back to `AWS_ENDPOINT_URL_S3`, then `AWS_ENDPOINT_URL`, which is the precedence the AWS CLI uses.
 
-Credentials come from the standard AWS chain — environment variables, a profile named by `AWS_PROFILE`, or an instance role — and from nowhere else. A URL of the form `s3://key:secret@bucket/p` is refused by name, because that shape puts a credential in every request line and in every log that records one.
+Credentials come from the environment — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` for temporary credentials — and from nowhere else. Profile files, instance metadata (IMDS) and SSO are not read; if your keys live in a profile, export them for the run. A URL of the form `s3://key:secret@bucket/p` is refused by name, because that shape puts a credential in every request line and in every log that records one.
 
 One surprise removed on purpose: a non-empty prefix is treated as a **folder**. `s3://b/docs` lists `docs/` and not also `docs-old/`, even though plain S3 prefix matching is a string prefix. The effective prefix is printed at the start of the run.
 
@@ -135,7 +135,7 @@ The reason is not laziness. Several extractors are not sequential readers: a PDF
 So the trade is explicit:
 
 - you need local disk for the prefix you index, and `--state-dir` is how you choose which disk;
-- nothing is held in memory: transfer is a bounded 256 KiB copy into a temporary file that is then renamed, at most 16 objects at a time. A 1 GiB object moved in 692 ms against MinIO with RSS growing from 25 MB to 29 MB;
+- nothing is held in memory: transfer is a bounded 256 KiB copy into a temporary file that is then renamed, at most 16 objects at a time. A 1 GiB object moved against MinIO on loopback with RSS growing from 22 MB to 26 MB. It took 281-318 ms over four runs, which is a same-host transfer and not a throughput benchmark;
 - extraction sees byte-for-byte what it sees for a folder.
 
 The index itself is on the XERJ node's local disk. Nothing writes to the bucket, and keeping the index in object storage is a different, unimplemented thing — see [what XERJ does not do with S3 yet](/answers/does-xerj-support-s3-alerting-plugins).
@@ -164,6 +164,8 @@ After listing, the mirror is walked and everything the store no longer lists is 
 
 One asymmetry worth knowing. An object that is listed and then 404s was deleted between the LIST and the GET. That race is normal on a live bucket, so the run treats it as deleted and carries on. Any **other** GET failure aborts the run before anything is indexed. Skipping a failed download would present that object to the reconcile step as deleted, and a transient 500 would then delete live documents.
 
+An aborted run does not make you pay for its work twice. Objects whose bytes already landed are written to the manifest before the error is returned, and that manifest is checkpointed every ten seconds during a long transfer. The next run fetches only what is left. It does re-list, so the LIST cost is paid again in full.
+
 ## How this page was checked
 
 Most numbers above come from the MinIO suite in `engine/crates/xerj-autoindex/src/objsource_minio_tests.rs`, run against `quay.io/minio/minio:latest` on loopback. The last row is the shipped binary, end to end against a live XERJ node and the same MinIO. Every measurement on this page is MinIO on loopback, not Amazon S3 and not R2. The request arithmetic for R2 comes from Cloudflare's published pricing, not from a bill.
@@ -175,7 +177,7 @@ Most numbers above come from the MinIO suite in `engine/crates/xerj-autoindex/sr
 | one changed, one new, one deleted | 2 GET, 1 local removal |
 | 1,200 keys | 2 LIST pages |
 | real multipart upload | ETag ending `-2`, not re-downloaded |
-| 1 GiB object | 692 ms, RSS 25 MB to 29 MB |
+| 1 GiB object | RSS 22 MB to 26 MB; 281-318 ms over four loopback runs |
 | end to end against a node, 6 keys incl. a 12 MiB multipart | first run 1 LIST + 5 GET, searches hit; re-run 1 LIST + 0 GET; one change 1 LIST + 1 GET; one delete (`--no-graph`) removes only that object's documents |
 
 The request arithmetic in the table is multiplication, not measurement: LIST requests per run times runs per month.
