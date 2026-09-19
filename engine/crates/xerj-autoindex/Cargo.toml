@@ -105,5 +105,16 @@ serde_yaml = "0.9"                               # YAML multi-doc
 rusqlite = { version = "0.32", features = ["bundled"] }
 mail-parser = "0.11.9"
 
+# --- Object-storage source (#s3source). `aws-sdk-s3` was already a workspace
+# dependency and unused; this is its first consumer. `aws-config` supplies the
+# standard credential chain (env, profile, IMDS) so nothing about credentials is
+# XERJ-specific. Both are Apache-2.0.
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+# autoindex is synchronous (std threads + rayon); the AWS SDK is async-only, so
+# one current-thread runtime is created per object-store source and every call
+# is driven with `block_on`. No async leaks past `src/objsource.rs`.
+tokio = { workspace = true }
+
 [dev-dependencies]
 base64 = "0.23.1"
