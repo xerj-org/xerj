@@ -1,0 +1,150 @@
+{
+ "what": "verify.py --per-kind 0 (EVERY planted needle) against run C's index - the run in after-mixed-1G-runC-uncapped.json, whose own verify section checked only the first 60 needles of each kind (354 of 2,530)",
+ "how": "a byte copy of run C's settled node data dir (760,436,960 bytes on disk) booted read-only-in-practice on a throwaway node (127.0.0.1:10200, auth on, XERJ_MAX_PROCESS_MEMORY_MB=off, lexical embedder), warmed by two 40-needle samples, then `python3 benchmarks/mbox-ingest/verify.py --per-kind 0`. Nothing was re-indexed.",
+ "date": "2026-09-19",
+ "server_binary": "release build of feat/ingest-mbox-takeout at 6bd8517a (branch head merged with origin/main); the index was WRITTEN by run C's binary at 4c0c4685",
+ "server_vmhwm_kb": 13537888,
+ "reading": "2,530 of 2,530 needles were found in the right message and nowhere else. 2,529 came back as exactly one document. One body needle (xqneremudito, message d0fdb551.022116@mail.example.net) came back as TWO documents: sections m601358701-msg-s1 and -s2 of the same long message. Sections overlap by a paragraph by design, and the token sits in the shared paragraph; grep finds it once in the mbox. So 'every needle exactly once' is true per MESSAGE and false per DOCUMENT, and the docs now say which.",
+ "verify": {
+  "node_docs": 106581,
+  "mbox_docs": 106551,
+  "attachment_docs": 39619,
+  "needles": {
+   "body": {
+    "planted": 418,
+    "found_exactly_once": 417,
+    "found_in_overlapping_sections": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 418
+   },
+   "latin1-8bit-body": {
+    "planted": 1160,
+    "found_exactly_once": 1160,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1160
+   },
+   "cp1252-undeclared-body": {
+    "planted": 417,
+    "found_exactly_once": 417,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 417
+   },
+   "after-unquoted-prose-from": {
+    "planted": 41,
+    "found_exactly_once": 41,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 41
+   },
+   "pdf-attachment": {
+    "planted": 265,
+    "found_exactly_once": 265,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 265
+   },
+   "text-attachment": {
+    "planted": 216,
+    "found_exactly_once": 216,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 216
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [],
+  "edges": {
+   "replies_to": {
+    "live": 21544,
+    "stored_including_invalidated": 21544,
+    "truth_resolvable_replies": 21544
+   },
+   "attachment_of": {
+    "live": 39619,
+    "stored_including_invalidated": 39619,
+    "attachment_docs": 39619
+   }
+  },
+  "sender_filter": {
+   "sampled": 0,
+   "term_matches_display_form": 0,
+   "mismatch": []
+  },
+  "subject_search": {
+   "sampled": 40,
+   "subject_found_in_body": 0,
+   "mismatch": [
+    {
+     "subject": "one very long line",
+     "messages": 41,
+     "match_phrase_body": 0
+    },
+    {
+     "subject": "Deployment window changgordeckstou",
+     "messages": 33,
+     "match_phrase_body": 0
+    },
+    {
+     "subject": "Re: Roadmap sync changgordeckstou",
+     "messages": 43,
+     "match_phrase_body": 0
+    },
+    {
+     "subject": "Re: Offsite agenda changgordeckstou",
+     "messages": 39,
+     "match_phrase_body": 0
+    },
+    {
+     "subject": "Re: Quarterly forecast changgordeckstou",
+     "messages": 38,
+     "match_phrase_body": 0
+    }
+   ]
+  },
+  "empty_no_subject_docs": 0,
+  "query_latency_seconds": {
+   "requests": 2620,
+   "total": 58.09,
+   "median": 0.0195,
+   "p95": 0.0295,
+   "max": 0.155,
+   "over_1s": 0,
+   "over_10s": 0
+  }
+ },
+ "not_applicable_to_this_index": {
+  "sender_filter": "run C's index was written at 4c0c4685, before email_from_address existed (added in b62101fb): the terms aggregation found no addresses, so 0 were sampled. The check is exercised on after-mixed-300M-cap8g.json.",
+  "subject_search": "run C's index predates subject-in-body (b62101fb): 0 of 40 sampled subjects are in `body` - the defect that commit fixes, reproduced on the index the review looked at. The check is exercised on after-mixed-300M-cap8g.json."
+ }
+}
