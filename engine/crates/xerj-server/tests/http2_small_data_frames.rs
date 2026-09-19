@@ -317,22 +317,28 @@ async fn empty_data_frame_flood_is_still_refused() {
 
     // Upstream's cap is 100 such frames. Yielding after each one lets the
     // connection task write it and read what comes back, so the client learns
-    // it has been cut off within a few frames of the server deciding; without
-    // that it would simply queue all 1000 and find out at the end.
+    // it has been cut off soon after the server decides; without that it would
+    // simply queue every frame and find out at the end.
+    //
+    // HOW SOON is a scheduling fact about the client, not a property of the
+    // server: on a loaded 2-core CI runner the client has reached frame 538
+    // before reading the GOAWAY (main 5f6fde98, PR #966), which is why this
+    // test once asserted `i < 500` and flaked. The server's cap is proven by
+    // the connection being torn down at all (below); the loop bound only has
+    // to be far enough past 100 that "never cut off" cannot be a slow client.
+    const FRAMES: usize = 20_000;
     let mut cut_off_at = None;
-    for i in 0..1000 {
+    for i in 0..FRAMES {
         if send.send_data(Bytes::new(), false).is_err() {
             cut_off_at = Some(i);
             break;
         }
         tokio::task::yield_now().await;
     }
-    let i = cut_off_at.expect("1000 empty DATA frames were accepted — the flood guard is gone");
-    assert!(
-        i < 500,
-        "the empty-frame flood ran to frame {i}; upstream's cap is 100 and the client should \
-         learn of it well before this"
-    );
+    let i = cut_off_at.unwrap_or_else(|| {
+        panic!("{FRAMES} empty DATA frames were accepted — the flood guard is gone")
+    });
+    eprintln!("empty-frame flood: client learned of the cut-off at frame {i} (server cap 100)");
 
     // The teardown itself is the assertion. Which *description* of it the
     // client gets is a race — the server sends `GOAWAY ENHANCE_YOUR_CALM` and
