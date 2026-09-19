@@ -903,6 +903,19 @@ mod tests {
     }
 
     #[test]
+    fn r2_free_tier_slice_is_a_fifth_of_the_monthly_allowance() {
+        let b = OpBudget::r2_free_tier_slice();
+        // A fifth of 1,000,000 Class A and 10,000,000 Class B, so an account
+        // serving other traffic is not spent dry by one process.
+        assert_eq!(b.max_class_a, Some(200_000));
+        assert_eq!(b.max_class_b, Some(2_000_000));
+        // And the default really is no ceiling, because a ceiling that fires
+        // mid-ingest is worse than none.
+        assert_eq!(OpBudget::default().max_class_a, None);
+        assert_eq!(OpBudget::unlimited().max_class_b, None);
+    }
+
+    #[test]
     fn backoff_grows_and_stays_within_the_ceiling() {
         let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("AWS_ACCESS_KEY_ID", "test-key-id");

@@ -182,6 +182,21 @@ The default is **no ceiling**, because a ceiling that fires in the middle of a
 legitimate bulk ingest is worse than no ceiling — the number has to match your
 own traffic.
 
+For an operator-facing feature that would otherwise have none, there is a
+preset:
+
+```rust
+OpBudget::r2_free_tier_slice()   // 200,000 Class A, 2,000,000 Class B
+```
+
+A fifth of R2's monthly free allowance, so an account that also serves other
+traffic is not spent dry by one process. Its own doc comment says what it cannot
+do: the counters are process-lifetime, so it approximates a monthly bound only
+for a process that lives about a month. A CLI run that exits in a minute will
+never reach it, and a server restarted daily gets thirty times what the name
+suggests. Use the table above for the monthly arithmetic; use the preset to stop
+a bug.
+
 ## The read-through cache
 
 `SegmentCache` keeps a local copy of fetched objects, so on a per-request-billed

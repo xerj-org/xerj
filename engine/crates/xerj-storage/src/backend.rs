@@ -201,6 +201,28 @@ impl OpBudget {
             max_class_b: Some(class_b),
         }
     }
+
+    /// A fifth of Cloudflare R2's monthly free allowance: 200,000 Class A and
+    /// 2,000,000 Class B.
+    ///
+    /// The arithmetic: R2's free tier is 1,000,000 Class A and 10,000,000
+    /// Class B per month per *account*, and an account normally serves more
+    /// than one process — other buckets, release downloads, other nodes. A
+    /// fifth leaves four fifths for everything else, which is the point: a
+    /// ceiling sized to the whole tier would let one process spend the account
+    /// dry and still call itself compliant.
+    ///
+    /// **Read this before using it.** The counters are process-lifetime, not
+    /// monthly, so this bound only approximates a monthly one for a process
+    /// that lives about a month — a long-running server. For a CLI run that
+    /// exits in a minute it will never fire, and for a server restarted daily
+    /// it permits thirty times as much as its name suggests. It is a sane
+    /// default for an operator-facing feature that would otherwise have no
+    /// ceiling at all, not an accountant. The monthly arithmetic an operator
+    /// actually needs is the table in `docs/OBJECT_STORAGE.md`.
+    pub const fn r2_free_tier_slice() -> Self {
+        Self::new(200_000, 2_000_000)
+    }
 }
 
 // ── StorageBackend trait ─────────────────────────────────────────────────────
