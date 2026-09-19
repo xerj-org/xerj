@@ -26,6 +26,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
 
+### Documentation
+
+- **`llms.txt` proposals, revised and fact-checked**
+  (`docs/research/llms-txt-2026-09/proposals/`). A proposed `llms.txt`, an
+  `llms-install.md` and ten paste-ready install prompts, following the study's
+  twelve rules: three complete entry paths (shell, MCP-only, HTTP-only), the
+  lexical-by-default correction first, per-client MCP registration with the
+  key, a verify line after every step, and a feedback ask that is optional
+  and needs no git. Every quote is re-fetched (259 claims, 258 confirmed, the
+  one failure removed) and every XERJ command the proposals print was run
+  against v1.0.0-rc.74. Two product findings came out of it:
+  `xerj feedback --open-pr` branches, commits and pushes in whatever
+  repository it is run from, and `xerj init` writes an MCP entry without
+  `XERJ_AUTH`, so against a default node every tool call returns 401. The
+  live `landing/llms.txt` is unchanged; the report's ship checklist says what
+  has to exist first.
+
 ## [1.0.0-rc.74] - 2026-09-08
 
 ### Added
