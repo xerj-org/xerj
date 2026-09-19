@@ -53,16 +53,33 @@ pub fn list_calls_for_keys(keys: u64) -> u64 {
 
 /// Poll cycles a month at this interval.
 pub fn cycles_per_month(interval_secs: u64) -> u64 {
-    if interval_secs == 0 {
+    cycles_per_month_millis(interval_secs.saturating_mul(1_000))
+}
+
+/// Poll cycles a month at a sub-second-capable interval.
+///
+/// Whole seconds are not enough resolution to be honest here. `Duration::as_secs`
+/// truncates, so a 10 ms interval reads as 0 s, and a 0 s interval has to project
+/// as unbounded — which made a sub-second poll look *unmeasurable* instead of
+/// looking like the 259,200,000 operations a month it actually is. Millisecond
+/// math gives the real number, and the guard can then refuse it for the right
+/// reason.
+pub fn cycles_per_month_millis(interval_millis: u64) -> u64 {
+    if interval_millis == 0 {
         return u64::MAX;
     }
-    SECONDS_PER_MONTH / interval_secs
+    (SECONDS_PER_MONTH.saturating_mul(1_000)) / interval_millis
 }
 
 /// Class A operations a month for a watcher that issues `list_calls_per_cycle`
 /// list calls every `interval_secs`.
 pub fn projected_monthly_class_a(list_calls_per_cycle: u64, interval_secs: u64) -> u64 {
     list_calls_per_cycle.saturating_mul(cycles_per_month(interval_secs))
+}
+
+/// The same, from a millisecond interval.
+pub fn projected_monthly_class_a_millis(list_calls_per_cycle: u64, interval_millis: u64) -> u64 {
+    list_calls_per_cycle.saturating_mul(cycles_per_month_millis(interval_millis))
 }
 
 /// The smallest interval whose projection fits `budget` Class A operations a
@@ -100,12 +117,30 @@ pub struct Projection {
 
 impl Projection {
     pub fn new(keys_listed: u64, list_calls_per_cycle: u64, interval_secs: u64, budget: u64) -> Projection {
-        let monthly = projected_monthly_class_a(list_calls_per_cycle, interval_secs);
+        Projection::from_millis(
+            keys_listed,
+            list_calls_per_cycle,
+            interval_secs.saturating_mul(1_000),
+            budget,
+        )
+    }
+
+    /// Project from a millisecond interval. `interval_secs` on the result is the
+    /// interval rounded DOWN to whole seconds, which is what an operator-facing
+    /// line should say; the arithmetic itself uses the milliseconds, so a
+    /// sub-second interval is priced rather than reported as unbounded.
+    pub fn from_millis(
+        keys_listed: u64,
+        list_calls_per_cycle: u64,
+        interval_millis: u64,
+        budget: u64,
+    ) -> Projection {
+        let monthly = projected_monthly_class_a_millis(list_calls_per_cycle, interval_millis);
         Projection {
             keys_listed,
             list_calls_per_cycle,
-            interval_secs,
-            cycles_per_month: cycles_per_month(interval_secs),
+            interval_secs: interval_millis / 1_000,
+            cycles_per_month: cycles_per_month_millis(interval_millis),
             monthly_class_a: monthly,
             budget,
             free_tier_percent: (monthly as f64) * 100.0 / (CLASS_A_FREE_MONTHLY as f64),
@@ -249,5 +284,32 @@ mod tests {
     fn a_zero_interval_projects_as_unbounded_rather_than_dividing_by_zero() {
         assert_eq!(cycles_per_month(0), u64::MAX);
         assert_eq!(projected_monthly_class_a(2, 0), u64::MAX);
+        assert_eq!(cycles_per_month_millis(0), u64::MAX);
+    }
+
+    /// A sub-second interval must be PRICED, not reported as unmeasurable. With
+    /// whole-second math `Duration::as_secs()` truncated 10 ms to 0 s, which
+    /// projected as u64::MAX — so the guard refused it for the wrong reason and
+    /// no test could use a fast interval without turning the guard off.
+    #[test]
+    fn a_sub_second_interval_is_priced_rather_than_treated_as_zero() {
+        // 10 ms: 2,592,000,000 ms in a month / 10 = 259,200,000 cycles.
+        assert_eq!(cycles_per_month_millis(10), 259_200_000);
+        assert_eq!(projected_monthly_class_a_millis(1, 10), 259_200_000);
+        assert_ne!(projected_monthly_class_a_millis(1, 10), u64::MAX);
+        // And it agrees with the whole-second path at whole seconds.
+        for secs in [1u64, 5, 60, 300, 3600] {
+            assert_eq!(
+                cycles_per_month_millis(secs * 1_000),
+                cycles_per_month(secs),
+                "{secs}s"
+            );
+        }
+        // The operator-facing seconds field rounds down, and the arithmetic does
+        // not: a 1,500 ms interval reads as "1s" but is priced at 1.5 s.
+        let p = Projection::from_millis(1, 1, 1_500, CLASS_A_FREE_MONTHLY);
+        assert_eq!(p.interval_secs, 1);
+        assert_eq!(p.cycles_per_month, 1_728_000);
+        assert_eq!(p.monthly_class_a, 1_728_000);
     }
 }

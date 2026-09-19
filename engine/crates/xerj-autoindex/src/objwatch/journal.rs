@@ -246,6 +246,7 @@ impl WatchJournal {
 /// Two watchers sharing a journal would each see the other's writes as bucket
 /// changes and re-index them in a loop, so the second one is refused rather
 /// than allowed to interleave.
+#[derive(Debug)]
 pub struct WatchLock {
     _file: std::fs::File,
 }

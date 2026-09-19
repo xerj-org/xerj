@@ -98,7 +98,7 @@
       "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
     },
     {
@@ -433,6 +433,15 @@
       "cluster": "Hybrid search",
       "updated": "2026-08-23",
       "summary": "One hybrid request carries a BM25 sub-query and a kNN sub-query against one index, and Reciprocal Rank Fusion merges their ranked lists into a single result list."
+    },
+    {
+      "title": "How do I keep an index current when the files live in a bucket?",
+      "question": "My documents live in an S3 or R2 bucket. How do I keep a XERJ index current as objects change?",
+      "canonical_url": "https://xerj.org/answers/keep-s3-bucket-index-current",
+      "markdown_url": "https://xerj.org/answers/keep-s3-bucket-index-current.md",
+      "cluster": "Object storage",
+      "updated": "2026-09-19",
+      "summary": "A bucket has no inotify, so you poll or you subscribe to events. Poll cost is the decision: ListObjectsV2 is a Class A operation, one call per 1,000 keys, every cycle."
     },
     {
       "title": "How do I check my code index actually finished?",

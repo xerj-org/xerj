@@ -234,6 +234,17 @@ fn the_first_poll_indexes_everything_and_the_second_indexes_nothing() {
     assert_eq!(store.gets(), gets_before);
     assert_eq!(second.list_calls, 1, "one list call for a 2-object bucket");
     assert!(sink.events.is_empty());
+
+    // The reported cost must be the cost the STORE actually served, not a number
+    // the accounting produced on its own. Every billing claim in the docs rests
+    // on this count, so it is asserted against the other side of the call.
+    assert_eq!(
+        store.list_calls(),
+        2,
+        "two cycles served two ListObjectsV2 calls"
+    );
+    assert_eq!(store.list_calls(), totals.list_calls);
+    assert_eq!(store.gets(), totals.gets);
 }
 
 #[test]
@@ -270,6 +281,16 @@ fn a_changed_object_is_re_extracted_a_new_one_is_added_and_a_deleted_one_is_remo
 /// An object replaced by a multipart upload keeps its size and can keep its
 /// last-modified second, but its ETag stops being an MD5 and becomes
 /// `<hex>-<parts>`. The watcher must notice on the ETag alone.
+/// An object replaced by a multipart upload. The ETag stops being an MD5 and
+/// becomes `<hex>-<parts>`, which must be compared as an opaque string and never
+/// read as a content hash.
+///
+/// Both halves matter, and they used to be conflated. Replacing the CONTENT via
+/// multipart is a change. Re-uploading the SAME bytes via multipart is only ETag
+/// churn, and re-indexing it would cost a bulk request, a merge and a refresh for
+/// nothing — so it is deliberately not a change. The original version of this
+/// test asserted a change for identical bytes and was wrong about the intended
+/// behaviour, not about the code.
 #[test]
 fn a_multipart_replacement_is_detected_by_the_etag_shape_change() {
     let dir = tempfile::tempdir().unwrap();
@@ -282,13 +303,30 @@ fn a_multipart_replacement_is_detected_by_the_etag_shape_change() {
     poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
     sink.clear();
 
-    // Same bytes, same length, multipart ETag: a size/mtime comparison alone
-    // would miss this.
-    store.put_with_etag("big.bin", "0123456789", "9a0364b9e99bb480dd25e1f0284c8555-2");
+    // New content, delivered multipart: the ETag's SHAPE changes as well as its
+    // value, and a size comparison alone would still catch this one.
+    store.put_with_etag("big.bin", "0123456789abc", "9a0364b9e99bb480dd25e1f0284c8555-2");
     let r = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
-    assert_eq!(r.changed, 1, "multipart ETag change must be a change");
+    assert_eq!(r.changed, 1, "multipart content replacement must be a change");
+    assert_eq!(r.content_identical, 0);
     assert_eq!(sink.keys("changed"), vec!["big.bin"]);
-    assert!(j.get("big.bin").unwrap().etag.ends_with("-2"));
+    let recorded = j.get("big.bin").unwrap().etag.clone();
+    assert!(
+        recorded.ends_with("-2"),
+        "the part-count suffix is kept verbatim, never parsed as a hash: {recorded}"
+    );
+    sink.clear();
+
+    // Same bytes re-uploaded multipart under yet another ETag: churn, not a
+    // change. The journal still catches up so the NEXT cycle is free again.
+    store.put_with_etag("big.bin", "0123456789abc", "ffffffffffffffffffffffffffffffff-3");
+    let r = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r.changed, 0, "identical bytes under a new ETag is not a change");
+    assert_eq!(r.content_identical, 1);
+    assert!(sink.keys("changed").is_empty());
+    assert!(j.get("big.bin").unwrap().etag.ends_with("-3"));
+    let r = poll_once(&store, &mut j, &o, &mut sink, 3, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r.gets, 0, "and the cycle after the churn costs nothing");
 }
 
 /// The overlap case: the object is replaced WHILE the cycle is fetching and
@@ -608,6 +646,10 @@ fn run_watch_stops_at_max_cycles_and_reports_every_cycle() {
     let o = WatchOptions {
         poll_interval: Duration::from_millis(10),
         max_cycles: Some(3),
+        // A 10 ms poll really is ~259,200,000 Class A operations a month, and the
+        // guard is right to refuse it. This test is about the loop, not the
+        // guard, so it accepts the cost explicitly rather than hiding it.
+        allow_cost: true,
         ..opts()
     };
     let mut seen: Vec<u64> = Vec::new();
@@ -634,6 +676,7 @@ fn the_status_file_is_what_an_operator_reads_without_attaching_to_the_process() 
         poll_interval: Duration::from_millis(5),
         max_cycles: Some(2),
         status_path: Some(status.clone()),
+        allow_cost: true,
         ..opts()
     };
     run_watch(&store, &mut j, &o, &mut sink, &|| false, &mut |_| {}).unwrap();

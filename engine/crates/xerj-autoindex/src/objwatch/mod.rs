@@ -495,10 +495,12 @@ pub fn poll_once(
     // is the cheapest thing we do — so the guard runs here, before any GET and
     // before the sink is told anything.
     let known_keys = (journal.len() as u64).max(listed.len() as u64);
-    let projection = Projection::new(
+    let projection = Projection::from_millis(
         known_keys,
         cost::list_calls_for_keys(known_keys),
-        opts.poll_interval.as_secs(),
+        // Milliseconds, not `as_secs()`: a sub-second interval truncates to 0 s,
+        // which projects as unbounded and refuses for the wrong reason.
+        opts.poll_interval.as_millis().min(u128::from(u64::MAX)) as u64,
         opts.max_monthly_class_a,
     );
     let mut warnings: Vec<String> = Vec::new();
