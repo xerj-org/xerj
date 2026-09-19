@@ -437,7 +437,7 @@ catalog → verify.
     page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`
     detector; archives are never opened — a `.zip`/`.tgz` is junk with the command to
     extract it; no PST/OST/Maildir — and a measured limit: on a 1 GB synthetic
-    mailbox the client peaked under 300 MB but the NODE needed 68.5 GB of RSS to
+    mailbox the client peaked under 300 MB but the NODE needed 66.9 GiB of RSS to
     finish and did not finish under its default 16 GiB cap, #948; warn the person
     before indexing a multi-GB export), and gzip-compressed variants.
   - Types are INFERRED from bounded samples (default 500 records/file, `--sample N`):
