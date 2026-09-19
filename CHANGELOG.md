@@ -27,13 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   100,000-object prefix costs 4,320,000/month, over four times the whole
   allowance. So the default interval is 300 s, the default budget is 200,000
   Class A ops/month (20% of the tier, because the rest of the account spends
-  from it too), and a first cycle whose projection exceeds the budget is
-  **refused** with exit 4 and a decision-request document naming the minimum
-  safe interval — the same contract the folder-indexing gate uses.
+  from it too), and a cycle whose projection exceeds the budget is **refused**
+  with exit 4 and a decision-request document naming the minimum safe interval
+  — the same contract the folder-indexing gate uses. The budget is a CIRCUIT
+  BREAKER on every cycle, not a greeting on the first: a prefix that grows past
+  it mid-watch stops the watch, and so does a month whose allowance is spent
+  (Class A and Class B are counted in `<state-dir>/objwatch-spend.json`, which
+  survives restarts, so a supervisor restart loop cannot mint a fresh budget
+  each time). GETs have their own budget, `--max-monthly-gets`, default
+  2,000,000 (20% of the 10,000,000 Class B tier).
   `--append-only` turns a growing key space into one list call per cycle via
   `start-after` (and cannot detect deletes, which is why it is opt-in),
   `--no-fetch` is metadata-only at zero Class B operations, `--dry-run` prices
-  a poll without running one, and every cycle reports list calls, reads, bytes
+  a poll and records nothing at all (no read, no event, no journal), changed
+  objects are fetched 8 at a time with the events still emitted in listing
+  order, keys come back from the listing byte for byte (whitespace and entity
+  references included), an edit past `--max-object-mb` is always emitted
+  because a prefix digest cannot prove the bytes are unchanged, and one
+  transient listing failure after the first cycle is retried at the next poll
+  rather than ending the watch (five in a row end it), and every cycle reports list calls, reads, bytes
   and wall time to stderr plus a status file an operator can read without
   attaching to the process. Cycles never overlap: the schedule is fixed at
   `t0 + k*interval` and deadlines a long cycle passed through are counted and

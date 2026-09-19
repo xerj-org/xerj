@@ -32,8 +32,12 @@ evidence:
     source: "engine/crates/xerj-autoindex/src/objwatch/cost.rs"
   - claim: "The default poll interval is 300 seconds and the default budget is 200,000 Class A operations a month, which is 20 percent of the free tier."
     source: "engine/crates/xerj-autoindex/src/objwatch/cost.rs"
-  - claim: "A first cycle over budget is refused with exit code 4 and a decision-request document that names the minimum safe interval."
+  - claim: "A cycle whose projection is over budget is refused with exit code 4 and a decision-request document that names the minimum safe interval, on any cycle and not only the first."
     source: "engine/crates/xerj-autoindex/src/objwatch/mod.rs"
+  - claim: "The Class A and Class B operations spent this calendar month are counted in the state directory and survive a restart; when the budget is spent, the next cycle is refused."
+    source: "engine/crates/xerj-autoindex/src/objwatch/cost.rs"
+  - claim: "A dry run reads nothing, emits nothing and records nothing, so a real run afterwards still emits every object."
+    source: "engine/crates/xerj-autoindex/tests/objwatch_minio.rs"
   - claim: "Change is decided by ETag, then size, then LastModified, against a journal of what was seen before."
     source: "engine/crates/xerj-autoindex/src/objwatch/mod.rs"
   - claim: "A multipart object's ETag has the form hex-partcount and is not a hash of the content, so it is compared as an opaque string."
@@ -48,7 +52,7 @@ faq:
   - q: "What is a safe poll interval on Cloudflare R2's free tier?"
     a: "The free tier is 1,000,000 Class A operations a month, which is about 23 a minute for a whole account. The default 300-second interval runs 8,640 cycles a month, so it stays inside a 200,000-operation budget up to roughly 23,000 objects. A 5-second poll costs 518,400 a month even on an empty bucket."
   - q: "What happens if I ask for an interval that cannot stay inside the budget?"
-    a: "The first cycle is refused. Nothing is read and nothing is emitted; a JSON decision-request document goes to stdout, the exit code is 4, and it names the smallest interval that fits. `--allow-cost` accepts the spend instead."
+    a: "The cycle is refused. Nothing is read and nothing is emitted; a JSON decision-request document goes to stdout, the exit code is 4, and it names the smallest interval that fits. `--allow-cost` accepts the spend instead. The budget is a circuit breaker checked on every cycle, not a greeting on the first one: a prefix that grows past it while the watch is running stops the watch, and the month's spend is counted in the state directory, so restarting the watcher does not hand it a fresh allowance."
   - q: "How do I watch a bucket with a million objects?"
     a: "Not whole. A full pass is 1,000 list calls, so 8,640,000 Class A operations a month at the default interval. Scope the watch to the prefixes that change, run one watcher per prefix, or use `--append-only` if the key space only grows."
   - q: "Does `--append-only` detect deletions?"
@@ -80,7 +84,7 @@ Object stores price operations in classes. `ListObjectsV2` is in the expensive o
 | B | `GetObject`, `HeadObject` | 10,000,000 |
 | free | `DeleteObject` | — |
 
-One list call returns at most 1,000 keys. A prefix holding N objects therefore costs `ceil(N / 1000)` Class A operations on every cycle, whether anything changed or not. An empty prefix still costs one: you have to ask to learn that it is empty.
+One list call returns at most 1,000 keys — `--page-size` keys, and 1,000 is both the default and the API maximum. A prefix holding N objects therefore costs `ceil(N / page_size)` Class A operations on every cycle, whether anything changed or not. An empty prefix still costs one: you have to ask to learn that it is empty. A smaller page costs proportionally more, and the projection is computed at the page size the watch actually uses.
 
 1,000,000 operations a month is about **23 a minute for a whole account**, shared with everything else that account does:
 
@@ -100,9 +104,11 @@ Those numbers come from `objwatch/cost.rs`, and a test in that file asserts each
 
 The default interval is **300 seconds**. The default budget is **200,000 Class A operations a month**, which is 20 percent of the free tier. It is not all of the tier, because the rest of the account spends from the same allowance.
 
-If the first cycle's projection exceeds the budget, the run is **refused**. Nothing is read, nothing is emitted, a JSON decision-request document goes to stdout and the exit code is 4. The document carries `min_safe_interval_secs`, the smallest interval that fits, so the next command is obvious. Three answers are offered: a longer interval, `--append-only`, or `--allow-cost` to accept the spend. A **later** cycle that drifts over budget warns rather than stopping, because the bucket grew while the watcher was running and killing a running watcher is worse than telling its operator.
+If a cycle's projection exceeds the budget, the run is **refused**. Nothing is read, nothing is emitted, a JSON decision-request document goes to stdout and the exit code is 4. The document carries `min_safe_interval_secs`, the smallest interval that fits, so the next command is obvious. Three answers are offered: a longer interval, `--append-only`, or `--allow-cost` to accept the spend.
 
-Price it before you commit with `--dry-run`, which runs one cycle, reads no objects and emits nothing.
+The budget is a **circuit breaker, checked on every cycle**. A prefix that grows past the budget while the watch runs stops the watch. A month whose allowance is spent stops it too: the operations spent this calendar month are counted in `<state-dir>/objwatch-spend.json`. That file survives a restart, so a supervisor that restarts a crashing watcher cannot give it a fresh budget every minute. Reads have a budget of their own, `--max-monthly-gets`, which defaults to 2,000,000 and is checked before the first read of a cycle.
+
+Price it before you commit with `--dry-run`. It runs one cycle, reads no objects, emits nothing and writes no journal, so the real run afterwards still sees every object as new.
 
 ## Making it cheaper
 
@@ -137,8 +143,9 @@ Every cycle prints one line to stderr, because stdout is the change feed:
 
 ```text
 xerj-watch cycle=3 added=0 changed=2 deleted=0 unchanged=1198 same_bytes=0
-  list_calls=2 gets=2 fetched=41.2KB wall=0.38s | month-to-date: list_calls=8
-  gets=5 (8.6% of free-tier Class A if sustained)
+  list_calls=2 gets=2 fetched=41.2KB wall=0.38s | this process: list_calls=8
+  gets=5 | month-to-date 2026-09: Class A 8/200000 budget, Class B 5
+  | projected 8.6% of the free-tier Class A if sustained
 ```
 
 The same totals are written to `<state-dir>/objwatch-status.json`, so an operator or an agent can read them without attaching to the process. `--json` turns the per-cycle line into a JSON object.

@@ -44,10 +44,17 @@ Cloudflare R2 (and S3, with different prices) splits operations into classes.
 | B | `GetObject`, `HeadObject` | 10,000,000 / month |
 | free | `DeleteObject`, `AbortMultipartUpload` | — |
 
-One list call returns at most 1,000 keys, so **one full scan of an N-object
-prefix costs `ceil(N / 1000)` Class A operations, every cycle, whether anything
-changed or not.** An empty prefix still costs one: you have to ask to learn it is
-empty.
+One list call returns at most 1,000 keys — `--page-size` keys, and 1,000 is both
+the default and the API maximum — so **one full scan of an N-object prefix costs
+`ceil(N / page_size)` Class A operations, every cycle, whether anything changed
+or not.** An empty prefix still costs one: you have to ask to learn it is empty,
+and a store serves one extra empty page when the key count divides exactly by the
+page size.
+
+The page size is part of the bill, not a tuning knob: `--page-size 10` on a
+26-object prefix is **three** list calls a cycle, not one. The projection is
+computed at the page size the watch actually uses, and is never lower than the
+number of calls the store just served.
 
 1,000,000 Class A operations a month is about **23 a minute for the whole
 account**. That is the number every default here is derived from:
@@ -79,9 +86,15 @@ asserts them, so this table cannot drift away from the code that enforces it.
   (`DEFAULT_MAX_MONTHLY_CLASS_A`) — 20% of the free tier, not 100%, because the
   same account's other buckets spend from the same allowance. A watcher that
   budgets for all of it leaves nothing for the product it is watching for.
-* A **first cycle** whose projection exceeds the budget is **refused**. Nothing
-  is fetched and nothing is emitted; a decision-request document goes to stdout
-  and the exit code is **4**, the same contract the folder-indexing gate uses:
+* **Default GET budget: 2,000,000 Class B operations a month**
+  (`DEFAULT_MAX_MONTHLY_CLASS_B`, `--max-monthly-gets`) — 20% of that free tier,
+  for the same reason. A first scan reads every object once and a churning
+  prefix re-reads every changed one, so GETs need a breaker of their own.
+* The budget is a **circuit breaker, checked on every cycle**, not a first-cycle
+  greeting. Any cycle whose projection is over budget stops the watch; so does a
+  month whose Class A or Class B budget is spent. Nothing further is fetched or
+  emitted; a decision-request document goes to stdout and the exit code is **4**,
+  the same contract the folder-indexing gate uses:
 
 ```json
 {"xerj":"objwatch-decision-request","exit_code":4,"reason":"poll_cost_over_budget",
@@ -94,9 +107,39 @@ asserts them, so this table cannot drift away from the code that enforces it.
 ```
 
   `min_safe_interval_secs` is the inverse of the projection: the smallest
-  interval that fits the budget. A **later** cycle that goes over budget warns
-  instead of stopping — the bucket grew while the watcher was running, and
-  killing a live watcher is worse than telling its operator.
+  interval that fits the budget.
+
+  A later cycle used to **warn** and keep polling when the bucket grew past the
+  budget. It does not any more (#968 review, F8): a warning on stderr that nobody
+  reads is how a watcher spends someone's free tier overnight, so growth past the
+  budget stops the watch with the same exit 4 and `"cycle": N` in the document.
+  `--allow-cost` is the way to say yes on purpose.
+
+#### The three breakers
+
+| reason (in the JSON) | what tripped | answers |
+|---|---|---|
+| `poll_cost_over_budget` | `ceil(keys / page_size) x cycles_per_month` exceeds `--max-monthly-ops`, on any cycle | `--poll-interval`, a narrower prefix, `--append-only`, `--allow-cost` |
+| `monthly_class_a_budget_spent` | the Class A operations ALREADY spent this calendar month plus the next listing exceed the budget | `--max-monthly-ops`, `--allow-cost`, or wait for the new month |
+| `monthly_class_b_budget_spent` | the GETs this cycle needs plus those already spent exceed `--max-monthly-gets`; checked before the first GET, so nothing is fetched | `--no-fetch`, `--max-monthly-gets`, `--allow-cost` |
+
+The spend is counted in `<state-dir>/objwatch-spend.json`
+(`{"month":"2026-09","class_a":...,"class_b":...}`, reset on the first cycle of a
+new UTC month) so that it **survives restarts**. Without it, a watcher a
+supervisor restarts — on every crash, every deploy — would start a fresh
+process-local count each time and could rescan a large bucket all month without
+ever tripping. Failed requests are counted too: whether a 503 is billed is the
+provider's call, and the ledger assumes it is.
+
+The budget is per state directory. Five watchers on five prefixes are five
+budgets, and 5 x 200,000 Class A is the whole free tier — run them with
+`--max-monthly-ops` divided, or watch fewer prefixes.
+
+* A **dry run records nothing**: no GET, no event, and the journal is neither
+  written nor created. It reports the change set it *would* emit and prices the
+  poll. (It used to record every object it saw, so the next real run believed the
+  whole bucket was already indexed and emitted nothing — #968 review, F1.) The
+  list calls it makes are real, so they do go into the spend ledger.
 
 ### Making the poll cheaper
 
@@ -104,7 +147,7 @@ asserts them, so this table cannot drift away from the code that enforces it.
 |---|---|---|
 | a narrower prefix (`s3://bucket/2026/09/`) | `ceil(keys_under_prefix / 1000)` | changes outside the prefix are invisible |
 | `--poll-interval` | linear in the interval | detection latency |
-| `--append-only` | **one** list call per cycle, at any bucket size | no delete detection, and no detection of edits to keys below the highest one seen |
+| `--append-only` | **one** list call per cycle, at any bucket size (plus one backfill scan on the first cycle, which is not priced as recurring) | no delete detection, and no detection of edits to keys below the highest one seen |
 | `--no-fetch` | zero Class B operations | no content digest, so ETag churn looks like an edit |
 
 `--append-only` is the large one and it is the only lever that breaks the linear
@@ -140,8 +183,9 @@ else, so `--watch | jq` works):
 
 ```
 xerj-watch cycle=3 added=0 changed=2 deleted=0 unchanged=1198 same_bytes=0 \
-  list_calls=2 gets=2 fetched=41.2KB wall=0.38s | month-to-date: list_calls=8 \
-  gets=5 (8.6% of free-tier Class A if sustained)
+  list_calls=2 gets=2 fetched=41.2KB wall=0.38s | this process: list_calls=8 \
+  gets=5 | month-to-date 2026-09: Class A 8/200000 budget, Class B 5 \
+  | projected 8.6% of the free-tier Class A if sustained
 ```
 
 `--json` replaces that line with the same content as one JSON object per cycle.
@@ -153,12 +197,14 @@ an operator or an agent can read without attaching to the process:
 {"xerj":"objwatch-status","location":"s3://logs/2026/09/ @ …","updated_at":"…",
  "totals":{"cycles":3,"list_calls_class_a":8,"gets_class_b":5,
            "bytes_fetched":42188,"keys_listed":3600,"events":2,
-           "skipped_deadlines":0,"errors":0},
+           "skipped_deadlines":0,"errors":0,"failed_cycles":0},
  "projection":{"monthly_class_a":8640,"free_tier_percent":0.9,…}}
 ```
 
-`--dry-run` runs exactly one cycle, fetches nothing and emits nothing: it exists
-to price a poll before you commit to it.
+`--dry-run` runs exactly one cycle, fetches nothing, emits nothing and records
+nothing: it exists to price a poll before you commit to it, and leaves the state
+directory as it found it (bar the spend ledger, which counts the listing it did
+make).
 
 `skipped_deadlines` counts poll deadlines that passed while a cycle was still
 running. It matters because it means the **effective** interval is longer than
@@ -193,6 +239,35 @@ Two details that are easy to get wrong, and what this does about them:
   re-indexing an unchanged document costs a bulk request, a merge and a refresh
   for no gain. Those objects appear as `same_bytes` on the cycle line.
 
+An object longer than `--max-object-mb` is read up to the cap, and its digest
+therefore covers a **prefix**. A prefix digest can never prove "the bytes are the
+same", so an edit past the cap used to hash identical and be dropped without a
+trace (#968 review, F4). A metadata change on a capped object is now always
+emitted, with `truncated: true` on the event, counted as `truncated=` on the
+cycle line, and with a warning naming the cap.
+
+**Keys are opaque bytes and are handed back exactly as they were stored.** The
+`ListObjectsV2` XML is parsed without whitespace trimming and with entity
+references resolved, because trimming turned `a &amp; b` into `a&b` and dropped
+a trailing space — and the watcher then asked for a key that does not exist and
+got a 404 on every cycle, forever (#968 review, F5). A key whose path the URL
+parser would rewrite (a `.` or `..` segment) cannot be addressed over HTTP at
+all; it is refused with that explanation before a request is sent, rather than
+signed for one path and served as another.
+
+Changed objects are fetched with at most **8 GETs in flight**
+(`FETCH_CONCURRENCY`), in batches bounded by object count and by the bytes a
+batch may hold, and the events are still emitted in listing order. Serially, a
+10,000-object first scan over a 50 ms link is over eight minutes of waiting.
+
+A cycle that **fails outright** — a 503, a timeout, a dropped connection — after
+the first one is reported as a failed cycle (`failed_cycles` in the totals) and
+retried at the next scheduled poll, never immediately: retrying at once would
+hammer a store that is already asking for less traffic. Five failures in a row
+end the watch. The first cycle's failure is returned immediately, because on a
+fresh start it is almost always a wrong endpoint, key or bucket, which waiting
+does not fix.
+
 The bytes the watcher reads are what the digest covers. It records the ETag from
 the **GET response**, not the one the listing showed, so an object replaced
 between the list and the read is noticed on the next cycle instead of being
@@ -200,9 +275,16 @@ silently missed. A store that sends no ETag on GET is flagged
 (`etag_unverified`) and re-read once to confirm by digest, and the flag clears as
 soon as it does — one extra read per change, not one per cycle forever.
 
-The journal is saved after every accepted object, so a watcher killed mid-cycle
-re-processes only what it had not finished. It is keyed by endpoint, bucket and
-prefix, and refuses to be reused for a different location. One watcher per state
+The journal is saved every 256 accepted objects or every 2 seconds, whichever
+comes first, and at the end of every cycle, so a watcher killed mid-cycle
+re-emits at most that window and never loses an update — an object is recorded
+only after the sink accepted its event, and the feed is at-least-once by design.
+It used to save after *every* object, which fsynced a rewrite of the whole file
+once per object: the #968 review measured **310.91 s** for a 10,000-object
+`--no-fetch` first cycle against MinIO. The same scan now takes **0.16 s** with
+40 journal saves instead of 10,000
+(`f9_a_ten_thousand_object_first_scan_is_linear`, same host, local MinIO). It is
+keyed by endpoint, bucket and prefix, and refuses to be reused for a different location. One watcher per state
 directory is enforced with a lock file: two sharing a journal would each see the
 other's writes as bucket changes and re-index them in a loop.
 
@@ -280,15 +362,16 @@ change.
 | `--watch` | — | required; polls instead of indexing |
 | `--poll-interval <secs>` | 300 | seconds between cycles, 1 to 86,400 |
 | `--once` / `--max-cycles <N>` | run until stopped | stop after one / N cycles |
-| `--dry-run` | off | one cycle, no reads, nothing emitted: price the poll |
+| `--dry-run` | off | one cycle, no reads, nothing emitted, nothing recorded: price the poll |
 | `--no-fetch` | off | metadata only: compare ETag, size and modification time, never read bytes |
 | `--append-only` | off | `start-after` the highest key seen; one list call per cycle, no deletes |
 | `--endpoint-url <URL>` | `AWS_ENDPOINT_URL` | R2: `https://<account>.r2.cloudflarestorage.com` |
 | `--region <R>` | `AWS_REGION`, else `auto` | SigV4 signing region; R2 wants `auto` |
 | `--max-object-mb <N>` | 64 | byte cap per object read; a longer object is recorded as `truncated` |
-| `--max-monthly-ops <N>` | 200,000 | the Class A budget the projection is checked against |
-| `--allow-cost` | off | proceed although the projection is over budget |
-| `--page-size <N>` | 1000 | keys per list call; 1,000 is the API maximum and the billing unit |
+| `--max-monthly-ops <N>` | 200,000 | the Class A budget, enforced on every cycle and across restarts |
+| `--max-monthly-gets <N>` | 2,000,000 | the Class B (GET) budget, same enforcement |
+| `--allow-cost` | off | proceed although a budget says no — the only way past any of the three breakers |
+| `--page-size <N>` | 1000 | keys per list call; 1,000 is the API maximum, and the page is the billing unit — a smaller page costs proportionally more |
 | `--events-out <PATH>` | stdout | where the JSONL change feed goes |
 | `--status-file <PATH>` | `<state-dir>/objwatch-status.json` | the running counts |
 | `--state-dir <PATH>` | `~/.xerj/autoindex/<hash>/` | the journal and the lock |
@@ -335,13 +418,18 @@ jq '.totals' ~/.xerj/autoindex/*/objwatch-status.json
 
 ## Tests
 
-`objwatch`'s unit tests drive an in-process store and cover the diff, the cost
-guard, the journal, ETag churn, metadata-only mode, pagination, append-only and
-the status file. `engine/crates/xerj-autoindex/tests/objwatch_minio.rs` covers
+`objwatch`'s unit tests drive an in-process store and cover the diff, the three
+cost breakers, the spend ledger across restarts, the journal, ETag churn,
+metadata-only mode, pagination, append-only, dry runs, truncated objects,
+transient failures and the status file. `engine/crates/xerj-autoindex/tests/objwatch_minio.rs` covers
 the wire against a real S3-compatible server: SigV4, a real gateway's
 `ListObjectsV2` XML and continuation tokens, a real multipart upload's ETag, a
 quiet poll that must do zero reads and exactly one list call, a cycle that
-outruns its interval, and journal resume. It is environment-gated and skips with
+outruns its interval, journal resume, and every defect the #968 review
+reproduced: the dry run through the CLI, the page-size projection, an edit past
+the byte cap, awkward keys (trailing spaces, spaces around `&`, Unicode, `%`,
+`+`, `#`, `?`), the append-only backfill, growth past the budget, a transient
+503, and a 10,000-object first scan. It is environment-gated and skips with
 a printed reason:
 
 ```sh
@@ -365,6 +453,14 @@ of the endpoint and credentials — the other variables could plausibly be set b
 CI environment; that one cannot be set by accident.
 
 ### The measured R2 run (2026-09-19)
+
+Measured on commit `0f785c19`, **before** the remediation of the #968 review.
+The operation counts are unaffected by it — the same cycles issue the same list
+calls and the same GETs — but the wall times predate the bounded-concurrency
+fetch and have deliberately NOT been re-measured: re-running against a metered
+bucket to learn a number MinIO can give is exactly what this file says not to
+do. The `f9_a_ten_thousand_object_first_scan_is_linear` MinIO figures above are
+the current timing evidence.
 
 24 objects of 100-124 bytes under one prefix, `--page-size 10` so three pages
 exercise R2's continuation tokens:
@@ -390,11 +486,10 @@ Two things it confirmed rather than assumed:
   re-read. The size and last-modified fallbacks exist for gateways that do not,
   and they were not needed here.
 
-The first cycle's 19.91 s is 24 sequential HTTPS round trips from this host to
-R2, not throughput: the watcher fetches one object at a time on purpose, because
-a bucket-wide first poll that opened 24 connections would be a thundering herd
-against the store it is watching. Concurrency there is a legitimate improvement
-and is not implemented.
+The first cycle's 19.91 s was 24 **sequential** HTTPS round trips from this host
+to R2, not throughput. That is what made the review's 10,000-object case take
+minutes; fetches now run 8 at a time, bounded, so a first poll is faster without
+becoming a thundering herd against the store it is watching.
 
 The 1,000-key page boundary is not re-tested against R2: `--page-size 10`
 establishes the continuation-token path for 24 objects, and proving it at the
