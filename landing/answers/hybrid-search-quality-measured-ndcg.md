@@ -2,7 +2,7 @@
 ---
 title: "How much better is hybrid search than BM25? Measured."
 canonical: "https://xerj.org/answers/hybrid-search-quality-measured-ndcg"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/hybrid-search-quality-measured-ndcg.md"
 ---
 

@@ -422,7 +422,7 @@
       "canonical_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg",
       "markdown_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg.md",
       "cluster": "Hybrid retrieval: quality",
-      "updated": "2026-09-18",
+      "updated": "2026-09-19",
       "summary": "XERJ measured BM25, vectors and hybrid RRF on two public BEIR datasets. Hybrid won both: nDCG@10 0.6993 against 0.6572 on SciFact, with a neural embedder."
     },
     {
