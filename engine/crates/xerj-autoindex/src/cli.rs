@@ -466,8 +466,9 @@ pub fn help_text_with(feedback: bool) -> String {
                                       one list call per cycle, and NO delete or older-key\n\
                                       change detection — opt in only for an append-only\n\
                                       key space such as date-partitioned logs\n\
-             --dry-run                one cycle, no GETs, nothing emitted or recorded: price\n\
-                                      the poll\n\
+             --dry-run                one cycle, no GETs, nothing emitted, no journal: price\n\
+                                      the poll. The listing itself is real and IS billed\n\
+                                      (ceil(keys/page-size) Class A ops, on the ledger)\n\
              --endpoint-url <URL>     S3 endpoint (else AWS_ENDPOINT_URL). R2:\n\
                                       https://<account>.r2.cloudflarestorage.com\n\
              --region <R>             signing region (else AWS_REGION, else auto)\n\
@@ -925,6 +926,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
+    // Is the root an object-storage URL? Computed HERE, above every watch
+    // check, rather than next to the routing block below, because
+    // `feat/autoindex-watch` (#967) inserts its own `if watch { … }` block a few
+    // lines down and both branches need to know which route a watch is on. See
+    // the MERGE NOTE at the routing block.
+    let root_is_object_url = root_raw
+        .as_deref()
+        .map(looks_like_object_url)
+        .unwrap_or(false);
+
     // `--approve fast` is not a hint: it is the answer "index everything, but
     // without the two expensive features", and the run has to actually apply
     // them. Accepting the word and indexing semantically anyway is precisely
@@ -991,10 +1002,25 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     //
     // Three refusals, all of the same kind: a flag that is accepted and then
     // does nothing is the defect class this repo refuses on purpose (#204).
-    let root_is_object_url = root_raw
-        .as_deref()
-        .map(looks_like_object_url)
-        .unwrap_or(false);
+    //
+    // MERGE NOTE for `feat/autoindex-watch` (#967), which adds `--watch` for a
+    // LOCAL folder. The two branches touch different lines of this function, so
+    // git merges them cleanly and produces a build that compiles and is wrong:
+    // the `watch && !root_is_object_url` refusal below would reject
+    // `xerj autoindex <folder> --watch --no-graph` and #967's whole feature
+    // would be dead. Whichever lands second must:
+    //   1. DELETE the `if watch && !root_is_object_url { … }` refusal;
+    //   2. keep `if watch && root_is_object_url { … }` on the block that
+    //      follows it (already written that way here, so a local watch falls
+    //      through to #967's route instead of being swallowed);
+    //   3. gate #967's own `if watch { … }` block (the one refusing
+    //      `--watch --dry-run` and requiring `--no-graph`) on
+    //      `!root_is_object_url` — an object-storage watch supports `--dry-run`
+    //      and has no graph route at all;
+    //   4. keep a test for BOTH routes in one run: #967's
+    //      `index(&["data", "--watch", "--no-graph"]).watch` and this file's
+    //      `the_watch_route_needs_an_object_url` / `watch(&["s3://b/",
+    //      "--watch", "--dry-run"])`.
     if !watch && !watch_flags_used.is_empty() {
         let used = {
             let mut u = watch_flags_used.clone();
@@ -1025,7 +1051,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 .into(),
         );
     }
-    if watch {
+    // `&& root_is_object_url` is redundant today (the refusal above guarantees
+    // it) and load-bearing the moment #967's local route lands: see the MERGE
+    // NOTE.
+    if watch && root_is_object_url {
         if sub.is_some() {
             return Err(format!(
                 "--watch does not apply to `autoindex {}`",

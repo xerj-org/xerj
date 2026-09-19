@@ -1047,11 +1047,18 @@ fn a_transient_list_failure_is_survived_on_a_real_server() -> Result<()> {
     Ok(())
 }
 
-/// F9: a 10,000-object first scan. The review measured 310.91 s for the
-/// `--no-fetch` case against MinIO; the cause was one fsynced rewrite of the
-/// whole journal per object. Times are printed, and the assertion bound is
-/// deliberately loose (a shared CI runner is not a benchmark); the saves count
-/// is the exact regression guard.
+/// F9: a 10,000-object first scan. The cause of the old quadratic cost was one
+/// fsynced rewrite of the whole journal per object; the exact regression guard
+/// is the SAVES count, not a time.
+///
+/// The times are printed and the wall-clock bound is deliberately loose,
+/// because a shared runner is not a benchmark — and because the journal's
+/// filesystem dominates the result when it is saved per object. The published
+/// before/after pair was re-measured for the #968 remediation on both, on one
+/// host and one MinIO container; see docs/WATCHING_OBJECT_STORAGE.md. Set
+/// `XERJ_F9_STATE_BASE` to put the journal somewhere other than the default
+/// temp directory (which is tmpfs on many Linux boxes, where fsync is nearly
+/// free and a per-object save looks much cheaper than it is on a disk).
 #[test]
 fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
     let Some(env) = minio() else { return Ok(()) };
@@ -1059,6 +1066,7 @@ fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(10_000);
+    let state_base = std::env::var("XERJ_F9_STATE_BASE").ok();
     let (src, prefix) = source(&env, "bulk")?;
     let keys: Vec<String> = (0..n).map(|i| format!("{prefix}b{i:06}.txt")).collect();
     let t = std::time::Instant::now();
@@ -1066,7 +1074,10 @@ fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
     eprintln!("F9 seeded {n} objects in {:.2}s", t.elapsed().as_secs_f64());
 
     for fetch in [false, true] {
-        let dir = tempfile::tempdir()?;
+        let dir = match &state_base {
+            Some(base) => tempfile::Builder::new().prefix("f9-").tempdir_in(base)?,
+            None => tempfile::tempdir()?,
+        };
         let mut j = journal_for(&env, dir.path(), &prefix, false);
         let mut o = opts(300_000);
         o.fetch = fetch;
@@ -1080,8 +1091,9 @@ fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
             &|| false,
         )?;
         eprintln!(
-            "F9 first scan fetch={fetch}: {} objects, {} list calls, {} GETs, {} journal saves, \
-             wall {:.2}s",
+            "F9 first scan fetch={fetch} journal_in={}: {} objects, {} list calls, {} GETs, {} \
+             journal saves, wall {:.2}s",
+            dir.path().display(),
             r.added,
             r.list_calls,
             r.gets,
@@ -1103,5 +1115,163 @@ fn f9_a_ten_thousand_object_first_scan_is_linear() -> Result<()> {
     let t = std::time::Instant::now();
     cleanup(&src, &prefix);
     eprintln!("F9 cleanup {:.2}s", t.elapsed().as_secs_f64());
+    Ok(())
+}
+
+/// The child half of `b1_a_watcher_killed_mid_scan_still_owes_what_it_spent`:
+/// one `--page-size 1` first scan over a 2,000-object prefix, which is 2,000
+/// `ListObjectsV2` calls the parent can kill in the middle of.
+fn b1_child(state: &str, prefix: &str) -> Result<()> {
+    let env = minio().expect("the child inherits the parent's MinIO environment");
+    let src = S3Source::new(
+        &env.endpoint,
+        "us-east-1",
+        env.creds.clone(),
+        S3Location {
+            bucket: env.bucket.clone(),
+            prefix: prefix.to_string(),
+        },
+        std::time::Duration::from_secs(30),
+    )?;
+    let dir = std::path::Path::new(state);
+    let mut j = journal_for(&env, dir, prefix, false);
+    let mut o = opts(300_000);
+    o.fetch = false;
+    o.page_size = 1;
+    let r = objwatch::poll_once(
+        &src,
+        &mut j,
+        &o,
+        &mut Recorder::default(),
+        0,
+        &mut CostTotals::default(),
+        &|| false,
+    )?;
+    eprintln!("B1CHILD-COMPLETED list_calls={}", r.list_calls);
+    Ok(())
+}
+
+fn b1_ledger_class_a(path: &std::path::Path) -> Option<u64> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str::<serde_json::Value>(&raw)
+        .ok()?
+        .get("class_a")?
+        .as_u64()
+}
+
+/// B1 of the #968 verification, with a real `kill -9`.
+///
+/// The blocker: `scan()` may issue up to the whole remaining monthly allowance
+/// in one cycle, and the ledger was charged only after it returned. The
+/// verifier killed a 2,001-call scan five times — the store served 49, 98, 146,
+/// 194 and 241 list calls and `objwatch-spend.json` was never created — so a
+/// supervisor restarting a crashing watcher got a fresh budget every attempt,
+/// which is the opposite of what the docs and the published answers page
+/// promise ("that file survives a restart, so a supervisor that restarts a
+/// crashing watcher cannot give it a fresh budget every minute").
+///
+/// This test re-executes its own test binary as a child, kills it with SIGKILL
+/// while the first scan is still listing, and then asserts the two things the
+/// claim needs: the ledger on disk owes what was spent, and a restart against
+/// that ledger is refused instead of being handed a fresh allowance.
+///
+/// Before the fix it fails on the `< total_calls` assertion (the only value the
+/// ledger ever holds is the whole finished scan) or on "the child finished
+/// before the ledger recorded anything".
+#[test]
+fn b1_a_watcher_killed_mid_scan_still_owes_what_it_spent() -> Result<()> {
+    if let Ok(state) = std::env::var("XERJ_B1_CHILD_STATE") {
+        let prefix = std::env::var("XERJ_B1_CHILD_PREFIX").expect("child prefix");
+        return b1_child(&state, &prefix);
+    }
+    let Some(env) = minio() else { return Ok(()) };
+    let n: u64 = 2_000;
+    let (src, prefix) = source(&env, "b1kill")?;
+    let keys: Vec<String> = (0..n).map(|i| format!("{prefix}k{i:05}.txt")).collect();
+    seed(&src, &keys, b"x")?;
+    // One key per page: the scan is at LEAST `n` calls long (MinIO served
+    // 2,001 for 2,000 keys), which is the window the kill has to land in.
+    let scan_floor_calls = n;
+
+    let dir = tempfile::tempdir()?;
+    let ledger = dir.path().join("objwatch-spend.json");
+    let mut child = std::process::Command::new(std::env::current_exe()?)
+        .arg("b1_a_watcher_killed_mid_scan_still_owes_what_it_spent")
+        .arg("--exact")
+        .arg("--nocapture")
+        .env("XERJ_B1_CHILD_STATE", dir.path())
+        .env("XERJ_B1_CHILD_PREFIX", &prefix)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    let at_kill = loop {
+        if let Some(c) = b1_ledger_class_a(&ledger) {
+            if c >= 32 {
+                break c;
+            }
+        }
+        if let Some(status) = child.try_wait()? {
+            cleanup(&src, &prefix);
+            anyhow::bail!(
+                "the child finished ({status}) before the ledger ever showed a partial spend: \
+                 the cost of a scan in flight is not on disk, so a crash loses it"
+            );
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            cleanup(&src, &prefix);
+            anyhow::bail!("the spend ledger never appeared while the scan was running");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    };
+    child.kill()?; // SIGKILL
+    let status = child.wait()?;
+    let after = b1_ledger_class_a(&ledger).unwrap_or(0);
+    eprintln!(
+        "B1 killed at class_a={at_kill}, ledger after SIGKILL={after} of >={scan_floor_calls} \
+         calls, child {status}"
+    );
+
+    assert!(
+        status.code().is_none(),
+        "the child was supposed to die by signal, not exit ({status})"
+    );
+    assert!(
+        after >= 32,
+        "the ledger held {after} after a kill mid-scan: the spend was lost"
+    );
+    assert!(
+        after < scan_floor_calls,
+        "the ledger only ever held the FINISHED scan ({after}, and the scan is at least \
+         {scan_floor_calls} calls) — the spend of a scan IN FLIGHT never reached the disk, \
+         which is the case B1 is about"
+    );
+
+    // And the claim itself: a restart does not get a fresh allowance. The
+    // budget is set to exactly what the killed run already owes, so the next
+    // cycle must refuse before issuing a call.
+    let mut j = journal_for(&env, dir.path(), &prefix, false);
+    let mut o = opts(300_000);
+    o.fetch = false;
+    o.page_size = 1;
+    o.max_monthly_class_a = after;
+    let err = objwatch::poll_once(
+        &src,
+        &mut j,
+        &o,
+        &mut Recorder::default(),
+        0,
+        &mut CostTotals::default(),
+        &|| false,
+    )
+    .expect_err("a restart must not be handed a fresh budget");
+    let refused = err
+        .downcast_ref::<objwatch::PollCostRefused>()
+        .expect("a cost refusal");
+    assert_eq!(refused.spent.class_a, after);
+
+    cleanup(&src, &prefix);
     Ok(())
 }

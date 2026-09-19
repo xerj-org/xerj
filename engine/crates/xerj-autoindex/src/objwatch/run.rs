@@ -151,8 +151,9 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
         );
         if cfg.dry_run {
             eprintln!(
-                "xerj-watch: dry run — one cycle, no GETs, nothing emitted, nothing recorded. It \
-                 prices the poll."
+                "xerj-watch: dry run — one cycle, no GETs, nothing emitted, no journal. The \
+                 LISTING is real: it costs Class A operations and is charged to the spend \
+                 ledger like any other cycle."
             );
         }
     }
@@ -246,8 +247,9 @@ pub fn run(cfg: WatchCfg) -> Result<i32> {
                 eprintln!("xerj-watch: {}", last.projection.line());
                 eprintln!(
                     "xerj-watch: dry run saw {} added, {} changed, {} deleted; it emitted and \
-                     recorded none of them, so the next real run starts from the same state",
-                    last.added, last.changed, last.deleted
+                     recorded none of them, so the next real run starts from the same state. \
+                     The price check itself cost {} Class A list call(s), on the ledger.",
+                    last.added, last.changed, last.deleted, last.list_calls
                 );
             }
         }

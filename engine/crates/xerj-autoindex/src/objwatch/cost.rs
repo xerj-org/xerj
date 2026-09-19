@@ -35,6 +35,22 @@ pub const MAX_KEYS_PER_LIST: u64 = 1_000;
 /// product it is watching for.
 pub const DEFAULT_MAX_MONTHLY_CLASS_A: u64 = 200_000;
 
+/// How many Class A operations a scan charges to the ledger in one write.
+///
+/// The ledger is written BEFORE the calls it pays for, in batches of this size,
+/// so a process killed mid-scan still owes what it spent (#968 review, B1: five
+/// `kill -9`s two seconds into a 2,001-call scan served 241 list calls and the
+/// ledger file was never created, because the whole cycle's spend was charged
+/// only after `scan()` returned). The unused tail of the last batch is refunded
+/// when the scan ends, so a completed cycle records exactly what the store
+/// served.
+///
+/// 16 is the trade: a crash can over-record at most 15 operations out of a
+/// 200,000 default budget, and a full 10,000-object scan at the default page
+/// size costs two ledger writes instead of one. It is never allowed to
+/// under-record, because under-recording is the direction that spends money.
+pub const CLASS_A_CHARGE_BATCH: u64 = 16;
+
 /// Default poll interval: 5 minutes.
 ///
 /// Chosen so the default is free-tier-safe on a realistic bucket rather than on
@@ -277,6 +293,19 @@ impl SpendLedger {
     /// Load `<state_dir>/objwatch-spend.json`, or start at zero. A ledger for a
     /// past month is a new month's allowance; an unreadable one is an error,
     /// because treating it as zero would hand a broken watcher a fresh budget.
+    ///
+    /// A ledger stamped with a **future** month is not a new allowance either
+    /// (#968 review, m3). `{"month":"2099-01",…}` used to roll over to zero on
+    /// every load, so a backwards clock step across a UTC month boundary — a VM
+    /// restored from a snapshot, an NTP correction, a container with no RTC —
+    /// minted a fresh budget. The spend is carried into the current month
+    /// instead, and the anomaly is reported on stderr.
+    ///
+    /// What this still cannot defend against: **deleting** the file. The state
+    /// directory is the trust boundary, and a ledger that is not there is
+    /// indistinguishable from a first run. Anything that can unlink it can
+    /// reset the budget; that is why the file lives beside the journal and the
+    /// lock rather than in a temp directory.
     pub fn open(state_dir: &std::path::Path) -> anyhow::Result<SpendLedger> {
         use anyhow::Context;
         let path = state_dir.join(Self::FILE);
@@ -292,6 +321,24 @@ impl SpendLedger {
             })?;
             if s.month == month {
                 s
+            } else if s.month.as_str() > month.as_str() {
+                // "YYYY-MM" sorts chronologically, so this is a ledger from the
+                // future: the clock moved backwards. Keep the spend.
+                eprintln!(
+                    "xerj-watch: spend ledger {} is stamped {}, which is after the current UTC \
+                     month {month} — the clock moved backwards. Carrying the recorded spend \
+                     (Class A {}, Class B {}) into {month} rather than granting a fresh \
+                     allowance.",
+                    path.display(),
+                    s.month,
+                    s.class_a,
+                    s.class_b
+                );
+                MonthSpend {
+                    month,
+                    class_a: s.class_a,
+                    class_b: s.class_b,
+                }
             } else {
                 MonthSpend {
                     month,
@@ -335,6 +382,22 @@ impl SpendLedger {
         self.roll();
         self.spend.class_a = self.spend.class_a.saturating_add(class_a);
         self.spend.class_b = self.spend.class_b.saturating_add(class_b);
+    }
+
+    /// Give back Class A operations that were charged in advance and then not
+    /// made. Only [`SpendLedger::reserve_class_a`]'s unused tail is ever
+    /// refunded, so a completed cycle records exactly the calls the store
+    /// served, while a crashed one keeps the conservative over-charge.
+    pub fn refund_class_a(&mut self, class_a: u64) {
+        self.spend.class_a = self.spend.class_a.saturating_sub(class_a);
+    }
+
+    /// Charge `class_a` operations and put the ledger on disk BEFORE they are
+    /// made. The pair exists as one call so a caller cannot charge without
+    /// persisting, which is the bug this replaced.
+    pub fn reserve_class_a(&mut self, class_a: u64) -> anyhow::Result<()> {
+        self.add(class_a, 0);
+        self.save()
     }
 
     /// Atomic write (temp file + rename), so a crash never leaves a half file
@@ -461,6 +524,15 @@ mod tests {
         assert_eq!(
             projected_monthly_class_a(list_calls_for_keys(100_000), 1),
             259_200_000
+        );
+
+        // Every cell above is the ARITHMETIC FLOOR, and both documents now say
+        // so (#968 review, m1). A real store may serve more: MinIO served 11
+        // calls for 10,000 keys at page size 1,000 — ten full pages, then an
+        // empty one — which is the figure the docs publish beside the 86,400.
+        assert_eq!(
+            projected_monthly_class_a(11, DEFAULT_POLL_INTERVAL_SECS),
+            95_040
         );
     }
 

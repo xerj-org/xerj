@@ -10,7 +10,11 @@
 //!   the whole cycle, and never loses an update (an entry is recorded only
 //!   after the sink accepted its event). It used to save after EVERY object,
 //!   which rewrote and fsynced a growing file once per object: a quadratic
-//!   first scan that the #968 review measured at 310.91 s for 10,000 objects.
+//!   first scan. Re-measured for the #968 remediation on one host against one
+//!   MinIO, 10,000 objects, `--no-fetch`: 17.95 s -> 0.19 s with the journal on
+//!   ext4, 6.08 s -> 0.19 s with it on tmpfs, and 10,000 saves -> 40. (The
+//!   310.91 s the review first reported did not reproduce, and its "after" was
+//!   taken on tmpfs while its "before" was not.)
 //!   The feed is at-least-once either way; the ids downstream are idempotent.
 //! * **Identity.** It records the endpoint, bucket and prefix it was built
 //!   from and refuses to be reused for a different one. Silently adopting

@@ -46,10 +46,34 @@ Cloudflare R2 (and S3, with different prices) splits operations into classes.
 
 One list call returns at most 1,000 keys — `--page-size` keys, and 1,000 is both
 the default and the API maximum — so **one full scan of an N-object prefix costs
-`ceil(N / page_size)` Class A operations, every cycle, whether anything changed
-or not.** An empty prefix still costs one: you have to ask to learn it is empty,
-and a store serves one extra empty page when the key count divides exactly by the
-page size.
+at least `ceil(N / page_size)` Class A operations, every cycle, whether anything
+changed or not.** An empty prefix still costs one: you have to ask to learn it is
+empty.
+
+`ceil(N / page_size)` is the **floor, not the bill.** When a store stops paging
+is implementation-defined: it may set `IsTruncated` on a page it has just filled
+and only reveal that there is nothing after it when you ask again. Measured
+against MinIO at page size 1,000 (`boto3`, one `list_objects_v2` paginator,
+counted per call):
+
+| objects | calls MinIO served | pages returned |
+|---|---|---|
+| 1,000 | 1 | `(1000, IsTruncated=false)` |
+| 2,000 | 2 | `(1000, true) (1000, false)` |
+| 3,000 | **4** | three full pages, then `(0, false)` |
+| 5,000 | **6** | five full pages, then `(0, false)` |
+| 10,000 | **11** | ten full pages, then `(0, false)` |
+
+So this page used to give the wrong reason ("a store serves one extra empty page
+when the key count divides exactly by the page size", #968 review, m1): 1,000 and
+2,000 divide exactly and cost no extra page, while 3,000 and 5,000 do. Above two
+pages MinIO's walker cannot tell it has reached the end without asking once more.
+Another gateway will draw that line somewhere else again.
+
+The code is not optimistic about it — the projection takes
+`max(ceil(keys / page_size), calls the store actually served this cycle)`, so a
+store that pages differently raises the projection rather than hiding under it.
+Budget for `ceil(N / page_size) + 1` and you will not be surprised.
 
 The page size is part of the bill, not a tuning knob: `--page-size 10` on a
 26-object prefix is **three** list calls a cycle, not one. The projection is
@@ -59,13 +83,19 @@ number of calls the store just served.
 1,000,000 Class A operations a month is about **23 a minute for the whole
 account**. That is the number every default here is derived from:
 
-| objects under the prefix | list calls / cycle | every 5 s | every 60 s | every 300 s (default) | every 3600 s |
+| objects under the prefix | list calls / cycle (floor) | every 5 s | every 60 s | every 300 s (default) | every 3600 s |
 |---|---|---|---|---|---|
 | 0 (empty) | 1 | 518,400 | 43,200 | 8,640 | 720 |
 | 1,000 | 1 | 518,400 | 43,200 | 8,640 | 720 |
 | 10,000 | 10 | 5,184,000 | 432,000 | 86,400 | 7,200 |
 | 100,000 | 100 | 51,840,000 | 4,320,000 | 864,000 | 72,000 |
 | 1,000,000 | 1,000 | 518,400,000 | 43,200,000 | 8,640,000 | 720,000 |
+
+Every cell is `ceil(N / 1000)` calls times the cycles in a 30-day month — the
+**floor**, for the reason above. MinIO served **11** calls for the 10,000-object
+row, not 10, which is 95,040 operations a month at the default interval rather
+than 86,400: about 10% more. That row used to be published as if 10 were the
+number to plan with.
 
 Read the first row again: **a 5-second poll on an empty bucket spends half the
 free tier to watch nothing.** A 60-second poll on a 100,000-object bucket spends
@@ -130,6 +160,36 @@ supervisor restarts — on every crash, every deploy — would start a fresh
 process-local count each time and could rescan a large bucket all month without
 ever tripping. Failed requests are counted too: whether a 503 is billed is the
 provider's call, and the ledger assumes it is.
+
+**The ledger is written before the calls it pays for.** A first scan of a large
+bucket is one long run of `ListObjectsV2` calls, and the #968 verification found
+that charging the cycle after the scan returned made the restart claim above
+false for exactly the crash mode it names: five `kill -9`s two seconds into a
+2,001-call scan served 49, 98, 146, 194 and 241 list calls between them, and
+`objwatch-spend.json` was never created. A supervisor with a short start-up
+timeout, an OOM killer, or a redeploy loop could therefore spend the whole
+month's allowance without the ledger learning a thing.
+
+So the scan reserves `CLASS_A_CHARGE_BATCH` (16) operations at a time and
+persists the ledger *first*, then makes those calls, and refunds the unused tail
+of the last reservation when it finishes. A killed scan over-records by at most
+15 operations — the safe direction, out of a 200,000 default budget — and a
+completed cycle records exactly what the store served, which is the invariant
+the MinIO tests assert (reported `list_calls` == calls served == ledger
+`class_a`). The proof is
+`b1_a_watcher_killed_mid_scan_still_owes_what_it_spent` in
+`tests/objwatch_minio.rs`: it SIGKILLs a child mid-scan and then shows the
+restart being refused on the killed run's own spend.
+
+A ledger stamped with a **future** month is not a new allowance either. It used
+to reset to zero, so a backwards clock step across a UTC month boundary — a VM
+restored from a snapshot, an NTP correction, a container with no RTC — minted a
+fresh budget (#968 review, m3). The recorded spend is now carried into the
+current month and the anomaly is printed. What this still cannot defend against
+is **deleting** the file: the state directory is the trust boundary, and a
+ledger that is absent is indistinguishable from a first run. Anything that can
+unlink it can reset the budget — which is one more reason for the state
+directory to be a durable path the watcher owns, not a temp directory.
 
 The budget is per state directory. Five watchers on five prefixes are five
 budgets, and 5 x 200,000 Class A is the whole free tier — run them with
@@ -279,14 +339,36 @@ The journal is saved every 256 accepted objects or every 2 seconds, whichever
 comes first, and at the end of every cycle, so a watcher killed mid-cycle
 re-emits at most that window and never loses an update — an object is recorded
 only after the sink accepted its event, and the feed is at-least-once by design.
-It used to save after *every* object, which fsynced a rewrite of the whole file
-once per object: the #968 review measured **310.91 s** for a 10,000-object
-`--no-fetch` first cycle against MinIO. The same scan now takes **0.16 s** with
-40 journal saves instead of 10,000
-(`f9_a_ten_thousand_object_first_scan_is_linear`, same host, local MinIO). It is
-keyed by endpoint, bucket and prefix, and refuses to be reused for a different location. One watcher per state
-directory is enforced with a lock file: two sharing a journal would each see the
-other's writes as bucket changes and re-index them in a loop.
+It used to save after *every* object, which fsynced a rewrite of the whole,
+growing file once per object: a quadratic first scan.
+
+**Re-measured for the #968 remediation, because the number this page used to
+carry did not reproduce.** It said 310.91 s before and 0.16 s after; the "after"
+had been taken with the journal in `tempfile::tempdir()`, which is **tmpfs** on
+this kind of box, where an fsync is nearly free, and the "before" almost
+certainly had not. Neither half named its filesystem. Both halves have now been
+run on one host (32 cores, ext4 on NVMe for `/`, tmpfs on `/tmp`, load1 ~3),
+against one MinIO container, over the same 10,000 objects, `--no-fetch`, and the
+filesystem is named:
+
+| 10,000-object `--no-fetch` first scan | journal on ext4 | journal on tmpfs |
+|---|---|---|
+| before (`0f785c19`, save per object) | **17.95 s** | **6.08 s** |
+| after (`f9_a_ten_thousand_object_first_scan_is_linear`) | **0.19 s** | **0.19 s** |
+| speed-up | **94x** | **32x** |
+| journal saves | 10,000 -> **40** | 10,000 -> **40** |
+
+So the honest headline is **94x on a disk**, not the ~1,900x the old pair
+implied — and the saves count, 10,000 down to 40, is the part that is exact,
+provable and asserted by the test. The same scan WITH fetching (10,000 GETs at 8
+in flight) is 0.84 s on ext4 and 0.68 s on tmpfs. Both scans served **11**
+`ListObjectsV2` calls for 10,000 keys, which is the paging behaviour described at
+the top of this page, counted by the watcher itself.
+
+The journal is keyed by endpoint, bucket and prefix, and refuses to be reused for
+a different location. One watcher per state directory is enforced with a lock
+file: two sharing a journal would each see the other's writes as bucket changes
+and re-index them in a loop.
 
 ## Polling versus events
 

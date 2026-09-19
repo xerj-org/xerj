@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   event per added, changed or deleted object — it produces a change feed and
   does NOT index; the object-store indexer plugs into the same `ChangeSink`.
   The cost model is the feature, not a footnote: `ListObjectsV2` is a **Class A**
-  operation at one call per 1,000 keys per cycle, charged whether anything
-  changed or not, against Cloudflare R2's free tier of 1,000,000 Class A
+  operation at **at least** one call per 1,000 keys per cycle, charged whether
+  anything changed or not (at least, because when a store stops paging is its
+  own choice: MinIO serves 11 calls for 10,000 keys, not 10, so the projection
+  takes whichever is larger, the arithmetic or what the store just served), against Cloudflare R2's free tier of 1,000,000 Class A
   operations a month (~23/minute for a whole account). A 5 s poll on an *empty*
   bucket costs 518,400/month — half the tier to watch nothing; a 60 s poll on a
   100,000-object prefix costs 4,320,000/month, over four times the whole
@@ -34,12 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it mid-watch stops the watch, and so does a month whose allowance is spent
   (Class A and Class B are counted in `<state-dir>/objwatch-spend.json`, which
   survives restarts, so a supervisor restart loop cannot mint a fresh budget
-  each time). GETs have their own budget, `--max-monthly-gets`, default
+  each time — the ledger is written BEFORE the calls it pays for, sixteen at a
+  time, so a `kill -9` in the middle of a long first scan still leaves the run
+  owing what it spent, and a ledger stamped with a future month is a backwards
+  clock step rather than a new allowance). GETs have their own budget, `--max-monthly-gets`, default
   2,000,000 (20% of the 10,000,000 Class B tier).
   `--append-only` turns a growing key space into one list call per cycle via
   `start-after` (and cannot detect deletes, which is why it is opt-in),
   `--no-fetch` is metadata-only at zero Class B operations, `--dry-run` prices
-  a poll and records nothing at all (no read, no event, no journal), changed
+  a poll and records nothing at all (no read, no event, no journal) though the
+  listing it makes is real and billed like any other cycle, changed
   objects are fetched 8 at a time with the events still emitted in listing
   order, keys come back from the listing byte for byte (whitespace and entity
   references included), an edit past `--max-object-mb` is always emitted

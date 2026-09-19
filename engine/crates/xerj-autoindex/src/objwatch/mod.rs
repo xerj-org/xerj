@@ -542,8 +542,9 @@ pub fn diff(journal: &WatchJournal, listed: &[ObjectMeta], detect_deletes: bool)
 ///
 /// A save rewrites the whole file and fsyncs it, so saving after EVERY object
 /// made a first scan quadratic: 10,000 objects meant 10,000 rewrites of a file
-/// growing to ~2 MB, and the #968 review measured 310.91 s for a 10,000-object
-/// `--no-fetch` first cycle against a local MinIO. Batching bounds what a crash
+/// growing to ~2 MB. Measured against a local MinIO, one host, 10,000 objects,
+/// `--no-fetch`: 17.95 s with the journal on ext4 and 6.08 s on tmpfs, against
+/// 0.19 s either way after this change. Batching bounds what a crash
 /// can cost to re-emitting the last window of events (the feed is
 /// at-least-once; the object-storage indexer's ids are idempotent) and turns
 /// the save cost from O(n^2) into O(n).
@@ -604,6 +605,20 @@ enum ScanOutcome {
 /// `calls` is incremented per request SENT, including one that then fails, so a
 /// failing listing is still charged to the ledger. `max_calls` is the Class A
 /// allowance left this month; the scan stops before exceeding it.
+///
+/// **The ledger is written before the calls it pays for.** A scan can issue up
+/// to `max_calls` requests — 200,000 on a fresh month at the default budget —
+/// and charging the whole cycle after the loop meant a process killed inside it
+/// recorded nothing at all: the #968 verification killed a 2,001-call scan five
+/// times, the store served 241 list calls, and `objwatch-spend.json` was never
+/// created. A supervisor restarting a crashing watcher then got a fresh budget
+/// every time, which is exactly what the ledger exists to prevent.
+///
+/// So the loop reserves [`cost::CLASS_A_CHARGE_BATCH`] operations at a time,
+/// persisting the ledger first, and refunds the unused tail of the last
+/// reservation when it ends. A crash over-records by at most a batch (the safe
+/// direction); a completed scan records exactly what the store served.
+#[allow(clippy::too_many_arguments)]
 fn scan(
     src: &dyn ObjectSource,
     prefix: &str,
@@ -611,37 +626,50 @@ fn scan(
     page_size: u64,
     max_calls: u64,
     calls: &mut u64,
+    ledger: &mut SpendLedger,
     stop: &dyn Fn() -> bool,
 ) -> Result<ScanOutcome> {
     let mut out: Vec<ObjectMeta> = Vec::new();
     let mut token: Option<String> = None;
     let mut made = 0u64;
-    loop {
-        if made >= max_calls {
-            return Ok(ScanOutcome::BudgetExhausted);
+    // Charged to the ledger and not yet spent. Refunded on every exit path.
+    let mut reserved = 0u64;
+    let outcome = (|| -> Result<ScanOutcome> {
+        loop {
+            if made >= max_calls {
+                return Ok(ScanOutcome::BudgetExhausted);
+            }
+            if reserved == 0 {
+                let want = cost::CLASS_A_CHARGE_BATCH.min(max_calls - made);
+                ledger.reserve_class_a(want)?;
+                reserved = want;
+            }
+            made += 1;
+            reserved -= 1;
+            *calls += 1;
+            let page = src.list(&ListRequest {
+                prefix,
+                continuation_token: token.as_deref(),
+                start_after: if token.is_some() { None } else { start_after },
+                delimiter: None,
+                max_keys: page_size,
+            })?;
+            out.extend(page.objects);
+            match page.next_token {
+                Some(t) => token = Some(t),
+                None => break,
+            }
+            if stop() {
+                // A cancelled scan is a partial listing: the caller must not
+                // treat it as authoritative, so say so rather than returning a
+                // truncated "truth".
+                bail!("listing cancelled after {made} call(s); no change set was derived");
+            }
         }
-        made += 1;
-        *calls += 1;
-        let page = src.list(&ListRequest {
-            prefix,
-            continuation_token: token.as_deref(),
-            start_after: if token.is_some() { None } else { start_after },
-            delimiter: None,
-            max_keys: page_size,
-        })?;
-        out.extend(page.objects);
-        match page.next_token {
-            Some(t) => token = Some(t),
-            None => break,
-        }
-        if stop() {
-            // A cancelled scan is a partial listing: the caller must not treat
-            // it as authoritative, so say so rather than returning a truncated
-            // "truth".
-            bail!("listing cancelled after {made} call(s); no change set was derived");
-        }
-    }
-    Ok(ScanOutcome::Complete(out))
+        Ok(ScanOutcome::Complete(std::mem::take(&mut out)))
+    })();
+    ledger.refund_class_a(reserved);
+    outcome
 }
 
 /// Fetch `keys` with at most [`FETCH_CONCURRENCY`] GETs in flight. Results come
@@ -757,10 +785,14 @@ pub fn poll_once(
         opts.page_size,
         allowance_left,
         &mut list_calls,
+        &mut ledger,
         stop,
     );
     totals.list_calls += list_calls;
-    ledger.add(list_calls, 0);
+    // `scan` already charged and persisted every call it made, batch by batch,
+    // and refunded the unused tail in memory. This save writes the exact
+    // figure — and runs before `scanned?` below, so a failed listing is still
+    // recorded.
     ledger.save()?;
     let listed = match scanned? {
         ScanOutcome::Complete(listed) => listed,
@@ -795,11 +827,15 @@ pub fn poll_once(
         }
     } else {
         let keys = (journal.len() as u64).max(listed.len() as u64);
-        // `.max(list_calls)`: a store serves one extra empty page when the key
-        // count is an exact multiple of the page size, and a gateway may page
-        // differently again. The arithmetic is the floor; what the store
-        // actually served this cycle is the truth, and the projection takes
-        // whichever is larger.
+        // `.max(list_calls)`: `ceil(keys / page_size)` is the FLOOR, not the
+        // bill. When a store stops paging is implementation-defined — it may
+        // set `IsTruncated` on a page it has just filled and only reveal that
+        // there is nothing after it on the next call. Measured against MinIO at
+        // page size 1,000: 1,000 objects -> 1 call, 2,000 -> 2, but 10,000 ->
+        // 11. So "the count divides exactly" is NOT the rule (1,000 and 2,000
+        // divide exactly and cost no extra page); what the store actually
+        // served this cycle is the truth, and the projection takes whichever is
+        // larger.
         (
             keys,
             cost::list_calls_for_keys_at(keys, opts.page_size).max(list_calls),

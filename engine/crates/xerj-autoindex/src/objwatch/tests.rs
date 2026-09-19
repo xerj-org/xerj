@@ -37,6 +37,11 @@ struct FakeStore {
     /// Fail the list call with this 0-based number, the way a 503 SlowDown
     /// does. `u64::MAX` = never.
     fail_list_call: AtomicU64,
+    /// Run before each list call is served, with its 0-based number. Lets a
+    /// test observe the world MID-SCAN — which is how the crash-safety of the
+    /// spend ledger is checked without killing the test process.
+    #[allow(clippy::type_complexity)]
+    on_list: Mutex<Option<Box<dyn Fn(u64) + Send>>>,
 }
 
 impl FakeStore {
@@ -48,6 +53,7 @@ impl FakeStore {
             after_get: Mutex::new(None),
             no_etag_on_get: AtomicU64::new(0),
             fail_list_call: AtomicU64::new(u64::MAX),
+            on_list: Mutex::new(None),
         }
     }
 
@@ -92,6 +98,9 @@ impl ObjectSource for FakeStore {
 
     fn list(&self, req: &ListRequest) -> Result<ListPage> {
         let n = self.list_calls.fetch_add(1, Ordering::SeqCst);
+        if let Some(f) = self.on_list.lock().unwrap().as_ref() {
+            f(n);
+        }
         if n == self.fail_list_call.load(Ordering::SeqCst) {
             anyhow::bail!("ListObjectsV2 returned 503 Service Unavailable: SlowDown");
         }
@@ -1277,8 +1286,10 @@ fn f8_the_class_b_budget_refuses_before_fetching() {
 }
 
 /// F9: the first scan's journal writes are O(n), not one full rewrite per
-/// object. 10,000 objects used to mean 10,000 fsynced rewrites (310.91 s
-/// against MinIO in the review).
+/// object. 10,000 objects used to mean 10,000 fsynced rewrites — 17.95 s for
+/// that scan against MinIO with the journal on ext4, 6.08 s on tmpfs, against
+/// 0.19 s either way now. The saves count is the exact guard; the times are in
+/// docs/WATCHING_OBJECT_STORAGE.md with their filesystems named.
 #[test]
 fn f9_a_large_first_scan_saves_the_journal_in_batches() {
     let dir = tempfile::tempdir().unwrap();
@@ -1411,4 +1422,147 @@ fn a_transient_list_failure_after_cycle_zero_is_retried_not_fatal() {
     .unwrap_err();
     assert!(format!("{err:#}").contains("in a row"), "{err:#}");
     assert_eq!(store.list_calls(), 1 + MAX_CONSECUTIVE_FAILED_CYCLES);
+}
+
+/// B1 of the #968 verification: **the ledger must be on disk before the calls
+/// it pays for.**
+///
+/// The blocker as reproduced: `scan()` may issue up to the whole remaining
+/// monthly allowance in one cycle, and the spend was charged only after it
+/// returned. Five `kill -9`s two seconds into a 2,001-call scan served 241 list
+/// calls and never created `objwatch-spend.json`, so a supervisor restarting a
+/// crashing watcher did get the fresh budget every time that the ledger is
+/// there to deny.
+///
+/// This is the deterministic half: a hook on the store reads the ledger FILE
+/// while the scan is still running, which is exactly what a crash at that
+/// instant would leave behind. `tests/objwatch_minio.rs` has the other half,
+/// with a real `kill -9`.
+#[test]
+fn a_scan_charges_the_ledger_before_the_calls_and_not_after() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    for i in 0..200 {
+        store.put(&format!("k{i:04}.txt"), "x");
+    }
+    // What a crash at list call N would have left in the ledger file.
+    let seen: std::sync::Arc<Mutex<Vec<(u64, u64)>>> = Default::default();
+    {
+        let state = dir.path().to_path_buf();
+        let seen = std::sync::Arc::clone(&seen);
+        *store.on_list.lock().unwrap() = Some(Box::new(move |n| {
+            let on_disk = std::fs::read_to_string(state.join(SpendLedger::FILE))
+                .ok()
+                .and_then(|raw| serde_json::from_str::<MonthSpend>(&raw).ok())
+                .map(|s| s.class_a)
+                .unwrap_or(0);
+            seen.lock().unwrap().push((n, on_disk));
+        }));
+    }
+
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    // One key per page: 200 objects is 201 list calls, the shape the blocker
+    // was reproduced in.
+    let o = WatchOptions {
+        page_size: 1,
+        fetch: false,
+        allow_cost: true,
+        ..opts()
+    };
+    let r = poll_once(
+        &store,
+        &mut j,
+        &o,
+        &mut sink,
+        0,
+        &mut CostTotals::default(),
+        &never_stop(),
+    )
+    .unwrap();
+    assert_eq!(r.list_calls, 200, "200 objects at one key per page");
+
+    let seen = seen.lock().unwrap().clone();
+    assert_eq!(seen.len(), 200);
+    // The first call is paid for before it is made, so even a crash on call 0
+    // owes something.
+    assert!(
+        seen[0].1 >= 1,
+        "the ledger was empty when the first list call went out: {:?}",
+        &seen[..1]
+    );
+    for (n, on_disk) in &seen {
+        assert!(
+            *on_disk > *n,
+            "list call {n} went out with only {on_disk} operation(s) recorded on disk — a crash \
+             here would lose {} of them",
+            n + 1 - on_disk
+        );
+        assert!(
+            *on_disk <= n + cost::CLASS_A_CHARGE_BATCH,
+            "list call {n} had {on_disk} recorded: over-charged by more than one batch"
+        );
+    }
+    // And a scan that finishes records EXACTLY what the store served: the
+    // unused tail of the last reservation is refunded.
+    assert_eq!(store.list_calls(), 200);
+    assert_eq!(
+        SpendLedger::open(dir.path()).unwrap().spend.class_a,
+        200,
+        "a completed cycle records what the store served, not the reservation"
+    );
+}
+
+/// m3 of the #968 verification: a ledger stamped with a FUTURE month is a
+/// backwards clock step, not a new allowance. It used to reset the spend to
+/// zero, so a VM restored from a snapshot across a UTC month boundary minted a
+/// fresh 200,000-operation budget.
+#[test]
+fn a_future_dated_ledger_does_not_mint_a_fresh_allowance() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(SpendLedger::FILE),
+        r#"{"month":"2099-01","class_a":200000,"class_b":7}"#,
+    )
+    .unwrap();
+    let l = SpendLedger::open(dir.path()).unwrap();
+    assert_eq!(l.spend.month, cost::current_month());
+    assert_eq!(
+        (l.spend.class_a, l.spend.class_b),
+        (200_000, 7),
+        "the recorded spend must be carried into the current month"
+    );
+
+    // And the watcher then refuses on it, which is the behaviour the reset
+    // defeated.
+    let store = FakeStore::new();
+    store.put("a.md", "alpha");
+    let mut j = journal(dir.path());
+    let mut sink = RecordingSink::default();
+    let o = WatchOptions {
+        max_monthly_class_a: 200_000,
+        ..opts()
+    };
+    let err = poll_once(
+        &store,
+        &mut j,
+        &o,
+        &mut sink,
+        0,
+        &mut CostTotals::default(),
+        &never_stop(),
+    )
+    .unwrap_err();
+    let refused = err.downcast_ref::<PollCostRefused>().expect("refused");
+    assert_eq!(refused.reason, RefusalReason::ClassABudgetSpent);
+    assert_eq!(store.list_calls(), 0, "refused before any call");
+
+    // A PAST month is still a new allowance — that is the whole point of a
+    // monthly budget.
+    std::fs::write(
+        dir.path().join(SpendLedger::FILE),
+        r#"{"month":"1999-01","class_a":200000,"class_b":7}"#,
+    )
+    .unwrap();
+    assert_eq!(SpendLedger::open(dir.path()).unwrap().spend.class_a, 0);
 }
