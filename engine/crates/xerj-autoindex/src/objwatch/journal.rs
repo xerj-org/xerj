@@ -90,7 +90,13 @@ impl WatchJournal {
         state_dir.join("objwatch.json")
     }
 
-    pub fn new(path: PathBuf, endpoint: &str, bucket: &str, prefix: &str, append_only: bool) -> WatchJournal {
+    pub fn new(
+        path: PathBuf,
+        endpoint: &str,
+        bucket: &str,
+        prefix: &str,
+        append_only: bool,
+    ) -> WatchJournal {
         let now = now_rfc3339();
         WatchJournal {
             version: FORMAT_VERSION,
@@ -122,7 +128,13 @@ impl WatchJournal {
             .with_context(|| format!("create watch state dir {}", state_dir.display()))?;
         let path = Self::path_in(state_dir);
         if fresh || !path.exists() {
-            return Ok(WatchJournal::new(path, endpoint, bucket, prefix, append_only));
+            return Ok(WatchJournal::new(
+                path,
+                endpoint,
+                bucket,
+                prefix,
+                append_only,
+            ));
         }
         let raw = std::fs::read_to_string(&path)
             .with_context(|| format!("read watch journal {}", path.display()))?;
@@ -219,8 +231,8 @@ impl WatchJournal {
             .unwrap_or_else(|| PathBuf::from("."));
         let tmp = dir.join(format!("objwatch.json.tmp.{}", std::process::id()));
         {
-            let mut f = std::fs::File::create(&tmp)
-                .with_context(|| format!("create {}", tmp.display()))?;
+            let mut f =
+                std::fs::File::create(&tmp).with_context(|| format!("create {}", tmp.display()))?;
             std::io::Write::write_all(&mut f, &body)?;
             f.sync_all().context("fsync watch journal")?;
         }
@@ -296,8 +308,7 @@ mod tests {
     #[test]
     fn a_saved_journal_reopens_with_the_same_entries() {
         let dir = tempfile::tempdir().unwrap();
-        let mut j =
-            WatchJournal::open(dir.path(), "http://h:1", "b", "p/", false, false).unwrap();
+        let mut j = WatchJournal::open(dir.path(), "http://h:1", "b", "p/", false, false).unwrap();
         j.record("p/a", obj("e1"));
         j.save().unwrap();
         let re = WatchJournal::open(dir.path(), "http://h:1", "b", "p/", false, false).unwrap();
@@ -308,8 +319,7 @@ mod tests {
     #[test]
     fn a_journal_from_another_location_is_refused() {
         let dir = tempfile::tempdir().unwrap();
-        let mut j =
-            WatchJournal::open(dir.path(), "http://h:1", "b", "p/", false, false).unwrap();
+        let mut j = WatchJournal::open(dir.path(), "http://h:1", "b", "p/", false, false).unwrap();
         j.record("p/a", obj("e1"));
         j.save().unwrap();
         for (ep, bucket, prefix) in [
@@ -329,8 +339,7 @@ mod tests {
     #[test]
     fn mixing_append_only_with_a_full_scan_journal_is_refused() {
         let dir = tempfile::tempdir().unwrap();
-        let mut j =
-            WatchJournal::open(dir.path(), "http://h:1", "b", "", false, false).unwrap();
+        let mut j = WatchJournal::open(dir.path(), "http://h:1", "b", "", false, false).unwrap();
         j.record("a", obj("e1"));
         j.save().unwrap();
         let err = WatchJournal::open(dir.path(), "http://h:1", "b", "", true, false)

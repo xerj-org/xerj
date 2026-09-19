@@ -116,7 +116,12 @@ pub struct Projection {
 }
 
 impl Projection {
-    pub fn new(keys_listed: u64, list_calls_per_cycle: u64, interval_secs: u64, budget: u64) -> Projection {
+    pub fn new(
+        keys_listed: u64,
+        list_calls_per_cycle: u64,
+        interval_secs: u64,
+        budget: u64,
+    ) -> Projection {
         Projection::from_millis(
             keys_listed,
             list_calls_per_cycle,
@@ -241,7 +246,51 @@ mod tests {
         // 1,000,000 objects (1,000 pages), 30 s poll: 86,400,000.
         assert_eq!(projected_monthly_class_a(1_000, 30), 86_400_000);
         // The default interval on a 10,000-object bucket.
-        assert_eq!(projected_monthly_class_a(10, DEFAULT_POLL_INTERVAL_SECS), 86_400);
+        assert_eq!(
+            projected_monthly_class_a(10, DEFAULT_POLL_INTERVAL_SECS),
+            86_400
+        );
+    }
+
+    /// The WHOLE table published in `docs/WATCHING_OBJECT_STORAGE.md` and in the
+    /// answers article, cell by cell. The two shorter tests above pin the
+    /// headline figures; this one makes it impossible to edit a cell in either
+    /// document without the suite noticing.
+    #[test]
+    fn every_cell_of_the_published_cost_table_is_reproduced_here() {
+        // (objects, [5s, 60s, 300s, 3600s])
+        let table: [(u64, [u64; 4]); 5] = [
+            (0, [518_400, 43_200, 8_640, 720]),
+            (1_000, [518_400, 43_200, 8_640, 720]),
+            (10_000, [5_184_000, 432_000, 86_400, 7_200]),
+            (100_000, [51_840_000, 4_320_000, 864_000, 72_000]),
+            (1_000_000, [518_400_000, 43_200_000, 8_640_000, 720_000]),
+        ];
+        for (objects, expected) in table {
+            let calls = list_calls_for_keys(objects);
+            for (interval, want) in [5u64, 60, 300, 3600].into_iter().zip(expected) {
+                assert_eq!(
+                    projected_monthly_class_a(calls, interval),
+                    want,
+                    "{objects} objects ({calls} list call(s)/cycle) every {interval}s"
+                );
+            }
+        }
+        // The two sentences the documents put in bold, as assertions.
+        // "A 5 s poll on an EMPTY bucket spends half the free tier to watch
+        // nothing" — 518,400 of 1,000,000, so more than half.
+        let empty_at_5s = projected_monthly_class_a(list_calls_for_keys(0), 5);
+        assert_eq!(empty_at_5s, 518_400);
+        assert!(empty_at_5s * 2 > CLASS_A_FREE_MONTHLY);
+        // "A 60 s poll on a 100,000-object bucket is over four times the tier."
+        assert!(
+            projected_monthly_class_a(list_calls_for_keys(100_000), 60) > 4 * CLASS_A_FREE_MONTHLY
+        );
+        // And the 1 s poll on a 100,000-object bucket the refusal text names.
+        assert_eq!(
+            projected_monthly_class_a(list_calls_for_keys(100_000), 1),
+            259_200_000
+        );
     }
 
     #[test]
@@ -268,7 +317,12 @@ mod tests {
 
     #[test]
     fn the_minimum_safe_interval_is_the_inverse_of_the_projection() {
-        for (calls, budget) in [(1u64, 200_000u64), (10, 200_000), (100, 1_000_000), (1_000, 1_000_000)] {
+        for (calls, budget) in [
+            (1u64, 200_000u64),
+            (10, 200_000),
+            (100, 1_000_000),
+            (1_000, 1_000_000),
+        ] {
             let secs = min_safe_interval_secs(calls, budget);
             assert!(
                 projected_monthly_class_a(calls, secs) <= budget,

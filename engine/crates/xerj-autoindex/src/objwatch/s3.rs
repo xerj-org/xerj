@@ -43,14 +43,18 @@ pub struct Credentials {
 impl Credentials {
     /// `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`.
     pub fn from_env() -> Option<Credentials> {
-        let id = std::env::var("AWS_ACCESS_KEY_ID").ok().filter(|v| !v.is_empty())?;
+        let id = std::env::var("AWS_ACCESS_KEY_ID")
+            .ok()
+            .filter(|v| !v.is_empty())?;
         let secret = std::env::var("AWS_SECRET_ACCESS_KEY")
             .ok()
             .filter(|v| !v.is_empty())?;
         Some(Credentials {
             access_key_id: id,
             secret_access_key: secret,
-            session_token: std::env::var("AWS_SESSION_TOKEN").ok().filter(|v| !v.is_empty()),
+            session_token: std::env::var("AWS_SESSION_TOKEN")
+                .ok()
+                .filter(|v| !v.is_empty()),
         })
     }
 }
@@ -187,14 +191,12 @@ impl S3Source {
             "AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}",
             hex_lower(&Sha256::digest(canonical_request.as_bytes()))
         );
-        let signature = hex_lower(&signing_key(
-            &self.creds.secret_access_key,
-            &date_stamp,
-            &self.region,
-        )?
-        .chain_update(string_to_sign.as_bytes())
-        .finalize()
-        .into_bytes());
+        let signature = hex_lower(
+            &signing_key(&self.creds.secret_access_key, &date_stamp, &self.region)?
+                .chain_update(string_to_sign.as_bytes())
+                .finalize()
+                .into_bytes(),
+        );
         let authorization = format!(
             "AWS4-HMAC-SHA256 Credential={}/{scope}, SignedHeaders={signed_header_names}, \
              Signature={signature}",
@@ -278,7 +280,10 @@ impl ObjectSource for S3Source {
             .map(normalize_etag);
         if !status.is_success() {
             let body = resp.text().unwrap_or_default();
-            bail!("GetObject {key} returned {status}: {}", first_chars(&body, 400));
+            bail!(
+                "GetObject {key} returned {status}: {}",
+                first_chars(&body, 400)
+            );
         }
         // Bounded read: a watcher must not be turned into an OOM by one
         // enormous object that appeared in the bucket.
@@ -313,7 +318,10 @@ impl S3Source {
         if body.contains("BucketAlreadyOwnedByYou") || body.contains("BucketAlreadyExists") {
             return Ok(());
         }
-        bail!("CreateBucket returned {status}: {}", first_chars(&body, 300))
+        bail!(
+            "CreateBucket returned {status}: {}",
+            first_chars(&body, 300)
+        )
     }
 
     pub fn put_object(&self, key: &str, body: &[u8]) -> Result<Option<String>> {
@@ -326,7 +334,10 @@ impl S3Source {
             .map(normalize_etag);
         if !status.is_success() {
             let text = resp.text().unwrap_or_default();
-            bail!("PutObject {key} returned {status}: {}", first_chars(&text, 300));
+            bail!(
+                "PutObject {key} returned {status}: {}",
+                first_chars(&text, 300)
+            );
         }
         Ok(etag)
     }
@@ -336,7 +347,10 @@ impl S3Source {
         let status = resp.status();
         if !status.is_success() && status.as_u16() != 404 {
             let text = resp.text().unwrap_or_default();
-            bail!("DeleteObject {key} returned {status}: {}", first_chars(&text, 300));
+            bail!(
+                "DeleteObject {key} returned {status}: {}",
+                first_chars(&text, 300)
+            );
         }
         Ok(())
     }
@@ -377,7 +391,10 @@ impl S3Source {
                 .map(|v| v.to_string());
             if !status.is_success() {
                 let text = resp.text().unwrap_or_default();
-                bail!("UploadPart {n} returned {status}: {}", first_chars(&text, 300));
+                bail!(
+                    "UploadPart {n} returned {status}: {}",
+                    first_chars(&text, 300)
+                );
             }
             etags.push((
                 n,
@@ -450,8 +467,16 @@ fn uri_encode(s: &str, encode_slash: bool) -> String {
             out.push('/');
         } else {
             out.push('%');
-            out.push(char::from_digit((b >> 4) as u32, 16).unwrap_or('0').to_ascii_uppercase());
-            out.push(char::from_digit((b & 0xf) as u32, 16).unwrap_or('0').to_ascii_uppercase());
+            out.push(
+                char::from_digit((b >> 4) as u32, 16)
+                    .unwrap_or('0')
+                    .to_ascii_uppercase(),
+            );
+            out.push(
+                char::from_digit((b & 0xf) as u32, 16)
+                    .unwrap_or('0')
+                    .to_ascii_uppercase(),
+            );
         }
     }
     out
@@ -651,27 +676,39 @@ mod tests {
     #[test]
     fn signing_key_chain_is_deterministic() {
         let a = hex_lower(
-            &signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "20150830", "us-east-1")
-                .unwrap()
-                .chain_update(b"x")
-                .finalize()
-                .into_bytes(),
+            &signing_key(
+                "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+                "20150830",
+                "us-east-1",
+            )
+            .unwrap()
+            .chain_update(b"x")
+            .finalize()
+            .into_bytes(),
         );
         let b = hex_lower(
-            &signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "20150830", "us-east-1")
-                .unwrap()
-                .chain_update(b"x")
-                .finalize()
-                .into_bytes(),
+            &signing_key(
+                "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+                "20150830",
+                "us-east-1",
+            )
+            .unwrap()
+            .chain_update(b"x")
+            .finalize()
+            .into_bytes(),
         );
         assert_eq!(a, b);
         assert_eq!(a.len(), 64);
         let other = hex_lower(
-            &signing_key("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "20150831", "us-east-1")
-                .unwrap()
-                .chain_update(b"x")
-                .finalize()
-                .into_bytes(),
+            &signing_key(
+                "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+                "20150831",
+                "us-east-1",
+            )
+            .unwrap()
+            .chain_update(b"x")
+            .finalize()
+            .into_bytes(),
         );
         assert_ne!(a, other, "a different date must derive a different key");
     }
@@ -710,7 +747,10 @@ mod tests {
         assert_eq!(page.objects[0].key, "docs/a&b.md");
         assert_eq!(page.objects[0].etag, "d41d8cd98f00b204e9800998ecf8427e");
         assert_eq!(page.objects[0].size, 12);
-        assert_eq!(page.objects[1].etag, "abc123-4", "multipart ETag keeps its -N");
+        assert_eq!(
+            page.objects[1].etag, "abc123-4",
+            "multipart ETag keeps its -N"
+        );
         assert_eq!(page.objects[1].size, 10_485_760);
         assert_eq!(page.next_token.as_deref(), Some("tok-1"));
         assert_eq!(page.common_prefixes, vec!["docs/sub/".to_string()]);

@@ -38,9 +38,15 @@ struct MinioEnv {
 }
 
 fn minio() -> Option<MinioEnv> {
-    let endpoint = std::env::var("XERJ_MINIO_ENDPOINT").ok().filter(|v| !v.is_empty());
-    let key = std::env::var("XERJ_MINIO_ACCESS_KEY").ok().filter(|v| !v.is_empty());
-    let secret = std::env::var("XERJ_MINIO_SECRET_KEY").ok().filter(|v| !v.is_empty());
+    let endpoint = std::env::var("XERJ_MINIO_ENDPOINT")
+        .ok()
+        .filter(|v| !v.is_empty());
+    let key = std::env::var("XERJ_MINIO_ACCESS_KEY")
+        .ok()
+        .filter(|v| !v.is_empty());
+    let secret = std::env::var("XERJ_MINIO_SECRET_KEY")
+        .ok()
+        .filter(|v| !v.is_empty());
     match (endpoint, key, secret) {
         (Some(endpoint), Some(access_key_id), Some(secret_access_key)) => Some(MinioEnv {
             endpoint,
@@ -172,12 +178,27 @@ fn first_poll_indexes_everything_and_a_quiet_second_poll_costs_one_list_call() -
     src.put_object(&format!("{prefix}b.txt"), b"beta beta")?;
 
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut sink = Recorder::default();
     let seen = sink.shared();
     let mut totals = CostTotals::default();
 
-    let r1 = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 0, &mut totals, &|| false)?;
+    let r1 = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        0,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r1.added, 2, "first poll adds both objects: {}", r1.line());
     assert_eq!(r1.changed, 0);
     assert_eq!(r1.deleted, 0);
@@ -185,8 +206,21 @@ fn first_poll_indexes_everything_and_a_quiet_second_poll_costs_one_list_call() -
     assert_eq!(r1.gets, 2, "each added object is fetched once");
     assert_eq!(r1.bytes_fetched, 7 + 9);
 
-    let r2 = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 1, &mut totals, &|| false)?;
-    assert_eq!(r2.gets, 0, "a quiet poll must issue ZERO GETs: {}", r2.line());
+    let r2 = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        1,
+        &mut totals,
+        &|| false,
+    )?;
+    assert_eq!(
+        r2.gets,
+        0,
+        "a quiet poll must issue ZERO GETs: {}",
+        r2.line()
+    );
     assert_eq!(r2.list_calls, 1, "and exactly one list call");
     assert_eq!(r2.bytes_fetched, 0);
     assert_eq!(r2.unchanged, 2);
@@ -195,7 +229,10 @@ fn first_poll_indexes_everything_and_a_quiet_second_poll_costs_one_list_call() -
     assert_eq!(totals.gets, 2, "and no Class B operation after the first");
 
     let events = seen.lock().unwrap().clone();
-    assert_eq!(kinds(&events, "added"), vec![format!("{prefix}a.md"), format!("{prefix}b.txt")]);
+    assert_eq!(
+        kinds(&events, "added"),
+        vec![format!("{prefix}a.md"), format!("{prefix}b.txt")]
+    );
     assert_eq!(events.len(), 2, "the quiet poll emitted nothing");
     let a = events.iter().find(|e| e.key.ends_with("a.md")).unwrap();
     assert_eq!(a.digest.as_deref(), Some(digest_of(b"# alpha").as_str()));
@@ -215,11 +252,26 @@ fn changed_new_and_deleted_objects_are_each_reported_once() -> Result<()> {
     src.put_object(&format!("{prefix}gone.txt"), b"doomed")?;
 
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut sink = Recorder::default();
     let seen = sink.shared();
     let mut totals = CostTotals::default();
-    let r1 = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 0, &mut totals, &|| false)?;
+    let r1 = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        0,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r1.added, 3);
     seen.lock().unwrap().clear();
 
@@ -227,23 +279,48 @@ fn changed_new_and_deleted_objects_are_each_reported_once() -> Result<()> {
     src.put_object(&format!("{prefix}new.txt"), b"brand new")?;
     src.delete_object(&format!("{prefix}gone.txt"))?;
 
-    let r2 = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 1, &mut totals, &|| false)?;
+    let r2 = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        1,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r2.added, 1, "{}", r2.line());
     assert_eq!(r2.changed, 1, "{}", r2.line());
     assert_eq!(r2.deleted, 1, "{}", r2.line());
     assert_eq!(r2.unchanged, 1, "keep.txt was not re-read: {}", r2.line());
-    assert_eq!(r2.gets, 2, "only the changed and the new object are fetched");
+    assert_eq!(
+        r2.gets, 2,
+        "only the changed and the new object are fetched"
+    );
 
     let events = seen.lock().unwrap().clone();
     assert_eq!(kinds(&events, "added"), vec![format!("{prefix}new.txt")]);
     assert_eq!(kinds(&events, "changed"), vec![format!("{prefix}edit.txt")]);
     assert_eq!(kinds(&events, "deleted"), vec![format!("{prefix}gone.txt")]);
     let edited = events.iter().find(|e| e.key.ends_with("edit.txt")).unwrap();
-    assert_eq!(edited.reason, "etag", "a real gateway changes the ETag on a rewrite");
-    assert_eq!(edited.digest.as_deref(), Some(digest_of(b"after, and longer").as_str()));
+    assert_eq!(
+        edited.reason, "etag",
+        "a real gateway changes the ETag on a rewrite"
+    );
+    assert_eq!(
+        edited.digest.as_deref(),
+        Some(digest_of(b"after, and longer").as_str())
+    );
     // The delete removed the journal entry, so a third poll is quiet again.
     assert!(j.get(&format!("{prefix}gone.txt")).is_none());
-    let r3 = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 2, &mut totals, &|| false)?;
+    let r3 = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        2,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r3.gets, 0, "{}", r3.line());
     assert_eq!(r3.added + r3.changed + r3.deleted, 0);
 
@@ -263,13 +340,31 @@ fn a_multipart_replacement_changes_the_etag_shape_and_is_re_extracted() -> Resul
     src.put_object(&key, b"small")?;
 
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut sink = Recorder::default();
     let seen = sink.shared();
     let mut totals = CostTotals::default();
-    objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 0, &mut totals, &|| false)?;
+    objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        0,
+        &mut totals,
+        &|| false,
+    )?;
     let single = j.get(&key).unwrap().etag.clone();
-    assert!(!single.contains('-'), "a single-part ETag has no part suffix: {single}");
+    assert!(
+        !single.contains('-'),
+        "a single-part ETag has no part suffix: {single}"
+    );
     seen.lock().unwrap().clear();
 
     // 5 MiB is S3's minimum non-final part size, and MinIO enforces it.
@@ -279,7 +374,15 @@ fn a_multipart_replacement_changes_the_etag_shape_and_is_re_extracted() -> Resul
     whole.extend_from_slice(&tail);
     src.put_object_multipart(&key, &[part, tail])?;
 
-    let r = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 1, &mut totals, &|| false)?;
+    let r = objwatch::poll_once(
+        &src,
+        &mut j,
+        &opts(1000),
+        &mut sink,
+        1,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r.changed, 1, "{}", r.line());
     assert_eq!(r.gets, 1);
     let after = j.get(&key).unwrap().etag.clone();
@@ -293,7 +396,10 @@ fn a_multipart_replacement_changes_the_etag_shape_and_is_re_extracted() -> Resul
     assert_eq!(events[0].reason, "etag");
     // The digest is of the bytes, NOT of the ETag — which for a multipart
     // object is not an MD5 of the content at all.
-    assert_eq!(events[0].digest.as_deref(), Some(digest_of(&whole).as_str()));
+    assert_eq!(
+        events[0].digest.as_deref(),
+        Some(digest_of(&whole).as_str())
+    );
     assert_eq!(events[0].size as usize, whole.len());
 
     cleanup(&src, &prefix);
@@ -308,10 +414,20 @@ fn a_multi_page_listing_is_complete_and_costs_one_call_per_page() -> Result<()> 
     let Some(env) = minio() else { return Ok(()) };
     let (src, prefix) = source(&env, "pages")?;
     for i in 0..25 {
-        src.put_object(&format!("{prefix}k{i:03}.txt"), format!("body {i}").as_bytes())?;
+        src.put_object(
+            &format!("{prefix}k{i:03}.txt"),
+            format!("body {i}").as_bytes(),
+        )?;
     }
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut sink = Recorder::default();
     let mut totals = CostTotals::default();
     let mut o = opts(1000);
@@ -320,7 +436,12 @@ fn a_multi_page_listing_is_complete_and_costs_one_call_per_page() -> Result<()> 
     let r = objwatch::poll_once(&src, &mut j, &o, &mut sink, 0, &mut totals, &|| false)?;
     assert_eq!(r.keys_listed, 25, "{}", r.line());
     assert_eq!(r.added, 25);
-    assert_eq!(r.list_calls, 3, "25 keys at 10 per page is 3 calls: {}", r.line());
+    assert_eq!(
+        r.list_calls,
+        3,
+        "25 keys at 10 per page is 3 calls: {}",
+        r.line()
+    );
     // And nothing is reported deleted on the next pass, which is what a short
     // scan would have caused.
     let r2 = objwatch::poll_once(&src, &mut j, &o, &mut sink, 1, &mut totals, &|| false)?;
@@ -341,7 +462,14 @@ fn metadata_only_mode_never_gets_even_when_an_object_changes() -> Result<()> {
     let key = format!("{prefix}x.txt");
     src.put_object(&key, b"one")?;
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut o = opts(1000);
     o.fetch = false;
     let mut sink = Recorder::default();
@@ -356,7 +484,10 @@ fn metadata_only_mode_never_gets_even_when_an_object_changes() -> Result<()> {
     assert_eq!(r2.gets, 0, "still zero Class B operations: {}", r2.line());
     assert_eq!(totals.bytes_fetched, 0);
     let events = seen.lock().unwrap().clone();
-    assert!(events.iter().all(|e| e.digest.is_none()), "no bytes means no digest");
+    assert!(
+        events.iter().all(|e| e.digest.is_none()),
+        "no bytes means no digest"
+    );
 
     cleanup(&src, &prefix);
     Ok(())
@@ -377,7 +508,14 @@ fn a_cycle_that_outruns_its_interval_neither_double_indexes_nor_loses_an_update(
     src.put_object(&b, b"b-v1")?;
 
     let dir = tempfile::tempdir()?;
-    let mut j = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     let mut o = opts(200);
     o.max_cycles = Some(3);
     // Each accepted object takes longer than the whole poll interval, so cycle
@@ -401,7 +539,10 @@ fn a_cycle_that_outruns_its_interval_neither_double_indexes_nor_loses_an_update(
                 &endpoint,
                 "us-east-1",
                 creds,
-                S3Location { bucket, prefix: prefix2 },
+                S3Location {
+                    bucket,
+                    prefix: prefix2,
+                },
                 std::time::Duration::from_secs(30),
             )?;
             s.put_object(&a2, b"a-v2-longer")?;
@@ -426,7 +567,11 @@ fn a_cycle_that_outruns_its_interval_neither_double_indexes_nor_loses_an_update(
     let events = seen.lock().unwrap().clone();
     let for_a: Vec<&ChangeEvent> = events.iter().filter(|e| e.key == a).collect();
     let for_b: Vec<&ChangeEvent> = events.iter().filter(|e| e.key == b).collect();
-    assert_eq!(for_b.len(), 1, "an untouched object is indexed exactly once: {for_b:?}");
+    assert_eq!(
+        for_b.len(),
+        1,
+        "an untouched object is indexed exactly once: {for_b:?}"
+    );
     assert!(
         (1..=2).contains(&for_a.len()),
         "the mutated object is indexed once for the version each cycle saw, never more: {for_a:?}"
@@ -442,7 +587,12 @@ fn a_cycle_that_outruns_its_interval_neither_double_indexes_nor_loses_an_update(
     assert_eq!(j.get(&a).unwrap().digest.as_deref(), Some(newest.as_str()));
     // And the third cycle, after everything settled, found nothing to do.
     let last = outcome.last.expect("a last cycle report");
-    assert_eq!(last.added + last.changed + last.deleted, 0, "{}", last.line());
+    assert_eq!(
+        last.added + last.changed + last.deleted,
+        0,
+        "{}",
+        last.line()
+    );
     assert_eq!(last.gets, 0, "{}", last.line());
 
     cleanup(&src, &prefix);
@@ -461,21 +611,55 @@ fn a_journal_reopened_from_disk_does_not_re_index_what_was_already_accepted() ->
     }
     let dir = tempfile::tempdir()?;
     {
-        let mut j =
-            WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+        let mut j = WatchJournal::open(
+            dir.path(),
+            &env.endpoint,
+            &env.bucket,
+            &prefix,
+            false,
+            false,
+        )?;
         let mut sink = Recorder::default();
         let mut totals = CostTotals::default();
-        let r = objwatch::poll_once(&src, &mut j, &opts(1000), &mut sink, 0, &mut totals, &|| false)?;
+        let r = objwatch::poll_once(
+            &src,
+            &mut j,
+            &opts(1000),
+            &mut sink,
+            0,
+            &mut totals,
+            &|| false,
+        )?;
         assert_eq!(r.added, 4);
     }
     // A new process, same state dir.
-    let mut j2 = WatchJournal::open(dir.path(), &env.endpoint, &env.bucket, &prefix, false, false)?;
+    let mut j2 = WatchJournal::open(
+        dir.path(),
+        &env.endpoint,
+        &env.bucket,
+        &prefix,
+        false,
+        false,
+    )?;
     assert_eq!(j2.len(), 4, "the journal survived the process");
     let mut sink = Recorder::default();
     let mut totals = CostTotals::default();
-    let r = objwatch::poll_once(&src, &mut j2, &opts(1000), &mut sink, 0, &mut totals, &|| false)?;
+    let r = objwatch::poll_once(
+        &src,
+        &mut j2,
+        &opts(1000),
+        &mut sink,
+        0,
+        &mut totals,
+        &|| false,
+    )?;
     assert_eq!(r.added, 0, "{}", r.line());
-    assert_eq!(r.gets, 0, "resuming costs zero Class B operations: {}", r.line());
+    assert_eq!(
+        r.gets,
+        0,
+        "resuming costs zero Class B operations: {}",
+        r.line()
+    );
     assert_eq!(r.unchanged, 4);
 
     cleanup(&src, &prefix);

@@ -19,6 +19,10 @@ struct StoredObject {
     last_modified: String,
 }
 
+/// The hook one test uses to mutate the store DURING a fetch, which is how the
+/// "replaced while the cycle was reading it" case is reproduced deterministically.
+type AfterGet = Box<dyn Fn(&FakeStore, &str) + Send>;
+
 /// An S3-shaped store: sorted keys, `max-keys` paging, continuation tokens,
 /// ETag on GET. Counts every call, which is the point.
 struct FakeStore {
@@ -27,7 +31,7 @@ struct FakeStore {
     gets: AtomicU64,
     /// Run after each GET, so a test can replace an object while a cycle is in
     /// flight.
-    after_get: Mutex<Option<Box<dyn Fn(&FakeStore, &str) + Send>>>,
+    after_get: Mutex<Option<AfterGet>>,
     /// Drop the ETag from GET responses, the way some gateways and proxies do.
     no_etag_on_get: AtomicU64,
 }
@@ -44,7 +48,11 @@ impl FakeStore {
     }
 
     fn put(&self, key: &str, body: &str) {
-        self.put_with_etag(key, body, &format!("etag-{:x}", xxhash_rust::xxh3::xxh3_64(body.as_bytes())));
+        self.put_with_etag(
+            key,
+            body,
+            &format!("etag-{:x}", xxhash_rust::xxh3::xxh3_64(body.as_bytes())),
+        );
     }
 
     fn put_with_etag(&self, key: &str, body: &str, etag: &str) {
@@ -210,8 +218,7 @@ fn the_first_poll_indexes_everything_and_the_second_indexes_nothing() {
     let mut totals = CostTotals::default();
     let o = opts();
 
-    let first =
-        poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    let first = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
     assert_eq!(first.added, 2);
     assert_eq!(first.changed, 0);
     assert_eq!(first.deleted, 0);
@@ -224,8 +231,7 @@ fn the_first_poll_indexes_everything_and_the_second_indexes_nothing() {
     // every other test in this file and quietly bill for it.
     sink.clear();
     let gets_before = store.gets();
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.added, 0);
     assert_eq!(second.changed, 0);
     assert_eq!(second.deleted, 0);
@@ -274,8 +280,11 @@ fn a_changed_object_is_re_extracted_a_new_one_is_added_and_a_deleted_one_is_remo
     assert_eq!(sink.keys("added"), vec!["new.md"]);
     assert_eq!(sink.keys("deleted"), vec!["gone.md"]);
     assert_eq!(r.gets, 2, "only the changed and the new object are fetched");
-    assert!(j.get("gone.md").is_none(), "a deleted key leaves the journal");
-    assert_eq!(j.get("edit.md").unwrap().digest.is_some(), true);
+    assert!(
+        j.get("gone.md").is_none(),
+        "a deleted key leaves the journal"
+    );
+    assert!(j.get("edit.md").unwrap().digest.is_some());
 }
 
 /// An object replaced by a multipart upload keeps its size and can keep its
@@ -305,9 +314,16 @@ fn a_multipart_replacement_is_detected_by_the_etag_shape_change() {
 
     // New content, delivered multipart: the ETag's SHAPE changes as well as its
     // value, and a size comparison alone would still catch this one.
-    store.put_with_etag("big.bin", "0123456789abc", "9a0364b9e99bb480dd25e1f0284c8555-2");
+    store.put_with_etag(
+        "big.bin",
+        "0123456789abc",
+        "9a0364b9e99bb480dd25e1f0284c8555-2",
+    );
     let r = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
-    assert_eq!(r.changed, 1, "multipart content replacement must be a change");
+    assert_eq!(
+        r.changed, 1,
+        "multipart content replacement must be a change"
+    );
     assert_eq!(r.content_identical, 0);
     assert_eq!(sink.keys("changed"), vec!["big.bin"]);
     let recorded = j.get("big.bin").unwrap().etag.clone();
@@ -319,9 +335,16 @@ fn a_multipart_replacement_is_detected_by_the_etag_shape_change() {
 
     // Same bytes re-uploaded multipart under yet another ETag: churn, not a
     // change. The journal still catches up so the NEXT cycle is free again.
-    store.put_with_etag("big.bin", "0123456789abc", "ffffffffffffffffffffffffffffffff-3");
+    store.put_with_etag(
+        "big.bin",
+        "0123456789abc",
+        "ffffffffffffffffffffffffffffffff-3",
+    );
     let r = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
-    assert_eq!(r.changed, 0, "identical bytes under a new ETag is not a change");
+    assert_eq!(
+        r.changed, 0,
+        "identical bytes under a new ETag is not a change"
+    );
     assert_eq!(r.content_identical, 1);
     assert!(sink.keys("changed").is_empty());
     assert!(j.get("big.bin").unwrap().etag.ends_with("-3"));
@@ -360,24 +383,24 @@ fn an_object_replaced_during_a_cycle_is_re_indexed_exactly_once() {
         }
     }));
 
-    let first =
-        poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    let first = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
     assert_eq!(first.added, 1);
     // What the journal remembers is what was read, so the newer bytes are still
     // outstanding.
     let recorded = j.get("live.md").unwrap().clone();
-    assert_eq!(recorded.digest.unwrap(), format!("{:016x}", xxhash_rust::xxh3::xxh3_64(b"v1")));
+    assert_eq!(
+        recorded.digest.unwrap(),
+        format!("{:016x}", xxhash_rust::xxh3::xxh3_64(b"v1"))
+    );
 
     *store.after_get.lock().unwrap() = None;
     sink.clear();
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.changed, 1, "the update made mid-cycle is not lost");
     assert_eq!(sink.keys("changed"), vec!["live.md"]);
 
     sink.clear();
-    let third =
-        poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
+    let third = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
     assert_eq!(third.changed, 0, "and it is not indexed a second time");
     assert_eq!(third.gets, 0);
     assert!(sink.events.is_empty());
@@ -398,16 +421,14 @@ fn an_object_the_sink_refused_is_retried_on_the_next_cycle() {
     };
     let mut totals = CostTotals::default();
     let o = opts();
-    let first =
-        poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    let first = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
     assert_eq!(first.added, 1);
     assert_eq!(first.errors.len(), 1, "{:?}", first.errors);
     assert!(j.get("bad.md").is_none());
 
     sink.fail_on = None;
     sink.clear();
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.added, 1);
     assert_eq!(sink.keys("added"), vec!["bad.md"]);
 }
@@ -431,8 +452,7 @@ fn a_store_that_omits_the_etag_on_get_verifies_by_digest_once_then_settles() {
     // Nothing changed in the bucket, but the recorded ETag describes bytes we
     // did not verify, so the next cycle re-reads once. The digest matches, so it
     // is recorded as the same bytes and NOT re-indexed.
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.gets, 1);
     assert_eq!(second.changed, 0);
     assert_eq!(second.content_identical, 1);
@@ -442,8 +462,7 @@ fn a_store_that_omits_the_etag_on_get_verifies_by_digest_once_then_settles() {
         "one verification is enough — a store with no ETags must not cost a GET every cycle"
     );
     // And now it is free.
-    let third =
-        poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
+    let third = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
     assert_eq!(third.gets, 0);
     assert_eq!(third.unchanged, 1);
 }
@@ -467,10 +486,13 @@ fn an_etag_rewritten_over_identical_bytes_is_not_re_indexed() {
     assert_eq!(r.changed, 0);
     assert_eq!(r.content_identical, 1);
     assert!(sink.events.is_empty());
-    assert_eq!(j.get("a.md").unwrap().etag, "etag-2", "the new ETag is recorded");
+    assert_eq!(
+        j.get("a.md").unwrap().etag,
+        "etag-2",
+        "the new ETag is recorded"
+    );
     // Settled: the next cycle is free.
-    let third =
-        poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
+    let third = poll_once(&store, &mut j, &o, &mut sink, 2, &mut totals, &never_stop()).unwrap();
     assert_eq!(third.gets, 0);
     assert_eq!(third.unchanged, 1);
 }
@@ -525,8 +547,7 @@ fn a_bucket_larger_than_one_page_is_listed_completely_and_costs_one_call_per_pag
     assert_eq!(r.deleted, 0);
 
     sink.clear();
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.unchanged, 2_500);
     assert_eq!(second.deleted, 0, "nothing may look deleted across pages");
     assert_eq!(second.gets, 0);
@@ -542,7 +563,16 @@ fn a_prefix_scoped_watch_ignores_everything_outside_it() {
         WatchJournal::open(dir.path(), "http://memory", "fake", "docs/", false, false).unwrap();
     let mut sink = RecordingSink::default();
     let mut totals = CostTotals::default();
-    let r = poll_once(&store, &mut j, &opts(), &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    let r = poll_once(
+        &store,
+        &mut j,
+        &opts(),
+        &mut sink,
+        0,
+        &mut totals,
+        &never_stop(),
+    )
+    .unwrap();
     assert_eq!(r.added, 1);
     assert_eq!(sink.keys("added"), vec!["docs/a.md"]);
     // And the objects outside the prefix are not deletions.
@@ -587,7 +617,10 @@ fn append_only_mode_lists_only_the_tail_and_reports_no_deletes() {
         second.list_calls, 1,
         "the tail is one page: {calls_first} calls for the backfill, 1 afterwards"
     );
-    assert!(j.get("log/00001").is_some(), "the deleted key stays recorded");
+    assert!(
+        j.get("log/00001").is_some(),
+        "the deleted key stays recorded"
+    );
 }
 
 #[test]
@@ -615,7 +648,10 @@ fn the_cost_guard_refuses_the_first_cycle_and_names_a_safe_interval() {
     assert_eq!(refused.projection.list_calls_per_cycle, 2);
     assert_eq!(refused.projection.monthly_class_a, 5_184_000);
     assert!(refused.projection.min_safe_interval_secs >= 26);
-    assert!(sink.events.is_empty(), "nothing was indexed before the refusal");
+    assert!(
+        sink.events.is_empty(),
+        "nothing was indexed before the refusal"
+    );
     assert_eq!(store.gets(), 0, "and nothing was fetched");
     let payload = refused.to_json();
     assert_eq!(payload["exit_code"], 4);
@@ -752,8 +788,7 @@ fn a_fetch_capped_by_max_object_bytes_is_recorded_as_partial_and_not_re_read() {
     // A capped fetch is a decision the operator made with --max-object-mb, not
     // an unfinished job: the watcher records it, says so, and does not re-read
     // the same prefix every cycle.
-    let second =
-        poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
+    let second = poll_once(&store, &mut j, &o, &mut sink, 1, &mut totals, &never_stop()).unwrap();
     assert_eq!(second.changed, 0);
     assert_eq!(second.gets, 0);
     assert_eq!(second.unchanged, 1);
@@ -821,4 +856,100 @@ fn diff_is_pure_and_reports_a_reason_for_every_change() {
     assert_eq!(plan.deleted, vec!["same".to_string()]);
     let plan = diff(&j, &[], false);
     assert!(plan.deleted.is_empty());
+}
+
+/// The guard must not refuse `--append-only`, which is the escape hatch the guard
+/// itself recommends.
+///
+/// The cost of an append-only cycle is the TAIL above `start-after`, not the key
+/// space the journal remembers. Projecting it at journal size made a large
+/// append-only watch refuse itself: 1,000,000 remembered keys reads as 1,000 list
+/// calls a cycle, which is over any sane budget, while the real cost is one call.
+#[test]
+fn append_only_is_priced_at_the_tail_it_lists_not_at_the_journal_it_remembers() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = FakeStore::new();
+    // A journal that already remembers more than one page's worth of keys.
+    let mut j = WatchJournal::open(dir.path(), "http://memory", "fake", "", true, false).unwrap();
+    for i in 0..2_500u32 {
+        store.put(&format!("2026/{i:06}"), "old");
+        j.record(
+            &format!("2026/{i:06}"),
+            WatchedObject {
+                etag: "e".into(),
+                size: 3,
+                last_modified: "t".into(),
+                digest: Some("d".into()),
+                etag_unverified: false,
+                seen_at: journal::now_rfc3339(),
+                truncated: false,
+            },
+        );
+    }
+    // One new key above the highest one seen.
+    store.put("2026/999999", "new");
+
+    let mut sink = RecordingSink::default();
+    let mut totals = CostTotals::default();
+    let o = WatchOptions {
+        append_only: true,
+        // A budget that 3 list calls/cycle at 300 s would blow through, but that
+        // 1 call/cycle fits with room to spare: 8,640 vs 25,920 a month.
+        max_monthly_class_a: 10_000,
+        ..opts()
+    };
+    let r = poll_once(&store, &mut j, &o, &mut sink, 0, &mut totals, &never_stop()).unwrap();
+    assert_eq!(r.added, 1, "only the tail key is new: {}", r.line());
+    assert_eq!(r.keys_listed, 1, "the store returned only the tail");
+    assert_eq!(r.list_calls, 1);
+    assert_eq!(
+        r.projection.list_calls_per_cycle,
+        1,
+        "priced at the tail, not at the 2,500-key journal: {}",
+        r.line()
+    );
+    assert_eq!(r.projection.monthly_class_a, 8_640);
+    assert!(!r.projection.over_budget(), "{}", r.line());
+
+    // The same journal in FULL-SCAN mode is priced at the whole key space, which
+    // is the other half of the same rule.
+    let mut j2 = WatchJournal::open(dir.path(), "http://memory", "fake", "", false, true).unwrap();
+    for i in 0..2_500u32 {
+        j2.record(
+            &format!("2026/{i:06}"),
+            WatchedObject {
+                etag: "e".into(),
+                size: 3,
+                last_modified: "t".into(),
+                digest: Some("d".into()),
+                etag_unverified: false,
+                seen_at: journal::now_rfc3339(),
+                truncated: false,
+            },
+        );
+    }
+    let full = WatchOptions {
+        append_only: false,
+        max_monthly_class_a: 10_000,
+        ..opts()
+    };
+    let err = poll_once(
+        &store,
+        &mut j2,
+        &full,
+        &mut sink,
+        0,
+        &mut totals,
+        &never_stop(),
+    )
+    .unwrap_err();
+    let refused = err
+        .downcast_ref::<PollCostRefused>()
+        .expect("a full scan of 2,501 keys at this budget must be refused");
+    assert_eq!(refused.projection.list_calls_per_cycle, 3);
+    assert_eq!(refused.projection.monthly_class_a, 25_920);
+    assert!(
+        refused.to_string().contains("--append-only"),
+        "the refusal must point at the cheaper mode: {refused}"
+    );
 }

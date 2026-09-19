@@ -481,20 +481,28 @@ pub fn poll_once(
     } else {
         None
     };
-    let (listed, list_calls) = scan(
-        src,
-        &prefix,
-        start_after.as_deref(),
-        opts.page_size,
-        stop,
-    )?;
+    let (listed, list_calls) = scan(src, &prefix, start_after.as_deref(), opts.page_size, stop)?;
     totals.list_calls += list_calls;
     totals.keys_listed += listed.len() as u64;
 
     // The cost of a cycle is knowable only after the listing, and the listing
     // is the cheapest thing we do — so the guard runs here, before any GET and
     // before the sink is told anything.
-    let known_keys = (journal.len() as u64).max(listed.len() as u64);
+    // What the NEXT cycle will list, which is what the recurring cost is.
+    //
+    // In full-scan mode that is the whole key space, and the journal is a better
+    // estimate of it than one listing (a listing taken mid-delete is smaller than
+    // the space it covers). In APPEND-ONLY mode it is only the tail above
+    // `start-after`, and using the journal size there would be a straight bug:
+    // `--append-only` is the documented answer to a bucket too large to scan, and
+    // projecting it at journal size would make the guard refuse the very escape
+    // hatch it recommends. A 1,000,000-key append-only journal costs ONE list
+    // call per cycle, not 1,000.
+    let known_keys = if opts.append_only {
+        listed.len() as u64
+    } else {
+        (journal.len() as u64).max(listed.len() as u64)
+    };
     let projection = Projection::from_millis(
         known_keys,
         cost::list_calls_for_keys(known_keys),
@@ -620,11 +628,7 @@ pub fn poll_once(
                     }
                 }
                 Err(e) => {
-                    record_error(
-                        &mut report,
-                        totals,
-                        format!("fetch {}: {e}", meta.key),
-                    );
+                    record_error(&mut report, totals, format!("fetch {}: {e}", meta.key));
                     // Leave the journal entry alone so the next cycle retries.
                     continue;
                 }
@@ -760,7 +764,10 @@ pub fn run_watch(
             // failed, so it is reported as a cycle error.
             if let Err(e) = write_status(path, src.describe().as_str(), &r) {
                 totals.errors += 1;
-                eprintln!("xerj-watch: could not write status file {}: {e}", path.display());
+                eprintln!(
+                    "xerj-watch: could not write status file {}: {e}",
+                    path.display()
+                );
             }
         }
         report(&r);

@@ -23,9 +23,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::journal::{WatchJournal, WatchLock};
 use super::s3::{parse_s3_url, Credentials, S3Source};
 use super::ObjectSource;
-use super::{
-    ChangeSink, CountingSink, CycleReport, JsonlSink, PollCostRefused, WatchOptions,
-};
+use super::{ChangeSink, CountingSink, CycleReport, JsonlSink, PollCostRefused, WatchOptions};
 use crate::cli::WatchCfg;
 
 /// Set by the signal handler, read by the poll loop. A watch is a long-lived
@@ -266,7 +264,9 @@ mod tests {
         assert_eq!(normalize_object_url("/tmp/x"), "/tmp/x");
         // And it must actually parse afterwards, which is the point.
         assert_eq!(
-            parse_s3_url(&normalize_object_url("r2://logs/2026/")).unwrap().bucket,
+            parse_s3_url(&normalize_object_url("r2://logs/2026/"))
+                .unwrap()
+                .bucket,
             "logs"
         );
     }
@@ -292,7 +292,9 @@ mod tests {
     /// 403 that says nothing about the real mistake.
     #[test]
     fn region_auto_with_no_endpoint_is_refused_with_the_thing_to_do() {
-        let err = resolve_endpoint(None, None, "auto").unwrap_err().to_string();
+        let err = resolve_endpoint(None, None, "auto")
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("--endpoint-url"), "{err}");
         assert!(err.contains("r2.cloudflarestorage.com"), "{err}");
         assert!(err.contains("--region"), "{err}");

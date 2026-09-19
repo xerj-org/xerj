@@ -973,7 +973,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     //
     // Three refusals, all of the same kind: a flag that is accepted and then
     // does nothing is the defect class this repo refuses on purpose (#204).
-    let root_is_object_url = root_raw.as_deref().map(looks_like_object_url).unwrap_or(false);
+    let root_is_object_url = root_raw
+        .as_deref()
+        .map(looks_like_object_url)
+        .unwrap_or(false);
     if !watch && !watch_flags_used.is_empty() {
         let used = {
             let mut u = watch_flags_used.clone();
@@ -1012,7 +1015,9 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             ));
         }
         if watch_once && max_cycles.is_some() {
-            return Err("--once and --max-cycles contradict each other. Drop one of the two".into());
+            return Err(
+                "--once and --max-cycles contradict each other. Drop one of the two".into(),
+            );
         }
         if no_fetch && append_only {
             // Both are legal, and together they are the cheapest possible
