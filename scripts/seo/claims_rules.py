@@ -69,7 +69,14 @@ def _neg_near(term, span=90):
             r")")
 
 
-_BACKUP_CTX = r"back(?:\s|-)?up|backups|snapshot|restore|archive|repositor(?:y|ies)|disaster recovery|\bdr\b|retention"
+# `\bdr\b` is the "DR" of disaster recovery. It must NOT match the "DR" of
+# "TL;DR", which is a heading marker in nearly every article here: a paragraph
+# that opens "**TL;DR** ... s3://bucket ..." is not a backup claim, and before
+# this lookbehind the rule reported one. Per this gate's own policy, an ERROR on
+# a good_ fixture is a false positive and the rule gets fixed, never the
+# fixture — see testdata/factcheck/good_tldr_bucket_not_backup.md.
+_BACKUP_CTX = (r"back(?:\s|-)?up|backups|snapshot|restore|archive|repositor(?:y|ies)"
+               r"|disaster recovery|(?<![Tt][Ll];)\bdr\b|retention")
 _S3_TERMS = r"s3|object stor(?:e|age)|bucket|blob stor(?:e|age)|minio|gcs|google cloud storage|azure blob|cloud storage"
 
 _NEURAL_QUALIFIER = (r"(?:--embed-mode[= ]neural|embed-mode\s+neural|neural embedd|neural mode|"

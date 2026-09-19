@@ -105,6 +105,42 @@ pub struct StatusCfg {
     pub xerj_url_note: Option<String>,
 }
 
+/// `xerj autoindex s3://bucket/prefix --watch`: poll a bucket and emit a change
+/// feed. Deliberately its own config rather than fields on [`IndexCfg`]: the
+/// watch path shares no phase-A/phase-B machinery with folder indexing, and
+/// bolting its flags onto the index config is what makes an accepted-and-ignored
+/// flag possible.
+#[derive(Debug, Clone)]
+pub struct WatchCfg {
+    /// `s3://bucket/prefix` as the user wrote it.
+    pub url: String,
+    /// Endpoint that serves the bucket (`--endpoint-url`, else
+    /// `AWS_ENDPOINT_URL`, else AWS's regional endpoint).
+    pub endpoint: Option<String>,
+    /// `--region`, else `AWS_REGION`, else `auto` (which is what R2 wants).
+    pub region: String,
+    pub poll_interval: Duration,
+    /// `None` = until stopped.
+    pub max_cycles: Option<u64>,
+    /// Fetch bytes of changed objects to digest them. `--no-fetch` turns every
+    /// GET off: metadata-only change detection, zero Class B operations.
+    pub fetch: bool,
+    pub max_object_bytes: u64,
+    pub append_only: bool,
+    pub max_monthly_ops: u64,
+    pub allow_cost: bool,
+    pub page_size: u64,
+    pub state_dir: Option<PathBuf>,
+    pub fresh: bool,
+    /// JSONL change feed destination. `None` = stdout.
+    pub events_out: Option<PathBuf>,
+    pub status_file: Option<PathBuf>,
+    /// One cycle, no fetches, nothing emitted: measure what the poll costs.
+    pub dry_run: bool,
+    pub json: bool,
+    pub quiet: bool,
+}
+
 #[derive(Debug)]
 pub enum Cmd {
     /// Boxed: `IndexCfg` is an order of magnitude larger than the other
@@ -113,8 +149,22 @@ pub enum Cmd {
     Index(Box<IndexCfg>),
     Map(MapCfg),
     Status(StatusCfg),
+    /// Boxed for the same reason as `Index`.
+    Watch(Box<WatchCfg>),
     Help,
 }
+
+/// Object-storage URL schemes the watcher understands. `r2://` is accepted as a
+/// spelling of `s3://` because Cloudflare R2 IS the S3 API — it is the endpoint
+/// that differs, not the protocol.
+pub const OBJECT_URL_SCHEMES: [&str; 2] = ["s3://", "r2://"];
+
+pub fn looks_like_object_url(arg: &str) -> bool {
+    OBJECT_URL_SCHEMES.iter().any(|s| arg.starts_with(s))
+}
+
+/// Largest `--poll-interval` accepted: one day. Past that a watch is a cron job.
+pub const MAX_POLL_INTERVAL_SECS: u64 = 86_400;
 
 const FRESH_HELP: &str =
     "ignore an existing resume journal and restart, rebuild the plan in place\n\
@@ -147,6 +197,8 @@ pub fn help_text_with(feedback: bool) -> String {
              xerj autoindex <folder> [OPTIONS]     discover + index a folder\n\
              xerj autoindex map [OPTIONS]          print the discovered data map\n\
              xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
+             xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
+                                                   poll object storage and emit a change feed\n\
          \n\
          OPTIONS:\n\
              --url <U>            ES-compat endpoint (default http://localhost:9200)\n\
@@ -382,6 +434,47 @@ pub fn help_text_with(feedback: bool) -> String {
              Validate before switching readers; explicitly clean the shared\n\
              autoindex-catalog and old target only after validation.\n\
          \n\
+         WATCH (OBJECT STORAGE):\n\
+             `xerj autoindex s3://<bucket>/<prefix> --watch` polls the bucket with\n\
+             ListObjectsV2 and emits one JSON event per changed object (added / changed /\n\
+             deleted) on stdout, or to --events-out. It does NOT index: pipe the feed into\n\
+             the indexer. Deletes are detected only by a full scan (not --append-only).\n\
+             A bucket has no inotify, so this is polling, and polling costs money:\n\
+             ListObjectsV2 is a CLASS A operation, one call per 1,000 keys, EVERY cycle,\n\
+             whether anything changed or not. Cloudflare R2's free tier is 1,000,000\n\
+             Class A operations a month, which is ~23 per minute for the whole account:\n\
+                 objects   list calls/cycle   every 60s      every 300s (default)\n\
+                 1,000     1                  43,200/mo      8,640/mo\n\
+                 10,000    10                 432,000/mo     86,400/mo\n\
+                 100,000   100                4,320,000/mo   864,000/mo\n\
+                 1,000,000 1,000              43,200,000/mo  8,640,000/mo\n\
+             The default interval is {default_poll}s and the default budget is\n\
+             {default_budget} Class A operations a month (20% of the free tier, because the\n\
+             rest of the account spends from it too). A first cycle whose projection is over\n\
+             budget is REFUSED with exit 4 and the minimum safe interval; --allow-cost\n\
+             accepts the spend, --append-only makes a growing key space cost one call per\n\
+             cycle instead of one per 1,000 keys, and a narrower prefix is free.\n\
+             --poll-interval <secs>   seconds between cycles (default {default_poll}, max {max_poll})\n\
+             --once / --max-cycles N  stop after one / N cycles\n\
+             --no-fetch               metadata-only: compare ETag+size+mtime, never GET\n\
+             --append-only            list only keys above the highest one seen (start-after):\n\
+                                      one list call per cycle, and NO delete or older-key\n\
+                                      change detection — opt in only for an append-only\n\
+                                      key space such as date-partitioned logs\n\
+             --dry-run                one cycle, no GETs, nothing emitted: price the poll\n\
+             --endpoint-url <URL>     S3 endpoint (else AWS_ENDPOINT_URL). R2:\n\
+                                      https://<account>.r2.cloudflarestorage.com\n\
+             --region <R>             signing region (else AWS_REGION, else auto)\n\
+             --max-object-mb <N>      byte cap per fetched object (default 64)\n\
+             --max-monthly-ops <N>    Class A budget for the projection (default {default_budget})\n\
+             --allow-cost             proceed although the projection is over budget\n\
+             --page-size <N>          keys per list call (default 1000, the API maximum)\n\
+             --events-out <PATH>      write the JSONL change feed here instead of stdout\n\
+             --status-file <PATH>     running counts an operator can read (default\n\
+                                      <state-dir>/objwatch-status.json)\n\
+             Credentials come from the environment only: AWS_ACCESS_KEY_ID,\n\
+             AWS_SECRET_ACCESS_KEY, optionally AWS_SESSION_TOKEN. Never from a flag.\n\
+         \n\
          EXIT CODES: 0 complete (also: gate answered with --approve cancel);\n\
                      3 completed-with-junk (junk recorded, never fatal), or\n\
                        catalog-alias-sweep-failed — the corpus IS indexed and the\n\
@@ -389,11 +482,15 @@ pub fn help_text_with(feedback: bool) -> String {
                        could not run. Read `reason` on the xerj-done line to tell the\n\
                        two apart, and rerun the same command once the reported server\n\
                        condition clears;\n\
-                     4 NEEDS A DECISION — the estimate exceeded --max-minutes and\n\
-                       nothing was indexed; a JSON decision request is on stdout;\n\
+                     4 NEEDS A DECISION — the estimate exceeded --max-minutes, or a\n\
+                       --watch poll cost more than --max-monthly-ops; nothing was\n\
+                       indexed and a JSON decision request is on stdout;\n\
                      2 usage; 1 endpoint/journal failure, a refused corpus removal, or a\n\
                      refused unsafe state transition\n",
         feedback_block = xerj_common::feedback::block(feedback),
+        default_poll = crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS,
+        default_budget = crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A,
+        max_poll = MAX_POLL_INTERVAL_SECS,
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
         defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" ")
@@ -469,6 +566,25 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut progress: Option<ProgressMode> = None;
     let mut progress_interval: Option<Duration> = None;
     let mut dataset: Option<String> = None;
+    // Object-storage watch (`--watch` on an s3:// root). Kept in their own
+    // variables so the watch route can refuse an index-only flag instead of
+    // accepting it and doing nothing with it (#204's class).
+    let mut root_raw: Option<String> = None;
+    let mut watch = false;
+    let mut poll_interval: Option<Duration> = None;
+    let mut max_cycles: Option<u64> = None;
+    let mut watch_once = false;
+    let mut no_fetch = false;
+    let mut append_only = false;
+    let mut endpoint: Option<String> = None;
+    let mut region: Option<String> = None;
+    let mut max_object_mb: u64 = 64;
+    let mut max_monthly_ops: Option<u64> = None;
+    let mut allow_cost = false;
+    let mut page_size: u64 = crate::objwatch::cost::MAX_KEYS_PER_LIST;
+    let mut events_out: Option<PathBuf> = None;
+    let mut status_file: Option<PathBuf> = None;
+    let mut watch_flags_used: Vec<&'static str> = Vec::new();
 
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -645,6 +761,88 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             }
             "--quiet" => quiet = true,
             "--dataset" => dataset = it.next(),
+            "--watch" => watch = true,
+            "--poll-interval" => {
+                watch_flags_used.push("--poll-interval");
+                let secs: u64 = it
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|n| (1..=MAX_POLL_INTERVAL_SECS).contains(n))
+                    .ok_or(format!(
+                        "--poll-interval needs a number of seconds from 1 to \
+                         {MAX_POLL_INTERVAL_SECS}"
+                    ))?;
+                poll_interval = Some(Duration::from_secs(secs));
+            }
+            "--max-cycles" => {
+                watch_flags_used.push("--max-cycles");
+                max_cycles = Some(
+                    it.next()
+                        .and_then(|s| s.parse().ok())
+                        .filter(|n: &u64| *n >= 1)
+                        .ok_or("--max-cycles needs a number of poll cycles, 1 or more")?,
+                );
+            }
+            "--once" => {
+                watch_flags_used.push("--once");
+                watch_once = true;
+            }
+            "--no-fetch" => {
+                watch_flags_used.push("--no-fetch");
+                no_fetch = true;
+            }
+            "--append-only" => {
+                watch_flags_used.push("--append-only");
+                append_only = true;
+            }
+            "--endpoint-url" => {
+                watch_flags_used.push("--endpoint-url");
+                endpoint = it.next();
+            }
+            "--region" => {
+                watch_flags_used.push("--region");
+                region = it.next();
+            }
+            "--max-object-mb" => {
+                watch_flags_used.push("--max-object-mb");
+                max_object_mb = it
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|n| (1..=1024).contains(n))
+                    .ok_or("--max-object-mb needs a number from 1 to 1024")?;
+            }
+            "--max-monthly-ops" => {
+                watch_flags_used.push("--max-monthly-ops");
+                max_monthly_ops = Some(
+                    it.next()
+                        .and_then(|s| s.parse().ok())
+                        .filter(|n: &u64| *n >= 1)
+                        .ok_or("--max-monthly-ops needs a number of operations, 1 or more")?,
+                );
+            }
+            "--allow-cost" => {
+                watch_flags_used.push("--allow-cost");
+                allow_cost = true;
+            }
+            "--page-size" => {
+                watch_flags_used.push("--page-size");
+                page_size = it
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|n| (1..=crate::objwatch::cost::MAX_KEYS_PER_LIST).contains(n))
+                    .ok_or(format!(
+                        "--page-size needs a number from 1 to {} (the ListObjectsV2 maximum)",
+                        crate::objwatch::cost::MAX_KEYS_PER_LIST
+                    ))?;
+            }
+            "--events-out" => {
+                watch_flags_used.push("--events-out");
+                events_out = it.next().map(PathBuf::from);
+            }
+            "--status-file" => {
+                watch_flags_used.push("--status-file");
+                status_file = it.next().map(PathBuf::from);
+            }
             // Read out of band by `xerj_common::feedback`, which scans the
             // whole argument list; accepted here so it is not "unknown".
             xerj_common::feedback::DISABLE_FLAG => {}
@@ -652,6 +850,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "map" if sub.is_none() && folder.is_none() => sub = Some("map".into()),
             "status" if sub.is_none() && folder.is_none() => sub = Some("status".into()),
             other if !other.starts_with('-') && folder.is_none() && sub.is_none() => {
+                root_raw = Some(other.to_string());
                 folder = Some(PathBuf::from(other))
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -769,6 +968,127 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // so index, map, and status all surface the same mismatch note.
     let xerj_url_note =
         xerj_url_ignored_note(std::env::var("XERJ_URL").ok().as_deref(), url_explicit);
+
+    // --- object-storage watch routing ------------------------------------
+    //
+    // Three refusals, all of the same kind: a flag that is accepted and then
+    // does nothing is the defect class this repo refuses on purpose (#204).
+    let root_is_object_url = root_raw
+        .as_deref()
+        .map(looks_like_object_url)
+        .unwrap_or(false);
+    if !watch && !watch_flags_used.is_empty() {
+        let used = {
+            let mut u = watch_flags_used.clone();
+            u.sort_unstable();
+            u.dedup();
+            u.join(" ")
+        };
+        return Err(format!(
+            "{used} only apply to a watch. Add --watch, or drop them"
+        ));
+    }
+    if watch && !root_is_object_url {
+        return Err(format!(
+            "--watch is implemented for object-storage roots on this build: pass \
+             s3://<bucket>/<prefix> (r2:// is accepted as the same thing) and set the endpoint \
+             with --endpoint-url or AWS_ENDPOINT_URL.{}",
+            match root_raw.as_deref() {
+                Some(r) => format!(" Got {r}, which is a local path."),
+                None => " No root was given.".to_string(),
+            }
+        ));
+    }
+    if root_is_object_url && !watch {
+        return Err(
+            "an object-storage root is only supported with --watch on this build: it polls the \
+             bucket and writes a change feed. One-shot `xerj autoindex s3://…` indexing is a \
+             separate change; until it lands, sync the objects to a folder and index that"
+                .into(),
+        );
+    }
+    if watch {
+        if sub.is_some() {
+            return Err(format!(
+                "--watch does not apply to `autoindex {}`",
+                sub.as_deref().unwrap_or_default()
+            ));
+        }
+        if watch_once && max_cycles.is_some() {
+            return Err(
+                "--once and --max-cycles contradict each other. Drop one of the two".into(),
+            );
+        }
+        if no_fetch && append_only {
+            // Both are legal, and together they are the cheapest possible
+            // watch — but they are also the least informative, so say what the
+            // combination means rather than letting it be discovered later.
+            eprintln!(
+                "autoindex: --no-fetch --append-only is the cheapest watch there is (one list \
+                 call per cycle, no GETs) and the least complete: no deletes, no edits to older \
+                 keys, and no content digests."
+            );
+        }
+        if url_explicit {
+            return Err(
+                "--url does not apply to --watch on this build: the watch produces a change feed \
+                 (--events-out, or stdout) and never writes to a node. Pipe the feed into the \
+                 indexer instead"
+                    .into(),
+            );
+        }
+        if max_minutes_explicit || approve_explicit {
+            return Err(
+                "--max-minutes/--approve/--yes are the folder-indexing gate; a watch has its own \
+                 cost gate (--max-monthly-ops, --allow-cost)"
+                    .into(),
+            );
+        }
+        if !ignore_flags_used.is_empty() {
+            return Err(format!(
+                "{} apply to a folder walk, not to an object-storage watch",
+                ignore_flags_used.join(" and ")
+            ));
+        }
+        if progress_explicit {
+            return Err(
+                "--progress/--progress-interval apply to indexing; a watch reports one line per \
+                 poll cycle (or one JSON object per cycle with --json)"
+                    .into(),
+            );
+        }
+        let raw = root_raw.clone().unwrap_or_default();
+        return Ok(Cmd::Watch(Box::new(WatchCfg {
+            url: raw,
+            endpoint,
+            region: region
+                .or_else(|| std::env::var("AWS_REGION").ok().filter(|r| !r.is_empty()))
+                .unwrap_or_else(|| "auto".to_string()),
+            poll_interval: poll_interval.unwrap_or_else(|| {
+                Duration::from_secs(crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS)
+            }),
+            // --dry-run is one cycle by definition: it exists to price the poll.
+            max_cycles: if dry_run || watch_once {
+                Some(1)
+            } else {
+                max_cycles
+            },
+            fetch: !no_fetch && !dry_run,
+            max_object_bytes: max_object_mb * 1024 * 1024,
+            append_only,
+            max_monthly_ops: max_monthly_ops
+                .unwrap_or(crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A),
+            allow_cost,
+            page_size,
+            state_dir,
+            fresh,
+            events_out,
+            status_file,
+            dry_run,
+            json,
+            quiet,
+        })));
+    }
 
     match (sub.as_deref(), folder) {
         (Some("map"), _) | (Some("status"), _) if max_minutes_explicit || approve_explicit => {
@@ -967,6 +1287,159 @@ mod tests {
             "--follow-symlinks-outside-root",
         ]);
         assert!(cfg.follow_symlinks && cfg.follow_symlinks_outside_root);
+    }
+
+    fn watch(args: &[&str]) -> super::WatchCfg {
+        match parse(args.iter().map(|s| s.to_string()).collect()).unwrap() {
+            Cmd::Watch(cfg) => *cfg,
+            other => panic!("expected watch config, got {other:?}"),
+        }
+    }
+
+    /// The default an operator gets when they pass nothing but a bucket. It is
+    /// the free-tier-safe one, and asserting it here means a later edit to the
+    /// constant has to be deliberate.
+    #[test]
+    fn a_bare_watch_defaults_to_the_free_tier_safe_interval_and_budget() {
+        let cfg = watch(&["s3://logs/2026/09/", "--watch"]);
+        assert_eq!(cfg.url, "s3://logs/2026/09/");
+        assert_eq!(
+            cfg.poll_interval,
+            Duration::from_secs(crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS)
+        );
+        assert_eq!(
+            cfg.max_monthly_ops,
+            crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A
+        );
+        assert_eq!(cfg.max_cycles, None, "a bare watch runs until stopped");
+        assert!(cfg.fetch, "digests are on by default");
+        assert!(!cfg.append_only);
+        assert!(!cfg.allow_cost);
+        assert_eq!(cfg.page_size, crate::objwatch::cost::MAX_KEYS_PER_LIST);
+        assert_eq!(cfg.region, "auto", "which is what R2 wants");
+    }
+
+    /// `r2://` has to reach the runner as something the S3 parser accepts, or it
+    /// is a scheme that parses and then fails — the accepted-and-ignored shape.
+    #[test]
+    fn the_r2_scheme_routes_to_a_watch_like_the_s3_one() {
+        assert_eq!(watch(&["r2://logs/", "--watch"]).url, "r2://logs/");
+        assert_eq!(
+            crate::objwatch::run::normalize_object_url(&watch(&["r2://logs/", "--watch"]).url),
+            "s3://logs/"
+        );
+    }
+
+    #[test]
+    fn once_and_dry_run_are_one_cycle_and_dry_run_never_reads_bytes() {
+        assert_eq!(watch(&["s3://b/", "--watch", "--once"]).max_cycles, Some(1));
+        assert_eq!(
+            watch(&["s3://b/", "--watch", "--max-cycles", "7"]).max_cycles,
+            Some(7)
+        );
+        let dry = watch(&["s3://b/", "--watch", "--dry-run"]);
+        assert_eq!(dry.max_cycles, Some(1), "pricing a poll is one cycle");
+        assert!(!dry.fetch, "and it must not spend Class B operations");
+        assert!(dry.dry_run);
+    }
+
+    /// Every one of these is a flag that would otherwise parse and do nothing.
+    /// The message has to name the flag, because an operator who passed it
+    /// believes it took effect.
+    #[test]
+    fn index_only_flags_are_refused_on_a_watch_rather_than_silently_ignored() {
+        for (args, needle) in [
+            (
+                vec!["s3://b/", "--watch", "--url", "http://x:9200"],
+                "--url",
+            ),
+            (
+                vec!["s3://b/", "--watch", "--max-minutes", "5"],
+                "--max-minutes",
+            ),
+            (vec!["s3://b/", "--watch", "--yes"], "--max-minutes"),
+            (
+                vec!["s3://b/", "--watch", "--progress", "plain"],
+                "--progress",
+            ),
+            (vec!["s3://b/", "--watch", "--no-ignore"], "folder walk"),
+        ] {
+            let text = err(&args);
+            assert!(
+                text.contains(needle),
+                "refusing {args:?} must name what does not apply ({needle}): {text}"
+            );
+        }
+    }
+
+    /// The mirror image: a watch-only flag without `--watch`.
+    #[test]
+    fn watch_only_flags_without_watch_are_refused() {
+        let text = err(&["data", "--poll-interval", "60"]);
+        assert!(
+            text.contains("--poll-interval") && text.contains("--watch"),
+            "{text}"
+        );
+        let text = err(&["data", "--append-only", "--no-fetch"]);
+        assert!(
+            text.contains("--append-only") && text.contains("--no-fetch"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_watch_needs_an_object_url_and_an_object_url_needs_a_watch() {
+        let text = err(&["/tmp/folder", "--watch"]);
+        assert!(
+            text.contains("s3://") && text.contains("local path"),
+            "{text}"
+        );
+        let text = err(&["--watch"]);
+        assert!(text.contains("No root was given"), "{text}");
+        // And the reverse, so `xerj autoindex s3://…` cannot look like it indexes.
+        let text = err(&["s3://logs/"]);
+        assert!(
+            text.contains("only supported with --watch"),
+            "an object root without --watch must say what it does NOT do: {text}"
+        );
+    }
+
+    #[test]
+    fn contradictory_and_out_of_range_watch_flags_are_refused() {
+        assert!(err(&["s3://b/", "--watch", "--once", "--max-cycles", "3"]).contains("contradict"));
+        // 0 seconds and more than a day are both outside the accepted range.
+        assert!(err(&["s3://b/", "--watch", "--poll-interval", "0"]).contains("--poll-interval"));
+        assert!(
+            err(&["s3://b/", "--watch", "--poll-interval", "86401"]).contains("--poll-interval")
+        );
+        // A page size above the API maximum would misreport the billing unit.
+        assert!(err(&["s3://b/", "--watch", "--page-size", "1001"]).contains("1000"));
+        assert!(
+            err(&["s3://b/", "--watch", "--max-monthly-ops", "0"]).contains("--max-monthly-ops")
+        );
+    }
+
+    #[test]
+    fn the_help_text_carries_the_cost_table_and_the_defaults_it_enforces() {
+        let help = super::help_text_with(false);
+        assert!(
+            help.contains("CLASS A"),
+            "the expensive class must be named"
+        );
+        assert!(
+            help.contains("1,000,000"),
+            "the free-tier allowance must be stated"
+        );
+        assert!(
+            help.contains(&crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS.to_string()),
+            "the default interval in the help must come from the constant"
+        );
+        assert!(
+            help.contains(&crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A.to_string()),
+            "and so must the default budget"
+        );
+        assert!(help.contains("--append-only"));
+        assert!(help.contains("exit 4") || help.contains("NEEDS A DECISION"));
     }
 
     fn index(args: &[&str]) -> super::IndexCfg {
