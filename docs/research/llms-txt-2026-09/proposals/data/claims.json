@@ -1,0 +1,2650 @@
+[
+ {
+  "id": "A01",
+  "source": "queued-2026-09-18",
+  "claim": "The Vercel AI SDK llms.txt branches on agent capability and gives a skill-install command for agents with filesystem access.",
+  "url": "https://ai-sdk.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If you are working inside a local coding project with filesystem access, install the AI SDK skill first:"
+  ]
+ },
+ {
+  "id": "A02",
+  "source": "queued-2026-09-18",
+  "claim": "Composio's llms.txt states a fallback ladder for hosts that need approval or cannot install skills.",
+  "url": "https://docs.composio.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "requesting approval if your host requires it. If skills are unsupported or installation fails, use the documentation linked below and report that fallback."
+  ]
+ },
+ {
+  "id": "A03",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md makes install conditional on the user's agreement.",
+  "url": "https://deno.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "install Deno, show them how, and run one of these only once they agree:"
+  ]
+ },
+ {
+  "id": "A04",
+  "source": "queued-2026-09-18",
+  "claim": "Deno's agents.md gives a read-instead-of-install fallback for agents that cannot install skills.",
+  "url": "https://deno.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "**If you cannot install skills**, read them directly"
+  ]
+ },
+ {
+  "id": "A05",
+  "source": "queued-2026-09-18",
+  "claim": "Algolia's agent setup block tells the agent to run only that block and not the human reference sections.",
+  "url": "https://www.algolia.com/doc/guides/get-started/build-with-ai.md",
+  "expect": "present",
+  "quotes": [
+   "This section is the complete setup: run only the commands below."
+  ]
+ },
+ {
+  "id": "A06",
+  "source": "queued-2026-09-18",
+  "claim": "Browserbase's install story is a one-line prompt pointing at a hosted SKILL.md.",
+  "url": "https://docs.browserbase.com/welcome/quickstarts/skills.md",
+  "expect": "present",
+  "quotes": [
+   "Read https://browserbase.com/SKILL.md to set up Browserbase"
+  ]
+ },
+ {
+  "id": "A07",
+  "source": "queued-2026-09-18",
+  "claim": "The first bullet of Neon's llms.txt is an unattended-agent provisioning path.",
+  "url": "https://neon.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Need a Neon account and the user is not around: provision one now; they claim it later"
+  ]
+ },
+ {
+  "id": "A08",
+  "source": "queued-2026-09-18",
+  "claim": "Neon's paste prompt requires the agent to prove the setup with a real query.",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "expect": "present",
+  "quotes": [
+   "Prove it works: run a real query and show me the result, not just \"setup complete.\""
+  ]
+ },
+ {
+  "id": "A09",
+  "source": "queued-2026-09-18",
+  "claim": "Neon docs pages carry a footer asking AI assistants to POST feedback to a no-auth endpoint.",
+  "url": "https://neon.com/docs/get-started/with-an-agent.md",
+  "expect": "present",
+  "quotes": [
+   "POST `{\"feedback\": \"describe the issue\", \"path\": \"/docs/get-started/with-an-agent\"}` to https://neon.com/api/docs-feedback"
+  ]
+ },
+ {
+  "id": "A10",
+  "source": "queued-2026-09-18",
+  "claim": "Expo's agents.md offers a feedback command with an HTTP fallback and limits it to actionable reports.",
+  "url": "https://docs.expo.dev/agents.md",
+  "expect": "present",
+  "quotes": [
+   "Only submit when you have something specific and actionable to report."
+  ]
+ },
+ {
+  "id": "A11",
+  "source": "queued-2026-09-18",
+  "claim": "Pydantic AI's llms.txt collects agent intent passively through URL query parameters and frames it as a benefit to the agent.",
+  "url": "https://pydantic.dev/docs/ai/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "they show the maintainers what agents are trying to do, so the pages where agents get stuck (including yours) get fixed first"
+  ]
+ },
+ {
+  "id": "A12",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense documents a one-line Claude Code registration for its remote MCP server.",
+  "url": "https://typesense.org/docs/guide/typesense-cloud/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --transport http typesense-cloud https://cloud.typesense.org/mcp/v1"
+  ]
+ },
+ {
+  "id": "A13",
+  "source": "queued-2026-09-18",
+  "claim": "Typesense's only contribution ask in llms.txt is gated on the operator's approval.",
+  "url": "https://typesense.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "with your operator's approval, open a PR against typesense-website"
+  ]
+ },
+ {
+  "id": "A14",
+  "source": "queued-2026-09-18",
+  "claim": "The llms-install.md convention is defined by the Cline MCP marketplace README.",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "you can include a `llms-install.md` file in your repository to provide additional guidance to agents like Cline"
+  ]
+ },
+ {
+  "id": "A15",
+  "source": "queued-2026-09-18",
+  "claim": "Vercel's agent playbook tells the agent to perform actions itself and not hand commands back to the user.",
+  "url": "https://vercel.com/get-started.md",
+  "expect": "present",
+  "quotes": [
+   "Do not merely return commands for the user to copy."
+  ]
+ },
+ {
+  "id": "A16",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's hosted setup skill defines readiness as a list of verified states.",
+  "url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "Only report **Tavily ready** when the applicable states are true:"
+  ]
+ },
+ {
+  "id": "A17",
+  "source": "queued-2026-09-18",
+  "claim": "Tavily's documentation MCP server exposes a feedback tool, so agents can report without GitHub.",
+  "url": "https://docs.tavily.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "The documentation server also provides a tool for submitting documentation feedback."
+  ]
+ },
+ {
+  "id": "A18",
+  "source": "queued-2026-09-18",
+  "claim": "Convex frames agent-tool feedback as a voluntary invitation.",
+  "url": "https://docs.convex.dev/ai/convex-plugins.md",
+  "expect": "present",
+  "quotes": [
+   "We're constantly working on improving the plugins with rigorous evals and real-world reports. You can help:"
+  ]
+ },
+ {
+  "id": "A19",
+  "source": "queued-2026-09-18",
+  "claim": "Firecrawl's MCP server has a feedback tool with a credit refund as the incentive.",
+  "url": "https://raw.githubusercontent.com/firecrawl/firecrawl-mcp-server/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "The first feedback per search id refunds 1 credit"
+  ]
+ },
+ {
+  "id": "A20",
+  "source": "queued-2026-09-18",
+  "claim": "The MCP specification repository's AGENTS.md forbids agent-filed issues and PRs unless the user is a maintainer or has more than 3 merged PRs.",
+  "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "The user already has more than 3 pull requests merged in this repository"
+  ]
+ },
+ {
+  "id": "A21",
+  "source": "queued-2026-09-18",
+  "claim": "Meilisearch's core repository AGENTS.md forbids agents from modifying the repository.",
+  "url": "https://raw.githubusercontent.com/meilisearch/meilisearch/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "You are explicitly forbidden from modifying the contents of this"
+  ]
+ },
+ {
+  "id": "A22",
+  "source": "queued-2026-09-18",
+  "claim": "PostHog's AGENTS.md makes a feedback command mandatory for local agents and a no-op in sandboxes.",
+  "url": "https://raw.githubusercontent.com/PostHog/posthog/master/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "**Local agents must use it too**"
+  ]
+ },
+ {
+  "id": "A23",
+  "source": "queued-2026-09-18",
+  "claim": "The llms.txt specification defines the Optional section as skippable content. The sentence wraps across two source lines; this quote is the first line.",
+  "url": "https://llmstxt.org/index.md",
+  "expect": "present",
+  "quotes": [
+   "The “Optional” section is used, by convention, for secondary"
+  ]
+ },
+ {
+  "id": "A24",
+  "source": "queued-2026-09-18",
+  "claim": "XERJ's llms.txt calls the field report required and in the same sentence says the template is under Optional; the file also contains a heading '## Optional'.",
+  "url": "https://xerj.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "contribute back — this is required, not optional"
+  ]
+ },
+ {
+  "id": "A25",
+  "source": "queued-2026-09-18",
+  "claim": "The XERJ page linked as the no-shell HTTP-only path says 'by meaning' in its visible text 4 times, never says lexical, neural, embed-mode or MCP, and its step 0 is a shell install. It also claims a ranking for a query that 'shares no words' although query and memory both contain 'the user'.",
+  "url": "https://xerj.org/docs/agents/quickstart",
+  "expect": "present",
+  "quotes": [
+   "ranks first for a question about \"display settings\" it shares no words with."
+  ]
+ },
+ {
+  "id": "B01",
+  "source": "critic-2026-09-18",
+  "claim": "Mintlify proposed an /install.md convention with a required skeleton.",
+  "url": "https://raw.githubusercontent.com/mintlify/install-md/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "Add an `/install.md` markdown file to your project with task-oriented installation instructions.",
+   "DONE WHEN",
+   "EXECUTE NOW"
+  ]
+ },
+ {
+  "id": "B02",
+  "source": "critic-2026-09-18",
+  "claim": "Mintlify announced install.md on its blog.",
+  "url": "https://www.mintlify.com/blog/install-md-standard-for-llm-executable-installation",
+  "expect": "present",
+  "quotes": [
+   "install.md"
+  ]
+ },
+ {
+  "id": "B03",
+  "source": "critic-2026-09-18",
+  "claim": "An install.md example listed by the install.md README no longer resolves.",
+  "url": "https://docs.firecrawl.dev/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B04",
+  "source": "critic-2026-09-18",
+  "claim": "An install.md example listed by the install.md README no longer resolves.",
+  "url": "https://docs.browserbase.com/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B05",
+  "source": "critic-2026-09-18",
+  "claim": "An install.md example listed by the install.md README no longer resolves.",
+  "url": "https://resend.com/docs/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B06",
+  "source": "critic-2026-09-18",
+  "claim": "An install.md example listed by the install.md README no longer resolves.",
+  "url": "https://trigger.dev/docs/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B07",
+  "source": "critic-2026-09-18",
+  "claim": "An install.md example listed by the install.md README no longer resolves.",
+  "url": "https://www.mintlify.com/docs/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B08",
+  "source": "critic-2026-09-18",
+  "claim": "Sentry's llms.txt has an agent-addressed section with an install command.",
+  "url": "https://docs.sentry.io/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "## Instructions for AI Coding Assistants",
+   "Install the Sentry plugin to get current, verified instructions by running `npx @sentry/agent-plugin install`",
+   "**Do not implement without permission**: Never install packages, create files, or modify configuration without asking the user first."
+  ]
+ },
+ {
+  "id": "B09",
+  "source": "critic-2026-09-18",
+  "claim": "Clerk's llms.txt opens with a CLI install statement.",
+  "url": "https://clerk.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Install the Clerk CLI to add auth to your app. No global install, API keys, or sign-in is required."
+  ]
+ },
+ {
+  "id": "B10",
+  "source": "critic-2026-09-18",
+  "claim": "Stripe, Expo, Langfuse and Vercel publish an llms.txt (Stripe).",
+  "url": "https://docs.stripe.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "## Instructions for Large Language Model Agents: Best Practices for integrating Stripe"
+  ]
+ },
+ {
+  "id": "B11",
+  "source": "critic-2026-09-18",
+  "claim": "probelabs/probe registers its MCP server through a package runner.",
+  "url": "https://raw.githubusercontent.com/probelabs/probe/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "\"args\": [\"-y\", \"@probelabs/probe@latest\", \"mcp\"]"
+  ]
+ },
+ {
+  "id": "B12",
+  "source": "critic-2026-09-18",
+  "claim": "zilliztech/claude-context prints a `claude mcp add` stdio one-liner.",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add claude-context \\",
+   "-- npx @zilliz/claude-context-mcp@latest"
+  ]
+ },
+ {
+  "id": "B13",
+  "source": "critic-2026-09-18",
+  "claim": "The GitHub MCP server README carries VS Code install badges and a `claude mcp add` stdio line.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "https://insiders.vscode.dev/redirect/mcp/install?name=github&config=",
+   "claude mcp add github -e GITHUB_PERSONAL_ACCESS_TOKEN=$GITHUB_PAT -- docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server"
+  ]
+ },
+ {
+  "id": "B14",
+  "source": "critic-2026-09-18",
+  "claim": "Serena installs with uv and warns against marketplace installs.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "uv tool install -p 3.13 serena-agent",
+   "Do not install Serena via an MCP or plugin marketplace! They contain outdated and suboptimal installation commands."
+  ]
+ },
+ {
+  "id": "B15",
+  "source": "critic-2026-09-18",
+  "claim": "Gemini CLI has an `mcp add` command.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "gemini mcp add [options] <name> <commandOrUrl> [args...]"
+  ]
+ },
+ {
+  "id": "B16",
+  "source": "critic-2026-09-18",
+  "claim": "Gemini CLI installs extensions from a GitHub URL.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/extensions/index.md",
+  "expect": "present",
+  "quotes": [
+   "gemini extensions install https://github.com/gemini-cli-extensions/workspace"
+  ]
+ },
+ {
+  "id": "B17",
+  "source": "critic-2026-09-18",
+  "claim": "Gemini CLI has a `/bug` command.",
+  "url": "https://geminicli.com/docs/reference/commands.md",
+  "expect": "present",
+  "quotes": [
+   "### `/bug`"
+  ]
+ },
+ {
+  "id": "B18",
+  "source": "critic-2026-09-18",
+  "claim": "OpenCode configures MCP under the root key `mcp`, with `type: local` and an array command.",
+  "url": "https://opencode.ai/docs/mcp-servers.md",
+  "expect": "present",
+  "quotes": [
+   "\"type\": \"local\"",
+   "\"command\": [\"npx\", \"-y\", \"my-mcp-command\"]"
+  ]
+ },
+ {
+  "id": "B19",
+  "source": "critic-2026-09-18",
+  "claim": "The MCP Registry accepts prebuilt binaries (MCPB) and cargo packages.",
+  "url": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/docs/modelcontextprotocol-io/package-types.mdx",
+  "expect": "present",
+  "quotes": [
+   "prebuilt binary distributed via GitHub or GitLab Releases. End users need no toolchain.",
+   "\"registryType\": \"cargo\""
+  ]
+ },
+ {
+  "id": "B20",
+  "source": "critic-2026-09-18",
+  "claim": "The MCP Registry API answers.",
+  "url": "https://registry.modelcontextprotocol.io/v0/servers?limit=1",
+  "expect": "present",
+  "quotes": [
+   "\"servers\""
+  ]
+ },
+ {
+  "id": "B21",
+  "source": "critic-2026-09-18",
+  "claim": "MCPB is the renamed DXT (Desktop Extensions) bundle format.",
+  "url": "https://raw.githubusercontent.com/anthropics/mcpb/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "This project is being renamed from DXT (Desktop Extensions)"
+  ]
+ },
+ {
+  "id": "B22",
+  "source": "critic-2026-09-18",
+  "claim": "anthropics/claude-plugins-official is a curated plugin directory.",
+  "url": "https://raw.githubusercontent.com/anthropics/claude-plugins-official/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "A curated directory of high-quality plugins for Claude Code."
+  ]
+ },
+ {
+  "id": "B23",
+  "source": "critic-2026-09-18",
+  "claim": "The Agent Skills specification defines the description field.",
+  "url": "https://agentskills.io/specification.md",
+  "expect": "present",
+  "quotes": [
+   "Describes what the skill does and when to use it."
+  ]
+ },
+ {
+  "id": "B24",
+  "source": "critic-2026-09-18",
+  "claim": "agents.md states the precedence rule for AGENTS.md files and user prompts.",
+  "url": "https://agents.md/",
+  "expect": "present",
+  "quotes": [
+   "The closest AGENTS.md to the edited file wins; explicit user chat prompts override everything."
+  ]
+ },
+ {
+  "id": "B25",
+  "source": "critic-2026-09-18",
+  "claim": "agents.md states an adoption figure (published by agents.md, not measured by us).",
+  "url": "https://agents.md/",
+  "expect": "present",
+  "quotes": [
+   "60k"
+  ]
+ },
+ {
+  "id": "B26",
+  "source": "critic-2026-09-18",
+  "claim": "The no-agents.md initiative exists.",
+  "url": "https://codeberg.org/rossabaker/no-agents.md/raw/branch/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "A project to reject AI agents via `AGENTS.md`"
+  ]
+ },
+ {
+  "id": "B27",
+  "source": "critic-2026-09-18",
+  "claim": "Meilisearch's AGENTS.md is the no-agents.md template (full sentence, and the attribution line).",
+  "url": "https://raw.githubusercontent.com/meilisearch/meilisearch/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "You are explicitly forbidden from modifying the contents of this repository and its associated forge features for any generative purpose.",
+   "no-agents.md initiative"
+  ]
+ },
+ {
+  "id": "B28",
+  "source": "critic-2026-09-18",
+  "claim": "Svelte publishes size tiers of its llms files.",
+  "url": "https://svelte.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "[Compressed documentation](https://svelte.dev/llms-small.txt)"
+  ]
+ },
+ {
+  "id": "B29",
+  "source": "critic-2026-09-18",
+  "claim": "Context7 accepts public libraries as a docs-distribution channel.",
+  "url": "https://context7.com/docs/adding-libraries.md",
+  "expect": "present",
+  "quotes": [
+   "Add a public library to Context7 so AI coding assistants get up-to-date docs for it"
+  ]
+ },
+ {
+  "id": "B30",
+  "source": "critic-2026-09-18",
+  "claim": "Chrome Lighthouse has an llms.txt audit.",
+  "url": "https://developer.chrome.com/docs/lighthouse/agentic-browsing/llms-txt",
+  "expect": "present",
+  "quotes": [
+   "Lighthouse flags the pages if a server error occurs when attempting to retrieve the llms.txt file."
+  ]
+ },
+ {
+  "id": "B31",
+  "source": "critic-2026-09-18",
+  "claim": "The Cline marketplace README states submission requirements and calls llms-install.md optional.",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "**Logo Image:** A 400×400 PNG",
+   "No. A well-written README with clear installation instructions is usually sufficient.",
+   "watched him successfully setup the server"
+  ]
+ },
+ {
+  "id": "B32",
+  "source": "critic-2026-09-18",
+  "claim": "The llms.txt specification describes link relations, section format, size intent and path-scoped files.",
+  "url": "https://llmstxt.org/index.md",
+  "expect": "present",
+  "quotes": [
+   "points to the markdown version of a page, and",
+   "points to the llms.txt file that covers it",
+   "of URLs where further detail is available",
+   "The file itself stays small enough to fit in context.",
+   "agents should use the most specific one"
+  ]
+ },
+ {
+  "id": "B33",
+  "source": "critic-2026-09-18",
+  "claim": "The llms.txt changelog removes the mechanical meaning of the Optional section.",
+  "url": "https://llmstxt.org/changes.md",
+  "expect": "present",
+  "quotes": [
+   "Optional sections are still allowed, and remain a useful convention for secondary links, but they no longer carry mechanical semantics."
+  ]
+ },
+ {
+  "id": "B34",
+  "source": "critic-2026-09-18",
+  "claim": "Claude Code documents plugin hints emitted by a CLI.",
+  "url": "https://code.claude.com/docs/en/plugin-hints.md",
+  "expect": "present",
+  "quotes": [
+   "Your CLI writes a one-line marker to stderr when it detects it is running inside Claude Code",
+   "Hint prompts only fire for plugins listed in the official Anthropic marketplace."
+  ]
+ },
+ {
+  "id": "B35",
+  "source": "critic-2026-09-18",
+  "claim": "Claude Code documents project scope, its approval state and the stdio add syntax.",
+  "url": "https://code.claude.com/docs/en/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "add `--scope project`",
+   "Pending approval (run `claude` to approve)",
+   "claude mcp add [options] <name> -- <command> [args...]"
+  ]
+ },
+ {
+  "id": "B36",
+  "source": "critic-2026-09-18",
+  "claim": "A second skills-discovery path (/.well-known/agent-skills/index.json, schema discovery/0.2.0) is live.",
+  "url": "https://docs.browserbase.com/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "B37",
+  "source": "critic-2026-09-18",
+  "claim": "A second skills-discovery path (/.well-known/agent-skills/index.json, schema discovery/0.2.0) is live.",
+  "url": "https://docs.firecrawl.dev/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "B38",
+  "source": "critic-2026-09-18",
+  "claim": "A second skills-discovery path (/.well-known/agent-skills/index.json, schema discovery/0.2.0) is live.",
+  "url": "https://clerk.com/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "B39",
+  "source": "critic-2026-09-18",
+  "claim": "A second skills-discovery path (/.well-known/agent-skills/index.json, schema discovery/0.2.0) is live.",
+  "url": "https://docs.trychroma.com/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "B40",
+  "source": "critic-2026-09-18",
+  "claim": "Stripe serves only the older skills-discovery path.",
+  "url": "https://docs.stripe.com/.well-known/agent-skills/index.json",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "B41",
+  "source": "critic-2026-09-18",
+  "claim": "Stripe's older skills-discovery path is live.",
+  "url": "https://docs.stripe.com/.well-known/skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "\"skills\""
+  ]
+ },
+ {
+  "id": "B42",
+  "source": "critic-2026-09-18",
+  "claim": "Mintlify generates a lowercase skill.md for hosted docs.",
+  "url": "https://www.mintlify.com/docs/ai/skillmd.md",
+  "expect": "present",
+  "quotes": [
+   "Mintlify automatically generates a `skill.md` file for your project by analyzing your documentation with an agentic loop."
+  ]
+ },
+ {
+  "id": "B43",
+  "source": "critic-2026-09-18",
+  "claim": "Firecrawl's docs serve a generated skill.md.",
+  "url": "https://docs.firecrawl.dev/skill.md",
+  "expect": "present",
+  "quotes": [
+   "firecrawl"
+  ]
+ },
+ {
+  "id": "B44",
+  "source": "critic-2026-09-18",
+  "claim": "Mintlify documents a per-page contextual menu.",
+  "url": "https://www.mintlify.com/docs/ai/contextual-menu.md",
+  "expect": "present",
+  "quotes": [
+   "contextual menu"
+  ]
+ },
+ {
+  "id": "B45",
+  "source": "critic-2026-09-18",
+  "claim": "Cursor documents deeplink limits and that deeplinks never auto-execute.",
+  "url": "https://cursor.com/docs/reference/deeplinks.md",
+  "expect": "present",
+  "quotes": [
+   "Deeplink URLs have a maximum length of 10,000 characters.",
+   "Deeplinks never trigger automatic execution."
+  ]
+ },
+ {
+  "id": "B46",
+  "source": "critic-2026-09-18",
+  "claim": "RedMonk's characterisation of curl's AI-disclosure checkbox (RedMonk's words, not curl's).",
+  "url": "https://redmonk.com/kholterhoff/2026/02/03/ai-slopageddon-and-the-oss-maintainers/",
+  "expect": "present",
+  "quotes": [
+   "In May 2025, Stenberg added a checkbox requiring submitters to disclose if they’d used AI. It didn’t help."
+  ]
+ },
+ {
+  "id": "B47",
+  "source": "critic-2026-09-18",
+  "claim": "OpenAI Codex's policy is a blanket external-contribution policy, not an agent policy.",
+  "url": "https://raw.githubusercontent.com/openai/codex/main/docs/contributing.md",
+  "expect": "present",
+  "quotes": [
+   "**We do not accept external code contributions or pull requests.**"
+  ]
+ },
+ {
+  "id": "B48",
+  "source": "critic-2026-09-18",
+  "claim": "Deno's llms-full.txt contains its paste prompt (so llms-full.txt can carry an install story).",
+  "url": "https://docs.deno.com/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "Read deno.com/agents.md and set up Deno in this project"
+  ]
+ },
+ {
+  "id": "B49",
+  "source": "critic-2026-09-18",
+  "claim": "Tavily's llms-full.txt contains its paste prompt.",
+  "url": "https://docs.tavily.com/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "Read and execute tavily.com/agent-setup/SKILL.md"
+  ]
+ },
+ {
+  "id": "B50",
+  "source": "critic-2026-09-18",
+  "claim": "SurrealDB's verify line is on its Claude Code page.",
+  "url": "https://surrealdb.com/docs/agents/claude-code.md",
+  "expect": "present",
+  "quotes": [
+   "**surrealdb** should be listed as connected."
+  ]
+ },
+ {
+  "id": "B51",
+  "source": "critic-2026-09-18",
+  "claim": "SurrealDB's verify line is NOT in its llms.txt.",
+  "url": "https://surrealdb.com/llms.txt",
+  "expect": "absent",
+  "quotes": [
+   "should be listed as connected"
+  ]
+ },
+ {
+  "id": "B52",
+  "source": "critic-2026-09-18",
+  "claim": "Anthropic's skills overview says what a skill description must contain.",
+  "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview.md",
+  "expect": "present",
+  "quotes": [
+   "what the Skill does and when to use it"
+  ]
+ },
+ {
+  "id": "B53",
+  "source": "critic-2026-09-18",
+  "claim": "Sonarr's AGENTS.md guards every GitHub write (pinned commit).",
+  "url": "https://raw.githubusercontent.com/Sonarr/Sonarr/76c684e097f16ac216e6213845e5cac372774995/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "these guardrails apply. No exceptions."
+  ]
+ },
+ {
+  "id": "B54",
+  "source": "critic-2026-09-18",
+  "claim": "Vexa's llms.txt asks agents for one line and states who reads it (pinned commit).",
+  "url": "https://raw.githubusercontent.com/Vexa-ai/vexa/dba990b413bd0f888b02d46a24f802db492addbb/docs/docs/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "We can see that these pages get fetched; we cannot see the question.",
+   "A human reads every one."
+  ]
+ },
+ {
+  "id": "B55",
+  "source": "critic-2026-09-18",
+  "claim": "GreptimeDB's README gives a one-line paste prompt pointing at a hosted SKILL.md.",
+  "url": "https://raw.githubusercontent.com/GreptimeTeam/greptimedb/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "Read https://docs.greptime.com/SKILL.md and follow the instructions"
+  ]
+ },
+ {
+  "id": "B56",
+  "source": "critic-2026-09-18",
+  "claim": "Neon's CLI fails closed on an unknown agent id.",
+  "url": "https://neon.com/docs/cli/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "Passing an unknown agent stops the command and prints the current supported list."
+  ]
+ },
+ {
+  "id": "B57",
+  "source": "critic-2026-09-18",
+  "claim": "ClickHouse's CLI detects agent contexts through an AGENT environment variable.",
+  "url": "https://clickhouse.com/docs/interfaces/cli.md",
+  "expect": "present",
+  "quotes": [
+   "auto-detects coding-agent contexts",
+   "env var) and emits JSON to stdout automatically without setting `--json`."
+  ]
+ },
+ {
+  "id": "B58",
+  "source": "critic-2026-09-18",
+  "claim": "Firecrawl names the most important feedback field.",
+  "url": "https://raw.githubusercontent.com/firecrawl/firecrawl-mcp-server/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "**Most important field:** `missingContent`.",
+   "**Call this after every search you actually use**"
+  ]
+ },
+ {
+  "id": "B59",
+  "source": "critic-2026-09-18",
+  "claim": "Zed does not accept contributions from autonomous agents.",
+  "url": "https://raw.githubusercontent.com/zed-industries/zed/main/CONTRIBUTING.md",
+  "expect": "present",
+  "quotes": [
+   "accept contributions from autonomous agents"
+  ]
+ },
+ {
+  "id": "B60",
+  "source": "critic-2026-09-18",
+  "claim": "LLVM's AI tool policy bans agents acting without human approval.",
+  "url": "https://raw.githubusercontent.com/llvm/llvm-project/main/llvm/docs/AIToolPolicy.md",
+  "expect": "present",
+  "quotes": [
+   "it bans agents that take action in our digital spaces without human approval"
+  ]
+ },
+ {
+  "id": "B61",
+  "source": "critic-2026-09-18",
+  "claim": "MicroPython's generative-AI policy asks that agents not submit PRs by themselves.",
+  "url": "https://raw.githubusercontent.com/wiki/micropython/micropython/ContributorGuidelines.md",
+  "expect": "present",
+  "quotes": [
+   "Please do not allow \"AI Agents\" to submit Pull Requests to MicroPython by themselves."
+  ]
+ },
+ {
+  "id": "B62",
+  "source": "critic-2026-09-18",
+  "claim": "QuantEcon's audit figure (published by QuantEcon, not measured by us).",
+  "url": "https://api.github.com/repos/QuantEcon/qeps/issues/12",
+  "expect": "present",
+  "quotes": [
+   "11–12 involve AI authorship, and most carry no disclosure"
+  ]
+ },
+ {
+  "id": "B63",
+  "source": "critic-2026-09-18",
+  "claim": "OpenTofu's AGENTS.md routes LLM findings to an issue, never a PR.",
+  "url": "https://raw.githubusercontent.com/opentofu/opentofu/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "MUST NOT open a pull request"
+  ]
+ },
+ {
+  "id": "B64",
+  "source": "critic-2026-09-18",
+  "claim": "FastMCP closes LLM-generated issues.",
+  "url": "https://gofastmcp.com/development/contributing.md",
+  "expect": "present",
+  "quotes": [
+   "LLM-generated issues will be closed immediately."
+  ]
+ },
+ {
+  "id": "B65",
+  "source": "critic-2026-09-18",
+  "claim": "Meilisearch's llms.txt states source precedence.",
+  "url": "https://www.meilisearch.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If information conflicts across sources, prefer (in order):"
+  ]
+ },
+ {
+  "id": "B66",
+  "source": "critic-2026-09-18",
+  "claim": "ClickHouse's llms.txt size has drifted since 2026-09-18 (103,444 B then 103,065 B); generated files change within a day.",
+  "url": "https://clickhouse.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "ClickHouse"
+  ]
+ },
+ {
+  "id": "C001",
+  "source": "new-2026-09-19",
+  "claim": "AI SDK llms.txt branches on capability (fetch vs filesystem).",
+  "url": "https://ai-sdk.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If you can fetch URLs, search the docs first:",
+   "Then follow the skill instructions before changing code."
+  ]
+ },
+ {
+  "id": "C002",
+  "source": "new-2026-09-19",
+  "claim": "Neon auth.md gives a REST fallback when the CLI cannot run.",
+  "url": "https://neon.com/auth.md",
+  "expect": "present",
+  "quotes": [
+   "If you cannot run the CLI, or `neon claim --help` does not list `create`, skip to REST."
+  ]
+ },
+ {
+  "id": "C003",
+  "source": "new-2026-09-19",
+  "claim": "Tavily agents.md has a persona row for an agent with no credentials.",
+  "url": "https://docs.tavily.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "An autonomous agent with no credentials or API key"
+  ]
+ },
+ {
+  "id": "C004",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse names MCP as the route for agents that cannot run shell commands.",
+  "url": "https://langfuse.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "the Model Context Protocol, for agents that can't run shell commands"
+  ]
+ },
+ {
+  "id": "C005",
+  "source": "new-2026-09-19",
+  "claim": "CrewAI's install prompt tells the agent not to fail the whole setup when skills cannot load.",
+  "url": "https://docs.crewai.com/en/installation.md",
+  "expect": "present",
+  "quotes": [
+   "If npx is missing or the current agent cannot load skills, do not fail the whole setup.",
+   "Do not invent CLI flags. Validate with crewai --help or crewai create --help."
+  ]
+ },
+ {
+  "id": "C006",
+  "source": "new-2026-09-19",
+  "claim": "Browserbase's quickstart introduces its one-line prompt.",
+  "url": "https://docs.browserbase.com/welcome/quickstarts/skills.md",
+  "expect": "present",
+  "quotes": [
+   "Copy this prompt into your agent to get started:"
+  ]
+ },
+ {
+  "id": "C007",
+  "source": "new-2026-09-19",
+  "claim": "Algolia's llms.txt points agents at a hosted setup file.",
+  "url": "https://www.algolia.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Fetch and follow the instructions at https://www.algolia.com/doc/guides/get-started/build-with-ai.md"
+  ]
+ },
+ {
+  "id": "C008",
+  "source": "new-2026-09-19",
+  "claim": "Firecrawl's introduction carries a one-line prompt to a hosted SKILL.md.",
+  "url": "https://docs.firecrawl.dev/introduction.md",
+  "expect": "present",
+  "quotes": [
+   "Read and follow https://www.firecrawl.dev/agent-onboarding/SKILL.md"
+  ]
+ },
+ {
+  "id": "C009",
+  "source": "new-2026-09-19",
+  "claim": "Cloudflare's agent-setup page copies a prompt that fetches and executes a prompt.md (the text is in the page's clipboard script, not in the Markdown twin).",
+  "url": "https://developers.cloudflare.com/agent-setup/",
+  "expect": "present",
+  "quotes": [
+   "Fetch and execute the appropriate instructions to set me up for Cloudflare from https://developers.cloudflare.com/agent-setup/prompt.md"
+  ]
+ },
+ {
+  "id": "C010",
+  "source": "new-2026-09-19",
+  "claim": "Clerk's quickstart overview gives a one-line agent prompt.",
+  "url": "https://clerk.com/docs/getting-started/quickstart/overview.md",
+  "expect": "present",
+  "quotes": [
+   "Add Clerk auth to my app: clerk.com/SKILL.md",
+   "npx skills add clerk/skills"
+  ]
+ },
+ {
+  "id": "C011",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse's agent instruction is one sentence.",
+  "url": "https://langfuse.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "Install the Langfuse Agent Skill from github.com/langfuse/skills."
+  ]
+ },
+ {
+  "id": "C012",
+  "source": "new-2026-09-19",
+  "claim": "Qdrant's paste prompt is three words.",
+  "url": "https://qdrant.tech/documentation/skills/index.md",
+  "expect": "present",
+  "quotes": [
+   "Use skills.qdrant.tech"
+  ]
+ },
+ {
+  "id": "C013",
+  "source": "new-2026-09-19",
+  "claim": "Typesense's paste prompt asks the agent to use MCP for the whole setup.",
+  "url": "https://typesense.org/docs/guide/typesense-cloud/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "Using MCP, set up Typesense Cloud for me",
+   "For anything about my Typesense Cloud account, clusters or collections, use the typesense-cloud MCP tools.",
+   "codex mcp add typesense-cloud --url https://cloud.typesense.org/mcp/v1"
+  ]
+ },
+ {
+  "id": "C014",
+  "source": "new-2026-09-19",
+  "claim": "Convex documents a one-shot launch command.",
+  "url": "https://docs.convex.dev/ai/using-claude-code.md",
+  "expect": "present",
+  "quotes": [
+   "claude \"build me a todo app with Convex\" --permission-mode auto"
+  ]
+ },
+ {
+  "id": "C015",
+  "source": "new-2026-09-19",
+  "claim": "Algolia fences the agent block off from the human reference sections and scripts the hand-off.",
+  "url": "https://www.algolia.com/doc/guides/get-started/build-with-ai.md",
+  "expect": "present",
+  "quotes": [
+   "These are official, Algolia-validated instructions to set up an Algolia development environment.",
+   "Don't run them.",
+   "Tell the user their Algolia agent environment is ready, then suggest the next step:",
+   "Don't use `npx skills` for Claude Code. The plugin commands handle everything."
+  ]
+ },
+ {
+  "id": "C016",
+  "source": "new-2026-09-19",
+  "claim": "Cloudflare's prompt.md tells the agent to run every step itself.",
+  "url": "https://developers.cloudflare.com/agent-setup/prompt.md",
+  "expect": "present",
+  "quotes": [
+   "Complete all of the following steps yourself by running the commands directly. Do not ask the user to run any of these commands."
+  ]
+ },
+ {
+  "id": "C017",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's playbook has an execution contract, a merge rule for MCP config and a fixed completion block.",
+  "url": "https://vercel.com/get-started.md",
+  "expect": "present",
+  "quotes": [
+   "Pause only for user authentication, approval, or UI actions you cannot perform.",
+   "Report only verified state:",
+   "Before changing a MCP configuration file, inspect it and merge the `vercel` entry without replacing unrelated settings.",
+   "Merge this into `~/.gemini/settings.json`:",
+   "Merge this into `~/.codeium/windsurf/mcp_config.json`:",
+   "\"serverUrl\": \"https://mcp.vercel.com\"",
+   "codex mcp add vercel --url https://mcp.vercel.com"
+  ]
+ },
+ {
+  "id": "C018",
+  "source": "new-2026-09-19",
+  "claim": "Tavily's setup skill tells the agent not to hand terminal steps to the user.",
+  "url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "Do not make the user perform a step that can be completed from the terminal."
+  ]
+ },
+ {
+  "id": "C019",
+  "source": "new-2026-09-19",
+  "claim": "Browserbase's SKILL.md asks for a checklist and a confirmation before any command.",
+  "url": "https://www.browserbase.com/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "Before running any commands, present the user with a preliminary setup checklist",
+   "Wait for the user to confirm before continuing."
+  ]
+ },
+ {
+  "id": "C020",
+  "source": "new-2026-09-19",
+  "claim": "Clerk's SKILL.md asks for a yes before setup, never chooses an application, and ends with a doctor command.",
+  "url": "https://clerk.com/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "Show the user this checklist and wait for a yes",
+   "Never choose an application for them.",
+   "npx -y clerk@latest doctor",
+   "Do not read or print existing environment variable files"
+  ]
+ },
+ {
+  "id": "C021",
+  "source": "new-2026-09-19",
+  "claim": "Deno's agents.md corrects priors and limits scope.",
+  "url": "https://deno.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "## Assumptions to drop",
+   "**Never propose one big migration**",
+   "Skip this if an equivalent Deno skill or rule is already present."
+  ]
+ },
+ {
+  "id": "C022",
+  "source": "new-2026-09-19",
+  "claim": "Firecrawl tells the agent what to do when no tools appear, and prints a Claude Code one-liner.",
+  "url": "https://docs.firecrawl.dev/mcp-server/keyless.md",
+  "expect": "present",
+  "quotes": [
+   "If no Firecrawl tools appear, restart or reload the client after saving its MCP configuration.",
+   "claude mcp add --transport http firecrawl https://mcp.firecrawl.dev/v2/mcp"
+  ]
+ },
+ {
+  "id": "C023",
+  "source": "new-2026-09-19",
+  "claim": "Composio lists what does not count as proof.",
+  "url": "https://docs.composio.dev/docs/agent-setup/unattended-authentication.md",
+  "expect": "present",
+  "quotes": [
+   "An HTTP 401, a tool schema lookup, or a successful build does not prove tool execution."
+  ]
+ },
+ {
+  "id": "C024",
+  "source": "new-2026-09-19",
+  "claim": "Chroma's paste prompt requires the output in the agent's summary.",
+  "url": "https://docs.trychroma.com/docs/overview/getting-started.md",
+  "expect": "present",
+  "quotes": [
+   "Your own summary should include this output so the user can see it.",
+   "Give the following prompt to Claude Code, Cursor, Codex, or your favorite AI agent."
+  ]
+ },
+ {
+  "id": "C025",
+  "source": "new-2026-09-19",
+  "claim": "FastMCP's install page shows expected output.",
+  "url": "https://gofastmcp.com/getting-started/installation.md",
+  "expect": "present",
+  "quotes": [
+   "You should see output like the following:"
+  ]
+ },
+ {
+  "id": "C026",
+  "source": "new-2026-09-19",
+  "claim": "Composio asks the agent to clarify the goal first.",
+  "url": "https://docs.composio.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If it is unclear whether the goal is to integrate Composio into the application or connect apps to the coding agent itself, clarify that first."
+  ]
+ },
+ {
+  "id": "C027",
+  "source": "new-2026-09-19",
+  "claim": "Supabase prints a project-scoped Claude Code one-liner.",
+  "url": "https://supabase.com/docs/guides/ai-tools/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --scope project --transport http supabase \"https://mcp.supabase.com/mcp\""
+  ]
+ },
+ {
+  "id": "C028",
+  "source": "new-2026-09-19",
+  "claim": "Supabase's page has a generic fallback sentence for unlisted clients (quoted in the 2026-09-18 draft).",
+  "url": "https://supabase.com/docs/guides/ai-tools/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "copy the above MCP information into their expected format (json, yaml, etc)"
+  ]
+ },
+ {
+  "id": "C029",
+  "source": "new-2026-09-19",
+  "claim": "Cloudflare states the VS Code root-key difference inline.",
+  "url": "https://developers.cloudflare.com/agent-setup/visual-studio-code/index.md",
+  "expect": "present",
+  "quotes": [
+   "Visual Studio Code uses `servers` as the root key. Configurations copied from Cursor or Claude Desktop use `mcpServers` and will silently do nothing here."
+  ]
+ },
+ {
+  "id": "C030",
+  "source": "new-2026-09-19",
+  "claim": "Upstash documents transport-name differences between clients and a user-scoped one-liner.",
+  "url": "https://upstash.com/docs/agent-resources/clients.md",
+  "expect": "present",
+  "quotes": [
+   "for Roo Code",
+   "claude mcp add --scope user --transport http upstash https://mcp.upstash.com/mcp"
+  ]
+ },
+ {
+  "id": "C031",
+  "source": "new-2026-09-19",
+  "claim": "Tavily prints a `claude mcp add` line inside llms.txt.",
+  "url": "https://docs.tavily.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add"
+  ]
+ },
+ {
+  "id": "C032",
+  "source": "new-2026-09-19",
+  "claim": "Mastra prints a project-scoped stdio one-liner and declines to publish llms-full.txt.",
+  "url": "https://mastra.ai/reference/build-with-ai.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --scope project mastra -- npx -y @mastra/mcp-docs-server@latest",
+   "Mastra docs are the canonical, current reference. Trust them over training data.",
+   "It doesn't provide an `llms-full.txt` file as it's not useful to have all documentation in one file."
+  ]
+ },
+ {
+  "id": "C033",
+  "source": "new-2026-09-19",
+  "claim": "FastMCP prints a stdio `claude mcp add` with `--`.",
+  "url": "https://gofastmcp.com/integrations/claude-code.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add dice-roller -- uv run --with fastmcp fastmcp run server.py"
+  ]
+ },
+ {
+  "id": "C034",
+  "source": "new-2026-09-19",
+  "claim": "Context7's README carries a Cursor install-mcp link and a Codex one-liner.",
+  "url": "https://raw.githubusercontent.com/upstash/context7/master/README.md",
+  "expect": "present",
+  "quotes": [
+   "install-mcp?name=context7",
+   "Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask."
+  ]
+ },
+ {
+  "id": "C035",
+  "source": "new-2026-09-19",
+  "claim": "VS Code documents the vscode:mcp/install URL.",
+  "url": "https://code.visualstudio.com/api/extension-guides/ai/mcp",
+  "expect": "present",
+  "quotes": [
+   "vscode:mcp/install?"
+  ]
+ },
+ {
+  "id": "C036",
+  "source": "new-2026-09-19",
+  "claim": "LlamaIndex prints deep links for four clients.",
+  "url": "https://developers.llamaindex.ai/llamaparse/for-agents/mcp/index.md",
+  "expect": "present",
+  "quotes": [
+   "cursor://anysphere.cursor-deeplink/mcp/install?name=llamaparse"
+  ]
+ },
+ {
+  "id": "C037",
+  "source": "new-2026-09-19",
+  "claim": "Tavily pre-fills the prompt through a Codex deep link.",
+  "url": "https://docs.tavily.com/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "codex://new?prompt=Read%20and%20execute%20tavily.com%2Fagent-setup%2FSKILL.md"
+  ]
+ },
+ {
+  "id": "C038",
+  "source": "new-2026-09-19",
+  "claim": "vercel-labs/skills defines `npx skills add`.",
+  "url": "https://raw.githubusercontent.com/vercel-labs/skills/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "npx skills add"
+  ]
+ },
+ {
+  "id": "C039",
+  "source": "new-2026-09-19",
+  "claim": "Algolia measured that installed skills go unused without a trigger line (published by Algolia, not run by us).",
+  "url": "https://raw.githubusercontent.com/algolia/skills/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "invoked **1 of 18** skills",
+   "For any Algolia work, invoke the `algolia-discovery-planning` skill first."
+  ]
+ },
+ {
+  "id": "C040",
+  "source": "new-2026-09-19",
+  "claim": "Stripe recommends a CLI subcommand that sets up every detected agent, and documents a curl fallback for the skills index.",
+  "url": "https://docs.stripe.com/skills.md",
+  "expect": "present",
+  "quotes": [
+   "stripe agent setup",
+   "You can use curl to fetch the index of available skills",
+   "npx skills add https://docs.stripe.com"
+  ]
+ },
+ {
+  "id": "C041",
+  "source": "new-2026-09-19",
+  "claim": "Modal installs its skill from the CLI.",
+  "url": "https://modal.com/docs/cli/latest/skills.md",
+  "expect": "present",
+  "quotes": [
+   "modal skills install"
+  ]
+ },
+ {
+  "id": "C042",
+  "source": "new-2026-09-19",
+  "claim": "Modal's skill tells the agent not to load llms-full.txt into context.",
+  "url": "https://raw.githubusercontent.com/modal-labs/modal-client/main/py/modal/skills/modal/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "read this into your main context, but it may be useful for searching."
+  ]
+ },
+ {
+  "id": "C043",
+  "source": "new-2026-09-19",
+  "claim": "A hosted SKILL.md is served at the product domain.",
+  "url": "https://www.browserbase.com/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "name:"
+  ]
+ },
+ {
+  "id": "C044",
+  "source": "new-2026-09-19",
+  "claim": "A hosted SKILL.md is served at the product domain.",
+  "url": "https://www.tavily.com/agent-setup/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "name:"
+  ]
+ },
+ {
+  "id": "C045",
+  "source": "new-2026-09-19",
+  "claim": "A hosted SKILL.md is served at the product domain.",
+  "url": "https://www.firecrawl.dev/agent-onboarding/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "name:"
+  ]
+ },
+ {
+  "id": "C046",
+  "source": "new-2026-09-19",
+  "claim": "A hosted SKILL.md is served at the product domain.",
+  "url": "https://clerk.com/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "name:"
+  ]
+ },
+ {
+  "id": "C047",
+  "source": "new-2026-09-19",
+  "claim": "A hosted SKILL.md is served at the product domain.",
+  "url": "https://clickhouse.com/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "name:"
+  ]
+ },
+ {
+  "id": "C048",
+  "source": "new-2026-09-19",
+  "claim": "Mintlify-hosted pages open with a three-line index banner (Cline example).",
+  "url": "https://docs.cline.bot/getting-started/installing-cline.md",
+  "expect": "present",
+  "quotes": [
+   "Fetch the complete documentation index at: https://docs.cline.bot/llms.txt",
+   "Use this file to discover all available pages before exploring further."
+  ]
+ },
+ {
+  "id": "C049",
+  "source": "new-2026-09-19",
+  "claim": "Neon documents the Markdown twin rule.",
+  "url": "https://neon.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Append `.md` to any doc URL or set `Accept: text/markdown`"
+  ]
+ },
+ {
+  "id": "C050",
+  "source": "new-2026-09-19",
+  "claim": "Cursor's Markdown pages end with a sitemap pointer.",
+  "url": "https://cursor.com/docs/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "(/llms.txt)"
+  ]
+ },
+ {
+  "id": "C051",
+  "source": "new-2026-09-19",
+  "claim": "Weaviate frames its corrections as a stale prior.",
+  "url": "https://weaviate.io/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Your training data may reflect early Weaviate, which differs significantly from today's product:"
+  ]
+ },
+ {
+  "id": "C052",
+  "source": "new-2026-09-19",
+  "claim": "Milvus gives URL rules.",
+  "url": "https://milvus.io/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "cite only page ids that appear in this file"
+  ]
+ },
+ {
+  "id": "C053",
+  "source": "new-2026-09-19",
+  "claim": "Expo opens with a misconceptions block addressed to models.",
+  "url": "https://docs.expo.dev/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "## Important: common misconceptions",
+   "AI models and LLMs frequently provide outdated information about Expo.",
+   "does not exist.",
+   "For agent setup instructions, fetch https://docs.expo.dev/agents.md."
+  ]
+ },
+ {
+  "id": "C054",
+  "source": "new-2026-09-19",
+  "claim": "The AI SDK skill tells the model not to trust its memory.",
+  "url": "https://raw.githubusercontent.com/vercel/ai/main/skills/use-ai-sdk/SKILL.md",
+  "expect": "present",
+  "quotes": [
+   "## Critical: Do Not Trust Your Own Memory"
+  ]
+ },
+ {
+  "id": "C055",
+  "source": "new-2026-09-19",
+  "claim": "DuckDB's llms.txt is a short list of facts.",
+  "url": "https://duckdb.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Things to remember when using DuckDB:"
+  ]
+ },
+ {
+  "id": "C056",
+  "source": "new-2026-09-19",
+  "claim": "Stripe's llms.txt corrects version priors in its first paragraph.",
+  "url": "https://docs.stripe.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Never hardcode an old version number from training data"
+  ]
+ },
+ {
+  "id": "C057",
+  "source": "new-2026-09-19",
+  "claim": "Composio splits a router from a full index.",
+  "url": "https://docs.composio.dev/llms-index.txt",
+  "expect": "present",
+  "quotes": [
+   "For a shorter routing map, start at [llms.txt](https://docs.composio.dev/llms.txt)."
+  ]
+ },
+ {
+  "id": "C058",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's `## Optional` holds only machine catalogues.",
+  "url": "https://vercel.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "## Optional",
+   "[Agent resource catalog](https://vercel.com/.well-known/ai-catalog.json)",
+   "## How agents should use Vercel",
+   "Ask for approval before changing account resources."
+  ]
+ },
+ {
+  "id": "C059",
+  "source": "new-2026-09-19",
+  "claim": "Upstash offers agents a no-account database.",
+  "url": "https://upstash.com/docs/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "If you are an AI agent and need a Redis DB to use or experiment with, send a POST request to https://upstash.com/start-redis"
+  ]
+ },
+ {
+  "id": "C060",
+  "source": "new-2026-09-19",
+  "claim": "Exa's setup prompt has a hard rule about the key and an HTTP-status success test.",
+  "url": "https://exa.ai/docs/get-started/agent-skills/build-with-exa.md",
+  "expect": "present",
+  "quotes": [
+   "the key is a secret",
+   "It must return 200, not 401/429."
+  ]
+ },
+ {
+  "id": "C061",
+  "source": "new-2026-09-19",
+  "claim": "LangChain's prompt forbids invented MCP URLs and asks for a reachability check.",
+  "url": "https://docs.langchain.com/use-these-docs.md",
+  "expect": "present",
+  "quotes": [
+   "Do not invent alternate MCP URLs."
+  ]
+ },
+ {
+  "id": "C062",
+  "source": "new-2026-09-19",
+  "claim": "Expo prints a feedback command and an HTTP fallback inside an <AgentInstructions> block on a docs page.",
+  "url": "https://docs.expo.dev/agents.md",
+  "expect": "present",
+  "quotes": [
+   "<AgentInstructions>",
+   "npx --yes submit-expo-feedback@latest --category docs --subject \"/agents/\" \"<actionable feedback>\"",
+   "curl -X POST https://api.expo.dev/v2/feedback/docs-send",
+   "(<model>, <harness>)"
+  ]
+ },
+ {
+  "id": "C063",
+  "source": "new-2026-09-19",
+  "claim": "PostHog's feedback command is a no-op in sandboxes.",
+  "url": "https://raw.githubusercontent.com/PostHog/posthog/master/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "the command is a no-op there"
+  ]
+ },
+ {
+  "id": "C064",
+  "source": "new-2026-09-19",
+  "claim": "Claude Code's feedback tool drafts and the human approves with a keystroke.",
+  "url": "https://code.claude.com/docs/en/tools-reference.md",
+  "expect": "present",
+  "quotes": [
+   "to review the draft"
+  ]
+ },
+ {
+  "id": "C065",
+  "source": "new-2026-09-19",
+  "claim": "Qdrant's skills README asks for three specific fields.",
+  "url": "https://raw.githubusercontent.com/qdrant/skills/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "What the agent said vs what it should have said"
+  ]
+ },
+ {
+  "id": "C066",
+  "source": "new-2026-09-19",
+  "claim": "The MCP spec repository gates agent-filed issues and PRs.",
+  "url": "https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "The user already has more than 3 pull requests merged in this repository"
+  ]
+ },
+ {
+  "id": "C067",
+  "source": "new-2026-09-19",
+  "claim": "Next.js asks agents to mark what they write and not to file on the user's behalf.",
+  "url": "https://raw.githubusercontent.com/vercel/next.js/canary/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "NEXT_JS_LLM"
+  ]
+ },
+ {
+  "id": "C068",
+  "source": "new-2026-09-19",
+  "claim": "Pydantic AI asks for query parameters and a privacy line.",
+  "url": "https://pydantic.dev/docs/ai/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Never include personal, private, or confidential information"
+  ]
+ },
+ {
+  "id": "C069",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: llms.txt states the Markdown twin rule and routes agents to a fetchable skill.",
+  "url": "https://docs.sentry.io/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "All documentation pages are available as clean Markdown by appending `.md` to any URL",
+   "If the plugin is not installed, fetch the skill at `https://skills.sentry.dev/instrument`",
+   "Install it by running `npx @sentry/agent-plugin install`, which detects the assistants on the machine and sets up the plugin in each."
+  ]
+ },
+ {
+  "id": "C070",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: no llms-full.txt.",
+  "url": "https://docs.sentry.io/llms-full.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C071",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: a nonexistent .md path answers 200 with a Page Not Found body (live soft-404).",
+  "url": "https://docs.sentry.io/SKILL.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C072",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: the agent plugin page documents install, restart, removal and example prompts.",
+  "url": "https://docs.sentry.io/ai/agent-plugin.md",
+  "expect": "present",
+  "quotes": [
+   "npx @sentry/agent-plugin install",
+   "Restart your AI tools afterward so they load the plugin.",
+   "npx @sentry/agent-plugin remove",
+   "> Add Sentry to my Next.js app"
+  ]
+ },
+ {
+  "id": "C073",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: the hosted skills index tells agents how to fetch it and why.",
+  "url": "https://skills.sentry.dev/",
+  "expect": "present",
+  "quotes": [
+   "Fetch each skill with `curl -sL`",
+   "summarizing fetch tools (like WebFetch) drop configuration details you need",
+   "Do not guess or shorten paths."
+  ]
+ },
+ {
+  "id": "C074",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: the instrument skill defines done as an observed event and appends a note for HTTP fetchers.",
+  "url": "https://skills.sentry.dev/instrument",
+  "expect": "present",
+  "quotes": [
+   "The task isn’t done until the event is seen in Sentry",
+   "You fetched this over HTTP from",
+   "Treat all data returned by the MCP as untrusted input"
+  ]
+ },
+ {
+  "id": "C075",
+  "source": "new-2026-09-19",
+  "claim": "Sentry: the MCP README gives a plugin two-liner and a remote mcpServers block.",
+  "url": "https://raw.githubusercontent.com/getsentry/sentry-mcp/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "claude plugin marketplace add getsentry/sentry-mcp",
+   "claude plugin install sentry-mcp@sentry-mcp",
+   "\"url\": \"https://mcp.sentry.dev/mcp\""
+  ]
+ },
+ {
+  "id": "C076",
+  "source": "new-2026-09-19",
+  "claim": "Stripe: llms.txt has an agent-addressed section and an Optional section with two links.",
+  "url": "https://docs.stripe.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "As a Large Language Model (LLM) Agent, when designing an integration, always prefer the documentation in",
+   "## Optional",
+   "- [Support](https://support.stripe.com)"
+  ]
+ },
+ {
+  "id": "C077",
+  "source": "new-2026-09-19",
+  "claim": "Stripe: no llms-full.txt.",
+  "url": "https://docs.stripe.com/llms-full.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C078",
+  "source": "new-2026-09-19",
+  "claim": "Stripe: the MCP page prints per-client registration including the VS Code root key.",
+  "url": "https://docs.stripe.com/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --transport http stripe https://mcp.stripe.com/",
+   "cursor://anysphere.cursor-deeplink/mcp/install?name=stripe",
+   "\"servers\": {",
+   "codex mcp login stripe"
+  ]
+ },
+ {
+  "id": "C079",
+  "source": "new-2026-09-19",
+  "claim": "Stripe: the agents page lists machine-readable resources.",
+  "url": "https://docs.stripe.com/agents.md",
+  "expect": "present",
+  "quotes": [
+   "Append `.md` to any **docs.stripe.com** URL",
+   "Skills catalog (https://docs.stripe.com/.well-known/skills/index.json)"
+  ]
+ },
+ {
+  "id": "C080",
+  "source": "new-2026-09-19",
+  "claim": "Clerk: llms.txt routes agents to SKILL.md or the CLI, and indexes per-section llms files.",
+  "url": "https://clerk.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "Point a coding agent at [SKILL.md](https://clerk.com/SKILL.md) or install the [Clerk CLI](https://clerk.com/cli)",
+   "[Documentation index](https://clerk.com/docs/llms.txt)"
+  ]
+ },
+ {
+  "id": "C081",
+  "source": "new-2026-09-19",
+  "claim": "Clerk: root llms-full.txt is a meta-index, not a dump.",
+  "url": "https://clerk.com/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "Index of every llms-full.txt file on clerk.com"
+  ]
+ },
+ {
+  "id": "C082",
+  "source": "new-2026-09-19",
+  "claim": "Clerk: a missing .md path answers 404 with a Markdown body.",
+  "url": "https://clerk.com/agents.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C083",
+  "source": "new-2026-09-19",
+  "claim": "Clerk: one CLI command registers its MCP server in detected clients.",
+  "url": "https://clerk.com/docs/guides/ai/overview.md",
+  "expect": "present",
+  "quotes": [
+   "clerk mcp install"
+  ]
+ },
+ {
+  "id": "C084",
+  "source": "new-2026-09-19",
+  "claim": "Clerk: the MCP guide gives a verify step per client.",
+  "url": "https://clerk.com/docs/guides/ai/mcp/clerk-mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add clerk --transport http https://mcp.clerk.com/mcp",
+   "Run `/mcp` once you've opened a Claude Code session to verify the connection.",
+   "codex mcp add clerk https://mcp.clerk.com/mcp"
+  ]
+ },
+ {
+  "id": "C085",
+  "source": "new-2026-09-19",
+  "claim": "Expo: llms-full.txt is not published separately (the URL serves llms.txt).",
+  "url": "https://docs.expo.dev/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "# Expo documentation"
+  ]
+ },
+ {
+  "id": "C086",
+  "source": "new-2026-09-19",
+  "claim": "Expo: agents.md documents plugin install, project context files and a verify prompt.",
+  "url": "https://docs.expo.dev/agents.md",
+  "expect": "present",
+  "quotes": [
+   "claude plugin install expo@claude-plugins-official",
+   "codex plugin add expo@openai-curated",
+   "echo '@AGENTS.md' > CLAUDE.md",
+   "If the agent replies with the SDK version from **package.json**, the agent is reading your project correctly.",
+   "If your project already has an **AGENTS.md**, append the downloaded content to it instead of replacing the file."
+  ]
+ },
+ {
+  "id": "C087",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse: llms.txt has a no-auth docs search endpoint, an MCP endpoint and a skill-first instruction.",
+  "url": "https://langfuse.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "No authentication required.",
+   "curl -sG \"https://langfuse.com/api/search-docs\"",
+   "- **Endpoint**: `https://langfuse.com/api/mcp`",
+   "Install the Langfuse skill before implementing anything with Langfuse.",
+   "Append `.md` to any URL, or send an `Accept: text/markdown` header"
+  ]
+ },
+ {
+  "id": "C088",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse: no llms-full.txt.",
+  "url": "https://langfuse.com/llms-full.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C089",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse: the docs-MCP page prints a user-scoped one-liner, an add-json form and a verify step.",
+  "url": "https://langfuse.com/docs/docs-mcp.md",
+  "expect": "present",
+  "quotes": [
+   "--scope user",
+   "claude mcp add-json langfuse-docs",
+   "type `/mcp` to confirm the connection",
+   "https://cursor.com/en/install-mcp?name=langfuse-docs&config="
+  ]
+ },
+ {
+  "id": "C090",
+  "source": "new-2026-09-19",
+  "claim": "Langfuse: publishes the newer agent-skills discovery index.",
+  "url": "https://langfuse.com/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "C091",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: publishes the newer agent-skills discovery index.",
+  "url": "https://vercel.com/.well-known/agent-skills/index.json",
+  "expect": "present",
+  "quotes": [
+   "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
+  ]
+ },
+ {
+  "id": "C092",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: llms.txt routes agents to a playbook in its third section.",
+  "url": "https://vercel.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "[Set up Vercel for your coding agent](https://vercel.com/get-started.md)",
+   "Install with `npx plugins add vercel/vercel-plugin`"
+  ]
+ },
+ {
+  "id": "C093",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: the docs llms-full.txt exists.",
+  "url": "https://vercel.com/docs/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "# Vercel documentation"
+  ]
+ },
+ {
+  "id": "C094",
+  "source": "new-2026-09-19",
+  "claim": "probe: the README leads with MCP registration through npx and lists four install routes.",
+  "url": "https://raw.githubusercontent.com/probelabs/probe/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "\"args\": [\"-y\", \"@probelabs/probe@latest\", \"agent\", \"--mcp\"]",
+   "Add to `~/.claude/claude_desktop_config.json`:",
+   "npm install -g @probelabs/probe",
+   "curl -fsSL https://raw.githubusercontent.com/probelabs/probe/main/install.sh | bash",
+   "### The key insight: AI agents don't need embedding search"
+  ]
+ },
+ {
+  "id": "C095",
+  "source": "new-2026-09-19",
+  "claim": "probe: the MCP integration doc has a troubleshooting section and a binary-path override.",
+  "url": "https://raw.githubusercontent.com/probelabs/probe/main/docs/probe-agent/protocols/mcp-integration.md",
+  "expect": "present",
+  "quotes": [
+   "## Troubleshooting",
+   "PROBE_PATH"
+  ]
+ },
+ {
+  "id": "C096",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/probelabs/probe/main/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C097",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://probelabs.com/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C098",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C099",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C100",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C101",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://oraios.github.io/serena/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C102",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/probelabs/probe/main/llms-install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C103",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/llms-install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C104",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/llms-install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C105",
+  "source": "new-2026-09-19",
+  "claim": "A local code-tool peer publishes no llms.txt / llms-install.md.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/llms-install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C106",
+  "source": "new-2026-09-19",
+  "claim": "claude-context: the README covers many clients and states the Codex TOML key difference inline.",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "expect": "present",
+  "quotes": [
+   "# IMPORTANT: the top-level key is `mcp_servers` rather than `mcpServers`.",
+   "Create or edit the `~/.gemini/settings.json` file.",
+   "cline_mcp_settings.json",
+   "Index this codebase",
+   "~40% token reduction"
+  ]
+ },
+ {
+  "id": "C107",
+  "source": "new-2026-09-19",
+  "claim": "claude-context: AGENTS.md is a pointer to CLAUDE.md.",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "CLAUDE.md"
+  ]
+ },
+ {
+  "id": "C108",
+  "source": "new-2026-09-19",
+  "claim": "GitHub MCP server: per-client guides include a verification section for Claude Code.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-claude.md",
+  "expect": "present",
+  "quotes": [
+   "### Verification",
+   "claude mcp get github",
+   "Restart Claude Code and check `/mcp` command"
+  ]
+ },
+ {
+  "id": "C109",
+  "source": "new-2026-09-19",
+  "claim": "GitHub MCP server: the OpenCode guide states the root key.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-opencode.md",
+  "expect": "present",
+  "quotes": [
+   "exposes MCP servers under the `mcp` key in `opencode.json`",
+   "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+  ]
+ },
+ {
+  "id": "C110",
+  "source": "new-2026-09-19",
+  "claim": "GitHub MCP server: the Gemini CLI guide states the config paths and the extension route.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-gemini-cli.md",
+  "expect": "present",
+  "quotes": [
+   "MCP servers for Gemini CLI are configured in its settings JSON under an `mcpServers` key.",
+   "`~/.gemini/settings.json`",
+   "gemini extensions install https://github.com/github/github-mcp-server"
+  ]
+ },
+ {
+  "id": "C111",
+  "source": "new-2026-09-19",
+  "claim": "GitHub MCP server: publishes a registry server.json and warns about hosts that need hard-coded tokens.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/server.json",
+  "expect": "present",
+  "quotes": [
+   "\"name\": \"io.github.github/github-mcp-server\"",
+   "\"registryType\": \"oci\""
+  ]
+ },
+ {
+  "id": "C112",
+  "source": "new-2026-09-19",
+  "claim": "GitHub MCP server: README token-handling guidance.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "Some applications (like Windsurf) require hardcoded tokens in config files.",
+   "\"command\": \"/path/to/github-mcp-server\""
+  ]
+ },
+ {
+  "id": "C113",
+  "source": "new-2026-09-19",
+  "claim": "Serena: `serena init` verifies the setup, and the client page prints scoped one-liners.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "To initialise Serena and verify that your setup works correctly, simply run:",
+   "serena init"
+  ]
+ },
+ {
+  "id": "C114",
+  "source": "new-2026-09-19",
+  "claim": "Serena: per-client registration uses a context flag and project-from-cwd.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/docs/02-usage/030_clients.md",
+  "expect": "present",
+  "quotes": [
+   "claude mcp add --scope user serena -- serena start-mcp-server --context claude-code --project-from-cwd",
+   "[mcp_servers.serena]"
+  ]
+ },
+ {
+  "id": "C115",
+  "source": "new-2026-09-19",
+  "claim": "Serena: CLAUDE.md is a pointer to AGENTS.md.",
+  "url": "https://raw.githubusercontent.com/oraios/serena/main/CLAUDE.md",
+  "expect": "present",
+  "quotes": [
+   "@AGENTS.md"
+  ]
+ },
+ {
+  "id": "C116",
+  "source": "new-2026-09-19",
+  "claim": "OpenAI's Codex docs give the stdio add syntax.",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "codex mcp add <server-name> --env VAR1=VALUE1 --env VAR2=VALUE2 -- <stdio server-command>"
+  ]
+ },
+ {
+  "id": "C117",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's add command takes a stdio command and a scope that defaults to project.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3",
+   "Configuration scope (user or project). [default: \"project\"]"
+  ]
+ },
+ {
+  "id": "C118",
+  "source": "new-2026-09-19",
+  "claim": "Windsurf's MCP config file path.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-windsurf.md",
+  "expect": "present",
+  "quotes": [
+   "`~/.codeium/windsurf/mcp_config.json`"
+  ]
+ },
+ {
+  "id": "C119",
+  "source": "new-2026-09-19",
+  "claim": "Zed's MCP settings key.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-zed.md",
+  "expect": "present",
+  "quotes": [
+   "Zed exposes MCP servers under the `context_servers` settings key."
+  ]
+ },
+ {
+  "id": "C120",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file paths, and the absolute-path rule.",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "expect": "present",
+  "quotes": [
+   "`~/Library/Application Support/Claude/claude_desktop_config.json`",
+   "claude_desktop_config.json",
+   "are valid and that they are absolute and not relative"
+  ]
+ },
+ {
+  "id": "C121",
+  "source": "new-2026-09-19",
+  "claim": "Cursor's project and global MCP config paths.",
+  "url": "https://cursor.com/docs/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "Create `.cursor/mcp.json` in your project for project-specific tools.",
+   "Create `~/.cursor/mcp.json` in your home directory for tools available everywhere."
+  ]
+ },
+ {
+  "id": "C122",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's config file locations.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-opencode.md",
+  "expect": "present",
+  "quotes": [
+   "typically `~/.config/opencode/opencode.json`, or `opencode.json` in your project root"
+  ]
+ },
+ {
+  "id": "C123",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's workspace MCP file.",
+  "url": "https://docs.stripe.com/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "add the following configuration to `.vscode/mcp.json` in your workspace"
+  ]
+ },
+ {
+  "id": "C124",
+  "source": "new-2026-09-19",
+  "claim": "Claude Code documents local, project and user scopes.",
+  "url": "https://code.claude.com/docs/en/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "--scope user",
+   "--scope local"
+  ]
+ },
+ {
+  "id": "C125",
+  "source": "new-2026-09-19",
+  "claim": "Cline's MCP settings file (as described by a third-party README).",
+  "url": "https://raw.githubusercontent.com/zilliztech/claude-context/master/README.md",
+  "expect": "present",
+  "quotes": [
+   "select the **Installed** tab, then click **Advanced MCP Settings**",
+   "In the `cline_mcp_settings.json` file"
+  ]
+ },
+ {
+  "id": "C126",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's MCP page leads with a one-command installer for every detected client; the playbook names a CLI subcommand for it.",
+  "url": "https://vercel.com/docs/agent-resources/vercel-mcp.md",
+  "expect": "present",
+  "quotes": [
+   "npx -y add-mcp https://mcp.vercel.com -g",
+   "The `add-mcp` tool automatically detects your installed AI clients and configures Vercel MCP for each one."
+  ]
+ },
+ {
+  "id": "C127",
+  "source": "new-2026-09-19",
+  "claim": "Vercel's playbook configures supported clients through its CLI and tells Codex users to inspect first.",
+  "url": "https://vercel.com/get-started.md",
+  "expect": "present",
+  "quotes": [
+   "vercel mcp --clients \"<client>\"",
+   "codex mcp list"
+  ]
+ },
+ {
+  "id": "C128",
+  "source": "new-2026-09-19",
+  "claim": "Stripe's agent section uses its strongest words for API-choice correctness.",
+  "url": "https://docs.stripe.com/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "never recommend the Charges API"
+  ]
+ },
+ {
+  "id": "C129",
+  "source": "new-2026-09-19",
+  "claim": "The GitHub MCP server's Claude guide prints a PowerShell form of the registration line.",
+  "url": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-claude.md",
+  "expect": "present",
+  "quotes": [
+   "Bearer $env:GITHUB_PAT"
+  ]
+ },
+ {
+  "id": "C130",
+  "source": "new-2026-09-19",
+  "claim": "Cline's marketplace installs from the README.",
+  "url": "https://raw.githubusercontent.com/cline/mcp-marketplace/main/README.md",
+  "expect": "present",
+  "quotes": [
+   "he will try to use your `README.md` to guide him through the setup process"
+  ]
+ },
+ {
+  "id": "C131",
+  "source": "new-2026-09-19",
+  "claim": "The AGENTS.md that create-expo-app writes into every new project repeats the prior correction.",
+  "url": "https://raw.githubusercontent.com/expo/expo/main/packages/create-expo/template/agent-files/AGENTS.md",
+  "expect": "present",
+  "quotes": [
+   "## Expo has changed — do not trust your training data",
+   "never answer from"
+  ]
+ },
+ {
+  "id": "C132",
+  "source": "new-2026-09-19",
+  "claim": "Gemini CLI's `mcp add` takes `-s, --scope` (user or project; default project) and `-e` for environment variables.",
+  "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/tools/mcp-server.md",
+  "expect": "present",
+  "quotes": [
+   "`-s, --scope`: Configuration scope (user or project). [default: \"project\"]",
+   "gemini mcp add -e API_KEY=123 -e DEBUG=true my-stdio-server /path/to/server arg1 arg2 arg3"
+  ]
+ },
+ {
+  "id": "C133",
+  "source": "new-2026-09-19",
+  "claim": "OpenCode's local MCP server entry takes environment variables under the key `environment`.",
+  "url": "https://opencode.ai/docs/mcp-servers.md",
+  "expect": "present",
+  "quotes": [
+   "\"environment\": {",
+   "You can also pass in a list of environment variables as well."
+  ]
+ },
+ {
+  "id": "C134",
+  "source": "new-2026-09-19",
+  "claim": "Claude Desktop's config file on Windows is under %APPDATA%\\Claude.",
+  "url": "https://modelcontextprotocol.io/docs/develop/connect-local-servers.md",
+  "expect": "present",
+  "quotes": [
+   "`%APPDATA%\\Claude\\claude_desktop_config.json`"
+  ]
+ },
+ {
+  "id": "C135",
+  "source": "new-2026-09-19",
+  "claim": "Codex keeps MCP servers in ~/.codex/config.toml as [mcp_servers.<name>] tables.",
+  "url": "https://developers.openai.com/codex/mcp.md",
+  "expect": "present",
+  "quotes": [
+   "By default this is `~/.codex/config.toml`",
+   "Configure each MCP server with a `[mcp_servers.<server-name>]` table in the configuration file."
+  ]
+ },
+ {
+  "id": "C136",
+  "source": "new-2026-09-19",
+  "claim": "VS Code's MCP configuration maps servers under the root key `servers`, and a stdio entry requires `type`.",
+  "url": "https://raw.githubusercontent.com/microsoft/vscode-docs/main/docs/agents/reference/mcp-configuration.md",
+  "expect": "present",
+  "quotes": [
+   "**`\"servers\": {}`**: an object that maps server names to their configurations.",
+   "| `type` | Yes | Server connection type | `\"stdio\"` |"
+  ]
+ },
+ {
+  "id": "C137",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /SKILL.md at the site root answers 200 with an HTML application shell (live soft-404).",
+  "url": "https://vercel.com/SKILL.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "C138",
+  "source": "new-2026-09-19",
+  "claim": "Vercel: /llms-full.txt at the site root answers 200 with an HTML application shell (live soft-404); the real file is under /docs/.",
+  "url": "https://vercel.com/llms-full.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D01",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/llms-install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D02",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/answers/llms.txt",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D03",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/SKILL.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D04",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/skill.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D05",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/agents.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D06",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/.well-known/skills/index.json",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D07",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/.well-known/agent-skills/index.json",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D08",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/docs/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D09",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/docs/quickstart.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D10",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/docs/agents/quickstart.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D11",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/docs/cli.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D12",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/docs/security.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D13",
+  "source": "xerj-site",
+  "claim": "This agent surface does not exist on xerj.org yet — nothing public may link to it until it does.",
+  "url": "https://xerj.org/install.md",
+  "expect": "status",
+  "status": 404
+ },
+ {
+  "id": "D14",
+  "source": "xerj-site",
+  "claim": "XERJ's llms.txt has no `claude mcp add` line and no mcpServers block.",
+  "url": "https://xerj.org/llms.txt",
+  "expect": "absent",
+  "quotes": [
+   "claude mcp add",
+   "mcpServers"
+  ]
+ },
+ {
+  "id": "D15",
+  "source": "xerj-site",
+  "claim": "XERJ's llms.txt has the heading '## Optional', says 'required, one command', and numbers two steps '4.'.",
+  "url": "https://xerj.org/llms.txt",
+  "expect": "present",
+  "quotes": [
+   "## Optional",
+   "required, one command"
+  ]
+ },
+ {
+  "id": "D16",
+  "source": "xerj-site",
+  "claim": "The MCP config block IS published on xerj.org/docs/cli (correcting the draft's 'exists only inside --help').",
+  "url": "https://xerj.org/docs/cli",
+  "expect": "present",
+  "quotes": [
+   "mcpServers"
+  ]
+ },
+ {
+  "id": "D17",
+  "source": "xerj-site",
+  "claim": "The MCP config block is on an Answers page linked from llms.txt.",
+  "url": "https://xerj.org/answers/code-search-mcp-for-claude-code.md",
+  "expect": "present",
+  "quotes": [
+   "mcpServers"
+  ]
+ },
+ {
+  "id": "D18",
+  "source": "xerj-site",
+  "claim": "The MCP config block is on a second Answers page linked from llms.txt.",
+  "url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access.md",
+  "expect": "present",
+  "quotes": [
+   "mcpServers"
+  ]
+ },
+ {
+  "id": "D19",
+  "source": "xerj-site",
+  "claim": "No `claude mcp add` one-liner on this page.",
+  "url": "https://xerj.org/docs/cli",
+  "expect": "absent",
+  "quotes": [
+   "claude mcp add"
+  ]
+ },
+ {
+  "id": "D20",
+  "source": "xerj-site",
+  "claim": "No `claude mcp add` one-liner on this page.",
+  "url": "https://xerj.org/answers/code-search-mcp-for-claude-code.md",
+  "expect": "absent",
+  "quotes": [
+   "claude mcp add"
+  ]
+ },
+ {
+  "id": "D21",
+  "source": "xerj-site",
+  "claim": "No `claude mcp add` one-liner on this page.",
+  "url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access.md",
+  "expect": "absent",
+  "quotes": [
+   "claude mcp add"
+  ]
+ },
+ {
+  "id": "D22",
+  "source": "xerj-site",
+  "claim": "The agent quickstart page starts with a shell install and never says lexical, embed-mode or MCP.",
+  "url": "https://xerj.org/docs/agents/quickstart",
+  "expect": "present",
+  "quotes": [
+   "curl -fsSL https://xerj.org/get | sh",
+   "by meaning"
+  ]
+ },
+ {
+  "id": "D23",
+  "source": "xerj-site",
+  "claim": "The agent quickstart page never says 'embed-mode'.",
+  "url": "https://xerj.org/docs/agents/quickstart",
+  "expect": "absent",
+  "quotes": [
+   "embed-mode"
+  ]
+ },
+ {
+  "id": "D24",
+  "source": "xerj-site",
+  "claim": "XERJ docs pages serve neither rel=alternate text/markdown nor rel=describedby.",
+  "url": "https://xerj.org/docs/install",
+  "expect": "absent",
+  "quotes": [
+   "type=\"text/markdown\"",
+   "rel=\"describedby\""
+  ]
+ },
+ {
+  "id": "D25",
+  "source": "xerj-site",
+  "claim": "A tool-schema file linked by the proposal resolves.",
+  "url": "https://xerj.org/docs/agents/schemas/mcp-tools.json",
+  "expect": "present",
+  "quotes": [
+   "xerj_search"
+  ]
+ },
+ {
+  "id": "D26",
+  "source": "xerj-site",
+  "claim": "A tool-schema file linked by the proposal resolves.",
+  "url": "https://xerj.org/docs/agents/schemas/anthropic-tools.json",
+  "expect": "present",
+  "quotes": [
+   "xerj_search"
+  ]
+ },
+ {
+  "id": "D27",
+  "source": "xerj-site",
+  "claim": "A tool-schema file linked by the proposal resolves.",
+  "url": "https://xerj.org/docs/agents/schemas/openai-tools.json",
+  "expect": "present",
+  "quotes": [
+   "xerj_search"
+  ]
+ },
+ {
+  "id": "D28",
+  "source": "xerj-site",
+  "claim": "llms-full.txt resolves.",
+  "url": "https://xerj.org/llms-full.txt",
+  "expect": "present",
+  "quotes": [
+   "XERJ"
+  ]
+ },
+ {
+  "id": "D29",
+  "source": "xerj-site",
+  "claim": "The installer script resolves and states its verification behaviour.",
+  "url": "https://xerj.org/get",
+  "expect": "present",
+  "quotes": [
+   "sha256"
+  ]
+ },
+ {
+  "id": "D30",
+  "source": "xerj-site",
+  "claim": "The PowerShell installer resolves.",
+  "url": "https://xerj.org/get.ps1",
+  "expect": "present",
+  "quotes": [
+   "SHA256"
+  ]
+ }
+]

@@ -56,7 +56,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
 
+### Fixed
+
+- **Reference-code passage windows preserve their match score.** `xc.py`
+  could select relevant source and then discard its matches while aligning
+  the excerpt to line boundaries, including on long source lines. Line
+  alignment now keeps the selected term score or falls back to the bounded
+  original window. Window scoring also uses original-source offsets when
+  Unicode lowercasing expands characters. This affects the fallback when no
+  matching symbol is available and explicit `--no-symbol` output.
+
+- **`xc.py --mode hybrid` keeps BM25 results when the optional vector arm has
+  a transport failure.** Connection failures, read timeouts, and interrupted
+  HTTP responses during semantic mapping discovery or search now take the
+  existing BM25-only fallback instead of aborting and discarding valid hits.
+  Primary BM25 failures still exit with an error. Standalone `--mode semantic`
+  now reports mapping/search HTTP and transport failures as errors (exit `2`)
+  instead of treating failed requests as empty search results (exit `1`).
+
+- **`xc.py --json` emits JSON for empty search results.** Previously, a query
+  with no hits printed the human-readable no-match message before reaching the
+  JSON output branch, breaking callers that parse stdout. Empty results now
+  preserve the JSON response and still exit `1`; matching results exit `0`, and
+  a corpus with no live indices retains its distinct exit `3` diagnostic.
+
 ### Documentation
+
+- **`llms.txt` proposals, revised and fact-checked**
+  (`docs/research/llms-txt-2026-09/proposals/`). A proposed `llms.txt`, an
+  `llms-install.md` and ten paste-ready install prompts, following the study's
+  twelve rules: three complete entry paths (shell, MCP-only, HTTP-only), the
+  lexical-by-default correction first, per-client MCP registration with the
+  key, a verify line after every step, and a feedback ask that is optional
+  and needs no git. Every quote is re-fetched (259 claims, 258 confirmed, the
+  one failure removed) and the XERJ commands the proposals print were run on
+  Linux against v1.0.0-rc.74, except the ones the record's own "Not run" list
+  names — the `curl | sh` installer, macOS and Windows, `--embed-mode neural`,
+  `claude mcp add --scope local` and the per-client registration lines, which
+  are quoted from each client's own documentation with a fact-check id. Two product findings came out of it:
+  `xerj feedback --open-pr` branches, commits and pushes in whatever
+  repository it is run from, and `xerj init` writes an MCP entry without
+  `XERJ_AUTH`, so against a default node every tool call returns 401. The
+  live `landing/llms.txt` is unchanged; the report's ship checklist says what
+  has to exist first.
 
 - **ROADMAP: the zero-token direction, with every status checked against the
   tree** ([#941](https://github.com/xerj-org/xerj/issues/941)). A new roadmap
