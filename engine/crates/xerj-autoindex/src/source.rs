@@ -658,15 +658,15 @@ mod tests {
             false,
             crate::ignore_rules::IgnoreOptions::default(),
         );
-        let err = source
-            .open(&SourceEntry {
-                rel: "../../etc/passwd".into(),
-                size: 0,
-                change_token: None,
-                last_modified: None,
-            })
-            .unwrap_err()
-            .to_string();
+        let err = match source.open(&SourceEntry {
+            rel: "../../etc/passwd".into(),
+            size: 0,
+            change_token: None,
+            last_modified: None,
+        }) {
+            Ok(_) => panic!("a source must not read outside its own root"),
+            Err(e) => e.to_string(),
+        };
         assert!(err.contains("not a readable relative path"), "{err}");
     }
 }

@@ -25,6 +25,8 @@ pub mod ignore_rules;
 pub mod infer;
 pub mod init;
 pub mod objsource;
+#[cfg(test)]
+mod objsource_s3_tests;
 pub mod order;
 pub mod pool;
 pub mod progress;
