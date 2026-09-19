@@ -4182,8 +4182,41 @@ fn published(endpoint: &HttpEndpoint) -> BTreeMap<(String, String), Value> {
         .collect()
 }
 
-/// A fresh, independent full index of `root` — the ground truth a watched
-/// session must converge to.
+/// The property that actually guards the digest cache: after a watched pass, a
+/// plain `xerj autoindex` re-run — which re-hashes every byte, trusting nothing
+/// — must be a no-op that changes not one document.
+///
+/// This is stronger than comparing against a fresh index and it isolates exactly
+/// what `--watch` adds. If a carried digest ever let a changed file skip its
+/// re-hash, the re-run reads the bytes, sees the difference, and republishes;
+/// this assertion fails. It also holds for corpus shapes where a FRESH index
+/// legitimately differs (see `fresh_full_index`).
+fn a_rerun_changes_nothing(config: &IndexCfg, endpoint: &HttpEndpoint, context: &str) {
+    let before = published(endpoint);
+    let code = run_index(config.clone()).unwrap();
+    assert!(
+        matches!(code, 0 | 3),
+        "{context}: the verifying re-run must complete (exit {code})"
+    );
+    assert_eq!(
+        published(endpoint),
+        before,
+        "{context}: a full-hash re-run after a watched pass must change nothing —          the watched pass missed something"
+    );
+}
+
+/// A fresh, independent full index of `root`.
+///
+/// Useful as ground truth only where dataset identity cannot move. An
+/// incremental run — watched or not — deliberately PRESERVES the committed
+/// dataset and schema identity, while a fresh run re-elects dataset slugs from
+/// the corpus it sees (`reconcile_plan.rs`, module docs). So after a change that
+/// alters slug election — renaming the directory a dataset was named after — a
+/// fresh index writes `to/one.csv` into a dataset called `to` where the
+/// incremental corpus still calls it `from`. Same paths, same bytes, different
+/// dataset name and therefore different index and document id. That is the
+/// incremental route's rule, not the watcher's, and a manual re-run does exactly
+/// the same thing; `a_rerun_changes_nothing` is what those cases assert instead.
 fn fresh_full_index(root: &Path) -> (HttpEndpoint, tempfile::TempDir) {
     let endpoint = HttpEndpoint::start();
     let state_dir = tempfile::tempdir().unwrap();
@@ -4267,7 +4300,10 @@ fn a_watch_pass_rehashes_only_what_changed_and_publishes_it() {
         "and its old content must not: {values:?}"
     );
 
-    // The index a watcher holds is the index a fresh run would build.
+    // Nothing was skipped: a full-hash re-run changes nothing.
+    a_rerun_changes_nothing(&config, &endpoint, "one file changed");
+    // And on a corpus whose dataset identity cannot move, the watched index is
+    // byte-for-byte the index a fresh full run would have built.
     let (reference, _reference_state) = fresh_full_index(&root);
     assert_eq!(
         published(&endpoint),
@@ -4302,6 +4338,7 @@ fn a_deleted_files_records_stop_appearing() {
         vec!["keep.csv"],
         "a deleted file's records must stop appearing in search"
     );
+    a_rerun_changes_nothing(&config, &endpoint, "deleted file");
 }
 
 #[test]
@@ -4334,6 +4371,7 @@ fn an_atomic_save_rename_dance_lands_as_the_new_content() {
         vec!["notes.csv"],
         "the temp file must not survive as a document of its own"
     );
+    a_rerun_changes_nothing(&config, &endpoint, "atomic save");
     let (reference, _reference_state) = fresh_full_index(&root);
     assert_eq!(published(&endpoint), published(&reference));
 }
@@ -4362,8 +4400,7 @@ fn a_file_replaced_by_a_directory_converges() {
         .unwrap();
 
     assert_eq!(paths(&endpoint.data_docs()), vec!["thing/inner.csv"]);
-    let (reference, _reference_state) = fresh_full_index(&root);
-    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "file replaced by a directory");
 }
 
 #[test]
@@ -4395,8 +4432,7 @@ fn a_moved_directory_converges() {
         vec!["to/one.csv", "to/two.csv"],
         "a moved directory's documents must follow it"
     );
-    let (reference, _reference_state) = fresh_full_index(&root);
-    assert_eq!(published(&endpoint), published(&reference));
+    a_rerun_changes_nothing(&config, &endpoint, "moved directory");
 }
 
 /// A pass that dies mid-publish must not lose or duplicate documents: the next
@@ -4554,6 +4590,9 @@ fn watch_converges_under_a_randomised_change_sequence() {
         );
     }
 
+    // The property that always holds: a full-hash re-run after the sequence
+    // changes nothing, so no carried digest ever hid a real change.
+    a_rerun_changes_nothing(&config, &endpoint, &format!("seed {SEED:#x}"));
     let (reference, _reference_state) = fresh_full_index(&root);
     let watched = published(&endpoint);
     let fresh = published(&reference);

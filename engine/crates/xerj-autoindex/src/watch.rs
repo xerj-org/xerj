@@ -67,11 +67,18 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 /// save dance measured here.
 pub const DEFAULT_DEBOUNCE_MS: u64 = 400;
 
-/// Longest a burst may keep growing before a pass runs anyway. Without it a
-/// tree that never goes quiet — a build writing into a watched directory, a log
-/// being appended to — would hold the pass off forever, which is the one way a
-/// debounce can turn into "never index again".
-const MAX_HOLD: Duration = Duration::from_secs(5);
+/// Floor for how long a burst may keep growing before a pass runs anyway.
+/// Without a cap, a tree that never goes quiet — a build writing into a watched
+/// directory, a log being appended to — would hold the pass off forever, which
+/// is the one way a debounce can turn into "never index again".
+const MAX_HOLD_FLOOR: Duration = Duration::from_secs(5);
+
+/// The cap for a given quiet period. A `--debounce` longer than the floor is an
+/// explicit instruction to wait, so the cap follows it instead of silently
+/// turning `--debounce 30000` into a five-second one.
+fn max_hold(debounce: Duration) -> Duration {
+    MAX_HOLD_FLOOR.max(debounce.saturating_mul(2))
+}
 
 /// Above this many distinct paths a burst stops tracking individuals and
 /// becomes a full re-hash. Bounds memory when something rewrites a whole tree,
@@ -369,6 +376,12 @@ fn watch_limit_message(dirs: Option<usize>, error: &notify::Error) -> String {
 /// files this pass will actually read. Sizing them to the whole corpus instead
 /// would report a percentage of work the pass is not doing.
 pub(crate) struct PassPlan {
+    /// The canonical root. Held because [`carryable`] has to be asked on the
+    /// way OUT of the cache as well as on the way in: with `--follow-symlinks` a
+    /// link and its target are two entries with one `path`, so a lookup keyed on
+    /// the path alone would hand the target's digest to the link (caught by
+    /// `a_followed_symlink_is_never_carried`).
+    root: PathBuf,
     reuse: HashMap<PathBuf, String>,
     pre: HashMap<PathBuf, Fingerprint>,
     next: Mutex<HashMap<PathBuf, (Fingerprint, String)>>,
@@ -400,6 +413,7 @@ impl PassPlan {
                 .collect()
         });
         let mut plan = PassPlan {
+            root: root.to_path_buf(),
             reuse: HashMap::new(),
             pre: HashMap::new(),
             next: Mutex::new(HashMap::new()),
@@ -441,6 +455,9 @@ impl PassPlan {
 
     /// The digest this pass is allowed to skip reading, if any.
     pub(crate) fn carried(&self, entry: &FileEntry) -> Option<String> {
+        if !carryable(&self.root, entry) {
+            return None;
+        }
         self.reuse.get(&entry.path).cloned()
     }
 
@@ -450,8 +467,8 @@ impl PassPlan {
     /// fingerprint it had BEFORE the read is the fingerprint it has after:
     /// otherwise the bytes moved under the hash, and pairing the new mtime with
     /// the old digest would make the change invisible for good.
-    pub(crate) fn observe(&self, root: &Path, entry: &FileEntry, digest: &str, fresh: bool) {
-        if !carryable(root, entry) {
+    pub(crate) fn observe(&self, entry: &FileEntry, digest: &str, fresh: bool) {
+        if !carryable(&self.root, entry) {
             return;
         }
         let Some(before) = self.pre.get(&entry.path).copied() else {
@@ -495,10 +512,6 @@ impl<'a> Pass<'a> {
             next: std::cell::RefCell::new(None),
             stats: std::cell::Cell::new((0, 0, 0, 0)),
         }
-    }
-
-    pub(crate) fn root(&self) -> &Path {
-        &self.root
     }
 
     pub(crate) fn plan(&self, files: &[FileEntry]) -> PassPlan {
@@ -565,7 +578,7 @@ pub(crate) fn one_pass(
 /// what "near-free at idle" means concretely: one thread parked on a channel
 /// and one kernel watch per indexed directory, no wakeups at all while nothing
 /// changes. Then drains until the tree has been quiet for `debounce`, or
-/// [`MAX_HOLD`] has passed since the first event.
+/// the hold cap ([`max_hold`]) has passed since the first event.
 fn next_burst(
     rx: &Receiver<notify::Result<notify::Event>>,
     root: &Path,
@@ -575,15 +588,16 @@ fn next_burst(
     let mut change = ChangeSet::default();
     fold(&mut change, rx.recv().ok()?, root, pr);
     let opened = Instant::now();
+    let cap = max_hold(debounce);
     loop {
-        let hold_left = MAX_HOLD.saturating_sub(opened.elapsed());
+        let hold_left = cap.saturating_sub(opened.elapsed());
         if hold_left.is_zero() {
             return Some(change);
         }
         match rx.recv_timeout(debounce.min(hold_left)) {
             Ok(message) => fold(&mut change, message, root, pr),
             // Either the tree went quiet for a full debounce window (the save
-            // dance is over) or MAX_HOLD ran out; both mean "index now".
+            // dance is over) or the hold cap ran out; both mean "index now".
             Err(RecvTimeoutError::Timeout) => return Some(change),
             Err(RecvTimeoutError::Disconnected) => return Some(change),
         }
@@ -894,7 +908,7 @@ mod tests {
         let root = PathBuf::from("/corpus");
         let (tx, rx) = channel();
         let noisy = std::thread::spawn(move || {
-            let deadline = Instant::now() + MAX_HOLD + Duration::from_secs(2);
+            let deadline = Instant::now() + MAX_HOLD_FLOOR + Duration::from_secs(2);
             while Instant::now() < deadline {
                 if tx
                     .send(event(
@@ -912,12 +926,24 @@ mod tests {
         let burst = next_burst(&rx, &root, Duration::from_millis(400), &pr).unwrap();
         let waited = started.elapsed();
         assert!(
-            waited < MAX_HOLD + Duration::from_millis(1500),
+            waited < MAX_HOLD_FLOOR + Duration::from_millis(1500),
             "a never-quiet tree must still get a pass; waited {waited:?}"
         );
         assert!(burst.events > 1);
         drop(rx);
         let _ = noisy.join();
+    }
+
+    #[test]
+    fn an_explicit_debounce_longer_than_the_floor_is_honoured() {
+        // `--debounce 30000` is an instruction to wait 30 s, not a suggestion
+        // the 5 s floor may overrule.
+        assert_eq!(max_hold(Duration::from_millis(400)), MAX_HOLD_FLOOR);
+        assert_eq!(
+            max_hold(Duration::from_secs(30)),
+            Duration::from_secs(60),
+            "the hold cap must follow a debounce longer than the floor"
+        );
     }
 
     #[test]
@@ -950,7 +976,7 @@ mod tests {
         assert_eq!(plan.carried_files, 0);
         for entry in &files {
             assert!(plan.carried(entry).is_none());
-            plan.observe(&root, entry, &format!("digest-{}", entry.rel), true);
+            plan.observe(entry, &format!("digest-{}", entry.rel), true);
         }
         let carry = plan.into_carry();
         assert_eq!(carry.len(), 2);
@@ -990,7 +1016,7 @@ mod tests {
         // exactly the window a hash of a live file sits in.
         std::thread::sleep(Duration::from_millis(10));
         fs::write(&path, b"after, and a different length\n").unwrap();
-        plan.observe(&root, &files[0], "digest-of-the-old-bytes", true);
+        plan.observe(&files[0], "digest-of-the-old-bytes", true);
         assert_eq!(
             plan.into_carry().len(),
             0,
@@ -1012,7 +1038,7 @@ mod tests {
         let files = crate::walk::walk(&root, true).unwrap();
         let plan = PassPlan::build(&root, &files, &Carry::default(), &ChangeSet::full());
         for entry in &files {
-            plan.observe(&root, entry, "digest", true);
+            plan.observe(entry, "digest", true);
         }
         let carry = plan.into_carry();
         let plan = PassPlan::build(&root, &files, &carry, &ChangeSet::default());

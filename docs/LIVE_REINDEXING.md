@@ -105,7 +105,7 @@ One "save" is several filesystem events, and every editor does it differently
 (default 400 ms) waits for the tree to be quiet for that long before starting a
 pass, so one save is one pass. A tree that never goes quiet — a log being
 appended to inside the corpus — still gets a pass at least every 5 s
-(`watch.rs::MAX_HOLD`).
+(`watch.rs::max_hold`).
 
 Handled, with a test for each (`incremental_reconcile_http_tests.rs`,
 `watch.rs`):
@@ -123,13 +123,35 @@ Handled, with a test for each (`incremental_reconcile_http_tests.rs`,
 
 ## The correctness contract
 
-After any sequence of changes, a watched session holds the index a fresh full
-`xerj autoindex` of the same tree would have produced: same document ids, same
-record count, same document sources. That is asserted directly — including for a
-randomised create/modify/rename/delete/recreate sequence — by
-`watch_converges_under_a_randomised_change_sequence` in
-`engine/crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs`, which
-compares a watched index against an independently built full index.
+Stated precisely, because the loose version of it is false:
+
+> **After any sequence of changes, a plain `xerj autoindex` re-run — which
+> re-hashes every byte and trusts nothing — changes not one document.**
+
+That is the property `--watch` has to have, and it is the one that guards the
+digest cache: if a carried digest ever let a changed file skip its re-hash, the
+verifying re-run reads the bytes, sees the difference and republishes, and the
+assertion fails. It is asserted after every convergence test in
+`engine/crates/xerj-autoindex/src/incremental_reconcile_http_tests.rs`, including
+after a randomised create/modify/rename/delete/recreate sequence
+(`watch_converges_under_a_randomised_change_sequence`,
+`a_rerun_changes_nothing`).
+
+The second, weaker property — **a watched index equals an independently built
+fresh full index**, same document ids, same document count, same sources — is
+asserted too, and holds for every change that does not move dataset identity:
+modifications, deletions, atomic saves, creations, and the randomised sequence
+above.
+
+Where it does **not** hold, and why: an incremental run deliberately preserves
+the committed dataset and schema identity, while a fresh run re-elects dataset
+slugs from the corpus it sees (`reconcile_plan.rs`, module docs). Rename the
+directory a dataset was named after and a fresh rebuild files `to/one.csv` under
+a dataset called `to`, while the incremental corpus still calls it `from` — same
+paths, same bytes, a different dataset name and therefore a different index and
+document id. That is the incremental route's rule and a manual re-run does
+exactly the same thing; it is not something `--watch` introduces. If you want
+the slug re-elected, rebuild the corpus.
 
 How the shortcut stays safe: a plain run hashes every byte on every run because
 size and mtime cannot prove byte identity (`content.rs`). `--watch` does not
@@ -227,3 +249,6 @@ is not implemented; `--watch` watches a local folder.)
 * The watcher does not watch the root's parent, so deleting the watched folder
   itself is reported by the pass, not by an event.
 * No `--watch` for `xerj autoindex map` or `status`; they are single-shot reads.
+* No dataset re-election. A watched corpus keeps the dataset names it was built
+  with, like any incremental run; a rename that would have produced a different
+  dataset name on a fresh build does not rename the dataset.

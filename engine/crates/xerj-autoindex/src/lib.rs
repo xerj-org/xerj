@@ -4567,11 +4567,10 @@ fn run_index_report_inner(
                 plan.hash_bytes >> 20,
                 carried_bytes >> 20,
             ));
-            let root = pass.root().to_path_buf();
             let inventory = content::resolve_reporting_carried(
                 discovered_files,
                 &|entry| plan.carried(entry),
-                &|entry, digest, fresh| plan.observe(&root, entry, digest, fresh),
+                &|entry, digest, fresh| plan.observe(entry, digest, fresh),
                 &|bytes| pr.item_done(bytes),
             )?;
             pass.commit(plan);
