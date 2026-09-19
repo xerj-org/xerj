@@ -144,6 +144,12 @@ pub(crate) struct ChangeSet {
     /// Directory prefixes whose whole subtree is suspect: a directory event, or
     /// a vanished path that may have been a directory, or an ignore-file edit.
     dirs: Vec<PathBuf>,
+    /// Paths whose ATTRIBUTES changed and whose contents may not have (a chmod,
+    /// or the atime update the kernel makes when a pass reads the file). Worth a
+    /// pass — a file that just became unreadable stops being indexable — but not
+    /// worth invalidating a digest by itself: a content write always moves mtime
+    /// as well, and `PassPlan` checks the fingerprint regardless.
+    meta: HashSet<PathBuf>,
     /// Distrust the entire cache. Set by a platform rescan notice (inotify
     /// queue overflow, FSEvents' own rescan flag), by the first pass, and by a
     /// burst too large to track.
@@ -183,11 +189,19 @@ impl ChangeSet {
     /// Something worth a pass happened. An empty, non-full change set is how
     /// the loop knows a burst was entirely noise.
     pub(crate) fn is_empty(&self) -> bool {
-        !self.full && self.files.is_empty() && self.dirs.is_empty()
+        !self.full && self.files.is_empty() && self.dirs.is_empty() && self.meta.is_empty()
     }
 
     pub(crate) fn paths(&self) -> usize {
-        self.files.len() + self.dirs.len()
+        self.files.len() + self.dirs.len() + self.meta.len()
+    }
+
+    /// Fold in an attribute-only event.
+    fn mark_metadata(&mut self, path: &Path) {
+        if self.full || self.meta.len() >= MAX_TRACKED_PATHS {
+            return;
+        }
+        self.meta.insert(path.to_path_buf());
     }
 
     /// Fold one path in, deciding by what is on disk NOW.
@@ -198,6 +212,7 @@ impl ChangeSet {
         if self.files.len() + self.dirs.len() >= MAX_TRACKED_PATHS {
             self.files.clear();
             self.dirs.clear();
+            self.meta.clear();
             self.full = true;
             return;
         }
@@ -278,6 +293,52 @@ fn is_interesting(root: &Path, path: &Path) -> bool {
     true
 }
 
+/// What one event kind means for the digest cache.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Signal {
+    /// The bytes may have changed: re-read the file.
+    Changed,
+    /// Only attributes moved. Worth a pass, not worth a re-read on its own.
+    Attributes,
+    /// Not a change at all — and dropping these is not an optimisation, it is
+    /// what stops the watcher feeding itself. See [`classify`].
+    Ignored,
+}
+
+/// Classify an event kind.
+///
+/// This exists because of a measured bug, and the bug is worth recording: the
+/// Linux backend asks the kernel for `IN_OPEN` and `IN_CLOSE` as well as writes
+/// (`notify-8.2.0/src/inotify.rs:418` — the watch mask includes
+/// `WatchMask::OPEN`), so **every file a pass reads reports an event**. A pass
+/// hashes the corpus and copies it into the generation snapshot, so treating
+/// `Access` events as changes made every pass trigger the next one: on a
+/// 3-file tree the session ran 48 passes over a tree nobody touched, with the
+/// digest cache invalidated every time (`carried=0` on every line).
+///
+/// So reads are dropped, and only what can actually change bytes or
+/// indexability is kept:
+///
+/// * `Create`, `Remove`, `Modify(Data | Name | Any | Other)` → changed.
+/// * `Access(Close(Write))` → changed. A finished write, not a read.
+/// * `Modify(Metadata)` → attributes. A chmod, or the atime update the kernel
+///   makes for the pass's own reads; a content write always moves mtime too, so
+///   nothing is lost by not invalidating a digest here.
+/// * `Access(Open | Read | Close(Read) | Any | Other)` → ignored.
+/// * `Any` / `Other` → changed. Unknown means conservative; the rescan flag is
+///   handled before this is ever called.
+fn classify(kind: &notify::EventKind) -> Signal {
+    use notify::event::{AccessKind, AccessMode, EventKind, ModifyKind};
+    match kind {
+        EventKind::Create(_) | EventKind::Remove(_) => Signal::Changed,
+        EventKind::Modify(ModifyKind::Metadata(_)) => Signal::Attributes,
+        EventKind::Modify(_) => Signal::Changed,
+        EventKind::Access(AccessKind::Close(AccessMode::Write)) => Signal::Changed,
+        EventKind::Access(_) => Signal::Ignored,
+        EventKind::Any | EventKind::Other => Signal::Changed,
+    }
+}
+
 /// Fold one watcher message into the burst.
 ///
 /// `notify` errors are not fatal here: a watch on a directory that was deleted
@@ -301,11 +362,20 @@ fn fold(
                 change.full = true;
                 return;
             }
-            for path in &event.paths {
-                if is_interesting(root, path) {
-                    change.mark(path);
-                } else {
-                    change.filtered += 1;
+            match classify(&event.kind) {
+                Signal::Ignored => change.filtered += event.paths.len() as u64,
+                signal => {
+                    for path in &event.paths {
+                        if !is_interesting(root, path) {
+                            change.filtered += 1;
+                            continue;
+                        }
+                        match signal {
+                            Signal::Changed => change.mark(path),
+                            Signal::Attributes => change.mark_metadata(path),
+                            Signal::Ignored => unreachable!("handled above"),
+                        }
+                    }
                 }
             }
         }
@@ -677,6 +747,22 @@ pub fn run(cfg: IndexCfg) -> Result<i32> {
         root.display()
     );
 
+    // A journal inside the indexed tree is a feedback loop: every pass writes to
+    // it, those writes are events, and the events start the next pass. The
+    // default state directory is under ~/.xerj, but `--state-dir ./state` inside
+    // the folder is an easy thing to type, and the failure it causes (a session
+    // that reindexes forever and never settles) does not look like its cause.
+    let state_dir = cfg.state_dir.clone().unwrap_or_else(|| {
+        crate::state::default_state_dir(&root.to_string_lossy(), &cfg.url, &cfg.prefix)
+    });
+    let resolved_state = state_dir.canonicalize().unwrap_or(state_dir.clone());
+    anyhow::ensure!(
+        !resolved_state.starts_with(&root),
+        "--watch refuses a --state-dir inside the folder it watches ({} is under {}). Every pass          writes the resume journal there, those writes are filesystem events, and the events          would start the next pass — the session would reindex forever. Put the state directory          outside the tree, or leave --state-dir off and let it default under ~/.xerj/autoindex/.",
+        resolved_state.display(),
+        root.display()
+    );
+
     let (tx, rx): (Sender<notify::Result<notify::Event>>, _) = channel();
     let mut watcher = notify::recommended_watcher(tx).map_err(|error| {
         anyhow::anyhow!(
@@ -805,6 +891,111 @@ mod tests {
         // A dot-named ROOT is exempt, exactly as the walker exempts depth 0.
         let dotroot = Path::new("/home/me/.notes");
         assert!(is_interesting(dotroot, &dotroot.join("a.md")));
+    }
+
+    /// The bug this test exists for: the Linux backend reports `IN_OPEN`, so a
+    /// pass's own reads arrive as events. Treating them as changes made the
+    /// watcher feed itself — 48 passes over an untouched 3-file tree.
+    #[test]
+    fn the_passs_own_reads_are_not_changes() {
+        use notify::event::{AccessKind, AccessMode, DataChange, MetadataKind};
+        assert_eq!(
+            classify(&EventKind::Access(AccessKind::Open(AccessMode::Any))),
+            Signal::Ignored
+        );
+        assert_eq!(
+            classify(&EventKind::Access(AccessKind::Read)),
+            Signal::Ignored
+        );
+        assert_eq!(
+            classify(&EventKind::Access(AccessKind::Close(AccessMode::Read))),
+            Signal::Ignored
+        );
+        // A finished WRITE is not a read.
+        assert_eq!(
+            classify(&EventKind::Access(AccessKind::Close(AccessMode::Write))),
+            Signal::Changed
+        );
+        assert_eq!(
+            classify(&EventKind::Modify(ModifyKind::Data(DataChange::Content))),
+            Signal::Changed
+        );
+        assert_eq!(
+            classify(&EventKind::Modify(ModifyKind::Name(RenameMode::Both))),
+            Signal::Changed
+        );
+        assert_eq!(
+            classify(&EventKind::Create(CreateKind::File)),
+            Signal::Changed
+        );
+        assert_eq!(
+            classify(&EventKind::Remove(notify::event::RemoveKind::File)),
+            Signal::Changed
+        );
+        // A chmod, or the atime update the kernel makes for our own reads.
+        assert_eq!(
+            classify(&EventKind::Modify(ModifyKind::Metadata(MetadataKind::Any))),
+            Signal::Attributes
+        );
+        // Unknown means conservative.
+        assert_eq!(classify(&EventKind::Any), Signal::Changed);
+    }
+
+    #[test]
+    fn a_burst_of_only_reads_asks_for_no_work_at_all() {
+        let pr = silent();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let target = root.join("a.md");
+        fs::write(
+            &target, b"body
+",
+        )
+        .unwrap();
+        let (tx, rx) = channel();
+        // Exactly what hashing one file looks like from the outside.
+        for kind in [
+            EventKind::Access(notify::event::AccessKind::Open(
+                notify::event::AccessMode::Any,
+            )),
+            EventKind::Access(notify::event::AccessKind::Close(
+                notify::event::AccessMode::Read,
+            )),
+        ] {
+            tx.send(event(kind, &[&target])).unwrap();
+        }
+        let burst = next_burst(&rx, &root, Duration::from_millis(30), &pr).unwrap();
+        assert!(
+            burst.is_empty(),
+            "a pass's own reads must not ask for another pass: {burst:?}"
+        );
+        assert_eq!(burst.filtered, 2);
+    }
+
+    #[test]
+    fn an_attribute_only_event_costs_a_pass_but_not_a_rehash() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        fs::write(
+            root.join("a.md"),
+            b"body
+",
+        )
+        .unwrap();
+        let files = crate::walk::walk(&root, false).unwrap();
+        let plan = PassPlan::build(&root, &files, &Carry::default(), &ChangeSet::full());
+        plan.observe(&files[0], "digest-a", true);
+        let carry = plan.into_carry();
+
+        let mut change = ChangeSet::default();
+        change.mark_metadata(&root.join("a.md"));
+        assert!(!change.is_empty(), "a chmod can change what is indexable");
+        let plan = PassPlan::build(&root, &files, &carry, &change);
+        assert_eq!(
+            plan.carried(&files[0]).as_deref(),
+            Some("digest-a"),
+            "an attribute change with an unchanged fingerprint must not force a re-read"
+        );
     }
 
     #[test]
