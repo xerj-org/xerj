@@ -55,7 +55,7 @@ faq:
     a: "`[judge] enabled = false`. Note that `[rerank] enabled = false` does not: that setting exists to forbid egress, and the local provider has none."
 ---
 
-**TL;DR** — Yes: `"rerank": {"provider": "local"}`. A cross-encoder runs inside the XERJ node — no key, no network call, no bill, and nothing about your query or documents leaves the host. We measured it on three BEIR datasets. It is a large gain over a BM25-only first stage, and it does **not** reliably beat the hybrid RRF ranking XERJ already ships, so it is opt-in rather than a default.
+**TL;DR** — Yes: `"rerank": {"provider": "local"}`. A cross-encoder runs inside the XERJ node — no key, no network call, no bill, and nothing about your query or documents leaves the host. We measured it on three BEIR datasets. Over a lexical first stage it is a large gain. Against the fused ranking XERJ already ships it did **not** win on every dataset. So it is opt-in rather than a default.
 
 ## The request
 
