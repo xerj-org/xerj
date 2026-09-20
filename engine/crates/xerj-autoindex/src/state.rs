@@ -121,6 +121,36 @@ mod tests {
         assert!(text.contains("\"bulk_timeout_secs\":3600"));
     }
 
+    /// `interrupted` is what tells a resuming run that end-of-run work (the
+    /// corpus-wide graph pass) may never have happened for files that are
+    /// already journaled done. It is true exactly when a journal is resumed
+    /// and its newest record is not a `finish`.
+    #[test]
+    fn a_resumed_journal_knows_whether_the_previous_run_reached_its_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let open = || Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        let mut first = open();
+        assert!(!first.interrupted, "a new journal has no previous run");
+        first
+            .file_replace_start("k1", "g1")
+            .expect("publication intent");
+        drop(first); // killed before `finish`
+
+        let mut resumed = open();
+        assert!(resumed.resumed && resumed.interrupted);
+        resumed.finish(&serde_json::json!({"ok": true})).unwrap();
+        drop(resumed);
+
+        let after_finish = open();
+        assert!(after_finish.resumed && !after_finish.interrupted);
+        drop(after_finish); // wrote only its `resume` record, then died
+
+        assert!(
+            open().interrupted,
+            "a run that resumed and never finished is an interrupted run too"
+        );
+    }
+
     /// Run identity must stay unique inside one process even when the
     /// one-second timestamp component cannot distinguish two runs. The
     /// generation catalog keys managed documents on `run_id`, so a duplicate
@@ -436,6 +466,13 @@ pub struct Journal {
     pub committed_manifest: Option<crate::sync::CommittedManifest>,
     pub pending_sync: Option<crate::sync::PendingSync>,
     pub legacy_migration_reasons: Vec<String>,
+    /// The journal was resumed and its newest record was NOT a `finish`: the
+    /// previous invocation was killed, or bailed, somewhere between its first
+    /// publication and its summary. Anything a run only does at its very end
+    /// — the corpus-wide graph pass — may therefore never have happened for
+    /// files that are already journaled done, and the resuming run must not
+    /// assume it did (email-thread carry-over, `lib.rs`).
+    pub interrupted: bool,
 }
 
 /// Owns the process-wide state-directory exclusion lock.
@@ -852,6 +889,7 @@ impl Journal {
         let mut legacy_migration_reasons = Vec::new();
         let mut run_id = None;
         let mut resumed = false;
+        let mut last_kind_was_finish = false;
         if jpath.exists() {
             let f = std::fs::File::open(&jpath)?;
             let file_len = f.metadata()?.len();
@@ -869,6 +907,8 @@ impl Journal {
                 match crate::sync::decode_unique_durable_json(record_bytes) {
                     Ok(v) if newline_terminated => {
                         valid_end += read as u64;
+                        last_kind_was_finish =
+                            v.get("kind").and_then(|k| k.as_str()) == Some("finish");
                         match v.get("kind").and_then(|k| k.as_str()) {
                             Some("run") => {
                                 let (jr, ju, jp) = (
@@ -1081,6 +1121,7 @@ impl Journal {
             committed_manifest,
             pending_sync,
             legacy_migration_reasons,
+            interrupted: resumed && !is_new && !last_kind_was_finish,
         };
         if is_new {
             j.append_transaction(

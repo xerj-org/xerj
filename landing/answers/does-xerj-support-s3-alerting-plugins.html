@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Does XERJ support S3, alerting or custom plugins?</title>
-<meta name="description" content="Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named.">
+<meta name="description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Does XERJ support S3, alerting or custom plugins?">
-<meta property="og:description" content="Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named.">
+<meta property="og:description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
 <meta property="og:url" content="https://xerj.org/answers/does-xerj-support-s3-alerting-plugins">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Does XERJ support S3, alerting or custom plugins?">
-<meta name="twitter:description" content="Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named.">
+<meta name="twitter:description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,7 +60,7 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "Does XERJ support S3, alerting or custom plugins?",
-  "description": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named.",
+  "description": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.",
   "url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -154,57 +154,58 @@
     <a href="/answers/does-xerj-support-s3-alerting-plugins" class="active"><span class="eyebrow">11</span>Does XERJ support S3 storage, alerting or custom plugins yet?</a>
     <a href="/answers/audit-php-codebase-with-an-index" class=""><span class="eyebrow">12</span>How do I audit a PHP codebase with an index instead of grepping 1,400 files?</a>
     <a href="/answers/index-reference-library-for-coding-agent" class=""><span class="eyebrow">13</span>How do I set up reference coding so the agent retrieves a mechanism before writing code?</a>
-    <a href="/answers/classify-text-from-labelled-history-without-llm" class=""><span class="eyebrow">14</span>Can I route tickets or filter spam from labelled history, without an LLM call?</a>
-    <a href="/answers/reduce-embedding-api-cost" class=""><span class="eyebrow">15</span>How do I reduce embedding API cost?</a>
-    <a href="/answers/local-embeddings-without-openai-api" class=""><span class="eyebrow">16</span>I want local search that works offline, no cloud embeddings. What are my options?</a>
-    <a href="/answers/do-search-embeddings-help" class=""><span class="eyebrow">17</span>When should I turn on neural embeddings, and when is the lexical default enough?</a>
-    <a href="/answers/search-yaml-xml-config-repository" class=""><span class="eyebrow">18</span>How do I find every place a config key is set across YAML and XML in a repo?</a>
-    <a href="/answers/full-text-search-sqlite-database" class=""><span class="eyebrow">19</span>How do I full-text search a SQLite database I just copied onto disk?</a>
-    <a href="/answers/index-csv-with-many-columns" class=""><span class="eyebrow">20</span>How do I index a CSV with many columns?</a>
-    <a href="/answers/index-markdown-into-elasticsearch-api" class=""><span class="eyebrow">21</span>How do I index Markdown into the Elasticsearch API?</a>
-    <a href="/answers/syntax-aware-code-search-refactoring" class=""><span class="eyebrow">22</span>How do I run syntax-aware code search?</a>
-    <a href="/answers/search-gzipped-csv-or-json" class=""><span class="eyebrow">23</span>How do I search a .csv.gz or .json.gz without unzipping it first?</a>
-    <a href="/answers/search-confluence-html-export" class=""><span class="eyebrow">24</span>How do I search a Confluence export?</a>
-    <a href="/answers/search-slack-json-export" class=""><span class="eyebrow">25</span>How do I search a Slack JSON export?</a>
-    <a href="/answers/search-bvh-motion-capture-files" class=""><span class="eyebrow">26</span>How do I search BVH motion-capture files?</a>
-    <a href="/answers/search-gzip-logs-without-zgrep" class=""><span class="eyebrow">27</span>How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?</a>
-    <a href="/answers/search-kubernetes-pod-logs-on-disk" class=""><span class="eyebrow">28</span>How do I search Kubernetes pod logs?</a>
-    <a href="/answers/search-word-documents-in-a-folder" class=""><span class="eyebrow">29</span>How do I search through a folder of contracts in .docx?</a>
-    <a href="/answers/search-unity-project-assets" class=""><span class="eyebrow">30</span>How do I search Unity YAML scenes and the C# that references them as one project?</a>
-    <a href="/answers/index-monorepo-for-agent" class=""><span class="eyebrow">31</span>How do I stop my agent from reading the whole repo into context?</a>
-    <a href="/answers/catalog-files-with-autoindex-map" class=""><span class="eyebrow">32</span>How should an agent figure out what's in a messy data folder before searching?</a>
-    <a href="/answers/search-all-pdfs-in-a-folder" class=""><span class="eyebrow">33</span>I downloaded a bunch of papers as PDFs. How do I search across them?</a>
-    <a href="/answers/search-sql-dump-file" class=""><span class="eyebrow">34</span>I have a 2GB SQL dump. How do I find rows mentioning a customer without loading it into Postgres?</a>
-    <a href="/answers/index-multiple-csv-files" class=""><span class="eyebrow">35</span>I have a directory of CSV exports. How do I query them without opening each one in Excel?</a>
-    <a href="/answers/search-file-contents-in-a-folder" class=""><span class="eyebrow">36</span>I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?</a>
-    <a href="/answers/search-zendesk-ticket-json-export" class=""><span class="eyebrow">37</span>I have a JSON export of Jira issues (or Zendesk tickets). How do I search it like a help-center search?</a>
-    <a href="/answers/search-jupyter-notebook-cells" class=""><span class="eyebrow">38</span>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?</a>
-    <a href="/answers/search-html-export" class=""><span class="eyebrow">39</span>I saved a help-center as HTML. How do I search it like the real help-center search?</a>
-    <a href="/answers/is-pdf-indexing-efficient" class=""><span class="eyebrow">40</span>Is it efficient to index PDF files?</a>
-    <a href="/answers/full-text-search-browser-history" class=""><span class="eyebrow">41</span>Is there a way to full-text search my browser history file itself?</a>
-    <a href="/answers/search-openapi-spec-for-agent" class=""><span class="eyebrow">42</span>My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?</a>
-    <a href="/answers/search-obsidian-pdf-docx-attachments" class=""><span class="eyebrow">43</span>What's the best way to search markdown notes and PDFs in the same vault?</a>
-    <a href="/answers/search-json-and-jsonl-logs" class=""><span class="eyebrow">44</span>What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?</a>
-    <a href="/answers/notion-export-duplicate-search-results" class=""><span class="eyebrow">45</span>Why does my Notion export duplicate titles?</a>
+    <a href="/answers/reduce-embedding-api-cost" class=""><span class="eyebrow">14</span>How do I reduce embedding API cost?</a>
+    <a href="/answers/local-embeddings-without-openai-api" class=""><span class="eyebrow">15</span>I want local search that works offline, no cloud embeddings. What are my options?</a>
+    <a href="/answers/do-search-embeddings-help" class=""><span class="eyebrow">16</span>When should I turn on neural embeddings, and when is the lexical default enough?</a>
+    <a href="/answers/search-yaml-xml-config-repository" class=""><span class="eyebrow">17</span>How do I find every place a config key is set across YAML and XML in a repo?</a>
+    <a href="/answers/full-text-search-sqlite-database" class=""><span class="eyebrow">18</span>How do I full-text search a SQLite database I just copied onto disk?</a>
+    <a href="/answers/index-csv-with-many-columns" class=""><span class="eyebrow">19</span>How do I index a CSV with many columns?</a>
+    <a href="/answers/index-markdown-into-elasticsearch-api" class=""><span class="eyebrow">20</span>How do I index Markdown into the Elasticsearch API?</a>
+    <a href="/answers/syntax-aware-code-search-refactoring" class=""><span class="eyebrow">21</span>How do I run syntax-aware code search?</a>
+    <a href="/answers/search-gzipped-csv-or-json" class=""><span class="eyebrow">22</span>How do I search a .csv.gz or .json.gz without unzipping it first?</a>
+    <a href="/answers/search-confluence-html-export" class=""><span class="eyebrow">23</span>How do I search a Confluence export?</a>
+    <a href="/answers/search-slack-json-export" class=""><span class="eyebrow">24</span>How do I search a Slack JSON export?</a>
+    <a href="/answers/search-bvh-motion-capture-files" class=""><span class="eyebrow">25</span>How do I search BVH motion-capture files?</a>
+    <a href="/answers/search-gzip-logs-without-zgrep" class=""><span class="eyebrow">26</span>How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?</a>
+    <a href="/answers/search-kubernetes-pod-logs-on-disk" class=""><span class="eyebrow">27</span>How do I search Kubernetes pod logs?</a>
+    <a href="/answers/search-word-documents-in-a-folder" class=""><span class="eyebrow">28</span>How do I search through a folder of contracts in .docx?</a>
+    <a href="/answers/search-unity-project-assets" class=""><span class="eyebrow">29</span>How do I search Unity YAML scenes and the C# that references them as one project?</a>
+    <a href="/answers/index-monorepo-for-agent" class=""><span class="eyebrow">30</span>How do I stop my agent from reading the whole repo into context?</a>
+    <a href="/answers/catalog-files-with-autoindex-map" class=""><span class="eyebrow">31</span>How should an agent figure out what's in a messy data folder before searching?</a>
+    <a href="/answers/search-all-pdfs-in-a-folder" class=""><span class="eyebrow">32</span>I downloaded a bunch of papers as PDFs. How do I search across them?</a>
+    <a href="/answers/search-sql-dump-file" class=""><span class="eyebrow">33</span>I have a 2GB SQL dump. How do I find rows mentioning a customer without loading it into Postgres?</a>
+    <a href="/answers/index-multiple-csv-files" class=""><span class="eyebrow">34</span>I have a directory of CSV exports. How do I query them without opening each one in Excel?</a>
+    <a href="/answers/search-file-contents-in-a-folder" class=""><span class="eyebrow">35</span>I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?</a>
+    <a href="/answers/search-zendesk-ticket-json-export" class=""><span class="eyebrow">36</span>I have a JSON export of Jira issues (or Zendesk tickets). How do I search it like a help-center search?</a>
+    <a href="/answers/search-jupyter-notebook-cells" class=""><span class="eyebrow">37</span>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?</a>
+    <a href="/answers/search-html-export" class=""><span class="eyebrow">38</span>I saved a help-center as HTML. How do I search it like the real help-center search?</a>
+    <a href="/answers/is-pdf-indexing-efficient" class=""><span class="eyebrow">39</span>Is it efficient to index PDF files?</a>
+    <a href="/answers/full-text-search-browser-history" class=""><span class="eyebrow">40</span>Is there a way to full-text search my browser history file itself?</a>
+    <a href="/answers/search-openapi-spec-for-agent" class=""><span class="eyebrow">41</span>My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?</a>
+    <a href="/answers/search-obsidian-pdf-docx-attachments" class=""><span class="eyebrow">42</span>What's the best way to search markdown notes and PDFs in the same vault?</a>
+    <a href="/answers/search-json-and-jsonl-logs" class=""><span class="eyebrow">43</span>What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?</a>
+    <a href="/answers/notion-export-duplicate-search-results" class=""><span class="eyebrow">44</span>Why does my Notion export duplicate titles?</a>
+    <a href="/answers/search-gmail-takeout-mbox-locally" class=""><span class="eyebrow">45</span>I exported my Gmail with Google Takeout. How do I search that mbox file locally?</a>
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">46</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">47</span>How do I build RAG without a vector database?</a>
-    <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">48</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">49</span>How do I rerank search results with a calibrated relevance judge?</a>
-    <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">50</span>What is Reciprocal Rank Fusion?</a>
-    <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">51</span>How does XERJ combine BM25 and kNN?</a>
-    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">52</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
-    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">53</span>How do I estimate folder-indexing time?</a>
-    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">54</span>Why would a folder search miss files that I can see on disk?</a>
-    <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">55</span>The indexer exited 3 (or 4). Did it fail?</a>
-    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">56</span>Is there a single-binary local search engine I can just run?</a>
-    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">57</span>What can I use for low-volume log search?</a>
-    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">58</span>How do I read autoindex progress?</a>
-    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">59</span>The indexer died overnight. Do I have to start over?</a>
-    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">60</span>Reindexing my files is taking forever. What usually causes that?</a>
-    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">61</span>What is XERJ?</a>
-    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">62</span>How do I improve a basic FAISS RAG pipeline?</a>
-    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">63</span>Why did my filtered vector search get slower when I added a filter?</a>
-    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">64</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">48</span>What is Reciprocal Rank Fusion?</a>
+    <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">49</span>How does XERJ combine BM25 and kNN?</a>
+    <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">50</span>How do I search files that live in an S3 bucket?</a>
+    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">51</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
+    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">52</span>How do I estimate folder-indexing time?</a>
+    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">53</span>Why would a folder search miss files that I can see on disk?</a>
+    <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">54</span>The indexer exited 3 (or 4). Did it fail?</a>
+    <a href="/answers/autoindex-says-extract-the-archive-first" class=""><span class="eyebrow">55</span>xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?</a>
+    <a href="/answers/keep-index-current-as-files-change" class=""><span class="eyebrow">56</span>How do I keep a search index up to date as files change, without re-indexing everything?</a>
+    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">57</span>Is there a single-binary local search engine I can just run?</a>
+    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">58</span>What can I use for low-volume log search?</a>
+    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">59</span>How do I read autoindex progress?</a>
+    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">60</span>The indexer died overnight. Do I have to start over?</a>
+    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">61</span>Reindexing my files is taking forever. What usually causes that?</a>
+    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">62</span>What is XERJ?</a>
+    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">63</span>How do I improve a basic FAISS RAG pipeline?</a>
+    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">64</span>Why did my filtered vector search get slower when I added a filter?</a>
+    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">65</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
@@ -235,8 +236,8 @@
   <p><strong>TL;DR</strong> — Not yet, for all three. XERJ has no object-storage backend, no alerting and no user-supplied plugins. Each of them has a surface in the code that looks closer to done than it is, so this page says exactly what exists, with the file that proves it. The authoritative list is <a href="https://github.com/xerj-org/xerj/blob/main/ROADMAP.md"><code class="inline">ROADMAP.md</code></a>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
-    <code>Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Do not design for S3 storage, alerting, user-supplied ingest plugins or downloadable corpus packs: none of them is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.</code>
-    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Do not design for S3 storage, alerting, user-supplied ingest plugins or downloadable corpus packs: none of them is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.">COPY THE PROMPT</button>
+    <code>Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Reading documents out of a bucket IS implemented — xerj autoindex s3://bucket/prefix. Do not design for S3 as the INDEX store, nor for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.</code>
+    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Reading documents out of a bucket IS implemented — xerj autoindex s3://bucket/prefix. Do not design for S3 as the INDEX store, nor for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.">COPY THE PROMPT</button>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -259,10 +260,13 @@
   <h2>Why this page exists</h2>
   <p>A search engine that speaks a familiar wire protocol invites assumptions. An agent that sees a <code class="inline">_watcher</code> route may plan around it, and it should not: XERJ does not run watches. An operator who sees <code class="inline">backend = "s3"</code> in a config schema may expect a bucket to work, and S3 is not implemented.</p>
   <p>XERJ's rule is that an input is either honoured or refused loudly. Two of the items below follow that rule today and one does not. All of them were checked against the <code class="inline">main</code> branch on 2026-09-18 by reading the named file.</p>
-  <h2>S3 and object storage: not implemented</h2>
+  <h2>S3 and object storage: the source side works, the index side does not</h2>
+  <p>Separate the two questions, because the answers differ.</p>
+  <p><strong>Reading documents out of a bucket works.</strong> <code class="inline">xerj autoindex s3://bucket/prefix</code> lists the prefix, streams in each object whose ETag or size changed, and indexes it with the same extractors it uses for a folder. <code class="inline">r2://</code> and any S3-compatible store behind <code class="inline">--endpoint-url</code> work the same way. The <a href="/answers/search-files-in-an-s3-bucket">S3 indexing page</a> has the commands and the request arithmetic.</p>
+  <p><strong>Storing the index in a bucket does not work</strong>, and that is the rest of this section.</p>
   <p>The storage crate has a type called <code class="inline">S3Backend</code>. It is a <strong>local-directory simulation</strong>. It maps an S3-style key layout onto a local path and writes with a temporary file and a rename. It contains no network client. The file is <code class="inline">engine/crates/xerj-storage/src/backend.rs</code>.</p>
   <p>The config check knows this. If you set <code class="inline">storage.backend = "s3"</code>, the server does not start. It prints that the S3 storage backend is not implemented in this build and that only <code class="inline">"local"</code> is supported. That check is in <code class="inline">engine/crates/xerj-common/src/config.rs</code>, and its comment explains the reason: an operator who sets that value believes their data lands in S3, and it does not.</p>
-  <p>So S3 is not supported, and the refusal is deliberate. Data lives on the local filesystem under the data directory.</p>
+  <p>So S3 as an index store is not supported, and the refusal is deliberate. Index data lives on the local filesystem under the data directory — including when the documents came from a bucket, in which case the mirrored object bytes are on local disk too, under the state directory.</p>
   <h2>Alerting: there is none</h2>
   <p>XERJ has no alerting. Two surfaces make it look otherwise.</p>
   <p>The first is <code class="inline">_watcher</code>. <code class="inline">PUT /_watcher/watch/{id}</code> is accepted. The handler puts the body into an in-memory map and replies that the condition was met, whatever condition you sent. <code class="inline">GET</code> and <code class="inline">DELETE</code> work on the same map. There is no scheduler, and no code ever evaluates a stored watch. This one is an accepted-and-ignored input, and the roadmap says it must either run watches or refuse them.</p>
@@ -279,7 +283,8 @@
   <table>
     <thead><tr><th>You wanted</th><th>What works now</th></tr></thead>
     <tbody>
-      <tr><td>index data in S3</td><td>local disk only; S3 is not implemented and the server refuses the setting</td></tr>
+      <tr><td>index data in S3</td><td>local disk only; the S3 storage backend is not implemented and the server refuses the setting</td></tr>
+      <tr><td>search documents that live in S3</td><td>works: <code class="inline">xerj autoindex s3://bucket/prefix</code> mirrors the changed objects to local disk and indexes them</td></tr>
       <tr><td>an alert when a document matches</td><td>there is no alerting; run a <code class="inline">percolate</code> or an ordinary search on your own schedule and act on the result yourself</td></tr>
       <tr><td>a custom transform at ingest</td><td>one of the built-in transforms, or transform the document before you send it</td></tr>
       <tr><td>a ready-made reference corpus</td><td>clone the source and run <code class="inline">xerj autoindex</code> on it</td></tr>
@@ -293,7 +298,7 @@
   <h3>Can XERJ store its index in S3, send alerts, or run my own ingest plugin?</h3>
   <p>No to all three today. Each one is on the roadmap as planned work, and each has a surface in the code that looks closer to done than it is. This page says exactly what exists.</p>
   <h3>Does XERJ support S3 or object storage?</h3>
-  <p>No. The S3 backend in the source tree is a local-directory simulation with no network client. Setting <code class="inline">storage.backend = "s3"</code> stops the server at startup with an error, on purpose.</p>
+  <p>Half of it, and the halves are worth separating. Reading documents out of a bucket works: <code class="inline">xerj autoindex s3://bucket/prefix</code>. Storing the INDEX in a bucket does not — the S3 storage backend is a local-directory simulation and <code class="inline">storage.backend = "s3"</code> stops the server at startup, on purpose.</p>
   <h3>Does XERJ have alerting or a working watcher?</h3>
   <p>No. XERJ has no alerting. <code class="inline">_watcher</code> stores watches and no scheduler ever evaluates them, and the console alert-rule indices have schemas and no evaluator.</p>
   <h3>Can I write my own ingest plugin for XERJ?</h3>
@@ -310,6 +315,7 @@
   <ul>
     <li>S3Backend is a local-directory simulation: it maps an S3 key layout onto a local path and contains no network client. — <code>engine/crates/xerj-storage/src/backend.rs</code></li>
     <li>Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported. — <code>engine/crates/xerj-common/src/config.rs</code></li>
+    <li>The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket. — <code>docs/OBJECT_STORAGE.md:255</code></li>
     <li>PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch. — <code>engine/crates/xerj-api/src/es_compat.rs</code></li>
     <li>The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them. — <code>engine/crates/xerj-console-api/src/indices.rs</code></li>
     <li>Ingest transforms are built-in native Rust plugins; xerj-wasm has no wasmtime dependency and no wasm feature. — <code>engine/crates/xerj-wasm/Cargo.toml</code></li>
@@ -318,6 +324,7 @@
   </ul>
   <h2>Related</h2>
   <ul>
+    <li><a href="/answers/search-files-in-an-s3-bucket">How do I search files that live in an S3 bucket?</a></li>
     <li><a href="/answers/what-is-xerj">What is XERJ?</a></li>
     <li><a href="/answers/how-xerj-combines-search">How does XERJ combine BM25 and kNN?</a></li>
     <li><a href="/answers/filter-knn-exact-scan-caveat">Why did my filtered vector search get slower when I added a filter?</a></li>

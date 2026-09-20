@@ -215,8 +215,8 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records
 ```
 
 Source files go through tree-sitter, so code arrives with its symbols and line numbers
-instead of as flat text. CSV, JSON, JSONL, XML, YAML, SQLite, PDF, DOCX, HTML and common log
-formats are all handled. Unity projects get first-class treatment: text-serialized scenes,
+instead of as flat text. CSV, JSON, JSONL, XML, YAML, SQLite, PDF, DOCX, HTML, mail (`.eml` and mbox mailboxes,
+including a Google Takeout export) and common log formats are all handled. Unity projects get first-class treatment: text-serialized scenes,
 prefabs and assets become one record per GameObject/Component, `.meta` files become a
 GUID-to-path table, and MonoBehaviour records carry `script_class`/`script_path` so "which
 scenes use this script?" is a single query (binary-serialized assets need Force Text to be

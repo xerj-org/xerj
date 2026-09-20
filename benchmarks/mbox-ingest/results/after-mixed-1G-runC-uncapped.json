@@ -1,0 +1,128 @@
+{
+ "profile": "mixed",
+ "target_size": "1G",
+ "label": "after-uncapped",
+ "extra_autoindex_flags": "",
+ "resumed_after_a_failed_run": false,
+ "autoindex_exit_code": 3,
+ "autoindex_last_line": "xerj-done ok=true exit=3 reason=completed-with-junk wall=278.7s files=16 records=106581 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0",
+ "source": {
+  "mbox_bytes": 1073777879,
+  "tree_bytes": 1073794434,
+  "entries": 40799,
+  "attachments": {
+   "binary": 5698,
+   "pdf": 4261,
+   "text": 4300
+  },
+  "mbox_sha256": "4098bf60c0cba54e6dc21737c5ddb0883da45854eec928e3e39ff1434aec0323"
+ },
+ "wall_seconds": 279.0,
+ "node_docs_indexed": 106581,
+ "docs_per_second": 382.0,
+ "source_mb_per_second": 3.85,
+ "peak_rss_mb": {
+  "autoindex_process": 296.3,
+  "largest_single_process_in_autoindex_tree": 296.3,
+  "server": 68527.6,
+  "server_idle_before_run": 110.9
+ },
+ "disk_bytes": {
+  "index_at_autoindex_exit": 937682989,
+  "index_settled": 760436960,
+  "index_settled_over_mbox": 0.708,
+  "state_dir_peak_during_run": 252311996
+ },
+ "loadavg_before": "11.34 6.82 2.97",
+ "loadavg_after": [
+  "25.55",
+  "15.22",
+  "7.52"
+ ],
+ "verify": {
+  "node_docs": 106581,
+  "mbox_docs": 106551,
+  "attachment_docs": 39619,
+  "needles": {
+   "body": {
+    "planted": 418,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "latin1-8bit-body": {
+    "planted": 1160,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "cp1252-undeclared-body": {
+    "planted": 417,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "after-unquoted-prose-from": {
+    "planted": 41,
+    "found_exactly_once": 41,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 41
+   },
+   "pdf-attachment": {
+    "planted": 265,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "text-attachment": {
+    "planted": 216,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [],
+  "edges": {
+   "replies_to": {
+    "written": 21544,
+    "truth_resolvable_replies": 21544
+   },
+   "attachment_of": {
+    "written": 39619,
+    "attachment_docs": 39619
+   }
+  },
+  "empty_no_subject_docs": 0
+ },
+ "binary": "branch feat/ingest-mbox-takeout at 4c0c4685 (thread pool + per-item AND HTTP-level 429 patience, 600 s)",
+ "node_memory": "XERJ_MAX_PROCESS_MEMORY_MB=off: no process cap, memtable budget 30,527 MB, watermark 116,002 MB; the breaker never engaged",
+ "note": "the only complete 1 GB run. The verify section BELOW checked the first 60 needles of each kind (354 of 2,530 planted) - the counts it prints are exact for those. Every needle was checked afterwards against a copy of this index: after-mixed-1G-runC-verify-every-needle.json (2,530 of 2,530 in the right message; 2,529 as one document, 1 in two overlapping sections of its message). peak_rss_mb values are MiB (VmHWM kB / 1024): server 68,527.6 MiB = 66.9 GiB, read after the post-run settle (merges); a live reading of ~27.9 GB at 83% of the index phase was taken by hand during the run and is not recorded by the harness. Of the 279 s wall: ~170 s index phase (the mailbox staged in 39 s, records accepted over the rest), ~97 s finalize-count. Same binary as the capped run B beside this file."
+}

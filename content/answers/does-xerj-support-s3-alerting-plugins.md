@@ -1,7 +1,7 @@
 ---
 title: "Does XERJ support S3, alerting or custom plugins?"
 h1: "Does XERJ support S3 storage, alerting or custom plugins yet?"
-description: "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+description: "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
 slug: "does-xerj-support-s3-alerting-plugins"
 cluster: "Capabilities and limits"
 question: "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?"
@@ -10,7 +10,7 @@ published: "2026-09-18"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
-agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Do not design for S3 storage, alerting, user-supplied ingest plugins or downloadable corpus packs: none of them is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today."
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Reading documents out of a bucket IS implemented — xerj autoindex s3://bucket/prefix. Do not design for S3 as the INDEX store, nor for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today."
 commands:
   - cmd: "curl -s -XPUT http://127.0.0.1:9200/_watcher/watch/demo -H 'content-type: application/json' -d '{\"trigger\":{\"schedule\":{\"interval\":\"10s\"}},\"input\":{\"simple\":{}},\"condition\":{\"never\":{}}}'"
     note: "The request is accepted and the watch is stored. Nothing will ever evaluate it, and the reply says the condition was met although the watch asked for never."
@@ -19,6 +19,7 @@ commands:
   - cmd: "curl -s -XPOST http://127.0.0.1:9200/detections/_search -H 'content-type: application/json' -d '{\"query\":{\"percolate\":{\"field\":\"query\",\"document\":{\"message\":\"disk full on node 7\"}}}}'"
     note: "The percolate query is real. It matches stored queries against the document you supply, which is the piece a future detection feature builds on."
 links_out:
+  - "search-files-in-an-s3-bucket"
   - "what-is-xerj"
   - "how-xerj-combines-search"
   - "filter-knn-exact-scan-caveat"
@@ -29,6 +30,8 @@ evidence:
     source: "engine/crates/xerj-storage/src/backend.rs"
   - claim: "Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported."
     source: "engine/crates/xerj-common/src/config.rs"
+  - claim: "The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket."
+    source: "docs/OBJECT_STORAGE.md:255"
   - claim: "PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch."
     source: "engine/crates/xerj-api/src/es_compat.rs"
   - claim: "The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them."
@@ -43,7 +46,7 @@ faq:
   - q: "Can XERJ store its index in S3, send alerts, or run my own ingest plugin?"
     a: "No to all three today. Each one is on the roadmap as planned work, and each has a surface in the code that looks closer to done than it is. This page says exactly what exists."
   - q: "Does XERJ support S3 or object storage?"
-    a: "No. The S3 backend in the source tree is a local-directory simulation with no network client. Setting `storage.backend = \"s3\"` stops the server at startup with an error, on purpose."
+    a: "Half of it, and the halves are worth separating. Reading documents out of a bucket works: `xerj autoindex s3://bucket/prefix`. Storing the INDEX in a bucket does not — the S3 storage backend is a local-directory simulation and `storage.backend = \"s3\"` stops the server at startup, on purpose."
   - q: "Does XERJ have alerting or a working watcher?"
     a: "No. XERJ has no alerting. `_watcher` stores watches and no scheduler ever evaluates them, and the console alert-rule indices have schemas and no evaluator."
   - q: "Can I write my own ingest plugin for XERJ?"
@@ -66,13 +69,19 @@ A search engine that speaks a familiar wire protocol invites assumptions. An age
 
 XERJ's rule is that an input is either honoured or refused loudly. Two of the items below follow that rule today and one does not. All of them were checked against the `main` branch on 2026-09-18 by reading the named file.
 
-## S3 and object storage: not implemented
+## S3 and object storage: the source side works, the index side does not
+
+Separate the two questions, because the answers differ.
+
+**Reading documents out of a bucket works.** `xerj autoindex s3://bucket/prefix` lists the prefix, streams in each object whose ETag or size changed, and indexes it with the same extractors it uses for a folder. `r2://` and any S3-compatible store behind `--endpoint-url` work the same way. The [S3 indexing page](/answers/search-files-in-an-s3-bucket) has the commands and the request arithmetic.
+
+**Storing the index in a bucket does not work**, and that is the rest of this section.
 
 The storage crate has a type called `S3Backend`. It is a **local-directory simulation**. It maps an S3-style key layout onto a local path and writes with a temporary file and a rename. It contains no network client. The file is `engine/crates/xerj-storage/src/backend.rs`.
 
 The config check knows this. If you set `storage.backend = "s3"`, the server does not start. It prints that the S3 storage backend is not implemented in this build and that only `"local"` is supported. That check is in `engine/crates/xerj-common/src/config.rs`, and its comment explains the reason: an operator who sets that value believes their data lands in S3, and it does not.
 
-So S3 is not supported, and the refusal is deliberate. Data lives on the local filesystem under the data directory.
+So S3 as an index store is not supported, and the refusal is deliberate. Index data lives on the local filesystem under the data directory — including when the documents came from a bucket, in which case the mirrored object bytes are on local disk too, under the state directory.
 
 ## Alerting: there is none
 
@@ -102,7 +111,8 @@ The refusal rule holds here. A pipeline that names a processor this build does n
 
 | You wanted | What works now |
 | --- | --- |
-| index data in S3 | local disk only; S3 is not implemented and the server refuses the setting |
+| index data in S3 | local disk only; the S3 storage backend is not implemented and the server refuses the setting |
+| search documents that live in S3 | works: `xerj autoindex s3://bucket/prefix` mirrors the changed objects to local disk and indexes them |
 | an alert when a document matches | there is no alerting; run a `percolate` or an ordinary search on your own schedule and act on the result yourself |
 | a custom transform at ingest | one of the built-in transforms, or transform the document before you send it |
 | a ready-made reference corpus | clone the source and run `xerj autoindex` on it |

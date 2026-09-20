@@ -1,0 +1,169 @@
+{
+ "profile": "mixed",
+ "target_size": "1G",
+ "label": "after-capped",
+ "extra_autoindex_flags": "",
+ "resumed_after_a_failed_run": false,
+ "autoindex_exit_code": 1,
+ "autoindex_last_line": "error: autoindex stopped with bulk/backend failures: bulk backend failed for 2473 item(s): {\"type\":\"engine_exception\",\"reason\":\"[parent] real memory circuit breaker tripped: rss=15575MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill\",\"status\":429}. Source file was not journaled complete; fix the server/embedding configuration and rerun autoindex. Failed source files were not journaled complete; fix the reported server or embedding configuration and rerun the same command to resume safely",
+ "source": {
+  "mbox_bytes": 1073777879,
+  "tree_bytes": 1073794434,
+  "entries": 40799,
+  "attachments": {
+   "binary": 5698,
+   "pdf": 4261,
+   "text": 4300
+  },
+  "mbox_sha256": "4098bf60c0cba54e6dc21737c5ddb0883da45854eec928e3e39ff1434aec0323"
+ },
+ "wall_seconds": 1281.2,
+ "node_docs_indexed": 82422,
+ "docs_per_second": 64.3,
+ "source_mb_per_second": 0.84,
+ "peak_rss_mb": {
+  "autoindex_process": 224.0,
+  "largest_single_process_in_autoindex_tree": 224.0,
+  "server": 26529.1,
+  "server_idle_before_run": 123.7
+ },
+ "disk_bytes": {
+  "index_at_autoindex_exit": 577436859,
+  "index_settled": 576475638,
+  "index_settled_over_mbox": 0.537,
+  "state_dir_peak_during_run": 252311996
+ },
+ "loadavg_before": "13.24 23.66 35.87",
+ "loadavg_after": [
+  "0.71",
+  "3.71",
+  "12.36"
+ ],
+ "verify": {
+  "node_docs": 82422,
+  "mbox_docs": 82392,
+  "attachment_docs": 30825,
+  "needles": {
+   "body": {
+    "planted": 418,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "latin1-8bit-body": {
+    "planted": 1160,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "cp1252-undeclared-body": {
+    "planted": 417,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "after-unquoted-prose-from": {
+    "planted": 41,
+    "found_exactly_once": 32,
+    "missing": 9,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 41
+   },
+   "pdf-attachment": {
+    "planted": 265,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "text-attachment": {
+    "planted": 216,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [
+   {
+    "missing": {
+     "message_id": "prosefrom-32000@example.org",
+     "token": "xqtonelubedo",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-33000@example.org",
+     "token": "xqlesanodujo",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-34000@example.org",
+     "token": "xqlovihuvihi",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-35000@example.org",
+     "token": "xqcisotanice",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-36000@example.org",
+     "token": "xqcusuvasota",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   }
+  ],
+  "edges": {
+   "replies_to": {
+    "written": 0,
+    "truth_resolvable_replies": 21544
+   },
+   "attachment_of": {
+    "written": 0,
+    "attachment_docs": 30825
+   }
+  },
+  "empty_no_subject_docs": 0
+ },
+ "binary": "branch feat/ingest-mbox-takeout at 4c0c4685 (thread pool + per-item AND HTTP-level 429 patience, 600 s)",
+ "node_memory": "auto tier: 16 GiB process cap, watermark 15,564 MB (the default on a 119 GiB box)",
+ "note": "the run never completed: from 87.1% of the mailbox the server sat at the RSS watermark (rss 15,574-15,633 MB vs 15,564 MB) with the breaker engaged for 118 s and 147 s at a stretch and released for 3-4 s between; the client re-offered for the full 600 s patience and then aborted. Server VmHWM 26,529 MB despite the 16 GiB cap - the cap gates admission, not memory already in use. Same binary as the uncapped run beside this file."
+}
