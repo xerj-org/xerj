@@ -3765,25 +3765,6 @@ fn run_terms(
     let buckets: Vec<Value> = sorted
         .into_iter()
         .map(|(key, count, sub_res)| {
-            let is_missing_bucket = missing_placeholder
-                .as_deref()
-                .map(|ph| ph == key.as_str())
-                .unwrap_or(false);
-            let bucket_docs: Vec<Value> = docs
-                .iter()
-                .filter(|doc| {
-                    let vals = terms_agg_bucket_keys(&field_or_script, doc);
-                    if is_missing_bucket {
-                        vals.is_empty()
-                    } else {
-                        vals.contains(&key)
-                    }
-                })
-                .cloned()
-                .collect();
-            let _ = &bucket_docs; // silence unused when neither sub nor `count` needs it
-            let (key, count, precomputed_sub) = (key, count, sub_res);
-
             let (typed_key, key_as_string) = typed_term_key(&key, source_is_string);
 
             let mut bucket = json!({
@@ -3795,9 +3776,32 @@ fn run_terms(
             }
 
             // Reuse the precomputed sub-agg result when we had to build it
-            // for ordering; otherwise compute it now (no-op if no sub_aggs).
-            let sub_result = precomputed_sub.or_else(|| {
-                sub_aggs.map(|sa| run_aggs_in_bucket(sa, &bucket_docs, all_docs, count))
+            // for ordering; otherwise compute it now — and build this
+            // bucket's doc list only here.  The eager build cost a full
+            // O(docs) scan per OUTPUT bucket even when no sub-aggs were
+            // requested (the list's only consumer), so a size-10 terms agg
+            // over N matching docs did 10 × N `terms_agg_bucket_keys`
+            // extractions and threw every one of them away.
+            let sub_result = sub_res.or_else(|| {
+                sub_aggs.map(|sa| {
+                    let is_missing_bucket = missing_placeholder
+                        .as_deref()
+                        .map(|ph| ph == key.as_str())
+                        .unwrap_or(false);
+                    let bucket_docs: Vec<Value> = docs
+                        .iter()
+                        .filter(|doc| {
+                            let vals = terms_agg_bucket_keys(&field_or_script, doc);
+                            if is_missing_bucket {
+                                vals.is_empty()
+                            } else {
+                                vals.contains(&key)
+                            }
+                        })
+                        .cloned()
+                        .collect();
+                    run_aggs_in_bucket(sa, &bucket_docs, all_docs, count)
+                })
             });
             if let Some(Value::Object(sub_obj)) = sub_result {
                 if let Some(bucket_obj) = bucket.as_object_mut() {
@@ -3816,6 +3820,16 @@ fn run_terms(
         "sum_other_doc_count": sum_other_doc_count,
         "buckets": buckets
     })
+}
+
+/// The ES shard-side queue size for a terms agg: the caller's `shard_size`
+/// when given, else the `size + size/2 + 10` default, and never below
+/// `size` (matching `BucketUtils.suggestShardSideQueueSize` + ES's
+/// shard_size >= size reset).  Extracted so a caller that wants to bound
+/// its sort work BEFORE the pipeline computes the exact cut the pipeline
+/// itself will apply.
+pub(crate) fn effective_shard_size(size: usize, shard_size_param: Option<usize>) -> usize {
+    shard_size_param.unwrap_or(size + size / 2 + 10).max(size)
 }
 
 /// Apply Elasticsearch's (single-shard) terms-agg size pipeline to an
@@ -3848,7 +3862,7 @@ pub(crate) fn apply_terms_size_pipeline<T>(
     match cap {
         Some(size) => {
             let mut sum_other: u64 = 0;
-            let shard_size = shard_size_param.unwrap_or(size + size / 2 + 10).max(size);
+            let shard_size = effective_shard_size(size, shard_size_param);
             if rows.len() > shard_size {
                 for r in &rows[shard_size..] {
                     sum_other += count_of(r);

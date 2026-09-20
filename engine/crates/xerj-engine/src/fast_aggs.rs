@@ -2914,9 +2914,16 @@ impl<'a> FastCtx<'a> {
                 if counts[ord] == 0 {
                     continue;
                 }
-                let st = terms_map
-                    .entry(term_of_ord(ord).to_string())
-                    .or_insert_with(|| new_state(&plan));
+                // get_mut-then-insert: `entry(key.to_string())` allocated
+                // the key on every (term, segment) merge; the hit path —
+                // every term this segment shares with an earlier one —
+                // only needs the lookup.
+                let st = match terms_map.get_mut(term_of_ord(ord)) {
+                    Some(st) => st,
+                    None => terms_map
+                        .entry(term_of_ord(ord).to_string())
+                        .or_insert_with(|| new_state(&plan)),
+                };
                 st.count += counts[ord];
                 for (mi, acc) in st.accs.iter_mut().enumerate() {
                     merge_acc(acc, &accs[mi][ord]);
@@ -3046,17 +3053,17 @@ impl<'a> FastCtx<'a> {
         // staging (shard cut → silent min drop → size cut) and returns the
         // REAL sum_other_doc_count — byte-identical to the brute run_terms.
         let mut candidates: Vec<(String, TermState)> = terms_map.into_iter().collect();
-        candidates.sort_by(|a, b| {
-            cmp_by_orders(
-                &(a.0.clone(), a.1.count),
-                &(b.0.clone(), b.1.count),
-                &orders,
-            )
-        });
         let shard_size_param: Option<usize> = params
             .get("shard_size")
             .and_then(Value::as_u64)
             .map(|v| v as usize);
+        let pre_cut_other = order_with_shard_cut(
+            &mut candidates,
+            |a, b| cmp_by_orders((&a.0, a.1.count), (&b.0, b.1.count), &orders),
+            |r| r.1.count,
+            cap,
+            shard_size_param,
+        );
         let (candidates, sum_other_doc_count) = crate::aggs::apply_terms_size_pipeline(
             candidates,
             |r| r.1.count,
@@ -3064,6 +3071,7 @@ impl<'a> FastCtx<'a> {
             shard_size_param,
             min_doc_count,
         );
+        let sum_other_doc_count = sum_other_doc_count + pre_cut_other;
 
         let mut buckets: Vec<Value> = Vec::with_capacity(candidates.len());
         for (key, st) in candidates {
@@ -4974,19 +4982,18 @@ fn parse_orders(params: &Value) -> Vec<(String, bool)> {
 }
 
 /// `cmp_terms_by_orders` for (key, count) with no sub-agg entries.
-fn cmp_by_orders(
-    a: &(String, u64),
-    b: &(String, u64),
-    orders: &[(String, bool)],
-) -> std::cmp::Ordering {
+/// Takes BORROWED keys: a sort calls this O(k log k) times, and the old
+/// `&(String, u64)` signature made the caller allocate two `String`s per
+/// comparison.
+fn cmp_by_orders(a: (&str, u64), b: (&str, u64), orders: &[(String, bool)]) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     if orders.is_empty() {
-        return b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0));
+        return b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0));
     }
     for (path, asc) in orders {
         let ord = match path.as_str() {
             "_count" => a.1.cmp(&b.1),
-            "_key" => a.0.cmp(&b.0),
+            "_key" => a.0.cmp(b.0),
             _ => Ordering::Equal,
         };
         let ord = if *asc { ord } else { ord.reverse() };
@@ -4994,7 +5001,46 @@ fn cmp_by_orders(
             return ord;
         }
     }
-    a.0.cmp(&b.0)
+    a.0.cmp(b.0)
+}
+
+/// Order the collected terms and apply the ES shard-side cut BEFORE the
+/// full sort: only the top `shard_size` rows can survive
+/// `apply_terms_size_pipeline`, so partition-select at that boundary
+/// (O(k) average) and sort just the surviving prefix, instead of fully
+/// sorting all k rows to keep `size + size/2 + 10` of them.
+///
+/// Byte-identical to a full `sort_by` plus the pipeline's own shard cut
+/// when `by_orders` is a TOTAL order over distinct keys — which
+/// `cmp_by_orders` is (it ends in a `String` compare), so the
+/// top-`shard_size` SET is unique and sort stability cannot matter.  (The
+/// brute-side `cmp_terms_by_orders` must NOT be used here:
+/// `cmp_term_key` ties distinct numeric strings, so its stable-sort tie
+/// order is load-bearing.)
+///
+/// Returns the cut rows' total count — those counts belong in
+/// `sum_other_doc_count`, which the pipeline can no longer see once the
+/// rows are gone.
+fn order_with_shard_cut<T>(
+    rows: &mut Vec<T>,
+    by_orders: impl Fn(&T, &T) -> std::cmp::Ordering,
+    count_of: impl Fn(&T) -> u64,
+    cap: Option<usize>,
+    shard_size_param: Option<usize>,
+) -> u64 {
+    let mut cut = 0u64;
+    if let Some(size) = cap {
+        let shard_size = crate::aggs::effective_shard_size(size, shard_size_param);
+        if rows.len() > shard_size {
+            rows.select_nth_unstable_by(shard_size, |a, b| by_orders(a, b));
+            cut = rows[shard_size..].iter().map(count_of).sum();
+            rows.truncate(shard_size);
+        }
+    }
+    // Sort whatever survives (≤ shard_size) — the pipeline's
+    // min_doc_count / size staging is order-dependent.
+    rows.sort_by(|a, b| by_orders(a, b));
+    cut
 }
 
 /// Composite key comparison for terms-only sources (mirror of the brute
@@ -5744,6 +5790,68 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod shard_cut_tests {
+    use super::*;
+
+    /// Cluster-H pin: `order_with_shard_cut` must be byte-identical to the
+    /// full-sort oracle — same surviving rows in the same order — and must
+    /// conserve the cut rows' counts into its return value (dropping them
+    /// would silently under-report `sum_other_doc_count` on every wide
+    /// terms agg).  Oracle: `sort_by` the whole vec, sum the tail past
+    /// `effective_shard_size`, truncate.
+    #[test]
+    fn order_with_shard_cut_matches_the_full_sort_oracle_and_conserves_other() {
+        // Tie-heavy fixture: many equal counts so the String tiebreak
+        // fires constantly, with count bands straddling the cut boundary.
+        let mk = |n: usize| -> Vec<(String, u64)> {
+            (0..n)
+                .map(|i| (format!("term{i:05}"), (i % 7) as u64 + (i / 100) as u64))
+                .collect()
+        };
+        let cmp =
+            |a: &(String, u64), b: &(String, u64)| cmp_by_orders((&a.0, a.1), (&b.0, b.1), &[]);
+        for (n, size, shard) in [
+            (200usize, 10usize, None),
+            (5_000, 10, None),
+            (5_000, 10, Some(37)),
+            (300, 300, None),    // len == shard_size → no cut
+            (299, 300, None),    // len < shard_size → no cut
+            (1_024, 1, Some(1)), // degenerate size
+        ] {
+            let rows = mk(n);
+            let mut oracle = rows.clone();
+            oracle.sort_by(cmp);
+            let shard_size = crate::aggs::effective_shard_size(size, shard);
+            let expect_other: u64 = if oracle.len() > shard_size {
+                let s: u64 = oracle[shard_size..].iter().map(|r| r.1).sum();
+                oracle.truncate(shard_size);
+                s
+            } else {
+                0
+            };
+            let mut victim = rows.clone();
+            let got_other = order_with_shard_cut(&mut victim, cmp, |r| r.1, Some(size), shard);
+            assert_eq!(
+                victim, oracle,
+                "n={n} size={size} shard={shard:?}: surviving rows differ"
+            );
+            assert_eq!(
+                got_other, expect_other,
+                "n={n} size={size} shard={shard:?}: cut counts differ"
+            );
+        }
+
+        // cap None (the size:0 extension): every row survives, ordered, no cut.
+        let mut all = mk(500);
+        let cut = order_with_shard_cut(&mut all, cmp, |r| r.1, None, Some(5));
+        assert_eq!(cut, 0);
+        let mut sorted = all.clone();
+        sorted.sort_by(cmp);
+        assert_eq!(all, sorted, "cap=None must still order the rows");
+    }
 }
 
 #[cfg(test)]
