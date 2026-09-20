@@ -2,7 +2,7 @@
 ---
 title: "Why did xerj autoindex say a dataset was REFUSED?"
 canonical: "https://xerj.org/answers/autoindex-dataset-refused-by-server"
-updated: "2026-09-18"
+updated: "2026-09-20"
 source: "content/answers/autoindex-dataset-refused-by-server.md"
 ---
 

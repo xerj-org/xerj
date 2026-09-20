@@ -116,7 +116,7 @@
       "canonical_url": "https://xerj.org/answers/rebuild-reference-corpus-index",
       "markdown_url": "https://xerj.org/answers/rebuild-reference-corpus-index.md",
       "cluster": "Coding agents: reference retrieval",
-      "updated": "2026-09-18",
+      "updated": "2026-09-20",
       "summary": "xc-index.sh --fresh builds a replacement index beside the old one, verifies it has records, switches the state file, and only then retires the old index. A failed build costs nothing."
     },
     {
@@ -548,7 +548,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server",
       "markdown_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-18",
+      "updated": "2026-09-20",
       "summary": "When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line."
     },
     {
