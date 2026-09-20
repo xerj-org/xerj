@@ -1,0 +1,10 @@
+
+== Banking77 — 77-way intent routing (Jev `choice`): 1000 test items, k=10
+  bm25 (no model)  acc=0.8190  ECE=0.089  conf>=0.8: 50.6% of items at 0.9960 acc  no-hit=0     2.2ms/item
+  minilm           acc=0.9330  ECE=0.012  conf>=0.8: 86.9% of items at 0.9793 acc  no-hit=0     8.6ms/item
+  hybrid rrf       acc=0.9370  ECE=0.052  conf>=0.8: 79.2% of items at 0.9886 acc  no-hit=0    12.4ms/item
+
+== SMS spam — yes/no detection (Jev `noul`): 1000 test items, k=10
+  bm25 (no model)  acc=0.9830  ECE=0.017  conf>=0.8: 95.4% of items at 0.9916 acc  no-hit=1     0.9ms/item  | spam: P=0.964 R=0.925 F1=0.944
+  minilm           acc=0.9820  ECE=0.009  conf>=0.8: 95.8% of items at 0.9885 acc  no-hit=0    74.5ms/item  | spam: P=0.910 R=0.973 F1=0.940
+  hybrid rrf       acc=0.9890  ECE=0.015  conf>=0.8: 95.7% of items at 0.9969 acc  no-hit=0    67.2ms/item  | spam: P=0.966 R=0.959 F1=0.962

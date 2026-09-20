@@ -536,6 +536,14 @@ pub struct AppState {
     /// Share links (`/_share`): records loaded from `<data_dir>/shares.json`
     /// plus the claim rate limiter. See `crate::share`.
     pub shares: Arc<crate::share::ShareStore>,
+    /// Resolved rerank-provider settings (key, endpoint, kill switch, shared
+    /// HTTP client) — the injection seam for [`crate::rerank_stage`].
+    ///
+    /// Resolved once here from `[rerank]` in the config file with the
+    /// `TYPESAFE_*` environment variables as the fallback, and never read from
+    /// the environment again. A test points a node at its own stub by replacing
+    /// this field, so parallel tests never race on process-wide env state.
+    pub rerank: Arc<xerj_rerank::ProviderSettings>,
 }
 
 impl AppState {
@@ -569,7 +577,13 @@ impl AppState {
             (Arc::new(DashMap::new()), Arc::new(DashMap::new()))
         };
         let shares = crate::share::ShareStore::open(&config.server.data_dir);
+        let rerank = Arc::new(xerj_rerank::ProviderSettings::from_config_and_env(
+            config.rerank.enabled,
+            &config.rerank.api_key,
+            &config.rerank.endpoint,
+        ));
         Self {
+            rerank,
             config: Arc::new(config),
             engine: Arc::new(engine),
             metrics: Arc::new(metrics),

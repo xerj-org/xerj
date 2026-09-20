@@ -855,6 +855,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
                 .delete(wal_tap_api::delete_wal_tap),
         )
         .route("/_xerj/wal_tap/_stats", get(wal_tap_api::wal_tap_stats))
+        // ── Rerank provider status ─────────────────────────────────────────────────
+        // Whether a rerank provider is configured — never the key. Superuser
+        // only: it inherits the `/_xerj/*` rule in `authz.rs`.
+        .route("/_xerj/rerank", get(crate::rerank_stage::rerank_status))
         // ── Legacy index templates (v1) ────────────────────────────────────────────
         .route(
             "/_template/:name",

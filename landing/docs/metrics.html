@@ -63,7 +63,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-06-29",
-  "dateModified": "2026-09-08",
+  "dateModified": "2026-09-18",
   "author": {
     "@id": "https://xerj.org/#organization"
   },
@@ -223,6 +223,9 @@
     <div class="item">queries_executed<span class="dsc">Total queries served.</span></div>
     <div class="item">bytes_written<span class="dsc">Bytes to segment + WAL.</span></div>
     <div class="item">bytes_read<span class="dsc">Bytes read back from segments.</span></div>
+    <div class="item">rerank_requests<span class="dsc">Searches that carried a <code class="inline">rerank</code> block, by <code class="inline">outcome</code>: applied, degraded, refused (nothing sent), failed.</span></div>
+    <div class="item">rerank_documents_judged<span class="dsc">Documents the rerank provider returned a verdict for — the billing unit.</span></div>
+    <div class="item">rerank_provider_tokens<span class="dsc">Tokens the rerank provider reported, by <code class="inline">kind</code>: input, output.</span></div>
   </div>
 
   <h2>Histograms</h2>

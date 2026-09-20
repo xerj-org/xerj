@@ -16,6 +16,7 @@ onnx-experimental = ["xerj-engine/onnx-experimental"]
 xerj-common  = { path = "../xerj-common" }
 xerj-engine  = { path = "../xerj-engine" }
 xerj-query   = { path = "../xerj-query" }
+xerj-rerank = { path = "../xerj-rerank" }
 xerj-wasm    = { path = "../xerj-wasm" }
 # Note: this crate intentionally does NOT depend on xerj-console-api.
 # Xerj Console is a peer product mounted at the server level (`xerj-server`)

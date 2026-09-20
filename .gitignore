@@ -50,6 +50,12 @@ node_modules/
 
 # Rust build output
 target/
+# Per-task build directories. Parallel work in several worktrees sets
+# CARGO_TARGET_DIR=engine/target-<task> so the builds do not evict each other's
+# artifacts, and `target/` alone does not match those. One `git add -A` over a
+# tree with one of them staged 14,623 object files, which is why this is a rule
+# and not a habit.
+target-*/
 
 # cargo-fuzz working state. The harnesses and their SEEDS are tracked
 # (engine/fuzz/fuzz_targets/, engine/fuzz/seeds/) — the seeds are the
@@ -157,6 +163,14 @@ __pycache__/
 # reports "no fixtures" on a clean checkout. Same failure mode as the
 # pull-request template and tools/**/SKILL.md above.
 !scripts/seo/testdata/**/*.md
+
+# Re-include: the committed synthetic Takeout that xerj-autoindex's end-to-end
+# mail test indexes. scripts/synthetic-takeout.py writes a Drive/meeting-notes.md
+# into it, and the blanket *.md rule above dropped that one file from the
+# commit: the tree was complete on the author's disk, `git status` was clean,
+# and "Build + Test" was red on every clean checkout (PR #949 review). Test
+# fixtures are data, whatever their extension.
+!engine/crates/xerj-autoindex/tests/fixtures/**/*.md
 
 # Re-include: the SEO toolchain's own operational guide. It documents the
 # article generator, the URL map and every merge gate for landing/, so it is

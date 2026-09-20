@@ -595,6 +595,7 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
     let plan = xerj_autoindex::resources::plan(None, None, BULK_MB);
     IndexCfg {
         root: cfg.root.clone(),
+        endpoint_url: None,
         url: cfg.url.clone(),
         api_key,
         // `brain` resolves its own credential (its data dir's admin.key) and
@@ -642,6 +643,8 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         // same auto-resolved progress surface as `xerj autoindex` (#241).
         progress: xerj_autoindex::progress::ProgressMode::Auto,
         progress_interval: None,
+        watch: false,
+        debounce: std::time::Duration::from_millis(0),
     }
 }
 

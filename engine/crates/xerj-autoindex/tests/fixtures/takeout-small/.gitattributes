@@ -1,0 +1,3 @@
+# Bytes are the fixture: never let git normalise line endings here (the mbox is
+# CRLF on purpose and carries raw 8-bit and NUL bytes).
+** -text

@@ -63,7 +63,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-06-29",
-  "dateModified": "2026-09-08",
+  "dateModified": "2026-09-19",
   "author": {
     "@id": "https://xerj.org/#organization"
   },
@@ -252,7 +252,7 @@
 
     <div class="cell m">POST</div>
     <div class="cell p" id="search">/:index/_search</div>
-    <div class="cell dsc">ES query DSL. See the <a href="/docs/queries">query types</a> reference.</div>
+    <div class="cell dsc">ES query DSL. See the <a href="/docs/queries">query types</a> reference. Accepts one top-level key that is <strong>not</strong> Elasticsearch's: <a href="#rerank"><code class="inline">rerank</code></a>.</div>
 
     <div class="cell m">POST</div>
     <div class="cell p" id="bulk">/:index/_bulk</div>
@@ -321,6 +321,16 @@ $ curl -sX POST http://localhost:9200/logs/_search \
     -d '{"size":1000,"sort":[{"_id":"asc"}],"search_after":["10897"],"query":{"match_all":{}}}'
 # → 12 pages, all 11,450 documents, no ceiling</pre>
 
+  <h2 id="rerank">The <code class="inline">rerank</code> stage — a XERJ extension</h2>
+  <p><strong>This feature sends your data off the machine.</strong> <code class="inline">rerank</code> is a top-level <code class="inline">_search</code> key that Elasticsearch does not have, and the only search-time feature that sends document text off the node (proxy embeddings and the WAL tap also send text off the node when an operator configures them; both are off by default, and <a href="https://github.com/xerj-org/xerj/blob/main/docs/RERANK.md#every-way-data-leaves-a-xerj-node" rel="external">docs/RERANK.md</a> lists every outbound connection a node can open). It POSTs the question and the text of the top <code class="inline">window</code> hits (default 30, maximum 300) to a third-party relevance judge, and reorders the hits by the 0–1 probability that comes back. That probability replaces <code class="inline">_score</code>, so <code class="inline">rerank.min_score</code> is an absolute cut-off. It does nothing until the node's operator sets a provider key under <a href="/docs/config#rerank-section"><code class="inline">[rerank]</code></a>, a request only triggers it by carrying the block, and only fields the response returns are sent.</p>
+<pre class="code">$ curl -sX POST http://localhost:9200/kb/_search \
+    -H 'Content-Type: application/json' \
+    -d '{"query":{"match":{"body":"vitamin d bone density"}},"size":5,"rerank":{"min_score":0.5}}'
+# → "_rerank":{"applied":true,"score_kind":"probability","judged":30,...} ahead of "hits"
+# → a provider that misses its deadline is still a 200: "applied":false, engine order
+# → no provider key on the node: 503 rerank_exception, no hits, nothing sent</pre>
+  <p><code class="inline">hits.total</code> and <code class="inline">aggregations</code> stay the engine's and describe the full match set, not the window. <code class="inline">sort</code>, <code class="inline">search_after</code>, <code class="inline">collapse</code>, scroll and <code class="inline">size: 0</code> are refused with a 400, and <code class="inline">_msearch</code>, search templates, <code class="inline">_async_search</code> and <code class="inline">_rank_eval</code> (per request, under <code class="inline">failures</code>) refuse the block by name rather than dropping it. The strings have server-side ceilings like the window does: <code class="inline">rerank.instructions</code> is limited to 2,000 characters because the provider's wire format repeats it once per judged document, the question to 4,000 and <code class="inline">model</code> to 128; a longer value is a 400 naming the field. Every page request judges the window again, so fetch the window once and page client-side when cost matters. <code class="inline">GET /_xerj/rerank</code> (superuser only) reports whether a provider is configured, never the key. Ranking quality with the provider's model has <strong>not been verified</strong> by this project. Full reference: <a href="https://github.com/xerj-org/xerj/blob/main/docs/RERANK.md" rel="external">docs/RERANK.md</a> · <a href="/answers/rerank-search-results-calibrated-judge">the walkthrough</a>.</p>
+
   <h2>Bulk indexing example</h2>
 <pre class="code">$ curl -sX POST http://localhost:9200/logs/_bulk \
     -H 'Content-Type: application/x-ndjson' \
@@ -331,7 +341,7 @@ $ curl -sX POST http://localhost:9200/logs/_search \
 {"@timestamp":"2026-04-14T12:00:01Z","service":"auth","level":"warn","message":"rate limited"}
 JSON</pre>
 
-  <p class="source-note">Source · engine/crates/xerj-api/src/es_compat.rs</p>
+  <p class="source-note">Source · engine/crates/xerj-api/src/es_compat.rs · engine/crates/xerj-api/src/rerank_stage.rs</p>
   
 
 <div class="next">

@@ -5812,15 +5812,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn object_store_flush_uploads_segment() {
-        use crate::backend::S3Backend;
+        use crate::backend::SimulatedObjectStore;
         use std::sync::Arc;
 
         let data_dir = tempfile::tempdir().unwrap();
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> =
-            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
+        let backend: Arc<dyn StorageBackend> = Arc::new(SimulatedObjectStore::new(
+            s3_dir.path(),
+            "test-bucket",
+            "xerj/",
+        ));
 
         let store = IndexStore::open(
             data_dir.path(),
@@ -5854,15 +5857,18 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn object_store_read_through_cache() {
-        use crate::backend::S3Backend;
+        use crate::backend::SimulatedObjectStore;
         use std::sync::Arc;
 
         let data_dir = tempfile::tempdir().unwrap();
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> =
-            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
+        let backend: Arc<dyn StorageBackend> = Arc::new(SimulatedObjectStore::new(
+            s3_dir.path(),
+            "test-bucket",
+            "xerj/",
+        ));
 
         let store = IndexStore::open(
             data_dir.path(),
@@ -5896,6 +5902,143 @@ mod tests {
         // Subsequent open should be served from cache.
         let reader2 = store.open_segment(&meta.id).unwrap();
         assert_eq!(reader2.header().doc_count, 1);
+    }
+
+    /// The gap this PR does **not** close, pinned down so nobody has to guess.
+    ///
+    /// `StorageMode::ObjectStore` uploads the freshly written `.seg` and
+    /// nothing else. An index is therefore *not* stateless: point a fresh node
+    /// with an empty data directory at the same bucket and it finds no
+    /// documents, because the thing that says which segments exist —
+    /// `snapshot.json` — never left the local disk.
+    ///
+    /// This test asserts the gap on purpose. When the segment path is properly
+    /// wired it will start failing, which is the point: the failure is the
+    /// reminder to update the claim in `docs/OBJECT_STORAGE.md` and to lift the
+    /// `storage.backend` guard in `xerj-common/src/config.rs`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn object_store_mode_does_not_yet_make_an_index_stateless() {
+        use crate::backend::SimulatedObjectStore;
+        use std::sync::Arc;
+
+        let s3_dir = tempfile::tempdir().unwrap();
+        let backend: Arc<dyn StorageBackend> = Arc::new(SimulatedObjectStore::new(
+            s3_dir.path(),
+            "test-bucket",
+            "xerj/",
+        ));
+
+        // ── A node indexes, flushes, and dies. ───────────────────────────────
+        let first_data_dir = tempfile::tempdir().unwrap();
+        let first_cache = tempfile::tempdir().unwrap();
+        let meta = {
+            let store = IndexStore::open(
+                first_data_dir.path(),
+                IndexStoreConfig {
+                    sync_mode: SyncMode::Batched,
+                    storage_mode: StorageMode::ObjectStore {
+                        backend: Arc::clone(&backend),
+                        cache_dir: first_cache.path().to_path_buf(),
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            store
+                .index("doc-1", serde_json::json!({"title": "stateless?"}))
+                .unwrap();
+            store
+                .index("doc-2", serde_json::json!({"title": "no"}))
+                .unwrap();
+            let meta = store.flush().unwrap().expect("a segment");
+            assert_eq!(store.snapshot().segments.len(), 1);
+            meta
+        };
+
+        // The .seg did reach the bucket.
+        let seg_key = format!("segments/{}", meta.seg_path);
+        assert!(
+            backend.exists(&seg_key).await.unwrap(),
+            "the segment data file must be uploaded"
+        );
+
+        // But the local directory holds more than the bucket does. Count both,
+        // so the assertion names the actual size of the gap rather than
+        // asserting a number someone has to trust.
+        let local_files: Vec<String> = std::fs::read_dir(first_data_dir.path().join("segments"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        let uploaded = backend.list("segments/").await.unwrap();
+        assert!(
+            local_files.len() > uploaded.len(),
+            "expected the bucket to hold fewer files than the local segments \
+             directory; local: {local_files:?}, uploaded: {uploaded:?}"
+        );
+        // The skip index is the concrete example inside this crate. In the
+        // running engine there are many more: a hand count of one real
+        // 25-field segment came to 104 files (.seg, .sidx, .dv, .ids, and
+        // .fst/.meta/.norms/.post per indexed field), of which this path
+        // uploads exactly one. This test asserts the inequality below, not the
+        // number 104 — see docs/OBJECT_STORAGE.md, which says the same.
+        assert!(
+            local_files.iter().any(|f| f.ends_with(".sidx")),
+            "a flush writes a .sidx skip index locally: {local_files:?}"
+        );
+        assert!(
+            !uploaded.iter().any(|k| k.ends_with(".sidx")),
+            "and it is NOT uploaded — if this starts failing the wiring has \
+             progressed and this test's claim needs updating: {uploaded:?}"
+        );
+        // Nor is the snapshot, which is what makes the index unrecoverable.
+        assert!(
+            !backend.exists("snapshot.json").await.unwrap(),
+            "snapshot.json is not uploaded"
+        );
+
+        // ── A fresh node, empty disk, same bucket. ───────────────────────────
+        let second_data_dir = tempfile::tempdir().unwrap();
+        let second_cache = tempfile::tempdir().unwrap();
+        let revived = IndexStore::open(
+            second_data_dir.path(),
+            IndexStoreConfig {
+                sync_mode: SyncMode::Batched,
+                storage_mode: StorageMode::ObjectStore {
+                    backend: Arc::clone(&backend),
+                    cache_dir: second_cache.path().to_path_buf(),
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            revived.snapshot().segments.len(),
+            0,
+            "THIS is the gap: the segment bytes are in the bucket, but a fresh \
+             node cannot see them because the snapshot that lists them is not. \
+             Do not claim compute-storage separation until this is non-zero."
+        );
+
+        // The half that *does* work, and it is the useful half: asked for the
+        // segment by id, a fresh node with an empty disk fetches it out of the
+        // bucket, caches it locally and reads it correctly. So the backend and
+        // the read-through cache genuinely survive losing the node — what is
+        // missing is the catalogue that would let the node ask in the first
+        // place, not the ability to get the bytes back.
+        let reader = revived
+            .open_segment(meta.id.as_str())
+            .expect("a fresh node can fetch a segment from the bucket by id");
+        assert_eq!(
+            reader.header().doc_count,
+            2,
+            "and the bytes it fetched are the bytes that were written"
+        );
+        assert!(
+            second_cache.path().join(&meta.seg_path).exists(),
+            "the fetched segment must land in the new node's local cache"
+        );
     }
 
     // ── Merge-race read-lease tests (2026-07) ────────────────────────────────

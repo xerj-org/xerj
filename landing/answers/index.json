@@ -99,7 +99,7 @@
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
       "updated": "2026-09-19",
-      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+      "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
     },
     {
       "title": "Audit a PHP codebase with an index, not grep",
@@ -118,6 +118,15 @@
       "cluster": "Coding agents: reference retrieval",
       "updated": "2026-08-23",
       "summary": "Clone the library you are about to write against, index it with xerj autoindex, and retrieve the passage first. The published study, with the tracks where it loses."
+    },
+    {
+      "title": "Can I route or spam-filter text without an LLM call?",
+      "question": "Can I classify text from labelled history without calling an LLM?",
+      "canonical_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm",
+      "markdown_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm.md",
+      "cluster": "Decisions as retrieval",
+      "updated": "2026-09-20",
+      "summary": "Index labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam, no LLM or API call."
     },
     {
       "title": "How do I reduce embedding API cost?",
@@ -408,6 +417,15 @@
       "summary": "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one."
     },
     {
+      "title": "Search a Gmail Takeout mbox on your own machine",
+      "question": "How do I search a Google Takeout mbox file locally?",
+      "canonical_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally",
+      "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
+      "cluster": "Folder indexing",
+      "updated": "2026-09-20",
+      "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
+    },
+    {
       "title": "RAG without a vector database",
       "question": "How do I build RAG without a vector database?",
       "canonical_url": "https://xerj.org/answers/rag-without-vector-database",
@@ -415,6 +433,24 @@
       "cluster": "Hybrid retrieval: architecture",
       "updated": "2026-08-23",
       "summary": "Build a RAG retrieval layer on one XERJ index. One hybrid request fuses BM25 and kNN with Reciprocal Rank Fusion, and no second service runs."
+    },
+    {
+      "title": "How much better is hybrid search than BM25? Measured.",
+      "question": "How much better is hybrid search than BM25 alone?",
+      "canonical_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg",
+      "markdown_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg.md",
+      "cluster": "Hybrid retrieval: quality",
+      "updated": "2026-09-20",
+      "summary": "XERJ measured BM25, vectors and hybrid RRF on two public BEIR datasets. Hybrid won both: nDCG@10 0.6993 against 0.6572 on SciFact, with a neural embedder."
+    },
+    {
+      "title": "How do I rerank search results with a relevance judge?",
+      "question": "How do I rerank search results with a calibrated relevance judge?",
+      "canonical_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge",
+      "markdown_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge.md",
+      "cluster": "Hybrid retrieval: reranking",
+      "updated": "2026-09-20",
+      "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge, a 0 to 1 probability replaces the score, and min_score becomes a real cut-off."
     },
     {
       "title": "What is Reciprocal Rank Fusion?",
@@ -433,6 +469,15 @@
       "cluster": "Hybrid search",
       "updated": "2026-08-23",
       "summary": "One hybrid request carries a BM25 sub-query and a kNN sub-query against one index, and Reciprocal Rank Fusion merges their ranked lists into a single result list."
+    },
+    {
+      "title": "How do I search files that live in an S3 bucket?",
+      "question": "How do I search files that live in an S3 bucket?",
+      "canonical_url": "https://xerj.org/answers/search-files-in-an-s3-bucket",
+      "markdown_url": "https://xerj.org/answers/search-files-in-an-s3-bucket.md",
+      "cluster": "Ingest: object storage",
+      "updated": "2026-09-19",
+      "summary": "Point xerj autoindex at s3://bucket/prefix. It lists the prefix, streams only the objects whose ETag changed, and indexes them. One LIST request per 1,000 keys."
     },
     {
       "title": "How do I check my code index actually finished?",
@@ -469,6 +514,24 @@
       "cluster": "Operations: exit codes",
       "updated": "2026-08-23",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
+    },
+    {
+      "title": "Why autoindex refuses a .zip and asks you to extract it",
+      "question": "Why does xerj autoindex say to extract a zip first?",
+      "canonical_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first",
+      "markdown_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-20",
+      "summary": "autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with the exact extraction command; the run continues. Index the extracted folder."
+    },
+    {
+      "title": "How do I keep a XERJ index up to date as files change?",
+      "question": "How do I keep a search index up to date as files change, without re-indexing everything?",
+      "canonical_url": "https://xerj.org/answers/keep-index-current-as-files-change",
+      "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
+      "cluster": "Operations: freshness",
+      "updated": "2026-09-20",
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
     },
     {
       "title": "Is there a single-binary local search engine?",
@@ -550,33 +613,6 @@
       "cluster": "Retrieval: selection",
       "updated": "2026-08-23",
       "summary": "Full-text search matches tokens, kNN matches vectors, hybrid fuses both. XERJ serves all three from one index over an indexed folder, so the choice is a clause."
-    },
-    {
-      "title": "Read-only search over a folder, without uploading it",
-      "question": "I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?",
-      "canonical_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading",
-      "markdown_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading.md",
-      "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-19",
-      "summary": "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded."
-    },
-    {
-      "title": "Share a local search index through a tunnel",
-      "question": "How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN?",
-      "canonical_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel",
-      "markdown_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel.md",
-      "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-19",
-      "summary": "xerj share --tunnel starts your own cloudflared, prints a public guest link, and closes the tunnel and revokes the share on Ctrl-C. What the trade is."
-    },
-    {
-      "title": "What a XERJ share-link guest can and cannot reach",
-      "question": "If I give someone a read-only share link to one search index, can they see my other indices or anything else on the server?",
-      "canonical_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach",
-      "markdown_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach.md",
-      "cluster": "Sharing: read-only guest access",
-      "updated": "2026-09-19",
-      "summary": "A share-link guest key reads the shared index and nothing else: no other index, no _cat or _cluster, no writes, no scroll or PIT. Each refusal is a live test."
     }
   ]
 }
