@@ -249,9 +249,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   0.3436 / 0.3438 on NFCorpus (issue #940 orders tied fusion scores by a
   per-process seed) — and every reranked arm scored *identically* across those
   same three processes, because the candidate set was identical on 100% of
-  queries and only the tie order moved. One 30-document call costs
-  <!--CL_LAT--> on a 32-core x86 CPU with the machine otherwise idle, and more
-  threads do not help.
+  queries and only the tie order moved. One 30-document call costs **788 ms p50
+  / 1.46 s p95** on a 32-core x86 CPU (#964's sweep, 50 real SciFact windows,
+  `small`, auto width 16; before the window-split fix the same window was
+  4.9–5.0 s and widths above 8 changed nothing — one window was one serial
+  chain of forward passes and a single candle pass cannot use extra threads;
+  the pool width now sets how many passes run at once and `--threads 1`
+  reproduces the old serial pass sequence bit-for-bit:
+  `benchmarks/local-judge/results/latency-964.txt`).
 
   **The score is not a calibrated probability, and nothing claims it is.** All
   three tiers carry `Calibration::NONE` (the raw sigmoid), so `_rerank` reports

@@ -1,0 +1,47 @@
+#964 before/after: one 30-document window through `pair_score` (tier `small`,
+cross-encoder/ms-marco-MiniLM-L6-v2, weights sha256 pinned in judge.rs), 50
+real scifact test windows — a real query plus its BM25 top-30 documents (plain
+Python BM25, k1=1.5 b=0.75, over the BEIR scifact corpus; the same window
+shape `make_pairs.py` writes). Every number below was taken on THIS box
+(32 cores, shared with other builds — the 1-minute load average before and
+after each run is recorded; the box was not idle), with the repo's own
+`latency.sh` harness, before the fix and after it, same afternoon, same model
+files, same pair file. p50/p95 are per 30-document call.
+
+BEFORE (pair_score built from the pre-#964 window path)
+  threads  p50      p95      pairs/s  passes  peak RSS  load 1m
+  1        7647 ms  9906 ms   3.95     177      702 MB   4.81 -> 3.53
+  8        5031 ms  6286 ms   6.01     177      704 MB   3.53 -> 2.99
+  32       4916 ms  6370 ms   6.07     177      716 MB   2.99 -> 10.05
+
+  The reported defect, reproduced: 8 -> 32 threads is +1.0% throughput and
+  the pass count does not move — the pool width was inert because one window
+  is one serial chain of forward passes and a single candle pass cannot use
+  the width (gemm's thread count is process-global; the per-pass chain caps
+  at a few cores).
+
+AFTER (same binary source with the #964 wave split; width = pool width)
+  threads  p50      p95      pairs/s  passes  peak RSS  load 1m
+  1        7297 ms  8735 ms   4.15     177      679 MB   2.08 -> 5.42
+  8        1027 ms  1651 ms  27.53    1379      617 MB   5.42 -> 7.83
+  16        788 ms  1455 ms  35.16    1500      818 MB   7.83 -> 11.94
+  32        861 ms  1333 ms  32.46    1500     1105 MB  11.94 -> 20.14
+
+  - 8 threads: 5031 -> 1027 ms p50 (4.9x per window); 6.01 -> 27.5 pairs/s
+    (4.6x throughput at the same width).
+  - The auto default (threads = 0 -> capped 16) lands at 788 ms p50 /
+    1455 ms p95 per 30-document window.
+  - The knee is at 16: 32 threads is slower again and peak RSS grows
+    818 -> 1105 MB, which is what AUTO_THREADS_CEILING = 16 now rests on.
+  - threads = 1 is the serial loop by construction: identical pass count
+    (177) and bit-identical logits to the pre-fix binary.
+
+Logits equivalence over all 1500 pairs of the same run (before vs after):
+  threads 1:  max |delta logit| = 0        (bit-identical)
+  threads 8:  max |delta logit| = 5.7e-06  (batch-shape float noise; the
+  threads 32: max |delta logit| = 5.7e-06   existing 1e-3 tolerance is 175x
+                                            larger; ranking order unchanged)
+
+Not measured here: the `base` and `large` tiers (the fix is tier-agnostic —
+it changes only how passes are packed into waves, not the model), and
+throughput under concurrent search load.

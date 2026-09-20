@@ -177,7 +177,7 @@ rerank_model = "small"   # tier used when a request names none
 | `judge.download` | `true` | `false` never contacts huggingface.co. A model that is not already on disk is then HTTP 503, naming the file it wanted, rather than a silent fetch. |
 | `judge.cache_dir` | HF default | Where the Hugging Face cache lives. |
 | `judge.model_dir` | unset | Air-gapped root. Stage `config.json`, `tokenizer.json` and `model.safetensors` under `<model_dir>/rerank-<tier>/`. |
-| `judge.threads` | `0` (auto) | Width of the judge's own rayon pool. Auto is every core the resource policy grants latency work, capped at 16 — and the cap is measured, not guessed: candle's CPU matmul stops scaling long before that (see the sweep below). |
+| `judge.threads` | `0` (auto) | Width of the judge's own rayon pool — how many of one window's forward passes run at once (#964). Auto is every core the resource policy grants latency work, capped at 16 — and the cap is measured, not guessed: per-window latency keeps improving to 16 concurrent passes and turns back above it (see the sweep below). |
 | `judge.max_inflight` | `2` | Scoring calls admitted at once. Both share the one pool, so this bounds queueing, not CPU. |
 | `judge.rerank_model` | `"small"` | The tier a request that names no `rerank.model` gets. |
 

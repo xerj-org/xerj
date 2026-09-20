@@ -82,6 +82,51 @@ pub fn padded_token_slots(token_lengths: &[usize], batches: &[Vec<usize>]) -> us
         .sum()
 }
 
+/// Cut a batching plan into *waves*: runs of consecutive batches that may be
+/// in flight at the same time (#964). A wave holds at most `width` passes and
+/// at most `padded_token_budget` padded token slots in flight, so the
+/// activation-memory bound is the same at every width — `width` passes of
+/// `budget / width` slots each cost what one full-budget pass cost.
+///
+/// Batches stay in plan order (shortest first), so a caller that stops between
+/// waves still leaves the *longest* documents unjudged, exactly as the serial
+/// loop did; `width = 1` reproduces that loop one batch per wave.
+///
+/// Returns ranges into `batches`, in order, covering every batch exactly once.
+pub fn plan_waves(
+    batches: &[Vec<usize>],
+    token_lengths: &[usize],
+    width: usize,
+    padded_token_budget: usize,
+) -> Vec<std::ops::Range<usize>> {
+    debug_assert!(width > 0 && padded_token_budget > 0);
+    let width = width.max(1);
+    let mut waves = Vec::new();
+    let mut start = 0usize;
+    let mut passes = 0usize;
+    let mut slots = 0usize;
+    for (i, batch) in batches.iter().enumerate() {
+        let batch_slots = batch
+            .iter()
+            .map(|&r| token_lengths[r])
+            .max()
+            .unwrap_or_default()
+            .saturating_mul(batch.len());
+        if passes > 0 && (passes == width || slots + batch_slots > padded_token_budget) {
+            waves.push(start..i);
+            start = i;
+            passes = 0;
+            slots = 0;
+        }
+        passes += 1;
+        slots += batch_slots;
+    }
+    if start < batches.len() {
+        waves.push(start..batches.len());
+    }
+    waves
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,5 +194,81 @@ mod tests {
     fn equal_lengths_keep_input_order() {
         let batches = group_by_padded_cost(&[10, 10, 10, 10], 2, 4_096);
         assert_eq!(batches, vec![vec![0, 1], vec![2, 3]]);
+    }
+
+    /// #964: every batch is in exactly one wave, waves cover the plan in
+    /// order, and each wave respects both the pass-count and the in-flight
+    /// slot bound — the same activation-memory ceiling the serial loop had.
+    #[test]
+    fn waves_cover_the_plan_in_order_within_both_bounds() {
+        let lengths: Vec<usize> = (0..60).map(|i| 120 + (i % 7) * 40).collect();
+        let batches = group_by_padded_cost(&lengths, 32, 512);
+        assert!(
+            batches.len() > 4,
+            "need a multi-batch plan, got {batches:?}"
+        );
+        for width in [1usize, 2, 4, 8, 64] {
+            let waves = plan_waves(&batches, &lengths, width, 4_096);
+            let mut seen = 0usize;
+            for wave in &waves {
+                assert!(wave.len() <= width, "{width}-wide wave held {}", wave.len());
+                let slots: usize = batches[wave.clone()]
+                    .iter()
+                    .map(|batch| batch.iter().map(|&r| lengths[r]).max().unwrap() * batch.len())
+                    .sum();
+                assert!(
+                    slots <= 4_096 || wave.len() == 1,
+                    "wave of {slots} slots (budget 4096, width {width})"
+                );
+                assert_eq!(wave.start, seen, "waves must be consecutive");
+                seen = wave.end;
+            }
+            assert_eq!(seen, batches.len(), "every batch in exactly one wave");
+        }
+    }
+
+    /// #964: `width = 1` is the historical serial loop — one batch per wave,
+    /// in plan order, so the pre-fix pass sequence is reproduced exactly.
+    #[test]
+    fn width_one_is_one_batch_per_wave() {
+        let lengths = [512, 14, 200, 16, 400, 15, 90, 300];
+        let batches = group_by_padded_cost(&lengths, 3, 600);
+        let waves = plan_waves(&batches, &lengths, 1, 600);
+        assert_eq!(waves.len(), batches.len());
+        for (n, wave) in waves.iter().enumerate() {
+            assert_eq!(*wave, n..n + 1);
+        }
+    }
+
+    /// #964: a wider split fills its waves — the reason the plan's per-pass
+    /// budget shrinks with width — while an oversized single batch is never
+    /// split by the *wave* cut (splitting is `group_by_padded_cost`'s job).
+    #[test]
+    fn a_wider_split_runs_more_passes_per_wave() {
+        let lengths: Vec<usize> = (0..30).map(|i| 200 + i).collect();
+        let narrow = plan_waves(
+            &group_by_padded_cost(&lengths, 32, 4_096),
+            &lengths,
+            1,
+            4_096,
+        );
+        let wide = plan_waves(
+            &group_by_padded_cost(&lengths, 32, 4_096 / 8),
+            &lengths,
+            8,
+            4_096,
+        );
+        assert_eq!(narrow.iter().map(|w| w.len()).max().unwrap(), 1);
+        let widest = wide.iter().map(|w| w.len()).max().unwrap();
+        assert!(
+            widest > 1,
+            "an 8-wide split must run passes together: {wide:?}"
+        );
+        assert!(widest <= 8);
+    }
+
+    #[test]
+    fn an_empty_plan_plans_no_waves() {
+        assert!(plan_waves(&[], &[], 8, 4_096).is_empty());
     }
 }

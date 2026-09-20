@@ -37,7 +37,7 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokenizers::{EncodeInput, Encoding, Tokenizer, TruncationParams, TruncationStrategy};
 
-use crate::microbatch::group_by_padded_cost;
+use crate::microbatch::{group_by_padded_cost, plan_waves};
 
 /// Cap on tokens per pair, query and document together.
 ///
@@ -307,20 +307,37 @@ impl PairClassifier {
 
     /// Raw logits for each `(first, second)` pair, in input order.
     ///
-    /// `keep_going` is polled between forward passes; once it returns `false`
-    /// the remaining pairs come back as `None`. A pass cannot be interrupted,
-    /// so the overrun is bounded by one pass ([`PADDED_TOKEN_BUDGET`]).
+    /// `keep_going` is polled between waves of forward passes; once it returns
+    /// `false` the remaining pairs come back as `None`. A pass cannot be
+    /// interrupted, so the overrun is bounded by one wave — at most
+    /// [`PADDED_TOKEN_BUDGET`] padded slots in flight, the same ceiling one
+    /// serial pass had.
     ///
-    /// **Blocking / CPU-bound.** Run it on a dedicated thread pool: candle's
-    /// matmul parallelises through rayon and uses whichever pool it is called
-    /// from, which is how the caller sets the thread budget.
+    /// **Blocking / CPU-bound.** Run it inside a rayon pool
+    /// (`ThreadPool::install`): the pool's width is how many of one chunk's
+    /// forward passes are in flight at once. Candle's matmul cannot absorb
+    /// that width on its own — gemm's thread *count* is a process-global
+    /// setting (`RAYON_NUM_THREADS`, else the CPU count; see candle-core
+    /// `utils::get_num_threads`), and a single pass keeps only a few cores
+    /// busy however wide the pool is — so the extra threads are spent on data
+    /// parallelism instead: the chunk's length-aware batches are re-cut with a
+    /// `budget / width` per-pass budget and up to `width` passes run
+    /// concurrently per wave. `width = 1` (a one-thread pool) reproduces the
+    /// serial pass sequence exactly.
     pub fn logits_blocking(
         &self,
         pairs: &[(String, String)],
         keep_going: &dyn Fn() -> bool,
     ) -> Result<(Vec<Option<Vec<f32>>>, PairStats)> {
+        use rayon::prelude::*;
+
         let mut out: Vec<Option<Vec<f32>>> = vec![None; pairs.len()];
         let mut stats = PairStats::default();
+        // The pool this call is running on: its width is the split width. On
+        // the global pool (a bare `logits_blocking` with no `install`) this is
+        // the machine's rayon default — data-parallel there too.
+        let width = rayon::current_num_threads().max(1);
+        let per_pass_budget = (PADDED_TOKEN_BUDGET / width).max(1);
 
         for (chunk_no, chunk) in pairs.chunks(CHUNK_ROWS).enumerate() {
             if !keep_going() {
@@ -344,20 +361,39 @@ impl PairClassifier {
                 .filter(|e| !e.get_overflowing().is_empty())
                 .count();
 
-            for rows in group_by_padded_cost(&lengths, MAX_BATCH_ROWS, PADDED_TOKEN_BUDGET) {
+            let plan = group_by_padded_cost(&lengths, MAX_BATCH_ROWS, per_pass_budget);
+            for wave in plan_waves(&plan, &lengths, width, PADDED_TOKEN_BUDGET) {
                 if !keep_going() {
                     break;
                 }
-                let seq_len = rows.iter().map(|&i| lengths[i]).max().unwrap_or(0);
-                if seq_len == 0 {
-                    continue;
-                }
-                stats.forward_passes += 1;
-                stats.padded_token_slots += rows.len() * seq_len;
-                stats.real_tokens += rows.iter().map(|&i| lengths[i]).sum::<usize>();
-                let logits = self.forward_padded(&encodings, &rows, &lengths, seq_len)?;
-                for (i, l) in rows.into_iter().zip(logits) {
-                    out[base + i] = Some(l);
+                let batches = &plan[wave];
+                // One pass per batch. A single-batch wave (always, at
+                // `width = 1`) runs inline on this thread; a wider wave's
+                // passes run concurrently on the current pool, which `install`
+                // made the caller's judge pool. Errors surface after the wave,
+                // in plan order, so the failure is deterministic.
+                let scored: Vec<Result<Vec<Vec<f32>>>> = batches
+                    .par_iter()
+                    .map(|rows| {
+                        let seq_len = rows.iter().map(|&i| lengths[i]).max().unwrap_or(0);
+                        if seq_len == 0 {
+                            return Ok(Vec::new());
+                        }
+                        self.forward_padded(&encodings, rows, &lengths, seq_len)
+                    })
+                    .collect();
+                for (rows, result) in batches.iter().zip(scored) {
+                    let seq_len = rows.iter().map(|&i| lengths[i]).max().unwrap_or(0);
+                    if seq_len == 0 {
+                        continue;
+                    }
+                    let logits = result?;
+                    stats.forward_passes += 1;
+                    stats.padded_token_slots += rows.len() * seq_len;
+                    stats.real_tokens += rows.iter().map(|&i| lengths[i]).sum::<usize>();
+                    for (i, l) in rows.iter().zip(logits) {
+                        out[base + i] = Some(l);
+                    }
                 }
             }
         }
@@ -751,6 +787,131 @@ mod tests {
         assert_eq!(
             stats.truncated, 1,
             "the 60-sentence document is cut at 512 tokens"
+        );
+    }
+
+    /// Live (#964): the wave split is a latency change only — the same window
+    /// scored one-pass-at-a-time and N-passes-at-a-time must produce the same
+    /// logits, in the same order, whatever width the caller's pool has. The
+    /// split is derived from the pool, so each pass runs inside
+    /// `ThreadPool::install`, exactly as the judge runtime runs it.
+    #[test]
+    #[ignore]
+    fn a_window_scores_identically_at_every_split_width() {
+        fn cross_encoder() -> PairClassifier {
+            PairClassifier::load(&PairModelSource {
+                repo: "cross-encoder/ms-marco-MiniLM-L6-v2".into(),
+                revision: None,
+                cache_dir: None,
+                local_dir: None,
+                allow_download: true,
+                weights_sha256: None,
+            })
+            .expect("load cross-encoder")
+        }
+        // Mixed lengths on purpose: the 1-wide plan and the 8-wide plan must
+        // cut this window into *different* batch shapes and still agree.
+        let q = "How many people live in Berlin?".to_string();
+        let unit = "Berlin is a city with many museums and parks and long streets. ".to_string();
+        let window: Vec<(String, String)> =
+            (1..=8).map(|n| (q.clone(), unit.repeat(n * 3))).collect();
+        let serial = {
+            let model = cross_encoder();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(1)
+                .build()
+                .expect("1-thread pool");
+            pool.install(|| model.logits_blocking(&window, &|| true))
+                .expect("score serially")
+        };
+        let parallel = {
+            let model = cross_encoder();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(8)
+                .build()
+                .expect("8-thread pool");
+            pool.install(|| model.logits_blocking(&window, &|| true))
+                .expect("score 8-wide")
+        };
+        let flat = |scored: Vec<Option<Vec<f32>>>| {
+            scored
+                .into_iter()
+                .map(|l| l.expect("every pair scored")[0])
+                .collect::<Vec<f32>>()
+        };
+        let (a, b) = (flat(serial.0), flat(parallel.0));
+        eprintln!("1-wide = {a:?}\n8-wide = {b:?}");
+        for (i, (x, y)) in a.iter().zip(&b).enumerate() {
+            assert!((x - y).abs() < 1e-3, "pair {i}: 1-wide {x} vs 8-wide {y}");
+        }
+        assert!(parallel.1.forward_passes > serial.1.forward_passes);
+        assert_eq!(parallel.1.real_tokens, serial.1.real_tokens);
+        assert_eq!(parallel.1.unscored, 0);
+    }
+
+    /// Live (#964): `keep_going` is the deadline cut. It is polled between
+    /// waves, so a window cut mid-run leaves a tail of `None`s — whole
+    /// unscored batches, never a partly-scored batch — and `unscored` counts
+    /// exactly the pairs that came back `None`.
+    #[test]
+    #[ignore]
+    fn a_stopped_window_reports_its_unscored_tail() {
+        let model = PairClassifier::load(&PairModelSource {
+            repo: "cross-encoder/ms-marco-MiniLM-L6-v2".into(),
+            revision: None,
+            cache_dir: None,
+            local_dir: None,
+            allow_download: true,
+            weights_sha256: None,
+        })
+        .expect("load cross-encoder");
+        let q = "What is the capital of France?".to_string();
+        let unit = "Paris is the capital of France and a very old city. ".to_string();
+        let window: Vec<(String, String)> = (1..=24).map(|n| (q.clone(), unit.repeat(n))).collect();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .expect("4-thread pool");
+        // Stop after the first poll-between-waves says no: one wave of passes
+        // completes, everything after it stays unscored.
+        // `AtomicUsize`, not `Cell`: the closure crosses `install`, so it
+        // must be `Send`.
+        let polls = std::sync::atomic::AtomicUsize::new(0);
+        let (logits, stats) = pool
+            .install(|| {
+                model.logits_blocking(&window, &|| {
+                    polls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 2
+                })
+            })
+            .expect("score until stopped");
+        let scored = logits.iter().filter(|l| l.is_some()).count();
+        let nonscored = logits.iter().filter(|l| l.is_none()).count();
+        eprintln!(
+            "scored {scored}, unscored {nonscored}, stats = {stats:?}, polls = {}",
+            polls.load(std::sync::atomic::Ordering::Relaxed)
+        );
+        assert!(scored > 0, "at least one wave must have run");
+        assert_eq!(nonscored, stats.unscored);
+        assert_eq!(scored + stats.unscored, window.len());
+        // The cut falls on whole waves: scored pairs are all shorter than
+        // every unscored one (the plan is length-sorted, shortest first).
+        let scored_max = logits
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.is_some())
+            .map(|(i, _)| i)
+            .max()
+            .unwrap();
+        let unscored_min = logits
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.is_none())
+            .map(|(i, _)| i)
+            .min()
+            .unwrap_or(usize::MAX);
+        assert!(
+            scored_max < unscored_min,
+            "the unscored tail must be contiguous at the end, not a middle subset"
         );
     }
 }

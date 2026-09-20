@@ -9,9 +9,10 @@
 //!   * lazy, shared, non-blocking loading — the first request starts the load
 //!     (and the one-time download) on a background thread and every request
 //!     that arrives meanwhile is told *that* instead of being parked on it;
-//!   * a thread budget (one dedicated rayon pool — candle's CPU matmul runs on
-//!     whichever pool calls it) and an admission limit, so concurrent searches
-//!     queue for the judge rather than oversubscribing every core;
+//!   * a thread budget (one dedicated rayon pool — its width is how many of
+//!     one window's forward passes run at once; a single pass cannot use the
+//!     width, see [`crate::seqcls`]) and an admission limit, so concurrent
+//!     searches queue for the judge rather than oversubscribing every core;
 //!   * a memory check against the resource policy's safe zone before weights
 //!     are mapped, because the large tier is 2.3 GB and "the server got
 //!     OOM-killed by a search" is not an acceptable failure.
@@ -251,9 +252,11 @@ pub const DEFAULT_MAX_INFLIGHT: usize = 2;
 /// Widest pool the judge picks for itself.
 ///
 /// Measured with `examples/pair_score.rs` (see `benchmarks/local-judge/`):
-/// candle's CPU matmul stops scaling well before a large host runs out of
-/// cores, and past the knee extra threads only take cores from the search and
-/// ingest pools. An operator can still set any width explicitly.
+/// with the window split (#964) a 30-document `small` window keeps improving
+/// to 16 concurrent passes and turns back above it (788 ms p50 at 16 vs
+/// 861 ms at 32 on a 32-core box, while peak RSS grows 818 MB → 1.1 GB), and
+/// past the knee extra threads only take cores from the search and ingest
+/// pools. An operator can still set any width explicitly.
 pub const AUTO_THREADS_CEILING: usize = 16;
 
 /// Threads the judge uses when the operator sets none: every core the resource

@@ -106,7 +106,14 @@ out-of-domain check. Both tiers therefore carry `Calibration::NONE` and report
 
 ### Latency
 
-See [`results/latency.txt`](./results/latency.txt).
+See [`results/latency-964.txt`](./results/latency-964.txt) for the #964
+before/after window-latency sweep (one 30-document `small` window, 50 real
+scifact queries, threads 1–32, before and after the wave split, load averages
+recorded). Headline on that box: **5.03 s → 1.03 s p50 per 30-document window
+at 8 threads** (788 ms at the auto width 16), with bit-identical logits at
+`--threads 1` and max |Δlogit| 5.7e-06 at wider splits. `latency.py` (window ×
+tier × threads sweep) is the fuller harness; its committed output lives in
+`results/latency.json` when re-run.
 
 <!--LATENCY-->
 
