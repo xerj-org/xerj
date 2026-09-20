@@ -154,16 +154,18 @@ narrow processes over query-group shards, and its timings are not quoted anywher
 xerj -c xerj.toml -d ./data --insecure --embed-mode neural &   # es_compat_port = 12600
 export XERJ_URL=http://127.0.0.1:12600
 
-# 2. the public BEIR datasets
+# 2. the public BEIR datasets, all three under one root (`eval.py` reads <root>/<dataset>)
+mkdir -p beir runs && cd beir
 for d in scifact nfcorpus fiqa; do
   curl -LO https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/$d.zip && unzip -q $d.zip
 done
+cd ..
 
 # 3. index, and take the first-stage candidate lists (BM25 and hybrid RRF top-100)
-python3 load.py        ./scifact scifact
-python3 first_stage.py ./scifact scifact test  runs/scifact.test.first_stage.json
-python3 first_stage.py ./scifact scifact train runs/scifact.fit.first_stage.json 150
-python3 make_pairs.py  ./scifact runs/scifact.test.first_stage.json runs/scifact.test
+python3 load.py        ./beir/scifact scifact 6
+python3 first_stage.py ./beir/scifact scifact test  runs/scifact.test.first_stage.json
+python3 first_stage.py ./beir/scifact scifact train runs/scifact.fit.first_stage.json 150
+python3 make_pairs.py  ./beir/scifact runs/scifact.test.first_stage.json runs/scifact.test
 
 # 4. score the pairs (resumable; `--tier small|base|large`)
 cargo build --release -p xerj-ai --features neural --example pair_score
@@ -171,7 +173,18 @@ RUNS=runs PAIR_SCORE=../../engine/target/release/examples/pair_score \
   ./score_parallel.sh 8 4 small scifact.fit.w30 scifact.test.w30 scifact.test.rest
 
 # 5. the tables, the intervals and the calibration
-python3 eval.py ./beir runs results/ndcg.json
+python3 eval.py ./beir runs results/ndcg.json | tee results/ndcg.txt
+
+# 5b. the #940 repeats: re-run ONLY the hybrid arm from a FRESH node process, twice
+ARMS=hybrid python3 first_stage.py ./beir/scifact scifact test runs/scifact.test.hybrid.rep1.json
+
+# 5c. a slow tier on a seeded query subset, paired against every other arm on the same queries.
+#     `hyb30` = the hybrid top-30 documents that are NOT already in the BM25 top-30, which is
+#     exactly what `make_pairs.py` writes as `.rest` when you ask for the 30-document window
+#     only. Scoring those two files covers both top-30 arms without paying for the top-100 ones.
+python3 make_pairs.py ./beir/scifact runs/scifact.test.first_stage.json runs/tmp30 4000 30
+mv runs/tmp30.rest.jsonl runs/scifact.test.hyb30.jsonl && rm runs/tmp30.w30.jsonl
+python3 subset.py runs scifact 120 7 test w30,hyb30
 
 # 6. the latency sweep — on an IDLE machine, one process
 python3 latency.py runs ../../engine/target/release/examples/pair_score \

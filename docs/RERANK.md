@@ -390,8 +390,9 @@ Three things to take from it.
 
 Given the measurement above, the honest advice is narrow:
 
-- **Do not switch it on for general relevance.** Hybrid RRF already ships, costs
-  no extra CPU per hit, and ranked at least as well on two of three datasets.
+- **Do not switch it on for general relevance on a node that already runs
+  hybrid search.** Hybrid RRF ships today and costs no model forward pass per
+  hit; no local tier beat it on every dataset. Run the hybrid query instead.
 - **Do switch it on when hybrid is not available to you** — no
   `--embed-mode neural`, no vectors indexed, or a corpus indexed lexically that
   you are not going to re-index. Against a BM25-only first stage the local judge
@@ -401,9 +402,11 @@ Given the measurement above, the honest advice is narrow:
   cannot leave.** A slightly-worse-than-hybrid local ranking is a different
   trade from a better ranking that sends your documents to a third party, and
   only you can make it.
-- **Measure `base` on your own corpus if latency allows.** Our datasets are
-  English, short-document and academic; two of them are the ones every reranker
-  is tuned on. Yours may not be.
+- **If you do switch it on, measure both tiers on your own corpus.** They
+  disagreed about which of ours they helped, by margins bigger than the
+  difference between switching the feature on and leaving it off. Our datasets
+  are English and short-document, and two of the three are ones every reranker
+  is tuned on. Yours are probably neither.
 
 And two things to plan around whichever way you go: the per-call latency above,
 and the fact that **every request is judged from scratch** — there is no verdict
