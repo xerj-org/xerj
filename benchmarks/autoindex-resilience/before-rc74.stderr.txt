@@ -1,0 +1,124 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=85571 safe_zone_mib=61054]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 50061 files (505 MB) under ~/.xerj-code/corpora/xerj-search
+autoindex: ignore rules: skipped 55 files and pruned 26 directories (contents never walked, so not counted); 24 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 55 files, 24 directories pruned
+autoindex: ignore rules:   <built-in>:build/ — 2 directories pruned
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/50061 bytes=0/529551172 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.7
+autoindex: 1528 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix3/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix4/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix5/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major1/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major2/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  … and 1518 more
+xerj-bar [------------------------] 0.0% | scan | 0/48533 items | eta unknown
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/48533 bytes=0/520892779 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=4.3
+phase A: sniffing + sampling 48533 files with 32 threads…
+xerj-progress phase=scan basis=bytes pct=0.0 items=1/48533 bytes=2566/520892779 rate=3847.1 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.7 elapsed_s=5.0
+xerj-progress phase=scan basis=bytes pct=90.5 items=44283/48533 bytes=471385841/520892779 rate=18838183.0 eta_s=2.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=5.7 elapsed_s=10.0
+phase A: 1 PDF extraction(s) could not retain a bounded run-local artifact; phase B will parse them again safely
+  PDF reuse fallback for elasticsearch/modules/ingest-attachment/src/test/resources/org/elasticsearch/ingest/attachment/test/sample-files/test.pdf: admission refused (artifact_count_ceiling); snapshot headroom or the bounded 0 MiB/0-artifact ceiling would be exceeded
+phase A: 1526 datasets inferred, 1089 junk/skipped files
+estimate: at least 4.7 s–6.2 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 47353 file(s) / 371.2 MB read end to end across 11 family/families, scheduled over 32 worker(s). Covers 423.9 MB of the 423.9 MB planned (100% of planned bytes). Client-side extraction only.
+  estimate: code       34324 files  305.1 MB at 2.1 MB/s measured over 34324 file(s) / 305.1 MB → 2.4 min
+  estimate: jsonl         48 files   26.0 MB at 13.5 MB/s measured over 36 file(s) / 266.7 KB → 1.9 s
+  estimate: json        1510 files   25.1 MB at 17.1 MB/s measured over 1499 file(s) / 22.0 MB → 1.5 s
+  estimate: txt-lines   2979 files   33.8 MB at 23.9 MB/s measured over 2919 file(s) / 11.0 MB → 1.4 s
+  estimate: yaml        2262 files   11.8 MB at 8.3 MB/s measured over 2262 file(s) / 11.8 MB → 1.4 s
+  estimate: txt-prose   5782 files   19.1 MB at 31.4 MB/s measured over 5778 file(s) / 18.5 MB → 0.6 s
+  estimate: csv          148 files  345.5 KB at 865.7 KB/s measured over 146 file(s) / 150.3 KB → 0.4 s
+  estimate: pdf            1 files   15.0 KB at 84.1 KB/s measured over 1 file(s) / 15.0 KB → 0.2 s
+  estimate: html           9 files  933.4 KB at 7.8 MB/s measured over 9 file(s) / 933.4 KB → 0.1 s
+  estimate: xml          379 files    1.7 MB at 16.6 MB/s measured over 377 file(s) / 1.3 MB → 0.1 s
+  estimate: docx           2 files  137.9 KB at 306.0 MB/s measured over 2 file(s) / 137.9 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (40109 files, 324.5 MB) → config (4151 files, 38.5 MB) → data (196 files, 26.4 MB) → bulk (2978 files, 33.5 MB) → vendored (10 files, 1.0 MB) — biggest first inside each band at 32 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  config           configuration and small structured trees — dense, high signal per byte
+  data             structured data: rows, records and tables
+  bulk             logs and plain line files — voluminous, low signal per byte
+  vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
+gate: not triggered — the measured extraction floor 4.7 s–6.2 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=2.1 eta_quality=good since_progress_s=0.0 phase_elapsed_s=10.7 elapsed_s=15.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta 2s
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=1.7 eta_quality=good since_progress_s=5.0 phase_elapsed_s=15.7 elapsed_s=20.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=1.3 eta_quality=good since_progress_s=10.0 phase_elapsed_s=20.7 elapsed_s=25.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=15.0 phase_elapsed_s=25.7 elapsed_s=30.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=20.0 phase_elapsed_s=30.7 elapsed_s=35.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=25.0 phase_elapsed_s=35.7 elapsed_s=40.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=30.0 phase_elapsed_s=40.7 elapsed_s=45.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=35.0 phase_elapsed_s=45.7 elapsed_s=50.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=40.0 phase_elapsed_s=50.7 elapsed_s=55.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=45.0 phase_elapsed_s=55.7 elapsed_s=60.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=50.0 phase_elapsed_s=60.7 elapsed_s=65.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=55.0 phase_elapsed_s=65.7 elapsed_s=70.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=60.0 phase_elapsed_s=70.7 elapsed_s=75.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=65.0 phase_elapsed_s=75.7 elapsed_s=80.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=70.0 phase_elapsed_s=80.7 elapsed_s=85.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=75.0 phase_elapsed_s=85.7 elapsed_s=90.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=80.0 phase_elapsed_s=90.7 elapsed_s=95.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=85.0 phase_elapsed_s=95.7 elapsed_s=100.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=90.0 phase_elapsed_s=100.7 elapsed_s=105.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=95.0 phase_elapsed_s=105.7 elapsed_s=110.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=100.0 phase_elapsed_s=110.7 elapsed_s=115.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=105.0 phase_elapsed_s=115.7 elapsed_s=120.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=110.0 phase_elapsed_s=120.7 elapsed_s=125.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=115.0 phase_elapsed_s=125.7 elapsed_s=130.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=120.0 phase_elapsed_s=130.7 elapsed_s=135.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=125.0 phase_elapsed_s=135.7 elapsed_s=140.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=130.0 phase_elapsed_s=140.7 elapsed_s=145.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=135.0 phase_elapsed_s=145.7 elapsed_s=150.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=140.0 phase_elapsed_s=150.7 elapsed_s=155.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=145.0 phase_elapsed_s=155.7 elapsed_s=160.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=150.0 phase_elapsed_s=160.7 elapsed_s=165.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=155.0 phase_elapsed_s=165.7 elapsed_s=170.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=160.0 phase_elapsed_s=170.7 elapsed_s=175.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=165.0 phase_elapsed_s=175.7 elapsed_s=180.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=170.0 phase_elapsed_s=180.7 elapsed_s=185.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=175.0 phase_elapsed_s=185.7 elapsed_s=190.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=180.0 phase_elapsed_s=190.7 elapsed_s=195.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=185.0 phase_elapsed_s=195.7 elapsed_s=200.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=190.0 phase_elapsed_s=200.7 elapsed_s=205.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=195.0 phase_elapsed_s=205.7 elapsed_s=210.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=200.0 phase_elapsed_s=210.7 elapsed_s=215.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=205.0 phase_elapsed_s=215.7 elapsed_s=220.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=210.0 phase_elapsed_s=220.7 elapsed_s=225.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=215.0 phase_elapsed_s=225.7 elapsed_s=230.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=220.0 phase_elapsed_s=230.7 elapsed_s=235.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=225.0 phase_elapsed_s=235.7 elapsed_s=240.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=230.0 phase_elapsed_s=240.7 elapsed_s=245.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=235.0 phase_elapsed_s=245.7 elapsed_s=250.0
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=240.0 phase_elapsed_s=250.7 elapsed_s=255.0
+xerj-bar [########################] 100.0% | scan | 48533/48533 items | 16.3MB/s | eta unknown (stalled)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=245.0 phase_elapsed_s=255.7 elapsed_s=260.0
+1 file(s) hit the per-file record cap (4096) and were truncated: elasticsearch/x-pack/plugin/inference/qa/inference-service-tests/src/javaRestTest/resources/multilingual-e5-small.vocab.json — split them or raise the cap if the dropped tail matters (#381)
+xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=250.0 phase_elapsed_s=260.7 elapsed_s=265.0
+xerj-done ok=false exit=1 reason=aborted wall=270.0s
+error: install generation mapping for xc-xerj-search-elasticsearch-modules-10-basic-13: PUT /xc-xerj-search-elasticsearch-modules-10-basic-13/_mapping failed: 400 Bad Request {"error":{"root_cause":[{"type":"mapper_parsing_exception","reason":"nested semantic_text field [Check streams can't be enabled with existing logs.otel indices] is not supported; map semantic_text as a top-level field"}],"type":"mapper_parsing_exception","reason":"nested semantic_text field [Check streams can't be enabled with existing logs.otel indices] is not supported; map semantic_text as a top-level field"},"status":400}

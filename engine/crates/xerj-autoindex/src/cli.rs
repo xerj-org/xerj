@@ -397,6 +397,17 @@ pub fn help_text_with(feedback: bool) -> String {
              cannot be computed honestly, never a filler number — and the drawn\n\
              bar obeys the same rule: `[????…]` when there is no denominator,\n\
              and a full bar only at a real 100%.\n\
+             PHASES, in order. Every long step is a phase of its own, so a line\n\
+             that still says `scan` at 100% means scan — not indexing:\n\
+               default (graph) path: walk, hash, scan, prepare, graph, index,\n\
+                 graph-corpus, finalize-refresh, finalize-count,\n\
+                 finalize-correlate, finalize-histogram, finalize-catalog\n\
+               --no-graph path:      walk, hash, scan, prepare (install mappings),\n\
+                 snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
+                 in-flight file named), finalize-catalog, finalize-refresh (one\n\
+                 refresh per dataset), finalize-verify (one read-back per\n\
+                 file). A resumed run starts at `replay` and its `index` phase\n\
+                 counts only the operations still to apply.\n\
          \n\
          ESTIMATE + DECISION GATE:\n\
              Phase A already reads and parses every file to sniff and sample it, so it\n\
@@ -450,7 +461,11 @@ pub fn help_text_with(feedback: bool) -> String {
              autoindex-catalog and old target only after validation.\n\
          \n\
          EXIT CODES: 0 complete (also: gate answered with --approve cancel);\n\
-                     3 completed-with-junk (junk recorded, never fatal), or\n\
+                     3 completed-with-junk (junk recorded, never fatal) — this\n\
+                       includes a dataset whose mapping the server REFUSED: its\n\
+                       files are recorded as junk with the server's reason, the\n\
+                       xerj-done line carries datasets_refused / files_refused,\n\
+                       and every other dataset is indexed; or\n\
                        catalog-alias-sweep-failed — the corpus IS indexed and the\n\
                        journal committed; only the catalog's duplicate-alias cleanup\n\
                        could not run. Read `reason` on the xerj-done line to tell the\n\

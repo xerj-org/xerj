@@ -33,6 +33,9 @@ XC_PATH = os.path.join(HERE, "..", "scripts", "xc.py")
 
 PREFIX = "xc-fixture"
 CORPUS = "fixture"
+# Every URL the mocked urlopen was asked for, so a test can assert on WHICH
+# indices a query addressed, not only on what came back.
+SEEN_URLS = []
 
 
 class FakeResp:
@@ -58,6 +61,7 @@ def make_urlopen(indices, search_hits):
     """
     def fake_urlopen(req, timeout=None):
         url = req.full_url if hasattr(req, "full_url") else str(req)
+        SEEN_URLS.append(url)
         if "/_cat/indices/" in url:
             return FakeResp(indices)
         if "/_mapping" in url:
@@ -179,6 +183,73 @@ def main():
     check("list exit code is 0", code == 0, f"got {code}")
     check("list flags the fixture as NOT loaded",
           "NOT loaded here" in blob, repr(blob))
+
+    # Case 5 (#930): a rebuilt corpus records the ONE verified build in
+    # `index_prefix`. xc.py must address that build, not the whole `xc-<corpus>`
+    # namespace — during `xc-index.sh --fresh` the namespace also holds the
+    # half-built replacement (or a retired build whose delete failed), and
+    # querying it would return every passage twice or from a partial index.
+    build = f"{PREFIX}-b20260918101500"
+    state_path = os.path.join(home, "state", f"{CORPUS}.json")
+    with open(state_path) as fh:
+        rebuilt = json.load(fh)
+    rebuilt.update({"build": "b20260918101500", "index_prefix": build})
+    with open(state_path, "w") as fh:
+        json.dump(rebuilt, fh)
+    del SEEN_URLS[:]
+    code, out, err = run_query(mod, indices=[{"index": f"{build}-1"}],
+                               search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    addressed = [u for u in SEEN_URLS if "/_cat/indices/" in u or "/_search" in u]
+    check("case5 exit code is 0", code == 0, f"got {code} {out + err!r}")
+    check("case5 state `prefix` is still the whole namespace",
+          rebuilt["prefix"] == PREFIX)
+    check("case5 every index-addressing request names the verified build",
+          bool(addressed) and all(f"/{build}*" in u for u in addressed),
+          repr(addressed))
+    check("case5 no request addresses the bare namespace glob",
+          not any(f"/{PREFIX}*" in u for u in addressed), repr(addressed))
+
+    # Case 6: xc-index.sh keeps a build whose autoindex run did not finish when
+    # the alternative is no corpus at all, and records `salvaged` and the exit
+    # code. The reader must be TOLD: a miss against a half-built index is not
+    # evidence of absence. On stderr, so `--json` stdout stays parseable.
+    with open(state_path) as fh:
+        partial = json.load(fh)
+    partial.update({"autoindex_exit": 1, "salvaged": True})
+    with open(state_path, "w") as fh:
+        json.dump(partial, fh)
+    live = [{"index": f"{build}-1"}]
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    check("case6 a salvaged index still answers (exit 0)", code == 0,
+          f"got {code} {out + err!r}")
+    check("case6 the reader is told coverage is incomplete",
+          "INCOMPLETE" in err and "autoindex exit 1, kept unverified" in err, repr(err))
+    check("case6 the warning names the command that resumes it",
+          f"xc-index.sh {CORPUS}" in err, repr(err))
+    check("case6 the warning is not on stdout", "INCOMPLETE" not in out, repr(out))
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way", "--json"])
+    try:
+        json.loads(out)
+        parseable = True
+    except ValueError:
+        parseable = False
+    check("case6 --json stdout is still one JSON document", parseable, repr(out))
+    check("case6 --json still warns on stderr", "INCOMPLETE" in err, repr(err))
+    code, out, err = run_query(mod, indices=live, search_hits=[], argv=["--list"])
+    check("case6 --list marks the corpus INCOMPLETE",
+          "INCOMPLETE (autoindex exit 1)" in out + err, repr(out + err))
+
+    # A finished run says nothing: exit 3 is completed-with-junk, not partial.
+    partial.update({"autoindex_exit": 3, "salvaged": False})
+    with open(state_path, "w") as fh:
+        json.dump(partial, fh)
+    code, out, err = run_query(mod, indices=live, search_hits=HIT,
+                               argv=[CORPUS, "two way parse_two_way"])
+    check("case6 exit 3 (completed with junk) is not reported as incomplete",
+          code == 0 and "INCOMPLETE" not in out + err, repr(out + err))
 
     # --json must be parseable for a genuine miss as well as a match. Keep the
     # existing exit codes and the raw response (including BM25 metadata).

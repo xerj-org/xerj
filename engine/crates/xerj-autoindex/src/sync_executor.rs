@@ -199,6 +199,25 @@ pub trait SyncOperationBackend {
     ) -> Result<()> {
         Ok(())
     }
+
+    /// Progress hooks for the replay loop (#931). The loop is where a
+    /// generated run spends its indexing time, and it used to report nothing:
+    /// the stream kept printing the PREVIOUS phase — `scan`, at 100%, with a
+    /// `since_progress_s` that only climbed — for as long as documents were
+    /// landing, which is exactly what a real hang looks like. A backend with a
+    /// progress surface overrides these; the defaults keep test backends silent.
+    ///
+    /// `items` is the number of operations still to apply and `bytes` the
+    /// sealed NDJSON they will send, so the phase has an honest denominator in
+    /// the unit the ETA is derived from.
+    fn replay_begins(&mut self, _items: u64, _bytes: u64) {}
+
+    /// One operation is about to be applied; `rel` names its source file so the
+    /// surface can say what a quiet tail is waiting on.
+    fn operation_begins(&mut self, _rel: &str, _bytes: u64) {}
+
+    /// The operation started by [`Self::operation_begins`] has been applied.
+    fn operation_applied(&mut self) {}
 }
 
 /// Production ES-compatible operation backend for graph-disabled generations.
@@ -217,6 +236,16 @@ pub struct EsSyncBackend<'a> {
     /// than a bare `eprintln!` that `--progress none` cannot silence and
     /// `--progress json` cannot parse.
     pr: &'a crate::progress::Progress,
+    /// `index_identity` of a plan whose dataset mappings this same process has
+    /// already installed (`preflight_generation_mappings`). Provisioning that
+    /// exact generation then skips the per-dataset loop — two round trips per
+    /// dataset, ~3,000 requests on the 1,526-dataset corpus that produced
+    /// #929 — and installs only the catalog mapping. A replayed generation
+    /// (any other identity, or none) is always provisioned in full.
+    installed_index_identity: Option<String>,
+    /// The operation the replay loop is inside; dropping it counts the
+    /// operation done and clears it from the surface's in-flight table.
+    in_flight: Option<crate::progress::FileGuard<'a>>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -232,7 +261,15 @@ impl<'a> EsSyncBackend<'a> {
             state_dir,
             bulk_bytes: bulk_bytes.max(64 * 1024),
             pr,
+            installed_index_identity: None,
+            in_flight: None,
         }
+    }
+
+    /// See `installed_index_identity`.
+    pub fn with_installed_mappings(mut self, index_identity: String) -> Self {
+        self.installed_index_identity = Some(index_identity);
+        self
     }
 
     fn delete_group(&self, group: &ManifestGroup, plan: &Plan) -> Result<()> {
@@ -530,6 +567,7 @@ impl<'a> EsSyncBackend<'a> {
                         .collect(),
                 },
             );
+            self.pr.item_done(0);
         }
         Ok(out)
     }
@@ -546,7 +584,23 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             execution.index_identity == index_identity,
             "desired generation index identity disagrees with its frozen mappings"
         );
+        if self.installed_index_identity.as_deref() == Some(index_identity.as_str()) {
+            return crate::ensure_generation_catalog_mapping(self.es, self.pr);
+        }
         crate::ensure_generation_mappings(self.es, &desired.plan, self.pr)
+    }
+
+    fn replay_begins(&mut self, items: u64, bytes: u64) {
+        self.pr.phase("index", items, bytes);
+    }
+
+    fn operation_begins(&mut self, rel: &str, bytes: u64) {
+        let pr = self.pr;
+        self.in_flight = Some(pr.file(rel, bytes));
+    }
+
+    fn operation_applied(&mut self) {
+        self.in_flight = None;
     }
 
     fn apply(
@@ -601,6 +655,10 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()> {
+        // #931: one exact read-back query per dataset. Named like the legacy
+        // path's phase so a reader of either route sees the same vocabulary.
+        self.pr
+            .phase("finalize-catalog", desired.plan.datasets.len() as u64, 0);
         for index in desired
             .plan
             .datasets
@@ -647,7 +705,12 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         for (id, document) in &projection.documents {
             append_index_action(crate::catalog::CATALOG_INDEX, id, document, &mut body)?;
         }
-        checked_bulk(self.es, body)?;
+        // #955: one document per file — this body grows with the corpus. On
+        // the 48,533-file reference corpus it was 51,129 actions in 31.9 MB,
+        // sent as ONE request under an 8 MB `--bulk-mb`, and the engine's
+        // 50,000-action limit ended the run here after every operation had
+        // been applied. Windowed like every other bulk; deletes stay first.
+        checked_bulk_windowed(self.es, body, self.bulk_bytes)?;
         self.es.refresh(crate::catalog::CATALOG_INDEX)?;
         projection.validate_observed(&self.catalog_generation(&snapshot.tx_id)?)?;
         if let Some(prior_run_id) = prior_run_id {
@@ -667,11 +730,35 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         desired: &GenerationManifest,
         snapshot: &SourceSnapshot,
     ) -> Result<()> {
+        // #931: the read-back barrier is only exact against refreshed indices,
+        // so every dataset is refreshed first — one request each, serially. On
+        // the 1,526-dataset corpus that produced #931 that measured ~106 ms a
+        // request, i.e. close to three minutes. Folded into `finalize-verify`
+        // it would hold that phase at `0/N` with `since_progress_s` climbing
+        // until it read `stalled`: the same lie this change removes, at a
+        // smaller scale. So it is a phase of its own, named like the legacy
+        // path's, counted in indices, with the index it is waiting on named.
+        self.pr.phase(
+            "finalize-refresh",
+            desired.plan.datasets.len() as u64 + 1,
+            0,
+        );
         for dataset in &desired.plan.datasets {
+            let _refreshing = self.pr.file(&dataset.index, 0);
             self.es.refresh(&dataset.index)?;
         }
-        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        {
+            let _refreshing = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
+            self.es.refresh(crate::catalog::CATALOG_INDEX)?;
+        }
+        // The generation-wide barrier reads every group back — three queries
+        // per file, serially — so on a large corpus it is minutes of work. It
+        // reports as its own phase with the group count as its denominator
+        // instead of hiding behind whatever phase came before it.
+        self.pr
+            .phase("finalize-verify", desired.groups.len() as u64, 0);
         for group in &desired.groups {
+            let _verifying = self.pr.file(&group.canonical.rel, 0);
             anyhow::ensure!(
                 self.exact_group_count(group, &desired.plan)? == group.expected_records,
                 "live record count disagrees with desired group {}",
@@ -766,6 +853,63 @@ pub fn replay_pending_operations(
     verify_snapshot_binding(&pending, &snapshot)?;
     backend.provision_generation(&pending.desired)?;
 
+    // #931: what is left to apply, in the units the progress surface reports.
+    // An operation already `Committed` by an earlier attempt is not work this
+    // run will do, so it is in neither the numerator nor the denominator — a
+    // resumed replay starts at 0% of what REMAINS, not at a percentage that
+    // credits this invocation with a previous one's writes.
+    let committed = |journal: &Journal, operation: &SyncOperation| {
+        journal
+            .pending_sync
+            .as_ref()
+            .and_then(|sync| sync.operation_states.get(&operation.operation_id))
+            == Some(&SyncOperationState::Committed)
+    };
+    let desired_by_group: HashMap<&str, &ManifestGroup> = pending
+        .desired
+        .groups
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let base_by_group: HashMap<&str, &ManifestGroup> = base
+        .groups
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let prepared_bytes: HashMap<&str, u64> = snapshot
+        .files
+        .iter()
+        .filter_map(|file| {
+            file.prepared
+                .as_ref()
+                .map(|artifact| (file.content_id.as_str(), artifact.bytes))
+        })
+        .collect();
+    // Only an upsert sends the sealed NDJSON; a delete or a metadata rewrite
+    // moves no prepared bytes, so it counts as an item and as zero bytes.
+    let operation_bytes = |operation: &SyncOperation| -> u64 {
+        if operation.kind != crate::sync::SyncOperationKind::Upsert {
+            return 0;
+        }
+        desired_by_group
+            .get(operation.group_id.as_str())
+            .and_then(|group| prepared_bytes.get(group.content_id.as_str()))
+            .copied()
+            .unwrap_or(0)
+    };
+    let remaining: Vec<&SyncOperation> = pending
+        .operations
+        .iter()
+        .filter(|operation| !committed(journal, operation))
+        .collect();
+    backend.replay_begins(
+        remaining.len() as u64,
+        remaining
+            .iter()
+            .map(|operation| operation_bytes(operation))
+            .sum(),
+    );
+
     for operation in &pending.operations {
         let state = journal
             .pending_sync
@@ -778,9 +922,17 @@ pub fn replay_pending_operations(
         if state.is_none() {
             journal.sync_operation_state(&operation.operation_id, SyncOperationState::Started)?;
         }
+        let rel = desired_by_group
+            .get(operation.group_id.as_str())
+            .or_else(|| base_by_group.get(operation.group_id.as_str()))
+            .map_or(operation.group_id.as_str(), |group| {
+                group.canonical.rel.as_str()
+            });
+        backend.operation_begins(rel, operation_bytes(operation));
         backend.apply(operation, &base, &pending.desired, &snapshot)?;
         replay_fail_after_apply()?;
         journal.sync_operation_state(&operation.operation_id, SyncOperationState::Committed)?;
+        backend.operation_applied();
     }
     backend.publish_generation_catalog(&base, &pending.desired, &snapshot)?;
     backend.validate(&base, &pending.desired, &snapshot)?;
@@ -791,6 +943,84 @@ pub fn replay_pending_operations(
          (remove a refused symlink or repair the reported filesystem permission/I/O problem), \
          then retry the same command to continue bounded cleanup without republishing data",
     )
+}
+
+/// [`replay_pending_operations`] for a run with a progress surface: when the
+/// server's back-pressure outlasts the client's patience, say THAT on the way
+/// out instead of `reason=aborted`.
+///
+/// #944 made a throttled server slow the run down rather than end it; this is
+/// the one case left where it still ends — the node accepted nothing for the
+/// whole patience (the node behind #950 never accepts again until it is
+/// restarted). Such a stop is not a crash and not a bad corpus: every applied
+/// operation is journaled, the same command resumes, and the only thing the
+/// reader needs is how much is left and what it was doing. So the terminal
+/// line names the cause and the two counts, and a note names the operation in
+/// flight. The exit code stays 1: `3` is published as "a finished run, retry
+/// nothing", and this run did not finish — an agent told to retry nothing
+/// would report a half-applied generation as searchable.
+pub fn replay_pending_operations_reporting(
+    state_dir: &Path,
+    journal: &mut Journal,
+    backend: &mut impl SyncOperationBackend,
+    pr: &crate::progress::Progress,
+) -> Result<()> {
+    let result = replay_pending_operations(state_dir, journal, backend);
+    let Err(error) = &result else {
+        return result;
+    };
+    if crate::esclient::BackpressureExhausted::in_chain(error).is_none() {
+        return result;
+    }
+    let Some(pending) = journal.pending_sync.as_ref() else {
+        return result;
+    };
+    let committed = |operation: &SyncOperation| {
+        pending.operation_states.get(&operation.operation_id)
+            == Some(&SyncOperationState::Committed)
+    };
+    let applied = pending.operations.iter().filter(|op| committed(op)).count() as u64;
+    let remaining = pending.operations.len() as u64 - applied;
+    // The operation in flight is the one journaled Started and not Committed.
+    let in_flight = pending
+        .operations
+        .iter()
+        .find(|operation| {
+            pending.operation_states.get(&operation.operation_id)
+                == Some(&SyncOperationState::Started)
+        })
+        .and_then(|operation| {
+            pending
+                .desired
+                .groups
+                .iter()
+                .find(|group| group.group_id == operation.group_id)
+                .map(|group| group.canonical.rel.clone())
+        });
+    pr.note(&match (remaining, in_flight) {
+        (0, _) => format!(
+            "autoindex: stopped by server back-pressure after all {applied} operation(s) were \
+             applied; the catalog write and the read-back barrier are what remain — the same \
+             command resumes there"
+        ),
+        (_, Some(rel)) => format!(
+            "autoindex: stopped by server back-pressure while applying {rel}: {applied} \
+             operation(s) are journaled applied, {remaining} are not (this one first) — the \
+             same command resumes from here once the node accepts writes again"
+        ),
+        (_, None) => format!(
+            "autoindex: stopped by server back-pressure: {applied} operation(s) are journaled \
+             applied, {remaining} are not — the same command resumes from here once the node \
+             accepts writes again"
+        ),
+    });
+    pr.finish(
+        false,
+        1,
+        "server-backpressure",
+        &[("ops_applied", applied), ("ops_remaining", remaining)],
+    );
+    result
 }
 
 const SNAPSHOT_GC_BATCH_SIZE: usize = 4096;
@@ -1008,7 +1238,48 @@ fn checked_bulk(es: &crate::esclient::Es, body: Vec<u8>) -> Result<()> {
     if body.is_empty() {
         return Ok(());
     }
-    let outcome = es.bulk(body)?;
+    check_bulk_outcome(es, es.bulk(body)?)
+}
+
+/// [`checked_bulk`] for a body nobody windowed — the catalog projection, which
+/// holds one document per file and so grows with the corpus (#955). Sent as
+/// requests of at most `bulk_bytes` bytes, in order.
+fn checked_bulk_windowed(es: &crate::esclient::Es, body: Vec<u8>, bulk_bytes: usize) -> Result<()> {
+    if body.is_empty() {
+        return Ok(());
+    }
+    check_bulk_outcome(es, es.bulk_windowed(body, bulk_bytes)?)
+}
+
+fn check_bulk_outcome(
+    es: &crate::esclient::Es,
+    outcome: crate::esclient::BulkOutcome,
+) -> Result<()> {
+    // `Es::bulk` has already re-sent per-item 429s, and only those, for the
+    // whole of its patience (`THROTTLE_PATIENCE`, #944/#949).
+    // What is left is either a server condition that did not clear — fatal,
+    // and resumable, because a sealed operation is journaled applied only
+    // after this returns — or a record the server refused outright.
+    if outcome.throttled_out > 0 {
+        return Err(anyhow::Error::new(crate::esclient::BackpressureExhausted {
+            items: outcome.server_errors,
+            patience: es.throttle_patience(),
+            reason: outcome
+                .first_server_error
+                .unwrap_or_else(|| "unknown server error".into()),
+        }));
+    }
+    if outcome.server_errors > 0 {
+        anyhow::bail!(
+            "the server failed {} of a prepared bulk's items: {}. Nothing from this bulk was \
+             journaled applied; fix the reported server condition and rerun the same command — \
+             the run resumes from its last committed operation",
+            outcome.server_errors,
+            outcome
+                .first_server_error
+                .unwrap_or_else(|| "unknown server error".into())
+        );
+    }
     anyhow::ensure!(
         outcome.item_errors == 0,
         "prepared bulk contained {} rejected items: {}",
@@ -1236,6 +1507,7 @@ pub fn create_snapshot(
         None,
         "source-snapshot-v1",
         u64::MAX,
+        &crate::progress::Progress::silent(),
     )
 }
 
@@ -1251,6 +1523,33 @@ pub fn create_prepared_snapshot(
     preparation_contract_digest: &str,
     hard_budget_bytes: u64,
 ) -> Result<SourceSnapshot> {
+    create_prepared_snapshot_reporting(
+        state_dir,
+        tx_id,
+        inventory,
+        plan,
+        preparation_contract_digest,
+        hard_budget_bytes,
+        &crate::progress::Progress::silent(),
+    )
+}
+
+/// [`create_prepared_snapshot`], reporting through the run's progress surface.
+///
+/// Sealing is the generated path's extraction pass — every file is verified,
+/// copied, verified again and parsed into sealed NDJSON, one at a time — and on
+/// the corpus that produced #931 it is minutes of work. It used to run with no
+/// phase of its own, so the stream kept describing the `scan` that had already
+/// finished. It is now the `snapshot` phase, with a byte denominator.
+pub fn create_prepared_snapshot_reporting(
+    state_dir: &Path,
+    tx_id: &str,
+    inventory: &Inventory,
+    plan: &Plan,
+    preparation_contract_digest: &str,
+    hard_budget_bytes: u64,
+    pr: &crate::progress::Progress,
+) -> Result<SourceSnapshot> {
     create_snapshot_inner(
         state_dir,
         tx_id,
@@ -1258,6 +1557,7 @@ pub fn create_prepared_snapshot(
         Some(plan),
         preparation_contract_digest,
         hard_budget_bytes,
+        pr,
     )
 }
 
@@ -1268,6 +1568,7 @@ fn create_snapshot_inner(
     plan: Option<&Plan>,
     preparation_contract_digest: &str,
     hard_budget_bytes: u64,
+    pr: &crate::progress::Progress,
 ) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     ensure_inventory_lengths(inventory)?;
@@ -1339,6 +1640,9 @@ fn create_snapshot_inner(
         limit: hard_budget_bytes,
     };
     let mut files = Vec::with_capacity(inventory.files.len());
+    // Entered only when there is work to report: a retry that reuses a verified
+    // final snapshot returned above and never claims a phase it did not run.
+    pr.phase("snapshot", inventory.files.len() as u64, source_bytes);
     for (ordinal, ((source, content_id), content_digest)) in inventory
         .files
         .iter()
@@ -1346,6 +1650,10 @@ fn create_snapshot_inner(
         .zip(&inventory.digests)
         .enumerate()
     {
+        // Counted done on every exit from this iteration, including the `?`s:
+        // the phase measures files drained, and the guard names the file a
+        // quiet tail is inside.
+        let _sealing = pr.file(&source.rel, source.size);
         crate::content::verify(&source.path, source.size, content_digest)?;
         let relative_blob = format!("blobs/{ordinal:08}");
         let destination = staging.join(&relative_blob);
@@ -2796,6 +3104,194 @@ mod tests {
         assert_eq!(backend.applications.len(), 2);
         assert!(journal.pending_sync.is_none());
         assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 1);
+    }
+
+    /// A backend whose Nth `apply` is the server still answering 429 after
+    /// the client's patience — the one way a throttled node still ends a run.
+    struct ThrottledOutBackend {
+        inner: FakeBackend,
+        fail_apply_number: usize,
+        applies: usize,
+    }
+
+    impl SyncOperationBackend for ThrottledOutBackend {
+        fn apply(
+            &mut self,
+            operation: &SyncOperation,
+            base: &CommittedManifest,
+            desired: &GenerationManifest,
+            snapshot: &SourceSnapshot,
+        ) -> Result<()> {
+            self.applies += 1;
+            if self.applies == self.fail_apply_number {
+                return Err(anyhow::Error::new(crate::esclient::BackpressureExhausted {
+                    items: 7,
+                    patience: std::time::Duration::from_secs(120),
+                    reason: "breaker".into(),
+                }))
+                .context("replay sealed bulk");
+            }
+            self.inner.apply(operation, base, desired, snapshot)
+        }
+
+        fn validate(
+            &mut self,
+            base: &CommittedManifest,
+            desired: &GenerationManifest,
+            snapshot: &SourceSnapshot,
+        ) -> Result<()> {
+            self.inner.validate(base, desired, snapshot)
+        }
+    }
+
+    /// #944, the terminal case: the node accepted nothing for the client's
+    /// whole patience. The run still ends — nothing on this side can make a
+    /// pinned node (#950) accept — but it ends NAMED: the terminal line says
+    /// `reason=server-backpressure` with what is applied and what is left, a
+    /// note names the file it was on, and the same journal resumes to a commit.
+    /// Any other failure keeps `reason=aborted`.
+    #[test]
+    fn a_backpressure_stop_names_itself_and_what_is_left_then_resumes() {
+        let _journal_guard = crate::state::SYNC_IO_FAILPOINT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let state = tempfile::tempdir().unwrap();
+        let corpus = tempfile::tempdir().unwrap();
+        for name in ["a.txt", "b.txt", "c.txt"] {
+            std::fs::write(corpus.path().join(name), format!("content of {name}")).unwrap();
+        }
+        let inventory = inventory(corpus.path());
+        // `plan_for` assigns the first file only; this test needs three
+        // operations, so every file gets the same one-dataset assignment.
+        let mut plan = plan_for(&inventory);
+        for ((key, file), digest) in inventory
+            .keys
+            .iter()
+            .zip(&inventory.files)
+            .zip(&inventory.digests)
+        {
+            plan.files.insert(
+                key.clone(),
+                FileAssignment {
+                    rel: file.rel.clone(),
+                    path_id: file.rel_id.clone(),
+                    is_symlink: Some(file.is_symlink),
+                    family: "text".into(),
+                    gzip: false,
+                    content_digest: Some(digest.clone()),
+                    assignments: vec![(None, "docs".into())],
+                    as_document: false,
+                },
+            );
+        }
+        let groups = groups_from_inventory(&inventory, &plan, &[]).unwrap();
+        let snapshot = create_snapshot(state.path(), "tx-throttled", &inventory).unwrap();
+        let mut journal =
+            Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        begin(&mut journal, "tx-throttled", &snapshot, plan, groups);
+        let second_rel = {
+            let pending = journal.pending_sync.as_ref().unwrap();
+            let operation = &pending.operations[1];
+            pending
+                .desired
+                .groups
+                .iter()
+                .find(|group| group.group_id == operation.group_id)
+                .unwrap()
+                .canonical
+                .rel
+                .clone()
+        };
+
+        let mut backend = ThrottledOutBackend {
+            inner: FakeBackend::default(),
+            fail_apply_number: 2,
+            applies: 0,
+        };
+        let (pr, sink) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        let error =
+            replay_pending_operations_reporting(state.path(), &mut journal, &mut backend, &pr)
+                .unwrap_err();
+        assert!(
+            format!("{error:#}").contains("the server kept rejecting 7 of a prepared bulk's items"),
+            "{error:#}"
+        );
+        let stream = String::from_utf8(sink.lock().unwrap().clone()).unwrap();
+        let done = stream
+            .lines()
+            .find(|line| line.starts_with("xerj-done "))
+            .unwrap_or_else(|| panic!("{stream}"));
+        assert!(
+            done.starts_with("xerj-done ok=false exit=1 reason=server-backpressure ")
+                && done.ends_with(" ops_applied=1 ops_remaining=2"),
+            "{done}"
+        );
+        assert!(
+            stream.lines().any(|line| line.contains(&format!(
+                "stopped by server back-pressure while applying {second_rel}: 1 operation(s) \
+                 are journaled applied, 2 are not"
+            ))),
+            "{stream}"
+        );
+
+        // The same journal resumes: two operations left, then a commit.
+        backend.fail_apply_number = usize::MAX;
+        let (pr, sink) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        replay_pending_operations_reporting(state.path(), &mut journal, &mut backend, &pr).unwrap();
+        assert_eq!(backend.inner.applications.len(), 3);
+        assert!(journal.pending_sync.is_none(), "the generation committed");
+        let stream = String::from_utf8(sink.lock().unwrap().clone()).unwrap();
+        assert!(
+            !stream.contains("xerj-done"),
+            "a successful replay leaves the terminal line to its caller: {stream}"
+        );
+    }
+
+    /// Only back-pressure earns the named reason. Anything else — here an
+    /// injected failure after an apply — leaves the stream to close itself
+    /// `reason=aborted`, exactly as before.
+    #[test]
+    fn a_failure_that_is_not_backpressure_is_not_renamed() {
+        let _journal_guard = crate::state::SYNC_IO_FAILPOINT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = SNAPSHOT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let state = tempfile::tempdir().unwrap();
+        let corpus = tempfile::tempdir().unwrap();
+        std::fs::write(corpus.path().join("a.txt"), "alpha").unwrap();
+        let inventory = inventory(corpus.path());
+        let plan = plan_for(&inventory);
+        let groups = groups_from_inventory(&inventory, &plan, &[]).unwrap();
+        let snapshot = create_snapshot(state.path(), "tx-other", &inventory).unwrap();
+        let mut journal =
+            Journal::open(state.path(), "root", "http://engine", "ax", 300, false).unwrap();
+        journal.sync_bootstrap_genesis().unwrap();
+        begin(&mut journal, "tx-other", &snapshot, plan, groups);
+        let mut backend = FakeBackend::default();
+        let (pr, sink) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        fail_replay_after_next_apply();
+        assert!(
+            replay_pending_operations_reporting(state.path(), &mut journal, &mut backend, &pr)
+                .is_err()
+        );
+        let stream = String::from_utf8(sink.lock().unwrap().clone()).unwrap();
+        assert!(!stream.contains("xerj-done"), "{stream}");
+        assert!(!stream.contains("back-pressure"), "{stream}");
     }
 
     #[test]

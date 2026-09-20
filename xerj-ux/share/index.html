@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="color-scheme" content="dark light">
+<title>Shared with you · XERJ</title>
+<!--
+  The share-link guest page. Buildless and self-contained on purpose:
+  no third-party script, font, stylesheet or image — the server sends this
+  page with `default-src 'none'; script-src 'self'; style-src 'self'; …`, so
+  nothing here may be inline either. Absolute asset paths because the page is
+  served at both /_xerj-console/share and /_xerj-console/share/.
+-->
+<link rel="stylesheet" href="/_xerj-console/share/share.css">
+<link rel="icon" href="/_xerj-console/share/icon.svg" type="image/svg+xml">
+<script src="/_xerj-console/share/share.js" defer></script>
+</head>
+<body>
+<noscript>
+  <p class="noscript">This page needs JavaScript: it exchanges your passcode for read-only access and runs your searches. Nothing else is loaded — every script on this page comes from the computer that shared these documents with you.</p>
+</noscript>
+
+<main id="app">
+
+  <!-- ── 1. passcode ───────────────────────────────────────────────── -->
+  <section id="view-claim" class="card" hidden>
+    <p class="eyebrow">XERJ · shared with you</p>
+    <h1>Enter the passcode</h1>
+    <p class="lead">Someone gave you read-only access to a set of documents on their computer. They sent you a passcode separately from this link.</p>
+    <form id="claim-form" autocomplete="off" novalidate>
+      <label for="passcode">Passcode</label>
+      <input id="passcode" name="passcode" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="128" required>
+      <p id="claim-error" class="error" role="alert" hidden></p>
+      <button id="claim-button" type="submit">Open</button>
+    </form>
+    <ul class="facts">
+      <li>Read-only. You can search and read; you cannot change or delete anything.</li>
+      <li>The documents stay on the owner's computer. What you search for and open is sent from their machine to your browser, over the connection the owner set up.</li>
+      <li id="via-tunnel" hidden>This link goes through a Cloudflare tunnel. Cloudflare carries the connection and can read what passes through it: your passcode, your searches and the documents you open.</li>
+      <li>Access ends on its own, and the owner can end it at any time.</li>
+    </ul>
+  </section>
+
+  <!-- ── 2. a link that cannot be used ─────────────────────────────── -->
+  <section id="view-ended" class="card" hidden>
+    <p class="eyebrow">XERJ · shared with you</p>
+    <h1 id="ended-title">This link cannot be opened</h1>
+    <p id="ended-text" class="lead"></p>
+    <p id="ended-hint" class="hint"></p>
+  </section>
+
+  <!-- ── 3. the reading room ───────────────────────────────────────── -->
+  <section id="view-room" hidden>
+    <header class="room-head">
+      <div class="room-title">
+        <p class="eyebrow">XERJ · shared with you · read-only</p>
+        <h1 id="room-label"></h1>
+      </div>
+      <div class="room-meta">
+        <p id="room-expiry" class="expiry"></p>
+        <button id="signout" type="button" class="quiet">Sign out</button>
+      </div>
+    </header>
+
+    <p class="notice" id="room-notice">Read-only. These documents stay on the owner's computer — your searches are answered by their machine, and nothing leaves it except the results you see.</p>
+    <p class="notice" id="room-via-tunnel" hidden>This link goes through a Cloudflare tunnel: Cloudflare carries the connection and can read your searches and the documents you open.</p>
+
+    <form id="search-form" role="search" autocomplete="off">
+      <label for="q" class="visually-hidden">Search these documents</label>
+      <input id="q" name="q" type="search" placeholder="Search these documents" autocomplete="off" spellcheck="false" maxlength="512">
+      <button type="submit">Search</button>
+    </form>
+    <p id="search-mode" class="hint"></p>
+    <p id="room-status" class="status" role="status" aria-live="polite"></p>
+
+    <div id="results-pane">
+      <ol id="results" class="results"></ol>
+      <button id="more" type="button" class="quiet" hidden>More results</button>
+    </div>
+
+    <article id="doc-pane" class="doc" hidden>
+      <button id="doc-back" type="button" class="quiet">← Back to results</button>
+      <h2 id="doc-title"></h2>
+      <dl id="doc-meta" class="doc-meta"></dl>
+      <div id="doc-body"></div>
+    </article>
+
+    <p id="console-link" class="hint" hidden><a id="console-href" href="/_xerj-console/">Open the full console view</a> — the same read-only access, with the corpus map.</p>
+  </section>
+
+</main>
+</body>
+</html>

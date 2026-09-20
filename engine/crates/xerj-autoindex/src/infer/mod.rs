@@ -589,6 +589,15 @@ pub fn infer_fields_with_policy(
             .filter(|(_i, s)| {
                 s.es_type == "text"
                     && s.avg_len >= 80.0
+                    // A dotted name is an object path to the server, and it
+                    // refuses `semantic_text` anywhere but the top level
+                    // ("nested semantic_text field … is not supported"). That
+                    // 400 lands on the mapping install and aborts the WHOLE
+                    // run: one YAML key — "Check streams can't be enabled with
+                    // existing logs.otel indices" — lost a 48,533-file corpus
+                    // with nothing indexed (#929). Such a field stays plain
+                    // `text`: still searchable, just not embedded.
+                    && !s.name.contains('.')
                     && fields
                         .get(&s.name)
                         .map(|a| a.looks_natural_language())
@@ -775,6 +784,42 @@ mod tests {
     /// the vector arm — while a non-carrier text field (`defs`) stays
     /// lexical, because it rides on the same record as a carrier and electing
     /// it would embed every code record twice.
+    #[test]
+    fn a_dotted_field_name_is_never_elected_semantic_text() {
+        // Keys like this come straight out of YAML test suites, where the key
+        // IS a sentence. It is the longest natural-language field here, so
+        // before the guard it won the election and the server rejected the
+        // mapping as a nested semantic_text — aborting the entire run.
+        let prose = "The connection pool retries every failed handshake with backoff. \
+                     Each worker owns one socket and never shares it across threads.";
+        let dotted = "Check streams can't be enabled with existing logs.otel indices";
+        let mut fields = HashMap::new();
+        let mut acc = FieldAcc::default();
+        for _ in 0..20 {
+            acc.add(&Value::String(format!("{prose} {prose}")));
+        }
+        fields.insert(dotted.to_string(), acc);
+        let mut acc = FieldAcc::default();
+        for _ in 0..20 {
+            acc.add(&Value::String(prose.to_string()));
+        }
+        fields.insert("summary".to_string(), acc);
+
+        for semantic_all in [false, true] {
+            let specs = infer_fields_with_policy(&fields, 40, false, semantic_all);
+            let d = specs.iter().find(|s| s.name == dotted).expect("field kept");
+            assert_eq!(
+                d.es_type, "text",
+                "dotted name must stay plain text: {specs:#?}"
+            );
+        }
+        // The guard does not cost the dataset its semantic arm: the next-best
+        // top-level field is elected instead.
+        let specs = infer_fields_with_policy(&fields, 40, false, false);
+        let s = specs.iter().find(|s| s.name == "summary").unwrap();
+        assert_eq!(s.es_type, "semantic_text", "{specs:#?}");
+    }
+
     #[test]
     fn a_document_dataset_elects_every_body_carrier_and_only_the_carriers() {
         let prose = "The connection pool retries every failed handshake with backoff. \

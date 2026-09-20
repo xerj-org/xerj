@@ -25,11 +25,19 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
+    <loc>https://xerj.org/answers/autoindex-dataset-refused-by-server</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
     <loc>https://xerj.org/answers/autoindex-exit-codes</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/autoindex-says-extract-the-archive-first</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/autoindex-server-back-pressure-429</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
@@ -161,7 +169,7 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
-    <loc>https://xerj.org/answers/read-indexed-email-and-pdf-folder</loc>
+    <loc>https://xerj.org/answers/rebuild-reference-corpus-index</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
@@ -273,6 +281,14 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
+    <loc>https://xerj.org/answers/share-folder-read-only-search-without-uploading</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/share-local-search-index-through-a-tunnel</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
     <loc>https://xerj.org/answers/store-agent-memory-without-llm-call</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
@@ -282,6 +298,10 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/vector-database-vs-full-text-search</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/what-a-share-link-guest-can-reach</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>

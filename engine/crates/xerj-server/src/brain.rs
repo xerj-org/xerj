@@ -379,6 +379,10 @@ fn run(cfg: BrainCfg) -> Result<i32> {
              \x20 documents and will pick up links on the next run:"
         );
         println!("  → {console_url}");
+        println!(
+            "{}",
+            share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref())
+        );
         if let Some(link) = &setup_link {
             println!("  one-time passkey setup (open once, valid 30 min):");
             println!("  → {link}");
@@ -407,6 +411,12 @@ fn run(cfg: BrainCfg) -> Result<i32> {
     // to say the same thing. Plain ASCII, one line, matching the surrounding
     // human-facing summary; nothing here asks anyone (or any agent) to write
     // praise into a commit message, comment, or PR.
+    // One line, so the feature is discoverable at the moment it is useful:
+    // the folder has just been indexed and the owner is looking at the result.
+    println!(
+        "{}",
+        share_hint(&cfg.root, &cfg.url, cfg.data_dir.as_deref())
+    );
     println!("  if this saved you time, tell a teammate — that is how it spreads.");
     if let Some(link) = &setup_link {
         println!("  one-time passkey setup (open once, valid 30 min):");
@@ -546,6 +556,36 @@ fn mcp_env_with(url: &str, api_key: Option<&str>, env_key: Option<&str>) -> Stri
         }
         Some(key) => format!("XERJ_URL={url} XERJ_API_KEY=\"{key}\""),
     }
+}
+
+/// The one-line pointer at `xerj share`. Carries `--url` and `--data-dir`
+/// only when the run used non-default ones, so the printed command works as
+/// pasted: `xerj share` finds the admin key in the data dir, and without the
+/// flag it would look in `~/.xerj/brain` — another node's key, or none.
+///
+/// Every argument is one shell word (`share::sh_quote`): a folder called
+/// `case files` used to come out as two arguments, and the "exact command"
+/// failed with `unknown argument: files`. The parenthesis says what is true in
+/// every mode — the documents stay here. It used to say "nothing is uploaded",
+/// which reads as "nobody else sees the traffic"; with `--tunnel` Cloudflare
+/// does, and `xerj share` says so when it prints the link.
+fn share_hint(root: &Path, url: &str, data_dir: Option<&Path>) -> String {
+    use crate::share::sh_quote;
+    let mut args = String::new();
+    if url != "http://localhost:9200" {
+        args.push_str(&format!(" --url {}", sh_quote(url)));
+    }
+    if let Some(dir) = data_dir {
+        args.push_str(&format!(
+            " --data-dir {}",
+            sh_quote(&dir.display().to_string())
+        ));
+    }
+    format!(
+        "  share it: xerj share {}{args}   (read-only link + passcode for one person; \
+         the documents stay on this machine)",
+        sh_quote(&root.display().to_string())
+    )
 }
 
 fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
@@ -792,6 +832,59 @@ fn open_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn share_hint_is_one_pasteable_line() {
+        let hint = share_hint(Path::new("/home/u/notes"), "http://localhost:9200", None);
+        assert_eq!(hint.lines().count(), 1, "{hint}");
+        assert!(hint.contains("xerj share /home/u/notes "), "{hint}");
+        assert!(
+            !hint.contains("--url"),
+            "default url is not repeated: {hint}"
+        );
+        assert!(
+            !hint.contains("--data-dir"),
+            "default data dir is not repeated: {hint}"
+        );
+        let hint = share_hint(Path::new("notes"), "http://localhost:9510", None);
+        assert!(
+            hint.contains("xerj share notes --url http://localhost:9510 "),
+            "{hint}"
+        );
+        // A non-default data dir is where the admin key is; without it the
+        // pasted command looks in ~/.xerj/brain and fails (or finds another
+        // node's key).
+        let hint = share_hint(
+            Path::new("notes"),
+            "http://localhost:9510",
+            Some(Path::new("/srv/xerj")),
+        );
+        assert!(
+            hint.contains("xerj share notes --url http://localhost:9510 --data-dir /srv/xerj "),
+            "{hint}"
+        );
+        assert_eq!(hint.lines().count(), 1, "{hint}");
+    }
+
+    /// Review of PR #947: `xerj brain "case files"` printed a share command
+    /// that failed when pasted (`unknown argument: files`).
+    #[test]
+    #[cfg(not(windows))]
+    fn share_hint_quotes_a_folder_with_a_space() {
+        let hint = share_hint(
+            Path::new("/home/u/case files"),
+            "http://localhost:9510",
+            Some(Path::new("/srv/my data")),
+        );
+        assert!(
+            hint.contains(
+                "xerj share '/home/u/case files' --url http://localhost:9510 --data-dir '/srv/my data' "
+            ),
+            "{hint}"
+        );
+        assert!(hint.contains("stay on this machine"), "{hint}");
+        assert!(!hint.contains("nothing is uploaded"), "{hint}");
+    }
 
     /// ONBOARDING-401-REPRO.md §3: `brain` resolves a credential itself (from
     /// `<data-dir>/admin.key` when nothing else supplies one) and then printed

@@ -257,18 +257,79 @@ pub(crate) mod frozen_contract {
     }
 }
 
-pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan, pr: &Progress) -> Result<()> {
+/// One dataset the server refused to map: `(slug, the server's refusal)`.
+pub(crate) type MappingRefusal = (String, String);
+
+/// Longest refusal reason that is recorded, in characters.
+///
+/// Generous next to a real engine's answer — the refusal in #929 is under 500 —
+/// and small next to what it multiplies into: see [`refusal_reason`].
+const REFUSAL_REASON_MAX: usize = 1024;
+
+/// The reason a refusal is recorded under: the error chain, bounded and with
+/// control characters replaced.
+///
+/// The text is the SERVER's response body, verbatim, so it is outside input,
+/// and it does not stay in one place. It is frozen into the plan and the
+/// committed manifest, republished in the catalog's run document by every
+/// later generation, copied into the catalog entry of EVERY file the refusal
+/// cost, printed on stdout, and rendered by `xerj autoindex map`. Unbounded, a
+/// verbose proxy error page under a 10,000-file dataset is tens of megabytes
+/// of catalog; unsanitized, a body containing a newline can start a line of
+/// its own on stdout — for instance a second, forged `REFUSED dataset` line.
+/// [`progress::sanitize`] already solves both for the progress surface (it
+/// counts characters, so it cannot split a code point), so the reason goes
+/// through it once, here, before anything stores it.
+fn refusal_reason(error: &anyhow::Error) -> String {
+    progress::sanitize(&format!("{error:#}"), REFUSAL_REASON_MAX)
+}
+
+/// Create every dataset index in `plan` and install its mapping.
+///
+/// A server *refusal* of one dataset's mapping (HTTP 400, see
+/// [`esclient::MappingRefused`]) is returned, not propagated: it is a statement
+/// about that one dataset and says nothing about the others, so the caller
+/// decides what it costs. Every other failure — transport, auth, 5xx — is an
+/// endpoint failure, is not specific to any dataset, and still aborts.
+///
+/// This used to be a bare `?` inside the loop, which let ONE unmappable field
+/// name abort a 48,533-file, 1,526-dataset run with zero documents indexed
+/// (#929). The precedent for the split is Meilisearch's batch processing,
+/// read for approach only: a per-operation user error marks that one task
+/// `Failed` while the batch carries on, and only an internal error aborts it
+/// (`meilisearch/crates/index-scheduler/src/scheduler/process_index_operation.rs:173`).
+fn install_dataset_mappings(
+    es: &Es,
+    plan: &Plan,
+    mut installed_one: impl FnMut(),
+) -> Result<Vec<MappingRefusal>> {
+    let mut refused = Vec::new();
     for dataset in &plan.datasets {
         let mut create_body = build_mapping(&dataset.specs);
         create_body["mappings"]["properties"]["ax_paths"] = json!({"type": "keyword"});
         let update_body = json!({
             "properties": create_body["mappings"]["properties"].clone()
         });
-        es.ensure_index(&dataset.index, &create_body)
-            .with_context(|| format!("create generation index {}", dataset.index))?;
-        es.update_mapping(&dataset.index, &update_body)
-            .with_context(|| format!("install generation mapping for {}", dataset.index))?;
+        let installed = es
+            .ensure_index(&dataset.index, &create_body)
+            .with_context(|| format!("create generation index {}", dataset.index))
+            .and_then(|()| {
+                es.update_mapping(&dataset.index, &update_body)
+                    .with_context(|| format!("install generation mapping for {}", dataset.index))
+            });
+        match installed {
+            Ok(()) => {}
+            Err(error) if error.downcast_ref::<esclient::MappingRefused>().is_some() => {
+                refused.push((dataset.slug.clone(), refusal_reason(&error)));
+            }
+            Err(error) => return Err(error),
+        }
+        installed_one();
     }
+    Ok(refused)
+}
+
+fn ensure_generation_catalog_mapping(es: &Es, pr: &Progress) -> Result<()> {
     let mut catalog_create_body = catalog::catalog_mapping();
     catalog_create_body["mappings"]["properties"]["duplicate_of"] = json!({"type": "keyword"});
     // #755: the corpus-scope field rides here, beside `duplicate_of`, and NOT
@@ -285,6 +346,177 @@ pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan, pr: &Progress) ->
     es.ensure_index(catalog::CATALOG_INDEX, &catalog_create_body)?;
     install_catalog_mapping(es, &catalog_update_body, pr)
         .context("install generation catalog mapping")
+}
+
+/// Provision a SEALED generation: every dataset mapping must install.
+///
+/// By the time a generation is provisioned its plan is frozen in the journal
+/// and its records are sealed in a snapshot, so a dataset cannot be dropped
+/// here without the manifest, the snapshot and the catalog disagreeing about
+/// what the generation contains. A refusal at this point is therefore fatal —
+/// but it names EVERY refused dataset (not just the first the loop met) and the
+/// one recovery that works. [`preflight_generation_mappings`] is what keeps a
+/// fresh run from ever getting here with an unmappable dataset.
+pub(crate) fn ensure_generation_mappings(es: &Es, plan: &Plan, pr: &Progress) -> Result<()> {
+    let refused = install_dataset_mappings(es, plan, || {})?;
+    if !refused.is_empty() {
+        let named = refused
+            .iter()
+            .map(|(slug, reason)| format!("{slug} ({reason})"))
+            .collect::<Vec<_>>()
+            .join("; ");
+        anyhow::bail!(
+            "the server refused the mapping of {} dataset(s) in a generation that is already \
+             sealed: {named}. A sealed generation cannot drop a dataset, so re-running will \
+             repeat this refusal. No document was published. Rebuild with a new --state-dir and \
+             a new --prefix: a fresh run records a refused dataset (exit 3) and indexes the rest",
+            refused.len()
+        );
+    }
+    ensure_generation_catalog_mapping(es, pr)
+}
+
+/// Install a NOT-YET-SEALED plan's mappings and drop what the server refuses.
+///
+/// Runs before [`begin_non_graph_generation`] seals anything, which is the only
+/// point at which a dataset can still leave the plan coherently: the manifest,
+/// the snapshot, the contract digests and the catalog are all derived from the
+/// plan this returns, so they agree about the refused dataset by construction.
+///
+/// A refusal is loud on purpose. It costs the corpus real files, so it goes out
+/// through `pr.warn` (which `--quiet` does not silence), is recorded in the
+/// plan's `refused_datasets`, turns each of its files into a catalogued junk
+/// file carrying the server's own words, and keeps the exit code at 3.
+///
+/// Returns the plan to seal and the `index_identity` whose dataset mappings are
+/// now installed, so provisioning the generation in this same process does not
+/// pay the same two round trips per dataset a second time.
+pub(crate) fn preflight_generation_mappings(
+    es: &Es,
+    mut plan: Plan,
+    sizes: &HashMap<&str, u64>,
+    pr: &Progress,
+) -> Result<(Plan, String)> {
+    // Two round trips per dataset; a 1,526-dataset plan is a real wait, so it
+    // is a phase with a denominator rather than part of a stalled `scan`.
+    pr.phase("prepare", plan.datasets.len() as u64, 0);
+    let refused = install_dataset_mappings(es, &plan, || pr.item_done(0))?;
+    if !refused.is_empty() {
+        let before = plan.files.len();
+        refuse_datasets(&mut plan, &refused, sizes);
+        for refusal in &plan.refused_datasets {
+            pr.warn(&format!(
+                "autoindex: dataset {} REFUSED by the server — {} file(s) recorded as junk and NOT \
+                 indexed; every other dataset continues. {}",
+                refusal.dataset.slug,
+                refusal.file_keys.len(),
+                refusal.reason
+            ));
+        }
+        pr.warn(&format!(
+            "autoindex: {} of {} dataset(s) refused, {} of {before} file(s) not indexed — this run \
+             will exit 3 and name them in its summary (`datasets_refused`)",
+            plan.refused_datasets.len(),
+            plan.refused_datasets.len() + plan.datasets.len(),
+            before - plan.files.len(),
+        ));
+    }
+    let (_, index_identity) = generation_contract_identities(&plan)?;
+    Ok((plan, index_identity))
+}
+
+/// Remove refused datasets from a plan that has not been sealed yet.
+///
+/// A file is dropped WHOLE when any dataset it feeds was refused. Splitting it
+/// — keeping the accepted tables of a multi-table dump and dropping one — is
+/// not expressible downstream: `prepare_artifact` routes a record with no
+/// assignment of its own to the file's group-less dataset, or aborts the run
+/// when there is none, so a partially assigned file would either mis-file the
+/// refused records or fail the generation this exists to save.
+///
+/// Everything the manifest invariants tie to `plan.files` moves with it: the
+/// duplicate aliases of a dropped file go (`validate_plan_projection` requires
+/// aliases to belong to a live group, #283), and each surviving dataset's
+/// `file_count` is recounted. Ordering is canonical throughout, because the
+/// incremental projection must reproduce this plan byte for byte.
+pub(crate) fn refuse_datasets(
+    plan: &mut Plan,
+    refusals: &[MappingRefusal],
+    sizes: &HashMap<&str, u64>,
+) {
+    if refusals.is_empty() {
+        return;
+    }
+    let reasons: HashMap<&str, &str> = refusals
+        .iter()
+        .map(|(slug, reason)| (slug.as_str(), reason.as_str()))
+        .collect();
+    let (kept, dropped): (Vec<state::PlanDataset>, Vec<state::PlanDataset>) =
+        std::mem::take(&mut plan.datasets)
+            .into_iter()
+            .partition(|dataset| !reasons.contains_key(dataset.slug.as_str()));
+    plan.datasets = kept;
+    let mut refused: Vec<state::RefusedDataset> = dropped
+        .into_iter()
+        .map(|dataset| state::RefusedDataset {
+            reason: reasons[dataset.slug.as_str()].to_owned(),
+            dataset,
+            file_keys: Vec::new(),
+        })
+        .collect();
+    refused.sort_by(|left, right| left.dataset.slug.cmp(&right.dataset.slug));
+
+    // A file that feeds several refused datasets is attributed to the first by
+    // slug, so the attribution does not depend on `HashMap` iteration order.
+    let mut lost: Vec<(String, usize)> = plan
+        .files
+        .iter()
+        .filter_map(|(key, assignment)| {
+            refused
+                .iter()
+                .position(|refusal| {
+                    assignment
+                        .assignments
+                        .iter()
+                        .any(|(_, slug)| *slug == refusal.dataset.slug)
+                })
+                .map(|owner| (key.clone(), owner))
+        })
+        .collect();
+    lost.sort();
+    for (key, owner) in lost {
+        let assignment = plan.files.remove(&key).expect("key came from plan.files");
+        plan.junk_files.push(state::JunkFile {
+            file_key: key.clone(),
+            rel: assignment.rel,
+            format: if assignment.gzip {
+                format!("{}(gzip)", assignment.family)
+            } else {
+                assignment.family
+            },
+            status: "junk".into(),
+            reason: refused[owner].junk_reason(),
+            bytes: sizes.get(key.as_str()).copied().unwrap_or(0),
+        });
+        refused[owner].file_keys.push(key);
+    }
+    plan.duplicate_files
+        .retain(|alias| plan.files.contains_key(&alias.file_key));
+    for dataset in &mut plan.datasets {
+        dataset.file_count = plan
+            .files
+            .values()
+            .filter(|assignment| {
+                assignment
+                    .assignments
+                    .iter()
+                    .any(|(_, slug)| *slug == dataset.slug)
+            })
+            .count();
+    }
+    plan.refused_datasets.extend(refused);
+    plan.refused_datasets
+        .sort_by(|left, right| left.dataset.slug.cmp(&right.dataset.slug));
 }
 
 /// Install the catalog mapping without letting a legacy field type abort the
@@ -587,7 +819,14 @@ fn project_reconcile_plan(
                     .get(content_id.as_str())
                     .and_then(|o| o.content_digest.as_deref())
                     == Some(digest.as_str());
-                if unchanged {
+                // #929: a file a refused dataset already cost is projected by
+                // content identity alone (`reconcile_plan` carries its junk
+                // entry forward), so it needs no fresh parse either.
+                let refused = base_plan
+                    .refused_datasets
+                    .iter()
+                    .any(|refusal| refusal.file_keys.binary_search(content_id).is_ok());
+                if unchanged || refused {
                     return FileScan {
                         sniffed: None,
                         sketches: Vec::new(),
@@ -1007,6 +1246,25 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value) {
         ("records", count("records_total")),
         ("generation", count("generation")),
     ];
+    // #929: present only when a dataset was refused, so the terminal line of a
+    // run that lost nothing is unchanged — and one that did cannot print the
+    // same line as a whole corpus.
+    if count("datasets_refused") > 0 {
+        extra.push(("datasets_refused", count("datasets_refused")));
+        extra.push(("files_refused", count("files_refused")));
+    }
+    // #944: present only when the run re-sent items the server answered 429,
+    // so a run that fought back-pressure cannot print the same line as one
+    // that did not.
+    if count("bulk_retries") > 0 {
+        extra.push(("bulk_retries", count("bulk_retries")));
+    }
+    // #955: present only when the server refused a request as too large and
+    // the run halved it — a node with a tight `max_actions_per_bulk` or
+    // `max_body_bytes` is worth knowing about even when the run finished.
+    if count("bulk_splits") > 0 {
+        extra.push(("bulk_splits", count("bulk_splits")));
+    }
     extra.extend(coverage.fields());
     pr.finish(
         true,
@@ -1049,13 +1307,14 @@ fn begin_non_graph_generation(
         .clone();
     let tx_id = format!("{}-g{}", journal.run_id, base.generation + 1);
     let preparation_contract = preparation_contract_digest(cfg, &plan)?;
-    let snapshot = sync_executor::create_prepared_snapshot(
+    let snapshot = sync_executor::create_prepared_snapshot_reporting(
         state_dir,
         &tx_id,
         inventory,
         &plan,
         &preparation_contract,
         cfg.snapshot_max_bytes,
+        pr,
     )?;
     // #381: the per-file record cap dropped a file's tail during preparation.
     // The generated path seals before the graph worker loop runs, so report it
@@ -1438,15 +1697,43 @@ impl Drop for SampleLimitOverride {
     }
 }
 
+/// Test-only crash injection for the replacement path: the boundary to fail
+/// at AND the state directory of the one run it is meant for.
+///
+/// This was a bare process-wide `AtomicU8` holding only the boundary, consumed
+/// by whichever run reached that boundary first. The tests that arm it
+/// serialize on `FAILPOINT_TEST_LOCK`, but every OTHER test that drives the
+/// legacy path passes the same boundaries under a different lock (or none), so
+/// a concurrent test could take the injected crash and fail with someone
+/// else's error while the arming test ran clean and failed its `unwrap_err`.
+/// Reproduced 2 runs out of 2 on a 32-core machine at load average 50:
+/// `this_corpus_finalize_leaves_a_sibling_corpus_alias_document_alone` died of
+/// "injected replacement crash boundary 4" and
+/// `resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done`
+/// got `Ok(0)`; both pass alone. A lock cannot fix that without naming every
+/// present and future consumer; keying the failpoint on the state directory —
+/// which every test owns as its own tempdir — makes it unstealable instead.
 #[cfg(test)]
-static REPLACEMENT_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static REPLACEMENT_FAILPOINT: Mutex<Option<(u8, std::path::PathBuf)>> = Mutex::new(None);
+
+/// Arm [`replacement_failpoint`] for the run that uses `state_dir`, once.
+#[cfg(test)]
+pub(crate) fn arm_replacement_failpoint(boundary: u8, state_dir: &Path) {
+    *REPLACEMENT_FAILPOINT
+        .lock()
+        .unwrap_or_else(|p| p.into_inner()) = Some((boundary, state_dir.to_path_buf()));
+}
 
 #[cfg(test)]
-fn replacement_failpoint(boundary: u8) -> Result<()> {
-    if REPLACEMENT_FAILPOINT
-        .compare_exchange(boundary, 0, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
+fn replacement_failpoint(boundary: u8, state_dir: &Path) -> Result<()> {
+    let mut armed = REPLACEMENT_FAILPOINT
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    if armed
+        .as_ref()
+        .is_some_and(|(at, dir)| *at == boundary && dir == state_dir)
     {
+        *armed = None;
         anyhow::bail!("injected replacement crash boundary {boundary}");
     }
     Ok(())
@@ -1454,7 +1741,7 @@ fn replacement_failpoint(boundary: u8) -> Result<()> {
 
 #[cfg(not(test))]
 #[inline]
-fn replacement_failpoint(_boundary: u8) -> Result<()> {
+fn replacement_failpoint(_boundary: u8, _state_dir: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -1481,9 +1768,13 @@ fn record_bulk_outcome(
     match es.bulk(body) {
         Ok(outcome) => {
             if outcome.server_errors > 0 {
+                // Per-item 429s were already re-sent inside `Es::bulk` for as
+                // long as the server accepted anything (#944); what reaches
+                // here did not clear.
                 *send_err = Some(format!(
                     "bulk backend failed for {} item(s): {}. Source file was not journaled \
-                     complete; fix the server/embedding configuration and rerun autoindex",
+                     complete; fix the server condition (or wait for it to clear) and rerun \
+                     autoindex — the run resumes from the journal",
                     outcome.server_errors,
                     outcome
                         .first_server_error
@@ -2639,6 +2930,7 @@ fn build_phase_a(
         junk_files,
         duplicate_files,
         alias_paths_indexed: true,
+        refused_datasets: Vec::new(),
     };
     PhaseA {
         plan,
@@ -3713,6 +4005,18 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         .context("generated run finished without execution identity")?;
     let generation = committed.generation;
     let dataset_count = committed.plan.datasets.len();
+    let committed_refusals: Vec<(String, usize, String)> = committed
+        .plan
+        .refused_datasets
+        .iter()
+        .map(|refusal| {
+            (
+                refusal.dataset.slug.clone(),
+                refusal.file_keys.len(),
+                refusal.reason.clone(),
+            )
+        })
+        .collect();
     // Same lines the graph route prints (`unextracted_archive_lines`): the
     // `--no-graph` route has its own, shorter summary and said nothing either.
     let unextracted_archives = {
@@ -3754,6 +4058,20 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         summary.get("generation").and_then(Value::as_u64) == Some(generation),
         "generated run summary generation disagrees with committed authority"
     );
+    // #944: THIS run's re-sends of items the server answered 429, not a
+    // property of the committed generation — a re-run that sent nothing
+    // reports nothing. Present only when it happened.
+    let mut summary = summary;
+    let bulk_retries = es.bulk_backpressure_retries();
+    if bulk_retries > 0 {
+        summary["bulk_retries"] = json!(bulk_retries);
+        summary["bulk_items_reissued"] = json!(es.bulk_items_reissued());
+    }
+    // #955: requests the server refused as too large and this run halved.
+    // Present only when it happened, like the line above.
+    if es.bulk_requests_split() > 0 {
+        summary["bulk_splits"] = json!(es.bulk_requests_split());
+    }
     journal.finish(&summary)?;
     if cfg.json {
         println!("{summary}");
@@ -3767,6 +4085,14 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
                 .and_then(Value::as_u64)
                 .unwrap_or(0)
         );
+        // #929: read from the committed manifest, so a no-op re-run names the
+        // refused datasets again instead of only the run that met the refusal.
+        for refusal in &committed_refusals {
+            println!(
+                "REFUSED dataset {} ({} file(s) recorded as junk, not indexed): {}",
+                refusal.0, refusal.1, refusal.2
+            );
+        }
         if !unextracted_archives.is_empty() {
             println!("not indexed — archives are never opened; extract, then run this command on the extracted folder:");
             for line in &unextracted_archives {
@@ -4757,7 +5083,12 @@ fn run_index_report_inner(
         pr.phase("replay", 0, 0);
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         // Through the progress surface, never a bare `eprintln!`: stderr
         // belongs to that surface, so `--progress none` stays silent and
         // `--progress json` stays one parseable stream (#241).
@@ -5078,7 +5409,12 @@ fn run_index_report_inner(
         )?;
         let mut backend =
             sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
         finish_generated_progress(&pr, code, &summary);
@@ -5765,6 +6101,16 @@ fn run_index_report_inner(
     }
 
     if cfg.no_graph && !resumed_with_plan {
+        // #929: install the mappings BEFORE anything is sealed, so a dataset
+        // the server refuses leaves the plan while it still coherently can. The
+        // generation is then derived from the plan that was actually accepted.
+        let sizes: HashMap<&str, u64> = inventory
+            .keys
+            .iter()
+            .zip(&inventory.files)
+            .map(|(key, file)| (key.as_str(), file.size))
+            .collect();
+        let (plan, installed_identity) = preflight_generation_mappings(&es, plan, &sizes, &pr)?;
         begin_non_graph_generation(
             &es,
             &mut journal,
@@ -5776,8 +6122,14 @@ fn run_index_report_inner(
             plan,
         )?;
         let mut backend =
-            sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr);
-        sync_executor::replay_pending_operations(&state_dir, &mut journal, &mut backend)?;
+            sync_executor::EsSyncBackend::new(&es, &state_dir, cfg.bulk_mb << 20, &pr)
+                .with_installed_mappings(installed_identity);
+        sync_executor::replay_pending_operations_reporting(
+            &state_dir,
+            &mut journal,
+            &mut backend,
+            &pr,
+        )?;
         let summary = finish_generated_run(&es, &mut journal, &cfg)?;
         let code = generated_exit_code(&summary);
         finish_generated_progress(&pr, code, &summary);
@@ -5802,15 +6154,60 @@ fn run_index_report_inner(
     // ── create indices with explicit mappings ────────────────────────────
     // Two round trips per dataset; a 135-dataset plan is a real wait.
     pr.phase("prepare", plan.datasets.len() as u64, 0);
+    // #929: the same split the generated path makes (`install_dataset_mappings`).
+    // A server REFUSAL of one dataset's mapping costs that dataset, not the run
+    // — but only while the plan is still this invocation's to change. A resumed
+    // plan is already durable and may already have published files under the
+    // dataset, so dropping it there would strand live documents; that case
+    // stays fatal, exactly as before.
+    let mut refused: Vec<MappingRefusal> = Vec::new();
     for d in &plan.datasets {
-        es.ensure_index(&d.index, &build_mapping(&d.specs))
-            .with_context(|| format!("create index {}", d.index))?;
-        es.update_mapping(
-            &d.index,
-            &json!({"properties": {"ax_paths": {"type": "keyword"}}}),
-        )
-        .with_context(|| format!("upgrade alias-path mapping for {}", d.index))?;
+        let installed = es
+            .ensure_index(&d.index, &build_mapping(&d.specs))
+            .with_context(|| format!("create index {}", d.index))
+            .and_then(|()| {
+                es.update_mapping(
+                    &d.index,
+                    &json!({"properties": {"ax_paths": {"type": "keyword"}}}),
+                )
+                .with_context(|| format!("upgrade alias-path mapping for {}", d.index))
+            });
+        match installed {
+            Ok(()) => {}
+            Err(error)
+                if !resumed_with_plan
+                    && error.downcast_ref::<esclient::MappingRefused>().is_some() =>
+            {
+                refused.push((d.slug.clone(), refusal_reason(&error)));
+            }
+            Err(error) => return Err(error),
+        }
         pr.item_done(0);
+    }
+    if !refused.is_empty() {
+        let sizes: HashMap<&str, u64> = keys
+            .iter()
+            .zip(&files)
+            .map(|(key, file)| (key.as_str(), file.size))
+            .collect();
+        let before = plan.files.len();
+        refuse_datasets(&mut plan, &refused, &sizes);
+        for refusal in &plan.refused_datasets {
+            pr.warn(&format!(
+                "autoindex: dataset {} REFUSED by the server — {} file(s) recorded as junk and NOT \
+                 indexed; every other dataset continues. {}",
+                refusal.dataset.slug,
+                refusal.file_keys.len(),
+                refusal.reason
+            ));
+        }
+        pr.warn(&format!(
+            "autoindex: {} dataset(s) refused, {} of {before} file(s) not indexed — this run will \
+             exit 3 and name them in its summary (`datasets_refused`)",
+            plan.refused_datasets.len(),
+            before - plan.files.len(),
+        ));
+        plan_changed = true;
     }
     es.ensure_index(catalog::CATALOG_INDEX, &catalog::catalog_mapping())?;
     es.update_mapping(
@@ -5900,7 +6297,7 @@ fn run_index_report_inner(
     if plan_changed {
         journal.write_plan(&plan)?;
     }
-    replacement_failpoint(1).context("after durable replacement plan")?;
+    replacement_failpoint(1, &state_dir).context("after durable replacement plan")?;
 
     let unity_guid_map = build_unity_guid_map(&files, &plan, &pr);
     report_unity_guid_map(&unity_guid_map, &pr);
@@ -6731,7 +7128,7 @@ fn run_index_report_inner(
                             }
                         }
                         if send_err.is_none() {
-                            if let Err(error) = replacement_failpoint(2) {
+                            if let Err(error) = replacement_failpoint(2, &state_dir) {
                                 send_err = Some(format!("{error:#}"));
                             }
                         }
@@ -6869,7 +7266,7 @@ fn run_index_report_inner(
                         }
                         continue;
                     }
-                    if let Err(error) = replacement_failpoint(4) {
+                    if let Err(error) = replacement_failpoint(4, &state_dir) {
                         let mut errors = bulk_errors.lock().unwrap();
                         if errors.len() < 5 {
                             errors.push(format!("{error:#}"));
@@ -7645,6 +8042,10 @@ fn run_index_report_inner(
     if let Some(g) = &graph_summary {
         run_doc["graph"] = g.clone();
     }
+    // #929: a corpus that lacks a dataset says so in its own run document.
+    for (key, value) in plan.refused_run_fields() {
+        run_doc[key] = value;
+    }
     // Appended rather than written into the literal above: `serde_json::json!`
     // recurses once per key and that literal is already 30 deep — the same
     // reason `catalog::catalog_mapping` inserts its tail fields.
@@ -7668,7 +8069,14 @@ fn run_index_report_inner(
     push_doc(&format!("run:{run_id}"), &run_doc, &mut cat_buf);
 
     if !cat_buf.is_empty() {
-        let outcome = es.bulk(cat_buf).context("write catalog")?;
+        // #955: one document per file — this body grows with the corpus, and
+        // it used to go out as ONE request whatever `--bulk-mb` said. Past the
+        // engine's 50,000-action limit the answer is a single 413 item, which
+        // is not a `server_error`, so the check below let a run report success
+        // with NO catalog written. Windowed like every other bulk.
+        let outcome = es
+            .bulk_windowed(cat_buf, cfg.bulk_mb << 20)
+            .context("write catalog")?;
         // The catalog is the data map every later `map`/`status`/agent query
         // reads; a rejected catalog bulk (e.g. a write block that engaged
         // mid-run) must not be swallowed into a "success" exit (#195).
@@ -7682,6 +8090,17 @@ fn run_index_report_inner(
                     .as_deref()
                     .unwrap_or("unknown server error")
             );
+        }
+        // A catalog document the server refused is a file or dataset that
+        // `xerj autoindex map` will not show. It has never ended a run and
+        // does not now, but it is no longer silent either (#955).
+        if outcome.item_errors > 0 {
+            pr.note(&format!(
+                "autoindex: WARNING — the server refused {} catalog document(s): {}. The \
+                 records are indexed; `xerj autoindex map` will be missing those entries",
+                outcome.item_errors,
+                outcome.first_error.as_deref().unwrap_or("no reason given")
+            ));
         }
     }
     es.refresh(catalog::CATALOG_INDEX).ok();
@@ -7848,6 +8267,26 @@ fn run_index_report_inner(
         ("junk_files", junk_file_count as u64),
     ];
     done_fields.extend(code_coverage.fields());
+    // #944: present only when the run re-sent items the server answered 429.
+    if es.bulk_backpressure_retries() > 0 {
+        done_fields.push(("bulk_retries", es.bulk_backpressure_retries()));
+    }
+    // #955: present only when the server refused a request as too large.
+    if es.bulk_requests_split() > 0 {
+        done_fields.push(("bulk_splits", es.bulk_requests_split()));
+    }
+    // #929: only when it happened, so a whole corpus prints the line it always
+    // did and one that lost a dataset cannot print the same one.
+    if !plan.refused_datasets.is_empty() {
+        done_fields.push(("datasets_refused", plan.refused_datasets.len() as u64));
+        done_fields.push((
+            "files_refused",
+            plan.refused_datasets
+                .iter()
+                .map(|refusal| refusal.file_keys.len() as u64)
+                .sum(),
+        ));
+    }
     if alias_sweep_error.is_some() {
         done_fields.push((
             "catalog_alias_sweep_failures",
@@ -9548,6 +9987,8 @@ mod code_coverage_tests {
 mod failure_resume_http_tests;
 #[cfg(test)]
 mod incremental_reconcile_http_tests;
+#[cfg(test)]
+mod refused_dataset_tests;
 
 /// The Unity PIPELINE half — `build_unity_guid_map` + `enrich_unity_fields`
 /// + the plan's field registration, driven through the real phase-A planner.

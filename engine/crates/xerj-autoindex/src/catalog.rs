@@ -515,6 +515,30 @@ pub fn render_map(
             g("wall_seconds"),
         ));
     }
+    // #929: a corpus that lacks a dataset says so at the top of its own map,
+    // before the table that would otherwise read as the whole corpus.
+    if let Some(refused) = run
+        .and_then(|r| r.get("refused_datasets_json"))
+        .and_then(Value::as_str)
+        .and_then(|raw| serde_json::from_str::<Vec<Value>>(raw).ok())
+        .filter(|refused| !refused.is_empty())
+    {
+        s.push_str("## Refused datasets — NOT indexed\n\n");
+        s.push_str(
+            "The server refused the mapping of these datasets, so their files are recorded as \
+             junk and are not searchable. Every other dataset below is complete.\n\n",
+        );
+        for d in &refused {
+            let g = |k: &str| d.get(k).map(pretty_val).unwrap_or_default();
+            s.push_str(&format!(
+                "- `{}` — {} file(s): {}\n",
+                g("index"),
+                g("files"),
+                g("reason")
+            ));
+        }
+        s.push('\n');
+    }
     s.push_str("## Datasets\n\n");
     s.push_str("| index | records | files | formats | time field | time range |\n");
     s.push_str("|---|---|---|---|---|---|\n");

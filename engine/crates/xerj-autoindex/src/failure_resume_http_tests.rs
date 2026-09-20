@@ -16,6 +16,34 @@ use std::thread;
 
 static FAILPOINT_TEST_LOCK: Mutex<()> = Mutex::new(());
 
+/// #953: the replacement failpoint fires only in the run it was armed for.
+///
+/// It was a bare process-wide boundary number, so any concurrent test that
+/// drove the legacy path took the injected crash: that test failed with an
+/// error it had nothing to do with and the arming test ran clean. Keyed on the
+/// state directory, another run at the same boundary passes straight through,
+/// and so does the armed run at a different boundary. Holds
+/// `FAILPOINT_TEST_LOCK` because arming REPLACES whatever is armed.
+#[test]
+fn replacement_failpoint_cannot_be_taken_by_another_run() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let mine = tempfile::tempdir().unwrap();
+    let theirs = tempfile::tempdir().unwrap();
+    arm_replacement_failpoint(4, mine.path());
+
+    replacement_failpoint(4, theirs.path()).expect("another run at the armed boundary");
+    replacement_failpoint(2, mine.path()).expect("the armed run at another boundary");
+
+    let error = replacement_failpoint(4, mine.path()).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("injected replacement crash boundary 4"),
+        "{error:#}"
+    );
+    replacement_failpoint(4, mine.path()).expect("the failpoint is one-shot");
+}
+
 /// Owns the process-global PDF worker environment for the duration of one
 /// test. `XERJ_PDF_WORKER_BIN` is read inside `spawn_worker`, so a test that
 /// sets it silently rewrites what every concurrently running test in this
@@ -125,6 +153,22 @@ struct MockState {
     /// and the type is not a block, so the run continues and must still
     /// report the rejection.
     reject_first_data_item: bool,
+    /// Opt-in (#929): refuse the create-index PUT — which on this path carries
+    /// the dataset's whole mapping — of every index whose name contains one of
+    /// these, with the 400 a real engine returns for a field it cannot map.
+    refused_dataset_indices: Vec<String>,
+    /// Opt-in (#944): answer this many data bulks — the next ones — with a
+    /// per-item 429 on EVERY item and apply nothing, the way the engine's
+    /// memory circuit breaker does for the moment it is engaged. Then behave
+    /// normally, so the client's re-send of exactly those items can land.
+    throttle_data_bulks: usize,
+    /// Opt-in (#955): the engine's `limits.max_actions_per_bulk`. A `_bulk` of
+    /// more than twice this many lines — data or catalog — is refused whole
+    /// with the engine's literal answer: HTTP 200, ONE item of status 413,
+    /// nothing applied.
+    max_actions_per_bulk: Option<usize>,
+    /// Line count of every bulk `max_actions_per_bulk` refused, in order.
+    oversize_bulks_refused: Vec<usize>,
 }
 
 struct MockEndpoint {
@@ -245,6 +289,30 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
                 "semantic_contract": "semantic_text-derived-vector.v1",
                 "resumable": true
             }, "took_ms": 0, "request_id": "test"}),
+        )
+    } else if method == "PUT"
+        && !path.starts_with("/autoindex-catalog")
+        && state
+            .lock()
+            .unwrap()
+            .refused_dataset_indices
+            .iter()
+            .any(|needle| path.contains(needle.as_str()))
+    {
+        // #929. Deliberately worded without "exists": `Es::ensure_index` reads
+        // a 400 containing that word as "the index is already there".
+        let reason = "nested semantic_text field [a.b] is not supported; map semantic_text as a \
+                      top-level field";
+        (
+            400,
+            json!({
+                "error": {
+                    "root_cause": [{"type": "mapper_parsing_exception", "reason": reason}],
+                    "type": "mapper_parsing_exception",
+                    "reason": reason
+                },
+                "status": 400
+            }),
         )
     } else if method == "PUT" && path == "/autoindex-catalog" {
         if state.lock().unwrap().catalog_preexists {
@@ -524,6 +592,35 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
     if is_graph {
         return json!({"errors": false, "items": []});
     }
+    {
+        // Checked before anything is applied and by LINES, as
+        // `xerj-engine/src/bulk.rs` does.
+        let mut locked = state.lock().unwrap();
+        if let Some(max_actions) = locked.max_actions_per_bulk {
+            if lines.len() > max_actions * 2 {
+                locked.oversize_bulks_refused.push(lines.len());
+                return json!({
+                    "took": 0,
+                    "errors": true,
+                    "items": [{"index": {
+                        "_index": "",
+                        "_id": "",
+                        "status": 413,
+                        "error": {
+                            "type": "engine_exception",
+                            "reason": format!(
+                                "bulk request contains {} lines (~{} actions); exceeds \
+                                 max_actions_per_bulk of {max_actions}",
+                                lines.len(),
+                                lines.len() / 2
+                            ),
+                            "status": 413
+                        }
+                    }}]
+                });
+            }
+        }
+    }
     if !is_data {
         // Catalog bulks mix `index` and `delete` actions (stale aliases, and
         // the junk sweep of #238), so walk the NDJSON rather than assuming
@@ -570,6 +667,25 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
 
     let mut locked = state.lock().unwrap();
     locked.data_bulk_number += 1;
+    if locked.throttle_data_bulks > 0 {
+        locked.throttle_data_bulks -= 1;
+        let items: Vec<Value> = lines
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|_| {
+                json!({"index": {
+                    "status": 429,
+                    "error": {
+                        "type": "engine_exception",
+                        "reason": "[parent] real memory circuit breaker tripped: rss=15679MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill",
+                        "status": 429
+                    }
+                }})
+            })
+            .collect();
+        return json!({"errors": true, "items": items});
+    }
     if locked.block_writes {
         // Explicit write block: per-item 403 (never 429/5xx), nothing applied.
         let items: Vec<Value> = lines
@@ -861,6 +977,170 @@ fn the_legacy_terminal_line_and_run_document_report_code_coverage() {
             .as_str()
             .is_some_and(|defs| defs.contains("struct AlphaConfig")),
         "{ast}"
+    );
+}
+
+/// #955 on the legacy (graph) path, where the defect was SILENT. The catalog
+/// went out as one `_bulk` whatever `--bulk-mb` said; past the engine's
+/// `max_actions_per_bulk` the answer is one item of status 413, which is
+/// neither a 429 nor a 5xx, so `write catalog` counted one ignorable
+/// `item_error` and the run reported success with no catalog at all — the map
+/// every later `xerj autoindex map` and agent query reads. The catalog is now
+/// windowed and a refused request is halved, so the whole catalog lands.
+#[test]
+fn a_catalog_bulk_the_server_refuses_as_too_large_still_lands_whole() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        for name in ["a", "b", "c", "d", "e", "f"] {
+            fs::write(
+                root.join(format!("{name}.csv")),
+                format!("id,value\n1,{name}-first\n2,{name}-second\n"),
+            )
+            .unwrap();
+        }
+    };
+    let catalog_ids = |endpoint: &MockEndpoint| {
+        let locked = endpoint.state.lock().unwrap();
+        let mut ids: Vec<String> = locked
+            .catalog_docs
+            .iter()
+            .map(|(id, doc)| {
+                // A run document's id carries the run's own timestamp.
+                if doc["doc_kind"] == "run" {
+                    "run".to_owned()
+                } else {
+                    id.clone()
+                }
+            })
+            .collect();
+        ids.sort();
+        ids
+    };
+
+    let control_corpus = tempfile::tempdir().unwrap();
+    let control_state = tempfile::tempdir().unwrap();
+    write_corpus(control_corpus.path());
+    let control = MockEndpoint::start(usize::MAX);
+    let (code, _) = run_index_report(cfg(
+        control_corpus.path(),
+        control_state.path(),
+        &control.url,
+    ))
+    .unwrap();
+    assert_eq!(code, 0);
+    let expected = catalog_ids(&control);
+    assert!(expected.len() > 4, "{expected:?}");
+
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = MockEndpoint::start(usize::MAX);
+    // Three actions a request: every data bulk here fits (one file, two rows),
+    // so the ONLY request over the limit is the catalog — the silent case.
+    endpoint.state.lock().unwrap().max_actions_per_bulk = Some(3);
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, _report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(code, 0);
+    assert_eq!(
+        catalog_ids(&endpoint),
+        expected,
+        "the catalog is the one an unlimited server gets — before #955 it was empty"
+    );
+    {
+        let locked = endpoint.state.lock().unwrap();
+        assert!(
+            !locked.oversize_bulks_refused.is_empty(),
+            "the limit was actually met"
+        );
+        assert_eq!(
+            data_rows(&locked).len(),
+            12,
+            "six files of two rows: no data bulk was over the limit"
+        );
+    }
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.starts_with("xerj-done ok=true exit=0 "), "{done}");
+    assert!(
+        done.contains(" bulk_splits="),
+        "the terminal line must say the server refused a request for its size: {done}"
+    );
+}
+
+/// #944: the shape that aborted a 48,533-file run at 60% — one data bulk
+/// answered HTTP 200 with every item `status: 429` by the engine's memory
+/// circuit breaker, which engages and releases within a second. The legacy
+/// path treated `server_errors > 0` as fatal on the spot. The items are now
+/// re-sent once the moment passes, every record lands, the run exits 0, and
+/// the terminal line says it happened.
+#[test]
+fn a_per_item_429_on_a_data_bulk_is_resent_and_the_run_completes() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("rows.csv"),
+        "id,value\n1,first\n2,second\n3,third\n",
+    )
+    .unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint.state.lock().unwrap().throttle_data_bulks = 1;
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, _report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(code, 0, "a transient per-item 429 must not end the run");
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.starts_with("xerj-done ok=true exit=0 "), "{done}");
+    assert!(
+        done.contains(" bulk_retries=1"),
+        "the terminal line must say the run re-sent a bulk: {done}"
+    );
+    let locked = endpoint.state.lock().unwrap();
+    assert_eq!(
+        data_rows(&locked).len(),
+        3,
+        "every rejected record landed on the re-send"
+    );
+    assert_eq!(
+        locked.data_bulk_number, 2,
+        "the throttled bulk and its one re-send; nothing else was retried"
     );
 }
 
@@ -2126,7 +2406,7 @@ fn resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done() {
         assert_eq!(run_index(config.clone()).unwrap(), 0);
         fs::write(&path, csv.replace("old-", "new-")).unwrap();
 
-        REPLACEMENT_FAILPOINT.store(boundary, Ordering::SeqCst);
+        arm_replacement_failpoint(boundary, state_dir.path());
         let error = run_index(config.clone()).unwrap_err();
         assert!(
             format!("{error:#}").contains("injected replacement crash"),
@@ -2255,7 +2535,7 @@ fn pending_generation_b_is_superseded_when_source_changes_to_c() {
     assert_eq!(run_index(config.clone()).unwrap(), 0);
 
     fs::write(&path, "id,value\n0,generation-b\n1,generation-b\n").unwrap();
-    REPLACEMENT_FAILPOINT.store(2, Ordering::SeqCst);
+    arm_replacement_failpoint(2, state_dir.path());
     run_index(config.clone()).unwrap_err();
     let replay_b = state::Journal::open(
         state_dir.path(),
@@ -3647,4 +3927,140 @@ fn a_junk_entry_for_a_completed_file_is_never_turned_into_a_catalog_row() {
         crate::shadowed_junk_entries(&borrowed, &std::collections::HashSet::new()).is_empty(),
         "with no completions nothing is shadowed"
     );
+}
+
+/// #929 on the legacy (graph-enabled) path. Here the dataset's whole mapping
+/// rides on the create-index PUT, and the loop that sends it used to `?` out on
+/// the first refusal exactly like the generated path did. Same contract: the
+/// refused dataset costs its own files, the rest of the folder is indexed, the
+/// run ends 3 and the terminal line and run document say what is missing — and
+/// a re-run does not quietly "fix" it by pretending the files never existed.
+#[test]
+fn a_refused_dataset_on_the_graph_path_costs_that_dataset_not_the_run() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _sink_guard = crate::progress::SINK_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        fs::write(root.join("rows.csv"), "id,value\n1,first\n2,second\n").unwrap();
+        fs::write(
+            root.join("notes.md"),
+            "# Notes\n\nTiered merge policy picks segments of similar size.\n",
+        )
+        .unwrap();
+    };
+
+    // Learn the tabular dataset's index from a clean run rather than
+    // hard-coding the slug scheme.
+    let tabular = {
+        let corpus = tempfile::tempdir().unwrap();
+        let state_dir = tempfile::tempdir().unwrap();
+        write_corpus(corpus.path());
+        let endpoint = MockEndpoint::start(usize::MAX);
+        let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+        let prefix = config.prefix.clone();
+        assert_eq!(run_index(config).unwrap(), 0);
+        let locked = endpoint.state.lock().unwrap();
+        let slug = data_rows(&locked)
+            .into_iter()
+            .find(|doc| doc["ax_path"] == "rows.csv")
+            .and_then(|doc| doc["ax_dataset"].as_str())
+            .expect("rows.csv is indexed by the clean run")
+            .to_owned();
+        format!("{prefix}-{slug}")
+    };
+
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint.state.lock().unwrap().refused_dataset_indices = vec![tabular.clone()];
+    let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert!(!config.no_graph, "this module covers the legacy path");
+    config.quiet = false;
+    config.progress = crate::progress::ProgressMode::Plain;
+
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (code, report) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config.clone())
+            .unwrap_or_else(|error| panic!("the refusal aborted the run: {error:#}"))
+    };
+    assert_eq!(code, 3, "a refused dataset is exit 3, never 0 and never 1");
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    assert!(
+        stream.contains("REFUSED by the server") && stream.contains(&tabular),
+        "the refusal names the dataset on the progress surface:\n{stream}"
+    );
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(
+        done.contains("ok=true")
+            && done.contains("exit=3")
+            && done.contains("datasets_refused=1")
+            && done.contains("files_refused=1"),
+        "{done}"
+    );
+    {
+        let locked = endpoint.state.lock().unwrap();
+        let mut indexed: Vec<&str> = data_rows(&locked)
+            .into_iter()
+            .filter_map(|doc| doc["ax_path"].as_str())
+            .collect();
+        indexed.sort_unstable();
+        indexed.dedup();
+        assert_eq!(indexed, ["notes.md"], "the other dataset is indexed whole");
+        let run = locked
+            .catalog_docs
+            .values()
+            .find(|doc| doc["doc_kind"] == "run")
+            .expect("the run document is published");
+        assert_eq!(run["datasets_refused"], 1, "{run}");
+        assert_eq!(run["files_refused"], 1, "{run}");
+        let detail: Vec<Value> =
+            serde_json::from_str(run["refused_datasets_json"].as_str().unwrap()).unwrap();
+        assert_eq!(detail[0]["index"], tabular.as_str());
+        assert!(detail[0]["reason"].as_str().unwrap().contains("400"));
+        let junked = locked
+            .catalog_docs
+            .values()
+            .find(|doc| doc["doc_kind"] == "file" && doc["path"] == "rows.csv")
+            .expect("the refused file has a catalog document");
+        assert_eq!(junked["status"], "junk", "{junked}");
+        assert!(
+            junked["reason"]
+                .as_str()
+                .is_some_and(|reason| reason.contains("was refused by the server")),
+            "{junked}"
+        );
+    }
+    let report = report.unwrap();
+    assert_eq!(report["datasets_refused"], 1, "{report}");
+
+    // A re-run resumes the durable plan: still exit 3, still names the refusal,
+    // and does not misreport the refused file as one that "appeared after the
+    // plan was frozen".
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    let (again, _) = {
+        let _sink = crate::progress::install_test_sink(&buffer);
+        run_index_report(config).unwrap()
+    };
+    assert_eq!(again, 3);
+    let stream = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+    assert!(
+        !stream.contains("appeared after the resume plan"),
+        "{stream}"
+    );
+    let done = stream
+        .lines()
+        .find(|line| line.starts_with("xerj-done "))
+        .unwrap();
+    assert!(done.contains("datasets_refused=1"), "{done}");
 }

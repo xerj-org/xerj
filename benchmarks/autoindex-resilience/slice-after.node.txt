@@ -1,0 +1,31 @@
+# Node side of slice-rc74.stderr.txt and slice-after.stderr.txt.
+# Each run had a fresh throwaway node (this branch's server binary at eb015d24,
+# default config: 16 GiB auto memory tier, auth on, lexical embedder).
+# The slice: tantivy, quickwit, meilisearch and sonic whole, plus 419 files of
+# elasticsearch/modules (every src/yamlRestTest file and all of modules/streams,
+# which holds the rc.74 trigger:
+# elasticsearch/modules/streams/src/yamlRestTest/resources/rest-api-spec/test/streams/logs/10_basic.yml).
+# 4,479 files copied, .git directories excluded.
+
+## slice-rc74 (v1.0.0-rc.74 client)
+process exit code 1 (harness wall clock 39 s)
+_count slice-*: 0
+autoindex-catalog: index_not_found (the run never reached the catalog)
+
+## slice-after (this branch's client, eb015d24)
+process exit code 3 (harness wall clock 526 s)
+_count slice-*: 159666 in 373 indices
+_count autoindex-catalog: 4584
+records by source repository (prefix query on ax_path, node reopened after the run, reads only):
+  tantivy/        111612
+  quickwit/        29883
+  meilisearch/     13607
+  sonic/            1663
+  elasticsearch/    2901
+  total           159666
+mapping of slice-elasticsearch-modules-10-basic-13 (8 documents), the dataset rc.74 died on:
+  "Check streams can't be enabled with existing logs.otel indices": type text
+  semantic_text fields in that index: ["Original logs stream deprecated"]
+governor lines in the node log: 2 (start-up only; the breaker never engaged)
+VmHWM: 3844964 kB
+VmRSS: 2353216 kB

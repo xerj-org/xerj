@@ -44,9 +44,15 @@ xxhash-rust          = { workspace = true }
 
 async-trait  = "0.1"
 libc         = "0.2"
+# Share links (`/_share`): the passcode a guest types is short and human-typed,
+# so unlike a minted API-key secret it needs a real password hash.
+argon2       = "0.5"
+# Share ids / passcodes are minted from the OS CSPRNG.
+rand         = { workspace = true }
+# Share ids are stored as a SHA-256 digest, never in the clear.
+sha2         = "0.10"
 
 [dev-dependencies]
 tempfile     = { workspace = true }
 tower        = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
-sha2         = "0.10"
