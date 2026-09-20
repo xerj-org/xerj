@@ -341,6 +341,16 @@ them and they rerank their own first-stage shortlist, not ours — the figures t
 0.768 / 0.358 for Jev, 0.755 / 0.357 for Voyage rerank-3 and 0.745 / 0.340 for
 Cohere rerank-v3.5 on SciFact / NFCorpus.
 
+#### Does the biggest model change the answer? No.
+
+`large` (`bge-reranker-v2-m3`, 568M parameters) costs about twice `base` per
+pair on a CPU, so it was scored on a **seeded 120-query subset** of each dataset
+rather than the full sets. Every arm in the table below is recomputed on that
+same subset, so the rows are paired with each other — but they are a different
+query set from the tables above, and the two must not be read across.
+
+<!--LARGETABLE-->
+
 #### How much of this is noise
 
 XERJ's hybrid fusion orders tied scores by a per-process seed

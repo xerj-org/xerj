@@ -52,6 +52,16 @@ resamples:
    matter as much as the numbers: one 30-document call costs seconds of CPU
    (`results/latency.txt`), and no tier's score is calibrated.
 
+### The `large` tier, on a seeded subset
+
+`large` (`bge-reranker-v2-m3`, 568M parameters) is ~2× `base`'s CPU cost, so it
+was scored on a **seeded 120-query subset** of each dataset (`subset.py`, seed 7)
+rather than the full sets. `eval.py` recomputes *every* arm on that subset, so
+the comparison inside this table is paired; it is a different query set from the
+tables above and the numbers are not interchangeable with them.
+
+<!--LARGETABLE-->
+
 ### The noise floor
 
 Issue [#940](https://github.com/xerj-org/xerj/issues/940) orders tied RRF scores
