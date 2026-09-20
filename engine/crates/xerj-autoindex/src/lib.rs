@@ -24,6 +24,11 @@ pub mod ids;
 pub mod ignore_rules;
 pub mod infer;
 pub mod init;
+pub mod objsource;
+#[cfg(test)]
+mod objsource_minio_tests;
+#[cfg(test)]
+mod objsource_s3_tests;
 pub mod order;
 pub mod pool;
 pub mod progress;
@@ -31,10 +36,12 @@ mod reconcile_plan;
 pub mod resources;
 pub mod search;
 pub mod sniff;
+pub mod source;
 pub mod state;
 mod sync;
 mod sync_executor;
 pub mod walk;
+pub mod watch;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -2125,6 +2132,7 @@ mod phase_a_grouping_tests {
     pub(super) fn cfg_for(root: &Path) -> IndexCfg {
         IndexCfg {
             root: root.to_path_buf(),
+            endpoint_url: None,
             stub_globs: Vec::new(),
             url: "http://unused.invalid".into(),
             api_key: None,
@@ -2160,6 +2168,8 @@ mod phase_a_grouping_tests {
             quiet: true,
             progress: crate::progress::ProgressMode::None,
             progress_interval: None,
+            watch: false,
+            debounce: std::time::Duration::from_millis(0),
         }
     }
 
@@ -4281,6 +4291,9 @@ mod tcorr_id_tests {
 }
 
 fn run_index(cfg: IndexCfg) -> Result<i32> {
+    if cfg.watch {
+        return watch::run(cfg);
+    }
     run_index_report(cfg).map(|(code, _)| code)
 }
 
@@ -4490,6 +4503,28 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
 /// generated route's `project_reconcile_plan` — is handed this one tally, so
 /// "files parsed by this run" is exactly what it holds.
 fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Option<Value>)> {
+    run_index_report_inner(cfg, tally, None)
+}
+
+/// One pass of a `--watch` session.
+///
+/// Identical to [`run_index_report`] in every respect but one: the pass carries
+/// a digest cache ([`watch::Pass`]) that lets a file the watcher knows did not
+/// change skip its re-hash. Nothing else about the run changes — same journal,
+/// same plan projection, same publish path, same summary — because a second
+/// indexing path is exactly what a watcher must not be.
+pub(crate) fn run_index_report_watched(
+    cfg: IndexCfg,
+    pass: &watch::Pass,
+) -> Result<(i32, Option<Value>)> {
+    run_index_report_inner(cfg, &ScanTally::default(), Some(pass))
+}
+
+fn run_index_report_inner(
+    mut cfg: IndexCfg,
+    tally: &ScanTally,
+    watch: Option<&watch::Pass>,
+) -> Result<(i32, Option<Value>)> {
     // The very first statement of the function, deliberately: `started` must
     // be when this invocation began, not when its summary was built.
     let invocation_started = chrono::Utc::now();
@@ -4563,12 +4598,25 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     es.ping()?;
 
     let stub_matcher = StubMatcher::compile(&cfg.stub_globs)?;
-    let root_str = cfg
-        .root
-        .canonicalize()
-        .unwrap_or_else(|_| cfg.root.clone())
-        .to_string_lossy()
-        .to_string();
+    // An `s3://`/`r2://` positional argument becomes a local mirror directory
+    // here, before any state is opened: `cfg.root` is rewritten to that mirror,
+    // so every later phase — walk, hash, plan, journal, reconcile — is the code
+    // that has always run over a folder. `None` means the argument was a folder
+    // and nothing at all changes. See `crate::objsource`.
+    let object_run = objsource::prepare(&mut cfg)?;
+    // The run's identity. For an object source it is the bucket URL rather than
+    // the mirror path: the mirror is a cache whose location may move (it follows
+    // --state-dir), and hashing a cache path into the state key would start a
+    // second index — re-downloading every object — the first time it did.
+    let root_str = match &object_run {
+        Some(run) => run.identity.clone(),
+        None => cfg
+            .root
+            .canonicalize()
+            .unwrap_or_else(|_| cfg.root.clone())
+            .to_string_lossy()
+            .to_string(),
+    };
     let state_dir = cfg
         .state_dir
         .clone()
@@ -4758,6 +4806,67 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
             state_dir.join("journal.ndjson").display()
         );
     }
+    // The object-store transfer phase. It runs AFTER state authority has been
+    // acquired (two runs over one source must not fetch into the same mirror at
+    // once) and BEFORE the walk, which then sees ordinary local files.
+    let mut object_report: Option<objsource::MaterializeReport> = None;
+    if let Some(run) = &object_run {
+        pr.note(&format!(
+            "autoindex: object source {} — mirroring into {}",
+            run.identity,
+            run.mirror.display()
+        ));
+        let mode = if cfg.dry_run {
+            objsource::MaterializeMode::PlanOnly
+        } else {
+            objsource::MaterializeMode::Fetch
+        };
+        let report = objsource::materialize(run, &pr, cfg.scan_workers, mode)?;
+        for line in report.summary_lines() {
+            pr.note(&format!("autoindex: {line}"));
+        }
+        // Not a `note`: what a run costs at the object store is the kind of fact
+        // an operator has to see even when they asked for quiet, because the
+        // mistake it prevents is a cron entry that spends a monthly allowance.
+        for line in report.cost_lines() {
+            pr.warn(&format!("autoindex: {line}"));
+        }
+        if cfg.dry_run && report.pending > 0 {
+            // stdout is the RESULT. A dry run over an object source that would
+            // have to transfer bytes stops here instead of transferring them.
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "source": run.identity,
+                    "objects_listed": report.objects_listed,
+                    "objects_admitted": report.admitted,
+                    "objects_to_fetch": report.pending,
+                    "bytes_to_fetch": report.pending_bytes,
+                    "objects_already_local": report.unchanged,
+                    "list_requests_class_a": report.list_requests,
+                    "mirror": run.mirror.display().to_string(),
+                }))?
+            );
+            pr.note(
+                "(dry run — nothing downloaded and nothing indexed. A discovery plan needs the \
+                 object bytes, and a preview must not pay for them: run without --dry-run to \
+                 fetch and index, or re-run --dry-run once the mirror is current to get the \
+                 plan projection for free.)",
+            );
+            pr.finish(
+                true,
+                0,
+                "dry-run-object-source",
+                &[
+                    ("objects", report.admitted),
+                    ("objects_to_fetch", report.pending),
+                    ("list_requests", report.list_requests),
+                ],
+            );
+            return Ok((0, None));
+        }
+        object_report = Some(report);
+    }
     // Totals are unknown until the walk returns, so this phase honestly
     // reports `pct=unknown` and proves liveness with the clock alone.
     pr.phase("walk", 0, 0);
@@ -4783,7 +4892,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // state: with a journal present, zero files is a deletion of the whole
     // corpus and has to be reconciled, not shrugged off.
     if discovered_files.is_empty() && !preflight.journal_exists {
-        println!("no files found under {}", cfg.root.display());
+        println!("no files found under {root_str}");
         pr.finish(true, 0, "no-files", &[]);
         return Ok((0, None));
     }
@@ -4793,8 +4902,38 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // forever after a same-size rewrite with restored or stale timestamps.
     // Hashing reads every byte of the corpus. On a large tree it is minutes of
     // real work, and before #241 it was minutes with no output at all.
-    pr.phase("hash", discovered_files.len() as u64, discovered_bytes);
-    let mut inventory = content::resolve_reporting(discovered_files, &|bytes| pr.item_done(bytes))?;
+    let mut inventory = match watch {
+        // A plain run hashes the whole corpus, every time, on purpose: see
+        // `content::resolve_reporting`.
+        None => {
+            pr.phase("hash", discovered_files.len() as u64, discovered_bytes);
+            content::resolve_reporting(discovered_files, &|bytes| pr.item_done(bytes))?
+        }
+        // A `--watch` pass hashes what the watcher could not prove unchanged.
+        // The phase's totals are the files this pass will actually read, so the
+        // percent and the ETA describe the work being done rather than the work
+        // a full run would have done.
+        Some(pass) => {
+            let plan = pass.plan(&discovered_files);
+            let (carried_files, carried_bytes) = (plan.carried_files, plan.carried_bytes);
+            pr.phase("hash", plan.hash_files, plan.hash_bytes);
+            pr.note(&format!(
+                "autoindex: --watch: re-hashing {} file(s) ({} MB); {carried_files} file(s) \
+                 ({} MB) carried from the previous pass",
+                plan.hash_files,
+                plan.hash_bytes >> 20,
+                carried_bytes >> 20,
+            ));
+            let inventory = content::resolve_reporting_carried(
+                discovered_files,
+                &|entry| plan.carried(entry),
+                &|entry, digest, fresh| plan.observe(entry, digest, fresh),
+                &|bytes| pr.item_done(bytes),
+            )?;
+            pass.commit(plan);
+            inventory
+        }
+    };
     if cfg.no_graph && preflight.committed_manifest.is_some() && !genesis_recovery {
         if cfg.dry_run {
             let base = preflight
@@ -5091,7 +5230,7 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     sync_executor::gc_snapshots(&state_dir, &journal)?;
     let resumed_with_plan = journal.plan.is_some() && !genesis_recovery;
     if inventory.files.is_empty() && !resumed_with_plan {
-        println!("no files found under {}", cfg.root.display());
+        println!("no files found under {root_str}");
         pr.finish(true, 0, "no-files", &[]);
         return Ok((0, None));
     }
@@ -7402,10 +7541,34 @@ fn run_index_report_tallied(cfg: IndexCfg, tally: &ScanTally) -> Result<(i32, Op
     // A resume intentionally reuses and upserts the durable run id. Timing
     // and detector counters therefore describe this latest invocation,
     // while corpus descriptors describe the durable live run state.
+    // What the object store was asked for, when the source was one. Part of the
+    // run document because "how much did indexing this bucket cost" has to be
+    // answerable after the fact, not only from a terminal that has scrolled.
+    let object_source_summary = object_report.as_ref().map(|report| {
+        json!({
+            "objects_listed": report.objects_listed,
+            "objects_admitted": report.admitted,
+            "objects_downloaded": report.downloaded,
+            "bytes_downloaded": report.bytes_downloaded,
+            "objects_unchanged_not_downloaded": report.unchanged,
+            "objects_removed_locally": report.removed,
+            "objects_vanished_between_list_and_get": report.vanished,
+            "objects_without_etag": report.without_etag,
+            "list_requests_class_a": report.list_requests,
+            "get_requests_class_b": report.read_requests,
+            "transfer_ms": report.elapsed_ms,
+            "keys_skipped_by_rule": report
+                .skipped
+                .iter()
+                .map(|(rule, count)| (rule.clone(), json!(count)))
+                .collect::<Map<String, Value>>(),
+        })
+    });
     let mut run_doc = json!({
         "doc_kind": "run",
         "run_id": run_id,
         "root": root_str,
+        "object_source": object_source_summary,
         "url": cfg.url,
         "prefix": cfg.prefix,
         "started": started,

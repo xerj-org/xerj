@@ -38,6 +38,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   8 GiB cap a 300 MB mailbox completes with the node peaking at 18–20 GiB;
   and after a restart, a first-time query on the 1 GB index takes either
   under 50 ms or seconds (up to 16.6 s measured) until the node warms.
+- **`xerj autoindex <folder> --watch` keeps an index current from filesystem
+  events instead of a re-run.** The session indexes once, then places one OS
+  watch per *indexed* directory (`notify`: inotify / FSEvents /
+  ReadDirectoryChangesW) and reindexes what changed, debounced (`--debounce`,
+  default 400 ms) so one editor save is one pass. The watch set comes from the
+  same walk the indexer uses, so an ignored `target/` costs no watch and
+  produces no events, and a watched run and a re-run agree on what is indexed.
+  A file skips its re-hash only when no event named it or an ancestor AND its
+  `(size, mtime, inode)` fingerprint is unchanged; the cache is in-memory, so a
+  restart re-hashes in full. Requires `--no-graph`, refused rather than
+  downgraded: reconciling an ADDED or DELETED file exists only on that route —
+  on the graph path a re-run skips a file added after the resume plan was frozen
+  (exit 3, `appeared after the resume plan was frozen`) and ABORTS on a deleted
+  one (exit 1, and every re-run after it), so a watcher there would go stale on
+  the first new file and stop reindexing on the first deletion. A file whose
+  CONTENT changed is reconciled on the graph path, measured at 3.07 s; the
+  earlier claim that it is not came from a measurement whose shell append had
+  created a file instead of modifying one. Measured on a 10,000-file /
+  4,576,300-byte tree, single samples on a shared box: idle costs 0.00
+  CPU-seconds per minute and 0 bytes read (holding 157 MiB and 295 threads),
+  against 1.7 s wall / 2.1 CPU-s and a full corpus re-read for every poll of a
+  re-run loop. Per change `--watch` is not faster than re-running the same
+  command (47.6 s / 6.6 CPU-s against 44.3 s / 7.6 CPU-s for one modified file);
+  both beat re-indexing the folder from scratch (293.8 s / 127.9 CPU-s) by an
+  order of magnitude. The pass cost is two O(corpus) terms neither route avoids
+  — a ~13 s snapshot over the whole inventory
+  (`sync_executor::create_snapshot_inner`) and ~27 s of server CPU rewriting one
+  catalog document per file — the measured next lever, not fixed here. Hitting
+  `fs.inotify.max_user_watches` stops the run with the limit, the directory
+  count and the `sysctl`, because a half-watched tree looks live and silently is
+  not. Docs: `docs/LIVE_REINDEXING.md`, measurement record in
+  `docs/measurements/autoindex-watch-2026-09-19.md`.
+- **`xerj autoindex s3://bucket/prefix` indexes an S3-compatible bucket** —
+  Amazon S3, Cloudflare R2 (`r2://`), MinIO, Ceph or anything else that speaks
+  S3, via `--endpoint-url` (falling back to `AWS_ENDPOINT_URL_S3` /
+  `AWS_ENDPOINT_URL`). The bucket is a *source*, not a second product: the
+  prefix is listed with ListObjectsV2, each object is streamed into a local
+  mirror under `--state-dir`, and the ordinary discovery pipeline — sniffing,
+  the code and document extractors, the plan, the resume journal, the
+  incremental reconcile — runs over that mirror unchanged. Credentials come
+  only from the environment (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` /
+  `AWS_SESSION_TOKEN`) — no profile files, no instance metadata, no SSO, and
+  never from the URL (`s3://key:secret@…` is refused by name). `aws-config` is
+  deliberately not a dependency: it would re-enable the SDK's default HTTPS
+  client and with it the `aws-lc-rs` C/assembly crypto backend that this
+  workspace keeps out of its cross-compile matrix, and it would bring a second
+  S3 client with the SDK's own invisible retry layer. Change detection is the ETag plus the size, treated as an
+  opaque token: a multipart `-N` ETag is stored and compared verbatim and never
+  mistaken for an MD5, and a store that returns no ETag falls back to
+  last-modified plus size with the count of such objects reported. Keys that
+  cannot become a safe portable path (`..`, control characters, Windows
+  reserved names, case collisions), dotfiles and the built-in build-output
+  list are filtered out of the listing, so they never cost a request. Cost is
+  printed by every run, in the two classes that are billed: a scan is
+  `ceil(N/1000)` LIST (class A) plus one GET (class B) per changed object, and
+  the run also prints what the same command would cost daily, hourly and every
+  five minutes against a 1,000,000/month free allowance. Those counts are
+  **billed wire attempts**: the SDK's own retry layer is disabled and the
+  client charges its counter before each attempt, so a throttled request that
+  succeeded on its third try reports three, and one that exhausts its retries
+  reports what it spent instead of nothing. A run that fails mid-transfer
+  records the objects whose bytes already landed (and checkpoints every ten
+  seconds during a long one), so the re-run pays one GET per object it had not
+  already fetched rather than paying for all of them twice; the LIST cost is
+  paid again. Measured end to end
+  against a live node and MinIO: first index of six keys (including a 12 MiB
+  real multipart object) 1 LIST + 5 GET; unchanged re-run 1 LIST + **0 GET**;
+  one changed object 1 LIST + 1 GET; one deleted object (`--no-graph`, the
+  journal that reconciles deletions) removes exactly that object's documents.
+  A 1 GiB object streams through for 4 MB of RSS growth (22 MB → 26 MB), in
+  281–318 ms over four loopback runs — the memory figure is the claim; the
+  milliseconds are a same-host transfer and not a throughput benchmark. Nothing is
+  ever written to the bucket, and the index stays on the node's local disk —
+  `docs/OBJECT_STORAGE.md` states both, with the request arithmetic and the
+  measured runs.
+- **A real S3-compatible object-storage backend — Cloudflare R2, MinIO and AWS
+  S3 — with per-request cost accounting.** `xerj-storage`'s `S3Backend` was a
+  local-directory simulation that its own doc comment admitted to; it is now an
+  `aws-sdk-s3` client doing ranged `GetObject`, `PutObject`, paginated
+  `ListObjectsV2` and `HeadObject`, verified against both MinIO and R2
+  (including the 1,200-object `ListObjectsV2` page boundary, listed in exactly
+  two Class A operations). The simulation is kept as `SimulatedObjectStore`, a
+  test double, because unit tests want a backend with no network and no cost.
+  Because object stores bill per request and Cloudflare R2's free tier allows
+  1,000,000 Class A operations a month *per account* — about 23 a minute for
+  everything — the backend counts every billed attempt by class and exposes it
+  through `StorageBackend::ops()`, and `OpBudget` refuses to send more past a
+  ceiling. Counted per wire attempt, which is why the AWS SDK's retry layer is
+  disabled in favour of XERJ's own: an SDK-internal retry is invisible to a
+  counter wrapped around the call. A listing is bounded by a seen-token check
+  (which catches a continuation-token cycle of any length, not only an
+  immediately repeated token) and by `S3Config::max_list_pages`, so a broken or
+  hostile endpoint cannot bill a Class A request per page without end. `SegmentCache` gained hit/miss/bytes
+  accounting, `get_range` (whole-object fetch on miss, then slice) and
+  `get_range_uncached` (fetch the range only) — measured against MinIO on
+  loopback at 5.98 ms cold, 1.67 ms range-only and 0.068 ms warm, and, in a
+  single unrepeated run over a ~1 MB/s link that is not a performance claim
+  about R2, against R2 at 3.72 s, 0.67 s and 0.12 ms. **`storage.backend =
+  "s3"` still refuses to start**: nothing routes the index's segment reads and
+  writes through the backend, the flush path that exists uploads 1 of a
+  segment's 104 files, and `snapshot.json` never leaves local disk, so a fresh
+  node pointed at a bucket sees zero segments — asserted by
+  `object_store_mode_does_not_yet_make_an_index_stateless`, which also shows
+  that a fresh node *can* fetch and read a segment from the bucket by id. Full
+  arithmetic, measurements and remaining work in
+  [docs/OBJECT_STORAGE.md](docs/OBJECT_STORAGE.md).
 
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
@@ -106,8 +212,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lay out judged search, share links and a guest reading room, mail ingest,
   semantic detections, a real object-storage backend, a block index mode for
   logs, user-code ingest plugins and a corpus hub of signed packs — and say
-  plainly what exists today: `S3Backend` is a local-directory simulation and
-  `storage.backend = "s3"` refuses to start on purpose, `_watcher` stores
+  plainly what exists today: `S3Backend` was a local-directory simulation and
+  `storage.backend = "s3"` refuses to start on purpose — the first half of that
+  is no longer true in this same release, see the object-storage backend entry
+  above; the refusal stands, because the index segment path is still local —
+  `_watcher` stores
   watches and never evaluates them, alert rules have schemas and no
   evaluator, `xerj-logs` has no caller, and there is no wasmtime backend in
   the tree. The measuring behind it

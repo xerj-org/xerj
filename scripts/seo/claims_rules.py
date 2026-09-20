@@ -119,24 +119,56 @@ RULES = [
                     "storage yourself."),
     },
     {
-        "id": "FC-S3-INGEST",
-        "title": "Native object-store ingest / indexing",
-        "intent": "claims that autoindex or the engine reads directly from an object store",
+        # Was FC-S3-INGEST, which blocked any claim that autoindex reads from an
+        # object store. That claim became TRUE: `xerj autoindex s3://bucket/prefix`
+        # lists the prefix over ListObjectsV2 and streams each changed object in.
+        # What is still false — and is what this rule now guards — is the OTHER
+        # half people assume follows from it: that the INDEX therefore lives in
+        # the bucket, or that no local disk is involved. Both are wrong, and both
+        # are the kind of claim a reader would act on by sizing a machine with no
+        # room for the corpus.
+        "id": "FC-S3-INDEX-IN-BUCKET",
+        "title": "The INDEX living in object storage",
+        "intent": "claims that XERJ keeps its index, segments or shards in a bucket, "
+                  "or that indexing a bucket needs no local disk",
         "sev": ERROR,
         "kind": "pattern",
-        "pattern": r"\b(?:index|ingest|crawl|scan|autoindex|read)\w*\s+(?:\w+\s+){0,3}?(?:an?\s+)?(?:%s)\b" % _S3_TERMS,
+        "pattern": (r"(?:\b(?:index|indexes|indices|segments?|shards?)\b[^.\n]{0,60}?"
+                    r"\b(?:in|into|inside|on|to)\s+(?:the\s+|an?\s+|your\s+)?(?:%s)\b"
+                    r"|\b(?:%s)\b[^.\n]{0,60}?\b(?:holds?|stores?|keeps?|hosts?)\s+"
+                    r"(?:the\s+|its\s+|your\s+)?(?:index|segments?|shards?)\b"
+                    r"|\bno local (?:disk|storage|filesystem)\b[^.\n]{0,80}\b(?:%s)\b"
+                    r"|\b(?:%s)\b[^.\n]{0,80}\bno local (?:disk|storage|filesystem)\b)"
+                    % (_S3_TERMS, _S3_TERMS, _S3_TERMS, _S3_TERMS)),
         "exempt": [
-            r"mount|mounted|s3fs|rclone|sync(?:ed)? (?:it )?(?:down|locally)|copy (?:it )?(?:down|locally)|"
-            r"already on disk|local(?:ly)? first|filesystem walk",
             _neg_near(_S3_TERMS, 120),
+            # "<object-store noun> ... does not work / cannot / will not" — the
+            # shape `_neg_near` misses, because it only looks for a negation
+            # BEFORE the noun or for "<noun> is not". A sentence that says
+            # "storing the index in a bucket does not work" is the correct
+            # phrasing and must never be flagged as the claim it denies.
+            r"\b(?:%s)\b[^.\n]{0,60}\b(?:does|do|did|can|will|would|could)\s+not\b" % _S3_TERMS,
+            # The honest phrasings, which must never trip: the index on the node,
+            # the mirror on local disk, the source-only scope.
+            r"index (?:still )?(?:lives|stays|remains|sits|is) on (?:the )?local disk|"
+            r"index (?:still )?lives on the node|on the XERJ node|index stays on|"
+            r"mirror(?:ed|s)? (?:in)?to local|local mirror|under --state-dir|"
+            r"source documents? (?:only|are)|only the source",
         ],
-        "reason": ("`xerj autoindex` walks a LOCAL FILESYSTEM. There is no object-store reader. "
-                   "The THING coverage matrix marks 'S3 bucket' RED: 'Do not imply native S3 "
-                   "ingest. Quickwit owns object-storage indexing.'"),
-        "evidence": [RC + ":374", RJ + ":44"],
-        "rewrite": ("Mount or sync the bucket to local disk first (s3fs, rclone, `aws s3 sync`), "
-                    "then point `xerj autoindex` at the directory. XERJ does not read from object "
-                    "storage itself."),
+        "reason": ("The SOURCE can be a bucket; the INDEX cannot. `xerj autoindex "
+                   "s3://bucket/prefix` lists the prefix and streams each changed object "
+                   "into a local mirror under `--state-dir`, and the index those documents "
+                   "are written into lives on the XERJ node's own disk. There is no "
+                   "object-store storage backend: `storage.backend = \"s3\"` is rejected at "
+                   "startup, and no segment, shard or WAL file is ever written to a bucket. "
+                   "A reader who believes otherwise sizes a host with no disk for the corpus "
+                   "and no disk for the index."),
+        "evidence": ["docs/OBJECT_STORAGE.md:255", "docs/OBJECT_STORAGE.md:320"],
+        "rewrite": ("XERJ reads DOCUMENTS from object storage: `xerj autoindex "
+                    "s3://bucket/prefix` (also `r2://`, or any S3-compatible store with "
+                    "`--endpoint-url`). The objects are mirrored to local disk under "
+                    "`--state-dir` and the index lives on the XERJ node. Keeping the index "
+                    "itself in a bucket is not implemented."),
     },
 
     # ---------------------------------------------------------------- RBAC / SSO
@@ -1491,8 +1523,19 @@ THING_MATRIX = [
      "gate": "Plausible and cheap to verify - potentially a fun, uncontested page.",
      "aliases": [r"browser history", r"chrome history", r"firefox history"]},
 
-    {"thing": "S3 bucket", "status": RED, "mech": "filesystem walk only", "cite": RC + ":374",
-     "gate": "Do not imply native S3 ingest. Quickwit owns object-storage indexing.",
+    # Was RED ("filesystem walk only", RESEARCH-competitors-longtail.md:374). The
+    # capability landed: `xerj autoindex s3://bucket/prefix` lists the prefix with
+    # ListObjectsV2 and streams each changed object in, with ETag+size change
+    # detection. The research document still says RED, so `--check-matrix` reports
+    # drift on this row by design — the code is the newer fact. The narrow claim
+    # that is still false has its own rule, FC-S3-INDEX-IN-BUCKET.
+    {"thing": "S3 bucket", "status": GREEN,
+     "mech": "objsource.rs - ListObjectsV2 + streaming GET into a local mirror, ETag+size change detection",
+     "cite": "docs/OBJECT_STORAGE.md:1",
+     "gate": ("Write - s3://, r2:// and any S3-compatible store via --endpoint-url. SOURCE side "
+              "only: the objects are mirrored to local disk under --state-dir and the index stays "
+              "on the node. Never imply the index lives in the bucket, and never imply a watcher - "
+              "a run is one-shot and the run prints what a schedule would cost."),
      "aliases": [r"\bs3 bucket\b", r"s3://", r"object stor(?:e|age)",
                  r"\bs3\b[^\n]{0,20}\b(?:ingest|index|indexing|search|scan|crawl)\b",
                  r"\b(?:ingest|index|indexing|search|scan|crawl)\w*\b[^\n]{0,20}\bs3\b"]},

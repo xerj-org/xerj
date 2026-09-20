@@ -342,6 +342,7 @@ const EDGES_INDEX: &str = ".xerj-memory-notes-edges";
 pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
     IndexCfg {
         root: root.to_owned(),
+        endpoint_url: None,
         url: url.to_owned(),
         api_key: None,
         api_key_file: None,
@@ -377,6 +378,8 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         quiet: true,
         progress: crate::progress::ProgressMode::None,
         progress_interval: None,
+        watch: false,
+        debounce: std::time::Duration::from_millis(0),
     }
 }
 
