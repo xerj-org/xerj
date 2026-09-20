@@ -1,0 +1,168 @@
+{
+ "profile": "mixed",
+ "target_size": "1G",
+ "label": "after",
+ "extra_autoindex_flags": "",
+ "resumed_after_a_failed_run": false,
+ "autoindex_exit_code": 1,
+ "autoindex_last_line": "error: autoindex stopped with bulk/backend failures: _bulk: HTTP 429 Too Many Requests: {\"took\":1244,\"errors\":true,\"items\":[{\"index\":{\"_index\":\"bench-docs\",\"_id\":\"87b8c9e9f4ef49a1e71c94cf0219bbd2\",\"_version\":1,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":429,\"error\":{\"type\":\"engine_exception\",\"reason\":\"[parent] real memory circuit breaker tripped: rss=19526MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill\",\"status\":429}}},{\"index\":{\"_index\":\"bench-docs\",\"_id\":\"1d04b92fe8ef4d44693b2153733be23e\",\"_version\":1",
+ "source": {
+  "mbox_bytes": 1073777879,
+  "tree_bytes": 1073794434,
+  "entries": 40799,
+  "attachments": {
+   "binary": 5698,
+   "pdf": 4261,
+   "text": 4300
+  },
+  "mbox_sha256": "4098bf60c0cba54e6dc21737c5ddb0883da45854eec928e3e39ff1434aec0323"
+ },
+ "wall_seconds": 236.4,
+ "node_docs_indexed": 61442,
+ "docs_per_second": 259.9,
+ "source_mb_per_second": 4.54,
+ "peak_rss_mb": {
+  "autoindex_process": 227.2,
+  "largest_single_process_in_autoindex_tree": 225.1,
+  "server": 22112.0,
+  "server_idle_before_run": 124.8
+ },
+ "disk_bytes": {
+  "index_at_autoindex_exit": 390597743,
+  "index_settled": 430491526,
+  "index_settled_over_mbox": 0.401,
+  "state_dir_peak_during_run": 252311996
+ },
+ "loadavg_before": "41.38 53.25 48.15",
+ "loadavg_after": [
+  "29.87",
+  "46.73",
+  "47.59"
+ ],
+ "verify": {
+  "node_docs": 61442,
+  "mbox_docs": 61412,
+  "attachment_docs": 22923,
+  "needles": {
+   "body": {
+    "planted": 418,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "latin1-8bit-body": {
+    "planted": 1160,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "cp1252-undeclared-body": {
+    "planted": 417,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "after-unquoted-prose-from": {
+    "planted": 41,
+    "found_exactly_once": 24,
+    "missing": 17,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 41
+   },
+   "pdf-attachment": {
+    "planted": 265,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "text-attachment": {
+    "planted": 216,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [
+   {
+    "missing": {
+     "message_id": "prosefrom-24000@example.org",
+     "token": "xqzovacazoji",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-25000@example.org",
+     "token": "xqdabijakupe",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-26000@example.org",
+     "token": "xqrojanuvomu",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-27000@example.org",
+     "token": "xqzafisaluwu",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-28000@example.org",
+     "token": "xqbugowewuno",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   }
+  ],
+  "edges": {
+   "replies_to": {
+    "written": 0,
+    "truth_resolvable_replies": 21544
+   },
+   "attachment_of": {
+    "written": 0,
+    "attachment_docs": 22923
+   }
+  },
+  "empty_no_subject_docs": 0
+ },
+ "binary": "branch feat/ingest-mbox-takeout at 22605dd0 (thread pool + per-item 429 re-offer; HTTP-level 429 still on the six-attempt budget)",
+ "note": "the per-item re-offer engaged once and worked; then the breaker answered with HTTP 429 during a 57 s episode and the six-attempt budget ran out. Fixed in the next commit (retry_loop patience for HTTP 429 in a loading run)."
+}

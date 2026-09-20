@@ -1,0 +1,18 @@
+[package]
+name = "xerj-rerank"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Pluggable relevance reranking for xerj — calibrated second-stage scoring over retrieved candidates"
+
+[dependencies]
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }

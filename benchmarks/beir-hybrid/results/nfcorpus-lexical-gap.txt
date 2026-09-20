@@ -1,0 +1,27 @@
+docs=3633  vocab=26359  test_queries=323
+test queries sharing NO token with any document: 25
+  PLAIN-1008	deafness
+  PLAIN-1098	eggnog
+  PLAIN-1214	Fosamax
+  PLAIN-1309	halibut
+  PLAIN-1496	leeks
+  PLAIN-1611	mesquite
+  PLAIN-1621	Mevacor
+  PLAIN-1679	myelopathy
+  PLAIN-1752	okra
+  PLAIN-1827	Peoria
+  PLAIN-1867	pineapples
+  PLAIN-2134	Splenda
+  PLAIN-2209	taro
+  PLAIN-2271	Tufts
+  PLAIN-2281	turnips
+  PLAIN-2375	whiting
+  PLAIN-2396	Yale
+  PLAIN-2408	Zoloft
+  PLAIN-510	airport scanners
+  PLAIN-520	Alli
+  PLAIN-551	amnesia
+  PLAIN-583	antinutrients
+  PLAIN-645	bagels
+  PLAIN-817	canker sores
+  PLAIN-997	Czechoslovakia

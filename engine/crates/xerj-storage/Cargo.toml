@@ -68,6 +68,12 @@ tempfile = { workspace = true }
 # Async trait support
 async-trait = "0.1"
 
+# S3-compatible object storage (Cloudflare R2, MinIO, AWS S3).
+# Feature selection (no default-https-client / no aws-lc-rs) is pinned in the
+# workspace manifest — see engine/Cargo.toml for why.
+aws-sdk-s3 = { workspace = true }
+aws-smithy-http-client = { workspace = true }
+
 [dev-dependencies]
 tokio = { workspace = true }
 tempfile = { workspace = true }

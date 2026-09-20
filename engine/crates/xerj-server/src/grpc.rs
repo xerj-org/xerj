@@ -128,6 +128,18 @@ impl XerjSearch for GrpcService {
                 Status::invalid_argument(format!("query_json is not valid JSON: {e}"))
             })?
         };
+        // `query_json` may be a full request body, and `parse_request` ignores
+        // keys it does not know — so a `rerank` block vanished here and the
+        // caller got the engine's order back, believing it had been reranked.
+        // Refused by name instead. Checked before the bare-clause wrap below,
+        // which would otherwise bury the key inside `query`.
+        // `carries_rerank`, the rule every HTTP surface uses: `"rerank": null`
+        // is an absent block, not a rerank request.
+        if xerj_api::rerank_stage::carries_rerank(&body) {
+            return Err(Status::invalid_argument(
+                xerj_api::rerank_stage::unsupported_reason("the gRPC Search RPC"),
+            ));
+        }
         if body.get("query").is_none() {
             body = serde_json::json!({ "query": body });
         }
@@ -585,6 +597,41 @@ mod tests {
             .expect("get rpc (missing)")
             .into_inner();
         assert!(!missing.found);
+
+        // ── A `rerank` block is refused by name, never silently dropped ──
+        // `query_json` may be a whole request body and `parse_request`
+        // ignores unknown keys, so this used to return the engine's order.
+        let refused = client
+            .search(pb::SearchRequest {
+                index: "grpc_test".into(),
+                query_json: r#"{"query":{"match":{"title":"hello"}},"rerank":{}}"#.into(),
+                size: 10,
+                from: 0,
+            })
+            .await
+            .expect_err("a rerank block must be refused on gRPC");
+        assert_eq!(refused.code(), tonic::Code::InvalidArgument, "{refused:?}");
+        assert!(refused.message().contains("rerank"), "{refused:?}");
+        assert!(refused.message().contains("_search"), "{refused:?}");
+
+        // `"rerank": null` is the same as no `rerank` key, here as on every
+        // HTTP surface. This check used to be `get("rerank").is_some()`, which
+        // is true for JSON null, so gRPC alone refused what the docs call
+        // "absent on every surface".
+        let null_is_absent = client
+            .search(pb::SearchRequest {
+                index: "grpc_test".into(),
+                query_json: r#"{"query":{"match":{"title":"hello"}},"rerank":null}"#.into(),
+                size: 10,
+                from: 0,
+            })
+            .await
+            .expect("`rerank: null` is an absent block, not a rerank request")
+            .into_inner();
+        assert_eq!(
+            null_is_absent.hits.first().map(|h| h.id.as_str()),
+            Some("doc1")
+        );
 
         // ── Search must see the freshly indexed (memtable) doc ───────────
         let search = client

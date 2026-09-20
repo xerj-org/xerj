@@ -215,8 +215,8 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records
 ```
 
 Source files go through tree-sitter, so code arrives with its symbols and line numbers
-instead of as flat text. CSV, JSON, JSONL, XML, YAML, SQLite, PDF, DOCX, HTML and common log
-formats are all handled. Unity projects get first-class treatment: text-serialized scenes,
+instead of as flat text. CSV, JSON, JSONL, XML, YAML, SQLite, PDF, DOCX, HTML, mail (`.eml` and mbox mailboxes,
+including a Google Takeout export) and common log formats are all handled. Unity projects get first-class treatment: text-serialized scenes,
 prefabs and assets become one record per GameObject/Component, `.meta` files become a
 GUID-to-path table, and MonoBehaviour records carry `script_class`/`script_path` so "which
 scenes use this script?" is a single query (binary-serialized assets need Force Text to be
@@ -413,6 +413,12 @@ limits each one does not lift:
   snapshot API, and what restore replaces.
 - [Security model](./docs/SECURITY_MODEL.md) for authentication, the reserved
   `.xerj-memory-*` namespace, API keys and what is not enforced.
+- [Reranking](./docs/RERANK.md) for the optional `rerank` search stage: an external judge
+  reorders the top hits by a calibrated probability. It is the only search-time feature
+  that sends document text off the node (proxy embeddings and the WAL tap also send text
+  when an operator configures them; the page lists every outbound connection a node can
+  open), it needs an operator-configured provider key, and
+  its ranking quality with the real model is not verified.
 - [XERJ vs Lucene 10.3.1](./docs/XERJ_VS_LUCENE.md) for a source-pinned, six-axis comparison
   of their storage and search designs.
 

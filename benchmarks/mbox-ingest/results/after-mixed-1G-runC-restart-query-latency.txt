@@ -1,0 +1,308 @@
+# Query latency on run C's 1 GB index after a node RESTART
+#
+# What: 40 single-term `match body <needle>` queries, 8 per needle kind (the five kinds with more
+#       than 60 needles), drawn with a fixed seed from the needles verify.py's old default window
+#       never touched (index >= 60 of each kind), so no earlier run's query cache can answer them.
+#       Pass 2 is 40 DIFFERENT needles (another seed) on the same, now warmer, node.
+#       Script: benchmarks/mbox-ingest/latency_sample.py --seed 20260919 (pass 1) / --seed 777 (pass 2).
+# Index: a byte copy of run C's settled data dir (760 MB, 106,581 docs; after-mixed-1G-runC-uncapped.json),
+#       written by the branch binary at 4c0c4685. Nothing was re-indexed. Every measurement below
+#       started from a FRESH copy, booted on a throwaway node (auth on, lexical embedder), queried
+#       by the release build of feat/ingest-mbox-takeout (6bd8517a for M1, 69b0e8ba for M2 and M3;
+#       the commits between them change xerj-autoindex only, not the engine's search path).
+# Every answer in every pass was correct: 40/40, one document, from the right message.
+#
+# THE FINDING (same shape in every measurement): a first-time query is either under 50 ms or
+# seconds (all 240 samples: 181 under 50 ms, 5 at 0.5-1 s, 54 over 1 s), and the server log puts the whole cost in `segment_loop` of `search_inner`
+# (e.g. "slow search_inner ... total_ms=16550 ... segment_loop=16549ms"). Under the DEFAULT cap
+# (16 GiB on this 119 GiB machine; 8 GiB on a 16 GiB laptop) the slow share stays high into the
+# second pass; with the cap lifted it falls to 1 of 40 by the second pass. The node's
+# segment_hydration_cache_mb is 3,276 under the default cap and 24,421 with it lifted (read
+# from the node log); that this cache is the cause is an INFERENCE - not profiled. Server VmHWM
+# after the passes: ~13.5 GB in both configurations (13,521,300 / 13,534,848 kB in M2 / M3).
+# The box was SHARED throughout (1-minute load recorded per pass): the seconds are upper bounds
+# for an idle machine; the fast/slow split (~1000x) is not a load effect.
+#
+# Summary
+#   M1  default cap   load 49.5 -> 23.0   pass 1: 17/40 over 1 s, max 16.55 s | pass 2: 8/40, max 8.14 s
+#   M2  default cap   load 16.3 -> 17.9   pass 1: 16/40 over 1 s, max  8.69 s | pass 2: 8/40, max 8.11 s
+#   M3  cap lifted    load 15.9 -> 13.4   pass 1:  4/40 over 1 s, max  9.10 s | pass 2: 1/40, max 1.56 s
+# For contrast, M1's copy restarted with the cap lifted, after two such samples, answered verify.py's 2,620 requests in 58.09 s in total, median 19.5 ms,
+# max 0.155 s (after-mixed-1G-runC-verify-every-needle.json).
+#
+# ======== M1 - 2026-09-19 20:42 UTC, default cap ("using a 16 GiB cap (auto tier)", watermark
+# 15,564 MB), 127.0.0.1:10200. Server VmHWM after pass 1: 13,546,016 kB. Load 49.5 before pass 1,
+# 23.0 after. Appended to issue #948.
+# ---- pass 1 (first queries after the restart) ----
+body                            3026.3 ms  hits=1 ok
+body                           10535.5 ms  hits=1 ok
+body                           16554.0 ms  hits=1 ok
+body                              22.3 ms  hits=1 ok
+body                              22.9 ms  hits=1 ok
+body                              23.5 ms  hits=1 ok
+body                              21.5 ms  hits=1 ok
+body                              22.5 ms  hits=1 ok
+cp1252-undeclared-body         12589.3 ms  hits=1 ok
+cp1252-undeclared-body            26.8 ms  hits=1 ok
+cp1252-undeclared-body         12965.0 ms  hits=1 ok
+cp1252-undeclared-body            20.1 ms  hits=1 ok
+cp1252-undeclared-body         11852.2 ms  hits=1 ok
+cp1252-undeclared-body            19.8 ms  hits=1 ok
+cp1252-undeclared-body            20.4 ms  hits=1 ok
+cp1252-undeclared-body            19.8 ms  hits=1 ok
+latin1-8bit-body                9003.5 ms  hits=1 ok
+latin1-8bit-body                  16.3 ms  hits=1 ok
+latin1-8bit-body                  17.5 ms  hits=1 ok
+latin1-8bit-body                8794.4 ms  hits=1 ok
+latin1-8bit-body                  45.8 ms  hits=1 ok
+latin1-8bit-body                  13.4 ms  hits=1 ok
+latin1-8bit-body                1147.1 ms  hits=1 ok
+latin1-8bit-body                  17.1 ms  hits=1 ok
+pdf-attachment                    12.8 ms  hits=1 ok
+pdf-attachment                    11.4 ms  hits=1 ok
+pdf-attachment                  9555.0 ms  hits=1 ok
+pdf-attachment                    13.3 ms  hits=1 ok
+pdf-attachment                  8602.8 ms  hits=1 ok
+pdf-attachment                    18.3 ms  hits=1 ok
+pdf-attachment                    18.6 ms  hits=1 ok
+pdf-attachment                  8173.3 ms  hits=1 ok
+text-attachment                 7496.1 ms  hits=1 ok
+text-attachment                 7723.1 ms  hits=1 ok
+text-attachment                   11.8 ms  hits=1 ok
+text-attachment                 7502.0 ms  hits=1 ok
+text-attachment                   11.8 ms  hits=1 ok
+text-attachment                   11.9 ms  hits=1 ok
+text-attachment                 7391.8 ms  hits=1 ok
+text-attachment                 7596.6 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 17, "median_ms": 23.5, "max_s": 16.55, "total_s": 150.9}
+#
+# ---- pass 2 (40 other needles, same node) ----
+body                            7396.9 ms  hits=1 ok
+body                              12.7 ms  hits=1 ok
+body                              11.7 ms  hits=1 ok
+body                              11.0 ms  hits=1 ok
+body                              14.5 ms  hits=1 ok
+body                              11.3 ms  hits=1 ok
+body                              10.0 ms  hits=1 ok
+body                              10.2 ms  hits=1 ok
+cp1252-undeclared-body            10.6 ms  hits=1 ok
+cp1252-undeclared-body          1699.4 ms  hits=1 ok
+cp1252-undeclared-body            16.6 ms  hits=1 ok
+cp1252-undeclared-body            15.3 ms  hits=1 ok
+cp1252-undeclared-body           617.2 ms  hits=1 ok
+cp1252-undeclared-body            17.4 ms  hits=1 ok
+cp1252-undeclared-body            17.0 ms  hits=1 ok
+cp1252-undeclared-body          7687.6 ms  hits=1 ok
+latin1-8bit-body                  14.1 ms  hits=1 ok
+latin1-8bit-body                  12.7 ms  hits=1 ok
+latin1-8bit-body                  14.2 ms  hits=1 ok
+latin1-8bit-body                7165.4 ms  hits=1 ok
+latin1-8bit-body                  10.9 ms  hits=1 ok
+latin1-8bit-body                   9.5 ms  hits=1 ok
+latin1-8bit-body                   9.5 ms  hits=1 ok
+latin1-8bit-body                   0.8 ms  hits=1 ok
+pdf-attachment                  7112.5 ms  hits=1 ok
+pdf-attachment                    12.2 ms  hits=1 ok
+pdf-attachment                    12.2 ms  hits=1 ok
+pdf-attachment                    12.0 ms  hits=1 ok
+pdf-attachment                     9.5 ms  hits=1 ok
+pdf-attachment                    10.8 ms  hits=1 ok
+pdf-attachment                     0.8 ms  hits=1 ok
+pdf-attachment                     9.6 ms  hits=1 ok
+text-attachment                   10.5 ms  hits=1 ok
+text-attachment                 6882.4 ms  hits=1 ok
+text-attachment                   11.2 ms  hits=1 ok
+text-attachment                 8140.3 ms  hits=1 ok
+text-attachment                   18.8 ms  hits=1 ok
+text-attachment                   19.2 ms  hits=1 ok
+text-attachment                 7891.4 ms  hits=1 ok
+text-attachment                   16.4 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 8, "median_ms": 12.7, "max_s": 8.14, "total_s": 55.0}
+#
+# ======== M2 - 2026-09-19 21:18 UTC, default cap (16 GiB auto tier, segment_hydration_cache_mb=3276),
+# 127.0.0.1:12120. One `_count` on bench-* was sent before pass 1 to confirm the copy (106,581).
+# ---- pass 1 ----
+load_before: 16.27 9.59 9.75 19/6036 2867973
+body                            2178.0 ms  hits=1 ok
+body                            7177.7 ms  hits=1 ok
+body                            8648.9 ms  hits=1 ok
+body                              10.6 ms  hits=1 ok
+body                              10.0 ms  hits=1 ok
+body                               9.1 ms  hits=1 ok
+body                              11.4 ms  hits=1 ok
+body                               8.9 ms  hits=1 ok
+cp1252-undeclared-body          6761.5 ms  hits=1 ok
+cp1252-undeclared-body            10.8 ms  hits=1 ok
+cp1252-undeclared-body          6498.7 ms  hits=1 ok
+cp1252-undeclared-body            10.4 ms  hits=1 ok
+cp1252-undeclared-body          6770.3 ms  hits=1 ok
+cp1252-undeclared-body            10.1 ms  hits=1 ok
+cp1252-undeclared-body            11.5 ms  hits=1 ok
+cp1252-undeclared-body            10.1 ms  hits=1 ok
+latin1-8bit-body                6807.1 ms  hits=1 ok
+latin1-8bit-body                  16.7 ms  hits=1 ok
+latin1-8bit-body                  11.1 ms  hits=1 ok
+latin1-8bit-body                6880.5 ms  hits=1 ok
+latin1-8bit-body                  11.2 ms  hits=1 ok
+latin1-8bit-body                  10.8 ms  hits=1 ok
+latin1-8bit-body                 878.1 ms  hits=1 ok
+latin1-8bit-body                  10.5 ms  hits=1 ok
+pdf-attachment                     9.0 ms  hits=1 ok
+pdf-attachment                     8.8 ms  hits=1 ok
+pdf-attachment                  7078.3 ms  hits=1 ok
+pdf-attachment                    11.1 ms  hits=1 ok
+pdf-attachment                  6887.9 ms  hits=1 ok
+pdf-attachment                    10.7 ms  hits=1 ok
+pdf-attachment                    12.7 ms  hits=1 ok
+pdf-attachment                  6853.9 ms  hits=1 ok
+text-attachment                 6989.2 ms  hits=1 ok
+text-attachment                 7423.9 ms  hits=1 ok
+text-attachment                   12.6 ms  hits=1 ok
+text-attachment                 8227.9 ms  hits=1 ok
+text-attachment                   16.6 ms  hits=1 ok
+text-attachment                   11.4 ms  hits=1 ok
+text-attachment                 8325.8 ms  hits=1 ok
+text-attachment                 8692.7 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 16, "median_ms": 12.7, "max_s": 8.69, "total_s": 113.3}
+load_after: 17.12 11.36 10.34 22/6440 2934490
+VmHWM:	13521300 kB
+#
+# ---- pass 2 ----
+load_before: 17.27 11.49 10.39 20/6456 2936633
+body                            8108.5 ms  hits=1 ok
+body                              13.0 ms  hits=1 ok
+body                              14.7 ms  hits=1 ok
+body                              13.0 ms  hits=1 ok
+body                              11.7 ms  hits=1 ok
+body                              12.3 ms  hits=1 ok
+body                              10.2 ms  hits=1 ok
+body                              10.6 ms  hits=1 ok
+cp1252-undeclared-body            10.8 ms  hits=1 ok
+cp1252-undeclared-body          1814.4 ms  hits=1 ok
+cp1252-undeclared-body            11.0 ms  hits=1 ok
+cp1252-undeclared-body            10.1 ms  hits=1 ok
+cp1252-undeclared-body           629.6 ms  hits=1 ok
+cp1252-undeclared-body            10.8 ms  hits=1 ok
+cp1252-undeclared-body            12.9 ms  hits=1 ok
+cp1252-undeclared-body          7486.9 ms  hits=1 ok
+latin1-8bit-body                  15.8 ms  hits=1 ok
+latin1-8bit-body                  10.2 ms  hits=1 ok
+latin1-8bit-body                  12.8 ms  hits=1 ok
+latin1-8bit-body                7548.8 ms  hits=1 ok
+latin1-8bit-body                  11.1 ms  hits=1 ok
+latin1-8bit-body                  16.1 ms  hits=1 ok
+latin1-8bit-body                  13.8 ms  hits=1 ok
+latin1-8bit-body                   0.9 ms  hits=1 ok
+pdf-attachment                  7552.2 ms  hits=1 ok
+pdf-attachment                    16.0 ms  hits=1 ok
+pdf-attachment                    11.3 ms  hits=1 ok
+pdf-attachment                    12.3 ms  hits=1 ok
+pdf-attachment                     9.7 ms  hits=1 ok
+pdf-attachment                     9.9 ms  hits=1 ok
+pdf-attachment                     0.8 ms  hits=1 ok
+pdf-attachment                    11.6 ms  hits=1 ok
+text-attachment                   10.3 ms  hits=1 ok
+text-attachment                 7803.7 ms  hits=1 ok
+text-attachment                   12.0 ms  hits=1 ok
+text-attachment                 7580.0 ms  hits=1 ok
+text-attachment                   11.2 ms  hits=1 ok
+text-attachment                   10.3 ms  hits=1 ok
+text-attachment                 7676.6 ms  hits=1 ok
+text-attachment                   12.5 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 8, "median_ms": 12.3, "max_s": 8.11, "total_s": 56.6}
+load_after: 17.87 12.57 10.82 14/6418 2953325
+VmHWM:	13521300 kB
+#
+# ======== M3 - 2026-09-19 21:21 UTC, XERJ_MAX_PROCESS_MEMORY_MB=off (memory_limit_mb=122108,
+# segment_hydration_cache_mb=24421), 127.0.0.1:12120, another fresh copy of the same data dir.
+# ---- pass 1 ----
+load_before: 15.87 12.39 10.79 9/6419 2957597
+body                            1853.0 ms  hits=1 ok
+body                            6597.9 ms  hits=1 ok
+body                            9095.9 ms  hits=1 ok
+body                              18.6 ms  hits=1 ok
+body                              12.5 ms  hits=1 ok
+body                              10.4 ms  hits=1 ok
+body                              15.2 ms  hits=1 ok
+body                              10.0 ms  hits=1 ok
+cp1252-undeclared-body          7178.9 ms  hits=1 ok
+cp1252-undeclared-body            11.8 ms  hits=1 ok
+cp1252-undeclared-body            11.1 ms  hits=1 ok
+cp1252-undeclared-body            10.3 ms  hits=1 ok
+cp1252-undeclared-body            12.1 ms  hits=1 ok
+cp1252-undeclared-body            14.0 ms  hits=1 ok
+cp1252-undeclared-body            15.2 ms  hits=1 ok
+cp1252-undeclared-body            10.7 ms  hits=1 ok
+latin1-8bit-body                  11.0 ms  hits=1 ok
+latin1-8bit-body                  10.9 ms  hits=1 ok
+latin1-8bit-body                   9.8 ms  hits=1 ok
+latin1-8bit-body                  10.0 ms  hits=1 ok
+latin1-8bit-body                  10.3 ms  hits=1 ok
+latin1-8bit-body                  10.9 ms  hits=1 ok
+latin1-8bit-body                 997.7 ms  hits=1 ok
+latin1-8bit-body                  17.4 ms  hits=1 ok
+pdf-attachment                     9.8 ms  hits=1 ok
+pdf-attachment                    10.7 ms  hits=1 ok
+pdf-attachment                    13.4 ms  hits=1 ok
+pdf-attachment                    13.4 ms  hits=1 ok
+pdf-attachment                     9.9 ms  hits=1 ok
+pdf-attachment                    10.7 ms  hits=1 ok
+pdf-attachment                    10.6 ms  hits=1 ok
+pdf-attachment                    12.0 ms  hits=1 ok
+text-attachment                    9.9 ms  hits=1 ok
+text-attachment                   14.0 ms  hits=1 ok
+text-attachment                    9.2 ms  hits=1 ok
+text-attachment                    9.6 ms  hits=1 ok
+text-attachment                    9.8 ms  hits=1 ok
+text-attachment                    9.7 ms  hits=1 ok
+text-attachment                    9.6 ms  hits=1 ok
+text-attachment                   11.6 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 4, "median_ms": 11.0, "max_s": 9.1, "total_s": 26.1}
+load_after: 13.30 12.07 10.72 14/6429 2959021
+VmHWM:	13534848 kB
+#
+# ---- pass 2 ----
+load_before: 13.43 12.12 10.75 9/6404 2959873
+body                              20.6 ms  hits=1 ok
+body                              13.4 ms  hits=1 ok
+body                              10.9 ms  hits=1 ok
+body                              10.2 ms  hits=1 ok
+body                               9.7 ms  hits=1 ok
+body                               8.4 ms  hits=1 ok
+body                               8.7 ms  hits=1 ok
+body                              10.1 ms  hits=1 ok
+cp1252-undeclared-body             9.0 ms  hits=1 ok
+cp1252-undeclared-body          1562.2 ms  hits=1 ok
+cp1252-undeclared-body            10.1 ms  hits=1 ok
+cp1252-undeclared-body             9.1 ms  hits=1 ok
+cp1252-undeclared-body           587.0 ms  hits=1 ok
+cp1252-undeclared-body            10.7 ms  hits=1 ok
+cp1252-undeclared-body             9.4 ms  hits=1 ok
+cp1252-undeclared-body             9.8 ms  hits=1 ok
+latin1-8bit-body                   8.3 ms  hits=1 ok
+latin1-8bit-body                  10.5 ms  hits=1 ok
+latin1-8bit-body                   8.6 ms  hits=1 ok
+latin1-8bit-body                  10.2 ms  hits=1 ok
+latin1-8bit-body                   8.6 ms  hits=1 ok
+latin1-8bit-body                   8.8 ms  hits=1 ok
+latin1-8bit-body                   8.6 ms  hits=1 ok
+latin1-8bit-body                   0.8 ms  hits=1 ok
+pdf-attachment                     8.2 ms  hits=1 ok
+pdf-attachment                     8.1 ms  hits=1 ok
+pdf-attachment                     8.1 ms  hits=1 ok
+pdf-attachment                     7.9 ms  hits=1 ok
+pdf-attachment                     8.1 ms  hits=1 ok
+pdf-attachment                     9.1 ms  hits=1 ok
+pdf-attachment                     0.6 ms  hits=1 ok
+pdf-attachment                     8.0 ms  hits=1 ok
+text-attachment                    8.5 ms  hits=1 ok
+text-attachment                    9.0 ms  hits=1 ok
+text-attachment                    8.3 ms  hits=1 ok
+text-attachment                    8.2 ms  hits=1 ok
+text-attachment                    8.3 ms  hits=1 ok
+text-attachment                    8.3 ms  hits=1 ok
+text-attachment                    8.2 ms  hits=1 ok
+text-attachment                    8.4 ms  hits=1 ok
+{"checked": 40, "ok": 40, "slow_over_1s": 1, "median_ms": 8.7, "max_s": 1.56, "total_s": 2.5}
+load_after: 13.43 12.12 10.75 7/6387 2960058
+VmHWM:	13534848 kB

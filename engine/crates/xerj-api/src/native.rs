@@ -61,6 +61,11 @@ pub struct NativeSearchRequest {
     pub sort: Option<Value>,
     #[serde(default)]
     pub fields: Option<Vec<String>>,
+    /// Declared only so it can be REFUSED. This struct ignores unknown keys, so
+    /// without the field a `rerank` block vanished and the caller got the
+    /// engine's order back under a 200, believing it had been reranked.
+    #[serde(default)]
+    pub rerank: Option<Value>,
 }
 
 fn default_size() -> usize {
@@ -491,6 +496,19 @@ pub async fn search(
     // drop, any return below). The cumulative counters + latency histograms are
     // recorded once at completion via `record_query`.
     let _search_guard = state.metrics.active_search_guard();
+
+    if req.rerank.is_some() {
+        crate::rerank_stage::record_refused(&state.metrics);
+        let error = xerj_common::XerjError::invalid_query(crate::rerank_stage::unsupported_reason(
+            "the native search API",
+        ));
+        return native_error(
+            error,
+            Some(&request_id),
+            started.elapsed().as_millis() as u64,
+        )
+        .into_response();
+    }
 
     if !native_fields_supported(req.fields.as_deref()) {
         let error = xerj_common::XerjError::invalid_query(

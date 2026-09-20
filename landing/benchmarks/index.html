@@ -209,9 +209,9 @@
 <div class="uc-hero">
   <div class="uc-eyebrow">BENCHMARKS · WINS AND LOSSES, WITH RECEIPTS</div>
   <h1>EVERY NUMBER HERE<br><span class="accent">TRACES TO A RUN.</span></h1>
-  <p class="uc-lead">Four things a search engine for AI agents has to prove, each measured, each linked to the
+  <p class="uc-lead">Five things a search engine for AI agents has to prove, each measured, each linked to the
   harness or the case study that produced it: <a href="#performance">engine performance</a>,
-  <a href="#retrieval">code retrieval</a>, <a href="#tokens">token savings</a>, and the design that ties them
+  <a href="#retrieval">code retrieval</a>, <a href="#ranking">ranking quality</a>, <a href="#tokens">token savings</a>, and the design that ties them
   together — the <a href="#zta">zero-token architecture</a>. The red cells are published too, root-caused with
   <code class="inline">file:line</code>, because a benchmark page that hides its losses is marketing.</p>
 </div>
@@ -219,6 +219,7 @@
 <nav class="uc-subnav" aria-label="Sections">
   <a href="#performance">PERFORMANCE</a>
   <a href="#retrieval">RETRIEVAL</a>
+  <a href="#ranking">RANKING QUALITY</a>
   <a href="#tokens">TOKEN SAVINGS</a>
   <a href="#zta">ZERO-TOKEN ARCHITECTURE</a>
 </nav>
@@ -386,9 +387,102 @@
     <a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/reference-coding" rel="external">docs/case-studies/reference-coding</a></p>
 </section>
 
+<!-- ============================ RANKING QUALITY ============================ -->
+<section class="scene-section" id="ranking">
+  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>RANKING QUALITY · PUBLIC DATASETS, NEURAL MODE</span></div>
+  <h2 class="scene" style="font-size:var(--fs-56);">FUSE FIRST.<br><span class="accent">JUDGE WHAT'S LEFT.</span></h2>
+  <p class="wide">Two questions, both answered on public datasets anyone can download. How much does hybrid
+  retrieval add over BM25? And how many routing and spam decisions can labelled history settle with no model
+  call at all? <strong>Every vector and hybrid figure in this section was measured with
+  <code class="inline">--embed-mode neural</code> and the built-in all-MiniLM-L6-v2 model — not with the default
+  embedder, which is lexical feature hashing and has no model in it.</strong> The BM25 rows use no embedder and
+  hold on any node.</p>
+
+  <div class="vt-wrap">
+  <table class="vt">
+    <thead><tr><th>nDCG@10, BEIR <code class="inline">test</code> split</th><th>SciFact · 300 q · 5,183 docs</th><th>NFCorpus · 323 q · 3,633 docs</th><th>Run by</th></tr></thead>
+    <tbody>
+      <tr><td>XERJ BM25 (<code class="inline">multi_match</code>, no embedder)</td>
+        <td class="n">0.6572</td><td class="n">0.3016</td><td>us · any node</td></tr>
+      <tr><td>XERJ MiniLM vectors only (<code class="inline">semantic</code>)</td>
+        <td class="n">0.6764</td><td class="n">0.3291</td><td>us · <code class="inline">--embed-mode neural</code></td></tr>
+      <tr><td>XERJ BM25 top-30, reordered by MiniLM</td>
+        <td class="n">0.6855</td><td class="n">0.3323</td><td>us · <code class="inline">--embed-mode neural</code></td></tr>
+      <tr><td><strong>XERJ hybrid RRF</strong> (<code class="inline">hybrid</code>, server-side) — the best arm XERJ has, on both</td>
+        <td class="n w">0.6993</td><td class="n w">0.3448</td><td>us · <code class="inline">--embed-mode neural</code></td></tr>
+      <tr><td>Jev (TypeSafe AI), hosted reranker</td>
+        <td class="n">0.768</td><td class="n">0.358</td><td><strong>not run by us</strong> — published in the hev/jev-rerank README</td></tr>
+      <tr><td>Voyage rerank-3, hosted reranker</td>
+        <td class="n">0.755</td><td class="n">0.357</td><td><strong>not run by us</strong> — same README</td></tr>
+      <tr><td>Cohere rerank-v3.5, hosted reranker</td>
+        <td class="n">0.745</td><td class="n">0.340</td><td><strong>not run by us</strong> — same README</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <ul class="deep">
+    <li><strong>The three hosted rows are not a controlled comparison, and carry no verdict.</strong> XERJ did not
+      run those systems. They rerank that project's own first-stage shortlist, which is not XERJ's. The dataset
+      and the metric match; nothing else is controlled. What the table supports is narrow: on NFCorpus the local
+      hybrid figure sits inside the range of the published reranker figures, and <strong>on SciFact it is lower
+      than all three</strong>.</li>
+    <li><strong>Fusing with a model scored above reranking with it.</strong> Reordering a BM25 shortlist can only
+      move documents BM25 already returned; fusion also admits the ones only the vector list found. On NFCorpus
+      BM25 returned zero hits for 25 of 323 queries, and no reorder repairs an empty list. That is why XERJ ships
+      no local "MiniLM rerank" provider — it would score below the hybrid search that already exists.</li>
+    <li><strong>What neural mode costs.</strong> In the same run: about 3–7 documents per second to index on CPU
+      (SciFact took about 25 minutes), and about 220–370 ms p50 per hybrid query against about 18 ms for BM25.
+      The machine was also compiling, so read the latencies as upper bounds.</li>
+    <li><strong>The <code class="inline">rerank</code> search stage exists, and its quality is not verified.</strong>
+      XERJ can hand the top hits to an external relevance judge and reorder by the calibrated probability that
+      comes back. No provider key was available to this project, so ranking quality with the real model has
+      <strong>not</strong> been measured by us; the stage is tested against a test double. It is also the one
+      XERJ feature that sends document text off the machine —
+      <a href="/answers/rerank-search-results-calibrated-judge">read that before turning it on</a>.</li>
+  </ul>
+
+  <div class="vt-wrap">
+  <table class="vt">
+    <thead><tr><th>Decisions from labelled history · k = 10 · 1,000 held-out items</th><th>Accuracy</th><th>Calibration error</th><th>Decided at confidence ≥ 0.8</th><th>ms / item</th></tr></thead>
+    <tbody>
+      <tr><td>Banking77, 77-way intent routing — BM25, no model of any kind</td>
+        <td class="n">0.819</td><td class="n">0.089</td><td class="n">50.6% at 0.996</td><td class="n">2.2</td></tr>
+      <tr><td>Banking77 — MiniLM neighbours (<code class="inline">--embed-mode neural</code>)</td>
+        <td class="n w">0.933</td><td class="n w">0.012</td><td class="n w">86.9% at 0.979</td><td class="n">8.6</td></tr>
+      <tr><td>Banking77 — hybrid RRF (<code class="inline">--embed-mode neural</code>)</td>
+        <td class="n w">0.937</td><td class="n">0.052</td><td class="n">79.2% at 0.989</td><td class="n">12.4</td></tr>
+      <tr><td>SMS spam, yes / no — BM25, no model of any kind</td>
+        <td class="n w">0.983</td><td class="n">0.017</td><td class="n">95.4% at 0.992</td><td class="n w">0.9</td></tr>
+      <tr><td>SMS spam — MiniLM neighbours (<code class="inline">--embed-mode neural</code>)</td>
+        <td class="n">0.982</td><td class="n">0.009</td><td class="n">95.8% at 0.989</td><td class="n">74.5</td></tr>
+      <tr><td>SMS spam — hybrid RRF (<code class="inline">--embed-mode neural</code>)</td>
+        <td class="n w">0.989</td><td class="n">0.015</td><td class="n">95.7% at 0.997</td><td class="n">67.2</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <ul class="deep">
+    <li><strong>What it means for you.</strong> Where you already have labelled examples, index them and classify
+      new text by a rank-weighted vote over its ten nearest neighbours. On Banking77 the neural arm settled 86.9%
+      of traffic at confidence 0.8 or higher and was right on 0.979 of it, with no tokens spent; only the rest
+      needs a judge model or a person. Spam detection reached 0.983 with plain BM25, under a millisecond per
+      message.</li>
+    <li><strong>What it is not.</strong> It is not zero-shot: a new category has no history to vote from, and that
+      case needs a judge model. XERJ did not run any judge model on these datasets and claims nothing about how
+      one would score. Two datasets, one run each.</li>
+  </ul>
+  <p class="src">Scripts, raw output and reproduce commands:
+    <a href="https://github.com/xerj-org/xerj/tree/main/benchmarks/beir-hybrid" rel="external">benchmarks/beir-hybrid</a> ·
+    <a href="https://github.com/xerj-org/xerj/tree/main/benchmarks/decisions-as-retrieval" rel="external">benchmarks/decisions-as-retrieval</a> ·
+    run 2026-09-18 on xerj v1.0.0-rc.74 · written up in
+    <a href="/answers/hybrid-search-quality-measured-ndcg">hybrid search quality</a> and
+    <a href="/answers/classify-text-from-labelled-history-without-llm">decisions without a model call</a>.
+    Hosted-reranker figures: <a href="https://github.com/hev/jev-rerank" rel="external">hev/jev-rerank</a> (Apache-2.0).</p>
+</section>
+
 <!-- ============================ TOKEN SAVINGS ============================ -->
 <section class="scene-section" id="tokens">
-  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>TOKEN SAVINGS · REAL ACCOUNTING, NO API KEY REQUIRED</span></div>
+  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>TOKEN SAVINGS · REAL ACCOUNTING, NO API KEY REQUIRED</span></div>
   <h2 class="scene" style="font-size:var(--fs-56);">THE TOKENS YOU<br><span class="accent">DON'T SPEND.</span></h2>
   <p class="wide">Output tokens are the expensive kind — priced roughly 5× above input on Claude models — and
   retry loops on unknown APIs burn exactly those. Three arms of the same agent on the same tasks: memory only,
@@ -457,7 +551,7 @@
 
 <!-- ============================ ZTA ============================ -->
 <section class="scene-section" id="zta">
-  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>ZTA · THE DESIGN BEHIND THE NUMBERS</span></div>
+  <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>ZTA · THE DESIGN BEHIND THE NUMBERS</span></div>
   <h2 class="scene" style="font-size:var(--fs-56);">ZERO-TOKEN<br><span class="accent">ARCHITECTURE.</span></h2>
   <p class="wide">The cheapest token is the one your model never generates. <strong>ZTA is the design rule that
   produced every number above:</strong> spend compute once, at index time, so agents stop spending inference

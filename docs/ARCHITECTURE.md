@@ -60,6 +60,7 @@ pipeline plugins).
 | `xerj-common` | Shared types: `Config`, `Schema`, `FieldType`, `XerjError`. |
 | `xerj-cluster` | Embedded Raft consensus for cluster metadata (no external dependencies). |
 | `xerj-console-api` | Bundled console backend (dashboards, auth, prefs) mounted at `/_xerj-console/api/v1/*`. |
+| `xerj-rerank` | Optional second-stage reranking for `_search`: calls an external relevance judge after hits are rendered. The only search-time component that makes an outbound call with document text (proxy embeddings and the WAL tap also send text off the node when configured; RERANK.md lists every outbound connection); never linked by `xerj-engine`. See [RERANK.md](./RERANK.md). |
 | `xerj-wasm` | Pluggable transform pipeline with an optional WASM backend. |
 | `tests/es-compat-yaml` | `es-yaml-runner`: executes ES REST-spec YAML suites against a live server. |
 

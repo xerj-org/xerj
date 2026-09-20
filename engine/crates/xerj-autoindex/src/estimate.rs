@@ -123,7 +123,9 @@ pub fn exact_scan_bytes(
         | Family::Eml
         | Family::Pdf => Some(size),
         // Streaming, byte-capped and record-capped.
-        Family::Jsonl | Family::Csv | Family::Logs | Family::TxtLines => {
+        // `Mbox` samples the same way: the record cap, or the byte cap checked
+        // between whole messages — either one leaves the tail unread.
+        Family::Jsonl | Family::Csv | Family::Logs | Family::TxtLines | Family::Mbox => {
             (size <= SAMPLE_LIMIT_BYTES && hit_eof).then_some(size)
         }
         // Streaming, record-capped only (no byte limit is passed).
@@ -692,6 +694,8 @@ mod tests {
             Family::TxtProse,
             Family::TxtLines,
             Family::Pdf,
+            Family::Eml,
+            Family::Mbox,
             Family::Docx,
             Family::Sqlite,
             Family::SqlDump,

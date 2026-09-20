@@ -941,7 +941,7 @@ def _head_of(src: str) -> str:
 
 def _today() -> str:
     import datetime
-    return datetime.date.today().isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).date().isoformat()
 
 
 def main(argv: list[str] | None = None) -> int:
