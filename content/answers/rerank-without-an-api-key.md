@@ -114,7 +114,7 @@ The candidate **set** was identical on 100 percent of queries across those three
 
 ```toml
 [judge]
-enabled = false      # refuses provider "local" and POST /_judge with HTTP 403
+enabled = false      # refuses provider "local" with HTTP 403
 download = false     # never contacts huggingface.co; the model must be on disk
 model_dir = "/opt/xerj/models"   # air-gapped: <model_dir>/rerank-<tier>/
 ```

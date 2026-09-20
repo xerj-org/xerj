@@ -162,7 +162,7 @@ The `[judge]` block exists for the cases where the defaults are wrong.
 ```toml
 # xerj.toml
 [judge]
-enabled      = true      # false → the local provider and POST /_judge answer 403
+enabled      = true      # false → the local provider answers 403
 download     = true      # false → never open a connection; the model must be on disk
 cache_dir    = ""        # "" = HF_HOME, else ~/.cache/huggingface/hub
 model_dir    = ""        # "" = use the cache. Air-gapped: <model_dir>/rerank-<tier>/
@@ -173,7 +173,7 @@ rerank_model = "small"   # tier used when a request names none
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `judge.enabled` | `true` | `false` refuses `"provider": "local"` and `POST /_judge` with HTTP 403. Independent of `[rerank] enabled`. |
+| `judge.enabled` | `true` | `false` refuses `"provider": "local"` with HTTP 403. Independent of `[rerank] enabled`, which governs egress and so does not apply here. |
 | `judge.download` | `true` | `false` never contacts huggingface.co. A model that is not already on disk is then HTTP 503, naming the file it wanted, rather than a silent fetch. |
 | `judge.cache_dir` | HF default | Where the Hugging Face cache lives. |
 | `judge.model_dir` | unset | Air-gapped root. Stage `config.json`, `tokenizer.json` and `model.safetensors` under `<model_dir>/rerank-<tier>/`. |

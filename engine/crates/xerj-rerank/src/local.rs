@@ -119,7 +119,10 @@ pub fn adjust_request(
 /// carried as plain data so this crate does not link `xerj-common`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalJudgeConfig {
-    /// `false` refuses the `local` provider (and `POST /_judge`) with a 403.
+    /// `false` refuses the `local` provider with a 403. It is written as the
+    /// judge's switch rather than the provider's because the same runtime will
+    /// serve the entailment task when an endpoint for it exists; today the
+    /// rerank provider is the only thing it gates.
     pub enabled: bool,
     /// `false` never opens a network connection: models must be on disk.
     pub download: bool,

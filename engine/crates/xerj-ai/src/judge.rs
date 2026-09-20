@@ -32,7 +32,9 @@ use crate::seqcls::{PairClassifier, PairModelSource, PairStats};
 pub enum JudgeTask {
     /// `(query, document)` → one relevance logit. The `local` rerank provider.
     Rerank,
-    /// `(state, hypothesis)` → entailment logits. `POST /_judge`.
+    /// `(state, hypothesis)` → entailment logits. **Not served by any
+    /// endpoint yet** — see the `seqcls` module doc; only
+    /// `examples/pair_score --task entail` reaches it.
     Entail,
 }
 

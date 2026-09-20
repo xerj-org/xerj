@@ -5,8 +5,12 @@
 //!
 //!   * the `local` rerank provider — a cross-encoder reads `(query, document)`
 //!     and emits one relevance logit;
-//!   * `POST /_judge` — a natural-language-inference model reads
-//!     `(state, hypothesis)` and emits entailment logits.
+//!   * entailment (`JudgeTask::Entail`) — a natural-language-inference model
+//!     reads `(state, hypothesis)` and emits entailment logits. **No endpoint
+//!     serves this yet**: the two NLI models are in the table and reachable
+//!     from `examples/pair_score --task entail`, and the `POST /_judge` route
+//!     that would use them is not written. Nothing on a running node can load
+//!     them, so they cost an operator nothing today.
 //!
 //! It complements [`crate::neural`], which runs the *bi*-encoder: that one
 //! embeds each text alone so vectors can be indexed; this one reads the two
