@@ -263,6 +263,7 @@ sigmoid has. Expected calibration error on the test split, `small` tier, pooled
 over all three datasets (35,626 pairs, 5.8% positive): **0.144 raw, 0.138 under
 the Platt fit, 0.167 under the temperature fit** — the "calibrated" map is not
 meaningfully better than the raw one, and one of the two is worse.
+
 The `base` tier's fit, by contrast, **converged** — Platt `scale = 0.4331,
 bias = −0.8912`, fitted on 7,651 held-out pairs — and it works: pooled expected
 calibration error on the two test splits falls from **0.0509 raw to 0.0094**,
@@ -315,8 +316,7 @@ excluding zero) and is a wash on SciFact; `base` is the other way round — it i
 the best SciFact arm we measured, and it is *worse* than the smaller model on
 NFCorpus. A bigger cross-encoder is not uniformly a better one.
 
-
-Read it twice, because it says two different things.
+The BM25 rows say something different, and both readings matter.
 
 **Against a BM25-only first stage the local judge is a large, unambiguous win**
 — `small` adds +0.0253 (SciFact), +0.0354 (NFCorpus) and +0.0777 (FiQA) to BM25

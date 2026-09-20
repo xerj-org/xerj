@@ -312,7 +312,7 @@ fn the_tier_names_are_the_same_in_the_config_and_in_the_model_table() {
 
 #[tokio::test]
 #[ignore]
-async fn the_real_cross_encoder_puts_the_answer_first_and_scores_are_probabilities() {
+async fn the_real_cross_encoder_puts_the_answer_first_and_its_scores_are_not_probabilities() {
     let node = node_with(false, LocalJudgeConfig::default()).await;
     node.seed().await;
 
