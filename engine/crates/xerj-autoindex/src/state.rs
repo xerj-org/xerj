@@ -428,6 +428,93 @@ pub struct Plan {
     /// Canonical records have been rewritten with the `ax_paths` alias list.
     #[serde(default)]
     pub alias_paths_indexed: bool,
+    /// Datasets the server refused to map when the first generation was
+    /// provisioned (#929). See [`RefusedDataset`].
+    ///
+    /// Skipped when empty ON PURPOSE: the serialized plan is hashed into the
+    /// preparation contract and compared for equality on every no-op re-run, so
+    /// a plan with nothing refused has to serialize exactly as it did before
+    /// this field existed, or upgrading would turn every committed corpus into
+    /// a spurious "plan changed" generation.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refused_datasets: Vec<RefusedDataset>,
+}
+
+/// A dataset the plan inferred and the server refused to map (#929).
+///
+/// The refusal is part of the durable plan rather than a line in a log because
+/// a generation that lacks a dataset must never be able to look complete. It
+/// rides in the committed manifest, is republished in the catalog's run
+/// document by every later generation, and keeps the run's exit code at 3 for
+/// as long as the corpus still holds the files it cost.
+///
+/// `dataset` is the whole frozen definition, not just the slug: an incremental
+/// run never re-clusters, so it needs the refused dataset's schema to recognise
+/// a NEW file of the same shape and record it as refused too — instead of
+/// aborting the whole run with "no frozen dataset accepts …".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RefusedDataset {
+    pub dataset: PlanDataset,
+    /// The server's refusal, verbatim (`PUT /<index>/_mapping failed: 400 …`).
+    pub reason: String,
+    /// Content ids recorded in `junk_files` because of this refusal, sorted.
+    pub file_keys: Vec<String>,
+}
+
+impl Plan {
+    /// The run-document fields that say a corpus lacks a dataset (#929); empty
+    /// when nothing was refused, so a run document with nothing to report stays
+    /// byte-identical to the one earlier releases published — the generated
+    /// path reads its catalog back and compares whole `_source`s.
+    ///
+    /// The detail travels as a JSON string, like `fields_json` on a dataset
+    /// document: the catalog mapping is frozen, and an array of objects would
+    /// have the engine infer a nested mapping for a field no release declared.
+    pub fn refused_run_fields(&self) -> Vec<(&'static str, serde_json::Value)> {
+        if self.refused_datasets.is_empty() {
+            return Vec::new();
+        }
+        let refused: Vec<serde_json::Value> = self
+            .refused_datasets
+            .iter()
+            .map(|refusal| {
+                serde_json::json!({
+                    "slug": refusal.dataset.slug,
+                    "index": refusal.dataset.index,
+                    "files": refusal.file_keys.len(),
+                    "reason": refusal.reason,
+                })
+            })
+            .collect();
+        let files: usize = self
+            .refused_datasets
+            .iter()
+            .map(|refusal| refusal.file_keys.len())
+            .sum();
+        vec![
+            ("datasets_refused", serde_json::json!(refused.len())),
+            ("files_refused", serde_json::json!(files)),
+            (
+                "refused_datasets_json",
+                serde_json::Value::String(
+                    serde_json::to_string(&refused).expect("a JSON value always serializes"),
+                ),
+            ),
+        ]
+    }
+}
+
+impl RefusedDataset {
+    /// The `reason` every file this refusal cost is recorded under, in the plan
+    /// and therefore in the catalog. One function so the genesis demotion and
+    /// the incremental projection cannot drift apart: the two plans are compared
+    /// byte for byte to decide whether a re-run changed anything.
+    pub fn junk_reason(&self) -> String {
+        format!(
+            "dataset {} was refused by the server, so this file was not indexed: {}",
+            self.dataset.slug, self.reason
+        )
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

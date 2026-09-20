@@ -1,0 +1,71 @@
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=84624 safe_zone_mib=61054]
+autoindex: bulk HTTP request timeout: 300s
+xerj-bar [????????????????????????] pct unknown | walk | eta unknown
+xerj-progress phase=walk basis=none pct=unknown items=0/0 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=0.0
+autoindex: 50061 files (505 MB) under ~/.xerj-code/corpora/xerj-search
+autoindex: ignore rules: skipped 55 files and pruned 26 directories (contents never walked, so not counted); 24 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 55 files, 24 directories pruned
+autoindex: ignore rules:   <built-in>:build/ — 2 directories pruned
+xerj-progress phase=hash basis=bytes pct=0.0 items=0/50061 bytes=0/529551172 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=1.5
+autoindex: 1528 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-darwin-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/oss-linux-aarch64-tar/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/archives/darwin-aarch64-tar/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix3/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix4/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/bugfix5/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major1/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  duplicate: elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/distribution/bwc/major2/build.gradle → elasticsearch/build-tools-internal/src/integTest/resources/org/elasticsearch/gradle/internal/fake_git/remote/build.gradle
+  … and 1518 more
+xerj-bar [------------------------] 0.0% | scan | 0/48533 items | eta unknown
+xerj-progress phase=scan basis=bytes pct=0.0 items=0/48533 bytes=0/520892779 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=2.0
+phase A: sniffing + sampling 48533 files with 32 threads…
+xerj-progress phase=scan basis=bytes pct=61.4 items=32957/48533 bytes=319829447/520892779 rate=106787978.2 eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=3.0 elapsed_s=5.0
+phase A: 1 PDF extraction(s) could not retain a bounded run-local artifact; phase B will parse them again safely
+  PDF reuse fallback for elasticsearch/modules/ingest-attachment/src/test/resources/org/elasticsearch/ingest/attachment/test/sample-files/test.pdf: admission refused (artifact_count_ceiling); snapshot headroom or the bounded 0 MiB/0-artifact ceiling would be exceeded
+phase A: 1526 datasets inferred, 1089 junk/skipped files
+estimate: at least 3.8 s–4.7 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 47353 file(s) / 371.2 MB read end to end across 11 family/families, scheduled over 32 worker(s). Covers 423.9 MB of the 423.9 MB planned (100% of planned bytes). Client-side extraction only.
+[… 2745 lines trimmed: phase=index progress lines; the full capture was 2815 lines …]
+xerj-progress phase=index basis=bytes pct=99.5 items=47131/47444 bytes=1093825220/1099789983 rate=102255.9 eta_s=58.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9887.1 elapsed_s=10200.5 waiting_on=elasticsearch/x-pack/plugin/esql/src/main/java/org/elasticsearch/xpack/esql/expression/function/aggregate/Percentile.java(32.9KB)
+xerj-progress phase=index basis=bytes pct=99.5 items=47159/47444 bytes=1094139182/1099789983 rate=94363.0 eta_s=59.9 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9892.1 elapsed_s=10205.5
+xerj-progress phase=index basis=bytes pct=99.5 items=47186/47444 bytes=1094592962/1099789983 rate=93641.3 eta_s=55.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9897.1 elapsed_s=10210.5 waiting_on=elasticsearch/x-pack/plugin/esql/compute/src/main/generated/org/elasticsearch/compute/aggregation/DeltaLongGroupingAggregatorFunction.java(54.8KB)
+xerj-bar [#######################-] 99.6% | index | 47213/47444 items | 125.8KB/s | eta 44s | waiting on …/functions/brief-summary/min.md(917B)
+xerj-progress phase=index basis=bytes pct=99.6 items=47213/47444 bytes=1095940255/1099789983 rate=128803.8 eta_s=44.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9902.1 elapsed_s=10215.5 waiting_on=elasticsearch/docs/reference/query-languages/promql/_snippets/generated/x-pack-esql/functions/brief-summary/min.md(917B)
+xerj-progress phase=index basis=bytes pct=99.7 items=47240/47444 bytes=1096519720/1099789983 rate=126221.2 eta_s=35.5 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9907.1 elapsed_s=10220.5 waiting_on=elasticsearch/server/src/internalClusterTest/java/org/elasticsearch/cluster/ClusterInfoServiceIT.java(52.1KB)
+xerj-progress phase=index basis=bytes pct=99.8 items=47267/47444 bytes=1097049271/1099789983 rate=122158.6 eta_s=28.4 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9912.1 elapsed_s=10225.5 waiting_on=elasticsearch/modules/aggregations/src/internalClusterTest/java/org/elasticsearch/aggregations/pipeline/SerialDiffIT.java(28.9KB)
+xerj-bar [#######################-] 99.8% | index | 47293/47444 items | 116.0KB/s | eta 23s | waiting on …/ecs/quickwit/service/config.tf(1.5KB)
+xerj-progress phase=index basis=bytes pct=99.8 items=47293/47444 bytes=1097575460/1099789983 rate=118774.0 eta_s=22.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9917.1 elapsed_s=10230.5 waiting_on=quickwit/distribution/ecs/quickwit/service/config.tf(1.5KB)
+xerj-progress phase=index basis=bytes pct=99.8 items=47321/47444 bytes=1097759132/1099789983 rate=102365.9 eta_s=19.8 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9922.1 elapsed_s=10235.5 waiting_on=elasticsearch/x-pack/plugin/ql/src/main/java/org/elasticsearch/xpack/ql/planner/TranslatorHandler.java(5.7KB)
+xerj-progress phase=index basis=bytes pct=99.8 items=47349/47444 bytes=1098068924/1099789983 rate=94284.2 eta_s=18.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9927.1 elapsed_s=10240.5 waiting_on=elasticsearch/docs/reference/query-languages/esql/images/generated/x-pack-esql/functions/chunk.svg(3.2KB)
+xerj-bar [#######################-] 99.9% | index | 47377/47444 items | 103.8KB/s | eta 15s | waiting on …/scalar/convert/ToVersionTests.java(6.9KB)
+xerj-progress phase=index basis=bytes pct=99.9 items=47377/47444 bytes=1098840715/1099789983 rate=106298.4 eta_s=14.6 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9932.1 elapsed_s=10245.5 waiting_on=elasticsearch/x-pack/plugin/esql/src/test/java/org/elasticsearch/xpack/esql/expression/function/scalar/convert/ToVersionTests.java(6.9KB)
+xerj-progress phase=index basis=bytes pct=100.0 items=47405/47444 bytes=1099261844/1099789983 rate=101883.5 eta_s=11.7 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9937.1 elapsed_s=10250.5 waiting_on=elasticsearch/x-pack/plugin/security/src/main/java/org/elasticsearch/xpack/security/rest/action/apikey/RestUpdateApiKeyAction.java(7.2KB)
+xerj-progress phase=index basis=bytes pct=100.0 items=47433/47444 bytes=1099655824/1099789983 rate=97265.7 eta_s=9.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=9942.1 elapsed_s=10255.5 waiting_on=elasticsearch/x-pack/plugin/esql/src/test/resources/org/elasticsearch/xpack/esql/optimizer/promql/golden_tests/PromqlGoldenTests/testImplicitLastOverTimeOfLong/before_pack_dims_agg/physical_optimization.expected(3.7KB)
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1526 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=0.0 phase_elapsed_s=0.0 elapsed_s=10257.3
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=3.2 phase_elapsed_s=3.2 elapsed_s=10260.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=8.2 phase_elapsed_s=8.2 elapsed_s=10265.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=13.2 phase_elapsed_s=13.2 elapsed_s=10270.5
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1526 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=18.2 phase_elapsed_s=18.2 elapsed_s=10275.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=23.2 phase_elapsed_s=23.2 elapsed_s=10280.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=28.2 phase_elapsed_s=28.2 elapsed_s=10285.5
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1526 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=33.2 phase_elapsed_s=33.2 elapsed_s=10290.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=38.2 phase_elapsed_s=38.2 elapsed_s=10295.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=43.2 phase_elapsed_s=43.2 elapsed_s=10300.5
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1526 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=48.2 phase_elapsed_s=48.2 elapsed_s=10305.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=53.2 phase_elapsed_s=53.2 elapsed_s=10310.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=58.2 phase_elapsed_s=58.2 elapsed_s=10315.5
+xerj-bar [------------------------] 0.0% | finalize-catalog | 0/1526 items | eta unknown
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=63.2 phase_elapsed_s=63.2 elapsed_s=10320.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=68.2 phase_elapsed_s=68.2 elapsed_s=10325.5
+xerj-progress phase=finalize-catalog basis=items pct=0.0 items=0/1526 bytes=0/0 rate=unknown eta_s=unknown eta_quality=unknown since_progress_s=73.2 phase_elapsed_s=73.2 elapsed_s=10330.5
+xerj-bar [#######################-] 99.7% | finalize-catalog | 1521/1526 items | 19.5 items/s | eta 0s
+xerj-progress phase=finalize-catalog basis=items pct=99.7 items=1521/1526 bytes=0/0 rate=19.5 eta_s=0.3 eta_quality=good since_progress_s=0.0 phase_elapsed_s=78.2 elapsed_s=10335.5
+xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}

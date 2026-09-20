@@ -1,0 +1,336 @@
+{
+  "captures": [
+    {
+      "capture": "before-rc74.stderr.txt",
+      "done": {
+        "exit": "1",
+        "ok": "false",
+        "reason": "aborted",
+        "wall": "270.0s"
+      },
+      "error_line_head": "error: install generation mapping for xc-xerj-search-elasticsearch-modules-10-basic-13: PUT /xc-xerj-search-elasticsearch-modules-10-basic-13/_mapping failed: 400 Bad Request {\"error\":{\"root_cause\":[{\"type\":\"mapper_parsing_exception\",\"reaso",
+      "longest_since_progress_s_while_scan_read_100pct": 250.0,
+      "phases": [
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 0.0,
+          "phase": "walk",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "0/529551172",
+          "items": "0/50061",
+          "last_eta_quality": "unknown",
+          "last_pct": "0.0",
+          "last_since_progress_s": 0.0,
+          "phase": "hash",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "520892779/520892779",
+          "items": "48533/48533",
+          "last_eta_quality": "stalled",
+          "last_pct": "100.0",
+          "last_since_progress_s": 250.0,
+          "phase": "scan",
+          "phase_elapsed_s": 260.7,
+          "progress_lines": 54
+        }
+      ],
+      "phases_in_order": [
+        "walk",
+        "hash",
+        "scan"
+      ],
+      "refusals_announced": 0,
+      "scan_lines_at_100pct_reading_stalled": 48
+    },
+    {
+      "capture": "slice-rc74.stderr.txt",
+      "done": {
+        "exit": "1",
+        "ok": "false",
+        "reason": "aborted",
+        "wall": "39.6s"
+      },
+      "error_line_head": "error: install generation mapping for slice-elasticsearch-modules-10-basic-13: PUT /slice-elasticsearch-modules-10-basic-13/_mapping failed: 400 Bad Request {\"error\":{\"root_cause\":[{\"type\":\"mapper_parsing_exception\",\"reason\":\"nested semanti",
+      "longest_since_progress_s_while_scan_read_100pct": 30.0,
+      "phases": [
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 0.0,
+          "phase": "walk",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "0/92996182",
+          "items": "0/4365",
+          "last_eta_quality": "unknown",
+          "last_pct": "0.0",
+          "last_since_progress_s": 0.0,
+          "phase": "hash",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "92703093/92703093",
+          "items": "4071/4071",
+          "last_eta_quality": "stalled",
+          "last_pct": "100.0",
+          "last_since_progress_s": 30.0,
+          "phase": "scan",
+          "phase_elapsed_s": 34.8,
+          "progress_lines": 8
+        }
+      ],
+      "phases_in_order": [
+        "walk",
+        "hash",
+        "scan"
+      ],
+      "refusals_announced": 0,
+      "scan_lines_at_100pct_reading_stalled": 4
+    },
+    {
+      "capture": "slice-after.stderr.txt",
+      "done": {
+        "code_files": "2256",
+        "code_files_indexed": "2256",
+        "code_files_junked": "0",
+        "exit": "3",
+        "files": "3680",
+        "generation": "1",
+        "ok": "true",
+        "reason": "completed-with-junk",
+        "records": "159666",
+        "wall": "525.6s"
+      },
+      "error_line_head": null,
+      "longest_since_progress_s_while_scan_read_100pct": 0.0,
+      "phases": [
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 0.0,
+          "phase": "walk",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "0/92996182",
+          "items": "0/4365",
+          "last_eta_quality": "unknown",
+          "last_pct": "0.0",
+          "last_since_progress_s": 0.0,
+          "phase": "hash",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "bytes",
+          "bytes": "0/92703093",
+          "items": "0/4071",
+          "last_eta_quality": "unknown",
+          "last_pct": "0.0",
+          "last_since_progress_s": 0.0,
+          "phase": "scan",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "330/373",
+          "last_eta_quality": "good",
+          "last_pct": "88.5",
+          "last_since_progress_s": 0.0,
+          "phase": "prepare",
+          "phase_elapsed_s": 7.8,
+          "progress_lines": 3
+        },
+        {
+          "basis": "bytes",
+          "bytes": "89603172/92703093",
+          "items": "3794/4071",
+          "last_eta_quality": "good",
+          "last_pct": "96.7",
+          "last_since_progress_s": 0.0,
+          "phase": "snapshot",
+          "phase_elapsed_s": 33.9,
+          "progress_lines": 8
+        },
+        {
+          "basis": "bytes",
+          "bytes": "145234674/145552501",
+          "items": "3654/3680",
+          "last_eta_quality": "good",
+          "last_pct": "99.8",
+          "last_since_progress_s": 0.0,
+          "phase": "index",
+          "phase_elapsed_s": 346.8,
+          "progress_lines": 71
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "370/373",
+          "last_eta_quality": "good",
+          "last_pct": "99.2",
+          "last_since_progress_s": 0.0,
+          "phase": "finalize-catalog",
+          "phase_elapsed_s": 91.2,
+          "progress_lines": 20
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "177/374",
+          "last_eta_quality": "unknown",
+          "last_pct": "47.3",
+          "last_since_progress_s": 0.0,
+          "phase": "finalize-refresh",
+          "phase_elapsed_s": 1.5,
+          "progress_lines": 2
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "3617/3680",
+          "last_eta_quality": "good",
+          "last_pct": "98.3",
+          "last_since_progress_s": 0.0,
+          "phase": "finalize-verify",
+          "phase_elapsed_s": 28.7,
+          "progress_lines": 7
+        }
+      ],
+      "phases_in_order": [
+        "walk",
+        "hash",
+        "scan",
+        "prepare",
+        "snapshot",
+        "index",
+        "finalize-catalog",
+        "finalize-refresh",
+        "finalize-verify"
+      ],
+      "refusals_announced": 0,
+      "scan_lines_at_100pct_reading_stalled": 0
+    },
+    {
+      "capture": "after-955.full-corpus-resume.stderr.txt",
+      "done": {
+        "code_files": "34324",
+        "code_files_indexed": "34324",
+        "code_files_junked": "0",
+        "exit": "3",
+        "files": "47444",
+        "generation": "1",
+        "ok": "true",
+        "reason": "completed-with-junk",
+        "records": "821840",
+        "wall": "415.0s"
+      },
+      "error_line_head": null,
+      "longest_since_progress_s_while_scan_read_100pct": 0.0,
+      "phases": [
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 10.0,
+          "phase": "starting",
+          "phase_elapsed_s": 10.0,
+          "progress_lines": 2
+        },
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 6.1,
+          "phase": "replay",
+          "phase_elapsed_s": 6.1,
+          "progress_lines": 3
+        },
+        {
+          "basis": "none",
+          "bytes": "0/0",
+          "items": "0/0",
+          "last_eta_quality": "unknown",
+          "last_pct": "unknown",
+          "last_since_progress_s": 0.0,
+          "phase": "index",
+          "phase_elapsed_s": 0.0,
+          "progress_lines": 1
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "1526/1526",
+          "last_eta_quality": "good",
+          "last_pct": "100.0",
+          "last_since_progress_s": 5.0,
+          "phase": "finalize-catalog",
+          "phase_elapsed_s": 45.5,
+          "progress_lines": 11
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "902/1527",
+          "last_eta_quality": "good",
+          "last_pct": "59.1",
+          "last_since_progress_s": 0.0,
+          "phase": "finalize-refresh",
+          "phase_elapsed_s": 5.8,
+          "progress_lines": 3
+        },
+        {
+          "basis": "items",
+          "bytes": "0/0",
+          "items": "47444/47444",
+          "last_eta_quality": "good",
+          "last_pct": "100.0",
+          "last_since_progress_s": 0.0,
+          "phase": "finalize-verify",
+          "phase_elapsed_s": 331.6,
+          "progress_lines": 68
+        }
+      ],
+      "phases_in_order": [
+        "starting",
+        "replay",
+        "index",
+        "finalize-catalog",
+        "finalize-refresh",
+        "finalize-verify"
+      ],
+      "refusals_announced": 0,
+      "scan_lines_at_100pct_reading_stalled": 0
+    }
+  ]
+}

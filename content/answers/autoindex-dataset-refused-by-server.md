@@ -1,0 +1,125 @@
+---
+title: "Why did xerj autoindex say a dataset was REFUSED?"
+h1: "One dataset was REFUSED by the server. Did I lose the whole index?"
+description: "When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line."
+slug: "autoindex-dataset-refused-by-server"
+cluster: "Operations: exit codes"
+question: "Why did xerj autoindex say a dataset was refused by the server?"
+intent: "troubleshooting"
+published: "2026-09-18"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex with --progress plain, and parse the xerj-done line. If it carries datasets_refused, report the corpus as indexed but incomplete, run xerj autoindex map to read the Refused datasets section, and name each refused index and the server's reason to the user. Do not retry the same command: a refusal is recorded in the committed generation and a retry repeats it."
+commands:
+  - cmd: "xerj autoindex ./corpus --url http://127.0.0.1:9200 --prefix ax --no-graph --state-dir ./state --progress plain"
+    note: "A normal run. If the server refuses a dataset, the run continues and exits 3."
+  - cmd: "xerj autoindex map --url http://127.0.0.1:9200 --prefix ax"
+    note: "Prints a Refused datasets section above the dataset table, with the server's reason for each."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/autoindex-catalog/_search' -H 'content-type: application/json' -d '{\"size\":100,\"query\":{\"bool\":{\"filter\":[{\"term\":{\"doc_kind\":\"file\"}},{\"term\":{\"status\":\"junk\"}}]}},\"_source\":[\"path\",\"reason\"]}'"
+    note: "List every file the run did not index, each with its reason. A refused file's reason names the dataset and quotes the server."
+  - cmd: "xerj autoindex ./corpus --url http://127.0.0.1:9200 --prefix ax2 --no-graph --state-dir ./state2 --progress plain"
+    note: "After you fix the cause on the server, rebuild under a new prefix and a new state directory to pick the dataset up."
+links_out:
+  - "autoindex-exit-codes"
+  - "why-autoindex-skipped-files"
+  - "check-codebase-index-is-complete"
+  - "read-autoindex-progress"
+evidence:
+  - claim: "A forced refusal on a 3-file corpus: the csv dataset's 2 files were recorded as junk, the other dataset was indexed, and the run ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2."
+    source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt"
+  - claim: "The same run printed generation 1 committed with 1 datasets and 1 records live, then one REFUSED dataset line carrying the server's 400 response."
+    source: "benchmarks/autoindex-resilience/refusal-e2e.run1.stdout.txt"
+  - claim: "A no-op re-run of the same command exits 3 again and still reports datasets_refused=1 files_refused=2 at generation 1."
+    source: "benchmarks/autoindex-resilience/refusal-e2e.run2-noop.stderr.txt"
+  - claim: "Only HTTP 400 on create-index or put-mapping is classified as a refusal; 401, 403, 404, 408, 429 and 5xx still abort the run."
+    source: "engine/crates/xerj-autoindex/src/esclient.rs"
+  - claim: "Before this change, on v1.0.0-rc.74, one refused mapping ended a 48,533-file run with xerj-done ok=false exit=1 reason=aborted wall=270.0s and nothing indexed."
+    source: "benchmarks/autoindex-resilience/before-rc74.stderr.txt"
+faq:
+  - q: "Why did xerj autoindex say a dataset was refused by the server?"
+    a: "The server answered HTTP 400 to that dataset's create-index or put-mapping request. `xerj autoindex` records the dataset's files as junk with the server's reason, indexes every other dataset, and exits 3."
+  - q: "One dataset was REFUSED by the server. Did I lose the whole index?"
+    a: "No. Only that dataset's files are missing. Every other dataset is indexed and searchable, and the terminal line carries `datasets_refused` and `files_refused` so the gap is countable."
+  - q: "Which exit code does a refused dataset produce?"
+    a: "Exit 3, `completed-with-junk`. A refused dataset is never exit 0, because the corpus lacks files, and never exit 1, because the run finished."
+  - q: "Will re-running the same command index the refused dataset?"
+    a: "No. On the `--no-graph` path the refusal is part of the committed generation, so a re-run reports it again and exits 3. Fix the cause, then rebuild under a new `--prefix` and a new `--state-dir`."
+  - q: "Does a 503 or a 401 count as a refusal?"
+    a: "No. Only HTTP 400 does. A 401 or 403 is your credentials and a 5xx is the endpoint, so neither says anything about the dataset, and both still abort the run with exit 1."
+  - q: "How do I find which files a refused dataset cost me?"
+    a: "Read `autoindex-catalog` for file documents with `status` `junk`. A refused file's `reason` names the dataset and quotes the server's response."
+  - q: "Why is there an empty index for the refused dataset?"
+    a: "The create-index call can succeed before the mapping update is refused. `xerj autoindex` does not delete an index it cannot prove it created, so an empty one may remain. It holds no documents."
+---
+
+**TL;DR** — No. When the server refuses one dataset's mapping, `xerj autoindex` records that dataset's files as junk, indexes every other dataset, and exits 3. The terminal line carries `datasets_refused` and `files_refused`. Only HTTP 400 counts as a refusal. Re-running does not fix it; rebuild under a new prefix after you fix the cause.
+
+## What a refusal is
+
+`xerj autoindex` infers a mapping for each dataset and asks the server to install it. The server can say no to one of them. A field shape it does not support, a field-count limit, or a conflict with a mapping that already exists under that index name.
+
+That answer is about one dataset. It says nothing about the others. So it costs one dataset.
+
+Only an HTTP 400 on the create-index or put-mapping request is treated this way. A 401 or 403 is your credentials. A 404 is a vanished index. A 408, 429 or 5xx is the endpoint. None of those is specific to the dataset being installed, so all of them still abort the run with exit 1. Routing around a 503 would publish a corpus that lacks data for a transient reason and call it complete.
+
+## What the run prints
+
+This is a forced refusal on a small corpus: two CSV files and one Markdown file. The CSV dataset's index already existed with `value` mapped as `long`, and the inferred mapping wanted `keyword`.
+
+The run announces the refusal while it is still running. `--quiet` does not silence this line.
+
+```text
+autoindex: dataset csv REFUSED by the server — 2 file(s) recorded as junk and NOT indexed; every other dataset continues. install generation mapping for e2e-refuse-csv: PUT /e2e-refuse-csv/_mapping failed: 400 Bad Request {"error":{"root_cause":[{"type":"illegal_argument_exception","reason":"mapper [value] cannot be changed from type [long] to [keyword]"}], ...
+autoindex: 1 of 2 dataset(s) refused, 2 of 3 file(s) not indexed — this run will exit 3 and name them in its summary (`datasets_refused`)
+```
+
+Then it finishes, and the terminal line counts the gap.
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+```
+
+`datasets_refused` and `files_refused` appear only when something was refused. A corpus that lost nothing prints the line it always printed, so a corpus that lost a dataset cannot print the same one.
+
+## Where the refusal is recorded
+
+| Place | What it holds |
+| --- | --- |
+| The `xerj-done` line | `datasets_refused` and `files_refused` |
+| Standard output | One `REFUSED dataset` line per dataset, with the server's response |
+| The catalog's run document | `datasets_refused`, `files_refused` and `refused_datasets_json` |
+| The catalog's file documents | `status` `junk` and a `reason` that names the dataset and quotes the server |
+| `xerj autoindex map` | A **Refused datasets — NOT indexed** section above the dataset table |
+
+The `map` section comes before the dataset table on purpose. A reader who stops at the table would otherwise take it for the whole corpus.
+
+## Re-running does not fix it
+
+On the `--no-graph` path the refusal is frozen into the committed generation along with the rest of the plan. A re-run of the same command exits 3 again and names the same dataset. In the capture, the second run ended at generation 1 with `datasets_refused=1 files_refused=2` and wrote nothing.
+
+A later run also treats a new or changed file of the same shape as refused. That is deliberate. Without it, the next run would classify those files as new, find no dataset for them, and abort.
+
+To pick the dataset up, fix the cause on the server, then rebuild under a new `--prefix` and a new `--state-dir`. Validate the new target before you switch readers to it.
+
+## Three limits
+
+**A file is dropped whole.** If one file feeds several datasets, such as a SQL dump with many tables, and one of those datasets is refused, the whole file is recorded as refused. Not just that table's rows.
+
+**An empty index may remain.** The create-index call can succeed before the mapping update is refused. `xerj autoindex` does not delete an index it cannot prove it created. The leftover holds no documents and does not change search results or counts.
+
+**A refusal after the fact is fatal.** If the server starts refusing a dataset that it accepted when the generation was built, the run stops with exit 1. A sealed generation cannot drop a dataset without its manifest, its snapshot and its catalog disagreeing. The error names every refused dataset, not only the first, and tells you to rebuild.
+
+## What this replaced
+
+On v1.0.0-rc.74 the mapping loop stopped at the first refusal. On a 48,533-file reference corpus, one unmappable field name ended the run with `xerj-done ok=false exit=1 reason=aborted wall=270.0s`. Nothing was indexed. Not the refused dataset, and not any of the others.
+
+That specific field name no longer triggers a refusal. The structural fix is that any refusal now costs one dataset.
+
+## How this page was checked
+
+The refusal above was forced on a throwaway node by pre-creating the dataset's index with a conflicting field type, then running the built binary against it. The captures are committed under `benchmarks/autoindex-resilience/`. Local paths in them were shortened; nothing else was changed.
+
+The behaviour is also pinned by tests in `engine/crates/xerj-autoindex`: both dataset orders, a 503 that still aborts, a refusal carried across an incremental generation, and a refusal of an already committed dataset.
+
+Not verified: a refusal caused by a field-count limit, or by any cause other than a field-type conflict. The code path is the same for every HTTP 400, but only the type conflict was run end to end.

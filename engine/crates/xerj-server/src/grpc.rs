@@ -1164,4 +1164,233 @@ mod tests {
         let _ = tx.send(());
         let _ = server.await;
     }
+
+    /// A share-link guest key on the gRPC listener.
+    ///
+    /// The guest route allow-list (`authz::guest_route_allowed`) lives in the
+    /// HTTP middleware; this listener has no route list, only the per-index
+    /// decision every RPC makes. Reading the code says that is a strict subset
+    /// of what a guest gets over HTTP — read on the shared index, nothing on
+    /// any other, no write anywhere — and until the review of PR #947 nothing
+    /// exercised it. This drives the real interceptor and the real RPC
+    /// handlers, in process: no socket, so no port.
+    ///
+    /// `bulk_index` is not called here — its argument is a tonic `Streaming`,
+    /// which only a transport can build. It authorizes each item with the same
+    /// `authorize(…, WriteIndex)` call that `index` makes.
+    #[tokio::test]
+    // `as_caller` returns the interceptor's `tonic::Status`; same rationale as
+    // the allow on `authorize`.
+    #[allow(clippy::result_large_err)]
+    async fn a_share_guest_key_reads_its_index_over_grpc_and_nothing_else() {
+        use axum::extract::State;
+        use axum::Json;
+        use tonic::service::Interceptor;
+        use tonic::Code;
+
+        let dir = TempDir::new().unwrap();
+        let admin = "grpc-share-guest-admin";
+        let state = app_state_with_auth(&dir, admin);
+        let svc = GrpcService::new(state.clone());
+
+        // Authenticate the way the listener does, then hand the principal to
+        // the typed request the way tonic hands over its extensions.
+        let as_caller = |authorization: &str| -> Result<Principal, Status> {
+            let mut bare = tonic::Request::new(());
+            bare.metadata_mut()
+                .insert("authorization", authorization.parse().unwrap());
+            let passed = GrpcAuth {
+                state: state.clone(),
+            }
+            .call(bare)?;
+            Ok(passed
+                .extensions()
+                .get::<Principal>()
+                .cloned()
+                .expect("the interceptor plants the principal"))
+        };
+        fn with<T>(message: T, principal: &Principal) -> tonic::Request<T> {
+            let mut request = tonic::Request::new(message);
+            request.extensions_mut().insert(principal.clone());
+            request
+        }
+        async fn body_of(resp: axum::response::Response) -> serde_json::Value {
+            let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+                .await
+                .expect("body");
+            serde_json::from_slice(&bytes).expect("json")
+        }
+
+        let owner = as_caller(&format!("ApiKey {admin}")).expect("admin key");
+        for (index, id, source) in [
+            (
+                "casefile",
+                "1",
+                r#"{"body":"the deposit was not returned"}"#,
+            ),
+            (
+                "private-diary",
+                "1",
+                r#"{"body":"nobody else should read this"}"#,
+            ),
+        ] {
+            let done = svc
+                .index(with(
+                    pb::IndexRequest {
+                        index: index.into(),
+                        id: id.into(),
+                        source_json: source.into(),
+                    },
+                    &owner,
+                ))
+                .await
+                .expect("owner indexes")
+                .into_inner();
+            assert_eq!(done.result, "created");
+        }
+
+        // A real share, claimed the way the guest page claims it.
+        let created = body_of(
+            xerj_api::share::create_share(
+                State(state.clone()),
+                Principal::Superuser,
+                Some(Json(serde_json::json!({"index": "casefile"}))),
+            )
+            .await,
+        )
+        .await;
+        let claimed = body_of(
+            xerj_api::share::claim_share(
+                State(state.clone()),
+                xerj_api::share::ClaimSource("grpc-test".into()),
+                Some(Json(serde_json::json!({
+                    "id": created["share_id"], "passcode": created["passcode"],
+                }))),
+            )
+            .await,
+        )
+        .await;
+        let guest_key = claimed["api_key"].as_str().expect("a guest key");
+        let guest = as_caller(&format!("ApiKey {guest_key}")).expect("guest key authenticates");
+        assert!(guest.is_share_guest(), "{guest:?}");
+
+        // ── what the guest holds ────────────────────────────────────────────
+        let found = svc
+            .search(with(
+                pb::SearchRequest {
+                    index: "casefile".into(),
+                    query_json: String::new(),
+                    size: 10,
+                    from: 0,
+                },
+                &guest,
+            ))
+            .await
+            .expect("a guest searches the shared index")
+            .into_inner();
+        assert_eq!(found.total_hits, 1, "{found:?}");
+        let got = svc
+            .get_document(with(
+                pb::GetRequest {
+                    index: "casefile".into(),
+                    id: "1".into(),
+                },
+                &guest,
+            ))
+            .await
+            .expect("a guest reads a shared document")
+            .into_inner();
+        assert!(got.found);
+
+        // ── every other index, by name and by pattern ───────────────────────
+        for index in [
+            "private-diary",
+            "*",
+            "_all",
+            "case*",
+            ".xerj_audit",
+            ".xerj-memory-case-edges",
+            "autoindex-catalog",
+        ] {
+            let e = svc
+                .search(with(
+                    pb::SearchRequest {
+                        index: index.into(),
+                        query_json: String::new(),
+                        size: 10,
+                        from: 0,
+                    },
+                    &guest,
+                ))
+                .await
+                .expect_err("a guest must not search another index");
+            assert_eq!(e.code(), Code::PermissionDenied, "search [{index}]: {e:?}");
+            assert!(!e.message().contains("nobody else"), "{e:?}");
+            let e = svc
+                .get_document(with(
+                    pb::GetRequest {
+                        index: index.into(),
+                        id: "1".into(),
+                    },
+                    &guest,
+                ))
+                .await
+                .expect_err("a guest must not read another index");
+            assert_eq!(e.code(), Code::PermissionDenied, "get [{index}]: {e:?}");
+        }
+
+        // ── no write, not even to the shared index ──────────────────────────
+        for index in ["casefile", "private-diary", "brand-new"] {
+            let e = svc
+                .index(with(
+                    pb::IndexRequest {
+                        index: index.into(),
+                        id: "9".into(),
+                        source_json: r#"{"body":"tampered"}"#.into(),
+                    },
+                    &guest,
+                ))
+                .await
+                .expect_err("a guest must not write");
+            assert_eq!(e.code(), Code::PermissionDenied, "index [{index}]: {e:?}");
+            let e = svc
+                .delete_document(with(
+                    pb::DeleteRequest {
+                        index: index.into(),
+                        id: "1".into(),
+                    },
+                    &guest,
+                ))
+                .await
+                .expect_err("a guest must not delete");
+            assert_eq!(e.code(), Code::PermissionDenied, "delete [{index}]: {e:?}");
+        }
+        let still = svc
+            .get_document(with(
+                pb::GetRequest {
+                    index: "casefile".into(),
+                    id: "1".into(),
+                },
+                &owner,
+            ))
+            .await
+            .expect("owner reads")
+            .into_inner();
+        assert!(still.found && still.source_json.contains("deposit"));
+
+        // ── a revoke ends it here too ───────────────────────────────────────
+        let handle = created["handle"].as_str().expect("handle").to_string();
+        let revoked = body_of(
+            xerj_api::share::revoke_share(
+                State(state.clone()),
+                Principal::Superuser,
+                axum::extract::Path(handle),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(revoked["keys_invalidated"], 1, "{revoked}");
+        let e = as_caller(&format!("ApiKey {guest_key}")).expect_err("a revoked guest key");
+        assert_eq!(e.code(), Code::Unauthenticated, "{e:?}");
+    }
 }

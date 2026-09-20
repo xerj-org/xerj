@@ -1,0 +1,61 @@
+# Real-node checks of #955 (request too large) and the #944 terminal case. Server and client:
+# this branch built from the tree committed as 53e34f25 — the reconciliation with #949, which
+# replaced this branch's 120 s back-pressure patience with main's THROTTLE_PATIENCE of 600 s and
+# main's stderr line. That change invalidated the 2026-09-19 capture this file used to hold, so
+# every case below was RE-RUN rather than edited: control, max_actions_per_bulk=64,
+# max_body_bytes=98304, max_body_bytes=65536, and XERJ_MAX_PROCESS_MEMORY_MB=64 with its
+# restart-and-resume.
+#
+# Corpus: the sonic repository (234 files walked; 231 indexed). One fresh throwaway node per run
+# on a private port (14300-14317), auth on, lexical embedder, --no-graph; only the setting named
+# in each header differs from the default. Lines copied verbatim from each run's stderr
+# (xerj-progress/xerj-bar lines and the phase-A estimate block omitted), then the node's _count
+# for the run's prefix and for autoindex-catalog. Local paths shortened.
+#
+# Machine: 32 cores, 119.2 GiB, shared with other builds. `uptime` read
+# `load average: 24.93, 21.87, 21.50` when the first run started and
+# `load average: 16.83, 19.06, 20.81` when the last one ended, so the wall times are not
+# reproducible to the second; the counts and the exit codes are the contract.
+
+## control — default limits
+xerj-done ok=true exit=3 reason=completed-with-junk wall=6.1s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
+_count <prefix>-*: 1663   autoindex-catalog: 236
+
+## [limits] max_actions_per_bulk = 64
+autoindex: the server refused a bulk request of 69 action(s) (93435 bytes) as too large ({"type":"engine_exception","reason":"bulk request contains 138 lines (~69 actions); exceeds max_actions_per_bulk of 64","status":413}); nothing in it was written — sending it as two requests and keeping later requests under that size
+xerj-done ok=true exit=3 reason=completed-with-junk wall=5.6s files=231 records=1663 generation=1 bulk_splits=1 code_files=194 code_files_indexed=194 code_files_junked=0
+_count <prefix>-*: 1663   autoindex-catalog: 236
+
+## [limits] max_body_bytes = 98304
+autoindex: the server refused a bulk request of 49 action(s) (120443 bytes) as too large (length limit exceeded); nothing in it was written — sending it as two requests and keeping later requests under that size
+xerj-done ok=true exit=3 reason=completed-with-junk wall=5.5s files=231 records=1663 generation=1 bulk_splits=1 code_files=194 code_files_indexed=194 code_files_junked=0
+_count <prefix>-*: 1663   autoindex-catalog: 236
+
+## [limits] max_body_bytes = 65536 (one record of the corpus is larger)
+autoindex: the server refused a bulk request of 57 action(s) (80317 bytes) as too large (length limit exceeded); nothing in it was written — sending it as two requests and keeping later requests under that size
+xerj-done ok=false exit=1 reason=aborted wall=2.2s
+error: _bulk: HTTP 413 Payload Too Large for a request of one action (70471 bytes): length limit exceeded. One record is larger than the server accepts; raise limits.max_body_bytes on the node (or the proxy in front of it), or exclude the file
+_count <prefix>-*: 958   autoindex-catalog: 0
+# (958, not 886 as in the 2026-09-19 run: how many windows land before the un-cuttable record is
+#  reached depends on which worker reaches it first. The contract is the error, not the count.)
+
+## XERJ_MAX_PROCESS_MEMORY_MB=64 (the breaker is engaged from start-up)
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 32 → 16 for this run
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 16 → 8 for this run
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 8 → 4 for this run
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 4 → 2 for this run
+autoindex: server pushed back (HTTP 429); lowering bulk concurrency 2 → 1 for this run
+autoindex: stopped by server back-pressure while applying server/Cargo.toml: 0 operation(s) are journaled applied, 231 are not (this one first) — the same command resumes from here once the node accepts writes again
+xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231
+error: the server kept rejecting 2 of a prepared bulk's items after 600s of back-pressure re-sends with nothing accepted: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped: rss=77MB >= watermark=60MB (94% of limit=64MB); writes rejected to prevent an out-of-memory kill","status":429}. Nothing from this bulk was journaled applied; rerun the same command once the server condition clears and the run resumes from its last committed operation
+(+ 19 'autoindex: server is shedding load …' notices. That is ONE PER 30 s of the wait — the
+ announce throttle — not one per re-send; the re-sends themselves are not counted on stderr, and
+ the run ends before an xerj-done line could carry bulk_retries. First and last:)
+autoindex: server is shedding load — [parent] real memory circuit breaker tripped: rss=101MB >= watermark=60MB (94% of limit=64MB); writes rejected to prevent an out-of-memory kill; re-offering 2 rejected record(s) (waited 0s, giving up after 600s)
+autoindex: server is shedding load — [parent] real memory circuit breaker tripped: rss=77MB >= watermark=60MB (94% of limit=64MB); writes rejected to prevent an out-of-memory kill; re-offering 2 rejected record(s) (waited 575s, giving up after 600s)
+_count <prefix>-*: 0   autoindex-catalog: 0
+
+## the same state directory as the run above, node restarted with the default (16 GiB auto) cap, same command
+autoindex: resumed and committed pending corpus generation from durable source
+xerj-done ok=true exit=3 reason=completed-with-junk wall=3.5s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
+_count bp-*: 1663   autoindex-catalog: 236

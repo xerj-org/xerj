@@ -58,7 +58,8 @@ next: `xerj autoindex map --url http://localhost:9280` for the data map; search 
 
 The exit code is `3` — "completed with junk": the run finished, and the
 binary blob was recorded rather than crashing anything. `0` means a fully
-clean run; junk is *never* fatal.
+clean run; junk is *never* fatal. Exit 3 also covers a dataset whose mapping
+the server refused — see [section 7](#7-one-dataset-the-server-refuses-does-not-cost-you-the-run).
 
 ## 2. Ask the engine what it found
 
@@ -245,6 +246,188 @@ under a new `--state-dir`, `--prefix` and `--brain` (or `--no-graph`), validated
 you switch readers. The shared `autoindex-catalog` and the old target require explicit
 cleanup. A `--no-graph` state directory written before the generation format cannot be
 adopted in place and must be rebuilt the same way.
+
+## 7. One dataset the server refuses does not cost you the run
+
+`autoindex` infers a mapping per dataset and asks the server to install it. A
+server can refuse one: a field shape it does not support, a field-count limit,
+a conflict with a mapping an earlier release left behind. That is a statement
+about **one** dataset, so it costs one dataset
+([#929](https://github.com/xerj-org/xerj/issues/929)):
+
+- every other dataset is indexed as usual;
+- the refused dataset's files are recorded in `autoindex-catalog` as junk, each
+  carrying the server's own refusal text as its reason;
+- the run announces it while it is still running (`dataset … REFUSED by the
+  server — N file(s) recorded as junk and NOT indexed; every other dataset
+  continues`), and `--quiet` does not silence that line;
+- the run exits **3**, and the terminal line carries the counts:
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk … datasets_refused=1 files_refused=2
+```
+
+- the catalog's run document carries `datasets_refused`, `files_refused` and
+  `refused_datasets_json` (index, file count and the server's reason per
+  dataset), and `xerj autoindex map` prints a **Refused datasets — NOT
+  indexed** section *above* the dataset table, so a corpus that lacks a dataset
+  cannot read as a whole one.
+
+Only an HTTP **400** on create-index or put-mapping is treated this way. A 401
+or 403 is your credentials, a 404 a vanished index, and 408, 429 and 5xx are the
+endpoint: none of those says anything about the dataset being installed, so all
+of them still abort the run with exit 1. Routing around a 503 would publish a
+corpus that silently lacks data for a transient reason.
+
+Three limits, stated plainly:
+
+- **A refusal is decided once, when the corpus is first built.** On the
+  `--no-graph` path the refused dataset is frozen into the committed generation
+  along with the rest of the plan. A later run keeps reporting it (still exit 3)
+  and treats a new or changed file of the same shape as refused too. If you
+  upgrade the server so that it would now accept the mapping, rebuild under a
+  new `--state-dir` and a new `--prefix` to pick the dataset up.
+- **A file is dropped whole.** If one file feeds several datasets (a SQL dump
+  with many tables) and one of them is refused, the whole file is recorded as
+  refused, not just that table's rows.
+- **The refused dataset's index may be left behind empty.** The create call can
+  succeed before the mapping update is refused. `autoindex` does not delete an
+  index it cannot prove it created, so an empty `<prefix>-<dataset>` index may
+  remain. It holds no documents and does not affect search or counts.
+
+If the server starts refusing a dataset it accepted when the generation was
+built, that *is* fatal — a sealed generation cannot drop a dataset without its
+manifest, snapshot and catalog disagreeing — but the error names every refused
+dataset, not just the first, and says to rebuild under a new `--state-dir` and
+`--prefix`.
+
+## 8. Back-pressure from the node is waited out, not fatal
+
+The engine measures its own resident memory and, above a watermark, answers
+writes with HTTP 429 until memory drops back — a parent memory circuit breaker
+that engages and releases within seconds. A bulk can be answered two ways while
+it is engaged: the whole request comes back 429, or the request comes back 200
+with some *items* marked `status: 429`. Both used to end the run. The second
+ended a 48,533-file run at 60.4% of its `index` phase, after 85 minutes, on the
+first bulk that came back with 747 items rejected
+([#944](https://github.com/xerj-org/xerj/issues/944)); the breaker had released
+about a second later. The first ended the resumed run 1039.6 s in: a
+whole-request 429 was handed to the transport retry — six attempts, about 8 s
+of backoff — and then aborted with `error: _bulk: HTTP 429 Too Many Requests`,
+while the same rejection carried per item would have been waited out.
+
+Now, when a bulk comes back 429 as a whole, or when every failed item in it is
+a 429, the run:
+
+- lowers its bulk concurrency once per congestion event, as before;
+- cuts exactly the rejected actions out of the body it sent — the response is
+  positional, and a `delete` (no document line) keeps its place — and re-sends
+  only those after a backoff of 250 ms doubling to 8 s;
+- keeps doing so until the node takes them;
+- gives up 600 s after that bulk was first offered. Only then is it exit 1,
+  with an error line that begins `the server kept rejecting` and says that
+  nothing from that bulk was journaled and the same command resumes the run.
+
+A 429 beside a different failure (a 400 for a record the node cannot parse) is
+never re-sent: that bulk carries a bad record you need to see. A whole-request
+429 whose body is a full bulk response (the engine echoes one) is read item by
+item, so an action the node says it accepted is not sent again; a bare
+`{"error": …}` body means every action was rejected and the whole body goes
+out again.
+
+Patience is finite for a reason. A node whose resident memory stays pinned
+above its watermark never accepts again, and no client-side wait fixes that:
+after the full-corpus run above, the node still held 14.8 GB of anonymous
+memory for 1.2 GB on disk 2.5 hours after the last write, and every write was
+429 until it was restarted
+([#950](https://github.com/xerj-org/xerj/issues/950)). The run then exits 1
+with `the server kept rejecting`; restart the node, or raise
+`XERJ_MAX_PROCESS_MEMORY_MB` / `limits.max_process_memory_mb`, and rerun the
+same command to resume. On the `--no-graph` path the terminal line names that
+stop instead of calling it an abort, and says how much is left:
+
+```text
+autoindex: stopped by server back-pressure while applying <file>: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again
+xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
+```
+
+It stays exit 1, not 3: exit 3 means "a finished run, retry nothing", and this
+generation is not finished. Forced on a real node with a 64 MiB memory cap, the
+line read `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s
+ops_applied=0 ops_remaining=231`; after a restart on the default cap, the same
+command committed the generation with the control run's 1,663 records.
+
+The stream says what is happening at most once every 30 s per waiting bulk
+(`autoindex: server is shedding load — <the node's own reason>; re-offering N
+rejected record(s) (waited Ws, giving up after 600s)`), and
+the terminal line of a run that met back-pressure carries `bulk_retries=N`,
+present only when it happened. The `raising bulk concurrency` line after
+recovery is printed at most once every 10 s (the motivating capture held 117 of
+them for 11 shrinks).
+
+## 9. A request the node calls too large is split, not fatal
+
+The engine refuses a `_bulk` request above two operator limits:
+`limits.max_body_bytes` (HTTP 413 on the request, 100 MiB by default) and
+`limits.max_actions_per_bulk` (HTTP 200 with one item answered 413, 50,000
+actions by default). Until [#955](https://github.com/xerj-org/xerj/issues/955)
+the catalog write — one document per file, per dataset, per run — went out as
+ONE request on both paths, so it grew with the corpus. On the 48,533-file
+corpus that was 51,129 actions in 31.9 MB, and a `--no-graph` run that had
+applied all 47,444 operations ended in `finalize-catalog`, 10,336 s in:
+
+```text
+xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
+```
+
+The default (graph) path counted the same answer as one ignorable item error
+and exited 0 with an empty catalog; a test against a stub that answers the
+engine's literal 413 shows it.
+
+Now every `_bulk` body goes out in windows of at most 10,000 actions, and the
+catalog write also stays under `--bulk-mb`. A request the node still refuses as
+too large is cut in two by actions and re-sent, and the run keeps the
+smallest bound it has learned for every later request, so later bodies are cut
+before they are sent instead of being refused again. A
+refusal of size is not congestion: the bulk concurrency does not drop. The
+terminal line carries `bulk_splits=N` when the node refused a request for its
+size; cutting a body before it is sent is not counted. One action the node
+calls too large cannot be cut and still ends the run with an error that names
+`limits.max_body_bytes`.
+
+Resuming the generation above with this change committed it, on the same node
+data: `xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s
+files=47444 records=821840 generation=1`, with 51,129 catalog documents and the
+node's largest request body at 8,388,241 bytes (was 31,910,392). Captures:
+`benchmarks/autoindex-resilience/before-955.*` and `after-955.*`.
+
+Both refusal shapes were also run against real nodes on the `sonic`
+repository (`limits-real-node.txt`): with `max_actions_per_bulk = 64` and with
+`max_body_bytes = 98304`, each run halved one request and ended
+`ok=true exit=3 records=1663 bulk_splits=1`, the same records and catalog as a
+control run on default limits. With `max_body_bytes = 65536` one 70,471-byte
+record could not be cut, and the run ended exit 1 with the error that names
+`limits.max_body_bytes`.
+
+## 10. Reading progress on the `--no-graph` path
+
+Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
+`prepare` (install mappings, counted in datasets), `snapshot` (seal and extract
+every file, counted in source bytes), `index` (send the sealed bulk bytes, the
+in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-refresh`
+(one refresh per dataset), `finalize-verify` (one read-back per file). A
+resumed run starts at `replay`, and its `index` phase counts only the
+operations still to apply, so it starts at 0% of what remains rather than
+crediting this run with an earlier one's writes.
+
+Before [#931](https://github.com/xerj-org/xerj/issues/931) this path reported
+none of those steps: the stream kept printing `phase=scan … pct=100.0 …
+eta_quality=stalled` with a climbing `since_progress_s` for as long as documents
+were landing, which is byte for byte what a real hang at the end of the scan
+prints. A line that says `scan` at 100% now means scan. The before and after
+streams from the same 48,533-file corpus are in
+[`benchmarks/autoindex-resilience/`](../../benchmarks/autoindex-resilience/).
 
 ## Reproduce it yourself
 

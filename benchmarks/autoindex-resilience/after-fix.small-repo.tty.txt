@@ -1,0 +1,44 @@
+# TTY surface, captured under a pseudo-terminal (script -qfc). The terminal redraws one line in place;
+# each redraw is written here as its own line.
+Script started on 2026-09-18 11:00:58+02:00 [COMMAND="xerj autoindex ~/.xerj-code/corpora/xerj-search/sonic --url http://localhost:9540 --prefix tty-probe --no-graph --state-dir ./state-tty --yes" <not executed on terminal>]
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=63807 safe_zone_mib=48544]
+autoindex: bulk HTTP request timeout: 300s
+walk [????????????]   ..%  | eta unknown
+autoindex: 234 files (1 MB) under ~/.xerj-code/corpora/xerj-search/sonic
+autoindex: ignore rules: skipped 4 files and pruned 3 directories (contents never walked, so not counted); 2 ignore files read
+autoindex: ignore rules:   hidden:dotfile — 4 files, 3 directories pruned
+hash [------------]   0.0% | 0/234 items | 0B/1.2MB | eta unknown
+autoindex: 2 byte-identical duplicate path(s) will reuse canonical content
+  duplicate: client/examples/typed_then_raw.rs → client/examples/raw.rs
+  duplicate: server/tests/common/logging.rs → core/tests/common/logging.rs
+scan [------------]   0.0% | 0/232 items | 0B/1.2MB | eta unknown
+phase A: sniffing + sampling 232 files with 32 threads…
+phase A: 1 datasets inferred, 1 junk/skipped files
+estimate: at least 0.0 s–0.0 s — a MEASURED FLOOR for client-side extraction, not a prediction of the whole run: server indexing, embedding and network time are not in it
+estimate: basis — measured on this machine during phase A: 231 file(s) / 1.2 MB read end to end across 4 family/families, scheduled over 32 worker(s). Covers 1.2 MB of the 1.2 MB planned (100% of planned bytes). Client-side extraction only.
+  estimate: code         194 files  980.1 KB at 2.1 MB/s measured over 194 file(s) / 980.1 KB → 0.5 s
+  estimate: txt-prose     21 files  186.9 KB at 22.3 MB/s measured over 21 file(s) / 186.9 KB → 0.0 s
+  estimate: txt-lines     13 files   41.7 KB at 24.4 MB/s measured over 13 file(s) / 41.7 KB → 0.0 s
+  estimate: yaml           3 files    7.2 KB at 9.2 MB/s measured over 3 file(s) / 7.2 KB → 0.0 s
+  estimate excludes: server-side indexing, embedding and merge time (autoindex cannot measure it without writing)
+  estimate excludes: network round trips to the endpoint
+  estimate excludes: relationship detection and edge writes (--no-graph removes these)
+  estimate excludes: families with no end-to-end read in phase A, listed under unmeasured_families
+work order: source-and-docs (214 files, 1.1 MB) → config (3 files, 7.2 KB) → bulk (13 files, 41.7 KB) → vendored (1 files, 82.2 KB) — biggest first inside each band at 32 worker(s); a file that outlasts everything above it starts first regardless of band
+  source-and-docs  source code and documents — what a person searches for first
+  config           configuration and small structured trees — dense, high signal per byte
+  bulk             logs and plain line files — voluminous, low signal per byte
+  vendored         vendored, generated or minified paths — indexed last so stopping early costs nothing you care about
+gate: not triggered — the measured extraction floor 0.0 s–0.0 s is under --max-minutes 10. That is NOT a promise the run finishes in 10 minutes: server, network and embedding time are not measured before indexing starts
+prepare [------------]   0.0% | 0/1 items | eta unknown
+snapshot [------------]   0.0% | 0/232 items | 0B/1.2MB | eta unknown
+snapshot [############] 100.0% | 232/232 items | 1.2MB/1.2MB | 2.2MB/s | eta unknown
+index [------------]   0.0% | 0/231 items | 0B/2.2MB | eta unknown
+index [#########---]  78.1% | 160/231 items | 1.7MB/2.2MB | 1.7MB/s | eta unknown | waiting on CONTRIBUTING.md(2.4KB)
+finalize-catalog [------------]   0.0% | 0/1 items | eta unknown
+finalize-catalog [############] 100.0% | 1/1 items | 2.2 items/s | eta unknown
+finalize-refresh [------------]   0.0% | 0/2 items | eta unknown
+finalize-verify [------------]   0.0% | 0/231 items | eta unknown
+generation 1 committed — 1 datasets, 1663 records live
+xerj-done ok=true exit=3 reason=completed-with-junk wall=4.0s files=231 records=1663 generation=1 code_files=194 code_files_indexed=194 code_files_junked=0
+Script done on 2026-09-18 11:01:02+02:00 [COMMAND_EXIT_CODE="3"]

@@ -2,7 +2,7 @@
 ---
 title: "What do the xerj autoindex exit codes mean?"
 canonical: "https://xerj.org/answers/autoindex-exit-codes"
-updated: "2026-08-23"
+updated: "2026-09-20"
 source: "content/answers/autoindex-exit-codes.md"
 ---
 
@@ -65,7 +65,7 @@ The list below is quoted from `xerj autoindex --help` on the installed binary. R
 | Exit | Name in `--help` | What it means for the corpus |
 | --- | --- | --- |
 | 0 | complete | The run finished and refused nothing. A gate answered with `--approve cancel` also exits 0. |
-| 3 | completed-with-junk | The run finished. At least one file was refused and recorded. Never fatal. |
+| 3 | completed-with-junk | The run finished. At least one file was refused and recorded. Never fatal. This includes a whole dataset whose mapping the server refused. |
 | 4 | NEEDS A DECISION | The estimate exceeded `--max-minutes`. Nothing was indexed. A JSON decision request is on stdout. |
 | 2 | usage | The command line was wrong. Nothing ran. |
 | 1 | endpoint/journal failure | The node or the resume journal failed, a corpus removal was refused, or an unsafe state transition was refused. |
@@ -81,6 +81,22 @@ A folder of real files almost always contains something XERJ will not parse. An 
 An agent that treats a non-zero exit as a failure will therefore throw away a perfectly good index. Branch on the specific value.
 
 The companion check is the refusal list, not the exit code: read `autoindex-catalog` and match each refused path to its reason. The [skipped-files page](/answers/why-autoindex-skipped-files) covers that query.
+
+## Exit 3 can also mean a whole dataset is missing
+
+The server can refuse the mapping of one dataset with an HTTP 400. That used to abort the entire run with exit 1 and index nothing. It now costs that one dataset: its files are recorded as junk with the server's reason, every other dataset is indexed, and the run exits 3.
+
+The terminal line says so, and only when it happened:
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2 code_files=0 code_files_indexed=0 code_files_junked=0
+```
+
+So an exit 3 is still a finished run, but it is not always a small gap. Read `datasets_refused` before you report a corpus as searchable. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers what is recorded and how to recover.
+
+Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
+
+A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on; it exits 1 only after 600 seconds of re-sends the node never takes, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
 
 ## Exit 4 is a question, and nothing was written
 
@@ -104,6 +120,32 @@ The common shorthand is that 1 means any error. The binary is more specific, and
 
 So a 1 is not always something to retry. Read the error line first.
 
+### Two exit-1 endings that name themselves
+
+On the `--no-graph` path, a run whose node answered its writes with HTTP 429 for the whole 600 seconds a bulk waits ends with a reason of its own instead of `aborted`:
+
+```text
+autoindex: stopped by server back-pressure while applying <file>: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again
+xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
+```
+
+Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
+
+A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one `_bulk` request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's `limits.max_actions_per_bulk` (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the `--no-graph` run ended 10,336 seconds in:
+
+```text
+xerj-done ok=false exit=1 reason=aborted wall=10336.0s
+error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
+```
+
+Every `_bulk` body now goes out in windows of at most 10,000 actions. A request the node still refuses for its size is cut in two and sent again, and the terminal line carries `bulk_splits=N` when that happened. Against real nodes with `max_actions_per_bulk = 64` and with `max_body_bytes = 98304`, each run ended `ok=true exit=3 records=1663 bulk_splits=1`, the same records as a control run. Resuming that same generation with the change committed it:
+
+```text
+xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1 code_files=34324 code_files_indexed=34324 code_files_junked=0
+```
+
+One record that is larger than the node's `limits.max_body_bytes` cannot be cut, and it still ends the run with exit 1 and an error that names that setting.
+
 ## Do not read the code alone
 
 Every run that reaches an exit, success or error, ends with one terminal line in every progress mode except `none`.
@@ -121,7 +163,7 @@ Two cases print no terminal line at all. `--quiet` and `--progress none` print n
 | Exit | Corpus state | Next action |
 | --- | --- | --- |
 | 0 | indexed, nothing refused (or cancelled on purpose) | Read the terminal line, then query. |
-| 3 | indexed, something refused | Query, then read `autoindex-catalog` for the refusals. |
+| 3 | indexed, something refused | Read `datasets_refused` on the terminal line, query, then read `autoindex-catalog` for the refusals. |
 | 4 | untouched | Re-run the same command with `--approve proceed`, `fast` or `cancel`. |
 | 2 | untouched | Fix the command line. Do not retry unchanged. |
 | 1 | partial or untouched | Read the error, check the node and the journal, then decide. |
@@ -132,7 +174,7 @@ Pair this with the four-number reconciliation on the [completeness page](/answer
 
 The codes above were read from `xerj autoindex --help` on a built binary and cross-checked against the help string in `engine/crates/xerj-autoindex/src/cli.rs`. Both agree.
 
-No run was executed for this page to force each code, so there is no capture here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
+One code was forced for this page: the exit 3 of a refused dataset, on a throwaway node, by pre-creating the dataset's index with a conflicting field type. That capture is committed under `benchmarks/autoindex-resilience/`, together with the full-corpus exit 1 in `finalize-catalog`, the exit 3 of the same generation resumed after issue #955 was fixed (`before-955.stderr.txt`, `after-955.full-corpus-resume.stderr.txt`), and a `reason=server-backpressure` exit 1 forced with a 64 MiB memory cap (`limits-real-node.txt`). The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, `xerj autoindex --help` prints them in one screen.
 
 ## FAQ
 
@@ -150,11 +192,11 @@ The measured phase-A estimate for the indexing phase was longer than `--max-minu
 
 ### How do I tell a failed index from a completed one with junk files?
 
-Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file. 1 is an endpoint or journal failure and nothing about it is a junk report.
+Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the `xerj-done` line carries `datasets_refused` and `files_refused`. 1 is an endpoint or journal failure and nothing about it is a junk report.
 
 ### Is exit 1 the code for any error?
 
-No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2.
+No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the `--no-graph` path, an exit 1 whose terminal line reads `reason=server-backpressure` means the node rejected every write for the whole 600 s a bulk waits; the line carries `ops_applied` and `ops_remaining`.
 
 ### Does exit 0 always mean the folder was indexed?
 
@@ -166,12 +208,16 @@ Either `--quiet` or `--progress none` was in force, which prints no terminal lin
 
 ### Which codes should an agent retry?
 
-Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal.
+Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is `reason=server-backpressure`, once the node accepts writes again: it resumes with the operations that remain.
 
 ## Evidence
 
-- EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal); 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — `engine/crates/xerj-autoindex/src/cli.rs:370`
-- Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — `engine/crates/xerj-autoindex/src/cli.rs:370`
+- EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) - this includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION - the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — `engine/crates/xerj-autoindex/src/cli.rs:395`
+- Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — `engine/crates/xerj-autoindex/src/cli.rs:395`
+- A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — `benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt`
+- Before issue #955 was fixed, a 48,533-file --no-graph run applied every operation and then ended xerj-done ok=false exit=1 reason=aborted wall=10336.0s, because the catalog went out as one bulk request of 51,129 actions and the engine's max_actions_per_bulk is 50,000. — `benchmarks/autoindex-resilience/before-955.stderr.txt`
+- Resuming that same generation with the fix ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1. — `benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt`
+- On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231; against real nodes with max_actions_per_bulk = 64 and with max_body_bytes = 98304, each run ended ok=true exit=3 records=1663 bulk_splits=1. — `benchmarks/autoindex-resilience/limits-real-node.txt`
 - Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either. — `engine/crates/xerj-autoindex/src/lib.rs:277`
 
 ## Related
@@ -181,3 +227,5 @@ Retry nothing on 0 or 3. Re-run with `--approve` on 4. Fix the command line on 2
 - [How do I estimate folder-indexing time?](/answers/estimate-autoindex-time-before-running)
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files)
+- [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429)

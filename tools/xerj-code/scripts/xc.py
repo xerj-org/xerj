@@ -82,6 +82,22 @@ def load_state(corpus):
         return json.load(fh)
 
 
+def query_prefix(state):
+    """The index prefix to query for this corpus.
+
+    `xc-index.sh --fresh` builds a replacement BESIDE the index it replaces and
+    retires the old one only after the new one verifies (#930), so for the
+    length of a rebuild two builds of one corpus exist under `xc-<corpus>-*`.
+    The state file therefore records two things: `prefix` (`xc-<corpus>`, the
+    whole namespace, unchanged since the first release so anything that globs on
+    it keeps working) and `index_prefix` (`xc-<corpus>-b<stamp>`, the ONE build
+    that was verified). Querying the exact build is what keeps a half-built
+    replacement — or a retired build whose delete failed — out of the answers.
+    A state file written before builds existed has no `index_prefix`.
+    """
+    return state.get("index_prefix") or state.get("prefix") or f"xc-{state.get('corpus', '')}"
+
+
 def live_index_count(prefix):
     """How many indices under `prefix*` actually exist on the target server.
 
@@ -122,7 +138,7 @@ def require_loaded(state):
     different diagnoses with different fixes, and collapsing them is the bug this
     guard closes.
     """
-    prefix = state["prefix"]
+    prefix = query_prefix(state)
     count = live_index_count(prefix)
     if count is None:
         return  # server unreachable/ambiguous — let the search path report it.
@@ -136,6 +152,33 @@ def require_loaded(state):
             f"indices ('{prefix}*') on {URL}.{hint} Re-run xc-index.sh {name}, "
             f"or set XERJ_URL to the node that has it. (This is NOT a 'no "
             f"match' — the corpus simply is not loaded on this server.)", code=3)
+
+
+def incomplete_coverage(state):
+    """The ledger's own word that this index came from a run that did not finish.
+
+    xc-index.sh keeps a build whose autoindex run exited non-zero when the only
+    alternative is no corpus at all, and records `salvaged: true` and the exit
+    code in the state file with the words "coverage is not guaranteed". Nothing
+    ever read them back, so the one party who needed to know — whoever is
+    querying — saw a normal index: a miss against a half-built corpus read
+    exactly like "this code does not exist", which is the false confidence the
+    staleness check exists to prevent. Exit 0 is clean and 3 is completed with
+    junk or refused datasets; anything else did not finish. `salvaged` is also
+    set for a build whose record count the node never answered, whatever its
+    exit code, so the wording covers both: not verified complete.
+
+    Returns the warning line, or None when the ledger records a finished run.
+    """
+    rc = state.get("autoindex_exit")
+    finished = rc in (None, 0, 3) or isinstance(rc, bool)
+    if finished and not state.get("salvaged"):
+        return None
+    name = state.get("corpus", "?")
+    how = f"autoindex exit {rc}" + (", kept unverified" if state.get("salvaged") else "")
+    return (f"WARNING: the index for '{name}' was NOT verified complete ({how}). "
+            f"Coverage may be INCOMPLETE: a miss here is not evidence that the "
+            f"code is absent. Re-run xc-index.sh {name} to resume or confirm it.")
 
 
 def check_fresh(state, stale_ok):
@@ -572,7 +615,8 @@ def list_corpora():
         except (OSError, ValueError):
             print(f"  {name:<18} !! unreadable state file")
             continue
-        prefix = st.get("prefix", f"xc-{name}")
+        st.setdefault("corpus", name)
+        prefix = query_prefix(st)
         stamp = (st.get("indexed_at") or "?")[:10]
         count = live_index_count(prefix)
         if count is None:
@@ -582,6 +626,9 @@ def list_corpora():
         else:
             loaded += 1
             status = f"loaded — {count} index(es)"
+            if incomplete_coverage(st):
+                status += (f" — INCOMPLETE (autoindex exit "
+                           f"{st.get('autoindex_exit')}); re-run xc-index.sh {name}")
         print(f"  {name:<18} {stamp}  {prefix:<18} {status}")
     print(f"\n{loaded} of {len(entries)} corpora are actually loaded on {URL}.")
 
@@ -651,19 +698,25 @@ def main():
     # "no passage matches" path, which reads as a bad query and sends the agent
     # off to guess. This is the fix for the state-ledger trust trap.
     require_loaded(state)
+    # Every time, like the mode note below: an incomplete index that answers
+    # silently is indistinguishable from a complete one. stderr, so `--json`
+    # output stays parseable.
+    warning = incomplete_coverage(state)
+    if warning:
+        print(warning, file=sys.stderr)
 
     note = None
     if args.mode == "hybrid":
-        hits, note = hybrid_search(state["prefix"], args.query, args.k, args.lang)
+        hits, note = hybrid_search(query_prefix(state), args.query, args.k, args.lang)
         res = {"hits": {"hits": hits}}
     elif args.mode == "semantic":
-        capable, total = semantic_indices(state["prefix"], fatal=True)
+        capable, total = semantic_indices(query_prefix(state), fatal=True)
         hits = semantic_search(capable, args.query, args.k, args.lang, fatal=True)
         res = {"hits": {"hits": hits}}
         note = (f"vector only over {len(capable)} of {total} index(es)" if capable
-                else f"no index under '{state['prefix']}*' maps `body` as semantic_text")
+                else f"no index under '{query_prefix(state)}*' maps `body` as semantic_text")
     else:
-        res = search(state["prefix"], args.query, args.k, args.lang)
+        res = search(query_prefix(state), args.query, args.k, args.lang)
         hits = res.get("hits", {}).get("hits", [])
 
     # Say which arms ran, every time. A hybrid call that silently fell back to

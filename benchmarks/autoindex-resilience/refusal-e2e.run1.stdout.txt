@@ -1,0 +1,2 @@
+generation 1 committed — 1 datasets, 1 records live
+REFUSED dataset csv (2 file(s) recorded as junk, not indexed): install generation mapping for e2e-refuse-csv: PUT /e2e-refuse-csv/_mapping failed: 400 Bad Request {"error":{"root_cause":[{"type":"illegal_argument_exception","reason":"mapper [value] cannot be changed from type [long] to [keyword]"}],"type":"illegal_argument_exception","reason":"mapper [value] cannot be changed from type [long] to [keyword]"},"status":400}

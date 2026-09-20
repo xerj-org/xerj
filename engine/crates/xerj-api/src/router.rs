@@ -29,7 +29,7 @@ use xerj_common::config::CorsConfig;
 
 use crate::{
     audit_mw, auth::auth_middleware, authz, es_compat, graph_api, ism_api, memory_api, native,
-    state::AppState, wal_tap_api,
+    share, state::AppState, wal_tap_api,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -893,6 +893,24 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route("/_memory/:namespace/_recall", post(memory_api::recall))
         .route("/_memory/:namespace/:id", delete(memory_api::forget_one))
+        // ── Share links ───────────────────────────────────────────────────────
+        // `xerj share`: hand one indexed corpus to a guest as a scoped,
+        // read-only, expiring key. Create/list/revoke are superuser-only in
+        // the handler; `claim` is the one unauthenticated route on this
+        // router (`auth::is_share_claim_path`) and is rate-limited instead.
+        // The share id is in the claim BODY, never in the path — a path is
+        // what an access log records. The static `/_share/claim` wins over
+        // `/_share/:id`, which only answers DELETE. See `share.rs`.
+        .route("/_share", post(share::create_share).get(share::list_shares))
+        .route("/_share/:id", delete(share::revoke_share))
+        .route(
+            "/_share/claim",
+            // An unauthenticated caller gets a few KiB, not the node-wide
+            // bulk-ingest limit. `DefaultBodyLimit` is what the `Json`
+            // extractor consults; it is disabled router-wide below and
+            // re-enabled for this one route.
+            post(share::claim_share).layer(DefaultBodyLimit::max(share::MAX_CLAIM_BODY_BYTES)),
+        )
         // ── Second-Brain Graph API ─────────────────────────────────────────────
         // Edges are ordinary documents in reserved `.xerj-memory-{brain}-edges`
         // indices; traversal is a bounded columnar expansion
@@ -931,6 +949,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             state.clone(),
             auth_middleware,
         ))
+        // OUTSIDE authentication, so the `401` and `403` the two layers above
+        // produce for `/_share…` are `no-store` too — the handlers only cover
+        // the responses they write themselves.
+        .layer(middleware::from_fn(share_no_store_middleware))
         .layer(middleware::from_fn_with_state(state, es_headers_middleware))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(trace_layer(access_log))
@@ -947,6 +969,21 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // client libraries) — without this every such request 400s/500s
         // trying to JSON-parse raw gzip bytes.
         .layer(RequestDecompressionLayer::new().gzip(true))
+}
+
+/// Everything under `/_share` is `Cache-Control: no-store`, whoever produced
+/// the response. The handlers set it on what they return; a request refused by
+/// `auth_middleware` (401) or `authz_middleware` (403) never reaches one, and
+/// the docs say "every `/_share` response — success or error".
+async fn share_no_store_middleware(req: Request, next: Next) -> Response {
+    let path = req.uri().path();
+    let under_share = path == "/_share" || path.starts_with("/_share/");
+    let resp = next.run(req).await;
+    if under_share {
+        share::no_store(resp)
+    } else {
+        resp
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

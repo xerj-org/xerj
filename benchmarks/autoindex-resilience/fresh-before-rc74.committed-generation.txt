@@ -1,0 +1,5 @@
+# xerj v1.0.0-rc.74 — `--fresh` over a committed corpus generation (issue #930, case 2)
+autoindex: 32 scan threads, 32 index workers, 4 pdf workers, --bulk-mb 8 [cores=32 ram_total_mib=122108 ram_available_mib=94909 safe_zone_mib=61054]
+autoindex: bulk HTTP request timeout: 300s
+xerj-done ok=false exit=1 reason=aborted wall=0.0s
+error: this attempt made no remote mutations. `--fresh` cannot discard committed corpus generation 1 under the same destination: the committed manifest, sealed replay evidence, and the alias, path and stale-record cleanup knowledge would be lost, and the existing destination may already be partial or stale. Re-run the same command without `--fresh` — a generated `--no-graph` journal reconciles additions, changes, deletions and renames incrementally. For an exact rebuild, index the current folder with a new --state-dir and a new --prefix, and validate the isolated target before switching readers. `--fresh` is not recovery or destination reconciliation; the global autoindex-catalog and old target require explicit validated cleanup

@@ -88,7 +88,9 @@ jobs:
             bash -n "$f"
           done
           python3 -m py_compile tools/xerj-code/scripts/xc.py \
-                                tools/xerj-code/tests/validate_manifest.py
+                                tools/xerj-code/tests/validate_manifest.py \
+                                tools/xerj-code/tests/test_xc_index_fresh.py \
+                                tools/xerj-code/tests/test_state_ledger.py
 
       # The corpus manifests are the shareable artifact (issue #319): if they
       # cannot rebuild a corpus, publishing them is worse than not shipping
@@ -104,6 +106,19 @@ jobs:
 
       - name: Vetted hub manifests validate
         run: python3 tools/xerj-code/tests/validate_manifest.py --hub tools/xerj-code/hub/*.json
+
+      # #930: `xc-index.sh <corpus> --fresh` failed on every corpus that had been
+      # indexed before, and nothing ran the script, so nothing noticed. Offline:
+      # a fake node and a fake `xerj` that refuses exactly what the real one
+      # refuses. Pins build-verify-swap: the old index is never deleted before
+      # the replacement has a count > 0, and never by wildcard.
+      - name: xc-index --fresh builds beside, verifies, then swaps
+        run: python3 tools/xerj-code/tests/test_xc_index_fresh.py
+
+      # xc.py's prefix resolution changed with #930 (it queries the verified
+      # build, not the whole namespace), so its ledger guard is gated too.
+      - name: xc.py state-ledger guard
+        run: python3 tools/xerj-code/tests/test_state_ledger.py
 
       - name: Hybrid retrieval transport fallback
         run: python3 tools/xerj-code/tests/test_hybrid_fallback.py
@@ -722,6 +737,21 @@ jobs:
           XERJ_BIN: ${{ github.workspace }}/engine/target/ci-test/xerj
           XERJ_MCP_BIN: ${{ github.workspace }}/engine/target/ci-test/xerj-mcp
         run: bash .github/scripts/usecase-smoke.sh
+
+      # Share links end to end, against throwaway nodes this script boots on
+      # 127.0.0.1:9510-9512: what a guest key can and cannot reach (the live
+      # security test, with and without a trusted proxy), the `xerj share` CLI,
+      # the guest page in the runner's headless Chrome (claim, search, read, an
+      # XSS probe document, sign-out), the open-node refusal, and the
+      # `xerj brain` -> `xerj share <folder>` path. No npm install: Chrome is
+      # driven over the DevTools pipe. NOT covered, because it needs the public
+      # internet and a third party: `--tunnel` opening a real cloudflared quick
+      # tunnel (its hostname parser and fallbacks are unit tests).
+      - name: Share links (guest reach, CLI, headless-Chrome guest flow)
+        env:
+          XERJ_BIN: ${{ github.workspace }}/engine/target/ci-test/xerj
+          XERJ_SHARE_REQUIRE_BROWSER: '1'
+        run: bash .github/scripts/share-links-smoke.sh
 
       # The published agent-facing schema vs what the server actually serves.
       # It drifted once already — six tools published against ten served, every

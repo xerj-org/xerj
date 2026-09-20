@@ -408,6 +408,9 @@ limits each one does not lift:
   resource limits that bound them.
 - [Snapshot and restore](./docs/SNAPSHOT_AND_RESTORE.md) for the supported subset of the
   snapshot API, and what restore replaces.
+- [Sharing](./docs/SHARING.md) for `xerj share`: read-only guest access to one indexed
+  folder through a link and a passcode, what a guest can and cannot reach, and the threat
+  model.
 - [Security model](./docs/SECURITY_MODEL.md) for authentication, the reserved
   `.xerj-memory-*` namespace, API keys and what is not enforced.
 - [Reranking](./docs/RERANK.md) for the optional `rerank` search stage: an external judge

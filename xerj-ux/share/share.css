@@ -1,0 +1,186 @@
+/* ============================================================
+   XERJ — share-link guest page
+   Self-contained: same six colours as assets/tokens.css, system
+   font stacks only (the console pulls web fonts from a CDN; a page
+   handed to a stranger loads nothing from anyone but the owner).
+   ============================================================ */
+
+:root {
+  --paper:  #0D0D0D;
+  --ink:    #E0E0E0;
+  --mute:   #8A8A8A;
+  --faint:  #2A2A2A;
+  --raise:  #161616;
+  --accent: #EEBB00;
+  --on-accent: #0D0D0D;
+  --danger: #FF8A8A;
+  --danger-bg: #2A1414;
+  --mark-bg: #4A3A00;
+  --mark-ink: #FFE9A0;
+  --font-display: 'Helvetica Neue Condensed', 'Arial Narrow', Impact, sans-serif;
+  --font-data: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-prose: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --paper:  #FBFAF6;
+    --ink:    #141414;
+    --mute:   #6A6661;
+    --faint:  #E6E4DC;
+    --raise:  #FFFFFF;
+    --accent: #A06800;
+    --on-accent: #FFFFFF;
+    --danger: #9A1B1B;
+    --danger-bg: #FBE9E9;
+    --mark-bg: #FFE9A0;
+    --mark-ink: #141414;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.55 var(--font-prose);
+}
+[hidden] { display: none !important; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+main { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+.noscript { max-width: 560px; margin: 64px auto; padding: 0 24px; }
+
+.eyebrow {
+  margin: 0 0 8px;
+  font: 11px/1.4 var(--font-data);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--mute);
+}
+h1 {
+  margin: 0 0 8px;
+  font: 800 32px/1.1 var(--font-display);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+h2 { margin: 16px 0 8px; font: 700 24px/1.2 var(--font-prose); overflow-wrap: anywhere; }
+.lead { margin: 0 0 24px; color: var(--mute); }
+.hint { margin: 8px 0 0; font-size: 13px; color: var(--mute); }
+.hint a { color: var(--accent); }
+
+/* ── cards (passcode, ended) ─────────────────────────────── */
+.card {
+  max-width: 480px; margin: 8vh auto 0;
+  padding: 32px;
+  background: var(--raise);
+  border: 1px solid var(--faint);
+  border-radius: 8px;
+}
+label { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+input[type="text"], input[type="search"] {
+  width: 100%; padding: 12px 14px;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--faint); border-radius: 4px;
+  font: 16px/1.3 var(--font-data);
+}
+input:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button {
+  padding: 12px 20px;
+  background: var(--accent); color: var(--on-accent);
+  border: 1px solid var(--accent); border-radius: 4px;
+  font: 600 14px/1.2 var(--font-prose);
+  cursor: pointer;
+}
+button:disabled { opacity: 0.55; cursor: progress; }
+button.quiet {
+  padding: 8px 12px;
+  background: transparent; color: var(--ink);
+  border-color: var(--faint);
+  font-weight: 500;
+}
+button.quiet:hover { border-color: var(--mute); }
+#claim-form button { width: 100%; margin-top: 16px; }
+
+.error {
+  margin: 12px 0 0; padding: 10px 12px;
+  background: var(--danger-bg); color: var(--danger);
+  border-radius: 4px; font-size: 14px;
+}
+.facts {
+  margin: 28px 0 0; padding: 20px 0 0 18px;
+  border-top: 1px solid var(--faint);
+  color: var(--mute); font-size: 13px;
+}
+.facts li { margin: 0 0 8px; }
+
+/* ── reading room ────────────────────────────────────────── */
+.room-head {
+  display: flex; gap: 24px; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap;
+  padding-bottom: 16px; border-bottom: 1px solid var(--faint);
+}
+.room-title { min-width: 0; flex: 1 1 320px; }
+.room-meta { display: flex; gap: 16px; align-items: center; }
+.expiry { margin: 0; font: 13px/1.4 var(--font-data); color: var(--mute); text-align: right; }
+.expiry.soon { color: var(--danger); }
+.notice {
+  margin: 16px 0 24px; padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--raise);
+  font-size: 14px; color: var(--ink);
+}
+
+#search-form { display: flex; gap: 8px; }
+#search-form input { flex: 1 1 auto; min-width: 0; }
+.status { min-height: 24px; margin: 16px 0 8px; font: 13px/1.4 var(--font-data); color: var(--mute); }
+.status.bad { color: var(--danger); }
+
+.results { list-style: none; margin: 0; padding: 0; }
+.results li { border-bottom: 1px solid var(--faint); }
+.hit {
+  display: block; width: 100%;
+  padding: 16px 4px; text-align: left;
+  background: transparent; color: var(--ink);
+  border: 0; border-radius: 0;
+  font: inherit; cursor: pointer;
+}
+.hit:hover .hit-title, .hit:focus-visible .hit-title { color: var(--accent); }
+.hit-title { display: block; font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.hit-meta { display: block; margin: 2px 0 6px; font: 12px/1.4 var(--font-data); color: var(--mute); overflow-wrap: anywhere; }
+.hit-snippet { display: block; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.hit-note { display: block; margin-top: 6px; font: 12px/1.4 var(--font-data); color: var(--mute); font-style: italic; }
+mark { background: var(--mark-bg); color: var(--mark-ink); border-radius: 2px; padding: 0 1px; }
+#more { margin: 24px 0 0; }
+
+/* ── document view ───────────────────────────────────────── */
+.doc { margin-top: 8px; }
+.doc-meta {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px;
+  margin: 0 0 24px; padding: 12px 0;
+  border-top: 1px solid var(--faint); border-bottom: 1px solid var(--faint);
+  font: 13px/1.5 var(--font-data);
+}
+.doc-meta dt { color: var(--mute); }
+.doc-meta dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.doc-field-name {
+  margin: 24px 0 6px;
+  font: 11px/1.4 var(--font-data); letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--mute);
+}
+.doc-text {
+  margin: 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 16px/1.65 var(--font-prose);
+}
+#console-link { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--faint); }
+
+@media (max-width: 560px) {
+  main { padding: 24px 16px 64px; }
+  .card { margin-top: 0; padding: 24px; }
+  h1 { font-size: 26px; }
+  .expiry { text-align: left; }
+}

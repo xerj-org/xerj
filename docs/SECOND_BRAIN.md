@@ -516,6 +516,7 @@ The resource a brain authorizes against is its edges index,
 | the configured admin key | every brain |
 | a key minted with `role_descriptors` naming the edges index | that brain, at the granted privilege |
 | a key minted without `role_descriptors` | no brain |
+| a share-link guest (`xerj share … --brain`, see [Sharing a brain](#sharing-a-brain)) | that brain, `read` only: `ego` and `overview`, never `link` or `unlink` |
 | no or invalid credential | nothing |
 
 `ego` and `overview` need `read`; `link` and `unlink` need `write`. Creating the
@@ -560,6 +561,15 @@ Two properties are worth calling out because they are deliberate:
   with `write` on the brain) can point it anywhere, so hydration is authorized
   against the resolved index in its own right. Without that, `write` on one
   brain would be a read primitive for every index on the node.
+- **A multi-dataset `nodes_index` is authorized name by name.** `xerj brain`
+  records every dataset index a folder produced as one comma-joined string
+  (`"ax-mail,ax-pdfs"`). Each name in it is authorized on its own
+  (`graph_api.rs`, `authorize_nodes_index`), and one ungranted name refuses the
+  request. Before 2026-09-18 the whole string was compared to the key's grants
+  as a single index name, so every scoped key was refused `overview` and node
+  hydration on any brain over more than one dataset, and `overview` reported 0
+  notes for such a brain because it looked for an index called
+  `"ax-mail,ax-pdfs"`.
 
 Enforcement is not limited to these four routes. A brain's edges live in an
 ordinary index whose name merely starts with a dot, so it is nameable through
@@ -589,6 +599,44 @@ pre-#79 model in which `/_memory/*` had no per-namespace authorization. The
 handlers do call `authz::authorize_memory_namespace` (for example
 `memory_api.rs:318` and `memory_api.rs:490`); the comment is stale, the code is
 not.
+
+## Sharing a brain
+
+`xerj share <folder>` gives one other person read-only search over the folder
+`xerj brain` indexed, through a link and a passcode. `xerj brain` prints the
+exact command in its closing summary, with each argument quoted when it needs to
+be (a folder called `case files` pastes as one argument):
+
+```
+  share it: xerj share /home/you/casefiles   (read-only link + passcode for one person; the documents stay on this machine)
+```
+
+A folder argument resolves the way `xerj brain` named things: the brain is
+`derive_brain_name(<folder>)` (or `--brain`), and the indices are the
+`nodes_index` list in that brain's meta document
+(`engine/crates/xerj-server/src/share.rs`, `resolve_target`). A folder that was
+never indexed on this node is an error that says so, never a guess — and a wrong
+or non-admin key is reported as a key problem, not as a folder that was never
+indexed.
+
+The guest's key gets `read` on those indices and on the brain's edges index,
+and nothing else in the reserved namespace — not the `.xerj-memory-{brain}`
+memory namespace, not any other brain, and not `/_memory/*`. One consequence: a
+brain built through the HTTP API alone keeps its notes in
+`.xerj-memory-{brain}`, which a share never grants, so a guest of such a brain
+can walk its links with `ego` but is refused `overview` and node hydration
+(`403`). A brain built by `xerj brain` keeps its notes in the dataset indices
+the share names, and both work. On the graph API that means
+`GET /_graph/{brain}/ego` and `GET /_graph/{brain}/overview`; `link` and
+`unlink` are refused by the guest route allow-list before the privilege check is
+reached. `ego?nodes_index=` cannot be used to redirect hydration at an index the
+share does not name, alone or as one name in a list.
+
+The command refuses a node running in open mode, for the reason given above:
+brain isolation only exists on a server with authentication on.
+
+The whole feature — the command, what a guest can and cannot reach, the threat
+model, `--tunnel` — is in [SHARING.md](./SHARING.md).
 
 ## What is not covered here
 

@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj share <index|folder>` — give one person read-only search over one
+  indexed folder: a link, a passcode, an expiry.** The guest opens the link,
+  types the passcode and gets a reading room (search, highlighted snippets, a
+  document view) served by the owner's node; the folder is not uploaded and
+  the guest installs nothing. `POST /_share` (admin key only) stores only a
+  SHA-256 digest of the share id and an Argon2id hash of the passcode; the
+  unauthenticated, rate-limited, audited `POST /_share/claim` takes
+  `{id, passcode}` in its body, so the share id is not in the request line an
+  access log records, and mints a scoped read-only key that expires with the
+  share; a guest-only route allow-list closes `_cat`, `_cluster`, every other
+  index, all writes, and scroll / PIT / async contexts. Every response under
+  `/_share` and every response to a guest key is `no-store`; a guest's refused
+  attempts to manage shares or mint a key are audited; the `autoindex-catalog`
+  index cannot be shared. `--tunnel` supervises your own `cloudflared` quick
+  tunnel and revokes the share on Ctrl-C. That traffic passes through
+  Cloudflare, which terminates TLS and can read the passcode, the guest key and
+  the documents; the command and the guest page both say so. `--list` /
+  `--revoke <handle>` manage shares; the command refuses a node running with
+  authentication off, where a read-only key would restrict nothing.
+  `xerj brain` now prints the share command for the folder it indexed. Found
+  and fixed on the way: the graph API
+  authorized a multi-dataset brain's comma-joined `nodes_index` as one literal
+  index name, so every scoped key got `403` on `overview` for any folder with
+  more than one dataset (and `overview` reported 0 notes for it); and the
+  Console asset bundle was not rebuilt when a new file appeared under
+  `xerj-ux/` on a warm target directory. Threat model, guest reach table and
+  the quick-tunnel trade-offs: [docs/SHARING.md](docs/SHARING.md).
 - **`xerj autoindex` reads mbox mailboxes and Google Takeout exports** — an mbox
   (Takeout, Thunderbird, Apple Mail, mutt) is detected by content, split in a
   bounded-memory stream with `>From ` unquoting, CRLF/LF and a missing final
@@ -260,6 +287,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Meilisearch's personalization module (MIT; adapted, cited in code).
 
 ### Fixed
+
+- **`xerj autoindex`: one dataset the server refuses no longer aborts the run,
+  `--no-graph` progress reports the phase it is in, and `xc-index.sh --fresh`
+  works on a corpus that was indexed before**
+  ([#929](https://github.com/xerj-org/xerj/issues/929),
+  [#931](https://github.com/xerj-org/xerj/issues/931),
+  [#930](https://github.com/xerj-org/xerj/issues/930)). On rc.74 a single HTTP
+  400 on one dataset's mapping ended a 48,533-file run with `exit=1
+  reason=aborted` and nothing indexed. A 400 on create-index / put-mapping is
+  now a refusal of *that dataset*: its files are recorded as junk with the
+  server's reason, every other dataset is indexed, the run exits 3, and
+  `xerj-done`, the catalog run document and `xerj autoindex map` all carry
+  `datasets_refused` / `files_refused`, so a generation that lacks a dataset
+  cannot read as a whole one. 401/403/404/408/429/5xx still abort. On the
+  `--no-graph` path the stream used to print `phase=scan pct=100.0
+  eta_quality=stalled` for the whole time documents were landing (48 such lines
+  in the rc.74 capture) — indistinguishable from a real hang; mapping install,
+  sealing, indexing and the read-back barrier are now the `prepare`, `snapshot`,
+  `index`, `finalize-catalog`, `finalize-refresh` and `finalize-verify` phases
+  with real denominators. `tools/xerj-code/scripts/xc-index.sh --fresh` no
+  longer forwards the flag to autoindex (which refuses it once a generation has
+  committed): it builds a replacement beside the old index, verifies
+  `_count > 0`, switches the state file atomically and only then retires the old
+  indices by exact name; a record count the node does not answer is never read
+  as zero, so it cannot get a working index retired or a finished build
+  deleted. A first build that is interrupted after writing
+  records is kept rather than leave no corpus, and `xc.py` now reads the
+  `salvaged` / `autoindex_exit` the script always recorded: it warns on every
+  query that coverage is INCOMPLETE, so a miss against a partial index cannot
+  read as "this code does not exist". Found while verifying the above on the full corpus
+  ([#944](https://github.com/xerj-org/xerj/issues/944)): a per-item HTTP 429
+  inside one bulk — the node's memory circuit breaker, which engages and
+  releases within seconds — aborted the 48,533-file run at 60% after 85
+  minutes. The rejected items are now re-sent, and only those, after a backoff,
+  until the node takes them or the bulk's 600 s of patience runs out — a
+  429 on the whole bulk request is the same back-pressure, not six transport
+  attempts (that split ended the resumed run);
+  only then is it exit 1, resumable, with an error line that says so. The
+  terminal line carries `bulk_retries=N` when it happened, and the
+  `raising bulk concurrency` line is printed at most once per 10 s (117 lines
+  for 11 shrinks in the capture). Captures: `benchmarks/autoindex-resilience/`.
+
+- **`xerj autoindex`: a corpus whose catalog holds more documents than the
+  server takes in one request no longer fails at the very end**
+  ([#955](https://github.com/xerj-org/xerj/issues/955)). Both indexing paths
+  sent the catalog (one document per file, per dataset, per run) as ONE
+  `_bulk`. On the 48,533-file reference corpus that was 51,129 actions in
+  31.9 MB against the engine's default `limits.max_actions_per_bulk` of 50,000:
+  the `--no-graph` run applied all 47,444 operations, then ended
+  `exit=1 reason=aborted` in `finalize-catalog` after 10,336 s. On the default
+  path the same answer was silent: exit 0 with an empty catalog (reproduced by
+  a test against a stub that returns the engine's literal 413). Every `_bulk`
+  body now goes out in windows of at most 10,000 actions, and the catalog also
+  under `--bulk-mb`. A request the server still refuses as too large (HTTP 413,
+  or one item answered 413 for a body of several actions) is halved and
+  re-sent, and the bound is kept for the rest of the run; the terminal line
+  carries `bulk_splits=N` when that happened. Resuming that same generation
+  with the fix committed it (`ok=true exit=3 … records=821840`, 51,129 catalog
+  documents). A `--no-graph` run that runs out of back-pressure patience now
+  ends `reason=server-backpressure` with `ops_applied` / `ops_remaining`
+  instead of `reason=aborted`; it is still exit 1 and resumable.
 
 - **Reference-code passage windows preserve their match score.** `xc.py`
   could select relevant source and then discard its matches while aligning
