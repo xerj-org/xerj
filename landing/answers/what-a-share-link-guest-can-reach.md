@@ -2,7 +2,7 @@
 ---
 title: "What a XERJ share-link guest can and cannot reach"
 canonical: "https://xerj.org/answers/what-a-share-link-guest-can-reach"
-updated: "2026-09-19"
+updated: "2026-09-20"
 source: "content/answers/what-a-share-link-guest-can-reach.md"
 ---
 
