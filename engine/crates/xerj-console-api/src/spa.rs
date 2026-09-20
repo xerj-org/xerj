@@ -19,6 +19,22 @@
 //! the index.html gets `no-cache` so a deploy of a new binary surfaces
 //! the new UI on next page load without ctrl-F5.
 //!
+//! ## Content-Security-Policy on the console page
+//!
+//! `index.html` is the page that shows other people's documents (the Reader)
+//! and, in guest mode, holds a share's API key in `sessionStorage`. It is
+//! served with [`CONSOLE_CSP`]: scripts from this origin only — no inline
+//! script, no `eval` — and no connection to any other origin. The SPA builds
+//! document-derived DOM without an HTML parser (`xerj-ux/src/ux/safe-dom.js`);
+//! the policy is the second wall behind that one, so a missed escape in some
+//! other view cannot become script execution or send a key off-origin.
+//! `xerj-ux/test/browser/` loads the console under this exact string (it is
+//! read out of this file) and fails on any violation report, so the policy
+//! and the SPA cannot drift apart silently.
+//!
+//! `login.html` / `setup.html` carry an inline module script and show no
+//! document data, so they are served without it.
+//!
 //! ## The share-link guest page
 //!
 //! `share/` is the one part of the bundle meant for someone who is **not** the
@@ -46,6 +62,18 @@ use axum::{
 };
 
 include!(concat!(env!("OUT_DIR"), "/xerj_console_assets.rs"));
+
+/// The policy `index.html` is served with. One line, no line breaks: the
+/// browser tests parse it out of this file verbatim.
+///
+/// * `script-src 'self'` — no inline script, no `eval`, nothing off-origin.
+/// * `connect-src 'self'` — `fetch` reaches this engine and nothing else.
+/// * `style-src … 'unsafe-inline'` — the shell sets `style=""` attributes on
+///   the markup it builds; styles cannot run script or read storage.
+/// * fonts come from Google Fonts, as `index.html` has always linked them.
+/// * `img-src data: blob:` — the inline favicon and the PNG chart export.
+/// * `frame-ancestors 'none'` — the console cannot be framed (clickjacking).
+pub const CONSOLE_CSP: &str = "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'";
 
 /// Find an asset by its url path. Linear scan is fine for ~50 files;
 /// the slice is sorted so we could binary-search if the bundle grows.
@@ -145,19 +173,39 @@ fn serve_asset(asset: &(&'static str, &'static [u8], &'static str), no_cache: bo
     if is_guest_asset(asset.0) {
         return serve_guest_asset(asset);
     }
-    let cache = if no_cache {
+    // The console page is always revalidated — also when it is requested by
+    // name (`/_xerj-console/index.html`) rather than as the directory index —
+    // so a new binary's UI and policy arrive together.
+    let is_console_page = asset.0 == "index.html";
+    let cache = if no_cache || is_console_page {
         "no-cache"
     } else {
         "public, max-age=300"
     };
-    (
+    let mut resp = (
         [
             (header::CONTENT_TYPE, asset.2),
             (header::CACHE_CONTROL, cache),
+            // Every asset declares its real type (build.rs); never let a
+            // browser second-guess it.
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
         ],
         asset.1,
     )
-        .into_response()
+        .into_response();
+    if is_console_page {
+        let h = resp.headers_mut();
+        h.insert(
+            header::CONTENT_SECURITY_POLICY,
+            header::HeaderValue::from_static(CONSOLE_CSP),
+        );
+        // A guest's tab holds a key; never send this page's URL anywhere.
+        h.insert(
+            header::REFERRER_POLICY,
+            header::HeaderValue::from_static("no-referrer"),
+        );
+    }
+    resp
 }
 
 /// The guest page and its assets: never stored, never framed, never sniffed,
@@ -304,15 +352,24 @@ mod tests {
         }
     }
 
+    /// The share work (#947) asserted the console page carried NO
+    /// Content-Security-Policy, which was true when only `share/` had one.
+    /// The Reader (#945) gives the console page its own [`CONSOLE_CSP`] — it
+    /// renders other people's documents and, in guest mode, holds a share key
+    /// in `sessionStorage`. So the console is deliberately no longer served
+    /// "exactly as before"; what must still hold is that it gets the CONSOLE
+    /// policy and not the guest one, and that no console asset is mistaken
+    /// for a guest asset.
     #[test]
-    fn the_console_itself_is_served_exactly_as_before() {
+    fn the_console_page_carries_the_console_policy_not_the_guest_one() {
         if !bundled() {
             return;
         }
         let resp = serve("index.html", true);
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(header(&resp, "cache-control"), "no-cache");
-        assert!(resp.headers().get("content-security-policy").is_none());
+        assert_eq!(header(&resp, "content-security-policy"), CONSOLE_CSP);
+        assert_ne!(header(&resp, "content-security-policy"), GUEST_CSP);
         assert!(!is_guest_asset("index.html"));
         assert!(!is_guest_asset("shared.js"));
         assert!(!is_guest_asset("share"));
