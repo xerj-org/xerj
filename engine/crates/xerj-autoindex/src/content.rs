@@ -45,6 +45,34 @@ pub fn resolve_reporting(
     files: Vec<FileEntry>,
     hashed: &(dyn Fn(u64) + Sync),
 ) -> Result<Inventory> {
+    resolve_reporting_carried(files, &|_| None, &|_, _, _| {}, hashed)
+}
+
+/// As [`resolve_reporting`], with a caller-supplied digest cache.
+///
+/// `carried` is asked, per file, for a digest the caller can PROVE is still the
+/// digest of the current bytes; when it answers, the file is not read. Only
+/// `--watch` answers it (see [`crate::watch`]), and only for files the OS told
+/// it did not change since it hashed them in this same process — a metadata
+/// shortcut on its own is explicitly not good enough for this decision, which is
+/// why the plain route above hashes everything on every run.
+///
+/// `observed` is then called for every file with its final digest and whether
+/// that digest came from a fresh read, which is how the watcher's cache gets
+/// rebuilt after each pass. Both run on the scan pool's workers, hence `Sync`.
+///
+/// Safety of the shortcut, stated where it is implemented: a carried digest that
+/// is WRONG cannot corrupt the index silently. The incremental projection in
+/// [`crate::reconcile_plan`] compares the digest against the committed plan and
+/// carries an assignment forward only on a match, so a stale carried digest
+/// looks like "unchanged" — the failure mode is a missed update, not a bad
+/// document — and the next event or fingerprint change repairs it.
+pub fn resolve_reporting_carried(
+    files: Vec<FileEntry>,
+    carried: &(dyn Fn(&FileEntry) -> Option<String> + Sync),
+    observed: &(dyn Fn(&FileEntry, &str, bool) + Sync),
+    hashed: &(dyn Fn(u64) + Sync),
+) -> Result<Inventory> {
     // Phase A belongs to the run's scan pool, not to rayon's global pool:
     // `--workers` has to bound the CPU-bound phase to mean anything (#240 §2).
     // The progress callback therefore fires from scan-pool threads — the ones
@@ -67,8 +95,21 @@ pub fn resolve_reporting(
                             .store(true, std::sync::atomic::Ordering::Relaxed);
                     }
                 }
-                let digest = full_digest(&file.path, file.size);
-                hashed(file.size);
+                let (digest, fresh) = match carried(file) {
+                    // Cache hit: no read, and no byte credited to the hash
+                    // phase either — the phase's totals were sized to the files
+                    // this pass will actually read, so crediting a skipped file
+                    // would push the percent past 100 and invent a rate.
+                    Some(digest) => (Ok(digest), false),
+                    None => {
+                        let digest = full_digest(&file.path, file.size);
+                        hashed(file.size);
+                        (digest, true)
+                    }
+                };
+                if let Ok(digest) = digest.as_ref() {
+                    observed(file, digest, fresh);
+                }
                 digest
             })
             .collect()

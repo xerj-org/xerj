@@ -95,6 +95,24 @@ const KNOWN: &[(&str, Role)] = &[
         "xerj-autoindex/src/feedback.rs",
         Role::Client("`xerj feedback --open-pr`"),
     ),
+    // Object storage, added by #966 (the backend) and #970 (`autoindex s3://`).
+    // Both talk to whatever endpoint the operator names, so they belong on the
+    // published list even though neither sends DOCUMENT TEXT anywhere: the
+    // source reads objects in, and the backend is not on the segment path yet
+    // (`storage.backend = "s3"` still refuses to start).
+    (
+        "xerj-storage/src/s3.rs",
+        Role::Node("**Object storage backend**"),
+    ),
+    (
+        "xerj-autoindex/src/objsource.rs",
+        Role::Client("`xerj autoindex s3://`"),
+    ),
+    (
+        "xerj-autoindex/src/objsource_minio_tests.rs",
+        Role::TestOnly,
+    ),
+    ("xerj-autoindex/src/objsource_s3_tests.rs", Role::TestOnly),
     ("xerj-api/src/binary_protocol.rs", Role::TestOnly),
     ("xerj-server/src/grpc.rs", Role::TestOnly),
     ("xerj-server/src/main.rs", Role::TestOnly),

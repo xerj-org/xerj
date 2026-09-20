@@ -811,12 +811,19 @@ def render_hub(category: str, articles: list[article_data.Article],
                context: BuildContext) -> str:
     rel = f"{category}/index.html"
     meta = dict(pagedata.entry(rel))
-    target = context.landing / rel
-    if target.exists():
-        modified = context.dates.last_modified(target)
-        published = context.dates.first_published(target)
+    # A hub's dates come from the articles it lists, never from the hub file
+    # itself: reading the generated file's own git date makes the output depend
+    # on the commit that wrote it, so committing a regenerated hub changes the
+    # value it should have had. Every merge that touches the file on a later
+    # date then re-stales it and `--check` fails on main (that is #942's red
+    # gate, and #972's re-red one commit later). Article pages never had the
+    # problem because they date from their content source.
+    listed = [a for a in articles if a.category == category]
+    if listed:
+        modified = max(article_modified(a, context) for a in listed)
+        published = min(a.published for a in listed if a.published) or modified
     else:
-        modified = published = dt.date.today().isoformat()
+        modified = published = dt.datetime.now(dt.timezone.utc).date().isoformat()
     block = seo_head.build_block(rel, meta["title"], meta["description"],
                                  published, modified, meta)
     groups: dict[str, list[article_data.Article]] = collections.defaultdict(list)

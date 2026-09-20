@@ -166,9 +166,11 @@ pub const DATA_EGRESS: &str = "A search that carries a `rerank` block for a host
      to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every \
      write on tapped indices to an external `_bulk` endpoint. The node's other outbound \
      connections carry no document or query text: the one-time HuggingFace model download \
-     for `--embed-mode neural` and for the `local` rerank provider's cross-encoder, and Raft \
+     for `--embed-mode neural` and for the `local` rerank provider's cross-encoder, Raft \
      messages (index names, mappings, shard assignments) to the configured peers in cluster \
-     mode.";
+     mode, and object storage — the `S3Backend` client, \
+     which nothing on the segment path constructs today, and `xerj autoindex s3://`, which \
+     names buckets and keys to the endpoint you configure and reads objects IN.";
 
 /// Ceiling on one provider response body, in bytes.
 ///

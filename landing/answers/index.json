@@ -99,7 +99,7 @@
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
       "updated": "2026-09-19",
-      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+      "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
     },
     {
       "title": "Audit a PHP codebase with an index, not grep",
@@ -417,6 +417,15 @@
       "summary": "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one."
     },
     {
+      "title": "Search a Gmail Takeout mbox on your own machine",
+      "question": "How do I search a Google Takeout mbox file locally?",
+      "canonical_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally",
+      "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
+      "cluster": "Folder indexing",
+      "updated": "2026-09-20",
+      "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
+    },
+    {
       "title": "RAG without a vector database",
       "question": "How do I build RAG without a vector database?",
       "canonical_url": "https://xerj.org/answers/rag-without-vector-database",
@@ -462,6 +471,15 @@
       "summary": "One hybrid request carries a BM25 sub-query and a kNN sub-query against one index, and Reciprocal Rank Fusion merges their ranked lists into a single result list."
     },
     {
+      "title": "How do I search files that live in an S3 bucket?",
+      "question": "How do I search files that live in an S3 bucket?",
+      "canonical_url": "https://xerj.org/answers/search-files-in-an-s3-bucket",
+      "markdown_url": "https://xerj.org/answers/search-files-in-an-s3-bucket.md",
+      "cluster": "Ingest: object storage",
+      "updated": "2026-09-19",
+      "summary": "Point xerj autoindex at s3://bucket/prefix. It lists the prefix, streams only the objects whose ETag changed, and indexes them. One LIST request per 1,000 keys."
+    },
+    {
       "title": "How do I check my code index actually finished?",
       "question": "My codebase indexer says indexed but I don't see my code. How do I check it actually finished?",
       "canonical_url": "https://xerj.org/answers/check-codebase-index-is-complete",
@@ -496,6 +514,24 @@
       "cluster": "Operations: exit codes",
       "updated": "2026-08-23",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
+    },
+    {
+      "title": "Why autoindex refuses a .zip and asks you to extract it",
+      "question": "Why does xerj autoindex say to extract a zip first?",
+      "canonical_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first",
+      "markdown_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-20",
+      "summary": "autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with the exact extraction command; the run continues. Index the extracted folder."
+    },
+    {
+      "title": "How do I keep a XERJ index up to date as files change?",
+      "question": "How do I keep a search index up to date as files change, without re-indexing everything?",
+      "canonical_url": "https://xerj.org/answers/keep-index-current-as-files-change",
+      "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
+      "cluster": "Operations: freshness",
+      "updated": "2026-09-20",
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
     },
     {
       "title": "Is there a single-binary local search engine?",
