@@ -295,6 +295,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         quiet: true,
         progress: crate::progress::ProgressMode::None,
         progress_interval: None,
+        watch: false,
+        debounce: std::time::Duration::from_millis(0),
     }
 }
 

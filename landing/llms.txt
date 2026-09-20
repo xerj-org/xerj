@@ -160,6 +160,8 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [Why does a folder search miss files on disk?](https://xerj.org/answers/why-autoindex-skipped-files.md): Why would a folder search miss files that I can see on disk?
 - **Operations: exit codes**
   - [What do the xerj autoindex exit codes mean?](https://xerj.org/answers/autoindex-exit-codes.md): What does indexer exit code 3 mean?
+- **Operations: freshness**
+  - [How do I keep a XERJ index up to date as files change?](https://xerj.org/answers/keep-index-current-as-files-change.md): How do I keep a search index up to date as files change, without re-indexing everything?
 - **Operations: installation**
   - [Is there a single-binary local search engine?](https://xerj.org/answers/search-engine-without-docker.md): Is there a single-binary local search engine I can just run?
 - **Operations: low-volume logs**

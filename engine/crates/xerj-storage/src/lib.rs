@@ -6,7 +6,8 @@
 //!
 //! - **2 files per segment** (not ES's 12-16): `.seg` (data) + `.sidx` (skip index).
 //! - **One durability system**: Write-Ahead Log (WAL) only — no dual translog/Lucene commit.
-//! - **Pluggable backends**: local filesystem, S3 with range reads, in-memory for tests.
+//! - **Pluggable backends**: local filesystem, S3-compatible object storage with
+//!   ranged reads, and a local-directory test double for unit tests.
 //! - **`mmap` for segment reads**: data is served from OS page cache, not app heap.
 //! - **`ArcSwap<IndexSnapshot>`**: atomically swap active segment lists without locks.
 //! - **`DashMap` version map**: lock-free per-document version tracking.
@@ -15,7 +16,8 @@
 //!
 //! | Module            | Responsibility                                              |
 //! |-------------------|-------------------------------------------------------------|
-//! | [`backend`]       | [`StorageBackend`] trait + [`LocalFsBackend`] / S3 stub    |
+//! | [`backend`]       | [`StorageBackend`] trait, [`LocalFsBackend`], test double   |
+//! | [`s3`]            | Real S3-compatible backend (R2 / MinIO / S3) + op budget   |
 //! | [`wal`]           | Write-Ahead Log — append, sync, replay, generation rotate  |
 //! | [`segment`]       | `.seg` / `.sidx` format, [`SegmentWriter`] / [`SegmentReader`] |
 //! | [`version_map`]   | Lock-free doc-id → (seq_no, segment_id) map                |
@@ -27,6 +29,7 @@ pub mod cache;
 pub mod doc_values;
 pub mod index_store;
 pub mod merge;
+pub mod s3;
 pub mod segment;
 pub mod stored_codec;
 pub mod version_map;
@@ -35,12 +38,16 @@ pub mod wal_fsync;
 
 // ── Public re-exports ────────────────────────────────────────────────────────
 
-pub use backend::{FileMetadata, LocalFsBackend, S3Backend, StorageBackend};
+pub use backend::{
+    FileMetadata, LocalFsBackend, ObjectStoreOps, ObjectStoreOpsSnapshot, OpBudget, OpClass,
+    SimulatedObjectStore, StorageBackend,
+};
 pub use cache::SegmentCache;
 pub use index_store::{
     DrainedMemtable, FsckReport, FsckSectionReport, FsckSegmentReport, IndexSnapshot, IndexStore,
     IndexStoreConfig, RawJsonDoc, StorageMode, ValidatedRawBatch,
 };
+pub use s3::{credentials_from_env, RetryPolicy, S3Backend, S3Config};
 // `MergeExecutor` is intentionally NOT re-exported here: it is a
 // `#[doc(hidden)]`, storage-crate-only test helper with real footguns
 // (Stored-only output + wrong-order repoint — see its doc comment). The

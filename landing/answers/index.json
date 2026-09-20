@@ -489,6 +489,15 @@
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
     },
     {
+      "title": "How do I keep a XERJ index up to date as files change?",
+      "question": "How do I keep a search index up to date as files change, without re-indexing everything?",
+      "canonical_url": "https://xerj.org/answers/keep-index-current-as-files-change",
+      "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
+      "cluster": "Operations: freshness",
+      "updated": "2026-09-20",
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
+    },
+    {
       "title": "Is there a single-binary local search engine?",
       "question": "Is there a single-binary local search engine I can just run?",
       "canonical_url": "https://xerj.org/answers/search-engine-without-docker",

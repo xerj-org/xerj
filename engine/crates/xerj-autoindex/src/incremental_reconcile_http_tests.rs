@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -647,6 +647,8 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         quiet: true,
         progress: crate::progress::ProgressMode::None,
         progress_interval: None,
+        watch: false,
+        debounce: std::time::Duration::from_millis(0),
     }
 }
 
@@ -4141,4 +4143,506 @@ fn no_graph_genesis_bootstrap_is_refused_on_the_graph_path() {
     assert_eq!(journal_events(state_dir.path(), "sync_begin"), 1);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
     assert_eq!(endpoint.data_docs().len(), 1);
+}
+
+// ===========================================================================
+// `--watch`: the same incremental reconcile, driven by filesystem events.
+//
+// The contract these prove is the one that makes the feature safe to ship: after
+// ANY sequence of changes, a watched session holds the index a fresh full
+// `xerj autoindex` of the same tree would have produced — same document ids,
+// same record count, same sources. They drive `watch::one_pass`, which is the
+// same function the live session loop calls, with the burst a working watcher
+// would have reported for the change the test just made. The watcher's own
+// event plumbing is covered by `watch`'s unit tests and by the live measurement
+// in docs/reference/autoindex-watch.md; what is proven HERE is convergence,
+// which is the part a timing-dependent test could never prove reliably.
+// ===========================================================================
+
+/// Every published data document, keyed by `(index, _id)`, with the one
+/// run-scoped field removed.
+///
+/// `ax_run` names the invocation that wrote the document, so it differs between
+/// a watched session and a fresh run by construction; everything else must be
+/// identical or the two indexes are not the same index.
+fn published(endpoint: &HttpEndpoint) -> BTreeMap<(String, String), Value> {
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .docs
+        .iter()
+        .filter(|((index, _), _)| index != catalog::CATALOG_INDEX)
+        .map(|((index, id), doc)| {
+            let mut doc = doc.clone();
+            if let Some(object) = doc.as_object_mut() {
+                object.remove("ax_run");
+            }
+            ((index.clone(), id.clone()), doc)
+        })
+        .collect()
+}
+
+/// The property that actually guards the digest cache: after a watched pass, a
+/// plain `xerj autoindex` re-run — which re-hashes every byte, trusting nothing
+/// — must be a no-op that changes not one document.
+///
+/// This is stronger than comparing against a fresh index and it isolates exactly
+/// what `--watch` adds. If a carried digest ever let a changed file skip its
+/// re-hash, the re-run reads the bytes, sees the difference, and republishes;
+/// this assertion fails. It also holds for corpus shapes where a FRESH index
+/// legitimately differs (see `fresh_full_index`).
+fn a_rerun_changes_nothing(config: &IndexCfg, endpoint: &HttpEndpoint, context: &str) {
+    let before = published(endpoint);
+    let code = run_index(config.clone()).unwrap();
+    assert!(
+        matches!(code, 0 | 3),
+        "{context}: the verifying re-run must complete (exit {code})"
+    );
+    assert_eq!(
+        published(endpoint),
+        before,
+        "{context}: a full-hash re-run after a watched pass must change nothing — \
+         the watched pass missed something"
+    );
+}
+
+/// A fresh, independent full index of `root`.
+///
+/// Useful as ground truth only where dataset identity cannot move. An
+/// incremental run — watched or not — deliberately PRESERVES the committed
+/// dataset and schema identity, while a fresh run re-elects dataset slugs from
+/// the corpus it sees (`reconcile_plan.rs`, module docs). So after a change that
+/// alters slug election — renaming the directory a dataset was named after — a
+/// fresh index writes `to/one.csv` into a dataset called `to` where the
+/// incremental corpus still calls it `from`. Same paths, same bytes, different
+/// dataset name and therefore different index and document id. That is the
+/// incremental route's rule, not the watcher's, and a manual re-run does exactly
+/// the same thing; `a_rerun_changes_nothing` is what those cases assert instead.
+fn fresh_full_index(root: &Path) -> (HttpEndpoint, tempfile::TempDir) {
+    let endpoint = HttpEndpoint::start();
+    let state_dir = tempfile::tempdir().unwrap();
+    let config = cfg(root, state_dir.path(), &endpoint.url, false);
+    assert!(
+        matches!(run_index(config), Ok(0) | Ok(3)),
+        "the reference full index must complete"
+    );
+    (endpoint, state_dir)
+}
+
+/// Deterministic, dependency-free PRNG. The seed is printed with every failure
+/// so a red run is replayable.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        // xorshift64*, enough for choosing between six edit kinds.
+        let mut x = self.0;
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        self.0 = x;
+        x.wrapping_mul(0x2545_f491_4f6c_dd1d)
+    }
+
+    fn below(&mut self, n: u64) -> u64 {
+        self.next() % n
+    }
+}
+
+#[test]
+fn a_watch_pass_rehashes_only_what_changed_and_publishes_it() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    fs::write(root.join("c.csv"), "id,value\n3,gamma\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+
+    // Pass 1 is the full one: nothing is cached yet.
+    let mut carry = crate::watch::Carry::default();
+    let (outcome, (carried, _, hashed, _)) =
+        crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full());
+    assert_eq!(outcome.unwrap().0, 0);
+    assert_eq!(
+        (hashed, carried),
+        (3, 0),
+        "the first pass must hash the corpus"
+    );
+    assert_eq!(carry.len(), 3, "and cache what it hashed");
+
+    // Pass 2: one file changed, and the watcher says so.
+    fs::write(root.join("b.csv"), "id,value\n2,beta-rewritten\n").unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("b.csv")]);
+    let (outcome, (carried, _, hashed, _)) =
+        crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    assert_eq!(outcome.unwrap().0, 0);
+    assert_eq!(
+        (hashed, carried),
+        (1, 2),
+        "only the changed file may be read again"
+    );
+
+    // …and the new bytes are what the index holds.
+    let values: Vec<String> = endpoint
+        .data_docs()
+        .iter()
+        .filter_map(|doc| doc.get("value").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect();
+    assert!(
+        values.iter().any(|v| v == "beta-rewritten"),
+        "the changed file's new content must be live: {values:?}"
+    );
+    assert!(
+        !values.iter().any(|v| v == "beta"),
+        "and its old content must not: {values:?}"
+    );
+
+    // Nothing was skipped: a full-hash re-run changes nothing.
+    a_rerun_changes_nothing(&config, &endpoint, "one file changed");
+    // And on a corpus whose dataset identity cannot move, the watched index is
+    // byte-for-byte the index a fresh full run would have built.
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(
+        published(&endpoint),
+        published(&reference),
+        "a watched index must equal a fresh full index"
+    );
+}
+
+#[test]
+fn a_deleted_files_records_stop_appearing() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("keep.csv"), "id,value\n1,keep\n").unwrap();
+    fs::write(root.join("gone.csv"), "id,value\n2,vanishes\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+    assert_eq!(paths(&endpoint.data_docs()), vec!["gone.csv", "keep.csv"]);
+
+    fs::remove_file(root.join("gone.csv")).unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("gone.csv")]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["keep.csv"],
+        "a deleted file's records must stop appearing in search"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "deleted file");
+}
+
+#[test]
+fn a_deleted_directorys_documents_stop_appearing() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::create_dir_all(root.join("doomed/deeper")).unwrap();
+    fs::write(root.join("keep.csv"), "id,value\n1,keep\n").unwrap();
+    fs::write(root.join("doomed/a.csv"), "id,value\n2,doomed-a\n").unwrap();
+    fs::write(root.join("doomed/deeper/b.csv"), "id,value\n3,doomed-b\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["doomed/a.csv", "doomed/deeper/b.csv", "keep.csv"]
+    );
+
+    // A whole directory, gone. The watcher is told about the directory; the
+    // files inside it produce no events of their own.
+    fs::remove_dir_all(root.join("doomed")).unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("doomed")]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["keep.csv"],
+        "every document under a deleted directory must stop appearing in search"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "deleted directory");
+}
+
+#[test]
+fn an_atomic_save_rename_dance_lands_as_the_new_content() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    let target = root.join("notes.csv");
+    fs::write(&target, "id,value\n1,before\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    // What an editor actually does: write a sibling temp file, then rename it
+    // over the target. The inode changes, the size may not.
+    let temp = root.join("notes.csv.tmp~");
+    fs::write(&temp, "id,value\n1,after-\n").unwrap();
+    fs::rename(&temp, &target).unwrap();
+    let burst = crate::watch::ChangeSet::from_paths(&[temp.clone(), target.clone()]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["notes.csv"],
+        "the temp file must not survive as a document of its own"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "atomic save");
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(published(&endpoint), published(&reference));
+}
+
+#[test]
+fn a_file_replaced_by_a_directory_converges() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("thing"), "id,value\n1,a-file\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::remove_file(root.join("thing")).unwrap();
+    fs::create_dir(root.join("thing")).unwrap();
+    fs::write(root.join("thing/inner.csv"), "id,value\n2,now-a-dir\n").unwrap();
+    let burst =
+        crate::watch::ChangeSet::from_paths(&[root.join("thing"), root.join("thing/inner.csv")]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+
+    assert_eq!(paths(&endpoint.data_docs()), vec!["thing/inner.csv"]);
+    a_rerun_changes_nothing(&config, &endpoint, "file replaced by a directory");
+}
+
+#[test]
+fn a_moved_directory_converges() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::create_dir(root.join("from")).unwrap();
+    fs::write(root.join("from/one.csv"), "id,value\n1,one\n").unwrap();
+    fs::write(root.join("from/two.csv"), "id,value\n2,two\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    fs::rename(root.join("from"), root.join("to")).unwrap();
+    // A directory rename is ONE event naming the two directories; the files
+    // inside it produce none.
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("from"), root.join("to")]);
+    crate::watch::one_pass(&config, &root, &mut carry, &burst)
+        .0
+        .unwrap();
+
+    assert_eq!(
+        paths(&endpoint.data_docs()),
+        vec!["to/one.csv", "to/two.csv"],
+        "a moved directory's documents must follow it"
+    );
+    a_rerun_changes_nothing(&config, &endpoint, "moved directory");
+}
+
+/// A pass that dies mid-publish must not lose or duplicate documents: the next
+/// pass — which, after a restart, has no cache at all and therefore hashes in
+/// full — has to arrive at the same index a fresh run would build.
+#[test]
+fn a_pass_that_fails_mid_publish_converges_on_the_next_one() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::write(root.join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::write(root.join("b.csv"), "id,value\n2,beta\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full())
+        .0
+        .unwrap();
+
+    // Change a file, and make the publish of that change fail.
+    fs::write(root.join("b.csv"), "id,value\n2,beta-two\n").unwrap();
+    endpoint.state.lock().unwrap().fail_next_data_bulk = true;
+    let burst = crate::watch::ChangeSet::from_paths(&[root.join("b.csv")]);
+    let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+    assert!(
+        outcome.is_err(),
+        "the injected bulk failure must fail the pass"
+    );
+
+    // The process dies here: a restart starts with an empty cache and a full
+    // burst, which is exactly what `watch::run` does on its first pass.
+    let mut restarted = crate::watch::Carry::default();
+    crate::watch::one_pass(
+        &config,
+        &root,
+        &mut restarted,
+        &crate::watch::ChangeSet::full(),
+    )
+    .0
+    .unwrap();
+
+    let live = published(&endpoint);
+    let (reference, _reference_state) = fresh_full_index(&root);
+    assert_eq!(
+        live,
+        published(&reference),
+        "a crash mid-burst must not lose or duplicate documents"
+    );
+    let values: Vec<String> = endpoint
+        .data_docs()
+        .iter()
+        .filter_map(|doc| doc.get("value").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect();
+    assert!(values.iter().any(|v| v == "beta-two"), "{values:?}");
+    assert!(!values.iter().any(|v| v == "beta"), "{values:?}");
+}
+
+/// The property that justifies the feature: any sequence of creates, writes,
+/// renames, deletes and recreates, applied one burst at a time, converges on the
+/// index a fresh full run would produce.
+#[test]
+fn watch_converges_under_a_randomised_change_sequence() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    // Fixed seed: a property test that changes shape between runs cannot be
+    // debugged. Bump it deliberately to explore more sequences.
+    const SEED: u64 = 0x5745_5443_4831_3237;
+    let mut rng = Rng(SEED);
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let root = corpus.path().canonicalize().unwrap();
+    fs::create_dir(root.join("sub")).unwrap();
+    for i in 0..4 {
+        fs::write(
+            root.join(format!("f{i}.csv")),
+            format!("id,value\n{i},start-{i}\n"),
+        )
+        .unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(&root, state_dir.path(), &endpoint.url, false);
+    let mut carry = crate::watch::Carry::default();
+    let (outcome, _) =
+        crate::watch::one_pass(&config, &root, &mut carry, &crate::watch::ChangeSet::full());
+    assert!(matches!(outcome, Ok((0, _)) | Ok((3, _))), "seed {SEED:#x}");
+
+    let mut serial = 0u64;
+    for step in 0..14u64 {
+        let mut touched: Vec<PathBuf> = Vec::new();
+        let live: Vec<PathBuf> = walkdir::WalkDir::new(&root)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_file())
+            .map(|entry| entry.path().to_path_buf())
+            .collect();
+        match rng.below(6) {
+            // create
+            0 | 1 => {
+                serial += 1;
+                let dir = if rng.below(2) == 0 {
+                    root.clone()
+                } else {
+                    root.join("sub")
+                };
+                let path = dir.join(format!("new{serial}.csv"));
+                fs::write(&path, format!("id,value\n{serial},made-{serial}\n")).unwrap();
+                touched.push(path);
+            }
+            // modify
+            2 => {
+                if let Some(path) = live.first() {
+                    serial += 1;
+                    fs::write(path, format!("id,value\n{serial},edited-{serial}\n")).unwrap();
+                    touched.push(path.clone());
+                }
+            }
+            // rename
+            3 => {
+                if let Some(path) = live.first() {
+                    serial += 1;
+                    let renamed = root.join(format!("moved{serial}.csv"));
+                    fs::rename(path, &renamed).unwrap();
+                    touched.push(path.clone());
+                    touched.push(renamed);
+                }
+            }
+            // delete
+            4 => {
+                if let Some(path) = live.first() {
+                    fs::remove_file(path).unwrap();
+                    touched.push(path.clone());
+                }
+            }
+            // delete and recreate the same path with different content: the
+            // shape that makes a path-keyed cache wrong.
+            _ => {
+                if let Some(path) = live.first() {
+                    serial += 1;
+                    fs::remove_file(path).unwrap();
+                    fs::write(path, format!("id,value\n{serial},reborn-{serial}\n")).unwrap();
+                    touched.push(path.clone());
+                }
+            }
+        }
+        if touched.is_empty() {
+            continue;
+        }
+        let burst = crate::watch::ChangeSet::from_paths(&touched);
+        let (outcome, _) = crate::watch::one_pass(&config, &root, &mut carry, &burst);
+        assert!(
+            matches!(outcome, Ok((0, _)) | Ok((3, _))),
+            "seed {SEED:#x} step {step}: pass failed: {:?}",
+            outcome.err().map(|e| format!("{e:#}"))
+        );
+    }
+
+    // The property that always holds: a full-hash re-run after the sequence
+    // changes nothing, so no carried digest ever hid a real change.
+    a_rerun_changes_nothing(&config, &endpoint, &format!("seed {SEED:#x}"));
+    let (reference, _reference_state) = fresh_full_index(&root);
+    let watched = published(&endpoint);
+    let fresh = published(&reference);
+    assert_eq!(
+        watched.keys().collect::<Vec<_>>(),
+        fresh.keys().collect::<Vec<_>>(),
+        "seed {SEED:#x}: document ids diverged"
+    );
+    assert_eq!(
+        watched.len(),
+        fresh.len(),
+        "seed {SEED:#x}: record count diverged"
+    );
+    assert_eq!(watched, fresh, "seed {SEED:#x}: document contents diverged");
 }

@@ -25,6 +25,19 @@ walkdir = "2"
 # Licence: Unlicense OR MIT — compatible with XERJ's Apache-2.0.
 ignore = "0.4"
 encoding_rs = "0.8"
+# `--watch`: cross-platform filesystem notifications (inotify on Linux,
+# FSEvents on macOS, ReadDirectoryChangesW on Windows), so live reindexing is
+# one code path rather than three.
+# Licence: CC0-1.0 — a public-domain dedication, no copyleft and no attribution
+# condition, so redistributing it inside Apache-2.0 XERJ is unrestricted. Noted
+# because CC0 carries no express patent grant, unlike Apache-2.0 itself; its
+# transitive deps here are inotify (ISC), notify-types (CC0-1.0), mio (MIT),
+# bitflags/log/libc (MIT OR Apache-2.0). Verified against each crate's own
+# metadata, not against a summary.
+# The debouncer is ours (`watch.rs`): notify-debouncer-full keeps a second file
+# cache and its own rename bookkeeping, which is precisely the state this
+# crate's journal already owns.
+notify = "8.2"
 xxhash-rust.workspace = true
 memchr.workspace = true
 rayon.workspace = true

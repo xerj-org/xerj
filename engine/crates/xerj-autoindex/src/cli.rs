@@ -10,6 +10,11 @@ use std::time::Duration;
 /// and `--max-minutes 0` already exists to mean "never ask".
 pub const MAX_MAX_MINUTES: u64 = 7 * 24 * 60;
 
+/// Largest `--debounce` accepted: one minute. A quiet period longer than that
+/// is not debouncing, it is a timer — and `xerj autoindex` on a cron schedule
+/// already is one, without holding watches open.
+pub const MAX_DEBOUNCE_MS: u64 = 60_000;
+
 /// Largest `--bulk-mb` accepted. Past this a single bulk body stops being a
 /// unit of work and starts being a memory incident on the server.
 pub const MAX_BULK_MB: usize = 24;
@@ -89,6 +94,11 @@ pub struct IndexCfg {
     /// Progress cadence. `None` means "the surface's default" — 1 s on a
     /// terminal, 5 s for a pipe.
     pub progress_interval: Option<Duration>,
+    /// `--watch`: after the first pass, stay resident and reindex what changes.
+    pub watch: bool,
+    /// `--watch`'s quiet period. One editor save is several filesystem events,
+    /// so a pass waits for the tree to go quiet for this long before running.
+    pub debounce: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -276,6 +286,15 @@ pub fn help_text_with(feedback: bool) -> String {
                                   .xerj-memory-<NAME>-edges (default: folder name slug)\n\
              --no-graph           skip relationship detection (wikilinks, local links,\n\
                                   section order, directory chains) — no edges are written\n\
+             --watch              index once, then stay resident and reindex what changes.\n\
+                                  Needs --no-graph: the graph route refuses an ADDED file\n\
+                                  (exit 3, skipped until --fresh) and ABORTS on a deletion\n\
+                                  (exit 1, and every later re-run aborts too). It does\n\
+                                  reindex a MODIFIED file. One OS watch per indexed\n\
+                                  directory, no polling; respects the same ignore rules as\n\
+                                  a re-run. docs/LIVE_REINDEXING.md has the measurements.\n\
+             --debounce <MS>      --watch quiet period before a pass (default 400, max\n\
+                                  60000). One editor save is several filesystem events.\n\
              --max-minutes <N>    stop and ask before indexing if phase A's MEASURED estimate\n\
                                   is longer than this (default 10; 0 disables the gate;\n\
                                   max 10080). See ESTIMATE + DECISION GATE below.\n\
@@ -615,6 +634,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut no_semantic = false;
     let mut brain: Option<String> = None;
     let mut no_graph = false;
+    let mut watch = false;
+    let mut debounce_ms: Option<u64> = None;
     let mut dry_run = false;
     let mut max_minutes = DEFAULT_MAX_MINUTES;
     let mut max_minutes_explicit = false;
@@ -629,7 +650,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // variables so the watch route can refuse an index-only flag instead of
     // accepting it and doing nothing with it (#204's class).
     let mut root_raw: Option<String> = None;
-    let mut watch = false;
+    // `watch` itself is declared above, with the folder-indexing flags: there
+    // is ONE --watch and it selects a route, it does not belong to one.
     let mut poll_interval: Option<Duration> = None;
     let mut max_cycles: Option<u64> = None;
     let mut watch_once = false;
@@ -768,6 +790,22 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 brain = Some(name);
             }
             "--no-graph" => no_graph = true,
+            "--watch" => watch = true,
+            "--debounce" => {
+                let raw = it
+                    .next()
+                    .ok_or("--debounce needs a number of milliseconds (0 disables the wait)")?;
+                let parsed: u64 = raw.parse().map_err(|_| {
+                    format!("--debounce needs an integer from 0 to {MAX_DEBOUNCE_MS}")
+                })?;
+                if parsed > MAX_DEBOUNCE_MS {
+                    return Err(format!(
+                        "--debounce must be from 0 to {MAX_DEBOUNCE_MS} milliseconds; past that a \
+                         change you just made would sit unindexed for minutes"
+                    ));
+                }
+                debounce_ms = Some(parsed);
+            }
             "--max-minutes" => {
                 max_minutes_explicit = true;
                 max_minutes = it
@@ -839,7 +877,6 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             }
             "--quiet" => quiet = true,
             "--dataset" => dataset = it.next(),
-            "--watch" => watch = true,
             "--poll-interval" => {
                 watch_flags_used.push("--poll-interval");
                 let secs: u64 = it
@@ -1016,6 +1053,59 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
+    // `--watch` is refused rather than quietly downgraded in each of these
+    // cases. Accepting a flag and not doing what it says is the #204 class, and
+    // for a watcher the symptom is the worst one available: an index the
+    // operator believes is live and is not.
+    //
+    // `&& !root_is_object_url`: these three are the LOCAL watcher's
+    // constraints and none of them is true of an object-storage watch, which
+    // indexes nothing, has no resume journal to discard and has no graph route
+    // at all. `s3://… --watch --dry-run` is the documented way to price a poll,
+    // so an ungated `if watch` here would refuse the flag the docs tell people
+    // to use. Object-storage watches are routed further down; see the note
+    // there for all three paths through this one positional argument.
+    if watch && !root_is_object_url {
+        if dry_run {
+            return Err(
+                "--watch and --dry-run contradict each other: a dry run indexes nothing, and a \
+                 watcher exists to index changes as they land. Drop one of the two"
+                    .into(),
+            );
+        }
+        if fresh {
+            return Err(
+                "--watch and --fresh contradict each other: --fresh discards the resume journal \
+                 and rebuilds the plan, which a watcher would then redo on every change. Run \
+                 `xerj autoindex <folder> --fresh` once, then start the watcher without it"
+                    .into(),
+            );
+        }
+        if !no_graph {
+            return Err(
+                "--watch needs --no-graph today, and that is a real limitation rather than a \
+                 formality: reconciling an ADDED or DELETED file exists only on the --no-graph \
+                 (generated) route. On the default graph path a re-run resumes a frozen plan, \
+                 so a file created after that plan was frozen is reported as 'appeared after \
+                 the resume plan was frozen' and is NOT indexed until the corpus is rebuilt \
+                 with --fresh, and a file deleted from the folder ABORTS the run — and every \
+                 re-run after it — because its documents are still live in the destination. \
+                 (A file whose CONTENT changed is reconciled there; additions and deletions \
+                 are what a watcher on that route could not keep current.) Re-run as `xerj \
+                 autoindex <folder> --watch --no-graph` (relationship detection off), or keep \
+                 rebuilding a graph corpus with `xerj autoindex <folder> --fresh`"
+                    .into(),
+            );
+        }
+    }
+    if debounce_ms.is_some() && !watch {
+        return Err(
+            "--debounce sets the quiet period of a watcher that is not running. Add --watch, or \
+             drop --debounce"
+                .into(),
+        );
+    }
+
     // `map` reads the catalog off the server and `status` reads the local
     // journal; neither walks a filesystem, so an ignore flag on either cannot
     // change one byte of the output. Measured before this check existed:
@@ -1067,33 +1157,33 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // Three refusals, all of the same kind: a flag that is accepted and then
     // does nothing is the defect class this repo refuses on purpose (#204).
     //
-    // Three routes share this positional argument, and git cannot see the
-    // difference between them because they are different LINES of the same
-    // function:
+    // FOUR routes share this one positional argument, and git cannot see the
+    // difference between them, because they are different LINES of the same
+    // function rather than the same lines:
     //
-    //   s3://… without --watch  -> #970's one-shot indexing (landed on main;
-    //                              the refusal that used to sit here is gone)
-    //   s3://… with --watch     -> this branch's poll
-    //   <folder> with --watch   -> #967's local watch, NOT YET LANDED
+    //   <folder>                -> index a folder, once           (always)
+    //   <folder> --watch        -> #967, live reindexing          (lib.rs)
+    //   s3://…                  -> #970, one-shot object indexing (objsource)
+    //   s3://… --watch          -> this branch, a bounded poll    (objwatch)
     //
-    // MERGE NOTE for `feat/autoindex-watch` (#967). It inserts its own
-    // `if watch { … }` block a few hundred lines above, so git merges the two
-    // branches cleanly and produces a build that compiles and is wrong: the
-    // `watch && !root_is_object_url` refusal below rejects
-    // `xerj autoindex <folder> --watch --no-graph` and #967's whole feature is
-    // dead. Whoever lands it must:
-    //   1. DELETE the `if watch && !root_is_object_url { … }` refusal;
-    //   2. leave `if watch && root_is_object_url { … }` on the block that
-    //      follows it (already written that way here, so a local watch falls
-    //      through to #967's route instead of being swallowed);
-    //   3. gate #967's own `if watch { … }` block (the one refusing
-    //      `--watch --dry-run` and requiring `--no-graph`) on
-    //      `!root_is_object_url` — an object-storage watch supports `--dry-run`
-    //      and has no graph route at all. This is the half that is easy to miss;
-    //   4. keep a test for ALL THREE routes in one run: #967's
-    //      `index(&["data", "--watch", "--no-graph"]).watch`, this file's
-    //      `watch(&["s3://b/", "--watch", "--dry-run"])`, and
-    //      `an_object_root_without_watch_is_the_one_shot_index_route`.
+    // Each of the last three arrived on its own branch, and each branch had a
+    // refusal saying the other two did not exist. Those refusals auto-merge
+    // CLEANLY — git reports no conflict — into a build that compiles and
+    // silently kills a shipped feature. Both have now been removed, in the
+    // merge that brought their branch in, and the surviving guards are written
+    // so the route, not the absence of the others, is what they test:
+    //
+    //   * #967's `if watch { … }` block above is gated on
+    //     `!root_is_object_url`. Its three refusals (`--dry-run`, `--fresh`,
+    //     `--no-graph`) are the LOCAL watcher's constraints, and `s3://…
+    //     --watch --dry-run` is the documented way to price a poll.
+    //   * the object-storage watch block below is gated on
+    //     `root_is_object_url`, so a local `--watch` falls through to #967's
+    //     route instead of being swallowed.
+    //
+    // `all_four_routes_through_the_positional_argument_stay_open` in this
+    // file's tests is the guard. It is one test on purpose: three separate
+    // ones would each keep passing while a merge broke the other two.
     if !watch && !watch_flags_used.is_empty() {
         let used = {
             let mut u = watch_flags_used.clone();
@@ -1105,17 +1195,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "{used} only apply to a watch. Add --watch, or drop them"
         ));
     }
-    if watch && !root_is_object_url {
-        return Err(format!(
-            "--watch is implemented for object-storage roots on this build: pass \
-             s3://<bucket>/<prefix> (r2:// is accepted as the same thing) and set the endpoint \
-             with --endpoint-url or AWS_ENDPOINT_URL.{}",
-            match root_raw.as_deref() {
-                Some(r) => format!(" Got {r}, which is a local path."),
-                None => " No root was given.".to_string(),
-            }
-        ));
-    }
+    // `--watch` on a LOCAL root is #967's live-reindexing route, which landed
+    // on main while this branch was open. This is where the branch used to
+    // refuse it ("--watch is implemented for object-storage roots on this
+    // build"); that refusal auto-merged cleanly into a build that compiled and
+    // would have killed #967's whole feature, which is why the note above
+    // exists. A local root now falls through to the ordinary index path with
+    // `watch` set.
+    //
+    // A `--watch` with no root at all is still an error, and it is the
+    // folder-indexing path that says so.
     // An object root WITHOUT --watch is #970's one-shot indexing route
     // (`crate::objsource`), which landed on main while this branch was open.
     // This is where the branch used to refuse it ("a separate change; until it
@@ -1318,6 +1407,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 quiet,
                 progress,
                 progress_interval,
+                watch,
+                debounce: Duration::from_millis(
+                    debounce_ms.unwrap_or(crate::watch::DEFAULT_DEBOUNCE_MS),
+                ),
             })))
         }
         _ => Ok(Cmd::Help),
@@ -1515,45 +1608,77 @@ mod tests {
         );
     }
 
+    /// **The merge guard.** Four routes share one positional argument, and each
+    /// arrived on its own branch carrying a refusal that said the others did
+    /// not exist:
+    ///
+    /// | argument | flag | route |
+    /// |---|---|---|
+    /// | `<folder>` | — | index a folder, once |
+    /// | `<folder>` | `--watch` | #967, live reindexing |
+    /// | `s3://…` | — | #970, one-shot object indexing |
+    /// | `s3://…` | `--watch` | this branch, a bounded poll |
+    ///
+    /// Those refusals AUTO-MERGE CLEANLY — git reports no conflict on
+    /// `cli.rs` — into a build that compiles and silently kills a shipped
+    /// feature. Both were caught this way and removed.
+    ///
+    /// It is deliberately ONE test over all four. Four separate tests would
+    /// each keep passing while a merge broke the other three, which is exactly
+    /// the failure mode: nothing here is about a flag being parsed, and
+    /// everything is about the four staying open at the same time.
     #[test]
-    fn a_watch_needs_an_object_url_on_this_build() {
-        let text = err(&["/tmp/folder", "--watch"]);
-        assert!(
-            text.contains("s3://") && text.contains("local path"),
-            "{text}"
-        );
-        let text = err(&["--watch"]);
-        assert!(text.contains("No root was given"), "{text}");
-    }
+    fn all_four_routes_through_the_positional_argument_stay_open() {
+        // 1. A folder, indexed once. Still the default and still not a watch.
+        let folder = index(&["data"]);
+        assert!(!folder.watch, "a bare folder is not a watch");
 
-    /// The third route through the same positional argument, and the one git
-    /// cannot see: `s3://…` WITHOUT `--watch` is #970's one-shot indexing,
-    /// which landed on main while this branch was open. This branch used to
-    /// refuse it ("only supported with --watch on this build"), and that
-    /// refusal auto-merged cleanly into a build that would have killed a
-    /// shipped feature. See the MERGE NOTE in `parse`.
-    #[test]
-    fn an_object_root_without_watch_is_the_one_shot_index_route() {
-        let cfg = index(&["s3://logs/2026/", "--endpoint-url", "http://127.0.0.1:9000"]);
-        assert_eq!(cfg.root, std::path::PathBuf::from("s3://logs/2026/"));
-        assert_eq!(
-            cfg.endpoint_url.as_deref(),
-            Some("http://127.0.0.1:9000"),
-            "the one-shot route needs the endpoint the watch route also parses"
+        // 2. A folder with --watch: #967's live reindexing. The refusal this
+        //    branch used to carry ("--watch is implemented for object-storage
+        //    roots on this build") would fail here.
+        let local_watch = index(&["data", "--watch", "--no-graph"]);
+        assert!(
+            local_watch.watch,
+            "`xerj autoindex <folder> --watch --no-graph` is #967's route and must reach the \
+             indexer"
         );
-        // And one flag, one parser: the watch reads the same validated value.
+        assert_eq!(local_watch.root, std::path::PathBuf::from("data"));
+        // #967's own constraints still bite on ITS route.
+        assert!(err(&["data", "--watch"]).contains("--no-graph"));
+        assert!(err(&["data", "--watch", "--no-graph", "--dry-run"]).contains("contradict"));
+
+        // 3. `s3://…` without --watch: #970's one-shot object indexing. The
+        //    refusal this branch used to carry ("an object-storage root is only
+        //    supported with --watch on this build") would fail here.
+        let one_shot = index(&["s3://logs/2026/", "--endpoint-url", "http://127.0.0.1:9000"]);
+        assert_eq!(one_shot.root, std::path::PathBuf::from("s3://logs/2026/"));
+        assert!(!one_shot.watch);
         assert_eq!(
-            watch(&[
-                "s3://logs/2026/",
-                "--watch",
-                "--endpoint-url",
-                "http://127.0.0.1:9000"
-            ])
-            .endpoint
-            .as_deref(),
+            one_shot.endpoint_url.as_deref(),
             Some("http://127.0.0.1:9000")
         );
-        // A bad endpoint is refused by the one parser, on either route.
+
+        // 4. `s3://…` with --watch: the bounded poll. Its own flags are NOT
+        //    #967's: --dry-run is how the docs tell you to price a poll, and
+        //    there is no graph route to turn off, so #967's block must not
+        //    reach this route.
+        let poll = watch(&[
+            "s3://logs/2026/",
+            "--watch",
+            "--dry-run",
+            "--endpoint-url",
+            "http://127.0.0.1:9000",
+        ]);
+        assert!(poll.dry_run, "`s3://… --watch --dry-run` prices a poll");
+        assert_eq!(poll.max_cycles, Some(1));
+        assert_eq!(poll.endpoint.as_deref(), Some("http://127.0.0.1:9000"));
+        assert!(
+            watch(&["s3://logs/", "--watch"]).endpoint.is_none(),
+            "no --endpoint-url is the AWS_ENDPOINT_URL fallback, not an error"
+        );
+
+        // One flag, one parser: a bad endpoint is refused identically on the
+        // one-shot route and on the watch.
         assert!(err(&["s3://logs/", "--endpoint-url", "ftp://x"]).contains("http://"));
         assert!(err(&["s3://logs/", "--watch", "--endpoint-url", "ftp://x"]).contains("http://"));
     }
@@ -1605,6 +1730,37 @@ mod tests {
 
     fn err(args: &[&str]) -> String {
         parse(args.iter().map(|s| s.to_string()).collect()).expect_err("must be refused")
+    }
+
+    /// The `--watch` refusal must name the limitation it actually has. Measured
+    /// on the graph route against a 10,000-file corpus
+    /// (`docs/measurements/autoindex-watch-2026-09-19.md`, section 4): a re-run
+    /// after a file's CONTENT changed indexes it (3.07 s, `files=1`, searchable),
+    /// a re-run after an ADDITION skips the file with exit 3, and a re-run after a
+    /// DELETION aborts with exit 1 and keeps aborting. The message used to claim
+    /// the opposite about a changed file, which came from a measurement whose
+    /// shell append had created a new file rather than modifying one.
+    #[test]
+    fn the_watch_refusal_names_additions_and_deletions_not_content_changes() {
+        let text = err(&["data", "--watch"]);
+        assert!(
+            text.contains("--no-graph"),
+            "the message must name the flag that makes it work: {text}"
+        );
+        assert!(
+            text.contains("ADDED") && text.contains("DELETED"),
+            "the message must say which changes the graph route cannot reconcile: {text}"
+        );
+        assert!(
+            text.contains("CONTENT changed is reconciled"),
+            "the message must not leave the operator thinking an edit is lost too: {text}"
+        );
+        assert!(
+            !text.contains("a file whose content changed is reported"),
+            "the corrected claim must not come back: {text}"
+        );
+        // With --no-graph it parses, and the watcher is on.
+        assert!(index(&["data", "--watch", "--no-graph"]).watch);
     }
 
     /// `xerj autoindex` reads its endpoint from `--url` only; setting `XERJ_URL`
@@ -1944,6 +2100,29 @@ mod tests {
             let err = parse(args.into_iter().map(str::to_string).collect()).unwrap_err();
             assert!(err.contains("apply only to indexing"), "{err}");
         }
+    }
+
+    /// The graph route DOES reindex a modified file; what it cannot do is an
+    /// add or a delete. The help asserted the retracted version for as long as
+    /// the docs did, and pointed at a help section that does not exist.
+    #[test]
+    fn the_watch_help_does_not_repeat_the_retracted_graph_claim() {
+        let help = super::help_text();
+        assert!(
+            !help.contains("only that route reindexes"),
+            "the --watch help repeats the retracted claim about the graph route"
+        );
+        for expected in ["refuses an ADDED file", "ABORTS on a deletion"] {
+            assert!(
+                help.contains(expected),
+                "--watch help is missing {expected:?}"
+            );
+        }
+        // It pointed at a help section that does not exist.
+        assert!(
+            !help.contains("See LIVE REINDEXING below"),
+            "the help points at a LIVE REINDEXING section it does not have"
+        );
     }
 
     /// A flag the engine honours but never mentions is only half-shipped, and
