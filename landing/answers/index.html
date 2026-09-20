@@ -190,6 +190,9 @@
     <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">66</span>How do I improve a basic FAISS RAG pipeline?</a>
     <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">67</span>Why did my filtered vector search get slower when I added a filter?</a>
     <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">68</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/share-folder-read-only-search-without-uploading" class=""><span class="eyebrow">69</span>How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?</a>
+    <a href="/answers/share-local-search-index-through-a-tunnel" class=""><span class="eyebrow">70</span>How do I let someone outside my network search an index on my laptop without opening a port?</a>
+    <a href="/answers/what-a-share-link-guest-can-reach" class=""><span class="eyebrow">71</span>If I share one index with a link and a passcode, what can that person actually reach on my node?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
@@ -395,6 +398,12 @@
   <h2>Retrieval: selection</h2>
   <ul>
     <li><a href="/answers/vector-database-vs-full-text-search">What's the actual difference between a vector database and full-text search when I have a folder?</a> — Full-text search matches tokens, kNN matches vectors, hybrid fuses both. XERJ serves all three from one index over an indexed folder, so the choice is a clause.</li>
+  </ul>
+  <h2>Sharing: read-only guest access</h2>
+  <ul>
+    <li><a href="/answers/share-folder-read-only-search-without-uploading">How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?</a> — Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded.</li>
+    <li><a href="/answers/share-local-search-index-through-a-tunnel">How do I let someone outside my network search an index on my laptop without opening a port?</a> — xerj share --tunnel starts your own cloudflared, prints a public guest link, and closes the tunnel and revokes the share on Ctrl-C. What the trade is.</li>
+    <li><a href="/answers/what-a-share-link-guest-can-reach">If I share one index with a link and a passcode, what can that person actually reach on my node?</a> — A share-link guest key reads the shared index and nothing else: no other index, no _cat or _cluster, no writes, no scroll or PIT. Each refusal is a live test.</li>
   </ul>
 </main>
 </div>

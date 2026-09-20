@@ -613,6 +613,33 @@
       "cluster": "Retrieval: selection",
       "updated": "2026-08-23",
       "summary": "Full-text search matches tokens, kNN matches vectors, hybrid fuses both. XERJ serves all three from one index over an indexed folder, so the choice is a clause."
+    },
+    {
+      "title": "Read-only search over a folder, without uploading it",
+      "question": "I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?",
+      "canonical_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading",
+      "markdown_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading.md",
+      "cluster": "Sharing: read-only guest access",
+      "updated": "2026-09-19",
+      "summary": "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded."
+    },
+    {
+      "title": "Share a local search index through a tunnel",
+      "question": "How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN?",
+      "canonical_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel",
+      "markdown_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel.md",
+      "cluster": "Sharing: read-only guest access",
+      "updated": "2026-09-19",
+      "summary": "xerj share --tunnel starts your own cloudflared, prints a public guest link, and closes the tunnel and revokes the share on Ctrl-C. What the trade is."
+    },
+    {
+      "title": "What a XERJ share-link guest can and cannot reach",
+      "question": "If I give someone a read-only share link to one search index, can they see my other indices or anything else on the server?",
+      "canonical_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach",
+      "markdown_url": "https://xerj.org/answers/what-a-share-link-guest-can-reach.md",
+      "cluster": "Sharing: read-only guest access",
+      "updated": "2026-09-19",
+      "summary": "A share-link guest key reads the shared index and nothing else: no other index, no _cat or _cluster, no writes, no scroll or PIT. Each refusal is a live test."
     }
   ]
 }
