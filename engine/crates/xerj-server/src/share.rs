@@ -96,9 +96,10 @@ pub fn help_text(feedback: bool) -> String {
          \n\
          The guest opens the link, types the passcode, and gets a reading room over\n\
          that one index: search, highlighted snippets, a document view. Read-only.\n\
-         The documents stay on this machine: nothing is uploaded or stored anywhere\n\
-         else, and this node answers the guest's browser. With --tunnel that traffic\n\
-         passes through Cloudflare, which can read it (see --tunnel). Revoke any time.\n\
+         The documents stay on this machine: XERJ copies them nowhere, and this node\n\
+         answers the guest's browser. With --tunnel that traffic passes through\n\
+         Cloudflare, which can read it, and what Cloudflare keeps of what it carries\n\
+         is between you and Cloudflare (see --tunnel). Revoke any time.\n\
          \n\
          {}\
          USAGE:\n\
@@ -1219,10 +1220,7 @@ fn render_created(resp: &Value, link: &str, reach: Reach, common: &Common) -> St
         Reach::CloudflareTunnel => {
             // NOT "the guest's browser reads from this node": it reads from
             // Cloudflare, which reads from this node.
-            out.push_str(
-                "  your documents stay on this machine — nothing is uploaded or stored \
-                 elsewhere.\n",
-            );
+            out.push_str("  your documents stay on this machine — XERJ copies them nowhere.\n");
             out.push_str(&format!(
                 "\n  {}.\n",
                 wrap(CLOUDFLARE_TRANSIT_NOTICE, 76, "  ")
@@ -1983,8 +1981,16 @@ mod tests {
             "must name the alternative: {out}"
         );
         // What Cloudflare keeps is Cloudflare's business; the notice does not
-        // promise anything about it.
+        // promise anything about it. "nothing is uploaded or stored elsewhere"
+        // sat one line above the notice and promised exactly that, which is the
+        // retention claim f152538f removed from the notice itself.
         assert!(!flat.contains("stored there"), "{out}");
+        for retention in ["or stored", "stored anywhere", "stored elsewhere"] {
+            assert!(
+                !flat.contains(retention),
+                "the banner promises what a third party retains ({retention:?}): {out}"
+            );
+        }
         assert!(
             !flat.contains("browser reads from this node"),
             "in tunnel mode the browser reads from Cloudflare: {out}"
