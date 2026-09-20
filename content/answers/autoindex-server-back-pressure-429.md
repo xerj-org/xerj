@@ -36,9 +36,9 @@ evidence:
     source: "engine/crates/xerj-autoindex/src/esclient.rs"
   - claim: "The 'raising bulk concurrency' line is printed at most once every 10 s, plus the step that reaches the ceiling; the capture that motivated this holds 117 such lines for 11 shrinks."
     source: "engine/crates/xerj-autoindex/src/esclient.rs"
-  - claim: "On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231 after 16 re-sends, and the same command on the restarted node committed the generation with 1,663 records, the same as a control run."
+  - claim: "On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231 after 600 s of re-sends, and the same command on the restarted node committed the generation with 1,663 records, the same as a control run."
     source: "benchmarks/autoindex-resilience/limits-real-node.txt"
-  - claim: "A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency; on real nodes with max_actions_per_bulk = 64 and max_body_bytes = 98304 each run ended ok=true exit=3 records=1663 bulk_splits=1, the same records as a control run."
+  - claim: "A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency; on real nodes with max_actions_per_bulk = 64 and max_body_bytes = 98304 each run ended ok=true exit=3 records=1663 bulk_splits=1 with 236 catalog documents, the same as a control run."
     source: "benchmarks/autoindex-resilience/limits-real-node.txt"
 faq:
   - q: "Why did xerj autoindex say the server pushed back with HTTP 429?"
@@ -135,7 +135,7 @@ error: the server kept rejecting …
 
 `reason=server-backpressure` tells this stop apart from `reason=aborted`, which also covers a broken journal or an unreachable node. The exit code stays 1: exit 3 means a finished run with nothing to retry, and a half-applied generation is not finished.
 
-This was forced on a real node by starting it with a 64 MiB memory cap, so the breaker was engaged from the first write. After 16 re-sends the run ended `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231`. The node was then restarted on its default cap and the same command was run again. It printed `resumed and committed` and ended `ok=true exit=3` with the same 1,663 records as a control run.
+This was forced on a real node by starting it with a 64 MiB memory cap, so the breaker was engaged from the first write. The run re-sent the two rejected records for the full 600 s and ended `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`, printing 19 `server is shedding load` notices on the way — one per 30 s of the wait, not one per re-send. The node was then restarted on its default cap and the same command was run again. It printed `resumed and committed` and ended `ok=true exit=3` with the same 1,663 records and 236 catalog documents as a control run.
 
 Read the node log: it names the cap it chose (`memory: detected … usable, using a … cap`) and the setting that changes it, `limits.max_process_memory_mb` or `XERJ_MAX_PROCESS_MEMORY_MB`. Then rerun the same command. Nothing from the rejected bulk was journaled as applied, so the run resumes from its last committed operation and sends that bulk again.
 

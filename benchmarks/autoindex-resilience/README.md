@@ -249,14 +249,17 @@ reached it through a local TCP forwarder (`HTTP_PROXY`). Nothing listened on
 The end-to-end tests for #955 and #944 run against a stub. `limits-real-node.txt`
 runs the same paths against the engine, on the sonic repository, one fresh
 node per setting, each compared with a control run on default limits
-(`records=1663`, 236 catalog documents):
+(`records=1663`, 236 catalog documents). Every row was RE-RUN on 2026-09-20,
+after the reconciliation with #949 replaced this branch's 120 s patience with
+main's 600 s: the numbers below come from that run, not from the 2026-09-19
+one they replace.
 
 | Node setting | Result |
 | --- | --- |
-| `max_actions_per_bulk = 64` | one 73-action request refused (item 413), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
-| `max_body_bytes = 98304` | one 120,737-byte request refused (HTTP 413, `length limit exceeded`), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
-| `max_body_bytes = 65536` | a single 70,477-byte record cannot be cut: `exit=1 reason=aborted`, error names `limits.max_body_bytes` |
-| `XERJ_MAX_PROCESS_MEMORY_MB=64` | breaker engaged from start-up; 16 re-sends, then `ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231` |
+| `max_actions_per_bulk = 64` | one 69-action request refused (item 413), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
+| `max_body_bytes = 98304` | one 120,443-byte request refused (HTTP 413, `length limit exceeded`), halved; `ok=true exit=3 records=1663 bulk_splits=1`, 236 catalog documents |
+| `max_body_bytes = 65536` | a single 70,471-byte record cannot be cut: `exit=1 reason=aborted`, error names `limits.max_body_bytes` |
+| `XERJ_MAX_PROCESS_MEMORY_MB=64` | breaker engaged from start-up; 600 s of re-sends (19 `server is shedding load` notices, one per 30 s), then `ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231` |
 | the same state directory, node restarted on the default cap, same command | `resumed and committed`; `ok=true exit=3 records=1663`, 236 catalog documents |
 
 ## After, a slice that holds the rc.74 trigger (this branch)

@@ -41,7 +41,7 @@ evidence:
     source: "benchmarks/autoindex-resilience/before-955.stderr.txt"
   - claim: "Resuming that same generation with the fix ended xerj-done ok=true exit=3 reason=completed-with-junk wall=415.0s files=47444 records=821840 generation=1."
     source: "benchmarks/autoindex-resilience/after-955.full-corpus-resume.stderr.txt"
-  - claim: "On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231; against real nodes with max_actions_per_bulk = 64 and with max_body_bytes = 98304, each run ended ok=true exit=3 records=1663 bulk_splits=1."
+  - claim: "On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231; against real nodes with max_actions_per_bulk = 64 and with max_body_bytes = 98304, each run ended ok=true exit=3 records=1663 bulk_splits=1."
     source: "benchmarks/autoindex-resilience/limits-real-node.txt"
   - claim: "Every run that reaches an exit ends with one terminal line in every progress mode except none, which --quiet selects; a run killed by a signal cannot print one either."
     source: "engine/crates/xerj-autoindex/src/lib.rs:277"
@@ -137,7 +137,7 @@ autoindex: stopped by server back-pressure while applying <file>: N operation(s)
 xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
 ```
 
-Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
+Forced on a real node with a 64 MiB memory cap, that line read `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`. The applied operations are journaled, so the same command resumes with the `M` that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the node side.
 
 A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one `_bulk` request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's `limits.max_actions_per_bulk` (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the `--no-graph` run ended 10,336 seconds in:
 
