@@ -519,6 +519,46 @@ jobs:
         working-directory: engine
         run: cargo clippy -p xerj-ai -p xerj-engine --all-targets --features onnx-experimental -- -D warnings
 
+  local-judge-feature:
+    # The `local` rerank provider only exists under `xerj-rerank/local`, which
+    # `xerj-server`'s default `neural` feature pulls in — so `cargo test
+    # --workspace`, which uses each crate's OWN defaults, compiles the provider
+    # out and silently runs the "not compiled in" arm of every test instead.
+    # That is exactly how a feature-gated code path rots. This job runs the two
+    # crates WITH the feature. The model-backed tests stay `#[ignore]`d (they
+    # download ~92 MB from the Hub); everything below runs offline.
+    name: Local judge (rerank provider `local`) compile + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+        with:
+          components: clippy
+
+      - name: Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+
+      - name: Test the judge runtime and the pair classifier
+        working-directory: engine
+        run: cargo test --profile ci-test -p xerj-ai --features neural --lib -- --test-threads=2
+
+      - name: Test the provider with the feature ON
+        working-directory: engine
+        run: cargo test --profile ci-test -p xerj-rerank --features local -- --test-threads=2
+
+      - name: Test the HTTP surface with the feature ON
+        working-directory: engine
+        run: cargo test --profile ci-test -p xerj-api --features neural --test rerank_local_http --test rerank_stage_http -- --test-threads=2
+
+      - name: Clippy the local judge
+        working-directory: engine
+        run: cargo clippy -p xerj-ai -p xerj-rerank -p xerj-api --all-targets --features xerj-ai/neural,xerj-rerank/local,xerj-api/neural -- -D warnings
+
   api-checks:
     name: API smoke + liveness + benchmark
     runs-on: ubuntu-latest
