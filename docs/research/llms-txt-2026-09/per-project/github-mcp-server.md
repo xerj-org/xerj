@@ -195,7 +195,7 @@ MCP servers for Gemini CLI are configured in its settings JSON under an `mcpServ
 ## What XERJ does better
 
 - XERJ publishes llms.txt and llms-full.txt; this project publishes neither and its README is 113 KB, most of it tool reference.
-- XERJ's server needs no token and no container runtime.
+- XERJ's MCP server is the same binary and needs no container runtime. It does need a credential: a default node is auth-on, so `xerj mcp` requires `XERJ_AUTH` (`ApiKey <key>` from `<data-dir>/admin.key`) and returns HTTP 401 without it.
 - XERJ warns that a desktop-launched MCP host does not inherit the shell PATH and tells the agent to use an absolute path; this README's stdio example uses a placeholder path without saying why.
 
 ## Adoptable ideas

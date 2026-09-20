@@ -196,7 +196,7 @@ Both 404 (HTML body). Skills are distributed through the CLI, `npx skills add` a
 - Install is in llms.txt (line 11). Stripe's llms.txt contains no install command for its CLI, SDKs or agent tooling.
 - The agent-addressed section of Stripe's file is at line 154 of 707, after six product link lists; an agent reading top-down meets roughly 150 links first.
 - XERJ publishes a curated llms-full.txt that fits in a context window; Stripe publishes none.
-- XERJ needs no account, key or network after install.
+- XERJ needs no account and no network after install. It does need its own node's API key: auth is on by default, so a client without `XERJ_AUTH` gets HTTP 401.
 
 ## Adoptable ideas
 

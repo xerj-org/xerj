@@ -335,8 +335,11 @@ Recorded because the process mistakes matter as much as the file's.
 The synthesis, critic and fact-check passes finished on 2026-09-19. Their output is in
 [`proposals/`](./proposals/report.md): a revised report, a proposed `llms.txt`, a proposed
 `llms-install.md`, ten paste-ready prompts, the fact-check (259 claims re-fetched, 258
-confirmed, 1 not confirmed and removed) and a record of every XERJ command the proposals
-print, run against `xerj v1.0.0-rc.74`. The proposals change **no live file**:
+confirmed, 1 not confirmed and removed) and a record of the XERJ commands the proposals
+print, run on Linux against `xerj v1.0.0-rc.74` — with a "Not run" list naming what was
+not (the `curl | sh` installer, macOS and Windows, `--embed-mode neural`,
+`claude mcp add --scope local`, and the per-client registration lines, which are quoted
+from each client's documentation rather than executed). The proposals change **no live file**:
 `landing/llms.txt`, `llms-full.txt` and `AGENTS.md` are untouched, because rule 10 above
 applies and the report's §9 lists what must exist before any of it ships.
 

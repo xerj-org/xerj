@@ -50,10 +50,11 @@ command -v xerj || ls "$HOME/.local/bin/xerj"          # already installed? skip
 curl -fsSL https://xerj.org/get | sh                    # verifies the release SHA-256; refuses to install if it cannot
 export PATH="$HOME/.local/bin:$PATH"                    # the installer does not edit your shell profile
 xerj --version                                          # expect: xerj v1.0.0-rc.N
-nohup xerj --data-dir "$HOME/xerj-data" >"$HOME/xerj.log" 2>&1 &   # keeps running after this shell exits
-until [ -s "$HOME/xerj-data/admin.key" ]; do sleep 0.3; done
-export XERJ_API_KEY="$(cat "$HOME/xerj-data/admin.key")"   # auth is on by default; every xerj command reads this
-until curl -sf -H "Authorization: ApiKey $XERJ_API_KEY" localhost:9200/_cluster/health >/dev/null; do sleep 0.3; done
+nohup xerj --data-dir "$HOME/xerj-data" >"$HOME/xerj.log" 2>&1 & XERJ_PID=$!   # keeps running after this shell exits
+for i in $(seq 40); do [ -s "$HOME/xerj-data/admin.key" ] && break; sleep 0.5; done
+export XERJ_API_KEY="$(cat "$HOME/xerj-data/admin.key" 2>/dev/null)"   # auth is on by default; xerj search/def/autoindex read this
+# bounded on purpose: a node whose port is taken writes the key and THEN exits, so an unbounded wait here never returns
+for i in $(seq 40); do curl -sf -H "Authorization: ApiKey $XERJ_API_KEY" localhost:9200/_cluster/health >/dev/null && break; kill -0 $XERJ_PID 2>/dev/null || { echo "node exited — read $HOME/xerj.log; if it says 'Address in use', add --port <free port> and use that port below"; break; }; sleep 0.5; done
 xerj autoindex <folder> --dry-run                       # prints the plan and a time estimate; tell the user
 xerj autoindex <folder>                                 # last stderr line: xerj-done ok=true exit=0 reason=completed …
 xerj search "<what you need, in plain words>"           # expect: ─── <file>[:<line>] … then "N passage(s) from 'ax-*'"
@@ -106,8 +107,9 @@ Hand-off block — when you have no shell, give this to the user verbatim:
 Please run these in a terminal, then paste me the last line it prints:
   curl -fsSL https://xerj.org/get | sh          (no curl|sh, or Windows: https://xerj.org/llms-install.md)
   nohup ~/.local/bin/xerj --data-dir ~/xerj-data > ~/xerj.log 2>&1 &
-  until [ -s ~/xerj-data/admin.key ]; do sleep 1; done; export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)"
-  until curl -sf -H "Authorization: ApiKey $XERJ_API_KEY" localhost:9200/_cluster/health >/dev/null; do sleep 1; done
+  for i in $(seq 40); do [ -s ~/xerj-data/admin.key ] && break; sleep 0.5; done; export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)"
+  for i in $(seq 40); do curl -sf -H "Authorization: ApiKey $XERJ_API_KEY" localhost:9200/_cluster/health >/dev/null && break; sleep 0.5; done
+  (if that last line keeps printing nothing, read ~/xerj.log — "Address in use" means port 9200 is taken; restart with --port <free port>)
   ~/.local/bin/xerj autoindex <the folder I should search>
   <the registration line for your client, from the list above>      (MCP clients only; then restart this session)
   curl -s -H "Authorization: ApiKey $XERJ_API_KEY" localhost:9200/_cluster/health

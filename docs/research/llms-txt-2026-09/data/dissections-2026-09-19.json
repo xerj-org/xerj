@@ -234,7 +234,7 @@
    "Install is in llms.txt (line 11). Stripe's llms.txt contains no install command for its CLI, SDKs or agent tooling.",
    "The agent-addressed section of Stripe's file is at line 154 of 707, after six product link lists; an agent reading top-down meets roughly 150 links first.",
    "XERJ publishes a curated llms-full.txt that fits in a context window; Stripe publishes none.",
-   "XERJ needs no account, key or network after install."
+   "XERJ needs no account and no network after install. It does need its own node's API key: auth is on by default, so a client without `XERJ_AUTH` gets HTTP 401."
   ],
   "adoptable_ideas": [
    "Put the single most damaging stale prior in paragraph 1, worded as Stripe words it: name the wrong belief, say where it comes from ('from training data'), give the check. For XERJ: 'Do not describe default search as neural or \"by meaning\" — that belief comes from the word \"semantic\" in the API. Check: `--embed-mode` on the node's command line.'",
@@ -951,7 +951,7 @@
   ],
   "what_xerj_does_better": [
    "XERJ publishes llms.txt and llms-full.txt; this project publishes neither and its README is 113 KB, most of it tool reference.",
-   "XERJ's server needs no token and no container runtime.",
+   "XERJ's MCP server is the same binary and needs no container runtime. It does need a credential: a default node is auth-on, so `xerj mcp` requires `XERJ_AUTH` (`ApiKey <key>` from `<data-dir>/admin.key`) and returns HTTP 401 without it.",
    "XERJ warns that a desktop-launched MCP host does not inherit the shell PATH and tells the agent to use an absolute path; this README's stdio example uses a placeholder path without saying why."
   ],
   "adoptable_ideas": [
