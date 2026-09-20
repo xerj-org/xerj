@@ -142,6 +142,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [Why does my Notion export duplicate titles?](https://xerj.org/answers/notion-export-duplicate-search-results.md): API sync/export duplicates Notion titles in pages, databases, search results
 - **Folder indexing**
   - [Point a tool at a folder and ask about the files](https://xerj.org/answers/how-xerj-autoindexes-a-folder.md): I want to point something at a folder and then ask questions about what's in it. What should I use?
+  - [Search a Gmail Takeout mbox on your own machine](https://xerj.org/answers/search-gmail-takeout-mbox-locally.md): How do I search a Google Takeout mbox file locally?
 - **Hybrid retrieval: architecture**
   - [RAG without a vector database](https://xerj.org/answers/rag-without-vector-database.md): How do I build RAG without a vector database?
 - **Hybrid retrieval: RRF**
@@ -158,6 +159,7 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [Why does a folder search miss files on disk?](https://xerj.org/answers/why-autoindex-skipped-files.md): Why would a folder search miss files that I can see on disk?
 - **Operations: exit codes**
   - [What do the xerj autoindex exit codes mean?](https://xerj.org/answers/autoindex-exit-codes.md): What does indexer exit code 3 mean?
+  - [Why autoindex refuses a .zip and asks you to extract it](https://xerj.org/answers/autoindex-says-extract-the-archive-first.md): Why does xerj autoindex say to extract a zip first?
 - **Operations: freshness**
   - [How do I keep a XERJ index up to date as files change?](https://xerj.org/answers/keep-index-current-as-files-change.md): How do I keep a search index up to date as files change, without re-indexing everything?
 - **Operations: installation**

@@ -29,6 +29,10 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
+    <loc>https://xerj.org/answers/autoindex-says-extract-the-archive-first</loc>
+    <lastmod>2026-09-19</lastmod>
+  </url>
+  <url>
     <loc>https://xerj.org/answers/catalog-files-with-autoindex-map</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
@@ -187,6 +191,10 @@
   <url>
     <loc>https://xerj.org/answers/search-files-in-an-s3-bucket</loc>
     <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/search-gmail-takeout-mbox-locally</loc>
+    <lastmod>2026-09-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/search-gzip-logs-without-zgrep</loc>

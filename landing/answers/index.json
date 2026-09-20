@@ -408,6 +408,15 @@
       "summary": "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one."
     },
     {
+      "title": "Search a Gmail Takeout mbox on your own machine",
+      "question": "How do I search a Google Takeout mbox file locally?",
+      "canonical_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally",
+      "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
+      "cluster": "Folder indexing",
+      "updated": "2026-09-19",
+      "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
+    },
+    {
       "title": "RAG without a vector database",
       "question": "How do I build RAG without a vector database?",
       "canonical_url": "https://xerj.org/answers/rag-without-vector-database",
@@ -478,6 +487,15 @@
       "cluster": "Operations: exit codes",
       "updated": "2026-08-23",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
+    },
+    {
+      "title": "Why autoindex refuses a .zip and asks you to extract it",
+      "question": "Why does xerj autoindex say to extract a zip first?",
+      "canonical_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first",
+      "markdown_url": "https://xerj.org/answers/autoindex-says-extract-the-archive-first.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-19",
+      "summary": "autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with the exact extraction command; the run continues. Index the extracted folder."
     },
     {
       "title": "How do I keep a XERJ index up to date as files change?",
