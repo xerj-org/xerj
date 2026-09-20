@@ -34,17 +34,19 @@ evidence:
     source: "benchmarks/local-judge/results/ndcg.txt"
   - claim: "One 30 document local rerank call cost seconds, not milliseconds, on a 32 core x86 CPU with the machine otherwise idle, and raising the thread count did not make it faster."
     source: "benchmarks/local-judge/results/latency.txt"
-  - claim: "Every shipped local tier carries Calibration NONE, the raw sigmoid, so the response reports score_kind relevance rather than probability. A Platt and a temperature fit were both attempted on a held out split and both diverged."
+  - claim: "Every shipped local tier carries Calibration NONE, the raw sigmoid, so the response reports score_kind relevance rather than probability. The small tier's Platt and temperature fits both diverged on a held out split. The base tier's Platt fit converged and cut pooled expected calibration error from 0.0509 to 0.0094, but it was fitted and tested on the same two corpora, so it does not ship."
     source: "engine/crates/xerj-ai/src/judge.rs"
+  - claim: "The base tier reranked the hybrid top 30 to nDCG@10 0.7186 on SciFact, the best SciFact figure measured, and to 0.3328 on NFCorpus, below both hybrid RRF and the smaller tier."
+    source: "benchmarks/local-judge/results/ndcg.txt"
 faq:
   - q: "Can I rerank search results without an API key?"
     a: "Yes. Send `\"rerank\": {\"provider\": \"local\"}` in a XERJ `_search` body. A cross-encoder runs inside the node, so there is no key, no network call and no per-token bill."
   - q: "Does the local reranker send my documents anywhere?"
     a: "No. Scoring happens in the node process. The only network use is the one-time model download from the HuggingFace Hub on first use, which sends no document or query text. `[judge] download = false` forbids even that."
   - q: "Is the local reranker better than XERJ's hybrid search?"
-    a: "Not reliably. On top of a hybrid first stage it gained on NFCorpus and FiQA and was indistinguishable on SciFact. On top of a BM25-only first stage it was a large gain on all three. It is opt-in, not a default."
+    a: "Not reliably. The default tier gained on NFCorpus and FiQA over a hybrid first stage and was indistinguishable on SciFact. The `base` tier was the other way round: best on SciFact, worse than hybrid on NFCorpus. No tier won everywhere, so it is opt-in."
   - q: "Is the local reranker's score a probability?"
-    a: "No. Every shipped tier reports `score_kind: \"relevance\"` — a monotone 0 to 1 ranking score. A calibration fit was attempted and diverged, so none ships and `rerank.min_score` against it has to be tuned per corpus."
+    a: "No. Every shipped tier reports `score_kind: \"relevance\"` — a monotone 0 to 1 ranking score. The default tier's calibration fit diverged; the `base` tier's converged but was never tested outside the two corpora it was fitted across, so neither ships. Tune `rerank.min_score` per corpus."
   - q: "How slow is a local rerank on a CPU?"
     a: "Seconds per 30-document call on a 32-core x86 machine with nothing else running, and more threads did not help. Treat it as a deliberate, per-request cost, not something to switch on globally."
   - q: "Which model does it use and what is the licence?"
@@ -65,40 +67,48 @@ POST /kb/_search
 }
 ```
 
-That is the whole setup. The provider is compiled into the stock release binaries and loads its model the first time a request asks for it. There is no key to obtain, and `_rerank.local.data_egress` in the response says `"none"`.
+That is the whole setup. The provider is compiled into the stock release binaries. It loads its model the first time a request asks for it. There is no key to obtain, and `_rerank.local.data_egress` in the response says `"none"`.
 
-A cross-encoder reads the query and one document *together* and emits one relevance score. That is the opposite trade from an embedding model, which reads each text alone so the vectors can be indexed: a cross-encoder cannot be precomputed and costs one model forward pass per candidate. So it is a second stage over a short window, and the window is what you pay for.
+A cross-encoder reads the query and one document *together* and emits one relevance score. That is the opposite trade from the embedder. The embedder reads each text alone, so its vectors can be stored in the index. A cross-encoder cannot be precomputed. It costs one model forward pass per candidate. So it is a second stage over a short window, and the window is what you pay for.
 
 ## What it cost and what it bought
 
-Measured on three public BEIR datasets with the default `small` tier, against a node running `--embed-mode neural` (all-MiniLM-L6-v2) so that the hybrid arm is a real hybrid and not the default lexical embedder.
+Measured on three public BEIR datasets, against a node running `--embed-mode neural` with all-MiniLM-L6-v2. That flag matters: it makes the hybrid arm a real hybrid, not the default lexical embedder. nDCG@10 on each `test` split.
 
 | Arm | SciFact | NFCorpus | FiQA |
 | --- | --- | --- | --- |
 | BM25 | 0.6572 | 0.3016 | 0.2382 |
-| BM25 top-30, reranked locally | 0.6824 | 0.3370 | 0.3160 |
+| BM25 top-30, reranked by `small` | 0.6824 | 0.3370 | 0.3160 |
+| BM25 top-30, reranked by `base` | 0.7084 | 0.3141 | not run |
 | Hybrid RRF (ships today) | 0.7021 | 0.3445 | 0.3572 |
-| Hybrid top-30, reranked locally | 0.6936 | 0.3597 | 0.3751 |
+| Hybrid top-30, reranked by `small` | 0.6936 | 0.3597 | 0.3751 |
+| Hybrid top-30, reranked by `base` | 0.7186 | 0.3328 | not run |
 
 nDCG@10 on each dataset's `test` split. Two readings, and they point different ways.
 
-**Against a BM25-only first stage it is a clear, large win** — plus 0.025, plus 0.035 and plus 0.078. If your node has no vectors, or you are not going to re-index a corpus to get them, this is the cheapest relevance you can buy.
+**Against a BM25-only first stage it is a clear, large win.** It adds 0.025, 0.035 and 0.078. If your node has no vectors, this is the cheapest relevance you can buy.
 
-**Against hybrid RRF it is not a clear win.** It gained 0.0152 on NFCorpus and 0.0179 on FiQA, in both cases with a 95 percent paired bootstrap interval that excludes zero, and it lost 0.0085 on SciFact with an interval that spans zero. Two wins and one wash is not the evidence a default needs, especially against an arm that costs nothing extra per hit.
+**Against hybrid RRF it is not a clear win.** It gained 0.0152 on NFCorpus and 0.0179 on FiQA. Both intervals exclude zero. It lost 0.0085 on SciFact, with an interval that spans zero. Two gains and one wash is not the evidence a default needs.
+
+**A bigger model does not settle it either.** The `base` tier reranked the hybrid top 30 to 0.7186 on SciFact, the best SciFact figure we measured. On NFCorpus the same tier scored 0.3328, below both hybrid and the smaller model. The two tiers disagree about which corpus they help.
 
 ## Why "opt-in, not the default" is the honest answer
 
 Three reasons, in order of weight.
 
-1. **It does not beat what already ships, everywhere.** Hybrid RRF is free relative to this, and it was not beaten on SciFact.
-2. **A local rerank call costs seconds on a CPU.** One 30-document call, one process, a 32-core x86 machine with nothing else running. Raising the thread count did not help: the model's CPU kernels stop scaling long before the machine runs out of cores. A default that adds seconds to every search would be a worse product whatever the nDCG said.
-3. **The score is not calibrated.** The response reports `score_kind: "relevance"`, not `"probability"`. We tried to fit a calibration on a held-out split and both the Platt and the temperature fit diverged, so none ships. `rerank.min_score` against a local score is a knob you tune per corpus, not an absolute threshold.
+1. **No tier beat hybrid RRF on every dataset.** Hybrid costs no model forward pass per hit. The default tier did not beat it on SciFact.
+2. **A local rerank call costs seconds on a CPU.** That is one 30-document call on an idle 32-core x86 machine. More threads did not help. The model's CPU kernels stop scaling well short of the core count.
+3. **The score is not calibrated.** The response reports `score_kind: "relevance"`, not `"probability"`. The default tier's calibration fit diverged. The `base` tier's fit converged, but only the two corpora it was fitted across were tested. Tune `rerank.min_score` per corpus.
 
 ## Noise, and why the numbers above can be trusted
 
-XERJ's hybrid fusion breaks ties by a per-process seed, so the hybrid baseline itself moves a little between node restarts. We measured it rather than assuming: over three fresh node processes on unchanged indices, hybrid scored 0.7021, 0.7034 and 0.7019 on SciFact and 0.3445, 0.3436 and 0.3438 on NFCorpus — a spread of 0.0015 and 0.0009. The gains above are ten times that spread.
+XERJ's hybrid fusion breaks ties by a per-process seed. The hybrid baseline therefore moves a little between node restarts. We measured that rather than assuming it.
 
-The candidate **set** was identical on 100 percent of queries across those three processes; only the order of tied hits moved. That means a second stage which reorders the whole set by model score cannot inherit the noise, and it does not: every reranked arm scored identically across all three processes, to four decimal places.
+Over three fresh node processes on unchanged indices, hybrid scored 0.7021, 0.7034 and 0.7019 on SciFact. On NFCorpus it scored 0.3445, 0.3436 and 0.3438. Earlier runs widen the SciFact band to 0.0051.
+
+The NFCorpus and FiQA gains above are larger than that band. The SciFact loss is not.
+
+The candidate **set** was identical on 100 percent of queries across those three processes. Only the order of tied hits moved. A second stage that reorders the whole set by model score therefore cannot inherit that noise. It does not: every reranked arm scored identically across all three processes, to four decimal places.
 
 ## Turning it off, and the switch that does not
 

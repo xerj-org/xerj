@@ -1,0 +1,75 @@
+
+== scifact test (full), 5183 docs: 300 queries
+  bm25                               0.6572
+  hybrid rrf                         0.7021
+  bm25 top-30 -> local small         0.6824   vs own first stage +0.0253   vs hybrid -0.0197 [95% -0.0487, +0.0096]
+  bm25 top-100 -> local small        0.6792   vs own first stage +0.0220   vs hybrid -0.0229 [95% -0.0527, +0.0072]
+  hybrid top-30 -> local small       0.6936   vs own first stage -0.0085   vs hybrid -0.0085 [95% -0.0367, +0.0201]
+  hybrid top-100 -> local small      0.6872   vs own first stage -0.0150   vs hybrid -0.0150 [95% -0.0450, +0.0163]
+  bm25 top-30 -> local base          0.7084   vs own first stage +0.0512   vs hybrid +0.0063 [95% -0.0179, +0.0316]
+  bm25 top-100 -> local base         not scored
+  hybrid top-30 -> local base        0.7186   vs own first stage +0.0165   vs hybrid +0.0165 [95% -0.0093, +0.0425]
+  hybrid top-100 -> local base       not scored
+
+== scifact sub120 (seed 7, of 300): 120 queries
+  bm25                               0.6557
+  hybrid rrf                         0.6906
+  bm25 top-30 -> local small         0.6710   vs own first stage +0.0153   vs hybrid -0.0196 [95% -0.0629, +0.0271]
+  bm25 top-100 -> local small        0.6680   vs own first stage +0.0123   vs hybrid -0.0226 [95% -0.0653, +0.0227]
+  hybrid top-30 -> local small       0.7050   vs own first stage +0.0144   vs hybrid +0.0144 [95% -0.0302, +0.0636]
+  hybrid top-100 -> local small      0.6924   vs own first stage +0.0018   vs hybrid +0.0018 [95% -0.0436, +0.0506]
+  bm25 top-30 -> local base          0.7007   vs own first stage +0.0450   vs hybrid +0.0101 [95% -0.0330, +0.0518]
+  bm25 top-100 -> local base         not scored
+  hybrid top-30 -> local base        0.7350   vs own first stage +0.0445   vs hybrid +0.0445 [95% +0.0020, +0.0902]
+  hybrid top-100 -> local base       not scored
+  hybrid over 3 node processes: nDCG@10 0.7021, 0.7034, 0.7019; identical top-10 on 44.3% of queries, identical top-100 SET on 100.0%
+  hybrid top-30 -> local small over the same 3 processes: 0.6936, 0.6936, 0.6936  (spread 0.0000)
+  hybrid top-100 -> local small over the same 3 processes: 0.6872, 0.6872, 0.6872  (spread 0.0000)
+  hybrid top-30 -> local base over the same 3 processes: 0.7186, 0.7186, 0.7186  (spread 0.0000)
+
+== nfcorpus test (full), 3633 docs: 323 queries
+  bm25                               0.3016
+  hybrid rrf                         0.3445
+  bm25 top-30 -> local small         0.3370   vs own first stage +0.0354   vs hybrid -0.0075 [95% -0.0198, +0.0049]
+  bm25 top-100 -> local small        0.3420   vs own first stage +0.0404   vs hybrid -0.0025 [95% -0.0145, +0.0101]
+  hybrid top-30 -> local small       0.3597   vs own first stage +0.0152   vs hybrid +0.0152 [95% +0.0047, +0.0268]
+  hybrid top-100 -> local small      0.3575   vs own first stage +0.0129   vs hybrid +0.0129 [95% +0.0019, +0.0243]
+  bm25 top-30 -> local base          0.3141   vs own first stage +0.0125   vs hybrid -0.0304 [95% -0.0450, -0.0162]
+  bm25 top-100 -> local base         not scored
+  hybrid top-30 -> local base        0.3328   vs own first stage -0.0117   vs hybrid -0.0117 [95% -0.0246, +0.0013]
+  hybrid top-100 -> local base       not scored
+
+== nfcorpus sub120 (seed 7, of 298): 120 queries
+  bm25                               0.3093
+  hybrid rrf                         0.3453
+  bm25 top-30 -> local small         0.3421   vs own first stage +0.0328   vs hybrid -0.0032 [95% -0.0245, +0.0186]
+  bm25 top-100 -> local small        0.3414   vs own first stage +0.0321   vs hybrid -0.0038 [95% -0.0243, +0.0174]
+  hybrid top-30 -> local small       0.3612   vs own first stage +0.0160   vs hybrid +0.0160 [95% +0.0003, +0.0323]
+  hybrid top-100 -> local small      0.3559   vs own first stage +0.0107   vs hybrid +0.0107 [95% -0.0056, +0.0282]
+  bm25 top-30 -> local base          0.3258   vs own first stage +0.0165   vs hybrid -0.0194 [95% -0.0421, +0.0034]
+  bm25 top-100 -> local base         not scored
+  hybrid top-30 -> local base        0.3395   vs own first stage -0.0058   vs hybrid -0.0058 [95% -0.0235, +0.0128]
+  hybrid top-100 -> local base       not scored
+  hybrid over 3 node processes: nDCG@10 0.3445, 0.3436, 0.3438; identical top-10 on 49.5% of queries, identical top-100 SET on 100.0%
+  hybrid top-30 -> local small over the same 3 processes: 0.3597, 0.3597, 0.3597  (spread 0.0000)
+  hybrid top-100 -> local small over the same 3 processes: 0.3575, 0.3575, 0.3575  (spread 0.0000)
+  hybrid top-30 -> local base over the same 3 processes: 0.3328, 0.3328, 0.3328  (spread 0.0000)
+
+== fiqa test (full), 57638 docs: 648 queries
+  bm25                               0.2382
+  hybrid rrf                         0.3572
+  bm25 top-30 -> local small         0.3160   vs own first stage +0.0777   vs hybrid -0.0412 [95% -0.0573, -0.0261]
+  bm25 top-100 -> local small        0.3337   vs own first stage +0.0955   vs hybrid -0.0235 [95% -0.0398, -0.0079]
+  hybrid top-30 -> local small       0.3751   vs own first stage +0.0179   vs hybrid +0.0179 [95% +0.0025, +0.0322]
+  hybrid top-100 -> local small      0.3697   vs own first stage +0.0125   vs hybrid +0.0125 [95% -0.0031, +0.0276]
+
+== calibration, local small: temperature scale=22309688067.6811; Platt scale=-41660703862.3732 bias=-429089766020.6090 (fit on 12151 held-out pairs, 0.067 positive)
+  scifact   pairs=  9000 positive=0.031  ECE raw=0.0939  temperature=0.0950  Platt=0.1103
+  nfcorpus  pairs=  7186 positive=0.167  ECE raw=0.1123  temperature=0.1566  Platt=0.3071
+  fiqa      pairs= 19440 positive=0.031  ECE raw=0.2025  temperature=0.2036  Platt=0.0884
+  pooled    pairs= 35626 positive=0.058  ECE raw=0.1444  temperature=0.1667  Platt=0.1380
+
+== calibration, local base: temperature scale=0.5837; Platt scale=0.4331 bias=-0.8912 (fit on 7651 held-out pairs, 0.089 positive)
+  scifact   pairs=  9000 positive=0.031  ECE raw=0.0322  temperature=0.0671  Platt=0.0407
+  nfcorpus  pairs=  7186 positive=0.167  ECE raw=0.0885  temperature=0.0556  Platt=0.0484
+  pooled    pairs= 16186 positive=0.091  ECE raw=0.0509  temperature=0.0444  Platt=0.0094
