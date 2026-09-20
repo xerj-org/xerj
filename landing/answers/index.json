@@ -120,6 +120,15 @@
       "summary": "Clone the library you are about to write against, index it with xerj autoindex, and retrieve the passage first. The published study, with the tracks where it loses."
     },
     {
+      "title": "Can I route or spam-filter text without an LLM call?",
+      "question": "Can I classify text from labelled history without calling an LLM?",
+      "canonical_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm",
+      "markdown_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm.md",
+      "cluster": "Decisions as retrieval",
+      "updated": "2026-09-18",
+      "summary": "Index labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam, no LLM or API call."
+    },
+    {
       "title": "How do I reduce embedding API cost?",
       "question": "My embedding bill is too high",
       "canonical_url": "https://xerj.org/answers/reduce-embedding-api-cost",
@@ -424,6 +433,24 @@
       "cluster": "Hybrid retrieval: architecture",
       "updated": "2026-08-23",
       "summary": "Build a RAG retrieval layer on one XERJ index. One hybrid request fuses BM25 and kNN with Reciprocal Rank Fusion, and no second service runs."
+    },
+    {
+      "title": "How much better is hybrid search than BM25? Measured.",
+      "question": "How much better is hybrid search than BM25 alone?",
+      "canonical_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg",
+      "markdown_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg.md",
+      "cluster": "Hybrid retrieval: quality",
+      "updated": "2026-09-19",
+      "summary": "XERJ measured BM25, vectors and hybrid RRF on two public BEIR datasets. Hybrid won both: nDCG@10 0.6993 against 0.6572 on SciFact, with a neural embedder."
+    },
+    {
+      "title": "How do I rerank search results with a relevance judge?",
+      "question": "How do I rerank search results with a calibrated relevance judge?",
+      "canonical_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge",
+      "markdown_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge.md",
+      "cluster": "Hybrid retrieval: reranking",
+      "updated": "2026-09-19",
+      "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge, a 0 to 1 probability replaces the score, and min_score becomes a real cut-off."
     },
     {
       "title": "What is Reciprocal Rank Fusion?",
