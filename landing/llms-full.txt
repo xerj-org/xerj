@@ -896,6 +896,53 @@ All three case studies are collected at https://xerj.org/case-studies —
 one measured on real code (WordPress), two functional proofs on synthetic
 corpora (semantic analytics, Postgres CDC); the named parties are not customers.
 
+Share an indexed folder with one person, read-only — `xerj share`:
+  https://xerj.org/answers/share-folder-read-only-search-without-uploading
+  https://github.com/xerj-org/xerj/blob/main/docs/SHARING.md   (threat model)
+  xerj share <index|folder> [--expires 24h] [--max-claims 1] [--passcode <code>]
+             [--label <text>] [--brain <name>] [--tunnel [--keep]] [--public-url <https://…>]
+             [--url <node>] [--data-dir <dir>] [--api-key <admin key>] [--json]
+  xerj share --list            xerj share --revoke <handle>
+  Prints, ONCE: the guest link (the share id rides in the URL fragment, which a
+  browser never sends to a server), the passcode, the expiry, and the revoke
+  command. Give the human the link and the passcode through DIFFERENT channels.
+  A folder argument resolves to the brain and indices `xerj brain <folder>` built;
+  `xerj brain` prints the exact share command when it finishes.
+  - The guest opens the link, types the passcode, and gets a reading room over that
+    one index: search, highlighted snippets, a document view. Served by the owner's
+    node; the folder is not uploaded, the guest installs nothing. Search and reading ONLY —
+    no text is generated, no model is called. Where the index has a `semantic_text`
+    field the page uses `hybrid`; with the DEFAULT embedder that is lexical (word /
+    sub-word overlap + BM25), not meaning. Do not describe it to a user as AI search.
+  - Needs authentication ON (the default) and the node's ADMIN key. It REFUSES a node
+    started with `--insecure` (exit 1; `POST /_share` → 409): there every request is
+    already the superuser, so a read-only key would restrict nothing.
+  - Defaults: expires 24h (max 30d), max-claims 1 (max 50), generated passcode
+    xxxx-xxxx (8 symbols, 31-symbol alphabet). Passcode attempts: 10/min and 30/hour
+    PER SHARE, from anywhere; junk ids: 10/min and 100/hour per source address.
+  - The printed link points at the node's own URL; on a loopback URL only that machine
+    can reach it. One open (max-claims) is one browser tab. For a remote guest: `--tunnel` (runs the operator's own `cloudflared` quick
+    tunnel, prints the https link, runs until Ctrl-C, then closes the tunnel AND
+    revokes the share; if `cloudflared` is missing it prints install steps and the
+    local link instead of failing) or `--public-url` for a node already published.
+    A quick tunnel's hostname is new on every start, and Cloudflare terminates TLS:
+    the corpus is not uploaded there, but the passcode, the guest key, the
+    searches and the documents the guest opens cross Cloudflare's network in a form
+    Cloudflare can read. The command prints this with the link; relay it to the human.
+    Running it for a human: start it in the background, wait for "tunnel is up",
+    relay the link + passcode, and tell them the link dies when the command stops.
+  - A guest key reaches the shared indices (and the shared brain's `ego`/`overview`)
+    and NOTHING else: other indices (by name, pattern, alias or request body), `_cat`,
+    `_cluster`, `_nodes`, `_snapshot`, `/_share`, `/_memory`, writes of any kind,
+    `scroll` / `_pit` / `_async_search`, and the Console API are refused. A share
+    grants WHOLE indices — there is no per-document or per-field restriction, and a
+    guest can copy what they read.
+  - Verified 2026-09-19 on Linux: a live test of 237 reach/limiter/header/audit checks
+    against a node with authentication on and the access log on, and a headless-Chrome
+    run of the guest page (claim, search, read, an XSS probe document that stayed inert,
+    re-opening the link, sign-out). One manual run through a real quick tunnel on
+    2026-09-18, before the review fixes. macOS / Windows: not verified.
+
 Also validated end-to-end: semantic search & RAG, passage retrieval, vector search
 (kNN), vector quantization (SQ8), hybrid search, log analytics, anomaly detection,
 continuous anomaly datafeeds, migrate-from-Elasticsearch — all linked from the
@@ -1083,6 +1130,22 @@ Agent memory (see §3.5–3.6):
   POST/GET/DELETE /_memory/{namespace}
   POST     /_memory/{namespace}/_recall
   DELETE   /_memory/{namespace}/{id}
+
+Share links (`xerj share`, §4 — read-only guest access to named indices):
+  POST     /_share                        admin key only. {index: "a"|["a","b"], brain?,
+                                          expires_in?: "24h", max_claims?: 1, passcode?,
+                                          label?} → record + share_id, url_path, passcode
+                                          (plaintext shown this once; only digests stored)
+  GET      /_share                        admin key only. No ids, no hashes.
+  DELETE   /_share/{id|handle}            admin key only. Invalidates every key it minted.
+  POST     /_share/claim                  UNAUTHENTICATED, rate-limited, audited, never
+                                          cached. {id, passcode} → {api_key, index, indices,
+                                          brain, expires_at, label, claims_left}. The share
+                                          id goes in the BODY, never in a URL (a path is
+                                          what access logs record);
+                                          401 wrong passcode · 404 unknown · 410 expired/
+                                          used up/revoked · 429 + Retry-After · 409 open node
+  GET      /_xerj-console/share           the guest page (no session; strict CSP)
 
 Autoindex artifacts (written by the `xerj autoindex` CLI, §3.0 — ordinary indices,
 query them like any other):

@@ -12,8 +12,9 @@
 // PDF in the UX tree doesn't bloat the binary.
 //
 // Re-run logic: cargo invokes this script when build.rs itself
-// changes OR when any file under the xerj-ux source tree is
-// modified (we emit `cargo:rerun-if-changed` for each one).
+// changes OR when anything under the xerj-ux source tree is modified,
+// added or removed (we emit `cargo:rerun-if-changed` for the tree root
+// as well as for each bundled file).
 
 use std::env;
 use std::fs;
@@ -60,6 +61,14 @@ fn main() {
             return;
         }
     };
+
+    // The per-file lines emitted by `walk` only cover files that existed the
+    // last time this script ran, so a NEW file — or a whole new directory, as
+    // `share/` was — never re-triggered the script on a warm target dir: the
+    // binary built, and served 404 for assets that were sitting in the tree.
+    // A directory path makes cargo scan the tree, which catches additions and
+    // removals as well as edits.
+    println!("cargo:rerun-if-changed={}", ux_root.display());
 
     let mut entries: Vec<(String, PathBuf)> = Vec::new();
     walk(&ux_root, &ux_root, &mut entries);

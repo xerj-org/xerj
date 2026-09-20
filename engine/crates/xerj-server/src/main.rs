@@ -97,6 +97,7 @@ mod brain;
 mod debug_profiling;
 mod grpc;
 mod ingest_memory_trace;
+mod share;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
@@ -208,6 +209,9 @@ fn help_text(feedback: bool) -> String {
                                                   index --help)\n\
              xerj brain <folder>                 index + browse in one command (see xerj\n\
                                                   brain --help)\n\
+             xerj share <index|folder>           give someone read-only search over one\n\
+                                                  index: link + passcode + expiry (see xerj\n\
+                                                  share --help)\n\
              xerj feedback [OPTIONS]             draft the agent field report (and open its\n\
                                                   PR) — see xerj feedback --help\n\
          \n\
@@ -1976,6 +1980,17 @@ async fn async_main() -> Result<()> {
         // then opens the console. Fully synchronous internally — run it off
         // the async runtime like `autoindex`.
         let code = tokio::task::spawn_blocking(brain::run_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("share")) {
+        // Share one indexed corpus as a link + passcode. A thin client of the
+        // node's own `/_share` API; with `--tunnel` it also supervises a
+        // `cloudflared` child until Ctrl-C. Synchronous internally — it runs on
+        // a blocking thread like `brain`, and borrows this runtime only for
+        // the portable Ctrl-C future.
+        let code = tokio::task::spawn_blocking(share::run_cli)
             .await
             .unwrap_or(1);
         std::process::exit(code);

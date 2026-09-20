@@ -927,11 +927,11 @@ RULES = [
         "kind": "pattern",
         "code": True,
         "pattern": r"\bxerj\s+(?:query|snapshot|cluster|migrate|restore|backup|admin|search)\b",
-        "reason": "The only subcommands are `index`, `autoindex`, `brain` and `mcp`. There is no "
+        "reason": "The subcommands are `index`, `autoindex`, `brain`, `mcp` and `share`. There is no "
                   "`xerj query`, `xerj snapshot`, `xerj cluster` or `xerj migrate`. (`xerj mcp` "
                   "itself landed in rc.17 - on rc.16 it returns `unknown argument: mcp`.)",
         "evidence": [LC + ":56", LC + ":641"],
-        "rewrite": "Use `xerj index`, `xerj autoindex`, `xerj brain` or `xerj mcp`. Everything else "
+        "rewrite": "Use `xerj index`, `xerj autoindex`, `xerj brain`, `xerj mcp` or `xerj share`. Everything else "
                    "is an HTTP call against the running node.",
     },
     {

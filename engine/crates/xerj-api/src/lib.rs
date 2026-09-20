@@ -77,6 +77,7 @@ pub mod native;
 pub mod rerank_stage;
 pub mod responses;
 pub mod router;
+pub mod share;
 pub mod state;
 pub mod stub;
 pub mod wal_tap_api;

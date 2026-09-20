@@ -533,6 +533,9 @@ pub struct AppState {
     /// Live background scoring tasks, keyed by datafeed id. Aborted on `_stop`
     /// (and replaced on a re-`_start`). In-memory only.
     pub ml_datafeed_tasks: Arc<DashMap<String, tokio::task::JoinHandle<()>>>,
+    /// Share links (`/_share`): records loaded from `<data_dir>/shares.json`
+    /// plus the claim rate limiter. See `crate::share`.
+    pub shares: Arc<crate::share::ShareStore>,
     /// Resolved rerank-provider settings (key, endpoint, kill switch, shared
     /// HTTP client) — the injection seam for [`crate::rerank_stage`].
     ///
@@ -573,6 +576,7 @@ impl AppState {
         } else {
             (Arc::new(DashMap::new()), Arc::new(DashMap::new()))
         };
+        let shares = crate::share::ShareStore::open(&config.server.data_dir);
         let rerank = Arc::new(xerj_rerank::ProviderSettings::from_config_and_env(
             config.rerank.enabled,
             &config.rerank.api_key,
@@ -590,6 +594,7 @@ impl AppState {
             ml_datafeeds,
             ml_results: Arc::new(DashMap::new()),
             ml_datafeed_tasks: Arc::new(DashMap::new()),
+            shares,
         }
     }
 

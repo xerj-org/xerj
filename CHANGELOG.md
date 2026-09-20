@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj share <index|folder>` — give one person read-only search over one
+  indexed folder: a link, a passcode, an expiry.** The guest opens the link,
+  types the passcode and gets a reading room (search, highlighted snippets, a
+  document view) served by the owner's node; the folder is not uploaded and
+  the guest installs nothing. `POST /_share` (admin key only) stores only a
+  SHA-256 digest of the share id and an Argon2id hash of the passcode; the
+  unauthenticated, rate-limited, audited `POST /_share/claim` takes
+  `{id, passcode}` in its body, so the share id is not in the request line an
+  access log records, and mints a scoped read-only key that expires with the
+  share; a guest-only route allow-list closes `_cat`, `_cluster`, every other
+  index, all writes, and scroll / PIT / async contexts. Every response under
+  `/_share` and every response to a guest key is `no-store`; a guest's refused
+  attempts to manage shares or mint a key are audited; the `autoindex-catalog`
+  index cannot be shared. `--tunnel` supervises your own `cloudflared` quick
+  tunnel and revokes the share on Ctrl-C. That traffic passes through
+  Cloudflare, which terminates TLS and can read the passcode, the guest key and
+  the documents; the command and the guest page both say so. `--list` /
+  `--revoke <handle>` manage shares; the command refuses a node running with
+  authentication off, where a read-only key would restrict nothing.
+  `xerj brain` now prints the share command for the folder it indexed. Found
+  and fixed on the way: the graph API
+  authorized a multi-dataset brain's comma-joined `nodes_index` as one literal
+  index name, so every scoped key got `403` on `overview` for any folder with
+  more than one dataset (and `overview` reported 0 notes for it); and the
+  Console asset bundle was not rebuilt when a new file appeared under
+  `xerj-ux/` on a warm target directory. Threat model, guest reach table and
+  the quick-tunnel trade-offs: [docs/SHARING.md](docs/SHARING.md).
 - **`xerj autoindex` reads mbox mailboxes and Google Takeout exports** — an mbox
   (Takeout, Thunderbird, Apple Mail, mutt) is detected by content, split in a
   bounded-memory stream with `>From ` unquoting, CRLF/LF and a missing final

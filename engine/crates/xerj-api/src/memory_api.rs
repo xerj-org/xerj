@@ -106,7 +106,7 @@ fn backing_index(namespace: &str) -> String {
 /// name is always a legal, lowercase XERJ/ES index name and cannot be used to
 /// smuggle characters (`/`, `,`, `*`, whitespace, uppercase, `..`) into the
 /// backing-index routing layer.
-fn validate_namespace(ns: &str) -> Result<(), String> {
+pub(crate) fn validate_namespace(ns: &str) -> Result<(), String> {
     if ns.is_empty() {
         return Err("namespace must not be empty".into());
     }
