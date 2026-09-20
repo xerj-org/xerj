@@ -87,9 +87,32 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
-# S3
-aws-sdk-s3 = "1"
-aws-config = "1"
+# S3 / S3-compatible object storage (Cloudflare R2, MinIO, AWS S3, ...).
+#
+# `default-features = false` is load-bearing, not tidiness. The default
+# feature set routes through `aws-smithy-runtime/default-https-client`, which
+# selects `aws-smithy-http-client/rustls-aws-lc` — i.e. aws-lc-rs, a C/asm
+# build. That is precisely the crypto backend the `tonic` line below
+# deliberately keeps out of this tree because it breaks the musl/aarch64/
+# windows cross-compile matrix. We instead pick the TLS stack explicitly via
+# `aws-smithy-http-client` with `rustls-ring`, which reuses the rustls+ring
+# already pulled in by `reqwest`/axum-server: hyper 1.x, no new C toolchain
+# requirement, no second TLS implementation in the binary.
+#
+# `sigv4a` is also dropped from the default set: it only signs requests to
+# S3 multi-region access points, which XERJ does not address. Plain SigV4 is
+# what R2, MinIO and single-region S3 buckets accept.
+aws-sdk-s3 = { version = "1", default-features = false, features = [
+    "rt-tokio",
+    "http-1x",
+    "behavior-version-latest",
+] }
+# The HTTP client is supplied explicitly (see above). `rustls-ring` implies
+# `__rustls` + `default-client` => hyper 1.x + hyper-rustls + tokio-rustls on
+# the ring provider.
+aws-smithy-http-client = { version = "1", default-features = false, features = [
+    "rustls-ring",
+] }
 # TLS
 rustls = "0.23"
 rcgen = "0.13"

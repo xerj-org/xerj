@@ -189,20 +189,21 @@
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">46</span>How do I build RAG without a vector database?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">47</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">48</span>How does XERJ combine BM25 and kNN?</a>
-    <a href="/answers/keep-s3-bucket-index-current" class="active"><span class="eyebrow">49</span>How do I keep an index current when the files live in an object store?</a>
-    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">50</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
-    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">51</span>How do I estimate folder-indexing time?</a>
-    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">52</span>Why would a folder search miss files that I can see on disk?</a>
-    <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">53</span>The indexer exited 3 (or 4). Did it fail?</a>
-    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">54</span>Is there a single-binary local search engine I can just run?</a>
-    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">55</span>What can I use for low-volume log search?</a>
-    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">56</span>How do I read autoindex progress?</a>
-    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">57</span>The indexer died overnight. Do I have to start over?</a>
-    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">58</span>Reindexing my files is taking forever. What usually causes that?</a>
-    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">59</span>What is XERJ?</a>
-    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">60</span>How do I improve a basic FAISS RAG pipeline?</a>
-    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">61</span>Why did my filtered vector search get slower when I added a filter?</a>
-    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">62</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">49</span>How do I search files that live in an S3 bucket?</a>
+    <a href="/answers/keep-s3-bucket-index-current" class="active"><span class="eyebrow">50</span>How do I keep an index current when the files live in an object store?</a>
+    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">51</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
+    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">52</span>How do I estimate folder-indexing time?</a>
+    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">53</span>Why would a folder search miss files that I can see on disk?</a>
+    <a href="/answers/autoindex-exit-codes" class=""><span class="eyebrow">54</span>The indexer exited 3 (or 4). Did it fail?</a>
+    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">55</span>Is there a single-binary local search engine I can just run?</a>
+    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">56</span>What can I use for low-volume log search?</a>
+    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">57</span>How do I read autoindex progress?</a>
+    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">58</span>The indexer died overnight. Do I have to start over?</a>
+    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">59</span>Reindexing my files is taking forever. What usually causes that?</a>
+    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">60</span>What is XERJ?</a>
+    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">61</span>How do I improve a basic FAISS RAG pipeline?</a>
+    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">62</span>Why did my filtered vector search get slower when I added a filter?</a>
+    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">63</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
@@ -240,7 +241,7 @@
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
     <code>xerj autoindex s3://logs/2026/09/ --watch --dry-run --endpoint-url https://ACCOUNT.r2.cloudflarestorage.com</code>
     <button type="button" class="prompt-copy" data-copy="xerj autoindex s3://logs/2026/09/ --watch --dry-run --endpoint-url https://ACCOUNT.r2.cloudflarestorage.com">COPY COMMAND</button>
-    <span class="hero-proof">One cycle, no object reads, nothing emitted. It prints the projected monthly Class A operation count for that prefix at that interval, which is the number to decide on.</span>
+    <span class="hero-proof">One cycle, no object reads, nothing emitted, no journal written — but the listing itself is real and is billed: ceil(objects / 1000) Class A operations, charged to the spend ledger. It prints the projected monthly Class A operation count for that prefix at that interval, which is the number to decide on.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -277,10 +278,11 @@
       <tr><td>free</td><td><code class="inline">DeleteObject</code></td><td>—</td></tr>
     </tbody>
   </table>
-  <p>One list call returns at most 1,000 keys — <code class="inline">--page-size</code> keys, and 1,000 is both the default and the API maximum. A prefix holding N objects therefore costs <code class="inline">ceil(N / page_size)</code> Class A operations on every cycle, whether anything changed or not. An empty prefix still costs one: you have to ask to learn that it is empty. A smaller page costs proportionally more, and the projection is computed at the page size the watch actually uses.</p>
+  <p>One list call returns at most 1,000 keys — <code class="inline">--page-size</code> keys, and 1,000 is both the default and the API maximum. A prefix holding N objects therefore costs <strong>at least</strong> <code class="inline">ceil(N / page_size)</code> Class A operations on every cycle, whether anything changed or not. An empty prefix still costs one: you have to ask to learn that it is empty. A smaller page costs proportionally more, and the projection is computed at the page size the watch actually uses.</p>
+  <p>At least, not exactly: when a store stops paging is implementation-defined. Counted against MinIO at page size 1,000, a 1,000-object prefix cost 1 call and a 2,000-object one cost 2, but 3,000 cost 4, 5,000 cost 6 and 10,000 cost <strong>11</strong> — above two pages its walker only learns it has reached the end by asking once more and getting an empty page. Treat the arithmetic as the floor and budget for one call more; XERJ prices the next cycle at whichever is larger, the arithmetic or the calls the store just served.</p>
   <p>1,000,000 operations a month is about <strong>23 a minute for a whole account</strong>, shared with everything else that account does:</p>
   <table>
-    <thead><tr><th>objects under the prefix</th><th>list calls per cycle</th><th>every 5 s</th><th>every 60 s</th><th>every 300 s</th><th>every 3600 s</th></tr></thead>
+    <thead><tr><th>objects under the prefix</th><th>list calls per cycle (floor)</th><th>every 5 s</th><th>every 60 s</th><th>every 300 s</th><th>every 3600 s</th></tr></thead>
     <tbody>
       <tr><td>0 (empty)</td><td>1</td><td>518,400</td><td>43,200</td><td>8,640</td><td>720</td></tr>
       <tr><td>1,000</td><td>1</td><td>518,400</td><td>43,200</td><td>8,640</td><td>720</td></tr>
@@ -289,13 +291,16 @@
       <tr><td>1,000,000</td><td>1,000</td><td>518,400,000</td><td>43,200,000</td><td>8,640,000</td><td>720,000</td></tr>
     </tbody>
   </table>
+  <p>Every cell is the arithmetic floor. MinIO served 11 calls for the 10,000-object row, which is 95,040 operations a month at the default interval rather than 86,400.</p>
   <p>Two rows are worth stopping at. A 5-second poll on an <strong>empty</strong> bucket spends 518,400 operations a month, which is half the free tier for no change detection at all. And a 60-second poll on a 100,000-object prefix spends 4,320,000, which is more than four times the whole monthly allowance.</p>
   <p>Those numbers come from <code class="inline">objwatch/cost.rs</code>, and a test in that file asserts each one, so this table cannot drift away from the code that enforces it.</p>
   <h2>The default, and what happens when you ask for more</h2>
   <p>The default interval is <strong>300 seconds</strong>. The default budget is <strong>200,000 Class A operations a month</strong>, which is 20 percent of the free tier. It is not all of the tier, because the rest of the account spends from the same allowance.</p>
-  <p>If a cycle's projection exceeds the budget, the run is <strong>refused</strong>. Nothing is read, nothing is emitted, a JSON decision-request document goes to stdout and the exit code is 4. The document carries <code class="inline">min_safe_interval_secs</code>, the smallest interval that fits, so the next command is obvious. Three answers are offered: a longer interval, <code class="inline">--append-only</code>, or <code class="inline">--allow-cost</code> to accept the spend.</p>
-  <p>The budget is a <strong>circuit breaker, checked on every cycle</strong>. A prefix that grows past the budget while the watch runs stops the watch. A month whose allowance is spent stops it too: the operations spent this calendar month are counted in <code class="inline">&lt;state-dir&gt;/objwatch-spend.json</code>. That file survives a restart, so a supervisor that restarts a crashing watcher cannot give it a fresh budget every minute. Reads have a budget of their own, <code class="inline">--max-monthly-gets</code>, which defaults to 2,000,000 and is checked before the first read of a cycle.</p>
+  <p>If a cycle's projection exceeds the budget, the run is <strong>refused</strong>. Nothing further is listed, nothing is read, nothing is emitted, a JSON decision-request document goes to stdout and the exit code is 4. "Nothing further" is the honest word: the projection for the next cycle is computed from the listing this one already made, so a cycle that trips the breaker has already paid for its own listing. The document carries <code class="inline">min_safe_interval_secs</code>, the smallest interval that fits, so the next command is obvious. Three answers are offered: a longer interval, <code class="inline">--append-only</code>, or <code class="inline">--allow-cost</code> to accept the spend.</p>
+  <p>The budget is a <strong>circuit breaker, checked on every cycle</strong>. A prefix that grows past the budget while the watch runs stops the watch. A month whose allowance is spent stops it too: the operations spent this calendar month are counted in <code class="inline">&lt;state-dir&gt;/objwatch-spend.json</code>. That file survives a restart, so a supervisor that restarts a crashing watcher cannot give it a fresh budget every minute — and it survives a <strong>hard kill in the middle of a listing</strong>, because the ledger is written before the calls it pays for, sixteen at a time. A <code class="inline">kill -9</code> part-way through a long first scan still leaves the run owing what it spent; the test that proves it SIGKILLs a child mid-scan and then shows the restart being refused. Reads have a budget of their own, <code class="inline">--max-monthly-gets</code>, which defaults to 2,000,000 and is checked before the first read of a cycle.</p>
+  <p>One case the file cannot defend against: deleting it. The state directory is the trust boundary, so give the watcher a durable one it owns. A ledger stamped with a month in the future — a clock that stepped backwards — is no longer read as a fresh allowance either; the recorded spend is carried forward and the anomaly is printed.</p>
   <p>Price it before you commit with <code class="inline">--dry-run</code>. It runs one cycle, reads no objects, emits nothing and writes no journal, so the real run afterwards still sees every object as new.</p>
+  <p><strong>A dry run is not free.</strong> It runs one real cycle, and the listing is the expensive half: <code class="inline">ceil(objects / page_size)</code> Class A operations, charged to the spend ledger like any other cycle. Measured against MinIO, a dry run on a 2,000-object prefix cost 2 Class A operations; on a million-object prefix it is 1,000, and on a prefix with <code class="inline">--page-size 1</code> it is one call per key. It is a price check you pay for — cheaper than a month of polling, not free. Point it at the narrowest prefix that answers your question.</p>
   <h2>Making it cheaper</h2>
   <table>
     <thead><tr><th>lever</th><th>effect on cost</th><th>what you give up</th></tr></thead>
@@ -328,7 +333,7 @@
   <p>The same totals are written to <code class="inline">&lt;state-dir&gt;/objwatch-status.json</code>, so an operator or an agent can read them without attaching to the process. <code class="inline">--json</code> turns the per-cycle line into a JSON object.</p>
   <p>One field is worth watching: <code class="inline">skipped_deadlines</code> counts poll deadlines that passed while a cycle was still running. It means the <strong>effective</strong> interval is longer than the one the budget was computed from. Cycles never overlap and never queue.</p>
   <h2>What this does not do</h2>
-  <p>It does not index. <code class="inline">--watch</code> emits a change feed and never writes to a node; the object-store indexer is separate work. Until it lands, the feed is what tells you which keys to re-read.</p>
+  <p>It does not index, and it is not the same command as <code class="inline">xerj autoindex s3://bucket/prefix</code>. That one indexes a bucket <strong>once</strong>: it mirrors the prefix to local disk and runs the ordinary discovery pipeline over it. <code class="inline">--watch</code> emits a change feed and never writes to a node. Wiring the feed into that indexer — so a bucket stays current without a cron — is still separate work; today the feed is what tells you which keys to re-read.</p>
   <p>It does not implement event notifications, retries with backoff, virtual-host addressing, or credential chains from a profile or a metadata service. Credentials come from the environment only: <code class="inline">AWS_ACCESS_KEY_ID</code> and <code class="inline">AWS_SECRET_ACCESS_KEY</code>, optionally <code class="inline">AWS_SESSION_TOKEN</code>. There is no flag for them, because a flag puts a secret in a shell history and in <code class="inline">ps</code>.</p>
   <p>A versioned bucket is watched by current version only.</p>
   <h2>Why polling first, when events are cheaper</h2>
@@ -338,17 +343,17 @@
   <h3>My documents live in an S3 or R2 bucket. How do I keep a XERJ index current as objects change?</h3>
   <p>Poll the bucket with <code class="inline">xerj autoindex s3://bucket/prefix --watch</code>. It lists the prefix, compares each object's ETag, size and modification time against a journal, and emits one JSON event per added, changed or deleted object. Choose the poll interval from the cost table, not from the latency you would like.</p>
   <h3>What does a poll actually cost?</h3>
-  <p><code class="inline">ListObjectsV2</code> is a Class A operation, the expensive class, and one call returns at most 1,000 keys. A prefix holding N objects therefore costs <code class="inline">ceil(N / 1000)</code> Class A operations every cycle, whether anything changed or not. A cycle where nothing changed issues zero object reads on top of that, which the MinIO test asserts directly.</p>
+  <p><code class="inline">ListObjectsV2</code> is a Class A operation, the expensive class, and one call returns at most 1,000 keys. A prefix holding N objects therefore costs at least <code class="inline">ceil(N / 1000)</code> Class A operations every cycle, whether anything changed or not — at least, because when a store stops paging is its own choice: MinIO served 11 calls for 10,000 objects, not 10. A cycle where nothing changed issues zero object reads on top of that, which the MinIO test asserts directly.</p>
   <h3>What is a safe poll interval on Cloudflare R2's free tier?</h3>
   <p>The free tier is 1,000,000 Class A operations a month, which is about 23 a minute for a whole account. The default 300-second interval runs 8,640 cycles a month, so it stays inside a 200,000-operation budget up to roughly 23,000 objects. A 5-second poll costs 518,400 a month even on an empty bucket.</p>
   <h3>What happens if I ask for an interval that cannot stay inside the budget?</h3>
-  <p>The cycle is refused. Nothing is read and nothing is emitted; a JSON decision-request document goes to stdout, the exit code is 4, and it names the smallest interval that fits. <code class="inline">--allow-cost</code> accepts the spend instead. The budget is a circuit breaker checked on every cycle, not a greeting on the first one: a prefix that grows past it while the watch is running stops the watch, and the month's spend is counted in the state directory, so restarting the watcher does not hand it a fresh allowance.</p>
+  <p>The cycle is refused. Nothing further is listed, nothing is read and nothing is emitted; a JSON decision-request document goes to stdout, the exit code is 4, and it names the smallest interval that fits. <code class="inline">--allow-cost</code> accepts the spend instead. The budget is a circuit breaker checked on every cycle, not a greeting on the first one: a prefix that grows past it while the watch is running stops the watch, and the month's spend is counted in the state directory, so restarting the watcher does not hand it a fresh allowance.</p>
   <h3>How do I watch a bucket with a million objects?</h3>
   <p>Not whole. A full pass is 1,000 list calls, so 8,640,000 Class A operations a month at the default interval. Scope the watch to the prefixes that change, run one watcher per prefix, or use <code class="inline">--append-only</code> if the key space only grows.</p>
   <h3>Does <code class="inline">--append-only</code> detect deletions?</h3>
   <p>No, and that is the trade. It passes the highest key seen as <code class="inline">start-after</code>, so the listing is partial, and absent from a partial listing does not mean deleted. It also cannot see an edit to a key below that point.</p>
   <h3>Does <code class="inline">--watch</code> update a XERJ index by itself?</h3>
-  <p>No. It emits a change feed and never writes to a node. The object-store indexer is separate work; today the feed tells you which keys to re-read.</p>
+  <p>No, and it is not the same command as <code class="inline">xerj autoindex s3://bucket/prefix</code>, which does index a bucket — once, by mirroring the prefix to local disk and running the ordinary pipeline over it. <code class="inline">--watch</code> emits a change feed and never writes to a node. Wiring the feed into that indexer, so a bucket stays current without a cron, is still separate work; today the feed tells you which keys to re-read.</p>
   <h3>Does XERJ support event notifications from S3 or R2 instead of polling?</h3>
   <p>Not yet. The docs page writes down exactly what it would take, including the piece people forget: a reconciling full pass on a long interval, because at-least-once delivery means a missed event is otherwise invisible.</p>
   <h2>Evidence</h2>
@@ -357,8 +362,8 @@
     <li>A 5-second poll costs 518,400 Class A operations a month; a 60-second poll on a 100,000-object prefix costs 4,320,000, which is more than four times the 1,000,000 free-tier allowance. The test the_published_cost_table_is_what_the_code_computes asserts these exact numbers. — <code>engine/crates/xerj-autoindex/src/objwatch/cost.rs</code></li>
     <li>The default poll interval is 300 seconds and the default budget is 200,000 Class A operations a month, which is 20 percent of the free tier. — <code>engine/crates/xerj-autoindex/src/objwatch/cost.rs</code></li>
     <li>A cycle whose projection is over budget is refused with exit code 4 and a decision-request document that names the minimum safe interval, on any cycle and not only the first. — <code>engine/crates/xerj-autoindex/src/objwatch/mod.rs</code></li>
-    <li>The Class A and Class B operations spent this calendar month are counted in the state directory and survive a restart; when the budget is spent, the next cycle is refused. — <code>engine/crates/xerj-autoindex/src/objwatch/cost.rs</code></li>
-    <li>A dry run reads nothing, emits nothing and records nothing, so a real run afterwards still emits every object. — <code>engine/crates/xerj-autoindex/tests/objwatch_minio.rs</code></li>
+    <li>The Class A and Class B operations spent this calendar month are counted in the state directory and survive a restart, including a SIGKILL in the middle of a listing: the ledger is written before the calls it pays for, in batches of 16. When the budget is spent, the next cycle is refused. — <code>engine/crates/xerj-autoindex/tests/objwatch_minio.rs</code></li>
+    <li>A dry run reads no objects, emits nothing and writes no journal, so a real run afterwards still emits every object — but its listing is billed: measured against MinIO, a dry run on a 2,000-object prefix cost 2 Class A operations and charged them to the spend ledger. — <code>engine/crates/xerj-autoindex/tests/objwatch_minio.rs</code></li>
     <li>Change is decided by ETag, then size, then LastModified, against a journal of what was seen before. — <code>engine/crates/xerj-autoindex/src/objwatch/mod.rs</code></li>
     <li>A multipart object's ETag has the form hex-partcount and is not a hash of the content, so it is compared as an opaque string. — <code>engine/crates/xerj-autoindex/tests/objwatch_minio.rs</code></li>
     <li>Event notifications are not implemented; the polling path is what exists, and the full design note for events is on the docs page. — <code>docs/WATCHING_OBJECT_STORAGE.md</code></li>

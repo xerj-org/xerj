@@ -22,9 +22,14 @@ read:
  "bytes_fetched":184,"reason":"etag","truncated":false}
 ```
 
-It does **not** index. The indexer for object storage is a separate change
-(`ObjectSource` and `ChangeSink` in `objwatch/mod.rs` are the two seams it plugs
-into), and until it lands, `--watch` is what tells you *what* to re-read. It also
+It does **not** index, and it is not the same command as
+`xerj autoindex s3://bucket/prefix`. That one — see
+[docs/OBJECT_STORAGE.md](./OBJECT_STORAGE.md) — is a **one-shot** index: it
+mirrors the prefix to local disk and runs the ordinary discovery pipeline over
+it, once. `--watch` is the other half: it tells you *what changed*, as a feed,
+and writes to no node. Wiring the feed into the indexer so a bucket stays
+current without a cron is still a separate change; `ObjectSource` and
+`ChangeSink` in `objwatch/mod.rs` are the two seams it plugs into. It also
 does not implement the event-driven path, retries with backoff, virtual-host
 addressing, IMDS or profile credential chains, or `ListObjectVersions` — a
 versioned bucket is watched by current version only.

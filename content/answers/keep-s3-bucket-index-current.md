@@ -58,7 +58,7 @@ faq:
   - q: "Does `--append-only` detect deletions?"
     a: "No, and that is the trade. It passes the highest key seen as `start-after`, so the listing is partial, and absent from a partial listing does not mean deleted. It also cannot see an edit to a key below that point."
   - q: "Does `--watch` update a XERJ index by itself?"
-    a: "No. It emits a change feed and never writes to a node. The object-store indexer is separate work; today the feed tells you which keys to re-read."
+    a: "No, and it is not the same command as `xerj autoindex s3://bucket/prefix`, which does index a bucket — once, by mirroring the prefix to local disk and running the ordinary pipeline over it. `--watch` emits a change feed and never writes to a node. Wiring the feed into that indexer, so a bucket stays current without a cron, is still separate work; today the feed tells you which keys to re-read."
   - q: "Does XERJ support event notifications from S3 or R2 instead of polling?"
     a: "Not yet. The docs page writes down exactly what it would take, including the piece people forget: a reconciling full pass on a long interval, because at-least-once delivery means a missed event is otherwise invisible."
 ---
@@ -110,7 +110,7 @@ The default interval is **300 seconds**. The default budget is **200,000 Class A
 
 If a cycle's projection exceeds the budget, the run is **refused**. Nothing further is listed, nothing is read, nothing is emitted, a JSON decision-request document goes to stdout and the exit code is 4. "Nothing further" is the honest word: the projection for the next cycle is computed from the listing this one already made, so a cycle that trips the breaker has already paid for its own listing. The document carries `min_safe_interval_secs`, the smallest interval that fits, so the next command is obvious. Three answers are offered: a longer interval, `--append-only`, or `--allow-cost` to accept the spend.
 
-The budget is a **circuit breaker, checked on every cycle**. A prefix that grows past the budget while the watch runs stops the watch. A month whose allowance is spent stops it too: the operations spent this calendar month are counted in `<state-dir>/objwatch-spend.json`. That file survives a restart, so a supervisor that restarts a crashing watcher cannot give it a fresh budget every minute — and it survives a **hard kill in the middle of a listing**, because the ledger is written before the calls it pays for, sixteen at a time. A `kill -9` part-way through a long first scan still leaves the run owing what it spent; the test that proves it SIGKILLs a child mid-scan and then watches the restart be refused. Reads have a budget of their own, `--max-monthly-gets`, which defaults to 2,000,000 and is checked before the first read of a cycle.
+The budget is a **circuit breaker, checked on every cycle**. A prefix that grows past the budget while the watch runs stops the watch. A month whose allowance is spent stops it too: the operations spent this calendar month are counted in `<state-dir>/objwatch-spend.json`. That file survives a restart, so a supervisor that restarts a crashing watcher cannot give it a fresh budget every minute — and it survives a **hard kill in the middle of a listing**, because the ledger is written before the calls it pays for, sixteen at a time. A `kill -9` part-way through a long first scan still leaves the run owing what it spent; the test that proves it SIGKILLs a child mid-scan and then shows the restart being refused. Reads have a budget of their own, `--max-monthly-gets`, which defaults to 2,000,000 and is checked before the first read of a cycle.
 
 One case the file cannot defend against: deleting it. The state directory is the trust boundary, so give the watcher a durable one it owns. A ledger stamped with a month in the future — a clock that stepped backwards — is no longer read as a fresh allowance either; the recorded spend is carried forward and the anomaly is printed.
 
@@ -162,7 +162,7 @@ One field is worth watching: `skipped_deadlines` counts poll deadlines that pass
 
 ## What this does not do
 
-It does not index. `--watch` emits a change feed and never writes to a node; the object-store indexer is separate work. Until it lands, the feed is what tells you which keys to re-read.
+It does not index, and it is not the same command as `xerj autoindex s3://bucket/prefix`. That one indexes a bucket **once**: it mirrors the prefix to local disk and runs the ordinary discovery pipeline over it. `--watch` emits a change feed and never writes to a node. Wiring the feed into that indexer — so a bucket stays current without a cron — is still separate work; today the feed is what tells you which keys to re-read.
 
 It does not implement event notifications, retries with backoff, virtual-host addressing, or credential chains from a profile or a metadata service. Credentials come from the environment only: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, optionally `AWS_SESSION_TOKEN`. There is no flag for them, because a flag puts a secret in a shell history and in `ps`.
 

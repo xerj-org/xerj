@@ -32,7 +32,9 @@
 //! WHAT THIS MODULE DOES NOT DO: it does not index. It produces a change feed —
 //! added / changed / deleted, with content digests — and hands each event to a
 //! [`ChangeSink`]. The JSONL sink shipped here is what an operator or an agent
-//! can consume today; the object-storage indexer plugs into the same trait.
+//! can consume today. One-shot indexing of a bucket is `crate::objsource`, a
+//! different command (`xerj autoindex s3://bucket/prefix`, no `--watch`);
+//! wiring this feed into it plugs into the same trait and has not landed.
 
 pub mod cost;
 pub mod journal;

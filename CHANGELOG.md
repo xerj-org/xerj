@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj autoindex s3://bucket/prefix` indexes an S3-compatible bucket** —
+  Amazon S3, Cloudflare R2 (`r2://`), MinIO, Ceph or anything else that speaks
+  S3, via `--endpoint-url` (falling back to `AWS_ENDPOINT_URL_S3` /
+  `AWS_ENDPOINT_URL`). The bucket is a *source*, not a second product: the
+  prefix is listed with ListObjectsV2, each object is streamed into a local
+  mirror under `--state-dir`, and the ordinary discovery pipeline — sniffing,
+  the code and document extractors, the plan, the resume journal, the
+  incremental reconcile — runs over that mirror unchanged. Credentials come
+  only from the environment (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` /
+  `AWS_SESSION_TOKEN`) — no profile files, no instance metadata, no SSO, and
+  never from the URL (`s3://key:secret@…` is refused by name). `aws-config` is
+  deliberately not a dependency: it would re-enable the SDK's default HTTPS
+  client and with it the `aws-lc-rs` C/assembly crypto backend that this
+  workspace keeps out of its cross-compile matrix, and it would bring a second
+  S3 client with the SDK's own invisible retry layer. Change detection is the ETag plus the size, treated as an
+  opaque token: a multipart `-N` ETag is stored and compared verbatim and never
+  mistaken for an MD5, and a store that returns no ETag falls back to
+  last-modified plus size with the count of such objects reported. Keys that
+  cannot become a safe portable path (`..`, control characters, Windows
+  reserved names, case collisions), dotfiles and the built-in build-output
+  list are filtered out of the listing, so they never cost a request. Cost is
+  printed by every run, in the two classes that are billed: a scan is
+  `ceil(N/1000)` LIST (class A) plus one GET (class B) per changed object, and
+  the run also prints what the same command would cost daily, hourly and every
+  five minutes against a 1,000,000/month free allowance. Those counts are
+  **billed wire attempts**: the SDK's own retry layer is disabled and the
+  client charges its counter before each attempt, so a throttled request that
+  succeeded on its third try reports three, and one that exhausts its retries
+  reports what it spent instead of nothing. A run that fails mid-transfer
+  records the objects whose bytes already landed (and checkpoints every ten
+  seconds during a long one), so the re-run pays one GET per object it had not
+  already fetched rather than paying for all of them twice; the LIST cost is
+  paid again. Measured end to end
+  against a live node and MinIO: first index of six keys (including a 12 MiB
+  real multipart object) 1 LIST + 5 GET; unchanged re-run 1 LIST + **0 GET**;
+  one changed object 1 LIST + 1 GET; one deleted object (`--no-graph`, the
+  journal that reconciles deletions) removes exactly that object's documents.
+  A 1 GiB object streams through for 4 MB of RSS growth (22 MB → 26 MB), in
+  281–318 ms over four loopback runs — the memory figure is the claim; the
+  milliseconds are a same-host transfer and not a throughput benchmark. Nothing is
+  ever written to the bucket, and the index stays on the node's local disk —
+  `docs/OBJECT_STORAGE.md` states both, with the request arithmetic and the
+  measured runs.
+
 - **`xerj autoindex s3://bucket/prefix --watch` keeps a bucket-backed index
   current with a poll whose cost is bounded and visible.** An object store has
   no inotify, so change tracking is polling or event notifications. This lands
@@ -18,7 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong. Each cycle lists the prefix, compares ETag, size and last-modified
   against a per-object journal, reads only what changed, and emits one JSON
   event per added, changed or deleted object — it produces a change feed and
-  does NOT index; the object-store indexer plugs into the same `ChangeSink`.
+  does NOT index, and it is not `xerj autoindex s3://bucket/prefix`, which
+  indexes a bucket once; wiring the feed into that indexer plugs into the same
+  `ChangeSink` and is still to come.
   The cost model is the feature, not a footnote: `ListObjectsV2` is a **Class A**
   operation at **at least** one call per 1,000 keys per cycle, charged whether
   anything changed or not (at least, because when a store stops paging is its
@@ -80,6 +126,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent integration where neither single mode was enough.
 
 ### Fixed
+
+- **Reference-code passage windows preserve their match score.** `xc.py`
+  could select relevant source and then discard its matches while aligning
+  the excerpt to line boundaries, including on long source lines. Line
+  alignment now keeps the selected term score or falls back to the bounded
+  original window. Window scoring also uses original-source offsets when
+  Unicode lowercasing expands characters. This affects the fallback when no
+  matching symbol is available and explicit `--no-symbol` output.
+
+- **`xc.py --mode hybrid` keeps BM25 results when the optional vector arm has
+  a transport failure.** Connection failures, read timeouts, and interrupted
+  HTTP responses during semantic mapping discovery or search now take the
+  existing BM25-only fallback instead of aborting and discarding valid hits.
+  Primary BM25 failures still exit with an error. Standalone `--mode semantic`
+  now reports mapping/search HTTP and transport failures as errors (exit `2`)
+  instead of treating failed requests as empty search results (exit `1`).
 
 - **`xc.py --json` emits JSON for empty search results.** Previously, a query
   with no hits printed the human-readable no-match message before reaching the
