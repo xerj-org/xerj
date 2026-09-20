@@ -30,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"rerank": {}` sends the question and the text of the top `window` hits
   (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
   `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
-  cannot be. **It is the only search-time feature that sends document text
-  off the node** (`[embedding] default_endpoint` and the WAL tap also send text
+  cannot be. **A hosted provider is the only search-time feature that sends
+  document text off the node** (the `local` provider, below, sends nothing) (`[embedding] default_endpoint` and the WAL tap also send text
   off the node when an operator configures them; docs/RERANK.md lists every
   outbound connection a node can open, and a test fails when the engine source
   gains one that list does not name): inert until

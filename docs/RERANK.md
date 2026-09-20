@@ -1,8 +1,10 @@
 # Reranking search results (`rerank`)
 
-> **This feature sends your data off the machine.** A search that carries a
-> `rerank` block POSTs the question and the text of up to `window` hits
-> (default 30, maximum 300) to a third-party API. It is the only
+> **There are two providers, and only one of them sends your data off the
+> machine.**
+>
+> `"provider": "jev"` (the default) POSTs the question and the text of up to
+> `window` hits (default 30, maximum 300) to a third-party API. That is the only
 > **search-time** feature that sends document text off the node. Two other
 > features send text off the node, both operator configuration and off by
 > default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document
@@ -10,18 +12,28 @@
 > API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped
 > indices to an external `_bulk` endpoint. The node's other outbound
 > connections carry no document or query text: the one-time HuggingFace model
-> download for `--embed-mode neural`, and Raft messages to your own peers in
-> cluster mode. Reranking is off until an operator supplies a provider key, a
-> request only triggers it by asking for it, and an operator can forbid it
-> outright with `[rerank] enabled = false`. Read
-> [Every way data leaves a XERJ node](#every-way-data-leaves-a-xerj-node) before
-> you turn it on.
+> downloads for `--embed-mode neural` and for the local judge, and Raft messages
+> to your own peers in cluster mode. Reranking through the hosted provider is
+> off until an operator supplies a key, a request only triggers it by asking for
+> it, and an operator can forbid it outright with `[rerank] enabled = false`.
+> Read [Every way data leaves a XERJ node](#every-way-data-leaves-a-xerj-node)
+> before you turn it on.
+>
+> [`"provider": "local"`](#the-local-provider-a-cross-encoder-in-this-process)
+> runs a cross-encoder inside the node. No key, no network call, no bill, and no
+> document or query text leaves the host. It is **opt-in per request and not the
+> default**, because on our own BEIR harness it does not beat the hybrid RRF
+> ranking XERJ already ships — see
+> [What we measured](#what-we-measured-it-does-not-beat-hybrid-rrf).
 
 `rerank` is an optional second stage on `POST /{index}/_search`. The engine
-retrieves and ranks as usual; the stage then hands the top hits to an external
-relevance judge, which returns a probability per document that it answers the
-question. Hits are reordered by that probability, and the probability replaces
-`_score`.
+retrieves and ranks as usual; the stage then hands the top hits to a relevance
+judge, which returns one score per document. Hits are reordered by that score,
+and the score replaces `_score`. The judge is either the hosted provider (a
+third-party API that returns a calibrated probability) or the `local` provider
+(a cross-encoder in this process, whose number is a ranking score and **not** a
+calibrated probability — that distinction is
+[below](#the-score-is-a-ranking-score-not-a-calibrated-probability)).
 
 It exists for one reason above ordering. A BM25 or fused score orders results
 but has no absolute meaning: a `_score` of 7.2 is not comparable across queries
@@ -79,7 +91,20 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
 {
   "enabled": true,
   "configured": true,
-  "providers": ["jev"],
+  "providers": ["jev", "local"],
+  "local": {
+    "compiled_in": true, "enabled": true, "download": true,
+    "default_model": "small", "threads": 16, "max_inflight": 2, "max_pair_tokens": 512,
+    "models": [
+      { "model": "small", "repository": "cross-encoder/ms-marco-MiniLM-L6-v2",
+        "download_mb": 91, "resident_mb": 349, "licence": "Apache-2.0",
+        "training_data": "trained on MS MARCO passage ranking (model card). …",
+        "calibration": { "method": "none", "scale": 1.0, "bias": 0.0,
+                         "fitted_on": "none (raw sigmoid)" },
+        "state": "loaded" }
+    ],
+    "data_egress": "none: documents are scored in this process. …"
+  },
   "api_key":  { "set": true, "source": "config" },
   "endpoint": { "url": "https://api.typesafe.ai/v1/systemone", "source": "default" },
   "defaults": { "provider": "jev", "model": "jev-latest", "window": 30, "batch": 30,
@@ -214,7 +239,7 @@ policy](#failure-policy-degrade-on-deadline-surface-on-contract)):
 | `_rerank` field | Meaning |
 |---|---|
 | `applied` | `true`: the order is the judge's. `false`: the order and scores are the engine's; `reason` says why. **Always read this.** |
-| `score_kind` | `"probability"` when `_score` is a 0–1 relevance probability, `"engine"` when it is still BM25 / fusion. |
+| `score_kind` | `"probability"` when `_score` is a calibrated 0–1 probability (the hosted provider); `"relevance"` when it is a monotone 0–1 ranking score that is **not** calibrated (every shipped local tier — see [The score is a ranking score](#the-score-is-a-ranking-score-not-a-calibrated-probability)); `"engine"` when it is still BM25 / fusion. A client that thresholds `_score` must branch on this. |
 | `window` | Hits considered: `min(rerank.window, hits the engine returned)`. |
 | `judged` | Documents the provider returned a verdict for. One verdict per document: an answer keyed to a document that was never sent, or sent in another call, is not counted. This is the figure `xerj_rerank_documents_judged_total` meters. |
 | `unjudged` | Hits in the response that have no verdict — the provider did not answer for them, or they were skipped as blank. Their `_score` is `null` and they sort after every judged hit. Without `min_score`, `judged + unjudged` equals `window`. |

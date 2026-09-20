@@ -312,12 +312,39 @@ impl Deadline {
     }
 }
 
+/// What `_score` means once a provider has scored the window.
+///
+/// The hosted provider returns a calibrated probability, and `rerank.min_score`
+/// against it is an absolute cut-off. The local provider's shipped tiers carry
+/// no fit (`Calibration::NONE`), so their number is a monotone ranking score in
+/// 0–1 and nothing more — a threshold on it has to be tuned per corpus. Saying
+/// "probability" for both would be the kind of claim `docs/RERANK.md` exists to
+/// stop, so the wire distinguishes them and a client can branch on it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScoreKind {
+    /// A calibrated 0–1 probability that the document answers the question.
+    Probability,
+    /// A monotone 0–1 relevance score. Orders correctly; is not a probability.
+    Relevance,
+}
+
+impl ScoreKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Probability => "probability",
+            Self::Relevance => "relevance",
+        }
+    }
+}
+
 /// What actually happened, so the API layer never has to guess.
 #[derive(Debug)]
 pub enum RerankOutcome {
     /// Provider scored the window; `scores` is the new order.
     Reordered {
         scores: Vec<Scored>,
+        /// What the numbers in `scores` mean, reported as `_rerank.score_kind`.
+        score_kind: ScoreKind,
         /// Batches that failed while others succeeded. Ordering among scored
         /// documents is still correct — the probabilities are absolute — but the
         /// caller should know the window was not fully covered.
@@ -1160,6 +1187,7 @@ impl Provider {
         if candidates.is_empty() {
             return Ok(RerankOutcome::Reordered {
                 scores: Vec::new(),
+                score_kind: ScoreKind::Probability,
                 partial_failures: 0,
                 usage: Usage::default(),
                 detail: None,
@@ -1360,6 +1388,7 @@ impl JevProvider {
         if candidates.is_empty() {
             return Ok(RerankOutcome::Reordered {
                 scores: Vec::new(),
+                score_kind: ScoreKind::Probability,
                 partial_failures: 0,
                 usage: Usage::default(),
                 detail: None,
@@ -1439,6 +1468,7 @@ impl JevProvider {
 
         Ok(RerankOutcome::Reordered {
             scores,
+            score_kind: ScoreKind::Probability,
             partial_failures,
             usage,
             detail: None,

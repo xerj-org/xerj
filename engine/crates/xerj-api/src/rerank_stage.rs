@@ -621,6 +621,7 @@ impl RerankPlan {
             }
             RerankOutcome::Reordered {
                 scores,
+                score_kind,
                 partial_failures,
                 usage,
                 detail,
@@ -735,7 +736,7 @@ impl RerankPlan {
                     "applied": true,
                     "provider": self.cfg.provider,
                     "model": model_label,
-                    "score_kind": "probability",
+                    "score_kind": score_kind.as_str(),
                     "window": window,
                     "judged": judged,
                     "unjudged": unjudged,

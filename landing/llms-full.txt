@@ -620,7 +620,9 @@ which a BM25/fusion score cannot give you.
   batch            default 30; values above 30 are lowered to 30 (provider ceiling)
   max_concurrency  default 8, max 16
 Response: a top-level `_rerank` block, emitted BEFORE `hits`. ALWAYS READ `applied`.
-  applied:true  → { provider, model, score_kind:"probability", window, judged,
+  applied:true  → { provider, model, score_kind:"probability" (hosted, calibrated)
+                    or "relevance" (provider local: a 0-1 ranking score, NOT
+                    calibrated), window, judged,
                     skipped_no_text, pruned_below_min_score, dropped_unjudged,
                     partial_failures, usage:{input_tokens,output_tokens}, query, took_ms,
                     fields_without_text? }   // last one only when a named field

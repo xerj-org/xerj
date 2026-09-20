@@ -344,7 +344,15 @@ async fn the_real_cross_encoder_puts_the_answer_first_and_scores_are_probabiliti
         info["model"], "small",
         "an absent model resolves to the server default"
     );
-    assert_eq!(info["score_kind"], "probability");
+    assert_eq!(
+        info["score_kind"], "relevance",
+        "every shipped local tier carries Calibration::NONE, so the score is a \
+         ranking score and the wire must not call it a probability"
+    );
+    assert_eq!(
+        info["local"]["calibration"]["method"], "none",
+        "and `score_kind` agrees with the calibration the response reports"
+    );
     assert_eq!(info["judged"], 4);
     assert_eq!(
         info["usage"],

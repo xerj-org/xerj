@@ -493,7 +493,7 @@
           "reason": { "type": "string", "description": "Why reranking was not applied. Only when `applied` is false." },
           "provider": { "type": "string" },
           "model": { "type": "string" },
-          "score_kind": { "type": "string", "enum": ["probability", "engine"], "description": "What `_score` means in this response." },
+          "score_kind": { "type": "string", "enum": ["probability", "relevance", "engine"], "description": "What `_score` means in this response: `probability` a calibrated 0-1 probability (hosted provider), `relevance` a monotone 0-1 ranking score that is NOT calibrated (the local provider's shipped tiers), `engine` still BM25 / fusion." },
           "window": { "type": "integer", "description": "Hits considered: min(rerank.window, hits the engine returned)." },
           "judged": { "type": "integer", "description": "Documents the provider returned a verdict for - one per document; answers for documents not sent in that call are not counted." },
           "unjudged": { "type": "integer", "description": "Hits in the response with no verdict: `_score` is null and they sort after every judged hit." },

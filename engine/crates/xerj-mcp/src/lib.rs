@@ -416,15 +416,25 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          NOT WORTH IT FOR: exact identifier or symbol lookups (the first stage already \
          ranks the definition first), filters, sorted or aggregation-only requests — it \
          adds a paid network round-trip per search. \
-         NEEDS A CONFIGURED PROVIDER: the node's operator must have set a provider key \
-         (`[rerank] api_key` or TYPESAFE_API_KEY). You cannot supply one in this call. \
+         NEEDS A CONFIGURED PROVIDER: the default (hosted) provider needs the node's \
+         operator to have set a provider key (`[rerank] api_key` or TYPESAFE_API_KEY). \
+         You cannot supply one in this call. \
          Without it the search fails with HTTP 503 `rerank_exception`; do not retry, \
-         repeat the search without `rerank`. HTTP 403 means the operator disabled it. \
-         PRIVACY: this is the only search-time feature that sends document text off the \
-         node. Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send \
+         either repeat the search without `rerank` or try `\"provider\": \"local\"`. \
+         HTTP 403 means the operator disabled it. \
+         NO-KEY ALTERNATIVE: `\"provider\": \"local\"` runs a cross-encoder inside the \
+         node — no key, no network call, and NOTHING leaves the machine. Its `_score` is \
+         `score_kind: \"relevance\"`, a 0..1 ranking score that is NOT calibrated, so \
+         `min_score` against it has no fixed meaning; and XERJ's own BEIR measurement says \
+         it does NOT beat the node's hybrid RRF ranking, so prefer a hybrid search over a \
+         local rerank unless hybrid is unavailable or the first stage is BM25-only. On CPU \
+         one 30-document call costs seconds, not milliseconds. \
+         PRIVACY: a HOSTED rerank provider is the only search-time feature that sends \
+         document text off the node (provider `local` sends nothing). \
+         Proxy embeddings (`[embedding] default_endpoint`) and the WAL tap also send \
          text off the node when an operator configures them, so never tell a user that \
-         nothing else leaves the machine — do not use rerank on data that must stay local \
-         unless the user has agreed. Only fields \
+         nothing else leaves the machine — do not use a hosted rerank on data that must \
+         stay local unless the user has agreed. Only fields \
          the response returns are sent, so `_source` filtering also limits what leaves. \
          Pass true or {{}} for defaults, or an object with: {question} \
          `window` (int, default {default_window}, max {max_window}): how many top hits \
@@ -435,7 +445,9 @@ fn rerank_arg_schema(query_required: bool) -> Value {
          this corpus. `timeout_ms` (int, default {default_timeout_ms}). `model` (string). \
          Cannot be combined with `sort`. \
          READ THE RESPONSE'S `_rerank` BLOCK: `applied: true` means the order is the \
-         judge's and every `_score` is a probability or null (a hit with no verdict, \
+         judge's and every `_score` is the judge's score (a probability for the hosted \
+         provider, a bare relevance score for `local` — `score_kind` says which) or null \
+         (a hit with no verdict, \
          counted in `unjudged`, sorts last); `applied: false` means the provider missed \
          the deadline or answered nothing usable, and you are looking at the engine's own \
          order with engine scores, stated in `reason`.",
@@ -1484,10 +1496,19 @@ mod tests {
                 // path, and the description names the other two that send text
                 // so an agent never repeats "nothing else leaves the machine"
                 // on a node running proxy embeddings or a WAL tap.
-                "only search-time feature that sends document text off the node",
+                // Now qualified: a LOCAL provider sends nothing, so the
+                // unqualified claim would be false.
+                "HOSTED rerank provider is the only search-time feature that sends \
+                 document text off the node",
                 "default_endpoint",
                 "WAL tap",
                 "never tell a user that nothing else leaves the machine",
+                // The no-key arm, and the two things an agent must not get
+                // wrong about it: the score is not calibrated, and it does not
+                // beat the hybrid ranking the node already has.
+                "NO-KEY ALTERNATIVE",
+                "NOT calibrated",
+                "does NOT beat the node's hybrid RRF ranking",
                 "_rerank",
             ] {
                 assert!(d.contains(needle), "{tool}: description lacks `{needle}`");

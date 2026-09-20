@@ -107,7 +107,7 @@ Every reranked response carries a `_rerank` block ahead of `hits`. Read `applied
 | Field | Meaning |
 | --- | --- |
 | `applied` | `true` means the order is the judge's. `false` means the engine's order stands, and `reason` says why. |
-| `score_kind` | `probability` or `engine`. |
+| `score_kind` | `probability` (hosted judge, calibrated), `relevance` (the local provider: a 0 to 1 ranking score that is not calibrated) or `engine`. |
 | `judged` | Documents the provider returned a verdict for. |
 | `pruned_below_min_score` | Judged hits removed by `rerank.min_score`. |
 | `fields_without_text` | Named fields that no hit in the window returned text for. |

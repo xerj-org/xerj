@@ -56,7 +56,7 @@ use serde_json::{json, Value};
 
 use crate::{Candidate, Deadline, RerankConfig, RerankError, RerankOutcome};
 #[cfg(feature = "local")]
-use crate::{Scored, Usage};
+use crate::{ScoreKind, Scored, Usage};
 
 /// Default `rerank.max_doc_chars` for this provider.
 ///
@@ -371,6 +371,14 @@ impl LocalJudge {
         }
 
         Ok(RerankOutcome::Reordered {
+            // `Calibration::NONE` is the raw sigmoid: an order, not a
+            // probability. Every shipped tier carries it (the fit diverged —
+            // `docs/RERANK.md`), so this is `Relevance` today for all three.
+            score_kind: if spec.calibration.is_identity() {
+                ScoreKind::Relevance
+            } else {
+                ScoreKind::Probability
+            },
             // The deadline stopped the pass loop: the unreached documents are
             // one unfinished unit of work, reported the way a failed hosted
             // batch is, so `judged` plus this accounts for the whole window.
