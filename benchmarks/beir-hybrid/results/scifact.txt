@@ -1,0 +1,5 @@
+queries=300  docs=5183
+bm25                               nDCG@10=0.6572  empty=  0  p50=  18.6ms  p95=  23.2ms
+minilm (vector only)               nDCG@10=0.6764  empty=  0  p50=   0.4ms  p95= 262.2ms
+hybrid rrf (server)                nDCG@10=0.6993  empty=  0  p50= 371.7ms  p95= 387.6ms
+bm25 top-30 -> minilm rerank       nDCG@10=0.6855  empty=  0  p50= 297.8ms  p95= 343.2ms

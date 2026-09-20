@@ -53,6 +53,10 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
+    <loc>https://xerj.org/answers/classify-text-from-labelled-history-without-llm</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
     <loc>https://xerj.org/answers/code-search-mcp-for-claude-code</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
@@ -98,6 +102,10 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/how-xerj-combines-search</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/hybrid-search-quality-measured-ndcg</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
@@ -174,6 +182,10 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/reindex-taking-forever</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/rerank-search-results-calibrated-judge</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
@@ -294,7 +306,7 @@
   </url>
   <url>
     <loc>https://xerj.org/benchmarks/</loc>
-    <lastmod>2026-08-30</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/benchmarks/elasticsearch</loc>
@@ -426,7 +438,7 @@
   </url>
   <url>
     <loc>https://xerj.org/docs/api-es-compat</loc>
-    <lastmod>2026-09-08</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/api-native</loc>
@@ -450,11 +462,11 @@
   </url>
   <url>
     <loc>https://xerj.org/docs/config</loc>
-    <lastmod>2026-09-08</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/env</loc>
-    <lastmod>2026-09-08</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/ingest</loc>
@@ -466,7 +478,7 @@
   </url>
   <url>
     <loc>https://xerj.org/docs/metrics</loc>
-    <lastmod>2026-09-08</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/migration-from-es</loc>
@@ -514,7 +526,7 @@
   </url>
   <url>
     <loc>https://xerj.org/docs/recipes/air-gapped-deployment</loc>
-    <lastmod>2026-08-30</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/recipes/anomaly-detection</loc>
@@ -582,7 +594,7 @@
   </url>
   <url>
     <loc>https://xerj.org/for-agents</loc>
-    <lastmod>2026-09-08</lastmod>
+    <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/industries/</loc>

@@ -161,6 +161,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never silently degrades to one leg. The MCP `xerj_memory_recall` tool
   exposes the same two parameters. Raised by @Vinz2168 from a shared-memory
   agent integration where neither single mode was enough.
+- **`rerank` stage on `_search`: hand the top hits to an external relevance
+  judge and reorder by the calibrated probability that comes back.**
+  `"rerank": {}` sends the question and the text of the top `window` hits
+  (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
+  `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
+  cannot be. **It is the only search-time feature that sends document text
+  off the node** (`[embedding] default_endpoint` and the WAL tap also send text
+  off the node when an operator configures them; docs/RERANK.md lists every
+  outbound connection a node can open, and a test fails when the engine source
+  gains one that list does not name): inert until
+  an operator sets `[rerank] api_key` (or
+  `TYPESAFE_API_KEY`; config wins over env), opt-in per request, forbidden
+  outright by `[rerank] enabled = false`, and only fields the response returns
+  are sent — `rerank.fields` is an exhaustive allow-list. Failure policy is
+  *degrade on deadline, surface on contract*: a slow provider is a 200 with the
+  engine's order and `_rerank.applied: false`; no key is 503, disabled 403, a
+  rejected key or malformed body 502, all with no hits; a provider that answers
+  for nothing it was sent is a 200 with `applied: false`. When applied, every
+  `_score` is a probability or `null` (a hit with no verdict, counted in
+  `_rerank.unjudged`, sorts last) — never an engine score beside probabilities.
+  `hits.total` and `aggs`
+  stay the engine's; paging happens inside the window; `sort`, `search_after`,
+  `collapse`, scroll and `size: 0` are 400s; and `_msearch`, search templates,
+  `_async_search`, `_rank_eval` (per request, under `failures`), the native
+  `/v1` search API and gRPC refuse the block instead of dropping it. Every
+  caller-chosen cost knob has a server-side ceiling, the strings included:
+  `instructions` is capped at 2,000 characters because the provider's wire
+  format repeats it once per judged document, the question at 4,000 and
+  `model` at 128; a provider response over 2 MiB is a 502, not an allocation.
+  `GET /_xerj/rerank` reports whether a provider is configured
+  and never the key; `/v1/metrics` gains `xerj_rerank_requests_total{outcome}`,
+  `xerj_rerank_documents_judged_total` and
+  `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and
+  `xerj_hybrid_search` tools take an optional `rerank` argument. **Ranking
+  quality with the real model is not verified** — no provider key was
+  available, and every HTTP test runs against an in-process test double.
+  New crate `xerj-rerank`; reference in `docs/RERANK.md`; two benchmarks,
+  `benchmarks/beir-hybrid` and `benchmarks/decisions-as-retrieval`, both
+  measured with `--embed-mode neural`, not the default lexical embedder. The
+  one-question-per-document request shape follows `hev/jev-rerank`
+  (Apache-2.0); the failure policy and the retry back-off constants follow
+  Meilisearch's personalization module (MIT; adapted, cited in code).
 
 ### Fixed
 

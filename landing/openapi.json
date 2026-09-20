@@ -193,6 +193,15 @@
                     },
                     "size": 10
                   }
+                },
+                "rerank": {
+                  "summary": "Rerank the top hits with an external judge (sends document text off the machine; needs an operator-configured provider key)",
+                  "value": {
+                    "query": { "match": { "body": "vpn outage" } },
+                    "size": 5,
+                    "_source": ["title", "body"],
+                    "rerank": { "min_score": 0.5 }
+                  }
                 }
               }
             }
@@ -200,14 +209,34 @@
         },
         "responses": {
           "200": {
-            "description": "Search results.",
+            "description": "Search results. With `rerank`, read `_rerank.applied`: a provider that missed its deadline still yields a 200, with the engine's order.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/SearchResponse" }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/Error" }
+          "400": { "$ref": "#/components/responses/Error" },
+          "403": { "description": "`rerank` only: the operator disabled reranking (`[rerank] enabled = false`). Nothing was sent. Error type `rerank_exception`.", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "502": { "description": "`rerank` only: the provider was called and the contract broke (rejected key, malformed body, unreachable). No hits are returned. Error type `rerank_exception`.", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+          "503": { "description": "`rerank` only: no provider key is configured on this node. Nothing was sent. Repeat the search without `rerank`. Error type `rerank_exception`.", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }
+        }
+      }
+    },
+    "/_xerj/rerank": {
+      "get": {
+        "operationId": "rerankStatus",
+        "summary": "Is a rerank provider configured?",
+        "description": "Reports whether the `rerank` search stage can run on this node: whether a provider key is set and where it came from (`config` or `env`), the endpoint with userinfo/query/fragment removed, and the server-side limits. NEVER returns the key. Superuser only, like the rest of the `/_xerj/*` operator namespace; a caller without superuser rights learns the same thing from a `rerank` search: HTTP 503 means no key, 403 means disabled.",
+        "responses": {
+          "200": {
+            "description": "Rerank provider status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RerankStatus" }
+              }
+            }
+          }
         }
       }
     },
@@ -433,9 +462,64 @@
           "_source": { "description": "Which source fields to return: true/false, or an array of field names.", "type": ["boolean", "array", "string"] },
           "aggs": { "type": "object", "description": "Aggregations. Not supported together with a hybrid query.", "additionalProperties": true },
           "highlight": { "type": "object", "description": "Highlight configuration.", "additionalProperties": true },
-          "track_total_hits": { "description": "true/false, or an integer cap, controlling exact total-hit counting.", "type": ["boolean", "integer"] }
+          "track_total_hits": { "description": "true/false, or an integer cap, controlling exact total-hit counting.", "type": ["boolean", "integer"] },
+          "rerank": { "$ref": "#/components/schemas/RerankBlock" }
         },
         "additionalProperties": true
+      },
+      "RerankBlock": {
+        "type": "object",
+        "description": "XERJ extension: optional second-stage reranking. NOT an Elasticsearch key. PRIVACY: this is the only search-time feature that sends document text off the node - the question and the text of up to `window` hits are POSTed to a third-party relevance judge (proxy embeddings via `[embedding] default_endpoint` and the WAL tap also send text off the node when an operator configures them; docs/RERANK.md lists every outbound connection a node can open). Only fields the response returns are sent, so `_source` filtering also limits what leaves. NEEDS A CONFIGURED PROVIDER: the node's operator must have set a key (`[rerank] api_key` or TYPESAFE_API_KEY); there is no per-request key. The judge returns a calibrated probability (0..1) per document, which REPLACES `_score`; `hits.total` and `aggregations` still describe the full match set. Cannot be combined with `sort`, `search_after`, `collapse`, scroll (open or continuation) or `size: 0`, and is refused (not ignored) on _msearch, search templates, _async_search, the native search API and gRPC; `null` is the same as absent. When applied, every hit's `_score` is a probability or null (no verdict), never an engine score beside probabilities. `{}` uses every default. Unknown keys are refused by name. Ranking quality with the provider's model has not been verified by the XERJ project.",
+        "properties": {
+          "provider": { "type": "string", "enum": ["jev", "typesafe", "none", "disabled"], "default": "jev", "description": "`none`/`disabled` skips the call and reports `applied: false`." },
+          "model": { "type": "string", "maxLength": 128, "default": "jev-latest", "description": "Sent to the provider verbatim." },
+          "window": { "type": "integer", "minimum": 1, "maximum": 300, "default": 30, "description": "How many of the engine's top hits are judged. Every one is a paid judgement. `from` + `size` must be <= `window`." },
+          "min_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "Drop hits whose relevance probability is below this. Distinct from the top-level `min_score`, which is applied to engine scores first." },
+          "query": { "type": "string", "minLength": 1, "maxLength": 4000, "description": "The question documents are judged against (at most 4,000 characters, also when it is inferred). Inferred from `match`, `match_phrase`, `multi_match`, `semantic` and `simple_query_string`; REQUIRED for anything else (`bool`, `hybrid`, a top-level `knn` with no text query)." },
+          "fields": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "minItems": 1, "maxItems": 64, "description": "EXHAUSTIVE list of returned fields to send. `[\"body\"]` sends the body and nothing else, not even the title. Default: the title, the matching passage if returned, every other returned top-level string field of `_source`, then string values returned under the hit's `fields` that `_source` did not already return." },
+          "instructions": { "type": "string", "maxLength": 2000, "description": "Overrides what 'relevant' means for this corpus. At most 2,000 characters: the provider's wire format repeats it inside every per-document question, so it is sent once per judged document." },
+          "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 60000, "default": 10000, "description": "Wall-clock budget for the whole stage. Exceeding it DEGRADES: HTTP 200 with the engine's order and `_rerank.applied: false`." },
+          "max_doc_chars": { "type": "integer", "minimum": 1, "maximum": 8000, "default": 1200, "description": "Title and text are each cut to this many characters." },
+          "batch": { "type": "integer", "minimum": 1, "default": 30, "description": "Documents per provider call. Values above 30 are lowered to 30." },
+          "max_concurrency": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8, "description": "Provider calls in flight at once." }
+        },
+        "additionalProperties": false
+      },
+      "RerankInfo": {
+        "type": "object",
+        "description": "Present only when the request carried `rerank`. Emitted BEFORE `hits` on the wire. Always read `applied`.",
+        "properties": {
+          "applied": { "type": "boolean", "description": "true: the order is the judge's. false: the provider missed the deadline (or `provider` was `none`) and the order and scores are the engine's; see `reason`." },
+          "reason": { "type": "string", "description": "Why reranking was not applied. Only when `applied` is false." },
+          "provider": { "type": "string" },
+          "model": { "type": "string" },
+          "score_kind": { "type": "string", "enum": ["probability", "engine"], "description": "What `_score` means in this response." },
+          "window": { "type": "integer", "description": "Hits considered: min(rerank.window, hits the engine returned)." },
+          "judged": { "type": "integer", "description": "Documents the provider returned a verdict for - one per document; answers for documents not sent in that call are not counted." },
+          "unjudged": { "type": "integer", "description": "Hits in the response with no verdict: `_score` is null and they sort after every judged hit." },
+          "skipped_no_text": { "type": "integer", "description": "Window hits with no text in the response. Not sent." },
+          "pruned_below_min_score": { "type": "integer" },
+          "dropped_unjudged": { "type": "integer", "description": "With `min_score` set, unjudged hits cannot be shown to clear the bar and are dropped." },
+          "partial_failures": { "type": "integer", "description": "Provider calls that did not deliver a verdict while others did: failed calls, and calls the deadline stopped from being sent." },
+          "fields_without_text": { "type": "array", "items": { "type": "string" }, "description": "Only when non-empty: names in `rerank.fields` that no hit in the window returned text for." },
+          "usage": { "type": "object", "properties": { "input_tokens": { "type": "integer" }, "output_tokens": { "type": "integer" } }, "description": "Tokens the provider reported for this search. Advisory: a count the provider reports as anything but a non-negative number meters as 0." },
+          "query": { "type": "string", "description": "The question that was judged, inferred or given." },
+          "took_ms": { "type": "integer", "description": "Time spent in the stage; the response's `took` includes it." }
+        }
+      },
+      "RerankStatus": {
+        "type": "object",
+        "description": "Whether a rerank provider is configured. Never contains the key.",
+        "properties": {
+          "enabled": { "type": "boolean", "description": "false when the operator set `[rerank] enabled = false`." },
+          "configured": { "type": "boolean", "description": "enabled AND a key is set." },
+          "providers": { "type": "array", "items": { "type": "string" } },
+          "api_key": { "type": "object", "properties": { "set": { "type": "boolean" }, "source": { "type": ["string", "null"], "enum": ["config", "env", null] } } },
+          "endpoint": { "type": "object", "properties": { "url": { "type": "string", "description": "Userinfo, query string and fragment removed." }, "source": { "type": "string", "enum": ["config", "env", "default"] } } },
+          "defaults": { "type": "object", "additionalProperties": true },
+          "limits": { "type": "object", "additionalProperties": true, "description": "Server-side ceilings on the caller-chosen cost knobs: `max_docs_per_call`, `max_window`, `max_concurrency`, `max_doc_chars`, `max_timeout_ms`, and the string ceilings `max_instructions_chars`, `max_query_chars`, `max_model_chars`, `max_fields`, `max_field_name_chars`. A value over a ceiling is a 400 naming the field." },
+          "data_egress": { "type": "string" }
+        }
       },
       "KnnClause": {
         "type": "object",
@@ -480,7 +564,8 @@
               }
             }
           },
-          "aggregations": { "type": "object", "additionalProperties": true }
+          "aggregations": { "type": "object", "additionalProperties": true },
+          "_rerank": { "$ref": "#/components/schemas/RerankInfo" }
         }
       },
       "BulkResponse": {

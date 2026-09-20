@@ -1,6 +1,6 @@
 # xerj Default Configuration
 # ============================================================
-# This file sets 55 of XERJ's 117 user-facing settings to their
+# This file sets 55 of XERJ's 120 user-facing settings to their
 # production-ready defaults, and describes the rest in comments.
 # Every value here IS the default, so copying this file changes
 # nothing until you edit it (a test enforces that). The complete
@@ -580,3 +580,25 @@ access_log = false
 # page later. `min_retained_generations` is capped at 64 because it holds that
 # many rotated WAL files per shard per index — up to n * storage.wal_max_size_mb
 # of disk each — whether or not a tap is running.
+
+# ── Rerank provider ─────────────────────────────────────────
+# `"rerank": {...}` on _search sends the text of the top-N hits to a
+# third-party judge (TypeSafe AI's Jev) and reorders them by the relevance
+# probability that comes back. It is the only SEARCH-TIME feature that sends
+# document text off this node. Two other features send text off it, both off
+# by default: [embedding] default_endpoint (document text at write time, query
+# text at search time) and the WAL tap. The node's remaining outbound
+# connections (neural model download, cluster Raft) carry no document text;
+# docs/RERANK.md lists every one. Reranking does nothing until a key is
+# supplied here or in the TYPESAFE_API_KEY environment variable. A value in
+# this file wins over the environment. `enabled = false` refuses every rerank request (403) whatever
+# the environment holds. The key is never echoed: GET /_xerj/rerank (superuser
+# only) reports whether one is set and where it came from, nothing more.
+# `endpoint`, from here or from TYPESAFE_ENDPOINT, must be an absolute
+# http(s):// URL with no user:password@ in it, or the node refuses to start.
+# See docs/RERANK.md.
+#
+# [rerank]
+# enabled  = true
+# api_key  = "ts-..."                                  # not a default ("")
+# endpoint = "https://api.typesafe.ai/v1/systemone"    # not a default ("")
