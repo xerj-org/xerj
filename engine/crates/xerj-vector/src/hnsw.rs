@@ -13,9 +13,10 @@
 //! - Graph is entirely in-memory; persistence is handled by the storage crate
 //!
 //! In-memory layout (2026-07-12 flat-slab rework): nodes live in a single
-//! slot-indexed slab — one contiguous `Vec<f32>` for vectors, `Vec<Vec<u32>>`
-//! neighbor lists per layer, and a `Vec<u64>` bitmap for the search-time
-//! visited set. The previous `HashMap<u64, Arc<RwLock<Node>>>` paid a hash
+//! slot-indexed slab — one contiguous `Vec<f32>` for vectors and
+//! `Vec<Vec<u32>>` neighbor lists per layer; the search-time visited set is
+//! a pooled epoch-tagged bitmap per [`VisitedList`] (no per-query zeroing).
+//! The previous `HashMap<u64, Arc<RwLock<Node>>>` paid a hash
 //! lookup + two pointer chases + an RwLock acquisition *per neighbor
 //! expansion*, which made beam search ~5× slower than the distance math
 //! itself. The on-disk format and the public (external-u64-id) API are
@@ -423,6 +424,78 @@ fn greedy_layer(
     (best, best_distance)
 }
 
+// ── Reusable visited set ─────────────────────────────────────────────────────
+
+/// Epoch-counter visited set for beam searches, pooled per index.
+///
+/// `beam` needs a "already expanded this search" set over node slots.  It
+/// used to allocate and zero a `node_count/64`-word bitmap on EVERY call —
+/// for a million-node graph ~125 KB of fresh pages touched per query
+/// before the first distance is computed, and per CONSTRUCTION beam too.
+///
+/// Scheme adapted from qdrant's `VisitedList`
+/// (lib/segment/src/index/visited_pool.rs, Apache-2.0): keep one list
+/// alive across searches and make it look zeroed by BUMPING A GENERATION
+/// — `next_iteration` increments the epoch (on u32 wrap, refilling with 0
+/// and restarting at 1, visited_pool.rs:86-92) and a slot counts as
+/// visited iff its epoch matches (the check half of
+/// check_and_update_visited, :67-76).  Where qdrant carries a u32 counter
+/// per POINT, this version keeps the old bitmap's ~1-bit-per-node memory
+/// by tagging each 64-slot WORD with its epoch: a stale word means every
+/// bit in it is unvisited, so the refill-on-wrap only ever touches the
+/// epoch vec.  Pooled lists (keep-limit :130) are handed out by
+/// [`HnswIndex::with_visited_list`].
+struct VisitedList {
+    current_iter: u32,
+    /// Epoch per 64-slot word; `0` can never match (generations start at 1).
+    epochs: Vec<u32>,
+    /// Visited bits per word — meaningful only while `epochs[w] ==
+    /// current_iter`.
+    bits: Vec<u64>,
+}
+
+impl VisitedList {
+    fn with_capacity(nodes: usize) -> Self {
+        let words = nodes.div_ceil(64);
+        Self {
+            current_iter: 1,
+            epochs: vec![0; words],
+            bits: vec![0; words],
+        }
+    }
+
+    /// qdrant visited_pool.rs:86-92 — bump the generation; on u32 wrap,
+    /// refill and restart at 1 (once every ~4B searches per pooled list).
+    fn next_iteration(&mut self) {
+        self.current_iter = self.current_iter.wrapping_add(1);
+        if self.current_iter == 0 {
+            self.current_iter = 1;
+            self.epochs.fill(0);
+        }
+    }
+
+    /// Mark `slot`; `true` when it was ALREADY marked this iteration —
+    /// the same decisions a zeroed bitmap's test-and-set would make.
+    #[inline]
+    fn check_and_set(&mut self, slot: u32) -> bool {
+        let (word, bit) = ((slot / 64) as usize, slot % 64);
+        if self.epochs[word] != self.current_iter {
+            // Stale word: claim it with only this slot's bit set.
+            self.epochs[word] = self.current_iter;
+            self.bits[word] = 1 << bit;
+            return false;
+        }
+        let mask = 1u64 << bit;
+        let seen = self.bits[word] & mask != 0;
+        self.bits[word] |= mask;
+        seen
+    }
+}
+
+// The eight parameters are the algorithm's own state (Malkov & Yashunin
+// Algorithm 2) plus the pooled visited set; bundling them would hide the
+// mapping to the paper.
+#[allow(clippy::too_many_arguments)]
 fn beam<G, A>(
     graph: &G,
     query: &[f32],
@@ -431,6 +504,7 @@ fn beam<G, A>(
     ef: usize,
     layer: usize,
     admit: &A,
+    visited: &mut VisitedList,
 ) -> Vec<(f32, u32)>
 where
     G: GraphStorageRead,
@@ -439,14 +513,6 @@ where
     let node_count = graph.node_count();
     if entry as usize >= node_count {
         return vec![];
-    }
-    let mut visited = vec![0u64; node_count.div_ceil(64)];
-    #[inline]
-    fn test_and_set(bits: &mut [u64], slot: u32) -> bool {
-        let (word, bit) = ((slot / 64) as usize, slot % 64);
-        let seen = bits[word] & (1 << bit) != 0;
-        bits[word] |= 1 << bit;
-        seen
     }
 
     let entry_distance = slot_distance(graph, query, query_inverse_norm, entry);
@@ -462,7 +528,7 @@ where
     if admit(entry) {
         results.push((ordered_float::OrderedFloat(entry_distance), entry));
     }
-    test_and_set(&mut visited, entry);
+    visited.check_and_set(entry);
 
     while let Some(Reverse((candidate_distance, candidate))) = candidates.pop() {
         if let Some(&(farthest, _)) = results.peek() {
@@ -481,7 +547,7 @@ where
             if index + 2 < neighbors.len() {
                 graph.prefetch_vector(neighbors[index + 2]);
             }
-            if test_and_set(&mut visited, neighbor) {
+            if visited.check_and_set(neighbor) {
                 continue;
             }
             let distance = slot_distance(graph, query, query_inverse_norm, neighbor);
@@ -675,7 +741,17 @@ fn encode_graph_bytes(
 pub struct HnswIndex {
     params: HnswParams,
     inner: RwLock<SlabGraphStorage>,
+    /// Reusable [`VisitedList`]s for beam searches — qdrant's pool with a
+    /// keep-limit (visited_pool.rs:130): concurrent searches each check one
+    /// out, and overflow concurrency just allocates and drops transiently
+    /// (the old behaviour).  Memory is bounded at
+    /// `VISITED_POOL_KEEP_LIMIT` × ~1 bit per node.
+    visited_pool: std::sync::Mutex<Vec<VisitedList>>,
 }
+
+/// Pool keep-limit — room for the concurrent search workers; beyond it,
+/// lists drop instead of hoarding memory (qdrant's POOL_KEEP_LIMIT idea).
+const VISITED_POOL_KEEP_LIMIT: usize = 16;
 
 impl HnswIndex {
     /// Create a new empty index.
@@ -684,7 +760,33 @@ impl HnswIndex {
         Self {
             params,
             inner: RwLock::new(inner),
+            visited_pool: std::sync::Mutex::new(Vec::new()),
         }
+    }
+
+    /// Run `f` with a pooled [`VisitedList`] sized for `nodes` slots, at a
+    /// fresh generation.  Lock order is always inner → visited_pool (every
+    /// caller holds an `inner` guard when it takes a list), so the pool
+    /// mutex can never participate in a lock cycle.
+    fn with_visited_list<T>(&self, nodes: usize, f: impl FnOnce(&mut VisitedList) -> T) -> T {
+        let mut list = self
+            .visited_pool
+            .lock()
+            .unwrap()
+            .pop()
+            .unwrap_or_else(|| VisitedList::with_capacity(nodes));
+        if list.epochs.len() < nodes.div_ceil(64) {
+            let words = nodes.div_ceil(64);
+            list.epochs.resize(words, 0);
+            list.bits.resize(words, 0);
+        }
+        list.next_iteration();
+        let out = f(&mut list);
+        let mut pool = self.visited_pool.lock().unwrap();
+        if pool.len() < VISITED_POOL_KEEP_LIMIT {
+            pool.push(list);
+        }
+        out
     }
 
     /// Mark `id` as deleted. Search will skip the node and never
@@ -819,7 +921,18 @@ impl HnswIndex {
         // Search and connect from min(node_level, ep_layer) down to 0.
         for layer in (0..=node_level.min(ep_layer)).rev() {
             let m_layer = if layer == 0 { 2 * m } else { m };
-            let candidates = beam(&g.read_view(), &q, q_inv, curr_ep, ef, layer, &|_| true);
+            let candidates = self.with_visited_list(g.read_view().node_count(), |visited| {
+                beam(
+                    &g.read_view(),
+                    &q,
+                    q_inv,
+                    curr_ep,
+                    ef,
+                    layer,
+                    &|_| true,
+                    visited,
+                )
+            });
 
             // Select up to M diverse nearest (Algorithm 4 heuristic).
             let selected = select_diverse(&g.read_view(), &candidates, m_layer);
@@ -906,7 +1019,9 @@ impl HnswIndex {
         let admit = |slot: u32| {
             is_live_slot(&graph, slot) && !graph.tombstoned(slot) && filter(graph.external_id(slot))
         };
-        let candidates = beam(&graph, query, q_inv, curr_ep, ef.max(k), 0, &admit);
+        let candidates = self.with_visited_list(graph.node_count(), |visited| {
+            beam(&graph, query, q_inv, curr_ep, ef.max(k), 0, &admit, visited)
+        });
 
         Ok(candidates
             .into_iter()
@@ -1112,6 +1227,7 @@ impl HnswIndex {
         Ok(Self {
             params,
             inner: RwLock::new(g),
+            visited_pool: std::sync::Mutex::new(Vec::new()),
         })
     }
 
@@ -1135,7 +1251,18 @@ impl HnswIndex {
         };
         let q_inv = query_inverse(&graph, query);
         let admit = |slot: u32| !graph.tombstoned(slot);
-        let candidates = beam(&graph, query, q_inv, entry_slot, ef.max(k), 0, &admit);
+        let candidates = self.with_visited_list(graph.node_count(), |visited| {
+            beam(
+                &graph,
+                query,
+                q_inv,
+                entry_slot,
+                ef.max(k),
+                0,
+                &admit,
+                visited,
+            )
+        });
         candidates
             .into_iter()
             .take(k)
@@ -1539,6 +1666,89 @@ mod tests {
         assert_eq!(results[0].0, 0, "nearest should be id=0");
     }
 
+    /// Cluster-G pin, part 1: the pooled visited list must make exactly
+    /// the same seen/unseen decisions as a zeroed bitmap — across the
+    /// 64-slot word boundary (63/64/65), across `next_iteration` (an old
+    /// generation must read as unvisited), and across the u32 wrap
+    /// (refill + restart at 1, qdrant visited_pool.rs:86-92).
+    #[test]
+    fn visited_list_epoch_semantics_match_a_zeroed_bitmap() {
+        let mut v = VisitedList::with_capacity(200);
+
+        // Bitmap oracle over the same slots.
+        let mut bitmap = vec![false; 200];
+        let step = |v: &mut VisitedList, bitmap: &mut Vec<bool>, slot: u32| {
+            let got = v.check_and_set(slot);
+            let want = std::mem::replace(&mut bitmap[slot as usize], true);
+            assert_eq!(got, want, "slot {slot} decision diverged from bitmap");
+        };
+
+        // First iteration: fresh word claims, including the 63/64/65
+        // boundary, plus a duplicate inside an already-live word.
+        v.next_iteration();
+        for slot in [0u32, 63, 64, 65, 130, 63, 0] {
+            step(&mut v, &mut bitmap, slot);
+        }
+
+        // New generation: everything unvisited again, same slots re-tested
+        // (word 0 is stale-then-reclaimed; word 2 still live from slot 130
+        // must NOT leak its old bit into slot 129's decision).
+        v.next_iteration();
+        for slot in bitmap.iter_mut() {
+            *slot = false;
+        }
+        for slot in [129u32, 130, 0, 130, 65, 129] {
+            step(&mut v, &mut bitmap, slot);
+        }
+
+        // u32 wrap: current_iter = u32::MAX, one more next_iteration hits
+        // 0 → refill + restart at 1.  Everything must read unvisited even
+        // though generation 1 ran before.
+        v.current_iter = u32::MAX;
+        v.next_iteration();
+        assert_eq!(v.current_iter, 1, "wrap must restart at generation 1");
+        for slot in bitmap.iter_mut() {
+            *slot = false;
+        }
+        for slot in [0u32, 64, 130, 0, 130] {
+            step(&mut v, &mut bitmap, slot);
+        }
+    }
+
+    /// Cluster-G pin, part 2: reusing one pooled list across successive
+    /// searches (the entire point of the pool) must not change any search
+    /// result — a stale visited bit would silently narrow a later beam.
+    /// The reuse here is REAL: `search` checks the same list out of the
+    /// pool 5 times, so iterations 2..5 run on non-zeroed memory.
+    #[test]
+    fn pooled_visited_list_reuse_does_not_change_results() {
+        let idx = make_index(8);
+        for i in 0..600u64 {
+            let v: Vec<f32> = (0..8)
+                .map(|d| ((i * 31 + d * 7) % 97) as f32 / 97.0)
+                .collect();
+            idx.insert(i, v).unwrap();
+        }
+        let queries: Vec<Vec<f32>> = (0..10)
+            .map(|q| {
+                (0..8)
+                    .map(|d| ((q * 13 + d * 3) % 89) as f32 / 89.0)
+                    .collect()
+            })
+            .collect();
+        for q in &queries {
+            let first = idx.search(q, 10, 64).unwrap();
+            assert_eq!(first.len(), 10, "fixture: every query must fill the page");
+            for _ in 0..4 {
+                assert_eq!(
+                    idx.search(q, 10, 64).unwrap(),
+                    first,
+                    "repeat search must be identical — pooled-list reuse leaked state"
+                );
+            }
+        }
+    }
+
     #[test]
     fn insert_batch_serial_is_correct() {
         // insert_batch is a serial wrapper over insert; a batch build must
@@ -1803,6 +2013,8 @@ mod tests {
         };
         let query = [1.0, 0.0];
         let inverse = query_inverse(&graph, &query);
+        let mut visited = VisitedList::with_capacity(graph.node_count());
+        visited.next_iteration();
         let candidates = beam(
             &graph,
             &query,
@@ -1811,6 +2023,7 @@ mod tests {
             8,
             0,
             &|slot| !graph.tombstoned(slot),
+            &mut visited,
         );
         let hits: Vec<_> = candidates
             .into_iter()
