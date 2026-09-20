@@ -2260,6 +2260,40 @@ impl FtsIndexReader {
         }
     }
 
+    /// Like [`Self::for_each_term`], but the stream STARTS at the first term
+    /// `>= bound` instead of at term 0 — `fst::Map` supports bounded range
+    /// streams natively (`range().ge(..)`), and the dictionary is
+    /// byte-lexicographic, so a prefix walk seeded with its own prefix
+    /// skips every term sorted before the prefix range without decoding it.
+    pub fn for_each_term_ge<F: FnMut(&str) -> bool>(&self, field: &str, bound: &str, mut f: F) {
+        let Some(loaded) = self.fields.get(field) else {
+            return;
+        };
+        use fst::{IntoStreamer, Streamer};
+        match &loaded.fst {
+            FstData::Mmap(m) => {
+                let mut stream = m.range().ge(bound.as_bytes()).into_stream();
+                while let Some((key, _)) = stream.next() {
+                    if let Ok(s) = std::str::from_utf8(key) {
+                        if !f(s) {
+                            return;
+                        }
+                    }
+                }
+            }
+            FstData::Owned(m) => {
+                let mut stream = m.range().ge(bound.as_bytes()).into_stream();
+                while let Some((key, _)) = stream.next() {
+                    if let Ok(s) = std::str::from_utf8(key) {
+                        if !f(s) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Enumerate all terms in a field (lexicographic order, for debugging/admin).
     pub fn all_terms(&self, field: &str) -> Vec<String> {
         let Some(loaded) = self.fields.get(field) else {

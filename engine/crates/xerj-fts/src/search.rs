@@ -1302,23 +1302,26 @@ impl FtsSearcher {
     }
 
     fn expand_prefix(&self, field: &str, prefix: &str, max: usize) -> Vec<String> {
-        // Streaming FST scan with a cooperative deadline poll every 1 024
-        // terms (RC4 blocker 12) — a wide dictionary made the old
-        // materialise-then-filter walk a multi-second uninterruptible unit.
+        // Streaming FST scan SEEDED AT THE PREFIX (`for_each_term_ge`) with
+        // a cooperative deadline poll every 1 024 terms (RC4 blocker 12) —
+        // a wide dictionary made the old materialise-then-filter walk a
+        // multi-second uninterruptible unit.  The dictionary is
+        // byte-lexicographic, so every `prefix`-prefixed term is contiguous:
+        // the first non-matching term ends the range and the walk stops,
+        // instead of testing (and discarding) every term sorted before the
+        // prefix the way a term-0 scan would.
         let mut out: Vec<String> = Vec::new();
         let mut seen = 0usize;
-        self.reader.for_each_term(field, |t| {
+        self.reader.for_each_term_ge(field, prefix, |t| {
             seen += 1;
             if seen & 1023 == 0 && self.deadline_hit() {
                 return false;
             }
-            if t.starts_with(prefix) {
-                out.push(t.to_owned());
-                if out.len() >= max {
-                    return false;
-                }
+            if !t.starts_with(prefix) {
+                return false;
             }
-            true
+            out.push(t.to_owned());
+            out.len() < max
         });
         out
     }
@@ -2302,6 +2305,66 @@ mod tests {
             !hits.is_empty(),
             "prefix 'la' should match docs containing 'lazy'"
         );
+    }
+
+    /// Cluster-E pin: `expand_prefix` SEEKS the FST to the prefix instead of
+    /// scanning from term 0, and relies on the dictionary's byte-lexicographic
+    /// order for its stop condition (the first non-matching term ends the
+    /// range).  A dictionary holding many terms sorted strictly BEFORE the
+    /// prefix and several AFTER its range must yield exactly the prefix's
+    /// terms, in FST order, bounded by `max_expansions`.
+    #[test]
+    fn prefix_expansion_seeks_and_stops_at_the_range_boundary() {
+        let dir = TempDir::new().unwrap();
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        writer.configure_field(
+            "body",
+            FieldIndexConfig {
+                analyzer: "whitespace".to_owned(),
+                ..Default::default()
+            },
+        );
+        // 1 000 terms before "mid", 30 inside mid001..mid030, 500 after
+        // "mid999" — the seek must skip both tails without testing them.
+        let mut terms: Vec<String> = (0..1_000)
+            .map(|i| format!("aaa{i:04}"))
+            .chain((1..=30).map(|i| format!("mid{i:03}")))
+            .chain((0..500).map(|i| format!("zzz{i:04}")))
+            .collect();
+        // "midlow" sorts after mid030 ('l' 0x6c > '9' 0x39) but inside the
+        // mid* range — a second boundary the stop condition must survive.
+        terms.push("midlow".to_owned());
+        let text = terms.join(" ");
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect(),
+        );
+        writer.finish().unwrap();
+        let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
+        let searcher = FtsSearcher::new(reader, registry);
+
+        // Full range: mid001..mid030 plus midlow, in FST order.
+        let got = searcher.expand_prefix("body", "mid", 50);
+        let mut expected: Vec<String> = (1..=30).map(|i| format!("mid{i:03}")).collect();
+        expected.push("midlow".to_owned());
+        expected.sort();
+        assert_eq!(got, expected, "prefix range must be exact and ordered");
+
+        // Bounded: max_expansions keeps the FIRST N in FST order.
+        assert_eq!(searcher.expand_prefix("body", "mid", 3)[..3], expected[..3]);
+        assert_eq!(searcher.expand_prefix("body", "mid", 3).len(), 3);
+
+        // A prefix at the very START and very END of the dictionary.
+        assert_eq!(
+            searcher.expand_prefix("body", "aaa", 2),
+            vec!["aaa0000".to_owned(), "aaa0001".to_owned()]
+        );
+        assert_eq!(searcher.expand_prefix("body", "zz", 600).len(), 500);
+        // No such prefix: seek lands past every matching term → empty.
+        assert!(searcher.expand_prefix("body", "nnn", 50).is_empty());
     }
 
     #[test]
