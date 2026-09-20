@@ -91,6 +91,19 @@ impl Bm25Scorer {
         (tf * (self.k1 + 1.0)) / (tf + norm)
     }
 
+    /// The `norm` term of [`Self::tf_norm`] alone — the per-DOCUMENT factor,
+    /// hoisted so a caller that already knows the length can precompute it
+    /// (per quantised norm byte, per distinct length) and skip the divide in
+    /// the per-posting loop.
+    ///
+    /// BIT-IDENTICAL to the same expression inside `tf_norm`: same
+    /// operations, same order, `doc_length` converted the same way.
+    #[inline]
+    pub fn norm_denom(&self, doc_length: u32) -> f32 {
+        let avg = self.avg_dl.max(1.0);
+        self.k1 * (1.0 - self.b + self.b * (doc_length as f32 / avg))
+    }
+
     /// Score a single (term, document) pair.
     ///
     /// # Arguments
@@ -100,6 +113,20 @@ impl Bm25Scorer {
     #[inline]
     pub fn score_term(&self, doc_freq: u64, term_freq: u32, doc_length: u32) -> f32 {
         self.idf(doc_freq) * self.tf_norm(term_freq, doc_length)
+    }
+
+    /// [`Self::score_term`] with both hoistable factors already computed:
+    /// `idf` is the per-TERM value (one `ln` per clause, not per posting)
+    /// and `denom` is [`Self::norm_denom`] for the posting's document.
+    ///
+    /// BIT-IDENTICAL to `score_term(doc_freq, term_freq, doc_length)` when
+    /// `idf == self.idf(doc_freq)` and `denom == self.norm_denom(doc_length)`
+    /// — the same multiplications in the same order.  Pinned by
+    /// `score_term_denom_is_bit_identical_to_score_term`.
+    #[inline]
+    pub fn score_term_denom(&self, idf: f32, term_freq: u32, denom: f32) -> f32 {
+        let tf = term_freq as f32;
+        idf * ((tf * (self.k1 + 1.0)) / (tf + denom))
     }
 
     /// Score with a full explanation breakdown.
@@ -410,6 +437,42 @@ mod tests {
         let s_short = scorer.score_term(10, 2, 5);
         let s_long = scorer.score_term(10, 2, 100);
         assert!(s_short > s_long, "shorter docs score higher for same tf");
+    }
+
+    /// The hoisted scoring path (`score_term_denom` with a precomputed
+    /// `idf` + `norm_denom`) must reproduce `score_term`'s exact BITS —
+    /// bit-identity is the hard requirement on every score-path change, so
+    /// this is an exhaustive-to_bits check over a deterministic parameter
+    /// sweep, not an epsilon compare.
+    #[test]
+    fn score_term_denom_is_bit_identical_to_score_term() {
+        let mut r = 1u32; // deterministic LCG
+        let mut next = move || {
+            r = r.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            r
+        };
+        for (k1, b, avg, n) in [
+            (DEFAULT_K1, DEFAULT_B, 41.3f32, 120_000u64),
+            (1.6, 0.4, 7.7, 999),
+            (2.0, 0.0, 250.25, 65_536),
+            (1.2, 0.75, 0.5, 10), // avgdl < 1 → the max(1.0) clamp
+        ] {
+            let scorer = Bm25Scorer::with_params(k1, b, avg, n);
+            for _ in 0..5_000 {
+                let df = (next() % 120_000) as u64;
+                let tf = next() % 40;
+                let dl = next() % 3_000;
+                let direct = scorer.score_term(df.min(n), tf, dl);
+                let hoisted =
+                    scorer.score_term_denom(scorer.idf(df.min(n)), tf, scorer.norm_denom(dl));
+                assert_eq!(
+                    direct.to_bits(),
+                    hoisted.to_bits(),
+                    "k1={k1} b={b} avg={avg} df={} tf={tf} dl={dl}",
+                    df.min(n)
+                );
+            }
+        }
     }
 
     #[test]

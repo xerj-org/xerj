@@ -148,6 +148,88 @@ impl TopN {
     }
 }
 
+// ── Hoisted norm lookup ───────────────────────────────────────────────────────
+
+/// Per-field length norms, hoisted out of the per-posting scoring loop.
+///
+/// The un-hoisted path paid, for EVERY scored posting: a
+/// `HashMap<String, _>` SipHash descent to find the field, a binary search
+/// over its norm triples, a `u8 → u16` dequantisation, and the full
+/// `k1 · (1 − b + b · dl/avgdl)` arithmetic.  This replaces all of it with
+/// one monotonic cursor (the walks visit docs in ascending order) and —
+/// when the segment's stored lengths are exactly the byte decodes, true of
+/// every ZNM1 (M4.7+) segment — a 256-entry denominator table keyed by the
+/// norm BYTE, so the per-posting work is a slice index.
+///
+/// ## Bit-identity
+///
+/// Every denominator the table (or the slow path) returns is the SAME
+/// expression `Bm25Scorer::norm_denom` evaluates on the SAME length the
+/// un-hoisted `field_length` call would have returned:
+///
+/// - table path: the stored `u16` IS `norm_u8_to_u16(byte)` (the
+///   `norms_exact` gate), and `norm_denom` is bit-identical to the `norm`
+///   term inside `tf_norm` (same expression, same order);
+/// - slow path (legacy pre-M4.7 segments, unquantised lengths): computed
+///   from the STORED `u16`, never from the byte — re-deriving it from the
+///   byte would move scores on those segments;
+/// - a doc with no stored norm gets `norm_denom(1)`, matching the
+///   historical `field_length(..).unwrap_or(1)`.
+struct FieldNorms<'a> {
+    /// `(doc_id, length, norm byte)` ascending by doc_id — borrowed from
+    /// the reader's `LoadedField`.
+    norms: &'a [crate::index::NormEntry],
+    /// `norm_denom` per norm byte.  `None` on legacy (non-exact) segments,
+    /// where the byte does not determine the length.
+    table: Option<[f32; 256]>,
+    /// Slow-path copies of the scorer parameters (legacy segments only).
+    k1: f32,
+    b: f32,
+    avg: f32,
+    /// Denominator for docs with no stored norm (length 1).
+    miss: f32,
+    /// Monotonic cursor into `norms`: only ever moves forward, because
+    /// every caller walks docs in ascending order.
+    cursor: usize,
+}
+
+impl<'a> FieldNorms<'a> {
+    fn new(scorer: &Bm25Scorer, norms: &'a [(u32, u16, u8)], bytes_exact: bool) -> Self {
+        let table = bytes_exact.then(|| {
+            let mut t = [0f32; 256];
+            for (byte, slot) in t.iter_mut().enumerate() {
+                let len = crate::index::norm_u8_to_u16(byte as u8);
+                *slot = scorer.norm_denom(u32::from(len));
+            }
+            t
+        });
+        Self {
+            norms,
+            table,
+            k1: scorer.k1,
+            b: scorer.b,
+            avg: scorer.avg_dl.max(1.0),
+            miss: scorer.norm_denom(1),
+            cursor: 0,
+        }
+    }
+
+    /// The `tf_norm` denominator for `doc`'s field length.
+    #[inline]
+    fn denom_at(&mut self, doc: u32) -> f32 {
+        while self.cursor < self.norms.len() && self.norms[self.cursor].0 < doc {
+            self.cursor += 1;
+        }
+        match self.norms.get(self.cursor) {
+            Some(&(id, len, byte)) if id == doc => match self.table {
+                Some(ref t) => t[byte as usize],
+                None => self.k1 * (1.0 - self.b + self.b * (f32::from(len) / self.avg)),
+            },
+            _ => self.miss,
+        }
+    }
+}
+
 // ── Query types ───────────────────────────────────────────────────────────────
 
 /// A single field + term lookup.
@@ -699,9 +781,16 @@ impl FtsSearcher {
             ord: usize,
             tq: &'b TermQuery,
             bm25: crate::bm25::Bm25Scorer,
-            /// The `doc_freq` the generic path would score with
-            /// (`scoring_df`, i.e. index-wide when collection stats are on).
-            score_df: u64,
+            /// `bm25.idf(score_df)` where `score_df` is the df the generic
+            /// path scores with (`scoring_df`, i.e. index-wide when
+            /// collection stats are on) — hoisted: the SAME value the
+            /// generic path's `score_term` computes, but once per clause
+            /// instead of once per (clause, scored doc).
+            idf: f32,
+            /// Index into `norm_slots` — the prebound per-field norm lookup,
+            /// so the scoring loop does no field-name compare and no
+            /// `field_length` call.
+            slot: usize,
             reader: PostingsReader<'a>,
             doc: u32,
             tf: u32,
@@ -710,6 +799,11 @@ impl FtsSearcher {
             /// never underestimates `score_term`.
             ubound: f32,
         }
+        // One norm lookup per DISTINCT field (the clauses of a `match`
+        // query share one), each with its own monotonic cursor and its own
+        // 256-entry denominator table.  Built once here; the per-doc loop
+        // only indexes into it.
+        let mut norm_slots: Vec<(&str, FieldNorms<'_>)> = Vec::new();
         let mut scorers: Vec<WandTerm> = Vec::with_capacity(bq.should.len());
         for (ord, q) in bq.should.iter().enumerate() {
             // Cooperative deadline on the clause fan-out axis, mirroring
@@ -743,12 +837,22 @@ impl FtsSearcher {
             let Some(first) = reader.next() else { continue };
             let bm25 = self.make_scorer(&tq.field);
             let score_df = self.scoring_df(&tq.field, &tq.term, tp.doc_frequency as u64);
-            let ubound = bm25.idf(score_df) * (bm25.k1 + 1.0) * tq.boost;
+            let idf = bm25.idf(score_df);
+            let ubound = idf * (bm25.k1 + 1.0) * tq.boost;
+            let slot = match norm_slots.iter().position(|(f, _)| *f == tq.field.as_str()) {
+                Some(i) => i,
+                None => {
+                    let (norms, exact) = self.reader.field_norms(&tq.field).unwrap_or((&[], true));
+                    norm_slots.push((tq.field.as_str(), FieldNorms::new(&bm25, norms, exact)));
+                    norm_slots.len() - 1
+                }
+            };
             scorers.push(WandTerm {
                 ord,
                 tq,
                 bm25,
-                score_df,
+                idf,
+                slot,
                 reader,
                 doc: first.doc_id,
                 tf: first.term_freq,
@@ -791,18 +895,14 @@ impl FtsSearcher {
                 // per-doc buffer is allocated (a heap alloc per scored doc
                 // was measurable at 120k-doc disjunctions).
                 scorers[..k].sort_unstable_by_key(|s| s.ord);
-                let first_field = scorers[0].tq.field.as_str();
-                let first_len = self.reader.field_length(first_field, d).unwrap_or(1) as u32;
                 let mut sum = 0.0f32;
                 for s in &scorers[..k] {
-                    // Clauses usually share one field (`match`) — look the
-                    // length up once; only multi-field queries pay per field.
-                    let doc_len = if s.tq.field == first_field {
-                        first_len
-                    } else {
-                        self.reader.field_length(&s.tq.field, d).unwrap_or(1) as u32
-                    };
-                    sum += s.bm25.score_term(s.score_df, s.tf, doc_len) * s.tq.boost;
+                    // Per clause: hoisted idf, prebound norm slot — no ln,
+                    // no field-name compare, no per-doc hash lookup +
+                    // binary search.  Same multiplications in the same
+                    // order as the generic path's score_term call.
+                    let denom = norm_slots[s.slot].1.denom_at(d);
+                    sum += s.bm25.score_term_denom(s.idf, s.tf, denom) * s.tq.boost;
                 }
                 top.push(ScoredHit {
                     doc_id: d,
@@ -966,19 +1066,29 @@ impl FtsSearcher {
         let has_positions = self.reader.field_has_positions(&tq.field);
         let mut reader = PostingsReader::new_score_only(post_data, tp.doc_frequency, has_positions);
 
-        while let Some(posting) = reader.next() {
-            let doc_len = self
-                .reader
-                .field_length(&tq.field, posting.doc_id)
-                .unwrap_or(1) as u32;
+        // Per-TERM and per-FIELD hoists for the non-explain loop: the idf
+        // (one `ln` per clause instead of one per posting) and the norm
+        // denominators (cursor + byte table instead of a hash lookup +
+        // binary search + dequantisation + division per posting).  Both are
+        // bit-identical to the inline formula — see `Bm25Scorer::
+        // score_term_denom` and `FieldNorms`.
+        let idf = scorer.idf(score_df);
+        let (norms, norms_exact) = self.reader.field_norms(&tq.field).unwrap_or((&[], true));
+        let mut fnorms = FieldNorms::new(&scorer, norms, norms_exact);
 
+        while let Some(posting) = reader.next() {
             let (score, explanation) = if explain {
+                let doc_len = self
+                    .reader
+                    .field_length(&tq.field, posting.doc_id)
+                    .unwrap_or(1) as u32;
                 let bd = scorer.score_term_explain(&tq.term, score_df, posting.term_freq, doc_len);
                 let s = bd.score * tq.boost;
                 let boosted_bd = ScoreBreakdown { score: s, ..bd };
                 (s, Some(QueryExplanation::new(vec![boosted_bd])))
             } else {
-                let s = scorer.score_term(score_df, posting.term_freq, doc_len) * tq.boost;
+                let denom = fnorms.denom_at(posting.doc_id);
+                let s = scorer.score_term_denom(idf, posting.term_freq, denom) * tq.boost;
                 (s, None)
             };
 
@@ -3537,6 +3647,116 @@ mod tests {
                 "top-{cap} with duplicate/boosted/absent clauses"
             );
         }
+    }
+
+    /// Cluster-B unit pin: every denominator `FieldNorms` hands out must be
+    /// bit-identical to `Bm25Scorer::norm_denom` on the length
+    /// `field_length` would have returned — table path (ZNM1 segments),
+    /// slow path (legacy unquantised norms, scored off the STORED length),
+    /// and the missing-norm miss (length 1).
+    #[test]
+    fn field_norms_denominators_match_the_inline_formula() {
+        let scorer = Bm25Scorer::new(17.5, 500);
+
+        // ZNM1 shape: stored length IS the byte decode → byte-keyed table.
+        let modern: Vec<(u32, u16, u8)> = (0..300u32)
+            .map(|d| {
+                let byte = (d % 256) as u8;
+                (d, crate::index::norm_u8_to_u16(byte), byte)
+            })
+            .collect();
+        let mut fnorms = FieldNorms::new(&scorer, &modern, true);
+        for d in 0..300u32 {
+            let dl = u32::from(crate::index::norm_u8_to_u16((d % 256) as u8));
+            assert_eq!(
+                fnorms.denom_at(d).to_bits(),
+                scorer.norm_denom(dl).to_bits(),
+                "table path diverged at doc {d}"
+            );
+        }
+        // Missing doc → length-1 denominator (the `unwrap_or(1)` identity).
+        assert_eq!(
+            fnorms.denom_at(9_999).to_bits(),
+            scorer.norm_denom(1).to_bits()
+        );
+
+        // Legacy shape: the stored u16 is NOT the byte decode — the slow
+        // path must score off the STORED length; keying by the byte here
+        // would silently move scores on pre-M4.7 segments.
+        let legacy: Vec<crate::index::NormEntry> = (0..300u32)
+            .map(|d| {
+                let len = (d % 700) as u16 + 9; // ≤ 708 < u16::MAX
+                (d, len, 200u8) // byte 200 decodes to a fixed length ≠ len
+            })
+            .collect();
+        let mut fnorms = FieldNorms::new(&scorer, &legacy, false);
+        for d in 0..300u32 {
+            let dl = u32::from((d % 700) as u16 + 9);
+            assert_eq!(
+                fnorms.denom_at(d).to_bits(),
+                scorer.norm_denom(dl).to_bits(),
+                "legacy slow path diverged at doc {d}"
+            );
+        }
+        assert_eq!(
+            fnorms.denom_at(50_000).to_bits(),
+            scorer.norm_denom(1).to_bits()
+        );
+
+        // Empty norms (unknown field / stats-only reader): every doc misses.
+        let mut empty = FieldNorms::new(&scorer, &[], true);
+        assert_eq!(empty.denom_at(0).to_bits(), scorer.norm_denom(1).to_bits());
+    }
+
+    /// Cluster-B end-to-end pin: the hoisted scoring loops (`scan_term` and
+    /// the WAND walk) must reproduce the UN-hoisted formula's exact bits on
+    /// real searcher output.  Uses tf=1 fixture docs so the expected score
+    /// is `score_term` itself, no tf recovery needed.
+    #[test]
+    fn hoisted_score_paths_are_bit_identical_to_the_formula() {
+        // Leaf term path: doc 1 is "quick brown fox" — fox tf=1.
+        let dir = TempDir::new().unwrap();
+        let searcher = setup_searcher(dir.path());
+        let hits = searcher
+            .search(&Query::Term(TermQuery::new("body", "fox")), 10, false)
+            .unwrap();
+        let scorer = searcher.make_scorer("body");
+        let df = searcher.scoring_df("body", "fox", 3);
+        let dl = searcher.reader.field_length("body", 1).unwrap_or(1) as u32;
+        let hit = hits
+            .iter()
+            .find(|h| h.doc_id == 1)
+            .expect("doc 1 matches fox");
+        assert_eq!(
+            hit.score.to_bits(),
+            scorer.score_term(df, 1, dl).to_bits(),
+            "scan_term hoisted score diverged from score_term"
+        );
+
+        // WAND path: docs 0..2 are "the needle pad{i}" — both terms tf=1,
+        // same 3-token length, so the needle docs tie and doc 0 leads.
+        let dir = TempDir::new().unwrap();
+        let searcher = wand_fixture(dir.path());
+        let q = Query::Bool(Box::new(
+            BoolQuery::new()
+                .should(Query::Term(TermQuery::new("body", "the")))
+                .should(Query::Term(TermQuery::new("body", "needle"))),
+        ));
+        let (bounded, total) = searcher.search_bounded(&q, 3, false).unwrap();
+        assert_eq!(total, 300);
+        assert_eq!(bounded[0].doc_id, 0, "needle docs lead the page");
+        let df_the = searcher.scoring_df("body", "the", 300);
+        let df_needle = searcher.scoring_df("body", "needle", 3);
+        let dl = searcher.reader.field_length("body", 0).unwrap_or(1) as u32;
+        // Clause order [the, needle], bool boost 1.0 — the exact f32
+        // summation sequence the generic path performs.
+        let w_scorer = searcher.make_scorer("body");
+        let expected = w_scorer.score_term(df_the, 1, dl) + w_scorer.score_term(df_needle, 1, dl);
+        assert_eq!(
+            bounded[0].score.to_bits(),
+            expected.to_bits(),
+            "WAND hoisted score diverged from score_term sum"
+        );
     }
 
     /// Micro-bench (ignored by default; run with `--ignored`): the WAND path

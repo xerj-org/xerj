@@ -1655,7 +1655,7 @@ fn norm_u16_to_u8(len: u16) -> u8 {
 }
 
 #[inline]
-fn norm_u8_to_u16(b: u8) -> u16 {
+pub(crate) fn norm_u8_to_u16(b: u8) -> u16 {
     if b < 8 {
         return (b + 1) as u16;
     }
@@ -1727,6 +1727,10 @@ impl FstData {
     }
 }
 
+/// One stored field-length norm: `(doc_id, decoded length, quantised byte)`.
+/// See [`LoadedField::norms`] for why the byte rides along.
+pub(crate) type NormEntry = (u32, u16, u8);
+
 struct LoadedField {
     /// FST term dictionary — mmap'd where possible.
     fst: FstData,
@@ -1742,7 +1746,14 @@ struct LoadedField {
     /// re-quantising the length would move BM25's length normalisation on
     /// every merged document.  `(u32, u16, u8)` still occupies 8 bytes
     /// after padding, so this costs no memory over the old `(u32, u16)`.
-    norms: Vec<(u32, u16, u8)>,
+    norms: Vec<NormEntry>,
+    /// `true` when every stored length IS `norm_u8_to_u16(byte)` — the
+    /// invariant every ZNM1 (M4.7+) segment holds by construction.  True
+    /// then, a scorer may key its per-length BM25 denominator by the BYTE
+    /// (256 entries) instead of the length.  Legacy pre-M4.7 segments
+    /// stored unquantised lengths with a re-derived byte, where the
+    /// identity fails, and must keep scoring off the stored `u16`.
+    norms_exact: bool,
 }
 
 impl FtsIndexReader {
@@ -1936,8 +1947,8 @@ impl FtsIndexReader {
 
             // STATS-ONLY: the norms table is a whole-file read + decode that
             // is O(docs); the statistics pre-pass never asks for a doc length.
-            let norms = if stats_only {
-                Vec::new()
+            let (norms, norms_exact) = if stats_only {
+                (Vec::new(), true)
             } else {
                 Self::load_norms(&norms_path)?
             };
@@ -1949,6 +1960,7 @@ impl FtsIndexReader {
                     post_data,
                     meta,
                     norms,
+                    norms_exact,
                 },
             );
         }
@@ -1979,7 +1991,10 @@ impl FtsIndexReader {
         Ok(mmap)
     }
 
-    fn load_norms(path: &Path) -> Result<Vec<(u32, u16, u8)>> {
+    /// Read a norms side-car.  Returns the triples plus whether the stored
+    /// lengths are exactly the byte decodes (`norms_exact` — see
+    /// [`LoadedField::norms_exact`]).
+    fn load_norms(path: &Path) -> Result<(Vec<NormEntry>, bool)> {
         let bytes = fs::read(path).with_context(|| format!("opening norms {:?}", path))?;
         // V4 M4.7 compact format starts with `NORMS_MAGIC`; legacy starts
         // with a raw u32 count (whose first byte almost never matches 'Z').
@@ -2013,7 +2028,8 @@ impl FtsIndexReader {
                     norms.push((doc_id as u32, norm_u8_to_u16(b), b));
                 }
             }
-            Ok(norms)
+            // Every length here IS the byte decode by construction.
+            Ok((norms, true))
         } else {
             // Legacy path (pre-M4.7): u32 count + count × (u32 doc_id, u16 norm).
             let mut cur = std::io::Cursor::new(&bytes[..]);
@@ -2026,7 +2042,14 @@ impl FtsIndexReader {
                 // writer would emit for it is what a merge must carry forward.
                 norms.push((doc_id, norm, norm_u16_to_u8(norm)));
             }
-            Ok(norms)
+            // Unquantised lengths: the identity holds only where
+            // re-quantising round-trips (lengths <= 8), so check rather
+            // than assume — the byte-keyed scoring table is only valid
+            // when it holds for EVERY entry.
+            let exact = norms
+                .iter()
+                .all(|&(_, len, byte)| len == norm_u8_to_u16(byte));
+            Ok((norms, exact))
         }
     }
 
@@ -2165,6 +2188,20 @@ impl FtsIndexReader {
             .binary_search_by_key(&doc_id, |(id, _, _)| *id)
             .ok()
             .map(|idx| loaded.norms[idx].1)
+    }
+
+    /// The field's whole norm table plus its exactness flag (see
+    /// [`LoadedField::norms_exact`]).  `None` for an unknown field — callers
+    /// treat that as "no stored norms" (every lookup misses, length 1).
+    ///
+    /// This is the scoring-hot-path accessor: the slice is sorted by doc_id,
+    /// so a cursor that only moves forward (the WAND walk and `scan_term`
+    /// both visit docs in ascending order) finds each doc's norm in
+    /// amortised O(1) instead of a per-lookup `HashMap` descent +
+    /// binary search.
+    pub fn field_norms(&self, field: &str) -> Option<(&[NormEntry], bool)> {
+        let loaded = self.fields.get(field)?;
+        Some((&loaded.norms, loaded.norms_exact))
     }
 
     /// Every `(doc_id, quantised norm byte)` this field records, ascending by
