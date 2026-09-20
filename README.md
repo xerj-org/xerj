@@ -410,11 +410,14 @@ limits each one does not lift:
   snapshot API, and what restore replaces.
 - [Security model](./docs/SECURITY_MODEL.md) for authentication, the reserved
   `.xerj-memory-*` namespace, API keys and what is not enforced.
-- [Reranking](./docs/RERANK.md) for the optional `rerank` search stage: an external judge
-  reorders the top hits by a calibrated probability. It is the only search-time feature
-  that sends document text off the node (proxy embeddings and the WAL tap are the other
-  operator-configured outbound paths), it needs an operator-configured provider key, and
-  its ranking quality with the real model is not verified.
+- [Reranking](./docs/RERANK.md) for the optional `rerank` search stage: a second-stage
+  judge reorders the top hits. Two providers — a hosted one (needs an operator-configured
+  key; the only search-time feature that sends document text off the node, alongside proxy
+  embeddings and the WAL tap when an operator configures those; the page lists every
+  outbound connection a node can open) and `local`, an in-process cross-encoder that needs
+  no key and sends nothing. The hosted provider's ranking quality is not verified by this
+  project; the local provider's is measured on BEIR and, on our harness, it does **not**
+  beat hybrid RRF — it is opt-in, not a default.
 - [XERJ vs Lucene 10.3.1](./docs/XERJ_VS_LUCENE.md) for a source-pinned, six-axis comparison
   of their storage and search designs.
 

@@ -2,7 +2,7 @@
 ---
 title: "How much better is hybrid search than BM25? Measured."
 canonical: "https://xerj.org/answers/hybrid-search-quality-measured-ndcg"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/hybrid-search-quality-measured-ndcg.md"
 ---
 
@@ -105,7 +105,7 @@ What the table supports is narrow. On NFCorpus the local hybrid figure sits insi
 
 Choose a hosted reranker when ranking quality on hard queries matters most. You pay for it in latency, in cost, and in text that leaves the machine. The published SciFact figures for all three hosted systems are higher than XERJ's local hybrid figure. A reranker also returns a calibrated probability, which a fused score is not.
 
-Choose local hybrid when text must stay on the machine, or when a paid call per search is not acceptable. XERJ supports both. `hybrid` runs on the node. The `rerank` stage calls a judge when an operator has set a key.
+Choose local hybrid when text must stay on the machine, or when a paid call per search is not acceptable. XERJ supports both. `hybrid` runs on the node with the built-in lexical or neural embedder. With proxy embeddings, the query text goes to that embeddings API. The `rerank` stage calls a judge when an operator has set a key.
 
 ## What this run does not show
 

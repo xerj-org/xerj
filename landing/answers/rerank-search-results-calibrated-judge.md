@@ -2,7 +2,7 @@
 ---
 title: "How do I rerank search results with a relevance judge?"
 canonical: "https://xerj.org/answers/rerank-search-results-calibrated-judge"
-updated: "2026-09-18"
+updated: "2026-09-19"
 source: "content/answers/rerank-search-results-calibrated-judge.md"
 ---
 
@@ -66,7 +66,11 @@ A calibrated probability means the same thing on every query. `rerank.min_score:
 
 ## This sends your data off the machine
 
-Reranking is the only search-time feature that sends document text to a third party. Two other outbound paths exist, and both are off by default. `[embedding] default_endpoint` (proxy embeddings) sends document text at indexing time, and query text at search time, to an external embeddings API. The WAL tap replays every write on tapped indices to an external `_bulk` endpoint. An operator has to turn either one on. Indexing, search, the built-in embedders and agent memory run on the node. A rerank request POSTs the question and the text of up to `window` hits to the provider.
+Reranking is the only search-time feature that sends document text to a third party. Two other features send text off the node, and both are off by default. Proxy embeddings (`[embedding] default_endpoint`) send document text at indexing time and query text at search time to an external embeddings API. The WAL tap replays every write on tapped indices to an external `_bulk` endpoint. An operator has to turn either one on.
+
+The node has two more outbound connections, and neither carries document or query text. Neural mode downloads its model from the HuggingFace Hub once. Cluster mode, which a default single-node deployment never starts, sends Raft messages, such as index names and mappings, to your own peers. The reference, `docs/RERANK.md`, lists every outbound connection a node can open.
+
+A rerank request POSTs the question and the text of up to `window` hits to the provider.
 
 Three controls exist. Reranking does nothing until an operator sets a provider key. A search only triggers it by carrying a `rerank` block. An operator can forbid it with `enabled = false` under `[rerank]`, which refuses every rerank request with HTTP 403.
 
@@ -112,13 +116,17 @@ The policy is split: degrade on deadline, surface on contract.
 | No provider key on the node | HTTP 503, nothing sent. |
 | The provider answered 401 or a malformed body | HTTP 502, no hits. |
 
-A slow third party is not a reason to deny you results you already have. A wrong key does not fix itself, and hiding it would mislead you about which ranking you hold. This split follows the approach Meilisearch uses in its personalization module. The approach was adapted and no code was copied.
+A slow third party is not a reason to deny you results you already have. A wrong key does not fix itself, and hiding it would mislead you about which ranking you hold. This split follows the approach Meilisearch uses in its personalization module (MIT). The approach and the retry back-off constants were adapted from it, and the code cites the lines.
 
 ## Cost facts
 
 Every document in the window is a paid judgement. The window defaults to 30 and the server caps it at 300. A provider call carries at most 30 documents, so `window: 35` is two calls. Scores from different calls stay comparable, because each one is an absolute probability rather than a rank inside its batch.
 
 XERJ sends 8 calls at once by default and 16 at most. The `usage` field is the provider's own token count for the search. XERJ does not price it.
+
+Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. To keep the cost down, fetch the window once and cut the pages out of it in your own code. Page two continues page one only if the provider returns the same probabilities on a repeat call, which XERJ has not verified for the real model.
+
+The strings have ceilings too. `instructions` is limited to 2,000 characters, because the provider's wire format repeats it once per judged document. The question is limited to 4,000 characters and `model` to 128. A longer value is an HTTP 400 that names the field and the limit.
 
 ## What is not verified
 
@@ -138,7 +146,7 @@ Add a `rerank` object to the body of `POST /{index}/_search`. An empty object us
 
 ### Does reranking send my documents to a third party?
 
-Yes. It is the only search-time feature that sends document text off the node; proxy embeddings and the WAL tap are the other outbound paths, and all three are operator-configured and inert by default. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent.
+Yes. It is the only search-time feature that sends document text off the node. Proxy embeddings and the WAL tap also send text off the node when an operator configures them, and all three are off by default. The question and the text of up to `window` hits go to the provider. Only fields the response returns are sent.
 
 ### What happens when the rerank provider is slow?
 
@@ -162,6 +170,7 @@ Yes. The `xerj_search` and `xerj_hybrid_search` tools take an optional `rerank` 
 
 ## Evidence
 
+- Reranking is the only search-time feature that sends document text off the node. Proxy embeddings and the WAL tap also send text off the node when configured; the neural model download and cluster Raft messages carry no document or query text. A test checks that list against every outbound network client in the engine source. — `engine/crates/xerj-rerank/tests/egress_inventory.rs`
 - The rerank stage defaults to a window of 30 hits, allows at most 300, sends at most 30 documents per provider call, runs 8 calls in flight by default and 16 at most, and defaults to a 10000 ms stage budget capped at 60000 ms. — `engine/crates/xerj-rerank/src/lib.rs`
 - The failure policy, every refused combination, the 400, 403, 502 and 503 statuses, paging inside the window, and the rule that only returned text is sent are each pinned by an HTTP test against an in-process stub of the provider wire format. — `engine/crates/xerj-api/tests/rerank_stage_http.rs`
 - The nDCG@10 figures for Jev (0.768 SciFact, 0.358 NFCorpus), Voyage rerank-3 (0.755, 0.357) and Cohere rerank-v3.5 (0.745, 0.340) are published in the hev/jev-rerank README. XERJ did not run them, and they rerank that project's own first-stage shortlist. — [https://github.com/hev/jev-rerank](https://github.com/hev/jev-rerank)

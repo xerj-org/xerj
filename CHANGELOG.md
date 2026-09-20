@@ -31,8 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (default 30, max 300) to TypeSafe AI's Jev; the 0–1 probability replaces
   `_score`, so `rerank.min_score` is an absolute cut-off, which a BM25 score
   cannot be. **It is the only search-time feature that sends document text
-  off the node** (the other outbound paths, `[embedding] default_endpoint` and
-  the WAL tap, are operator configuration, inert by default too): inert until
+  off the node** (`[embedding] default_endpoint` and the WAL tap also send text
+  off the node when an operator configures them; docs/RERANK.md lists every
+  outbound connection a node can open, and a test fails when the engine source
+  gains one that list does not name): inert until
   an operator sets `[rerank] api_key` (or
   `TYPESAFE_API_KEY`; config wins over env), opt-in per request, forbidden
   outright by `[rerank] enabled = false`, and only fields the response returns
@@ -46,20 +48,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `hits.total` and `aggs`
   stay the engine's; paging happens inside the window; `sort`, `search_after`,
   `collapse`, scroll and `size: 0` are 400s; and `_msearch`, search templates,
-  `_async_search`, the native `/v1` search API and gRPC refuse the block instead
-  of dropping it. `GET /_xerj/rerank` reports whether a provider is configured
+  `_async_search`, `_rank_eval` (per request, under `failures`), the native
+  `/v1` search API and gRPC refuse the block instead of dropping it. Every
+  caller-chosen cost knob has a server-side ceiling, the strings included:
+  `instructions` is capped at 2,000 characters because the provider's wire
+  format repeats it once per judged document, the question at 4,000 and
+  `model` at 128; a provider response over 2 MiB is a 502, not an allocation.
+  `GET /_xerj/rerank` reports whether a provider is configured
   and never the key; `/v1/metrics` gains `xerj_rerank_requests_total{outcome}`,
   `xerj_rerank_documents_judged_total` and
   `xerj_rerank_provider_tokens_total{kind}`; the MCP `xerj_search` and
   `xerj_hybrid_search` tools take an optional `rerank` argument. **Ranking
   quality with the real model is not verified** — no provider key was
-  available, and the 41 HTTP tests run against an in-process test double.
+  available, and every HTTP test runs against an in-process test double.
   New crate `xerj-rerank`; reference in `docs/RERANK.md`; two benchmarks,
   `benchmarks/beir-hybrid` and `benchmarks/decisions-as-retrieval`, both
   measured with `--embed-mode neural`, not the default lexical embedder. The
   one-question-per-document request shape follows `hev/jev-rerank`
-  (Apache-2.0); the failure policy follows Meilisearch's personalization module
-  (approach adapted, no code copied).
+  (Apache-2.0); the failure policy and the retry back-off constants follow
+  Meilisearch's personalization module (MIT; adapted, cited in code).
+
+### Fixed
+
+- **Reference-code passage windows preserve their match score.** `xc.py`
+  could select relevant source and then discard its matches while aligning
+  the excerpt to line boundaries, including on long source lines. Line
+  alignment now keeps the selected term score or falls back to the bounded
+  original window. Window scoring also uses original-source offsets when
+  Unicode lowercasing expands characters. This affects the fallback when no
+  matching symbol is available and explicit `--no-symbol` output.
+
+- **`xc.py --mode hybrid` keeps BM25 results when the optional vector arm has
+  a transport failure.** Connection failures, read timeouts, and interrupted
+  HTTP responses during semantic mapping discovery or search now take the
+  existing BM25-only fallback instead of aborting and discarding valid hits.
+  Primary BM25 failures still exit with an error. Standalone `--mode semantic`
+  now reports mapping/search HTTP and transport failures as errors (exit `2`)
+  instead of treating failed requests as empty search results (exit `1`).
+
+- **`xc.py --json` emits JSON for empty search results.** Previously, a query
+  with no hits printed the human-readable no-match message before reaching the
+  JSON output branch, breaking callers that parse stdout. Empty results now
+  preserve the JSON response and still exit `1`; matching results exit `0`, and
+  a corpus with no live indices retains its distinct exit `3` diagnostic.
+
+### Documentation
+
+- **`llms.txt` proposals, revised and fact-checked**
+  (`docs/research/llms-txt-2026-09/proposals/`). A proposed `llms.txt`, an
+  `llms-install.md` and ten paste-ready install prompts, following the study's
+  twelve rules: three complete entry paths (shell, MCP-only, HTTP-only), the
+  lexical-by-default correction first, per-client MCP registration with the
+  key, a verify line after every step, and a feedback ask that is optional
+  and needs no git. Every quote is re-fetched (259 claims, 258 confirmed, the
+  one failure removed) and the XERJ commands the proposals print were run on
+  Linux against v1.0.0-rc.74, except the ones the record's own "Not run" list
+  names — the `curl | sh` installer, macOS and Windows, `--embed-mode neural`,
+  `claude mcp add --scope local` and the per-client registration lines, which
+  are quoted from each client's own documentation with a fact-check id. Two product findings came out of it:
+  `xerj feedback --open-pr` branches, commits and pushes in whatever
+  repository it is run from, and `xerj init` writes an MCP entry without
+  `XERJ_AUTH`, so against a default node every tool call returns 401. The
+  live `landing/llms.txt` is unchanged; the report's ship checklist says what
+  has to exist first.
+
+- **ROADMAP: the zero-token direction, with every status checked against the
+  tree** ([#941](https://github.com/xerj-org/xerj/issues/941)). A new roadmap
+  section and [docs/ZERO_TOKEN_DIRECTION.md](./docs/ZERO_TOKEN_DIRECTION.md)
+  lay out judged search, share links and a guest reading room, mail ingest,
+  semantic detections, a real object-storage backend, a block index mode for
+  logs, user-code ingest plugins and a corpus hub of signed packs — and say
+  plainly what exists today: `S3Backend` is a local-directory simulation and
+  `storage.backend = "s3"` refuses to start on purpose, `_watcher` stores
+  watches and never evaluates them, alert rules have schemas and no
+  evaluator, `xerj-logs` has no caller, and there is no wasmtime backend in
+  the tree. The measuring behind it
+  ([benchmarks/neural-path-triage/](./benchmarks/neural-path-triage/)) filed
+  four defects with literal reproductions:
+  [#937](https://github.com/xerj-org/xerj/issues/937) a declared analyzer
+  stops applying at flush, [#938](https://github.com/xerj-org/xerj/issues/938)
+  neural ingest keeps ~3.4 of 32 threads busy,
+  [#939](https://github.com/xerj-org/xerj/issues/939) `semantic` over
+  multi-passage documents is an exact scan that copies every `_source`
+  (~410 ms p50 on 5,183 documents, forward pass ~14 ms), and
+  [#940](https://github.com/xerj-org/xerj/issues/940) tied RRF scores change
+  order across a restart. All four stay open; nothing is fixed by this entry.
 
 ## [1.0.0-rc.74] - 2026-09-08
 

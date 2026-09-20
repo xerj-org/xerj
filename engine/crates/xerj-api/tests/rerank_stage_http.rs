@@ -73,6 +73,12 @@ enum Fault {
     /// Answer correctly, and ALSO echo a 0.5 verdict for `d0`..`d59` on every
     /// call — a provider that leaks other batches' keys back.
     EchoOtherBatches,
+    /// Answer every document correctly, under a `usage` block whose numbers
+    /// are not the unsigned integers the documentation promises.
+    OddUsage,
+    /// 200 with a valid JSON body of several megabytes: a provider (or
+    /// something answering in its place) that does not know when to stop.
+    HugeBody,
 }
 
 #[derive(Clone)]
@@ -184,6 +190,11 @@ async fn systemone(
                 .into_response();
         }
         Fault::Garbage => return (StatusCode::OK, "not json").into_response(),
+        Fault::HugeBody => {
+            let padding = "x".repeat(3 * 1024 * 1024);
+            return axum::Json(json!({"model": "m", "answers": {}, "padding": padding}))
+                .into_response();
+        }
         Fault::Delay(d) => tokio::time::sleep(d).await,
         _ => {}
     }
@@ -232,10 +243,15 @@ async fn systemone(
                 .or_insert_with(|| json!({"type": "noul", "noul": 0.5}));
         }
     }
+    let usage = if matches!(fault, Fault::OddUsage) {
+        json!({"input_tokens": 9_223_372_036_854_775_808u64, "output_tokens": -5})
+    } else {
+        json!({"input_tokens": 100, "output_tokens": 10})
+    };
     axum::Json(json!({
         "model": parsed["model"],
         "answers": answers,
-        "usage": {"input_tokens": 100, "output_tokens": 10},
+        "usage": usage,
     }))
     .into_response()
 }
@@ -623,6 +639,22 @@ async fn every_refusal_is_a_400_that_names_the_problem_and_sends_nothing() {
         (
             "?from= past the window",
             "/kb/_search?from=25&size=10",
+            json!({"query": q, "rerank": {}}),
+            "window",
+        ),
+        (
+            // `from + size` used to be an unchecked add: u64::MAX + 1 wrapped
+            // to 0, passed the window check, paid for a full window of
+            // judgements and returned an empty page under a 200 — while the
+            // same request without `rerank` is a 400.
+            "from + size overflowing",
+            "/kb/_search",
+            json!({"query": q, "from": u64::MAX, "size": 1, "rerank": {}}),
+            "window",
+        ),
+        (
+            "?from= overflowing in the URL",
+            "/kb/_search?from=18446744073709551615&size=1",
             json!({"query": q, "rerank": {}}),
             "window",
         ),
@@ -1877,6 +1909,15 @@ async fn the_status_endpoint_says_whether_it_is_configured_and_never_the_key() {
     assert_eq!(r["api_key"], json!({"set": true, "source": "config"}));
     assert_eq!(r["endpoint"]["url"], stub.endpoint);
     assert_eq!(r["limits"]["max_docs_per_call"], 30);
+    // The string ceilings are limits an operator (and an agent) can read,
+    // like the numeric ones — and they are the crate's constants, not copies.
+    assert_eq!(
+        r["limits"]["max_instructions_chars"],
+        xerj_rerank::MAX_INSTRUCTIONS_CHARS
+    );
+    assert_eq!(r["limits"]["max_query_chars"], xerj_rerank::MAX_QUERY_CHARS);
+    assert_eq!(r["limits"]["max_model_chars"], xerj_rerank::MAX_MODEL_CHARS);
+    assert_eq!(r["limits"]["max_fields"], xerj_rerank::MAX_FIELDS);
     assert_eq!(r["defaults"]["max_concurrency"], 8);
     assert!(r["data_egress"]
         .as_str()
@@ -2659,5 +2700,327 @@ async fn a_small_max_result_window_is_refused_in_the_callers_terms() {
     assert!(
         stub.calls().len() == 1,
         "only the fitting request reached the provider"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Second review round (PR #946 at 2cc53f60)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Forty matching documents, for windows wider than one provider call.
+async fn seed_forty(node: &Node) {
+    let docs: Vec<(String, String, String)> = (0..40)
+        .map(|i| {
+            (
+                i.to_string(),
+                format!("Doc {i}"),
+                format!("vitamin d supplementation bone density note {i}"),
+            )
+        })
+        .collect();
+    let refs: Vec<(&str, &str, &str, &str, i64)> = docs
+        .iter()
+        .enumerate()
+        .map(|(i, (id, t, b))| (id.as_str(), t.as_str(), b.as_str(), "c", i as i64))
+        .collect();
+    node.seed("kb40", &refs).await;
+}
+
+/// MAJOR (review round 2): `rerank.instructions` had no ceiling, and the wire
+/// format repeats it inside every per-document question. One ~1 MB string at
+/// `window: 40`, `max_doc_chars: 1` put 40 MB on the wire to the provider for a
+/// `size: 1` search. It is a caller-chosen cost knob like the window, so it
+/// gets a server-side ceiling like the window: a 400 that names the limit, and
+/// nothing sent.
+#[tokio::test]
+async fn oversized_instructions_query_and_model_are_refused_and_send_nothing() {
+    let stub = Stub::start().await;
+    let node = node(&stub).await;
+    seed_forty(&node).await;
+
+    let big = "y".repeat(1_000_000);
+    for (name, body, needle) in [
+        (
+            "instructions",
+            json!({"query": match_q(), "size": 1,
+                   "rerank": {"window": 40, "max_doc_chars": 1, "instructions": big}}),
+            "rerank.instructions",
+        ),
+        (
+            "rerank.query",
+            json!({"query": match_q(), "size": 1, "rerank": {"query": big}}),
+            "rerank.query",
+        ),
+        (
+            "model",
+            json!({"query": match_q(), "size": 1, "rerank": {"model": big}}),
+            "rerank.model",
+        ),
+        (
+            // The question read out of the search query is the same string on
+            // the same wire, so it has the same ceiling — and the refusal says
+            // what to do about it.
+            "inferred question",
+            json!({"query": {"match": {"body": big}}, "size": 1, "rerank": {}}),
+            "rerank.query",
+        ),
+    ] {
+        let (st, r) = node.search("/kb40/_search", body).await;
+        assert_eq!(st, StatusCode::BAD_REQUEST, "{name}: {}", reason(&r));
+        let why = reason(&r);
+        assert!(why.contains(needle), "{name}: {why}");
+        assert!(
+            why.contains("characters"),
+            "{name}: the refusal names the limit: {why}"
+        );
+        assert!(
+            why.len() < 600,
+            "{name}: the refusal must not echo the oversized value ({} bytes)",
+            why.len()
+        );
+    }
+    assert!(
+        stub.calls().is_empty(),
+        "a refused request must not have sent a byte to the provider"
+    );
+
+    // At the ceiling it runs, and what one search can put on the wire is
+    // bounded by the documented ceilings alone: 40 documents of 1 character
+    // each, under instructions at the limit.
+    let (st, r) = node
+        .search(
+            "/kb40/_search",
+            json!({"query": match_q(), "size": 1,
+                   "rerank": {"window": 40, "max_doc_chars": 1,
+                              "instructions": "y".repeat(xerj_rerank::MAX_INSTRUCTIONS_CHARS)}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(r["_rerank"]["judged"], 40, "{r}");
+    let sent: usize = stub.calls().iter().map(|c| c.body.to_string().len()).sum();
+    let bound = 40 * (xerj_rerank::MAX_INSTRUCTIONS_CHARS + 2 + 512) + 2 * 1_024;
+    assert!(
+        sent <= bound,
+        "{sent} bytes left the node for a 40-document window of 1-character documents; \
+         the ceilings allow {bound}"
+    );
+}
+
+/// `_rank_eval` builds its own search from `requests[].request` and the parser
+/// ignores keys it does not know, so a `rerank` block vanished and the metric
+/// was computed over the engine's order — "reranking does not help", under a
+/// 200, on the one endpoint whose job is measuring ranking quality. It is
+/// recorded per request in `failures` (the channel `_rank_eval` has for a
+/// request it cannot run), the rest of the batch is evaluated, and nothing is
+/// sent to the provider.
+#[tokio::test]
+async fn rank_eval_refuses_a_rerank_block_instead_of_scoring_the_engines_order() {
+    let stub = Stub::start().await;
+    inverted(&stub);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let ratings = json!([{"_index": "kb", "_id": "3", "rating": 1}]);
+    let (st, r) = node
+        .call(
+            "POST",
+            "/kb/_rank_eval",
+            json!({
+                "requests": [
+                    {"id": "with_rerank",
+                     "request": {"query": match_q(), "rerank": {"window": 30}},
+                     "ratings": ratings},
+                    {"id": "plain", "request": {"query": match_q()}, "ratings": ratings},
+                    {"id": "null_is_absent",
+                     "request": {"query": match_q(), "rerank": null},
+                     "ratings": ratings}
+                ],
+                "metric": {"precision": {"k": 1}}
+            }),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    let failure = &r["failures"]["with_rerank"];
+    assert!(
+        failure.is_object(),
+        "a request carrying `rerank` must be reported in `failures`, not scored: {r}"
+    );
+    let why = failure["reason"].as_str().unwrap_or_default();
+    assert!(why.contains("rerank"), "{r}");
+    assert!(why.contains("_rank_eval"), "{r}");
+    assert_eq!(
+        failure["type"], "illegal_argument_exception",
+        "the same refusal every other surface gives, not a failed search: {r}"
+    );
+    assert!(
+        r["details"]["with_rerank"].is_null(),
+        "no metric may be published for it: {r}"
+    );
+    // The siblings ran, on the engine's order, and say so by being in details.
+    assert!(r["details"]["plain"].is_object(), "{r}");
+    assert!(r["details"]["null_is_absent"].is_object(), "{r}");
+    assert!(r["failures"]["plain"].is_null(), "{r}");
+    assert!(r["failures"]["null_is_absent"].is_null(), "{r}");
+    assert!(
+        stub.calls().is_empty(),
+        "_rank_eval does not run the stage, so nothing may reach the provider"
+    );
+}
+
+/// The interaction table says the judge reads what the response returns, and
+/// `prepare`'s own refusal says "return the text through `fields`". In the
+/// default mode (no `rerank.fields`) the stage read `_source` and `_passage`
+/// only, so following that advice produced a second 400.
+#[tokio::test]
+async fn text_returned_only_through_fields_is_judged_without_naming_it() {
+    let stub = Stub::start().await;
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    // `fields`
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "_source": false,
+                   "fields": ["body"], "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(r["_rerank"]["judged"], 4, "{r}");
+    let sent = stub.everything_sent();
+    assert!(sent.contains("supplementation"), "{sent}");
+    assert!(
+        !sent.contains("Trial results"),
+        "the title was not returned, so it was not sent: {sent}"
+    );
+
+    // `docvalue_fields`: the keyword value is the only text on the hit.
+    let stub2 = Stub::start().await;
+    let node2 = crate::node(&stub2).await;
+    node2.seed_kb().await;
+    let (st, r) = node2
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "_source": false,
+                   "docvalue_fields": ["cat"],
+                   "rerank": {"query": "which category is a trial?"}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["judged"], 4, "{r}");
+    let sent = stub2.everything_sent();
+    assert!(sent.contains("trial"), "{sent}");
+    assert!(!sent.contains("supplementation"), "{sent}");
+
+    // A field that is in BOTH `_source` and `fields` is sent once, not twice.
+    let stub3 = Stub::start().await;
+    let node3 = crate::node(&stub3).await;
+    node3.seed_kb().await;
+    let (st, r) = node3
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "fields": ["body"], "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    for call in stub3.calls() {
+        for (_, doc) in call.body["state"]["documents"].as_object().unwrap() {
+            let text = doc["text"].as_str().unwrap_or_default();
+            assert!(
+                text.matches("vitamin rich vegetables").count() <= 1
+                    && text.matches("bone china").count() <= 1,
+                "a value present in `_source` and `fields` was sent twice: {text}"
+            );
+        }
+    }
+}
+
+/// `usage` is advisory metering. A provider that reports a negative or
+/// otherwise odd token count must not cost the caller a ranking whose verdicts
+/// were all valid (it used to be a 502 with no hits).
+#[tokio::test]
+async fn odd_provider_usage_does_not_veto_a_valid_ranking() {
+    let stub = Stub::start().await;
+    inverted(&stub);
+    stub.fault(Fault::OddUsage);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::OK, "{r}");
+    assert_eq!(r["_rerank"]["applied"], true, "{r}");
+    assert_eq!(r["_rerank"]["judged"], 4, "{r}");
+    assert_eq!(ids(&r), INVERTED_IDS, "{r}");
+    // Neither count is one a call can produce (`-5`; 2^63, far past what 30
+    // documents at the ceilings hold), so both meter as zero — and the
+    // operator's Prometheus counter is not poisoned by one bad response.
+    assert_eq!(r["_rerank"]["usage"]["output_tokens"], 0, "{r}");
+    assert_eq!(r["_rerank"]["usage"]["input_tokens"], 0, "{r}");
+    let (_, metrics) = node.raw("GET", "/v1/metrics", String::new()).await;
+    let input_line = metrics
+        .lines()
+        .find(|l| l.starts_with("xerj_rerank_provider_tokens_total{kind=\"input\"}"))
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        input_line.is_empty() || input_line.ends_with(" 0"),
+        "an implausible token count reached the operator's meter: {input_line}"
+    );
+}
+
+/// The provider is a third party. A legitimate answer for 30 documents is a
+/// few kilobytes; a response of megabytes is not one, and reading it whole
+/// would let whatever answers at the endpoint choose how much memory a search
+/// allocates. It is a contract break — 502, no hits — not an allocation.
+#[tokio::test]
+async fn an_oversized_provider_response_is_a_502_not_an_allocation() {
+    let stub = Stub::start().await;
+    stub.fault(Fault::HugeBody);
+    let node = node(&stub).await;
+    node.seed_kb().await;
+
+    let (st, r) = node
+        .search(
+            "/kb/_search",
+            json!({"query": match_q(), "size": 4, "rerank": {}}),
+        )
+        .await;
+    assert_eq!(st, StatusCode::BAD_GATEWAY, "{r}");
+    assert_eq!(r["error"]["type"], "rerank_exception", "{r}");
+    let why = reason(&r);
+    assert!(why.contains("larger than"), "{why}");
+    assert!(r["hits"].is_null(), "a surfaced fault returns no hits: {r}");
+}
+
+/// Each page request judges the window again — there is no verdict cache. The
+/// docs say so; this pins the fact they state, so a future cache changes both.
+#[tokio::test]
+async fn every_page_request_judges_the_whole_window_again() {
+    let stub = Stub::start().await;
+    let node = node(&stub).await;
+    seed_forty(&node).await;
+
+    let mut judged = 0u64;
+    for from in [0, 10, 20] {
+        let (st, r) = node
+            .search(
+                "/kb40/_search",
+                json!({"query": match_q(), "size": 10, "from": from, "rerank": {"window": 30}}),
+            )
+            .await;
+        assert_eq!(st, StatusCode::OK, "{r}");
+        judged += r["_rerank"]["judged"].as_u64().unwrap_or(0);
+    }
+    assert_eq!(stub.calls().len(), 3, "one provider call per page request");
+    assert_eq!(
+        judged, 90,
+        "three pages of one 30-document window pay for 90"
     );
 }

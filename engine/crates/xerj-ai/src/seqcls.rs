@@ -110,7 +110,10 @@ enum Encoder {
         classifier: Linear,
     },
     XlmRoberta(xlm_roberta::XLMRobertaForSequenceClassification),
-    DebertaV2(debertav2::DebertaV2SeqClassificationModel),
+    // Boxed: the DeBERTa model struct is ~1.7 KB inline against ~0.3 KB for
+    // the others (clippy::large_enum_variant). One pointer hop per forward
+    // pass is nothing next to the pass itself.
+    DebertaV2(Box<debertav2::DebertaV2SeqClassificationModel>),
 }
 
 /// A loaded pair classifier. Share it behind an `Arc`; scoring takes `&self`.
@@ -256,7 +259,7 @@ impl PairClassifier {
                     id2label,
                 )
                 .map_err(|e| anyhow!("load DeBERTa-v2 classifier: {e}"))?;
-                (Encoder::DebertaV2(model), pad)
+                (Encoder::DebertaV2(Box::new(model)), pad)
             }
             other => bail!(
                 "unsupported model_type `{other}` in {}: the local judge loads `bert`, \

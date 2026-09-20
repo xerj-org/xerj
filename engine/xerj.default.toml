@@ -584,12 +584,16 @@ access_log = false
 # ── Rerank provider ─────────────────────────────────────────
 # `"rerank": {...}` on _search sends the text of the top-N hits to a
 # third-party judge (TypeSafe AI's Jev) and reorders them by the relevance
-# probability that comes back. It is the only SEARCH-TIME feature that sends
-# document text off this node (the other outbound paths, [embedding]
-# default_endpoint and the WAL tap, are operator configuration, inert by
-# default too), so it does nothing until a key is supplied here or in the
-# TYPESAFE_API_KEY environment variable. A value in this file wins over the
-# environment. `enabled = false` refuses every rerank request (403) whatever
+# probability that comes back. A HOSTED provider is the only SEARCH-TIME
+# feature that sends document text off this node (provider `local`, below,
+# sends nothing). Two other features send text off it, both off
+# by default: [embedding] default_endpoint (document text at write time, query
+# text at search time) and the WAL tap. The node's remaining outbound
+# connections (neural and local-judge model downloads, cluster Raft) carry no
+# document text;
+# docs/RERANK.md lists every one. Reranking does nothing until a key is
+# supplied here or in the TYPESAFE_API_KEY environment variable. A value in
+# this file wins over the environment. `enabled = false` refuses every rerank request (403) whatever
 # the environment holds. The key is never echoed: GET /_xerj/rerank (superuser
 # only) reports whether one is set and where it came from, nothing more.
 # `endpoint`, from here or from TYPESAFE_ENDPOINT, must be an absolute
