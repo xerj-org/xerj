@@ -127,6 +127,243 @@ a working configuration.
 without superuser rights finds out from the search itself: HTTP 503 means no
 key, HTTP 403 means the operator disabled it.
 
+## The `local` provider: a cross-encoder in this process
+
+```json
+POST /kb/_search
+{ "query": { "match": { "body": "vitamin d supplementation bone density" } },
+  "rerank": { "provider": "local", "window": 30 } }
+```
+
+No API key. No network call. No token bill. Nothing about the query or the
+documents leaves the host — the model is a file on this machine and scoring is a
+function call. That is the whole reason this provider exists: a second-stage
+judge on an air-gapped node, on a laptop with no account anywhere, and on a
+corpus whose text is not allowed to travel.
+
+It also inverts one operator switch, so read this before you rely on either:
+**`[rerank] enabled = false` does not switch the local provider off.** That
+setting exists to forbid egress, and this provider has none. `[judge] enabled =
+false` is the one that refuses it (403).
+
+A cross-encoder reads the query and one document *together* and emits a single
+relevance logit. That is the opposite trade from the engine's embedder, which
+reads each text alone so the vectors can be indexed: a cross-encoder cannot be
+precomputed and costs one forward pass per candidate, and in exchange every
+attention layer sees both sides. So it is a second stage over a short window,
+never a first stage — and the window is what you pay for, linearly.
+
+### Turn it on
+
+Nothing to configure for the default path: the provider is compiled into the
+stock release binaries and loads its model the first time a request asks for it.
+The `[judge]` block exists for the cases where the defaults are wrong.
+
+```toml
+# xerj.toml
+[judge]
+enabled      = true      # false → the local provider and POST /_judge answer 403
+download     = true      # false → never open a connection; the model must be on disk
+cache_dir    = ""        # "" = HF_HOME, else ~/.cache/huggingface/hub
+model_dir    = ""        # "" = use the cache. Air-gapped: <model_dir>/rerank-<tier>/
+threads      = 0         # 0 = auto (cores, capped at 16 — see the latency sweep)
+max_inflight = 2         # scoring calls admitted at once
+rerank_model = "small"   # tier used when a request names none
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `judge.enabled` | `true` | `false` refuses `"provider": "local"` and `POST /_judge` with HTTP 403. Independent of `[rerank] enabled`. |
+| `judge.download` | `true` | `false` never contacts huggingface.co. A model that is not already on disk is then HTTP 503, naming the file it wanted, rather than a silent fetch. |
+| `judge.cache_dir` | HF default | Where the Hugging Face cache lives. |
+| `judge.model_dir` | unset | Air-gapped root. Stage `config.json`, `tokenizer.json` and `model.safetensors` under `<model_dir>/rerank-<tier>/`. |
+| `judge.threads` | `0` (auto) | Width of the judge's own rayon pool. Auto is every core the resource policy grants latency work, capped at 16 — and the cap is measured, not guessed: candle's CPU matmul stops scaling long before that (see the sweep below). |
+| `judge.max_inflight` | `2` | Scoring calls admitted at once. Both share the one pool, so this bounds queueing, not CPU. |
+| `judge.rerank_model` | `"small"` | The tier a request that names no `rerank.model` gets. |
+
+Three request options are **refused by name** for this provider rather than
+quietly ignored, because a caller who set them and got something else has been
+misled: `rerank.instructions` (a cross-encoder reads no instructions — put what
+matters in `rerank.query`), `rerank.batch` (forward passes are sized by a
+padded-token budget, not a document count) and `rerank.max_concurrency` (the
+thread budget is the server's). `rerank.max_doc_chars` defaults to **4,000**
+here rather than the hosted provider's 1,200: the binding limit is the model's
+512-token window, so the character clip only has to stop a megabyte field from
+being tokenised for nothing.
+
+Verify, without loading a model or touching the network:
+
+```sh
+curl -s -H "Authorization: ApiKey $ADMIN_KEY" localhost:9200/_xerj/rerank | jq .local
+```
+
+Expect `"compiled_in": true`, `"enabled": true`, a `models` array with three
+entries, and each model's `state` — `not_downloaded`, `on_disk`, `loading`,
+`loaded` or `failed`. A first search with `"provider": "local"` on a node that
+has never downloaded the model answers **HTTP 200 with the engine's own order
+and `_rerank.applied: false`**, while the download runs in the background; the
+next search gets the reranked order. That is the deliberate behaviour, not a
+bug: a 90 MB download is not something to hold a search request open for.
+
+### The three models, their licences, and which is the default
+
+The table of models is **closed** — a request picks a tier by name and can never
+make the server fetch an arbitrary repository. Each entry pins a commit and the
+sha256 of `model.safetensors`, checked on load, so a moved `main` cannot change
+what your node scores with.
+
+| Tier | Model | Download | Resident (F32) | Licence | Training-data note |
+|---|---|---:|---:|---|---|
+| `small` **(default)** | [`cross-encoder/ms-marco-MiniLM-L6-v2`](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L6-v2) | 91 MB | ~349 MB | Apache-2.0 | Trained on MS MARCO passage ranking. Microsoft's MS MARCO terms say the datasets are "intended for non-commercial research purposes only". The **weights** are Apache-2.0; whether dataset terms reach a model trained on the data is not settled. Take advice before commercial use. |
+| `base` | [`BAAI/bge-reranker-base`](https://huggingface.co/BAAI/bge-reranker-base) | 1.1 GB | ~1.1 GB | MIT | The card says the released models "can be used for commercial purposes free of charge" and that it was trained on "multilingual pair data", without listing the datasets. BAAI's published English fine-tuning data for its other models includes MS MARCO, so assume the same open question. |
+| `large` | [`BAAI/bge-reranker-v2-m3`](https://huggingface.co/BAAI/bge-reranker-v2-m3) | 2.3 GB | ~4.6 GB | Apache-2.0 | Trained on bge-m3-data, Quora and FEVER per the card; bge-m3-data lists MS MARCO among its sources — the same unsettled question as `small`. |
+
+**`small` is the default tier** for three reasons, in this order: it is the only
+one that fits a laptop without thinking about it (91 MB down, ~349 MB resident,
+against 4.6 GB resident for `large`); it is the fastest by a factor of three on
+a CPU; and on our harness the larger tiers did not buy a verdict change — see
+below. None of those is "it is the most accurate". If your corpus is not English
+or your window is small enough to absorb the cost, measure `base` on your own
+data before assuming the default is right for you.
+
+**XERJ ships no weights.** Every tier is downloaded from the Hugging Face Hub on
+first use, under its own licence, and XERJ pins the revision and a sha256 rather
+than re-distributing the files. The licence that applies to what you do with the
+output is the model's, not XERJ's Apache-2.0.
+
+### The score is a ranking score, not a calibrated probability
+
+With the hosted provider, `_score` is a probability and `rerank.min_score` is a
+threshold that means the same thing on every query. **With the local provider
+today, it is not.** `_score = sigmoid(scale × logit + bias)`, and every shipped
+tier carries `scale = 1, bias = 0` — the raw sigmoid. The MiniLM model emits
+logits around ±10, so almost every document comes out as 0.00 or 1.00 whatever
+its real chance of being relevant. The ordering is right; the number is not a
+probability, and `rerank.min_score` against it is a knob you have to tune per
+corpus rather than a meaningful cut-off.
+
+`_rerank.local.calibration` reports this per response, so a client can tell:
+
+```json
+"calibration": { "method": "none", "scale": 1.0, "bias": 0.0,
+                 "fitted_on": "none (raw sigmoid)" }
+```
+
+We tried to fit one and are not shipping it. Platt scaling and temperature
+scaling were both fitted by maximum likelihood on a held-out split (SciFact
+`train`, NFCorpus `dev`, FiQA `dev`; the BM25 top-30 window, which is the
+population a default local rerank actually judges) and **both fits diverged**:
+the maximum-likelihood slope ran away to ~10^9–10^11 instead of converging,
+which is what a logistic fit does when the two classes are almost separable in
+the one feature it has. A map with a slope of 10^11 is a step function — it
+would make every score exactly 0 or 1 and destroy the little resolution the raw
+sigmoid has. Expected calibration error on the test split, `small` tier, pooled
+over all three datasets (35,626 pairs, 5.8% positive): **0.144 raw, 0.138 under
+the Platt fit, 0.167 under the temperature fit** — the "calibrated" map is not
+meaningfully better than the raw one, and one of the two is worse.
+So the table ships `Calibration::NONE`, and **no XERJ surface calls the local
+score calibrated.** Fitting one properly needs a richer feature than a single
+logit; it is open work, not a shipped claim.
+
+### What we measured: it does not beat hybrid RRF
+
+Three public BEIR datasets, nDCG@10 on each one's `test` split, against a node
+running `--embed-mode neural` (`all-MiniLM-L6-v2`, CPU) so that the hybrid arm is
+a real hybrid and not the default lexical feature-hashing embedder. One node, one
+shard, default settings. Method, raw output and the reproduce commands:
+[`benchmarks/local-judge`](../benchmarks/local-judge).
+
+<!--TABLE-->
+
+Read it twice, because it says two different things.
+
+**Against a BM25-only first stage the local judge is a large, unambiguous win**
+<!--BM25LINE-->
+That is the case this provider is genuinely for: a node with no vectors indexed,
+or a corpus you are not going to re-index.
+
+**Against hybrid RRF it is not the clear win a default would need.**
+<!--HYBLINE-->
+
+So it ships **opt-in**. Three reasons, in order of weight: it does not beat what
+already ships on every dataset; one call costs seconds of CPU (next section) where
+hybrid costs none; and its score is not calibrated. Any one of those would be
+enough to keep it off by default.
+
+For context — and **not** as a controlled comparison, because we did not run
+them and they rerank their own first-stage shortlist, not ours — the figures the
+[`hev/jev-rerank`](https://github.com/hev/jev-rerank) README publishes are
+0.768 / 0.358 for Jev, 0.755 / 0.357 for Voyage rerank-3 and 0.745 / 0.340 for
+Cohere rerank-v3.5 on SciFact / NFCorpus.
+
+#### How much of this is noise
+
+XERJ's hybrid fusion orders tied scores by a per-process seed
+([#940](https://github.com/xerj-org/xerj/issues/940)), so the hybrid baseline
+itself moves between node restarts. Measured rather than assumed, over three
+fresh node processes on unchanged indices:
+
+| | run 1 | run 2 | run 3 | spread |
+|---|---:|---:|---:|---:|
+| SciFact hybrid RRF | 0.7021 | 0.7034 | 0.7019 | 0.0015 |
+| NFCorpus hybrid RRF | 0.3445 | 0.3436 | 0.3438 | 0.0009 |
+
+Earlier runs of the same arm on the same data widen that band rather than
+contradict it: the `benchmarks/neural-path-triage` triple scored 0.6993, 0.7023
+and 0.7044 on SciFact, so **across all six recorded runs the SciFact hybrid arm
+spans 0.6993–0.7044 — a band of 0.0051** — and NFCorpus spans 0.3436–0.3448
+(0.0012). The conservative reading is the one used below: **0.0051 is the
+SciFact noise floor and 0.0012 is NFCorpus's.**
+
+Two further facts from the same three runs, which is why the reranked numbers
+can be compared at all:
+
+- the candidate **set** was identical on **100%** of queries — only the order of
+  tied hits moved — while the top-10 *order* was identical on just 44% (SciFact)
+  and 50% (NFCorpus) of them;
+- consequently every reranked arm scored **identically across all three
+  processes, to four decimal places** (spread 0.0000): a second stage that
+  reorders an unchanged set by model score cannot inherit the tie-seed noise.
+  `eval.py` reports this as `rerank_repeats` so it is checked, not asserted.
+
+### Latency on a CPU: seconds, not milliseconds
+
+**One 30-document call is the unit a search pays for**, so that is what is timed:
+one `pair_score` process, the machine otherwise idle, the load average recorded
+before and after each point. Hardware: one x86-64 host, 32 cores, 119 GB RAM,
+**no GPU**, `target-cpu=x86-64-v3`. Documents are BEIR FiQA passages clipped at
+the provider's 4,000-character default — real prose, not toy strings.
+
+<!--LATTABLE-->
+
+Three things to take from it.
+
+<!--LATNOTES-->
+
+### When it is worth turning on
+
+Given the measurement above, the honest advice is narrow:
+
+- **Do not switch it on for general relevance.** Hybrid RRF already ships, costs
+  no extra CPU per hit, and ranked at least as well on two of three datasets.
+- **Do switch it on when hybrid is not available to you** — no
+  `--embed-mode neural`, no vectors indexed, or a corpus indexed lexically that
+  you are not going to re-index. Against a BM25-only first stage the local judge
+  was a large, unambiguous gain on all three datasets, and that is the case it
+  is genuinely for.
+- **Do switch it on when the hosted provider is the alternative and the data
+  cannot leave.** A slightly-worse-than-hybrid local ranking is a different
+  trade from a better ranking that sends your documents to a third party, and
+  only you can make it.
+- **Measure `base` on your own corpus if latency allows.** Our datasets are
+  English, short-document and academic; two of them are the ones every reranker
+  is tuned on. Yours may not be.
+
+And two things to plan around whichever way you go: the per-call latency above,
+and the fact that **every request is judged from scratch** — there is no verdict
+cache, so three pages over one 30-document window are three full rerank calls.
+Fetch the window once and page client-side.
+
 ## Request
 
 ```json
@@ -545,11 +782,18 @@ vector or hybrid rows as what a default node scores. The BM25 row uses no
 embedder at all. Method, raw output and the reproduce commands are in
 [`benchmarks/beir-hybrid`](../benchmarks/beir-hybrid).
 
-Two things those runs do say:
+The **local** provider was measured, by us, on the same harness and on a third
+dataset as well: [What we measured](#what-we-measured-it-does-not-beat-hybrid-rrf).
+It is the only rerank quality figure in this document that XERJ actually ran.
 
-- Reordering a BM25 shortlist with the same bi-encoder scored **below** fusing
-  with it, on both datasets. That is why there is no "local MiniLM" rerank
-  provider: it would be a regression with a good name.
+Two things the bi-encoder runs above do say:
+
+- Reordering a BM25 shortlist with the same **bi-encoder** scored **below**
+  fusing with it, on both datasets. That is why the local provider is a
+  *cross*-encoder: reusing the embedder as a reranker would be a regression with
+  a good name. (A cross-encoder over the same BM25 shortlist does beat BM25 by a
+  wide margin — see the section linked above — which is the distinction that
+  note was pointing at.)
 - Where a team already has labelled history, some yes/no and pick-one decisions
   need no judge model at all —
   [`benchmarks/decisions-as-retrieval`](../benchmarks/decisions-as-retrieval)
