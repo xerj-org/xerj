@@ -357,8 +357,9 @@ Earlier runs of the same arm on the same data widen that band rather than
 contradict it: the `benchmarks/neural-path-triage` triple scored 0.6993, 0.7023
 and 0.7044 on SciFact, so **across all six recorded runs the SciFact hybrid arm
 spans 0.6993–0.7044 — a band of 0.0051** — and NFCorpus spans 0.3436–0.3448
-(0.0012). The conservative reading is the one used below: **0.0051 is the
-SciFact noise floor and 0.0012 is NFCorpus's.**
+(0.0012). The conservative reading is the one this page uses: **0.0051 is the
+SciFact noise floor and 0.0012 is NFCorpus's.** Both NFCorpus gains clear it;
+the SciFact loss does not, which is why it is called a wash and not a loss.
 
 Two further facts from the same three runs, which is why the reranked numbers
 can be compared at all:
@@ -759,6 +760,15 @@ the lines.
 
 ## Cost and concurrency facts
 
+These are the **hosted** provider's. Provider `local` differs on every line:
+there are no provider calls (the whole window is one in-process batch loop sized
+by a padded-token budget, not a document count), no rate limit and no connection
+pool, `max_concurrency` is refused because the budget is the server's
+`[judge] threads`, and `_rerank.usage` stays at zero because nothing is billed.
+What it does share is the last item below — **no verdict cache**, so paging
+re-judges the window, and there it costs CPU seconds rather than money.
+
+
 - **30 documents per provider call.** The `hev/jev-rerank` README reports a
   ~32k-token request budget, "~30–50 typical passages per call", and uses 30;
   XERJ uses the same figure and has not measured the provider's limit itself. A
@@ -798,7 +808,14 @@ the same fields. `true` or `{}` means defaults.
 - `xerj_hybrid_search` **requires** `rerank.query`: a hybrid search has several
   sub-queries and no single question.
 - The MCP server cannot supply a provider key. Without one on the node the tool
-  call returns the node's 503; repeat the search without `rerank`.
+  call returns the node's 503; repeat the search without `rerank`, or pass
+  `{"provider": "local"}`, which needs no key.
+- The tool description tells an agent the three things it has to know about the
+  local arm before choosing it: the score is **not** calibrated
+  (`score_kind: "relevance"`), our own measurement puts it behind hybrid RRF so
+  a hybrid search is usually the better call, and one 30-document call costs
+  seconds of CPU. `engine/crates/xerj-mcp/src/lib.rs` has a test that fails if
+  any of those three sentences is dropped.
 
 ## Quality numbers, and what we did not measure
 
