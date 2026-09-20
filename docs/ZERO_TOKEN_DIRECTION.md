@@ -22,7 +22,7 @@ it. Every number comes from a run whose harness and literal output are in
 |---|---|---|
 | Judged search (rerank stage) | ES `rescore` and the `hybrid` query type only | in flight: `feat/rerank-stage` |
 | Share links, guest reading room | no share or guest code in the tree | in flight: `feat/share-links`, `feat/console-corpus-reader` |
-| Mail ingest | `.eml` / MIME extraction in `xerj autoindex` (unreleased) | `mbox` / Takeout in flight: `feat/ingest-mbox-takeout` |
+| Mail ingest | `.eml` / MIME extraction and, since #949, streaming `mbox` / extracted Google Takeout ingest with reply edges, in `xerj autoindex` (unreleased) | on `main`; synthetic mailbox only; server memory is the limit (#948) |
 | `autoindex` resilience | one refused dataset aborts the run (#929) | in flight: `fix/autoindex-resilience` |
 | Semantic detections | `percolate` works; `_watcher` stores and never evaluates; alert rules have schemas and no evaluator | planned |
 | Object-storage backend | real S3/R2/MinIO client + read-through cache land in `xerj-storage`; the index path still does not use them, so `storage.backend = "s3"` refuses to start | in flight: `feat/object-storage-backend` |
@@ -101,8 +101,12 @@ plain-text body, and separate records per attachment linked back to the parent
 message — a PDF attachment goes through the PDF extractor
 (`engine/crates/xerj-autoindex/src/extract/eml.rs`).
 
-**In flight.** `feat/ingest-mbox-takeout`: streaming `mbox`, Google Takeout
-archives, and thread reconstruction. Not on `main`.
+**On `main` since #949, unreleased.** Streaming `mbox` (Takeout, Thunderbird,
+Apple Mail, mutt), extracted Google Takeout exports — archives are never
+opened; the run names each one with the command to extract it — and the
+`email-thread@1` detector's `replies_to` / `attachment_of` edges. Measured on
+a synthetic mailbox only (`benchmarks/mbox-ingest/README.md`); the node's
+ingest memory is the limit (#948).
 
 ## 4. Semantic detections
 

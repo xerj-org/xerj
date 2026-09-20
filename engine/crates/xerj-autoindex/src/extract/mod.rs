@@ -11,6 +11,7 @@ pub mod html;
 pub mod json;
 pub mod jsonl;
 pub mod logs;
+pub mod mbox;
 pub mod pdf;
 pub mod sqldump;
 pub mod sqlite_x;
@@ -110,14 +111,16 @@ pub const SECTION_OVERLAP: usize = 200;
 
 /// Open a (possibly gzipped) file as a buffered reader of DECODED-transparent
 /// bytes, optionally capped at `limit` decoded bytes (sampling).
-pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dyn BufRead>> {
+pub fn open_reader(path: &Path, gzip: bool, limit: Option<u64>) -> Result<Box<dyn BufRead + Send>> {
     let f = std::fs::File::open(path)?;
-    let inner: Box<dyn Read> = if gzip {
+    let inner: Box<dyn Read + Send> = if gzip {
         Box::new(flate2::read::MultiGzDecoder::new(f))
     } else {
         Box::new(f)
     };
-    let inner: Box<dyn Read> = match limit {
+    // `Send` so a container extractor (mbox) can move the reader to its
+    // splitter thread; every concrete reader here is.
+    let inner: Box<dyn Read + Send> = match limit {
         Some(n) => Box::new(inner.take(n)),
         None => Box::new(inner),
     };
@@ -203,6 +206,7 @@ pub fn extract(
         Family::TxtLines => txt::extract_lines(path, sn.gzip, limit_bytes, sink),
         Family::Pdf => pdf::extract(path, sink),
         Family::Eml => eml::extract(path, sn.gzip, sink),
+        Family::Mbox => mbox::extract(path, sn.gzip, limit_bytes, sink),
         Family::Docx => docx::extract(path, sink),
         Family::Sqlite => sqlite_x::extract(path, limit_bytes.map(|_| 500), sink),
         Family::SqlDump => sqldump::extract(path, sn.gzip, limit_bytes, sink),
@@ -576,6 +580,56 @@ pub fn emit_document(
         }
         None => true,
     }
+}
+
+/// [`emit_document`] for a document that carries FIELDS of its own: emit `body`
+/// as one or more section records, each stamped with `base_fields` (an email's
+/// headers, an attachment's link-back fields, a note's labels) plus
+/// `title`/`body`/`section`. Locators are `{loc_prefix}-s{i}`.
+///
+/// Returns the sink's last answer: `false` = stop extracting.
+pub(crate) fn emit_document_with_fields(
+    base_fields: &Map<String, Value>,
+    title: &str,
+    body: &str,
+    loc_prefix: &str,
+    sink: Sink,
+    stats: &mut ExtractStats,
+) -> bool {
+    // Collect sections first so we know whether to stamp a `section` field.
+    // One past the cap is collected so that "exactly at the cap" and "over the
+    // cap" are distinguishable: only the latter dropped anything (#381).
+    let mut secs: Vec<String> = Vec::new();
+    for_each_section(body, &mut |s| {
+        secs.push(s);
+        secs.len() <= MAX_RECORDS_PER_FILE
+    });
+    if secs.len() > MAX_RECORDS_PER_FILE {
+        secs.truncate(MAX_RECORDS_PER_FILE);
+        stats.truncated = true;
+    }
+    if secs.is_empty() {
+        secs.push(String::new());
+    }
+    let multi = secs.len() > 1;
+    for (i, sec) in secs.into_iter().enumerate() {
+        let mut fields = base_fields.clone();
+        fields.insert("title".into(), Value::String(title.to_string()));
+        fields.insert("body".into(), Value::String(sec));
+        if multi {
+            fields.insert("section".into(), Value::Number((i as u64).into()));
+        }
+        stats.records += 1;
+        if !sink(RawRecord {
+            fields,
+            locator: format!("{loc_prefix}-s{i}"),
+            group: None,
+            origin: FieldOrigin::Extractor,
+        }) {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]

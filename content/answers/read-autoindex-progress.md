@@ -41,7 +41,7 @@ evidence:
     source: "benchmarks/autoindex-resilience/before-rc74.stderr.txt"
   - claim: "A full-corpus run aborted at 60.4% of its index phase after 5122.5 s when one bulk came back with 747 items rejected 429 by the node's memory circuit breaker."
     source: "benchmarks/autoindex-resilience/before-944.full-corpus.stderr.txt"
-  - claim: "A --no-graph run whose node accepts nothing for 120 s of back-pressure re-sends ends with reason=server-backpressure and exit 1, and its terminal line carries ops_applied and ops_remaining."
+  - claim: "A --no-graph run whose node keeps rejecting for the whole 600 s a bulk waits ends with reason=server-backpressure and exit 1, and its terminal line carries ops_applied and ops_remaining."
     source: "engine/crates/xerj-autoindex/src/sync_executor.rs"
 faq:
   - q: "How do I know autoindex is still working?"
@@ -56,8 +56,8 @@ faq:
     a: "Pass --progress plain and read the xerj-progress lines from stderr. Each line is a flat set of key=value pairs with no colors and no cursor control."
   - q: "What does the final autoindex line say?"
     a: "The xerj-done line carries ok, exit, reason, wall, files, records, datasets and junk_files. The captured run ended ok=true exit=0 reason=completed."
-  - q: "What does a server back-pressure line mean?"
-    a: "The node answered some bulk items with HTTP 429 and the run is re-sending only those after a backoff. `since_progress_s` climbs while it waits; the line names the delay and the patience left. The terminal line then carries `bulk_retries=N`."
+  - q: "What does a `server is shedding load` line mean?"
+    a: "The node answered some bulk items with HTTP 429 and the run is re-sending only those after a backoff. `since_progress_s` climbs while it waits; the line names how long the wait has run and when the run gives up. The terminal line then carries `bulk_retries=N`."
   - q: "Can I combine --quiet with --progress plain?"
     a: "No. --quiet means no progress output, so the decision-JSON recipe and the progress-parsing recipe are separate invocations of autoindex."
 ---
@@ -161,7 +161,7 @@ On a current build each of those steps is a phase, and the small-repository capt
 xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 datasets=1 junk_files=0
 ```
 
-`reason` distinguishes `completed`, `dry-run`, `completed-with-junk`, `aborted` and, on the `--no-graph` path, `server-backpressure`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one. `server-backpressure` is exit 1: the node accepted nothing for 120 s of re-sends, and the line adds `ops_applied` and `ops_remaining` so you know how much the same command still has to do.
+`reason` distinguishes `completed`, `dry-run`, `completed-with-junk`, `aborted` and, on the `--no-graph` path, `server-backpressure`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one. `server-backpressure` is exit 1: the node kept rejecting for the whole 600 s a bulk waits, and the line adds `ops_applied` and `ops_remaining` so you know how much the same command still has to do.
 
 If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
 
@@ -172,7 +172,7 @@ If the node pushed back with HTTP 429 during the run, the line carries `bulk_ret
 A node that crosses its memory watermark answers writes with HTTP 429 until memory drops back, usually within seconds. The run lowers its bulk concurrency, re-sends only the rejected items after a backoff, and says so on stderr at most once every 5 seconds:
 
 ```text
-autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: …); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
+autoindex: server is shedding load — [parent] real memory circuit breaker tripped: …; re-offering 747 rejected record(s) (waited 30s, giving up after 600s)
 ```
 
 During the wait `since_progress_s` climbs, because nothing is landing. That is the honest reading, and the line above is what tells it apart from a hang. Before this change a full-corpus run aborted at 60.4% of its `index` phase, after 5122.5 seconds, on the first bulk that came back with 747 items rejected 429. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers the rules and the exit-1 case.

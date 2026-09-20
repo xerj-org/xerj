@@ -435,11 +435,11 @@ v1.0.0-rc.15; only v1.0.0-rc.16 and later ever return 4.
 Back-pressure is not a failure: when the node's memory circuit breaker answers
 a bulk — the whole request or some of its items — with HTTP 429, the run lowers its bulk concurrency,
 re-sends ONLY the rejected items after a backoff (250 ms doubling to 8 s), and
-continues for as long as the node accepts something; stderr says `server
-back-pressure … re-sending only the rejected items` (at most once per 5 s — it
-is not a hang, even though `since_progress_s` climbs), and the terminal line of a
-run that met it carries `bulk_retries=N` (present only when it happened). It
-exits 1 only after 120 s in which nothing was accepted, with an error line that
+keeps doing so until the node takes them; stderr says `server is shedding load
+… re-offering N rejected record(s)` (at most once per 30 s per waiting bulk —
+it is not a hang, even though `since_progress_s` climbs), and the terminal line
+of a run that met it carries `bulk_retries=N` (present only when it happened).
+It exits 1 only 600 s after that bulk was first offered, with an error line that
 begins `the server kept rejecting`; the same command then resumes from the last
 committed operation. A node whose resident memory stays pinned above its
 watermark after a large ingest never accepts again (issue #950): restart it or
@@ -451,7 +451,15 @@ catalog → verify.
     trusted (a JSON file wearing a `.pdf` extension is indexed as JSON; verified).
     Streaming extractors cover: JSON/JSONL, CSV (dialect detection: comma/semicolon/
     tab, decimal comma, quoted multiline fields, BOM), structured logs, SQL dumps,
-    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, and gzip-compressed variants.
+    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, mail (`.eml` and mbox mailboxes —
+    a Google Takeout `All mail Including Spam and Trash.mbox` is detected by content and
+    streamed one message at a time; attachments become their own records, PDFs per
+    page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`
+    detector; archives are never opened — a `.zip`/`.tgz` is junk with the command to
+    extract it; no PST/OST/Maildir — and a measured limit: on a 1 GB synthetic
+    mailbox the client peaked under 300 MB but the NODE needed 66.9 GiB of RSS to
+    finish and did not finish under its default 16 GiB cap, #948; warn the person
+    before indexing a multi-GB export), and gzip-compressed variants.
   - Types are INFERRED from bounded samples (default 500 records/file, `--sample N`):
     long/double/boolean/date/keyword/text, keyword-vs-text by cardinality, entity
     signals (emails, IPs, UUIDs, URLs), and date ENCODINGS — ISO-ms, epoch-ms,

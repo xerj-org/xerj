@@ -71,6 +71,61 @@ fn marker_generated_dir(path: &Path) -> Option<&'static str> {
     None
 }
 
+/// The file Google Takeout writes at the top of every export: an HTML table of
+/// contents for the archive. Its presence is what makes a directory a Takeout
+/// root — the `Takeout` folder NAME is not tested, because people rename it,
+/// merge several parts into one folder, or point autoindex at the inside of it.
+pub const TAKEOUT_MARKER: &str = "archive_browser.html";
+
+/// The export's own table of contents. It is not the user's data: it lists
+/// every product and file name in the archive, so indexing it puts one large
+/// document in front of every search that names a file.
+pub const TAKEOUT_INDEX_RULE: &str = "default:takeout-index";
+
+/// Google Keep exports EVERY note twice — `Note.json` (structured: labels,
+/// timestamps, checklist state) and `Note.html` (the same note rendered). The
+/// JSON is indexed as a document by `extract::json::keep_note`; indexing the
+/// HTML twin as well answers every Keep search twice.
+pub const TAKEOUT_KEEP_TWIN_RULE: &str = "default:takeout-keep-html-twin";
+
+/// Is `dir` the root of a Google Takeout export?
+fn is_takeout_root(dir: &Path) -> bool {
+    dir.join(TAKEOUT_MARKER).is_file()
+}
+
+/// The marker-gated verdict for one FILE of a Google Takeout export: `Some`
+/// names the rule that makes it noise. Part of the built-in defaults, exactly
+/// like [`MARKER_GENERATED_DIRS`], and deliberately short — two rules, each
+/// about a file that DUPLICATES something else in the export. Everything else
+/// in a Takeout is the user's data and is left to the ordinary sniffing:
+/// dropping someone's data on a guess about a product folder is worse than
+/// indexing a little noise.
+///
+/// * `archive_browser.html` in a Takeout root → [`TAKEOUT_INDEX_RULE`].
+/// * `X.html` directly inside a product folder of a Takeout root, with a
+///   sibling `X.json` that is a Keep note → [`TAKEOUT_KEEP_TWIN_RULE`]. The
+///   product folder's NAME is not tested (it is localised: `Keep`, `Notizen`,
+///   …); the sibling JSON's content is, by the same predicate the extractor
+///   uses, so an unrelated `report.html` beside a `report.json` is untouched.
+fn takeout_noise(path: &Path) -> Option<&'static str> {
+    let name = path.file_name()?;
+    let dir = path.parent()?;
+    if name == TAKEOUT_MARKER {
+        // `dir` holds this very file, so it is a Takeout root by definition.
+        return Some(TAKEOUT_INDEX_RULE);
+    }
+    let is_html = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("html"));
+    if is_html && dir.parent().is_some_and(is_takeout_root) {
+        let twin = path.with_extension("json");
+        if twin.is_file() && crate::extract::json::is_keep_note_file(&twin) {
+            return Some(TAKEOUT_KEEP_TWIN_RULE);
+        }
+    }
+    None
+}
+
 /// Why a followed symlink was refused. See the call site in `walk_reporting`.
 enum SymlinkVerdict {
     /// The resolved target is not under the indexed root. Carries the
@@ -434,6 +489,18 @@ fn walk_impl(
         }
         if stack.skip_file(entry.path()).is_some() {
             continue;
+        }
+        // Marker-gated Takeout noise (built-in defaults, so `--no-ignore` /
+        // `--no-default-ignores` disable it). After the ignore files, and
+        // yielding to them: a `!archive_browser.html` line in `.xerjignore`
+        // is an explicit instruction and wins.
+        if marker_defaults {
+            if let Some(label) = takeout_noise(entry.path()) {
+                if !stack.is_reincluded(entry.path(), false) {
+                    stack.record_marker_file(label);
+                    continue;
+                }
+            }
         }
         let md = match entry.metadata() {
             Ok(m) => m,
@@ -916,5 +983,193 @@ mod marker_generated_dir_tests {
             files.iter().any(|e| e.rel == "obj"),
             "the prune applies to directories only"
         );
+    }
+}
+
+#[cfg(test)]
+mod takeout_noise_tests {
+    use super::{walk_reporting, TAKEOUT_INDEX_RULE, TAKEOUT_KEEP_TWIN_RULE};
+    use crate::ignore_rules::IgnoreOptions;
+    use std::fs;
+    use std::path::Path;
+
+    const KEEP_NOTE: &str = r#"{"isTrashed":false,"isPinned":false,"isArchived":false,
+        "textContent":"call Dana","title":"todo",
+        "userEditedTimestampUsec":1700000000000000,"createdTimestampUsec":1700000000000000}"#;
+
+    /// `Takeout/` with mail, one Keep note (exported twice, as Takeout does),
+    /// and an unrelated html/json pair that must survive.
+    fn make_takeout(root: &Path, with_marker: bool) {
+        let t = root.join("Takeout");
+        fs::create_dir_all(t.join("Mail")).unwrap();
+        fs::create_dir_all(t.join("Keep")).unwrap();
+        fs::create_dir_all(t.join("Drive")).unwrap();
+        if with_marker {
+            fs::write(t.join("archive_browser.html"), "<html>index</html>").unwrap();
+        }
+        fs::write(t.join("Mail/All mail Including Spam and Trash.mbox"), "x").unwrap();
+        fs::write(t.join("Keep/todo.json"), KEEP_NOTE).unwrap();
+        fs::write(t.join("Keep/todo.html"), "<html>call Dana</html>").unwrap();
+        // A note whose name is not ASCII: the twin lookup is path-based and
+        // must never slice a name by bytes.
+        fs::write(t.join("Keep/設計書 مرحبا.json"), KEEP_NOTE).unwrap();
+        fs::write(t.join("Keep/設計書 مرحبا.html"), "<html>x</html>").unwrap();
+        // Not a Keep note: an html beside a json that is ordinary data.
+        fs::write(t.join("Drive/report.json"), r#"{"rows":[1,2,3]}"#).unwrap();
+        fs::write(t.join("Drive/report.html"), "<html>report</html>").unwrap();
+        // An html with no json twin at all.
+        fs::write(t.join("Keep/orphan.html"), "<html>orphan</html>").unwrap();
+    }
+
+    fn rels(root: &Path, opts: IgnoreOptions) -> (Vec<String>, crate::ignore_rules::IgnoreReport) {
+        let (files, report) = walk_reporting(root, false, opts).unwrap();
+        (files.into_iter().map(|e| e.rel).collect(), report)
+    }
+
+    #[test]
+    fn the_export_index_and_keep_html_twins_are_skipped_and_named() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), true);
+        let (rels, report) = rels(dir.path(), IgnoreOptions::default());
+        assert!(
+            !rels.iter().any(|r| r.ends_with("archive_browser.html")),
+            "{rels:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "{rels:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/設計書 مرحبا.html".to_string()),
+            "{rels:?}"
+        );
+        // The data itself is all still there.
+        for kept in [
+            "Takeout/Mail/All mail Including Spam and Trash.mbox",
+            "Takeout/Keep/todo.json",
+            "Takeout/Keep/設計書 مرحبا.json",
+            "Takeout/Keep/orphan.html",
+            "Takeout/Drive/report.html",
+            "Takeout/Drive/report.json",
+        ] {
+            assert!(
+                rels.contains(&kept.to_string()),
+                "{kept} missing from {rels:?}"
+            );
+        }
+        // Never silent: each rule is on the report with its count.
+        assert_eq!(report.by_rule[TAKEOUT_INDEX_RULE].files, 1, "{report:?}");
+        assert_eq!(
+            report.by_rule[TAKEOUT_KEEP_TWIN_RULE].files, 2,
+            "{report:?}"
+        );
+        assert_eq!(report.files_skipped, 3);
+    }
+
+    /// Pointing autoindex INSIDE the export (at `Takeout/` itself) is the same
+    /// export: the marker is found in the root, not in a folder named Takeout.
+    #[test]
+    fn the_takeout_folder_itself_can_be_the_root() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), true);
+        let (rels, report) = rels(&dir.path().join("Takeout"), IgnoreOptions::default());
+        assert!(
+            !rels.contains(&"archive_browser.html".to_string()),
+            "{rels:?}"
+        );
+        assert!(!rels.contains(&"Keep/todo.html".to_string()), "{rels:?}");
+        assert!(rels.contains(&"Keep/todo.json".to_string()), "{rels:?}");
+        assert_eq!(report.by_rule[TAKEOUT_KEEP_TWIN_RULE].files, 2);
+    }
+
+    /// No marker, no Takeout: a folder that merely has a `Keep/` with paired
+    /// files keeps every one of them.
+    #[test]
+    fn without_the_marker_nothing_is_skipped() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), false);
+        let (rels, report) = rels(dir.path(), IgnoreOptions::default());
+        assert!(
+            rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "{rels:?}"
+        );
+        assert_eq!(report.files_skipped, 0, "{report:?}");
+    }
+
+    /// An `archive_browser.html` deeper than a product folder does not make
+    /// its grand-children Takeout products: only `<root>/<product>/X.html`.
+    #[test]
+    fn the_twin_rule_reaches_one_level_below_the_marker_only() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), true);
+        let deep = dir.path().join("Takeout/Keep/sub");
+        fs::create_dir_all(&deep).unwrap();
+        fs::write(deep.join("n.json"), KEEP_NOTE).unwrap();
+        fs::write(deep.join("n.html"), "<html>n</html>").unwrap();
+        let (rels, _) = rels(dir.path(), IgnoreOptions::default());
+        assert!(
+            rels.contains(&"Takeout/Keep/sub/n.html".to_string()),
+            "{rels:?}"
+        );
+    }
+
+    #[test]
+    fn both_switches_disable_it_and_an_ignore_file_can_reinclude() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), true);
+        let no_defaults = IgnoreOptions {
+            defaults: false,
+            ..IgnoreOptions::default()
+        };
+        for opts in [IgnoreOptions::off(), no_defaults] {
+            let (rels, _) = rels(dir.path(), opts);
+            assert!(
+                rels.contains(&"Takeout/archive_browser.html".to_string()),
+                "{opts:?}"
+            );
+            assert!(
+                rels.contains(&"Takeout/Keep/todo.html".to_string()),
+                "{opts:?}"
+            );
+        }
+        // `!name` in .xerjignore outranks the built-in rule.
+        fs::write(dir.path().join(".xerjignore"), "!archive_browser.html\n").unwrap();
+        let (rels, report) = rels(dir.path(), IgnoreOptions::default());
+        assert!(
+            rels.contains(&"Takeout/archive_browser.html".to_string()),
+            "{rels:?}"
+        );
+        assert!(
+            !report.by_rule.contains_key(TAKEOUT_INDEX_RULE),
+            "{report:?}"
+        );
+        assert!(
+            !rels.contains(&"Takeout/Keep/todo.html".to_string()),
+            "twins still skipped"
+        );
+    }
+
+    /// A json twin that is broken, huge, or a directory is not a Keep note, and
+    /// doubt means INDEX the html. None of these may panic (panic = abort).
+    #[test]
+    fn a_twin_that_is_not_a_readable_keep_note_skips_nothing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        make_takeout(dir.path(), true);
+        let keep = dir.path().join("Takeout/Keep");
+        fs::write(keep.join("broken.json"), b"{\"isTrashed\": \xff\xfe").unwrap();
+        fs::write(keep.join("broken.html"), "<html>b</html>").unwrap();
+        fs::create_dir_all(keep.join("isdir.json")).unwrap();
+        fs::write(keep.join("isdir.html"), "<html>d</html>").unwrap();
+        let mut big = String::from(KEEP_NOTE.trim_end_matches('}'));
+        big.push_str(&format!(",\"pad\":\"{}\"}}", "x".repeat((1 << 20) + 16)));
+        fs::write(keep.join("big.json"), big).unwrap();
+        fs::write(keep.join("big.html"), "<html>big</html>").unwrap();
+        let (rels, _) = rels(dir.path(), IgnoreOptions::default());
+        for kept in ["broken.html", "isdir.html", "big.html"] {
+            assert!(
+                rels.contains(&format!("Takeout/Keep/{kept}")),
+                "{kept}: {rels:?}"
+            );
+        }
     }
 }

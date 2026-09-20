@@ -16,17 +16,17 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 /// index → (_id → _source). BTreeMaps keep every assertion order-stable.
-type Docs = BTreeMap<String, BTreeMap<String, Value>>;
+pub(super) type Docs = BTreeMap<String, BTreeMap<String, Value>>;
 
-struct MockEs {
-    url: String,
-    docs: Arc<Mutex<Docs>>,
+pub(super) struct MockEs {
+    pub(super) url: String,
+    pub(super) docs: Arc<Mutex<Docs>>,
     stop: Arc<Mutex<bool>>,
     join: Option<thread::JoinHandle<()>>,
 }
 
 impl MockEs {
-    fn start() -> Self {
+    pub(super) fn start() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -58,7 +58,7 @@ impl MockEs {
         }
     }
 
-    fn index(&self, name: &str) -> BTreeMap<String, Value> {
+    pub(super) fn index(&self, name: &str) -> BTreeMap<String, Value> {
         self.docs
             .lock()
             .unwrap()
@@ -223,9 +223,92 @@ fn bulk(body: &[u8], docs: &Arc<Mutex<Docs>>) -> Value {
     json!({"errors": errors, "items": items})
 }
 
+/// Does `doc` match `query`? The subset of the query DSL the pipeline's
+/// `_id`-ordered scans send (`detect::scan_by_id`): `bool` with `filter` /
+/// `must_not` / `should`, and the leaves `term`, `terms`, `wildcard` (`*`
+/// only) and `exists`. An unknown clause PANICS rather than matching
+/// everything — a mock that silently said yes would make every scan test pass.
+fn matches(doc: &Value, query: &Value) -> bool {
+    let (kind, arg) = query
+        .as_object()
+        .and_then(|o| o.iter().next())
+        .expect("a query clause is an object with one key");
+    let values_of = |field: &str| -> Vec<String> {
+        match doc.get(field) {
+            Some(Value::Array(a)) => a
+                .iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect(),
+            Some(Value::String(s)) => vec![s.clone()],
+            _ => Vec::new(),
+        }
+    };
+    let list = |v: Option<&Value>| -> Vec<Value> {
+        match v {
+            Some(Value::Array(a)) => a.clone(),
+            Some(one) => vec![one.clone()],
+            None => Vec::new(),
+        }
+    };
+    match kind.as_str() {
+        "bool" => {
+            let should = list(arg.get("should"));
+            list(arg.get("filter")).iter().all(|q| matches(doc, q))
+                && list(arg.get("must")).iter().all(|q| matches(doc, q))
+                && !list(arg.get("must_not")).iter().any(|q| matches(doc, q))
+                && (should.is_empty() || should.iter().any(|q| matches(doc, q)))
+        }
+        "term" => {
+            let (field, want) = arg.as_object().unwrap().iter().next().unwrap();
+            values_of(field)
+                .iter()
+                .any(|v| Some(v.as_str()) == want.as_str())
+        }
+        "terms" => {
+            let (field, want) = arg.as_object().unwrap().iter().next().unwrap();
+            let want: Vec<&str> = want
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            values_of(field).iter().any(|v| want.contains(&v.as_str()))
+        }
+        "wildcard" => {
+            let (field, pattern) = arg.as_object().unwrap().iter().next().unwrap();
+            let pattern = pattern.as_str().unwrap();
+            let (head, tail) = pattern.split_once('*').expect("one `*` in the pattern");
+            assert!(!tail.contains('*'), "mock wildcard supports one `*`");
+            values_of(field).iter().any(|v| {
+                v.len() >= head.len() + tail.len() && v.starts_with(head) && v.ends_with(tail)
+            })
+        }
+        "exists" => doc
+            .get(arg["field"].as_str().unwrap())
+            .is_some_and(|v| !v.is_null()),
+        other => panic!("MockEs does not evaluate `{other}` queries"),
+    }
+}
+
 fn search(index: &str, body: &Value, docs: &Arc<Mutex<Docs>>) -> Value {
     let locked = docs.lock().unwrap();
     let store = locked.get(index).cloned().unwrap_or_default();
+    // `detect::scan_by_id`: a real query, `_id` order, `search_after` paging.
+    if body.pointer("/sort/0/_id").is_some() {
+        let size = body.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
+        let after = body
+            .pointer("/search_after/0")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let hits: Vec<Value> = store
+            .iter() // BTreeMap: already `_id` ascending
+            .filter(|(id, _)| after.as_ref().is_none_or(|a| *id > a))
+            .filter(|(_, s)| matches(s, &body["query"]))
+            .take(size)
+            .map(|(id, s)| json!({"_id": id, "_source": s, "sort": [id]}))
+            .collect();
+        return json!({"hits": {"total": {"value": hits.len()}, "hits": hits}});
+    }
     // The §6.6.3 invalidation query: live edges taught by one src_file.
     if let Some(rel) = body
         .pointer("/query/bool/filter/0/term/src_file")
@@ -256,7 +339,7 @@ fn search(index: &str, body: &Value, docs: &Arc<Mutex<Docs>>) -> Value {
 
 const EDGES_INDEX: &str = ".xerj-memory-notes-edges";
 
-fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
+pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
     IndexCfg {
         root: root.to_owned(),
         endpoint_url: None,
@@ -322,7 +405,7 @@ fn write_fixture(dir: &Path) {
     fs::write(dir.join("epsilon.md"), "Epsilon stands alone.").unwrap();
 }
 
-fn journal_graph_summary(state_dir: &Path) -> Value {
+pub(super) fn journal_graph_summary(state_dir: &Path) -> Value {
     let journal = fs::read_to_string(state_dir.join("journal.ndjson")).unwrap();
     journal
         .lines()

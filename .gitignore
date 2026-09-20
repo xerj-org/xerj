@@ -164,6 +164,14 @@ __pycache__/
 # pull-request template and tools/**/SKILL.md above.
 !scripts/seo/testdata/**/*.md
 
+# Re-include: the committed synthetic Takeout that xerj-autoindex's end-to-end
+# mail test indexes. scripts/synthetic-takeout.py writes a Drive/meeting-notes.md
+# into it, and the blanket *.md rule above dropped that one file from the
+# commit: the tree was complete on the author's disk, `git status` was clean,
+# and "Build + Test" was red on every clean checkout (PR #949 review). Test
+# fixtures are data, whatever their extension.
+!engine/crates/xerj-autoindex/tests/fixtures/**/*.md
+
 # Re-include: the SEO toolchain's own operational guide. It documents the
 # article generator, the URL map and every merge gate for landing/, so it is
 # part of the tooling — the same reasoning as tools/**/*.md above. The

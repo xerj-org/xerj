@@ -314,7 +314,7 @@ first bulk that came back with 747 items rejected
 about a second later. The first ended the resumed run 1039.6 s in: a
 whole-request 429 was handed to the transport retry — six attempts, about 8 s
 of backoff — and then aborted with `error: _bulk: HTTP 429 Too Many Requests`,
-while the same rejection carried per item would have been waited out for 120 s.
+while the same rejection carried per item would have been waited out.
 
 Now, when a bulk comes back 429 as a whole, or when every failed item in it is
 a 429, the run:
@@ -323,9 +323,8 @@ a 429, the run:
 - cuts exactly the rejected actions out of the body it sent — the response is
   positional, and a `delete` (no document line) keeps its place — and re-sends
   only those after a backoff of 250 ms doubling to 8 s;
-- keeps doing so while the node accepts *something*; each response that lands
-  an item resets the clock;
-- gives up after 120 s in which nothing was accepted. Only then is it exit 1,
+- keeps doing so until the node takes them;
+- gives up 600 s after that bulk was first offered. Only then is it exit 1,
   with an error line that begins `the server kept rejecting` and says that
   nothing from that bulk was journaled and the same command resumes the run.
 
@@ -358,9 +357,9 @@ line read `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s
 ops_applied=0 ops_remaining=231`; after a restart on the default cap, the same
 command committed the generation with the control run's 1,663 records.
 
-The stream says what is happening at most once every 5 s (`autoindex: server
-back-pressure: N of M bulk item(s) rejected … re-sending only the rejected
-items in 0.3s — the run gives up if nothing is accepted for another 120s`), and
+The stream says what is happening at most once every 30 s per waiting bulk
+(`autoindex: server is shedding load — <the node's own reason>; re-offering N
+rejected record(s) (waited Ws, giving up after 600s)`), and
 the terminal line of a run that met back-pressure carries `bulk_retries=N`,
 present only when it happened. The `raising bulk concurrency` line after
 recovery is printed at most once every 10 s (the motivating capture held 117 of

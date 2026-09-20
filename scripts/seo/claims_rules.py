@@ -1539,9 +1539,29 @@ THING_MATRIX = [
      "aliases": [r"\bs3 bucket\b", r"s3://", r"object stor(?:e|age)",
                  r"\bs3\b[^\n]{0,20}\b(?:ingest|index|indexing|search|scan|crawl)\b",
                  r"\b(?:ingest|index|indexing|search|scan|crawl)\w*\b[^\n]{0,20}\bs3\b"]},
-    {"thing": "Email archive (mbox / PST)", "status": RED, "mech": "no extractor", "cite": RC + ":375",
-     "gate": "Roadmap item. Real demand - worth an issue, not a page.",
-     "aliases": [r"\bmbox\b", r"\bpst\b", r"email archive", r"\bemails?\b", r"mailbox"]},
+    # The research doc (RC:375) lists "Email archive (mbox / PST)" as ONE red row,
+    # and it was: no extractor. That stopped being true in two steps - #921 added
+    # eml.rs, and extract/mbox.rs added the streaming mbox splitter - so the row
+    # is split three ways rather than flipped. `--check-matrix` will report this
+    # as drift against the research doc; the doc predates both extractors.
+    #   mbox / .eml  GREEN  extractors exist; verified with the real binary
+    #                       against a generated mailbox (benchmarks/mbox-ingest).
+    #   PST/OST/Maildir RED still nothing reads them.
+    #   Google Takeout AMBER the LAYOUT rules (skip archive_browser.html and Keep
+    #                       .html twins) have only ever seen a synthetic tree.
+    {"thing": "Email (.eml) and mbox mailboxes", "status": GREEN, "mech": "eml.rs + mbox.rs",
+     "cite": "benchmarks/mbox-ingest/README.md",
+     "gate": "Write, SCOPED TO .eml AND mbox. Numbers come from a SYNTHETIC mailbox - say so. "
+             "Do not imply PST/OST/Maildir, IMAP sync, or a mail client.",
+     "aliases": [r"\bmbox\b", r"\beml\b", r"email archive", r"\bemails?\b", r"mailbox"]},
+    {"thing": "Outlook PST / OST, Maildir", "status": RED, "mech": "no extractor", "cite": RC + ":375",
+     "gate": "No extractor. Tell the reader to export to mbox first; do not write a page.",
+     "aliases": [r"\bpst\b", r"\bost\b", r"maildir", r"\boutlook\b"]},
+    {"thing": "Google Takeout export", "status": AMBER, "mech": "mbox.rs + json.rs (Keep) + walk.rs takeout rules",
+     "cite": "benchmarks/mbox-ingest/README.md",
+     "gate": "Layout handling is verified on a synthetic tree only (scripts/synthetic-takeout.py). "
+             "Say 'not verified on a real export' in the article until someone runs one.",
+     "aliases": [r"takeout"]},
     {"thing": "Screenshots / scanned docs / OCR", "status": RED, "mech": "no extractor", "cite": RC + ":376",
      "gate": "Paperless-ngx owns this.", "aliases": [r"\bocr\b", r"scanned docs?", r"screenshots?", r"scanned documents?"]},
     {"thing": "Ebooks (EPUB)", "status": RED, "mech": "no extractor", "cite": RC + ":377", "gate": "-",

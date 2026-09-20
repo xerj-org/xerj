@@ -160,9 +160,8 @@ released within 0.1–3.1 s. The condition the run died on had cleared about a
 second later. The same capture holds 117 `raising bulk concurrency` lines for
 11 shrinks.
 
-The fix (re-send only the rejected items while the node accepts something,
-give up after 120 s with nothing accepted, `bulk_retries=N` on the terminal
-line) is verified by unit tests on a stub server and by an end-to-end test on
+The fix (re-send only the rejected items, give up 600 s after the bulk was
+first offered, `bulk_retries=N` on the terminal line) is verified by unit tests on a stub server and by an end-to-end test on
 each of the two indexing paths.
 
 Resuming the interrupted generation with that fix found the second shape of

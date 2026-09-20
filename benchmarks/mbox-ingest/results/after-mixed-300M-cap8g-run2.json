@@ -1,0 +1,161 @@
+{
+ "profile": "mixed",
+ "target_size": "300M",
+ "label": "cap8g",
+ "extra_autoindex_flags": "",
+ "resumed_after_a_failed_run": false,
+ "autoindex_exit_code": 3,
+ "autoindex_last_line": "xerj-done ok=true exit=3 reason=completed-with-junk wall=90.3s files=16 records=30403 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0",
+ "source": {
+  "mbox_bytes": 314676844,
+  "tree_bytes": 314693315,
+  "entries": 11478,
+  "attachments": {
+   "binary": 1632,
+   "pdf": 1192,
+   "text": 1213
+  },
+  "mbox_sha256": "8db4b57314368947cf1e26ef857e1453b6e708544aff3c420cbb6a85fbbddf12"
+ },
+ "wall_seconds": 90.8,
+ "node_docs_indexed": 30403,
+ "docs_per_second": 334.7,
+ "source_mb_per_second": 3.46,
+ "peak_rss_unit": "MiB (VmHWM kB / 1024) - the key says mb for compatibility with earlier result files",
+ "peak_rss_mb": {
+  "autoindex_process": 217.3,
+  "largest_single_process_in_autoindex_tree": 215.2,
+  "server": 20420.7,
+  "server_at_autoindex_exit": 20420.7,
+  "server_idle_before_run": 123.2
+ },
+ "server_memory_cap": "8192",
+ "server_breaker_engagements": 10,
+ "disk_bytes": {
+  "index_at_autoindex_exit": 217490754,
+  "index_settled": 217161813,
+  "index_settled_over_mbox": 0.69,
+  "state_dir_peak_during_run": 74141217
+ },
+ "loadavg_before": "5.44 2.79 8.13",
+ "loadavg_after": [
+  "16.46",
+  "8.40",
+  "9.39"
+ ],
+ "verify": {
+  "node_docs": 30403,
+  "mbox_docs": 30373,
+  "attachment_docs": 11169,
+  "needles": {
+   "body": {
+    "planted": 118,
+    "found_exactly_once": 118,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 118
+   },
+   "latin1-8bit-body": {
+    "planted": 332,
+    "found_exactly_once": 332,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 332
+   },
+   "cp1252-undeclared-body": {
+    "planted": 131,
+    "found_exactly_once": 131,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 131
+   },
+   "after-unquoted-prose-from": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "pdf-attachment": {
+    "planted": 69,
+    "found_exactly_once": 69,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 69
+   },
+   "text-attachment": {
+    "planted": 60,
+    "found_exactly_once": 60,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "found_in_overlapping_sections": 0,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [],
+  "edges": {
+   "replies_to": {
+    "live": 5992,
+    "stored_including_invalidated": 5992,
+    "truth_resolvable_replies": 5992
+   },
+   "attachment_of": {
+    "live": 11169,
+    "stored_including_invalidated": 11169,
+    "attachment_docs": 11169
+   }
+  },
+  "sender_filter": {
+   "sampled": 40,
+   "term_matches_display_form": 40,
+   "mismatch": []
+  },
+  "subject_search": {
+   "sampled": 40,
+   "subject_found_in_body": 40,
+   "mismatch": []
+  },
+  "empty_no_subject_docs": 0,
+  "query_latency_seconds": {
+   "requests": 905,
+   "total": 29.58,
+   "median": 0.0056,
+   "p95": 0.0206,
+   "max": 15.615,
+   "over_1s": 2,
+   "over_10s": 1
+  }
+ },
+ "binary": "release build of feat/ingest-mbox-takeout at 69b0e8ba (branch head 08ccb1df = 69b0e8ba + a .contributors merge from main), run at 2026-09-19 21:14 UTC on 127.0.0.1:12120",
+ "node_memory": "XERJ_MAX_PROCESS_MEMORY_MB=8192 - the cap the auto tier gives a 16 GiB machine - on this 119 GiB machine (watermark 7,782 MB)",
+ "note": "a 300 MB mailbox at a laptop's cap: the run completed and every needle was found, but the server's resident high-water mark was 20,420.7 MiB (19.9 GiB) AT AUTOINDEX EXIT - 2.5x its own 8 GiB cap and more RAM than a 16 GiB laptop has. The breaker engaged 10 times (it stops admission; work already admitted keeps growing). Not run on an actual 16 GiB machine. Engine-side, issue #948."
+}

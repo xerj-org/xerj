@@ -1,0 +1,168 @@
+{
+ "profile": "mixed",
+ "target_size": "1G",
+ "label": "uncapped",
+ "extra_autoindex_flags": "",
+ "resumed_after_a_failed_run": false,
+ "autoindex_exit_code": 1,
+ "autoindex_last_line": "error: autoindex stopped with bulk/backend failures: bulk backend failed for 1770 item(s): {\"type\":\"engine_exception\",\"reason\":\"[parent] real memory circuit breaker tripped: rss=16451MB >= watermark=15564MB (94% of limit=16384MB); writes rejected to prevent an out-of-memory kill\",\"status\":429}. Source file was not journaled complete; fix the server/embedding configuration and rerun autoindex. Failed source files were not journaled complete; fix the reported server or embedding configuration and rerun the same command to resume safely",
+ "source": {
+  "mbox_bytes": 1073777879,
+  "tree_bytes": 1073794434,
+  "entries": 40799,
+  "attachments": {
+   "binary": 5698,
+   "pdf": 4261,
+   "text": 4300
+  },
+  "mbox_sha256": "4098bf60c0cba54e6dc21737c5ddb0883da45854eec928e3e39ff1434aec0323"
+ },
+ "wall_seconds": 228.5,
+ "node_docs_indexed": 54861,
+ "docs_per_second": 240.1,
+ "source_mb_per_second": 4.7,
+ "peak_rss_mb": {
+  "autoindex_process": 183.4,
+  "largest_single_process_in_autoindex_tree": 182.0,
+  "server": 21797.2,
+  "server_idle_before_run": 125.9
+ },
+ "disk_bytes": {
+  "index_at_autoindex_exit": 365708267,
+  "index_settled": 385043635,
+  "index_settled_over_mbox": 0.359,
+  "state_dir_peak_during_run": 252311996
+ },
+ "loadavg_before": "9.65 4.52 2.51",
+ "loadavg_after": [
+  "65.05",
+  "31.57",
+  "14.20"
+ ],
+ "verify": {
+  "node_docs": 54861,
+  "mbox_docs": 54831,
+  "attachment_docs": 20323,
+  "needles": {
+   "body": {
+    "planted": 418,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "latin1-8bit-body": {
+    "planted": 1160,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "cp1252-undeclared-body": {
+    "planted": 417,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "after-unquoted-prose-from": {
+    "planted": 41,
+    "found_exactly_once": 21,
+    "missing": 20,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 41
+   },
+   "pdf-attachment": {
+    "planted": 265,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "text-attachment": {
+    "planted": 216,
+    "found_exactly_once": 60,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 60
+   },
+   "keep-note": {
+    "planted": 12,
+    "found_exactly_once": 12,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 12
+   },
+   "drive-markdown": {
+    "planted": 1,
+    "found_exactly_once": 1,
+    "missing": 0,
+    "duplicated": 0,
+    "wrong_message": 0,
+    "checked": 1
+   }
+  },
+  "needle_examples_of_failure": [
+   {
+    "missing": {
+     "message_id": "prosefrom-21000@example.org",
+     "token": "xqmubefarabi",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-22000@example.org",
+     "token": "xqlowomufivu",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-23000@example.org",
+     "token": "xqhinaracusu",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-24000@example.org",
+     "token": "xqzovacazoji",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   },
+   {
+    "missing": {
+     "message_id": "prosefrom-25000@example.org",
+     "token": "xqdabijakupe",
+     "where": "after-unquoted-prose-from"
+    },
+    "response_error": null
+   }
+  ],
+  "edges": {
+   "replies_to": {
+    "written": 0,
+    "truth_resolvable_replies": 21544
+   },
+   "attachment_of": {
+    "written": 0,
+    "attachment_docs": 20323
+   }
+  },
+  "empty_no_subject_docs": 0
+ },
+ "note": "labelled 'uncapped' when run: XERJ_MAX_PROCESS_MEMORY_MB=0 is ignored by the governor (a bare 0 is ambiguous), so this is a THIRD default-cap run. Kept because it reproduces run 1 to within 2%.",
+ "binary": "branch feat/ingest-mbox-takeout at 2d5f0af6 (before the thread pool and the 429 re-offer)"
+}

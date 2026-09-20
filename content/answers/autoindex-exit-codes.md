@@ -55,7 +55,7 @@ faq:
   - q: "How do I tell a failed index from a completed one with junk files?"
     a: "Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the `xerj-done` line carries `datasets_refused` and `files_refused`. 1 is an endpoint or journal failure and nothing about it is a junk report."
   - q: "Is exit 1 the code for any error?"
-    a: "No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the `--no-graph` path, an exit 1 whose terminal line reads `reason=server-backpressure` means the node accepted no writes for 120 s; the line carries `ops_applied` and `ops_remaining`."
+    a: "No, and that shorthand is wrong. `--help` scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the `--no-graph` path, an exit 1 whose terminal line reads `reason=server-backpressure` means the node rejected every write for the whole 600 s a bulk waits; the line carries `ops_applied` and `ops_remaining`."
   - q: "Does exit 0 always mean the folder was indexed?"
     a: "No. Answering the decision gate with `--approve cancel` also exits 0, and that run indexes nothing on purpose. Read the terminal line or the journal before you report a corpus as searchable."
   - q: "Why did my run print no terminal line at all?"
@@ -104,7 +104,7 @@ So an exit 3 is still a finished run, but it is not always a small gap. Read `da
 
 Only a 400 is a refusal. A 401, 403, 404, 408, 429 or 5xx on the same request says nothing about that dataset, so it still exits 1.
 
-A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on; it exits 1 only after 120 seconds in which the node accepted nothing, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
+A 429 *on a bulk* is different, whether it is the whole request or some of its items marked `status: 429`. When the node's memory circuit breaker answers that way, the run re-sends the rejected items after a backoff and carries on; it exits 1 only after 600 seconds of re-sends the node never takes, with an error line that begins `the server kept rejecting`. The terminal line of a run that met back-pressure and finished carries `bulk_retries=N`. The [back-pressure page](/answers/autoindex-server-back-pressure-429) covers it.
 
 ## Exit 4 is a question, and nothing was written
 
@@ -130,7 +130,7 @@ So a 1 is not always something to retry. Read the error line first.
 
 ### Two exit-1 endings that name themselves
 
-On the `--no-graph` path, a run whose node answered its writes with HTTP 429 for 120 seconds, with nothing accepted, ends with a reason of its own instead of `aborted`:
+On the `--no-graph` path, a run whose node answered its writes with HTTP 429 for the whole 600 seconds a bulk waits ends with a reason of its own instead of `aborted`:
 
 ```text
 autoindex: stopped by server back-pressure while applying <file>: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again

@@ -1255,15 +1255,15 @@ fn check_bulk_outcome(
     es: &crate::esclient::Es,
     outcome: crate::esclient::BulkOutcome,
 ) -> Result<()> {
-    // `Es::bulk` has already re-sent per-item 429s for as long as the server
-    // kept accepting anything, and for its patience once it did not (#944).
+    // `Es::bulk` has already re-sent per-item 429s, and only those, for the
+    // whole of its patience (`THROTTLE_PATIENCE`, #944/#949).
     // What is left is either a server condition that did not clear — fatal,
     // and resumable, because a sealed operation is journaled applied only
     // after this returns — or a record the server refused outright.
     if outcome.throttled_out > 0 {
         return Err(anyhow::Error::new(crate::esclient::BackpressureExhausted {
             items: outcome.server_errors,
-            patience: es.backpressure_patience(),
+            patience: es.throttle_patience(),
             reason: outcome
                 .first_server_error
                 .unwrap_or_else(|| "unknown server error".into()),

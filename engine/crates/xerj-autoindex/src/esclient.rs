@@ -1,8 +1,7 @@
 //! Thin blocking ES-compat client (reqwest). Retries with exponential
-//! backoff on 429/5xx/transport errors; parses per-item bulk errors; re-sends
-//! only the items a bulk answered with a per-item 429 while the server is
-//! still accepting something (#944); and lets a 429 shrink how much load the
-//! run offers, not just when it offers it ([`BulkAdmission`]).
+//! backoff on 429/5xx/transport errors; parses per-item bulk errors; and
+//! lets a 429 shrink how much load the run offers, not just when it offers
+//! it ([`BulkAdmission`]).
 
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -23,15 +22,18 @@ pub struct Es {
     /// property of the server, so all of a run's workers must see the same
     /// admission limit.
     admission: Arc<BulkAdmission>,
-    /// See [`BACKPRESSURE_PATIENCE`]; tests shorten it.
-    backpressure_patience: Duration,
-    /// Shared by every clone, like `admission`: it counts the run's re-sends.
-    backpressure: Arc<BackpressureLedger>,
-    /// See [`BULK_MAX_ACTIONS`]; tests shorten it.
+    /// How long one `bulk` call keeps re-offering records the server
+    /// rejected with a per-item 429 (see [`THROTTLE_PATIENCE`]).
+    throttle_patience: Duration,
+    /// Most actions this client puts in one `_bulk` request before the server
+    /// has said anything about it. See [`BULK_MAX_ACTIONS`]; tests shrink it.
     bulk_max_actions: usize,
-    /// Shared by every clone: what the server has said about request size is
-    /// a property of the server, so every worker must stop repeating it.
+    /// What this run has learned from the server about how large a request it
+    /// takes (#955). Shared by every clone, like `admission`.
     request_size: Arc<RequestSizeLedger>,
+    /// Run-wide record of per-item back-pressure re-sends (#944), reported on
+    /// `xerj-done`. Shared by every clone, like `admission`.
+    throttle_ledger: Arc<ThrottleLedger>,
     /// Every delay this client has actually backed off for, in order.
     /// Test-only, and per-instance rather than global so a concurrent test
     /// cannot perturb it — `--test-threads=2` in CI is exactly the shape that
@@ -102,7 +104,6 @@ fn mapping_error(path: String, status: reqwest::StatusCode, detail: String) -> a
     }
     anyhow!("PUT {path} failed: {status} {detail}")
 }
-
 /// How many bulk requests a run may have in flight, and how a 429 changes
 /// that number (#240 §8).
 ///
@@ -151,177 +152,14 @@ pub struct BulkAdmission {
 const SHRINK_COOLDOWN: Duration = Duration::from_secs(1);
 /// Clean bulks required before the limit is probed upward by one.
 const RECOVER_AFTER: usize = 8;
-/// Minimum gap between two "raising bulk concurrency" lines. The limit is
-/// probed upward one step per `RECOVER_AFTER` clean bulks, which on a run of
-/// small bulks is several steps a second: the full-corpus capture behind #944
-/// holds 117 such lines for 11 shrinks. One line per interval, naming the
-/// whole climb since the last one, says the same thing legibly.
+
+/// Minimum gap between two "raising bulk concurrency" lines on stderr.
+///
+/// The limit is probed upward one step per `RECOVER_AFTER` clean bulks, which
+/// on a run of small bulks is several steps a second: the full-corpus capture
+/// behind #944 holds 117 such lines for 11 shrinks. One line per interval,
+/// naming the whole climb since the last one, says the same thing legibly.
 const RAISE_ANNOUNCE_EVERY: Duration = Duration::from_secs(10);
-
-/// How long a bulk keeps re-sending items the server answered with a
-/// per-item 429 while NOTHING is being accepted, before the rejection is handed
-/// back to the caller as `server_errors` — which every caller treats as fatal
-/// and resumable (#944).
-///
-/// Measured from the last response that accepted at least one item, not from
-/// the first rejection: a server that is shedding load but still landing
-/// documents is making progress, and giving up on it would abort a run that
-/// was going to finish. The value is two orders of magnitude above what the
-/// engine's memory circuit breaker was observed to need: in the run behind
-/// #944 every engagement was released within 0.1–3.1 s (14 engagements in
-/// 27 minutes), and the client aborted 48,533 files at 60% on the first one
-/// that landed inside a bulk.
-const BACKPRESSURE_PATIENCE: Duration = Duration::from_secs(120);
-/// Minimum gap between two back-pressure announcements on stderr. Every
-/// worker can be re-sending at once; one line per interval is the record.
-const BACKPRESSURE_ANNOUNCE_EVERY: Duration = Duration::from_secs(5);
-
-/// Most actions one `_bulk` request carries, whoever built the body (#955).
-///
-/// Every producer windows its bodies by BYTES (`--bulk-mb`), and two of them
-/// did not window at all: the catalog write of either indexing path sent the
-/// whole projection — one document per file, per dataset and per run — as one
-/// request. On the 48,533-file reference corpus that was 51,129 actions in a
-/// 31.9 MB body, the engine's `limits.max_actions_per_bulk` is 50,000, and the
-/// run ended `exit=1 reason=aborted` in `finalize-catalog`, 10,336 s in, with
-/// all 47,444 sealed operations already applied (capture
-/// `benchmarks/autoindex-resilience/before-955.stderr.txt`).
-///
-/// Bounding a request in both dimensions is the shape every bulk client in the
-/// reference corpus has — Elasticsearch's `BulkProcessor2` closes a request
-/// under construction when EITHER its action count (default 1,000) or its byte
-/// size (default 5 MB) is reached (`action/bulk/BulkProcessor2.java:78-79,
-/// 503-509`; approach only, nothing copied), and quickwit's REST client cuts a
-/// payload under the server's content-length limit before it sends and merges
-/// the per-batch responses (`quickwit-rest-client/src/rest_client.rs:43,
-/// 333-390`). What neither does is ask the server: the second half of this
-/// change is that a request the server still answers "too large" is halved and
-/// re-sent, because `max_actions_per_bulk` is an operator's setting and a
-/// constant on this side cannot know it.
-///
-/// 10,000 is a fifth of the engine's default and above every body the
-/// per-file producers build today (the legacy path cuts at 5,000 documents,
-/// the sealed replay at one file's records, capped at 4,096 by default), so it
-/// binds only on a body nobody windowed.
-const BULK_MAX_ACTIONS: usize = 10_000;
-
-/// What this run has learned about how large a `_bulk` request the server
-/// takes, shared by every clone of a client like [`BulkAdmission`].
-struct RequestSizeLedger {
-    /// Most actions to put in one request after a "too large" answer;
-    /// `usize::MAX` until the server has given one.
-    max_actions: AtomicUsize,
-    /// Most bytes to put in one request after an HTTP 413; `usize::MAX` until
-    /// the server has given one.
-    max_bytes: AtomicUsize,
-    /// Requests the server refused as too large and this client halved.
-    splits: AtomicU64,
-}
-
-impl Default for RequestSizeLedger {
-    fn default() -> Self {
-        Self {
-            max_actions: AtomicUsize::new(usize::MAX),
-            max_bytes: AtomicUsize::new(usize::MAX),
-            splits: AtomicU64::new(0),
-        }
-    }
-}
-
-/// The server was still answering a bulk's items 429 when the client ran out
-/// of patience (#944): back-pressure that did not clear, as opposed to a
-/// broken endpoint or a record the server refuses.
-///
-/// A type rather than a message for the reason [`MappingRefused`] is one: the
-/// callers that end a run on it have to tell it from every other failure, so
-/// the terminal line can say `reason=server-backpressure` and name what is
-/// left, instead of the `reason=aborted` that also covers a crashed journal.
-/// `Display` is byte-identical to the message this condition produced before
-/// it had a type — the published docs quote how that line begins.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BackpressureExhausted {
-    /// Items the server was still rejecting (sent and unsent windows).
-    pub items: u64,
-    pub patience: Duration,
-    pub reason: String,
-}
-
-impl std::fmt::Display for BackpressureExhausted {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "the server kept rejecting {} of a prepared bulk's items after {}s of \
-             back-pressure re-sends with nothing accepted: {}. Nothing from this \
-             bulk was journaled applied; rerun the same command once the server \
-             condition clears and the run resumes from its last committed operation",
-            self.items,
-            self.patience.as_secs(),
-            self.reason
-        )
-    }
-}
-
-impl std::error::Error for BackpressureExhausted {}
-
-impl BackpressureExhausted {
-    /// The back-pressure stop under any amount of `anyhow` context.
-    pub fn in_chain(error: &anyhow::Error) -> Option<&Self> {
-        error.chain().find_map(|cause| cause.downcast_ref::<Self>())
-    }
-}
-
-/// What [`Es::bulk_window`] did with one window of a body.
-enum SentWindow {
-    /// Landed, or handed back with the errors the caller must see.
-    Done(BulkOutcome),
-    /// Refused whole as too large and cut in two; nothing was written.
-    Halved(Vec<Vec<u8>>),
-}
-
-/// Most "too large" refusals announced on stderr in one run. A server with a
-/// very low limit is learned in about `log2(10_000)` halvings; a run that
-/// passes this is repeating itself and the count on `xerj-done` is the record.
-const SPLIT_ANNOUNCE_CAP: u64 = 16;
-
-/// How the server said a whole `_bulk` request was too large.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TooLarge {
-    /// HTTP 413 on the request: a body-size limit (`limits.max_body_bytes`,
-    /// or a proxy in front of the node).
-    Bytes,
-    /// HTTP 200 carrying ONE item answered 413 for a body of several actions:
-    /// the engine's `limits.max_actions_per_bulk`.
-    Actions,
-}
-
-/// What [`Es::with_retry_throttle`] does with an HTTP 429 on the whole request.
-#[derive(Clone, Copy)]
-enum Throttle {
-    /// Sleep and try again here, like a 5xx — mappings, counts, deletes.
-    RetryHere,
-    /// Hand the response to the parser. For `_bulk`, a whole-request 429 is
-    /// the same back-pressure as a per-item one and belongs to the one
-    /// patience loop in [`Es::bulk`], not to six transport attempts (#944).
-    /// The resumed full-corpus run died on exactly that split: the engine
-    /// answered a bulk `HTTP 429 Too Many Requests` at the top of the
-    /// response, the transport retry gave up after about 8 s, and the run
-    /// ended `exit=1 reason=aborted` — while the same rejection carried
-    /// per item inside a 200 would have been waited out for 120 s.
-    HandToParser,
-}
-
-/// Run-wide record of per-item back-pressure re-sends, shared by every clone
-/// of a client like [`BulkAdmission`] — it is what `xerj-done` reports as
-/// `bulk_retries`.
-#[derive(Default)]
-struct BackpressureLedger {
-    /// Re-sent bulks (each carrying only the items the previous response
-    /// rejected 429).
-    reissues: AtomicU64,
-    /// Items re-sent, summed over every re-send.
-    items_reissued: AtomicU64,
-    last_announce: Mutex<Option<Instant>>,
-}
 
 struct AdmissionState {
     limit: usize,
@@ -381,10 +219,9 @@ impl BulkAdmission {
         self.ceiling > 0
     }
 
-    /// Whether this window reports on stderr — the same switch decides
-    /// whether back-pressure re-sends are announced.
+    /// Whether this run's client speaks on stderr about server pushback.
     fn announces(&self) -> bool {
-        self.enabled() && self.announce
+        self.announce
     }
 
     /// Current admission limit; equals the ceiling until the server pushes
@@ -487,50 +324,234 @@ impl BulkAdmission {
     }
 }
 
-/// A parsed `_bulk` response: the caller-facing outcome plus what
-/// [`Es::bulk`] needs to re-send the throttled items and nothing else.
-struct ParsedBulk {
+/// How long one `bulk` call keeps re-offering records the server rejected
+/// with a per-item `status: 429` before handing the rejection to the caller.
+///
+/// That is the shape of XERJ's parent memory circuit breaker: HTTP 200, every
+/// item `429`, reason `[parent] real memory circuit breaker tripped … writes
+/// rejected to prevent an out-of-memory kill`. It is transient by design —
+/// the governor releases it as soon as RSS drops back under the watermark
+/// (`xerj-engine/src/governor.rs`: "RSS back below the memory watermark"),
+/// which on the 1 GB Takeout mailbox run took between 0.3 s and 10 s each
+/// time it tripped. Before this, the FIRST such answer aborted the run: the
+/// per-item path never retried (only HTTP-level 429s went through
+/// `with_retry`, and that gives up after ~8 s of backoff anyway), the file
+/// was left un-journaled, and the "rerun the same command" the error message
+/// advises re-extracted the whole mailbox and hit the same wall — measured
+/// twice, 226.9 s and 298.7 s to the same failure.
+///
+/// Ten minutes is deliberately long: a 429 here is not a bad record, it is
+/// the server asking for time, and the alternative is losing the run. Per-item
+/// 5xx and write blocks are NOT waited on — they are not congestion.
+pub const THROTTLE_PATIENCE: Duration = Duration::from_secs(600);
+
+/// How often the wait is announced on stderr, so a run that is waiting on
+/// the server does not look like a hang.
+const NOTICE_EVERY: Duration = Duration::from_secs(30);
+
+/// Most actions one `_bulk` request carries, whoever built the body (#955).
+///
+/// Every producer windows its bodies by BYTES (`--bulk-mb`), and two of them
+/// did not window at all: the catalog write of either indexing path sent the
+/// whole projection — one document per file, per dataset and per run — as one
+/// request. On the 48,533-file reference corpus that was 51,129 actions in a
+/// 31.9 MB body, the engine's `limits.max_actions_per_bulk` is 50,000, and the
+/// run ended `exit=1 reason=aborted` in `finalize-catalog`, 10,336 s in, with
+/// all 47,444 sealed operations already applied (capture
+/// `benchmarks/autoindex-resilience/before-955.stderr.txt`).
+///
+/// Bounding a request in both dimensions is the shape every bulk client in the
+/// reference corpus has — Elasticsearch's `BulkProcessor2` closes a request
+/// under construction when EITHER its action count (default 1,000) or its byte
+/// size (default 5 MB) is reached (`action/bulk/BulkProcessor2.java:78-79,
+/// 503-509`; approach only, nothing copied), and quickwit's REST client cuts a
+/// payload under the server's content-length limit before it sends and merges
+/// the per-batch responses (`quickwit-rest-client/src/rest_client.rs:43,
+/// 333-390`). What neither does is ask the server: the second half of this
+/// change is that a request the server still answers "too large" is halved and
+/// re-sent, because `max_actions_per_bulk` is an operator's setting and a
+/// constant on this side cannot know it.
+///
+/// 10,000 is a fifth of the engine's default and above every body the
+/// per-file producers build today (the legacy path cuts at 5,000 documents,
+/// the sealed replay at one file's records, capped at 4,096 by default), so it
+/// binds only on a body nobody windowed.
+const BULK_MAX_ACTIONS: usize = 10_000;
+
+/// Most "too large" refusals announced on stderr in one run. A server with a
+/// very low limit is learned in about `log2(10_000)` halvings; a run that
+/// passes this is repeating itself and the count on `xerj-done` is the record.
+const SPLIT_ANNOUNCE_CAP: u64 = 16;
+
+/// What this run has learned about how large a `_bulk` request the server
+/// takes, shared by every clone of a client like [`BulkAdmission`].
+struct RequestSizeLedger {
+    /// Most actions to put in one request after a "too large" answer;
+    /// `usize::MAX` until the server has given one.
+    max_actions: AtomicUsize,
+    /// Most bytes to put in one request after an HTTP 413; `usize::MAX` until
+    /// the server has given one.
+    max_bytes: AtomicUsize,
+    /// Requests the server refused as too large and this client halved.
+    splits: AtomicU64,
+}
+
+impl Default for RequestSizeLedger {
+    fn default() -> Self {
+        Self {
+            max_actions: AtomicUsize::new(usize::MAX),
+            max_bytes: AtomicUsize::new(usize::MAX),
+            splits: AtomicU64::new(0),
+        }
+    }
+}
+
+/// Run-wide record of per-item back-pressure re-sends (#944), shared by every
+/// clone of a client like [`BulkAdmission`] — it is what `xerj-done` reports
+/// as `bulk_retries` / `bulk_items_reissued`.
+#[derive(Default)]
+struct ThrottleLedger {
+    /// Re-sent bulks (each carrying only the items the previous response
+    /// rejected 429).
+    reissues: AtomicU64,
+    /// Items re-sent, summed over every re-send.
+    items_reissued: AtomicU64,
+}
+
+/// How the server said a whole `_bulk` request was too large (#955).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TooLarge {
+    /// HTTP 413 on the request: a body-size limit (`limits.max_body_bytes`,
+    /// or a proxy in front of the node).
+    Bytes,
+    /// HTTP 200 carrying ONE item answered 413 for a body of several actions:
+    /// the engine's `limits.max_actions_per_bulk`.
+    Actions,
+}
+
+/// What [`Es::bulk_window`] did with one window of a body.
+enum SentWindow {
+    /// Landed, or handed back with the errors the caller must see.
+    Done(BulkOutcome),
+    /// Refused whole as too large and cut in two; nothing was written.
+    Halved(Vec<Vec<u8>>),
+}
+
+/// The server was still answering a bulk's items 429 when the client ran out
+/// of patience (#944): back-pressure that did not clear, as opposed to a
+/// broken endpoint or a record the server refuses.
+///
+/// A type rather than a message for the reason [`MappingRefused`] is one: the
+/// callers that end a run on it have to tell it from every other failure, so
+/// the terminal line can say `reason=server-backpressure` and name what is
+/// left, instead of the `reason=aborted` that also covers a crashed journal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackpressureExhausted {
+    /// Items the server was still rejecting (sent and unsent windows).
+    pub items: u64,
+    pub patience: Duration,
+    pub reason: String,
+}
+
+impl std::fmt::Display for BackpressureExhausted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "the server kept rejecting {} of a prepared bulk's items after {}s of \
+             back-pressure re-sends with nothing accepted: {}. Nothing from this \
+             bulk was journaled applied; rerun the same command once the server \
+             condition clears and the run resumes from its last committed operation",
+            self.items,
+            self.patience.as_secs(),
+            self.reason
+        )
+    }
+}
+
+impl std::error::Error for BackpressureExhausted {}
+
+impl BackpressureExhausted {
+    /// The back-pressure stop under any amount of `anyhow` context.
+    pub fn in_chain(error: &anyhow::Error) -> Option<&Self> {
+        error.chain().find_map(|cause| cause.downcast_ref::<Self>())
+    }
+}
+
+/// One attempt of a retried request, as [`Es::retry_loop`] sees it.
+enum Attempt<T> {
+    Done(T),
+    /// HTTP 429, with the server's stated reason when it gave one.
+    Throttled(Option<String>),
+    /// 5xx or a transport error.
+    Failed(anyhow::Error),
+    /// Not retryable: returned to the caller as-is.
+    Abort(anyhow::Error),
+}
+
+/// What one round of a bulk request said, item by item.
+struct Round {
     outcome: BulkOutcome,
-    /// Items the response carried — the body's action count, if the server
-    /// answered every action.
-    items: usize,
-    /// Positions (into the body's actions) the server answered 429.
+    /// Indexes (in request order) of the items the server rejected `429`.
     throttled: Vec<usize>,
-    /// Whether every failed item was a 429. A 429 beside any other failure
-    /// is not re-sent.
-    only_throttled: bool,
-    /// Set when the server refused the WHOLE request as too large (#955), with
-    /// the dimension it named. Nothing in such a request was written.
+    /// Server-side failures that are NOT throttling — 5xx, write blocks.
+    other_server_errors: u64,
+    /// The first per-item error that waiting cannot fix (a 400).
+    first_settled_error: Option<String>,
+    /// The server's stated reason for the first 429 item.
+    throttle_reason: Option<String>,
+    /// Items in the response, for alignment with the request body.
+    items: usize,
+    /// Set when the server refused the WHOLE request as too large (#955),
+    /// with the dimension it named. Nothing in such a request was written.
     too_large: Option<TooLarge>,
 }
 
-/// Cut the actions at `keep` (ascending positions) out of an NDJSON bulk
-/// body, with their document lines. `delete` actions have no document line,
-/// so the body is walked by action verb rather than assumed to be pairs.
-///
-/// `None` when the body does not hold exactly `expected_items` actions or a
-/// line is not a JSON object: the response cannot then be mapped back onto the
-/// body, and re-sending on a guess could write the wrong records twice.
-fn select_bulk_actions(body: &[u8], keep: &[usize], expected_items: usize) -> Option<Vec<u8>> {
-    let mut out = Vec::new();
-    let actions = walk_bulk_actions(body, |position, action, document| {
-        if keep.binary_search(&position).is_ok() {
-            out.extend_from_slice(action);
-            out.push(b'\n');
-            if let Some(document) = document {
-                out.extend_from_slice(document);
-                out.push(b'\n');
-            }
+/// The byte ranges of the items in a bulk body, in request order: an action
+/// line plus its source line, or the action line alone for `delete`. `None`
+/// if the body is not well-formed NDJSON — a caller then does not retry.
+fn bulk_item_ranges(body: &[u8]) -> Option<Vec<std::ops::Range<usize>>> {
+    let mut ranges = Vec::new();
+    let mut pos = 0usize;
+    while pos < body.len() {
+        let start = pos;
+        let action_end = memchr::memchr(b'\n', &body[pos..]).map_or(body.len(), |i| pos + i + 1);
+        let action: Value = serde_json::from_slice(&body[start..action_end]).ok()?;
+        let object = action.as_object()?;
+        if object.len() != 1 {
+            return None;
         }
-    })?;
-    (actions == expected_items).then_some(out)
+        pos = action_end;
+        if !object.contains_key("delete") {
+            if pos >= body.len() {
+                return None;
+            }
+            pos = memchr::memchr(b'\n', &body[pos..]).map_or(body.len(), |i| pos + i + 1);
+        }
+        ranges.push(start..pos);
+    }
+    Some(ranges)
 }
 
-/// How many actions an NDJSON bulk body holds — what a whole-request 429 is
-/// mapped onto when the server's answer carries no items (#944). `None` when a
-/// line is not a JSON object.
+/// The sub-body holding only the items at `keep`, byte-identical to their
+/// original lines. `None` if the body does not have exactly `expected`
+/// items — the response cannot then be aligned with the request.
+fn select_bulk_items(body: &[u8], keep: &[usize], expected: usize) -> Option<Vec<u8>> {
+    let ranges = bulk_item_ranges(body)?;
+    if ranges.len() != expected {
+        return None;
+    }
+    let mut out = Vec::with_capacity(body.len());
+    for &i in keep {
+        let range = ranges.get(i)?.clone();
+        out.extend_from_slice(&body[range]);
+    }
+    Some(out)
+}
+
+/// How many actions an NDJSON bulk body holds. `None` when the body is not
+/// well-formed NDJSON — such a body is neither windowed nor halved.
 fn count_bulk_actions(body: &[u8]) -> Option<usize> {
-    walk_bulk_actions(body, |_, _, _| {})
+    bulk_item_ranges(body).map(|ranges| ranges.len())
 }
 
 /// Cut an NDJSON bulk body into consecutive windows of at most `max_actions`
@@ -539,7 +560,7 @@ fn count_bulk_actions(body: &[u8]) -> Option<usize> {
 /// producers already use, so a body one of them built under the same byte
 /// bound is never cut again; one action larger than `max_bytes` travels alone.
 ///
-/// `None` when the body already fits, or when a line is not a JSON object —
+/// `None` when the body already fits, or when it is not well-formed NDJSON —
 /// such a body is sent as it is, exactly as before.
 fn window_bulk_body(body: &[u8], max_actions: usize, max_bytes: usize) -> Option<Vec<Vec<u8>>> {
     let max_actions = max_actions.max(1);
@@ -549,59 +570,110 @@ fn window_bulk_body(body: &[u8], max_actions: usize, max_bytes: usize) -> Option
     {
         return None;
     }
+    let ranges = bulk_item_ranges(body)?;
     let mut windows: Vec<Vec<u8>> = Vec::new();
     let mut current: Vec<u8> = Vec::new();
     let mut current_actions = 0usize;
-    walk_bulk_actions(body, |_, action, document| {
-        let needed = action.len() + 1 + document.map_or(0, |document| document.len() + 1);
+    for range in ranges {
+        let needed = range.len();
         if current_actions > 0
             && (current_actions >= max_actions || current.len() + needed > max_bytes)
         {
             windows.push(std::mem::take(&mut current));
             current_actions = 0;
         }
-        current.extend_from_slice(action);
-        current.push(b'\n');
-        if let Some(document) = document {
-            current.extend_from_slice(document);
-            current.push(b'\n');
-        }
+        current.extend_from_slice(&body[range]);
         current_actions += 1;
-    })?;
+    }
     if current_actions > 0 {
         windows.push(current);
     }
     (windows.len() > 1).then_some(windows)
 }
 
-/// Walk an NDJSON bulk body action by action, calling `visit(position,
-/// action_line, document_line)`. `delete` actions have no document line, so
-/// the body is walked by action verb rather than assumed to be pairs. Returns
-/// the action count, or `None` when a line is not a JSON object.
-fn walk_bulk_actions(
-    body: &[u8],
-    mut visit: impl FnMut(usize, &[u8], Option<&[u8]>),
-) -> Option<usize> {
-    let mut lines = body
-        .split(|byte| *byte == b'\n')
-        .filter(|line| !line.is_empty());
-    let mut position = 0usize;
-    while let Some(action) = lines.next() {
-        let verb = serde_json::from_slice::<Value>(action)
-            .ok()?
-            .as_object()?
-            .keys()
-            .next()?
-            .clone();
-        let document = if verb == "delete" {
-            None
-        } else {
-            Some(lines.next()?)
-        };
-        visit(position, action, document);
-        position += 1;
+/// Whether a parsed HTTP 200 `_bulk` response is the engine refusing the whole
+/// request for its action count (#955): exactly ONE item, answered 413, for a
+/// body that held several actions. The engine checks
+/// `limits.max_actions_per_bulk` before it parses anything and answers with a
+/// single synthetic item, so nothing in such a request was written. A lone
+/// action answered 413 is a statement about that record and is left alone.
+fn is_whole_request_too_large(v: &Value, sent_actions: Option<usize>) -> bool {
+    let Some(items) = v.get("items").and_then(Value::as_array) else {
+        return false;
+    };
+    if items.len() != 1 || sent_actions.is_none_or(|sent| sent <= 1) {
+        return false;
     }
-    Some(position)
+    items[0]
+        .as_object()
+        .and_then(|item| item.values().next())
+        .and_then(|op| op.get("status"))
+        .and_then(Value::as_u64)
+        == Some(413)
+}
+
+/// Read a bulk response body item by item.
+fn parse_round(v: &Value) -> Round {
+    let items = v.get("items").and_then(|i| i.as_array());
+    let mut round = Round {
+        outcome: BulkOutcome::default(),
+        throttled: Vec::new(),
+        other_server_errors: 0,
+        first_settled_error: None,
+        throttle_reason: None,
+        items: items.map_or(0, Vec::len),
+        too_large: None,
+    };
+    if !v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
+        return round;
+    }
+    for (i, it) in items.into_iter().flatten().enumerate() {
+        let op = it
+            .get("index")
+            .or_else(|| it.get("create"))
+            .or_else(|| it.get("update"))
+            .or_else(|| it.get("delete"));
+        let Some(op) = op else { continue };
+        if op.get("error").is_none() {
+            continue;
+        }
+        round.outcome.item_errors += 1;
+        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
+        let error_text = || {
+            op["error"]
+                .to_string()
+                .chars()
+                .take(500)
+                .collect::<String>()
+        };
+        if item_status == 429 {
+            round.throttled.push(i);
+            if round.throttle_reason.is_none() {
+                round.throttle_reason = Some(
+                    op["error"]
+                        .get("reason")
+                        .and_then(Value::as_str)
+                        .map(|r| r.chars().take(300).collect())
+                        .unwrap_or_else(error_text),
+                );
+            }
+        }
+        if item_status == 429 || item_status >= 500 || is_index_block_error(&op["error"]) {
+            round.outcome.server_errors += 1;
+            if item_status != 429 {
+                round.other_server_errors += 1;
+            }
+            if round.outcome.first_server_error.is_none() {
+                round.outcome.first_server_error = Some(error_text());
+            }
+        } else if round.first_settled_error.is_none() {
+            round.first_settled_error = Some(op["error"].to_string().chars().take(300).collect());
+        }
+        if round.outcome.first_error.is_none() {
+            round.outcome.first_error = Some(op["error"].to_string().chars().take(300).collect());
+        }
+    }
+    round
 }
 
 #[derive(Debug, Default)]
@@ -635,92 +707,6 @@ impl BulkOutcome {
             self.first_server_error = other.first_server_error;
         }
     }
-}
-
-/// A `_bulk` response body, parsed into the caller-facing outcome plus the
-/// positions of the items answered 429. Shared by the HTTP 200 path and the
-/// whole-request 429 path of [`Es::bulk_attempt`], which differ only in the
-/// status line.
-fn parse_bulk_response(v: &Value) -> ParsedBulk {
-    let mut item_errors = 0u64;
-    let mut server_errors = 0u64;
-    let mut first_error = None;
-    let mut first_server_error = None;
-    let mut throttled = Vec::new();
-    let mut only_throttled = true;
-    let items = v
-        .get("items")
-        .and_then(|i| i.as_array())
-        .map_or(0, Vec::len);
-    if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
-        if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
-            for (position, it) in items.iter().enumerate() {
-                let op = it
-                    .get("index")
-                    .or_else(|| it.get("create"))
-                    .or_else(|| it.get("update"))
-                    .or_else(|| it.get("delete"));
-                if let Some(op) = op {
-                    if op.get("error").is_some() {
-                        item_errors += 1;
-                        let item_status = op.get("status").and_then(Value::as_u64).unwrap_or(500);
-                        if item_status == 429 {
-                            throttled.push(position);
-                        } else {
-                            only_throttled = false;
-                        }
-                        if item_status == 429
-                            || item_status >= 500
-                            || is_index_block_error(&op["error"])
-                        {
-                            server_errors += 1;
-                            if first_server_error.is_none() {
-                                first_server_error =
-                                    Some(op["error"].to_string().chars().take(500).collect());
-                            }
-                        }
-                        if first_error.is_none() {
-                            first_error = Some(op["error"].to_string().chars().take(300).collect());
-                        }
-                    }
-                }
-            }
-        }
-    }
-    ParsedBulk {
-        outcome: BulkOutcome {
-            item_errors,
-            server_errors,
-            first_error,
-            first_server_error,
-            throttled_out: 0,
-        },
-        items,
-        throttled,
-        only_throttled,
-        too_large: None,
-    }
-}
-
-/// Whether a parsed HTTP 200 `_bulk` response is the engine refusing the whole
-/// request for its action count (#955): exactly ONE item, answered 413, for a
-/// body that held several actions. The engine checks
-/// `limits.max_actions_per_bulk` before it parses anything and answers with a
-/// single synthetic item, so nothing in such a request was written. A lone
-/// action answered 413 is a statement about that record and is left alone.
-fn is_whole_request_too_large(v: &Value, sent_actions: Option<usize>) -> bool {
-    let Some(items) = v.get("items").and_then(Value::as_array) else {
-        return false;
-    };
-    if items.len() != 1 || sent_actions.is_none_or(|sent| sent <= 1) {
-        return false;
-    }
-    items[0]
-        .as_object()
-        .and_then(|item| item.values().next())
-        .and_then(|op| op.get("status"))
-        .and_then(Value::as_u64)
-        == Some(413)
 }
 
 /// Whether a per-item bulk `error` object reports a cluster/index write
@@ -778,14 +764,8 @@ const SERVER_REASON_MAX: usize = 512;
 /// else (an HTML proxy error page, a bare string), because a reverse proxy in
 /// front of the server is exactly the case where the status alone is useless.
 fn server_reason(resp: reqwest::blocking::Response) -> Option<String> {
-    reason_from_body(&resp.text().ok()?)
-}
-
-/// [`server_reason`] over a body already read — the whole-request 429 branch
-/// of [`Es::bulk_attempt`] needs the body twice, once for the items it may
-/// carry and once for the reason.
-fn reason_from_body(body: &str) -> Option<String> {
-    let reason = serde_json::from_str::<Value>(body)
+    let body = resp.text().ok()?;
+    let reason = serde_json::from_str::<Value>(&body)
         .ok()
         .and_then(|value| {
             let error = value.get("error")?;
@@ -797,7 +777,7 @@ fn reason_from_body(body: &str) -> Option<String> {
                 (None, None) => None,
             }
         })
-        .unwrap_or_else(|| body.to_owned());
+        .unwrap_or(body);
     // `chars`, not bytes: the body can be any encoding the server chose, and
     // slicing one mid-codepoint would panic on the error path (#326).
     let reason: String = reason.trim().chars().take(SERVER_REASON_MAX).collect();
@@ -885,52 +865,13 @@ impl Es {
             retry_initial_delay,
             retry_max_delay,
             admission: Arc::new(BulkAdmission::off()),
-            backpressure_patience: BACKPRESSURE_PATIENCE,
-            backpressure: Arc::new(BackpressureLedger::default()),
+            throttle_patience: THROTTLE_PATIENCE,
             bulk_max_actions: BULK_MAX_ACTIONS,
             request_size: Arc::new(RequestSizeLedger::default()),
+            throttle_ledger: Arc::new(ThrottleLedger::default()),
             #[cfg(test)]
             backoff_delays: Arc::new(std::sync::Mutex::new(Vec::new())),
         })
-    }
-
-    /// Shorten (tests) or lengthen how long a bulk waits out per-item
-    /// back-pressure while nothing is being accepted. See
-    /// [`BACKPRESSURE_PATIENCE`].
-    pub fn with_backpressure_patience(mut self, patience: Duration) -> Self {
-        self.backpressure_patience = patience;
-        self
-    }
-
-    /// How long this client waits out per-item back-pressure with nothing
-    /// accepted before handing the rejection back to the caller.
-    pub fn backpressure_patience(&self) -> Duration {
-        self.backpressure_patience
-    }
-
-    /// How many bulks this client re-sent because the server answered items
-    /// with a per-item 429 (#944). Run-wide, like the admission window.
-    pub fn bulk_backpressure_retries(&self) -> u64 {
-        self.backpressure.reissues.load(Ordering::Relaxed)
-    }
-
-    /// How many items those re-sends carried in total.
-    pub fn bulk_items_reissued(&self) -> u64 {
-        self.backpressure.items_reissued.load(Ordering::Relaxed)
-    }
-
-    /// Lower (tests) the most actions one `_bulk` request carries. See
-    /// [`BULK_MAX_ACTIONS`].
-    #[cfg(test)]
-    pub(crate) fn with_bulk_max_actions(mut self, actions: usize) -> Self {
-        self.bulk_max_actions = actions.max(1);
-        self
-    }
-
-    /// How many `_bulk` requests the server refused as too large and this
-    /// client halved and re-sent. Run-wide, like the admission window.
-    pub fn bulk_requests_split(&self) -> u64 {
-        self.request_size.splits.load(Ordering::Relaxed)
     }
 
     /// Give this client a bulk admission window `workers` wide, so a 429 can
@@ -939,6 +880,44 @@ impl Es {
     /// Off by default: a probe or a one-shot client has nothing to throttle.
     /// A run enables it once, before its workers start, and every clone made
     /// afterwards shares the same window.
+    /// How long a bulk keeps re-offering per-item-429 records (tests shrink it).
+    #[cfg(test)]
+    fn with_throttle_patience(mut self, patience: Duration) -> Self {
+        self.throttle_patience = patience;
+        self
+    }
+
+    /// How long one `bulk` call waits on a server that is accepting nothing
+    /// before the rejection is handed back — what the terminal line quotes.
+    pub fn throttle_patience(&self) -> Duration {
+        self.throttle_patience
+    }
+
+    /// Most actions in one `_bulk` request. Tests only: the real bound is
+    /// [`BULK_MAX_ACTIONS`], tightened at run time by what the server refuses.
+    #[cfg(test)]
+    pub(crate) fn with_bulk_max_actions(mut self, actions: usize) -> Self {
+        self.bulk_max_actions = actions.max(1);
+        self
+    }
+
+    /// Bulks this run re-sent because the server answered items `429` — what
+    /// `xerj-done` reports as `bulk_retries` (#944).
+    pub fn bulk_backpressure_retries(&self) -> u64 {
+        self.throttle_ledger.reissues.load(Ordering::Relaxed)
+    }
+
+    /// Items re-sent, summed over every re-send (#944).
+    pub fn bulk_items_reissued(&self) -> u64 {
+        self.throttle_ledger.items_reissued.load(Ordering::Relaxed)
+    }
+
+    /// Requests the server refused as too large and this client halved — what
+    /// `xerj-done` reports as `bulk_splits` (#955).
+    pub fn bulk_requests_split(&self) -> u64 {
+        self.request_size.splits.load(Ordering::Relaxed)
+    }
+
     pub fn with_bulk_concurrency(mut self, workers: usize, announce: bool) -> Self {
         self.admission = Arc::new(BulkAdmission::new(workers.max(1), announce));
         self
@@ -1099,58 +1078,129 @@ impl Es {
         Ok(body)
     }
 
-    /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s, 6 attempts.
+    /// One attempt of a retried request, classified.
+    fn attempt_from<T>(
+        what: &str,
+        resp: reqwest::blocking::Response,
+        parse: impl FnOnce(reqwest::blocking::Response) -> Result<T>,
+    ) -> Attempt<T> {
+        let status = resp.status();
+        if status.as_u16() == 429 {
+            return Attempt::Throttled(server_reason(resp));
+        }
+        if status.is_server_error() {
+            return Attempt::Failed(match server_reason(resp) {
+                Some(reason) => anyhow!("{what}: HTTP {status}: {reason}"),
+                None => anyhow!("{what}: HTTP {status}"),
+            });
+        }
+        match parse(resp) {
+            Ok(v) => Attempt::Done(v),
+            Err(e) => Attempt::Abort(e),
+        }
+    }
+
+    /// Retry wrapper: 429/5xx/transport → backoff 250ms..8s.
     ///
-    /// A 429 is also reported to the bulk admission window: sleeping is how
-    /// this request survives congestion, shrinking is how the *run* stops
-    /// causing it (#240 §8). 5xx is not congestion and does not shrink.
+    /// A 5xx or a transport error is retried 6 times. A 429 is reported to
+    /// the bulk admission window (sleeping is how this request survives
+    /// congestion, shrinking is how the *run* stops causing it, #240 §8) and,
+    /// for a loading run, re-asked for as long as [`THROTTLE_PATIENCE`]
+    /// lasts — see [`Es::retry_loop`].
     fn with_retry<T>(
         &self,
         what: &str,
-        f: impl FnMut() -> Result<reqwest::blocking::Response>,
-        parse: impl Fn(reqwest::blocking::Response) -> Result<T>,
-    ) -> Result<T> {
-        self.with_retry_throttle(what, Throttle::RetryHere, f, parse)
-    }
-
-    /// [`Self::with_retry`] with a say over what a whole-request 429 means
-    /// for this request.
-    fn with_retry_throttle<T>(
-        &self,
-        what: &str,
-        throttle: Throttle,
         mut f: impl FnMut() -> Result<reqwest::blocking::Response>,
         parse: impl Fn(reqwest::blocking::Response) -> Result<T>,
     ) -> Result<T> {
+        self.retry_loop(what, || match f() {
+            Ok(resp) => Self::attempt_from(what, resp, &parse),
+            Err(e) => Attempt::Failed(e),
+        })
+    }
+
+    /// The one retry policy every request goes through.
+    ///
+    /// * `Failed` (5xx, transport): six attempts, five backoffs between them
+    ///   and none after the last — a bounded budget, because nothing says a
+    ///   5xx will clear.
+    /// * `Throttled` (HTTP 429): the server asked for time, and how much time
+    ///   is the server's call. A loading run (the admission gate is on) keeps
+    ///   re-asking at the capped backoff for up to `throttle_patience`,
+    ///   announcing the wait every [`NOTICE_EVERY`]; a one-shot client (gate
+    ///   off — a probe, a status read) treats a 429 like a 5xx and gives up
+    ///   after six, because a 10-minute wait is wrong for a question.
+    ///   Measured reason for the patience: the parent memory circuit breaker
+    ///   answered a bulk with HTTP 429 and held the server above the
+    ///   watermark for 57 s on the 1 GB mailbox run — the six attempts
+    ///   (~8 s of backoff) had run out at 233.8 s and the run was lost.
+    /// * `Abort`: not retried (a 4xx that is this client's fault, a body
+    ///   that does not parse).
+    fn retry_loop<T>(&self, what: &str, mut attempt: impl FnMut() -> Attempt<T>) -> Result<T> {
         const MAX_ATTEMPTS: usize = 6;
         let mut delay = self.retry_initial_delay;
-        let mut last_err = None;
-        for attempt in 0..MAX_ATTEMPTS {
-            match f() {
-                Ok(resp) => {
-                    let status = resp.status();
-                    let throttled_here =
-                        status.as_u16() == 429 && matches!(throttle, Throttle::RetryHere);
-                    if throttled_here || status.is_server_error() {
-                        if throttled_here {
-                            self.admission.on_congestion();
+        let mut failures = 0usize;
+        let started = Instant::now();
+        let mut last_notice: Option<Instant> = None;
+        loop {
+            match attempt() {
+                Attempt::Done(v) => return Ok(v),
+                Attempt::Abort(e) => return Err(e),
+                Attempt::Throttled(reason) => {
+                    self.admission.on_congestion();
+                    let err = match &reason {
+                        Some(r) => anyhow!("{what}: HTTP 429 Too Many Requests: {r}"),
+                        None => anyhow!("{what}: HTTP 429 Too Many Requests"),
+                    };
+                    if self.admission.enabled() {
+                        let waited = started.elapsed();
+                        if waited >= self.throttle_patience {
+                            return Err(err);
                         }
-                        last_err = Some(match server_reason(resp) {
-                            Some(reason) => anyhow!("{what}: HTTP {status}: {reason}"),
-                            None => anyhow!("{what}: HTTP {status}"),
-                        });
+                        self.throttle_notice(
+                            &mut last_notice,
+                            reason.as_deref().unwrap_or("HTTP 429"),
+                            &format!("retrying {what}"),
+                            waited,
+                        );
                     } else {
-                        return parse(resp);
+                        failures += 1;
+                        if failures >= MAX_ATTEMPTS {
+                            return Err(err);
+                        }
                     }
                 }
-                Err(e) => last_err = Some(e),
+                Attempt::Failed(e) => {
+                    failures += 1;
+                    if failures >= MAX_ATTEMPTS {
+                        return Err(e);
+                    }
+                }
             }
-            if attempt + 1 < MAX_ATTEMPTS {
-                self.backoff(delay);
-                delay = (delay * 2).min(self.retry_max_delay);
-            }
+            self.backoff(delay);
+            delay = (delay * 2).min(self.retry_max_delay);
         }
-        Err(last_err.unwrap_or_else(|| anyhow!("{what}: retries exhausted")))
+    }
+
+    /// Say on stderr that this run is waiting on the server, at most once per
+    /// [`NOTICE_EVERY`] per waiting request, so the wait does not read as a
+    /// hang. Silent for clients that do not announce (`--quiet`, probes).
+    fn throttle_notice(
+        &self,
+        last: &mut Option<Instant>,
+        reason: &str,
+        doing: &str,
+        waited: Duration,
+    ) {
+        if !self.admission.announces() || matches!(last, Some(t) if t.elapsed() < NOTICE_EVERY) {
+            return;
+        }
+        eprintln!(
+            "autoindex: server is shedding load — {reason}; {doing} (waited {}s, giving up after {}s)",
+            waited.as_secs(),
+            self.throttle_patience.as_secs()
+        );
+        *last = Some(Instant::now());
     }
 
     /// Sleep between attempts, recording how long was actually slept.
@@ -1223,33 +1273,26 @@ impl Es {
         Err(mapping_error(format!("/{index}/_mapping"), status, text))
     }
 
-    /// Send one bulk request, holding a slot in the admission window for as
-    /// long as the attempt (including its retries) is outstanding — that is
-    /// what makes a shrunken limit actually reduce offered load rather than
-    /// only rename it.
+    /// Send a bulk body, bounded in size and waited out under back-pressure.
     ///
-    /// A bulk can also be throttled *per item*: HTTP 200 with individual
-    /// documents rejected `status: 429` — the engine's memory circuit breaker
-    /// answers exactly this way, and it engages and releases within a second.
-    /// Those items are re-sent, and only those (#944): the response items are
-    /// positional, so the rejected actions are cut out of the body that was
-    /// sent and re-issued after a backoff, while the accepted ones are not
-    /// written twice. Re-sending goes on for as long as the server is still
-    /// accepting something, and for [`BACKPRESSURE_PATIENCE`] once it is not;
-    /// after that the rejection is returned as `server_errors`, which every
-    /// caller treats as fatal and resumable. A 429 beside a non-429 failure
-    /// is never re-sent: that bulk carries a bad record the caller must see,
-    /// and re-sending the good half would hide which one.
+    /// Two independent things happen here, and both are per-window:
     ///
-    /// Approach shared with Elasticsearch's bulk retry (retry only when every
-    /// failed item is 429; re-issue the failed items by position; exponential
-    /// backoff), read from `action/bulk/Retry.java` for the design only — no
-    /// code was taken from it.
+    /// * **Size (#955).** A body above [`BULK_MAX_ACTIONS`] actions — or above
+    ///   `max_bytes` for a caller that has a byte bound — goes out as
+    ///   consecutive windows, in order. A window the server still refuses as
+    ///   too large is halved and the halves go back on the front of the queue,
+    ///   and the reduced bound is kept for the rest of the run, so the next
+    ///   body is cut before it is offered instead of after it is refused.
+    ///   Convergence: every round either sends a window or replaces one window
+    ///   with two strictly smaller ones, and a window of ONE action is never
+    ///   halved again — it is fatal with a message naming `max_body_bytes`.
+    /// * **Back-pressure (#944).** Inside one window, items the server
+    ///   answered `status: 429` are re-offered for up to
+    ///   [`THROTTLE_PATIENCE`] — see [`Es::bulk_window`].
     ///
-    /// Two bounds on the request itself are applied here as well, for every
-    /// caller at once (#955): a body above [`BULK_MAX_ACTIONS`] actions is
-    /// sent as consecutive windows, and a request the server refuses as too
-    /// large is halved and re-sent — see [`Self::bulk_windowed`].
+    /// One admission slot is held for the whole body, so a caller that hands
+    /// in a large body never offers more load than a caller that hands in a
+    /// small one.
     pub fn bulk(&self, body: Vec<u8>) -> Result<BulkOutcome> {
         self.bulk_bounded(body, usize::MAX)
     }
@@ -1314,76 +1357,81 @@ impl Es {
         Ok(total)
     }
 
-    /// One window of a body through the back-pressure patience loop. Either it
-    /// is done — landed, or handed back with its errors — or the server
-    /// refused the whole request as too large and it comes back as two halves
-    /// for [`Self::bulk_bounded`] to send (#955).
+    /// One window of a body: the back-pressure patience loop.
+    ///
+    /// Either the window is done — landed, or handed back with the errors the
+    /// caller must see — or the server refused the whole request as too large
+    /// and it comes back as two halves for [`Self::bulk_bounded`] (#955).
+    ///
+    /// Two kinds of retry live here. A transport error or an HTTP-level
+    /// 429/5xx retries the WHOLE request (`retry_loop`). A 200 whose items
+    /// carry `status: 429` re-offers ONLY those items, after a backoff, for up
+    /// to `throttle_patience` — the memory breaker's shape, see
+    /// [`THROTTLE_PATIENCE`]. Records the server took are never sent twice,
+    /// and a record it refused for a reason waiting cannot fix (a per-item
+    /// 400, 5xx, or a write block) is not re-offered.
     fn bulk_window(&self, body: Vec<u8>) -> Result<SentWindow> {
         let mut body = body;
+        // Item errors settled by earlier rounds of this call (a bad record's
+        // 400): the record is not re-offered, its error is still reported.
+        let mut settled_item_errors = 0u64;
+        let mut settled_first_error: Option<String> = None;
+        let episode = Instant::now();
         let mut delay = self.retry_initial_delay;
-        // Patience runs from the last response that accepted at least one
-        // item, so a server that is shedding load but still landing documents
-        // is never given up on.
-        let mut idle_since: Option<Instant> = None;
-        let mut throttled_in_this_bulk = false;
-        let outcome = loop {
-            // A failed bulk earns nothing back. A 429 on the whole request is
-            // not a failure here: `bulk_attempt` parses it as throttled items
-            // and it joins this loop like a per-item one (#944).
-            let parsed = self.bulk_attempt(body.clone())?;
-            if let Some(dimension) = parsed.too_large {
-                return self.halve_refused_request(body, dimension, parsed.outcome);
+        let mut last_notice: Option<Instant> = None;
+        loop {
+            let round = self.bulk_round(body.clone())?;
+            if let Some(dimension) = round.too_large {
+                return self.halve_refused_request(body, dimension, round.outcome);
             }
-            if parsed.throttled.is_empty() {
-                break parsed.outcome;
+            let mut outcome = round.outcome;
+            outcome.item_errors += settled_item_errors;
+            if outcome.first_error.is_none() {
+                outcome.first_error = settled_first_error.clone();
             }
-            // The same congestion signal wearing a different hat: shrink the
-            // window NOW, once per event, so the other workers offer less
-            // while this one waits — not after the wait is over.
-            throttled_in_this_bulk = true;
-            self.admission.on_congestion();
-            if !parsed.only_throttled {
-                break parsed.outcome;
+            if round.throttled.is_empty() || round.other_server_errors > 0 {
+                return Ok(SentWindow::Done(outcome));
             }
-            let now = Instant::now();
-            let accepted = parsed.items - parsed.throttled.len();
-            if accepted > 0 || idle_since.is_none() {
-                idle_since = Some(now);
-                delay = self.retry_initial_delay;
-            }
-            let idle = now.duration_since(idle_since.unwrap_or(now));
-            if idle >= self.backpressure_patience {
-                let mut outcome = parsed.outcome;
-                outcome.throttled_out = parsed.throttled.len() as u64;
-                break outcome;
+            // Only per-item 429s stand between this bulk and a clean
+            // outcome. Wait while patience lasts; after that the caller gets
+            // the server's own reason, exactly as before — but named as
+            // back-pressure (#944), so the run's terminal line can say
+            // `reason=server-backpressure` rather than `reason=aborted`.
+            let waited = episode.elapsed();
+            if waited >= self.throttle_patience {
+                outcome.throttled_out = round.throttled.len() as u64;
+                return Ok(SentWindow::Done(outcome));
             }
             // A response whose item count does not match the body cannot be
             // mapped back onto it; guessing would re-send the wrong records.
-            let Some(retry_body) = select_bulk_actions(&body, &parsed.throttled, parsed.items)
-            else {
-                break parsed.outcome;
+            let Some(retry) = select_bulk_items(&body, &round.throttled, round.items) else {
+                return Ok(SentWindow::Done(outcome));
             };
-            self.announce_backpressure(
-                parsed.throttled.len(),
-                parsed.items,
-                parsed.outcome.first_server_error.as_deref(),
-                delay,
-                self.backpressure_patience.saturating_sub(idle),
+            settled_item_errors = outcome
+                .item_errors
+                .saturating_sub(round.throttled.len() as u64);
+            if round.first_settled_error.is_some() {
+                settled_first_error = round.first_settled_error;
+            }
+            self.throttle_notice(
+                &mut last_notice,
+                round
+                    .throttle_reason
+                    .as_deref()
+                    .unwrap_or("per-item HTTP 429"),
+                &format!("re-offering {} rejected record(s)", round.throttled.len()),
+                waited,
             );
-            self.backpressure.reissues.fetch_add(1, Ordering::Relaxed);
-            self.backpressure
+            self.throttle_ledger
+                .reissues
+                .fetch_add(1, Ordering::Relaxed);
+            self.throttle_ledger
                 .items_reissued
-                .fetch_add(parsed.throttled.len() as u64, Ordering::Relaxed);
+                .fetch_add(round.throttled.len() as u64, Ordering::Relaxed);
+            body = retry;
             self.backoff(delay);
             delay = (delay * 2).min(self.retry_max_delay);
-            body = retry_body;
-        };
-        // A bulk that needed a re-send is never a clean bulk that earns
-        // concurrency back, even when the re-send eventually succeeded.
-        if !throttled_in_this_bulk {
-            self.admission.on_success();
         }
-        Ok(SentWindow::Done(outcome))
     }
 
     /// The server refused this whole request as too large (#955). Nothing in it
@@ -1450,142 +1498,114 @@ impl Es {
         Ok(SentWindow::Halved(halves))
     }
 
-    /// One `_bulk` request through the transport retry, parsed into the
-    /// caller-facing outcome plus the positions of the items the server
-    /// answered 429 — what [`Self::bulk`] needs to re-send only those.
+    /// One request of a bulk body, with the transport-level retries, parsed.
     ///
-    /// A 429 on the whole request is parsed the same way (#944). The engine
-    /// answers one when its memory circuit breaker rejects the request, and
-    /// the body is then either an `{"error": …}` object or a full bulk
-    /// response whose items carry the per-item statuses. The items are
-    /// preferred when they are there and match the body — an item the server
-    /// says it accepted must not be written twice — else every action was
-    /// rejected. A 429 whose body cannot be mapped onto the actions at all is
-    /// still the transport error it always was: re-sending on a guess could
-    /// write the wrong records twice.
-    fn bulk_attempt(&self, body: Vec<u8>) -> Result<ParsedBulk> {
+    /// A 429 STATUS whose body is a bulk response — the memory breaker's
+    /// other shape: `{"took":…,"errors":true,"items":[…]}` under HTTP 429,
+    /// taken items `201`, rejected ones `429` — is read as one, so the taken
+    /// items are settled and only the rejected ones are re-offered by
+    /// [`Es::bulk_window`]. A 429 with any other body is a plain throttle.
+    ///
+    /// An HTTP 413, and an HTTP 200 carrying one synthetic item answered 413
+    /// for a body of several actions, are the two shapes of "this request is
+    /// too large" (#955): nothing in such a request was written, and it is
+    /// reported up as [`TooLarge`] for [`Es::halve_refused_request`].
+    fn bulk_round(&self, body: Vec<u8>) -> Result<Round> {
         let actions = count_bulk_actions(&body);
-        self.with_retry_throttle(
-            "_bulk",
-            Throttle::HandToParser,
-            || self.send_bulk(body.clone()),
-            |resp| {
-                let status = resp.status();
-                if status.as_u16() == 429 {
-                    let text = resp.text().context("read bulk 429 response")?;
-                    let value = serde_json::from_str::<Value>(&text).ok();
-                    let items = value
-                        .as_ref()
-                        .and_then(|value| value.get("items"))
-                        .and_then(Value::as_array)
-                        .map(Vec::len);
-                    if let (Some(value), true) =
-                        (value.as_ref(), items.is_some() && items == actions)
-                    {
-                        return Ok(parse_bulk_response(value));
+        // Whole-request 429s this attempt saw. `retry_loop` re-sends the body
+        // after every one but the last of a call that ends in an error, so
+        // these are re-sends for the same reason the per-item path counts them
+        // (#944): `bulk_retries` must not depend on which shape the engine's
+        // breaker happened to answer with.
+        let throttles = std::cell::Cell::new(0u64);
+        let round = self.retry_loop("_bulk", || {
+            let resp = match self.send_bulk(body.clone()) {
+                Ok(resp) => resp,
+                Err(e) => return Attempt::Failed(e),
+            };
+            let status = resp.status();
+            if status.is_server_error() {
+                return Attempt::Failed(match server_reason(resp) {
+                    Some(reason) => anyhow!("_bulk: HTTP {status}: {reason}"),
+                    None => anyhow!("_bulk: HTTP {status}"),
+                });
+            }
+            if status.as_u16() == 429 {
+                let text = match resp.text() {
+                    Ok(text) => text,
+                    Err(e) => return Attempt::Failed(anyhow!(e).context("read bulk 429 body")),
+                };
+                return match serde_json::from_str::<Value>(&text)
+                    .ok()
+                    .filter(|v| v.get("items").is_some_and(Value::is_array))
+                {
+                    Some(v) => Attempt::Done(parse_round(&v)),
+                    None => {
+                        throttles.set(throttles.get() + 1);
+                        Attempt::Throttled(Some(text.chars().take(SERVER_REASON_MAX).collect()))
                     }
-                    // The reason goes onto one stderr line; a body that is not
-                    // the engine's JSON could carry a newline there.
-                    let reason = reason_from_body(&text).map(|reason| {
-                        reason
-                            .chars()
-                            .map(|c| if c.is_control() { ' ' } else { c })
-                            .collect::<String>()
-                    });
-                    let Some(actions) = actions else {
-                        return Err(match reason {
-                            Some(reason) => anyhow!("_bulk: HTTP {status}: {reason}"),
-                            None => anyhow!("_bulk: HTTP {status}"),
-                        });
-                    };
-                    return Ok(ParsedBulk {
-                        outcome: BulkOutcome {
-                            item_errors: actions as u64,
-                            server_errors: actions as u64,
-                            first_error: reason.clone(),
-                            first_server_error: reason,
-                            throttled_out: 0,
-                        },
-                        items: actions,
-                        throttled: (0..actions).collect(),
-                        only_throttled: true,
-                        too_large: None,
-                    });
+                };
+            }
+            if status.as_u16() == 413 {
+                // A body-size limit refused the whole request before any of it
+                // was read as a bulk (#955). `bulk_bounded` halves it.
+                let reason = server_reason(resp)
+                    .unwrap_or_else(|| format!("HTTP {status}"))
+                    .chars()
+                    .map(|c| if c.is_control() { ' ' } else { c })
+                    .collect::<String>();
+                let mut round = parse_round(&Value::Null);
+                round.outcome.item_errors = actions.unwrap_or(1) as u64;
+                round.outcome.first_error = Some(reason);
+                round.too_large = Some(TooLarge::Bytes);
+                return Attempt::Done(round);
+            }
+            if !status.is_success() {
+                return Attempt::Abort(anyhow!("bulk HTTP {status}"));
+            }
+            match resp.json::<Value>() {
+                Ok(v) => {
+                    let mut round = parse_round(&v);
+                    if is_whole_request_too_large(&v, actions) {
+                        round.too_large = Some(TooLarge::Actions);
+                        // ONE synthetic item stood in for every action sent,
+                        // and none of them was written.
+                        round.outcome.item_errors = actions.unwrap_or(1) as u64;
+                    }
+                    Attempt::Done(round)
                 }
-                if status.as_u16() == 413 {
-                    // A body-size limit refused the whole request before any
-                    // of it was read as a bulk (#955). `Es::bulk` halves it.
-                    let reason = server_reason(resp)
-                        .unwrap_or_else(|| format!("HTTP {status}"))
-                        .chars()
-                        .map(|c| if c.is_control() { ' ' } else { c })
-                        .collect::<String>();
-                    return Ok(ParsedBulk {
-                        outcome: BulkOutcome {
-                            item_errors: actions.unwrap_or(1) as u64,
-                            first_error: Some(reason),
-                            ..BulkOutcome::default()
-                        },
-                        items: 0,
-                        throttled: Vec::new(),
-                        only_throttled: false,
-                        too_large: Some(TooLarge::Bytes),
-                    });
-                }
-                if !status.is_success() {
-                    return Err(anyhow!("bulk HTTP {status}"));
-                }
-                let v: Value = resp.json().context("parse bulk response")?;
-                let mut parsed = parse_bulk_response(&v);
-                if is_whole_request_too_large(&v, actions) {
-                    parsed.too_large = Some(TooLarge::Actions);
-                    // ONE synthetic item stood in for every action sent, and
-                    // none of them was written.
-                    parsed.outcome.item_errors = actions.unwrap_or(1) as u64;
-                }
-                Ok(parsed)
-            },
-        )
-    }
-
-    /// One stderr line per [`BACKPRESSURE_ANNOUNCE_EVERY`], run-wide, on the
-    /// same switch as the admission window's own lines.
-    fn announce_backpressure(
-        &self,
-        rejected: usize,
-        items: usize,
-        reason: Option<&str>,
-        delay: Duration,
-        patience_left: Duration,
-    ) {
-        if !self.admission.announces() {
-            return;
+                Err(e) => Attempt::Abort(anyhow!(e).context("parse bulk response")),
+            }
+        });
+        // A call that ends in an error gave up on its last throttle instead of
+        // re-sending it.
+        let reissued = match &round {
+            Ok(_) => throttles.get(),
+            Err(_) => throttles.get().saturating_sub(1),
+        };
+        if reissued > 0 {
+            self.throttle_ledger
+                .reissues
+                .fetch_add(reissued, Ordering::Relaxed);
+            self.throttle_ledger
+                .items_reissued
+                .fetch_add(reissued * actions.unwrap_or(0) as u64, Ordering::Relaxed);
         }
-        let mut last = self
-            .backpressure
-            .last_announce
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let now = Instant::now();
-        if last.is_some_and(|at| now.duration_since(at) < BACKPRESSURE_ANNOUNCE_EVERY) {
-            return;
+        match &round {
+            // A request refused as too large is neither congestion nor a clean
+            // bulk: the window is not the thing that has to change.
+            Ok(r) if r.too_large.is_some() => {}
+            Ok(r) if r.throttled.is_empty() => self.admission.on_success(),
+            // A bulk can also be throttled *per item*: HTTP 200 with
+            // individual documents rejected `status: 429`. That is the same
+            // congestion signal wearing a different hat, and it must not be
+            // read as a clean bulk that earns concurrency back.
+            Ok(_) => self.admission.on_congestion(),
+            // A failed bulk earns nothing back. If it failed *because* of a
+            // 429, `retry_loop` has already shrunk the window.
+            Err(_) => {}
         }
-        *last = Some(now);
-        // `first_server_error` is the serialised error object — JSON-escaped,
-        // so it cannot carry a raw newline onto this line.
-        let reason = reason
-            .map(|reason| {
-                let short: String = reason.chars().take(240).collect();
-                format!(": {short}")
-            })
-            .unwrap_or_default();
-        eprintln!(
-            "autoindex: server back-pressure: {rejected} of {items} bulk item(s) rejected \
-             (HTTP 429{reason}); re-sending only the rejected items in {:.1}s — the run \
-             gives up if nothing is accepted for another {}s",
-            delay.as_secs_f64(),
-            patience_left.as_secs()
-        );
+        round
     }
 
     fn send_bulk(&self, body: Vec<u8>) -> Result<reqwest::blocking::Response> {
@@ -1773,7 +1793,7 @@ impl Es {
 
 #[cfg(test)]
 mod tests {
-    use super::Es;
+    use super::{bulk_item_ranges, select_bulk_items, Es};
     use std::io::Read;
     use std::io::Write;
     use std::net::TcpListener;
@@ -2382,11 +2402,6 @@ mod tests {
 
     /// HTTP 200 whose *items* were rejected 429 is the same congestion
     /// signal, and must not be counted as a clean bulk.
-    ///
-    /// Zero patience: the stub answers exactly one request, and since #944
-    /// the client would otherwise re-send the rejected item. With no patience
-    /// the rejection is handed straight back, which is what this test is
-    /// about — the window, not the re-send (covered below).
     #[test]
     fn per_item_429_counts_as_congestion_not_as_a_clean_bulk() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -2399,7 +2414,9 @@ mod tests {
                 br#"{"errors":true,"items":[{"index":{"status":429,"error":{"type":"es_rejected_execution_exception","reason":"rejected"}}}]}"#,
             );
         });
-        let es = client(address, 4).with_backpressure_patience(Duration::ZERO);
+        // Patience zero: this test pins the ADMISSION response to a per-item
+        // 429, not the re-offer loop (which has its own tests below).
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
         let outcome = es.bulk(BULK.to_vec()).unwrap();
         assert_eq!(outcome.server_errors, 1);
         assert_eq!(
@@ -2624,372 +2641,328 @@ mod tests {
         }
     }
 
-    // ── #944: a per-item 429 is re-sent, and only the rejected items ──
+    // ── per-item 429: the memory breaker's shape ─────────────────────────
 
-    /// One `_bulk` response with the given per-item statuses, in order.
-    fn items_answered(stream: &mut std::net::TcpStream, statuses: &[u16]) {
-        let items: Vec<String> = statuses
-            .iter()
-            .map(|status| match status {
-                201 => r#"{"index":{"status":201}}"#.to_string(),
-                429 => r#"{"index":{"status":429,"error":{"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped","status":429}}}"#.to_string(),
-                other => format!(
-                    r#"{{"index":{{"status":{other},"error":{{"type":"document_parsing_exception","reason":"bad record"}}}}}}"#
-                ),
-            })
-            .collect();
-        let errors = statuses.iter().any(|status| *status != 201);
-        let body = format!(r#"{{"errors":{errors},"items":[{}]}}"#, items.join(","));
-        respond_json(stream, body.as_bytes());
-    }
-
-    fn body_after_headers(request: &[u8]) -> &[u8] {
+    fn request_body(request: &[u8]) -> &[u8] {
         let offset = request.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
         &request[offset..]
     }
 
-    const PAIR_A: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"a\"}}\n{\"v\":1}\n";
-    const PAIR_B: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"b\"}}\n{\"v\":2}\n";
-    const PAIR_C: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"c\"}}\n{\"v\":3}\n";
-    const DELETE_D: &[u8] = b"{\"delete\":{\"_index\":\"i\",\"_id\":\"d\"}}\n";
+    const BREAKER: &str = "[parent] real memory circuit breaker tripped: rss=15580MB >= \
+                           watermark=15564MB (94% of limit=16384MB); writes rejected to \
+                           prevent an out-of-memory kill";
 
-    fn joined(parts: &[&[u8]]) -> Vec<u8> {
-        parts.iter().flat_map(|part| part.iter().copied()).collect()
+    fn item(id: &str, status: u32, error: Option<&str>) -> String {
+        match error {
+            Some(reason) => format!(
+                r#"{{"index":{{"_index":"i","_id":"{id}","status":{status},"error":{{"type":"engine_exception","reason":"{reason}"}}}}}}"#
+            ),
+            None => format!(r#"{{"index":{{"_index":"i","_id":"{id}","status":{status}}}}}"#),
+        }
     }
 
-    /// The shape that aborted the 48,533-file run at 60%: HTTP 200, some
-    /// items 429. The rejected actions — and only those — go out again after a
-    /// backoff, positions stay honest across a `delete` (one line, no
-    /// document), and the caller sees the clean result of the re-send.
+    fn items_response(items: &[String], errors: bool) -> Vec<u8> {
+        format!(r#"{{"errors":{errors},"items":[{}]}}"#, items.join(",")).into_bytes()
+    }
+
+    fn pair(id: &str) -> Vec<u8> {
+        format!("{{\"index\":{{\"_index\":\"i\",\"_id\":\"{id}\"}}}}\n{{\"v\":\"{id}\"}}\n")
+            .into_bytes()
+    }
+
+    /// The requests a mock server saw, one body per connection.
+    type SeenRequests = Arc<Mutex<Vec<Vec<u8>>>>;
+
+    /// Serve `responses`, one per connection, recording each request.
+    fn serve_bodies(
+        listener: TcpListener,
+        responses: Vec<Vec<u8>>,
+    ) -> (std::thread::JoinHandle<()>, SeenRequests) {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let seen = requests.clone();
+        let handle = std::thread::spawn(move || {
+            for body in responses {
+                let (mut stream, _) = listener.accept().unwrap();
+                seen.lock().unwrap().push(read_request(&mut stream));
+                respond_json(&mut stream, &body);
+            }
+        });
+        (handle, requests)
+    }
+
     #[test]
-    fn per_item_429_reissues_only_the_rejected_actions_then_succeeds() {
+    fn per_item_breaker_rejections_are_re_offered_until_the_server_takes_them() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![
+                // a taken, b and c rejected by the breaker
+                items_response(
+                    &[
+                        item("a", 201, None),
+                        item("b", 429, Some(BREAKER)),
+                        item("c", 429, Some(BREAKER)),
+                    ],
+                    true,
+                ),
+                // b taken this time, c still rejected
+                items_response(&[item("b", 201, None), item("c", 429, Some(BREAKER))], true),
+                // c taken
+                items_response(&[item("c", 201, None)], false),
+            ],
+        );
+        let body = [pair("a"), pair("b"), pair("c")].concat();
+        let outcome = client(address, 4).bulk(body).unwrap();
+        server.join().unwrap();
+        assert_eq!(outcome.server_errors, 0, "{:?}", outcome.first_server_error);
+        assert_eq!(outcome.item_errors, 0);
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 3);
+        assert_eq!(request_body(&requests[1]), [pair("b"), pair("c")].concat());
+        assert_eq!(request_body(&requests[2]), pair("c"));
+    }
+
+    #[test]
+    fn per_item_429_gives_up_after_patience_with_the_servers_own_reason() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![items_response(
+                &[item("a", 201, None), item("b", 429, Some(BREAKER))],
+                true,
+            )],
+        );
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
+        let outcome = es.bulk([pair("a"), pair("b")].concat()).unwrap();
+        server.join().unwrap();
+        assert_eq!(
+            requests.lock().unwrap().len(),
+            1,
+            "patience exhausted: no retry"
+        );
+        assert_eq!(outcome.server_errors, 1);
+        assert!(
+            outcome
+                .first_server_error
+                .as_deref()
+                .unwrap()
+                .contains("circuit breaker"),
+            "{:?}",
+            outcome.first_server_error
+        );
+    }
+
+    #[test]
+    fn a_bad_record_is_settled_once_while_throttled_records_are_re_offered() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![
+                items_response(
+                    &[
+                        item("a", 400, Some("mapper_parsing_exception")),
+                        item("b", 429, Some(BREAKER)),
+                    ],
+                    true,
+                ),
+                items_response(&[item("b", 201, None)], false),
+            ],
+        );
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(requests.lock().unwrap().len(), 2);
+        assert_eq!(
+            request_body(&requests.lock().unwrap()[1]),
+            pair("b"),
+            "only b is re-offered"
+        );
+        assert_eq!(outcome.server_errors, 0);
+        assert_eq!(outcome.item_errors, 1, "the 400 is reported exactly once");
+        assert!(outcome
+            .first_error
+            .unwrap()
+            .contains("mapper_parsing_exception"));
+    }
+
+    #[test]
+    fn a_per_item_5xx_beside_a_429_is_not_waited_on() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, requests) = serve_bodies(
+            listener,
+            vec![items_response(
+                &[
+                    item("a", 503, Some("unavailable")),
+                    item("b", 429, Some(BREAKER)),
+                ],
+                true,
+            )],
+        );
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(requests.lock().unwrap().len(), 1);
+        assert_eq!(outcome.server_errors, 2);
+    }
+
+    #[test]
+    fn bulk_item_selection_keeps_lines_byte_identical_and_knows_delete_has_no_source() {
+        let del = b"{\"delete\":{\"_index\":\"i\",\"_id\":\"x\"}}\n".to_vec();
+        let body = [pair("a"), del.clone(), pair("c")].concat();
+        let ranges = bulk_item_ranges(&body).unwrap();
+        assert_eq!(ranges.len(), 3);
+        assert_eq!(&body[ranges[1].clone()], del.as_slice());
+        assert_eq!(
+            select_bulk_items(&body, &[0, 2], 3).unwrap(),
+            [pair("a"), pair("c")].concat()
+        );
+        assert_eq!(select_bulk_items(&body, &[1], 3).unwrap(), del);
+        assert!(
+            select_bulk_items(&body, &[0], 2).is_none(),
+            "response/request mismatch"
+        );
+        assert!(
+            select_bulk_items(&body, &[7], 3).is_none(),
+            "index past the end"
+        );
+        // Malformed: an index action with no source line.
+        assert!(bulk_item_ranges(b"{\"index\":{\"_id\":\"a\"}}\n").is_none());
+        // Multi-byte source lines cut only at the newline the writer put there.
+        let body = "{\"index\":{\"_id\":\"é\"}}\n{\"v\":\"設計 — café\"}\n".as_bytes();
+        assert_eq!(select_bulk_items(body, &[0], 1).unwrap(), body);
+        // A final line without its newline is still one item.
+        let body = b"{\"index\":{\"_id\":\"a\"}}\n{\"v\":1}";
+        assert_eq!(bulk_item_ranges(body).unwrap().len(), 1);
+    }
+
+    // ── HTTP-level 429: the breaker's other shape ────────────────────────
+
+    fn respond_429_bulk_body(stream: &mut std::net::TcpStream, body: &[u8]) {
+        respond_status(stream, "429 Too Many Requests", body);
+    }
+
+    #[test]
+    fn an_http_429_carrying_a_bulk_body_settles_taken_items_and_re_offers_the_rest() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         let requests = Arc::new(Mutex::new(Vec::new()));
-        let requests_server = requests.clone();
+        let seen = requests.clone();
         let server = std::thread::spawn(move || {
             let (mut first, _) = listener.accept().unwrap();
-            requests_server
-                .lock()
-                .unwrap()
-                .push(read_request(&mut first));
-            items_answered(&mut first, &[201, 429, 201, 429]);
+            seen.lock().unwrap().push(read_request(&mut first));
+            // The shape observed on the 1 GB run: status 429, body a full
+            // bulk response, a taken, b rejected by the breaker.
+            respond_429_bulk_body(
+                &mut first,
+                &items_response(&[item("a", 201, None), item("b", 429, Some(BREAKER))], true),
+            );
             let (mut second, _) = listener.accept().unwrap();
-            requests_server
-                .lock()
-                .unwrap()
-                .push(read_request(&mut second));
-            items_answered(&mut second, &[201, 201]);
+            seen.lock().unwrap().push(read_request(&mut second));
+            respond_json(&mut second, &items_response(&[item("b", 201, None)], false));
         });
-        let es = client(address, 4);
-        let outcome = es
-            .bulk(joined(&[PAIR_A, PAIR_B, DELETE_D, PAIR_C]))
+        let outcome = client(address, 4)
+            .bulk([pair("a"), pair("b")].concat())
             .unwrap();
         server.join().unwrap();
-        assert_eq!(outcome.item_errors, 0, "the re-send landed: a clean bulk");
-        assert_eq!(outcome.server_errors, 0);
-        assert_eq!(es.bulk_backpressure_retries(), 1);
-        assert_eq!(es.bulk_items_reissued(), 2);
+        assert_eq!(outcome.server_errors, 0, "{:?}", outcome.first_server_error);
         let requests = requests.lock().unwrap();
         assert_eq!(requests.len(), 2);
         assert_eq!(
-            body_after_headers(&requests[1]),
-            joined(&[PAIR_B, PAIR_C]).as_slice(),
-            "only the two rejected actions are re-sent; the accepted ones are not written twice"
+            request_body(&requests[1]),
+            pair("b"),
+            "a was taken; only b goes again"
         );
-        let delays = es.backoff_delays.lock().unwrap();
-        assert_eq!(
-            delays.len(),
-            1,
-            "exactly one backoff before the one re-send"
-        );
-        assert!(delays[0].1 >= delays[0].0, "{:?}", delays[0]);
-        assert_eq!(
-            es.bulk_congestion_events(),
-            1,
-            "a bulk that needed a re-send is congestion, never a clean bulk"
-        );
-        assert_eq!(es.bulk_concurrency_limit(), 2);
     }
 
-    /// The remainder shrinks as the server accepts some of each re-send; the
-    /// loop follows it down to nothing.
     #[test]
-    fn a_shrinking_remainder_is_followed_until_everything_landed() {
+    fn a_loading_run_re_asks_an_http_429_beyond_six_attempts_while_patience_lasts() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
-        let bodies = Arc::new(Mutex::new(Vec::new()));
-        let bodies_server = bodies.clone();
-        let server = std::thread::spawn(move || {
-            for statuses in [&[429u16, 429, 201][..], &[201, 429][..], &[201][..]] {
-                let (mut stream, _) = listener.accept().unwrap();
-                let request = read_request(&mut stream);
-                bodies_server
-                    .lock()
-                    .unwrap()
-                    .push(body_after_headers(&request).to_vec());
-                items_answered(&mut stream, statuses);
-            }
-        });
+        // Nine throttled answers, then one clean one: the old six-attempt
+        // budget failed this at the seventh.
+        let mut plan = vec![false; 9];
+        plan.push(true);
+        let server = serve(listener, plan);
         let es = client(address, 4);
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B, PAIR_C])).unwrap();
+        es.bulk(BULK.to_vec()).expect("a run waits the server out");
+        assert!(es.bulk_congestion_events() >= 1);
+        assert_eq!(
+            es.backoff_delays.lock().unwrap().len(),
+            9,
+            "one backoff per throttled answer, none after the clean one"
+        );
         server.join().unwrap();
-        assert_eq!((outcome.item_errors, outcome.server_errors), (0, 0));
-        let bodies = bodies.lock().unwrap();
-        assert_eq!(bodies[1], joined(&[PAIR_A, PAIR_B]));
-        assert_eq!(bodies[2], joined(&[PAIR_B]));
-        assert_eq!(es.bulk_backpressure_retries(), 2);
-        assert_eq!(es.bulk_items_reissued(), 3);
     }
 
-    /// Patience is finite: a server that rejects everything for longer than
-    /// the client's patience gets the rejection handed back as
-    /// `server_errors`, the value every caller already treats as fatal.
     #[test]
-    fn per_item_429_that_never_clears_is_handed_back_after_patience() {
+    fn a_loading_run_gives_up_an_http_429_when_patience_is_exhausted() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
-        let served = Arc::new(Mutex::new(0usize));
-        let served_server = served.clone();
-        let server = std::thread::spawn(move || loop {
-            let (mut stream, _) = listener.accept().unwrap();
-            let request = read_request(&mut stream);
-            if request.starts_with(b"STOP") {
-                break;
-            }
-            *served_server.lock().unwrap() += 1;
-            items_answered(&mut stream, &[429]);
-        });
-        let es = client(address, 4).with_backpressure_patience(Duration::from_millis(60));
-        let outcome = es.bulk(PAIR_A.to_vec()).unwrap();
-        let mut stop = std::net::TcpStream::connect(address).unwrap();
-        stop.write_all(b"STOP\r\n\r\n").unwrap();
-        drop(stop);
+        let server = serve(listener, vec![false]);
+        let es = client(address, 4).with_throttle_patience(Duration::ZERO);
+        let error = es.bulk(BULK.to_vec()).unwrap_err();
+        assert!(format!("{error:#}").contains("429"), "{error:#}");
+        assert!(
+            es.backoff_delays.lock().unwrap().is_empty(),
+            "no sleep after the last attempt"
+        );
         server.join().unwrap();
-        assert_eq!(outcome.server_errors, 1, "the rejection reaches the caller");
-        assert_eq!(outcome.item_errors, 1);
-        assert!(
-            outcome
-                .first_server_error
-                .as_deref()
-                .is_some_and(|reason| reason.contains("circuit breaker")),
-            "{outcome:?}"
-        );
-        let served = *served.lock().unwrap();
-        assert!(
-            served >= 2,
-            "at least one re-send before giving up, got {served}"
-        );
-        assert_eq!(es.bulk_backpressure_retries() as usize, served - 1);
     }
 
-    /// A 429 beside a refused record is not re-sent: that bulk carries a bad
-    /// record the caller must see, and re-sending the good half would hide
-    /// which one it was.
     #[test]
-    fn a_429_beside_a_refused_record_is_not_reissued() {
+    fn a_one_shot_client_keeps_the_bounded_budget_on_http_429() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
-        let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            let _ = read_request(&mut stream);
-            items_answered(&mut stream, &[429, 400]);
-        });
-        let es = client(address, 4);
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B])).unwrap();
+        let server = serve(listener, vec![false; 6]);
+        let es = Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_secs(5),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap();
+        let error = es.bulk(BULK.to_vec()).unwrap_err();
+        assert!(format!("{error:#}").contains("429"), "{error:#}");
+        assert_eq!(
+            es.backoff_delays.lock().unwrap().len(),
+            5,
+            "six attempts, five backoffs — a probe does not wait ten minutes"
+        );
         server.join().unwrap();
-        assert_eq!(outcome.item_errors, 2);
-        assert_eq!(outcome.server_errors, 1);
-        assert_eq!(es.bulk_backpressure_retries(), 0);
-        assert!(es.backoff_delays.lock().unwrap().is_empty());
-    }
-
-    // ── #944, second shape: HTTP 429 on the WHOLE bulk ──
-
-    /// The shape that ended the resumed full-corpus run: the engine answered
-    /// the whole `_bulk` 429 (`error: _bulk: HTTP 429 Too Many Requests`), and
-    /// the transport retry gave up after six attempts — about 8 s — while a
-    /// per-item 429 would have been waited out for 120 s. Now it is the same
-    /// back-pressure: the body is re-sent after a backoff, the re-send is
-    /// counted, and the caller sees the clean result.
-    #[test]
-    fn a_whole_request_429_is_re_sent_like_a_per_item_one() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let bodies = Arc::new(Mutex::new(Vec::new()));
-        let bodies_server = bodies.clone();
-        let server = std::thread::spawn(move || {
-            let (mut first, _) = listener.accept().unwrap();
-            let request = read_request(&mut first);
-            bodies_server
-                .lock()
-                .unwrap()
-                .push(body_after_headers(&request).to_vec());
-            throttled(&mut first);
-            let (mut second, _) = listener.accept().unwrap();
-            let request = read_request(&mut second);
-            bodies_server
-                .lock()
-                .unwrap()
-                .push(body_after_headers(&request).to_vec());
-            items_answered(&mut second, &[201, 201]);
-        });
-        let es = client(address, 4);
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B])).unwrap();
-        server.join().unwrap();
-        assert_eq!(
-            (outcome.item_errors, outcome.server_errors),
-            (0, 0),
-            "{outcome:?}"
-        );
-        assert_eq!(es.bulk_backpressure_retries(), 1);
-        assert_eq!(
-            es.bulk_items_reissued(),
-            2,
-            "every action was rejected, so every action is re-sent"
-        );
-        let bodies = bodies.lock().unwrap();
-        assert_eq!(bodies[1], joined(&[PAIR_A, PAIR_B]));
-        assert_eq!(es.bulk_congestion_events(), 1);
-        assert_eq!(
-            es.bulk_concurrency_limit(),
-            2,
-            "a whole-request 429 halves the window too"
-        );
-    }
-
-    /// The engine's whole-request 429 can carry a full bulk response whose
-    /// items say which actions it did accept. Those are not written twice.
-    #[test]
-    fn a_whole_request_429_carrying_item_statuses_re_sends_only_the_rejected() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let bodies = Arc::new(Mutex::new(Vec::new()));
-        let bodies_server = bodies.clone();
-        let server = std::thread::spawn(move || {
-            let (mut first, _) = listener.accept().unwrap();
-            let request = read_request(&mut first);
-            bodies_server
-                .lock()
-                .unwrap()
-                .push(body_after_headers(&request).to_vec());
-            respond_status(
-                &mut first,
-                "429 Too Many Requests",
-                br#"{"took":49,"errors":true,"items":[{"index":{"status":201}},{"index":{"status":429,"error":{"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped","status":429}}},{"index":{"status":201}}]}"#,
-            );
-            let (mut second, _) = listener.accept().unwrap();
-            let request = read_request(&mut second);
-            bodies_server
-                .lock()
-                .unwrap()
-                .push(body_after_headers(&request).to_vec());
-            items_answered(&mut second, &[201]);
-        });
-        let es = client(address, 4);
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B, PAIR_C])).unwrap();
-        server.join().unwrap();
-        assert_eq!(
-            (outcome.item_errors, outcome.server_errors),
-            (0, 0),
-            "{outcome:?}"
-        );
-        let bodies = bodies.lock().unwrap();
-        assert_eq!(
-            bodies[1],
-            PAIR_B.to_vec(),
-            "only the rejected action goes out again"
-        );
-        assert_eq!(es.bulk_items_reissued(), 1);
-    }
-
-    /// A whole-request 429 that never clears is handed back after the client's
-    /// patience — as `server_errors`, which the callers turn into "the server
-    /// kept rejecting … rerun to resume" — and not as a transport error after
-    /// six attempts.
-    #[test]
-    fn a_whole_request_429_that_never_clears_is_handed_back_after_patience() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let served = Arc::new(Mutex::new(0usize));
-        let served_server = served.clone();
-        let server = std::thread::spawn(move || loop {
-            let (mut stream, _) = listener.accept().unwrap();
-            let request = read_request(&mut stream);
-            if request.starts_with(b"STOP") {
-                break;
-            }
-            *served_server.lock().unwrap() += 1;
-            throttled(&mut stream);
-        });
-        // Long enough, with the test policy's 10–20 ms backoffs, for more
-        // sends than the six transport attempts the old path allowed.
-        let es = client(address, 4).with_backpressure_patience(Duration::from_millis(250));
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B])).unwrap();
-        let mut stop = std::net::TcpStream::connect(address).unwrap();
-        stop.write_all(b"STOP\r\n\r\n").unwrap();
-        drop(stop);
-        server.join().unwrap();
-        assert_eq!(
-            outcome.server_errors, 2,
-            "both actions are handed back as server errors: {outcome:?}"
-        );
-        assert_eq!(outcome.item_errors, 2);
-        assert!(
-            outcome
-                .first_server_error
-                .as_deref()
-                .is_some_and(|reason| reason.contains("es_rejected_execution_exception")),
-            "{outcome:?}"
-        );
-        let served = *served.lock().unwrap();
-        assert!(
-            served > 6,
-            "patience, not six attempts, bounds the re-sends: served {served}"
-        );
-        assert_eq!(es.bulk_backpressure_retries() as usize, served - 1);
-    }
-
-    #[test]
-    fn select_bulk_actions_walks_delete_actions_by_verb() {
-        let body = joined(&[PAIR_A, DELETE_D, PAIR_B]);
-        assert_eq!(
-            super::select_bulk_actions(&body, &[1, 2], 3).unwrap(),
-            joined(&[DELETE_D, PAIR_B])
-        );
-        assert_eq!(
-            super::select_bulk_actions(&body, &[0], 3).unwrap(),
-            PAIR_A.to_vec()
-        );
-        assert_eq!(
-            super::select_bulk_actions(&body, &[], 3).unwrap(),
-            Vec::<u8>::new()
-        );
-    }
-
-    /// A response the body cannot be mapped onto is never guessed at.
-    #[test]
-    fn select_bulk_actions_refuses_what_it_cannot_map() {
-        let body = joined(&[PAIR_A, DELETE_D, PAIR_B]);
-        assert!(
-            super::select_bulk_actions(&body, &[1], 2).is_none(),
-            "the server answered fewer items than were sent"
-        );
-        assert!(
-            super::select_bulk_actions(b"not json\n{\"v\":1}\n", &[0], 1).is_none(),
-            "an action line that is not a JSON object"
-        );
-        assert!(
-            super::select_bulk_actions(PAIR_A, &[0], 2).is_none(),
-            "a body one action short"
-        );
     }
 
     // ── #955: a request is bounded in actions and bytes, and a request the
     //    server still calls too large is halved instead of ending the run ──
 
-    const PAIR_E: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"e\"}}\n{\"v\":5}\n";
-    const PAIR_F: &[u8] = b"{\"index\":{\"_index\":\"i\",\"_id\":\"f\"}}\n{\"v\":6}\n";
+    fn delete_action(id: &str) -> Vec<u8> {
+        format!("{{\"delete\":{{\"_index\":\"i\",\"_id\":\"{id}\"}}}}\n").into_bytes()
+    }
+
+    /// Answer a `_bulk` with one item per status, the way the engine does:
+    /// `201` for an accepted action, the breaker's reason for a `429`.
+    fn items_answered(stream: &mut std::net::TcpStream, statuses: &[u16]) {
+        let items: Vec<String> = statuses
+            .iter()
+            .enumerate()
+            .map(|(i, status)| {
+                let id = i.to_string();
+                if *status < 300 {
+                    item(&id, u32::from(*status), None)
+                } else {
+                    item(&id, u32::from(*status), Some(BREAKER))
+                }
+            })
+            .collect();
+        let errors = statuses.iter().any(|status| *status >= 300);
+        respond_json(stream, &items_response(&items, errors));
+    }
 
     /// One request body a [`LimitedBulkServer`] received, in arrival order,
     /// with whether it was applied (`true`) or refused as too large.
@@ -3030,7 +3003,7 @@ mod tests {
                 };
                 stream.set_nonblocking(false).unwrap();
                 let request = read_request(&mut stream);
-                let body = body_after_headers(&request).to_vec();
+                let body = request_body(&request).to_vec();
                 let lines = body
                     .split(|byte| *byte == b'\n')
                     .filter(|line| !line.is_empty())
@@ -3094,15 +3067,23 @@ mod tests {
     }
 
     /// The literal end of the full-corpus run, scaled down: the server takes
-    /// two actions a request, the body holds six plus a delete. Before #955
-    /// `Es::bulk` sent it whole and handed the single 413 item back as one
-    /// rejected record. Now nothing is lost, nothing is written twice, the
+    /// two actions a request, the body holds five pairs plus a delete. Before
+    /// #955 `Es::bulk` sent it whole and handed the single 413 item back as
+    /// one rejected record. Now nothing is lost, nothing is written twice, the
     /// order holds, and the run remembers the bound.
     #[test]
     fn a_request_refused_for_its_action_count_is_halved_until_it_lands() {
         let server = LimitedBulkServer::start(2, usize::MAX);
         let es = client(server.address, 4);
-        let body = joined(&[DELETE_D, PAIR_A, PAIR_B, PAIR_C, PAIR_E, PAIR_F]);
+        let body = [
+            delete_action("d"),
+            pair("a"),
+            pair("b"),
+            pair("c"),
+            pair("e"),
+            pair("f"),
+        ]
+        .concat();
         let outcome = es.bulk(body.clone()).unwrap();
         assert_eq!(outcome.item_errors, 0, "{outcome:?}");
         assert_eq!(outcome.server_errors, 0, "{outcome:?}");
@@ -3129,16 +3110,16 @@ mod tests {
             "the server was not asked the same question twice"
         );
         assert_eq!(es.bulk_requests_split(), splits_before);
-        assert_eq!(server.applied(), joined(&[&body[..], &body[..]]));
+        assert_eq!(server.applied(), [body.clone(), body].concat());
     }
 
     /// The same for the byte dimension: an HTTP 413 on the request used to be
     /// `bulk HTTP 413 Payload Too Large` and the end of the run.
     #[test]
     fn a_request_refused_with_http_413_is_halved_by_bytes() {
-        let body = joined(&[PAIR_A, PAIR_B, PAIR_C, PAIR_E]);
+        let body = [pair("a"), pair("b"), pair("c"), pair("e")].concat();
         // Two pairs fit, three do not.
-        let server = LimitedBulkServer::start(usize::MAX / 4, PAIR_A.len() * 2 + 4);
+        let server = LimitedBulkServer::start(usize::MAX / 4, pair("a").len() * 2 + 4);
         let es = client(server.address, 4);
         let outcome = es.bulk(body.clone()).unwrap();
         assert_eq!(outcome.item_errors, 0, "{outcome:?}");
@@ -3160,7 +3141,7 @@ mod tests {
     fn one_action_the_server_refuses_as_too_large_is_not_halved() {
         let server = LimitedBulkServer::start(usize::MAX / 4, 8);
         let es = client(server.address, 4);
-        let error = es.bulk(PAIR_A.to_vec()).unwrap_err().to_string();
+        let error = es.bulk(pair("a")).unwrap_err().to_string();
         assert!(
             error.contains("HTTP 413") && error.contains("one action ("),
             "{error}"
@@ -3194,7 +3175,14 @@ mod tests {
     fn a_body_above_the_action_ceiling_goes_out_as_consecutive_windows() {
         let server = LimitedBulkServer::start(usize::MAX / 4, usize::MAX);
         let es = client(server.address, 4).with_bulk_max_actions(2);
-        let body = joined(&[DELETE_D, PAIR_A, PAIR_B, PAIR_C, PAIR_E]);
+        let body = [
+            delete_action("d"),
+            pair("a"),
+            pair("b"),
+            pair("c"),
+            pair("e"),
+        ]
+        .concat();
         let outcome = es.bulk(body.clone()).unwrap();
         assert_eq!(outcome.item_errors, 0, "{outcome:?}");
         let requests = server.requests.lock().unwrap();
@@ -3202,9 +3190,9 @@ mod tests {
         assert_eq!(
             sent,
             [
-                &joined(&[DELETE_D, PAIR_A])[..],
-                &joined(&[PAIR_B, PAIR_C])[..],
-                PAIR_E
+                &[delete_action("d"), pair("a")].concat()[..],
+                &[pair("b"), pair("c")].concat()[..],
+                &pair("e")[..]
             ],
             "windows of two actions, in order, a delete counted as one action"
         );
@@ -3220,8 +3208,16 @@ mod tests {
     fn bulk_windowed_bounds_a_body_nobody_windowed_by_bytes() {
         let server = LimitedBulkServer::start(usize::MAX / 4, usize::MAX);
         let es = client(server.address, 4);
-        let body = joined(&[DELETE_D, PAIR_A, PAIR_B, PAIR_C, PAIR_E, PAIR_F]);
-        let window = PAIR_A.len() * 2;
+        let body = [
+            delete_action("d"),
+            pair("a"),
+            pair("b"),
+            pair("c"),
+            pair("e"),
+            pair("f"),
+        ]
+        .concat();
+        let window = pair("a").len() * 2;
         let outcome = es.bulk_windowed(body.clone(), window).unwrap();
         assert_eq!(outcome.item_errors, 0, "{outcome:?}");
         assert_eq!(server.applied(), body, "deletes first, order kept");
@@ -3235,7 +3231,7 @@ mod tests {
 
     #[test]
     fn window_bulk_body_leaves_alone_what_already_fits_or_cannot_be_walked() {
-        let body = joined(&[PAIR_A, DELETE_D, PAIR_B]);
+        let body = [pair("a"), delete_action("d"), pair("b")].concat();
         assert!(super::window_bulk_body(&body, 3, body.len()).is_none());
         assert!(
             super::window_bulk_body(&body, 3, usize::MAX).is_none(),
@@ -3247,13 +3243,10 @@ mod tests {
         );
         // One action larger than the byte bound travels alone.
         let windows = super::window_bulk_body(&body, 3, 4).unwrap();
-        assert_eq!(
-            windows,
-            [PAIR_A.to_vec(), DELETE_D.to_vec(), PAIR_B.to_vec()]
-        );
+        assert_eq!(windows, [pair("a"), delete_action("d"), pair("b")]);
         // A producer that closes its window BEFORE the record that would pass
         // the bound (`stream_ndjson_pairs`) builds bodies this never re-cuts.
-        let produced = joined(&[PAIR_A, PAIR_B]);
+        let produced = [pair("a"), pair("b")].concat();
         assert!(super::window_bulk_body(&produced, 10_000, produced.len()).is_none());
     }
 
@@ -3278,7 +3271,7 @@ mod tests {
                     server_bodies
                         .lock()
                         .unwrap()
-                        .push(body_after_headers(&request).to_vec());
+                        .push(request_body(&request).to_vec());
                     items_answered(&mut stream, &[429]);
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -3292,8 +3285,8 @@ mod tests {
         });
         let es = client(address, 4)
             .with_bulk_max_actions(1)
-            .with_backpressure_patience(Duration::from_millis(60));
-        let outcome = es.bulk(joined(&[PAIR_A, PAIR_B, PAIR_C])).unwrap();
+            .with_throttle_patience(Duration::from_millis(30));
+        let outcome = es.bulk([pair("a"), pair("b"), pair("c")].concat()).unwrap();
         stop.store(true, std::sync::atomic::Ordering::SeqCst);
         server.join().unwrap();
         assert_eq!(outcome.server_errors, 3, "{outcome:?}");
@@ -3303,7 +3296,7 @@ mod tests {
             "the sent window and the two unsent ones: {outcome:?}"
         );
         assert!(
-            bodies.lock().unwrap().iter().all(|body| body == PAIR_A),
+            bodies.lock().unwrap().iter().all(|body| *body == pair("a")),
             "only the first window was ever offered"
         );
     }
@@ -3316,12 +3309,12 @@ mod tests {
         use anyhow::Context;
         let error = super::BackpressureExhausted {
             items: 12,
-            patience: Duration::from_secs(120),
+            patience: super::THROTTLE_PATIENCE,
             reason: "{\"type\":\"engine_exception\"}".into(),
         };
         assert_eq!(
             error.to_string(),
-            "the server kept rejecting 12 of a prepared bulk's items after 120s of \
+            "the server kept rejecting 12 of a prepared bulk's items after 600s of \
              back-pressure re-sends with nothing accepted: {\"type\":\"engine_exception\"}. \
              Nothing from this bulk was journaled applied; rerun the same command once the \
              server condition clears and the run resumes from its last committed operation"
@@ -3333,6 +3326,27 @@ mod tests {
             Some(&error)
         );
         assert!(super::BackpressureExhausted::in_chain(&anyhow::anyhow!("other")).is_none());
+    }
+
+    /// #944's counters have to survive on main's retry loop: `xerj-done`
+    /// carries them and an end-to-end test asserts them.
+    #[test]
+    fn a_re_offered_bulk_is_counted_on_xerj_done() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let (server, _requests) = serve_bodies(
+            listener,
+            vec![
+                items_response(&[item("a", 201, None), item("b", 429, Some(BREAKER))], true),
+                items_response(&[item("b", 201, None)], false),
+            ],
+        );
+        let es = client(address, 4);
+        let outcome = es.bulk([pair("a"), pair("b")].concat()).unwrap();
+        server.join().unwrap();
+        assert_eq!(outcome.server_errors, 0, "{outcome:?}");
+        assert_eq!(es.bulk_backpressure_retries(), 1);
+        assert_eq!(es.bulk_items_reissued(), 1);
     }
 }
 
