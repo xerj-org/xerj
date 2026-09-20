@@ -16,7 +16,7 @@ agent-facing files, plus a probe of ~140 well-known GitHub projects, compared wi
 |---|---|---|
 | Discover | Four independent agents, four angles: public llms.txt directories; direct probing of ~140 projects' docs domains and repo roots; installation-prompt patterns; feedback and contribution loops | complete — 176 candidates, 85 pattern notes |
 | Dissect | One agent per project fetched the live files and extracted sizes, section order, install wording, agent-addressed text, MCP snippets, feedback asks — **verbatim** — and compared with XERJ's file | complete — 48 runs, 46 unique projects |
-| Synthesize, critique, fact-check | One agent over everything, then a completeness critic, then a re-fetch fact-check of 25 claims | **not finished when this was committed** — see §10 |
+| Synthesize, critique, fact-check | One agent over everything, then a completeness critic, then a re-fetch fact-check — 25 queued claims grew to 259 | complete 2026-09-19 — in [`proposals/`](./proposals/report.md); see §10 |
 
 What that means for a reader:
 
@@ -330,14 +330,26 @@ Recorded because the process mistakes matter as much as the file's.
 
 ---
 
-## 10. Not finished when this was committed
+## 10. The proposals (added 2026-09-19)
 
-- The workflow's synthesis agent — producing a full proposed `llms.txt`, an
-  `llms-install.md` and a library of paste-ready prompts — was still running. Its output,
-  and the critic and fact-check passes that follow it, are to be added here as
-  `proposals/` when they complete. Nothing in this directory depends on them.
-- The rewrite itself is deliberately **not** in this change: several open feature PRs
-  each append a line to `landing/llms.txt`, and rule 10 above applies.
+The synthesis, critic and fact-check passes finished on 2026-09-19. Their output is in
+[`proposals/`](./proposals/report.md): a revised report, a proposed `llms.txt`, a proposed
+`llms-install.md`, ten paste-ready prompts, the fact-check (259 claims re-fetched, 258
+confirmed, 1 not confirmed and removed) and a record of the XERJ commands the proposals
+print, run on Linux against `xerj v1.0.0-rc.74` — with a "Not run" list naming what was
+not (the `curl | sh` installer, macOS and Windows, `--embed-mode neural`,
+`claude mcp add --scope local`, and the per-client registration lines, which are quoted
+from each client's documentation rather than executed). The proposals change **no live file**:
+`landing/llms.txt`, `llms-full.txt` and `AGENTS.md` are untouched, because rule 10 above
+applies and the report's §9 lists what must exist before any of it ships.
+
+Two findings in them are about the product, not the text: `xerj feedback --open-pr`
+branches, commits and pushes in whatever repository it is run from, and `xerj init`
+writes an MCP entry without `XERJ_AUTH`, so against a default (auth-on) node every tool
+call returns 401. Both were reproduced twice.
+
+Ten projects were added to the comparison on 2026-09-19 (six the report relied on but had
+not tabled, four local code-search peers), bringing it to 56.
 
 ---
 
@@ -354,3 +366,10 @@ Recorded because the process mistakes matter as much as the file's.
 | [`discovery-direct-probing.md`](./discovery-direct-probing.md) | 19 findings from probing ~140 projects directly, including who publishes nothing |
 | [`per-project/`](./per-project) | One page per project: everything extracted, what they do better, what XERJ does better, adoptable ideas |
 | [`data/dissections.json`](./data/dissections.json), [`data/discovery.json`](./data/discovery.json) | The raw structured results, lossless |
+| [`data/dissections-2026-09-19.json`](./data/dissections-2026-09-19.json) | The ten projects added on 2026-09-19 |
+| [`proposals/report.md`](./proposals/report.md) | The revised, fact-checked report: patterns, gap analysis, prioritised changes, ship checklist |
+| [`proposals/proposed-llms.txt`](./proposals/proposed-llms.txt), [`proposals/proposed-llms-install.md`](./proposals/proposed-llms-install.md), [`proposals/install-prompt-library.md`](./proposals/install-prompt-library.md) | The proposed files — not live |
+| [`proposals/FACTCHECK.md`](./proposals/FACTCHECK.md) | Every claim re-fetched: URL, what was looked for, result, HTTP status, bytes, fetch time |
+| [`proposals/llms-txt-measurements.md`](./proposals/llms-txt-measurements.md) | 132 `llms.txt` files measured by script; per-file rows in `proposals/data/llms-txt-manifest.json` |
+| [`proposals/data/xerj-cli-verification-2026-09-19.md`](./proposals/data/xerj-cli-verification-2026-09-19.md) | Every XERJ command the proposals print, run, with its literal result |
+| [`scripts/`](./scripts) | The generators and checkers: `build_tables.py`, `build_pages.py`, `factcheck.py`, `measure_llms_txt.py`, `check_links.py`, `check_report_ids.py` |

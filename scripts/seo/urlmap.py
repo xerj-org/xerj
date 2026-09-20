@@ -32,6 +32,7 @@ Primary sources
 from __future__ import annotations
 
 import datetime as _dt
+import os
 import pathlib
 import re
 import subprocess
@@ -301,12 +302,20 @@ class DateSource:
     def _git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
         if not self.git_ok:
             return None
-        cmd = ["git", "-C", str(self.repo_root), "log", "--format=%cs"]
+        # %cs renders the committer date in the COMMIT's own timezone, so a
+        # commit made at 22:34 UTC from a +02:00 machine reads 2026-09-20 here
+        # and 2026-09-19 on a UTC CI runner — the generated files then differ
+        # by machine and `--check` fails for hours every evening. Dates are
+        # UTC everywhere instead.
+        cmd = ["git", "-C", str(self.repo_root), "log",
+               "--date=format-local:%Y-%m-%d", "--format=%cd"]
         if not first:
             cmd.append("-1")
         cmd += ["--", str(path)]
+        env = {**os.environ, "TZ": "UTC"}
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=30,
+                               env=env)
         except (OSError, subprocess.SubprocessError):
             return None
         if r.returncode != 0:

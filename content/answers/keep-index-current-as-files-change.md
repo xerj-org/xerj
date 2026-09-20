@@ -1,0 +1,196 @@
+---
+title: "How do I keep a XERJ index up to date as files change?"
+h1: "How do I keep a search index up to date as files change, without re-indexing everything?"
+description: "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
+slug: "keep-index-current-as-files-change"
+cluster: "Operations: freshness"
+question: "How do I keep a search index up to date as files change, without re-indexing everything?"
+intent: "how-to"
+published: "2026-09-19"
+author: "XERJ documentation team"
+reviewer: "XERJ engineering team"
+schema_type: "TechArticle"
+agent_prompt: "Act as a coding agent keeping a folder searchable. Read https://xerj.org/llms.txt first. Index the folder once with xerj autoindex --no-graph, then start xerj autoindex --watch --no-graph on the same --state-dir and --prefix, read the per-pass watch lines on stderr to confirm hashed= versus carried=, and do not add a cron job that re-runs the indexer."
+commands:
+  - cmd: "xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --state-dir ./state-notes --no-graph"
+    note: "Index the folder once. This is the pass a watcher would run first."
+  - cmd: "xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --state-dir ./state-notes --no-graph --watch --debounce 400"
+    note: "Stay resident and reindex what changes. Needs --no-graph."
+  - cmd: "xerj autoindex status --url http://127.0.0.1:9200 --state-dir ./state-notes"
+    note: "Read the journal for the corpus the watcher is maintaining."
+links_out:
+  - "check-codebase-index-is-complete"
+  - "autoindex-exit-codes"
+  - "catalog-files-with-autoindex-map"
+faq:
+  - q: "How do I keep a search index up to date as files change, without re-indexing everything?"
+    a: "Run xerj autoindex with --watch --no-graph. It indexes the folder once, then stays resident and reindexes only what the filesystem reports as changed, using one OS watch per indexed directory and no polling."
+  - q: "Why does --watch require --no-graph?"
+    a: "Reconciling an added or deleted file exists only on the --no-graph route. On the default graph path a re-run resumes a frozen plan: a file added after that plan was frozen is reported as appeared after the resume plan was frozen and is not indexed until a --fresh rebuild, and a deleted file aborts the run and every re-run after it. A file whose content changed is reconciled there, so the limitation is additions and deletions, not edits."
+  - q: "Is a file watcher cheaper than re-running the indexer on a timer?"
+    a: "At idle, yes, and measurably. On a 10,000-file tree a re-run with nothing changed took 1.7 s and re-read all 4,576,300 bytes, while an idle watcher used 0.00 CPU-seconds over 60 s and read nothing. It does hold about 157 MiB resident between passes."
+  - q: "Does --watch use less CPU per change than a re-run?"
+    a: "Not measurably. It skips the corpus re-hash, but that saving is inside the run-to-run noise: on a 10,000-file tree, modifying one file cost 7.6 CPU-seconds by re-running against 6.6 under --watch in one measurement and 5.6 against 7.2 in another, and the wall clock was no better (44.3 s against 47.6 s), because each pass still seals a snapshot over the whole corpus and rewrites one catalog document per file. Against re-indexing the folder from scratch, which took 293.8 s and 127.9 CPU-seconds, both incremental routes win by an order of magnitude."
+  - q: "Will a watched index match a full re-index?"
+    a: "Two tests assert it. After any sequence of changes a plain re-run that re-hashes every byte must change nothing, and that is asserted after a randomised create, modify, rename, delete and recreate sequence. A watched index also equals an independently built full index, except that an incremental run keeps the dataset name it was built with."
+  - q: "What happens when the index hits the inotify watch limit?"
+    a: "The run stops with a message naming fs.inotify.max_user_watches, its current value, how many directories the tree needs, the sysctl that raises it, and the ways out that need no root. A half-watched tree would look live and silently miss changes, so it is refused."
+  - q: "Does a watcher notice a file that was deleted?"
+    a: "Yes. The pass reconciles the folder against the committed generation, so a deleted file's documents stop appearing in search."
+  - q: "What can --watch miss?"
+    a: "A write that produces no filesystem event and leaves size, mtime and inode identical, which touch -r and a same-size rewrite with a restored timestamp can do. A plain xerj autoindex re-run hashes every byte and repairs it."
+---
+
+**TL;DR** — `xerj autoindex ./folder --watch --no-graph` indexes once, then
+reindexes what changed. At idle it costs nothing; a re-run on a timer costs a
+full walk and a full re-hash of the corpus on every tick.
+
+## The two ways to stay current, and what each costs
+
+Before `--watch`, keeping an autoindex corpus fresh meant re-running
+`xerj autoindex`. That is not a cheap no-op: the run re-walks the tree and
+re-reads every byte of it, because size and mtime cannot prove byte identity on
+every filesystem XERJ supports.
+
+Measured on one machine (32 cores, NVMe, one local node) against a tree of
+**10,000 files / 4,576,300 bytes / 101 directories**, one file modified. The
+machine was shared with other builds. Each figure is one sample, so read the
+large gaps and not the small ones. Commands and captured output:
+`docs/measurements/autoindex-watch-2026-09-19.md`.
+
+| Keeping the index current | Wall | Client CPU | Server CPU |
+|---|---|---|---|
+| Index the folder again from scratch | 293.8 s | 127.9 s | 167.5 s |
+| Re-run the same command, nothing changed | 1.7 s | 2.1 s | 0.01 s |
+| Re-run it, one file modified | 44.3 s | 7.6 s | 27.9 s |
+| `--watch`, idle | — | 0.00 s per minute | 0.07 s per minute |
+| `--watch`, one file modified | 47.6 s | 6.6 s | 34.5 s |
+
+The table says three things. Read all three.
+
+**Idle is where the watcher wins outright.** It waits on an event channel and
+holds one OS watch per indexed directory: 0.00 CPU-seconds per minute, measured
+twice. A poll loop instead pays 1.7 s and re-reads every byte on every tick to
+find nothing, and waits half a tick to notice a real change. What the watcher
+does hold at idle is memory: 157 MiB and 295 worker threads between passes.
+
+**Per change, the watcher is not faster than re-running the same command.** It
+skips the corpus re-hash, but that saving is smaller than the run-to-run noise
+here and we could not measure it: an independent re-run of the same case came
+out the other way (5.6 CPU-seconds re-running against 7.2 under `--watch`). The
+pass that follows costs the same either way. A one-file change still seals a
+snapshot over the whole corpus: ~13 s, one blob per file, each copied, twice
+verified and fsynced. It still rewrites one catalog document per file on the
+server, at ~27 s of server CPU. Both terms are O(corpus), both are shared with a
+plain re-run, and both are filed as the next lever.
+
+**Against re-indexing the folder from scratch, incremental wins by an order of
+magnitude** — 44-48 s against 294 s, and 7 CPU-seconds against 128.
+
+## Start it
+
+```sh
+# once, to build the corpus
+xerj autoindex ./notes --url http://127.0.0.1:9200 \
+  --prefix notes --state-dir ./state-notes --no-graph
+
+# then keep it current
+xerj autoindex ./notes --url http://127.0.0.1:9200 \
+  --prefix notes --state-dir ./state-notes --no-graph --watch --debounce 400
+```
+
+The second command never returns; stop it with Ctrl-C. Each pass prints one
+line you can read or parse:
+
+```text
+watch: pass 1 finished in 47.0s exit=0 events=3 paths=1 hashed=1/0MB carried=9999/4MB cache=10000 files
+```
+
+`hashed=` versus `carried=` is the number to watch: it says whether the session
+is doing incremental work or falling back to full re-hashes.
+
+## Why `--no-graph` is required
+
+`--watch` refuses to run without it, and the reason is a real limitation rather
+than a formality:
+
+* On the `--no-graph` route, a run reconciles the folder against a committed
+  generation: added, changed, renamed and deleted files are all handled.
+* On the default graph path, a run resumes a *frozen* plan. A file whose content
+  changed **is** reconciled there (measured: 3.07 s, `files=1`, the new text
+  searchable). A file that was **added** is not. The run reports
+  `1 file(s) appeared after the resume plan was frozen and were NOT indexed`,
+  exits 3, and tells you to rebuild with `--fresh`. A file that was **deleted** is
+  worse. The run aborts in 0.24 s with "removing files from an indexed folder is
+  not reconciled yet". Its documents stay live, and every later re-run aborts the
+  same way.
+
+A watcher on the graph path would therefore go stale on the first new file and
+stop reindexing on the first deletion. The price of `--no-graph` is relationship
+detection: no wikilink, local-link, section-order or directory-chain edges.
+
+## Which directories the watcher covers
+
+The watch set is the directories the indexing walk **admits**. Same traversal,
+same hidden-name rule, same `.gitignore` and `.xerjignore` stack. An ignored
+`target/` therefore costs no watch and cannot wake the watcher at all. A watched
+run and a plain re-run also agree about what is indexed, because they read the
+same rules from the same code. Editing `.gitignore` or `.xerjignore` invalidates
+the directory it governs. The rule you change takes effect on the next pass.
+
+Events on hidden names such as `.file.swp` or `.git/index.lock` are dropped
+without a pass, because no run indexes those either.
+
+## Editor saves, renames and deletes
+
+One save is several filesystem events, and every editor does it differently.
+`--debounce` (default 400 ms, maximum 60000) waits for the tree to go quiet
+before it starts a pass. One save is therefore one pass. A tree that never goes
+quiet still gets a pass at least every 5 s.
+
+Tests cover each of these: atomic save (write a temp file, rename over the
+target), truncate-then-write, a metadata-only touch, and a deleted file. Also a
+file replaced by a directory, a moved directory, and a burst of thousands of
+events. A kernel watch-queue overflow forces a full re-hash for that pass.
+
+One more case matters for whether a session settles. On Linux the kernel also
+reports file OPENS, so every file a pass reads reports an event. The watcher
+classifies events by kind and drops reads. Without that step each pass would
+trigger the next one forever.
+
+## Does it converge?
+
+Yes, and two tests assert it. The first property is the strict one: after the
+changes, a plain re-run that re-hashes every byte must change nothing. A
+randomised sequence of creates, modifications, renames, deletes and recreates
+runs against a watched index, and the re-run after it changes no document.
+
+The second property compares the watched index with an independently built full
+index. The two agree on document ids, document count and document contents. One
+exception exists. An incremental run keeps the dataset name it was built with,
+and a fresh build re-elects that name from the folder it sees. Renaming the
+directory a dataset was named after therefore changes the dataset name on a
+fresh build but not on a watched one. A manual re-run behaves the same way.
+
+The shortcut that makes it fast is narrow on purpose. A file skips its re-hash
+only when two things hold. No event since the last hash named the file or any
+ancestor directory. Its size, mtime and inode are also unchanged. The digest
+cache lives in memory only, so a restart re-hashes in full.
+
+What it can still miss: a write that produces no event and leaves size, mtime
+and inode identical. A plain `xerj autoindex` re-run hashes everything and
+repairs that.
+
+## If it crashes
+
+A pass is an ordinary incremental run, so the resume journal applies unchanged.
+A process killed mid-pass leaves a resumable journal. The next start hashes in
+full and reconciles. The test fails a pass mid-publish, then restarts with an
+empty cache. It asserts the result equals a fresh full index: nothing lost and
+nothing duplicated.
+
+## Full documentation
+
+`docs/LIVE_REINDEXING.md` in the repository holds the design and the measurement
+numbers. It also holds the `inotify` limit message and the full list of what is
+not implemented.

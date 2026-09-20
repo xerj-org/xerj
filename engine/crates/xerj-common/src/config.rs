@@ -252,13 +252,32 @@ impl Config {
         // vectors are compressed 4×. Neither is true. Fail loud at startup so
         // the mismatch surfaces immediately instead of after data is written.
 
-        // Storage: only the local filesystem backend is implemented. The S3 /
-        // object-store backend selector is inert — no code reads it to route
-        // segment writes/reads to S3.
+        // Storage: the S3-compatible object-storage *backend* is real as of
+        // the `xerj-storage::s3` module — it does ranged GETs, PutObject,
+        // paginated ListObjectsV2 and HeadObject against R2, MinIO and S3, and
+        // `SegmentCache` serves byte ranges through it. What is NOT wired is
+        // the index's own read/write path: the only constructor of
+        // `StorageMode::ObjectStore` outside tests is in
+        // `xerj-engine/src/index.rs`, and it hardcodes `StorageMode::Local`.
+        //
+        // Even the flush path that does exist uploads one file per segment —
+        // the `.seg` — while a 25-field segment writes 104 (`.seg`, `.sidx`,
+        // `.dv`, `.ids`, and `.fst`/`.meta`/`.norms`/`.post` per indexed
+        // field), and `snapshot.json` never leaves local disk at all. A fresh
+        // node pointed at the bucket therefore sees zero segments; the
+        // regression test
+        // `xerj-storage::index_store::tests::object_store_mode_does_not_yet_make_an_index_stateless`
+        // pins that down and will fail when it stops being true.
+        //
+        // So the guard stays: an operator who sets this believes their index
+        // lands in the bucket, and it would not.
         if self.storage.backend != StorageBackendType::Local {
             return Err(XerjError::config(
-                "storage.backend: the S3 storage backend is not implemented in this build; \
-                 only \"local\" is supported",
+                "storage.backend: object storage is not implemented as an index backend in \
+                 this build. The S3-compatible client itself works (xerj-storage::s3), but \
+                 nothing routes segment reads and writes through it, and an index in a \
+                 bucket would not be readable by a fresh node. Only \"local\" is supported \
+                 — see docs/OBJECT_STORAGE.md",
             ));
         }
 
@@ -789,8 +808,11 @@ pub struct StorageConfig {
     pub s3_region: String,
     /// Local NVMe cache directory for S3 segments (default: `"./cache"`).
     ///
-    /// Segments are cached here after the first fetch from S3.  The cache is
-    /// evicted by the background `SegmentCache::maybe_evict` task.
+    /// Segments are cached here after the first fetch from S3. Eviction is
+    /// **not** automatic: `SegmentCache::maybe_evict` exists but nothing calls
+    /// it yet outside tests, so whatever drives the cache has to drive eviction
+    /// too or the directory grows without bound. (This line used to claim a
+    /// "background task"; there is none.)
     pub local_cache_dir: String,
 }
 
@@ -2236,8 +2258,10 @@ mod tests {
 
     #[test]
     fn s3_backend_rejected() {
-        // The S3 backend selector is inert in this build; setting it must fail
-        // loud rather than silently running on local disk.
+        // The object-storage *client* is real; the index path through it is
+        // not. Selecting it must therefore still fail loud rather than
+        // silently running on local disk while the operator believes their
+        // data is in a bucket.
         let result = Config::from_toml_str(
             r#"
             [storage]
@@ -2246,9 +2270,14 @@ mod tests {
             "#,
         );
         let err = result.expect_err("s3 backend must be rejected as unimplemented");
+        let msg = err.to_string();
         assert!(
-            err.to_string().contains("not implemented"),
-            "error should explain S3 is unimplemented, got: {err}"
+            msg.contains("not implemented as an index backend"),
+            "error must say it is the index backend that is missing, got: {err}"
+        );
+        assert!(
+            msg.contains("docs/OBJECT_STORAGE.md"),
+            "error must point at the doc that explains the split, got: {err}"
         );
     }
 

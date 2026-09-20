@@ -151,6 +151,8 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [What is Reciprocal Rank Fusion?](https://xerj.org/answers/reciprocal-rank-fusion-when-to-use.md): What is reciprocal rank fusion and when should I use it?
 - **Hybrid search**
   - [How does XERJ combine BM25 and kNN?](https://xerj.org/answers/how-xerj-combines-search.md): How does XERJ combine BM25 and kNN?
+- **Ingest: object storage**
+  - [How do I search files that live in an S3 bucket?](https://xerj.org/answers/search-files-in-an-s3-bucket.md): How do I search files that live in an S3 bucket?
 - **Operations: completeness**
   - [How do I check my code index actually finished?](https://xerj.org/answers/check-codebase-index-is-complete.md): My codebase indexer says indexed but I don't see my code. How do I check it actually finished?
 - **Operations: estimation**
@@ -161,6 +163,8 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [What do the xerj autoindex exit codes mean?](https://xerj.org/answers/autoindex-exit-codes.md): What does indexer exit code 3 mean?
   - [Why did xerj autoindex say a dataset was REFUSED?](https://xerj.org/answers/autoindex-dataset-refused-by-server.md): Why did xerj autoindex say a dataset was refused by the server?
   - [Why does xerj autoindex say the server pushed back (429)?](https://xerj.org/answers/autoindex-server-back-pressure-429.md): Why did xerj autoindex say the server pushed back with HTTP 429?
+- **Operations: freshness**
+  - [How do I keep a XERJ index up to date as files change?](https://xerj.org/answers/keep-index-current-as-files-change.md): How do I keep a search index up to date as files change, without re-indexing everything?
 - **Operations: installation**
   - [Is there a single-binary local search engine?](https://xerj.org/answers/search-engine-without-docker.md): Is there a single-binary local search engine I can just run?
 - **Operations: low-volume logs**

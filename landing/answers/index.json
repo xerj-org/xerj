@@ -99,7 +99,7 @@
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
       "updated": "2026-09-19",
-      "summary": "Not yet. The S3 backend is a local-directory simulation, _watcher stores watches and never runs them, and ingest plugins are built-in only. Sources named."
+      "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
     },
     {
       "title": "Audit a PHP codebase with an index, not grep",
@@ -109,15 +109,6 @@
       "cluster": "Code security",
       "updated": "2026-08-23",
       "summary": "The published WordPress core audit indexed the tree as queryable facts, then read only the survivors. Core came back hardened, and that negative is the result."
-    },
-    {
-      "title": "How do I rebuild a reference-coding corpus index from scratch?",
-      "question": "How do I rebuild a reference-coding corpus index from scratch?",
-      "canonical_url": "https://xerj.org/answers/rebuild-reference-corpus-index",
-      "markdown_url": "https://xerj.org/answers/rebuild-reference-corpus-index.md",
-      "cluster": "Coding agents: reference retrieval",
-      "updated": "2026-09-18",
-      "summary": "xc-index.sh --fresh builds a replacement index beside the old one, verifies it has records, switches the state file, and only then retires the old index. A failed build costs nothing."
     },
     {
       "title": "Index a reference library for a coding agent",
@@ -444,6 +435,15 @@
       "summary": "One hybrid request carries a BM25 sub-query and a kNN sub-query against one index, and Reciprocal Rank Fusion merges their ranked lists into a single result list."
     },
     {
+      "title": "How do I search files that live in an S3 bucket?",
+      "question": "How do I search files that live in an S3 bucket?",
+      "canonical_url": "https://xerj.org/answers/search-files-in-an-s3-bucket",
+      "markdown_url": "https://xerj.org/answers/search-files-in-an-s3-bucket.md",
+      "cluster": "Ingest: object storage",
+      "updated": "2026-09-19",
+      "summary": "Point xerj autoindex at s3://bucket/prefix. It lists the prefix, streams only the objects whose ETag changed, and indexes them. One LIST request per 1,000 keys."
+    },
+    {
       "title": "How do I check my code index actually finished?",
       "question": "My codebase indexer says indexed but I don't see my code. How do I check it actually finished?",
       "canonical_url": "https://xerj.org/answers/check-codebase-index-is-complete",
@@ -476,26 +476,17 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-19",
+      "updated": "2026-08-23",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
     },
     {
-      "title": "Why did xerj autoindex say a dataset was REFUSED?",
-      "question": "Why did xerj autoindex say a dataset was refused by the server?",
-      "canonical_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server",
-      "markdown_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server.md",
-      "cluster": "Operations: exit codes",
-      "updated": "2026-09-18",
-      "summary": "When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line."
-    },
-    {
-      "title": "Why does xerj autoindex say the server pushed back (429)?",
-      "question": "Why did xerj autoindex say the server pushed back with HTTP 429?",
-      "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
-      "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
-      "cluster": "Operations: exit codes",
-      "updated": "2026-09-19",
-      "summary": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 120 s with nothing accepted is fatal."
+      "title": "How do I keep a XERJ index up to date as files change?",
+      "question": "How do I keep a search index up to date as files change, without re-indexing everything?",
+      "canonical_url": "https://xerj.org/answers/keep-index-current-as-files-change",
+      "markdown_url": "https://xerj.org/answers/keep-index-current-as-files-change.md",
+      "cluster": "Operations: freshness",
+      "updated": "2026-09-20",
+      "summary": "Run xerj autoindex --watch --no-graph. It indexes once, then reindexes what the filesystem reports. Measured: 0.00 CPU-seconds per idle minute against 1.7 s and a full corpus re-read for every poll."
     },
     {
       "title": "Is there a single-binary local search engine?",
@@ -521,7 +512,7 @@
       "canonical_url": "https://xerj.org/answers/read-autoindex-progress",
       "markdown_url": "https://xerj.org/answers/read-autoindex-progress.md",
       "cluster": "Operations: progress",
-      "updated": "2026-09-19",
+      "updated": "2026-08-23",
       "summary": "XERJ prints xerj-bar, xerj-progress and a final xerj-done line. On a single large file the percentage stays at 0.0%, so read since_progress_s and waiting_on."
     },
     {

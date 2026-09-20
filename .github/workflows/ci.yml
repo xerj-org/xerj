@@ -98,6 +98,12 @@ jobs:
       - name: Corpus manifest round-trip
         run: tools/xerj-code/tests/test_xc_corpus.sh
 
+      - name: Matching passage window regressions
+        run: python3 tools/xerj-code/tests/test_passage_window.py
+
+      - name: Retrieval output and state-ledger regressions
+        run: python3 tools/xerj-code/tests/test_state_ledger.py
+
       - name: Vetted hub manifests validate
         run: python3 tools/xerj-code/tests/validate_manifest.py --hub tools/xerj-code/hub/*.json
 
@@ -113,6 +119,9 @@ jobs:
       # build, not the whole namespace), so its ledger guard is gated too.
       - name: xc.py state-ledger guard
         run: python3 tools/xerj-code/tests/test_state_ledger.py
+
+      - name: Hybrid retrieval transport fallback
+        run: python3 tools/xerj-code/tests/test_hybrid_fallback.py
 
   # #489: this script existed, worked, and had been failing locally for three
   # releases — the version footer, headline and narrative on landing/index.html
