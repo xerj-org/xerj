@@ -111,6 +111,15 @@
       "summary": "The published WordPress core audit indexed the tree as queryable facts, then read only the survivors. Core came back hardened, and that negative is the result."
     },
     {
+      "title": "How do I rebuild a reference-coding corpus index from scratch?",
+      "question": "How do I rebuild a reference-coding corpus index from scratch?",
+      "canonical_url": "https://xerj.org/answers/rebuild-reference-corpus-index",
+      "markdown_url": "https://xerj.org/answers/rebuild-reference-corpus-index.md",
+      "cluster": "Coding agents: reference retrieval",
+      "updated": "2026-09-18",
+      "summary": "xc-index.sh --fresh builds a replacement index beside the old one, verifies it has records, switches the state file, and only then retires the old index. A failed build costs nothing."
+    },
+    {
       "title": "Index a reference library for a coding agent",
       "question": "How do I set up reference coding so the agent retrieves a mechanism before writing code?",
       "canonical_url": "https://xerj.org/answers/index-reference-library-for-coding-agent",
@@ -485,7 +494,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-08-23",
+      "updated": "2026-09-20",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question."
     },
     {
@@ -496,6 +505,24 @@
       "cluster": "Operations: exit codes",
       "updated": "2026-09-20",
       "summary": "autoindex never opens archives. A .zip, .tgz, .7z, .rar or .xz is marked as junk with the exact extraction command; the run continues. Index the extracted folder."
+    },
+    {
+      "title": "Why did xerj autoindex say a dataset was REFUSED?",
+      "question": "Why did xerj autoindex say a dataset was refused by the server?",
+      "canonical_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server",
+      "markdown_url": "https://xerj.org/answers/autoindex-dataset-refused-by-server.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-18",
+      "summary": "When the server refuses one dataset's mapping, xerj autoindex records that dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line."
+    },
+    {
+      "title": "Why does xerj autoindex say the server pushed back (429)?",
+      "question": "Why did xerj autoindex say the server pushed back with HTTP 429?",
+      "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
+      "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
+      "cluster": "Operations: exit codes",
+      "updated": "2026-09-20",
+      "summary": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 600 s of re-sends that never clear is fatal."
     },
     {
       "title": "How do I keep a XERJ index up to date as files change?",
@@ -530,7 +557,7 @@
       "canonical_url": "https://xerj.org/answers/read-autoindex-progress",
       "markdown_url": "https://xerj.org/answers/read-autoindex-progress.md",
       "cluster": "Operations: progress",
-      "updated": "2026-08-23",
+      "updated": "2026-09-20",
       "summary": "XERJ prints xerj-bar, xerj-progress and a final xerj-done line. On a single large file the percentage stays at 0.0%, so read since_progress_s and waiting_on."
     },
     {

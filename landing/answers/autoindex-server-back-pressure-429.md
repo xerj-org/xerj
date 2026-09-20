@@ -2,18 +2,18 @@
 ---
 title: "Why does xerj autoindex say the server pushed back (429)?"
 canonical: "https://xerj.org/answers/autoindex-server-back-pressure-429"
-updated: "2026-09-19"
+updated: "2026-09-20"
 source: "content/answers/autoindex-server-back-pressure-429.md"
 ---
 
 # The server pushed back with HTTP 429. Did xerj autoindex lose the run?
 
-**TL;DR** — No. A per-item HTTP 429 is the node shedding load for a moment. `xerj autoindex` lowers its bulk concurrency, re-sends only the items the node rejected, and continues. The terminal line then carries `bulk_retries=N`. The run exits 1 only after 120 seconds in which the node accepted nothing, and the same command resumes it.
+**TL;DR** — No. A per-item HTTP 429 is the node shedding load for a moment. `xerj autoindex` lowers its bulk concurrency, re-sends only the items the node rejected, and continues. The terminal line then carries `bulk_retries=N`. The run exits 1 only after 600 seconds of re-sends that the node never takes, and the same command resumes it.
 
 ## Agent prompt
 
 ```text
-Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex with --progress plain, and keep reading the stream when a line says server back-pressure or server pushed back (HTTP 429): the run is re-sending the rejected items and is not hung. Parse the xerj-done line; bulk_retries=N means the run fought back-pressure and still landed every record. Report exit 1 with 'kept rejecting' in the error line as a server condition that did not clear, and rerun the same command to resume.
+Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex with --progress plain, and keep reading the stream when a line says server is shedding load or server pushed back (HTTP 429): the run is re-sending the rejected items and is not hung. Parse the xerj-done line; bulk_retries=N means the run fought back-pressure and still landed every record. Report exit 1 with 'kept rejecting' in the error line as a server condition that did not clear, and rerun the same command to resume.
 ```
 
 ## Commands
@@ -70,12 +70,12 @@ When a bulk comes back HTTP 429 as a whole, or comes back with items rejected 42
 1. Lowers its bulk concurrency, once per congestion event, as it always did.
 2. Cuts exactly the rejected actions out of the body it sent. The bulk response lists one answer per action in order, so the mapping is positional, and a `delete` action, which has no document line, keeps its place.
 3. Waits a backoff that starts at 250 ms and doubles up to 8 s, then re-sends only those actions.
-4. Repeats while the node keeps accepting something. Each response that accepts at least one item resets the clock.
+4. Repeats until the node takes them.
 
-It gives up only after 120 seconds in which the node accepted nothing at all. The run then exits 1 with an error line that says what happened and what to do:
+It gives up 600 seconds after that bulk was first offered, and not before. The run then exits 1 with an error line that says what happened and what to do:
 
 ```text
-error: the server kept rejecting 12 of a prepared bulk's items after 120s of back-pressure re-sends with nothing accepted: {"type":"engine_exception",...}. Nothing from this bulk was journaled applied; rerun the same command once the server condition clears and the run resumes from its last committed operation
+error: the server kept rejecting 12 of a prepared bulk's items after 600s of back-pressure re-sends with nothing accepted: {"type":"engine_exception",...}. Nothing from this bulk was journaled applied; rerun the same command once the server condition clears and the run resumes from its last committed operation
 ```
 
 A bulk the node refuses for its *size* is not back-pressure either. HTTP 413, or one item answered 413 for a request of many actions, means the request is over `limits.max_body_bytes` or `limits.max_actions_per_bulk`. The run cuts that request in two and sends both halves, keeps the smaller size for every later request, and does not lower its concurrency, because nothing is congested. The terminal line then carries `bulk_splits=N`. [The exit-codes page](/answers/autoindex-exit-codes) has the full-corpus run that used to fail on this.
@@ -86,10 +86,10 @@ A whole-request 429 is mapped onto the same loop. When its body is a full bulk r
 
 ## What the stream shows
 
-While the run waits, stderr carries one line per 5 seconds at most:
+While the run waits, stderr carries one line per 30 seconds at most, per waiting bulk:
 
 ```text
-autoindex: server back-pressure: 747 of 1024 bulk item(s) rejected (HTTP 429: {"type":"engine_exception","reason":"[parent] real memory circuit breaker tripped ..."}); re-sending only the rejected items in 0.3s — the run gives up if nothing is accepted for another 120s
+autoindex: server is shedding load — [parent] real memory circuit breaker tripped: rss=76MB >= watermark=60MB (94% of limit=64MB); writes rejected to prevent an out-of-memory kill; re-offering 2 rejected record(s) (waited 0s, giving up after 600s)
 ```
 
 The `xerj-progress` line's `since_progress_s` climbs during the wait, because nothing is landing. That is the honest reading. The difference from a hang is the line above: a hang prints no cause.
@@ -116,7 +116,7 @@ error: the server kept rejecting …
 
 `reason=server-backpressure` tells this stop apart from `reason=aborted`, which also covers a broken journal or an unreachable node. The exit code stays 1: exit 3 means a finished run with nothing to retry, and a half-applied generation is not finished.
 
-This was forced on a real node by starting it with a 64 MiB memory cap, so the breaker was engaged from the first write. After 16 re-sends the run ended `xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231`. The node was then restarted on its default cap and the same command was run again. It printed `resumed and committed` and ended `ok=true exit=3` with the same 1,663 records as a control run.
+This was forced on a real node by starting it with a 64 MiB memory cap, so the breaker was engaged from the first write. The run re-sent the two rejected records for the full 600 s and ended `xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231`, printing 19 `server is shedding load` notices on the way — one per 30 s of the wait, not one per re-send. The node was then restarted on its default cap and the same command was run again. It printed `resumed and committed` and ended `ok=true exit=3` with the same 1,663 records and 236 catalog documents as a control run.
 
 Read the node log: it names the cap it chose (`memory: detected … usable, using a … cap`) and the setting that changes it, `limits.max_process_memory_mb` or `XERJ_MAX_PROCESS_MEMORY_MB`. Then rerun the same command. Nothing from the rejected bulk was journaled as applied, so the run resumes from its last committed operation and sends that bulk again.
 
@@ -130,7 +130,7 @@ The node answered a bulk, or some items inside one, with HTTP 429. Its memory ci
 
 ### Is a 429 from the server fatal?
 
-Not on its own. Items rejected 429 are re-sent for as long as the server keeps accepting something, and for 120 s once it accepts nothing. Only then does the run exit 1, and it says so in words: the server kept rejecting after the re-sends, nothing from that bulk was journaled, rerun to resume.
+Not on its own. Only the items the node rejected are re-sent, after a backoff, for up to 600 s measured from the moment that bulk was first offered. Only then does the run exit 1, and it says so in words: the server kept rejecting after the re-sends, nothing from that bulk was journaled, rerun to resume.
 
 ### What does bulk_retries on the xerj-done line mean?
 
@@ -142,11 +142,11 @@ No. The bulk response lists an answer per action in order, so the run cuts exact
 
 ### Why does the progress percentage stop moving during back-pressure?
 
-Because nothing is landing while the client waits out the backoff. `since_progress_s` climbs honestly and a `server back-pressure` line on stderr names the cause, the delay and how much patience is left. That is different from a hang, where no such line appears.
+Because nothing is landing while the client waits out the backoff. `since_progress_s` climbs honestly and a `server is shedding load` line on stderr names the cause, how long the wait has run and when the run gives up. That is different from a hang, where no such line appears.
 
 ### My run exited 1 with 'kept rejecting'. What now?
 
-The node stayed above its memory watermark for longer than 120 s with nothing accepted. On the `--no-graph` path the terminal line reads `reason=server-backpressure` and carries `ops_applied` and `ops_remaining`. Check the node log for its memory cap, raise `limits.max_process_memory_mb` or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation. If the node log shows resident memory pinned at the watermark long after ingest stopped, that is issue #950 and only a restart of the node clears it.
+The node stayed above its memory watermark for the whole 600 s a bulk waits. On the `--no-graph` path the terminal line reads `reason=server-backpressure` and carries `ops_applied` and `ops_remaining`. Check the node log for its memory cap, raise `limits.max_process_memory_mb` or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation. If the node log shows resident memory pinned at the watermark long after ingest stopped, that is issue #950 and only a restart of the node clears it.
 
 ### Is an HTTP 413 from the node back-pressure?
 
@@ -162,10 +162,10 @@ No. A 429 on create-index or put-mapping is the endpoint saying it is busy, not 
 - The node's log for the same run shows the memory circuit breaker engaged 14 times in 27 minutes and released every engagement within 0.1 to 3.1 seconds, at a 16 GiB automatic memory cap on a 119.2 GiB machine. — `benchmarks/autoindex-resilience/before-944.node.governor.txt`
 - The resumed run, with the per-item fix in place, aborted 1039.6 s in at 20.8% of the remaining index phase with error: _bulk: HTTP 429 Too Many Requests, after the transport retry gave up on a whole-request 429 following six attempts and about 8 s of backoff. — `benchmarks/autoindex-resilience/before-944.whole-request-429.stderr.txt`
 - After that run the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk 2.5 hours after the last write, its breaker stayed engaged, and every write was answered 429 until the node was restarted. — [https://github.com/xerj-org/xerj/issues/950](https://github.com/xerj-org/xerj/issues/950)
-- Only a bulk whose every failed item is a 429 is re-sent; the rejected actions are cut out of the sent body by position and re-issued after a backoff that starts at 250 ms and doubles to 8 s; the client gives up only after 120 s with nothing accepted, measured from the last response that accepted an item. — `engine/crates/xerj-autoindex/src/esclient.rs`
+- Only a bulk whose every failed item is a 429 is re-sent; the rejected actions are cut out of the sent body by position and re-issued after a backoff that starts at 250 ms and doubles to 8 s; the client gives up 600 s after that bulk was first offered. — `engine/crates/xerj-autoindex/src/esclient.rs`
 - The 'raising bulk concurrency' line is printed at most once every 10 s, plus the step that reaches the ceiling; the capture that motivated this holds 117 such lines for 11 shrinks. — `engine/crates/xerj-autoindex/src/esclient.rs`
-- On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=128.8s ops_applied=0 ops_remaining=231 after 16 re-sends, and the same command on the restarted node committed the generation with 1,663 records, the same as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
-- A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency; on real nodes with max_actions_per_bulk = 64 and max_body_bytes = 98304 each run ended ok=true exit=3 records=1663 bulk_splits=1, the same records as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
+- On a real node started with a 64 MiB memory cap, a --no-graph run ended xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231 after 600 s of re-sends, and the same command on the restarted node committed the generation with 1,663 records, the same as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
+- A bulk request the node refuses as too large, with HTTP 413 or with one item answered 413 for a request of several actions, is cut in two and re-sent without lowering the bulk concurrency; on real nodes with max_actions_per_bulk = 64 and max_body_bytes = 98304 each run ended ok=true exit=3 records=1663 bulk_splits=1 with 236 catalog documents, the same as a control run. — `benchmarks/autoindex-resilience/limits-real-node.txt`
 
 ## Related
 

@@ -163,9 +163,9 @@ Direct answers for you, the AI agent: the link, then the question that page answ
   - [Why does a folder search miss files on disk?](https://xerj.org/answers/why-autoindex-skipped-files.md): Why would a folder search miss files that I can see on disk?
 - **Operations: exit codes**
   - [What do the xerj autoindex exit codes mean?](https://xerj.org/answers/autoindex-exit-codes.md): What does indexer exit code 3 mean?
+  - [Why autoindex refuses a .zip and asks you to extract it](https://xerj.org/answers/autoindex-says-extract-the-archive-first.md): Why does xerj autoindex say to extract a zip first?
   - [Why did xerj autoindex say a dataset was REFUSED?](https://xerj.org/answers/autoindex-dataset-refused-by-server.md): Why did xerj autoindex say a dataset was refused by the server?
   - [Why does xerj autoindex say the server pushed back (429)?](https://xerj.org/answers/autoindex-server-back-pressure-429.md): Why did xerj autoindex say the server pushed back with HTTP 429?
-  - [Why autoindex refuses a .zip and asks you to extract it](https://xerj.org/answers/autoindex-says-extract-the-archive-first.md): Why does xerj autoindex say to extract a zip first?
 - **Operations: freshness**
   - [How do I keep a XERJ index up to date as files change?](https://xerj.org/answers/keep-index-current-as-files-change.md): How do I keep a search index up to date as files change, without re-indexing everything?
 - **Operations: installation**

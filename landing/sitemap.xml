@@ -25,11 +25,19 @@
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
+    <loc>https://xerj.org/answers/autoindex-dataset-refused-by-server</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
     <loc>https://xerj.org/answers/autoindex-exit-codes</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/autoindex-says-extract-the-archive-first</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/autoindex-server-back-pressure-429</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
@@ -150,6 +158,10 @@
   </url>
   <url>
     <loc>https://xerj.org/answers/read-autoindex-progress</loc>
+    <lastmod>2026-09-20</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/answers/rebuild-reference-corpus-index</loc>
     <lastmod>2026-09-20</lastmod>
   </url>
   <url>
