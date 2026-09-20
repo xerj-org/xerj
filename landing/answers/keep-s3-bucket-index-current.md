@@ -2,7 +2,7 @@
 ---
 title: "How do I keep an index current when the files live in a bucket?"
 canonical: "https://xerj.org/answers/keep-s3-bucket-index-current"
-updated: "2026-09-19"
+updated: "2026-09-20"
 source: "content/answers/keep-s3-bucket-index-current.md"
 ---
 

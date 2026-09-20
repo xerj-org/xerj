@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-09-19",
-  "dateModified": "2026-09-19",
+  "dateModified": "2026-09-20",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -230,7 +230,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>HOW DO I KEEP AN INDEX CURRENT WHEN THE FILES LIVE IN AN OBJECT STORE?</div>
   <div class="kicker"><span>ANSWERS · OBJECT STORAGE</span></div>
   <h1>How do I keep an index current when the files live in an object store?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-19 · UPDATED · 2026-09-19</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-19 · UPDATED · 2026-09-20</div>
   <p><strong>TL;DR</strong> — Poll the prefix with <code class="inline">xerj autoindex s3://bucket/prefix --watch</code>. Decide the interval from the operation count, not from the latency you want. <code class="inline">ListObjectsV2</code> is a Class A operation at one call per 1,000 keys, <strong>every cycle</strong>. Cloudflare R2's free tier is 1,000,000 Class A operations a month. A 5-second poll spends half of that to watch an empty bucket. Full detail in <a href="https://github.com/xerj-org/xerj/blob/main/docs/WATCHING_OBJECT_STORAGE.md">docs/WATCHING_OBJECT_STORAGE.md</a>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>

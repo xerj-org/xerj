@@ -449,7 +449,7 @@
       "canonical_url": "https://xerj.org/answers/keep-s3-bucket-index-current",
       "markdown_url": "https://xerj.org/answers/keep-s3-bucket-index-current.md",
       "cluster": "Object storage",
-      "updated": "2026-09-19",
+      "updated": "2026-09-20",
       "summary": "A bucket has no inotify, so you poll or you subscribe to events. Poll cost is the decision: ListObjectsV2 is a Class A operation, one call per 1,000 keys, every cycle."
     },
     {
