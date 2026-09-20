@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`xerj autoindex` reads mbox mailboxes and Google Takeout exports** — an mbox
+  (Takeout, Thunderbird, Apple Mail, mutt) is detected by content, split in a
+  bounded-memory stream with `>From ` unquoting, CRLF/LF and a missing final
+  newline handled, and every message goes through the same extractor as a
+  standalone `.eml`, so message and attachment records (PDF pages included)
+  have one shape; senders and recipients are filterable by bare address
+  (`email_from_address`, `email_to_address`, `email_cc_address`), Subject
+  words are searchable in `body`, and Gmail's decimal `X-GM-THRID` is stored
+  as the hex id Gmail's web interface uses; messages are parsed on a
+  `--workers`-wide pool under one process-wide in-flight byte budget and
+  forwarded in order, the progress bar moves inside the file, a Takeout
+  root's `archive_browser.html` and Keep `.html` twins are skipped by named
+  rules, Keep `.json` notes are indexed, and an unextracted archive is named
+  under the run's summary with the command to extract it. The new
+  `email-thread@1` detector writes `replies_to` (`In-Reply-To`/`References`)
+  and `attachment_of` edges with evidence, and an incremental run keeps a
+  reply across two mailboxes (Inbox → Sent) by loading the untouched
+  mailboxes' messages back from the index. A loading run now waits the
+  server's memory circuit breaker out — a 429, per item or as the HTTP
+  status, is re-offered (only the rejected records) for up to ten minutes
+  instead of aborting the run. Numbers, machine and commands:
+  `benchmarks/mbox-ingest/README.md` (synthetic mailbox; not yet verified on
+  a real Takeout export). Measured limits, filed on
+  [#948](https://github.com/xerj-org/xerj/issues/948): the client peaks under
+  300 MiB on a 1 GB mailbox, but the node needs 66.9 GiB of RSS to finish it
+  and does not finish under its default 16 GiB cap; at a 16 GiB laptop's
+  8 GiB cap a 300 MB mailbox completes with the node peaking at 18–20 GiB;
+  and after a restart, a first-time query on the 1 GB index takes either
+  under 50 ms or seconds (up to 16.6 s measured) until the node warms.
 - **`xerj autoindex <folder> --watch` keeps an index current from filesystem
   events instead of a re-run.** The session indexes once, then places one OS
   watch per *indexed* directory (`notify`: inotify / FSEvents /

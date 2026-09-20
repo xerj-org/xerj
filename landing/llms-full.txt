@@ -431,7 +431,15 @@ catalog → verify.
     trusted (a JSON file wearing a `.pdf` extension is indexed as JSON; verified).
     Streaming extractors cover: JSON/JSONL, CSV (dialect detection: comma/semicolon/
     tab, decimal comma, quoted multiline fields, BOM), structured logs, SQL dumps,
-    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, and gzip-compressed variants.
+    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, mail (`.eml` and mbox mailboxes —
+    a Google Takeout `All mail Including Spam and Trash.mbox` is detected by content and
+    streamed one message at a time; attachments become their own records, PDFs per
+    page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`
+    detector; archives are never opened — a `.zip`/`.tgz` is junk with the command to
+    extract it; no PST/OST/Maildir — and a measured limit: on a 1 GB synthetic
+    mailbox the client peaked under 300 MB but the NODE needed 66.9 GiB of RSS to
+    finish and did not finish under its default 16 GiB cap, #948; warn the person
+    before indexing a multi-GB export), and gzip-compressed variants.
   - Types are INFERRED from bounded samples (default 500 records/file, `--sample N`):
     long/double/boolean/date/keyword/text, keyword-vs-text by cardinality, entity
     signals (emails, IPs, UUIDs, URLs), and date ENCODINGS — ISO-ms, epoch-ms,

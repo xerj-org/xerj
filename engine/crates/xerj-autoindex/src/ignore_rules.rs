@@ -764,6 +764,21 @@ impl IgnoreStack {
         self.record_dir(path, label);
     }
 
+    /// The file-level twin of [`Self::record_marker_dir`]: a built-in rule the
+    /// walker decided (it needs a SIBLING or PARENT marker, which the matcher
+    /// stack cannot see), reported through the same accounting.
+    pub fn record_marker_file(&mut self, label: &str) {
+        self.record_file(label);
+    }
+
+    /// Did an ignore file explicitly RE-INCLUDE this path (`!name`)? A
+    /// walker-decided default asks before discarding, so that a negation in
+    /// `.xerjignore`/`.gitignore` outranks a built-in rule the same way it
+    /// outranks [`DEFAULT_IGNORE_PATTERNS`].
+    pub fn is_reincluded(&self, path: &Path, is_dir: bool) -> bool {
+        matches!(self.lookup(path, is_dir), Some((false, _)))
+    }
+
     fn record_file(&mut self, label: &str) {
         self.report.files_skipped += 1;
         self.report
