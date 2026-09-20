@@ -324,6 +324,11 @@ block on all of them.
 
 ## What leaves the machine
 
+**With `"provider": "local"`, nothing.** The cross-encoder runs in this process;
+the list below is about a **hosted** provider. The rest of this section still
+describes what the *local* judge is shown — the same text, built by the same
+code — it just never leaves the host.
+
 **The judge sees exactly what the response returns, and nothing else.**
 Candidate text is read from each hit as the response will carry it: the
 projected `_source`, then the hit's `fields`. That makes the rule auditable —

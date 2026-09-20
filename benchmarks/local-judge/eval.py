@@ -3,13 +3,23 @@
 usage: eval.py <beir_root> <runs_dir> <out.json>
 
 Reads, per dataset D in {scifact, nfcorpus, fiqa}:
-  <runs_dir>/D.test.first_stage.json          BM25 / hybrid top-100 from a live node (first_stage.py)
-  <runs_dir>/D.test.<tier>.{w30,rest}.logits.jsonl   raw logits from `pair_score`
-  <runs_dir>/D.fit.first_stage.json and D.fit.<tier>.w30.logits.jsonl   held-out queries, for the fit
+  D.test.first_stage.json                BM25 / hybrid top-100 from a live node (first_stage.py)
+  D.{test,sub*}.<tier>.{w30,rest}.logits.jsonl   raw logits from `pair_score`
+  D.sub<n>.qids.json                     seeded query subsets (subset.py), for slow tiers
+  D.fit.first_stage.json and D.{fit,fitsub*}.<tier>.w30.logits.jsonl   held-out queries
+  D.test.hybrid.rep*.json                hybrid re-runs after node restarts (issue #940)
 
-An arm whose pairs were not all scored is reported as missing, never computed on a subset.
+Rules:
+  * An arm is reported on a query set only if EVERY pair it needs on that set was scored;
+    otherwise it is `null`, never computed on whatever happened to finish.
+  * The full test set and each seeded subset are separate tables. Every arm in a subset
+    table — BM25 and hybrid included — is computed on that subset, so comparisons inside
+    a table are paired.
+  * Calibration is fitted on FIT queries (a different split: SciFact train, NFCorpus dev,
+    FiQA dev) and reported on TEST. The population is the BM25 top-30 window — what a
+    default `"rerank": {"provider": "local"}` judges after a BM25 query.
 Standard library only."""
-import json, os, random, sys
+import glob, json, os, random, sys
 from beirlib import qrels, ndcg10, sigmoid, ece, reliability, platt_fit, temperature_fit, nll
 
 ROOT, RUNS, OUT = sys.argv[1:4]
@@ -19,14 +29,12 @@ TIERS = ["small", "base", "large"]
 WINDOWS = [30, 100]
 
 
-def logits(ds, split, tier):
+def load_logits(pattern):
     table = {}
-    for part in ("w30", "rest"):
-        path = os.path.join(RUNS, f"{ds}.{split}.{tier}.{part}.logits.jsonl")
-        if os.path.exists(path):
-            for line in open(path):
-                r = json.loads(line)
-                table[(r["g"], r["id"])] = r["logits"][0]
+    for path in sorted(glob.glob(os.path.join(RUNS, pattern))):
+        for line in open(path):
+            r = json.loads(line)
+            table[(r["g"], r["id"])] = r["logits"][0]
     return table
 
 
@@ -52,6 +60,33 @@ def paired_bootstrap(a, b, n=2000, seed=5):
     return diffs[int(n * .025)], diffs[int(n * .975)]
 
 
+def table_for(run, rel, qids, tables):
+    """Every arm on one query set. `tables` maps tier -> logit table."""
+    per_q = {"bm25": [ndcg10(run["bm25"][q], rel[q]) for q in qids],
+             "hybrid": [ndcg10(run["hybrid"][q], rel[q]) for q in qids]}
+    arms = {"bm25": mean(per_q["bm25"]), "hybrid rrf": mean(per_q["hybrid"])}
+    intervals = {}
+    for tier in TIERS:
+        table = tables.get(tier)
+        if not table:
+            continue
+        for stage in ("bm25", "hybrid"):
+            for w in WINDOWS:
+                name = f"{stage} top-{w} -> local {tier}"
+                ranked = [rerank(run[stage][q], table, q, w) for q in qids]
+                if any(r is None for r in ranked):
+                    arms[name] = None
+                    continue
+                scores = [ndcg10(r, rel[q]) for r, q in zip(ranked, qids)]
+                arms[name] = mean(scores)
+                lo, hi = paired_bootstrap(scores, per_q["hybrid"])
+                blo, bhi = paired_bootstrap(scores, per_q[stage])
+                intervals[name] = {"vs_hybrid": mean(scores) - arms["hybrid rrf"], "ci95": [lo, hi],
+                                   "vs_own_first_stage": mean(scores) - mean(per_q[stage]),
+                                   "ci95_own": [blo, bhi]}
+    return {"queries": len(qids), "ndcg@10": arms, "deltas": intervals}
+
+
 report = {"datasets": {}, "calibration": {}}
 fit_rows = {t: [] for t in TIERS}       # pooled held-out (logit, label)
 test_rows = {t: {} for t in TIERS}      # per dataset test (logit, label), BM25 top-30 window
@@ -62,35 +97,28 @@ for ds in DATASETS:
         continue
     run, rel = json.load(open(fs_path)), qrels(os.path.join(ROOT, ds), "test")
     qids = sorted(run["bm25"])
-    per_q = {"bm25": [ndcg10(run["bm25"][q], rel[q]) for q in qids],
-             "hybrid": [ndcg10(run["hybrid"][q], rel[q]) for q in qids]}
-    arms = {"bm25": mean(per_q["bm25"]), "hybrid rrf": mean(per_q["hybrid"])}
-    intervals = {}
+    tables = {t: {**load_logits(f"{ds}.test.{t}.*.logits.jsonl"), **load_logits(f"{ds}.sub*.{t}.*.logits.jsonl")}
+              for t in TIERS}
+    entry = {"docs": run.get("docs"), "first_stage_latency_ms": run.get("latency_ms"),
+             "full": table_for(run, rel, qids, tables), "subsets": {}}
+    for sub in sorted(glob.glob(os.path.join(RUNS, f"{ds}.sub*.qids.json"))):
+        meta = json.load(open(sub))
+        name = os.path.basename(sub).split(".")[1]
+        entry["subsets"][name] = {"seed": meta["seed"], "of": meta["of"],
+                                  **table_for(run, rel, meta["qids"], tables)}
+    report["datasets"][ds] = entry
     for tier in TIERS:
-        table = logits(ds, "test", tier)
-        if not table:
-            continue
-        for stage in ("bm25", "hybrid"):
-            for w in WINDOWS:
-                ranked = [rerank(run[stage][q], table, q, w) for q in qids]
-                name = f"{stage} top-{w} -> local {tier}"
-                if any(r is None for r in ranked):
-                    arms[name] = None
-                    continue
-                scores = [ndcg10(r, rel[q]) for r, q in zip(ranked, qids)]
-                arms[name] = mean(scores)
-                lo, hi = paired_bootstrap(scores, per_q["hybrid"])
-                intervals[name] = {"vs_hybrid": mean(scores) - arms["hybrid rrf"], "ci95": [lo, hi]}
-        test_rows[tier][ds] = [(table[(q, d)], 1 if rel[q].get(d, 0) > 0 else 0)
-                               for q in qids for d in run["bm25"][q][:30] if (q, d) in table]
-    report["datasets"][ds] = {"queries": len(qids), "docs": run.get("docs"), "ndcg@10": arms,
-                              "vs_hybrid": intervals, "first_stage_latency_ms": run.get("latency_ms")}
+        rows = [(tables[tier][(q, d)], 1 if rel[q].get(d, 0) > 0 else 0)
+                for q in qids for d in run["bm25"][q][:30] if (q, d) in tables[tier]]
+        if rows:
+            test_rows[tier][ds] = rows
 
     fit_path = os.path.join(RUNS, f"{ds}.fit.first_stage.json")
     if os.path.exists(fit_path):
         frun, frel = json.load(open(fit_path)), qrels(os.path.join(ROOT, ds), FIT_SPLIT[ds])
         for tier in TIERS:
-            table = logits(ds, "fit", tier)
+            table = {**load_logits(f"{ds}.fit.{tier}.w30.logits.jsonl"),
+                     **load_logits(f"{ds}.fitsub*.{tier}.w30.logits.jsonl")}
             fit_rows[tier] += [(table[(q, d)], 1 if frel[q].get(d, 0) > 0 else 0)
                                for q in sorted(frun["bm25"]) for d in frun["bm25"][q][:30] if (q, d) in table]
 
@@ -123,37 +151,69 @@ for tier in TIERS:
 # hybrid arm (a fresh node process each time) is scored here so the spread is reported,
 # not one lucky draw.
 for ds in DATASETS:
-    reps = sorted(f for f in os.listdir(RUNS) if f.startswith(f"{ds}.test.hybrid.rep") and f.endswith(".json"))
+    reps = sorted(glob.glob(os.path.join(RUNS, f"{ds}.test.hybrid.rep*.json")))
     base = os.path.join(RUNS, f"{ds}.test.first_stage.json")
     if not reps or not os.path.exists(base):
         continue
     rel = qrels(os.path.join(ROOT, ds), "test")
-    runs = [json.load(open(base))["hybrid"]] + [json.load(open(os.path.join(RUNS, f)))["hybrid"] for f in reps]
+    runs = [json.load(open(base))["hybrid"]] + [json.load(open(f))["hybrid"] for f in reps]
     qids = sorted(runs[0])
     scores = [mean([ndcg10(r[q], rel[q]) for q in qids]) for r in runs]
-    top10_same = mean([1.0 if all(r[q][:10] == runs[0][q][:10] for r in runs) else 0.0 for q in qids])
-    top100_same_set = mean([1.0 if all(set(r[q]) == set(runs[0][q]) for r in runs) else 0.0 for q in qids])
     report["datasets"][ds]["hybrid_repeats"] = {
         "runs": len(runs), "ndcg@10": scores, "min": min(scores), "max": max(scores),
-        "queries_with_identical_top10": top10_same, "queries_with_identical_top100_set": top100_same_set}
+        "queries_with_identical_top10": mean([1.0 if all(r[q][:10] == runs[0][q][:10] for r in runs) else 0.0
+                                              for q in qids]),
+        "queries_with_identical_top100_set": mean([1.0 if all(set(r[q]) == set(runs[0][q]) for r in runs) else 0.0
+                                                   for q in qids])}
+    # And the same repeats carried THROUGH the rerank, which is the number that
+    # matters: if #940 only permutes ties inside an unchanged candidate set, a
+    # second stage that reorders that set by model score cannot inherit the
+    # noise. Reported rather than assumed.
+    tables = {t: load_logits(f"{ds}.test.{t}.*.logits.jsonl") for t in TIERS}
+    reranked = {}
+    for tier, table in tables.items():
+        if not table:
+            continue
+        for w in WINDOWS:
+            per_run = []
+            for r in runs:
+                ranked = [rerank(r[q], table, q, w) for q in qids]
+                if any(x is None for x in ranked):
+                    per_run = None
+                    break
+                per_run.append(mean([ndcg10(x, rel[q]) for x, q in zip(ranked, qids)]))
+            if per_run:
+                reranked[f"hybrid top-{w} -> local {tier}"] = {
+                    "ndcg@10": per_run, "spread": max(per_run) - min(per_run)}
+    report["datasets"][ds]["rerank_repeats"] = reranked
 
 json.dump(report, open(OUT, "w"), indent=1)
 
-for ds, d in report["datasets"].items():
-    print(f"\n== {ds}: {d['queries']} test queries, {d['docs']} docs")
-    for arm, v in d["ndcg@10"].items():
+
+def show(title, t):
+    print(f"\n== {title}: {t['queries']} queries")
+    for arm, v in t["ndcg@10"].items():
         extra = ""
-        if arm in d["vs_hybrid"]:
-            i = d["vs_hybrid"][arm]
-            extra = f"   vs hybrid {i['vs_hybrid']:+.4f}  [95% {i['ci95'][0]:+.4f}, {i['ci95'][1]:+.4f}]"
+        if arm in t["deltas"]:
+            i = t["deltas"][arm]
+            extra = (f"   vs own first stage {i['vs_own_first_stage']:+.4f}"
+                     f"   vs hybrid {i['vs_hybrid']:+.4f} [95% {i['ci95'][0]:+.4f}, {i['ci95'][1]:+.4f}]")
         print(f"  {arm:34s} {'not scored' if v is None else format(v, '.4f')}{extra}")
+
+
 for ds, d in report["datasets"].items():
+    show(f"{ds} test (full), {d['docs']} docs", d["full"])
+    for name, t in d["subsets"].items():
+        show(f"{ds} {name} (seed {t['seed']}, of {t['of']})", t)
     h = d.get("hybrid_repeats")
     if h:
-        print(f"\n== {ds}: hybrid over {h['runs']} node restarts: nDCG@10 " + ", ".join(f"{x:.4f}" for x in h["ndcg@10"])
-              + f"; identical top-10 on {h['queries_with_identical_top10']:.1%} of queries")
+        print(f"  hybrid over {h['runs']} node processes: nDCG@10 " + ", ".join(f"{x:.4f}" for x in h["ndcg@10"])
+              + f"; identical top-10 on {h['queries_with_identical_top10']:.1%} of queries,"
+              + f" identical top-100 SET on {h['queries_with_identical_top100_set']:.1%}")
+        for arm, r in d.get("rerank_repeats", {}).items():
+            print(f"  {arm} over the same {len(r['ndcg@10'])} processes: "
+                  + ", ".join(f"{x:.4f}" for x in r["ndcg@10"]) + f"  (spread {r['spread']:.4f})")
 for tier, c in report["calibration"].items():
-    p = c["test"]["pooled"]
     print(f"\n== calibration, local {tier}: temperature scale={c['temperature']['scale']:.4f}; "
           f"Platt scale={c['platt']['scale']:.4f} bias={c['platt']['bias']:.4f} "
           f"(fit on {c['fit_pairs']} held-out pairs, {c['fit_positive_rate']:.3f} positive)")
