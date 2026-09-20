@@ -690,9 +690,9 @@ impl FtsSearcher {
         }
 
         // One cursor per clause, mirroring `scan_term`'s term-lookup and
-        // reader construction (positions decoded per the field's real
-        // layout and simply never read — the format is positions-dependent,
-        // so a docs-only reader would misparse the stream).
+        // reader construction. The walk never reads positions, so the
+        // score-only reader skips the position payload (docs+freqs decode
+        // identically to the positioned reader).
         struct WandTerm<'a, 'b> {
             /// Clause index — the f32 summation order (see above) and the
             /// cursor-order tiebreak.
@@ -732,13 +732,14 @@ impl FtsSearcher {
             let Some(post_data) = self.reader.postings_data(&tq.field, &tp) else {
                 continue;
             };
-            // The postings byte format is positions-dependent: a docs-only
-            // reader would synthesise tf=1 and misparse a positions-bearing
-            // stream.  Read the field's real layout, exactly like
-            // `scan_term`; the decoded positions are simply never read.
+            // The walk consumes only doc ids and term freqs, so the reader
+            // skips the position payload instead of decoding it (the
+            // format itself is still respected — cursor lockstep via the
+            // block length prefix).  Phrase paths keep the positioned
+            // reader.
             let has_positions = self.reader.field_has_positions(&tq.field);
             let mut reader =
-                PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
+                PostingsReader::new_score_only(post_data, tp.doc_frequency, has_positions);
             let Some(first) = reader.next() else { continue };
             let bm25 = self.make_scorer(&tq.field);
             let score_df = self.scoring_df(&tq.field, &tq.term, tp.doc_frequency as u64);
@@ -959,9 +960,11 @@ impl FtsSearcher {
             None => return Ok(()),
         };
 
+        // Score-only walk: positions are never read here (the explain path
+        // uses term_freq/doc_len only), so skip decoding the position
+        // payload.
         let has_positions = self.reader.field_has_positions(&tq.field);
-        let mut reader =
-            PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
+        let mut reader = PostingsReader::new_score_only(post_data, tp.doc_frequency, has_positions);
 
         while let Some(posting) = reader.next() {
             let doc_len = self
@@ -1362,7 +1365,7 @@ impl FtsSearcher {
                 };
                 let has_positions = self.reader.field_has_positions(field);
                 let mut reader =
-                    PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
+                    PostingsReader::new_score_only(post_data, tp.doc_frequency, has_positions);
                 while let Some(p) = reader.next() {
                     docs.insert(p.doc_id);
                 }

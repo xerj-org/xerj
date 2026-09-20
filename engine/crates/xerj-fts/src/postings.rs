@@ -591,6 +591,12 @@ pub struct PostingsReader<'a> {
     /// case the reader synthesises `term_freq = 1` and empty positions
     /// for every posting.
     has_positions: bool,
+    /// Score-only walk: consume the position payload without decoding it
+    /// (full blocks jump it via the length prefix; the residual's inline
+    /// deltas are decoded and discarded). `next()` then returns empty
+    /// positions and never allocates for them. Doc ids and term freqs
+    /// decode identically to the positioned reader.
+    skip_positions: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -630,7 +636,29 @@ impl<'a> PostingsReader<'a> {
             residual_idx: 0,
             last_doc_id: 0,
             has_positions,
+            skip_positions: false,
         }
+    }
+
+    /// Create a reader for a scoring-only walk: doc ids and term
+    /// frequencies decode as usual, but the position payload is skipped
+    /// instead of decoded — no per-block `Vec<Vec<u32>>` build and no
+    /// per-posting positions clone.
+    ///
+    /// For positions-bearing (text) fields the cursor stays in byte-format
+    /// lockstep with the positioned reader: a full block's positions carry
+    /// a length prefix the cursor can jump wholesale, and the residual's
+    /// inline deltas are consumed without materialising them. For
+    /// docs-only fields this is just [`Self::new_with_positions`] with
+    /// `has_positions = false`.
+    ///
+    /// Score paths (`scan_term`, the WAND walk, constant-score
+    /// expansions) never read positions; phrase and highlight paths must
+    /// keep the positioned reader.
+    pub fn new_score_only(data: &'a [u8], doc_frequency: u32, has_positions: bool) -> Self {
+        let mut r = Self::new_with_positions(data, doc_frequency, has_positions);
+        r.skip_positions = true;
+        r
     }
 
     /// Advance to the next posting. Returns `None` when exhausted.
@@ -667,7 +695,11 @@ impl<'a> PostingsReader<'a> {
 
         let doc_id = self.block_docs[self.block_idx];
         let term_freq = self.block_freqs[self.block_idx];
-        let positions = self.block_positions[self.block_idx].clone();
+        let positions = if self.skip_positions {
+            Vec::new()
+        } else {
+            self.block_positions[self.block_idx].clone()
+        };
         self.block_idx += 1;
         self.docs_read += 1;
 
@@ -700,26 +732,38 @@ impl<'a> PostingsReader<'a> {
             let pos_byte_len = self.cursor.read_u32::<LittleEndian>()? as usize;
             let pos_start = self.cursor.position() as usize;
             let pos_end = pos_start + pos_byte_len;
-            let pos_data = &self.data[pos_start..pos_end];
-            let mut pos_cursor = Cursor::new(pos_data);
-            let mut positions: Vec<Vec<u32>> = Vec::with_capacity(BLOCK_SIZE);
-            for _ in 0..BLOCK_SIZE {
-                let count = vbyte_decode(&mut pos_cursor)? as usize;
-                let mut poss = Vec::with_capacity(count);
-                let mut prev = 0u32;
-                for _ in 0..count {
-                    let delta = vbyte_decode(&mut pos_cursor)?;
-                    prev += delta;
-                    poss.push(prev);
+            if self.skip_positions {
+                // Score-only walk: the payload is length-prefixed, so jump
+                // it wholesale — same cursor position the decode below ends
+                // at, no vbyte decode, no per-posting Vec.
+                self.cursor.set_position(pos_end as u64);
+                (freqs.to_vec(), Vec::new())
+            } else {
+                let pos_data = &self.data[pos_start..pos_end];
+                let mut pos_cursor = Cursor::new(pos_data);
+                let mut positions: Vec<Vec<u32>> = Vec::with_capacity(BLOCK_SIZE);
+                for _ in 0..BLOCK_SIZE {
+                    let count = vbyte_decode(&mut pos_cursor)? as usize;
+                    let mut poss = Vec::with_capacity(count);
+                    let mut prev = 0u32;
+                    for _ in 0..count {
+                        let delta = vbyte_decode(&mut pos_cursor)?;
+                        prev += delta;
+                        poss.push(prev);
+                    }
+                    positions.push(poss);
                 }
-                positions.push(poss);
+                self.cursor.set_position(pos_end as u64);
+                (freqs.to_vec(), positions)
             }
-            self.cursor.set_position(pos_end as u64);
-            (freqs.to_vec(), positions)
         } else {
             // Docs-only mode: synthesise freq=1 and empty positions.
             let freqs = vec![1u32; BLOCK_SIZE];
-            let positions: Vec<Vec<u32>> = vec![Vec::new(); BLOCK_SIZE];
+            let positions: Vec<Vec<u32>> = if self.skip_positions {
+                Vec::new()
+            } else {
+                vec![Vec::new(); BLOCK_SIZE]
+            };
             (freqs, positions)
         };
 
@@ -745,14 +789,24 @@ impl<'a> PostingsReader<'a> {
             let (term_freq, positions) = if self.has_positions {
                 let term_freq = vbyte_decode(&mut self.cursor)?;
                 let pos_count = vbyte_decode(&mut self.cursor)? as usize;
-                let mut positions = Vec::with_capacity(pos_count);
-                let mut prev_pos = 0u32;
-                for _ in 0..pos_count {
-                    let delta = vbyte_decode(&mut self.cursor)?;
-                    prev_pos += delta;
-                    positions.push(prev_pos);
+                if self.skip_positions {
+                    // Score-only walk: the residual's position deltas are
+                    // inline with no length prefix, so they must be decoded
+                    // to keep the cursor moving — but not materialised.
+                    for _ in 0..pos_count {
+                        let _ = vbyte_decode(&mut self.cursor)?;
+                    }
+                    (term_freq, Vec::new())
+                } else {
+                    let mut positions = Vec::with_capacity(pos_count);
+                    let mut prev_pos = 0u32;
+                    for _ in 0..pos_count {
+                        let delta = vbyte_decode(&mut self.cursor)?;
+                        prev_pos += delta;
+                        positions.push(prev_pos);
+                    }
+                    (term_freq, positions)
                 }
-                (term_freq, positions)
             } else {
                 (1u32, Vec::new())
             };
@@ -853,6 +907,60 @@ mod tests {
             count += 1;
         }
         assert_eq!(count, 128);
+    }
+
+    /// The score-only reader (`new_score_only`) must produce the EXACT
+    /// `(doc_id, term_freq)` stream the positioned reader does, with empty
+    /// positions — the search paths that switch to it depend on cursor
+    /// lockstep, not just on "close enough" decoding.
+    #[test]
+    fn score_only_reader_matches_positioned_stream() {
+        // Residual-only list (fewer than BLOCK_SIZE postings) …
+        let postings: Vec<(u32, u32, &[u32])> =
+            vec![(1, 2, &[0, 5]), (3, 1, &[2]), (7, 3, &[0, 1, 2])];
+        let (data, df) = build_postings(&postings);
+        let mut positioned = PostingsReader::new_with_positions(&data, df, true);
+        let mut score_only = PostingsReader::new_score_only(&data, df, true);
+        loop {
+            match (positioned.next(), score_only.next()) {
+                (Some(a), Some(b)) => {
+                    assert_eq!(a.doc_id, b.doc_id);
+                    assert_eq!(a.term_freq, b.term_freq);
+                    assert!(b.positions.is_empty(), "score-only must not emit positions");
+                }
+                (None, None) => break,
+                (a, b) => panic!("stream divergence at {a:?} vs {b:?}"),
+            }
+        }
+
+        // … and a list spanning two full blocks PLUS a residual tail, with
+        // per-doc position counts that vary (1..=5) so both skip paths —
+        // the length-prefixed block payload and the residual's inline
+        // deltas — are exercised.
+        let mut writer = PostingsWriter::new();
+        for i in 0u32..300 {
+            for p in 0..(i % 5 + 1) {
+                writer.add_occurrence("test", i * 2, p);
+            }
+        }
+        let mut data = Vec::new();
+        writer.encode_term("test", &mut data);
+        let mut positioned = PostingsReader::new_with_positions(&data, 300, true);
+        let mut score_only = PostingsReader::new_score_only(&data, 300, true);
+        let mut count = 0u32;
+        loop {
+            match (positioned.next(), score_only.next()) {
+                (Some(a), Some(b)) => {
+                    assert_eq!(a.doc_id, b.doc_id);
+                    assert_eq!(a.term_freq, b.term_freq);
+                    assert!(b.positions.is_empty());
+                    count += 1;
+                }
+                (None, None) => break,
+                (a, b) => panic!("stream divergence at {a:?} vs {b:?}"),
+            }
+        }
+        assert_eq!(count, 300, "every posting must survive the skip");
     }
 
     #[test]
