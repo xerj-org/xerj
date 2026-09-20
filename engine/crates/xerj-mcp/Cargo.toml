@@ -33,3 +33,8 @@ anyhow = { workspace = true }
 # The feedback invitation, shared with every other --help surface so the five
 # cannot drift apart.
 xerj-common = { path = "../xerj-common" }
+# The `rerank` argument's limits and its validator. Depending on the crate the
+# node itself validates with means the tool description quotes the real
+# ceilings and the builder refuses exactly what the node would refuse — the
+# two cannot drift. A light leaf: it adds no dependency this crate lacks.
+xerj-rerank = { path = "../xerj-rerank" }

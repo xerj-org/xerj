@@ -3447,6 +3447,12 @@ pub struct EsSearchBody {
     /// (live: a 1 ms-timeout wildcard ran 3.7 s with `timed_out: false`).
     #[serde(default)]
     pub timeout: Option<String>,
+    /// Second-stage relevance reranking over the top `window` hits — see
+    /// [`crate::rerank_stage`]. Declared here because serde drops unknown
+    /// top-level keys silently, and a `rerank` block that vanished without a
+    /// word would return lexical order to a caller who asked for something else.
+    #[serde(default)]
+    pub rerank: Option<Value>,
 }
 
 impl Default for EsSearchBody {
@@ -3482,6 +3488,7 @@ impl Default for EsSearchBody {
             slice: None,
             pit: None,
             timeout: None,
+            rerank: None,
         }
     }
 }
@@ -3533,6 +3540,10 @@ const ES_SEARCH_TOP_LEVEL_KEYS: &[&str] = &[
     "profile",
     "stats",
     "ext",
+    // The one key here that is NOT Elasticsearch's: XERJ's second-stage
+    // reranking (`crate::rerank_stage`). Listed so the unknown-key gate lets it
+    // through to a stage that validates its contents strictly.
+    "rerank",
 ];
 
 /// A minimal position-tracking JSON scanner used solely to locate the first
@@ -7837,7 +7848,7 @@ fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Opt
         return None;
     }
 
-    Some(json!({
+    let mut hint = json!({
         "hints": [{
             "reason": format!(
                 "this response carried {source_bytes} bytes of `_source` across \
@@ -7859,7 +7870,16 @@ fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Opt
                 },
             },
         }],
-    }))
+    });
+    // The suggestion is "ready to send", so it must still be the caller's
+    // search. A request that asked for `rerank` and followed a hint without it
+    // would come back in the engine's order, believing it had been reranked.
+    // The suggested projection also narrows what the judge is sent — to the
+    // title, the path and the matching passage — which is the same trade.
+    if let Some(rerank) = &body.rerank {
+        hint["hints"][0]["try"]["body"]["rerank"] = rerank.clone();
+    }
+    Some(hint)
 }
 
 /// A short list of existing index names to suggest when `_search` named an
@@ -9333,6 +9353,34 @@ async fn search_impl(
             "excludes": excludes
         }));
     }
+
+    // Validate `rerank` and widen the page to its window *before* the search
+    // runs; the stage itself runs on the rendered hits further down. Placed
+    // after every URL parameter has been merged into `body` — `?sort=`,
+    // `?_source=false`, `?_source_excludes=`, `?size=`, `?from=` are all things
+    // the stage refuses or pages by, and a check that ran before the merge let
+    // the URL spelling of each one straight through.
+    let rerank_plan = match crate::rerank_stage::RerankPlan::prepare(&mut body, is_scroll_request) {
+        Ok(plan) => plan,
+        Err(reason) => {
+            crate::rerank_stage::record_refused(&state.metrics);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{
+                            "type": "illegal_argument_exception",
+                            "reason": reason,
+                        }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    };
 
     // `?typed_keys` — prefix agg names with their type in the response.
     let typed_keys = params.typed_keys.is_some();
@@ -10872,31 +10920,47 @@ async fn search_impl(
         }
     }
 
+    // `rerank` widened the engine's page to `rerank.window`, so the engine's
+    // own `from + size > max_result_window` check would fire on a page size
+    // the caller never sent (they asked for `size: 5`, the stage asked the
+    // engine for 30). Say it in the caller's terms, per index, before the
+    // engine runs — a wildcard search tripped on one small index the same way.
+    if let Some(plan) = &rerank_plan {
+        for ix in &participating_indices {
+            let max_w = index_max_result_window(&state, ix);
+            if plan.window() > max_w {
+                let reason = format!(
+                    "`rerank.window` ({}) exceeds `index.max_result_window` ({max_w}) on \
+                     `{ix}`: the stage judges that many of the engine's top hits, so the \
+                     engine must be able to return them. Lower `rerank.window` or raise \
+                     the index setting",
+                    plan.window()
+                );
+                crate::rerank_stage::record_refused(&state.metrics);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "root_cause": [{
+                                "type": "illegal_argument_exception",
+                                "reason": reason,
+                            }],
+                            "type": "illegal_argument_exception",
+                            "reason": reason,
+                        },
+                        "status": 400,
+                    })),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     // Enforce per-index `index.max_result_window` for `ids` clauses.
     // ES rejects queries whose `ids.values` list is longer than the
     // index's configured max_result_window (default 10000).
     for ix in &participating_indices {
-        let max_w = state
-            .engine
-            .index_settings
-            .get(ix)
-            .map(|v| v.clone())
-            .and_then(|s| {
-                let as_int = |v: &Value| {
-                    v.as_u64()
-                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-                };
-                s.pointer("/index/max_result_window")
-                    .and_then(as_int)
-                    .or_else(|| {
-                        s.get("index")
-                            .and_then(|i| i.get("index.max_result_window"))
-                            .and_then(as_int)
-                    })
-                    .or_else(|| s.get("index.max_result_window").and_then(as_int))
-            })
-            .map(|v| v as usize)
-            .unwrap_or(10_000);
+        let max_w = index_max_result_window(&state, ix);
         fn max_ids_in_json(q: &Value) -> usize {
             match q {
                 Value::Object(obj) => {
@@ -14176,6 +14240,67 @@ async fn search_impl(
         shards_block.failed = shards_failed_count;
     }
 
+    // ── rerank stage ────────────────────────────────────────────────────────
+    // Runs on the rendered hits, so everything a hit carries — `highlight`,
+    // `fields`, `inner_hits`, `matched_queries`, `_ignored` — moves with it.
+    // Runs BEFORE the response hints and the `_savings` re-sum below, because
+    // both describe the page this response actually emits and the stage is
+    // what cuts the widened window back down to that page. `hits.total` and
+    // `aggregations` are deliberately untouched: they describe the full match
+    // set, not the window.
+    let mut hits = hits;
+    let mut max_score = max_score;
+    let mut took_ms = took_ms;
+    let mut savings_claim = savings_claim;
+    let rerank_info = match &rerank_plan {
+        None => None,
+        Some(plan) => {
+            let applied = plan.apply(&state.rerank, &mut hits, &mut max_score).await;
+            crate::rerank_stage::record_outcome(&state.metrics, &applied);
+            match applied {
+                Ok(info) => {
+                    // Hand the caller's own page back to everything downstream
+                    // that reads it (`terminated_early`, the payload hint's
+                    // suggested request) — the widening was the stage's business.
+                    let (from, size) = plan.requested_page();
+                    body.from = from;
+                    body.size = size;
+                    // `took` is what the caller waited, and the provider call is
+                    // most of it. The engine-only figure was already recorded in
+                    // the latency histograms above, which is where it belongs.
+                    took_ms = started.elapsed().as_millis() as u64;
+                    // `_savings` is summed over the hits a response emits; the
+                    // earlier sum was over the whole window.
+                    if let Some((record, _)) = savings_claim {
+                        let emitted: u64 = hits
+                            .iter()
+                            .filter_map(|h| savings_by_hit.get(&(h.index.clone(), h.id.clone())))
+                            .sum();
+                        savings_claim = Some((record, emitted));
+                    }
+                    Some(info)
+                }
+                Err(e) => {
+                    let status = crate::rerank_stage::status_for(&e);
+                    let kind = crate::rerank_stage::error_type_for(&e);
+                    let reason = format!("rerank failed: {e}");
+                    return (
+                        StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
+                        Json(json!({
+                            "error": {
+                                "root_cause": [{ "type": kind, "reason": reason }],
+                                "type": kind,
+                                "reason": reason,
+                            },
+                            "status": status,
+                        })),
+                    )
+                        .into_response();
+                }
+            }
+        }
+    };
+
     // Computed before `hits` is moved into `response_body` below.
     // Two independent diagnostics, merged into one `hints` array rather than
     // one winning: a query can both name a nonexistent field AND return an
@@ -14331,6 +14456,21 @@ async fn search_impl(
     // everything else including `hits`. `serde_json` runs with
     // `preserve_order` workspace-wide (see xerj-common/Cargo.toml), so the
     // rebuilt map's insertion order is exactly the wire order.
+    // `_rerank` says which ranking the caller is looking at — applied, or the
+    // engine's own after a degrade. It goes ahead of `hits` for the same reason
+    // the hint below does: a reader that truncates long output from the bottom
+    // must still see it.
+    if let Some(info) = rerank_info {
+        if let Some(obj) = response_body.as_object_mut() {
+            let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
+            rebuilt.insert("_rerank".to_string(), info);
+            for (k, v) in obj.iter() {
+                rebuilt.insert(k.clone(), v.clone());
+            }
+            *obj = rebuilt;
+        }
+    }
+
     if let Some(hint) = response_hint {
         if let Some(obj) = response_body.as_object_mut() {
             let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
@@ -20814,6 +20954,34 @@ pub async fn delete_index_template(
 // DELETE /_search/scroll            — clear scroll
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// An index's `index.max_result_window`, in any of the three spellings a
+/// settings document can carry it (nested `index.max_result_window`, a flat
+/// dotted key under `index`, or a top-level dotted key), defaulting to ES's
+/// 10,000. Shared by the `ids` clause check and the `rerank.window` check.
+fn index_max_result_window(state: &AppState, ix: &str) -> usize {
+    state
+        .engine
+        .index_settings
+        .get(ix)
+        .map(|v| v.clone())
+        .and_then(|s| {
+            let as_int = |v: &Value| {
+                v.as_u64()
+                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+            };
+            s.pointer("/index/max_result_window")
+                .and_then(as_int)
+                .or_else(|| {
+                    s.get("index")
+                        .and_then(|i| i.get("index.max_result_window"))
+                        .and_then(as_int)
+                })
+                .or_else(|| s.get("index.max_result_window").and_then(as_int))
+        })
+        .map(|v| v as usize)
+        .unwrap_or(10_000)
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct ScrollQueryParams {
     pub scroll: Option<String>,
@@ -20827,6 +20995,16 @@ pub async fn search_with_scroll(
 ) -> impl IntoResponse {
     let started = Instant::now();
     let body = body.into_or_default();
+
+    // A scroll streams the engine's order; `rerank` cannot apply to it, and
+    // this handler used to rebuild the body with `rerank: None` — dropping it.
+    if body.rerank.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(crate::rerank_stage::unsupported_on("_search_scroll")),
+        )
+            .into_response();
+    }
 
     // RC4 blocker 11: same open-scroll cap as the `?scroll=` path on
     // `_search` — checked up front so the full-corpus snapshot below is
@@ -20887,6 +21065,7 @@ pub async fn search_with_scroll(
         slice: body.slice.clone(),
         pit: body.pit.clone(),
         timeout: body.timeout.clone(),
+        rerank: None,
     };
     // page_size: what the caller requested (or default 10)
     let page_size = body.size;
@@ -21181,6 +21360,13 @@ pub struct ScrollBody {
     pub scroll: Option<String>,
     #[serde(default)]
     pub scroll_id: Option<String>,
+    /// Declared so a continuation body carrying `rerank` is refused rather
+    /// than ignored: serde drops unknown keys, and a scroll continuation
+    /// streams the engine's order, so a caller who added `rerank` here was
+    /// getting lexical order under a 200 — the same accepted-and-ignored
+    /// class the `?scroll=` path already refuses.
+    #[serde(default)]
+    pub rerank: Option<Value>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -21200,6 +21386,13 @@ pub async fn next_scroll(
 ) -> impl IntoResponse {
     // scroll_id may come from body OR query param
     let body = body.into_or_default();
+    if body.rerank.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(crate::rerank_stage::unsupported_on("_search/scroll")),
+        )
+            .into_response();
+    }
     let scroll_id = match body.scroll_id.clone().or_else(|| params.scroll_id.clone()) {
         Some(id) if !id.is_empty() => id,
         _ => {
@@ -23714,6 +23907,15 @@ async fn msearch_impl(
                 "error": { "type": "illegal_argument_exception", "reason": msg },
                 "status": 400
             }));
+            continue;
+        }
+
+        // `rerank` is a `_search` stage and this path has its own, smaller
+        // renderer. `parse_request` ignores keys it does not know, so without
+        // this the item came back 200 in the engine's order — refused per item
+        // instead, and the rest of the batch still runs.
+        if crate::rerank_stage::carries_rerank(&search_body_val) {
+            responses.push(crate::rerank_stage::unsupported_on("_msearch"));
             continue;
         }
 
@@ -31734,6 +31936,16 @@ pub async fn search_template(
         return ApiError::new(xerj_common::XerjError::invalid_query(msg)).into_response();
     }
 
+    // A template that renders a `rerank` block: this minimal path does not run
+    // the stage, and `parse_request` would drop the key without a word.
+    if crate::rerank_stage::carries_rerank(&search_body_val) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(crate::rerank_stage::unsupported_on("_search/template")),
+        )
+            .into_response();
+    }
+
     // Parse and execute as a normal search.
     let search_req = match xerj_query::parse_request(&search_body_val)
         .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
@@ -31918,6 +32130,13 @@ async fn msearch_template_impl(
             );
             continue;
         };
+
+        // Same refusal as `_msearch` and `_search/template`: the rendered body
+        // carries a `rerank` block this path would silently drop.
+        if crate::rerank_stage::carries_rerank(&search_body_val) {
+            responses.push(crate::rerank_stage::unsupported_on("_msearch/template"));
+            continue;
+        }
 
         // AND in any alias filter before parsing (#451 class C), same as
         // `_msearch`: a filtered alias's document boundary must apply to the
@@ -36548,6 +36767,16 @@ pub async fn async_search_submit(
     body: OptionalJson<EsSearchBody>,
 ) -> impl IntoResponse {
     let mut body = body.into_or_default();
+    // An async search stores its response and hands it back later; a stored
+    // rerank would also be a stored third-party call nobody is waiting on.
+    // Refused rather than dropped.
+    if body.rerank.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(crate::rerank_stage::unsupported_on("_async_search")),
+        )
+            .into_response();
+    }
     // ES 8.x default: absent track_total_hits → totals tracked up to 10,000
     // only ({"value":10000,"relation":"gte"} beyond), same as `_search`.
     if body.track_total_hits.is_none() {
@@ -37209,6 +37438,25 @@ pub async fn rank_eval(
         };
 
     for req_spec in &body.requests {
+        // `_rank_eval` runs the engine's ranking and nothing else: the request
+        // below is rebuilt from `query` and `size`, so a `rerank` block would
+        // vanish and the metric would be computed over the engine's order —
+        // "reranking changed nothing", under a 200, from the one endpoint whose
+        // job is measuring ranking quality. Reported per request in `failures`
+        // (the rest of the batch still runs), like every other request this
+        // handler cannot run, and nothing is sent to the provider.
+        if crate::rerank_stage::carries_rerank(&req_spec.request) {
+            crate::rerank_stage::record_refused(&state.metrics);
+            // The same `illegal_argument_exception` body every other surface
+            // that does not run the stage answers with, not the
+            // `search_phase_execution_exception` a failed search gets: the
+            // request was never run.
+            failures.insert(
+                req_spec.id.clone(),
+                crate::rerank_stage::unsupported_on("_rank_eval")["error"].clone(),
+            );
+            continue;
+        }
         let query_val = req_spec
             .request
             .get("query")

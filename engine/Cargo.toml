@@ -8,6 +8,7 @@ members = [
     "crates/xerj-vector",
     "crates/xerj-logs",
     "crates/xerj-query",
+    "crates/xerj-rerank",
     "crates/xerj-api",
     "crates/xerj-ai",
     "crates/xerj-compress",

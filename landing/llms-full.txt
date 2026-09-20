@@ -56,6 +56,8 @@ CONTENTS — search for a section number (e.g. "3.4", "10.") to jump
             for `_passage`
        2.h  what the fully-exercised AI-core surface is
        2.i  performance is supporting evidence, not the headline
+       2.j  `rerank` is the only search-time feature that sends document text off
+            the node, and it needs an operator-configured provider
   3. THE SEVEN CANONICAL AGENT OPERATIONS — full contract for each
        3.0  xerj_autoindex ....... make a folder searchable (CLI-only, zero config)
        3.1  xerj_search .......... lexical / structured search, and the code-document
@@ -64,6 +66,8 @@ CONTENTS — search for a section number (e.g. "3.4", "10.") to jump
        3.2  xerj_semantic_search . meaning over a `semantic_text` field
        3.3  xerj_vector_search ... kNN over `dense_vector`
        3.4  xerj_hybrid_search ... fuse lexical + vector/semantic
+       3.4b `rerank` ............. optional second stage on 3.1 / 3.4 (an argument,
+                                   NOT an eighth operation)
        3.5  xerj_memory_store .... write a namespaced memory
        3.6  xerj_memory_recall ... recall by meaning
   4. USE CASES & RECIPES ...... reference coding · zero-config folder indexing ·
@@ -307,6 +311,25 @@ For a complete disconnected deployment procedure, including current GitHub relea
   the same architectural gap — read p99 under a concurrent write flood (mixed
   read-under-write); they are published, not hidden. Acked deletes survive
   SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.
+
+- `rerank` is the only SEARCH-TIME feature that sends document text off the node.
+  Two other features send text off the node, both operator configuration and off by
+  default: `[embedding] default_endpoint` / `--embed-mode proxy` (document text at
+  ingest and query text at search time to an external embeddings API) and the WAL tap
+  (`PUT /_xerj/wal_tap`, every write on tapped indices to an external `_bulk`
+  endpoint). The node's other outbound connections carry no document or query text:
+  the one-time HuggingFace model download for `--embed-mode neural`, and cluster-mode
+  Raft messages (index names, mappings) to your own peers. A `_search` body carrying `"rerank": {...}` POSTs the question and the text
+  of up to `window` hits (default 30, max 300) to a third-party relevance judge
+  (TypeSafe AI's Jev, `POST /v1/systemone`). Three controls: it is inert until the
+  node's OPERATOR sets a provider key (`[rerank] api_key`, or `TYPESAFE_API_KEY`; a
+  config value wins over the environment; you cannot pass a key in a request); a
+  request only triggers it by asking; and `[rerank] enabled = false` refuses every
+  rerank request with 403. Do NOT add `rerank` on data that must stay local unless the
+  user has agreed. NOT VERIFIED: ranking quality with the real model — no provider key
+  was available to this project, and every test of the stage runs against a test
+  double that scores by a table the test supplies. Only the mechanism is verified.
+  See §3.4b.
 
 =====================================================================
 3. THE SEVEN CANONICAL AGENT OPERATIONS
@@ -566,6 +589,107 @@ POST /{index}/_search
       "fusion": "rrf" } } }
   - `fusion`: "rrf" (default, k=60) or "linear". Object form: {"type":"rrf","k":60}.
   - `fusion:"learned"` ERRORS (see §2). `queries` must be non-empty; per-query `weight` defaults 1.0.
+
+--- 3.4b `rerank` — optional second stage (NOT an eighth operation) ---
+An argument on xerj_search (3.1) and xerj_hybrid_search (3.4). READ §2.j FIRST: it
+sends document text to a third party and needs an operator-configured provider key.
+POST /{index}/_search
+  { "query": { "match": { "body": "vitamin d bone density" } },
+    "size": 5,
+    "rerank": { "min_score": 0.5 } }        // {} = every default
+What it does: the engine ranks as usual; the top `window` hits go to a relevance judge
+that answers one yes/no question PER DOCUMENT and returns a calibrated probability
+(0..1). Hits are reordered by it, the probability REPLACES `_score` (and
+`hits.max_score`), and `rerank.min_score` prunes by it — an absolute relevance cut,
+which a BM25/fusion score cannot give you.
+  WORTH IT WHEN: a natural-language question over prose where the right document is
+    probably in the top 30 but not at the top; or you need a yes/no relevance threshold.
+  NOT WORTH IT FOR: exact identifier/symbol lookups, filters, sorted or
+    aggregation-only requests — it adds a paid network round-trip per search.
+`rerank` fields (unknown keys are REFUSED BY NAME, never ignored):
+  provider         "jev" (default) | "typesafe" (alias) | "none"/"disabled" (skip, applied:false)
+  model            default "jev-latest", sent verbatim
+  window           default 30, 1..300. EVERY judged document is paid. from+size <= window.
+  min_score        0..1 probability threshold. NOT the top-level `min_score`, which is the
+                   engine's, applied to engine scores first; the two compose.
+  query            the question. Read for you from `match`, `match_phrase`, `multi_match`,
+                   `semantic`, `simple_query_string`. REQUIRED for `bool`, `hybrid`, a
+                   top-level `knn` with no text query, or no query — XERJ refuses to guess.
+  fields           EXHAUSTIVE allow-list of returned fields to send. ["body"] sends the body
+                   and nothing else, not even the title. Default: title + every other
+                   returned top-level string field.
+  instructions     override what "relevant" means for this corpus
+  timeout_ms       default 10000, max 60000 — budget for the WHOLE stage
+  max_doc_chars    default 1200, max 8000 (title and text each)
+  batch            default 30; values above 30 are lowered to 30 (provider ceiling)
+  max_concurrency  default 8, max 16
+Response: a top-level `_rerank` block, emitted BEFORE `hits`. ALWAYS READ `applied`.
+  applied:true  → { provider, model, score_kind:"probability", window, judged,
+                    skipped_no_text, pruned_below_min_score, dropped_unjudged,
+                    partial_failures, usage:{input_tokens,output_tokens}, query, took_ms,
+                    fields_without_text? }   // last one only when a named field
+                                             // returned no text anywhere in the window
+  applied:false → { reason, provider, score_kind:"engine", query, took_ms } — the
+                  order AND scores are the engine's.
+  Unjudged hits keep the engine score and sort AFTER every judged hit.
+What stays the engine's (describes the FULL match set, not the window):
+  `hits.total` / `track_total_hits`, `aggregations`, `profile`, `suggest`. Four docs
+  match and two are judged irrelevant → total is 4, pruned_below_min_score is 2.
+  `highlight`, `fields`, `inner_hits` travel with their hit. `explain` is kept under a
+  new top node whose value equals the new `_score`. Multi-index/wildcard searches work
+  (the window is cut from the merged result). Top-level `knn` works; vectors are never
+  sent. `rescore` runs first.
+FAILURE POLICY — degrade on deadline, surface on contract:
+  provider missed timeout_ms ............ 200, engine order, applied:false
+  malformed block / refused combination . 400 illegal_argument_exception, nothing sent
+  operator disabled it .................. 403 rerank_exception, nothing sent
+  no provider key on the node ........... 503 rerank_exception, nothing sent
+  provider 401/4xx, malformed, unreachable 502 rerank_exception, NO HITS
+  provider 429/529/5xx .................. retried (max 3 attempts/call) inside the budget
+  On 403/502/503 do not retry — repeat the search without `rerank`.
+REFUSED with 400 (never silently dropped): `sort` (body or ?sort=), `search_after`,
+  `collapse`, `?scroll=`, `size:0`, `_source:false` with no `fields` clause; and on
+  `_msearch` (per item — the rest of the batch runs), `_search/template`,
+  `_msearch/template`, `_async_search`, `_search_scroll`, the native
+  `POST /v1/indices/{name}/search` API, and the gRPC Search RPC.
+WHAT IS SENT: the question, `instructions`, the model name, and per window hit its title
+  + text as the RESPONSE returns them, each cut to max_doc_chars. If you asked for
+  `"fields":["_passage"]`, the matching passage LEADS the text (so the clip never cuts
+  the part that matched); `"rerank":{"fields":["_passage"]}` sends the passage ONLY —
+  the smallest egress for long documents. The `_xerj.hints` corrected request keeps
+  your `rerank` block. So `_source`
+  filtering is also the egress control: `"_source":["title"]` sends titles only. NEVER
+  sent: `_id`s, index names (documents are keyed d0, d1, … by position), numbers,
+  booleans, vectors, nested objects, any field the response does not return. The key
+  travels only as a bearer token.
+COST: 30 documents per provider call (window 35 = 2 calls, window 300 = 10), 8 calls
+  in flight by default. Scores from different calls are comparable — each is an
+  absolute probability, not a rank within its batch.
+Is it configured?  GET /_xerj/rerank  (superuser only) → { enabled, configured,
+  api_key:{set,source:"config"|"env"|null}, endpoint:{url,source}, defaults, limits,
+  data_egress }. Never the key. Operator meter: /v1/metrics →
+  xerj_rerank_requests_total{outcome}, xerj_rerank_documents_judged_total,
+  xerj_rerank_provider_tokens_total{kind}.
+Via MCP: optional `rerank` argument on xerj_search and xerj_hybrid_search (`true` or
+  {} = defaults). A PLAIN-STRING `query` is passed as `rerank.query` for you;
+  xerj_hybrid_search REQUIRES `rerank.query`.
+QUALITY — what is and is not measured. NOT VERIFIED: ranking quality with the real Jev
+  model (no key was available). Published elsewhere and NOT RUN BY US, reranking a
+  different first stage: hev/jev-rerank's README gives nDCG@10 SciFact/NFCorpus of
+  0.768/0.358 (Jev), 0.755/0.357 (Voyage rerank-3), 0.745/0.340 (Cohere rerank-v3.5).
+  Measured by us, with `--embed-mode neural` + all-MiniLM-L6-v2 — NOT the default
+  lexical embedder: BM25 0.6572/0.3016 · MiniLM vectors 0.6764/0.3291 · BM25 top-30
+  reordered by MiniLM 0.6855/0.3323 · hybrid RRF 0.6993/0.3448. Fusing with the model
+  scored above reordering with it on both sets, which is why there is no local rerank
+  provider. Not a controlled comparison. Raw output + scripts:
+  https://github.com/xerj-org/xerj/tree/main/benchmarks/beir-hybrid
+  Related — decisions from labelled history with no model call (Banking77 accuracy
+  0.819 BM25 / 0.933 MiniLM / 0.937 hybrid; SMS spam 0.983 / 0.982 / 0.989; the MiniLM
+  and hybrid figures need `--embed-mode neural`, the BM25 ones use no embedder):
+  https://github.com/xerj-org/xerj/tree/main/benchmarks/decisions-as-retrieval
+Credits: one-noul-per-document request shape — hev/jev-rerank (Apache-2.0). Failure
+  policy — Meilisearch's personalization module (approach adapted, no code copied).
+Full reference: https://github.com/xerj-org/xerj/blob/main/docs/RERANK.md
 
 --- 3.5 xerj_memory_store — write a namespaced memory --------------
 POST /_memory/{namespace}

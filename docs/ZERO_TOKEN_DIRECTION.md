@@ -42,9 +42,14 @@ stage that answers "which of these actually answer it", over the top *N* only.
 type with `rrf` or `linear` fusion. There is no rerank stage on `main`. The
 branch `feat/rerank-stage` adds a `rerank` block on `_search` that hands the
 top hits to an external relevance judge; it is opt-in per request and inert
-until an operator configures a key, and it is the one feature that would send
-document text off the machine. That is exactly why a *local* judge is on this
-list.
+until an operator configures a key. It is the only *search-time*
+feature that sends document text off the node, not the only feature that does:
+proxy embeddings (`[embedding] default_endpoint`) and the WAL tap send text off
+the node too, and all three are off by default. `docs/RERANK.md` lists every
+outbound connection a node can open, and `xerj-rerank/tests/egress_inventory.rs`
+holds that list against the engine's outbound clients. That a query-time stage
+sends the text of whatever a query matched is exactly why a *local* judge is on
+this list.
 
 **The bar a local model has to clear.** Before building one we measured what
 already ships. BEIR test splits, `--embed-mode neural` (all-MiniLM-L6-v2, CPU),

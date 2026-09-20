@@ -120,6 +120,20 @@ pub struct Metrics {
     pub query_cache_hits: IntGauge,
     /// Cumulative internal query-result cache misses across all indices.
     pub query_cache_misses: IntGauge,
+
+    // ── Rerank stage ──────────────────────────────────────────────────────────
+    // Reranking is a search feature the operator pays a third party for, per
+    // judged document, on a volume the CALLER chooses. These are the meter.
+    /// `rerank` requests by outcome: `applied` (the judge's order was served),
+    /// `degraded` (deadline missed, engine order served under a 200),
+    /// `refused` (400 / 403 / 503 — nothing was sent to the provider) and
+    /// `failed` (502 — the provider was called and the contract broke).
+    pub rerank_requests: IntCounterVec,
+    /// Documents the provider returned a verdict for. The billing unit.
+    pub rerank_documents_judged: IntCounter,
+    /// Tokens the provider reported, by `kind` (`input` / `output`). Zero when
+    /// the provider omits usage — this is its meter reading, not an estimate.
+    pub rerank_provider_tokens: IntCounterVec,
 }
 
 impl Metrics {
@@ -278,6 +292,31 @@ impl Metrics {
         ))
         .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
 
+        let rerank_requests = IntCounterVec::new(
+            Opts::new(
+                "xerj_rerank_requests_total",
+                "Searches that carried a `rerank` block, by outcome \
+                 (applied, degraded, refused, failed)",
+            ),
+            &["outcome"],
+        )
+        .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
+
+        let rerank_documents_judged = IntCounter::with_opts(Opts::new(
+            "xerj_rerank_documents_judged_total",
+            "Documents the rerank provider returned a verdict for",
+        ))
+        .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
+
+        let rerank_provider_tokens = IntCounterVec::new(
+            Opts::new(
+                "xerj_rerank_provider_tokens_total",
+                "Tokens the rerank provider reported, by kind (input, output)",
+            ),
+            &["kind"],
+        )
+        .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
+
         // ── Register everything ───────────────────────────────────────────────
         macro_rules! reg {
             ($metric:expr) => {
@@ -306,6 +345,9 @@ impl Metrics {
         reg!(wal_size_bytes);
         reg!(query_cache_hits);
         reg!(query_cache_misses);
+        reg!(rerank_requests);
+        reg!(rerank_documents_judged);
+        reg!(rerank_provider_tokens);
 
         Ok(Self {
             registry,
@@ -328,6 +370,9 @@ impl Metrics {
             wal_size_bytes,
             query_cache_hits,
             query_cache_misses,
+            rerank_requests,
+            rerank_documents_judged,
+            rerank_provider_tokens,
         })
     }
 
