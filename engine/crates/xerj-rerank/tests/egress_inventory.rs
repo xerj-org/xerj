@@ -101,6 +101,12 @@ const KNOWN: &[(&str, Role)] = &[
         "xerj-autoindex/src/objsource.rs",
         Role::Client("`xerj autoindex s3://`"),
     ),
+    // The watcher polls the same bucket on an interval, so unlike a one-shot
+    // run it keeps talking to the endpoint for as long as it is up.
+    (
+        "xerj-autoindex/src/objwatch/s3.rs",
+        Role::Client("`xerj autoindex s3:// --watch`"),
+    ),
     (
         "xerj-autoindex/src/objsource_minio_tests.rs",
         Role::TestOnly,

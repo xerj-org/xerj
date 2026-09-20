@@ -156,8 +156,9 @@ pub const DATA_EGRESS: &str = "A search that carries a `rerank` block sends the 
      connections carry no document or query text: the one-time HuggingFace model download \
      for `--embed-mode neural`, Raft messages (index names, mappings, shard assignments) \
      to the configured peers in cluster mode, and object storage — the `S3Backend` client, \
-     which nothing on the segment path constructs today, and `xerj autoindex s3://`, which \
-     names buckets and keys to the endpoint you configure and reads objects IN.";
+     which nothing on the segment path constructs today, and `xerj autoindex s3://` \
+     (with `--watch`, on an interval), which names buckets and keys to the endpoint you \
+     configure and reads objects IN.";
 
 /// Ceiling on one provider response body, in bytes.
 ///
