@@ -47,6 +47,14 @@ fs2 = "0.4"
 # ES-compat HTTP client. Blocking mode: all of autoindex is synchronous
 # (std threads), invoked from the server binary via spawn_blocking.
 reqwest = { workspace = true, features = ["blocking"] }
+# SigV4 for the object-storage watcher (`objwatch::s3`): HMAC-SHA256 chain and
+# the payload digest. Both are already in this workspace's lock file at these
+# versions (xerj-cluster, xerj-fts, xerj-api), so this adds no new package —
+# and it is far less than `aws-sdk-s3` would pull into a synchronous crate that
+# needs exactly two S3 verbs. See objwatch/s3.rs for why not the SDK.
+sha2 = "0.10"
+hmac = "0.12"
+
 
 # --- AST code extraction (tree-sitter). Grammars expose a tree-sitter-language
 # LanguageFn, decoupled from the core version, so one core serves all. ---

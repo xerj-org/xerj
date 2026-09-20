@@ -29,6 +29,8 @@ pub mod objsource;
 mod objsource_minio_tests;
 #[cfg(test)]
 mod objsource_s3_tests;
+/// `--watch` for object storage: poll a bucket, feed a change feed, count the cost.
+pub mod objwatch;
 pub mod order;
 pub mod pool;
 pub mod progress;
@@ -1524,6 +1526,7 @@ pub fn run_cli() -> i32 {
         Cmd::Index(cfg) => run_index(*cfg),
         Cmd::Map(cfg) => run_map(cfg),
         Cmd::Status(cfg) => run_status(cfg),
+        Cmd::Watch(cfg) => objwatch::run::run(*cfg),
     };
     match res {
         Ok(code) => code,

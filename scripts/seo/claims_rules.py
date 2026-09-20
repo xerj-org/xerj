@@ -69,7 +69,14 @@ def _neg_near(term, span=90):
             r")")
 
 
-_BACKUP_CTX = r"back(?:\s|-)?up|backups|snapshot|restore|archive|repositor(?:y|ies)|disaster recovery|\bdr\b|retention"
+# `\bdr\b` is the "DR" of disaster recovery. It must NOT match the "DR" of
+# "TL;DR", which is a heading marker in nearly every article here: a paragraph
+# that opens "**TL;DR** ... s3://bucket ..." is not a backup claim, and before
+# this lookbehind the rule reported one. Per this gate's own policy, an ERROR on
+# a good_ fixture is a false positive and the rule gets fixed, never the
+# fixture — see testdata/factcheck/good_tldr_bucket_not_backup.md.
+_BACKUP_CTX = (r"back(?:\s|-)?up|backups|snapshot|restore|archive|repositor(?:y|ies)"
+               r"|disaster recovery|(?<![Tt][Ll];)\bdr\b|retention")
 _S3_TERMS = r"s3|object stor(?:e|age)|bucket|blob stor(?:e|age)|minio|gcs|google cloud storage|azure blob|cloud storage"
 
 _NEURAL_QUALIFIER = (r"(?:--embed-mode[= ]neural|embed-mode\s+neural|neural embedd|neural mode|"
@@ -154,6 +161,17 @@ RULES = [
             r"index (?:still )?lives on the node|on the XERJ node|index stays on|"
             r"mirror(?:ed|s)? (?:in)?to local|local mirror|under --state-dir|"
             r"source documents? (?:only|are)|only the source",
+            # "keep an index current when the FILES live in a bucket" — the noun
+            # in the bucket is the SOURCE, and the index is only the thing being
+            # kept current. The pattern reads left to right and cannot see the
+            # subject change across "when …", so the shape is named here. It
+            # fired on the published h1 of the object-storage answers page and
+            # on `good_tldr_bucket_not_backup.md`; per this gate's own policy an
+            # ERROR on a `good_` fixture is a false positive and the RULE is
+            # what gets fixed.
+            r"\b(?:files?|objects?|documents?|docs|data|content|sources?|bytes)\b"
+            r"[^.\n]{0,40}?\b(?:live|lives|living|sit|sits|are|is|stay|stays|"
+            r"reside|resides)\b[^.\n]{0,25}?\b(?:%s)\b" % _S3_TERMS,
         ],
         "reason": ("The SOURCE can be a bucket; the INDEX cannot. `xerj autoindex "
                    "s3://bucket/prefix` lists the prefix and streams each changed object "
@@ -1534,8 +1552,10 @@ THING_MATRIX = [
      "cite": "docs/OBJECT_STORAGE.md:1",
      "gate": ("Write - s3://, r2:// and any S3-compatible store via --endpoint-url. SOURCE side "
               "only: the objects are mirrored to local disk under --state-dir and the index stays "
-              "on the node. Never imply the index lives in the bucket, and never imply a watcher - "
-              "a run is one-shot and the run prints what a schedule would cost."),
+              "on the node. Never imply the index lives in the bucket. Indexing a bucket is "
+              "ONE-SHOT and the run prints what a schedule would cost; `--watch` is a separate "
+              "thing and does NOT index - it polls the prefix and emits a change feed, with a "
+              "bounded Class A budget. Never say a watch keeps an index current by itself."),
      "aliases": [r"\bs3 bucket\b", r"s3://", r"object stor(?:e|age)",
                  r"\bs3\b[^\n]{0,20}\b(?:ingest|index|indexing|search|scan|crawl)\b",
                  r"\b(?:ingest|index|indexing|search|scan|crawl)\w*\b[^\n]{0,20}\bs3\b"]},

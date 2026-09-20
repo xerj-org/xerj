@@ -172,6 +172,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   arithmetic, measurements and remaining work in
   [docs/OBJECT_STORAGE.md](docs/OBJECT_STORAGE.md).
 
+- **`xerj autoindex s3://bucket/prefix --watch` keeps a bucket-backed index
+  current with a poll whose cost is bounded and visible.** An object store has
+  no inotify, so change tracking is polling or event notifications. This lands
+  polling, because `ListObjectsV2` is served by S3, R2, MinIO and Ceph RGW
+  alike and because a poll is self-correcting: every cycle re-derives the truth
+  from the bucket, so a dropped notification cannot leave an index permanently
+  wrong. Each cycle lists the prefix, compares ETag, size and last-modified
+  against a per-object journal, reads only what changed, and emits one JSON
+  event per added, changed or deleted object — it produces a change feed and
+  does NOT index, and it is not `xerj autoindex s3://bucket/prefix`, which
+  indexes a bucket once; wiring the feed into that indexer plugs into the same
+  `ChangeSink` and is still to come.
+  The cost model is the feature, not a footnote: `ListObjectsV2` is a **Class A**
+  operation at **at least** one call per 1,000 keys per cycle, charged whether
+  anything changed or not (at least, because when a store stops paging is its
+  own choice: MinIO serves 11 calls for 10,000 keys, not 10, so the projection
+  takes whichever is larger, the arithmetic or what the store just served), against Cloudflare R2's free tier of 1,000,000 Class A
+  operations a month (~23/minute for a whole account). A 5 s poll on an *empty*
+  bucket costs 518,400/month — half the tier to watch nothing; a 60 s poll on a
+  100,000-object prefix costs 4,320,000/month, over four times the whole
+  allowance. So the default interval is 300 s, the default budget is 200,000
+  Class A ops/month (20% of the tier, because the rest of the account spends
+  from it too), and a cycle whose projection exceeds the budget is **refused**
+  with exit 4 and a decision-request document naming the minimum safe interval
+  — the same contract the folder-indexing gate uses. The budget is a CIRCUIT
+  BREAKER on every cycle, not a greeting on the first: a prefix that grows past
+  it mid-watch stops the watch, and so does a month whose allowance is spent
+  (Class A and Class B are counted in `<state-dir>/objwatch-spend.json`, which
+  survives restarts, so a supervisor restart loop cannot mint a fresh budget
+  each time — the ledger is written BEFORE the calls it pays for, sixteen at a
+  time, so a `kill -9` in the middle of a long first scan still leaves the run
+  owing what it spent, and a ledger stamped with a future month is a backwards
+  clock step rather than a new allowance). GETs have their own budget, `--max-monthly-gets`, default
+  2,000,000 (20% of the 10,000,000 Class B tier).
+  `--append-only` turns a growing key space into one list call per cycle via
+  `start-after` (and cannot detect deletes, which is why it is opt-in),
+  `--no-fetch` is metadata-only at zero Class B operations, `--dry-run` prices
+  a poll and records nothing at all (no read, no event, no journal) though the
+  listing it makes is real and billed like any other cycle, changed
+  objects are fetched 8 at a time with the events still emitted in listing
+  order, keys come back from the listing byte for byte (whitespace and entity
+  references included), an edit past `--max-object-mb` is always emitted
+  because a prefix digest cannot prove the bytes are unchanged, and one
+  transient listing failure after the first cycle is retried at the next poll
+  rather than ending the watch (five in a row end it), and every cycle reports list calls, reads, bytes
+  and wall time to stderr plus a status file an operator can read without
+  attaching to the process. Cycles never overlap: the schedule is fixed at
+  `t0 + k*interval` and deadlines a long cycle passed through are counted and
+  reported, because an overrun means the effective interval is longer than the
+  one the budget was computed from. Event-driven delivery (S3 Event
+  Notifications, R2 event notifications) is **not implemented**; what it would
+  take, including the reconciling pass that at-least-once delivery makes
+  mandatory, is written down in
+  [`docs/WATCHING_OBJECT_STORAGE.md`](docs/WATCHING_OBJECT_STORAGE.md).
+
 - **`hybrid: true` in `POST /_memory/{ns}/_recall` fuses BM25 and server-side
   semantic recall inside the memory API**
   ([#918](https://github.com/xerj-org/xerj/issues/918)). Recall used to pick
