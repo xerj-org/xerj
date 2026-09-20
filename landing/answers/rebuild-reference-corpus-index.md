@@ -2,7 +2,7 @@
 ---
 title: "How do I rebuild a reference-coding corpus index from scratch?"
 canonical: "https://xerj.org/answers/rebuild-reference-corpus-index"
-updated: "2026-09-18"
+updated: "2026-09-20"
 source: "content/answers/rebuild-reference-corpus-index.md"
 ---
 
