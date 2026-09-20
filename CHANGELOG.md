@@ -203,6 +203,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one-question-per-document request shape follows `hev/jev-rerank`
   (Apache-2.0); the failure policy and the retry back-off constants follow
   Meilisearch's personalization module (MIT; adapted, cited in code).
+- **`rerank` provider `local`: a cross-encoder that runs inside the node — no
+  API key, no network call, no per-token bill, and no document or query text
+  leaves the host.** `"rerank": {"provider": "local"}` on `_search` scores the
+  top `window` hits with a pinned cross-encoder in this process, so a
+  second-stage judge is available on an air-gapped node, on a laptop with no
+  account anywhere, and on a corpus whose text may not travel. Three tiers, a
+  closed table so a request can never make the server fetch an arbitrary
+  repository: `small` = `cross-encoder/ms-marco-MiniLM-L6-v2` (91 MB,
+  Apache-2.0, **the default**), `base` = `BAAI/bge-reranker-base` (1.1 GB, MIT),
+  `large` = `BAAI/bge-reranker-v2-m3` (2.3 GB, Apache-2.0). XERJ ships no
+  weights: each is downloaded from the Hugging Face Hub at a pinned revision
+  with a sha256 that is checked on load, and all three were trained on data that
+  includes MS MARCO, whose terms say non-commercial research only — `GET
+  /_xerj/rerank` reports each tier's licence and that caveat. Seven `[judge]`
+  settings (`enabled`, `download`, `cache_dir`, `model_dir`, `threads`,
+  `max_inflight`, `rerank_model`); **`[rerank] enabled = false` does NOT switch
+  this provider off** — that setting forbids egress and there is none, so
+  `[judge] enabled = false` is the one that refuses it (403). Loading is lazy,
+  shared and non-blocking: the first request starts the download in the
+  background and gets HTTP 200 with the engine's own order and
+  `_rerank.applied: false` rather than being parked on it, and weights are
+  checked against the resource policy's safe zone before they are mapped.
+  Hosted-only options (`instructions`, `batch`, `max_concurrency`) are refused
+  by name rather than ignored, and `max_doc_chars` defaults to 4,000 here
+  because the binding limit is the model's 512-token window.
+
+  **MEASURED, and it does not beat what already ships — so it is opt-in, not a
+  default.** On BEIR with the default `small` tier (`--embed-mode neural`,
+  `all-MiniLM-L6-v2`, one node, CPU), reranking the hybrid RRF top-30 scored
+  nDCG@10 **0.6936 on SciFact against 0.7021 for hybrid alone (−0.0085, 95%
+  paired-bootstrap interval `[−0.0367, +0.0201]`), 0.3597 against 0.3445 on
+  NFCorpus (+0.0152 `[+0.0047, +0.0268]`) and 0.3751 against 0.3572 on FiQA
+  (+0.0179 `[+0.0025, +0.0322]`)** — two gains and one wash, which is not what a
+  default needs. The `base` tier disagrees about *which* corpus it helps: 0.7186
+  on SciFact (+0.0165 `[−0.0093, +0.0425]`, the best SciFact arm measured) and
+  0.3328 on NFCorpus (−0.0117), i.e. **worse than the smaller model there**. A
+  bigger cross-encoder is not uniformly a better one, and no configuration beats
+  hybrid everywhere. Against a **BM25-only** first stage it is a large,
+  unambiguous gain on all three datasets: 0.6572 → 0.6824, 0.3016 → 0.3370 and
+  0.2382 → 0.3160, which is the case it is genuinely for (no vectors indexed, or
+  a corpus you are not going to re-index). The hybrid baseline's
+  own run-to-run spread was measured, not assumed — three fresh node processes
+  over unchanged indices gave 0.7021 / 0.7034 / 0.7019 on SciFact and 0.3445 /
+  0.3436 / 0.3438 on NFCorpus (issue #940 orders tied fusion scores by a
+  per-process seed) — and every reranked arm scored *identically* across those
+  same three processes, because the candidate set was identical on 100% of
+  queries and only the tie order moved. One 30-document call costs
+  <!--CL_LAT--> on a 32-core x86 CPU with the machine otherwise idle, and more
+  threads do not help.
+
+  **The score is not a calibrated probability, and nothing claims it is.** All
+  three tiers carry `Calibration::NONE` (the raw sigmoid), so `_rerank` reports
+  the new `score_kind: "relevance"` rather than `"probability"` and
+  `rerank.min_score` against it must be tuned per corpus. A Platt fit and a
+  temperature fit were both attempted on a held-out split and **both diverged**
+  (maximum-likelihood slopes of 10^9–10^11 — near-separable classes in one
+  feature), and neither beat the raw sigmoid's expected calibration error, so
+  none ships. `score_kind` is a three-value enum now (`probability` |
+  `relevance` | `engine`) across `landing/openapi.json`, `docs/RERANK.md`,
+  `landing/llms-full.txt` and the MCP tool descriptions, which also gained a
+  NO-KEY ALTERNATIVE paragraph telling an agent to prefer a hybrid search.
+  New `benchmarks/local-judge` (harness, `pair_score` example, results);
+  reference in `docs/RERANK.md`; an air-gapped staging recipe; and the egress
+  inventory test now classifies the judge's model download, so the published
+  privacy statement stays true with a keyless provider in the tree.
 
 ### Fixed
 

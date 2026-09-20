@@ -24,7 +24,7 @@
 > document or query text leaves the host. It is **opt-in per request and not the
 > default**, because on our own BEIR harness it does not beat the hybrid RRF
 > ranking XERJ already ships — see
-> [What we measured](#what-we-measured-it-does-not-beat-hybrid-rrf).
+> [What we measured](#what-we-measured-no-tier-beats-hybrid-rrf-on-every-dataset).
 
 `rerank` is an optional second stage on `POST /{index}/_search`. The engine
 retrieves and ranks as usual; the stage then hands the top hits to a relevance
@@ -218,13 +218,15 @@ what your node scores with.
 | `base` | [`BAAI/bge-reranker-base`](https://huggingface.co/BAAI/bge-reranker-base) | 1.1 GB | ~1.1 GB | MIT | The card says the released models "can be used for commercial purposes free of charge" and that it was trained on "multilingual pair data", without listing the datasets. BAAI's published English fine-tuning data for its other models includes MS MARCO, so assume the same open question. |
 | `large` | [`BAAI/bge-reranker-v2-m3`](https://huggingface.co/BAAI/bge-reranker-v2-m3) | 2.3 GB | ~4.6 GB | Apache-2.0 | Trained on bge-m3-data, Quora and FEVER per the card; bge-m3-data lists MS MARCO among its sources — the same unsettled question as `small`. |
 
-**`small` is the default tier** for three reasons, in this order: it is the only
-one that fits a laptop without thinking about it (91 MB down, ~349 MB resident,
-against 4.6 GB resident for `large`); it is the fastest by a factor of three on
-a CPU; and on our harness the larger tiers did not buy a verdict change — see
-below. None of those is "it is the most accurate". If your corpus is not English
-or your window is small enough to absorb the cost, measure `base` on your own
-data before assuming the default is right for you.
+**`small` is the default tier**, and the reason is *not* "it is the most
+accurate" — on SciFact it is the worst of the two tiers we measured. It is the
+default because it is the only one that fits a laptop without thinking about it
+(91 MB down, ~349 MB resident, against 4.6 GB resident for `large`) and because
+it is **3.1× faster per pair** on a CPU than `base` (measured, next sections).
+Accuracy would not settle the question anyway: `base` was the best SciFact arm
+we measured and the *worse* of the two on NFCorpus. **Measure the tiers on your
+own corpus** — `"rerank": {"provider": "local", "model": "base"}` is one field —
+and do not assume a bigger cross-encoder is a better one.
 
 **XERJ ships no weights.** Every tier is downloaded from the Hugging Face Hub on
 first use, under its own licence, and XERJ pins the revision and a sha256 rather
@@ -261,11 +263,25 @@ sigmoid has. Expected calibration error on the test split, `small` tier, pooled
 over all three datasets (35,626 pairs, 5.8% positive): **0.144 raw, 0.138 under
 the Platt fit, 0.167 under the temperature fit** — the "calibrated" map is not
 meaningfully better than the raw one, and one of the two is worse.
-So the table ships `Calibration::NONE`, and **no XERJ surface calls the local
-score calibrated.** Fitting one properly needs a richer feature than a single
-logit; it is open work, not a shipped claim.
+The `base` tier's fit, by contrast, **converged** — Platt `scale = 0.4331,
+bias = −0.8912`, fitted on 7,651 held-out pairs — and it works: pooled expected
+calibration error on the two test splits falls from **0.0509 raw to 0.0094**,
+a 5.4× improvement (temperature scaling: 0.0444). That is a real result and it
+still does not ship, for one reason: it was fitted and evaluated on the **same
+two corpora** (SciFact and NFCorpus), and there is no out-of-domain check. A map
+that is well calibrated on the two datasets it was tuned across is not evidence
+that it is calibrated on yours, and "probability" is a word this project only
+uses when it has that evidence.
 
-### What we measured: it does not beat hybrid RRF
+So every tier ships `Calibration::NONE`, every response says
+`score_kind: "relevance"`, and **no XERJ surface calls the local score
+calibrated.** The next step is precise rather than vague: score a third corpus
+with `base`, fit on two and report expected calibration error on the third; if
+it holds, `base` ships its Platt map and starts reporting `"probability"` with
+no code change, because the provider derives `score_kind` from the tier's own
+calibration.
+
+### What we measured: no tier beats hybrid RRF on every dataset
 
 Three public BEIR datasets, nDCG@10 on each one's `test` split, against a node
 running `--embed-mode neural` (`all-MiniLM-L6-v2`, CPU) so that the hybrid arm is
@@ -273,17 +289,46 @@ a real hybrid and not the default lexical feature-hashing embedder. One node, on
 shard, default settings. Method, raw output and the reproduce commands:
 [`benchmarks/local-judge`](../benchmarks/local-judge).
 
-<!--TABLE-->
+| Arm | SciFact<br>300 q, 5,183 docs | NFCorpus<br>323 q, 3,633 docs | FiQA<br>648 q, 57,638 docs |
+|---|---:|---:|---:|
+| BM25 (`multi_match` on title, text) | 0.6572 | 0.3016 | 0.2382 |
+| BM25 top-30 → local `small` | 0.6824 | 0.3370 | 0.3160 |
+| BM25 top-100 → local `small` | 0.6792 | 0.3420 | 0.3337 |
+| BM25 top-30 → local `base` | 0.7084 | 0.3141 | not run |
+| **Hybrid RRF — the arm that already ships** | **0.7021** | **0.3445** | **0.3572** |
+| Hybrid top-30 → local `small` | 0.6936 | **0.3597** | **0.3751** |
+| Hybrid top-100 → local `small` | 0.6872 | 0.3575 | 0.3697 |
+| Hybrid top-30 → local `base` | **0.7186** | 0.3328 | not run |
+
+The column that decides it is the difference from hybrid RRF on the same
+queries, with a 95% paired-bootstrap interval (2,000 resamples):
+
+| Arm | SciFact | NFCorpus | FiQA |
+|---|---|---|---|
+| Hybrid top-30 → `small` | −0.0085 `[−0.0367, +0.0201]` | **+0.0152** `[+0.0047, +0.0268]` | **+0.0179** `[+0.0025, +0.0322]` |
+| Hybrid top-100 → `small` | −0.0150 `[−0.0450, +0.0163]` | **+0.0129** `[+0.0019, +0.0243]` | +0.0125 `[−0.0031, +0.0276]` |
+| Hybrid top-30 → `base` | +0.0165 `[−0.0093, +0.0425]` | −0.0117 `[−0.0246, +0.0013]` | not run |
+
+**No configuration beats hybrid RRF everywhere, and the two tiers do not agree
+about which corpus they help.** `small` gains on NFCorpus and FiQA (intervals
+excluding zero) and is a wash on SciFact; `base` is the other way round — it is
+the best SciFact arm we measured, and it is *worse* than the smaller model on
+NFCorpus. A bigger cross-encoder is not uniformly a better one.
+
 
 Read it twice, because it says two different things.
 
 **Against a BM25-only first stage the local judge is a large, unambiguous win**
-<!--BM25LINE-->
+— `small` adds +0.0253 (SciFact), +0.0354 (NFCorpus) and +0.0777 (FiQA) to BM25
+alone, and `base` adds +0.0512 on SciFact. On FiQA it closes two thirds of the
+distance between BM25 and hybrid without a single vector being indexed.
 That is the case this provider is genuinely for: a node with no vectors indexed,
 or a corpus you are not going to re-index.
 
-**Against hybrid RRF it is not the clear win a default would need.**
-<!--HYBLINE-->
+**Against hybrid RRF it is not the clear win a default would need.** Two of the
+five measured hybrid arms gain by more than the noise floor below, one gains by
+less than it, and two lose. A default has to be right on a corpus nobody
+measured, and this evidence does not support that.
 
 So it ships **opt-in**. Three reasons, in order of weight: it does not beat what
 already ships on every dataset; one call costs seconds of CPU (next section) where
@@ -783,7 +828,7 @@ embedder at all. Method, raw output and the reproduce commands are in
 [`benchmarks/beir-hybrid`](../benchmarks/beir-hybrid).
 
 The **local** provider was measured, by us, on the same harness and on a third
-dataset as well: [What we measured](#what-we-measured-it-does-not-beat-hybrid-rrf).
+dataset as well: [What we measured](#what-we-measured-no-tier-beats-hybrid-rrf-on-every-dataset).
 It is the only rerank quality figure in this document that XERJ actually ran.
 
 Two things the bi-encoder runs above do say:
