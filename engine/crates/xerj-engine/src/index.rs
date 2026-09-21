@@ -17854,6 +17854,305 @@ impl Index {
         Some(ids)
     }
 
+    /// Single-pass `_source` fold over the whole live match set (#1022).
+    ///
+    /// Calls `f` with the `_source` of every live document matching `query`,
+    /// holding ONE parsed doc at a time. This is the read-side analogue of
+    /// `matching_ids_sorted`: the significant_text profiler fast path used to
+    /// issue ONE `size: 10_000` search and fold the materialised hits, so on
+    /// a corpus past one page it silently under-counted every exact-statistics
+    /// counter — and it materialised up to 10 k full `Value` trees per index
+    /// to do it (the #950 RSS-transient class). The fold is exact at any
+    /// corpus size and never holds more than one source.
+    ///
+    /// Why a fold and not keyset paging: the consumers of this walk need
+    /// completeness and duplicate-freedom, not page ORDER (their counters are
+    /// order-independent folds). That is exactly the property `_id`-keyset
+    /// `search_after` paging cannot give without a flush — the memtable's
+    /// field-sort path does not order by `_id` reliably, and a read endpoint
+    /// (`_search`) must not flush. One walk needs neither.
+    ///
+    /// Membership agrees with the search path's: the query is resolved
+    /// through the same pipeline `search_inner` applies (alias rewrite,
+    /// keyword→term, lexically-typeless lowering, single-clause bool unwrap)
+    /// and then matched per doc with the same typed matcher the memtable scan
+    /// arm uses (`doc_matches_query_typed`); liveness is the same rule the
+    /// scan arms apply (version-map tombstone skip, superseded-copy skip, one
+    /// id per walk, memtable copy preferred over a stale segment copy).
+    ///
+    /// Consistency under a concurrent publication: the segment snapshot holds
+    /// its read lease for the whole walk (retired segment files persist), so
+    /// a mid-walk flush or merge can neither orphan a byte range nor feed an
+    /// id twice — a drained-then-flushed doc is either still in this
+    /// snapshot's memtable capture or in one of its segments, never both
+    /// (dedup by id) and never neither (the lease keeps the old segment
+    /// readable). Docs written after the walk started may or may not be seen;
+    /// that is the same window any single search has.
+    pub async fn fold_match_sources<F: FnMut(&Value)>(&self, query: &QueryNode, f: &mut F) {
+        // Resolve the query exactly as `search_inner` does (two guard takes,
+        // same as that function's `dmq_schema` then `schema.read()` pair).
+        let dmq_schema = self.schema().await;
+        let resolved_query = {
+            let schema = self.schema.read().await;
+            let resolved = rewrite_keyword_full_text_to_term(
+                &rewrite_query_aliases(query, &schema.schema),
+                &schema.schema,
+            );
+            let typeless = crate::memtable::lexically_typeless_fields(&schema.schema);
+            let lowered = if typeless.is_empty() {
+                resolved
+            } else {
+                lower_lexically_typeless_clauses(&resolved, &typeless)
+            };
+            unwrap_single_clause_bool(lowered)
+        };
+        let is_match_all = matches!(resolved_query, QueryNode::MatchAll);
+        let needs_id_injection = query_needs_id_injection(&resolved_query);
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // ── Memtable: one Arc-shared snapshot, matched per doc ──────────────
+        // Deletes remove from the memtable, so `docs` is live by construction;
+        // the ghost-window check (below) only guards the window where the
+        // live copy of an id moved to a segment between snapshot and now —
+        // the segment walk covers that id instead.
+        let ghost_filter = self.store.version_map.ghost_events() > 0;
+        for (_seq_no, doc_id, source) in self.memtable.all_docs_with_seq_arc() {
+            if ghost_filter {
+                if let Some(ver) = self.store.version_map.get(&doc_id) {
+                    if ver.deleted
+                        || ver.segment_id.as_ref()
+                            != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID
+                    {
+                        continue;
+                    }
+                }
+            }
+            if !seen.insert(doc_id.clone()) {
+                continue;
+            }
+            let matched = if is_match_all {
+                true
+            } else if let QueryNode::Ids { values } = &resolved_query {
+                values.iter().any(|v| v == doc_id.as_str())
+            } else if !needs_id_injection || source.get("_id").is_some() {
+                doc_matches_query_typed(&resolved_query, &source, &dmq_schema)
+            } else {
+                // Inject `_id` so deeply-nested Ids queries can resolve it
+                // (same fallback as the memtable scan arm).
+                let source_with_id = if let Some(obj) = source.as_object() {
+                    let mut o = obj.clone();
+                    o.insert("_id".to_string(), Value::String(doc_id.clone()));
+                    Value::Object(o)
+                } else {
+                    (*source).clone()
+                };
+                doc_matches_query_typed(&resolved_query, &source_with_id, &dmq_schema)
+            };
+            if matched && !source.is_null() {
+                f(&source);
+            }
+        }
+
+        // ── Segments: one stored-section walk per segment, one doc parsed
+        // at a time. The scan arms' brace-walk, reduced to its bones.
+        let snap = self.store.snapshot();
+        for meta in snap.segments.iter() {
+            let seg_id = meta.id.clone();
+            // Same cache discipline as the unsorted search path: reuse the
+            // retained decompressed section when present, else cold-decode
+            // (under the segment's single-flight lock, so concurrent cold
+            // walkers decode once) and publish it back for the next query.
+            let cached_bytes: Option<Vec<u8>> = self
+                .decoded_stored_cache
+                .get(seg_id.as_str())
+                .map(|e| e.value().value().clone())
+                .or_else(|| {
+                    self.stored_slices_cache
+                        .get(seg_id.as_str())
+                        .map(|e| e.value().bytes.clone())
+                });
+            let stored_bytes = match cached_bytes {
+                Some(bytes) => bytes,
+                None => {
+                    let flight = {
+                        let entry = self
+                            .stored_slices_build_locks
+                            .entry(seg_id.clone())
+                            .or_default();
+                        std::sync::Arc::clone(entry.value())
+                    };
+                    let _flight_guard = flight.lock().ok();
+                    // Re-check under the flight lock — another thread may
+                    // have decoded and published while we waited.
+                    let rechecked: Option<Vec<u8>> = self
+                        .decoded_stored_cache
+                        .get(seg_id.as_str())
+                        .map(|e| e.value().value().clone())
+                        .or_else(|| {
+                            self.stored_slices_cache
+                                .get(seg_id.as_str())
+                                .map(|e| e.value().bytes.clone())
+                        });
+                    match rechecked {
+                        Some(bytes) => bytes,
+                        None => {
+                            let decoded: Option<Vec<u8>> =
+                                match self.store.open_segment_arc(&seg_id) {
+                                    Ok(reader) => match reader.section(SectionType::Stored) {
+                                        Ok(Some(raw)) => {
+                                            xerj_storage::stored_codec::decode_stored(raw).ok()
+                                        }
+                                        _ => None,
+                                    },
+                                    Err(_) => None,
+                                };
+                            match decoded {
+                                Some(bytes) => {
+                                    let est = crate::segment_cache_estimates::decoded_stored_bytes(
+                                        &seg_id,
+                                        std::mem::size_of::<CacheResident<Vec<u8>>>(),
+                                        bytes.capacity(),
+                                    );
+                                    let _ = self.publish_current(
+                                        &self.decoded_stored_cache,
+                                        &seg_id,
+                                        seg_id.clone(),
+                                        SegmentCacheCategory::DecodedStored,
+                                        est,
+                                        bytes.clone(),
+                                    );
+                                    bytes
+                                }
+                                // Unreadable/undecodable section: the search
+                                // path fails the whole query here; a fold has
+                                // no error channel, so skip the segment and
+                                // let the caller's own tolerance stand (the
+                                // pre-fold fast path swallowed search errors
+                                // the same way).
+                                None => continue,
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Brace-walk the section: `[{...}, {...}, ...]` — find each
+            // top-level object's byte range by balanced-brace counting and
+            // parse only that slice (the same per-doc allocation discipline
+            // as `scan_stored_section_into`).
+            let bytes: &[u8] = &stored_bytes;
+            let n = bytes.len();
+            let mut i = 0usize;
+            while i < n && (bytes[i].is_ascii_whitespace() || bytes[i] == b'[') {
+                i += 1;
+            }
+            loop {
+                while i < n && (bytes[i].is_ascii_whitespace() || bytes[i] == b',') {
+                    i += 1;
+                }
+                if i >= n || bytes[i] == b']' {
+                    break;
+                }
+                if bytes[i] != b'{' {
+                    break; // unexpected byte — stop this section gracefully
+                }
+                let start = i;
+                let mut depth = 0i32;
+                let mut in_str = false;
+                let mut escape = false;
+                while i < n {
+                    let b = bytes[i];
+                    if in_str {
+                        if escape {
+                            escape = false;
+                        } else if b == b'\\' {
+                            escape = true;
+                        } else if b == b'"' {
+                            in_str = false;
+                        }
+                    } else {
+                        match b {
+                            b'"' => in_str = true,
+                            b'{' => depth += 1,
+                            b'}' => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    i += 1;
+                                    break;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    i += 1;
+                }
+                if depth != 0 {
+                    break; // malformed tail — stop this section gracefully
+                }
+                let slice = &bytes[start..i];
+
+                // Id first, borrowed where the layout allows (the #1019
+                // trick), falling back to the parsed doc's `_id`.
+                let borrowed_id = extract_stored_id_str(slice).map(str::to_string);
+                let mut doc_buf = slice.to_vec();
+                let doc: Value = match simd_json::serde::from_slice(&mut doc_buf) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                let id_owned = borrowed_id
+                    .or_else(|| doc.get("_id").and_then(Value::as_str).map(str::to_string));
+                let id_ref: &str = match id_owned.as_deref() {
+                    Some(id) => id,
+                    None => continue,
+                };
+                if !seen.insert(id_ref.to_string()) {
+                    continue;
+                }
+                // Version-map liveness + superseded-copy skip (the scan arm's
+                // exact predicate, including the raw-source-without-`_seq_no`
+                // pass-through).
+                if let Some(ver) = self.store.version_map.get(id_ref) {
+                    if ver.deleted {
+                        continue;
+                    }
+                    if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                        if doc_seq < ver.seq_no {
+                            continue;
+                        }
+                    }
+                }
+                let matched = if is_match_all {
+                    true
+                } else if let QueryNode::Ids { values } = &resolved_query {
+                    values.iter().any(|v| v == id_ref)
+                } else {
+                    let source_ref = doc.get("_source").unwrap_or(&doc);
+                    if needs_id_injection && source_ref.get("_id").is_none() {
+                        let source_with_id = if let Some(obj) = source_ref.as_object() {
+                            let mut o = obj.clone();
+                            o.insert("_id".to_string(), Value::String(id_ref.to_string()));
+                            Value::Object(o)
+                        } else {
+                            source_ref.clone()
+                        };
+                        doc_matches_query_typed(&resolved_query, &source_with_id, &dmq_schema)
+                    } else {
+                        doc_matches_query_typed(&resolved_query, source_ref, &dmq_schema)
+                    }
+                };
+                if !matched {
+                    continue;
+                }
+                // Same source rule as a hydrated hit: the envelope's
+                // `_source`, or the whole doc for raw-source layouts.
+                let source_ref = doc.get("_source").unwrap_or(&doc);
+                if !source_ref.is_null() {
+                    f(source_ref);
+                }
+            }
+        }
+    }
+
     /// Delete all documents matching the given query.
     ///
     /// Collects the whole match set in one pass (`matching_ids_sorted`) and

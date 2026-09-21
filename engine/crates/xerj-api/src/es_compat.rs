@@ -14835,8 +14835,15 @@ async fn search_impl(
         // significant_text profiler debug (total_buckets / values_fetched /
         // chars_fetched / extract_count / collect_analyzed_count) can only be
         // computed from the analyzed source docs. When the request profiles a
-        // significant_text agg, fetch the foreground (query-matched) docs and
-        // precompute the per-agg debug block keyed by agg name.
+        // significant_text agg, fold the foreground (query-matched) docs
+        // through per-agg accumulators and precompute the debug block keyed by
+        // agg name. #1022: this used to materialise ONE `size: 10_000` search
+        // per index into a `Vec<Value>` — past one page of matches every
+        // counter silently under-reported (this is an exact-statistics
+        // surface), and the materialisation itself was an up-to-10k-source
+        // RSS transient. `fold_match_sources` walks each index once and holds
+        // ONE doc at a time; the counters are order-independent folds, so the
+        // values are mathematically unchanged below the truncation threshold.
         let agg_req_for_sig = search_req
             .aggs
             .as_ref()
@@ -14852,25 +14859,28 @@ async fn search_impl(
                     .query
                     .clone()
                     .unwrap_or_else(|| json!({"match_all": {}}));
-                let mut fg_docs: Vec<Value> = Vec::new();
-                if let Ok(fg_req) =
-                    xerj_query::parse_request(&json!({"query": fg_query, "size": 10000, "from": 0}))
-                {
+                if let Ok(fg_req) = xerj_query::parse_request(&json!({"query": fg_query})) {
+                    let mut accs: Vec<SigTextAccumulator> =
+                        specs.iter().map(SigTextAccumulator::new).collect();
+                    // All specs share ONE walk per index, and the accumulators
+                    // span the whole index_names loop so cross-index totals
+                    // stay pooled exactly the way the old `fg_docs` vec pooled
+                    // them. Failures stay tolerated (a missing index or an
+                    // unreadable segment contributes nothing), matching the
+                    // old `if let Ok` swallowing.
                     for idx_name in &index_names {
                         if let Ok(idx) = state.engine.get_index(idx_name) {
-                            if let Ok(result) = idx.search(&fg_req).await {
-                                for hit in result.hits {
-                                    if !hit.source.is_null() {
-                                        fg_docs.push(hit.source);
-                                    }
+                            idx.fold_match_sources(&fg_req.query, &mut |doc: &Value| {
+                                for acc in &mut accs {
+                                    acc.fold_doc(doc);
                                 }
-                            }
+                            })
+                            .await;
                         }
                     }
-                }
-                for spec in &specs {
-                    sig_text_debug
-                        .insert(spec.name.clone(), compute_sig_text_debug(spec, &fg_docs));
+                    for acc in &accs {
+                        sig_text_debug.insert(acc.spec.name.clone(), acc.finish());
+                    }
                 }
             }
         }
@@ -24875,38 +24885,56 @@ fn sig_text_token_set(s: &str) -> std::collections::HashSet<String> {
     set
 }
 
-/// Compute the ES `significant_text` profiler debug block for one agg from
-/// the foreground source docs. `total_buckets` is the sum, over each owning
-/// (parent) bucket, of the distinct analyzed terms in that bucket's docs —
-/// matching ES's per-ordinal bucket allocation.
-fn compute_sig_text_debug(spec: &SigTextSpec, fg_docs: &[Value]) -> Value {
-    let mut values_fetched: u64 = 0;
-    let mut chars_fetched: u64 = 0;
-    let mut extract_count: u64 = 0;
-    let mut collect_analyzed_count: u64 = 0;
+/// Incremental form of the `significant_text` profiler debug block (#1022).
+///
+/// The block's counters are order-independent folds (sums and per-group
+/// unions), so they can be accumulated doc-by-doc across a single-pass engine
+/// walk (`Index::fold_match_sources`) instead of being computed from a
+/// materialised foreground-doc `Vec` — which truncated at 10 000 docs per
+/// index and held that many full `Value` trees at once. `fold_doc`'s body is
+/// the exact former loop body of `compute_sig_text_debug`; `finish` emits the
+/// identical `json!` block (key order included — the YAML suite pins it).
+struct SigTextAccumulator<'a> {
+    spec: &'a SigTextSpec,
+    values_fetched: u64,
+    chars_fetched: u64,
+    extract_count: u64,
+    collect_analyzed_count: u64,
     // owning bucket key -> union of analyzed terms across its docs
-    let mut per_group: std::collections::HashMap<String, std::collections::HashSet<String>> =
-        std::collections::HashMap::new();
+    per_group: std::collections::HashMap<String, std::collections::HashSet<String>>,
+}
 
-    for doc in fg_docs {
-        let vals = extract_field_values_from_source(doc, &spec.field);
-        if vals.is_empty() {
-            continue;
+impl<'a> SigTextAccumulator<'a> {
+    fn new(spec: &'a SigTextSpec) -> Self {
+        Self {
+            spec,
+            values_fetched: 0,
+            chars_fetched: 0,
+            extract_count: 0,
+            collect_analyzed_count: 0,
+            per_group: std::collections::HashMap::new(),
         }
-        extract_count += 1;
+    }
+
+    fn fold_doc(&mut self, doc: &Value) {
+        let vals = extract_field_values_from_source(doc, &self.spec.field);
+        if vals.is_empty() {
+            return;
+        }
+        self.extract_count += 1;
         let mut doc_tokens: std::collections::HashSet<String> = std::collections::HashSet::new();
         for v in &vals {
             if let Some(s) = v.as_str() {
-                values_fetched += 1;
-                chars_fetched += s.chars().count() as u64;
+                self.values_fetched += 1;
+                self.chars_fetched += s.chars().count() as u64;
                 for t in sig_text_token_set(s) {
                     doc_tokens.insert(t);
                 }
             }
         }
-        collect_analyzed_count += doc_tokens.len() as u64;
+        self.collect_analyzed_count += doc_tokens.len() as u64;
         // Group by the owning bucket field value (or a single global group).
-        let group_key = match spec.parent_field.as_deref() {
+        let group_key = match self.spec.parent_field.as_deref() {
             Some(pf) => extract_field_values_from_source(doc, pf)
                 .first()
                 .map(|v| match v {
@@ -24916,20 +24944,26 @@ fn compute_sig_text_debug(spec: &SigTextSpec, fg_docs: &[Value]) -> Value {
                 .unwrap_or_default(),
             None => String::new(),
         };
-        per_group.entry(group_key).or_default().extend(doc_tokens);
+        self.per_group
+            .entry(group_key)
+            .or_default()
+            .extend(doc_tokens);
     }
-    let total_buckets: u64 = per_group.values().map(|s| s.len() as u64).sum();
-    json!({
-        "collection_strategy": "analyze text from _source",
-        "result_strategy": "significant_terms",
-        "total_buckets": total_buckets,
-        "values_fetched": values_fetched,
-        "chars_fetched": chars_fetched,
-        "extract_ns": 1u64,
-        "extract_count": extract_count,
-        "collect_analyzed_ns": 1u64,
-        "collect_analyzed_count": collect_analyzed_count,
-    })
+
+    fn finish(&self) -> Value {
+        let total_buckets: u64 = self.per_group.values().map(|s| s.len() as u64).sum();
+        json!({
+            "collection_strategy": "analyze text from _source",
+            "result_strategy": "significant_terms",
+            "total_buckets": total_buckets,
+            "values_fetched": self.values_fetched,
+            "chars_fetched": self.chars_fetched,
+            "extract_ns": 1u64,
+            "extract_count": self.extract_count,
+            "collect_analyzed_ns": 1u64,
+            "collect_analyzed_count": self.collect_analyzed_count,
+        })
+    }
 }
 
 fn build_aggregation_profile_full(
@@ -26533,8 +26567,16 @@ async fn run_delete_by_query(
 #[derive(Debug, Deserialize)]
 pub struct UpdateByQueryBody {
     pub query: Option<Value>,
-    /// Script block (accepted but not executed — docs are re-indexed as-is).
+    /// Script block (`ctx._source.*` mutations applied per matched doc).
     pub script: Option<Value>,
+    /// ES `max_docs`: "Maximum number of documents to process. Defaults to
+    /// all documents." `total` then reports the processed count.
+    #[serde(default)]
+    pub max_docs: Option<u64>,
+    /// ES `scroll_size`: "Size of the scroll request that powers the
+    /// operation. Defaults to 1000."
+    #[serde(default)]
+    pub scroll_size: Option<u64>,
 }
 
 pub async fn update_by_query(
@@ -26551,13 +26593,24 @@ pub async fn update_by_query(
         Ok(t) => t,
         Err(e) => return ApiError::new(e).into_response(),
     };
-    let search_body_val = json!({ "query": effective_query, "size": 10000, "from": 0 });
-    let search_req = match xerj_query::parse_request(&search_body_val)
-        .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
-    {
-        Ok(r) => r,
-        Err(e) => return ApiError::new(e).into_response(),
-    };
+
+    // Validate the (alias-filter-ANDed) query once, up front, so a malformed
+    // body is an immediate 400 before a task is registered or any member is
+    // touched — the runner below re-parses per batch as the cursor advances
+    // (#1022: same shape as `_delete_by_query`).
+    let scroll_size = body
+        .scroll_size
+        .unwrap_or(DEFAULT_BY_QUERY_SCROLL_SIZE)
+        .clamp(1, 10_000) as usize;
+    let validation_body = json!({
+        "query": effective_query,
+        "size": scroll_size,
+        "from": 0,
+        "sort": [{ "_id": "asc" }],
+    });
+    if let Err(e) = xerj_query::parse_request(&validation_body) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())).into_response();
+    }
 
     // Optional painless script — when present, each matched hit's source is
     // mutated by the script and re-indexed under its EXISTING `_id`, so the
@@ -26612,13 +26665,23 @@ pub async fn update_by_query(
         let task_key = handle.key().to_string();
         let spawned_key = task_key.clone();
         let tasks = state.tasks.clone();
+        let task_query = effective_query.clone();
+        let task_max_docs = body.max_docs;
         // Same reasoning as the `_delete_by_query` spawn above: the task owns
         // the already-authorized `Index` handles and can reach no other index.
         tokio::spawn(async move {
             let mut results = Vec::with_capacity(indices.len());
             for idx in &indices {
                 results.push(
-                    run_update_by_query(idx, &search_req, script.clone(), pipeline.clone()).await,
+                    run_update_by_query(
+                        idx,
+                        &task_query,
+                        task_max_docs,
+                        scroll_size,
+                        script.clone(),
+                        pipeline.clone(),
+                    )
+                    .await,
                 );
             }
             tasks.complete(&spawned_key, aggregate_by_query_results(results, "updated"));
@@ -26629,7 +26692,17 @@ pub async fn update_by_query(
 
     let mut results = Vec::with_capacity(indices.len());
     for idx in &indices {
-        results.push(run_update_by_query(idx, &search_req, script.clone(), pipeline.clone()).await);
+        results.push(
+            run_update_by_query(
+                idx,
+                &effective_query,
+                body.max_docs,
+                scroll_size,
+                script.clone(),
+                pipeline.clone(),
+            )
+            .await,
+        );
     }
     drop(handle);
     by_query_response(aggregate_by_query_results(results, "updated"))
@@ -26678,124 +26751,346 @@ fn apply_pipeline_or_fail(
     }
 }
 
+/// One member's paginated `_update_by_query` run (#1022).
+///
+/// Shaped like `run_delete_by_query` (#1019), with one extra hazard delete
+/// did not have: the updates themselves repopulate the memtable, and a later
+/// page's search must never page over unflushed state — the memtable's
+/// field-sort path does not order by `_id` reliably, so a rewritten doc with
+/// `_id <= cursor` could resurface on a later page and get the script applied
+/// TWICE (silent corruption, versus delete's idempotent duplicate). The paged
+/// arm therefore flushes after every batch that mutated at least one doc
+/// (mirroring ES's per-batch refresh), keeping each page search over on-disk
+/// segments where the immutable-segment scan + cursor decline are proven.
+///
+/// Two arms, same counters:
+///
+/// * script mode over a `match_all` / `ids` selector takes the #1019
+///   single-pass id collection (`Index::matching_ids_sorted`) and transforms
+///   per id in `scroll_size` batches — NO hydration search at all: the
+///   per-id serialized transform (`transform_document_serialized`) re-reads
+///   and holds ONE doc at a time, which is a strictly tighter bound than any
+///   page size. No per-batch flush is needed because this arm never
+///   re-searches (the id set is fixed at the snapshot, ES's documented
+///   start-of-run collection semantics).
+///
+/// * everything else takes the `_id`-keyset paged loop. Script-mode pages run
+///   with the INTERNAL ids-only projection (`SearchRequest::ids_only`, never
+///   deserialisable from the wire) — the transform re-reads each source
+///   itself. No-script pages keep sources attached, bounded at one
+///   `scroll_size` page of `Value` trees — the same bound one ES scroll batch
+///   materialises.
+///
+/// ES semantics matched (#1019's rule set, the same transport contract):
+/// `total` is the exact match count when unlimited (page 1's `hits.total`,
+/// the pre-mutation snapshot — later pages run over a mutated index) or the
+/// processed count under `max_docs`; `batches` is the real batch count;
+/// `version_conflicts` stays 0 (the transform is serialized per id and the
+/// no-script write is blind — XERJ cannot produce a version conflict);
+/// `noops` stays 0 (the mini-painless tolerates `ctx.*` statements without
+/// skipping the write).
 async fn run_update_by_query(
-    idx: &xerj_engine::Index,
-    search_req: &xerj_query::SearchRequest,
+    idx: &std::sync::Arc<xerj_engine::Index>,
+    query: &Value,
+    max_docs: Option<u64>,
+    scroll_size: usize,
     script: Option<(String, Value)>,
     pipeline: Option<(std::sync::Arc<xerj_engine::Engine>, String)>,
 ) -> Value {
     let started = Instant::now();
 
-    let results = match idx.search(search_req).await {
-        Ok(r) => r,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_value(),
-    };
-    // Same reasoning as `run_delete_by_query`: a fail-closed script selection
-    // would update an arbitrary subset and call it a complete run.
-    if let Some(reason) = &results.script_failure {
-        return script_limit_error_value(reason);
+    // Flush precondition (see doc comment): the keyset paging below is only
+    // correct over on-disk segments, and the single-pass id collection reads
+    // the flushed segments' id maps. Propagated, not swallowed, for the same
+    // reason as `reindex` and `run_delete_by_query`: the flush is a
+    // precondition of the run being complete, so a failed flush must not be
+    // followed by an update that reports a `total` over an index it could not
+    // read consistently.
+    if let Err(e) = idx.flush().await {
+        return ApiError::new(xerj_common::XerjError::internal(format!(
+            "update_by_query was not attempted: flushing the index failed ({e}); the update \
+             needs a flushed index to page over it without skipping or duplicating documents"
+        )))
+        .into_value();
     }
 
-    let total = results.hits.len() as u64;
+    // Parse once for the single-pass eligibility check below. The handler
+    // already validated the (page-1-shaped) query, so this cannot fail for a
+    // request that got here; the paged arm re-parses per page only because it
+    // rebuilds the body to attach `search_after`.
+    let parsed_query = match xerj_query::parse_request(&json!({ "query": query })) {
+        Ok(r) => r.query,
+        Err(e) => {
+            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())).into_value()
+        }
+    };
 
-    // One budget for the whole request, the way `_search` already gets one.
-    // Every `;`-separated statement builds its own `PainlessCtx`, and with no
-    // deadline in scope each one falls back to its own ~500 ms slice — so a
-    // script's cost multiplied by its statement count and again by the hit
-    // count (up to 10k), with `wait_for_completion=false` detaching the whole
-    // thing onto the runtime. Publishing a single deadline bounds the request
-    // however it is spelled, and the fault sink turns a resource-limit trip
-    // into one honest error instead of the same failure recorded ten thousand
-    // times.
+    // One budget for the whole request, the way `_search` already gets one —
+    // and it now spans the page searches too, since the search phases are part
+    // of the request it bounds. Publishing a single deadline bounds the
+    // request however it is spelled, and the fault sink turns a resource-limit
+    // trip into one honest error instead of the same failure recorded once per
+    // batch.
     let deadline = Instant::now() + Duration::from_millis(SCRIPTED_UPDATE_BUDGET_MS);
-    let hits = results.hits;
-    let ((updated, failures, timed_out), fault) = xerj_engine::painless::with_script_fault_capture(
-        xerj_engine::painless::with_script_deadline(deadline, async move {
-            let mut updated = 0u64;
-            let mut failures: Vec<Value> = Vec::new();
-            let mut timed_out = false;
-
-            for hit in hits {
-                // The deadline bounds each evaluation, but not the loop: the
-                // per-evaluation slice is clamped to a floor even once the
-                // request deadline has passed — so an ordinary script is not
-                // cut off just because a slow search overran — and that floor
-                // times ten thousand hits is still ~1000 s of CPU from one
-                // request. The loop has to stop on its own, and say that it
-                // did rather than reporting `timed_out: false` over a run that
-                // was cut short.
-                if Instant::now() >= deadline {
-                    timed_out = true;
-                    break;
-                }
-                if hit.source.is_null() {
-                    continue;
-                }
-                if let Some((src, params)) = script.as_ref() {
-                    if src.is_empty() {
-                        failures.push(json!({
-                            "id": hit.id,
-                            "cause": { "reason": "script source is required" },
-                        }));
-                        continue;
-                    }
-                    let result = idx
-                        .transform_document_serialized(&hit.id, None, |mut current| {
-                            apply_painless_update(&mut current, src, params)?;
-                            // ES runs `?pipeline=` on the result of the script,
-                            // and so do we — inside the same serialized
-                            // transform, so the pipeline sees exactly the
-                            // document that is about to be written.
-                            if let Some((engine, name)) = pipeline.as_ref() {
-                                current = apply_pipeline_or_fail(engine, name, &hit.id, current)?;
+    // `Box::pin`: the loop body below is a large async state machine, and the
+    // deadline/fault wrappers store their future INLINE (`F: Future`, not
+    // `Pin<Box<dyn Future>>`), so unboxed the whole nested machine lands on
+    // the tokio worker's 2 MiB stack — measured as a stack overflow in debug
+    // builds. Boxing moves it to the heap; the per-iteration cost is one
+    // indirection.
+    let (outcome, fault) = xerj_engine::painless::with_script_fault_capture(
+        xerj_engine::painless::with_script_deadline(
+            deadline,
+            Box::pin(async move {
+                // ── Single-pass arm: script mode, match_all / ids selectors ──────
+                //
+                // The whole live match set is collected once from the cached
+                // per-segment `_id` maps (#950), then transformed per id in
+                // `scroll_size` batches — one O(N) id materialisation, no
+                // per-page stored-section re-scan, no `_source` hydration outside
+                // the per-id transform.
+                if script.is_some() {
+                    if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query) {
+                        // ES `max_docs`: stop after N documents; `total` then
+                        // reports the processed count (the same rule the paged
+                        // arm applies).
+                        let matched = ids.len() as u64;
+                        if let Some(cap) = max_docs {
+                            ids.truncate(cap as usize);
+                        }
+                        let mut processed: u64 = 0;
+                        let mut updated: u64 = 0;
+                        let mut batches: u64 = 0;
+                        let mut failures: Vec<Value> = Vec::new();
+                        let mut timed_out = false;
+                        'single: for chunk in ids.chunks(scroll_size) {
+                            batches += 1;
+                            for id in chunk {
+                                // The deadline bounds each evaluation, but not the
+                                // loop (see the paged arm's per-hit check for the
+                                // reasoning) — the loop stops on its own and says
+                                // that it did.
+                                if Instant::now() >= deadline {
+                                    timed_out = true;
+                                    break 'single;
+                                }
+                                processed += 1;
+                                if let Some(f) = transform_one(idx, id, &script, &pipeline).await {
+                                    match f {
+                                        Ok(()) => updated += 1,
+                                        Err(reason) => failures.push(json!({
+                                            "id": id,
+                                            "cause": { "reason": reason },
+                                        })),
+                                    }
+                                }
+                                // `None` = the doc vanished mid-run: skip silently,
+                                // no counter — the same outcome the pre-fix
+                                // `hit.source.is_null()` guard produced.
                             }
-                            Ok::<_, String>(current)
-                        })
-                        .await;
-                    match result {
-                        Ok(Ok(Some(_))) => updated += 1,
-                        Ok(Ok(None)) => {}
-                        Ok(Err(error)) => failures.push(json!({
-                            "id": hit.id,
-                            "cause": { "reason": error },
-                        })),
-                        Err(error) => failures.push(json!({
-                            "id": hit.id,
-                            "cause": { "reason": error.to_string() },
-                        })),
+                        }
+                        let total = if max_docs.is_none() {
+                            matched.max(updated)
+                        } else {
+                            processed
+                        };
+                        return Ok((total, updated, batches, failures, timed_out));
                     }
-                } else {
-                    // No script: preserve the historical re-index-in-place
-                    // behavior, with `?pipeline=` applied when one was named.
-                    let doc = match pipeline.as_ref() {
-                        None => hit.source,
-                        Some((engine, name)) => {
-                            match apply_pipeline_or_fail(engine, name, &hit.id, hit.source) {
-                                Ok(d) => d,
-                                Err(reason) => {
-                                    failures.push(json!({
+                }
+
+                // ── Paged arm: every other shape ─────────────────────────────────
+                let mut total: u64 = 0;
+                let mut processed: u64 = 0;
+                let mut updated: u64 = 0;
+                let mut batches: u64 = 0;
+                let mut failures: Vec<Value> = Vec::new();
+                let mut timed_out = false;
+                // Keyset cursor: the last id of the previous page (the sole sort
+                // key is `_id: asc`). `None` on the first page.
+                let mut search_after: Option<String> = None;
+                // Safety backstop only, mirroring reindex's `max_total`.
+                let max_total: u64 = 10_000_000;
+
+                loop {
+                    let page = match max_docs {
+                        Some(cap) => {
+                            (scroll_size as u64).min(cap.saturating_sub(processed)) as usize
+                        }
+                        None => scroll_size,
+                    };
+                    if page == 0 {
+                        break; // max_docs reached
+                    }
+
+                    let mut search_body_val = json!({
+                        "query": query,
+                        "size": page,
+                        "sort": [{ "_id": "asc" }],
+                        // Belt only — under the ids-only projection this is not
+                        // even consulted for the source cut; on the no-script
+                        // arm it is overridden below because that arm NEEDS its
+                        // page's sources.
+                        "_source": false,
+                    });
+                    if script.is_none() {
+                        // No-script re-index-in-place: the page search itself
+                        // hydrates JUST this page's sources (bounded by
+                        // `scroll_size` — the same bound one ES scroll batch
+                        // materialises; no second ids-then-hydrate query needed).
+                        search_body_val["_source"] = json!(true);
+                    }
+                    if let Some(ref cursor) = search_after {
+                        search_body_val["search_after"] = json!([cursor]);
+                    }
+                    let mut search_req = match xerj_query::parse_request(&search_body_val)
+                        .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
+                    {
+                        Ok(r) => r,
+                        Err(e) => return Err(ApiError::new(e).into_value()),
+                    };
+                    // Internal-only projection hint for script-mode pages: the
+                    // per-id transform re-reads the source itself, so the page
+                    // carries nothing but ids. `parse_request` can never set it.
+                    if script.is_some() {
+                        search_req.ids_only = true;
+                    }
+
+                    let results = match idx.search(&search_req).await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return Err(ApiError::new(xerj_common::XerjError::from(e)).into_value())
+                        }
+                    };
+                    // A script resource limit makes matching fail-closed, so the
+                    // selection is a subset of what the caller asked to update —
+                    // checked PER BATCH, before a single doc of the page is
+                    // touched. Updating that subset and reporting success is both
+                    // destructive and wrong; refuse instead.
+                    if let Some(reason) = &results.script_failure {
+                        return Err(script_limit_error_value(reason));
+                    }
+
+                    if results.hits.is_empty() {
+                        break;
+                    }
+                    batches += 1;
+                    // Page 1's `hits.total` is the EXACT pre-mutation match count
+                    // (later pages run over an already-mutated index). Under
+                    // `max_docs` ES reports the processed count instead.
+                    if max_docs.is_none() && total == 0 {
+                        total = results.total.value;
+                    }
+
+                    // Capture the cursor before the loop consumes `results.hits`.
+                    let last_id = results.hits.last().map(|h| h.id.clone());
+                    let mut mutated_in_batch: u64 = 0;
+                    for hit in results.hits {
+                        // The deadline bounds each evaluation, but not the loop:
+                        // the per-evaluation slice is clamped to a floor even once
+                        // the request deadline has passed — so an ordinary script
+                        // is not cut off just because a slow search overran — and
+                        // that floor times a whole index is unbounded CPU from one
+                        // request. The loop has to stop on its own, and say that
+                        // it did rather than reporting `timed_out: false` over a
+                        // run that was cut short.
+                        if Instant::now() >= deadline {
+                            timed_out = true;
+                            break;
+                        }
+                        processed += 1;
+                        if script.is_some() {
+                            // ids-only hits carry `source: Null` BY CONSTRUCTION —
+                            // the old `hit.source.is_null()` skip must NOT run
+                            // here or every hit would be skipped; liveness is
+                            // delegated to the transform's `Ok(Ok(None))` (the
+                            // doc vanished mid-run).
+                            if let Some(f) = transform_one(idx, &hit.id, &script, &pipeline).await {
+                                match f {
+                                    Ok(()) => {
+                                        updated += 1;
+                                        mutated_in_batch += 1;
+                                    }
+                                    Err(reason) => failures.push(json!({
                                         "id": hit.id,
                                         "cause": { "reason": reason },
+                                    })),
+                                }
+                            }
+                        } else {
+                            // No script: preserve the historical re-index-in-place
+                            // behavior, with `?pipeline=` applied when one was
+                            // named.
+                            if hit.source.is_null() {
+                                continue;
+                            }
+                            let doc = match pipeline.as_ref() {
+                                None => hit.source,
+                                Some((engine, name)) => {
+                                    match apply_pipeline_or_fail(engine, name, &hit.id, hit.source)
+                                    {
+                                        Ok(d) => d,
+                                        Err(reason) => {
+                                            failures.push(json!({
+                                                "id": hit.id,
+                                                "cause": { "reason": reason },
+                                            }));
+                                            continue;
+                                        }
+                                    }
+                                }
+                            };
+                            match idx.index_document(Some(hit.id.clone()), doc).await {
+                                Ok(_) => {
+                                    updated += 1;
+                                    mutated_in_batch += 1;
+                                }
+                                Err(e) => {
+                                    failures.push(json!({
+                                        "id": hit.id,
+                                        "cause": { "reason": e.to_string() },
                                     }));
-                                    continue;
                                 }
                             }
                         }
-                    };
-                    match idx.index_document(Some(hit.id.clone()), doc).await {
-                        Ok(_) => updated += 1,
-                        Err(e) => {
-                            failures.push(json!({
-                                "id": hit.id,
-                                "cause": { "reason": e.to_string() },
-                            }));
+                    }
+
+                    // MID-RUN REWRITE HAZARD (see doc comment): this batch's
+                    // writes are memtable-resident, and the next page's search
+                    // must not page over unflushed state. Flush before searching
+                    // again — the updated docs carry `_id <= cursor`, so the next
+                    // page's cursor decline skips them in one compare. A failed
+                    // flush aborts the run rather than letting the next page
+                    // search unflushed state.
+                    if mutated_in_batch > 0 {
+                        if let Err(e) = idx.flush().await {
+                            return Err(ApiError::new(xerj_common::XerjError::internal(format!(
+                                "update_by_query aborted mid-run: flushing a batch failed ({e}); \
+                             paging on without the flush could apply the script twice"
+                            )))
+                            .into_value());
                         }
                     }
-                }
-            }
 
-            (updated, failures, timed_out)
-        }),
+                    match last_id {
+                        Some(id) => search_after = Some(id),
+                        None => break,
+                    }
+                    if processed >= max_total {
+                        break;
+                    }
+                }
+
+                if max_docs.is_none() {
+                    // Never under-report if a concurrent writer extended the match
+                    // set past page 1's snapshot count mid-run.
+                    total = total.max(processed);
+                } else {
+                    total = processed;
+                }
+
+                Ok((total, updated, batches, failures, timed_out))
+            }),
+        ),
     )
     .await;
     // A trip is a property of the request, not of the document that happened
@@ -26804,6 +27099,10 @@ async fn run_update_by_query(
     if let Some(reason) = fault {
         return script_limit_error_value(&reason);
     }
+    let (total, updated, batches, failures, timed_out) = match outcome {
+        Ok(t) => t,
+        Err(e) => return e,
+    };
 
     let took = started.elapsed().as_millis() as u64;
     json!({
@@ -26812,7 +27111,7 @@ async fn run_update_by_query(
         "total": total,
         "updated": updated,
         "deleted": 0,
-        "batches": 1,
+        "batches": batches,
         "version_conflicts": 0,
         "noops": 0,
         "failures": failures,
@@ -26820,6 +27119,44 @@ async fn run_update_by_query(
         "requests_per_second": -1,
         "throttled_until_millis": 0,
     })
+}
+
+/// Apply one `_update_by_query` hit: the scripted transform (with the optional
+/// pipeline inside the same serialized publication bracket), shared by the
+/// single-pass and paged arms.
+///
+/// `None` = the document vanished mid-run (`Ok(Ok(None))` from the engine):
+/// there is nothing to update and no failure to report. `Some(Err(reason))`
+/// is a per-document failure (script/pipeline error or write error).
+#[allow(clippy::type_complexity)]
+async fn transform_one(
+    idx: &std::sync::Arc<xerj_engine::Index>,
+    id: &str,
+    script: &Option<(String, Value)>,
+    pipeline: &Option<(std::sync::Arc<xerj_engine::Engine>, String)>,
+) -> Option<std::result::Result<(), String>> {
+    let (src, params) = script.as_ref()?;
+    if src.is_empty() {
+        return Some(Err("script source is required".to_string()));
+    }
+    let result = idx
+        .transform_document_serialized(id, None, |mut current| {
+            apply_painless_update(&mut current, src, params)?;
+            // ES runs `?pipeline=` on the result of the script, and so do we —
+            // inside the same serialized transform, so the pipeline sees
+            // exactly the document that is about to be written.
+            if let Some((engine, name)) = pipeline.as_ref() {
+                current = apply_pipeline_or_fail(engine, name, id, current)?;
+            }
+            Ok::<_, String>(current)
+        })
+        .await;
+    match result {
+        Ok(Ok(Some(_))) => Some(Ok(())),
+        Ok(Ok(None)) => None,
+        Ok(Err(error)) => Some(Err(error)),
+        Err(error) => Some(Err(error.to_string())),
+    }
 }
 
 #[cfg(test)]
@@ -26903,7 +27240,9 @@ mod scripted_update_publication_tests {
                 start.wait().await;
                 run_update_by_query(
                     &idx,
-                    &xerj_query::SearchRequest::default(),
+                    &json!({ "match_all": {} }),
+                    None,
+                    DEFAULT_BY_QUERY_SCROLL_SIZE as usize,
                     Some(("ctx._source.n += 1".into(), json!({}))),
                     None,
                 )
@@ -31994,22 +32333,19 @@ pub async fn execute_enrich_policy(
         }
     };
 
-    // Pull every source doc (match_all, large page) and copy it into the
-    // enrich index, preserving doc ids.
-    let req = match parse_request(&json!({
-        "query": { "match_all": {} },
-        "size": 10000,
-        // Enrich policies materialise source documents into a lookup index, so
-        // they must read the COMPLETE `_source` rather than inheriting the
-        // search default which hides engine-generated embedding companions.
-        "_source": true,
-    })) {
-        Ok(r) => r,
-        Err(e) => {
-            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
-                .into_response();
-        }
-    };
+    // Materialise EVERY source doc into the enrich index via `_id`-keyset
+    // `search_after` paging — reindex's exact loop shape (#1022). The old
+    // single-shot `{"query": {"match_all": {}}, "size": 10000}` search
+    // silently dropped every doc past the first page, so keys past one page
+    // never materialised and every later enrich lookup against them silently
+    // missed (enrich correctness is keyed on completeness of the copy), with
+    // `records` under-reporting. Internal page size only — ES `_execute` has
+    // no max_docs/scroll_size wire parameters, and none are invented here.
+    const ENRICH_COPY_PAGE: usize = 1_000;
+    // Safety backstop only, mirroring reindex's `max_total`: with keyset
+    // paging every page is a fresh top-N far below `max_result_window`, so
+    // this just bounds a runaway loop.
+    let max_total: usize = 10_000_000;
 
     let mut materialised: u64 = 0;
     for src_name in &source_indices {
@@ -32019,17 +32355,77 @@ pub async fn execute_enrich_policy(
             Ok(i) => i,
             Err(_) => continue,
         };
-        let result = match src.search(&req).await {
-            Ok(r) => r,
-            Err(e) => {
-                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+        // Degenerate self-reference belt: a policy naming its own
+        // `.enrich-<name>` among its sources would page over its own
+        // writes. The destination is otherwise a different index, so the
+        // walk never sees its own output.
+        if src_name == &enrich_index {
+            continue;
+        }
+        // Flush precondition (reindex's rule, same wording): `_id`-keyset
+        // paging is only correct over on-disk segments — the memtable's
+        // field-sort path does not order by `_id` reliably, so unflushed docs
+        // could be skipped or duplicated across pages. Propagated, not
+        // swallowed: a failed flush must not be followed by a copy that
+        // reports `records: N` over a source it could not read consistently.
+        if let Err(e) = src.flush().await {
+            return ApiError::new(xerj_common::XerjError::internal(format!(
+                "enrich policy [{name}] was not executed against source [{src_name}]: flushing \
+                 the source failed ({e}); the copy needs a flushed source to page over it \
+                 without skipping or duplicating documents"
+            )))
+            .into_response();
+        }
+        // Keyset cursor: `[last_id]` of the previous page (the sole sort key
+        // is `_id: asc`). `None` on the first page.
+        let mut search_after: Option<Value> = None;
+        let mut fetched: usize = 0;
+        loop {
+            let mut search_body = json!({
+                "query": { "match_all": {} },
+                "size": ENRICH_COPY_PAGE,
+                "sort": [{ "_id": "asc" }],
+                // Enrich policies materialise source documents into a lookup
+                // index, so they must read the COMPLETE `_source` rather than
+                // inheriting the search default which hides engine-generated
+                // embedding companions. Per-page hydration: at most
+                // ENRICH_COPY_PAGE `Value` trees are alive at once — the same
+                // bound one ES scroll batch materialises.
+                "_source": true,
+            });
+            if let Some(ref sa) = search_after {
+                search_body["search_after"] = sa.clone();
             }
-        };
-        for hit in result.hits {
-            if let Err(e) = dest.index_document(Some(hit.id.clone()), hit.source).await {
-                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+            let req = match parse_request(&search_body) {
+                Ok(r) => r,
+                Err(e) => {
+                    return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
+                        .into_response();
+                }
+            };
+            let result = match src.search(&req).await {
+                Ok(r) => r,
+                Err(e) => {
+                    return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+                }
+            };
+            let batch = result.hits.len();
+            if batch == 0 {
+                break;
             }
-            materialised += 1;
+            // Capture the keyset cursor before the `for` loop consumes the hits.
+            let last_id = result.hits.last().map(|h| json!([h.id]));
+            for hit in result.hits {
+                if let Err(e) = dest.index_document(Some(hit.id.clone()), hit.source).await {
+                    return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+                }
+                materialised += 1;
+            }
+            fetched += batch;
+            search_after = last_id;
+            if batch < ENRICH_COPY_PAGE || fetched >= max_total {
+                break;
+            }
         }
     }
 
