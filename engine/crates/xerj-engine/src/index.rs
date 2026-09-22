@@ -17857,17 +17857,8 @@ impl Index {
                 notified.as_mut().enable();
                 match self.collection_publication.try_admit_reader() {
                     ReadAdmission::Admitted(token) => break token,
-                    ReadAdmission::Poisoned => {
-                        eprintln!("[DIAG2] mis admit POISONED dir={}", self.data_dir.display());
-                        return None;
-                    }
-                    ReadAdmission::WriterActive => {
-                        eprintln!(
-                            "[DIAG2] mis admit wait-writer dir={}",
-                            self.data_dir.display()
-                        );
-                        notified.await;
-                    }
+                    ReadAdmission::Poisoned => return None,
+                    ReadAdmission::WriterActive => notified.await,
                 }
             };
             let snap = self.store.snapshot();
@@ -17897,40 +17888,16 @@ impl Index {
                 }
             }
             if unsupported {
-                eprintln!(
-                    "[DIAG2] mis UNSUPPORTED id-map dir={}",
-                    self.data_dir.display()
-                );
                 return None;
             }
             ids.sort_unstable();
             // Same contract as the paged loop's `seen_ids`: an id resolves to one
             // delete even if a legacy multi-segment layout lists it twice.
             ids.dedup();
-            eprintln!(
-                "[DIAG2] mis attempt segs={} ids={} memtbl_docs={} first={:?} dir={}",
-                snap.segments.len(),
-                ids.len(),
-                self.memtable.doc_count(),
-                &ids[..ids.len().min(3)],
-                self.data_dir.display()
-            );
             match self.collection_publication.validate_reader(token) {
                 ReadAdmission::Admitted(_) => break ids,
-                ReadAdmission::Poisoned => {
-                    eprintln!(
-                        "[DIAG2] mis validate POISONED dir={}",
-                        self.data_dir.display()
-                    );
-                    return None;
-                }
-                ReadAdmission::WriterActive => {
-                    eprintln!(
-                        "[DIAG2] mis validate-retry dir={}",
-                        self.data_dir.display()
-                    );
-                    continue;
-                }
+                ReadAdmission::Poisoned => return None,
+                ReadAdmission::WriterActive => continue,
             }
         };
         Some(ids)
@@ -31435,24 +31402,10 @@ async fn do_flush_shard(
             // caller observed it as non-empty. No collection state changed in
             // this attempt, so this is a clean cancellation rather than a
             // failed publication.
-            eprintln!("[DIAG2] flush drain-empty shard={} dir={}", shard_idx, data_dir.display());
             collection_publication_guard.cancel();
             return Ok(());
         }
     };
-    {
-        let drained_ids: Vec<String> = drained_fts
-            .iter()
-            .map(|(id, _, _)| id.clone())
-            .collect();
-        eprintln!(
-            "[DIAG2] flush drained shard={} docs={} ids={:?} dir={}",
-            shard_idx,
-            drained_ids.len(),
-            &drained_ids[..drained_ids.len().min(4)],
-            data_dir.display()
-        );
-    }
     let drained_fts = Arc::new(drained_fts);
     let storage_drained = Arc::new(storage_drained);
 
@@ -31627,8 +31580,6 @@ async fn do_flush_shard(
     let memtable_for_finalize = Arc::clone(&memtable);
     let drained_fts_for_restore = Arc::clone(&drained_fts);
     let version_map_for_restore = Arc::clone(&store.version_map);
-    let diag_dir = data_dir.display().to_string();
-    let diag_shard = shard_idx;
     // A dedicated async coordinator owns and awaits the queued blocking job.
     // Dropping/cancelling the API caller merely detaches this coordinator;
     // it continues to own the blocking JoinHandle and the worker-captured
@@ -31677,22 +31628,8 @@ async fn do_flush_shard(
                     xerj_storage::index_store::FlushFinalizeOutcome::Published { .. }
                 ))
             ) {
-                let seg = match &result {
-                    Ok(Ok(
-                        xerj_storage::index_store::FlushFinalizeOutcome::Published { meta, .. },
-                    )) => meta.id.as_str().to_string(),
-                    _ => String::new(),
-                };
-                eprintln!(
-                    "[DIAG2] flush commit shard={} seg={} dir={}",
-                    diag_shard, seg, diag_dir
-                );
                 collection_publication_guard.commit();
             } else {
-                eprintln!(
-                    "[DIAG2] flush CANCEL+RESTORE shard={} dir={}",
-                    diag_shard, diag_dir
-                );
                 collection_publication_guard.cancel();
             }
             let result = match result {
