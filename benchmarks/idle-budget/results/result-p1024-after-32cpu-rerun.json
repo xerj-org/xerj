@@ -1,0 +1,108 @@
+{
+ "label": "p1024-after-32cpu-rerun",
+ "date_utc": "2026-09-22T04:21:14+00:00",
+ "binary": {
+  "version": "xerj v1.0.0-rc.77",
+  "path": "/root/xerj-1024/engine/target/ci-test/xerj"
+ },
+ "corpus": {
+  "shape": "15x30",
+  "indices": 450,
+  "docs_per_index": 3
+ },
+ "port": 9610,
+ "window_s": 120.0,
+ "settle_target_s": 120.0,
+ "boot_ms": {
+  "empty_node": 7,
+  "baseline_arm": 6,
+  "n_indices": 7
+ },
+ "wal_replay_lines_after_clean_flush": 0,
+ "doc_probe_hits": 3,
+ "baseline": {
+  "pid": 3779830,
+  "window_s": 120.0,
+  "clk_tck": 100,
+  "cpu_ticks": 11,
+  "cpu_percent_of_one_core": 0.0917,
+  "wakeups_per_s": 23.7,
+  "voluntary_per_s": 23.7,
+  "nonvoluntary_per_s": 0.1,
+  "rss_kb": 77892,
+  "hwm_kb": 78860,
+  "rss_anon_kb": 47404,
+  "rss_file_kb": 30488,
+  "anon_hugepages_kb": 0,
+  "threads": 340,
+  "fds": 15,
+  "per_thread_cpu": [
+   {
+    "comm": "xerj-mem-sample",
+    "cpu_ticks": 4,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.033
+   },
+   {
+    "comm": "xerj-rt",
+    "cpu_ticks": 3,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.025
+   },
+   {
+    "comm": "xerj-memtable-s",
+    "cpu_ticks": 1,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.008
+   }
+  ],
+  "loadavg_start": [
+   "2.45",
+   "10.52",
+   "12.76"
+  ]
+ },
+ "measurement": {
+  "pid": 3781903,
+  "window_s": 120.0,
+  "clk_tck": 100,
+  "cpu_ticks": 76,
+  "cpu_percent_of_one_core": 0.6333,
+  "wakeups_per_s": 22.2,
+  "voluntary_per_s": 21.9,
+  "nonvoluntary_per_s": 0.4,
+  "rss_kb": 106084,
+  "hwm_kb": 106084,
+  "rss_anon_kb": 73636,
+  "rss_file_kb": 32448,
+  "anon_hugepages_kb": 0,
+  "threads": 336,
+  "fds": 15,
+  "per_thread_cpu": [
+   {
+    "comm": "xerj-rt",
+    "cpu_ticks": 64,
+    "threads": 3,
+    "cpu_percent_of_one_core": 0.533
+   },
+   {
+    "comm": "xerj-memtable-s",
+    "cpu_ticks": 8,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.067
+   },
+   {
+    "comm": "xerj-mem-sample",
+    "cpu_ticks": 4,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.033
+   }
+  ],
+  "loadavg_start": [
+   "3.24",
+   "7.58",
+   "11.29"
+  ]
+ },
+ "per_index_rss_kb": 62.6
+}

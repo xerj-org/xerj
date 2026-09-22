@@ -178,6 +178,52 @@ Overrides (`GATE_CPU_PERCENT`, `GATE_WAKEUPS_PER_S`,
 defaults are the CI contract. If a gate fails, the finding is the point — do
 not move the line to make a run pass.
 
+### Calibration update, 2026-09-22 — #1024 tranche 1 (lazy request-cache seen-set)
+
+`6526e8ea` (`perf(#1024): request-cache seen-set allocates on first tracked
+search`) removed the eager `RequestCacheSeen::with_capacity(65_536)` at both
+`Index` construction sites: the seen-set now starts empty and grows on first
+`record()`, so an index that has never served a `request_cache=true` search
+holds nothing. Same host, same fixture, `ci-test` binaries, allocator pins
+on; before-binary rebuilt from `ed510a61` (the commit's parent, single-file
+diff). Result files: `result-p1024-n150-4cpu.json`,
+`result-p1024-n450-4cpu.json` (before, 4-vCPU), `result-p1024-after-n150-4cpu.json`,
+`result-p1024-after-n450-4cpu.json` (after, 4-vCPU), `result-p1024-before-32cpu-n450.json`
+/ `result-p1024-after-32cpu.json` / `result-p1024-after-32cpu-rerun.json`
+(32-vCPU N=450 pair — the before arm was added because every earlier 32-vCPU
+reading was N=300).
+
+| 4-vCPU (`taskset -c 0-3`) | before | after | Δ |
+|---|---|---|---|
+| per-index idle RSS, N=150 | 204.9 kB | 63.2 kB | −69 % |
+| per-index idle RSS, N=450 | 203.7 kB | 63.3 kB | −69 % |
+| N-slope, VmRSS (450−150)/300 | 206.5 kB/idx | 63.7 kB/idx | −69 % |
+| N-slope, RssAnon (450−150)/300 | 205.7 kB/idx | 68.8 kB/idx | −67 % |
+| idle CPU, N=450 | 0.225 % | 0.192 % | −15 %rel |
+| wakeups/s, N=450 | 25.2 | 21.4 | − |
+| boot-to-green, N=450 | 6 ms | 6 ms | — |
+| WAL replay after clean flush | 0 | 0 | — |
+
+| 32 vCPU (unpinned), N=450 | before | after (2 runs) |
+|---|---|---|
+| per-index idle RSS | 199.0 kB | 66.3 / 62.6 kB |
+| idle CPU | 0.767 % (loadavg 19) | 0.650 / 0.633 % (loadavg 3–4) |
+| wakeups/s | 22.6 | 25.9 / 22.2 |
+| boot-to-green | 385 ms (loaded window) | 113 / 7 ms |
+
+The subtraction and the N-slope now agree (~64 kB/idx): the curve is flat at
+a genuinely O(N)-constant ~0.06 MB/index, and issue #874's 0.2 MB/index
+product line is met on both host shapes with >3× margin. The remaining
+~64 kB/idx is the next tranche's target (per-index DashMap shard arrays,
+WAL/memtable shard structs, parsed settings/mapping copies).
+
+Pre-existing, unchanged by this commit: the unpinned 32-vCPU arm at N=450
+reads >0.5 % idle CPU on the **before** binary too (0.767 %) — the gate line
+was calibrated on 4-vCPU and quiet-N=300 windows, and both binaries trip it
+on that arm on this shared box. The controlled 4-vCPU pair above is the
+comparison that matters; wakeups (the timer-churn proxy) are flat on every
+arm. The issue stays open for the follow-up tranches.
+
 ## Reproduce
 
 ```sh

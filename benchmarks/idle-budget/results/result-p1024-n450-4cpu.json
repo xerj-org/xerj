@@ -1,0 +1,102 @@
+{
+ "label": "p1024-n450-4cpu",
+ "date_utc": "2026-09-22T02:03:25+00:00",
+ "binary": {
+  "version": "xerj v1.0.0-rc.77",
+  "path": "/root/xerj-1024/engine/target/ci-test/xerj"
+ },
+ "corpus": {
+  "shape": "15x30",
+  "indices": 450,
+  "docs_per_index": 3
+ },
+ "port": 9610,
+ "window_s": 120.0,
+ "settle_target_s": 120.0,
+ "boot_ms": {
+  "empty_node": 5,
+  "baseline_arm": 5,
+  "n_indices": 6
+ },
+ "wal_replay_lines_after_clean_flush": 0,
+ "doc_probe_hits": 3,
+ "baseline": {
+  "pid": 3555313,
+  "window_s": 120.0,
+  "clk_tck": 100,
+  "cpu_ticks": 7,
+  "cpu_percent_of_one_core": 0.0583,
+  "wakeups_per_s": 24.6,
+  "voluntary_per_s": 24.6,
+  "nonvoluntary_per_s": 0.1,
+  "rss_kb": 47828,
+  "hwm_kb": 47828,
+  "rss_anon_kb": 18240,
+  "rss_file_kb": 29588,
+  "anon_hugepages_kb": 0,
+  "threads": 82,
+  "fds": 15,
+  "per_thread_cpu": [
+   {
+    "comm": "xerj-mem-sample",
+    "cpu_ticks": 3,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.025
+   },
+   {
+    "comm": "xerj-rt",
+    "cpu_ticks": 1,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.008
+   }
+  ],
+  "loadavg_start": [
+   "2.47",
+   "8.06",
+   "16.79"
+  ]
+ },
+ "measurement": {
+  "pid": 3556542,
+  "window_s": 120.0,
+  "clk_tck": 100,
+  "cpu_ticks": 27,
+  "cpu_percent_of_one_core": 0.225,
+  "wakeups_per_s": 25.2,
+  "voluntary_per_s": 25.1,
+  "nonvoluntary_per_s": 0.1,
+  "rss_kb": 139504,
+  "hwm_kb": 139504,
+  "rss_anon_kb": 108220,
+  "rss_file_kb": 31284,
+  "anon_hugepages_kb": 0,
+  "threads": 82,
+  "fds": 15,
+  "per_thread_cpu": [
+   {
+    "comm": "xerj-rt",
+    "cpu_ticks": 11,
+    "threads": 3,
+    "cpu_percent_of_one_core": 0.092
+   },
+   {
+    "comm": "xerj-memtable-s",
+    "cpu_ticks": 8,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.067
+   },
+   {
+    "comm": "xerj-mem-sample",
+    "cpu_ticks": 5,
+    "threads": 1,
+    "cpu_percent_of_one_core": 0.042
+   }
+  ],
+  "loadavg_start": [
+   "2.40",
+   "6.04",
+   "14.73"
+  ]
+ },
+ "per_index_rss_kb": 203.7
+}
