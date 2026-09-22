@@ -26395,8 +26395,11 @@ async fn run_delete_by_query(
     // (252 pages on the 252k-doc measurement corpus at the default
     // `scroll_size`), which dominated the wall time once per-page `_source`
     // hydration was gone. `None` — any other query shape, or a segment
-    // without a complete id index — runs the paged arm unchanged.
-    if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query) {
+    // without a complete id index — runs the paged arm unchanged. The
+    // collection is admission-bracketed against concurrent flush
+    // publications (#1023), so a purge storm cannot collect an empty set out
+    // of another call's drain→publish window and report a clean no-op.
+    if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query).await {
         // ES `max_docs`: stop after N documents; `total` then reports the
         // processed count (the same rule the paged arm applies).
         let matched = ids.len() as u64;
@@ -26848,9 +26851,14 @@ async fn run_update_by_query(
                 // per-segment `_id` maps (#950), then transformed per id in
                 // `scroll_size` batches — one O(N) id materialisation, no
                 // per-page stored-section re-scan, no `_source` hydration outside
-                // the per-id transform.
+                // the per-id transform. The collection is admission-bracketed
+                // against concurrent flush publications (#1023): without the
+                // bracket, sixteen concurrent runners each flushed, the one
+                // flush carrying the doc held the drain→publish window open,
+                // and the other fifteen collected EMPTY match sets and
+                // reported total:0/updated:0/failures:[] — a silent no-op.
                 if script.is_some() {
-                    if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query) {
+                    if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query).await {
                         // ES `max_docs`: stop after N documents; `total` then
                         // reports the processed count (the same rule the paged
                         // arm applies).
@@ -27255,6 +27263,58 @@ mod scripted_update_publication_tests {
         }
 
         assert_eq!(idx.get_document("counter").await.unwrap().unwrap()["n"], 16);
+    }
+
+    /// #1023 delete twin: `run_delete_by_query` flushes then collects the
+    /// match set through the SAME `matching_ids_sorted` enumeration, so it
+    /// shares the update arm's hole — pre-fix, a concurrent purge storm
+    /// collected empty sets out of another runner's drain→publish window and
+    /// reported clean no-ops. No failures may be swallowed, the doc must be
+    /// purged, and at least one runner must report it (a runner collecting
+    /// after another's delete legitimately reports `total:0` — ES's
+    /// start-of-run collection semantics; the deterministic lost-work proof
+    /// is the update twin above).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_delete_by_query_purges_the_document() {
+        let state = test_state();
+        let idx = state
+            .engine
+            .get_or_create_index("query-purge-counter")
+            .unwrap();
+        idx.index_document(Some("counter".into()), json!({"n": 0}))
+            .await
+            .unwrap();
+
+        let start = Arc::new(tokio::sync::Barrier::new(17));
+        let mut tasks = Vec::new();
+        for _ in 0..16 {
+            let idx = Arc::clone(&idx);
+            let start = Arc::clone(&start);
+            tasks.push(tokio::spawn(async move {
+                start.wait().await;
+                run_delete_by_query(
+                    &idx,
+                    &json!({ "match_all": {} }),
+                    None,
+                    DEFAULT_BY_QUERY_SCROLL_SIZE as usize,
+                )
+                .await
+            }));
+        }
+        start.wait().await;
+        let mut seen: u64 = 0;
+        for task in tasks {
+            let out = task.await.unwrap();
+            assert_eq!(out["failures"], json!([]), "no swallowed purge errors");
+            seen += out["total"].as_u64().unwrap_or(0);
+        }
+        assert!(seen >= 1, "at least one runner must have matched the doc");
+
+        assert_eq!(
+            idx.get_document("counter").await.unwrap(),
+            None,
+            "the doc must actually be purged, not just reported"
+        );
     }
 }
 

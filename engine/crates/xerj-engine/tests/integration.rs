@@ -2684,6 +2684,101 @@ async fn test_delete_by_query_purges_past_ten_thousand() {
     assert_eq!(result.total.value, 0, "index must be empty after the purge");
 }
 
+/// #1023 (CI regression on PR #1023's branch): `matching_ids_sorted`
+/// enumerated only `store.snapshot().segments` with no `CollectionPublication`
+/// reader admission, so while another caller's flush held its drain→publish
+/// window open — the doc drained out of the memtable but not yet in a
+/// published segment — the id was invisible and the collector answered `[]`.
+/// Sixteen concurrent `_update_by_query` calls each flushed first; the one
+/// flush carrying the doc held the window, the other fifteen collected EMPTY
+/// match sets and silently no-opped (`total:0/updated:0/failures:[]`), so the
+/// final assertion read `n == 1` where 16 was expected. This is the
+/// engine-level shape of that race: every task flushes then collects over a
+/// one-doc index, and EVERY collector must see the doc — not just the task
+/// whose flush happened to carry it. Fails before the fix with the losers
+/// collecting `[]`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_matching_ids_sorted_linearized_against_concurrent_flush() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.create_index("match-race", Schema::empty()).unwrap();
+    let idx = engine.get_index("match-race").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+
+    const TASKS: usize = 8;
+    let start = std::sync::Arc::new(tokio::sync::Barrier::new(TASKS));
+    let mut tasks = Vec::new();
+    for _ in 0..TASKS {
+        let idx = std::sync::Arc::clone(&idx);
+        let start = std::sync::Arc::clone(&start);
+        tasks.push(tokio::spawn(async move {
+            start.wait().await;
+            // Same precondition the by-query runners establish: flush, then
+            // collect. The loser flushes race the winner's drain.
+            idx.flush().await.unwrap();
+            idx.matching_ids_sorted(&QueryNode::MatchAll).await
+        }));
+    }
+    for (i, task) in tasks.into_iter().enumerate() {
+        let ids = task.await.unwrap().expect("match_all is a supported shape");
+        assert_eq!(
+            ids,
+            vec!["counter".to_string()],
+            "collector {i} must see the pre-existing doc, not just the task \
+             whose flush carried it"
+        );
+    }
+}
+
+/// #1023: the flush-vs-collector race above, answered through the engine's
+/// own `delete_by_query` (flush + collect + delete). Guards that the
+/// admission change cannot make a concurrent purge storm deadlock, error, or
+/// lose the document: no failures, the doc is purged, and at least one
+/// runner reports it. (The deterministic lost-work proof is the update
+/// twin — a runner that collects after another's delete legitimately reports
+/// `total:0`, ES's start-of-run collection semantics.)
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_concurrent_delete_by_query_purges_the_document() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.create_index("dbq-race", Schema::empty()).unwrap();
+    let idx = engine.get_index("dbq-race").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+
+    const TASKS: usize = 8;
+    let start = std::sync::Arc::new(tokio::sync::Barrier::new(TASKS));
+    let mut tasks = Vec::new();
+    for _ in 0..TASKS {
+        let idx = std::sync::Arc::clone(&idx);
+        let start = std::sync::Arc::clone(&start);
+        tasks.push(tokio::spawn(async move {
+            start.wait().await;
+            idx.delete_by_query(QueryNode::MatchAll).await
+        }));
+    }
+    let mut seen: u64 = 0;
+    for task in tasks {
+        let (total, deleted) = task.await.unwrap().unwrap();
+        assert_eq!(deleted, total, "no partial purges");
+        seen += total;
+    }
+    assert!(seen >= 1, "at least one runner must have matched the doc");
+
+    assert_eq!(
+        idx.get_document("counter").await.unwrap(),
+        None,
+        "the doc must actually be purged"
+    );
+}
+
 // ── 10. multi_match query ─────────────────────────────────────────────────────
 
 #[tokio::test]

@@ -17819,7 +17819,25 @@ impl Index {
     /// which answers every query. Liveness and byte-order match that loop
     /// exactly: a missing version-map entry counts as live, a deleted entry
     /// is skipped, and ids sort as byte strings (the `_id` sort key's order).
-    pub fn matching_ids_sorted(&self, query: &QueryNode) -> Option<Vec<String>> {
+    ///
+    /// Linearized against concurrent publications (the #1023 CI regression):
+    /// the enumeration reads only the snapshot's segments, so without reader
+    /// admission a doc sitting in a flush's drain→publish window — drained
+    /// out of the memtable, not yet in a published segment — was invisible,
+    /// and sixteen concurrent `update_by_query` calls collected FIFTEEN empty
+    /// match sets and reported `total:0 / updated:0 / failures:[]` while one
+    /// lone increment landed (`n == 1`, expected 16). The enumeration now
+    /// takes the same `CollectionPublication` reader-admission bracket
+    /// `get_document` uses (acquire token, capture, validate, retry): the
+    /// flush writer bracket provably spans drain→publish (`do_flush_shard`
+    /// begins the guard before the memtable drain and commits it in the
+    /// finalize worker after the snapshot publish), so a validated
+    /// enumeration cannot land inside that window. On `Poisoned` the answer
+    /// is `None` — the caller's paged arm runs `search()`, which surfaces the
+    /// poison as a real error instead of a silent no-op.
+    pub async fn matching_ids_sorted(&self, query: &QueryNode) -> Option<Vec<String>> {
+        use crate::collection_publication::ReadAdmission;
+
         // Membership resolved against a set: an `ids` query can carry tens of
         // thousands of values, and a per-doc linear scan would reintroduce
         // exactly the O(N × k) blowup this method exists to remove.
@@ -17828,29 +17846,60 @@ impl Index {
             QueryNode::Ids { values } => Some(values.iter().map(String::as_str).collect()),
             _ => return None,
         };
-        let snap = self.store.snapshot();
-        let mut ids: Vec<String> =
-            Vec::with_capacity(snap.segments.iter().map(|m| m.doc_count as usize).sum());
-        for meta in snap.segments.iter() {
-            let map = self.id_pos_map_for(meta.id.as_str(), meta.doc_count)?;
-            for id in map.keys() {
-                if let Some(set) = &values {
-                    if !set.contains(id.as_str()) {
-                        continue;
-                    }
+        // `get_document`'s admission shape exactly: wait out any active
+        // publication bracket (flush, merge, or write), enumerate, and retry
+        // the whole enumeration if a bracket opened while we read. Retrying
+        // is safe — the enumeration has no side effects.
+        let ids = loop {
+            let token = loop {
+                let notified = self.collection_publication.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                match self.collection_publication.try_admit_reader() {
+                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Poisoned => return None,
+                    ReadAdmission::WriterActive => notified.await,
                 }
-                if let Some(ver) = self.store.version_map.get(id) {
-                    if ver.deleted {
-                        continue;
+            };
+            let snap = self.store.snapshot();
+            let mut ids: Vec<String> =
+                Vec::with_capacity(snap.segments.iter().map(|m| m.doc_count as usize).sum());
+            let mut unsupported = false;
+            for meta in snap.segments.iter() {
+                let map = match self.id_pos_map_for(meta.id.as_str(), meta.doc_count) {
+                    Some(map) => map,
+                    None => {
+                        unsupported = true;
+                        break;
                     }
+                };
+                for id in map.keys() {
+                    if let Some(set) = &values {
+                        if !set.contains(id.as_str()) {
+                            continue;
+                        }
+                    }
+                    if let Some(ver) = self.store.version_map.get(id) {
+                        if ver.deleted {
+                            continue;
+                        }
+                    }
+                    ids.push(id.clone());
                 }
-                ids.push(id.clone());
             }
-        }
-        ids.sort_unstable();
-        // Same contract as the paged loop's `seen_ids`: an id resolves to one
-        // delete even if a legacy multi-segment layout lists it twice.
-        ids.dedup();
+            if unsupported {
+                return None;
+            }
+            ids.sort_unstable();
+            // Same contract as the paged loop's `seen_ids`: an id resolves to one
+            // delete even if a legacy multi-segment layout lists it twice.
+            ids.dedup();
+            match self.collection_publication.validate_reader(token) {
+                ReadAdmission::Admitted(_) => break ids,
+                ReadAdmission::Poisoned => return None,
+                ReadAdmission::WriterActive => continue,
+            }
+        };
         Some(ids)
     }
 
@@ -17880,7 +17929,11 @@ impl Index {
     /// scan arms apply (version-map tombstone skip, superseded-copy skip, one
     /// id per walk, memtable copy preferred over a stale segment copy).
     ///
-    /// Consistency under a concurrent publication: the segment snapshot holds
+    /// Consistency under a concurrent publication: the memtable capture and
+    /// the segment snapshot are taken inside ONE `CollectionPublication`
+    /// reader bracket, validated before the walk starts (#1023 — previously
+    /// a doc drained from the memtable after the capture and unpublished at
+    /// the snapshot was silently missed). The segment snapshot then holds
     /// its read lease for the whole walk (retired segment files persist), so
     /// a mid-walk flush or merge can neither orphan a byte range nor feed an
     /// id twice — a drained-then-flushed doc is either still in this
@@ -17910,13 +17963,60 @@ impl Index {
         let needs_id_injection = query_needs_id_injection(&resolved_query);
         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
+        // ── Capture bracket (#1023): both captures under ONE admission ──────
+        //
+        // The memtable capture and the segment snapshot were previously taken
+        // apart, and the gap between them was the narrow variant of the hole
+        // `matching_ids_sorted`'s admission loop closes: a doc drained out of
+        // the memtable after the capture but unpublished at the snapshot sat
+        // in neither and was silently missed. Both captures are now taken
+        // inside one `CollectionPublication` reader bracket and validated
+        // BEFORE the walk starts — a drain happens only inside a publication
+        // bracket, and a flush's publish completes before its bracket drops,
+        // so a validated pair cannot straddle a drain→publish window. On
+        // `WriterActive` only the captures are retried (they are cheap);
+        // `f` has side effects, so the walk itself is never re-run.
+        let ghost_filter = self.store.version_map.ghost_events() > 0;
+        let (mem_docs, snap) = {
+            use crate::collection_publication::ReadAdmission;
+
+            loop {
+                let token = loop {
+                    let notified = self.collection_publication.notified();
+                    tokio::pin!(notified);
+                    notified.as_mut().enable();
+                    match self.collection_publication.try_admit_reader() {
+                        ReadAdmission::Admitted(token) => break Some(token),
+                        // Poisoned: nothing consistent is left to wait for —
+                        // every collection-wide reader on this index errors
+                        // from here on, and the fold has no error channel, so
+                        // walk the captures best-effort (the pre-fix
+                        // behaviour) rather than silently folding nothing.
+                        ReadAdmission::Poisoned => break None,
+                        ReadAdmission::WriterActive => notified.await,
+                    }
+                };
+                let mem_docs = self.memtable.all_docs_with_seq_arc();
+                let snap = self.store.snapshot();
+                let raced = token.is_some_and(|token| {
+                    matches!(
+                        self.collection_publication.validate_reader(token),
+                        ReadAdmission::WriterActive
+                    )
+                });
+                if raced {
+                    continue;
+                }
+                break (mem_docs, snap);
+            }
+        };
+
         // ── Memtable: one Arc-shared snapshot, matched per doc ──────────────
         // Deletes remove from the memtable, so `docs` is live by construction;
         // the ghost-window check (below) only guards the window where the
         // live copy of an id moved to a segment between snapshot and now —
         // the segment walk covers that id instead.
-        let ghost_filter = self.store.version_map.ghost_events() > 0;
-        for (_seq_no, doc_id, source) in self.memtable.all_docs_with_seq_arc() {
+        for (_seq_no, doc_id, source) in mem_docs {
             if ghost_filter {
                 if let Some(ver) = self.store.version_map.get(&doc_id) {
                     if ver.deleted
@@ -17954,8 +18054,10 @@ impl Index {
         }
 
         // ── Segments: one stored-section walk per segment, one doc parsed
-        // at a time. The scan arms' brace-walk, reduced to its bones.
-        let snap = self.store.snapshot();
+        // at a time. The scan arms' brace-walk, reduced to its bones. The
+        // snapshot is the admission bracket's capture above — NOT a fresh
+        // one — so the walk reads exactly the segment set the bracket
+        // validated.
         for meta in snap.segments.iter() {
             let seg_id = meta.id.clone();
             // Same cache discipline as the unsorted search path: reuse the
@@ -18170,7 +18272,7 @@ impl Index {
         // over unflushed docs could skip or duplicate ids) — the same
         // precondition `reindex` establishes.
         self.flush().await?;
-        if let Some(ids) = self.matching_ids_sorted(&query) {
+        if let Some(ids) = self.matching_ids_sorted(&query).await {
             let total = ids.len() as u64;
             let mut deleted = 0u64;
             for chunk in ids.chunks(DELETE_BY_QUERY_PAGE) {
