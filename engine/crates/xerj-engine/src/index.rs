@@ -17811,8 +17811,10 @@ impl Index {
     /// over the corpus — the dominant cost of a default-size purge once the
     /// per-page `_source` hydration was gone).
     ///
-    /// Caller MUST flush first (same precondition as the paged loop): the
-    /// memtable is not represented in any segment's id map.
+    /// Caller SHOULD flush first (same precondition as the paged loop): the
+    /// memtable leg below keeps the enumeration COMPLETE without it, but the
+    /// paged fallback arm the caller eventually runs for other query shapes
+    /// pages `_id`-keyset over on-disk segments only.
     ///
     /// `None` = this query shape (or a segment without a complete id index)
     /// is not served here — the caller falls back to the paged keyset loop,
@@ -17835,6 +17837,25 @@ impl Index {
     /// enumeration cannot land inside that window. On `Poisoned` the answer
     /// is `None` — the caller's paged arm runs `search()`, which surfaces the
     /// poison as a real error instead of a silent no-op.
+    ///
+    /// COMPLETE, not just consistent (the runner-only #1023 residual):
+    /// admission alone made every capture consistent but left it INCOMPLETE —
+    /// the segment id maps say nothing about a doc whose live copy is still
+    /// memtable-only, so at any validated instant before the first drain (or
+    /// after a failed finalize restored a drained doc) the enumeration
+    /// answered `Some([])`, a perfectly consistent EMPTY match set, and the
+    /// by-query arms no-opped silently (`total:0 / failures:[]`). On CI's
+    /// 4-vCPU / `--test-threads=2` / slow-fsync runners sixteen concurrent
+    /// `_update_by_query` calls still lost fourteen of sixteen increments
+    /// (`left:2`) after the admission fix, while every local shape (40+
+    /// isolated, full-suite, `RUST_TEST_THREADS=2` on pinned cores) held the
+    /// entry-flush precondition that made the memtable-only instant
+    /// unreachable. The memtable leg removes the dependence on that
+    /// precondition entirely: the FTS memtable's live ids are captured inside
+    /// the SAME validated bracket (`fold_match_sources`'s capture shape), so
+    /// a doc is enumerated from its memtable copy until a flush's publish
+    /// bracket commits, and from its segment's id map from then on — never
+    /// from neither.
     pub async fn matching_ids_sorted(&self, query: &QueryNode) -> Option<Vec<String>> {
         use crate::collection_publication::ReadAdmission;
 
@@ -17861,9 +17882,40 @@ impl Index {
                     ReadAdmission::WriterActive => notified.await,
                 }
             };
+            // BOTH legs captured inside ONE bracket (`fold_match_sources`'s
+            // capture shape): the memtable's live ids and the segment
+            // snapshot. A drain happens only inside a publication bracket
+            // whose commit follows the snapshot publish, so a validated pair
+            // cannot straddle a drain→publish window — every live doc is in
+            // exactly one leg (the sort+dedup below collapses an id that a
+            // concurrent update left in both).
+            let mem_ids = self.memtable.all_doc_ids();
             let snap = self.store.snapshot();
-            let mut ids: Vec<String> =
-                Vec::with_capacity(snap.segments.iter().map(|m| m.doc_count as usize).sum());
+            let mut ids: Vec<String> = Vec::with_capacity(
+                mem_ids.len()
+                    + snap
+                        .segments
+                        .iter()
+                        .map(|m| m.doc_count as usize)
+                        .sum::<usize>(),
+            );
+            // ── Memtable leg: a doc lives here from its write until a flush
+            // publish commits it into a segment. Deletes remove from the
+            // memtable, so the only liveness rule needed on top is the same
+            // version-map tombstone skip the segment leg applies.
+            for id in mem_ids {
+                if let Some(set) = &values {
+                    if !set.contains(id.as_str()) {
+                        continue;
+                    }
+                }
+                if let Some(ver) = self.store.version_map.get(&id) {
+                    if ver.deleted {
+                        continue;
+                    }
+                }
+                ids.push(id);
+            }
             let mut unsupported = false;
             for meta in snap.segments.iter() {
                 let map = match self.id_pos_map_for(meta.id.as_str(), meta.doc_count) {

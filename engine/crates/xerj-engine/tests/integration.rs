@@ -2734,6 +2734,66 @@ async fn test_matching_ids_sorted_linearized_against_concurrent_flush() {
     }
 }
 
+/// #1023 completeness twin (deterministic, no race): admission made every
+/// `matching_ids_sorted` capture CONSISTENT but left it INCOMPLETE — the
+/// segment id maps say nothing about a doc whose live copy is still
+/// memtable-only, so before the memtable leg the enumeration answered
+/// `Some([])` for a never-flushed doc: a perfectly consistent EMPTY match
+/// set that the by-query arms turn into a silent no-op
+/// (`total:0 / failures:[]`). This is the runner-only residual loss shape
+/// (CI lost 14 of 16 increments, `left:2`, after the admission fix alone);
+/// fails before the memtable leg with `ids == []`.
+#[tokio::test]
+async fn test_matching_ids_sorted_enumerates_memtable_only_documents() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine
+        .create_index("mis-memtable", Schema::empty())
+        .unwrap();
+    let idx = engine.get_index("mis-memtable").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+    // Deliberately NO flush: the doc's live copy is memtable-only and no
+    // segment id map mentions it.
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::MatchAll)
+        .await
+        .expect("match_all is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "a memtable-only doc is part of the live match set"
+    );
+
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::Ids {
+            values: vec!["counter".to_string()],
+        })
+        .await
+        .expect("ids is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "the ids selector resolves membership against the memtable leg too"
+    );
+
+    // And the same enumeration after a flush: the doc moves to the segment
+    // leg without ever being double-listed.
+    idx.flush().await.unwrap();
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::MatchAll)
+        .await
+        .expect("match_all is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "the flushed doc is enumerated exactly once from its segment"
+    );
+}
+
 /// #1023: the flush-vs-collector race above, answered through the engine's
 /// own `delete_by_query` (flush + collect + delete). Guards that the
 /// admission change cannot make a concurrent purge storm deadlock, error, or
@@ -2765,12 +2825,25 @@ async fn test_concurrent_delete_by_query_purges_the_document() {
         }));
     }
     let mut seen: u64 = 0;
+    let mut deleted_sum: u64 = 0;
     for task in tasks {
         let (total, deleted) = task.await.unwrap().unwrap();
-        assert_eq!(deleted, total, "no partial purges");
+        // NOT `deleted == total`: a runner that collected the doc can still
+        // delete nothing when another runner's delete of the same id landed
+        // between its collection and its `delete_document` — the loser's
+        // delete is a clean no-op there, ES charges it to version
+        // conflicts, and no work is lost (the final get below proves the
+        // purge happened). `delete_by_query` itself already reports
+        // `total.max(deleted)`, so `total` is allowed to exceed `deleted`.
+        assert!(deleted <= total, "deleted cannot exceed the collected set");
         seen += total;
+        deleted_sum += deleted;
     }
     assert!(seen >= 1, "at least one runner must have matched the doc");
+    assert!(
+        deleted_sum >= 1,
+        "at least one runner must have actually deleted the doc"
+    );
 
     assert_eq!(
         idx.get_document("counter").await.unwrap(),
