@@ -7896,15 +7896,24 @@ pub struct EnrichTable {
 /// Behaviour:
 ///   * `record(hash)` returns `true` on first sight (miss), `false` on
 ///     repeat (hit).
-///   * Capacity is fixed at construction. Inserting at capacity evicts
+///   * The bound is fixed at construction. Inserting at the bound evicts
 ///     the oldest entry (true FIFO, not LRU — LRU would need a per-hit
 ///     reorder which is overkill for a hit-count metric).
 ///   * `O(1)` for both insert and membership; bounded memory at
 ///     `cap * (size_of::<u64>() + small overhead)`.
+///   * Allocates NOTHING at construction (#1024): both collections start
+///     empty and grow on first `record`. The previous `with_capacity(cap)`
+///     constructor pre-wrote a 131,072-bucket hash table plus a 512 KiB
+///     deque ring — ~136 kB resident per index before the index had ever
+///     served a query, which made it the single largest constant
+///     per-index idle cost (~136 of the measured ~205 kB/idx on the
+///     idle-budget fixture). An index now pays for the seen-set only once
+///     it actually tracks a `request_cache=true` search; a busy index
+///     converges to the same bounded footprint as before.
 ///
-/// 65 536 entries (the default) is ~1.5 MiB; comfortable headroom for
-/// the working set of a typical query pattern, small enough to never
-/// matter even on tiny VMs.
+/// 65 536 entries (the default) is ~1.5 MiB at steady state; comfortable
+/// headroom for the working set of a typical query pattern, small enough
+/// to never matter even on tiny VMs.
 pub(crate) struct RequestCacheSeen {
     set: std::collections::HashSet<u64>,
     order: std::collections::VecDeque<u64>,
@@ -7912,11 +7921,17 @@ pub(crate) struct RequestCacheSeen {
 }
 
 impl RequestCacheSeen {
-    pub fn with_capacity(cap: usize) -> Self {
+    /// Idle-empty construction: `cap` is only the FIFO bound — no table,
+    /// no ring until the first `record`. Pay-per-use, the same shape
+    /// quickwit gives its per-split reader stack by opening it inside the
+    /// leaf-search future (quickwit-search/src/leaf.rs
+    /// `open_index_with_caches`, Apache-2.0) — design adapted, no code
+    /// copied.
+    pub fn new(cap: usize) -> Self {
         let cap = cap.max(1);
         Self {
-            set: std::collections::HashSet::with_capacity(cap),
-            order: std::collections::VecDeque::with_capacity(cap),
+            set: std::collections::HashSet::default(),
+            order: std::collections::VecDeque::default(),
             cap,
         }
     }
@@ -7934,6 +7949,140 @@ impl RequestCacheSeen {
         }
         self.order.push_back(hash);
         true
+    }
+}
+
+#[cfg(test)]
+mod request_cache_seen_idle_tests {
+    use super::*;
+
+    fn text_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+    }
+
+    /// #1024 — the seen-set was `HashSet/VecDeque::with_capacity(65_536)` at
+    /// both `Index` construction sites: a 131,072-bucket hash table plus a
+    /// 512 KiB deque ring, ~136 kB resident per index, written before the
+    /// index has ever served a query. That is the single largest constant
+    /// per-index idle allocation (~136 of the measured ~205 kB/idx). An
+    /// index that has never tracked a request_cache search must hold none
+    /// of it: the collections start empty and grow on first `record`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn created_index_allocates_no_request_cache_seen_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("rc-idle-create", text_schema())
+            .unwrap();
+        let idx = engine.get_index("rc-idle-create").unwrap();
+        idx.abort_background_tasks();
+        let seen = idx.request_cache_seen.read().await;
+        assert_eq!(
+            seen.set.capacity(),
+            0,
+            "seen-set hash table must not exist before the first tracked search"
+        );
+        assert_eq!(
+            seen.order.capacity(),
+            0,
+            "seen-set FIFO ring must not exist before the first tracked search"
+        );
+    }
+
+    /// Same pin on the boot path (`Engine::new` → `Index::open`): the
+    /// idle-RSS fixture restarts a cleanly-flushed corpus of N indexes, none
+    /// of which have served a request_cache=true search — every one of them
+    /// must come back up with an unallocated seen-set. The document assert
+    /// doubles as the boot-correctness pin: laziness must not lose data.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reopened_index_allocates_no_request_cache_seen_set() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+        engine
+            .create_index("rc-idle-reopen", text_schema())
+            .unwrap();
+        let idx = engine.get_index("rc-idle-reopen").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), serde_json::json!({"body": "alpha"}))
+            .await
+            .unwrap();
+        drop(idx);
+        drop(engine);
+
+        let reopened = crate::Engine::new(config).unwrap();
+        let idx = reopened.get_index("rc-idle-reopen").unwrap();
+        idx.abort_background_tasks();
+        assert!(
+            idx.get_document("one").await.unwrap().is_some(),
+            "reopened index must still serve its document"
+        );
+        let seen = idx.request_cache_seen.read().await;
+        assert_eq!(
+            seen.set.capacity(),
+            0,
+            "boot-opened idle index must not allocate the seen-set hash table"
+        );
+        assert_eq!(
+            seen.order.capacity(),
+            0,
+            "boot-opened idle index must not allocate the seen-set FIFO ring"
+        );
+    }
+
+    /// Laziness must not change the hit/miss contract: first sight = miss,
+    /// repeat = hit, and the FIFO bound still evicts the oldest entry once
+    /// `cap` distinct hashes have been recorded — including when the
+    /// collections grew from empty instead of being pre-sized.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn track_request_cache_dedupes_and_evicts_when_lazily_grown() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("rc-idle-track", text_schema()).unwrap();
+        let idx = engine.get_index("rc-idle-track").unwrap();
+        idx.abort_background_tasks();
+
+        idx.track_request_cache(1);
+        idx.track_request_cache(1);
+        assert_eq!(idx.request_cache_miss_count(), 1);
+        assert_eq!(idx.request_cache_hit_count(), 1);
+        {
+            // The first record is what materialises the collections.
+            let seen = idx.request_cache_seen.read().await;
+            assert!(seen.set.capacity() > 0, "set must grow on first record");
+            assert!(
+                seen.order.capacity() > 0,
+                "FIFO ring must grow on first record"
+            );
+            assert_eq!(seen.order.len(), 1);
+        }
+
+        // Fill to the production cap (65_536 distinct hashes) plus one, so
+        // the oldest (hash 1) is evicted; re-recording it is a miss again,
+        // while the newest is still a hit.
+        for h in 2..=65_537u64 {
+            idx.track_request_cache(h);
+        }
+        assert_eq!(idx.request_cache_miss_count(), 65_537);
+        assert_eq!(idx.request_cache_hit_count(), 1);
+        idx.track_request_cache(1); // evicted by the FIFO bound → miss
+        idx.track_request_cache(65_537); // still resident → hit
+        assert_eq!(idx.request_cache_miss_count(), 65_538);
+        assert_eq!(idx.request_cache_hit_count(), 2);
+        {
+            // Bounded at cap even though growth was incremental.
+            let seen = idx.request_cache_seen.read().await;
+            assert_eq!(seen.order.len(), 65_536);
+        }
     }
 }
 
@@ -8910,7 +9059,7 @@ impl Index {
             test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(0)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
-            request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
+            request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::new(65_536))),
             request_cache_hits: Arc::new(AtomicU64::new(0)),
             request_cache_misses: Arc::new(AtomicU64::new(0)),
             query_cache_hits: Arc::new(AtomicU64::new(0)),
@@ -9383,7 +9532,7 @@ impl Index {
             test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(total_doc_count)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
-            request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
+            request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::new(65_536))),
             request_cache_hits: Arc::new(AtomicU64::new(0)),
             request_cache_misses: Arc::new(AtomicU64::new(0)),
             query_cache_hits: Arc::new(AtomicU64::new(0)),
