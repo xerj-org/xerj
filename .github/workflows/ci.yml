@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # diag(#1023): TEMPORARY, WILL BE REVERTED with the diag1023 workflow.
+  # PR #1023 is merge-dirty against main, so pull_request runs no longer
+  # create (no merge ref); this lets the full Build + Test shape be
+  # dispatched on the branch ref directly.
+  workflow_dispatch:
 
 # Least-privilege by default for an OSS repo; jobs opt into more if needed.
 permissions:

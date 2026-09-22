@@ -1,0 +1,60 @@
+# diag(#1023): TEMPORARY runner-side interleaving workflow, WILL BE REVERTED.
+#
+# PR #1023 is merge-dirty against main (es_compat.rs changed both sides), so
+# `pull_request` CI no longer creates runs for pushes to the branch — GitHub
+# cannot build refs/pull/1023/merge. This workflow is dispatched manually on
+# the BRANCH ref, replicating Build + Test's runner/toolchain/cache shape for
+# exactly one purpose: capture the [DIAG2] interleaving of
+# es_compat::scripted_update_publication_tests on the 4-vCPU / --test-threads=2
+# CI shape where the left:2 loss reproduces (280+ local runs never reproduce).
+#
+# Step 1 is the same suite slice Build + Test runs (xerj-api lib, threads=2);
+# step 2 hammers the single test with --nocapture for a second shot at the
+# interleaving. [DIAG2] eprintln fires from tokio worker threads, so it lands
+# in the job log whether the test passes or fails.
+name: diag1023
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diag1023-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diag:
+    name: diag1023 interleaving capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+
+      - name: Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+          shared-key: ci-test-linux
+
+      - name: xerj-api lib suite, threads=2 (Build + Test shape)
+        working-directory: engine
+        run: cargo test --profile ci-test -p xerj-api --lib -- --test-threads=2
+
+      - name: isolated target test x40, nocapture
+        working-directory: engine
+        run: |
+          fail=0
+          for i in $(seq 1 40); do
+            echo "=== diag1023 iteration $i ==="
+            if ! cargo test --profile ci-test -p xerj-api --lib \
+                 concurrent_scripted_update_by_query_preserves_every_increment \
+                 -- --nocapture --test-threads=2; then
+              fail=1
+              echo "=== diag1023 iteration $i FAILED ==="
+            fi
+          done
+          exit $fail
