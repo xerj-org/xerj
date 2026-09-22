@@ -26400,6 +26400,12 @@ async fn run_delete_by_query(
     // publications (#1023), so a purge storm cannot collect an empty set out
     // of another call's drain→publish window and report a clean no-op.
     if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query).await {
+        eprintln!(
+            "[DIAG2] dbq ids-collected n={} first={:?} dir={}",
+            ids.len(),
+            &ids[..ids.len().min(3)],
+            idx.data_dir().display()
+        );
         // ES `max_docs`: stop after N documents; `total` then reports the
         // processed count (the same rule the paged arm applies).
         let matched = ids.len() as u64;
@@ -26809,6 +26815,7 @@ async fn run_update_by_query(
     // precondition of the run being complete, so a failed flush must not be
     // followed by an update that reports a `total` over an index it could not
     // read consistently.
+    eprintln!("[DIAG2] ubq entry-flush start dir={}", idx.data_dir().display());
     if let Err(e) = idx.flush().await {
         return ApiError::new(xerj_common::XerjError::internal(format!(
             "update_by_query was not attempted: flushing the index failed ({e}); the update \
@@ -26816,6 +26823,7 @@ async fn run_update_by_query(
         )))
         .into_value();
     }
+    eprintln!("[DIAG2] ubq entry-flush done dir={}", idx.data_dir().display());
 
     // Parse once for the single-pass eligibility check below. The handler
     // already validated the (page-1-shaped) query, so this cannot fail for a
@@ -26859,6 +26867,12 @@ async fn run_update_by_query(
                 // reported total:0/updated:0/failures:[] — a silent no-op.
                 if script.is_some() {
                     if let Some(mut ids) = idx.matching_ids_sorted(&parsed_query).await {
+                        eprintln!(
+                            "[DIAG2] ubq ids-collected n={} first={:?} dir={}",
+                            ids.len(),
+                            &ids[..ids.len().min(3)],
+                            idx.data_dir().display()
+                        );
                         // ES `max_docs`: stop after N documents; `total` then
                         // reports the processed count (the same rule the paged
                         // arm applies).
@@ -26904,6 +26918,10 @@ async fn run_update_by_query(
                         };
                         return Ok((total, updated, batches, failures, timed_out));
                     }
+                    eprintln!(
+                        "[DIAG2] ubq ids-collected NONE -> paged arm dir={}",
+                        idx.data_dir().display()
+                    );
                 }
 
                 // ── Paged arm: every other shape ─────────────────────────────────
@@ -27149,6 +27167,7 @@ async fn transform_one(
     }
     let result = idx
         .transform_document_serialized(id, None, |mut current| {
+            let read_n = current.get("n").cloned();
             apply_painless_update(&mut current, src, params)?;
             // ES runs `?pipeline=` on the result of the script, and so do we —
             // inside the same serialized transform, so the pipeline sees
@@ -27156,12 +27175,19 @@ async fn transform_one(
             if let Some((engine, name)) = pipeline.as_ref() {
                 current = apply_pipeline_or_fail(engine, name, id, current)?;
             }
+            eprintln!(
+                "[DIAG2] transform_one id={id} read_n={read_n:?} write_n={:?}",
+                current.get("n")
+            );
             Ok::<_, String>(current)
         })
         .await;
     match result {
         Ok(Ok(Some(_))) => Some(Ok(())),
-        Ok(Ok(None)) => None,
+        Ok(Ok(None)) => {
+            eprintln!("[DIAG2] transform_one id={id} VANISHED (get_document None)");
+            None
+        }
         Ok(Err(error)) => Some(Err(error)),
         Err(error) => Some(Err(error.to_string())),
     }
