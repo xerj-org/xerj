@@ -345,12 +345,20 @@ const META_MAGIC_V4: &[u8; 4] = b"ZFM4";
 /// lets the reader auto-detect and decompress while legacy `.post`
 /// files (no prefix) continue to work via the raw mmap path.
 const POST_MAGIC_LZ4: &[u8; 4] = b"ZPL1";
-/// Postings file wrapped in a Zstd-19 envelope.  Same idea as ZPL1
-/// but trades ~3× more CPU at flush time for a ~1.4× tighter file
-/// — flush is already CPU-light per segment and is the right place
-/// to spend CPU on durable artifacts.  Reader auto-detects which
-/// envelope was used; old segments stay readable.
+/// Postings file wrapped in a Zstd envelope, with the LEGACY ZPS1 inner
+/// block framing (`[num_bits ≥ 1][u32 byte_len][payload]`, freq stream
+/// always present on positioned fields).  Still written by no current
+/// code path; the read side keeps these segments decodable.
 const POST_MAGIC_ZSTD: &[u8; 4] = b"ZPS1";
+/// Postings file wrapped in a Zstd envelope with the ZPS2 inner block
+/// framing: frame-of-reference packed blocks (`[width][vbyte min]`,
+/// width 0 = constant block, payload length derived), positions without
+/// the derivable `u32` length prefix, and the freq stream omitted
+/// entirely for a term whose `ttf == df`.  The envelope magic doubles as
+/// the inner-framing version — same envelope layout as ZPS1, so only the
+/// decode-time codec choice differs.  See `xerj_fts::postings`'s module
+/// docs for the framing and the peer citations.
+const POST_MAGIC_ZSTD_V2: &[u8; 4] = b"ZPS2";
 /// Zstd compression level used for the durable segment artifacts
 /// (`.meta` ZFM4, `.post` ZPS1).  Reverted from 19 to 3: this constant
 /// is invoked at **flush** time, not just merge, so the ~25 MB/s/core
@@ -1283,19 +1291,19 @@ impl FtsIndexWriter {
             }
         }
 
-        // 2. Write postings file, wrapped in the `ZPS1` Zstd envelope.
+        // 2. Write postings file, wrapped in the `ZPS2` Zstd envelope.
         //
         // Bit-packed doc-id blocks look high-entropy to casual eyes
         // but the residual sections, vbyte run-lengths, and block-
         // level `num_bits` headers carry enough repetition that the
         // wrapper is worth it.  Zstd-19 squeezes ~1.4× tighter than
         // LZ4 on the XERJ bench's keyword-heavy postings (`name`
-        // and `k` fields dominate).  Old segments using the ZPL1
-        // (LZ4) envelope and the pre-magic raw mmap path are still
+        // and `k` fields dominate).  Old segments using the ZPS1/ZPL1
+        // envelopes and the pre-magic raw mmap path are still
         // readable — see the open path's auto-detect block.
         //
         // Layout:
-        //   "ZPS1"             4 bytes magic
+        //   "ZPS2"             4 bytes magic (also the inner-framing version)
         //   uncompressed_len   u32 little-endian
         //   payload            compressed_len bytes (zstd)
         let post_bytes_wrapped: Vec<u8> = if post_data.is_empty() {
@@ -1303,9 +1311,9 @@ impl FtsIndexWriter {
         } else {
             let uncompressed_len = post_data.len() as u32;
             let compressed = zstd::bulk::compress(&post_data, zstd_level)
-                .with_context(|| "ZPS1 zstd compress")?;
+                .with_context(|| "ZPS2 zstd compress")?;
             let mut out = Vec::with_capacity(4 + 4 + compressed.len());
-            out.extend_from_slice(POST_MAGIC_ZSTD);
+            out.extend_from_slice(POST_MAGIC_ZSTD_V2);
             out.write_u32::<LittleEndian>(uncompressed_len).unwrap();
             out.extend_from_slice(&compressed);
             out
@@ -1520,10 +1528,20 @@ fn merge_field_from_segments(
                 ));
                 return false;
             };
-            let mut decoded = crate::postings::PostingsReader::new_with_positions(
+            let codec = if source.reader.field_post_block_v2(field) {
+                crate::postings::PostCodec::v2_for(
+                    has_positions,
+                    term_postings.total_term_frequency,
+                    term_postings.doc_frequency,
+                )
+            } else {
+                crate::postings::PostCodec::V1
+            };
+            let mut decoded = crate::postings::PostingsReader::new_with_codec(
                 data,
                 term_postings.doc_frequency,
                 has_positions,
+                codec,
             );
             // One run per (source, term), handed to the writer in one call:
             // a per-occurrence hand-off would re-descend the term BTreeMap
@@ -1823,6 +1841,10 @@ struct LoadedField {
     fst: FstData,
     /// Raw postings bytes — mmap'd where possible.
     post_data: PostData,
+    /// The envelope magic said `ZPS2`: the inner block framing is the
+    /// frame-of-reference layout (see `xerj_fts::postings`).  Every other
+    /// envelope (ZPS1, ZPL1, raw) predates it and decodes as `PostCodec::V1`.
+    post_block_v2: bool,
     /// Pre-parsed metadata (term postings, field stats) — small, stays owned.
     meta: FieldMeta,
     /// `(doc_id, field_length, quantised norm byte)`, sorted by doc_id.
@@ -1933,15 +1955,18 @@ impl FtsIndexReader {
             // ── Postings ─────────────────────────────────────────────
             //
             // Format detection (in priority order):
-            //   * `ZPS1` magic → Zstd-19 envelope; decompress into an
-            //     owned `Vec<u8>` once at open time.  Current writer.
+            //   * `ZPS2` magic → Zstd envelope, ZPS2 inner framing (FOR
+            //     blocks, derived lengths, freq elision on ttf == df).
+            //     Current writer.
+            //   * `ZPS1` magic → legacy Zstd envelope with the old inner
+            //     framing; same decompress path, `PostCodec::V1` decode.
             //   * `ZPL1` magic → legacy LZ4 envelope; same path,
             //     different codec.  Old segments stay readable.
             //   * No magic → pre-envelope raw bytes; mmap if the FS
             //     allows it, otherwise read into an owned buffer.
             //
             // The query path references `post_data` by slice in all
-            // three cases, so there's no per-query decompress cost.
+            // cases, so there's no per-query decompress cost.
             //
             // STATS-ONLY: skip the read + decompress entirely — the caller
             // only wants `field_stats`/`term_doc_freq`, both of which live
@@ -1951,12 +1976,15 @@ impl FtsIndexReader {
             } else {
                 fs::read(&post_path).with_context(|| format!("reading postings {:?}", post_path))?
             };
-            let post_data = if raw_post.len() >= 8 && &raw_post[..4] == POST_MAGIC_ZSTD {
+            let zstd_envelope = raw_post.len() >= 8
+                && (&raw_post[..4] == POST_MAGIC_ZSTD_V2 || &raw_post[..4] == POST_MAGIC_ZSTD);
+            let post_block_v2 = raw_post.len() >= 4 && &raw_post[..4] == POST_MAGIC_ZSTD_V2;
+            let post_data = if zstd_envelope {
                 let mut len_buf = [0u8; 4];
                 len_buf.copy_from_slice(&raw_post[4..8]);
                 let uncompressed_len = u32::from_le_bytes(len_buf) as usize;
                 let decompressed = zstd::bulk::decompress(&raw_post[8..], uncompressed_len)
-                    .map_err(|e| anyhow::anyhow!("ZPS1 postings decompress failed: {e}"))?;
+                    .map_err(|e| anyhow::anyhow!("ZPS postings decompress failed: {e}"))?;
                 PostData::Owned(decompressed)
             } else if raw_post.len() >= 4 && &raw_post[..4] == POST_MAGIC_LZ4 {
                 let decompressed = lz4_flex::decompress_size_prepended(&raw_post[4..])
@@ -2038,6 +2066,7 @@ impl FtsIndexReader {
                 LoadedField {
                     fst,
                     post_data,
+                    post_block_v2,
                     meta,
                     norms,
                 },
@@ -2209,6 +2238,47 @@ impl FtsIndexReader {
         let start = tp.postings_offset as usize;
         let end = start + tp.postings_length as usize;
         loaded.post_data.as_bytes().get(start..end)
+    }
+
+    /// Build the postings iterator for one term, choosing the inner block
+    /// codec the way the segment writer chose it.
+    ///
+    /// This is the sanctioned constructor for searchers and re-readers:
+    /// the codec comes from the envelope magic this reader already
+    /// decoded, and the freq-elision flag from the SAME `ttf == df`
+    /// predicate the writer applied — facts the caller would otherwise
+    /// have to thread through manually, and get wrong on the first
+    /// mixed-version index.
+    pub fn postings_reader<'a>(
+        &'a self,
+        field: &str,
+        tp: &TermPostings,
+    ) -> Option<crate::postings::PostingsReader<'a>> {
+        let data = self.postings_data(field, tp)?;
+        let has_positions = self.field_has_positions(field);
+        let codec = if self.field_post_block_v2(field) {
+            crate::postings::PostCodec::v2_for(
+                has_positions,
+                tp.total_term_frequency,
+                tp.doc_frequency,
+            )
+        } else {
+            crate::postings::PostCodec::V1
+        };
+        Some(crate::postings::PostingsReader::new_with_codec(
+            data,
+            tp.doc_frequency,
+            has_positions,
+            codec,
+        ))
+    }
+
+    /// Whether this field's `.post` envelope is ZPS2 (FOR inner framing).
+    fn field_post_block_v2(&self, field: &str) -> bool {
+        self.fields
+            .get(field)
+            .map(|loaded| loaded.post_block_v2)
+            .unwrap_or(false)
     }
 
     /// Per-segment document frequency for a term (number of docs containing
@@ -2578,8 +2648,6 @@ mod tests {
     /// a phrase cannot straddle the boundary between two array elements.
     #[test]
     fn position_increment_gap_separates_consecutive_values() {
-        use crate::postings::PostingsReader;
-
         let dir = TempDir::new().unwrap();
         let mut writer = FtsIndexWriter::new(dir.path(), "seg-mv-pos", make_registry());
         writer.configure_field(
@@ -2603,8 +2671,7 @@ mod tests {
         let reader = FtsIndexReader::open(dir.path(), "seg-mv-pos", &["notes"]).unwrap();
         let position_of = |term: &str| -> u32 {
             let tp = reader.lookup_term("notes", term).expect("term present");
-            let data = reader.postings_data("notes", &tp).expect("postings");
-            let mut pr = PostingsReader::new_with_positions(data, tp.doc_frequency, true);
+            let mut pr = reader.postings_reader("notes", &tp).expect("postings");
             let p = pr.next().expect("one posting");
             p.positions[0]
         };
@@ -2666,6 +2733,164 @@ mod tests {
         let tp = reader.lookup_term("title", "hello").unwrap();
         let data = reader.postings_data("title", &tp);
         assert!(data.is_some() && !data.unwrap().is_empty());
+    }
+
+    /// The current writer stamps the `ZPS2` envelope, and the reader
+    /// factory threads the codec that implies: a positioned term with
+    /// ttf == df decodes with synthesised freqs (its freq stream was
+    /// elided), a term with repeats keeps real freqs, and a docs-only
+    /// keyword field synthesises freq 1 as it always has.
+    #[test]
+    fn zps2_envelope_written_and_factory_roundtrips() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-zps2", make_registry());
+        writer.configure_field(
+            "body",
+            FieldIndexConfig {
+                analyzer: "whitespace".to_owned(),
+                store_positions: true,
+                store_term_vectors: false,
+            },
+        );
+        writer.configure_field(
+            "tag",
+            FieldIndexConfig {
+                analyzer: "keyword".to_owned(),
+                store_positions: false,
+                store_term_vectors: false,
+            },
+        );
+        let docs: Vec<HashMap<String, FieldValues>> = (0..300)
+            .map(|i| {
+                [
+                    (
+                        "body".to_owned(),
+                        FieldValues::from(format!("solo echo echo {i}")),
+                    ),
+                    ("tag".to_owned(), FieldValues::from(format!("tag{}", i % 7))),
+                ]
+                .into_iter()
+                .collect()
+            })
+            .collect();
+        for (i, doc) in docs.iter().enumerate() {
+            writer.add_document(i as u32, doc);
+        }
+        writer.finish().unwrap();
+
+        let raw = fs::read(dir.path().join("seg-zps2.body.post")).unwrap();
+        assert_eq!(
+            &raw[..4],
+            b"ZPS2",
+            "current writer stamps the ZPS2 envelope"
+        );
+
+        let reader = FtsIndexReader::open(dir.path(), "seg-zps2", &["body", "tag"]).unwrap();
+
+        let tp = reader.lookup_term("body", "solo").unwrap();
+        assert_eq!(tp.doc_frequency, 300);
+        assert_eq!(tp.total_term_frequency, 300, "ttf == df => freqs elided");
+        let mut pr = reader.postings_reader("body", &tp).unwrap();
+        for i in 0u32..300 {
+            let p = pr.next().expect("300 postings");
+            assert_eq!(p.doc_id, i);
+            assert_eq!(p.term_freq, 1, "elided freqs synthesise 1");
+            assert_eq!(p.positions, vec![0], "solo is the first token");
+        }
+        assert!(pr.next().is_none());
+
+        let tp = reader.lookup_term("body", "echo").unwrap();
+        assert_eq!(tp.total_term_frequency, 600);
+        let mut pr = reader.postings_reader("body", &tp).unwrap();
+        let p = pr.next().unwrap();
+        assert_eq!(p.term_freq, 2, "a term with repeats keeps real freqs");
+        assert_eq!(p.positions, vec![1, 2]);
+
+        let tp = reader.lookup_term("tag", "tag3").unwrap();
+        let mut pr = reader.postings_reader("tag", &tp).unwrap();
+        let mut count = 0u32;
+        while let Some(p) = pr.next() {
+            assert_eq!(p.term_freq, 1, "docs-only synthesises freq 1");
+            count += 1;
+        }
+        assert_eq!(count, 43, "docs 3, 10, … 296 carry tag3");
+    }
+
+    /// A segment whose `.post` still carries the `ZPS1` envelope and the old
+    /// inner framing decodes through `PostCodec::V1`.  The fixture rewrites
+    /// one docs-only field's postings into a hand-built ZPS1 block stream
+    /// (one full block, deltas all 1) and repairs the meta record to point
+    /// at it — exactly the shape an on-disk segment written before the ZPS2
+    /// bump has.
+    #[test]
+    fn zps1_envelope_segment_still_decodes() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-zps1", make_registry());
+        writer.configure_field(
+            "tag",
+            FieldIndexConfig {
+                analyzer: "keyword".to_owned(),
+                store_positions: false,
+                store_term_vectors: false,
+            },
+        );
+        for i in 0..128u32 {
+            let document = [("tag".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect();
+            writer.add_document(i, &document);
+        }
+        writer.finish().unwrap();
+
+        // V1 inner blob: [num_bits = 1][u32 byte_len = 16][lanes 0,1,1,…]
+        // (lane 0 = 0 = gap from prev doc 0; the rest hold delta 1).
+        let mut inner: Vec<u8> = Vec::new();
+        inner.push(1u8);
+        inner.extend_from_slice(&16u32.to_le_bytes());
+        inner.push(0xFE);
+        inner.extend(std::iter::repeat_n(0xFFu8, 15));
+        let mut wrapped: Vec<u8> = Vec::new();
+        wrapped.extend_from_slice(POST_MAGIC_ZSTD);
+        wrapped.extend_from_slice(&(inner.len() as u32).to_le_bytes());
+        wrapped.extend_from_slice(&zstd::bulk::compress(&inner, 1).unwrap());
+        fs::write(dir.path().join("seg-zps1.tag.post"), &wrapped).unwrap();
+
+        // The original ZPS2 blob was 2 bytes (width-0 constant block); the
+        // meta record's length must describe the replacement.
+        let mut term_postings: HashMap<String, TermPostings> = HashMap::new();
+        term_postings.insert(
+            "needle".to_owned(),
+            TermPostings {
+                doc_frequency: 128,
+                total_term_frequency: 128,
+                postings_offset: 0,
+                postings_length: inner.len() as u32,
+            },
+        );
+        let rewritten = encode_field_meta_v4(
+            &FieldStats {
+                total_docs: 128,
+                total_field_length: 128,
+            },
+            false,
+            &["needle".to_owned()],
+            &term_postings,
+            1,
+        )
+        .unwrap();
+        fs::write(dir.path().join("seg-zps1.tag.meta"), &rewritten).unwrap();
+
+        let reader = FtsIndexReader::open(dir.path(), "seg-zps1", &["tag"]).unwrap();
+        let tp = reader.lookup_term("tag", "needle").unwrap();
+        assert_eq!(tp.doc_frequency, 128);
+        assert_eq!(tp.postings_length, 21);
+        let mut pr = reader.postings_reader("tag", &tp).unwrap();
+        for i in 0u32..128 {
+            let p = pr.next().expect("128 postings out of the legacy block");
+            assert_eq!(p.doc_id, i, "contiguous deltas of 1 reconstruct 0..127");
+            assert_eq!(p.term_freq, 1);
+        }
+        assert!(pr.next().is_none());
     }
 
     #[test]
