@@ -501,7 +501,8 @@ fn select_column_rows(
     let values = match column.codec {
         ColCodec::RawJson => {
             stats.encoded_rows_visited += directory.num_docs;
-            let decoder = zstd::stream::read::Decoder::new(column.payload)
+            let frame = decode_raw_payload(column.payload)?;
+            let decoder = zstd::stream::read::Decoder::new(frame)
                 .map_err(|error| StorageError::Other(anyhow::anyhow!("raw zstd: {error}")))?;
             match select_json_rows(
                 decoder,
@@ -556,6 +557,40 @@ fn select_column_rows(
             stats.decompressed_buffer_bytes += decoded.decompressed_bytes;
             dict_ids.insert(column_index, decoded.ids);
             decoded.values
+        }
+        ColCodec::TypedInt => {
+            // Full materialisation is the honest shape here: the RawJson arm
+            // decompresses the entire column anyway, and TYPED_INT columns
+            // decode in ~value-count time with no zstd at all.
+            stats.encoded_rows_visited += directory.num_docs;
+            let all = decode_typed_int(column.payload, directory.num_docs)?;
+            selected.iter().map(|&row| all[row].clone()).collect()
+        }
+        ColCodec::CopyOf => {
+            let source_index = copy_of_source_index(column.payload)?;
+            let Some(source) = directory.columns.get(source_index) else {
+                return Err(StorageError::Other(anyhow::anyhow!(
+                    "copy_of source index {source_index} out of range"
+                )));
+            };
+            if source.codec == ColCodec::CopyOf {
+                // The writer never chains references. A chained segment is
+                // still decodable via the full fixpoint decoder, so decline
+                // selective hydration rather than erroring — the caller uses
+                // the compatibility path.
+                return Ok(Err(Some(column.name.to_string())));
+            }
+            // The selected rows of the source column ARE this column's
+            // rows — tail-call into its own decode (checkpoints and stats
+            // included) and propagate the result shape unchanged.
+            return select_column_rows(
+                source_index,
+                directory,
+                selected,
+                stats,
+                dict_ids,
+                checkpoint,
+            );
         }
         ColCodec::CrossDep => {
             let source_index = cross_dep_source_index(column.payload, directory.num_docs)?;
@@ -678,7 +713,7 @@ where
     } else {
         (Vec::new(), bytes)
     };
-    if bytes.len() < 4 || &bytes[..4] != STORED_V2_MAGIC {
+    if !is_columnar_stored_magic(bytes) {
         return Ok(StoredDecodeRun::Complete(StoredV2RowHydrationResult::NotV2));
     }
     let present_null_set: HashSet<(u32, u32)> = present_nulls.iter().copied().collect();
