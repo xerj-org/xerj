@@ -4723,18 +4723,18 @@ mod tests {
     /// fallback keeps the column lossless).
     #[test]
     fn typed_int_rejects_wide_spread_and_non_integers() {
-        let wide = vec![
+        let wide = [
             serde_json::Value::Number(i64::MIN.into()),
             serde_json::Value::Number(i64::MAX.into()),
         ];
         let borrowed: Vec<&serde_json::Value> = wide.iter().collect();
         assert!(encode_typed_int(&borrowed).is_none());
 
-        let mixed = vec![json!(1), json!("two")];
+        let mixed = [json!(1), json!("two")];
         let borrowed: Vec<&serde_json::Value> = mixed.iter().collect();
         assert!(encode_typed_int(&borrowed).is_none());
 
-        let floats = vec![json!(1.5)];
+        let floats = [json!(1.5)];
         let borrowed: Vec<&serde_json::Value> = floats.iter().collect();
         assert!(encode_typed_int(&borrowed).is_none());
     }
@@ -4758,7 +4758,7 @@ mod tests {
 
         // overlong varint in the residual
         let mut varint = vec![0u8];
-        varint.extend(std::iter::repeat(0x00u8).take(11));
+        varint.extend(std::iter::repeat_n(0x00u8, 11));
         let error = decode_typed_int(&varint, 1).unwrap_err();
         assert!(error.to_string().contains("varint"), "{error}");
     }
