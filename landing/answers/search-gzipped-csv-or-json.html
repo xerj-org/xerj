@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>HOW DO I SEARCH A .CSV.GZ OR .JSON.GZ WITHOUT UNZIPPING IT FIRST?</div>
   <div class="kicker"><span>ANSWERS · FILES AND FORMATS</span></div>
   <h1>How do I search a .csv.gz or .json.gz without unzipping it first?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — Gzip is a wrapper, not a family. <code class="inline">xerj autoindex</code> strips it during the run and sniffs the bytes underneath. A <code class="inline">.csv.gz</code> becomes typed columns, and a <code class="inline">.json.gz</code> becomes documents with fields. You never decompress anything yourself, and no query re-reads the archive.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -301,7 +301,7 @@
   <p>Provenance still names the compressed source. <code class="inline">ax_path</code> keeps the <code class="inline">.gz</code> file name, and <code class="inline">ax_format</code> names the wrapper alongside the family. A hit from a compressed export is therefore never mistaken for a hit from a plain one.</p>
   <h2>When to choose ripgrep-all instead</h2>
   <p>Choose <code class="inline">ripgrep-all</code> when the archive is <strong>nested</strong>. It wraps ripgrep with adapters for PDF, Office documents, zip, tar, compressed files and SQLite. It walks into them without building an index.</p>
-  <p>XERJ has no archive handler. A <code class="inline">.tar.gz</code>, a <code class="inline">.zip</code> and a mail archive are not unpacked, so their contents are not searchable in XERJ at all. That is a real rga win and it is not worked around on this page.</p>
+  <p>XERJ has no archive handler. A <code class="inline">.tar.gz</code> and a <code class="inline">.zip</code> are not unpacked, so their contents are not searchable in XERJ at all. That is a real rga win and it is not worked around on this page. A mail archive is the exception, because it needs no unpacking: since v1.0.0-rc.75 an <code class="inline">mbox</code> file is detected by content — a From-separator plus RFC 5322 headers, the extension is irrelevant — and streamed one message at a time (<a href="https://github.com/xerj-org/xerj/pull/949">#949</a>), so its messages are searchable. PST, OST and Maildir are still unhandled.</p>
   <p>Choose <code class="inline">ripgrep-all</code> for one question asked once, too. There is no node to start and no index to build. For a single regex over a single compressed file, that is less work by every measure.</p>
   <p>Choose XERJ when the folder will be asked more than one question. Choose it when the answer needs typed columns rather than matching lines. Choose it when the caller is an agent that wants HTTP or MCP. The <a href="/compare/xerj-vs-ripgrep-all">ripgrep-all comparison</a> covers that trade in full.</p>
   <h2>Related shapes</h2>

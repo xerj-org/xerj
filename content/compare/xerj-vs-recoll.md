@@ -1,13 +1,13 @@
 ---
 title: "Recoll compared with XERJ for document search"
 h1: "What's the best local desktop search for a folder of PDFs and docs?"
-description: "Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark."
+description: "Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark."
 slug: "xerj-vs-recoll"
 cluster: "Comparison: desktop search"
 question: "What is the best local desktop search for a folder of PDFs and docs?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -56,12 +56,12 @@ faq:
   - q: "Did you run a head-to-head benchmark between XERJ and Recoll?"
     a: "No. No shared corpus was frozen and no recall or timing numbers were measured, so this page publishes documented capabilities and no win counts."
   - q: "Which tool indexes email, mbox and attachments?"
-    a: "Recoll. It indexes mail folders and the documents inside attachments, to an arbitrary depth. XERJ has no email handler and no mbox handler."
+    a: "Recoll, once mail is more than a plain mailbox. XERJ reads .mbox and .eml, detected by content since v1.0.0-rc.75. PST, OST and Maildir are still unhandled, and archives are never opened. Recoll handles mail folders and the documents inside attachments, to an arbitrary depth."
   - q: "Does XERJ read image-only PDFs?"
     a: "No. XERJ has no OCR, so a PDF with no text layer produces no text. Recoll has OCR hooks for tesseract and ABBYY, and that is the correct tool for that folder."
 ---
 
-**TL;DR** — Recoll is the better choice for a person at a desk. It has a GUI, email and mbox indexing, OCR hooks and open-at-page. XERJ is a search engine that an agent calls over HTTP or MCP. No head-to-head benchmark was run, so this page compares documented capabilities.
+**TL;DR** — Recoll is the better choice for a person at a desk. It has a GUI, email handled in the application — mail folders, attachments, nesting — OCR hooks and open-at-page. XERJ is a search engine that an agent calls over HTTP or MCP. No head-to-head benchmark was run, so this page compares documented capabilities.
 
 ## No benchmark was run, and this page says so
 
@@ -106,7 +106,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | capability | Recoll | XERJ |
 | --- | --- | --- |
 | human GUI with a preview pane | yes, a Qt GUI | none, HTTP and MCP only |
-| email, mbox and attachments | yes, handled in the application | no email handler |
+| email, mbox and attachments | yes, handled in the application | mbox and eml, detected by content; PST, OST and Maildir unhandled |
 | documents nested inside archives and mail | arbitrary depth | no archive handler |
 | OCR for image-only PDFs | opt-in, tesseract or ABBYY | none |
 | open a hit at the right page | yes, page links into the viewer | file path only, in `ax_path` |
@@ -122,9 +122,9 @@ Every row is a documented capability of each tool. No row is a measured result.
 
 Choose Recoll when a person does the searching. The GUI is the product. A result list with a preview pane beats an API for a human reader.
 
-Choose Recoll for email. It indexes mail folders, the messages and the attached documents. It also walks a document inside an attachment inside an archive.
+Choose Recoll for mail folders and everything nested in them. It indexes mail folders, the messages and the attached documents. It also walks a document inside an attachment inside an archive.
 
-XERJ has no email handler, no mbox handler and no archive handler. Those files are not searchable in XERJ at all.
+XERJ reads .mbox and .eml files. An mbox is detected by content — a From-separator plus RFC 5322 headers, the extension is irrelevant — and indexed since v1.0.0-rc.75 ([#949](https://github.com/xerj-org/xerj/pull/949)). PST, OST and Maildir are still unhandled, and archives are never opened, so mail inside a zip stays out of the index.
 
 Choose Recoll for image-only PDFs and for images. OCR through tesseract or ABBYY is a documented Recoll feature. XERJ has no OCR.
 
@@ -162,7 +162,7 @@ Choose XERJ when the same node must also hold agent memory. `/_memory/{namespace
 
 XERJ has no GUI. There is no result window, no preview pane and no term highlighting.
 
-XERJ has no OCR, no email handler and no archive handler. It has no role-based access control and no single sign-on.
+XERJ has no OCR and no archive handler. Mail stops at mbox and eml; PST, OST and Maildir are unhandled. It has no role-based access control and no single sign-on.
 
 XERJ runs on one node. There is no failover. Plan for restore from a copy.
 

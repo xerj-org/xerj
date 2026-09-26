@@ -91,6 +91,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-segment cache retention is re-anchored to #1032
   ([#1028](https://github.com/xerj-org/xerj/issues/1028)). (PR
   [#1033](https://github.com/xerj-org/xerj/pull/1033).)
+- **Every other public surface caught up too — the 2026-09-26 status sweep.**
+  A 70-agent post-merge audit confirmed 58 stale-status findings beyond the
+  `llms.txt` set #1033 fixed; this sweep corrects them all: `llms-full.txt`'s
+  NOT-IMPLEMENTED block (object storage removed from it, remaining rows
+  re-stamped against the code), the "no email handler" blanket claims across
+  the answers/compare pages (mbox/`.eml` shipped rc.75), `RERANK.md`'s
+  falsified "`min_score` means the same thing on every query" (replaced with
+  the measured ECE 0.10–0.31 calibration and rank-don't-threshold guidance),
+  `ZERO_TOKEN_DIRECTION`'s autoindex-resilience row (fixed in rc.75, #934),
+  `XERJ_VS_LUCENE`'s `_update_by_query` fetch cap (post-#1023 `_id`-keyset
+  paging), `SCRIPTING.md`'s code anchors (re-pinned after the `index.rs`
+  refactors), the mail-recipe/takeout memory numbers (reframed as dated
+  before-#1002 state), and the S3-alerting-plugins answer page that
+  `llms.txt:50` cites as proof of the rc.77 S3 status while still denying it
+  — rolled to the rc.77 reality with the correction stated in the open.
+  Landing twins, both hubs and the sitemap regenerated via
+  `build_articles.py --write`. Verified per-group adversarially and by a final
+  gate (constants guard, `--check` for articles and sitemap, stale-phrase
+  greps clean). (PR [#1037](https://github.com/xerj-org/xerj/pull/1037).)
 
 ## [1.0.0-rc.77] - 2026-09-21
 

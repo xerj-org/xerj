@@ -2,7 +2,7 @@
 ---
 title: "HoudahSpot compared with XERJ for file search"
 canonical: "https://xerj.org/compare/xerj-vs-houdahspot"
-updated: "2026-08-23"
+updated: "2026-09-26"
 source: "content/compare/xerj-vs-houdahspot.md"
 ---
 
@@ -133,7 +133,7 @@ Choose XERJ when the machine is **not a Mac**. HoudahSpot is macOS only.
 
 No GUI, no preview pane, no highlighting in a result window, no saved templates.
 
-No OCR, no email handler and no archive handler. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
+No OCR and no archive handler. Email reading is mbox and .eml only, not PST, OST or Maildir. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
 
 No system-wide index. XERJ knows the folders you indexed and nothing else.
 

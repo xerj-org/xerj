@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>XERJ VS MACOS SPOTLIGHT FOR FOLDER CONTENT AN AGENT CAN QUERY</div>
   <div class="kicker"><span>COMPARE · COMPARISON: DESKTOP SEARCH</span></div>
   <h1>XERJ vs macOS Spotlight for folder content an agent can query</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — Spotlight is the Mac's system-wide index: zero setup, whole-disk reach and wide file metadata. XERJ is a folder index an agent calls over HTTP or MCP. No head-to-head was run for this page and nothing here was tested on macOS.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -323,7 +323,7 @@
   <p>Choose XERJ when the same node must also hold <strong>agent memory</strong>, next to the documents it searches.</p>
   <h2>What XERJ does not have</h2>
   <p>No GUI. No result window, no preview pane, no Quick Look.</p>
-  <p>No OCR, no email handler and no archive handler. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.</p>
+  <p>No OCR and no archive handler. Email reading is mbox and .eml only, not PST, OST or Maildir. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.</p>
   <p>One node, no failover. Plan for restore from a copy.</p>
   <h2>How to read this page</h2>
   <p>This is a capability comparison drawn from each tool's own documentation. It is not a benchmark, it is not a recall study, and no part of it ran on macOS.</p>

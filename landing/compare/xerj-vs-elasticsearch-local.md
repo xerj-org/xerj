@@ -2,7 +2,7 @@
 ---
 title: "XERJ vs Elasticsearch run on one machine"
 canonical: "https://xerj.org/compare/xerj-vs-elasticsearch-local"
-updated: "2026-08-23"
+updated: "2026-09-26"
 source: "content/compare/xerj-vs-elasticsearch-local.md"
 ---
 
@@ -67,9 +67,9 @@ If your workload reads while a heavy writer runs, this table is the answer to yo
 
 ## The second loss, which is not a latency cell
 
-The XERJ server retains heap for every document it indexes. That is an open, tracked defect, not a tuning knob.
+The XERJ server still retains heap for every document it indexes. The [#948](https://github.com/xerj-org/xerj/issues/948) RSS runaway is fixed: [PR #1002](https://github.com/xerj-org/xerj/pull/1002), shipped in v1.0.0-rc.76, cut at-rest retention after indexing 100,000 documents from ~677 to ~108 MB. The residual is open as [issue #1032](https://github.com/xerj-org/xerj/issues/1032). Three per-segment caches stay unbounded until a merge retires their segment, so corpora of many millions of documents can still OOM one node.
 
-One lexical-mode node was observed resident at 20.2 GB part-way through a large multi-repository code corpus. Index one corpus at a time, watch the process, and restart the node between corpora. A restart with the same data directory keeps every index.
+Before that fix (2026-09), one lexical-mode node was observed resident at 20.2 GB part-way through a large multi-repository code corpus. Index one corpus at a time, watch the process, and restart the node between corpora. A restart with the same data directory keeps every index.
 
 ## Wire compatibility is a bridge, not a fork
 
@@ -123,7 +123,7 @@ Choose Elasticsearch when reads must stay fast while a heavy writer runs. The fo
 
 Choose Elasticsearch when one host is not enough. XERJ is single-node only, so replication, failover and growth across machines are all reasons to stay.
 
-Choose Elasticsearch when the corpus grows past a few million documents on one node. The server memory defect is open.
+Choose Elasticsearch when the corpus grows past a few million documents on one node. The residual server memory defect (#1032) is open.
 
 Choose it for the ecosystem: dashboards, shippers, index lifecycle management and alerting. XERJ has no alerting and no scheduler.
 
@@ -169,7 +169,7 @@ Then run the binary on the host. Elasticsearch expects a shipper or an ingest pi
 
 ### What is the memory risk with XERJ?
 
-The server retains heap per indexed document. One node was observed at 20.2 GB resident on a large code corpus, and that defect is open.
+The server retains heap per indexed document. The #948 ingest runaway is fixed as of v1.0.0-rc.76, but three per-segment caches remain unbounded until a merge retires their segment (open issue #1032), so corpora of many millions of documents can still OOM one node.
 
 ### When should I stay on Elasticsearch?
 
@@ -179,7 +179,7 @@ When you read while a heavy writer runs, when you need more than one host, or wh
 
 - The published board is 55 WIN, 4 LOSE, 26 TIE and 3 N/A over 88 cells at 100,000 documents against a live Elasticsearch 8.13.4 on one host. — `demo/playbooks/SCORECARD.md`
 - The four losses are the mixed read-under-write p99 cells, a known architectural gap where live-memtable reads sit behind the writer's per-shard lock. — `demo/playbooks/SCORECARD.md`
-- The XERJ server retains heap per indexed document, an open tracked memory defect, and one lexical-mode node was observed resident at 20.2 GB part-way through a large multi-repository corpus. — `landing/llms.txt:217`
+- The #948 ingest RSS runaway is fixed (PR #1002, shipped v1.0.0-rc.76: at-rest retention after a 100k-doc ingest fell ~677 to ~108 MB), but the server still retains heap per indexed document — three per-segment caches are unbounded until a merge retires their segment, an open tracked defect as issue #1032. — `landing/llms.txt:53`
 - An Elasticsearch index is a logical grouping of physical shards distributed across nodes, and a replica shard is a copy of a primary shard. — [https://www.elastic.co/guide/en/elasticsearch/reference/8.13/scalability.html](https://www.elastic.co/guide/en/elasticsearch/reference/8.13/scalability.html)
 - Elasticsearch includes a bundled version of OpenJDK in each distribution, and the documentation states that the bundled JVM is the recommended JVM. — [https://www.elastic.co/guide/en/elasticsearch/reference/8.13/install-elasticsearch.html](https://www.elastic.co/guide/en/elasticsearch/reference/8.13/install-elasticsearch.html)
 - Elastic documents the routes for getting data in as document APIs, language clients, connectors, a file uploader and Elastic Agent integrations, and Filebeat is the shipper that watches log files on a server. — [https://www.elastic.co/guide/en/beats/filebeat/8.13/filebeat-overview.html](https://www.elastic.co/guide/en/beats/filebeat/8.13/filebeat-overview.html)

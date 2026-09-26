@@ -2,7 +2,7 @@
 ---
 title: "Why does xerj autoindex say the server pushed back (429)?"
 canonical: "https://xerj.org/answers/autoindex-server-back-pressure-429"
-updated: "2026-09-20"
+updated: "2026-09-26"
 source: "content/answers/autoindex-server-back-pressure-429.md"
 ---
 
@@ -120,7 +120,7 @@ This was forced on a real node by starting it with a 64 MiB memory cap, so the b
 
 Read the node log: it names the cap it chose (`memory: detected … usable, using a … cap`) and the setting that changes it, `limits.max_process_memory_mb` or `XERJ_MAX_PROCESS_MEMORY_MB`. Then rerun the same command. Nothing from the rejected bulk was journaled as applied, so the run resumes from its last committed operation and sends that bulk again.
 
-One cause is known and is not transient. After a large ingest into many indices the node's resident memory can stay pinned above the watermark: after the run behind this page the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk, unchanged 2.5 hours after the last write, and every write was 429 until the node was restarted ([#950](https://github.com/xerj-org/xerj/issues/950)). No client-side wait fixes that. Restart the node, or raise the cap, then rerun.
+One cause is known and was not transient. After a large ingest into many indices the node's resident memory could stay pinned above the watermark: after the run behind this page the node still held 14.8 GB of anonymous memory for 1.2 GB of data on disk, unchanged 2.5 hours after the last write, and every write was 429 until the node was restarted. That was [#950](https://github.com/xerj-org/xerj/issues/950), closed 2026-09-21 by PRs [#1009](https://github.com/xerj-org/xerj/pull/1009) (per-index cache clear) and [#1017](https://github.com/xerj-org/xerj/pull/1017) (id-position maps from the `__id` projection, streamed stored reassembly). On a build from before those fixes no client-side wait cleared it — restart the node, or raise the cap, then rerun. What remains open is at-rest retention: three per-segment caches stay unbounded until a merge retires their segment ([#1032](https://github.com/xerj-org/xerj/issues/1032), filed 2026-09-26).
 
 ## FAQ
 
@@ -146,7 +146,7 @@ Because nothing is landing while the client waits out the backoff. `since_progre
 
 ### My run exited 1 with 'kept rejecting'. What now?
 
-The node stayed above its memory watermark for the whole 600 s a bulk waits. On the `--no-graph` path the terminal line reads `reason=server-backpressure` and carries `ops_applied` and `ops_remaining`. Check the node log for its memory cap, raise `limits.max_process_memory_mb` or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation. If the node log shows resident memory pinned at the watermark long after ingest stopped, that is issue #950 and only a restart of the node clears it.
+The node stayed above its memory watermark for the whole 600 s a bulk waits. On the `--no-graph` path the terminal line reads `reason=server-backpressure` and carries `ops_applied` and `ops_remaining`. Check the node log for its memory cap, raise `limits.max_process_memory_mb` or give the machine more memory, then rerun the same command: the journal resumes from the last committed operation. If the node log shows resident memory pinned at the watermark long after ingest stopped, that was [#950](https://github.com/xerj-org/xerj/issues/950), closed 2026-09-21 by PRs [#1009](https://github.com/xerj-org/xerj/pull/1009) and [#1017](https://github.com/xerj-org/xerj/pull/1017); on a build from before the fix, only a restart of the node cleared it. Some at-rest retention remains — per-segment caches stay unbounded until a merge retires their segment — and that is open as [#1032](https://github.com/xerj-org/xerj/issues/1032).
 
 ### Is an HTTP 413 from the node back-pressure?
 

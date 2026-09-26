@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>WHAT IS XERJ?</div>
   <div class="kicker"><span>ANSWERS · PRODUCT IDENTITY</span></div>
   <h1>What is XERJ?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — XERJ is one Apache-2.0 Rust binary that indexes a local folder and answers search queries over the Elasticsearch REST API. <code class="inline">xerj autoindex</code> needs no schema and no configuration file. The same process serves agent memory at <code class="inline">/_memory/{namespace}</code> and 10 MCP tools through <code class="inline">xerj mcp</code>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -317,7 +317,7 @@ xerj autoindex ./docs --url http://127.0.0.1:9200 --prefix docs --progress plain
   </table>
   <h2>What XERJ is not</h2>
   <p>XERJ is single-node. There is no replication, no sharding and no failover, so one host is the whole deployment and a restore from a copy is the recovery plan.</p>
-  <p>XERJ has no OCR, so a PDF with no text layer produces no text. It has no email handler, no mbox handler and no archive handler. It reads no URL and downloads no web page. The files must already be on local disk.</p>
+  <p>XERJ has no OCR, so a PDF with no text layer produces no text. It never opens archives: a zip or tar of documents stays closed until you extract it. Mail is read rather than refused: <code class="inline">.eml</code> files and mbox mailboxes, a Google Takeout export included, are detected by content and shipped in v1.0.0-rc.75. PST, OST and Maildir stores are still not handled. It fetches no page from the web. The files must already be on local disk, or in an S3 bucket that <code class="inline">xerj autoindex</code> reads as a source.</p>
   <p>XERJ has no graphical interface. There is no result window and no preview pane, because the intended caller is a program rather than a person at a desk.</p>
   <h2>FAQ</h2>
   <h3>What is XERJ?</h3>
@@ -335,7 +335,7 @@ xerj autoindex ./docs --url http://127.0.0.1:9200 --prefix docs --progress plain
   <h3>Can XERJ run across more than one machine?</h3>
   <p>No. XERJ is single-node, with no replication, no sharding and no failover. One host is the whole deployment.</p>
   <h3>Does XERJ crawl websites?</h3>
-  <p>No. XERJ reads files that are already on local disk. There is no URL input and no crawler.</p>
+  <p>No. XERJ fetches no web page and runs no crawler. Its inputs are folders on local disk and <code class="inline">s3://</code> bucket prefixes read as a source.</p>
   <h2>Evidence</h2>
   <ul>
     <li>XERJ uses the Apache-2.0 license. — <a href="https://www.apache.org/licenses/LICENSE-2.0">https://www.apache.org/licenses/LICENSE-2.0</a></li>

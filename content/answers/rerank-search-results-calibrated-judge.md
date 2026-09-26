@@ -1,13 +1,13 @@
 ---
 title: "How do I rerank search results with a relevance judge?"
-h1: "How do I rerank search results with a calibrated relevance judge?"
-description: "Add a rerank block to a XERJ search: the top 30 hits go to an external judge, a 0 to 1 probability replaces the score, and min_score becomes a real cut-off."
+h1: "How do I rerank search results with a relevance judge?"
+description: "Add a rerank block to a XERJ search: the top 30 hits go to an external judge and a 0 to 1 probability replaces the score. Order by it; the measured calibration says never threshold it with min_score."
 slug: "rerank-search-results-calibrated-judge"
 cluster: "Hybrid retrieval: reranking"
-question: "How do I rerank search results with a calibrated relevance judge?"
+question: "How do I rerank search results with a relevance judge?"
 intent: "informational"
 published: "2026-09-18"
-updated: "2026-09-20"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -15,8 +15,8 @@ agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, ask the op
 commands:
   - cmd: "curl -s 'http://127.0.0.1:9200/_xerj/rerank'"
     note: "Ask the node whether a rerank provider is configured. The answer names where the key came from and never prints the key. A node started with --insecure needs no credentials. On any other node the route is superuser-only, so send the admin key from the admin.key file in the data directory."
-  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/kb/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"body\":\"vitamin d bone density\"}},\"size\":5,\"rerank\":{\"min_score\":0.5}}'"
-    note: "Rerank the top 30 hits and keep the ones the judge scores at 0.5 or higher. This request sends the text of those hits to the provider."
+  - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/kb/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"body\":\"vitamin d bone density\"}},\"size\":5,\"rerank\":{\"window\":50}}'"
+    note: "Rerank the top 50 hits; they come back ordered by the judge's probability. Order by the scores, never threshold the raw probability with min_score. This request sends the text of those hits to the provider."
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9200/kb/_search' -H 'content-type: application/json' -d '{\"query\":{\"match\":{\"body\":\"vitamin d bone density\"}},\"_source\":[\"title\"],\"rerank\":{}}'"
     note: "Send titles only. The judge sees exactly what the response returns, so source filtering is also the control on what leaves the machine."
 links_out:
@@ -35,6 +35,8 @@ evidence:
     source: "https://github.com/hev/jev-rerank"
   - claim: "XERJ hybrid RRF scored nDCG@10 0.6993 on SciFact and 0.3448 on NFCorpus with --embed-mode neural and all-MiniLM-L6-v2, not with the default lexical embedder."
     source: "benchmarks/beir-hybrid/README.md"
+  - claim: "Ranking quality with the real Jev model is measured (PR #975, merged 2026-09-20): the reranker judged 1,271 BEIR queries ranking off a XERJ node — median nDCG@10 0.7410 SciFact, 0.3312 NFCorpus, 0.3638 FiQA, against BM25 first stages of 0.6572, 0.3016 and 0.2382 — after an integration defect of XERJ's own was found and fixed (SciFact pilot 0.3822 to 0.8299). The same runs measured calibration (ECE 0.10-0.31, worst on FiQA: documents rated ~0.93 confidence were relevant 34% of the time) and provider non-determinism (mean per-document drift 0.0077-0.0096, max 0.08; comparisons tighter than ~±0.01 nDCG@10 are noise)."
+    source: "benchmarks/beir-hybrid/results"
 faq:
   - q: "How do I rerank search results in XERJ?"
     a: "Add a `rerank` object to the body of `POST /{index}/_search`. An empty object uses every default: the top 30 hits are judged and reordered by relevance probability."
@@ -45,14 +47,14 @@ faq:
   - q: "What happens when the provider key is wrong or missing?"
     a: "The search fails loudly. A missing key is HTTP 503, a provider 401 is HTTP 502, both with type `rerank_exception` and no hits. XERJ does not hand back lexical order as if it had been reranked."
   - q: "Is the ranking quality of the rerank model verified?"
-    a: "No. XERJ had no provider key, so ranking quality with the real model is not verified by this project. The tests use a test double. Only the mechanism is verified."
+    a: "Yes, since PR #975 (merged 2026-09-20). The real Jev reranker judged 1,271 BEIR queries ranking off a XERJ node: median nDCG@10 of 0.7410 on SciFact, 0.3312 on NFCorpus and 0.3638 on FiQA. The stage's own HTTP tests still use a test double; the benchmark runs carry the quality claim."
   - q: "Can I combine rerank with sort or aggregations?"
     a: "Aggregations work and still describe the full match set. `sort`, `search_after`, `collapse`, `scroll` and `size: 0` are refused with an HTTP 400 that names the conflict."
   - q: "Can an AI agent ask for reranking through MCP?"
     a: "Yes. The `xerj_search` and `xerj_hybrid_search` tools take an optional `rerank` argument. It only works when the operator has set a provider key on the node."
 ---
 
-**TL;DR** — Add `"rerank": {}` to a XERJ `_search` body. The top 30 hits go to an external judge, which returns a 0 to 1 relevance probability per document. That probability replaces `_score`, so `min_score` becomes a real cut-off. It sends document text off the machine. XERJ has not verified ranking quality with the real model.
+**TL;DR** — Add `"rerank": {}` to a XERJ `_search` body. The top 30 hits go to an external judge, which returns a 0 to 1 relevance probability per document. That probability replaces `_score`. Order by it, never threshold it with `min_score` — the measured probabilities are not calibrated (ECE 0.10–0.31). It sends document text off the machine. Ranking quality is measured: [PR #975](https://github.com/xerj-org/xerj/pull/975) scored median nDCG@10 of 0.7410 SciFact, 0.3312 NFCorpus and 0.3638 FiQA over 1,271 queries.
 
 ## What the rerank stage does
 
@@ -64,17 +66,17 @@ XERJ reorders the hits by that probability. The probability replaces `_score`, a
 {
   "query": { "match": { "body": "vitamin d bone density" } },
   "size": 5,
-  "rerank": { "min_score": 0.5 }
+  "rerank": { "window": 50 }
 }
 ```
 
 The provider is TypeSafe AI's Jev model, reached through its System One API. XERJ asks one question per document rather than one multiple-choice question across all of them, because a real corpus has more than one relevant document. That request shape is the approach used by the `hev/jev-rerank` project, which is Apache-2.0.
 
-## Why a probability is worth more than a better order
+## The probability orders; it does not threshold
 
 A BM25 score orders results but has no absolute meaning. A score of 7.2 on one query is not comparable to 7.2 on another query, so you cannot use it as a threshold.
 
-A calibrated probability means the same thing on every query. `rerank.min_score: 0.5` drops every document the judge scored below 0.5, whatever the query was. The top-level `min_score` stays the engine's threshold on engine scores, and the two compose.
+The judge's probability turns out to need the same caution: [PR #975](https://github.com/xerj-org/xerj/pull/975) (merged 2026-09-20) measured it against graded human-relevance labels on 1,271 judged queries. Expected calibration error is 0.10–0.31, worst on FiQA: documents the judge rated around 0.93 confidence were relevant 34% of the time. The curve still rises to the right — the model discriminates, which is what the ranking gains ride on — but a 0.9 is not a 90% chance of relevance. Order by the scores; never threshold the raw probability with `min_score`, which cuts documents the judgments call relevant. If you need an absolute cut-off, make sure the threshold holds against your own data first. The top-level `min_score` stays the engine's threshold on engine scores, and the two compose.
 
 ## This sends your data off the machine
 
@@ -110,7 +112,7 @@ Every reranked response carries a `_rerank` block ahead of `hits`. Read `applied
 | `applied` | `true` means the order is the judge's. `false` means the engine's order stands, and `reason` says why. |
 | `score_kind` | `probability` or `engine`. |
 | `judged` | Documents the provider returned a verdict for. |
-| `pruned_below_min_score` | Judged hits removed by `rerank.min_score`. |
+| `pruned_below_min_score` | Judged hits removed by `rerank.min_score` — a coarse filter, not a calibrated cut-off (the probabilities are not calibrated). |
 | `fields_without_text` | Named fields that no hit in the window returned text for. |
 | `usage` | Tokens the provider reported for this search. |
 
@@ -136,16 +138,18 @@ Every document in the window is a paid judgement. The window defaults to 30 and 
 
 XERJ sends 8 calls at once by default and 16 at most. The `usage` field is the provider's own token count for the search. XERJ does not price it.
 
-Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. To keep the cost down, fetch the window once and cut the pages out of it in your own code. Page two continues page one only if the provider returns the same probabilities on a repeat call, which XERJ has not verified for the real model.
+Every request is judged from scratch. There is no verdict cache, so three page requests over one 30-document window are three provider calls and 90 paid judgements. To keep the cost down, fetch the window once and cut the pages out of it in your own code. Page two continues page one only if the provider returns the same probabilities on a repeat call. The provider is not deterministic: [PR #975](https://github.com/xerj-org/xerj/pull/975) ran every query three times and measured a mean per-document probability drift of 0.0077–0.0096 (max 0.08). Any comparison tighter than about ±0.01 nDCG@10 is noise.
 
 The strings have ceilings too. `instructions` is limited to 2,000 characters, because the provider's wire format repeats it once per judged document. The question is limited to 4,000 characters and `model` to 128. A longer value is an HTTP 400 that names the field and the limit.
 
-## What is not verified
+## What is measured, and what is not
 
-XERJ had no provider key. Ranking quality with the real Jev model is not verified by this project. Every test of the stage runs against a test double that scores by a table the test supplies.
+When this page was updated on 2026-09-20, ranking quality with the real Jev model was genuinely unverified. XERJ had no provider key, and every test of the stage ran against a test double that scores by a table the test supplies.
+
+[PR #975](https://github.com/xerj-org/xerj/pull/975), merged later that day, changed that: the real Jev reranker judged 1,271 BEIR queries ranking off a XERJ node. The run found and fixed an integration defect of XERJ's own — the SciFact pilot scored 0.3822 before the fix and 0.8299 after it. The full runs scored median nDCG@10 of 0.7410 on SciFact (300 queries), 0.3312 on NFCorpus (323) and 0.3638 on FiQA (648), against BM25 first stages of 0.6572, 0.3016 and 0.2382. The numbers and the reliability curves are published in `benchmarks/beir-hybrid/results/2026-09-20-rerank-pilot`, `-rerank-full` and `-rerank-full-fiqa`, with the write-up in `landing/blog/does-xerj-beat-jev.html`. The stage's own HTTP tests still use a test double; the benchmark runs carry the quality claim.
 
 The `hev/jev-rerank` README publishes nDCG@10 of 0.768 on SciFact and 0.358 on NFCorpus for Jev. XERJ did not run those systems, and they rerank that project's own first-stage shortlist, not XERJ's. XERJ's own hybrid search scored 0.6993 and 0.3448 on the same datasets. Those two figures were measured with `--embed-mode neural` and the all-MiniLM-L6-v2 model. The default embedder is lexical feature hashing, which has no model in it. This is not a controlled comparison.
 
 ## When reranking is not worth it
 
-Do not rerank an exact identifier lookup, a filter, or an aggregation-only request. The first stage already answers those, and the stage adds a paid network call per search. Rerank when the right document is probably in the top 30 but not at the top, or when you need an absolute relevance cut-off.
+Do not rerank an exact identifier lookup, a filter, or an aggregation-only request. The first stage already answers those, and the stage adds a paid network call per search. Rerank when the right document is probably in the top 30 but not at the top. If you also need an absolute relevance cut-off, make sure the threshold holds against your own data first — the judge's probabilities order well but are not calibrated.

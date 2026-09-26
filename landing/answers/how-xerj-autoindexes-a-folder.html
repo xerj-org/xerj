@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-08-21",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class="active"><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>I WANT TO POINT SOMETHING AT A FOLDER AND THEN ASK QUESTIONS ABOUT WHAT'S IN IT. WHAT SHOULD I USE?</div>
   <div class="kicker"><span>ANSWERS · FOLDER INDEXING</span></div>
   <h1>I want to point something at a folder and then ask questions about what's in it. What should I use?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-08-21</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — Run <code class="inline">xerj autoindex &lt;folder&gt;</code> against a local node. It detects the file types itself, builds typed indices, and needs no configuration file. Then run <code class="inline">xerj autoindex map</code> to see which index and field to query. Ask the folder a question over HTTP or through <code class="inline">xerj mcp</code>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -303,7 +303,7 @@ xerj autoindex ./notes --url http://127.0.0.1:9200 --prefix notes --progress pla
   <p>A web search API reads pages that are on the public web, and its documented input is a query string or a URL. A folder on your own disk has no URL, so no web API can reach it.</p>
   <p>Index the folder locally and keep the web API for web pages. The <a href="/compare/xerj-vs-web-agent-search">web agent search comparison</a> sets out that boundary in full.</p>
   <h2>What the run will not do for you</h2>
-  <p><code class="inline">xerj autoindex</code> reads no image-only PDF, because XERJ has no OCR and a PDF with no text layer produces no text. It has no email handler, no mbox handler and no archive handler.</p>
+  <p><code class="inline">xerj autoindex</code> reads no image-only PDF, because XERJ has no OCR and a PDF with no text layer produces no text. It never opens archives either: a zip or tar of documents stays closed until you extract it. Mail is read rather than refused: <code class="inline">.eml</code> files and mbox mailboxes, a Google Takeout export included, are detected by content and shipped in v1.0.0-rc.75. PST, OST and Maildir stores are still not handled. The <a href="/answers/search-gmail-takeout-mbox-locally">Takeout mbox page</a> shows what comes back from a mailbox.</p>
   <p>Hidden files such as <code class="inline">.env</code>, <code class="inline">.git/</code> and <code class="inline">.ssh</code> are skipped whatever the ignore configuration says, which is what keeps secrets out of the index. Everything else it refused is recorded in <code class="inline">autoindex-catalog</code> with a reason, so a missing file is explainable rather than silent.</p>
   <h2>FAQ</h2>
   <h3>I want to point something at a folder and then ask questions about what's in it. What should I use?</h3>

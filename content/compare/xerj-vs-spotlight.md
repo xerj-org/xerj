@@ -7,7 +7,7 @@ cluster: "Comparison: desktop search"
 question: "Spotlight can't find text inside my project files. What else is there?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -135,7 +135,7 @@ Choose XERJ when the same node must also hold **agent memory**, next to the docu
 
 No GUI. No result window, no preview pane, no Quick Look.
 
-No OCR, no email handler and no archive handler. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
+No OCR and no archive handler. Email reading is mbox and .eml only, not PST, OST or Maildir. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
 
 One node, no failover. Plan for restore from a copy.
 

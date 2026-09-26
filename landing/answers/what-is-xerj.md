@@ -2,7 +2,7 @@
 ---
 title: "What is XERJ?"
 canonical: "https://xerj.org/answers/what-is-xerj"
-updated: "2026-08-23"
+updated: "2026-09-26"
 source: "content/answers/what-is-xerj.md"
 ---
 
@@ -117,7 +117,7 @@ XERJ uses the Apache-2.0 license and ships as one native executable. There is no
 
 XERJ is single-node. There is no replication, no sharding and no failover, so one host is the whole deployment and a restore from a copy is the recovery plan.
 
-XERJ has no OCR, so a PDF with no text layer produces no text. It has no email handler, no mbox handler and no archive handler. It reads no URL and downloads no web page. The files must already be on local disk.
+XERJ has no OCR, so a PDF with no text layer produces no text. It never opens archives: a zip or tar of documents stays closed until you extract it. Mail is read rather than refused: `.eml` files and mbox mailboxes, a Google Takeout export included, are detected by content and shipped in v1.0.0-rc.75. PST, OST and Maildir stores are still not handled. It fetches no page from the web. The files must already be on local disk, or in an S3 bucket that `xerj autoindex` reads as a source.
 
 XERJ has no graphical interface. There is no result window and no preview pane, because the intended caller is a program rather than a person at a desk.
 
@@ -153,7 +153,7 @@ No. XERJ is single-node, with no replication, no sharding and no failover. One h
 
 ### Does XERJ crawl websites?
 
-No. XERJ reads files that are already on local disk. There is no URL input and no crawler.
+No. XERJ fetches no web page and runs no crawler. Its inputs are folders on local disk and `s3://` bucket prefixes read as a source.
 
 ## Evidence
 

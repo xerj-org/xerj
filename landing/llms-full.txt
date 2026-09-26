@@ -215,14 +215,17 @@ For a complete disconnected deployment procedure, including current GitHub relea
   11,450 numeric-looking ids page 1 of 1,000 ends at "10897"; passing ["999"] instead walks
   off the end of the corpus and returns an empty page after 1,010 documents, with no error.
   Sort on a numeric field if you want numeric order. (b) The ceiling above is what
-  `_search?scroll=` enforces, against the request's total over every index it resolves. The
-  `POST /{index}/_search_scroll` alias applies it PER INDEX instead, so a multi-index scroll
-  sent there can snapshot the full ceiling from each — permissive rather than truncating
-  (measured: 2x6,000 docs over that route paged out 12,000 hits across 120 pages). But
-  per-hit `_index` is NOT reliable on that route: continuation pages return the raw
-  comma-separated index spec rather than the resolving index, so `(_index, _id)` is not a
-  distinct key there and export/reindex tooling must not depend on it.
-  Tracked in https://github.com/xerj-org/xerj/issues/405.
+  `_search?scroll=` enforces, against the request's total over every index it
+  resolves — and since v1.0.0-rc.19 (PR #501, 2026-08-19, closing
+  https://github.com/xerj-org/xerj/issues/405) the `POST /{index}/_search_scroll`
+  alias enforces the SAME summed ceiling: it resolves the comma-separated spec, sums
+  the exact totals, and refuses with the same 400 when the sum exceeds the cap, and
+  its hits carry the RESOLVED per-hit `_index`, so `(_index, _id)` is a distinct key
+  there. Before that fix the alias applied the ceiling per index — a multi-index
+  scroll sent there could snapshot the full ceiling from each (measured then: 2x6,000
+  docs over that route paged out 12,000 hits across 120 pages) — and continuation
+  pages returned the raw index spec in `_index`; v1.0.0-rc.18 and earlier binaries
+  behave that way.
 
 - Default `_search` source is compact. When `_source` is omitted, ordinary source fields
   are returned but engine-generated `<field>_vector` and `<field>_vector_chunks` companions
@@ -270,14 +273,9 @@ For a complete disconnected deployment procedure, including current GitHub relea
   Elasticsearch and Kibana CLIENT compatibility and vary in depth; verify the specific
   behaviour you need against your own node or the docs rather than assuming full parity.
 
-- NOT IMPLEMENTED - do not plan around these. Statuses are from ROADMAP.md, section
-  "The zero-token direction", checked against `main` on 2026-09-18 by reading the file
-  named beside each one:
-    * Object storage. `S3Backend` (xerj-storage/src/backend.rs) is a local-directory
-      simulation with no network client. `storage.backend = "s3"` refuses to start
-      ("the S3 storage backend is not implemented in this build; only "local" is
-      supported", xerj-common/src/config.rs) - deliberately, so nobody believes data
-      landed in a bucket when it did not.
+- NOT IMPLEMENTED - do not plan around these. Statuses follow ROADMAP.md, section
+  "The zero-token direction", re-checked against `main` on 2026-09-26 by reading the
+  file named beside each one:
     * Alerting. There is none. `PUT /_watcher/watch/{id}` stores the body in memory and
       answers `"condition":{"met":true,"type":"always"}` whatever condition was sent; no
       scheduler exists and no watch is ever evaluated. The console's `.xerj_alert_rules`
@@ -290,17 +288,35 @@ For a complete disconnected deployment procedure, including current GitHub relea
       ingest through it is refused.
     * A log-specific index mode (the xerj-logs crate has zero call sites outside its
       tests) and downloadable signed corpus packs: planned, no code.
-  Measured limits of the opt-in neural path (`--embed-mode neural`), each a filed issue
-  (#938, #939, #940, #937 in the order below) with a reproduction under
-  benchmarks/neural-path-triage/: one `_bulk` stream into a
-  `semantic_text` field keeps ~3.4 of 32 hardware threads busy (6.1 docs/s on
-  ~1,470-character documents; 29.5 docs/s from the same node with 8 concurrent clients
-  - so send `_bulk` requests concurrently); a `semantic` query over an index holding
-  multi-passage documents (any value over 512 characters) is an exact scan, ~410 ms p50
-  on 5,183 documents against ~14 ms on a 10,003-document single-passage index; tied
-  `hybrid` RRF scores can change order across a restart; and a declared analyzer
-  (index default or per-field `analyzer`) does not apply to flushed segments, so
-  stemming cannot currently be turned on. One shared, loaded machine - the ratios are
+  Object storage left this list in v1.0.0-rc.77 (2026-09-21, PR #1008, issue #965;
+  ROADMAP's own row for it was last checked there 2026-09-18 and still says unwired):
+  `storage.backend = "s3"` really stores indices in a bucket — one immutable ZBM1
+  bundle object per segment family, `snapshot.json` as the publication point, merges
+  publishing before retiring their inputs, a fresh node adopting the bucket. The
+  client is xerj-storage/src/s3.rs (Cloudflare R2, MinIO, AWS S3, over aws-sdk-s3);
+  the `SimulatedObjectStore` in backend.rs is a test double. The one remaining
+  startup error is naming the backend without a bucket: `storage.backend = "s3"
+  requires storage.s3_bucket to name an existing bucket` (xerj-common/src/config.rs).
+  Still true of this build: single-writer, the WAL stays local, bundles are packed in
+  memory, and bucket orphans have no GC command (docs/OBJECT_STORAGE.md).
+  The opt-in neural path (`--embed-mode neural`) had four measured limits, each a
+  filed issue (#938, #939, #940, #937 in the order below) with a reproduction under
+  benchmarks/neural-path-triage/ — all four FIXED on `main` before the v1.0.0-rc.77
+  tag (2026-09-21), so the numbers below are the pre-fix measurements, kept as the
+  dated before-state: one `_bulk` stream into a
+  `semantic_text` field kept ~3.4 of 32 hardware threads busy (6.1 docs/s on
+  ~1,470-character documents; 29.5 docs/s from the same node with 8 concurrent
+  clients) — #938, fixed by PR #995 (bounded window concurrency for neural `_bulk`
+  embedding); a `semantic` query over an index holding
+  multi-passage documents (any value over 512 characters) was an exact scan, ~410 ms
+  p50 on 5,183 documents against ~14 ms on a 10,003-document single-passage index —
+  #939, fixed by PR #979 (the exact scan ranks addresses and hydrates only the
+  winners); tied `hybrid` RRF scores could change order across a restart (HashMap
+  iteration order; the top-10 differed for 21 of 40 queries) — #940, closed by PR
+  #976; and a declared analyzer (index default or per-field `analyzer`) did not apply
+  to flushed segments, so stemming could not be turned on — #937, fixed by PR #991
+  (a declared default analyzer is honored at flush, segment query and merge, so
+  stemming CAN be turned on). One shared, loaded machine - the ratios are
   the finding. https://github.com/xerj-org/xerj/blob/main/ROADMAP.md
 
 - Performance is supporting evidence, not the headline. In a closed-loop, cache-off
@@ -326,10 +342,11 @@ For a complete disconnected deployment procedure, including current GitHub relea
   config value wins over the environment; you cannot pass a key in a request); a
   request only triggers it by asking; and `[rerank] enabled = false` refuses every
   rerank request with 403. Do NOT add `rerank` on data that must stay local unless the
-  user has agreed. NOT VERIFIED: ranking quality with the real model — no provider key
-  was available to this project, and every test of the stage runs against a test
-  double that scores by a table the test supplies. Only the mechanism is verified.
-  See §3.4b.
+  user has agreed. Ranking quality with the real model IS measured — PR #975 (runs
+  dated 2026-09-20, carried by v1.0.0-rc.76), with an evaluation key granted by
+  TypeSafe: this project's own integration defect was found and fixed (SciFact
+  pilot 0.3822 → 0.8299 nDCG@10), and the full run scored 0.7410 SciFact /
+  0.3312 NFCorpus / 0.3638 FiQA nDCG@10 over 1,271 judged queries. See §3.4b.
 
 =====================================================================
 3. THE SEVEN CANONICAL AGENT OPERATIONS
@@ -464,9 +481,15 @@ it is not a hang, even though `since_progress_s` climbs), and the terminal line
 of a run that met it carries `bulk_retries=N` (present only when it happened).
 It exits 1 only 600 s after that bulk was first offered, with an error line that
 begins `the server kept rejecting`; the same command then resumes from the last
-committed operation. A node whose resident memory stays pinned above its
-watermark after a large ingest never accepts again (issue #950): restart it or
-raise XERJ_MAX_PROCESS_MEMORY_MB, then rerun. See https://xerj.org/answers/autoindex-server-back-pressure-429.md
+committed operation. A node whose resident memory stayed pinned above its
+watermark after a large ingest would never accept again (issue #950). The fixes
+landed on `main` after v1.0.0-rc.77 was tagged — #1017 on 2026-09-21, #1009 on
+2026-09-22 (PRs #1017 — id-position maps
+built from the `__id` projection, stored fields reassembled streamed — and #1009,
+`POST /{index}/_cache/clear` releasing the index's rebuildable caches). On
+v1.0.0-rc.77 and earlier the remedy is the old one: restart the node or raise
+XERJ_MAX_PROCESS_MEMORY_MB, then rerun; on a later build clear the caches first.
+See https://xerj.org/answers/autoindex-server-back-pressure-429.md
 
 Pipeline: walk → sniff → sample → infer → map → extract → bulk → correlate →
 catalog → verify.
@@ -694,8 +717,19 @@ Is it configured?  GET /_xerj/rerank  (superuser only) → { enabled, configured
 Via MCP: optional `rerank` argument on xerj_search and xerj_hybrid_search (`true` or
   {} = defaults). A PLAIN-STRING `query` is passed as `rerank.query` for you;
   xerj_hybrid_search REQUIRES `rerank.query`.
-QUALITY — what is and is not measured. NOT VERIFIED: ranking quality with the real Jev
-  model (no key was available). Published elsewhere and NOT RUN BY US, reranking a
+QUALITY — what is and is not measured. Ranking quality with the real Jev model IS
+  measured: with an evaluation key granted by TypeSafe (PR #975, runs dated
+  2026-09-20, carried by v1.0.0-rc.76), this project's own integration defect in the
+  stage was found and fixed — the SciFact pilot moved 0.3822 → 0.8299 — and the full
+  run scored 0.7410 SciFact / 0.3312 NFCorpus / 0.3638 FiQA nDCG@10 over 1,271
+  judged queries, with the Jev reranker ranking off a XERJ node. Calibration,
+  measured: ECE 0.10–0.31, worst on FiQA — documents rated ~0.93 confidence were
+  relevant 34% of the time — so order by the scores and never threshold the raw
+  probability with `min_score`. Runs and scripts:
+  https://github.com/xerj-org/xerj/tree/main/benchmarks/beir-hybrid/results/2026-09-20-rerank-pilot
+  and https://github.com/xerj-org/xerj/tree/main/benchmarks/beir-hybrid/results/2026-09-20-rerank-full;
+  write-up: https://xerj.org/blog/does-xerj-beat-jev
+  Published elsewhere and NOT RUN BY US, reranking a
   different first stage: hev/jev-rerank's README gives nDCG@10 SciFact/NFCorpus of
   0.768/0.358 (Jev), 0.755/0.357 (Voyage rerank-3), 0.745/0.340 (Cohere rerank-v3.5).
   Measured by us, with `--embed-mode neural` + all-MiniLM-L6-v2 — NOT the default
@@ -976,13 +1010,19 @@ dense_vector:
   - `dims` (required for meaningful kNN), `similarity` (default "cosine").
   - Quantization: `index_options.type` of `int8_hnsw` / `int8_flat`, or field-level
     `quantization:"scalar8"`, makes the kNN scan score that field from 1-byte-per-dim
-    codes. It is a PRECISION option, not a memory one: the scan reads the document's
-    full-precision vector from `_source` and quantizes it per query, and nothing is
-    cached (issue #392; the per-field code store this used to describe was removed in
-    issue #371, where it was scoring updated documents from stale codes). Two
-    consequences: `_score` and the returned ORDER depend on the candidate set, so the
-    same document can move when a `filter` is added or when an unrelated document is
-    indexed; and SQ8 fields are always served by the exact code scan. Unfiltered kNN
+    codes. Since issue #392 closed (PR #999, in v1.0.0-rc.76) the codes are written
+    at INGEST into a per-field SQ8 code store (xerj-engine/src/index.rs), and an
+    unfiltered scalar8 kNN scores every live slot straight out of that store — no
+    `_source` vectors read, no per-query quantization — hydrating only the top k; if
+    the store has not converged the query falls through to the exact f32 scan. A
+    FILTERED scalar8 query runs the exact scan on a per-query codec fit over the
+    post-filter set, reconciled bit-identically with the exact oracle, so `_score` no
+    longer depends on the candidate set. Before #392 it was a PRECISION option only:
+    the scan read the document's full-precision vector from `_source` and quantized
+    it per query, nothing was cached, and `_score` and the returned ORDER moved with
+    the candidate set (the per-field code store of that era was removed in issue
+    #371 for scoring updated documents from stale codes). SQ8 fields are never
+    HNSW-served — both arms are exhaustive scans. Unfiltered kNN
     on full-precision fields is HNSW-served with exact rescoring (see §2).
 
 Supported mapping field types (ES type string → internal):

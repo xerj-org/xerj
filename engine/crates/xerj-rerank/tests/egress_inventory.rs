@@ -90,9 +90,9 @@ const KNOWN: &[(&str, Role)] = &[
     ),
     // Object storage, added by #966 (the backend) and #970 (`autoindex s3://`).
     // Both talk to whatever endpoint the operator names, so they belong on the
-    // published list even though neither sends DOCUMENT TEXT anywhere: the
-    // source reads objects in, and the backend is not on the segment path yet
-    // (`storage.backend = "s3"` still refuses to start).
+    // published list. The source reads objects in; since rc.77 (#1008) the
+    // backend also writes index bundles out when `storage.backend = "s3"` —
+    // which is why DATA_EGRESS carries that exception explicitly.
     (
         "xerj-storage/src/s3.rs",
         Role::Node("**Object storage backend**"),
@@ -140,6 +140,9 @@ const FALSE_CLAIMS: &[&str] = &[
     "the other two outbound paths",
     "the other outbound paths",
     "other operator-configured outbound paths",
+    // False since rc.77 (#1008 wired the segment path to the S3 backend): the
+    // backend IS constructed on the segment path when storage.backend = "s3".
+    "nothing on the segment path constructs",
 ];
 
 /// The surfaces that carry the rerank egress statement.

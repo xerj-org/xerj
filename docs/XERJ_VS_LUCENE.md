@@ -8,7 +8,9 @@ workflow is `autoindex <folder> -> autoindex map -> query`; Lucene 10.3.1 is an
 embeddable Java search library. Elasticsearch-wire compatibility is an adoption
 bridge, not evidence that the two engines share an implementation.
 
-This comparison is current as of **2026-08-17**. XERJ claims and source links
+This comparison is current as of **2026-08-17**, except section 5's
+`_update_by_query` note, which is updated to **2026-09-26** and pinned to that
+change's merge commit. XERJ claims and source links
 are pinned to commit
 [`24711999dd866ceec2a6e7c91d934c2c27d7066c`](https://github.com/xerj-org/xerj/tree/24711999dd866ceec2a6e7c91d934c2c27d7066c);
 Lucene links point to official Apache Lucene 10.3.1 documentation. The XERJ
@@ -201,9 +203,14 @@ reads the current source, overlays top-level fields, and reindexes the merged
 document. The API exposes `/_update/{id}` in
 [`update_doc`](https://github.com/xerj-org/xerj/blob/24711999dd866ceec2a6e7c91d934c2c27d7066c/engine/crates/xerj-api/src/es_compat.rs#L17446-L17540)
 and `/_update_by_query` in
-[`update_by_query`](https://github.com/xerj-org/xerj/blob/24711999dd866ceec2a6e7c91d934c2c27d7066c/engine/crates/xerj-api/src/es_compat.rs#L24254-L24291).
-That query-by-query handler hard-caps its fetch at 10,000 hits (`size: 10000`),
-so one request is not a full-corpus traversal. Updates are logical replacement
+[`update_by_query`](https://github.com/xerj-org/xerj/blob/b63debbbbc1f64d93d3a8eebe8cbc780fa42f1a9/engine/crates/xerj-api/src/es_compat.rs#L26585-L26795).
+Since PR [#1023](https://github.com/xerj-org/xerj/pull/1023) (merged 2026-09-26)
+that handler pages the match set: an `_id`-keyset `search_after` cursor in
+`scroll_size` batches (default 1000), a single-pass `matching_ids_sorted` arm
+for `match_all`/`ids` selectors, ES `max_docs`/`scroll_size` honored, and a
+10,000,000 `max_total` backstop. One request is now a full-corpus traversal;
+at the 2026-08-17 pin above it hard-capped its fetch at 10,000 hits
+(`size: 10000`). Updates are logical replacement
 plus versioning, not byte-level mutation. A delete also tombstones the old HNSW
 node when one exists, so a vector result cannot outlive the document
 ([`delete_document_versioned`](https://github.com/xerj-org/xerj/blob/24711999dd866ceec2a6e7c91d934c2c27d7066c/engine/crates/xerj-engine/src/index.rs#L12947-L13140)).

@@ -21,29 +21,29 @@ Each row was traced from the request body to the call into the interpreter.
 
 | Surface | Request shape | Evaluated at |
 |---|---|---|
-| `script` query | `{"query": {"script": {"script": {"source": "...", "params": {}}}}}` | `xerj-engine/src/index.rs:26502` |
-| `script_score` query | `{"query": {"script_score": {"query": ..., "script": {"source": "..."}}}}` | `xerj-engine/src/index.rs:33162` |
-| `function_score` with a `script_score` function | `functions: [{"script_score": {"script": {...}}}]` | `xerj-engine/src/index.rs:33162` |
-| `script_fields` | `{"script_fields": {"name": {"script": {"source": "..."}}}}` | `xerj-api/src/es_compat.rs:11051` |
-| Runtime fields | `{"runtime_mappings": {"name": {"type": "...", "script": {"source": "emit(...)"}}}, "fields": ["name"]}` | `xerj-api/src/es_compat.rs:10263`, and inside `top_hits` at `xerj-engine/src/aggs.rs:9395` |
-| Script rescore | `{"rescore": {"script": {"script": {"source": "..."}}}}` | `xerj-engine/src/index.rs:28362` |
-| Script-bucketed `terms` agg | `{"aggs": {"a": {"terms": {"script": {"source": "..."}}}}}` | `xerj-engine/src/aggs.rs:3292` |
-| `terms_set.minimum_should_match_script` | `{"terms_set": {"f": {"terms": [...], "minimum_should_match_script": {"source": "params.num_terms"}}}}` | `xerj-engine/src/index.rs:26575` |
-| Scripted update | `POST /{index}/_update/{id}` with a `script` | `xerj-api/src/es_compat.rs:15160` |
-| Scripted update by query | `POST /{index}/_update_by_query` with a `script` | `xerj-api/src/es_compat.rs:15160` |
-| Standalone execute | `POST /_scripts/painless/_execute` | `xerj-api/src/es_compat.rs:24974` |
+| `script` query | `{"query": {"script": {"script": {"source": "...", "params": {}}}}}` | `xerj-engine/src/index.rs:43775` |
+| `script_score` query | `{"query": {"script_score": {"query": ..., "script": {"source": "..."}}}}` | `xerj-engine/src/index.rs:51918` |
+| `function_score` with a `script_score` function | `functions: [{"script_score": {"script": {...}}}]` | `xerj-engine/src/index.rs:51918` |
+| `script_fields` | `{"script_fields": {"name": {"script": {"source": "..."}}}}` | `xerj-api/src/es_compat.rs:14069` |
+| Runtime fields | `{"runtime_mappings": {"name": {"type": "...", "script": {"source": "emit(...)"}}}, "fields": ["name"]}` | `xerj-api/src/es_compat.rs:13281`, and inside `top_hits` at `xerj-engine/src/aggs.rs:9829` |
+| Script rescore | `{"rescore": {"script": {"script": {"source": "..."}}}}` | `xerj-engine/src/index.rs:45733` |
+| Script-bucketed `terms` agg | `{"aggs": {"a": {"terms": {"script": {"source": "..."}}}}}` | `xerj-engine/src/aggs.rs:3479` |
+| `terms_set.minimum_should_match_script` | `{"terms_set": {"f": {"terms": [...], "minimum_should_match_script": {"source": "params.num_terms"}}}}` | `xerj-engine/src/index.rs:43858` |
+| Scripted update | `POST /{index}/_update/{id}` with a `script` | `xerj-api/src/es_compat.rs:18812` |
+| Scripted update by query | `POST /{index}/_update_by_query` with a `script` | `xerj-api/src/es_compat.rs:26795` |
+| Standalone execute | `POST /_scripts/painless/_execute` | `xerj-api/src/es_compat.rs:33260` |
 
 Two things that look like script surfaces and are not:
 
 - **Sorting by script is not implemented.** `parse_sort_field_spec`
-  (`xerj-query/src/parser.rs:2833`) reads field names, order, mode, missing and
+  (`xerj-query/src/parser.rs:3270`) reads field names, order, mode, missing and
   format. There is no `_script` sort branch, so a `_script` sort entry is
   treated as a field named `_script` and no script runs.
 - **Stored Painless scripts are not supported.** `PUT /_scripts/{id}`
-  (`xerj-api/src/es_compat.rs:24804`) stores mustache **search templates**, and
+  (`xerj-api/src/es_compat.rs:33190`) stores mustache **search templates**, and
   `GET` returns them with `"lang": "mustache"`. A query that references a script
   by `id` instead of `source` is rejected by the parser, which requires
-  `script.script.source` (`xerj-query/src/parser.rs:1146`).
+  `script.script.source` (`xerj-query/src/parser.rs:1389`).
 
 ## The implemented subset
 
@@ -74,7 +74,7 @@ no document in standalone execution.
 - `if (...) { ... } else { ... }`, blocks, `;` separators, explicit
   `return x;`, and implicit return of the last statement's value.
 - `Math.max`, `min`, `abs`, `log`, `log10`, `sqrt`, `pow`, `exp`, `floor`,
-  `ceil`, `round`, `Math.PI`, `Math.E` (`painless.rs:2490`).
+  `ceil`, `round`, `Math.PI`, `Math.E` (`painless.rs:2519`).
 - `dotProduct(params.q, 'field')` over a numeric vector field, or over a
   literal array supplied in `params`.
 - On strings: `.length`, `.toString()`, `.toLowerCase()`, `.toUpperCase()`, and
@@ -82,7 +82,7 @@ no document in standalone execution.
   `getMonthValue`, `getYear`, `getDayOfWeek`, `getDayOfWeekEnum`,
   `getDisplayName`. On objects: `.toString()`, `.size()`, `.isEmpty()`, and
   member lookup. On arrays: `.size()`, `.length`, `.isEmpty()`
-  (`painless.rs:2122-2165`).
+  (`painless.rs:2149-2182`).
 
 ### Local functions and lambdas
 
@@ -91,25 +91,25 @@ anywhere else in the docs, so in detail:
 
 - A top-level declaration `<type> name(<type> arg, ...) { ... }` becomes a
   callable value. Parameter and return types are parsed and discarded
-  (`painless.rs:1379`).
+  (`painless.rs:1399`).
 - A lambda literal is `(a, b) -> expr` or `(a, b) -> { ... }`
-  (`painless.rs:1414`). It evaluates to a closure value that can be stored in a
+  (`painless.rs:1434`). It evaluates to a closure value that can be stored in a
   variable or passed as an argument.
 - A closure is invoked either by calling its name directly, `compare(a, b)`, or
   through **any** `.method(args)` call on the value: `s.get()`, `fn.apply(x)`,
   `pred.test(x)`. The method name is ignored and only the positional arguments
-  matter (`painless.rs:2113`). That covers `Supplier`, `Function`,
+  matter (`painless.rs:2133`). That covers `Supplier`, `Function`,
   `BiFunction` and `Predicate` shapes without the interpreter knowing about any
   of them, which is what OpenSearch's UBI dashboard scripts need.
 - A closure body runs in a fresh scope containing only its bound parameters. It
   cannot read the caller's locals; `doc`, `params` and `_score` still resolve,
   because they come from the evaluation context rather than the enclosing scope
-  (`painless.rs:1764`).
+  (`painless.rs:1780`).
 
 ### Not implemented
 
 `for`, `while`, `break`, `continue`, `new` and `instanceof` are recognised by
-the tokenizer (`painless.rs:469`) but no statement or expression parser accepts
+the tokenizer (`painless.rs:490`) but no statement or expression parser accepts
 them, so a script using any of them fails to parse. There are no loops of any
 kind. There are no array or map literals, no field assignment through
 `doc[...]`, no regular expressions, no `Debug`/`Logger`, and no Java standard
@@ -123,16 +123,16 @@ These are the constants in `painless.rs`. They are enforced, not advisory.
 
 | Limit | Constant | Value | Scope |
 |---|---|---|---|
-| Script source length | `MAX_SCRIPT_LEN` (`:643`) | 65,536 bytes (64 KiB) | per script |
-| Parser nesting depth | `MAX_PARSE_DEPTH` (`:631`) | 100 | per script |
-| Expression evaluation depth | `MAX_EVAL_DEPTH` (`:638`) | 500 | per script |
-| Closure call nesting depth | `MAX_CALL_DEPTH` (`:724`) | 32 | per evaluation |
-| Closure invocations | `MAX_CALL_COUNT` (`:734`) | 10,000 | per evaluation |
-| Work-unit budget | `MAX_SCRIPT_OPS` (`:824`) | 5,000,000 | per evaluation |
-| Wall-clock slice, ceiling | `MAX_EVAL_SLICE` (`:857`) | 500 ms | per evaluation |
-| Wall-clock slice, floor | `MIN_EVAL_SLICE` (`:873`) | 100 ms | per evaluation |
-| Single string value | `MAX_PAINLESS_STRING_LEN` (`:653`) | 1,048,576 bytes (1 MiB) | per evaluation |
-| Compiled-script cache | `MAX_SCRIPT_CACHE_ENTRIES` / `MAX_SCRIPT_CACHE_SRC_BYTES` (`:1571`, `:1577`) | 128 entries, 512 KiB of source | per thread |
+| Script source length | `MAX_SCRIPT_LEN` (`:663`) | 65,536 bytes (64 KiB) | per script |
+| Parser nesting depth | `MAX_PARSE_DEPTH` (`:651`) | 100 | per script |
+| Expression evaluation depth | `MAX_EVAL_DEPTH` (`:658`) | 500 | per script |
+| Closure call nesting depth | `MAX_CALL_DEPTH` (`:744`) | 32 | per evaluation |
+| Closure invocations | `MAX_CALL_COUNT` (`:754`) | 10,000 | per evaluation |
+| Work-unit budget | `MAX_SCRIPT_OPS` (`:844`) | 5,000,000 | per evaluation |
+| Wall-clock slice, ceiling | `MAX_EVAL_SLICE` (`:877`) | 500 ms | per evaluation |
+| Wall-clock slice, floor | `MIN_EVAL_SLICE` (`:893`) | 100 ms | per evaluation |
+| Single string value | `MAX_PAINLESS_STRING_LEN` (`:673`) | 1,048,576 bytes (1 MiB) | per evaluation |
+| Compiled-script cache | `MAX_SCRIPT_CACHE_ENTRIES` / `MAX_SCRIPT_CACHE_SRC_BYTES` (`:1591`, `:1597`) | 128 entries, 512 KiB of source | per thread |
 
 An **evaluation** is one script run against one document. A search evaluates
 its scripts once per document, per clause, per aggregation bucket, so read
@@ -140,7 +140,7 @@ its scripts once per document, per clause, per aggregation bucket, so read
 
 The **work-unit budget** is the one that bounds cost rather than shape. A unit
 is one interpreter step, plus one unit per 64 bytes (`BYTES_PER_OP`,
-`painless.rs:804`) of any value a step produces or copies. That pricing exists
+`painless.rs:824`) of any value a step produces or copies. That pricing exists
 because `params.x`, `params['_source']` and `doc['x'].value` each materialise a
 copy behind an expression that looks like constant work. The counter is
 deterministic, with no clock in it, so a trip is reproducible on any machine.
@@ -149,7 +149,7 @@ The **wall-clock slice** is the backstop for work the counter prices too
 cheaply. Each evaluation's slice is the enclosing request's remaining time,
 clamped into the 100 ms to 500 ms range above, and it is fixed before any work
 is charged (`PainlessCtx::new`, `painless.rs:158`). The clock is read once per
-1,024 work units (`OPS_PER_CLOCK_CHECK`, `painless.rs:849`), so an evaluation
+1,024 work units (`OPS_PER_CLOCK_CHECK`, `painless.rs:869`), so an evaluation
 can overshoot its deadline by one sampling window plus the step in flight.
 
 Two figures recorded next to those constants and pinned by tests in
@@ -162,17 +162,17 @@ and 97 ms, 109 ms, 168 ms and 155 ms with it.
 ## What a caller sees when a limit trips
 
 Source length, parse depth and evaluation depth are checked before anything
-runs. `check_script_limits` (`painless.rs:1665`) compiles a script without
+runs. `check_script_limits` (`painless.rs:1685`) compiles a script without
 evaluating it and reports only those three, and every search entry point walks
 the request body for scripts
 under `script` and `*_script` keys before executing
-(`es_compat.rs:5221`). The walked fields are exactly `query`, `rescore`,
+(`es_compat.rs:5846`). The walked fields are exactly `query`, `rescore`,
 `sort`, `script_fields`, `runtime_mappings` and `aggs`/`aggregations`
-(`GuardedField::ALL`, `es_compat.rs:5326`), and the same set is applied on
+(`GuardedField::ALL`, `es_compat.rs:5951`), and the same set is applied on
 `_search`, scroll and async search (through `build_search_request`,
-`es_compat.rs:5451`) and on `_msearch`, `_search/template` and
-`_msearch/template` (through the raw-body resolver, `es_compat.rs:18231`,
-`:24476`, `:24668`).
+`es_compat.rs:6171`) and on `_msearch`, `_search/template` and
+`_msearch/template` (through the raw-body resolver, `es_compat.rs:24094`,
+`:32785`, `:33028`).
 
 A violation caught by that guard is a 400 before any document is touched. The
 exception type is not the same on every entry point, so check the status rather
@@ -181,19 +181,19 @@ than the type:
 - `_search`, scroll, async search and `_search/template` raise
   `XerjError::invalid_query`, which the error layer renders as HTTP 400 with
   `"type": "search_phase_execution_exception"` and the limit message as
-  `reason` (`es_compat.rs:5452`, `:24477`; mapping table in
-  `xerj-api/src/error.rs:269`).
+  `reason` (`es_compat.rs:6172`, `:32786`; mapping table in
+  `xerj-api/src/error.rs:296`).
 - `_msearch` and `_msearch/template` fail only the offending sub-request, with
   `{"error": {"type": "illegal_argument_exception", "reason": "..."},
   "status": 400}` in that item's slot and the rest of the batch still running
-  (`es_compat.rs:18231`, `:24668`).
+  (`es_compat.rs:24094`, `:33028`).
 
 The remaining limits depend on the data and can only trip mid-evaluation. Those
 faults are recorded into a task-local sink installed for the whole request
-(`with_script_fault_capture`, `painless.rs:977`), and the handler turns the
+(`with_script_fault_capture`, `painless.rs:997`), and the handler turns the
 first one into an error response instead of serving a substituted value. That
 response is HTTP 400 with this body (`script_limit_response`,
-`es_compat.rs:5257`):
+`es_compat.rs:5882`):
 
 ```json
 {
@@ -207,17 +207,17 @@ response is HTTP 400 with this body (`script_limit_response`,
 ```
 
 `_msearch` embeds that same object as one sub-response inside its 200 envelope
-(`script_limit_error_value`, `es_compat.rs:5268`).
+(`script_limit_error_value`, `es_compat.rs:5893`).
 
 Endpoints that run a search internally do not carry the up-front guard, but
 they do refuse rather than report a truncated result when a limit trips during
-matching: `_count` (`es_compat.rs:15390`), `_reindex` (`:17738`),
-`_delete_by_query` (`:20257`) and `_update_by_query` (`:20377`) all return the
+matching: `_count` (`es_compat.rs:19497`), `_reindex` (`:22849`),
+`_delete_by_query` (`:26503`) and `_update_by_query` (`:26977`) all return the
 `script_exception` body instead of a count, a copy or a delete count taken over
 a fail-closed subset.
 
 The `reason` is one of these exact strings (`is_resource_limit_error`,
-`painless.rs:896`):
+`painless.rs:916`):
 
 | Limit | `reason` |
 |---|---|
@@ -232,18 +232,18 @@ The `reason` is one of these exact strings (`is_resource_limit_error`,
 
 Once one evaluation has tripped a limit, every later evaluation inside the same
 fault-capture scope returns that error immediately without running
-(`eval_painless`, `painless.rs:1701`). That is what makes one budget the bound
+(`eval_painless`, `painless.rs:1711`). That is what makes one budget the bound
 for the whole request rather than one budget multiplied by the document count.
-The scope is installed by `_search` (`es_compat.rs:6438`), by the engine's
-`Index::search` (`index.rs:12534`), and by `_update` and `_update_by_query`
-(`es_compat.rs:14924`, `:20394`). `POST /_scripts/painless/_execute` installs
+The scope is installed by `_search` (`es_compat.rs:8731`), by the engine's
+`Index::search` (`index.rs:18990`), and by `_update` and `_update_by_query`
+(`es_compat.rs:18808`, `:26844`). `POST /_scripts/painless/_execute` installs
 no scope; it runs one script and returns any error from it, including a limit
 message, as a 400 `script_exception` whose reason is prefixed with
-`cannot evaluate script: ` (`es_compat.rs:24993`).
+`cannot evaluate script: ` (`es_compat.rs:33379`).
 
 `POST /_scripts/painless/_execute` is stricter and answers differently: its
 source cap is 4,096 bytes and an oversize script gets HTTP 413 with
-`action_request_validation_exception` (`es_compat.rs:24911`).
+`action_request_validation_exception` (`es_compat.rs:33297`).
 
 ### Errors that are not limits
 
@@ -252,14 +252,14 @@ Painless features outside this subset, is **not** a 400. It degrades, per
 surface:
 
 - `script` query: the document does not match. A script that returns anything
-  other than boolean `true` also does not match (`index.rs:26502`).
+  other than boolean `true` also does not match (`index.rs:43775`).
 - `script_score` and script rescore: the score contribution becomes `0.0`
-  (`index.rs:33162`, `index.rs:28362`).
-- `script_fields`: the field is absent from the hit (`es_compat.rs:11051`).
+  (`index.rs:51918`, `index.rs:45733`).
+- `script_fields`: the field is absent from the hit (`es_compat.rs:14069`).
 - Script-bucketed `terms` agg: no buckets from that document
-  (`aggs.rs:3292`).
+  (`aggs.rs:3479`).
 - `terms_set.minimum_should_match_script`: the document cannot match
-  (`index.rs:26575`).
+  (`index.rs:43858`).
 
 This split is deliberate. A script outside the subset has to keep degrading so
 that an otherwise-working request does not start failing; a resource-limit trip
@@ -272,7 +272,7 @@ would be a plausible wrong answer. The contract is covered by
 
 `POST /{index}/_update/{id}` and `POST /{index}/_update_by_query` accept a
 `script`, but they do not run the general interpreter over the whole script.
-`apply_painless_update` (`es_compat.rs:15167`) splits the source on top-level
+`apply_painless_update` (`es_compat.rs:19051`) splits the source on top-level
 `;`, and each statement must target `ctx._source`:
 
 | Form | Example |
@@ -283,7 +283,7 @@ would be a plausible wrong answer. The contract is covered by
 | Remove a field | `ctx._source.remove('tmp')` |
 
 Right-hand sides go through the interpreter, with `ctx._source.x` rewritten to
-`doc['x'].value` first (`es_compat.rs:15087`), so `params`, `Math.*` and the
+`doc['x'].value` first (`es_compat.rs:18985`), so `params`, `Math.*` and the
 operators above all work there.
 
 Real limitations of this path, from the same function:
@@ -294,7 +294,7 @@ Real limitations of this path, from the same function:
   `unsupported update script statement: <statement>` as a 400.
 - Other `ctx.*` statements are accepted and ignored. `ctx.op = 'noop'` and
   `ctx.op = 'delete'` parse without error and do nothing, so the document is
-  still rewritten (`es_compat.rs:15216`). This differs from Elasticsearch.
+  still rewritten (`es_compat.rs:19103`). This differs from Elasticsearch.
 - An unrecognised statement is an error rather than a quiet no-op, which is the
   opposite of the search-path behaviour described above.
 
@@ -305,15 +305,15 @@ Before rc.10 these two endpoints reached the interpreter through
 nor a fault sink, so every statement of every document got its own full slice.
 As of rc.10 (#153) both wrap the work in one deadline and one fault sink:
 
-- `SCRIPTED_UPDATE_BUDGET_MS = 30_000` (`es_compat.rs:20362`), the same 30 s
+- `SCRIPTED_UPDATE_BUDGET_MS = 30_000` (`es_compat.rs:26720`), the same 30 s
   `_search` falls back to when a request names no timeout.
-- `_update` sets that deadline around the transform (`es_compat.rs:14923`).
+- `_update` sets that deadline around the transform (`es_compat.rs:18807`).
 - `_update_by_query` sets it around the whole hit loop, and the loop itself
-  checks it per hit and breaks (`es_compat.rs:20409`). When it breaks early the
+  checks it per hit and breaks (`es_compat.rs:27004`). When it breaks early the
   response reports `"timed_out": true` instead of the hardcoded `false` it used
   to return.
 - A limit trip is reported once for the request rather than once per document
-  (`es_compat.rs:20463`).
+  (`es_compat.rs:27107`).
 
 The honest residual, which is a property of the search path rather than of the
 update path: **the work budget and the time slice are per evaluation, meaning
@@ -321,7 +321,7 @@ per document.** `PainlessCtx::new` builds a fresh counter and a fresh deadline
 for every document (`painless.rs:158`), so a script tuned to stay just under
 5,000,000 work units costs that much on every matched document and never trips.
 What bounds a search as a whole is the request deadline, `timeout` in the
-request or 30,000 ms by default (`index.rs:12508`), plus the fail-fast on the
+request or 30,000 ms by default (`index.rs:14894`), plus the fail-fast on the
 first fault described above.
 
 The per-evaluation slice also has a floor. Once the request deadline has
@@ -329,7 +329,7 @@ passed, each evaluation still gets `MIN_EVAL_SLICE` (100 ms) rather than being
 cut off instantly, because the document scan only notices an expired deadline
 at a document boundary and cutting evaluations off immediately would turn
 ordinary slow searches into `script_exception` 400s
-(`painless.rs:859-873`). So an expensive-but-legal script can continue to
+(`painless.rs:879-893`). So an expensive-but-legal script can continue to
 consume up to 100 ms per document past the deadline until the scan stops.
 
 ## Examples
@@ -415,13 +415,13 @@ curl -X POST localhost:9200/_scripts/painless/_execute \
 
 The response is `{"result": "42.0"}`. Results are stringified, and whole
 numbers keep one decimal place, matching Elasticsearch
-(`es_compat.rs:24976`).
+(`es_compat.rs:33363`).
 
 ## Performance notes
 
 Compiled ASTs are cached per thread and keyed by source text, including parse
 failures, because an invalid script is also re-evaluated once per document
-(`painless.rs:1643`). The cache is bounded by both entry count and total source
+(`painless.rs:1663`). The cache is bounded by both entry count and total source
 bytes, since the key is caller-supplied text.
 
 There are no published latency numbers for script execution in this repo, so

@@ -98,8 +98,8 @@
       "canonical_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
       "markdown_url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins.md",
       "cluster": "Capabilities and limits",
-      "updated": "2026-09-19",
-      "summary": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in."
+      "updated": "2026-09-26",
+      "summary": "Since v1.0.0-rc.77 the index CAN live in an S3-compatible bucket (storage.backend = \"s3\": one immutable bundle object per segment family plus snapshot.json). _watcher never runs a watch; plugins are built-in."
     },
     {
       "title": "Audit a PHP codebase with an index, not grep",
@@ -341,7 +341,7 @@
       "canonical_url": "https://xerj.org/answers/search-gzipped-csv-or-json",
       "markdown_url": "https://xerj.org/answers/search-gzipped-csv-or-json.md",
       "cluster": "Files and formats",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "Gzip is a wrapper, not a family. autoindex unwraps it and sniffs the inner CSV or JSON, so a compressed export becomes typed fields rather than one opaque blob."
     },
     {
@@ -431,7 +431,7 @@
       "canonical_url": "https://xerj.org/answers/how-xerj-autoindexes-a-folder",
       "markdown_url": "https://xerj.org/answers/how-xerj-autoindexes-a-folder.md",
       "cluster": "Folder indexing",
-      "updated": "2026-08-21",
+      "updated": "2026-09-26",
       "summary": "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one."
     },
     {
@@ -440,7 +440,7 @@
       "canonical_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally",
       "markdown_url": "https://xerj.org/answers/search-gmail-takeout-mbox-locally.md",
       "cluster": "Folder indexing",
-      "updated": "2026-09-20",
+      "updated": "2026-09-26",
       "summary": "Unzip the export, run xerj autoindex on the folder, and search messages, threads and attached PDF pages over HTTP. The mailbox is streamed, and with the default embedder no message text leaves your machine."
     },
     {
@@ -463,12 +463,12 @@
     },
     {
       "title": "How do I rerank search results with a relevance judge?",
-      "question": "How do I rerank search results with a calibrated relevance judge?",
+      "question": "How do I rerank search results with a relevance judge?",
       "canonical_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge",
       "markdown_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge.md",
       "cluster": "Hybrid retrieval: reranking",
-      "updated": "2026-09-20",
-      "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge, a 0 to 1 probability replaces the score, and min_score becomes a real cut-off."
+      "updated": "2026-09-26",
+      "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge and a 0 to 1 probability replaces the score. Order by it; the measured calibration says never threshold it with min_score."
     },
     {
       "title": "What is Reciprocal Rank Fusion?",
@@ -566,7 +566,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
       "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-09-20",
+      "updated": "2026-09-26",
       "summary": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 600 s of re-sends that never clear is fatal."
     },
     {
@@ -629,7 +629,7 @@
       "canonical_url": "https://xerj.org/answers/what-is-xerj",
       "markdown_url": "https://xerj.org/answers/what-is-xerj.md",
       "cluster": "Product identity",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "XERJ is an Apache-2.0 single Rust binary that indexes a local folder with one command and answers search, agent memory and MCP calls from the same process."
     },
     {

@@ -25,8 +25,13 @@ question. Hits are reordered by that probability, and the probability replaces
 
 It exists for one reason above ordering. A BM25 or fused score orders results
 but has no absolute meaning: a `_score` of 7.2 is not comparable across queries
-and cannot be used as a cut-off. A calibrated probability can, so
-`rerank.min_score` is a threshold that means the same thing on every query.
+and cannot be used as a cut-off. The judge's probability is comparable enough
+to **order** by — and the full three-corpus run also measured where that stops:
+against BEIR relevance the probabilities are **not calibrated** (ECE 0.10–0.31,
+worst on FiQA, where documents the judge rated ~0.93 confidence were relevant
+34 % of the time).
+So the working rule is: rank by the probability, never threshold the raw value
+with `min_score` as if the same number meant the same thing on every query.
 
 > **Measured with the real model (2026-09-20, pilot).** Over the first 40
 > judged SciFact test queries, BM25 shortlists (default lexical embedder, no
@@ -92,7 +97,7 @@ curl -s -H "Authorization: ApiKey $ADMIN_KEY" http://localhost:9200/_xerj/rerank
                 "max_doc_chars": 8000, "max_timeout_ms": 60000,
                 "max_instructions_chars": 2000, "max_query_chars": 4000,
                 "max_model_chars": 128, "max_fields": 64, "max_field_name_chars": 256 },
-  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other features send text off the node, both operator configuration and off by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at write time and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint. The node's other outbound connections carry no document or query text: the one-time HuggingFace model download for `--embed-mode neural`, Raft messages (index names, mappings, shard assignments) to the configured peers in cluster mode, and object storage — the `S3Backend` client, which nothing on the segment path constructs today, and `xerj autoindex s3://` (with `--watch`, on an interval), which names buckets and keys to the endpoint you configure and reads objects IN."
+  "data_egress": "A search that carries a `rerank` block sends the text of up to `window` hits, and the query, to the endpoint above. It is the only search-time feature that sends document text off the node. Two other features send text off the node, both operator configuration and off by default: `[embedding] default_endpoint` (`--embed-mode proxy`) sends document text at write time and query text at search time to an external embeddings API, and the WAL tap (`PUT /_xerj/wal_tap`) replays every write on tapped indices to an external `_bulk` endpoint. The node's other outbound connections carry no document or query text: the one-time HuggingFace model download for `--embed-mode neural`, Raft messages (index names, mappings, shard assignments) to the configured peers in cluster mode, and object storage — `xerj autoindex s3://` (with `--watch`, on an interval), which names buckets and keys to the endpoint you configure and reads objects IN. One exception, since v1.0.0-rc.77: with `storage.backend = "s3"` the segment path constructs the same `S3Backend` client and writes index bundles — which carry stored document text — to the bucket you configured, as the index's home rather than a third-party egress."
 }
 ```
 
@@ -113,7 +118,7 @@ POST /kb/_search
 {
   "query": { "match": { "body": "vitamin d supplementation bone density" } },
   "size": 5,
-  "rerank": { "min_score": 0.5 }
+  "rerank": { "window": 30 }
 }
 ```
 
@@ -124,7 +129,7 @@ POST /kb/_search
 | `provider` | string | `"jev"` | `jev`, `typesafe` (alias), `none`, `disabled` | `none` / `disabled` skips the call and reports `applied: false`. Anything else is a 400. |
 | `model` | string | `"jev-latest"` | ≤ 128 characters | Sent to the provider verbatim. |
 | `window` | integer | 30 | 1–300 | How many of the engine's top hits are judged. **Every document in the window is a paid judgement.** |
-| `min_score` | number | none | 0–1 | Drop hits whose probability is below this. It is a probability; 7 is a 400. |
+| `min_score` | number | none | 0–1 | Drop hits whose probability is below this. It is a probability; 7 is a 400. The measured calibration (ECE 0.10–0.31 across the three BEIR corpora) says a fixed cut-off does **not** mean the same thing on every query — rank by the probability rather than thresholding it. |
 | `query` | string | inferred | non-empty, ≤ 4,000 characters | The question documents are judged against. The limit also applies to a question read from the search query. See [The question](#the-question). |
 | `fields` | string[] | every returned string field | 1–64 names, each ≤ 256 characters | Which returned fields are sent. **Exhaustive**: `["body"]` sends the body and nothing else, not even the title. See [What leaves the machine](#what-leaves-the-machine). |
 | `instructions` | string | a generic relevance question | ≤ 2,000 characters | Overrides what "relevant" means. A support corpus and a code corpus do not mean the same thing by it. The provider's wire format carries the instructions inside **every** per-document question, so this string is sent once per judged document — which is why it has a ceiling. |
@@ -352,7 +357,7 @@ client appears in a source file this list does not account for:
 | **WAL tap** — `[wal_tap]`, `PUT /_xerj/wal_tap` | Every write on the tapped indices (indexed documents and deletes), as `_bulk` to `{target_url}/_bulk`; never system indices | Continuously, every `poll_interval_ms` | Off: `enabled = false` |
 | **Neural model download** — `--embed-mode neural` | HTTPS requests to the HuggingFace Hub naming the model (`config.json`, `tokenizer.json`, `model.safetensors`); no document or query text | The first time the neural embedder loads without `embedding.local_model_dir`; later starts read the local cache | Off: the default embedder is lexical |
 | **Cluster transport** — `[cluster] enabled = true` | Raft messages to the configured `peers`: index names, mappings, shard assignments, node addresses, cluster settings; no document text and no queries | While cluster mode runs | Off: single node |
-| **Object storage backend** — `[storage]`, `S3Backend` | S3 requests to the configured endpoint: bucket and key names, ranged reads, and the credentials from the environment; no document text and no query text | Never today — nothing on the segment path constructs it and `storage.backend = "s3"` refuses to start (#965 would wire it) | Off, and refused |
+| **Object storage backend** — `[storage]`, `S3Backend` | S3 requests to the configured endpoint: bucket and key names, ranged reads, and the credentials from the environment. The index bundles it writes when it is the active home DO carry stored document text — no query text ever leaves | Since v1.0.0-rc.77 ([#1008](https://github.com/xerj-org/xerj/pull/1008) closing [#965](https://github.com/xerj-org/xerj/issues/965)): one immutable ZBM1 bundle per segment family plus `snapshot.json`, when `storage.backend = "s3"` and `storage.s3_bucket` names an existing bucket | Off: the default backend is `local` |
 | **`xerj autoindex s3://`** (client, not the node) — `--endpoint-url`, `AWS_*` | S3 requests to the configured endpoint: bucket and key names and the credentials; the objects travel INTO the machine, and their text then goes to the node URL you gave the client | While that command runs | Off: only when you pass an `s3://` root |
 | **`xerj autoindex s3:// --watch`** (client, not the node) — `--interval`, `--endpoint-url`, `AWS_*` | The same S3 requests as above, repeated every interval: a `ListObjectsV2` page per cycle plus a GET per changed object. Billed to the operator's object-store account, so the run keeps a spend ledger and stops at its budget | Every `--interval` while the watch runs | Off: only with `--watch` on an `s3://` root |
 

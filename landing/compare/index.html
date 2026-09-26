@@ -63,7 +63,7 @@
   "url": "https://xerj.org/compare/",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "isPartOf": {
     "@id": "https://xerj.org/#website"
   },
@@ -173,7 +173,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -238,13 +238,13 @@
   <ul>
     <li><a href="/compare/xerj-vs-ripgrep-all">How do I grep PDFs and Word docs from the command line?</a> — ripgrep-all wraps ripgrep with adapters for PDF, Office files, archives and SQLite. XERJ indexes the same folder for an agent. A capability comparison, no benchmark.</li>
     <li><a href="/compare/xerj-vs-docfetcher">What's a free DocFetcher alternative that an agent can call?</a> — DocFetcher is a desktop search GUI with a portable index and Outlook PST support. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.</li>
-    <li><a href="/compare/xerj-vs-recoll">What's the best local desktop search for a folder of PDFs and docs?</a> — Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.</li>
+    <li><a href="/compare/xerj-vs-recoll">What's the best local desktop search for a folder of PDFs and docs?</a> — Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark.</li>
     <li><a href="/compare/xerj-vs-houdahspot">XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a> — HoudahSpot is a power-user front end for Spotlight, with hundreds of attribute filters. XERJ is a folder index an agent calls. No Mac run stands behind this page.</li>
     <li><a href="/compare/xerj-vs-spotlight">XERJ vs macOS Spotlight for folder content an agent can query</a> — Spotlight is the Mac's system-wide index with zero setup and wide metadata. XERJ is a folder index an agent queries. A capability comparison, run on no Mac.</li>
   </ul>
   <h2>Comparison: local MCP search</h2>
   <ul>
-    <li><a href="/compare/xerj-vs-localsynapse">What's a local MCP search engine for Claude?</a> — Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API.</li>
+    <li><a href="/compare/xerj-vs-localsynapse">What's a local MCP search engine for Claude?</a> — Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API.</li>
   </ul>
   <h2>Comparison: local search engines</h2>
   <ul>
