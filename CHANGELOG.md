@@ -22,10 +22,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reconcile) drops idle CPU to 0.15–0.18 % and wakeups from ~46/s to ~26/s on
   the same corpus, with the WAL walk moved to the blocking pool. A scrape is
   the only moment these gauges are observable, so nothing is lost between
-  scrapes. The fixture and its coarse CI gate (`idle-budget` job) keep the
-  whole budget honest: CPU < 0.5 % of one core, O(1) wakeups/s, ≤ 0.2 MB RSS
-  per idle index, boot-to-green with zero WAL replay on a cleanly-flushed
-  corpus.
+  scrapes. The fixture and its coarse CI gate (`idle-budget` job, calibrated
+  to 256 kB/idx on the runner's host shape) keep the budget honest: CPU < 0.5 %
+  of one core, O(1) wakeups/s, boot-to-green with zero WAL replay on a
+  cleanly-flushed corpus. The 0.2 MB/index product line itself was still at or
+  above the line on 4-vCPU hosts at this point (204.9–209.9 kB measured,
+  N-slope 206.5 kB/idx) — that is
+  [#1024](https://github.com/xerj-org/xerj/issues/1024), met only after the
+  lazy seen-set work below (~63–69 kB, >3× margin). (PR
+  [#1020](https://github.com/xerj-org/xerj/pull/1020).)
+- **The flush publication bracket no longer spans the drain**
+  ([#1015](https://github.com/xerj-org/xerj/issues/1015)): flush drains now
+  freeze and the bracket wraps only the publish, so the ms-scale bracket
+  constraint the #1014 evenness check enforces finally holds on the drain side
+  too. Reader-fairness part two. (PR
+  [#1018](https://github.com/xerj-org/xerj/pull/1018).)
+- **Large-ingest id-position maps are built from the `__id` projection, and the
+  stored reassembly is streamed** ([#950](https://github.com/xerj-org/xerj/issues/950))
+  — the attribution work closed the issue rather than filing a follow-up: the
+  per-index structures that grew with corpus size during ingest were rebuilt
+  around projections and streaming, with `POST /{index}/_cache/clear` added to
+  release the rebuildable caches on demand (PR
+  [#1017](https://github.com/xerj-org/xerj/pull/1017); the cache endpoint is PR
+  [#1009](https://github.com/xerj-org/xerj/pull/1009)).
+- **`_delete_by_query` pages the whole match set, ids-only**
+  ([#1019](https://github.com/xerj-org/xerj/issues/1019)) — the one-shot
+  `size: 10_000` truncation class found there is gone from the delete path.
+  (PR [#1021](https://github.com/xerj-org/xerj/pull/1021).)
+- **`_update_by_query` pages the match set, with exact sig-text/enrich counts**
+  ([#1022](https://github.com/xerj-org/xerj/issues/1022)) — closing the
+  remaining single-shot by-query sites the issue named in the #1019 truncation
+  class; a single request is now a full-corpus traversal with a 10,000,000
+  `max_total` backstop rather than a silent 10,000-hit cap. (PR
+  [#1023](https://github.com/xerj-org/xerj/pull/1023).)
+
+### Added
+
+- **`POST /{index}/_cache/clear`** releases the index's rebuildable caches
+  ([#950](https://github.com/xerj-org/xerj/issues/950) follow-up work). (PR
+  [#1009](https://github.com/xerj-org/xerj/pull/1009).)
+- **An email-labelling benchmark for the System One wire**
+  ([discussion #1012](https://github.com/xerj-org/xerj/discussions/1012)):
+  local `POST /_decide` measured on 260 originally-authored synthetic emails
+  across the discussion's own four labels — 1.000 accuracy on the templated
+  tier, but 0.625 at 0.902 mean confidence on a hand-authored
+  boundary-crossing tier: wrong **and** confident, the miscalibration shape the
+  discussion itself flags for the hosted path. Nothing is wired into
+  `autoindex`; the README lists what that would still need. (PR
+  [#1026](https://github.com/xerj-org/xerj/pull/1026).)
+
+### Performance
+
+- **The request-cache seen-set no longer allocates on the first tracked
+  search** ([#1024](https://github.com/xerj-org/xerj/issues/1024)): a lazy
+  seen-set took idle per-index RSS from 206 to 64 kB — ~3× margin under the
+  0.2 MB/index idle budget line. (PRs
+  [#1025](https://github.com/xerj-org/xerj/pull/1025) and
+  [#1034](https://github.com/xerj-org/xerj/pull/1034).)
+
+### Documentation
+
+- The README says how XERJ works with Jev, in plain words (PR
+  [#1010](https://github.com/xerj-org/xerj/pull/1010)).
+- A field report from a local `/_decide` email-classification prototype
+  session (PR [#1027](https://github.com/xerj-org/xerj/pull/1027)).
+- `llms.txt` status claims caught up with `main`: rerank/share/mbox are on
+  `main`, #948 is closed by #1002 with the new memory numbers, and the residual
+  per-segment cache retention is re-anchored to #1032
+  ([#1028](https://github.com/xerj-org/xerj/issues/1028)). (PR
+  [#1033](https://github.com/xerj-org/xerj/pull/1033).)
 
 ## [1.0.0-rc.77] - 2026-09-21
 
@@ -193,7 +258,8 @@ locally. Everything else in this cut is a fix with a reproduction behind it.
 - **Ingest memory: a 1 GB mailbox no longer aborts under the default 16 GiB
   cap, and at-rest settled memory halved**
   ([#948](https://github.com/xerj-org/xerj/issues/948), PR #1002). A 1 GB
-  mailbox peaked at 25.4 GiB VmHWM under the 16 GiB cap (aborted: 510/2,530
+  mailbox peaked at 25,356.9 MiB (24.8 GiB) VmHWM under the 16 GiB cap
+  (aborted: 510/2,530
   needles missing, 0 edges; 68.5 GiB uncapped). The ingest-memory ledger found
   four causes: `memtable_shards` retained one parsed `Arc<Value>` per
   explicit-id write forever (flush drained the FTS memtable, never the storage
@@ -208,7 +274,10 @@ locally. Everything else in this cut is a fix with a reproduction behind it.
   972.8 -> 481-488 MiB (variant A, 3 runs) and 883.0 -> 280.8 MiB (variant C,
   100k x 100 B; retention ~677 -> ~108 MB). Merge batching follows the
   quickwit/tantivy approach (streaming_writer.rs:378, log_merge_policy.rs:22 —
-  no code copied).
+  no code copied). Residual, separately tracked: three per-segment caches
+  (`stored_value_cache`, `dv_cache`, `id_pos_cache`) remain unbounded until a
+  merge retires their segment —
+  [#1032](https://github.com/xerj-org/xerj/issues/1032).
 - **scalar8 keeps its promise: 2.3x faster kNN, and `_score` no longer depends
   on the filter**
   ([#392](https://github.com/xerj-org/xerj/issues/392), PR #999). scalar8
@@ -1779,8 +1848,10 @@ each shipped with a test proven to fail on the unfixed code.
 
 These shipped in rc.70 or earlier and were never written down, because
 rc.19–rc.70 have no CHANGELOG sections at all. They are recorded here rather
-than left under an "Unreleased" heading that misdescribes them; closing the
-rest of that gap is a GA item in [ROADMAP.md](./ROADMAP.md).
+than left under an "Unreleased" heading that misdescribes them. *(The gap has
+since been closed — the reconstructed rc.19–rc.70 sections appear below, so
+these fixes now also appear in their true releases. The entries are kept here
+because they carry the fuller write-up.)*
 
 - **Wrapping a query in a one-clause `bool` no longer changes its `_score` or
   its ranking** ([#399](https://github.com/xerj-org/xerj/issues/399)).
@@ -2011,6 +2082,1138 @@ silently reattributed.
   variables that do not exist, so every chart fell back to night-only values).
 - `match_phrase` `slop` is documented as in-order only, not transpositions
   ([#830](https://github.com/xerj-org/xerj/issues/830)).
+
+> **Reconstructed 2026-09-26.** Releases rc.19–rc.70 shipped without CHANGELOG
+> sections at cut time (acknowledged in the rc.71 note below). The entries in that
+> range were rebuilt after the fact from `git log` (merge subjects and commit
+> bodies) and each tag's GitHub release record; every issue/PR link they carry was
+> checked to exist within its release window. They are drier than ship-time entries —
+> numbers are quoted only where a commit body recorded them — and nothing was
+> force-fitted: the three entries that were still under `[Unreleased]` when rc.71
+> shipped were recorded, fuller, under rc.72's "Recorded late" heading above, and
+> stay there.
+
+## [1.0.0-rc.70] - 2026-08-26
+
+A CLI and autoindex-ergonomics release: `xerj search` lands as the one-command
+query client, autoindex warnings stop being silencible, and engine invariants
+for #421 get binding tests.
+
+### Added
+
+- **`xerj search` — the binary as a query client** ([#764](https://github.com/xerj-org/xerj/pull/764)).
+  Query from the CLI directly; the reference-coding demo drops its scripts.
+  Agent docs now teach it as the one-command query ([#771](https://github.com/xerj-org/xerj/pull/771)),
+  and it renders a code-symbol line plus code fields.
+
+### Fixed
+
+- **XERJ_URL warnings survive `--quiet`** ([#768](https://github.com/xerj-org/xerj/issues/768), via
+  [#769](https://github.com/xerj-org/xerj/pull/769)). The wrong-node warning is routed through
+  `pr.warn` instead of a bare `eprintln`, so it can no longer be silenced. Companion fix
+  [#765](https://github.com/xerj-org/xerj/issues/765) ([#766](https://github.com/xerj-org/xerj/pull/766)):
+  warn when XERJ_URL is set but `--url` was not passed, extended to map and status.
+- **Truncated files named in the #381 cap note** ([#759](https://github.com/xerj-org/xerj/issues/759),
+  via [#762](https://github.com/xerj-org/xerj/pull/762)); the #381 cap is also pinned at its exact boundary.
+- **`semantic_text` hint suppressed only when the vector dispatches** ([#394](https://github.com/xerj-org/xerj/issues/394),
+  via [#776](https://github.com/xerj-org/xerj/pull/776)), and the API docs stop over-claiming that
+  `dispatching_vector_fields` mirrors peel exactly ([#777](https://github.com/xerj-org/xerj/issues/777),
+  [#778](https://github.com/xerj-org/xerj/pull/778)).
+- **Legacy file-alias catalog doc swept by id** ([#739](https://github.com/xerj-org/xerj/issues/739),
+  via [#754](https://github.com/xerj-org/xerj/pull/754)); the #729/#730 review nits documented under
+  [#731](https://github.com/xerj-org/xerj/issues/731) ([#753](https://github.com/xerj-org/xerj/pull/753)).
+
+### Changed
+
+- **CI Build+Test hangs bounded** ([#751](https://github.com/xerj-org/xerj/issues/751), via
+  [#767](https://github.com/xerj-org/xerj/pull/767)): step-6 plus a job-level timeout so main is
+  not stuck for hours.
+
+### Changed — tests / docs
+
+- **#421 invariants bound**: the `_id` sort-value type and the
+  `build_doc_value_columns` underscore-skip invariant each get tests
+  ([#772](https://github.com/xerj-org/xerj/pull/772), [#773](https://github.com/xerj-org/xerj/pull/773)).
+- **#755 catalog-error enrichment wiring guarded** ([#760](https://github.com/xerj-org/xerj/pull/760),
+  via [#761](https://github.com/xerj-org/xerj/pull/761)).
+- **Six-model first-contact field report** ([#774](https://github.com/xerj-org/xerj/pull/774)):
+  XERJ works; agents skip the required report. In response, llms.txt surfaces
+  `xerj feedback` as first-run step 4 ([#775](https://github.com/xerj-org/xerj/pull/775)).
+- Release chores: landing version stamps bumped to rc.69 ([#763](https://github.com/xerj-org/xerj/pull/763)).
+
+## [1.0.0-rc.69] - 2026-08-25
+
+An autoindex-focused correctness release: two defect fixes in file
+section-record handling and legacy-catalog errors, plus landing version
+chores.
+
+### Fixed — autoindex
+
+- **Section records per file are capped and truncation is flagged**
+  ([#381](https://github.com/xerj-org/xerj/issues/381),
+  [#758](https://github.com/xerj-org/xerj/pull/758)). The cap is applied on
+  both the graph index path and the `--no-graph` generated path, and
+  truncation is surfaced rather than silently dropped.
+
+- **Legacy-catalog mapping conflicts return an explanation instead of an
+  opaque 400** ([#755](https://github.com/xerj-org/xerj/issues/755),
+  [#756](https://github.com/xerj-org/xerj/pull/756)).
+
+### Changed — chores
+
+- release chores: landing version stamps bumped to the released rc.68, with
+  SEO heads and sitemap regenerated
+  ([#757](https://github.com/xerj-org/xerj/pull/757)).
+
+## [1.0.0-rc.68] - 2026-08-25
+
+An autoindex-correctness release: the exclusion sweep gained the missing
+invalidations and scoping it needed, plus a batch of --no-graph pipeline fixes;
+around it, an embedder identity fix, a self-verifying release/installer
+toolchain, an agentic-SEO content programme, and CI hardening.
+
+### Fixed — autoindex
+
+- **Exclusion sweeps now purge everything a removed file leaves behind** — graph
+  edges ([#694](https://github.com/xerj-org/xerj/issues/694)), alias catalog
+  docs ([#693](https://github.com/xerj-org/xerj/issues/693)), inbound graph edges
+  ([#736](https://github.com/xerj-org/xerj/issues/736) sweep half), and a legacy
+  `file:` catalog doc by id ([#739](https://github.com/xerj-org/xerj/issues/739)).
+- **Sweeps are prefix-scoped** so a sibling corpus is not over-deleted
+  ([#737](https://github.com/xerj-org/xerj/issues/737)).
+- **`--no-graph` pipeline fixes**: the generated pipeline never consumed
+  `as_document` ([#722](https://github.com/xerj-org/xerj/issues/722)); a new
+  document/config is routed to the docs dataset on incremental runs, and
+  acceptance no longer re-counts pruned fields
+  ([#729](https://github.com/xerj-org/xerj/issues/729)); a `--no-graph` genesis
+  bootstrap continued on the graph path is now refused
+  ([#585](https://github.com/xerj-org/xerj/issues/585) case 2).
+- **A byte-identical duplicate no longer wedges a completed run**
+  ([#345](https://github.com/xerj-org/xerj/issues/345)).
+- **Catalog read-back diagnostics name the disagreeing field** (#367), with the
+  diff truncated on a char boundary.
+- **Files skipped after plan freeze surface distinctly**, not below the noise
+  floor ([#346](https://github.com/xerj-org/xerj/issues/346)); the genesis-guard
+  recovery message offers `--fresh` and the dry-run refusal is documented
+  ([#718](https://github.com/xerj-org/xerj/issues/718)); a frontmatter body is
+  classified by its structured family (#587 item 1).
+
+### Fixed — engine
+
+- **The proxy endpoint is folded into the embedder identity** (#533); the wire
+  identity version stays at 1 with a separate on-disk record version, and the
+  version-delta grandfather still refuses a backend change.
+
+### Fixed — release & site
+
+- **Correct CLI banner version, /get.sh installer, self-updating RC number**
+  ([#735](https://github.com/xerj-org/xerj/pull/735)), hotfixed for three
+  defects that merge introduced
+  ([#741](https://github.com/xerj-org/xerj/pull/741)), with a /get.sh fallback
+  when Functions are off ([#740](https://github.com/xerj-org/xerj/issues/740)).
+
+### Added
+
+- **Agentic-SEO programme** ([#550](https://github.com/xerj-org/xerj/pull/550)):
+  76 articles, 16 comparisons, plus site-wide SEO repair.
+- **grep-vs-retrieval benchmark harness for Lucene**
+  ([#493](https://github.com/xerj-org/xerj/pull/493)) — harness only, no
+  results yet.
+
+### Changed — ci / tests / chores
+
+- CI merges resolve before landing, tree-sitter hoisted
+  ([#352](https://github.com/xerj-org/xerj/issues/352)); every workflow action
+  pinned to a commit SHA and the toolchain to 1.97.1
+  ([#456](https://github.com/xerj-org/xerj/issues/456)); the default-parallelism
+  gate widened to the full `--workspace` (#384); landing/ deploys to Cloudflare
+  Pages. Test coverage for the Percentage/Field/Script msm unwrap (#643 gap 1).
+  Release chores: version stamps, CLA + artifact-verification reports from a
+  new contributor, stale-comment corrections (#719, #725).
+
+## [1.0.0-rc.67] - 2026-08-24
+
+A small correctness-and-docs release: one engine fix to dynamic field-budget
+admission counting, two test-docstring corrections from review follow-ups, and
+the rc.66 landing stamp.
+
+### Fixed
+
+- **Dynamic field-budget counts the whole subtree at admission**
+  ([#312](https://github.com/xerj-org/xerj/issues/312),
+  [#708](https://github.com/xerj-org/xerj/pull/708)). The admission-time budget
+  now accounts for the entire field subtree rather than a partial count.
+
+### Docs
+
+- **Corrected the #643 neutrality-guard docstring** (review follow-up)
+  ([#643](https://github.com/xerj-org/xerj/issues/643),
+  [#704](https://github.com/xerj-org/xerj/issues/704),
+  [#706](https://github.com/xerj-org/xerj/pull/706)).
+- **Corrected the #577 `residual_gate_bounds` `materialisation_limit` comment**
+  ([#577](https://github.com/xerj-org/xerj/issues/577),
+  [#705](https://github.com/xerj-org/xerj/issues/705),
+  [#709](https://github.com/xerj-org/xerj/pull/709)).
+
+Release chores: landing version stamp for v1.0.0-rc.66
+([#707](https://github.com/xerj-org/xerj/pull/707)).
+
+## [1.0.0-rc.66] - 2026-08-24
+
+An engine-correctness release: three query-semantics and kNN filtering fixes,
+plus the rc.65 landing stamp. The metrics chore logged 1928 assets and 1013
+binaries downloaded as of cut day.
+
+### Fixed
+
+- **`residual_gate` eager-trims `all_hits` to the page cap** ([#577](https://github.com/xerj-org/xerj/issues/577),
+  [#705](https://github.com/xerj-org/xerj/pull/705)). The gate now trims the
+  hit set to the requested page size instead of carrying the full set.
+
+- **Single-clause `bool` is unwrapped through `function_score` and `dis_max`**
+  ([#643](https://github.com/xerj-org/xerj/issues/643),
+  [#704](https://github.com/xerj-org/xerj/pull/704)). Wrappers no longer hide
+  a one-clause bool from scoring semantics.
+
+- **Nested kNN pre-filter evaluates schema-aware** ([#423](https://github.com/xerj-org/xerj/issues/423),
+  [#702](https://github.com/xerj-org/xerj/pull/702)). Pre-filtering on nested
+  documents now respects the index schema; the direct commit extends the same
+  treatment to post-filters.
+
+### Changed — chores
+
+- Release chores: landing stamp for v1.0.0-rc.65
+  ([#703](https://github.com/xerj-org/xerj/pull/703)).
+
+## [1.0.0-rc.65] - 2026-08-24
+
+A small correctness release: one engine fix to filtered kNN, plus docs and
+release-chores merges.
+
+### Fixed
+
+- **Filtered kNN evaluates its filter schema-aware**
+  ([#423](https://github.com/xerj-org/xerj/issues/423),
+  [#701](https://github.com/xerj-org/xerj/pull/701)). The filter used during
+  kNN search is now evaluated with awareness of the schema.
+
+### Changed — docs & chores
+
+- **Softened `meta_sort_value` docs claim** ([#421](https://github.com/xerj-org/xerj/issues/421),
+  [#699](https://github.com/xerj-org/xerj/pull/699)) — item 2 of #421: the
+  sort-vs-`_seq_no` agreement claim was toned down.
+- Release chores: landing stamp for v1.0.0-rc.64
+  ([#700](https://github.com/xerj-org/xerj/pull/700)).
+
+## [1.0.0-rc.64] - 2026-08-23
+
+A two-fix engine release: a memtable sort-path performance defect and a
+nested-terms aggregation correctness defect, plus release chores.
+
+### Fixed
+
+- **Meta-aware memtable pre-clone rejection for `_seq_no`/`_version` sorts**
+  ([#421](https://github.com/xerj-org/xerj/issues/421),
+  [#698](https://github.com/xerj-org/xerj/pull/698)). The memtable was
+  pre-cloned on sorts over `_seq_no`/`_version`; the clone is now rejected for
+  those meta fields, restoring O(1) behavior.
+
+- **Nested-terms sub-aggregations deferred to surviving top-N buckets**
+  ([#375](https://github.com/xerj-org/xerj/issues/375),
+  [#696](https://github.com/xerj-org/xerj/pull/696)). Sub-aggregations under
+  nested `terms` now run only over the buckets that survive top-N truncation
+  rather than over all buckets.
+
+### Changed — chores
+
+- Release chores: landing the v1.0.0-rc.63 version stamp
+  ([#697](https://github.com/xerj-org/xerj/pull/697)).
+
+## [1.0.0-rc.63] - 2026-08-23
+
+An autoindex-semantics release: two fixes around excluded groups and pending
+no-graph generations, one test extraction, and a version stamp.
+
+### Fixed — autoindex
+
+- **A newly-excluded group's documents are swept, not refused** ([#589](https://github.com/xerj-org/xerj/issues/589)).
+  When a group became excluded, the delta was rejected outright; it is now swept,
+  with exact-dataset indices covered by a mock-ES integration test
+  ([#690](https://github.com/xerj-org/xerj/pull/690)).
+- **A pending `--no-graph` generation resumed on the graph path is refused**
+  ([#585](https://github.com/xerj-org/xerj/issues/585)). "Case 1" of the
+  graph-crosspath defect: a pending sync resumed under a mismatched graph mode
+  is now rejected rather than silently continuing ([#692](https://github.com/xerj-org/xerj/pull/692)).
+
+### Changed — tests
+
+- **Extracted `tcorr_id` + prefix-scope unit test** ([#689](https://github.com/xerj-org/xerj/issues/689),
+  [#695](https://github.com/xerj-org/xerj/pull/695)).
+
+Release chores: landing the v1.0.0-rc.62 version stamp ([#691](https://github.com/xerj-org/xerj/pull/691)).
+
+## [1.0.0-rc.62] - 2026-08-23
+
+A small autoindex correctness release: one fix to correlation catalog id
+scoping, plus the rc.61 landing stamp.
+
+### Fixed
+
+- **Prefix-scope for autoindex correlation catalog ids** ([#673](https://github.com/xerj-org/xerj/issues/673),
+  [#688](https://github.com/xerj-org/xerj/pull/688)). Correlation catalog ids
+  (`corr:`/`tcorr:`) are now scoped by prefix, per the fix in #688.
+
+Release chores: landing the v1.0.0-rc.61 version stamp
+([#687](https://github.com/xerj-org/xerj/pull/687)).
+
+## [1.0.0-rc.61] - 2026-08-23
+
+A single-fix correctness release plus release chores.
+
+### Fixed
+
+- **Single-clause bool unwrap now covers percentage `minimum_should_match`** ([#643](https://github.com/xerj-org/xerj/issues/643), [#686](https://github.com/xerj-org/xerj/pull/686)). The unwrap of single-clause bool queries handled integer-valued `minimum_should_match` but not percentage values below 200%.
+
+Release chores: landing the v1.0.0-rc.60 version stamp ([#685](https://github.com/xerj-org/xerj/pull/685)).
+
+## [1.0.0-rc.60] - 2026-08-23
+
+A small query-semantics release: `_name` on bool and prefix/wildcard clauses,
+plus the rc.59 landing stamp.
+
+### Fixed — query semantics
+
+- **`_name` honored on a bool clause** ([#681](https://github.com/xerj-org/xerj/issues/681),
+  [#684](https://github.com/xerj-org/xerj/pull/684)). Named-query matching
+  previously ignored `_name` set on a bool clause.
+- **`_name` honored on the expanded prefix/wildcard form** ([#681](https://github.com/xerj-org/xerj/issues/681),
+  [#682](https://github.com/xerj-org/xerj/pull/682)). The internally expanded
+  prefix/wildcard rewrite dropped the clause name; #684 completes this fix for
+  the bool form.
+
+### Changed — chores
+
+- release chores: landing version stamp for v1.0.0-rc.59
+  ([#683](https://github.com/xerj-org/xerj/pull/683)).
+
+## [1.0.0-rc.59] - 2026-08-23
+
+An Elasticsearch-compatibility correctness release: two query-semantics fixes
+(matched query naming and object sub-field term matching), plus a version
+stamp. No performance numbers were cited at cut time.
+
+### Fixed — query semantics
+
+- **`matched_queries` (`_name`) uses the schema-aware matcher**
+  ([#669](https://github.com/xerj-org/xerj/issues/669),
+  [#680](https://github.com/xerj-org/xerj/pull/680)). Named-query reporting
+  now goes through the same schema-aware matching path as the rest of the
+  engine.
+
+- **`term` on an object sub-field is flush-invariant**
+  ([#677](https://github.com/xerj-org/xerj/issues/677),
+  [#678](https://github.com/xerj-org/xerj/pull/678)). A term (and range count)
+  on a dotted object sub-field could diverge depending on flush state; the
+  matcher now falls back to a dotted-path source scan, with a reproducing
+  test (previously ignored) landing alongside.
+
+### Changed — chores
+
+- Release chores: landing the v1.0.0-rc.58 version stamp
+  ([#679](https://github.com/xerj-org/xerj/pull/679)).
+
+## [1.0.0-rc.58] - 2026-08-23
+
+A small correctness release: two search-semantics fixes (keyword fuzzy
+case-sensitivity, object-field prefix/wildcard flush-invariance) plus a landing
+version stamp.
+
+### Fixed
+
+- **Keyword fuzzy is case-sensitive by default** ([#423](https://github.com/xerj-org/xerj/issues/423),
+  [#406](https://github.com/xerj-org/xerj/issues/406); PR
+  [#675](https://github.com/xerj-org/xerj/pull/675)). Fuzzy previously ignored
+  `case_insensitive` and always folded case; a `case_insensitive` flag is now
+  threaded through `QueryNode::Fuzzy`, honored on all matcher paths, and the
+  sub-token fallback on the DV path is gated behind it. Includes a
+  fail-before repro test.
+
+- **Object-field prefix/wildcard is flush-invariant** ([#413](https://github.com/xerj-org/xerj/issues/413);
+  PR [#676](https://github.com/xerj-org/xerj/pull/676)). The memtable
+  prefix/wildcard path now mirrors the whole-object blob, so results match
+  across flushes.
+
+- Release chores: landing version stamps, changelog housekeeping
+  (rc.56 → rc.57, PR [#674](https://github.com/xerj-org/xerj/pull/674)).
+
+## [1.0.0-rc.57] - 2026-08-23
+
+A small correctness release: two engine/autoindex semantic fixes plus a release stamp.
+
+### Fixed
+
+- **Keyword wildcard matching is case-sensitive by default** ([#668](https://github.com/xerj-org/xerj/issues/668)).
+  Previously the keyword wildcard path folded case; it now honors the Elasticsearch
+  default, with a `case_insensitive` flag threaded through `QueryNode::Wildcard`
+  so all matcher paths respect it. Landed with a fail-before repro test.
+
+- **Autoindex catalog doc IDs are scoped by corpus prefix** ([#416](https://github.com/xerj-org/xerj/issues/416)).
+  Catalog documents from different corpora no longer overwrite each other's IDs
+  (no cross-corpus overwrite).
+
+### Changed — chores
+
+- release chores: landing version stamp-bump rc.55 → rc.56.
+
+## [1.0.0-rc.56] - 2026-08-23
+
+A single-fix correctness release: prefix and wildcard case-folding was
+flush-invariant, plus the usual release stamp.
+
+### Fixed
+
+- **Prefix & wildcard case-folding is flush-invariant** ([#396](https://github.com/xerj-org/xerj/issues/396),
+  [#667](https://github.com/xerj-org/xerj/pull/667)). A prefix query on a
+  keyword field folded case while the document lived in the memtable but was
+  case-sensitive once flushed to a segment, so the same query returned
+  different results depending on flush state. Landed with fail-before and
+  broadened repros (prefix also folded the query for text fields).
+
+Release chores: landing version stamp rc.54 → rc.55
+([#666](https://github.com/xerj-org/xerj/pull/666)).
+
+## [1.0.0-rc.55] - 2026-08-23
+
+A one-fix release: a count-semantics defect for `term` queries over keyword
+arrays, plus the routine landing stamp.
+
+### Fixed
+
+- **`term` on a keyword array is flush-invariant for counts** ([#408](https://github.com/xerj-org/xerj/issues/408),
+  [#665](https://github.com/xerj-org/xerj/pull/665)). Document counts for a
+  `term` match against a keyword array no longer shift across segment flushes.
+
+Release chores: landing version stamp rc.53 → rc.54
+([#664](https://github.com/xerj-org/xerj/pull/664)).
+
+## [1.0.0-rc.54] - 2026-08-23
+
+A one-fix release: `POST /<index>/_close` now actually reclaims RAM instead of just flipping a flag, plus the routine version stamp.
+
+### Fixed
+
+- **`_close` frees memory; `_open` reconstructs the index; closed indices stay visible** ([#463](https://github.com/xerj-org/xerj/issues/463), [#663](https://github.com/xerj-org/xerj/pull/663)).
+  The engine gained `close_index`/`reopen_index` methods that release caches while keeping the index on disk loadable, the API `_close`/`_open` endpoints were wired to them, and `_cat/indices` now lists closed indices with status `close` instead of dropping them from view.
+
+Release chores: landing version stamp rc.52 → rc.53 ([#662](https://github.com/xerj-org/xerj/pull/662)).
+
+## [1.0.0-rc.53] - 2026-08-23
+
+A small API-consistency release: one scroll behavior fix plus a release stamp.
+
+### Fixed
+
+- **`_search_scroll` first page now suppresses `_source` like `search_impl`** ([#659](https://github.com/xerj-org/xerj/issues/659),
+  [#661](https://github.com/xerj-org/xerj/pull/661)). The scroll API's first
+  page diverged from the search path's `_source` handling; it now matches, with
+  accompanying comment refreshes in the API docs.
+
+### Changed — chores
+
+- release chores: landing version stamp rc.51 → rc.52
+  ([#660](https://github.com/xerj-org/xerj/pull/660)).
+
+## [1.0.0-rc.52] - 2026-08-23
+
+A small API/engine correctness release: two `_source` handling defects —
+one in `_source` filtering inside nested arrays of objects, one in scroll
+continuation — plus a release stamp chore.
+
+### Fixed
+
+- **`_source` filters project inside nested arrays of objects**
+  ([#653](https://github.com/xerj-org/xerj/issues/653),
+  [#656](https://github.com/xerj-org/xerj/pull/656)). Field-level `_source`
+  projection had not been applied to hits whose values were nested arrays of
+  objects.
+
+- **Scroll continuation matches first-page `_source` suppression**
+  ([#637](https://github.com/xerj-org/xerj/issues/637),
+  [#658](https://github.com/xerj-org/xerj/pull/658)). Continuation pages
+  ignored the `_source` suppression in effect on the opening request; the fix
+  applies per-hit mapping suppression scoped to the opening route.
+
+### Changed — chores
+
+- release chores: landing stamp-bump v1.0.0-rc.50 → rc.51
+  ([#657](https://github.com/xerj-org/xerj/pull/657)).
+
+## [1.0.0-rc.51] - 2026-08-23
+
+A single-fix correctness release: collapse results under an explicit `_source`
+projection, plus the rc.50 landing stamp.
+
+### Fixed
+
+- **Collapse sentinels survive an explicit `_source` projection**
+  ([#651](https://github.com/xerj-org/xerj/issues/651),
+  [#655](https://github.com/xerj-org/xerj/pull/655)). Inner hits under
+  `collapse` vanished when the request also carried `_source.includes`; the
+  engine now preserves the collapse sentinels across that projection. Landed
+  with a reproducing API test and a rustfmt pass.
+
+Release chores: the v1.0.0-rc.49 → rc.50 landing stamp
+([#654](https://github.com/xerj-org/xerj/pull/654)).
+
+## [1.0.0-rc.50] - 2026-08-23
+
+A small `_source` projection correctness release: two fixes around how source
+filters apply inside arrays of objects, plus release chores.
+
+### Fixed
+
+- **`_source` filters are projected inside arrays of objects**
+  ([#644](https://github.com/xerj-org/xerj/issues/644),
+  [#652](https://github.com/xerj-org/xerj/pull/652)). Field-level source
+  filtering previously did not descend into arrays of objects; emptied array
+  elements and the empty array key are now pruned from the projection.
+
+- **`inner_hits` members honour the default `_source` projection**
+  ([#646](https://github.com/xerj-org/xerj/issues/646),
+  [#650](https://github.com/xerj-org/xerj/pull/650)). Collapsed inner_hits
+  entries now respect the default source projection instead of returning the
+  full document.
+
+### Changed — chores
+
+- release chores: landing version stamp rc.48 → rc.49
+  ([#649](https://github.com/xerj-org/xerj/pull/649)), plus the routine
+  release-downloads metrics snapshot.
+
+## [1.0.0-rc.49] - 2026-08-23
+
+A single-fix API release: `fields`/`docvalue_fields` now resolve named companion
+fields through the default `_source`, plus the rc.48 landing stamp landing late.
+
+### Fixed
+
+- **`fields`/`docvalue_fields` resolve a named companion under the default
+  `_source`** ([#310](https://github.com/xerj-org/xerj/issues/310),
+  [#647](https://github.com/xerj-org/xerj/pull/647)). Previously a named
+  companion field was missed when the default `_source` was in play; the fix
+  pierces `_source` and re-narrows it at the emission sites named in the
+  commits (the top-level `_source` and the scroll snapshot), and an
+  unresolvable `docvalue_field` is now omitted rather than emitted as `[]`.
+
+### Changed — chores
+
+- Release chores: the v1.0.0-rc.47 → rc.48 landing stamp
+  ([#645](https://github.com/xerj-org/xerj/pull/645)) landed inside this window.
+
+## [1.0.0-rc.48] - 2026-08-23
+
+An Elasticsearch-compatibility correctness release: two query/API semantics
+fixes (`_source` glob filtering, one-clause `bool` scoring) plus regression
+guards for collapse and rescore behavior.
+
+### Fixed
+
+- **Faithful ES `_source` glob automaton for nested paths**
+  ([#602](https://github.com/xerj-org/xerj/issues/602),
+  [#641](https://github.com/xerj-org/xerj/pull/641)). `_source` glob filtering
+  now follows ES `makeAnyString` semantics — globs cross dots, non-accepting
+  scalars are dropped, and dot-less globs route through the same automaton.
+
+- **A one-clause `bool` is a no-op**
+  ([#399](https://github.com/xerj-org/xerj/issues/399),
+  [#642](https://github.com/xerj-org/xerj/pull/642)). A single-clause `bool`
+  no longer changes `_score` and rank order.
+
+### Added — tests
+
+- **Collapse `inner_hits` page1==page2 byte-identity guard**
+  ([#623](https://github.com/xerj-org/xerj/issues/623),
+  [#640](https://github.com/xerj-org/xerj/pull/640)).
+- **Real rescore ranking test + keyword-rescore guard**
+  ([#627](https://github.com/xerj-org/xerj/issues/627),
+  [#639](https://github.com/xerj-org/xerj/pull/639)).
+
+Release chores: landing version stamp
+([#638](https://github.com/xerj-org/xerj/pull/638)).
+
+## [1.0.0-rc.47] - 2026-08-22
+
+A one-fix release: a scroll API defect plus the routine landing stamp.
+
+### Fixed
+
+- **Scroll continuation honours `_source: false` from the opening request** ([#624](https://github.com/xerj-org/xerj/issues/624), landed via [#636](https://github.com/xerj-org/xerj/pull/636)).
+  A scroll continuation was ignoring the `_source: false` setting made on the
+  opening request, returning source documents anyway.
+
+Release chores: landing version stamps for v1.0.0-rc.46 ([#635](https://github.com/xerj-org/xerj/pull/635)).
+
+## [1.0.0-rc.46] - 2026-08-22
+
+A small release: one targeted engine performance fix plus release chores.
+
+### Performance
+
+- **Residual gate skips Hit materialisation under `count_only`** ([#577](https://github.com/xerj-org/xerj/issues/577),
+  [#633](https://github.com/xerj-org/xerj/pull/633)). When a count-only query
+  takes the residual-gate path, hits are no longer materialised — the count is
+  produced without building the `Hit` structures. Landed as part 1 of #577.
+
+### Changed — chores
+
+- **Release chores**: landing the v1.0.0-rc.45 version stamp
+  ([#632](https://github.com/xerj-org/xerj/pull/632)).
+
+## [1.0.0-rc.45] - 2026-08-22
+
+A small scroll-versioning release: one API fix on the `_search_scroll` first page, one refactor unifying the scroll hit-render paths, and a version stamp.
+
+### Fixed
+
+- **`_search_scroll` first page carries `_seq_no`/`_version` when requested** ([#630](https://github.com/xerj-org/xerj/issues/630), landed via [#631](https://github.com/xerj-org/xerj/pull/631)).
+
+### Changed
+
+- **Scroll hit-render paths routed through `resolve_hit_versioning`** ([#614](https://github.com/xerj-org/xerj/issues/614), landed via [#629](https://github.com/xerj-org/xerj/pull/629)) — a refactor unifying the versioning logic ahead of the fix.
+
+Release chores: landing version stamp for rc.44 ([#628](https://github.com/xerj-org/xerj/pull/628)).
+
+## [1.0.0-rc.44] - 2026-08-22
+
+A one-fix correctness release plus the rc.43 stamp: rescore-phase keyword
+queries now respect the index mapping.
+
+### Fixed
+
+- **Keyword `match`/`multi_match` inside a rescore query is mapping-aware**
+  ([#574](https://github.com/xerj-org/xerj/issues/574), merged via
+  [#626](https://github.com/xerj-org/xerj/pull/626)). Previously the rescore
+  phase analyzed keyword fields without regard to the mapping, so a keyword
+  `match`/`multi_match` there behaved differently from the same query in the
+  main phase.
+
+Release chores: landing the v1.0.0-rc.43 version stamp
+([#625](https://github.com/xerj-org/xerj/pull/625)).
+
+## [1.0.0-rc.43] - 2026-08-22
+
+A small correctness release: one API fix for collapse rendering on scrolled
+pages, plus the rc.42 landing stamp.
+
+### Fixed
+
+- **Collapse `inner_hits` render on scroll continuation pages**
+  ([#621](https://github.com/xerj-org/xerj/issues/621),
+  [#622](https://github.com/xerj-org/xerj/pull/622)). The API failed to render
+  collapse `inner_hits` on pages after the first of a scroll.
+
+Release chores: landing version stamp for v1.0.0-rc.42
+([#620](https://github.com/xerj-org/xerj/pull/620)).
+
+## [1.0.0-rc.42] - 2026-08-22
+
+A small correctness release: one `_source` filtering fix, plus release chores.
+
+### Fixed
+
+- **`_source` `prefix.*` include now requires the dot boundary** ([#602](https://github.com/xerj-org/xerj/issues/602), part of).
+  A `prefix.*` include pattern was matching fields whose names merely started
+  with `prefix` (e.g. `prefixfoo`); it now matches only `prefix.something`.
+  Landed via [#619](https://github.com/xerj-org/xerj/pull/619).
+
+Release chores: landing the v1.0.0-rc.41 version stamp ([#618](https://github.com/xerj-org/xerj/pull/618)).
+
+## [1.0.0-rc.41] - 2026-08-22
+
+A one-fix correctness release plus release chores.
+
+### Fixed
+
+- **Hybrid total reports `Eq` at the exact `per_query_topk` boundary** ([#594](https://github.com/xerj-org/xerj/issues/594),
+  [#617](https://github.com/xerj-org/xerj/pull/617)). The hybrid query's total-hit
+  count reported `Eq` when results landed exactly on the per-query top-k boundary.
+
+Release chores: landing the v1.0.0-rc.40 version stamp ([#616](https://github.com/xerj-org/xerj/pull/616)).
+
+## [1.0.0-rc.40] - 2026-08-22
+
+A small correctness release: one scoring-semantics fix for multi_match queries,
+plus release chores.
+
+### Fixed — query semantics
+
+- **`multi_match` `best_fields` over keyword+text fields now scores by `dis_max`** ([#572](https://github.com/xerj-org/xerj/issues/572),
+  [PR #615](https://github.com/xerj-org/xerj/pull/615)). A keyword+text
+  `best_fields` multi_match was being scored as a sum across fields instead of
+  taking the best-matching field, over-weighting documents that matched both.
+
+Release chores: landing the v1.0.0-rc.39 version stamp
+([PR #613](https://github.com/xerj-org/xerj/pull/613)).
+
+## [1.0.0-rc.39] - 2026-08-22
+
+A small correctness release: one API fix for hit versioning metadata, plus
+release chores.
+
+### Fixed
+
+- **Unresolved hits no longer fabricate `_seq_no`/`_version`** ([#603](https://github.com/xerj-org/xerj/issues/603),
+  [#612](https://github.com/xerj-org/xerj/pull/612)). When a hit could not be
+  resolved, the API had been inventing sequence-number and version values for
+  it; it now omits those fields instead.
+
+Release chores: landing version stamp for v1.0.0-rc.38
+([#611](https://github.com/xerj-org/xerj/pull/611)).
+
+## [1.0.0-rc.38] - 2026-08-22
+
+A small release: one engine test-stability fix plus the rc.37 landing stamp.
+
+### Fixed
+
+- **Painless recursion tests no longer SIGABRT on a debug build** ([#353](https://github.com/xerj-org/xerj/issues/353),
+  [#610](https://github.com/xerj-org/xerj/pull/610)).
+
+Release chores: landing version stamp for v1.0.0-rc.37 ([#609](https://github.com/xerj-org/xerj/pull/609)).
+
+## [1.0.0-rc.37] - 2026-08-22
+
+A small correctness release: aggregation memory is now bounded by the
+configured query-memory limit, plus the usual release chores.
+
+### Fixed
+
+- **Aggregation owned-source materialisation is bound to
+  `max_query_memory_mb`** ([#464](https://github.com/xerj-org/xerj/issues/464),
+  [#608](https://github.com/xerj-org/xerj/pull/608)). Both aggregation paths
+  now bound their corpus memory under the setting instead of materialising
+  unbounded owned sources.
+
+### Changed — chores
+
+- release chores: landing version stamp-bump v1.0.0-rc.35 → rc.36
+  ([#607](https://github.com/xerj-org/xerj/pull/607)).
+
+## [1.0.0-rc.36] - 2026-08-22
+
+A one-fix autoindex release plus release chores: Java constant symbols now land
+in the autoindex, and the landing page version stamp moved rc.34 → rc.35.
+
+### Fixed — autoindex
+
+- **Java static constants indexed as their own symbols** ([#500](https://github.com/xerj-org/xerj/issues/500)).
+  Static and interface constants were not previously emitted as standalone
+  symbols by the autoindex ([#605](https://github.com/xerj-org/xerj/pull/605)).
+
+### Changed — chores
+
+- release chores: landing version stamp-bump rc.34 → rc.35
+  ([#606](https://github.com/xerj-org/xerj/pull/606)).
+
+## [1.0.0-rc.35] - 2026-08-22
+
+An Elasticsearch-protocol correctness release: three targeted fixes — keyword
+query rewriting inside vector/score-filter contexts, collapse inner_hits
+metadata honesty, and `_source` dotted-filter handling of empty objects.
+
+### Fixed
+
+- **Keyword `match`/`multi_match` are mapping-aware inside
+  Knn/SemanticSearch/function_score filters** ([#574](https://github.com/xerj-org/xerj/issues/574),
+  [#604](https://github.com/xerj-org/xerj/pull/604)).
+- **Collapse `inner_hits` omit absent snapshot `_seq_no`/`_version`**
+  instead of fabricating values ([#566](https://github.com/xerj-org/xerj/issues/566),
+  [#601](https://github.com/xerj-org/xerj/pull/601)).
+- **An already-empty object is preserved under a dotted `_source` filter**,
+  with the relaxation gated to an accepting state and the accept test made
+  ES-correct for `.*` globs ([#310](https://github.com/xerj-org/xerj/issues/310),
+  [#599](https://github.com/xerj-org/xerj/pull/599)).
+
+### Changed — chores
+
+- Release chores: landing version stamp-bump rc.33 → rc.34
+  ([#600](https://github.com/xerj-org/xerj/pull/600)).
+
+## [1.0.0-rc.34] - 2026-08-22
+
+A single-fix engine release: the schema-evolution throttle was keyed too
+coarsely, plus the routine version stamp for the prior cut.
+
+### Fixed
+
+- **Schema throttle re-evolves on value-shape changes** ([#382](https://github.com/xerj-org/xerj/issues/382),
+  [#598](https://github.com/xerj-org/xerj/pull/598)). The evolution throttle
+  fingerprinted only field names, so a refused key never re-evolved when the
+  leaf value type changed; the leaf value-type is now folded into the hash,
+  and the fingerprint recurses into array elements so array-shape transitions
+  re-evolve too. Landed with an end-to-end guard test and a correction to the
+  accompanying hash-reach comments.
+
+### Changed — chores
+
+- Release chores: landing version stamp v1.0.0-rc.32 → rc.33
+  ([#597](https://github.com/xerj-org/xerj/pull/597)).
+
+## [1.0.0-rc.33] - 2026-08-22
+
+A small correctness release: one API fix for `_eql/search` event ordering, plus release chores.
+
+### Fixed
+
+- **`_eql/search` orders events by `@timestamp` instant across alias members before truncating** ([#567](https://github.com/xerj-org/xerj/issues/567), [#596](https://github.com/xerj-org/xerj/pull/596)).
+  Events from multiple alias members were previously not globally ordered by
+  `@timestamp` before the result set was truncated, so events could be cut
+  out of order.
+
+### Changed — chores
+
+- release chores: landing version stamp bump v1.0.0-rc.31 → rc.32 ([#595](https://github.com/xerj-org/xerj/pull/595)).
+
+## [1.0.0-rc.32] - 2026-08-22
+
+A small correctness release: one wire-protocol semantics fix for hybrid/fusion
+totals, one test-flake fix, and release chores.
+
+### Fixed
+
+- **Hybrid/fusion totals report `relation:gte` when capped** ([#569](https://github.com/xerj-org/xerj/issues/569)).
+  A capped total was previously reported as a false `eq`; it is now surfaced as
+  `relation:gte` ([#593](https://github.com/xerj-org/xerj/pull/593)).
+- **Stale HNSW rebuild test no longer flakes** ([#536](https://github.com/xerj-org/xerj/issues/536)).
+  The test now deterministically awaits the rebuild instead of racing it
+  ([#592](https://github.com/xerj-org/xerj/pull/592)).
+
+### Changed — chores
+
+- Release chores: landing version stamp-bump rc.30 → rc.31
+  ([#591](https://github.com/xerj-org/xerj/pull/591)) and metrics-only
+  release-download collection (no engine change).
+
+## [1.0.0-rc.31] - 2026-08-22
+
+A one-fix autoindex correctness release, plus a landing-page version stamp.
+
+### Fixed
+
+- **Autoindex no longer treats an excluded-but-present file as a deletion** ([#439](https://github.com/xerj-org/xerj/issues/439),
+  [#590](https://github.com/xerj-org/xerj/pull/590)). Files excluded from
+  indexing while still on disk — including those with non-UTF-8 names — were
+  being misread as deletions; the two cases are now distinguished.
+
+### Changed — chores
+
+- Release chores: landing stamp-bump v1.0.0-rc.29 → rc.30
+  ([#588](https://github.com/xerj-org/xerj/pull/588)).
+
+## [1.0.0-rc.30] - 2026-08-22
+
+An autoindex-correctness release: three fixes to how the autoindexer sniffs
+files and guards corpus re-runs, plus a landing version stamp.
+
+### Fixed — autoindex
+
+- **Markdown-with-frontmatter is sniffed as its body, not YAML** ([#551](https://github.com/xerj-org/xerj/issues/551)).
+  The sniffer treated the frontmatter as the document, so the indexed content
+  was the metadata block rather than the prose.
+
+- **A graph-path re-run of a `--no-graph` corpus is refused before it mutates**
+  ([#490](https://github.com/xerj-org/xerj/issues/490)). The cross-path
+  mutation was previously caught only after the damage; the check now precedes
+  it, and the regression test was made load-bearing.
+
+- **No more false "identity changed" for non-resumable backends**
+  ([#487](https://github.com/xerj-org/xerj/issues/487)). A backend that
+  simply cannot resume was misreported as a corpus identity change.
+
+Release chores: landing stamp-bump v1.0.0-rc.28 → rc.29
+([#582](https://github.com/xerj-org/xerj/pull/582)).
+
+## [1.0.0-rc.29] - 2026-08-21
+
+A small autoindex-correctness release: two fixes to the code autoindex/re-index
+path, plus a version stamp. The code-indexing pipeline had been collapsing
+declarations together and aborting on a schema edge case.
+
+### Fixed
+
+- **Each code declaration is indexed as its own retrievable document**
+  ([#500](https://github.com/xerj-org/xerj/issues/500),
+  [#579](https://github.com/xerj-org/xerj/pull/579)). Previously declarations
+  were not individually retrievable; per-declaration records are also deduped
+  by locator.
+
+- **Re-index no longer aborts on a field absent-but-unscored in the frozen
+  schema** ([#580](https://github.com/xerj-org/xerj/issues/580),
+  [#581](https://github.com/xerj-org/xerj/pull/581)). The re-index run
+  previously treated such fields as fatal.
+
+Release chores: landing version stamp rc.27 → rc.28
+([#578](https://github.com/xerj-org/xerj/pull/578)).
+
+## [1.0.0-rc.28] - 2026-08-21
+
+A one-fix correctness release: a bool-filter scoring defect, plus the rc.27
+version stamp landing in the same window.
+
+### Fixed
+
+- **Non-projectable bool `filter`/`must_not` no longer diverts the scorer**
+  ([#361](https://github.com/xerj-org/xerj/issues/361)).
+  A bool query whose filter or must_not clause was non-projectable was
+  diverting the scorer; it no longer does
+  ([#576](https://github.com/xerj-org/xerj/pull/576)).
+
+### Changed — chores
+
+- Release chores: landing the v1.0.0-rc.26 → rc.27 version stamp
+  ([#575](https://github.com/xerj-org/xerj/pull/575)).
+
+## [1.0.0-rc.27] - 2026-08-21
+
+An ES-compatibility correctness release: hybrid `knn` + `query` was not actually
+hybrid, keyword `match`/`multi_match` ignored the mapping (in the memtable and
+inside wrapper queries), and `cat_count` swallowed per-member errors.
+
+### Fixed
+
+- **`knn` beside `query` now folds to a true hybrid only when hybrid-safe**
+  ([#458](https://github.com/xerj-org/xerj/pull/458)). Previously the lexical
+  answer was returned and labelled hybrid; the rework completes the
+  `hybrid_safe` guard for every field `run_hybrid` drops, with tests covering
+  the union result and aggs-200.
+- **Keyword `match`/`multi_match` is mapping-aware** in the memtable
+  ([#354](https://github.com/xerj-org/xerj/issues/354)) and inside wrapper
+  queries (the #354 residual), including boosted `multi_match` after stripping
+  `^boost` ([#571](https://github.com/xerj-org/xerj/pull/571),
+  [#573](https://github.com/xerj-org/xerj/pull/573)).
+- **`cat_count` propagates per-member errors** instead of undercounting
+  ([#563](https://github.com/xerj-org/xerj/issues/563),
+  [#568](https://github.com/xerj-org/xerj/pull/568)).
+
+Release chores: site release stamps bumped to v1.0.0-rc.26
+([#570](https://github.com/xerj-org/xerj/pull/570)).
+
+## [1.0.0-rc.26] - 2026-08-21
+
+An alias-semantics and honesty release: filtered-alias reads fixed across the remaining ES-compat endpoints, a collapse inner_hits metadata fix, a semantic-clause dispatch fix, and a benchmark-harness correction alongside site documentation cleanup.
+
+### Fixed
+
+- **Alias filters applied on `_msearch`** ([#451](https://github.com/xerj-org/xerj/issues/451) class C, [#559](https://github.com/xerj-org/xerj/pull/559)). The same class-C pass also covers `_msearch/template`, `_cat/count`, and a scroll test guarding that scroll honours a filtered alias.
+- **`_eql/search` fans out to every alias member** ([#451](https://github.com/xerj-org/xerj/issues/451), the last class-B read site, [#561](https://github.com/xerj-org/xerj/pull/561)); the alias filter is applied on the fan-out, closing a filtered-alias leak.
+- **Collapse `inner_hits` carry snapshot `seq_no`/`version`** ([#506](https://github.com/xerj-org/xerj/issues/506), [#562](https://github.com/xerj-org/xerj/pull/562)).
+- **Single-clause `bool` wrapping a semantic clause now dispatches** ([#395](https://github.com/xerj-org/xerj/issues/395) case B, [#557](https://github.com/xerj-org/xerj/pull/557)).
+
+### Changed
+
+- **Harbor 3-arm benchmark honesty** ([#516](https://github.com/xerj-org/xerj/issues/516), [#564](https://github.com/xerj-org/xerj/pull/564)): partial arm coverage is now flagged and the tuned prompt's pre-asserted claim neutralized.
+- **Site docs: built-in neural embedder documented**, stale tally corrected and dead links fixed; `max_process_memory_mb` dropped from the config reference table ([#492](https://github.com/xerj-org/xerj/issues/492), [#565](https://github.com/xerj-org/xerj/pull/565)).
+
+Release chores: version stamps bumped to v1.0.0-rc.25 on the site ([#558](https://github.com/xerj-org/xerj/pull/558)).
+
+## [1.0.0-rc.25] - 2026-08-21
+
+A small ES-wire-compatibility release: one shared alias/index-selector resolver
+migrating read endpoints off first-index-only behavior, plus a regression test
+locking filtered-alias by-query delete safety.
+
+### Fixed
+
+- **Shared index-selector resolver for alias-aware read endpoints**
+  ([#451](https://github.com/xerj-org/xerj/issues/451),
+  [#555](https://github.com/xerj-org/xerj/pull/555)). Read endpoints resolved
+  through multi-index aliases by taking only the first member; `_mget`,
+  `_explain`, `_cat/segments`, and `_segments` now migrate onto a shared
+  resolver (class B of #451). A direct commit reproduces the original `_mget`
+  failure before the fix.
+
+### Added
+
+- **Regression coverage for filtered-alias by-query over-delete**
+  ([#553](https://github.com/xerj-org/xerj/issues/553),
+  [#556](https://github.com/xerj-org/xerj/pull/556)). Tests lock the
+  filtered-alias by-query slice safety and `_update_by_query` reporting
+  aggregate `deleted:0`.
+
+Release chores: site release stamps bumped to v1.0.0-rc.24
+([#554](https://github.com/xerj-org/xerj/pull/554)).
+
+## [1.0.0-rc.24] - 2026-08-21
+
+A small ES-compatibility fix release: `_delete_by_query`/`_update_by_query`
+through a multi-index alias, plus regression tests locking two kNN invariants.
+
+### Fixed — ES compatibility
+
+- **By-query APIs fan out to every alias member** ([#450](https://github.com/xerj-org/xerj/issues/450)).
+  `_delete_by_query`/`_update_by_query` issued through a multi-index alias
+  touched only the first member; they now apply to all members
+  ([#552](https://github.com/xerj-org/xerj/pull/552)).
+
+### Changed — tests
+
+- **Locked multi-knn and nested-knn 200 invariants** ([#547](https://github.com/xerj-org/xerj/issues/547)):
+  declared-but-empty knn sections must return 200
+  ([#549](https://github.com/xerj-org/xerj/pull/549)).
+
+Release chores: site release stamps bumped to rc.23 ([#548](https://github.com/xerj-org/xerj/pull/548)).
+
+## [1.0.0-rc.23] - 2026-08-20
+
+A small correctness release: one wire-protocol fix for nested kNN clauses, a shipped
+API regression test, and release chores.
+
+### Fixed
+
+- **Unanswerable field in a nested `knn` clause returns 400** ([#542](https://github.com/xerj-org/xerj/issues/542)).
+  The nested arm of the kNN validator now rejects such clauses with a client error
+  instead of failing to answer ([#546](https://github.com/xerj-org/xerj/pull/546)).
+
+### Added
+
+- **Regression test for semantic query on a non-`semantic_text` field**
+  ([#530](https://github.com/xerj-org/xerj/issues/530)). The negative case is now
+  covered, and the 400 response names the offending field
+  ([#545](https://github.com/xerj-org/xerj/pull/545)).
+
+Release chores: bumping site release stamps to v1.0.0-rc.22 ([#544](https://github.com/xerj-org/xerj/pull/544)).
+
+## [1.0.0-rc.22] - 2026-08-20
+
+A small kNN-correctness release: two fixes making kNN/semantic queries on
+unanswerable fields return a 400 instead of a silent empty 200, plus release
+stamps.
+
+### Fixed
+
+- **400 a knn/semantic clause on an unanswerable field** ([#498](https://github.com/xerj-org/xerj/issues/498),
+  [#541](https://github.com/xerj-org/xerj/pull/541)). A single top-level knn
+  targeting a field that cannot answer it no longer returns a silent empty 200.
+- **400 an unanswerable field in a multi-knn array clause** ([#542](https://github.com/xerj-org/xerj/issues/542),
+  [#543](https://github.com/xerj-org/xerj/pull/543)). The same semantics
+  extended to the multi-knn array form.
+
+Release chores: bumping site release stamps to v1.0.0-rc.21
+([#540](https://github.com/xerj-org/xerj/pull/540)).
+
+## [1.0.0-rc.21] - 2026-08-20
+
+A small correctness-and-hygiene release: two columnar-storage fixes, a CI
+unblock, an end-to-end test, and site housekeeping.
+
+### Fixed
+
+- **ZBS3 routed through the columnar retained-size estimator**
+  ([#538](https://github.com/xerj-org/xerj/issues/538),
+  [#539](https://github.com/xerj-org/xerj/pull/539)). The ZBS3 storage path
+  now goes through the columnar retained-size estimator instead of bypassing
+  it.
+- **Explicit `_source` nulls survive the columnar codec**
+  ([#415](https://github.com/xerj-org/xerj/issues/415),
+  [#535](https://github.com/xerj-org/xerj/pull/535)). Explicit nulls in
+  `_source` are preserved through the columnar codec rather than dropped.
+- **Clippy 1.98 satisfied across the workspace**
+  ([#537](https://github.com/xerj-org/xerj/pull/537)). Unblocks the Format +
+  Clippy CI jobs.
+- **sitemap.xml covers the zero-token and semantic-analytics pages**
+  ([#534](https://github.com/xerj-org/xerj/pull/534)).
+
+### Added
+
+- **End-to-end embedder-swap refusal test**
+  ([#522](https://github.com/xerj-org/xerj/issues/522),
+  [#532](https://github.com/xerj-org/xerj/pull/532)).
+
+### Changed — chores
+
+- Release chores: landing release stamps bumped, metrics release-download
+  counts captured (1148 assets, 624 binaries).
+
+## [1.0.0-rc.20] - 2026-08-19
+
+A small release: one engine fix (alias metadata persistence) and a batch of
+site/docs corrections ahead of it.
+
+### Fixed
+
+- **Alias filter metadata survives a restart** ([#524](https://github.com/xerj-org/xerj/issues/524),
+  [#525](https://github.com/xerj-org/xerj/pull/525)). Filtered-alias metadata
+  is now persisted instead of being lost across restarts.
+- **`llms.txt` "Current release" pointed at rc.19** ([#515](https://github.com/xerj-org/xerj/issues/515),
+  [#520](https://github.com/xerj-org/xerj/issues/520),
+  [#527](https://github.com/xerj-org/xerj/pull/527)). Corrected, with a guard
+  added so the stamp cannot drift again.
+
+### Documentation
+
+- **Zero-Token AI Search use-case page** ([#523](https://github.com/xerj-org/xerj/pull/523)).
+  Three real scenarios: code, PDF, Markdown.
+- **Snapshot/restore scoping corrected** ([#400](https://github.com/xerj-org/xerj/issues/400),
+  [#528](https://github.com/xerj-org/xerj/pull/528)). The `wal_tap` docs now
+  state snapshot/restore seeds a XERJ target only, not a cross-engine one.
+- **Honest "first hit" example**: the site query was replaced with one where
+  sniff.rs genuinely ranks first.
+
+### Changed — chores
+
+- Release chores: footer release stamps bumped to v1.0.0-rc.19
+  ([#526](https://github.com/xerj-org/xerj/pull/526)).
+
+## [1.0.0-rc.19] - 2026-08-19
+
+A broad correctness-and-honesty release: ES-compat fixes for aliases, scroll and
+sort; a stepped default memory cap; an embedding-mode safety guard; plus a wave
+of README/landing truth-alignment and two field-report harnesses.
+
+### Fixed — engine and ES-compat
+
+- **Multi-index aliases answer over all members** ([#449](https://github.com/xerj-org/xerj/pull/449)).
+  A multi-index alias had been answering as an alias over one member on every
+  read path; alias filters are now read from the names as written and applied
+  in `_count` too.
+- **Scroll carries real `_seq_no`/`_version`** ([#440](https://github.com/xerj-org/xerj/issues/440))
+  on the same read as `_source`, and the summed scroll snapshot cap is now
+  enforced on the alias route as well ([#405](https://github.com/xerj-org/xerj/issues/405)).
+- **Sort on an unresolvable field is rejected, honouring `unmapped_type`**
+  ([#437](https://github.com/xerj-org/xerj/issues/437)) instead of
+  null-stranding `search_after`.
+- **Embedding-mode guard**: the engine refuses to open an index whose vectors
+  were produced under a different `embedding.mode` ([#446](https://github.com/xerj-org/xerj/pull/446));
+  the resolved embedder is recorded in a separate sidecar, not the mode string.
+- **Stepped default memory cap** ([#477](https://github.com/xerj-org/xerj/pull/477)):
+  8/16/32 GiB by RAM instead of a flat 8 GiB, with both memory env knobs
+  accepting `auto|off|unlimited|<MiB>` ([#502](https://github.com/xerj-org/xerj/issues/502)).
+- **`%PDF-` magic signature qualified** in autoindex ([#403](https://github.com/xerj-org/xerj/issues/403));
+  first-launch console link prints the bound ES-compat port, not the requested
+  one ([#495](https://github.com/xerj-org/xerj/pull/495)); `feedback --open-pr`
+  commits only the field report, not the whole staged index ([#484](https://github.com/xerj-org/xerj/issues/484));
+  de-flaked `bool_deadline_never_broadens_a_must` ([#510](https://github.com/xerj-org/xerj/issues/510)).
+
+### Added
+
+- **Reproducible 3-arm Harbor benchmark harness** (Claude Code vs XERJ vs
+  tuned, [#513](https://github.com/xerj-org/xerj/pull/513)) with measured fixes
+  from the first parallel campaign night ([#521](https://github.com/xerj-org/xerj/pull/521)),
+  and a field report running Frontier-Bench v0.1 as a 3-arm XERJ A/B
+  ([#512](https://github.com/xerj-org/xerj/pull/512)) plus one on building a
+  token benchmark against Lucene ([#494](https://github.com/xerj-org/xerj/pull/494)).
+
+### Changed — docs and CI
+
+- README reworked in three passes (badges-first plain prose, one value-first
+  opening paragraph, then repositioned around reference coding and token
+  savings); landing pages verify release downloads ([#454](https://github.com/xerj-org/xerj/issues/454));
+  the public-sector page drops at-rest-crypto claims the build does not ship
+  ([#491](https://github.com/xerj-org/xerj/issues/491)).
+- CI: the landing-constants-guard is wired in and the site re-stamped
+  ([#489](https://github.com/xerj-org/xerj/issues/489)); main's CI runs are no
+  longer cancelled, so the badge stops showing cancelled-as-failing
+  ([#503](https://github.com/xerj-org/xerj/pull/503)).
 
 ## [1.0.0-rc.18] - 2026-08-18
 
