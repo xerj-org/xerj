@@ -64,8 +64,8 @@ _NEG = r"(?:no|not|never|without|lacks?|lacking|cannot|can't|does not|doesn't|do
 def _neg_near(term, span=90):
     """`<negation> ... <term>` or `<term> ... is/are not` inside one sentence."""
     return (r"(?:" + _NEG + r"\b[^.\n]{0,%d}\b(?:%s)" % (span, term) +
-            r"|\b(?:%s)\b[^.\n]{0,%d}\b(?:is|are|was|were)\s+not\b" % (term, span) +
-            r"|\b(?:%s)\b[^.\n]{0,%d}\b(?:is|are)\s+(?:absent|inert|unimplemented|not implemented|not enforced|not supported)\b" % (term, span) +
+            r"|\b(?:%s)\b[^.\n]{0,%d}\b(?:is|are|was|were)\s+(?:still\s+|yet\s+)?not\b" % (term, span) +
+            r"|\b(?:%s)\b[^.\n]{0,%d}\b(?:is|are)\s+(?:still\s+|yet\s+)?(?:absent|inert|unimplemented|not implemented|not enforced|not supported)\b" % (term, span) +
             r")")
 
 
@@ -106,6 +106,12 @@ RULES = [
             r"on-disk repositor|\bdata_dir\b|repo_path",
             _neg_near(_S3_TERMS, 120),
             r"silently|201 success|reports success|appears to succeed|drops? the s3",
+            # `snapshot.json` is a real, named artifact since v1.0.0-rc.77 — the
+            # per-index publication catalogue the s3 storage backend writes. The
+            # word "snapshot" alone puts a paragraph in backup context, but a
+            # paragraph naming `snapshot.json` is describing that catalogue, not
+            # the `_snapshot`/repository feature this rule guards.
+            r"snapshot\.json",
         ],
         "code": True,
         "reason": ("The endpoint EXISTS and returns `201 Created` with `\"state\":\"SUCCESS\"` "
@@ -129,11 +135,14 @@ RULES = [
         # Was FC-S3-INGEST, which blocked any claim that autoindex reads from an
         # object store. That claim became TRUE: `xerj autoindex s3://bucket/prefix`
         # lists the prefix over ListObjectsV2 and streams each changed object in.
-        # What is still false — and is what this rule now guards — is the OTHER
-        # half people assume follows from it: that the INDEX therefore lives in
-        # the bucket, or that no local disk is involved. Both are wrong, and both
-        # are the kind of claim a reader would act on by sizing a machine with no
-        # room for the corpus.
+        # The index-in-a-bucket half then became TRUE too, in v1.0.0-rc.77
+        # (#1008 closing #965): with `storage.backend = "s3"` and an existing
+        # `storage.s3_bucket`, the segment path writes ZBM1 bundles to the
+        # bucket as the index's durable home. What is STILL false — what this
+        # rule guards — is the unqualified claim: the default backend is
+        # `local`, an autoindex run never puts the index in the bucket, and
+        # "no local disk at all" is wrong in every configuration because the
+        # WAL stays local.
         "id": "FC-S3-INDEX-IN-BUCKET",
         "title": "The INDEX living in object storage",
         "intent": "claims that XERJ keeps its index, segments or shards in a bucket, "
@@ -149,6 +158,17 @@ RULES = [
                     % (_S3_TERMS, _S3_TERMS, _S3_TERMS, _S3_TERMS)),
         "exempt": [
             _neg_near(_S3_TERMS, 120),
+            # The rc.77-qualified truth (paragraph-scoped like every other
+            # exemption): naming the config knob, the bucket setting, the
+            # version that shipped it, or the PR — any of these in the same
+            # paragraph means the claim is the qualified one, not the
+            # assumption. An article that mentions `storage.backend` once in
+            # one paragraph still cannot claim an unqualified index-in-bucket
+            # in a DIFFERENT paragraph.
+            r"storage\.backend|storage\.s3_bucket|\bs3_backend\b",
+            r"since v1\.0\.0-rc\.77|v1\.0\.0-rc\.77|rc\.77\b",
+            r"\[#1008\]|\(#1008\)|pull/1008",
+            r"\bZBM1\b|snapshot\.json",
             # "<object-store noun> ... does not work / cannot / will not" — the
             # shape `_neg_near` misses, because it only looks for a negation
             # BEFORE the noun or for "<noun> is not". A sentence that says
@@ -173,20 +193,24 @@ RULES = [
             r"[^.\n]{0,40}?\b(?:live|lives|living|sit|sits|are|is|stay|stays|"
             r"reside|resides)\b[^.\n]{0,25}?\b(?:%s)\b" % _S3_TERMS,
         ],
-        "reason": ("The SOURCE can be a bucket; the INDEX cannot. `xerj autoindex "
-                   "s3://bucket/prefix` lists the prefix and streams each changed object "
-                   "into a local mirror under `--state-dir`, and the index those documents "
-                   "are written into lives on the XERJ node's own disk. There is no "
-                   "object-store storage backend: `storage.backend = \"s3\"` is rejected at "
-                   "startup, and no segment, shard or WAL file is ever written to a bucket. "
-                   "A reader who believes otherwise sizes a host with no disk for the corpus "
-                   "and no disk for the index."),
-        "evidence": ["docs/OBJECT_STORAGE.md:255", "docs/OBJECT_STORAGE.md:320"],
+        "reason": ("The SOURCE can always be a bucket; the INDEX can only be one when the "
+                   "operator explicitly configured it. `xerj autoindex s3://bucket/prefix` "
+                   "mirrors objects to local disk under `--state-dir` and the index lives "
+                   "on the XERJ node — that path never puts an index in a bucket. Since "
+                   "v1.0.0-rc.77 (#1008), `storage.backend = \"s3\"` with an existing "
+                   "`storage.s3_bucket` is the one configuration whose durable home IS the "
+                   "bucket (one ZBM1 bundle per segment family plus `snapshot.json`), and "
+                   "even there the WAL stays local. The default backend is `local`. A "
+                   "reader told the index lives in a bucket without the setting named "
+                   "sizes a host with no disk for the corpus."),
+        "evidence": ["docs/OBJECT_STORAGE.md:1", "docs/RERANK.md:353"],
         "rewrite": ("XERJ reads DOCUMENTS from object storage: `xerj autoindex "
                     "s3://bucket/prefix` (also `r2://`, or any S3-compatible store with "
                     "`--endpoint-url`). The objects are mirrored to local disk under "
-                    "`--state-dir` and the index lives on the XERJ node. Keeping the index "
-                    "itself in a bucket is not implemented."),
+                    "`--state-dir` and the index lives on the XERJ node. Since "
+                    "v1.0.0-rc.77 you can also set the index's own durable home to a "
+                    "bucket — `storage.backend = \"s3\"` with an existing "
+                    "`storage.s3_bucket` — which the default (`local`) never does."),
     },
 
     # ---------------------------------------------------------------- RBAC / SSO
@@ -1554,7 +1578,10 @@ THING_MATRIX = [
      "cite": "docs/OBJECT_STORAGE.md:1",
      "gate": ("Write - s3://, r2:// and any S3-compatible store via --endpoint-url. SOURCE side "
               "only: the objects are mirrored to local disk under --state-dir and the index stays "
-              "on the node. Never imply the index lives in the bucket. Indexing a bucket is "
+              "on the node; an autoindex run never puts the index in the bucket. (Since "
+              "v1.0.0-rc.77, #1008, `storage.backend = \"s3\"` is the separate, opt-in way to "
+              "give the index itself a bucket home - say that when you mean it, with the knob "
+              "named.) Indexing a bucket is "
               "ONE-SHOT and the run prints what a schedule would cost; `--watch` is a separate "
               "thing and does NOT index - it polls the prefix and emits a change feed, with a "
               "bounded Class A budget. Never say a watch keeps an index current by itself."),
