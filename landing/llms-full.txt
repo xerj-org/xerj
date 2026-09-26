@@ -232,13 +232,16 @@ For a complete disconnected deployment procedure, including current GitHub relea
 - Ingest scale: streaming and resumable, multi-GB verified — NOT TB-scale end-to-end.
   The `autoindex` ingest pipeline streams with flat client memory (peak client RSS
   ~250 MB even at 5× input growth) and resumes after `kill -9` via a journal with
-  idempotent `_id`s. The CLIENT architecture is TB-ready; the SERVER is not yet: it
-  currently retains heap per indexed doc — an open, tracked RSS-runaway defect (the
-  exact ceiling depends on the box and document shape, so no single figure is quoted).
-  Do not plan corpora beyond a few million documents until that fix lands.
+  idempotent `_id`s. The CLIENT architecture is TB-ready; the SERVER still is not: it
+  retains heap per indexed doc. The #948 RSS-runaway is FIXED (#1002, v1.0.0-rc.76 —
+  at-rest retention after a 100k-doc ingest fell ~677 → ~108 MB; a 1 GB mailbox
+  completes under its 16 GiB cap), but three per-segment caches (`stored_value_cache`,
+  `dv_cache`, `id_pos_cache`) remain unbounded until a merge retires their segment
+  (#1032). Do not plan corpora beyond a few million documents.
   Sizing, because this collides with the reference-coding workload (clone and index
   several large repositories): server RSS keeps climbing with total documents indexed
-  for the life of the process. One observed data point, not a formula — a
+  for the life of the process. One observed data point (2026-09, before #1002), not a
+  formula — a
   lexical-mode node part-way through a large multi-repository code corpus was
   resident at 20.2 GB. Index one corpus at a time, watch the process
   (`ps -o rss= -p <pid>`), and restart the node between corpora on a small box: a
@@ -285,9 +288,6 @@ For a complete disconnected deployment procedure, including current GitHub relea
       crate is named xerj-wasm; there is no wasmtime dependency and no wasm feature. A
       pipeline naming an unimplemented processor is stored as unrunnable and every
       ingest through it is refused.
-    * A rerank stage, share links / guest reading, `mbox` and Takeout ingest: in flight
-      on branches, NOT on `main`. (`.eml` / MIME extraction in `autoindex` is on `main`,
-      unreleased.)
     * A log-specific index mode (the xerj-logs crate has zero call sites outside its
       tests) and downloadable signed corpus packs: planned, no code.
   Measured limits of the opt-in neural path (`--embed-mode neural`), each a filed issue
@@ -479,10 +479,11 @@ catalog → verify.
     streamed one message at a time; attachments become their own records, PDFs per
     page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`
     detector; archives are never opened — a `.zip`/`.tgz` is junk with the command to
-    extract it; no PST/OST/Maildir — and a measured limit: on a 1 GB synthetic
-    mailbox the client peaked under 300 MB but the NODE needed 66.9 GiB of RSS to
-    finish and did not finish under its default 16 GiB cap, #948; warn the person
-    before indexing a multi-GB export), and gzip-compressed variants.
+    extract it; no PST/OST/Maildir — and a measured limit: since #1002 (v1.0.0-rc.76)
+    a 1 GB synthetic mailbox completes under the node's default 16 GiB cap (407.7 s)
+    but still peaks at 21,405.3 MiB, 1.3× that cap, and a 300 MB mailbox fits an
+    8 GiB cap (7,963.6 MiB); warn the person before indexing a multi-GB export), and
+    gzip-compressed variants.
   - Types are INFERRED from bounded samples (default 500 records/file, `--sample N`):
     long/double/boolean/date/keyword/text, keyword-vs-text by cardinality, entity
     signals (emails, IPs, UUIDs, URLs), and date ENCODINGS — ISO-ms, epoch-ms,
