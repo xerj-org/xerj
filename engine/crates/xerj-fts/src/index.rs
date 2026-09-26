@@ -341,6 +341,38 @@ const META_MAGIC_V3: &[u8; 4] = b"ZFM3";
 /// `Vec<u8>` ZFM3 already populates, so the lookup hot path is
 /// completely unchanged.
 const META_MAGIC_V4: &[u8; 4] = b"ZFM4";
+/// ZFM5 = the ZFM4 records section replaced by four columnar varint
+/// streams before the Zstd envelope.  ZFM4 kept the fixed 24-byte
+/// `{df u32, ttf u64, off u64, len u32}` record stride; Zstd cannot
+/// match across that stride's alternating widths, so on the 100 k-doc
+/// harness segment `doc_id.meta` (100 k unique terms, every one
+/// `ttf == df`, every postings gap zero) still cost 138.7 KB on disk
+/// for ~200 B of information.  ZFM5 stores, per term, only varints of
+/// what actually varies:
+///
+/// ```text
+///   df stream     num_terms × uvarint(doc_frequency)
+///   [ttf stream]  num_terms × uvarint(ttf − df)   — elided when every
+///                 term in the field has ttf == df (keyword-shaped fields)
+///   gap stream    num_terms × uvarint(off − prev_off − prev_len)
+///   len stream    num_terms × uvarint(postings_length)
+/// ```
+///
+/// Measured on that segment the `.meta` family drops 199,390 → ~13,062 B
+/// (−93.4 %), and the win scales with term cardinality, which is exactly
+/// the shape of the 66.5 M-doc nginx battle's id fields.  Peer pattern:
+/// tantivy's `TermInfoValueWriter::serialize_block`
+/// (`src/termdict/sstable_termdict/mod.rs:92-105`, MIT — postings-peers
+/// corpus) writes block-leading absolute range starts once and then only
+/// per-term `VInt(doc_freq)` + `VInt(range.len)`, reconstructing offsets
+/// by accumulation.  ZFM5 keeps an explicit gap varint rather than
+/// assuming contiguity — one byte per term pre-compression, and the
+/// decoder never has to trust that every writer packed tightly.
+///
+/// On read the streams are expanded once at open time into the same
+/// in-memory `flat_records` 24-byte-stride `Vec<u8>` ZFM3/ZFM4 build, so
+/// the FST byte-offset lookup hot path is completely unchanged.
+const META_MAGIC_V5: &[u8; 4] = b"ZFM5";
 /// Postings file wrapped in a whole-file LZ4 envelope — magic prefix
 /// lets the reader auto-detect and decompress while legacy `.post`
 /// files (no prefix) continue to work via the raw mmap path.
@@ -380,6 +412,9 @@ const ZFM3_RECORD_LEN: usize = 4 + 8 + 8 + 4; // 24 bytes: df, ttf, off, len
 /// + num_terms + has_positions).
 const ZFM3_HEADER_LEN: usize = 4 + 8 + 8 + 4 + 1;
 
+/// Header byte length for a ZFM5 file (ZFM3 header + the `flags` byte).
+const ZFM5_HEADER_LEN: usize = ZFM3_HEADER_LEN + 1;
+
 /// Encode a `.meta` file in the ZFM3 flat format.
 ///
 /// `sorted_terms` must be the same term-sorted order used to insert
@@ -405,6 +440,10 @@ const ZFM3_HEADER_LEN: usize = 4 + 8 + 8 + 4 + 1;
 ///   compressed_len       u32  (= len(zstd_payload), tail follows)
 ///   zstd_payload         compressed_len bytes
 /// ```
+/// Kept for the test fixtures that need a real on-disk ZFM4 segment —
+/// the writer default moved to ZFM5, and the ZFM4 decode arm (upgrade
+/// path for segments written between M4.7 and ZFM5) must stay exercised.
+#[cfg(test)]
 fn encode_field_meta_v4(
     stats: &FieldStats,
     has_positions: bool,
@@ -449,10 +488,193 @@ fn encode_field_meta_v4(
     Ok(out)
 }
 
+/// `flags` bit assignments for the ZFM5 header.
+const ZFM5_FLAG_TTF_STREAM: u8 = 0x01;
+
+/// Encode a `.meta` file in the ZFM5 format — see [`META_MAGIC_V5`].
+///
+/// Same header contract as ZFM4 (`num_terms`, `uncompressed_len` sanity
+/// check) so the decode side can share its validation, with one extra
+/// `flags` byte recording whether the ttf stream is present.
+fn encode_field_meta_v5(
+    stats: &FieldStats,
+    has_positions: bool,
+    sorted_terms: &[String],
+    term_postings: &HashMap<String, TermPostings>,
+    zstd_level: i32,
+) -> Result<Vec<u8>> {
+    use crate::postings::uvarint_encode;
+    let num_terms = sorted_terms.len();
+    // The ttf stream is all-or-nothing per field, decided up front: a
+    // per-term "needs an entry" decision made in scan order would leave
+    // the terms before the first ttf != df term without their zero
+    // entries, and the reader splits sections by fixed counts.
+    let ttf_stream_needed = sorted_terms.iter().any(|term| {
+        let tp = term_postings
+            .get(term)
+            .expect("sorted_terms must match term_postings keys");
+        if tp.total_term_frequency < tp.doc_frequency as u64 {
+            panic!("total_term_frequency below doc_frequency for '{term}'");
+        }
+        tp.total_term_frequency != tp.doc_frequency as u64
+    });
+    let flags = if ttf_stream_needed {
+        ZFM5_FLAG_TTF_STREAM
+    } else {
+        0u8
+    };
+    let mut dfs: Vec<u8> = Vec::with_capacity(num_terms);
+    let mut ttf_deltas: Vec<u8> = Vec::new();
+    let mut gaps: Vec<u8> = Vec::with_capacity(num_terms);
+    let mut lens: Vec<u8> = Vec::with_capacity(num_terms);
+    let mut prev_end = 0u64;
+    for term in sorted_terms {
+        let tp = term_postings
+            .get(term)
+            .expect("sorted_terms must match term_postings keys");
+        uvarint_encode(tp.doc_frequency as u64, &mut dfs);
+        if ttf_stream_needed {
+            uvarint_encode(
+                tp.total_term_frequency - tp.doc_frequency as u64,
+                &mut ttf_deltas,
+            );
+        }
+        if tp.postings_offset < prev_end {
+            return Err(anyhow::anyhow!(
+                "ZFM5 requires monotone postings offsets (term '{term}' at {} after {})",
+                tp.postings_offset,
+                prev_end
+            ));
+        }
+        uvarint_encode(tp.postings_offset - prev_end, &mut gaps);
+        uvarint_encode(tp.postings_length as u64, &mut lens);
+        prev_end = tp.postings_offset + tp.postings_length as u64;
+    }
+    let mut streams = dfs;
+    streams.extend_from_slice(&ttf_deltas);
+    streams.extend_from_slice(&gaps);
+    streams.extend_from_slice(&lens);
+    let compressed =
+        zstd::bulk::compress(&streams, zstd_level).with_context(|| "ZFM5 zstd compress")?;
+    let uncompressed_len = (num_terms * ZFM3_RECORD_LEN) as u32;
+    let mut out: Vec<u8> = Vec::with_capacity(ZFM5_HEADER_LEN + 8 + compressed.len());
+    out.extend_from_slice(META_MAGIC_V5);
+    out.write_u64::<LittleEndian>(stats.total_docs).unwrap();
+    out.write_u64::<LittleEndian>(stats.total_field_length)
+        .unwrap();
+    out.write_u32::<LittleEndian>(num_terms as u32).unwrap();
+    out.push(if has_positions { 1u8 } else { 0u8 });
+    out.push(flags);
+    out.write_u32::<LittleEndian>(uncompressed_len).unwrap();
+    out.write_u32::<LittleEndian>(compressed.len() as u32)
+        .unwrap();
+    out.extend_from_slice(&compressed);
+    Ok(out)
+}
+
 fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
     use std::io::Cursor;
     if bytes.len() < 4 {
         return Err(anyhow::anyhow!("field meta: too short"));
+    }
+    // ZFM5 path — columnar varint streams under the Zstd envelope,
+    // expanded once at open time into the ZFM3 flat-record layout.
+    if &bytes[..4] == META_MAGIC_V5 {
+        use crate::postings::uvarint_decode;
+        // Header + flags + the two trailing length u32s
+        let zfm5_prefix = ZFM5_HEADER_LEN + 4 + 4;
+        if bytes.len() < zfm5_prefix {
+            return Err(anyhow::anyhow!("field meta: ZFM5 truncated header"));
+        }
+        let mut cur = Cursor::new(&bytes[4..zfm5_prefix]);
+        let total_docs = cur.read_u64::<LittleEndian>()?;
+        let total_field_length = cur.read_u64::<LittleEndian>()?;
+        let num_terms = cur.read_u32::<LittleEndian>()? as usize;
+        let has_positions = cur.read_u8()? != 0;
+        let flags = cur.read_u8()?;
+        let uncompressed_len = cur.read_u32::<LittleEndian>()? as usize;
+        let compressed_len = cur.read_u32::<LittleEndian>()? as usize;
+        let expected_uncompressed = num_terms
+            .checked_mul(ZFM3_RECORD_LEN)
+            .ok_or_else(|| anyhow::anyhow!("field meta: ZFM5 num_terms overflow ({num_terms})"))?;
+        if uncompressed_len != expected_uncompressed {
+            return Err(anyhow::anyhow!(
+                "field meta: ZFM5 length mismatch (uncompressed_len={uncompressed_len}, num_terms*24={expected_uncompressed})"
+            ));
+        }
+        if bytes.len() != zfm5_prefix + compressed_len {
+            return Err(anyhow::anyhow!(
+                "field meta: ZFM5 payload length mismatch (expected {compressed_len} bytes, got {})",
+                bytes.len() - zfm5_prefix
+            ));
+        }
+        let streams = zstd::bulk::decompress(
+            &bytes[zfm5_prefix..],
+            // A u64 varint is at most 10 bytes, so 4 sections bound the
+            // streams at 40 B/term; anything larger is corruption.
+            num_terms.saturating_mul(4 * 10).max(64),
+        )
+        .with_context(|| "ZFM5 zstd decompress")?;
+        let mut scur = Cursor::new(streams.as_slice());
+        let mut read_section = |count: usize| -> Result<Vec<u64>> {
+            (0..count)
+                .map(|_| {
+                    uvarint_decode(&mut scur).map_err(|error| {
+                        anyhow::anyhow!("field meta: ZFM5 stream truncated ({error})")
+                    })
+                })
+                .collect()
+        };
+        let dfs = read_section(num_terms)?;
+        let ttf_deltas = if flags & ZFM5_FLAG_TTF_STREAM != 0 {
+            read_section(num_terms)?
+        } else {
+            vec![0u64; num_terms]
+        };
+        let gap_section = read_section(num_terms)?;
+        let len_section = read_section(num_terms)?;
+        if scur.position() as usize != streams.len() {
+            return Err(anyhow::anyhow!(
+                "field meta: ZFM5 trailing stream bytes ({} of {})",
+                streams.len() - scur.position() as usize,
+                streams.len()
+            ));
+        }
+        let mut flat_records: Vec<u8> = Vec::with_capacity(expected_uncompressed);
+        let mut offset = 0u64;
+        for i in 0..num_terms {
+            let df = u32::try_from(dfs[i])
+                .map_err(|_| anyhow::anyhow!("field meta: ZFM5 df exceeds u32"))?;
+            let ttf = df as u64 + ttf_deltas[i];
+            offset = offset
+                .checked_add(gap_section[i])
+                .ok_or_else(|| anyhow::anyhow!("field meta: ZFM5 offset overflow"))?;
+            let len = u32::try_from(len_section[i])
+                .map_err(|_| anyhow::anyhow!("field meta: ZFM5 postings_length exceeds u32"))?;
+            flat_records.write_u32::<LittleEndian>(df).unwrap();
+            flat_records.write_u64::<LittleEndian>(ttf).unwrap();
+            flat_records.write_u64::<LittleEndian>(offset).unwrap();
+            flat_records.write_u32::<LittleEndian>(len).unwrap();
+            offset = offset
+                .checked_add(len as u64)
+                .ok_or_else(|| anyhow::anyhow!("field meta: ZFM5 offset overflow"))?;
+        }
+        if flat_records.len() != expected_uncompressed {
+            return Err(anyhow::anyhow!(
+                "field meta: ZFM5 record expansion mismatch (got {}, expected {expected_uncompressed})",
+                flat_records.len()
+            ));
+        }
+        return Ok(FieldMeta {
+            stats: FieldStats {
+                total_docs,
+                total_field_length,
+            },
+            terms: HashMap::new(),
+            has_positions,
+            fst_value_format: FstValueFormat::MetaByteOffset,
+            flat_records,
+        });
     }
     // ZFM4 path — Zstd-compressed records section.  Decompresses
     // once at open time into the same `flat_records` Vec<u8> ZFM3
@@ -1371,12 +1593,13 @@ impl FtsIndexWriter {
         xerj_common::fsio::replace_file_durable(&fst_tmp, &fst_path)
             .with_context(|| format!("publishing FST {:?}", fst_path))?;
 
-        // 4. Write meta in the ZFM4 format — Zstd-19 envelope around
-        //    the per-term records section; ZFM3-compatible header so
-        //    `lookup_term` can decompress once at open time and use
-        //    the in-memory `flat_records` Vec exactly as before.
+        // 4. Write meta in the ZFM5 format — columnar varint streams
+        //    (df, ttf-delta, gaps, lengths) under the Zstd envelope;
+        //    ZFM3-compatible header so `lookup_term` can expand once at
+        //    open time and use the in-memory `flat_records` Vec exactly
+        //    as before.
         let has_positions = field_data.config.store_positions;
-        let meta_bytes = encode_field_meta_v4(
+        let meta_bytes = encode_field_meta_v5(
             &field_data.stats,
             has_positions,
             &sorted_terms,
@@ -2010,7 +2233,8 @@ impl FtsIndexReader {
                 && (&meta_bytes[..4] == META_MAGIC_V1
                     || &meta_bytes[..4] == META_MAGIC_V2
                     || &meta_bytes[..4] == META_MAGIC_V3
-                    || &meta_bytes[..4] == META_MAGIC_V4);
+                    || &meta_bytes[..4] == META_MAGIC_V4
+                    || &meta_bytes[..4] == META_MAGIC_V5);
             let meta: FieldMeta = if is_binary {
                 decode_field_meta_binary(&meta_bytes)
                     .with_context(|| "parsing binary field meta")?
@@ -2733,6 +2957,207 @@ mod tests {
         let tp = reader.lookup_term("title", "hello").unwrap();
         let data = reader.postings_data("title", &tp);
         assert!(data.is_some() && !data.unwrap().is_empty());
+    }
+
+    /// The current writer stamps the `ZFM5` meta format, and lookups
+    /// round-trip through the expanded flat records: a repeated term
+    /// (ttf > df) exercises the ttf stream, a keyword field with all
+    /// ttf == df exercises the elided-stream path, and both must agree
+    /// with the postings envelope's own view of the data.
+    #[test]
+    fn zfm5_envelope_written_and_lookup_roundtrips() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-zfm5", make_registry());
+        writer.configure_field(
+            "title",
+            FieldIndexConfig {
+                analyzer: "whitespace".to_owned(),
+                ..Default::default()
+            },
+        );
+        writer.configure_field(
+            "tag",
+            FieldIndexConfig {
+                analyzer: "keyword".to_owned(),
+                ..Default::default()
+            },
+        );
+        let doc = |title: &str, tag: &str| -> HashMap<String, FieldValues> {
+            vec![
+                ("title".to_owned(), FieldValues::from(title)),
+                ("tag".to_owned(), FieldValues::from(tag)),
+            ]
+            .into_iter()
+            .collect()
+        };
+        writer.add_document(0, &doc("hello hello world", "alpha"));
+        writer.add_document(1, &doc("hello rust", "beta"));
+        writer.finish().unwrap();
+
+        let meta = fs::read(dir.path().join("seg-zfm5.title.meta")).unwrap();
+        assert_eq!(&meta[..4], META_MAGIC_V5, "writer must stamp ZFM5");
+
+        let reader = FtsIndexReader::open(dir.path(), "seg-zfm5", &["title", "tag"]).unwrap();
+        let tp = reader.lookup_term("title", "hello").unwrap();
+        assert_eq!(tp.doc_frequency, 2);
+        assert_eq!(tp.total_term_frequency, 3); // ttf stream carries 3 − 2
+        let data = reader.postings_data("title", &tp).unwrap();
+        assert!(!data.is_empty());
+        let tp = reader.lookup_term("tag", "alpha").unwrap();
+        assert_eq!(tp.doc_frequency, 1);
+        assert_eq!(tp.total_term_frequency, 1); // elided stream ⇒ df + 0
+        assert!(reader.postings_data("tag", &tp).is_some());
+    }
+
+    /// Stream-level properties: the ttf stream is elided only when every
+    /// term has ttf == df, expansion reproduces the ZFM3 record layout
+    /// byte-for-byte, and non-contiguous postings gaps reconstruct
+    /// exactly.  The elided file must not be larger than the streamed one.
+    #[test]
+    fn zfm5_stream_elision_and_record_expansion_match_zfm3_layout() {
+        let stats = FieldStats {
+            total_docs: 9,
+            total_field_length: 40,
+        };
+        // `a_extra`/`c_extra` are ttf−df deltas: (0, 0) keeps every term
+        // at ttf == df (the elided shape); any non-zero forces the stream.
+        let mk = |a_ttf: u64, c_extra: u64| {
+            let mut map = HashMap::new();
+            // Non-contiguous on purpose: gaps of 0, 7 and 90 bytes.
+            map.insert(
+                "a".to_owned(),
+                TermPostings {
+                    doc_frequency: 3,
+                    total_term_frequency: 3 + a_ttf,
+                    postings_offset: 100,
+                    postings_length: 10,
+                },
+            );
+            map.insert(
+                "b".to_owned(),
+                TermPostings {
+                    doc_frequency: 1,
+                    total_term_frequency: 1,
+                    postings_offset: 117,
+                    postings_length: 20,
+                },
+            );
+            map.insert(
+                "c".to_owned(),
+                TermPostings {
+                    doc_frequency: 0x2000_0001, // forces a 5-byte varint lane
+                    total_term_frequency: 0x2000_0001 + c_extra,
+                    postings_offset: 200,
+                    postings_length: 5,
+                },
+            );
+            map
+        };
+        let terms = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
+        let elided = encode_field_meta_v5(&stats, true, &terms, &mk(0, 0), 3).unwrap();
+        let streamed = encode_field_meta_v5(&stats, true, &terms, &mk(1, 0), 3).unwrap();
+        assert_eq!(&elided[..4], META_MAGIC_V5);
+        // flags byte sits right after has_positions.
+        assert_eq!(elided[25] & ZFM5_FLAG_TTF_STREAM, 0, "ttf==df must elide");
+        assert_eq!(streamed[25] & ZFM5_FLAG_TTF_STREAM, ZFM5_FLAG_TTF_STREAM);
+        assert!(elided.len() <= streamed.len());
+
+        let decoded = decode_field_meta_binary(&elided).unwrap();
+        let mut expected: Vec<u8> = Vec::new();
+        for tp in [&mk(0, 0)["a"], &mk(0, 0)["b"], &mk(0, 0)["c"]] {
+            expected
+                .write_u32::<LittleEndian>(tp.doc_frequency)
+                .unwrap();
+            expected
+                .write_u64::<LittleEndian>(tp.total_term_frequency)
+                .unwrap();
+            expected
+                .write_u64::<LittleEndian>(tp.postings_offset)
+                .unwrap();
+            expected
+                .write_u32::<LittleEndian>(tp.postings_length)
+                .unwrap();
+        }
+        assert_eq!(decoded.flat_records, expected);
+        assert_eq!(decoded.stats.total_docs, 9);
+        assert!(decoded.has_positions);
+    }
+
+    /// Malformed input fails closed: truncated header, wrong
+    /// uncompressed_len, trailing payload, trailing stream varints, and
+    /// a missing section.  The encoder likewise refuses non-monotone
+    /// offsets rather than silently clamping the gap.
+    #[test]
+    fn zfm5_rejects_malformed_and_non_monotone() {
+        let stats = FieldStats {
+            total_docs: 2,
+            total_field_length: 4,
+        };
+        let mut map = HashMap::new();
+        map.insert(
+            "a".to_owned(),
+            TermPostings {
+                doc_frequency: 1,
+                total_term_frequency: 1,
+                postings_offset: 10,
+                postings_length: 4,
+            },
+        );
+        let terms = ["a".to_owned()];
+        let good = encode_field_meta_v5(&stats, false, &terms, &map, 3).unwrap();
+
+        // (prev_end = 10 + 4 = 14) > 0 — offset must not go backwards.
+        let backwards = {
+            let mut m = map.clone();
+            m.get_mut("a").unwrap().postings_offset = 10;
+            m.insert(
+                "b".to_owned(),
+                TermPostings {
+                    doc_frequency: 1,
+                    total_term_frequency: 1,
+                    postings_offset: 5,
+                    postings_length: 1,
+                },
+            );
+            encode_field_meta_v5(&stats, false, &["a".to_owned(), "b".to_owned()], &m, 3)
+        };
+        assert!(backwards.is_err());
+
+        assert!(decode_field_meta_binary(&good[..good.len() - 1]).is_err());
+        let mut bad_len = good.clone();
+        bad_len[26..30].copy_from_slice(&999u32.to_le_bytes()); // uncompressed_len
+        assert!(decode_field_meta_binary(&bad_len).is_err());
+        let mut trailing = good.clone();
+        trailing.push(0);
+        assert!(decode_field_meta_binary(&trailing).is_err());
+
+        // Hand-assembled stream sections: one extra varint ⇒ trailing bytes.
+        use crate::postings::uvarint_encode;
+        let assemble = |flags: u8, streams: &[u8]| {
+            let compressed = zstd::bulk::compress(streams, 3).unwrap();
+            let mut out = Vec::new();
+            out.extend_from_slice(META_MAGIC_V5);
+            out.write_u64::<LittleEndian>(2).unwrap();
+            out.write_u64::<LittleEndian>(4).unwrap();
+            out.write_u32::<LittleEndian>(1).unwrap();
+            out.push(0);
+            out.push(flags);
+            out.write_u32::<LittleEndian>(24).unwrap();
+            out.write_u32::<LittleEndian>(compressed.len() as u32)
+                .unwrap();
+            out.extend_from_slice(&compressed);
+            out
+        };
+        let mut extra = Vec::new();
+        uvarint_encode(1, &mut extra); // df
+        uvarint_encode(10, &mut extra); // gap
+        uvarint_encode(4, &mut extra); // len
+        uvarint_encode(9, &mut extra); // stray
+        assert!(decode_field_meta_binary(&assemble(0, &extra)).is_err());
+        let mut missing = Vec::new();
+        uvarint_encode(1, &mut missing);
+        uvarint_encode(10, &mut missing); // len stream absent
+        assert!(decode_field_meta_binary(&assemble(0, &missing)).is_err());
     }
 
     /// The current writer stamps the `ZPS2` envelope, and the reader

@@ -683,6 +683,45 @@ pub fn vbyte_decode(cursor: &mut Cursor<&[u8]>) -> io::Result<u32> {
     }
 }
 
+/// Encodes `value` as a variable-byte `u64` into `buf`.
+///
+/// Same convention as [`vbyte_encode`] (high bit set on the final byte) so
+/// the pair is self-consistent; this is the wider lane the `.meta` ZFM5
+/// record streams need, where `total_term_frequency` and `postings_offset`
+/// exceed the `u32` vbyte range on multi-GB `.post` files.
+pub fn uvarint_encode(mut value: u64, buf: &mut Vec<u8>) {
+    loop {
+        let byte = (value & 0x7F) as u8;
+        value >>= 7;
+        if value == 0 {
+            buf.push(byte | 0x80); // high bit = last byte
+            break;
+        } else {
+            buf.push(byte);
+        }
+    }
+}
+
+/// Decodes a variable-byte `u64` from `cursor`.
+pub fn uvarint_decode(cursor: &mut Cursor<&[u8]>) -> io::Result<u64> {
+    let mut result = 0u64;
+    let mut shift = 0u32;
+    loop {
+        let byte = cursor.read_u8()?;
+        result |= ((byte & 0x7F) as u64) << shift;
+        if byte & 0x80 != 0 {
+            return Ok(result);
+        }
+        shift += 7;
+        if shift >= 70 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "uvarint overflow",
+            ));
+        }
+    }
+}
+
 /// Decode one document's position group — a vbyte count followed by that
 /// many delta-encoded positions.
 fn decode_position_group(cursor: &mut Cursor<&[u8]>) -> io::Result<Vec<u32>> {

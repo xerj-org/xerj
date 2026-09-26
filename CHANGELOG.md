@@ -88,6 +88,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **`.meta` term records go columnar-varint (ZFM5)** ([#1038](https://github.com/xerj-org/xerj/issues/1038)):
+  the per-term `{df u32, ttf u64, offset u64, len u32}` records under the
+  ZFM4 zstd envelope kept a fixed 24-byte stride, and zstd cannot match
+  across the stride's alternating field widths — on the 100 k-doc size
+  harness `doc_id.meta` (100 k unique terms, every one `ttf == df`, every
+  postings gap zero) still cost 138,727 B on disk for ~200 B of
+  information.  ZFM5 re-shapes the section before compression into four
+  columnar varint streams — `df`, `ttf − df` (elided entirely when every
+  term in the field has `ttf == df`, the keyword-field shape), `offset
+  gap`, and `postings_length` — so zstd sees long runs of one-symbol
+  lanes.  The reader expands the streams once at open time into the same
+  in-memory flat-record array ZFM3/ZFM4 build, leaving the FST-offset
+  lookup hot path untouched.  The encoder fails closed on non-monotone
+  postings offsets (gaps reconstruct by accumulation, so a negative gap is
+  unrepresentable) and the decoder rejects truncated streams, trailing
+  stream bytes, and length mismatches.  Peer pattern: tantivy's
+  `TermInfoValueWriter::serialize_block` (`src/termdict/sstable_termdict/
+  mod.rs:92-105`, MIT) writes block-leading absolute range starts once
+  and then per-term length varints only.  Measured on the 100 k-doc
+  harness (LEVEL=balanced, forcemerge 1, same-day control): the `.meta`
+  family drops 200,826 → 13,774 B (−93.1 %), total durable −3.5 %, with
+  every other extension byte-identical; the win scales
+  with term cardinality, which is exactly the shape of unique-id fields
+  on large deployments.  ZFM4-and-older segments decode unchanged.
+
 - **`.post` block framing slimmed (ZPS2)** ([#1038](https://github.com/xerj-org/xerj/issues/1038)):
   the packed doc-id-delta and term-freq streams in every 128-doc posting
   block switch to frame-of-reference coding — `[width][vbyte min]` with the
