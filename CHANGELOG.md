@@ -25,7 +25,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scrapes. The fixture and its coarse CI gate (`idle-budget` job) keep the
   whole budget honest: CPU < 0.5 % of one core, O(1) wakeups/s, ≤ 0.2 MB RSS
   per idle index, boot-to-green with zero WAL replay on a cleanly-flushed
-  corpus.
+  corpus. (PR [#1020](https://github.com/xerj-org/xerj/pull/1020).)
+- **The flush publication bracket no longer spans the drain**
+  ([#1015](https://github.com/xerj-org/xerj/issues/1015)): flush drains now
+  freeze and the bracket wraps only the publish, so the ms-scale bracket
+  constraint the #1014 evenness check enforces finally holds on the drain side
+  too. Reader-fairness part two. (PR
+  [#1018](https://github.com/xerj-org/xerj/pull/1018).)
+- **Large-ingest id-position maps are built from the `__id` projection, and the
+  stored reassembly is streamed** ([#950](https://github.com/xerj-org/xerj/issues/950))
+  — the attribution work closed the issue rather than filing a follow-up: the
+  per-index structures that grew with corpus size during ingest were rebuilt
+  around projections and streaming, with `POST /{index}/_cache/clear` added to
+  release the rebuildable caches on demand (PR
+  [#1017](https://github.com/xerj-org/xerj/pull/1017); the cache endpoint is PR
+  [#1009](https://github.com/xerj-org/xerj/pull/1009)).
+- **`_delete_by_query` pages the whole match set, ids-only**
+  ([#1019](https://github.com/xerj-org/xerj/issues/1019)) — the one-shot
+  `size: 10_000` truncation class found there is gone from the delete path.
+  (PR [#1021](https://github.com/xerj-org/xerj/pull/1021).)
+- **`_update_by_query` pages the match set, with exact sig-text/enrich counts**
+  ([#1022](https://github.com/xerj-org/xerj/issues/1022)) — closing the
+  remaining single-shot by-query sites the issue named in the #1019 truncation
+  class; a single request is now a full-corpus traversal with a 10,000,000
+  `max_total` backstop rather than a silent 10,000-hit cap. (PR
+  [#1023](https://github.com/xerj-org/xerj/pull/1023).)
+
+### Added
+
+- **`POST /{index}/_cache/clear`** releases the index's rebuildable caches
+  ([#950](https://github.com/xerj-org/xerj/issues/950) follow-up work). (PR
+  [#1009](https://github.com/xerj-org/xerj/pull/1009).)
+- **An email-labelling benchmark for the System One wire**
+  ([discussion #1012](https://github.com/xerj-org/xerj/discussions/1012)):
+  local `POST /_decide` measured on 260 originally-authored synthetic emails
+  across the discussion's own four labels — 1.000 accuracy on the templated
+  tier, but 0.625 at 0.902 mean confidence on a hand-authored
+  boundary-crossing tier: wrong **and** confident, the miscalibration shape the
+  discussion itself flags for the hosted path. Nothing is wired into
+  `autoindex`; the README lists what that would still need. (PR
+  [#1026](https://github.com/xerj-org/xerj/pull/1026).)
+
+### Performance
+
+- **The request-cache seen-set no longer allocates on the first tracked
+  search** ([#1024](https://github.com/xerj-org/xerj/issues/1024)): a lazy
+  seen-set took idle per-index RSS from 206 to 64 kB — ~3× margin under the
+  0.2 MB/index idle budget line. (PRs
+  [#1025](https://github.com/xerj-org/xerj/pull/1025) and
+  [#1034](https://github.com/xerj-org/xerj/pull/1034).)
+
+### Documentation
+
+- The README says how XERJ works with Jev, in plain words (PR
+  [#1010](https://github.com/xerj-org/xerj/pull/1010)).
+- A field report from a local `/_decide` email-classification prototype
+  session (PR [#1027](https://github.com/xerj-org/xerj/pull/1027)).
+- `llms.txt` status claims caught up with `main`: rerank/share/mbox are on
+  `main`, #948 is closed by #1002 with the new memory numbers, and the residual
+  per-segment cache retention is re-anchored to #1032
+  ([#1028](https://github.com/xerj-org/xerj/issues/1028)). (PR
+  [#1033](https://github.com/xerj-org/xerj/pull/1033).)
 
 ## [1.0.0-rc.77] - 2026-09-21
 
