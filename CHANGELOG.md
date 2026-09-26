@@ -88,6 +88,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **`.dv` numeric columns are bit-packed (`ZNV2`) instead of raw 8 B/doc**
+  — stage 1 of the index-size epic
+  [#1038](https://github.com/xerj-org/xerj/issues/1038)). The column is
+  mapped through the monotone sign-flip bijection, given a global
+  frame-of-reference (`u_min`) and a GCD divide, then stored as 128-doc
+  blocks of bit-packed `u32` residuals — the shape tantivy's columnar
+  uses (min-subtract + GCD-divide + bitpack; citations in
+  `benchmarks/index-size/DESIGN.md`). Constant blocks (width 0) carry no
+  payload at all, two-valued columns such as booleans collapse to 1-bit
+  lanes after the GCD divide, block payload length is derived from the
+  width byte (no per-block byte_len to store), and blocks whose
+  post-frame spread exceeds 32 bits (mixed-sign f64 bit patterns) fall
+  back to raw `u64` lanes — never larger than the `ZNV1` block they
+  replace. Null slots are excluded from the frame/GCD and re-zeroed at
+  decode, so the decoded array is exactly what `from_iter` builds and
+  the f64-ordered `sorted` index is rebuilt unchanged. `ZNV1` and the
+  pre-magic legacy layout still decode via magic dispatch, so indexes
+  written by older builds remain readable.
 - **The request-cache seen-set no longer allocates on the first tracked
   search** ([#1024](https://github.com/xerj-org/xerj/issues/1024)): a lazy
   seen-set took idle per-index RSS from 206 to 64 kB — ~3× margin under the

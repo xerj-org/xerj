@@ -3,7 +3,8 @@
 //! Ported from the Lucene 9.0 `Lucene90DocValuesFormat` design but
 //! **deliberately simple** in this first cut so it lands fast and is easy
 //! to verify against `aggs::run_terms` / `aggs::run_stats`.  Block-level
-//! bit-packing and global-ordinal sharing across segments come in M3.
+//! bit-packing landed with the ZNV2 numeric layout (see `NumericColumn`);
+//! global-ordinal sharing across segments is still future.
 //!
 //! ## What we store
 //!
@@ -41,20 +42,26 @@
 //!     u32   magic = 0x44_56_30_31  ("DV01")
 //!     u32   num_columns
 //!     for each column:
-//!         u8    kind (0 = numeric, 1 = keyword)
+//!         u8    kind (0 = numeric, 1 = keyword; 0x80 bit = zstd payload,
+//!                    clear = legacy LZ4 — see KIND_FLAG_ZSTD)
 //!         u32   field_name_len
 //!         bytes field_name
 //!         u64   payload_len
-//!         bytes payload  (LZ4-compressed)
+//!         bytes payload  (zstd when the 0x80 bit is set, else LZ4)
 //! ```
 //!
-//! Numeric payload format (uncompressed):
+//! Numeric payload format (uncompressed, `ZNV2` — full layout on
+//! `NumericColumn::encode`; `ZNV1` and the pre-magic legacy layout remain
+//! readable):
 //!
 //! ```text
+//!     "ZNV2"
 //!     u32   doc_count
 //!     bytes null_bitmap_serialized (length-prefixed roaring)
-//!     for each doc i in [0..doc_count):
-//!         i64   value         // 0 if null
+//!     u64   u_min, u64 gcd       // global frame-of-reference + GCD
+//!     per 128-doc block: u8 width, varint block_min, packed residuals
+//!     // width 0 = constant block, 1..=32 = u32 bit-packed lanes,
+//!     // 0xFF = wide (raw u64 lanes) for spreads that exceed 32 bits
 //! ```
 //!
 //! Keyword payload format (uncompressed):
@@ -210,39 +217,167 @@ impl NumericColumn {
         (hi_idx.saturating_sub(lo_idx)) as u64
     }
 
-    /// V4 M4.7 — drop the redundant `sorted: Vec<(i64, u32)>` tail.
+    /// ## Wire format history
     ///
-    /// Pre-M4.7 `encode()` wrote the `data` array (8 B × doc_count) AND
-    /// a second copy of every live value as `(i64, u32)` pairs
-    /// (12 B × live_count).  On nginx `status`/`bytes` columns that was
-    /// 20 B/live-doc per column = 2.66 GB of redundancy on the 66.5 M
-    /// workload.  The new encoding stores only the dense `data[]` array
-    /// and rebuilds `sorted` from it at `decode()` time using a pdqsort
-    /// that's nanoseconds per doc.  Range queries get the same O(log n)
-    /// bisect behaviour as before.
+    /// - **legacy** (V4 pre-M4.7): no magic; `data[]` raw plus an on-disk
+    ///   `sorted` tail.  The tail was dropped after it cost 20 B/live-doc
+    ///   per column (2.66 GB of redundancy on the 66.5 M nginx workload) —
+    ///   `sorted` is rebuilt at decode time with a pdqsort, nanoseconds
+    ///   per doc, and range queries keep the same O(log n) bisect.
+    /// - **ZNV1**: `data[]` dense raw (8 B/doc) behind a magic prefix.
+    ///   Readers dispatch on it; the legacy format starts with
+    ///   `doc_count: u32` whose first byte can never be `'Z'`.
+    /// - **ZNV2** (issue #1038, stage 1): frame-of-reference + GCD +
+    ///   128-doc block bit-packing — the shape tantivy's columnar uses
+    ///   (min-subtract, GCD-divide, then bit-pack; citation and measured
+    ///   baseline in `benchmarks/index-size/DESIGN.md`).  Raw 8 B/doc
+    ///   hands the outer zstd pass an entropy problem it can only
+    ///   partially solve; subtracting the frame first is what actually
+    ///   shrinks the column.
     ///
-    /// Magic prefix `ZNV1` distinguishes the new layout from the legacy
-    /// format (which had no magic).  Legacy readers still work because
-    /// the magic bytes are at offset 0 and the legacy format starts with
-    /// `doc_count: u32` whose first byte is 0-255 but never matches 'Z'
-    /// for a real doc count.
+    /// ZNV2 layout, all little-endian:
+    ///
+    /// ```text
+    ///     "ZNV2"
+    ///     u32   doc_count
+    ///     u32   null_bitmap_len, bytes null_bitmap (as ZNV1)
+    ///     u64   u_min   global frame: min over live values of
+    ///                  u(v) = (v as u64) ^ (1 << 63); 0 when no live value
+    ///     u64   gcd     >= 1; divides every (u - u_min); 1 = no win
+    ///     per 128-doc block:
+    ///         u8      width   0 = constant block, 1..=32 = bit-packed
+    ///                         u32 residuals, 0xFF = wide (raw u64 lanes)
+    ///         varint  block_min  quotient the residuals are relative to
+    ///         bytes   packed residuals — width × 16 B, or 1024 B when
+    ///                 wide; omitted entirely when width == 0
+    /// ```
+    ///
+    /// The sign-flip map `v ↦ (v as u64) ^ (1 << 63)` is the monotone
+    /// signed→unsigned bijection, so `u − u_min` never underflows and every
+    /// step is integer-exact even though `data[]` holds f64 *bit patterns*
+    /// for `Double` columns — the flip is undone before `f64::from_bits`
+    /// is ever taken, and `sorted` is rebuilt from the decoded array so
+    /// its f64-ordered semantics are untouched.  Null slots contribute
+    /// nothing to the frame, the GCD, or the block mins, and decode
+    /// re-zeroes them to keep the "nulls are 0" contract of `from_iter`.
+    /// Block payload length is derived from `width` — there is no
+    /// per-block byte_len to store.
     pub fn encode(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(4 + 4 + 4 + self.data.len() * 8);
-        out.extend_from_slice(b"ZNV1");
+        let mut out = Vec::with_capacity(24 + self.data.len() + 16);
+        out.extend_from_slice(b"ZNV2");
         out.write_u32::<LittleEndian>(self.doc_count).unwrap();
         let mut bitmap_buf = Vec::new();
         self.null_bitmap.serialize_into(&mut bitmap_buf).unwrap();
         out.write_u32::<LittleEndian>(bitmap_buf.len() as u32)
             .unwrap();
         out.extend_from_slice(&bitmap_buf);
-        for &v in &self.data {
-            out.write_i64::<LittleEndian>(v).unwrap();
+
+        // Global frame over live values only. Pass 1 finds u_min; pass 2
+        // accumulates the GCD of (u − u_min), exiting early once it can
+        // no longer shrink (gcd can only decrease, and 1 is the floor).
+        let mut u_min = u64::MAX;
+        let mut any_live = false;
+        for (i, &v) in self.data.iter().enumerate() {
+            if self.null_bitmap.contains(i as u32) {
+                continue;
+            }
+            let u = znv2_flip(v);
+            if !any_live || u < u_min {
+                u_min = u;
+            }
+            any_live = true;
+        }
+        if !any_live {
+            u_min = 0;
+        }
+        let mut gcd = 0u64;
+        for (i, &v) in self.data.iter().enumerate() {
+            if self.null_bitmap.contains(i as u32) {
+                continue;
+            }
+            gcd = u64_gcd(gcd, znv2_flip(v) - u_min);
+            if gcd == 1 {
+                break;
+            }
+        }
+        let gcd = gcd.max(1);
+        out.write_u64::<LittleEndian>(u_min).unwrap();
+        out.write_u64::<LittleEndian>(gcd).unwrap();
+
+        let mut quot = [0u64; ZNV2_BLOCK];
+        for start in (0..self.data.len()).step_by(ZNV2_BLOCK) {
+            let end = (start + ZNV2_BLOCK).min(self.data.len());
+            // Pass 1 per block: quotients + the block's own frame.
+            let mut q_min = u64::MAX;
+            let mut q_max = 0u64;
+            let mut block_live = false;
+            for (j, i) in (start..end).enumerate() {
+                if self.null_bitmap.contains(i as u32) {
+                    continue;
+                }
+                let q = (znv2_flip(self.data[i]) - u_min) / gcd;
+                quot[j] = q;
+                if !block_live || q < q_min {
+                    q_min = q;
+                }
+                if q > q_max {
+                    q_max = q;
+                }
+                block_live = true;
+            }
+            if !block_live {
+                q_min = 0;
+                q_max = 0;
+            }
+            let spread = q_max - q_min;
+            let width: u8 = if !block_live || spread == 0 {
+                0
+            } else if spread > u32::MAX as u64 {
+                ZNV2_WIDE
+            } else {
+                (u32::BITS - (spread as u32).leading_zeros()) as u8
+            };
+            out.push(width);
+            write_u64_varint(&mut out, q_min);
+            match width {
+                0 => {}
+                ZNV2_WIDE => {
+                    // Post-FOR spread wider than 32 bits (mixed-sign f64
+                    // bit patterns, genuinely wild i64s): store the
+                    // residuals raw. Never larger than ZNV1's block plus
+                    // the varint, and rare in real columns.
+                    for (j, &q) in quot.iter().enumerate() {
+                        let r = if j < end - start && !self.null_bitmap.contains((start + j) as u32)
+                        {
+                            q - q_min
+                        } else {
+                            0
+                        };
+                        out.write_u64::<LittleEndian>(r).unwrap();
+                    }
+                }
+                w => {
+                    let mut lanes = [0u32; ZNV2_BLOCK];
+                    for j in 0..end - start {
+                        if !self.null_bitmap.contains((start + j) as u32) {
+                            lanes[j] = (quot[j] - q_min) as u32;
+                        }
+                    }
+                    let mut packed = vec![0u8; ZNV2_BLOCK * w as usize / 8];
+                    use bitpacking::BitPacker;
+                    bitpacking::BitPacker4x::new().compress(&lanes, &mut packed, w);
+                    out.extend_from_slice(&packed);
+                }
+            }
         }
         out
     }
 
     pub fn decode(payload: &[u8]) -> Result<Self> {
-        // Detect magic — new format starts with "ZNV1", legacy doesn't.
+        if payload.len() >= 4 && &payload[..4] == b"ZNV2" {
+            return Self::decode_znv2(payload);
+        }
+        // Detect magic — ZNV1 starts with "ZNV1", legacy doesn't.
         let (mut cur, is_new) = if payload.len() >= 4 && &payload[..4] == b"ZNV1" {
             (Cursor::new(&payload[4..]), true)
         } else {
@@ -294,6 +429,143 @@ impl NumericColumn {
             live_min,
             live_max,
         })
+    }
+
+    /// ZNV2 reader — the layout mirror of [`encode`](Self::encode).
+    fn decode_znv2(payload: &[u8]) -> Result<Self> {
+        let mut cur = Cursor::new(&payload[4..]);
+        let doc_count = cur.read_u32::<LittleEndian>().map_err(io_to_storage)?;
+        let bitmap_len = cur.read_u32::<LittleEndian>().map_err(io_to_storage)? as usize;
+        let mut bitmap_bytes = vec![0u8; bitmap_len];
+        cur.read_exact(&mut bitmap_bytes).map_err(io_to_storage)?;
+        let null_bitmap = RoaringBitmap::deserialize_from(&bitmap_bytes[..])
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("dv numeric bitmap: {e}")))?;
+        let u_min = cur.read_u64::<LittleEndian>().map_err(io_to_storage)?;
+        let gcd = cur.read_u64::<LittleEndian>().map_err(io_to_storage)?;
+
+        let mut data = Vec::with_capacity(doc_count as usize);
+        let mut lanes = [0u32; ZNV2_BLOCK];
+        let mut packed = Vec::new();
+        while (data.len() as u32) < doc_count {
+            let width = cur.read_u8().map_err(io_to_storage)?;
+            let q_min = read_u64_varint(&mut cur)?;
+            let base = data.len();
+            let end = (base + ZNV2_BLOCK).min(doc_count as usize);
+            match width {
+                0 => {
+                    // Constant block: every live value is the same
+                    // quotient, including the all-null block (q_min 0 —
+                    // the zeroing pass below restores the null contract).
+                    let v = znv2_unflip(u_min.wrapping_add(gcd.wrapping_mul(q_min)));
+                    for _ in base..end {
+                        data.push(v);
+                    }
+                }
+                ZNV2_WIDE => {
+                    for _ in 0..ZNV2_BLOCK {
+                        let r = cur.read_u64::<LittleEndian>().map_err(io_to_storage)?;
+                        if data.len() < end {
+                            data.push(znv2_unflip(
+                                u_min.wrapping_add(gcd.wrapping_mul(q_min.wrapping_add(r))),
+                            ));
+                        }
+                    }
+                }
+                w => {
+                    if w > 32 {
+                        return Err(StorageError::Other(anyhow::anyhow!(
+                            "znv2 invalid block width {w}"
+                        )));
+                    }
+                    let nbytes = ZNV2_BLOCK * w as usize / 8;
+                    packed.clear();
+                    packed.resize(nbytes, 0);
+                    cur.read_exact(&mut packed).map_err(io_to_storage)?;
+                    use bitpacking::BitPacker;
+                    bitpacking::BitPacker4x::new().decompress(&packed, &mut lanes, w);
+                    for &lane in lanes.iter().take(end - base) {
+                        let q = q_min.wrapping_add(u64::from(lane));
+                        data.push(znv2_unflip(u_min.wrapping_add(gcd.wrapping_mul(q))));
+                    }
+                }
+            }
+        }
+        // Null slots: `from_iter` stores 0 there — restore that contract
+        // so the decoded array is indistinguishable from a built one.
+        for doc_id in &null_bitmap {
+            data[doc_id as usize] = 0;
+        }
+
+        let sorted = build_sorted_index(&data, &null_bitmap);
+        let (live_count, live_sum, live_min, live_max) = compute_stats(&sorted);
+        Ok(Self {
+            doc_count,
+            null_bitmap,
+            data,
+            sorted,
+            live_count,
+            live_sum,
+            live_min,
+            live_max,
+        })
+    }
+}
+
+/// ZNV2 block size — matches `bitpacking::BitPacker4x::BLOCK_LEN` (128),
+/// the same lane count the `.post` codec packs.
+const ZNV2_BLOCK: usize = 128;
+
+/// ZNV2 width byte for blocks whose post-FOR spread exceeds 32 bits —
+/// residuals stored raw as u64 lanes instead of bit-packed u32s.
+const ZNV2_WIDE: u8 = 0xFF;
+
+/// Sign-flip map: the monotone signed→unsigned bijection. Guarantees
+/// `u − u_min` never underflows for live values, whatever the numbers
+/// mean (true i64s or f64 bit patterns).
+fn znv2_flip(v: i64) -> u64 {
+    (v as u64) ^ (1u64 << 63)
+}
+
+fn znv2_unflip(u: u64) -> i64 {
+    (u ^ (1u64 << 63)) as i64
+}
+
+fn u64_gcd(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let t = a % b;
+        a = b;
+        b = t;
+    }
+    a
+}
+
+fn write_u64_varint(out: &mut Vec<u8>, mut v: u64) {
+    loop {
+        let b = (v & 0x7f) as u8;
+        v >>= 7;
+        if v == 0 {
+            out.push(b);
+            return;
+        }
+        out.push(b | 0x80);
+    }
+}
+
+fn read_u64_varint(cur: &mut Cursor<&[u8]>) -> Result<u64> {
+    let mut v = 0u64;
+    let mut shift = 0u32;
+    loop {
+        if shift >= 64 {
+            return Err(StorageError::Other(anyhow::anyhow!(
+                "znv2 varint longer than 64 bits"
+            )));
+        }
+        let b = cur.read_u8().map_err(io_to_storage)?;
+        v |= u64::from(b & 0x7f) << shift;
+        if b & 0x80 == 0 {
+            return Ok(v);
+        }
+        shift += 7;
     }
 }
 
@@ -780,6 +1052,153 @@ mod tests {
         assert_eq!(back.range_count(20.0, 40.0, true, true), 3);
         assert_eq!(back.range_count(0.0, 1.0, true, true), 0);
         assert_eq!(back.range_count(50.0, 100.0, true, true), 1);
+    }
+
+    #[test]
+    fn znv2_monotone_timestamps_roundtrip_and_shrink() {
+        // Date-column shape: 41-bit globals whose GCD (37) and per-block
+        // frame collapse to a few bits per doc. Raw ZNV1 stored 8 B/doc.
+        let n = 5_000;
+        let col =
+            NumericColumn::from_iter((0..n).map(|i| Some(1_700_000_000_000_i64 + i as i64 * 37)));
+        let bytes = col.encode();
+        assert!(&bytes[..4] == b"ZNV2");
+        assert!(
+            bytes.len() < n * 8,
+            "znv2 {} B vs raw {} B",
+            bytes.len(),
+            n * 8
+        );
+        let back = NumericColumn::decode(&bytes).unwrap();
+        assert_eq!(col.data, back.data);
+        assert_eq!(col.sorted, back.sorted);
+        assert_eq!(col.live_count, back.live_count);
+        assert_eq!(col.live_min, back.live_min);
+    }
+
+    #[test]
+    fn znv2_gcd_collapses_scaled_columns() {
+        // Every value is a multiple of 1000: the GCD divide shrinks the
+        // quotients a thousandfold even though the raw spread is ~1e6.
+        let n = 1_000;
+        let col = NumericColumn::from_iter((0..n).map(|i| Some(50_000_i64 + i as i64 * 1_000)));
+        let bytes = col.encode();
+        assert!(bytes.len() < n * 2, "{} B for {} values", bytes.len(), n);
+        let back = NumericColumn::decode(&bytes).unwrap();
+        assert_eq!(col.data, back.data);
+    }
+
+    #[test]
+    fn znv2_constant_and_boolean_columns() {
+        // Every value identical: width-0 constant blocks, no packed bytes.
+        let col = NumericColumn::from_iter((0..300).map(|_| Some(42_i64)));
+        let bytes = col.encode();
+        assert!(bytes.len() < 64, "{} B", bytes.len());
+        assert_eq!(NumericColumn::decode(&bytes).unwrap().data, col.data);
+
+        // Boolean column (f64 bit patterns of 0.0 / 1.0): two distinct
+        // values whose difference becomes the GCD → 1-bit lanes instead
+        // of 8 raw bytes per doc.
+        let col = NumericColumn::from_iter((0..1_000).map(|i| {
+            Some(if i % 3 == 0 {
+                0.0_f64.to_bits() as i64
+            } else {
+                1.0_f64.to_bits() as i64
+            })
+        }));
+        let bytes = col.encode();
+        assert!(bytes.len() < 1_000, "{} B", bytes.len());
+        let back = NumericColumn::decode(&bytes).unwrap();
+        assert_eq!(col.data, back.data);
+    }
+
+    #[test]
+    fn znv2_nulls_and_empty_roundtrip() {
+        // All-null: no live values; decode restores the all-zero array.
+        let col = NumericColumn::from_iter((0..257).map(|_| None::<i64>));
+        let back = NumericColumn::decode(&col.encode()).unwrap();
+        assert_eq!(back.data, vec![0_i64; 257]);
+        assert!(back.sorted.is_empty());
+        assert_eq!(back.live_count, 0);
+
+        // Empty column.
+        let empty = NumericColumn::from_iter(Vec::<Option<i64>>::new());
+        let back = NumericColumn::decode(&empty.encode()).unwrap();
+        assert_eq!(back.doc_count, 0);
+        assert!(back.data.is_empty());
+
+        // Sparse nulls inside a monotone column: live data intact, null
+        // slots re-zeroed, per-doc reads identical.
+        let col = NumericColumn::from_iter((0..500).map(|i| {
+            if i % 17 == 5 {
+                None
+            } else {
+                Some(1_700_000_000_000 + i as i64 * 37)
+            }
+        }));
+        let back = NumericColumn::decode(&col.encode()).unwrap();
+        assert_eq!(col.data, back.data);
+        assert_eq!(col.sorted, back.sorted);
+        for i in 0..500_u32 {
+            assert_eq!(col.get(i), back.get(i));
+        }
+    }
+
+    #[test]
+    fn znv2_block_boundaries_roundtrip() {
+        // Tail blocks of every shape: 1, sub-128, exact, +1, multiple+1.
+        // Values include negatives (sign-flip path) and a 1017 stride.
+        for n in [1_usize, 127, 128, 129, 255, 256, 257, 1_000] {
+            let col = NumericColumn::from_iter((0..n).map(|i| Some((i as i64 - 300) * 1_017)));
+            let bytes = col.encode();
+            let back = NumericColumn::decode(&bytes).unwrap();
+            assert_eq!(col.data, back.data, "n={n}");
+            assert_eq!(col.sorted, back.sorted, "n={n}");
+        }
+    }
+
+    #[test]
+    fn znv2_wide_blocks_roundtrip_and_stay_queryable() {
+        // Mixed-sign f64 bit patterns: the post-flip spread can exceed 32
+        // bits, exercising the 0xFF raw-lane fallback. The decoded column
+        // must still answer f64 range queries exactly.
+        let col = NumericColumn::from_iter((0..600).map(|i| {
+            Some(if i % 2 == 0 {
+                (-1.0_f64 - i as f64).to_bits() as i64
+            } else {
+                (i as f64 * 0.25).to_bits() as i64
+            })
+        }));
+        let bytes = col.encode();
+        assert!(&bytes[..4] == b"ZNV2");
+        let back = NumericColumn::decode(&bytes).unwrap();
+        assert_eq!(col.data, back.data);
+        assert_eq!(col.sorted, back.sorted);
+        // evens i∈{0,2,..,8} give -1..-9; odds give 0.25 steps, only 0.25
+        // fits the closed range.
+        assert_eq!(back.range_count(-10.5, 0.25, true, true), 6);
+    }
+
+    #[test]
+    fn znv1_payload_still_decodes() {
+        // Hand-written ZNV1 bytes (the pre-ZNV2 writer): index dirs from
+        // older builds remain readable through the magic dispatch.
+        let col = NumericColumn::from_iter(vec![Some(10_i64), None, Some(-3), Some(10)]);
+        let mut b = Vec::new();
+        b.extend_from_slice(b"ZNV1");
+        b.write_u32::<LittleEndian>(col.doc_count).unwrap();
+        let mut bm = Vec::new();
+        col.null_bitmap.serialize_into(&mut bm).unwrap();
+        b.write_u32::<LittleEndian>(bm.len() as u32).unwrap();
+        b.extend_from_slice(&bm);
+        for &v in &col.data {
+            b.write_i64::<LittleEndian>(v).unwrap();
+        }
+        let back = NumericColumn::decode(&b).unwrap();
+        assert_eq!(back.data, col.data);
+        assert_eq!(back.get(1), None);
+        assert_eq!(back.get(2), Some(-3));
+        assert_eq!(back.sorted.len(), 3);
     }
 
     #[test]

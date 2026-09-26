@@ -49,6 +49,10 @@ zstd = { workspace = true }
 # Compressed bitsets (tombstones, doc-value null masks)
 roaring = { workspace = true }
 
+# Block bit-packing for the ZNV2 doc-values numeric layout — same crate,
+# same 128-lane idiom, as the .post codec in xerj-fts.
+bitpacking.workspace = true
+
 # FST term dictionary (doc-values keyword columns)
 fst = { workspace = true }
 

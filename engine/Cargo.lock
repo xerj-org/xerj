@@ -7654,6 +7654,7 @@ dependencies = [
  "async-trait",
  "aws-sdk-s3",
  "aws-smithy-http-client",
+ "bitpacking",
  "byteorder",
  "bytes",
  "crc32fast",
