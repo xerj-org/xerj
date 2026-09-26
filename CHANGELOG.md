@@ -88,6 +88,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **Stored sections get typed-int columns, duplicate-column references and
+  a merge-path zstd effort chooser (`ZBS4`)** — stage 1 of the index-size
+  epic [#1038](https://github.com/xerj-org/xerj/issues/1038), redesigned
+  by measurement: dissecting a harness `.seg` showed the planned
+  dict-stream work targeted ~5 % of the section while the `body` RAW_JSON
+  fallback alone was 84.2 %, `__seq_no` was stored as textual consecutive
+  integers, and `doc_id` was a byte-identical duplicate of `__id`.  Three
+  codecs instead (`engine/crates/xerj-storage/src/stored_codec.rs`):
+  **TYPED_INT** stores an all-integer column as a presence bitmap plus
+  128-value frame-of-reference bit-packed blocks (`[width][zigzag-varint
+  min]`, width 0 = constant block — the ZPS2 `.post` shape) with a
+  zigzag-varint delta residual; blocks whose spread exceeds u32 lanes keep
+  the JSON fallback, floats/strings never qualify.  A dict-eligible
+  integer column races the two codecs and keeps the smaller (the Parquet
+  pick-the-smallest rule the `.dv` ZNV2 chooser uses).  **COPY_OF** stores
+  a later column byte-identical to an earlier pass-1 column as a 4-byte
+  reference (digest + full-equality verify before writing), so an id echo
+  in `_source` costs 4 B instead of a second full payload.  **The
+  long-effort chooser** — merge path only, flush stays pinned to zstd 3
+  after the ingest regression — additionally compresses each JSON fallback
+  column at level 19 with long-distance matching and an explicit ≤ 16 MB
+  window and keeps whichever payload is smaller.  Two measured reasons it
+  is a chooser and not a level bump: the window knee is sharp (body 29.8 MB
+  column: 679 kB at the default window, 330 kB at 16 MB — the sentence
+  pool repeats just past a small window), and high levels REGRESS
+  small-alphabet streams (the id column: 54 kB at zstd-3, 143 kB at 19) —
+  a global 19 would grow the ids while shrinking body.  Offline A/B and
+  the container-walk dissection are recorded in
+  `benchmarks/index-size/DESIGN.md` (new — it fixes the dangling link the
+  #1039 README and this epic's anchor list pointed at).  Compatibility:
+  the `ZBS4` magic is written only when a column actually uses codec 5/6
+  or a form-1 RAW payload; anything expressible as ZBS2 stays
+  byte-identical ZBS2 (flush parity and downgrade blast radius unchanged,
+  `XERJ_FLUSH_PARITY=1` verified on a full 100k harness run), ZBS3
+  present-null wrapping composes, the estimator counts COPY_OF as its
+  source's bound and fails closed on crafted forward references, and the
+  full decoder's fixpoint resolves reference chains while hard-erroring on
+  cycles.  Measured on the 100k `benchmarks/index-size` harness at
+  LEVEL=balanced against a same-day main control (`results/result-zbs4*-balanced.json`):
+  `.seg` **−73.1 %** (1,671,271 → 449,094 B), total durable **−22.7 %**
+  (5,398,478 → 4,176,300 B); every non-`.seg` extension byte-identical
+  between the runs.  ES-YAML conformance 1380 passed / 0 failed; 10 new
+  storage unit tests cover typed-int round-trips (nulls, negatives,
+  i64-extreme clusters), copy-of decode across full/projection/hydration
+  paths, form-1 decode on all four read paths, and the malformed-payload
+  rejections.
 - **`.post` block framing slimmed (ZPS2)** ([#1038](https://github.com/xerj-org/xerj/issues/1038)):
   the packed doc-id-delta and term-freq streams in every 128-doc posting
   block switch to frame-of-reference coding — `[width][vbyte min]` with the

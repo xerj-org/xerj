@@ -7,6 +7,7 @@
 //! | `LZ4\0`  | v1      | LZ4 over a flat JSON array `[{_id,_seq_no,_source}]`|
 //! | `ZBS2`   | v2      | Columnar block — per-column codec, cross-col dep, dict+bitpack |
 //! | `ZBS3`   | v3      | A sparse present-null sidecar wrapping a `ZBS2` blob (#415) |
+//! | `ZBS4`   | v4      | ZBS2 layout + typed-int columns, duplicate-column refs, per-column zstd effort (#1038) |
 //!
 //! The decoder detects the magic and returns a canonical JSON-array payload
 //! for all three, so callers upstream do not need to change. `ZBS3` is
@@ -52,6 +53,27 @@
 //!   Any source dict id that was never present in the block is represented
 //!   by `i64::MIN` in `mode_values` (sentinel).
 //! * 4 — `CONSTANT`: a single repeated value.  Payload = zstd(json_of_value).
+//! * 5 — `TYPED_INT` (ZBS4): an all-integer column stored as 128-value
+//!   frame-of-reference bit-packed blocks (`[width][varint min]`, width 0 =
+//!   constant block, payload length derived) with a presence bitmap for
+//!   nulls — the same block shape the `.post`/`.dv` codecs use (#1038).
+//!   Payload = `u8 has_nulls; [bitmap num_docs bits]; blocks/residual over
+//!   the non-null values in doc order`.
+//! * 6 — `COPY_OF` (ZBS4): byte-identical to an earlier pass-1 column
+//!   (e.g. `_id` and a `_source` field echoing it).  Payload = `u32
+//!   src_col_ix`.  The writer only ever references an earlier column that
+//!   was itself encoded with a pass-1 codec, so decode is a clone.
+//!
+//! `RAW_JSON` payloads come in two forms, told apart by their first byte
+//! (zstd frames start `0x28`, so the form byte is unambiguous):
+//!
+//! * form `0` — the payload is a zstd frame written at the encode-time level
+//!   (the only form ZBS2 segments can carry);
+//! * form `1` — `[0x01][level: u8][window_log: u8][zstd frame]`, written by
+//!   the merge-path effort chooser (see [`RAW_LONG_LEVEL`]): level 19 +
+//!   long-distance matching + an explicit window, which finds repeats tens
+//!   of MB apart that a default window cannot.  `level`/`window_log` are
+//!   informational — the zstd frame is self-describing.
 //!
 //! Decoder always returns the canonical v1 JSON-array shape so the rest of
 //! the engine is oblivious to which codec was used.
@@ -127,6 +149,23 @@ pub fn encode_stored_lz4(uncompressed: &[u8]) -> Vec<u8> {
 /// Magic prefix for the V2 columnar format.
 pub const STORED_V2_MAGIC: &[u8; 4] = b"ZBS2";
 
+/// Magic prefix for the V4 columnar format (#1038): the ZBS2 layout plus
+/// codec ids 5/6 and the form-1 `RAW_JSON` effort payload.  The writer emits
+/// ZBS4 **only** when at least one column actually uses one of those — a
+/// segment expressible as ZBS2 is written byte-identically as ZBS2, so the
+/// flush-parity contract and the common-case downgrade blast radius are
+/// unchanged.  The reader accepts either magic through
+/// [`is_columnar_stored_magic`].
+pub const STORED_V4_MAGIC: &[u8; 4] = b"ZBS4";
+
+/// `true` when `bytes` starts with a columnar magic the current decoder
+/// understands (ZBS2 or ZBS4).  Every dispatch that used to compare against
+/// `STORED_V2_MAGIC` alone goes through here so ZBS4 segments flow down the
+/// same paths.
+pub fn is_columnar_stored_magic(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && (&bytes[..4] == STORED_V2_MAGIC || &bytes[..4] == STORED_V4_MAGIC)
+}
+
 /// Magic prefix for the V3 wrapper (issue #415): a plain ZBS2 blob preceded
 /// by a sparse present-null sidecar. The columnar V2 form stores an absent
 /// field and a *present* explicit `null` identically (a NULL column slot),
@@ -199,6 +238,10 @@ enum ColCodec {
     DictBitpack = 2,
     CrossDep = 3,
     Constant = 4,
+    /// ZBS4: all-integer column as FOR bit-packed blocks (#1038).
+    TypedInt = 5,
+    /// ZBS4: byte-identical twin of an earlier pass-1 column (#1038).
+    CopyOf = 6,
 }
 
 impl ColCodec {
@@ -209,10 +252,25 @@ impl ColCodec {
             2 => Some(Self::DictBitpack),
             3 => Some(Self::CrossDep),
             4 => Some(Self::Constant),
+            5 => Some(Self::TypedInt),
+            6 => Some(Self::CopyOf),
             _ => None,
         }
     }
 }
+
+/// zstd effort the merge-path chooser tries for the JSON fallback columns,
+/// alongside the operator's `compression.level` (see [`STORED_ZSTD_LEVEL`]
+/// for why flush never runs this): level 19 with long-distance matching and
+/// an explicit window log.  On the 100k `benchmarks/index-size` corpus
+/// this took the `body` column from 1,400,153 B (level 3) to 333 KB — the
+/// sentence pool repeats at distances just past a default window, which
+/// LDM + a 16 MB window catches.  ~4 s of background merge CPU per 30 MB
+/// column; the chooser keeps whichever candidate is smaller, so a column
+/// that level 3 already answers (e.g. short ids) is stored exactly as
+/// before.
+const RAW_LONG_LEVEL: i32 = 19;
+const RAW_LONG_WINDOW_LOG_MAX: u32 = 24;
 
 /// Encode a stored section written as a JSON array of
 /// `{"_id", "_seq_no", "_source"}` objects using the v2 columnar format.
@@ -236,6 +294,24 @@ pub fn encode_stored_v2(stored_docs_json: &[u8]) -> Vec<u8> {
 /// operator changes `compression.level` interleave with no migration and no
 /// format flag.
 pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8> {
+    encode_stored_v2_at_level_inner(stored_docs_json, level, false)
+}
+
+/// Merge-path variant of [`encode_stored_v2_at_level`]: in addition to the
+/// operator's level, each JSON fallback column is also compressed at
+/// [`RAW_LONG_LEVEL`] with long-distance matching, and the smaller payload is
+/// kept (the same measured-chooser rule the `.dv` ZNV2 codec uses).  Merges
+/// are background work, so the extra encode pass is not on any
+/// back-pressure-critical path; flush never calls this.
+pub fn encode_stored_v2_merge_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8> {
+    encode_stored_v2_at_level_inner(stored_docs_json, level, true)
+}
+
+fn encode_stored_v2_at_level_inner(
+    stored_docs_json: &[u8],
+    level: i32,
+    long_effort_chooser: bool,
+) -> Vec<u8> {
     // Parse the JSON array of documents.  Failure → v1 fallback.
     let docs: Vec<serde_json::Value> = match serde_json::from_slice(stored_docs_json) {
         Ok(v) => v,
@@ -305,6 +381,7 @@ pub fn encode_stored_v2_at_level(stored_docs_json: &[u8], level: i32) -> Vec<u8>
             &columns,
             Some(stored_docs_json),
             level,
+            long_effort_chooser,
         ),
         present_nulls,
     )
@@ -468,6 +545,7 @@ fn encode_stored_v2_from_values_inner(
             &columns,
             stored_docs_json,
             STORED_ZSTD_LEVEL,
+            false,
         ),
         present_nulls,
     )
@@ -480,12 +558,16 @@ fn encode_stored_v2_from_values_inner(
 /// the LZ4 size net; pass `None` to skip the net (used by the flush
 /// fast path on large segments where the columnar form always wins and
 /// serialising a multi-MB JSON array per flush is measurable CPU).
+///
+/// `long_effort_chooser` adds a second, higher-effort zstd candidate for
+/// each JSON fallback column (see [`RAW_LONG_LEVEL`]) — merge only.
 fn encode_v2_columns(
     num_docs: usize,
     col_order: &[String],
     columns: &[Vec<&serde_json::Value>],
     stored_docs_json: Option<&[u8]>,
     level: i32,
+    long_effort_chooser: bool,
 ) -> Vec<u8> {
     // THROWAWAY prof (XERJ_PROF): encode-phase breakdown.
     let prof = std::env::var_os("XERJ_PROF").is_some();
@@ -563,14 +645,55 @@ fn encode_v2_columns(
     let cross_us = t_cross.elapsed().as_micros();
     let t_cols = std::time::Instant::now();
 
+    // COPY_OF candidates (#1038): a later column byte-identical to an
+    // earlier one stores a 4-byte reference instead of its own payload —
+    // on the size harness `_id` and the `doc_id` `_source` field echo the
+    // same strings, costing 2 × 54 KB where one suffices.  Digest first,
+    // then FULLY verify the pair before trusting it (a hash collision that
+    // slipped through would corrupt decode).  Only columns NOT already
+    // claimed as cross-dep sources may become the copy target — a COPY_OF
+    // column materialises by reference and must not be anyone's dependency
+    // root.
+    let column_digests: Vec<u64> = columns.iter().map(|c| column_digest(c)).collect();
+    let cross_dep_sources: rustc_hash::FxHashSet<usize> =
+        cross_dep_src.iter().flatten().copied().collect();
+    let mut copy_of_src: Vec<Option<usize>> = vec![None; columns.len()];
+    'outer: for dst in 0..columns.len() {
+        if cross_dep_sources.contains(&dst) || column_digests[dst] == 0 {
+            continue;
+        }
+        for src in 0..dst {
+            if column_digests[src] != column_digests[dst]
+                || cross_dep_src[src].is_some()
+                || copy_of_src[src].is_some()
+            {
+                continue;
+            }
+            if columns[src] == columns[dst] {
+                copy_of_src[dst] = Some(src);
+                continue 'outer;
+            }
+        }
+    }
+
     // Pick a codec per column and build its payload.
     let mut col_payloads: Vec<(String, u8, Vec<u8>)> = Vec::with_capacity(col_order.len());
+    let mut used_v4_feature = false;
     for (cix, cname) in col_order.iter().enumerate() {
         let col = &columns[cix];
 
-        // CONSTANT → CROSS_DEP → DICT_BITPACK → LZ4_JSON → RAW_JSON fallback.
+        // CONSTANT → COPY_OF → CROSS_DEP → DICT_BITPACK (raced against
+        // TYPED_INT by measured size) → TYPED_INT vs the JSON fallbacks →
+        // LZ4_JSON/RAW_JSON (with the merge-path effort chooser).
         if let Some(payload) = try_encode_constant(col) {
             col_payloads.push((cname.clone(), ColCodec::Constant as u8, payload));
+            continue;
+        }
+        if let Some(src_ix) = copy_of_src[cix] {
+            let mut payload = Vec::with_capacity(4);
+            payload.write_u32::<LittleEndian>(src_ix as u32).unwrap();
+            col_payloads.push((cname.clone(), ColCodec::CopyOf as u8, payload));
+            used_v4_feature = true;
             continue;
         }
         if let Some(src_ix) = cross_dep_src[cix] {
@@ -582,25 +705,66 @@ fn encode_v2_columns(
         }
         if let Some((entries, ids)) = &dict_encoded[cix] {
             if entries.len() <= DICT_MAX_CARDINALITY && all_scalar_dict_entries(entries) {
-                let payload = encode_dict_bitpack(entries, ids, level);
-                col_payloads.push((cname.clone(), ColCodec::DictBitpack as u8, payload));
+                let dict_payload = encode_dict_bitpack(entries, ids, level);
+                // A dict-eligible integer column races TYPED_INT against the
+                // dict payload and keeps the smaller (#1038): a few hundred
+                // distinct monotone values pay full JSON text for their dict
+                // entries but ~1 bit/value as packed lanes — the same
+                // measured-chooser rule the `.dv` ZNV2 codec uses.  TYPED_INT
+                // materialises in decode pass 1, so a column serving as a
+                // CrossDep source may take it freely.
+                if let Some(typed) = encode_typed_int(col) {
+                    if typed.len() + 8 < dict_payload.len() {
+                        col_payloads.push((cname.clone(), ColCodec::TypedInt as u8, typed));
+                        used_v4_feature = true;
+                        continue;
+                    }
+                }
+                col_payloads.push((cname.clone(), ColCodec::DictBitpack as u8, dict_payload));
                 continue;
             }
         }
-        // Fallback: zstd over JSON-array of the column's values.
+        // Fallback candidates, computed once and shared with the TYPED_INT
+        // size check below: zstd over a JSON-array of the column's values
+        // (plus, on the merge path, the long-effort form) vs LZ4 over the
+        // same bytes.
         let col_json = serde_json::to_vec(col).unwrap_or_default();
         let zstd_payload =
             zstd::encode_all(Cursor::new(&col_json), level).unwrap_or_else(|_| col_json.clone());
-        // Choose RAW_JSON vs LZ4_JSON by size.
+        let (zstd_payload, zstd_form) = if long_effort_chooser {
+            try_long_effort_zstd(&col_json, zstd_payload)
+        } else {
+            (zstd_payload, 0u8)
+        };
         let lz4_payload = lz4_flex::compress_prepend_size(&col_json);
+
+        if let Some(payload) = encode_typed_int(col) {
+            // All-integer column: FOR bit-packed blocks beat textual JSON
+            // whenever the values do not repeat enough for DICT (monotone
+            // ids, counters, timestamps).  The dict path above already had
+            // its chance, so a smaller typed payload is a genuine win —
+            // verify by size rather than trust, same rule as the .dv ZNV2
+            // chooser.
+            let best_json_len = zstd_payload.len().min(lz4_payload.len() + 1);
+            if payload.len() + 8 < best_json_len {
+                col_payloads.push((cname.clone(), ColCodec::TypedInt as u8, payload));
+                used_v4_feature = true;
+                continue;
+            }
+        }
         if lz4_payload.len() + 1 < zstd_payload.len() {
             col_payloads.push((cname.clone(), ColCodec::Lz4Json as u8, lz4_payload));
         } else {
+            if zstd_form != 0 {
+                used_v4_feature = true;
+            }
             col_payloads.push((cname.clone(), ColCodec::RawJson as u8, zstd_payload));
         }
     }
 
-    // Assemble the V2 payload.
+    // Assemble the V2 payload.  ZBS4 magic only when something in it needs
+    // a ZBS2 reader's parser to behave differently; otherwise the bytes are
+    // exactly what an older build would have written.
     let mut out: Vec<u8> = Vec::with_capacity(
         4 + 8
             + col_payloads
@@ -608,7 +772,11 @@ fn encode_v2_columns(
                 .map(|(n, _, p)| 2 + n.len() + 5 + p.len())
                 .sum::<usize>(),
     );
-    out.extend_from_slice(STORED_V2_MAGIC);
+    out.extend_from_slice(if used_v4_feature {
+        STORED_V4_MAGIC
+    } else {
+        STORED_V2_MAGIC
+    });
     out.write_u32::<LittleEndian>(num_docs as u32).unwrap();
     out.write_u32::<LittleEndian>(col_payloads.len() as u32)
         .unwrap();
@@ -654,7 +822,7 @@ fn encode_v2_columns(
 /// `present_nulls` is sorted here so the two V2 encoders — which discover
 /// nulls in different orders — emit byte-identical bytes.
 fn wrap_stored_v3(zbs2: Vec<u8>, mut present_nulls: Vec<(u32, u32)>) -> Vec<u8> {
-    if present_nulls.is_empty() || zbs2.len() < 4 || &zbs2[..4] != STORED_V2_MAGIC {
+    if present_nulls.is_empty() || !is_columnar_stored_magic(&zbs2) {
         return zbs2;
     }
     present_nulls.sort_unstable();
@@ -698,7 +866,7 @@ fn split_stored_v3(bytes: &[u8]) -> Result<StoredV3Parts<'_>> {
     let inner = bytes
         .get(inner_start..)
         .ok_or_else(|| StorageError::Other(anyhow::anyhow!("v3 inner blob missing")))?;
-    if inner.len() < 4 || &inner[..4] != STORED_V2_MAGIC {
+    if !is_columnar_stored_magic(inner) {
         return Err(StorageError::Other(anyhow::anyhow!(
             "v3 inner blob is not ZBS2"
         )));
@@ -715,7 +883,7 @@ pub fn decode_stored(bytes: &[u8]) -> Result<Vec<u8>> {
         let (present_nulls, inner) = split_stored_v3(bytes)?;
         return decode_stored_v2(&inner[4..], &present_nulls);
     }
-    if bytes.len() >= 4 && &bytes[..4] == STORED_V2_MAGIC {
+    if is_columnar_stored_magic(bytes) {
         return decode_stored_v2(&bytes[4..], &[]);
     }
     if bytes.len() >= 4 && &bytes[..4] == STORED_LZ4_MAGIC {
@@ -784,7 +952,7 @@ pub fn stored_slices_retained_upper_bound(bytes: &[u8], expected_docs: u64) -> R
                 StorageError::Other(anyhow::anyhow!("LZ4 stored offset bound overflow"))
             })?;
         (decoded, offsets)
-    } else if bytes.len() >= 4 && &bytes[..4] == STORED_V2_MAGIC {
+    } else if is_columnar_stored_magic(bytes) {
         let directory = parse_v2_directory(&bytes[4..])?;
         if directory.num_docs as u64 != expected_docs {
             return Err(StorageError::Other(anyhow::anyhow!(
@@ -802,10 +970,15 @@ pub fn stored_slices_retained_upper_bound(bytes: &[u8], expected_docs: u64) -> R
             .ok_or_else(|| {
                 StorageError::Other(anyhow::anyhow!("v2 decoded-size bound overflow"))
             })?;
+        // Per-column value bounds in directory order, so COPY_OF can reuse its
+        // source's bound (the writer only references earlier columns; anything
+        // else fails closed instead of under-counting).
+        let mut column_value_bounds: Vec<u64> = Vec::with_capacity(directory.columns.len());
         for column in &directory.columns {
             let value_bound = match column.codec {
                 ColCodec::RawJson => {
-                    let Some(size) = zstd_frame_content_size(column.payload, "raw json")? else {
+                    let frame = decode_raw_payload(column.payload)?;
+                    let Some(size) = zstd_frame_content_size(frame, "raw json")? else {
                         return Ok(None);
                     };
                     size
@@ -838,7 +1011,25 @@ pub fn stored_slices_retained_upper_bound(bytes: &[u8], expected_docs: u64) -> R
                 ColCodec::CrossDep => rows.checked_mul(20).ok_or_else(|| {
                     StorageError::Other(anyhow::anyhow!("cross-dep decoded-size bound overflow"))
                 })?,
+                // TYPED_INT materialises the same i64-or-null cells.
+                ColCodec::TypedInt => rows.checked_mul(20).ok_or_else(|| {
+                    StorageError::Other(anyhow::anyhow!("typed-int decoded-size bound overflow"))
+                })?,
+                // COPY_OF materialises exactly its source column's values, so
+                // its bound IS the source's — already computed above (the
+                // writer only references earlier pass-1 columns).  A
+                // self/forward reference is not encoder-producible; the
+                // estimator fails closed on one rather than under-count.
+                ColCodec::CopyOf => {
+                    let src_ix = copy_of_source_index(column.payload)?;
+                    *column_value_bounds.get(src_ix).ok_or_else(|| {
+                        StorageError::Other(anyhow::anyhow!(
+                            "copy_of estimator requires an earlier source column"
+                        ))
+                    })?
+                }
             };
+            column_value_bounds.push(value_bound);
             bound = bound.checked_add(value_bound).ok_or_else(|| {
                 StorageError::Other(anyhow::anyhow!("v2 decoded-size bound overflow"))
             })?;
@@ -1133,7 +1324,7 @@ pub fn decode_stored_v2_projection(
     bytes: &[u8],
     requested: &[&str],
 ) -> Result<StoredV2ProjectionResult> {
-    if bytes.len() < 4 || &bytes[..4] != STORED_V2_MAGIC {
+    if !is_columnar_stored_magic(bytes) {
         return Ok(StoredV2ProjectionResult::NotV2);
     }
     let directory = parse_v2_directory(&bytes[4..])?;
@@ -1203,6 +1394,14 @@ fn decode_cross_dep_body(payload: &[u8], num_docs: usize) -> Result<Vec<u8>> {
     Ok(body)
 }
 
+/// Read a COPY_OF payload's referenced column index.
+fn copy_of_source_index(payload: &[u8]) -> Result<usize> {
+    Cursor::new(payload)
+        .read_u32::<LittleEndian>()
+        .map(|value| value as usize)
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("copy_of src_ix: {e}")))
+}
+
 fn cross_dep_source_index(payload: &[u8], num_docs: usize) -> Result<usize> {
     let body = decode_cross_dep_body(payload, num_docs)?;
     Cursor::new(body)
@@ -1244,6 +1443,14 @@ fn decode_projected_column<'a>(
         ColCodec::Lz4Json => decode_lz4_json(column.payload)?,
         ColCodec::Constant => decode_constant(column.payload, directory.num_docs)?,
         ColCodec::DictBitpack => decode_dict_bitpack(column.payload, directory.num_docs)?,
+        ColCodec::TypedInt => decode_typed_int(column.payload, directory.num_docs)?,
+        // COPY_OF references an earlier column; the recursion (guarded by
+        // `visiting`/`depth` exactly like CrossDep's) materialises it and
+        // the clone IS this column's value vector.
+        ColCodec::CopyOf => {
+            let src_ix = copy_of_source_index(column.payload)?;
+            decode_projected_column(src_ix, directory, decoded, visiting, depth + 1)?.clone()
+        }
         ColCodec::CrossDep => {
             let source_index = cross_dep_source_index(column.payload, directory.num_docs)?;
             let source =
@@ -1434,7 +1641,8 @@ fn decode_typed_vector_rows_controlled(
     }
     match column.codec {
         ColCodec::RawJson => {
-            let decoder = zstd::stream::read::Decoder::new(column.payload).map_err(|error| {
+            let frame = decode_raw_payload(column.payload)?;
+            let decoder = zstd::stream::read::Decoder::new(frame).map_err(|error| {
                 StorageError::Other(anyhow::anyhow!("raw zstd decode: {error}"))
             })?;
             parse_typed_vector_reader(decoder, num_docs, column_index, checkpoint)
@@ -1521,7 +1729,8 @@ fn decode_typed_vector_chunk_rows_controlled(
     }
     match column.codec {
         ColCodec::RawJson => {
-            let decoder = zstd::stream::read::Decoder::new(column.payload).map_err(|error| {
+            let frame = decode_raw_payload(column.payload)?;
+            let decoder = zstd::stream::read::Decoder::new(frame).map_err(|error| {
                 StorageError::Other(anyhow::anyhow!("raw zstd decode: {error}"))
             })?;
             parse_typed_chunk_reader(decoder, num_docs, column_index, checkpoint)
@@ -1663,7 +1872,7 @@ pub fn decode_stored_v2_knn_projection_controlled<F>(
 where
     F: FnMut(StoredDecodeCheckpoint) -> std::ops::ControlFlow<()>,
 {
-    if bytes.len() < 4 || &bytes[..4] != STORED_V2_MAGIC {
+    if !is_columnar_stored_magic(bytes) {
         return Ok(StoredDecodeRun::Complete(
             StoredV2KnnProjectionResult::NotV2,
         ));
@@ -1839,28 +2048,37 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
             ColCodec::Lz4Json => decode_lz4_json(payload)?,
             ColCodec::Constant => decode_constant(payload, num_docs)?,
             ColCodec::DictBitpack => decode_dict_bitpack(payload, num_docs)?,
-            ColCodec::CrossDep => {
-                // CROSS_DEP requires the source column to already be
-                // decoded.  We decode it in a second pass below — here we
-                // emit a placeholder and revisit it after.
+            ColCodec::TypedInt => decode_typed_int(payload, num_docs)?,
+            // CROSS_DEP and COPY_OF both require their source column to be
+            // materialised first.  We emit a placeholder here and revisit
+            // both in the deferred fixpoint below — COPY_OF is written with
+            // an earlier pass-1 source by construction, but decode treats a
+            // crafted segment's references the same way instead of trusting
+            // that.
+            ColCodec::CopyOf | ColCodec::CrossDep => {
+                let (key, value) = match codec {
+                    ColCodec::CopyOf => (
+                        "__deferred_copy_of__",
+                        serde_json::Value::Number((copy_of_source_index(payload)? as u64).into()),
+                    ),
+                    _ => (
+                        "__deferred_cross_dep__",
+                        serde_json::Value::Array(
+                            payload
+                                .iter()
+                                .map(|b| serde_json::Value::Number((*b).into()))
+                                .collect(),
+                        ),
+                    ),
+                };
                 col_names.push(name);
                 col_data.push(Vec::new());
-                // Stash the raw payload in col_data[i] as a single
-                // "deferred" Value.  Second pass recognises and replaces.
                 col_data
                     .last_mut()
                     .unwrap()
                     .push(serde_json::Value::Object({
                         let mut m = serde_json::Map::new();
-                        m.insert(
-                            "__deferred_cross_dep__".into(),
-                            serde_json::Value::Array(
-                                payload
-                                    .iter()
-                                    .map(|b| serde_json::Value::Number((*b).into()))
-                                    .collect(),
-                            ),
-                        );
+                        m.insert(key.into(), value);
                         m
                     }));
                 continue;
@@ -1892,16 +2110,23 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
         .enumerate()
         .map(|(i, n)| (n.clone(), i))
         .collect();
-    let is_deferred = |col: &Vec<serde_json::Value>| -> Option<Vec<u8>> {
+    enum DeferredColumn {
+        CrossDep(Vec<u8>),
+        CopyOf(usize),
+    }
+    let is_deferred = |col: &Vec<serde_json::Value>| -> Option<DeferredColumn> {
         if col.len() == 1 {
             if let serde_json::Value::Object(ref m) = col[0] {
                 if let Some(serde_json::Value::Array(bytes_arr)) = m.get("__deferred_cross_dep__") {
-                    return Some(
+                    return Some(DeferredColumn::CrossDep(
                         bytes_arr
                             .iter()
                             .filter_map(|v| v.as_u64().map(|u| u as u8))
                             .collect(),
-                    );
+                    ));
+                }
+                if let Some(src) = m.get("__deferred_copy_of__").and_then(|v| v.as_u64()) {
+                    return Some(DeferredColumn::CopyOf(src as usize));
                 }
             }
         }
@@ -1911,23 +2136,42 @@ fn decode_stored_v2(body: &[u8], present_nulls: &[(u32, u32)]) -> Result<Vec<u8>
         let mut progressed = false;
         let mut still_deferred = 0usize;
         for cix in 0..col_data.len() {
-            let Some(payload) = is_deferred(&col_data[cix]) else {
-                continue;
+            let deferred = match is_deferred(&col_data[cix]) {
+                Some(d) => d,
+                None => continue,
             };
-            match decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)? {
-                Some(resolved) => {
-                    col_data[cix] = resolved;
-                    progressed = true;
+            let resolved = match deferred {
+                DeferredColumn::CrossDep(payload) => {
+                    match decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)? {
+                        Some(resolved) => resolved,
+                        None => {
+                            still_deferred += 1;
+                            continue;
+                        }
+                    }
                 }
-                None => still_deferred += 1,
-            }
+                DeferredColumn::CopyOf(src_ix) => {
+                    if src_ix >= col_data.len() || src_ix == cix {
+                        return Err(StorageError::Other(anyhow::anyhow!(
+                            "copy_of invalid source index {src_ix}"
+                        )));
+                    }
+                    if is_deferred(&col_data[src_ix]).is_some() {
+                        still_deferred += 1;
+                        continue;
+                    }
+                    col_data[src_ix].clone()
+                }
+            };
+            col_data[cix] = resolved;
+            progressed = true;
         }
         if still_deferred == 0 {
             break;
         }
         if !progressed {
             return Err(StorageError::Other(anyhow::anyhow!(
-                "cross_dep dependency cycle: {still_deferred} column(s) unresolvable"
+                "stored dependency cycle: {still_deferred} column(s) unresolvable"
             )));
         }
     }
@@ -2238,6 +2482,291 @@ fn decode_constant(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json::Va
     })?;
     values.resize(num_docs, v);
     Ok(values)
+}
+
+// ── ZBS4 codecs: TYPED_INT, COPY_OF, long-effort zstd (#1038) ───────────────
+
+/// Rows per TYPED_INT block — matches the `.post`/`.dv` block size, and
+/// `bitpacking::BitPacker4x::BLOCK_LEN`.
+const TYPED_INT_BLOCK: usize = 128;
+
+/// Order-sensitive digest of a column's values, used to find COPY_OF
+/// candidates cheaply.  Full equality is verified before a reference is
+/// written, so any hash quality is safe.
+fn column_digest<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    fn value_digest(v: &serde_json::Value, h: &mut std::collections::hash_map::DefaultHasher) {
+        match v {
+            serde_json::Value::Null => 0u8.hash(h),
+            serde_json::Value::Bool(b) => {
+                1u8.hash(h);
+                b.hash(h);
+            }
+            serde_json::Value::Number(n) => {
+                2u8.hash(h);
+                if let Some(i) = n.as_i64() {
+                    i.hash(h);
+                } else if let Some(u) = n.as_u64() {
+                    u.hash(h);
+                } else if let Some(f) = n.as_f64() {
+                    f.to_bits().hash(h);
+                }
+            }
+            serde_json::Value::String(s) => {
+                3u8.hash(h);
+                s.hash(h);
+            }
+            serde_json::Value::Array(a) => {
+                4u8.hash(h);
+                (a.len() as u64).hash(h);
+                for x in a {
+                    value_digest(x, h);
+                }
+            }
+            serde_json::Value::Object(o) => {
+                5u8.hash(h);
+                (o.len() as u64).hash(h);
+                for (k, x) in o {
+                    k.hash(h);
+                    value_digest(x, h);
+                }
+            }
+        }
+    }
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    (col.len() as u64).hash(&mut h);
+    for v in col {
+        value_digest(v.borrow(), &mut h);
+    }
+    h.finish()
+}
+
+/// Encode an all-integer (or null) column as TYPED_INT: a presence bitmap
+/// for nulls, then the non-null values as 128-value frame-of-reference
+/// bit-packed blocks — `[width][zigzag-varint min][payload 128×w/8]`, width
+/// 0 meaning a constant block with no payload (the ZPS2 `.post` framing;
+/// see #1041) — plus a zigzag-varint delta residual.
+///
+/// `None` when the column holds anything but integers/nulls, or when the
+/// value spread does not fit 32 bits after subtracting the frame minimum
+/// (such columns keep the JSON fallback — no width-64 lanes in v1).
+fn encode_typed_int<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> Option<Vec<u8>> {
+    let mut values: Vec<i64> = Vec::with_capacity(col.len());
+    let mut bitmap = vec![0u8; col.len().div_ceil(8)];
+    let mut has_nulls = false;
+    for (i, v) in col.iter().enumerate() {
+        let v = v.borrow();
+        if v.is_null() {
+            has_nulls = true;
+            continue;
+        }
+        // Floats, bools, strings, u64-only magnitudes: not this codec.
+        values.push(v.as_i64()?);
+        bitmap[i / 8] |= 1 << (i % 8);
+    }
+
+    use bitpacking::BitPacker;
+    let mut out = Vec::with_capacity(values.len() / 4 + 8);
+    out.push(u8::from(has_nulls));
+    if has_nulls {
+        out.extend_from_slice(&bitmap);
+    }
+
+    let mut i = 0usize;
+    let n = values.len();
+    while i + TYPED_INT_BLOCK <= n {
+        let block = &values[i..i + TYPED_INT_BLOCK];
+        let min = *block.iter().min().unwrap();
+        let max = *block.iter().max().unwrap();
+        let spread = max.checked_sub(min)? as u64;
+        if spread > u32::MAX as u64 {
+            // Lanes are u32; wider columns keep the JSON fallback.
+            return None;
+        }
+        let width = u8::try_from(64 - spread.leading_zeros()).ok()?;
+        out.push(width);
+        zigzag_varint_encode(min, &mut out);
+        if width > 0 {
+            let mut lanes = [0u32; TYPED_INT_BLOCK];
+            for (lane, &v) in lanes.iter_mut().zip(block.iter()) {
+                *lane = v.checked_sub(min).unwrap() as u32;
+            }
+            let mut packed = vec![0u8; TYPED_INT_BLOCK * width as usize / 8];
+            bitpacking::BitPacker4x::new().compress(&lanes, &mut packed, width);
+            out.extend_from_slice(&packed);
+        }
+        i += TYPED_INT_BLOCK;
+    }
+
+    // Residual: zigzag-varint deltas, chained from 0 like the CROSS_DEP
+    // exceptions (fewer than 128 values, so the chain cannot overflow i64
+    // for any realistic column — checked_sub guards the block path above).
+    let mut prev = 0i64;
+    for &v in &values[i..] {
+        let delta = v.checked_sub(prev)?;
+        zigzag_varint_encode(delta, &mut out);
+        prev = v;
+    }
+    Some(out)
+}
+
+/// Decode a TYPED_INT payload back into `num_docs` JSON values.
+fn decode_typed_int(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json::Value>> {
+    use bitpacking::BitPacker;
+    let mut cur = Cursor::new(payload);
+    let has_nulls = cur
+        .read_u8()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("typed_int flags: {e}")))?
+        != 0;
+    let bitmap_len = if has_nulls { num_docs.div_ceil(8) } else { 0 };
+    let pos = cur.position() as usize;
+    let bitmap = payload
+        .get(pos..pos + bitmap_len)
+        .ok_or_else(|| StorageError::Other(anyhow::anyhow!("typed_int bitmap truncated")))?;
+    cur.set_position((pos + bitmap_len) as u64);
+
+    let is_set = |row: usize| -> bool { !has_nulls || (bitmap[row / 8] >> (row % 8) & 1) == 1 };
+    let value_count = if has_nulls {
+        (0..num_docs).filter(|&r| is_set(r)).count()
+    } else {
+        num_docs
+    };
+
+    let mut values = Vec::with_capacity(value_count);
+    let mut read = 0usize;
+    while read + TYPED_INT_BLOCK <= value_count {
+        let width = cur
+            .read_u8()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("typed_int width: {e}")))?;
+        if width > 32 {
+            return Err(StorageError::Other(anyhow::anyhow!(
+                "typed_int invalid width {width}"
+            )));
+        }
+        let min = zigzag_varint_decode(&mut cur)?;
+        let mut block = [min; TYPED_INT_BLOCK];
+        if width > 0 {
+            let byte_len = TYPED_INT_BLOCK * width as usize / 8;
+            let start = cur.position() as usize;
+            let end = start
+                .checked_add(byte_len)
+                .filter(|end| *end <= payload.len())
+                .ok_or_else(|| StorageError::Other(anyhow::anyhow!("typed_int block truncated")))?;
+            let mut lanes = [0u32; TYPED_INT_BLOCK];
+            bitpacking::BitPacker4x::new().decompress(&payload[start..end], &mut lanes, width);
+            for (slot, lane) in block.iter_mut().zip(lanes.iter()) {
+                *slot = min.wrapping_add(*lane as i64);
+            }
+            cur.set_position(end as u64);
+        }
+        values.extend_from_slice(&block);
+        read += TYPED_INT_BLOCK;
+    }
+
+    let mut prev = 0i64;
+    while read < value_count {
+        let delta = zigzag_varint_decode(&mut cur)?;
+        prev = prev.wrapping_add(delta);
+        values.push(prev);
+        read += 1;
+    }
+    if values.len() != value_count {
+        return Err(StorageError::Other(anyhow::anyhow!(
+            "typed_int decoded {} values, expected {value_count}",
+            values.len()
+        )));
+    }
+
+    let mut it = values.into_iter();
+    let mut rows = Vec::with_capacity(num_docs);
+    for row in 0..num_docs {
+        if is_set(row) {
+            let value = it.next().ok_or_else(|| {
+                StorageError::Other(anyhow::anyhow!("typed_int ran out of values"))
+            })?;
+            rows.push(serde_json::Value::Number(value.into()));
+        } else {
+            rows.push(serde_json::Value::Null);
+        }
+    }
+    Ok(rows)
+}
+
+/// Zigzag-encode a signed value as a LEB128 varint (shared by TYPED_INT's
+/// frame minimums and residual deltas).
+fn zigzag_varint_encode(v: i64, out: &mut Vec<u8>) {
+    let mut v = ((v << 1) ^ (v >> 63)) as u64;
+    loop {
+        let byte = (v & 0x7F) as u8;
+        v >>= 7;
+        if v == 0 {
+            out.push(byte | 0x80);
+            break;
+        }
+        out.push(byte);
+    }
+}
+
+/// Decode a LEB128 varint previously written by [`zigzag_varint_encode`]
+/// (the caller applies/restores the zigzag interpretation).
+fn zigzag_varint_decode(cur: &mut Cursor<&[u8]>) -> Result<i64> {
+    let mut result = 0u64;
+    let mut shift = 0u32;
+    loop {
+        let byte = cur
+            .read_u8()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("typed_int varint: {e}")))?;
+        result |= ((byte & 0x7F) as u64) << shift;
+        if byte & 0x80 != 0 {
+            break;
+        }
+        shift += 7;
+        if shift >= 64 {
+            return Err(StorageError::Other(anyhow::anyhow!(
+                "typed_int varint overflow"
+            )));
+        }
+    }
+    // Un-zigzag: (n >> 1) ^ -(n & 1), in wrapping arithmetic.
+    Ok(((result >> 1) as i64) ^ -((result & 1) as i64))
+}
+
+/// The merge-path long-effort zstd candidate (see [`RAW_LONG_LEVEL`]):
+/// level 19, long-distance matching on, window log capped at both
+/// [`RAW_LONG_WINDOW_LOG_MAX`] and the input's own size (a window larger
+/// than the payload cannot match anything and only inflates the decode
+/// buffer).
+fn compress_long_effort(input: &[u8]) -> Option<(Vec<u8>, u32)> {
+    let size_log = 64 - (input.len() as u64).saturating_sub(1).leading_zeros();
+    let window_log = RAW_LONG_WINDOW_LOG_MAX.min(size_log);
+    let mut compressor = zstd::bulk::Compressor::new(RAW_LONG_LEVEL).ok()?;
+    use zstd::zstd_safe::CParameter;
+    compressor
+        .set_parameter(CParameter::WindowLog(window_log))
+        .ok()?;
+    compressor
+        .set_parameter(CParameter::EnableLongDistanceMatching(true))
+        .ok()?;
+    let compressed = compressor.compress(input).ok()?;
+    Some((compressed, window_log))
+}
+
+/// Try the long-effort zstd form for one fallback column and keep whichever
+/// payload is smaller.  Form 1 carries the 3-byte `[1][level][window_log]`
+/// prefix; when the plain form wins, the caller's original payload is
+/// returned untouched so the segment can stay byte-identical ZBS2.
+fn try_long_effort_zstd(col_json: &[u8], plain: Vec<u8>) -> (Vec<u8>, u8) {
+    match compress_long_effort(col_json) {
+        Some((long, window_log)) if long.len() + 3 < plain.len() => {
+            let mut payload = Vec::with_capacity(3 + long.len());
+            payload.push(1u8);
+            payload.push(RAW_LONG_LEVEL as u8);
+            payload.push(window_log as u8);
+            payload.extend_from_slice(&long);
+            (payload, 1u8)
+        }
+        _ => (plain, 0u8),
+    }
 }
 
 fn encode_dict_bitpack(entries: &[serde_json::Value], ids: &[u32], level: i32) -> Vec<u8> {
@@ -2572,10 +3101,24 @@ fn decode_cross_dep(
 }
 
 fn decode_raw_json(payload: &[u8]) -> Result<Vec<serde_json::Value>> {
-    let raw = zstd::decode_all(payload)
+    let frame = decode_raw_payload(payload)?;
+    let raw = zstd::decode_all(frame)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("raw zstd decode: {e}")))?;
     serde_json::from_slice(&raw)
         .map_err(|e| StorageError::Other(anyhow::anyhow!("raw json decode: {e}")))
+}
+
+/// Locate the zstd frame inside a `RAW_JSON` payload in either form (see
+/// the module docs): form 0 is the frame itself; form 1 is
+/// `[1][level][window_log][frame]`.
+fn decode_raw_payload(payload: &[u8]) -> Result<&[u8]> {
+    if payload.first() == Some(&1) {
+        payload
+            .get(3..)
+            .ok_or_else(|| StorageError::Other(anyhow::anyhow!("raw long-form header truncated")))
+    } else {
+        Ok(payload)
+    }
 }
 
 fn decode_lz4_json(payload: &[u8]) -> Result<Vec<serde_json::Value>> {
@@ -2744,10 +3287,14 @@ mod tests {
             .map(|i| json!({ "_id": i.to_string(), "_seq_no": i, "_source": { "a": "x" } }))
             .collect();
         let encoded_free = encode_stored_v2(&serde_json::to_vec(&null_free).unwrap());
-        assert_eq!(
+        assert_ne!(
             &encoded_free[..4],
-            STORED_V2_MAGIC,
+            STORED_V3_MAGIC,
             "a null-free segment must NOT be wrapped as ZBS3"
+        );
+        assert!(
+            is_columnar_stored_magic(&encoded_free),
+            "null-free segments stay columnar (ZBS2 or ZBS4)"
         );
     }
 
@@ -2883,7 +3430,8 @@ mod tests {
             .map(|i| json!({ "_id": format!("d{}", i), "_seq_no": i, "_source": { "path": "/x" } }))
             .collect();
         let v2 = encode_stored_v2(&serde_json::to_vec(&null_free).unwrap());
-        assert_eq!(&v2[..4], STORED_V2_MAGIC, "null-free stays ZBS2");
+        assert_ne!(&v2[..4], STORED_V3_MAGIC, "null-free stays unwrapped");
+        assert!(is_columnar_stored_magic(&v2));
         match decode_stored_projection(&v2, &["__id"]).unwrap() {
             StoredV2ProjectionResult::Projected(p) => {
                 let ids = p.columns.get("__id").expect("`__id` column must project");
@@ -2968,7 +3516,7 @@ mod tests {
             })
             .collect();
         let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
-        assert_eq!(&encoded[..4], STORED_V2_MAGIC);
+        assert!(is_columnar_stored_magic(&encoded));
         (docs, encoded)
     }
 
@@ -3525,7 +4073,7 @@ mod tests {
             })
             .collect();
         let malformed = encode_stored_v2(&serde_json::to_vec(&malformed_docs).unwrap());
-        assert_eq!(&malformed[..4], STORED_V2_MAGIC);
+        assert!(is_columnar_stored_magic(&malformed));
         assert_eq!(
             decode_stored_v2_knn_projection(&malformed, "embedding", None).unwrap(),
             StoredV2KnnProjectionResult::UnsupportedVectorShape
@@ -3671,7 +4219,7 @@ mod tests {
             })
             .collect();
         let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
-        assert_eq!(&encoded[..4], STORED_V2_MAGIC);
+        assert!(is_columnar_stored_magic(&encoded));
         let StoredV2KnnProjectionResult::Projected(projected) =
             decode_stored_v2_knn_projection(&encoded, "embedding", None).unwrap()
         else {
@@ -4013,6 +4561,9 @@ mod tests {
                 "maybe": if i % 5 == 0 { serde_json::Value::Null } else { json!("x") },
                 "nested": { "a": i % 3, "b": [1, "two", serde_json::Value::Null, 3.5] },
                 "tags": ["alpha", "beta"],
+                // echoes `_id` byte-for-byte → COPY_OF (#1038), so flush
+                // parity covers the reference codec on both entry points.
+                "doc_ref": format!("id-{}", i),
             });
             if i % 7 == 0 {
                 src.as_object_mut().unwrap().remove("count");
@@ -4121,5 +4672,477 @@ mod tests {
         let from_values = encode_stored_v2_from_values(&stored, &refs);
         assert_eq!(legacy, from_values);
         assert_eq!(&from_values[..4], STORED_LZ4_MAGIC);
+    }
+
+    // ── ZBS4 (#1038): TYPED_INT, COPY_OF, long-effort chooser ─────────────
+
+    /// TYPED_INT at the payload level: nulls in every position class,
+    /// negatives, a residual shorter than one block, and i64-extreme
+    /// clusters (long zigzag frame minimums).
+    #[test]
+    fn typed_int_roundtrip_nulls_negatives_residual() {
+        // 300 values in a ±2e9 band: negatives, positives, and a spread that
+        // fits u32 lanes no matter how the null removal shifts the block
+        // boundaries. Nulls hit every position class (before/inside/after
+        // blocks).
+        let band: Vec<i64> = (0..300)
+            .map(|i| ((i % 37) as i64 - 18) * 100_000_000 + (i as i64 % 7))
+            .collect();
+        let values: Vec<serde_json::Value> = band
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| {
+                if i % 11 == 5 {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Number(n.into())
+                }
+            })
+            .collect();
+        let borrowed: Vec<&serde_json::Value> = values.iter().collect();
+        let payload = encode_typed_int(&borrowed).expect("int/null column must encode");
+        assert_eq!(decode_typed_int(&payload, values.len()).unwrap(), values);
+
+        // Clusters hugging the i64 extremes exercise multi-byte zigzag
+        // frame minimums in both directions.
+        for cluster in [
+            (i64::MAX - 300..=i64::MAX).collect::<Vec<_>>(),
+            (i64::MIN..=i64::MIN + 300).collect::<Vec<_>>(),
+        ] {
+            let values: Vec<serde_json::Value> = cluster
+                .into_iter()
+                .map(|n| serde_json::Value::Number(n.into()))
+                .collect();
+            let borrowed: Vec<&serde_json::Value> = values.iter().collect();
+            let payload = encode_typed_int(&borrowed).expect("extreme cluster must encode");
+            assert_eq!(decode_typed_int(&payload, values.len()).unwrap(), values);
+        }
+    }
+
+    /// A spread wider than the u32 lanes must refuse to encode (the JSON
+    /// fallback keeps the column lossless).
+    #[test]
+    fn typed_int_rejects_wide_spread_and_non_integers() {
+        let wide = [
+            serde_json::Value::Number(i64::MIN.into()),
+            serde_json::Value::Number(i64::MAX.into()),
+        ];
+        let borrowed: Vec<&serde_json::Value> = wide.iter().collect();
+        assert!(encode_typed_int(&borrowed).is_none());
+
+        let mixed = [json!(1), json!("two")];
+        let borrowed: Vec<&serde_json::Value> = mixed.iter().collect();
+        assert!(encode_typed_int(&borrowed).is_none());
+
+        let floats = [json!(1.5)];
+        let borrowed: Vec<&serde_json::Value> = floats.iter().collect();
+        assert!(encode_typed_int(&borrowed).is_none());
+    }
+
+    #[test]
+    fn v4_typed_int_rejects_malformed_payloads() {
+        // width beyond the u32 lane cap
+        let mut wide = vec![0u8, 33];
+        wide.extend_from_slice(&[0x80]);
+        let error = decode_typed_int(&wide, 128).unwrap_err();
+        assert!(error.to_string().contains("invalid width"), "{error}");
+
+        // packed block shorter than 128 × width / 8
+        let trunc = vec![0u8, 7, 0x80];
+        let error = decode_typed_int(&trunc, 128).unwrap_err();
+        assert!(error.to_string().contains("truncated"), "{error}");
+
+        // presence bitmap declared but missing
+        let error = decode_typed_int(&[1u8], 64).unwrap_err();
+        assert!(error.to_string().contains("bitmap"), "{error}");
+
+        // overlong varint in the residual
+        let mut varint = vec![0u8];
+        varint.extend(std::iter::repeat_n(0x00u8, 11));
+        let error = decode_typed_int(&varint, 1).unwrap_err();
+        assert!(error.to_string().contains("varint"), "{error}");
+    }
+
+    /// The `__seq_no` shape: a per-doc-unique monotone counter must pick
+    /// TYPED_INT (raced against DICT by size), stamp ZBS4, and round-trip.
+    #[test]
+    fn v4_seq_column_encodes_typed_int_and_roundtrips() {
+        let docs: Vec<serde_json::Value> = (0..500u64)
+            .map(|i| {
+                json!({ "_id": format!("s{}", i), "_seq_no": 100 + i, "_source": { "tag": "t" } })
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        assert_eq!(
+            &encoded[..4],
+            STORED_V4_MAGIC,
+            "a segment using a v4 codec must be stamped ZBS4"
+        );
+        let directory = parse_v2_directory(&encoded[4..]).unwrap();
+        let seq = directory
+            .columns
+            .iter()
+            .find(|column| column.name == "__seq_no")
+            .unwrap();
+        assert_eq!(seq.codec, ColCodec::TypedInt);
+        assert!(
+            seq.payload.len() < 700,
+            "500 monotone ints must pack tightly, got {}",
+            seq.payload.len()
+        );
+
+        let round: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        for (i, doc) in round.iter().enumerate() {
+            assert_eq!(doc["_seq_no"].as_u64(), Some(100 + i as u64), "row {i}");
+            assert_eq!(doc["_id"].as_str(), Some(format!("s{}", i).as_str()));
+        }
+    }
+
+    /// The `_id` ↔ `doc_id` echo: the later column stores a 4-byte reference
+    /// to the earlier one and decode materialises both.
+    #[test]
+    fn v4_copy_of_dedups_identical_columns() {
+        let docs: Vec<serde_json::Value> = (0..400u64)
+            .map(|i| {
+                let id = format!("doc-{i}-with-a-rather-long-identifier-suffix");
+                json!({ "_id": id.clone(), "_seq_no": i, "_source": { "doc_id": id, "tag": "x" } })
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        assert_eq!(&encoded[..4], STORED_V4_MAGIC);
+        let directory = parse_v2_directory(&encoded[4..]).unwrap();
+        let doc_id = directory
+            .columns
+            .iter()
+            .find(|column| column.name == "doc_id")
+            .unwrap();
+        assert_eq!(doc_id.codec, ColCodec::CopyOf);
+        assert_eq!(doc_id.payload.len(), 4, "copy-of payload is one u32");
+        assert_eq!(
+            copy_of_source_index(doc_id.payload).unwrap(),
+            0,
+            "references the __id column"
+        );
+
+        let round: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        for (i, doc) in round.iter().enumerate() {
+            assert_eq!(doc["_id"], doc["_source"]["doc_id"], "row {i}");
+            assert_eq!(
+                doc["_id"].as_str(),
+                Some(format!("doc-{i}-with-a-rather-long-identifier-suffix").as_str())
+            );
+        }
+    }
+
+    /// A segment expressible entirely with ZBS2 codecs must stay
+    /// byte-identical ZBS2, and the merge entry at the flush level must
+    /// agree byte-for-byte (the chooser found nothing to beat).
+    #[test]
+    fn v4_magic_written_only_when_a_v4_codec_or_form_is_used() {
+        let docs: Vec<serde_json::Value> = (0..300u64)
+            .map(|i| {
+                json!({
+                    "_id": i.to_string(),
+                    "_seq_no": 7,
+                    "_source": { "tag": if i % 2 == 0 { "a" } else { "b" } }
+                })
+            })
+            .collect();
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let flush = encode_stored_v2(&raw);
+        assert_eq!(&flush[..4], STORED_V2_MAGIC, "no v4 feature → legacy bytes");
+        let merge = encode_stored_v2_merge_at_level(&raw, STORED_ZSTD_LEVEL);
+        assert_eq!(
+            flush, merge,
+            "the chooser with nothing to win must be byte-identical"
+        );
+    }
+
+    /// ZBS4 features under a ZBS3 present-null wrapper: the wrap must not
+    /// disturb TYPED_INT/COPY_OF, the explicit null must survive, and the
+    /// column-projection and row-hydration paths must decode the new codecs
+    /// selectively.
+    #[test]
+    fn v4_features_survive_zbs3_wrap_and_projection() {
+        let docs: Vec<serde_json::Value> = (0..300u64)
+            .map(|i| {
+                let mut src = json!({ "doc_id": format!("z-{i}"), "n": (i as i64) * 3 - 450 });
+                if i % 9 == 0 {
+                    src["opt"] = serde_json::Value::Null;
+                }
+                json!({ "_id": format!("z-{i}"), "_seq_no": i, "_source": src })
+            })
+            .collect();
+        let encoded = encode_stored_v2(&serde_json::to_vec(&docs).unwrap());
+        assert_eq!(&encoded[..4], STORED_V3_MAGIC, "present nulls wrap as ZBS3");
+        let (_present_nulls, inner) = split_stored_v3(&encoded).unwrap();
+        assert_eq!(
+            &inner[..4],
+            STORED_V4_MAGIC,
+            "inner blob carries the v4 codecs"
+        );
+
+        let round: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        assert_eq!(
+            round[9]["_source"].get("opt"),
+            Some(&serde_json::Value::Null),
+            "present explicit null must survive"
+        );
+        assert!(round[10]["_source"].get("opt").is_none());
+        assert_eq!(round[250]["_source"]["n"].as_i64(), Some(250 * 3 - 450));
+        assert_eq!(round[123]["_source"]["doc_id"].as_str(), Some("z-123"));
+
+        // Column projection over the new codecs.
+        let StoredV2ProjectionResult::Projected(projected) =
+            decode_stored_projection(&encoded, &["doc_id", "n"]).unwrap()
+        else {
+            panic!("ZBS4 columns must project");
+        };
+        assert_eq!(projected.columns["doc_id"][123].as_str(), Some("z-123"));
+        assert_eq!(projected.columns["n"][123].as_i64(), Some(123 * 3 - 450));
+
+        // Row hydration (fetch path) — selected rows only.
+        match decode_stored_v2_rows(&encoded, &[7, 120]).unwrap() {
+            StoredV2RowHydrationResult::Hydrated { rows, .. } => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].ordinal, 7);
+                assert_eq!(rows[0].id.as_str(), Some("z-7"));
+                assert_eq!(rows[0].seq_no.as_u64(), Some(7));
+                assert_eq!(
+                    rows[0].source.get("doc_id").and_then(|v| v.as_str()),
+                    Some("z-7")
+                );
+                assert_eq!(
+                    rows[1].source.get("n").and_then(|v| v.as_i64()),
+                    Some(120 * 3 - 450)
+                );
+            }
+            other => panic!("rows must hydrate from the ZBS4 codecs: {other:?}"),
+        }
+
+        // Projected row hydration with a source-field subset.
+        match decode_stored_v2_rows_projected(&encoded, &[7, 120], &["doc_id"]).unwrap() {
+            StoredV2RowHydrationResult::Hydrated { rows, .. } => {
+                assert!(rows[0].source.contains_key("doc_id"));
+                assert!(!rows[0].source.contains_key("n"));
+            }
+            other => panic!("projected hydration must work over ZBS4: {other:?}"),
+        }
+
+        // Retained bound stays a true upper bound with the new codecs —
+        // robust whether the frames carry content sizes (Some) or the
+        // estimator fails open to `None`, the same contract as the #538 test.
+        if let Some(bound) =
+            stored_slices_retained_upper_bound(&encoded, docs.len() as u64).unwrap()
+        {
+            let actual = decode_stored(&encoded).unwrap().len() as u64;
+            assert!(bound >= actual, "bound {bound} < actual {actual}");
+        }
+    }
+
+    /// The fixpoint resolves a crafted COPY_OF → CROSS_DEP forward chain
+    /// (the writer never emits one; decode recovers it) and hard-errors on
+    /// genuine cycles, self- and out-of-range references.
+    #[test]
+    fn v4_copy_of_fixpoint_resolves_forward_chains_and_rejects_cycles() {
+        let id_payload = serde_json::to_vec(&vec!["k"; 4]).unwrap();
+        let seq_payload = serde_json::to_vec(&vec![0, 1, 2, 3]).unwrap();
+        let chained = handcrafted_v2(
+            4,
+            &[
+                (
+                    "__id",
+                    ColCodec::Lz4Json as u8,
+                    lz4_flex::compress_prepend_size(&id_payload),
+                ),
+                (
+                    "__seq_no",
+                    ColCodec::Lz4Json as u8,
+                    lz4_flex::compress_prepend_size(&seq_payload),
+                ),
+                ("a", ColCodec::CopyOf as u8, 3u32.to_le_bytes().to_vec()),
+                ("b", ColCodec::CrossDep as u8, valid_cross_dep(1, 77)),
+            ],
+        );
+        let round: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&chained).unwrap()).unwrap();
+        assert_eq!(round[0]["_source"]["a"], json!(77));
+        assert!(round[1]["_source"].get("a").is_none(), "null cells drop");
+
+        let self_ref = handcrafted_v2(
+            1,
+            &[("a", ColCodec::CopyOf as u8, 0u32.to_le_bytes().to_vec())],
+        );
+        let error = decode_stored(&self_ref).unwrap_err();
+        assert!(
+            error.to_string().contains("invalid source index"),
+            "{error}"
+        );
+        let error = decode_stored_v2_projection(&self_ref, &["a"]).unwrap_err();
+        assert!(error.to_string().contains("dependency cycle"), "{error}");
+
+        let out_of_range = handcrafted_v2(
+            1,
+            &[("a", ColCodec::CopyOf as u8, 9u32.to_le_bytes().to_vec())],
+        );
+        assert!(decode_stored(&out_of_range).is_err());
+        assert!(decode_stored_v2_projection(&out_of_range, &["a"]).is_err());
+
+        let cycle = handcrafted_v2(
+            1,
+            &[
+                ("a", ColCodec::CopyOf as u8, 1u32.to_le_bytes().to_vec()),
+                ("b", ColCodec::CopyOf as u8, 0u32.to_le_bytes().to_vec()),
+            ],
+        );
+        let error = decode_stored(&cycle).unwrap_err();
+        assert!(error.to_string().contains("dependency cycle"), "{error}");
+
+        // Row hydration declines a copy-of→copy-of chain (caller falls back
+        // to the compatibility decoder) instead of following it blindly.
+        let chain = handcrafted_v2(
+            4,
+            &[
+                ("__id", ColCodec::Constant as u8, br#""k""#.to_vec()),
+                ("__seq_no", ColCodec::Constant as u8, br#"0"#.to_vec()),
+                ("dup", ColCodec::CopyOf as u8, 3u32.to_le_bytes().to_vec()),
+                ("src", ColCodec::CopyOf as u8, 0u32.to_le_bytes().to_vec()),
+            ],
+        );
+        match decode_stored_v2_rows(&chain, &[0]).unwrap() {
+            StoredV2RowHydrationResult::UnsupportedDependencyShape { column } => {
+                assert_eq!(column, "dup");
+            }
+            other => panic!("copy-of chain must decline selective hydration: {other:?}"),
+        }
+    }
+
+    /// The estimator must count COPY_OF as its source's bound (already
+    /// computed — sources are earlier) and fail closed on a crafted forward
+    /// reference rather than under-count.
+    #[test]
+    fn v4_retained_bound_resolves_copy_of_and_fails_closed_on_forward_refs() {
+        let ids = json!((0..256).map(|i| format!("id-{i}")).collect::<Vec<_>>());
+        let encoded = handcrafted_v2(
+            256,
+            &[
+                ("__id", ColCodec::Lz4Json as u8, lz4_json(&ids)),
+                (
+                    "__seq_no",
+                    ColCodec::Constant as u8,
+                    serde_json::to_vec(&json!(0)).unwrap(),
+                ),
+                ("echo", ColCodec::CopyOf as u8, 0u32.to_le_bytes().to_vec()),
+            ],
+        );
+        let bound = stored_slices_retained_upper_bound(&encoded, 256)
+            .unwrap()
+            .unwrap();
+        let actual = decode_stored(&encoded).unwrap().len() as u64;
+        assert!(bound >= actual, "bound {bound} < actual {actual}");
+
+        let forward = handcrafted_v2(
+            256,
+            &[
+                ("__id", ColCodec::Constant as u8, br#""k""#.to_vec()),
+                (
+                    "__seq_no",
+                    ColCodec::Constant as u8,
+                    serde_json::to_vec(&json!(0)).unwrap(),
+                ),
+                (
+                    "late_echo",
+                    ColCodec::CopyOf as u8,
+                    3u32.to_le_bytes().to_vec(),
+                ),
+                (
+                    "real",
+                    ColCodec::Constant as u8,
+                    serde_json::to_vec(&json!("value")).unwrap(),
+                ),
+            ],
+        );
+        assert!(
+            stored_slices_retained_upper_bound(&forward, 256).is_err(),
+            "a forward copy-of reference must fail the estimator closed"
+        );
+    }
+
+    /// Long-effort chooser mechanics: the compressor round-trips with a
+    /// bounded window, the form-1 prefix layout is exact, and selection
+    /// accounting keeps the incumbent bytes when the long form cannot win.
+    #[test]
+    fn v4_long_effort_form_roundtrip_and_selection_accounting() {
+        let corpus: Vec<u8> = "the quick brown fox jumps over the lazy dog. "
+            .repeat(5000)
+            .into_bytes();
+        let (long, window_log) = compress_long_effort(&corpus).unwrap();
+        assert!(window_log <= RAW_LONG_WINDOW_LOG_MAX);
+        assert_eq!(zstd::decode_all(long.as_slice()).unwrap(), corpus);
+
+        // Selection accounting: with an artificially weak incumbent the long
+        // form wins and carries exactly [1][level][window_log][frame].
+        let (payload, form) = try_long_effort_zstd(&corpus, corpus.clone());
+        assert_eq!(form, 1);
+        assert_eq!(payload[0], 1);
+        assert_eq!(payload[1], RAW_LONG_LEVEL as u8);
+        assert_eq!(payload[2], window_log as u8);
+        assert_eq!(&payload[3..], &long[..]);
+        assert!(payload.len() < corpus.len());
+
+        // A corpus where no effort level can move the size: the chooser must
+        // return the incumbent untouched (form 0, same bytes).
+        let tiny = b"x".to_vec();
+        let incumbent = zstd::encode_all(Cursor::new(&tiny), STORED_ZSTD_LEVEL).unwrap();
+        let (kept, form) = try_long_effort_zstd(&tiny, incumbent.clone());
+        assert_eq!(form, 0);
+        assert_eq!(kept, incumbent);
+    }
+
+    /// A handcrafted form-1 `RAW_JSON` column (what the merge-path chooser
+    /// writes) must decode everywhere a form-0 column does: full decode,
+    /// column projection, the kNN typed-vector path, and the estimator.
+    #[test]
+    fn v4_form1_raw_payload_decodes_across_all_paths() {
+        let vectors = json!([[1.0, 2.0], [3.0, 4.0]]);
+        let frame =
+            zstd::bulk::compress(&serde_json::to_vec(&vectors).unwrap(), RAW_LONG_LEVEL).unwrap();
+        let mut payload = vec![1u8, RAW_LONG_LEVEL as u8, 23];
+        payload.extend_from_slice(&frame);
+        let encoded = handcrafted_v2(
+            2,
+            &[
+                ("__id", ColCodec::Constant as u8, br#""a""#.to_vec()),
+                ("__seq_no", ColCodec::Constant as u8, br#"0"#.to_vec()),
+                ("embedding", ColCodec::RawJson as u8, payload),
+            ],
+        );
+
+        let full: Vec<serde_json::Value> =
+            serde_json::from_slice(&decode_stored(&encoded).unwrap()).unwrap();
+        assert_eq!(full[1]["_source"]["embedding"], json!([3.0, 4.0]));
+
+        let StoredV2ProjectionResult::Projected(projected) =
+            decode_stored_v2_projection(&encoded, &["embedding"]).unwrap()
+        else {
+            panic!("form-1 columns must project");
+        };
+        assert_eq!(projected.columns["embedding"][0], json!([1.0, 2.0]));
+
+        let StoredV2KnnProjectionResult::Projected(knn) =
+            decode_stored_v2_knn_projection(&encoded, "embedding", None).unwrap()
+        else {
+            panic!("form-1 columns must serve the kNN path");
+        };
+        assert_eq!(knn.vectors[1].as_ref().unwrap(), &vec![3.0f32, 4.0]);
+
+        let bound = stored_slices_retained_upper_bound(&encoded, 2)
+            .unwrap()
+            .unwrap();
+        let actual = decode_stored(&encoded).unwrap().len() as u64;
+        assert!(bound >= actual, "bound {bound} < actual {actual}");
     }
 }

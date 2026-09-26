@@ -12594,7 +12594,9 @@ impl Index {
                         }
                     };
                     let stored_timer = std::time::Instant::now();
-                    let encoded = xerj_storage::stored_codec::encode_stored_v2_at_level(
+                    // The merge entry also runs the per-column long-effort
+                    // zstd chooser (#1038) — background-only by contract.
+                    let encoded = xerj_storage::stored_codec::encode_stored_v2_merge_at_level(
                         &merged_json_buf,
                         merge_zstd_level,
                     );
