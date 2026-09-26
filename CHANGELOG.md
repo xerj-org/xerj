@@ -88,8 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
-- **`.dv` numeric columns are bit-packed (`ZNV2`) instead of raw 8 B/doc**
-  — stage 1 of the index-size epic
+- **`.dv` numeric columns get a bit-packed codec (`ZNV2`), chosen per
+  column by measured size** — stage 1 of the index-size epic
   [#1038](https://github.com/xerj-org/xerj/issues/1038)). The column is
   mapped through the monotone sign-flip bijection, given a global
   frame-of-reference (`u_min`) and a GCD divide, then stored as 128-doc
@@ -100,12 +100,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lanes after the GCD divide, block payload length is derived from the
   width byte (no per-block byte_len to store), and blocks whose
   post-frame spread exceeds 32 bits (mixed-sign f64 bit patterns) fall
-  back to raw `u64` lanes — never larger than the `ZNV1` block they
-  replace. Null slots are excluded from the frame/GCD and re-zeroed at
-  decode, so the decoded array is exactly what `from_iter` builds and
-  the f64-ordered `sorted` index is rebuilt unchanged. `ZNV1` and the
-  pre-magic legacy layout still decode via magic dispatch, so indexes
-  written by older builds remain readable.
+  back to raw `u64` lanes. The writer compresses both candidates — `ZNV2`
+  and the raw `ZNV1` layout — and keeps whichever is smaller after zstd
+  at the actual level (the Parquet pick-the-smallest rule): the first
+  cut shipped bitpack-always and the size harness caught it at 2.0× the
+  `.dv` size on the 100k corpus, because that corpus *cycles* its 4k
+  events and the outer zstd pass matches the repeating raw bytes almost
+  for free, while block-local lanes destroy the byte-aligned repetition.
+  With the chooser, the same 100k run measures `.dv` **−9.0 %** (355,156
+  vs 390,487 B) and total durable **−0.9 %** (5,483,068 vs 5,532,276 B)
+  on that worst-case-for-bitpacking corpus; monotone strided columns
+  measure ~5× smaller than raw pre-compression in the unit tests, and
+  real timestamp/counter columns have that shape. Null slots are
+  excluded from the frame/GCD and re-zeroed at decode, so the decoded
+  array is exactly what `from_iter` builds and the f64-ordered `sorted`
+  index is rebuilt unchanged. `ZNV1` and the pre-magic legacy layout
+  still decode via magic dispatch, so indexes written by older builds
+  remain readable.
 - **The request-cache seen-set no longer allocates on the first tracked
   search** ([#1024](https://github.com/xerj-org/xerj/issues/1024)): a lazy
   seen-set took idle per-index RSS from 206 to 64 kB — ~3× margin under the

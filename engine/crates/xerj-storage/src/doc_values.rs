@@ -373,6 +373,26 @@ impl NumericColumn {
         out
     }
 
+    /// The raw `ZNV1` writer, kept as the adaptive fallback: periodic
+    /// columns are smaller after the outer zstd pass than any block-local
+    /// transform can be, so [`encode_columns_at_level`] compresses both
+    /// candidates and keeps the smaller one. Also the codec every reader
+    /// since M4.7 understands.
+    pub fn encode_znv1(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(12 + self.data.len() * 8);
+        out.extend_from_slice(b"ZNV1");
+        out.write_u32::<LittleEndian>(self.doc_count).unwrap();
+        let mut bitmap_buf = Vec::new();
+        self.null_bitmap.serialize_into(&mut bitmap_buf).unwrap();
+        out.write_u32::<LittleEndian>(bitmap_buf.len() as u32)
+            .unwrap();
+        out.extend_from_slice(&bitmap_buf);
+        for &v in &self.data {
+            out.write_i64::<LittleEndian>(v).unwrap();
+        }
+        out
+    }
+
     pub fn decode(payload: &[u8]) -> Result<Self> {
         if payload.len() >= 4 && &payload[..4] == b"ZNV2" {
             return Self::decode_znv2(payload);
@@ -924,10 +944,6 @@ pub fn encode_columns_at_level(columns: &BTreeMap<String, Column>, level: i32) -
             Column::Numeric(_) => KIND_NUMERIC,
             Column::Keyword(_) => KIND_KEYWORD,
         };
-        let payload = match col {
-            Column::Numeric(n) => n.encode(),
-            Column::Keyword(k) => k.encode(),
-        };
         // `level` is DV_ZSTD_LEVEL (3) on flush — fast encode
         // (~250 MB/s/core), reverted from level 19 because the flush path
         // needs to keep up with sustained ingest (1 M+ docs/s) and the
@@ -940,17 +956,37 @@ pub fn encode_columns_at_level(columns: &BTreeMap<String, Column>, level: i32) -
         // the reader via the high bit on the kind byte; level-19-encoded
         // segments from older builds remain readable (zstd decompress is
         // level-independent).
-        let zstd_payload = match zstd::encode_all(&payload[..], level) {
-            Ok(c) if c.len() < payload.len() => c,
-            // If compression doesn't help (rare tiny columns), keep the
-            // zstd path anyway — decompression still works and avoids a
-            // second reader branch.
-            Ok(c) => c,
-            Err(_) => {
-                // Fallback: raw zstd of an empty compressed level-1 pass.
+        let compress = |payload: &[u8]| -> Vec<u8> {
+            zstd::encode_all(payload, level).unwrap_or_else(|_| {
+                // Fallback: a level-1 pass, else the raw payload.
                 // Extremely unlikely — `encode_all` only errors on OOM.
-                zstd::encode_all(&payload[..], 1).unwrap_or_else(|_| payload.clone())
+                zstd::encode_all(payload, 1).unwrap_or_else(|_| payload.to_vec())
+            })
+        };
+        let zstd_payload = match col {
+            // Numeric columns are the one place a transform can LOSE to
+            // the outer zstd pass: a periodic column (the size harness
+            // cycles its 4k-event corpus) is near-nothing after zstd raw,
+            // while FOR+GCD lanes destroy the byte-aligned repetition the
+            // matcher was exploiting — and f64-bit-pattern columns whose
+            // block spread exceeds 32 bits store raw lanes anyway. So
+            // encode both candidates and keep whichever is smaller AFTER
+            // compression (the Parquet rule: pick the smallest encoding,
+            // plain fallback included). The winner's compressed bytes go
+            // straight into the frame, so the only extra cost is one
+            // encode + one zstd pass per numeric column. Measured on the
+            // 100k harness corpus before this guard: bitpack-always was
+            // 2.0× the `.dv` size of raw.
+            Column::Numeric(n) => {
+                let znv2 = compress(&n.encode());
+                let znv1 = compress(&n.encode_znv1());
+                if znv2.len() <= znv1.len() {
+                    znv2
+                } else {
+                    znv1
+                }
             }
+            Column::Keyword(k) => compress(&k.encode()),
         };
         out.write_u8(kind | KIND_FLAG_ZSTD).unwrap();
         out.write_u32::<LittleEndian>(name.len() as u32).unwrap();
@@ -1260,6 +1296,61 @@ mod tests {
             assert_eq!(a.get(1), b.get(1));
         } else {
             panic!("expected numeric");
+        }
+    }
+
+    #[test]
+    fn numeric_container_picks_the_smaller_codec_and_roundtrips() {
+        // Walk a single-column DV01 frame and return which payload magic
+        // the adaptive chooser landed on.
+        let chosen_magic = |col: NumericColumn| -> String {
+            let mut cols = BTreeMap::new();
+            cols.insert("f".to_string(), Column::Numeric(col));
+            let bytes = encode_columns_at_level(&cols, DV_ZSTD_LEVEL);
+            let mut cur = Cursor::new(&bytes[..]);
+            assert_eq!(cur.read_u32::<LittleEndian>().unwrap(), MAGIC);
+            assert_eq!(cur.read_u32::<LittleEndian>().unwrap(), 1);
+            let kind = cur.read_u8().unwrap();
+            assert_eq!(kind & KIND_MASK, KIND_NUMERIC);
+            assert_ne!(kind & KIND_FLAG_ZSTD, 0);
+            let name_len = cur.read_u32::<LittleEndian>().unwrap() as usize;
+            let mut name = vec![0u8; name_len];
+            cur.read_exact(&mut name).unwrap();
+            assert_eq!(name, b"f");
+            let plen = cur.read_u64::<LittleEndian>().unwrap() as usize;
+            let mut z = vec![0u8; plen];
+            cur.read_exact(&mut z).unwrap();
+            let payload = zstd::decode_all(&z[..]).unwrap();
+            String::from_utf8_lossy(&payload[..4]).into_owned()
+        };
+
+        // Monotone strided values: FOR+GCD lanes are ~5x smaller than raw
+        // pre-compression and zstd cannot close that gap — ZNV2 wins.
+        let monotone = NumericColumn::from_iter(
+            (0..5_000).map(|i| Some(1_700_000_000_000_i64 + i as i64 * 37)),
+        );
+        assert_eq!(chosen_magic(monotone.clone()), "ZNV2");
+
+        // Periodic column (the size-harness corpus shape: cycles of the
+        // same few events): raw bytes repeat on an 8-byte grid and the
+        // outer zstd pass matches them almost for free, while block-min
+        // variance breaks the repetition in packed/wide lanes — ZNV1 wins.
+        let periodic = NumericColumn::from_iter(
+            (0..5_000).map(|i| Some((1_i64 << 52) | (((i % 40) as i64) << 47))),
+        );
+        assert_eq!(chosen_magic(periodic.clone()), "ZNV1");
+
+        // Whatever got chosen, both shapes round-trip through the frame.
+        let mut cols = BTreeMap::new();
+        cols.insert("m".to_string(), Column::Numeric(monotone));
+        cols.insert("p".to_string(), Column::Numeric(periodic));
+        let back = decode_columns(&encode_columns_at_level(&cols, DV_ZSTD_LEVEL)).unwrap();
+        for (name, col) in &cols {
+            let (Column::Numeric(a), Column::Numeric(b)) = (col, &back[name]) else {
+                panic!("expected numeric {name}");
+            };
+            assert_eq!(a.data, b.data, "{name}");
+            assert_eq!(a.sorted, b.sorted, "{name}");
         }
     }
 
