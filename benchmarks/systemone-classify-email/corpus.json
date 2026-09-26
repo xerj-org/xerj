@@ -1,0 +1,1610 @@
+[
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you tell me which option you prefer by end of day Jun 3? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you pick a time for the walkthrough by end of day Sep 6? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you confirm your seat for the workshop by end of day Mar 2? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10052 from Fenwick Cloud \u2014 $30,433.51 due Dec 3",
+  "text": "Please find attached invoice INV-10052 for the annual support contract. Amount due: $30,433.51, payable by Dec 3. Remit to the account on file and reference INV-10052 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@fenwickcloud.example.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you pick a time for the walkthrough by end of day Mar 12? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you tell me which option you prefer by end of day Feb 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10013 from Ridgeway Consulting \u2014 $32,527.43 due Dec 15",
+  "text": "Please find attached invoice INV-10013 for the API usage overage. Amount due: $32,527.43, payable by Dec 15. Remit to the account on file and reference INV-10013 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10057 from Cedarline Studio \u2014 $1,914.32 due Apr 10",
+  "text": "Please find attached invoice INV-10057 for the office furniture delivery. Amount due: $1,914.32, payable by Apr 10. Remit to the account on file and reference INV-10057 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you pick a time for the walkthrough by end of day Aug 6? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you pick a time for the walkthrough by end of day Mar 1? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Alex's thing",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Alex, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Fatima said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Kwame said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Cedarline: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "hard"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10061 from Atlas Facilities \u2014 $12,080.77 due Jan 25",
+  "text": "Please find attached invoice INV-10061 for the annual support contract. Amount due: $12,080.77, payable by Jan 25. Remit to the account on file and reference INV-10061 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Hi team, wrapping up the offsite numbers. Catering came to $1,180, venue was $2,600. Same split as always \u2014 let accounting know if your card wasn't the one charged so we can true it up before month end.",
+  "split": "hard"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10042 from Ridgeway Consulting \u2014 $24,112.21 due Jun 25",
+  "text": "Please find attached invoice INV-10042 for the office furniture delivery. Amount due: $24,112.21, payable by Jun 25. Remit to the account on file and reference INV-10042 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you decide between the two vendors by end of day Jan 4? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Sara, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Priya said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10058 from Greenfield Robotics \u2014 $21,444.33 due Sep 14",
+  "text": "Please find attached invoice INV-10058 for the annual support contract. Amount due: $21,444.33, payable by Sep 14. Remit to the account on file and reference INV-10058 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10015 from Marlowe Analytics \u2014 $10,040.62 due Jul 2",
+  "text": "Please find attached invoice INV-10015 for consulting services (Q3). Amount due: $10,040.62, payable by Jul 2. Remit to the account on file and reference INV-10015 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you sign off on the draft before Friday by end of day Apr 24? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you let me know if the numbers look right by end of day Oct 12? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Owen's thing",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10039 from Atlas Facilities \u2014 $45,434.20 due Sep 1",
+  "text": "Please find attached invoice INV-10039 for the office furniture delivery. Amount due: $45,434.20, payable by Sep 1. Remit to the account on file and reference INV-10039 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Greenfield Robotics. Could you approve the attached budget by end of day Sep 7? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you pick a time for the walkthrough by end of day Oct 10? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you tell me which option you prefer by end of day Aug 8? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm the delivery window",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you confirm the delivery window by end of day Jun 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Greenfield Robotics: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Greenfield Robotics. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10044 from Greenfield Robotics \u2014 $12,869.30 due Jul 24",
+  "text": "Please find attached invoice INV-10044 for the office furniture delivery. Amount due: $12,869.30, payable by Jul 24. Remit to the account on file and reference INV-10044 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Greenfield Robotics. Could you confirm your seat for the workshop by end of day Apr 2? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10045 from Cedarline Studio \u2014 $34,003.63 due Jun 24",
+  "text": "Please find attached invoice INV-10045 for the March hardware order. Amount due: $34,003.63, payable by Jun 24. Remit to the account on file and reference INV-10045 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10043 from Ridgeway Consulting \u2014 $35,572.99 due Sep 11",
+  "text": "Please find attached invoice INV-10043 for the office furniture delivery. Amount due: $35,572.99, payable by Sep 11. Remit to the account on file and reference INV-10043 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you pick a time for the walkthrough by end of day Nov 26? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Jonas, it's been way too long. Was thinking we could join for the hike next weekend \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10053 from Harborline Freight \u2014 $8,405.03 due Mar 19",
+  "text": "Please find attached invoice INV-10053 for the freight for pallet #4. Amount due: $8,405.03, payable by Mar 19. Remit to the account on file and reference INV-10053 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@harborlinefreight.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10056 from Bluepeak Logistics \u2014 $34,590.95 due Mar 14",
+  "text": "Please find attached invoice INV-10056 for the office furniture delivery. Amount due: $34,590.95, payable by Mar 14. Remit to the account on file and reference INV-10056 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@bluepeaklogistics.example.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Priya",
+  "text": "Hey Priya, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10065 from Northwind Supply \u2014 $6,485.64 due Aug 18",
+  "text": "Please find attached invoice INV-10065 for the March hardware order. Amount due: $6,485.64, payable by Aug 18. Remit to the account on file and reference INV-10065 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10037 from Atlas Facilities \u2014 $30,619.61 due Aug 10",
+  "text": "Please find attached invoice INV-10037 for consulting services (Q3). Amount due: $30,619.61, payable by Aug 10. Remit to the account on file and reference INV-10037 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you confirm your seat for the workshop by end of day Nov 7? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you let me know if the numbers look right by end of day Jan 13? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Kwame's thing",
+  "text": "Hey Mei, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Kwame said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Ola, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10029 from Greenfield Robotics \u2014 $37,195.40 due Mar 23",
+  "text": "Please find attached invoice INV-10029 for the March hardware order. Amount due: $37,195.40, payable by Mar 23. Remit to the account on file and reference INV-10029 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you approve the attached budget by end of day Jul 16? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Yuki, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you decide between the two vendors by end of day Mar 8? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Kwame",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Tom\u00e1s said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10036 from Marlowe Analytics \u2014 $39,550.46 due Aug 4",
+  "text": "Please find attached invoice INV-10036 for consulting services (Q3). Amount due: $39,550.46, payable by Aug 4. Remit to the account on file and reference INV-10036 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Greenfield Robotics. Could you tell me which option you prefer by end of day Feb 12? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Priya, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you sign off on the draft before Friday by end of day Dec 25? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you sign off on the draft before Friday by end of day Jul 10? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10009 from Marlowe Analytics \u2014 $6,465.70 due Dec 3",
+  "text": "Please find attached invoice INV-10009 for the March hardware order. Amount due: $6,465.70, payable by Dec 3. Remit to the account on file and reference INV-10009 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Ingrid",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Mei said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Ola, it's been way too long. Was thinking we could join for the hike next weekend \u2014 no pressure either way, just wanted to catch up. Yuki said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Hana said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10063 from Ridgeway Consulting \u2014 $4,127.41 due Nov 17",
+  "text": "Please find attached invoice INV-10063 for the freight for pallet #4. Amount due: $4,127.41, payable by Nov 17. Remit to the account on file and reference INV-10063 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Owen, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $65? Let me know what works, either Venmo or cash when I see you.",
+  "split": "hard"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Sara",
+  "text": "Hey Sara, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Ingrid said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you tell me which option you prefer by end of day Jan 26? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10033 from Marlowe Analytics \u2014 $39,449.06 due Feb 1",
+  "text": "Please find attached invoice INV-10033 for the annual support contract. Amount due: $39,449.06, payable by Feb 1. Remit to the account on file and reference INV-10033 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm the delivery window",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you confirm the delivery window by end of day May 24? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "owe you for gas",
+  "text": "Hey! Can you send me $40 whenever for the gas we split on the drive back? Venmo's fine, or just get me back next time you're over. No rush at all.",
+  "split": "hard"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Ola",
+  "text": "Hey Ola, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10007 from Voss & Rane \u2014 $27,548.18 due Sep 4",
+  "text": "Please find attached invoice INV-10007 for the API usage overage. Amount due: $27,548.18, payable by Sep 4. Remit to the account on file and reference INV-10007 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@vossrane.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you approve the attached budget by end of day Aug 23? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you approve the attached budget by end of day Oct 20? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you decide between the two vendors by end of day Feb 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Alex, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Tom\u00e1s said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Luca, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer, just curious.",
+  "split": "hard"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10021 from Atlas Facilities \u2014 $23,375.21 due Oct 4",
+  "text": "Please find attached invoice INV-10021 for the freight for pallet #4. Amount due: $23,375.21, payable by Oct 4. Remit to the account on file and reference INV-10021 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10025 from Ridgeway Consulting \u2014 $18,326.90 due Jul 12",
+  "text": "Please find attached invoice INV-10025 for the printer maintenance plan. Amount due: $18,326.90, payable by Jul 12. Remit to the account on file and reference INV-10025 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Luca said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10040 from Ridgeway Consulting \u2014 $23,787.18 due Dec 18",
+  "text": "Please find attached invoice INV-10040 for the March hardware order. Amount due: $23,787.18, payable by Dec 18. Remit to the account on file and reference INV-10040 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm the delivery window",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you confirm the delivery window by end of day Aug 18? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you confirm your seat for the workshop by end of day Jun 9? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10024 from Fenwick Cloud \u2014 $36,088.35 due Mar 27",
+  "text": "Please find attached invoice INV-10024 for the printer maintenance plan. Amount due: $36,088.35, payable by Mar 27. Remit to the account on file and reference INV-10024 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@fenwickcloud.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10050 from Bluepeak Logistics \u2014 $43,372.15 due Jul 26",
+  "text": "Please find attached invoice INV-10050 for the office furniture delivery. Amount due: $43,372.15, payable by Jul 26. Remit to the account on file and reference INV-10050 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@bluepeaklogistics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Mei, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Jonas said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm the delivery window",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you confirm the delivery window by end of day Nov 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you decide between the two vendors by end of day Apr 27? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Ingrid's thing",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Ingrid said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm the delivery window",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you confirm the delivery window by end of day Feb 21? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you decide between the two vendors by end of day Feb 26? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Priya, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Fatima said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Yuki's thing",
+  "text": "Hey Priya, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Yuki said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Owen's thing",
+  "text": "Hey Jonas, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you approve the attached budget by end of day May 10? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10032 from Cedarline Studio \u2014 $4,493.26 due Aug 6",
+  "text": "Please find attached invoice INV-10032 for consulting services (Q3). Amount due: $4,493.26, payable by Aug 6. Remit to the account on file and reference INV-10032 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could meet at the usual place at six \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10027 from Cedarline Studio \u2014 $870.62 due Oct 6",
+  "text": "Please find attached invoice INV-10027 for the API usage overage. Amount due: $870.62, payable by Oct 6. Remit to the account on file and reference INV-10027 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10012 from Cedarline Studio \u2014 $11,861.89 due Apr 3",
+  "text": "Please find attached invoice INV-10012 for the API usage overage. Amount due: $11,861.89, payable by Apr 3. Remit to the account on file and reference INV-10012 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10020 from Voss & Rane \u2014 $47,044.49 due Nov 12",
+  "text": "Please find attached invoice INV-10020 for the March hardware order. Amount due: $47,044.49, payable by Nov 12. Remit to the account on file and reference INV-10020 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@vossrane.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Jonas said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Derek, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Ridgeway Consulting. Could you confirm your seat for the workshop by end of day Mar 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you pick a time for the walkthrough by end of day Jul 4? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Nina, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Jonas said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10038 from Harborline Freight \u2014 $6,776.95 due Jun 24",
+  "text": "Please find attached invoice INV-10038 for the API usage overage. Amount due: $6,776.95, payable by Jun 24. Remit to the account on file and reference INV-10038 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@harborlinefreight.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you let me know if the numbers look right by end of day Apr 1? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you approve the attached budget by end of day May 20? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10048 from Bluepeak Logistics \u2014 $14,946.60 due Apr 11",
+  "text": "Please find attached invoice INV-10048 for the office furniture delivery. Amount due: $14,946.60, payable by Apr 11. Remit to the account on file and reference INV-10048 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@bluepeaklogistics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Yuki, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Tom\u00e1s said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10006 from Northwind Supply \u2014 $14,568.05 due Sep 28",
+  "text": "Please find attached invoice INV-10006 for the annual support contract. Amount due: $14,568.05, payable by Sep 28. Remit to the account on file and reference INV-10006 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Alex's thing",
+  "text": "Hey Ola, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Nina's thing",
+  "text": "Hey Priya, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Priya said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you sign off on the draft before Friday by end of day Jun 9? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Priya, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Luca said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10030 from Atlas Facilities \u2014 $44,682.71 due Jul 13",
+  "text": "Please find attached invoice INV-10030 for the printer maintenance plan. Amount due: $44,682.71, payable by Jul 13. Remit to the account on file and reference INV-10030 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Nina",
+  "text": "Hey Nina, it's been way too long. Was thinking we could join for the hike next weekend \u2014 no pressure either way, just wanted to catch up. Tom\u00e1s said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Hana said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10034 from Ridgeway Consulting \u2014 $6,729.46 due Oct 1",
+  "text": "Please find attached invoice INV-10034 for consulting services (Q3). Amount due: $6,729.46, payable by Oct 1. Remit to the account on file and reference INV-10034 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Luca, it's been way too long. Was thinking we could meet at the usual place at six \u2014 no pressure either way, just wanted to catch up. Jonas said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Nina's thing",
+  "text": "Hey Nina, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you approve the attached budget by end of day Jan 7? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10046 from Northwind Supply \u2014 $18,391.60 due May 7",
+  "text": "Please find attached invoice INV-10046 for the catering for the offsite. Amount due: $18,391.60, payable by May 7. Remit to the account on file and reference INV-10046 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Ridgeway Consulting. Could you pick a time for the walkthrough by end of day Aug 20? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10003 from Northwind Supply \u2014 $5,712.55 due Jul 3",
+  "text": "Please find attached invoice INV-10003 for the office furniture delivery. Amount due: $5,712.55, payable by Jul 3. Remit to the account on file and reference INV-10003 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10026 from Cedarline Studio \u2014 $9,970.10 due Mar 5",
+  "text": "Please find attached invoice INV-10026 for the office furniture delivery. Amount due: $9,970.10, payable by Mar 5. Remit to the account on file and reference INV-10026 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10064 from Bluepeak Logistics \u2014 $36,799.07 due Apr 7",
+  "text": "Please find attached invoice INV-10064 for the API usage overage. Amount due: $36,799.07, payable by Apr 7. Remit to the account on file and reference INV-10064 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@bluepeaklogistics.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10035 from Cedarline Studio \u2014 $40,323.48 due Mar 21",
+  "text": "Please find attached invoice INV-10035 for the API usage overage. Amount due: $40,323.48, payable by Mar 21. Remit to the account on file and reference INV-10035 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10031 from Fenwick Cloud \u2014 $6,865.61 due Nov 13",
+  "text": "Please find attached invoice INV-10031 for the March hardware order. Amount due: $6,865.61, payable by Nov 13. Remit to the account on file and reference INV-10031 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@fenwickcloud.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you let me know if the numbers look right by end of day May 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "Bluepeak Logistics: a customer story worth reading",
+  "text": "This issue: a customer story worth reading, plus what shipped this week. We publish every Friday. Reading time about four minutes. Unsubscribe any time with the link below, no hard feelings.",
+  "split": "hard"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10023 from Fenwick Cloud \u2014 $25,701.63 due Feb 6",
+  "text": "Please find attached invoice INV-10023 for the freight for pallet #4. Amount due: $25,701.63, payable by Feb 6. Remit to the account on file and reference INV-10023 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@fenwickcloud.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Ridgeway Consulting: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Ridgeway Consulting. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Harborline Freight. Could you let me know if the numbers look right by end of day Aug 20? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Hana",
+  "text": "Hey Hana, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you let me know if the numbers look right by end of day Feb 2? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10019 from Voss & Rane \u2014 $42,490.73 due Nov 27",
+  "text": "Please find attached invoice INV-10019 for the freight for pallet #4. Amount due: $42,490.73, payable by Nov 27. Remit to the account on file and reference INV-10019 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@vossrane.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Greenfield Robotics. Could you confirm your seat for the workshop by end of day Jul 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you sign off on the draft before Friday by end of day May 1? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Greenfield Robotics: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Greenfield Robotics. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10014 from Greenfield Robotics \u2014 $4,877.15 due Sep 14",
+  "text": "Please find attached invoice INV-10014 for the annual support contract. Amount due: $4,877.15, payable by Sep 14. Remit to the account on file and reference INV-10014 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10054 from Harborline Freight \u2014 $40,160.76 due Aug 22",
+  "text": "Please find attached invoice INV-10054 for the catering for the offsite. Amount due: $40,160.76, payable by Aug 22. Remit to the account on file and reference INV-10054 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@harborlinefreight.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10055 from Harborline Freight \u2014 $36,036.70 due Mar 1",
+  "text": "Please find attached invoice INV-10055 for the March hardware order. Amount due: $36,036.70, payable by Mar 1. Remit to the account on file and reference INV-10055 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@harborlinefreight.example.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10001 from Marlowe Analytics \u2014 $9,966.50 due Nov 2",
+  "text": "Please find attached invoice INV-10001 for consulting services (Q3). Amount due: $9,966.50, payable by Nov 2. Remit to the account on file and reference INV-10001 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Yuki's thing",
+  "text": "Hey Ola, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Yuki said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10005 from Cedarline Studio \u2014 $41,408.80 due Oct 2",
+  "text": "Please find attached invoice INV-10005 for the printer maintenance plan. Amount due: $41,408.80, payable by Oct 2. Remit to the account on file and reference INV-10005 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@cedarlinestudio.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you tell me which option you prefer by end of day Jun 18? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you approve the attached budget by end of day Sep 25? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: upcoming maintenance windows",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: upcoming maintenance windows. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10028 from Voss & Rane \u2014 $348.18 due Jul 18",
+  "text": "Please find attached invoice INV-10028 for the catering for the offsite. Amount due: $348.18, payable by Jul 18. Remit to the account on file and reference INV-10028 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@vossrane.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you let me know if the numbers look right by end of day Jun 25? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Ingrid, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Luca said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10018 from Voss & Rane \u2014 $31,150.89 due Nov 3",
+  "text": "Please find attached invoice INV-10018 for the March hardware order. Amount due: $31,150.89, payable by Nov 3. Remit to the account on file and reference INV-10018 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@vossrane.example.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you sign off on the draft before Friday by end of day Mar 27? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Jonas, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10059 from Northwind Supply \u2014 $23,265.58 due Nov 19",
+  "text": "Please find attached invoice INV-10059 for the printer maintenance plan. Amount due: $23,265.58, payable by Nov 19. Remit to the account on file and reference INV-10059 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Jonas, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Owen, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Nina said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Marlowe Analytics. Could you decide between the two vendors by end of day Jun 26? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Jonas, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Hana said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Bluepeak Logistics: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Bluepeak Logistics. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Harborline Freight. Could you approve the attached budget by end of day Nov 6? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Marlowe Analytics: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Marlowe Analytics. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10022 from Northwind Supply \u2014 $14,380.98 due May 5",
+  "text": "Please find attached invoice INV-10022 for the office furniture delivery. Amount due: $14,380.98, payable by May 5. Remit to the account on file and reference INV-10022 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@northwindsupply.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Priya, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10002 from Ridgeway Consulting \u2014 $6,248.46 due Oct 2",
+  "text": "Please find attached invoice INV-10002 for the office furniture delivery. Amount due: $6,248.46, payable by Oct 2. Remit to the account on file and reference INV-10002 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: a recap of the community call",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: a recap of the community call. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Kwame",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Ingrid said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10060 from Ridgeway Consulting \u2014 $8,649.68 due Mar 17",
+  "text": "Please find attached invoice INV-10060 for the March hardware order. Amount due: $8,649.68, payable by Mar 17. Remit to the account on file and reference INV-10060 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Sara, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10051 from Atlas Facilities \u2014 $11,779.55 due Nov 11",
+  "text": "Please find attached invoice INV-10051 for consulting services (Q3). Amount due: $11,779.55, payable by Nov 11. Remit to the account on file and reference INV-10051 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: pick a time for the walkthrough",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you pick a time for the walkthrough by end of day Apr 14? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Fatima",
+  "text": "Hey Fatima, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Yuki said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Harborline Freight: our hiring plans",
+  "text": "Hi there \u2014 here is this week's digest from Harborline Freight. This issue: our hiring plans. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Atlas Facilities: what changed in the release",
+  "text": "Hi there \u2014 here is this week's digest from Atlas Facilities. This issue: what changed in the release. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you tell me which option you prefer by end of day Jun 12? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10008 from Ridgeway Consulting \u2014 $44,775.23 due Feb 19",
+  "text": "Please find attached invoice INV-10008 for the office furniture delivery. Amount due: $44,775.23, payable by Feb 19. Remit to the account on file and reference INV-10008 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Yuki, it's been way too long. Was thinking we could join for the hike next weekend \u2014 no pressure either way, just wanted to catch up. Ola said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10062 from Harborline Freight \u2014 $9,357.60 due Oct 24",
+  "text": "Please find attached invoice INV-10062 for consulting services (Q3). Amount due: $9,357.60, payable by Oct 24. Remit to the account on file and reference INV-10062 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@harborlinefreight.example.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Harborline Freight. Could you tell me which option you prefer by end of day Apr 5? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: decide between the two vendors",
+  "text": "Hi \u2014 following up from Northwind Supply. Could you decide between the two vendors by end of day Jun 2? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10010 from Greenfield Robotics \u2014 $13,577.63 due Nov 18",
+  "text": "Please find attached invoice INV-10010 for the printer maintenance plan. Amount due: $13,577.63, payable by Nov 18. Remit to the account on file and reference INV-10010 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10016 from Ridgeway Consulting \u2014 $37,633.40 due Jun 23",
+  "text": "Please find attached invoice INV-10016 for the catering for the offsite. Amount due: $37,633.40, payable by Jun 23. Remit to the account on file and reference INV-10016 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10017 from Greenfield Robotics \u2014 $32,630.74 due Aug 3",
+  "text": "Please find attached invoice INV-10017 for consulting services (Q3). Amount due: $32,630.74, payable by Aug 3. Remit to the account on file and reference INV-10017 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@greenfieldrobotics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Harborline Freight. Could you tell me which option you prefer by end of day Jun 28? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10004 from Bluepeak Logistics \u2014 $36,193.54 due Jan 27",
+  "text": "Please find attached invoice INV-10004 for consulting services (Q3). Amount due: $36,193.54, payable by Jan 27. Remit to the account on file and reference INV-10004 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@bluepeaklogistics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Nina, it's been way too long. Was thinking we could bring the kids over Sunday \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10041 from Ridgeway Consulting \u2014 $19,615.82 due Feb 23",
+  "text": "Please find attached invoice INV-10041 for the API usage overage. Amount due: $19,615.82, payable by Feb 23. Remit to the account on file and reference INV-10041 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@ridgewayconsulting.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Kwame",
+  "text": "Hey Kwame, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Kwame said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "hey Hana",
+  "text": "Hey Hana, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Derek said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Tom\u00e1s, it's been way too long. Was thinking we could join for the hike next weekend \u2014 no pressure either way, just wanted to catch up. Owen said you've been swamped. Say hi to everyone for me!",
+  "split": "test"
+ },
+ {
+  "label": "personal",
+  "subject": "re: Sara's thing",
+  "text": "Hey Ola, it's been way too long. Was thinking we could swing by before the game \u2014 no pressure either way, just wanted to catch up. Sara said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Cedarline Studio: what shipped this week",
+  "text": "Hi there \u2014 here is this week's digest from Cedarline Studio. This issue: what shipped this week. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "test"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Voss & Rane. Could you let me know if the numbers look right by end of day Jan 10? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "test"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Greenfield Robotics: a customer story worth reading",
+  "text": "Hi there \u2014 here is this week's digest from Greenfield Robotics. This issue: a customer story worth reading. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Tom\u00e1s, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Tom\u00e1s said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10011 from Marlowe Analytics \u2014 $30,593.74 due Aug 12",
+  "text": "Please find attached invoice INV-10011 for the API usage overage. Amount due: $30,593.74, payable by Aug 12. Remit to the account on file and reference INV-10011 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@marloweanalytics.example.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Derek, it's been way too long. Was thinking we could drop off the keys tomorrow \u2014 no pressure either way, just wanted to catch up. Ola said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "long time!",
+  "text": "Hey Priya, it's been way too long. Was thinking we could call you this weekend \u2014 no pressure either way, just wanted to catch up. Alex said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Fenwick Cloud. Could you sign off on the draft before Friday by end of day Apr 17? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: approve the attached budget",
+  "text": "Hi \u2014 following up from Greenfield Robotics. Could you approve the attached budget by end of day Jan 27? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend?",
+  "text": "Hey Mei, it's been way too long. Was thinking we could grab dinner Thursday \u2014 no pressure either way, just wanted to catch up. Luca said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10047 from Atlas Facilities \u2014 $47,470.44 due Jun 3",
+  "text": "Please find attached invoice INV-10047 for the office furniture delivery. Amount due: $47,470.44, payable by Jun 3. Remit to the account on file and reference INV-10047 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: our product roadmap",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: our product roadmap. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hey Nina, it's been way too long. Was thinking we could catch the early train Saturday \u2014 no pressure either way, just wanted to catch up. Ola said you've been swamped. Say hi to everyone for me!",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: tell me which option you prefer",
+  "text": "Hi \u2014 following up from Ridgeway Consulting. Could you tell me which option you prefer by end of day Nov 26? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "Invoice INV-10049 from Atlas Facilities \u2014 $40,978.78 due Jan 16",
+  "text": "Please find attached invoice INV-10049 for the catering for the offsite. Amount due: $40,978.78, payable by Jan 16. Remit to the account on file and reference INV-10049 on the transfer. A late fee of 1.5% applies after the due date. Questions about this invoice can go to billing@atlasfacilities.example.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Voss & Rane: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Voss & Rane. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: let me know if the numbers look right",
+  "text": "Hi \u2014 following up from Bluepeak Logistics. Could you let me know if the numbers look right by end of day Nov 18? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Northwind Supply: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Northwind Supply. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "newsletter",
+  "subject": "This week at Fenwick Cloud: three things we shipped",
+  "text": "Hi there \u2014 here is this week's digest from Fenwick Cloud. This issue: three things we shipped. We publish every Friday and read every reply, though this address is not monitored for support. If this isn't useful anymore, unsubscribe any time with the link at the bottom, no hard feelings.",
+  "split": "train"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Priya, quick check \u2014 did the transfer for last month's freight land yet? Should have been around forty-eight hundred, reference was on the packing slip. No rush, just reconciling the books this week.",
+  "split": "hard"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? Vendor holds the rate until 5pm today, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "hard"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: sign off on the draft before Friday",
+  "text": "Hi \u2014 following up from Cedarline Studio. Could you sign off on the draft before Friday by end of day Jan 20? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "Need your input: confirm your seat for the workshop",
+  "text": "Hi \u2014 following up from Atlas Facilities. Could you confirm your seat for the workshop by end of day Jan 10? I don't want to move ahead without hearing from you first. Let me know either way, even if the answer is 'not yet'.",
+  "split": "train"
+ }
+]

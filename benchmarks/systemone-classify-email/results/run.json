@@ -1,0 +1,528 @@
+{
+ "easy": {
+  "accuracy": 1.0,
+  "abstained": 0,
+  "mean_confidence": 1.0,
+  "ms_per_item": 2.6117324829101562,
+  "k": 10,
+  "n": 60,
+  "confusion": {
+   "invoice": {
+    "invoice": 15
+   },
+   "needs-reply": {
+    "needs-reply": 15
+   },
+   "newsletter": {
+    "newsletter": 15
+   },
+   "personal": {
+    "personal": 15
+   }
+  },
+  "per_item": [
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: pick a time for the walkthrough"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10052 from Fenwick Cloud \u2014 $30,433.51 due Dec 3"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: pick a time for the walkthrough"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10057 from Cedarline Studio \u2014 $1,914.32 due Apr 10"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: pick a time for the walkthrough"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10061 from Atlas Facilities \u2014 $12,080.77 due Jan 25"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10058 from Greenfield Robotics \u2014 $21,444.33 due Sep 14"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: let me know if the numbers look right"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Ridgeway Consulting: what shipped this week"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Greenfield Robotics: our hiring plans"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Voss & Rane: a customer story worth reading"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: pick a time for the walkthrough"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "quick one"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10053 from Harborline Freight \u2014 $8,405.03 due Mar 19"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10056 from Bluepeak Logistics \u2014 $34,590.95 due Mar 14"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10065 from Northwind Supply \u2014 $6,485.64 due Aug 18"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: confirm your seat for the workshop"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Atlas Facilities: our product roadmap"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Marlowe Analytics: what changed in the release"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: approve the attached budget"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Northwind Supply: a recap of the community call"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "hey Kwame"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: sign off on the draft before Friday"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10063 from Ridgeway Consulting \u2014 $4,127.41 due Nov 17"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "long time!"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "hey Sara"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Voss & Rane: our hiring plans"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "hey Ola"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: approve the attached budget"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Northwind Supply: our hiring plans"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: pick a time for the walkthrough"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: let me know if the numbers look right"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "long time!"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "re: Nina's thing"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "long time!"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "hey Nina"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Bluepeak Logistics: what shipped this week"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Fenwick Cloud: what shipped this week"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10064 from Bluepeak Logistics \u2014 $36,799.07 due Apr 7"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: confirm your seat for the workshop"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Greenfield Robotics: three things we shipped"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10054 from Harborline Freight \u2014 $40,160.76 due Aug 22"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10055 from Harborline Freight \u2014 $36,036.70 due Mar 1"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: sign off on the draft before Friday"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10059 from Northwind Supply \u2014 $23,265.58 due Nov 19"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Marlowe Analytics: three things we shipped"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Atlas Facilities: a recap of the community call"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10060 from Ridgeway Consulting \u2014 $8,649.68 due Mar 17"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10051 from Atlas Facilities \u2014 $11,779.55 due Nov 11"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Atlas Facilities: what changed in the release"
+   },
+   {
+    "gold": "invoice",
+    "pred": "invoice",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Invoice INV-10062 from Harborline Freight \u2014 $9,357.60 due Oct 24"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: decide between the two vendors"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "this weekend?"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "This week at Cedarline Studio: what shipped this week"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Need your input: let me know if the numbers look right"
+   }
+  ]
+ },
+ "hard": {
+  "accuracy": 0.625,
+  "abstained": 0,
+  "mean_confidence": 0.902096625,
+  "ms_per_item": 1.665741205215454,
+  "k": 10,
+  "n": 8,
+  "confusion": {
+   "invoice": {
+    "needs-reply": 1,
+    "personal": 1
+   },
+   "needs-reply": {
+    "newsletter": 1,
+    "needs-reply": 1
+   },
+   "newsletter": {
+    "newsletter": 2
+   },
+   "personal": {
+    "personal": 2
+   }
+  },
+  "per_item": [
+   {
+    "gold": "needs-reply",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": false,
+    "subject": "This week at Cedarline: two quick things"
+   },
+   {
+    "gold": "invoice",
+    "pred": "needs-reply",
+    "confidence": 0.836472,
+    "ok": false,
+    "subject": "for the offsite"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "hey, free this weekend?"
+   },
+   {
+    "gold": "personal",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "owe you for gas"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 0.543829,
+    "ok": true,
+    "subject": "before Friday's launch"
+   },
+   {
+    "gold": "newsletter",
+    "pred": "newsletter",
+    "confidence": 1.0,
+    "ok": true,
+    "subject": "Bluepeak Logistics: a customer story worth reading"
+   },
+   {
+    "gold": "invoice",
+    "pred": "personal",
+    "confidence": 1.0,
+    "ok": false,
+    "subject": "did that ever go through?"
+   },
+   {
+    "gold": "needs-reply",
+    "pred": "needs-reply",
+    "confidence": 0.836472,
+    "ok": true,
+    "subject": "one thing before I book this"
+   }
+  ]
+ }
+}
