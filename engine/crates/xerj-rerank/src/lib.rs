@@ -156,10 +156,12 @@ pub const DATA_EGRESS: &str = "A search that carries a `rerank` block sends the 
      write on tapped indices to an external `_bulk` endpoint. The node's other outbound \
      connections carry no document or query text: the one-time HuggingFace model download \
      for `--embed-mode neural`, Raft messages (index names, mappings, shard assignments) \
-     to the configured peers in cluster mode, and object storage — the `S3Backend` client, \
-     which nothing on the segment path constructs today, and `xerj autoindex s3://` \
+     to the configured peers in cluster mode, and object storage — `xerj autoindex s3://` \
      (with `--watch`, on an interval), which names buckets and keys to the endpoint you \
-     configure and reads objects IN.";
+     configure and reads objects IN. One exception, since v1.0.0-rc.77: with \
+     `storage.backend = \"s3\"` the segment path constructs the same `S3Backend` client and \
+     writes index bundles — which carry stored document text — to the bucket you configured, \
+     as the index's home rather than a third-party egress.";
 
 /// Ceiling on one provider response body, in bytes.
 ///
