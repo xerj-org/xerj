@@ -58,6 +58,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An on-disk size harness for force-merged indexes**
+  (`benchmarks/index-size/`) — the measurement half of the index-size
+  effort (epic [#1038](https://github.com/xerj-org/xerj/issues/1038)):
+  `run.sh` clones the DISK_SIZE_2026-07-09 protocol (chat-events cycled to
+  100k docs enriched with a deterministic text `body` and a
+  high-cardinality `doc_id`, explicit mapping, forcemerge 1,
+  du-stable-30s) and reports a per-extension and per-field byte breakdown
+  of everything durable except the WAL; `LEVEL=best` re-runs at the
+  merge-path compression knob. CI prints a 20k-doc pass informationally on
+  every PR via the existing api-checks job. `DESIGN.md` records where the
+  bytes are today (with file:line anchors), the peer designs adapted
+  (tantivy columnar/sstable/postings, quickwit docstore), and the staged
+  plan: header/delta wins inside existing envelopes → FTS-dictionary reuse
+  → zstd trained dictionaries. No engine format changed yet; numbers from
+  this harness gate the stages that do.
 - **`POST /{index}/_cache/clear`** releases the index's rebuildable caches
   ([#950](https://github.com/xerj-org/xerj/issues/950) follow-up work). (PR
   [#1009](https://github.com/xerj-org/xerj/pull/1009).)

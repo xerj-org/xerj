@@ -3,6 +3,7 @@
 #   1. smoke suite     (must be all-green / exit 0)
 #   2. API liveness    (no 5xx across the read surface)
 #   3. benchmark       (informational — prints throughput + latency)
+#   4. index size      (informational — force-merged per-extension footprint)
 #
 # Expects a built binary. Set XERJ_BIN to override (default: engine release build).
 # No model / LLM needed — safe to run in GitHub Actions.
@@ -43,5 +44,16 @@ node "$HERE/liveness.mjs"
 
 echo "== 3. benchmark (informational) =="
 node "$HERE/bench.mjs" "${BENCH_DOCS:-100000}" || echo "(benchmark non-fatal)"
+
+echo "== 4. index size (informational) =="
+# Force-merged 20k-doc pass with the DISK_SIZE_2026-07-09 corpus shape and a
+# per-extension breakdown, so encoding changes land with before/after evidence
+# in the PR logs. ci-test-profile numbers gate regressions only — they are
+# never published cells (see benchmarks/index-size/README.md). Non-fatal for
+# the same reason the benchmark is; a tmpfs WORK is refused by run.sh itself.
+SIZE_WORK="$(mktemp -d)"
+bash "$REPO/benchmarks/index-size/run.sh" \
+  "$XERJ_BIN" "$SIZE_WORK" 9530 "${SIZE_DOCS:-20000}" || echo "(index-size non-fatal)"
+rm -rf "$SIZE_WORK" 2>/dev/null || true
 
 echo "== CI checks passed =="
