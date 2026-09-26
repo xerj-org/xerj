@@ -21,6 +21,49 @@
 //! └─────────────────────────────────────────┘
 //! ```
 //!
+//! ## Block framing: ZPS2 (current) and ZPS1 (legacy)
+//!
+//! The `.post` envelope magic doubles as the inner-framing version.  A `ZPS2`
+//! file uses the framing below; a `ZPS1` file uses the older
+//! `[num_bits ≥ 1][u32 byte_len][payload]` framing, which the reader still
+//! decodes (see [`PostCodec`]).
+//!
+//! ZPS2 packed streams (doc-id deltas, term freqs) are frame-of-reference
+//! coded per block — the same shape tantivy uses for sorted blocks (a vint
+//! base plus bit-packed residuals; `postings/compression/mod.rs`
+//! `uncompress_block_sorted` in tantivy @ 6182c6062) — with three extra rules
+//! that remove bytes the old framing paid even when they carried no
+//! information:
+//!
+//! ```text
+//!   [width: u8]        0 = every lane equals `min`, no payload follows
+//!                     1..=32 = bit width of (value − min) lanes
+//!   [min: vbyte]       the frame's base, added back on decode
+//!   [payload]          128 × width / 8 bytes — length DERIVED, never stored
+//! ```
+//!
+//! An all-equal block (dense-field doc-id deltas of 1, a term whose freqs are
+//! all k) costs 2–3 bytes total instead of the 21 the old framing paid.  The
+//! old `u32 byte_len` was pure overhead: it is always `128 × width / 8`.
+//!
+//! The frame's `min` is subtracted when that narrows the width, and also on
+//! narrow blocks (≤ [`ZPS2_FOR_MAX_EQUAL_WIDTH`] bits) where it normalises
+//! level-shifted repeats into identical payloads for the outer zstd pass.
+//! On WIDE equal-width blocks the subtraction only rewrites lanes zstd would
+//! have matched verbatim, so those emit `min = 0` with raw lanes — see the
+//! constant's doc comment for the measured story.
+//!
+//! ## Term-frequency elision
+//!
+//! A positioned term whose `total_term_frequency == doc_frequency` has, by
+//! construction, `term_freq == 1` in every document (df positive ints
+//! summing to df).  The writer omits the term's ENTIRE freq stream — full
+//! blocks and residual vbytes alike — and the reader re-derives the same
+//! predicate from the `.meta` record it already loaded (tantivy gates its
+//! freq block on `term_has_freq`, `postings/serializer.rs::write_block`;
+//! Lucene 50 elides per term when ttf == df).  Docs-only fields have always
+//! done this via `store_positions = false`.
+//!
 //! Residual docs (< 128) at the end use variable-byte encoding.  In docs-only
 //! mode (`store_positions = false`) the freq and position sub-blocks are
 //! omitted and the reader synthesises `term_freq = 1`.
@@ -339,6 +382,12 @@ impl PostingsWriter {
         let mut block_count = 0usize;
         let mut i = 0usize;
         let n = postings.len();
+        // Term-frequency elision: df positive integers summing to df iff
+        // every one of them is 1.  The reader re-derives this SAME predicate
+        // from the `.meta` record (ttf == df), so the decision costs no
+        // bytes on disk and the two sides cannot drift.
+        let ttf: u64 = postings.iter().map(|p| p.term_freq as u64).sum();
+        let freq_omitted = self.store_positions && ttf == n as u64;
         // Track the last doc_id written, so that delta[0] of the next block
         // is the gap from the previous block's final doc.  The reader
         // (`decode_next_full_block`) assumes that the first delta in each
@@ -357,8 +406,10 @@ impl PostingsWriter {
             }
 
             encode_block_doc_ids(block, output, prev_block_last_doc_id);
-            if self.store_positions {
+            if self.store_positions && !freq_omitted {
                 encode_block_freqs(block, output);
+            }
+            if self.store_positions {
                 encode_block_positions(block, output);
             }
             // docs-only mode: emit nothing after the packed doc-id block.
@@ -379,6 +430,7 @@ impl PostingsWriter {
                 output,
                 prev_block_last_doc_id,
                 self.store_positions,
+                freq_omitted,
             );
         }
 
@@ -402,33 +454,105 @@ impl Default for PostingsWriter {
 
 // ── Block encoding helpers ────────────────────────────────────────────────────
 
-/// Bit-pack a 128-element `u32` array into the output buffer.
-/// Writes: [num_bits: u8][byte_len: u32][compressed bytes...]
-fn pack_u32_block(values: &[u32; BLOCK_SIZE], output: &mut Vec<u8>) {
+/// Width at or below which a block always takes the frame-of-reference
+/// form, even when subtracting `min` would not narrow the width.
+///
+/// The whole-file zstd envelope is the second compression stage, and the
+/// two stages interact in opposite directions by block width (measured on
+/// the 100k `benchmarks/index-size` harness, A/B against both always-FOR
+/// and never-FOR-at-equal-width encoders):
+///
+/// * NARROW blocks (≤ 4 bits): the packed payload is a short, highly
+///   regular bit pattern.  FOR normalises level-shifted repeats — freqs
+///   5/6 and freqs 9/10 both pack to the same `[0,1,0,1,…]` lanes — so
+///   equal payloads recur across blocks and zstd matches them exactly.
+///   Skipping the subtraction at equal width cost `body.post` 16 KB.
+/// * WIDE blocks: the lanes are quasi-random bits, so the only cross-block
+///   repetition zstd can find is payload EQUALITY, which subtracting a
+///   varying per-block `min` destroys.  FOR-at-equal-width inflated the
+///   compressed `top_doc` field 12.7 % while its uncompressed stream
+///   shrank — pure post-compression loss.
+const ZPS2_FOR_MAX_EQUAL_WIDTH: u8 = 4;
+
+/// Bit-pack a 128-element `u32` array into the output buffer in the ZPS2
+/// framing: `[width: u8][min: vbyte][payload]` with the payload omitted
+/// entirely when every lane equals `min` (width 0).  Frame-of-reference
+/// subtracts `min` first, so the width tracks the block's SPREAD, not its
+/// maximum — a block of freqs 100..=110 packs at 4 bits, not 7.
+fn pack_u32_block_v2(values: &[u32; BLOCK_SIZE], output: &mut Vec<u8>) {
     use bitpacking::BitPacker;
-    let max_val = *values.iter().max().unwrap_or(&0);
-    let num_bits = if max_val == 0 {
-        1u8
-    } else {
-        (32 - max_val.leading_zeros()) as u8
-    };
-    let num_bits = num_bits.min(32);
+    let min = *values.iter().min().unwrap_or(&0);
+    let max = *values.iter().max().unwrap_or(&0);
+    let spread = max - min;
 
-    // bitpacking::BitPacker4x::BLOCK_LEN == 128
-    let byte_len = (BLOCK_SIZE * num_bits as usize).div_ceil(8);
-    let mut compressed = vec![0u8; byte_len];
+    if spread == 0 {
+        output.push(0u8);
+        vbyte_encode(min, output);
+        return;
+    }
 
-    let packer = bitpacking::BitPacker4x::new();
-    packer.compress(values, &mut compressed, num_bits);
-
+    let num_bits_framed = (32 - spread.leading_zeros()) as u8;
+    let num_bits_raw = (32 - max.leading_zeros()) as u8; // 1..=32, max > 0 here
+    let (min, num_bits) =
+        if num_bits_framed < num_bits_raw || num_bits_raw <= ZPS2_FOR_MAX_EQUAL_WIDTH {
+            (min, num_bits_framed)
+        } else {
+            (0, num_bits_raw)
+        };
     output.push(num_bits);
-    output.write_u32::<LittleEndian>(byte_len as u32).unwrap();
+    vbyte_encode(min, output);
+
+    let mut lanes = [0u32; BLOCK_SIZE];
+    for (lane, &value) in lanes.iter_mut().zip(values.iter()) {
+        *lane = value - min;
+    }
+    // bitpacking::BitPacker4x::BLOCK_LEN == 128; byte_len is derived on read.
+    let byte_len = BLOCK_SIZE * num_bits as usize / 8;
+    let mut compressed = vec![0u8; byte_len];
+    bitpacking::BitPacker4x::new().compress(&lanes, &mut compressed, num_bits);
     output.extend_from_slice(&compressed);
 }
 
-/// Decode a 128-element block previously written by `pack_u32_block`.
-/// Reads cursor forward past the data and fills `out`.
-fn unpack_u32_block(
+/// Decode a 128-element block previously written by `pack_u32_block_v2`.
+/// Reads the cursor forward past the data and fills `out`.
+fn unpack_u32_block_v2(
+    data: &[u8],
+    cursor: &mut Cursor<&[u8]>,
+    out: &mut [u32; BLOCK_SIZE],
+) -> io::Result<()> {
+    use bitpacking::BitPacker;
+    let num_bits = cursor.read_u8()?;
+    let min = vbyte_decode(cursor)?;
+    if num_bits == 0 {
+        *out = [min; BLOCK_SIZE];
+        return Ok(());
+    }
+    if num_bits > 32 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "postings block: invalid bit width",
+        ));
+    }
+    let byte_len = BLOCK_SIZE * num_bits as usize / 8;
+    let start = cursor.position() as usize;
+    let end = start + byte_len;
+    if end > data.len() {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "postings data truncated",
+        ));
+    }
+    bitpacking::BitPacker4x::new().decompress(&data[start..end], out, num_bits);
+    for value in out.iter_mut() {
+        *value = value.wrapping_add(min);
+    }
+    cursor.set_position(end as u64);
+    Ok(())
+}
+
+/// Decode a 128-element block in the legacy ZPS1 framing
+/// `[num_bits ≥ 1][u32 byte_len][payload]`.  Old segments stay readable.
+fn unpack_u32_block_v1(
     data: &[u8],
     cursor: &mut Cursor<&[u8]>,
     out: &mut [u32; BLOCK_SIZE],
@@ -462,7 +586,7 @@ fn encode_block_doc_ids(block: &[RawPosting], output: &mut Vec<u8>, prev_last_do
         deltas[j] = block[j].doc_id - block[j - 1].doc_id;
     }
 
-    pack_u32_block(&deltas, output);
+    pack_u32_block_v2(&deltas, output);
 }
 
 fn encode_block_freqs(block: &[RawPosting], output: &mut Vec<u8>) {
@@ -473,24 +597,22 @@ fn encode_block_freqs(block: &[RawPosting], output: &mut Vec<u8>) {
         freqs[i] = p.term_freq;
     }
 
-    pack_u32_block(&freqs, output);
+    pack_u32_block_v2(&freqs, output);
 }
 
 fn encode_block_positions(block: &[RawPosting], output: &mut Vec<u8>) {
-    // Positions: variable-byte encode per-document, delta within document
-    let mut pos_buf: Vec<u8> = Vec::new();
+    // Positions: variable-byte encode per-document, delta within document.
+    // No length prefix — the reader decodes exactly BLOCK_SIZE documents'
+    // (count + deltas) groups, which pins the stream's end; the u32 the old
+    // framing spent per block was information the structure already had.
     for posting in block {
-        vbyte_encode(posting.positions.len() as u32, &mut pos_buf);
+        vbyte_encode(posting.positions.len() as u32, output);
         let mut prev = 0u32;
         for &pos in &posting.positions {
-            vbyte_encode(pos - prev, &mut pos_buf);
+            vbyte_encode(pos - prev, output);
             prev = pos;
         }
     }
-    output
-        .write_u32::<LittleEndian>(pos_buf.len() as u32)
-        .unwrap();
-    output.extend_from_slice(&pos_buf);
 }
 
 fn encode_residual(
@@ -498,6 +620,7 @@ fn encode_residual(
     output: &mut Vec<u8>,
     prev_last_doc_id: u32,
     store_positions: bool,
+    freq_omitted: bool,
 ) {
     // Mark as residual with a sentinel: count byte
     output.push(residual.len() as u8);
@@ -510,9 +633,13 @@ fn encode_residual(
         vbyte_encode(delta, output);
 
         // docs-only mode: skip freq and positions.  Reader synthesises
-        // term_freq = 1 when decoding this field.
-        if store_positions {
+        // term_freq = 1 when decoding this field.  `freq_omitted` is the
+        // positioned variant of the same elision — a term with ttf == df
+        // has term_freq 1 everywhere, so there is nothing to store.
+        if store_positions && !freq_omitted {
             vbyte_encode(posting.term_freq, output);
+        }
+        if store_positions {
             vbyte_encode(posting.positions.len() as u32, output);
             let mut prev_pos = 0u32;
             for &pos in &posting.positions {
@@ -556,7 +683,48 @@ pub fn vbyte_decode(cursor: &mut Cursor<&[u8]>) -> io::Result<u32> {
     }
 }
 
+/// Decode one document's position group — a vbyte count followed by that
+/// many delta-encoded positions.
+fn decode_position_group(cursor: &mut Cursor<&[u8]>) -> io::Result<Vec<u32>> {
+    let count = vbyte_decode(cursor)? as usize;
+    let mut positions = Vec::with_capacity(count);
+    let mut prev = 0u32;
+    for _ in 0..count {
+        let delta = vbyte_decode(cursor)?;
+        prev += delta;
+        positions.push(prev);
+    }
+    Ok(positions)
+}
+
 // ── PostingsReader ────────────────────────────────────────────────────────────
+
+/// Inner framing of a term's postings blob — set by the `.post` envelope
+/// magic the segment was written with (see `xerj_fts::index`).
+///
+/// `V2` is the ZPS2 framing (frame-of-reference blocks, derived lengths,
+/// width-0 constant blocks).  `freq_omitted` marks a positioned term whose
+/// `ttf == df`, whose freq stream was therefore never written; the reader
+/// synthesises `term_freq = 1`, exactly as docs-only fields always have.
+///
+/// `V1` is the legacy ZPS1 framing; segments written before the ZPS2 bump
+/// decode through it unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PostCodec {
+    V1,
+    V2 { freq_omitted: bool },
+}
+
+impl PostCodec {
+    /// The codec decision a ZPS2 reader makes for one term from facts the
+    /// `.meta` record already carries.  The writer applies the identical
+    /// predicate at encode time, so the two cannot drift.
+    pub fn v2_for(has_positions: bool, total_term_frequency: u64, doc_frequency: u32) -> Self {
+        PostCodec::V2 {
+            freq_omitted: has_positions && total_term_frequency == doc_frequency as u64,
+        }
+    }
+}
 
 /// Iterator over decoded doc IDs from a posting list.
 pub struct PostingsReader<'a> {
@@ -591,6 +759,8 @@ pub struct PostingsReader<'a> {
     /// case the reader synthesises `term_freq = 1` and empty positions
     /// for every posting.
     has_positions: bool,
+    /// Inner block framing (ZPS1 legacy vs ZPS2) + freq-elision marker.
+    codec: PostCodec,
 }
 
 #[derive(Debug, Clone)]
@@ -612,7 +782,25 @@ impl<'a> PostingsReader<'a> {
 
     /// Like [`new`] but explicit about whether the posting list carries
     /// term frequencies + positions.
+    ///
+    /// This constructs the **legacy ZPS1** reader.  Segments written with
+    /// the ZPS2 envelope must go through [`Self::new_with_codec`] — the
+    /// block framing differs — which is what `FtsIndexReader`'s postings
+    /// factory does for every caller.
     pub fn new_with_positions(data: &'a [u8], doc_frequency: u32, has_positions: bool) -> Self {
+        Self::new_with_codec(data, doc_frequency, has_positions, PostCodec::V1)
+    }
+
+    /// Like [`new_with_positions`] but explicit about the inner block
+    /// framing, so a ZPS2 segment (FOR blocks, derived lengths, optional
+    /// freq elision) and a legacy ZPS1 segment decode through the same
+    /// iterator.
+    pub fn new_with_codec(
+        data: &'a [u8],
+        doc_frequency: u32,
+        has_positions: bool,
+        codec: PostCodec,
+    ) -> Self {
         let num_full_blocks = doc_frequency as usize / BLOCK_SIZE;
         Self {
             data,
@@ -630,6 +818,7 @@ impl<'a> PostingsReader<'a> {
             residual_idx: 0,
             last_doc_id: 0,
             has_positions,
+            codec,
         }
     }
 
@@ -681,7 +870,10 @@ impl<'a> PostingsReader<'a> {
     fn decode_next_full_block(&mut self) -> io::Result<()> {
         // Read doc_id deltas
         let mut deltas = [0u32; BLOCK_SIZE];
-        unpack_u32_block(self.data, &mut self.cursor, &mut deltas)?;
+        match self.codec {
+            PostCodec::V1 => unpack_u32_block_v1(self.data, &mut self.cursor, &mut deltas)?,
+            PostCodec::V2 { .. } => unpack_u32_block_v2(self.data, &mut self.cursor, &mut deltas)?,
+        }
 
         // Reconstruct absolute doc IDs
         let mut doc_ids = vec![0u32; BLOCK_SIZE];
@@ -691,31 +883,24 @@ impl<'a> PostingsReader<'a> {
         }
         self.last_doc_id = doc_ids[BLOCK_SIZE - 1];
 
+        // A positioned term whose freq stream was elided (ttf == df) or a
+        // docs-only field: every frequency is 1 by construction, so the
+        // block's freq bytes simply are not there.
+        let freq_stored = self.has_positions && !self.freq_omitted();
         let (freqs, positions) = if self.has_positions {
-            // Read freqs
-            let mut freqs = [0u32; BLOCK_SIZE];
-            unpack_u32_block(self.data, &mut self.cursor, &mut freqs)?;
-
-            // Read positions
-            let pos_byte_len = self.cursor.read_u32::<LittleEndian>()? as usize;
-            let pos_start = self.cursor.position() as usize;
-            let pos_end = pos_start + pos_byte_len;
-            let pos_data = &self.data[pos_start..pos_end];
-            let mut pos_cursor = Cursor::new(pos_data);
-            let mut positions: Vec<Vec<u32>> = Vec::with_capacity(BLOCK_SIZE);
-            for _ in 0..BLOCK_SIZE {
-                let count = vbyte_decode(&mut pos_cursor)? as usize;
-                let mut poss = Vec::with_capacity(count);
-                let mut prev = 0u32;
-                for _ in 0..count {
-                    let delta = vbyte_decode(&mut pos_cursor)?;
-                    prev += delta;
-                    poss.push(prev);
+            let freqs = if freq_stored {
+                let mut freqs = [0u32; BLOCK_SIZE];
+                match self.codec {
+                    PostCodec::V1 => unpack_u32_block_v1(self.data, &mut self.cursor, &mut freqs)?,
+                    PostCodec::V2 { .. } => {
+                        unpack_u32_block_v2(self.data, &mut self.cursor, &mut freqs)?
+                    }
                 }
-                positions.push(poss);
-            }
-            self.cursor.set_position(pos_end as u64);
-            (freqs.to_vec(), positions)
+                freqs.to_vec()
+            } else {
+                vec![1u32; BLOCK_SIZE]
+            };
+            (freqs, self.decode_block_positions()?)
         } else {
             // Docs-only mode: synthesise freq=1 and empty positions.
             let freqs = vec![1u32; BLOCK_SIZE];
@@ -732,6 +917,50 @@ impl<'a> PostingsReader<'a> {
         Ok(())
     }
 
+    /// `true` when this term's freq stream was never written — either a
+    /// docs-only field or (ZPS2) a positioned term with `ttf == df`.
+    fn freq_omitted(&self) -> bool {
+        match self.codec {
+            PostCodec::V1 => false,
+            PostCodec::V2 { freq_omitted } => freq_omitted || !self.has_positions,
+        }
+    }
+
+    /// Decode one block's positions (BLOCK_SIZE documents' worth of
+    /// `count + deltas` vbyte groups).
+    ///
+    /// ZPS1 prefixes the stream with a `u32` byte length and the groups
+    /// decode from that slice; ZPS2 dropped the prefix — the group count is
+    /// structurally exactly BLOCK_SIZE, so the groups decode straight off
+    /// the main cursor and pin its end themselves.
+    fn decode_block_positions(&mut self) -> io::Result<Vec<Vec<u32>>> {
+        let mut positions: Vec<Vec<u32>> = Vec::with_capacity(BLOCK_SIZE);
+        match self.codec {
+            PostCodec::V1 => {
+                let pos_byte_len = self.cursor.read_u32::<LittleEndian>()? as usize;
+                let pos_start = self.cursor.position() as usize;
+                let pos_end = pos_start + pos_byte_len;
+                if pos_end > self.data.len() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "postings positions truncated",
+                    ));
+                }
+                let mut pos_cursor = Cursor::new(&self.data[pos_start..pos_end]);
+                for _ in 0..BLOCK_SIZE {
+                    positions.push(decode_position_group(&mut pos_cursor)?);
+                }
+                self.cursor.set_position(pos_end as u64);
+            }
+            PostCodec::V2 { .. } => {
+                for _ in 0..BLOCK_SIZE {
+                    positions.push(decode_position_group(&mut self.cursor)?);
+                }
+            }
+        }
+        Ok(positions)
+    }
+
     fn decode_residual(&mut self) -> io::Result<()> {
         let count = self.cursor.read_u8()? as usize;
         let mut result = Vec::with_capacity(count);
@@ -743,7 +972,14 @@ impl<'a> PostingsReader<'a> {
             prev_doc = doc_id;
 
             let (term_freq, positions) = if self.has_positions {
-                let term_freq = vbyte_decode(&mut self.cursor)?;
+                // An elided freq stream (ttf == df) means every posting's
+                // frequency is 1 — the residual's freq vbytes were never
+                // written either, mirroring `encode_residual`.
+                let term_freq = if self.freq_omitted() {
+                    1u32
+                } else {
+                    vbyte_decode(&mut self.cursor)?
+                };
                 let pos_count = vbyte_decode(&mut self.cursor)? as usize;
                 let mut positions = Vec::with_capacity(pos_count);
                 let mut prev_pos = 0u32;
@@ -793,7 +1029,7 @@ impl<'a> PostingsReader<'a> {
 mod tests {
     use super::*;
 
-    fn build_postings(pairs: &[(u32, u32, &[u32])]) -> (Vec<u8>, u32) {
+    fn build_postings(pairs: &[(u32, u32, &[u32])]) -> (Vec<u8>, u32, u64) {
         let mut writer = PostingsWriter::new();
         for &(doc_id, _freq, positions) in pairs {
             for &pos in positions {
@@ -803,15 +1039,22 @@ mod tests {
         let mut data = Vec::new();
         writer.encode_term("test", &mut data);
         let doc_freq = pairs.len() as u32;
-        (data, doc_freq)
+        let ttf: u64 = pairs.iter().map(|&(_, freq, _)| freq as u64).sum();
+        (data, doc_freq, ttf)
+    }
+
+    /// The reader a ZPS2 segment constructs for writer output: V2 framing
+    /// with the freq-elision predicate the writer itself applied.
+    fn v2_reader(data: &[u8], doc_freq: u32, ttf: u64) -> PostingsReader<'_> {
+        PostingsReader::new_with_codec(data, doc_freq, true, PostCodec::v2_for(true, ttf, doc_freq))
     }
 
     #[test]
     fn roundtrip_small_posting_list() {
         let postings: Vec<(u32, u32, &[u32])> =
             vec![(1, 2, &[0, 5]), (3, 1, &[2]), (7, 3, &[0, 1, 2])];
-        let (data, doc_freq) = build_postings(&postings);
-        let mut reader = PostingsReader::new(&data, doc_freq);
+        let (data, doc_freq, ttf) = build_postings(&postings);
+        let mut reader = v2_reader(&data, doc_freq, ttf);
 
         let p = reader.next().unwrap();
         assert_eq!(p.doc_id, 1);
@@ -838,7 +1081,9 @@ mod tests {
         let mut data = Vec::new();
         writer.encode_term("term", &mut data);
 
-        let mut reader = PostingsReader::new(&data, 128);
+        // Every frequency is 1 => ttf == df => the freq stream is elided and
+        // this exercises the synthesised-freq path on a full block.
+        let mut reader = v2_reader(&data, 128, 128);
         let mut last_doc = u32::MAX;
         let mut count = 0u32;
         while let Some(p) = reader.next() {
@@ -849,6 +1094,8 @@ mod tests {
             if last_doc != u32::MAX {
                 assert!(p.doc_id > last_doc);
             }
+            assert_eq!(p.term_freq, 1, "elided freqs decode as 1");
+            assert_eq!(p.positions, vec![count], "positions still round-trip");
             last_doc = p.doc_id;
             count += 1;
         }
@@ -881,21 +1128,225 @@ mod tests {
         writer.encode_term("term", &mut data);
 
         // Target lands exactly on a doc (150 = 50 * 3), inside the first block.
-        let mut reader = PostingsReader::new(&data, 200);
+        let mut reader = v2_reader(&data, 200, 200);
         let hit = reader.advance_to(150).expect("expected a hit at/after 150");
         assert_eq!(hit.doc_id, 150, "must return the exact match when present");
 
         // Target between two docs (301 is not a multiple of 3) crossing into
         // the residual section => first doc strictly greater is 303.
-        let mut reader = PostingsReader::new(&data, 200);
+        let mut reader = v2_reader(&data, 200, 200);
         let hit = reader.advance_to(301).expect("expected a hit at/after 301");
         assert_eq!(hit.doc_id, 303, "must return the first doc_id >= target");
 
         // Target past the end yields None.
-        let mut reader = PostingsReader::new(&data, 200);
+        let mut reader = v2_reader(&data, 200, 200);
         assert!(
             reader.advance_to(600).is_none(),
             "advance past the last doc must exhaust the reader"
         );
+    }
+
+    /// The writer always emits the ZPS2 framing now; a hand-built legacy
+    /// ZPS1 blob must still decode through `PostCodec::V1`.  The fixture is
+    /// one docs-only full block whose lanes are [0, 1, 1, …] — the first
+    /// delta is the gap from the previous block's last doc (0), so the
+    /// lanes reconstruct docs 0..=127.
+    #[test]
+    fn zps1_legacy_block_bytes_still_decode() {
+        let mut data: Vec<u8> = Vec::new();
+        data.push(1u8); // num_bits = 1
+        data.extend_from_slice(&16u32.to_le_bytes()); // byte_len = 128 * 1 / 8
+                                                      // 1-bit lanes: lane 0 = 0, lanes 1..=127 = 1 => 0xFE then 0xFF × 15.
+        data.push(0xFE);
+        data.extend(std::iter::repeat_n(0xFFu8, 15));
+        // No residual: df is an exact multiple of BLOCK_SIZE.
+
+        let mut reader = PostingsReader::new_with_positions(&data, 128, false);
+        let mut expected = 0u32;
+        let mut count = 0u32;
+        while let Some(p) = reader.next() {
+            assert_eq!(
+                p.doc_id, expected,
+                "contiguous deltas of 1 reconstruct 0..127"
+            );
+            assert_eq!(p.term_freq, 1, "docs-only synthesises freq 1");
+            expected += 1;
+            count += 1;
+        }
+        assert_eq!(count, 128);
+    }
+
+    /// A ZPS2 constant block — dense doc IDs, so every delta is 1 — encodes
+    /// to `[width 0][vbyte 1]` and nothing else, where ZPS1 paid
+    /// 5 header/payload-formality bytes plus a 16-byte payload.
+    #[test]
+    fn zps2_constant_block_collapses_to_width_zero() {
+        let mut writer = PostingsWriter::new();
+        for i in 1u32..=128 {
+            writer.add_occurrence("term", i, i);
+        }
+        let mut data = Vec::new();
+        writer.encode_term("term", &mut data);
+
+        assert_eq!(&data[..2], &[0u8, 0x81], "width-0 block then vbyte(1)");
+        // Positions (128 groups of count=1, delta=i+1) dominate what is left;
+        // the doc-id stream itself is over after two bytes.
+        assert!(
+            data.len() < 4 * 128,
+            "whole blob must stay well under the old framing's ~21 B/doc block"
+        );
+
+        let mut reader = v2_reader(&data, 128, 128);
+        for expected in 1u32..=128 {
+            let p = reader.next().expect("128 postings");
+            assert_eq!(p.doc_id, expected);
+        }
+        assert!(reader.next().is_none());
+    }
+
+    /// Frame-of-reference packs the block's SPREAD, not its maximum: a freq
+    /// stream of 100..=101 needs 7 bits raw, 1 bit after subtracting min.
+    #[test]
+    fn zps2_for_packs_spread_not_max() {
+        let mut writer = PostingsWriter::new();
+        for i in 0u32..128 {
+            // doc i gets freq alternating 100/101 via that many occurrences
+            // of a distinct position count: freq = 100 + (i % 2).
+            let freq = 100 + (i % 2);
+            for pos in 0u32..freq {
+                writer.add_occurrence("term", i * 10, pos);
+            }
+        }
+        let mut data = Vec::new();
+        writer.encode_term("term", &mut data);
+
+        // Doc-id deltas: first 10 (0-0), then 10 repeatedly => constant 10
+        // after the first lane… all lanes are 10 except lane 0 which is
+        // doc 0 => delta 0? No: block[0].doc_id - 0 = 0, then +10 each.
+        // spread = 10 => width 4.  Freq lanes: min 100, spread 1 => width 1.
+        // Walk: [width][vbyte min][payload] for docids then freqs.
+        let mut cursor = Cursor::new(data.as_slice());
+        let docid_width = cursor.read_u8().unwrap();
+        let docid_min = vbyte_decode(&mut cursor).unwrap();
+        assert_eq!((docid_width, docid_min), (4u8, 0u32), "docid lanes 0..=10");
+        cursor.set_position(cursor.position() + 128 * 4 / 8);
+
+        let freq_width = cursor.read_u8().unwrap();
+        let freq_min = vbyte_decode(&mut cursor).unwrap();
+        assert_eq!((freq_width, freq_min), (1u8, 100u32), "freq lanes 100/101");
+
+        let ttf: u64 = (0..128u32).map(|i| (100 + (i % 2)) as u64).sum();
+        let df = 128u32;
+        let mut reader = v2_reader(&data, df, ttf);
+        for i in 0u32..128 {
+            let p = reader.next().expect("128 postings");
+            assert_eq!(p.doc_id, i * 10);
+            assert_eq!(p.term_freq, 100 + (i % 2));
+            assert_eq!(p.positions.len(), (100 + (i % 2)) as usize);
+        }
+        assert!(reader.next().is_none());
+    }
+
+    /// A WIDE block whose min and max share a binade gains no width from the
+    /// frame subtraction — deltas [1, 100, 100, …] need 7 bits either way —
+    /// so the encoder must emit `min = 0` with raw lanes, keeping the
+    /// payload bytes identical to what ZPS1 carried (the outer zstd pass
+    /// matches them across blocks; FOR-always measurably inflated the
+    /// compressed `top_doc` field on the 100k harness).
+    #[test]
+    fn zps2_skips_for_on_wide_equal_width_blocks() {
+        let mut writer = PostingsWriter::new();
+        // doc 1 then gaps of 100: lanes [1, 100, 100, …], min 1, max 100 —
+        // 7 bits framed (spread 99) and 7 bits raw, and 7 > the narrow cap.
+        let mut doc = 1u32;
+        for i in 0u32..128 {
+            writer.add_occurrence("term", doc, i);
+            doc += 100;
+        }
+        let mut data = Vec::new();
+        writer.encode_term("term", &mut data);
+
+        // [width 7][vbyte 0] — NOT [width 7][vbyte 1]: same width either
+        // way and too wide for FOR's pattern-normalisation to pay, so the
+        // raw lanes are kept for zstd to match.
+        assert_eq!(&data[..2], &[7u8, 0x80], "wide equal-width block stays raw");
+
+        let mut reader = v2_reader(&data, 128, 128);
+        let mut expected = 1u32;
+        for _ in 0..128 {
+            let p = reader.next().expect("128 postings");
+            assert_eq!(p.doc_id, expected);
+            expected += 100;
+        }
+        assert!(reader.next().is_none());
+    }
+
+    /// The NARROW counterpart: an equal-width block at or below the cap
+    /// takes the frame even though the width is unchanged, because FOR
+    /// normalises level-shifted repeats into identical payloads.  Deltas
+    /// [1, 15, 15, …] are 4 bits framed or raw — the frame is chosen.
+    #[test]
+    fn zps2_frames_narrow_equal_width_blocks() {
+        let mut writer = PostingsWriter::new();
+        let mut doc = 1u32;
+        for i in 0u32..128 {
+            writer.add_occurrence("term", doc, i);
+            doc += 15;
+        }
+        let mut data = Vec::new();
+        writer.encode_term("term", &mut data);
+
+        assert_eq!(
+            &data[..2],
+            &[4u8, 0x81],
+            "narrow equal-width block takes the frame (min = 1)"
+        );
+
+        let mut reader = v2_reader(&data, 128, 128);
+        let mut expected = 1u32;
+        for _ in 0..128 {
+            let p = reader.next().expect("128 postings");
+            assert_eq!(p.doc_id, expected);
+            expected += 15;
+        }
+        assert!(reader.next().is_none());
+    }
+
+    /// Two terms over the same documents: one all freq 1 (ttf == df), one
+    /// with a single freq-2 document.  The elided term's blob must be
+    /// strictly smaller and both must round-trip with exact term_freqs.
+    #[test]
+    fn freq_elision_shrinks_and_roundtrips() {
+        const ONE_POSITION: &[u32] = &[0];
+        const TWO_POSITIONS: &[u32] = &[0, 1];
+        let elided: Vec<(u32, u32, &[u32])> = (0u32..300).map(|i| (i, 1, ONE_POSITION)).collect();
+        let mut repeated = elided.clone();
+        repeated[5] = (5, 2, TWO_POSITIONS);
+
+        let (data_elided, df_e, ttf_e) = build_postings(&elided);
+        let (data_repeated, df_r, ttf_r) = build_postings(&repeated);
+        assert_eq!((df_e, ttf_e), (300, 300));
+        assert_eq!((df_r, ttf_r), (300, 301));
+        assert!(
+            data_elided.len() < data_repeated.len(),
+            "elided freq stream must save bytes ({} vs {})",
+            data_elided.len(),
+            data_repeated.len()
+        );
+
+        let mut reader = v2_reader(&data_elided, df_e, ttf_e);
+        for i in 0u32..300 {
+            let p = reader.next().expect("300 postings");
+            assert_eq!(p.term_freq, 1, "elided freqs synthesise 1");
+            assert_eq!(p.doc_id, i);
+        }
+        assert!(reader.next().is_none());
+
+        let mut reader = v2_reader(&data_repeated, df_r, ttf_r);
+        for i in 0u32..300 {
+            let p = reader.next().expect("300 postings");
+            assert_eq!(p.term_freq, if i == 5 { 2 } else { 1 });
+        }
+        assert!(reader.next().is_none());
     }
 }

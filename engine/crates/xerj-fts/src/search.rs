@@ -729,16 +729,13 @@ impl FtsSearcher {
                 // empty per-clause `Vec`.
                 continue;
             };
-            let Some(post_data) = self.reader.postings_data(&tq.field, &tp) else {
+            // The factory reads the field's real positions layout and the
+            // envelope's block codec — a docs-only reader must synthesise
+            // tf=1 rather than misparse a positions-bearing stream, exactly
+            // like `scan_term`; the decoded positions are simply never read.
+            let Some(mut reader) = self.reader.postings_reader(&tq.field, &tp) else {
                 continue;
             };
-            // The postings byte format is positions-dependent: a docs-only
-            // reader would synthesise tf=1 and misparse a positions-bearing
-            // stream.  Read the field's real layout, exactly like
-            // `scan_term`; the decoded positions are simply never read.
-            let has_positions = self.reader.field_has_positions(&tq.field);
-            let mut reader =
-                PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
             let Some(first) = reader.next() else { continue };
             let bm25 = self.make_scorer(&tq.field);
             let score_df = self.scoring_df(&tq.field, &tq.term, tp.doc_frequency as u64);
@@ -954,14 +951,10 @@ impl FtsSearcher {
         // length for this segment's list, a different quantity that happens to
         // share a name.
         let score_df = self.scoring_df(&tq.field, &tq.term, tp.doc_frequency as u64);
-        let post_data = match self.reader.postings_data(&tq.field, &tp) {
-            Some(d) => d,
+        let mut reader = match self.reader.postings_reader(&tq.field, &tp) {
+            Some(r) => r,
             None => return Ok(()),
         };
-
-        let has_positions = self.reader.field_has_positions(&tq.field);
-        let mut reader =
-            PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
 
         while let Some(posting) = reader.next() {
             let doc_len = self
@@ -1021,11 +1014,10 @@ impl FtsSearcher {
                 Some(tp) => tp,
                 None => return Ok(Vec::new()), // missing term → no phrase matches
             };
-            let post_data = match self.reader.postings_data(&pq.field, &tp) {
-                Some(d) => d,
+            let mut reader = match self.reader.postings_reader(&pq.field, &tp) {
+                Some(r) => r,
                 None => return Ok(Vec::new()),
             };
-            let mut reader = PostingsReader::new_with_positions(post_data, tp.doc_frequency, true);
             let mut map: TermPostingsMap =
                 TermPostingsMap::with_capacity(tp.doc_frequency as usize);
             while let Some(p) = reader.next() {
@@ -1356,13 +1348,10 @@ impl FtsSearcher {
                     Some(tp) => tp,
                     None => continue,
                 };
-                let post_data = match self.reader.postings_data(field, &tp) {
-                    Some(d) => d,
+                let mut reader = match self.reader.postings_reader(field, &tp) {
+                    Some(r) => r,
                     None => continue,
                 };
-                let has_positions = self.reader.field_has_positions(field);
-                let mut reader =
-                    PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
                 while let Some(p) = reader.next() {
                     docs.insert(p.doc_id);
                 }

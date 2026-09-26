@@ -43110,17 +43110,15 @@ fn postings_union_expand(
     use std::collections::BinaryHeap;
     use xerj_fts::postings::PostingsReader;
 
-    let has_positions = reader.field_has_positions(field);
     let mut streams: Vec<PostingsReader<'_>> = Vec::with_capacity(terms.len());
     let mut heap: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
     for term in terms {
         let Some(tp) = reader.lookup_term(field, term) else {
             continue;
         };
-        let Some(data) = reader.postings_data(field, &tp) else {
+        let Some(mut pr) = reader.postings_reader(field, &tp) else {
             continue;
         };
-        let mut pr = PostingsReader::new_with_positions(data, tp.doc_frequency, has_positions);
         if let Some(first) = pr.next() {
             let idx = streams.len();
             streams.push(pr);

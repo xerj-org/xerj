@@ -88,6 +88,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **`.post` block framing slimmed (ZPS2)** ([#1038](https://github.com/xerj-org/xerj/issues/1038)):
+  the packed doc-id-delta and term-freq streams in every 128-doc posting
+  block switch to frame-of-reference coding — `[width][vbyte min]` with the
+  payload length derived instead of stored, width 0 meaning a constant block
+  that carries no payload at all — and the positions block loses its u32
+  length prefix (exactly 128 count+delta groups pin its end).  A positioned
+  term whose `ttf == df` omits its ENTIRE freq stream; the reader re-derives
+  that predicate from the `.meta` record it already holds, so the decision
+  costs no bytes.  An all-equal block now costs 2–3 bytes where the ZPS1
+  framing paid 21 (1 + 4 header bytes plus a payload of forced-minimum
+  width 1).  The frame is subtracted only where it pays: when it narrows
+  the width, or on narrow (≤ 4-bit) blocks whose level-shifted repeats
+  normalise into identical payloads for the outer zstd pass; wide
+  equal-width blocks keep raw lanes, because rewriting them measurably
+  inflated the compressed `top_doc` field 12.7 % under an always-FOR
+  encoder while its uncompressed stream shrank.  Same shape as tantivy's
+  sorted blocks (vint base + packed residuals) and Lucene 50's per-term
+  freq elision; adapted, not copied.  Segments written before the bump stay
+  readable — the envelope magic (ZPS2 vs ZPS1 vs ZPL1 vs raw) selects the
+  inner framing, and old formats keep their decoders.  Measured on the 100k
+  `benchmarks/index-size` harness at LEVEL=balanced against a same-day base
+  control: total −1.5 % (5,517,127 → 5,432,531 B), `.post` −3.4 %
+  (2,449,405 → 2,364,905 B), `body.post` −4.3 % (1,828,102 → 1,749,695 B);
+  the widest keyword family (`top_doc`, 12 terms × df ≈ 8.3 k) moved +1.5 %.
 - **`.dv` numeric columns get a bit-packed codec (`ZNV2`), chosen per
   column by measured size** — stage 1 of the index-size epic
   [#1038](https://github.com/xerj-org/xerj/issues/1038)). The column is
