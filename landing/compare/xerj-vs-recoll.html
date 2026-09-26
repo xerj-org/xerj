@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recoll compared with XERJ for document search</title>
-<meta name="description" content="Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.">
+<meta name="description" content="Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Recoll compared with XERJ for document search">
-<meta property="og:description" content="Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.">
+<meta property="og:description" content="Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark.">
 <meta property="og:url" content="https://xerj.org/compare/xerj-vs-recoll">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Recoll compared with XERJ for document search">
-<meta name="twitter:description" content="Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.">
+<meta name="twitter:description" content="Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,12 +60,12 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "Recoll compared with XERJ for document search",
-  "description": "Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark.",
+  "description": "Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark.",
   "url": "https://xerj.org/compare/xerj-vs-recoll",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,8 +243,8 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>WHAT'S THE BEST LOCAL DESKTOP SEARCH FOR A FOLDER OF PDFS AND DOCS?</div>
   <div class="kicker"><span>COMPARE · COMPARISON: DESKTOP SEARCH</span></div>
   <h1>What's the best local desktop search for a folder of PDFs and docs?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
-  <p><strong>TL;DR</strong> — Recoll is the better choice for a person at a desk. It has a GUI, email and mbox indexing, OCR hooks and open-at-page. XERJ is a search engine that an agent calls over HTTP or MCP. No head-to-head benchmark was run, so this page compares documented capabilities.</p>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
+  <p><strong>TL;DR</strong> — Recoll is the better choice for a person at a desk. It has a GUI, email handled in the application — mail folders, attachments, nesting — OCR hooks and open-at-page. XERJ is a search engine that an agent calls over HTTP or MCP. No head-to-head benchmark was run, so this page compares documented capabilities.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
     <code>Act as a coding agent with a folder of PDFs and Word documents. Read https://xerj.org/llms.txt, start a local XERJ node, run xerj autoindex on the folder, read the data map, then answer the user question with a match_phrase query and cite the ax_path of every file you used.</code>
@@ -298,7 +298,7 @@
     <thead><tr><th>capability</th><th>Recoll</th><th>XERJ</th></tr></thead>
     <tbody>
       <tr><td>human GUI with a preview pane</td><td>yes, a Qt GUI</td><td>none, HTTP and MCP only</td></tr>
-      <tr><td>email, mbox and attachments</td><td>yes, handled in the application</td><td>no email handler</td></tr>
+      <tr><td>email, mbox and attachments</td><td>yes, handled in the application</td><td>mbox and eml, detected by content; PST, OST and Maildir unhandled</td></tr>
       <tr><td>documents nested inside archives and mail</td><td>arbitrary depth</td><td>no archive handler</td></tr>
       <tr><td>OCR for image-only PDFs</td><td>opt-in, tesseract or ABBYY</td><td>none</td></tr>
       <tr><td>open a hit at the right page</td><td>yes, page links into the viewer</td><td>file path only, in <code class="inline">ax_path</code></td></tr>
@@ -313,8 +313,8 @@
   </table>
   <h2>When to choose Recoll instead</h2>
   <p>Choose Recoll when a person does the searching. The GUI is the product. A result list with a preview pane beats an API for a human reader.</p>
-  <p>Choose Recoll for email. It indexes mail folders, the messages and the attached documents. It also walks a document inside an attachment inside an archive.</p>
-  <p>XERJ has no email handler, no mbox handler and no archive handler. Those files are not searchable in XERJ at all.</p>
+  <p>Choose Recoll for mail folders and everything nested in them. It indexes mail folders, the messages and the attached documents. It also walks a document inside an attachment inside an archive.</p>
+  <p>XERJ reads .mbox and .eml files. An mbox is detected by content — a From-separator plus RFC 5322 headers, the extension is irrelevant — and indexed since v1.0.0-rc.75 (<a href="https://github.com/xerj-org/xerj/pull/949">#949</a>). PST, OST and Maildir are still unhandled, and archives are never opened, so mail inside a zip stays out of the index.</p>
   <p>Choose Recoll for image-only PDFs and for images. OCR through tesseract or ABBYY is a documented Recoll feature. XERJ has no OCR.</p>
   <p>A PDF with no text layer gives XERJ no text to index.</p>
   <p>Choose Recoll when the answer must open at the right page. Recoll lists the matched extracts with their page numbers as links. It starts the native viewer on that page.</p>
@@ -333,7 +333,7 @@
   <p>Choose XERJ when the same node must also hold agent memory. <code class="inline">/_memory/{namespace}</code> puts durable agent memory beside the documents.</p>
   <h2>What XERJ does not have</h2>
   <p>XERJ has no GUI. There is no result window, no preview pane and no term highlighting.</p>
-  <p>XERJ has no OCR, no email handler and no archive handler. It has no role-based access control and no single sign-on.</p>
+  <p>XERJ has no OCR and no archive handler. Mail stops at mbox and eml; PST, OST and Maildir are unhandled. It has no role-based access control and no single sign-on.</p>
   <p>XERJ runs on one node. There is no failover. Plan for restore from a copy.</p>
   <h2>How to read this page</h2>
   <p>This is a capability comparison drawn from each tool's own documentation. It is not a benchmark. It is not a recall study, and it is not a claim about your files.</p>
@@ -349,7 +349,7 @@
   <h3>Did you run a head-to-head benchmark between XERJ and Recoll?</h3>
   <p>No. No shared corpus was frozen and no recall or timing numbers were measured, so this page publishes documented capabilities and no win counts.</p>
   <h3>Which tool indexes email, mbox and attachments?</h3>
-  <p>Recoll. It indexes mail folders and the documents inside attachments, to an arbitrary depth. XERJ has no email handler and no mbox handler.</p>
+  <p>Recoll, once mail is more than a plain mailbox. XERJ reads .mbox and .eml, detected by content since v1.0.0-rc.75. PST, OST and Maildir are still unhandled, and archives are never opened. Recoll handles mail folders and the documents inside attachments, to an arbitrary depth.</p>
   <h3>Does XERJ read image-only PDFs?</h3>
   <p>No. XERJ has no OCR, so a PDF with no text layer produces no text. Recoll has OCR hooks for tesseract and ABBYY, and that is the correct tool for that folder.</p>
   <h2>Evidence</h2>

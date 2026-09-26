@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Does XERJ support S3, alerting or custom plugins?</title>
-<meta name="description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
+<meta name="description" content="Since v1.0.0-rc.77 the index CAN live in an S3-compatible bucket (storage.backend = &quot;s3&quot;: one immutable bundle object per segment family plus snapshot.json). _watcher never runs a watch; plugins are built-in.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Does XERJ support S3, alerting or custom plugins?">
-<meta property="og:description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
+<meta property="og:description" content="Since v1.0.0-rc.77 the index CAN live in an S3-compatible bucket (storage.backend = &quot;s3&quot;: one immutable bundle object per segment family plus snapshot.json). _watcher never runs a watch; plugins are built-in.">
 <meta property="og:url" content="https://xerj.org/answers/does-xerj-support-s3-alerting-plugins">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Does XERJ support S3, alerting or custom plugins?">
-<meta name="twitter:description" content="Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.">
+<meta name="twitter:description" content="Since v1.0.0-rc.77 the index CAN live in an S3-compatible bucket (storage.backend = &quot;s3&quot;: one immutable bundle object per segment family plus snapshot.json). _watcher never runs a watch; plugins are built-in.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,12 +60,12 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "Does XERJ support S3, alerting or custom plugins?",
-  "description": "Indexing FROM a bucket works. Storing the index IN one does not: the S3 backend is a local-directory simulation. _watcher never runs a watch; plugins are built-in.",
+  "description": "Since v1.0.0-rc.77 the index CAN live in an S3-compatible bucket (storage.backend = \"s3\": one immutable bundle object per segment family plus snapshot.json). _watcher never runs a watch; plugins are built-in.",
   "url": "https://xerj.org/answers/does-xerj-support-s3-alerting-plugins",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-09-18",
-  "dateModified": "2026-09-19",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,12 +243,12 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>DOES XERJ SUPPORT S3 STORAGE, ALERTING OR CUSTOM PLUGINS YET?</div>
   <div class="kicker"><span>ANSWERS · CAPABILITIES AND LIMITS</span></div>
   <h1>Does XERJ support S3 storage, alerting or custom plugins yet?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-19</div>
-  <p><strong>TL;DR</strong> — Not yet, for all three. XERJ has no object-storage backend, no alerting and no user-supplied plugins. Each of them has a surface in the code that looks closer to done than it is, so this page says exactly what exists, with the file that proves it. The authoritative list is <a href="https://github.com/xerj-org/xerj/blob/main/ROADMAP.md"><code class="inline">ROADMAP.md</code></a>.</p>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-09-18 · UPDATED · 2026-09-26</div>
+  <p><strong>TL;DR</strong> — One of the three shipped in v1.0.0-rc.77: an index can live in an S3-compatible bucket (<code class="inline">storage.backend = "s3"</code>). Alerting and user-supplied plugins are still not implemented, and each has a surface in the code that looks closer to done than it is, so this page says exactly what exists, with the file that proves it. The authoritative list is <a href="https://github.com/xerj-org/xerj/blob/main/ROADMAP.md"><code class="inline">ROADMAP.md</code></a>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
-    <code>Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Reading documents out of a bucket IS implemented — xerj autoindex s3://bucket/prefix. Do not design for S3 as the INDEX store, nor for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.</code>
-    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Reading documents out of a bucket IS implemented — xerj autoindex s3://bucket/prefix. Do not design for S3 as the INDEX store, nor for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.">COPY THE PROMPT</button>
+    <code>Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Object storage works in BOTH directions: xerj autoindex s3://bucket/prefix reads documents out of a bucket, and since v1.0.0-rc.77 storage.backend = "s3" stores the index itself in one (needs an existing storage.s3_bucket; the WAL stays local). Do not design for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.</code>
+    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt and https://github.com/xerj-org/xerj/blob/main/ROADMAP.md before you plan around XERJ. Object storage works in BOTH directions: xerj autoindex s3://bucket/prefix reads documents out of a bucket, and since v1.0.0-rc.77 storage.backend = &quot;s3&quot; stores the index itself in one (needs an existing storage.s3_bucket; the WAL stays local). Do not design for alerting, user-supplied ingest plugins or downloadable corpus packs: none of those is implemented. Tell the human which of their requirements falls on that list, and use only what the roadmap lists under shipping today.">COPY THE PROMPT</button>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -269,15 +269,20 @@
     <span class="hero-proof">The percolate query is real. It matches stored queries against the document you supply, which is the piece a future detection feature builds on.</span>
   </div>
   <h2>Why this page exists</h2>
-  <p>A search engine that speaks a familiar wire protocol invites assumptions. An agent that sees a <code class="inline">_watcher</code> route may plan around it, and it should not: XERJ does not run watches. An operator who sees <code class="inline">backend = "s3"</code> in a config schema may expect a bucket to work, and S3 is not implemented.</p>
-  <p>XERJ's rule is that an input is either honoured or refused loudly. Two of the items below follow that rule today and one does not. All of them were checked against the <code class="inline">main</code> branch on 2026-09-18 by reading the named file.</p>
-  <h2>S3 and object storage: the source side works, the index side does not</h2>
-  <p>Separate the two questions, because the answers differ.</p>
+  <p>A search engine that speaks a familiar wire protocol invites assumptions. An agent that sees a <code class="inline">_watcher</code> route may plan around it, and it should not: XERJ does not run watches. An operator who sees <code class="inline">backend = "s3"</code> in a config schema may expect a bucket to work — since v1.0.0-rc.77 it does, and this page is the one place that used to say otherwise.</p>
+  <p>XERJ's rule is that an input is either honoured or refused loudly. Two of the three follow that rule today and one does not (<code class="inline">_watcher</code> accepts a watch and never evaluates it — the accepted-and-ignored surface). All of them were checked against <code class="inline">main</code> by reading the named file: 2026-09-18 originally, with the S3 status re-verified on 2026-09-26 against v1.0.0-rc.77.</p>
+  <h2>S3 and object storage: both directions work</h2>
+  <p>This section said the opposite until 2026-09-26 — it described <code class="inline">S3Backend</code> as a local-directory simulation with no network client, and the startup refusal as permanent. That was true when it was checked (2026-09-18, before rc.77) and stopped being true in v1.0.0-rc.77. The correction is stated in the open rather than quietly rewritten.</p>
   <p><strong>Reading documents out of a bucket works.</strong> <code class="inline">xerj autoindex s3://bucket/prefix</code> lists the prefix, streams in each object whose ETag or size changed, and indexes it with the same extractors it uses for a folder. <code class="inline">r2://</code> and any S3-compatible store behind <code class="inline">--endpoint-url</code> work the same way. The <a href="/answers/search-files-in-an-s3-bucket">S3 indexing page</a> has the commands and the request arithmetic.</p>
-  <p><strong>Storing the index in a bucket does not work</strong>, and that is the rest of this section.</p>
-  <p>The storage crate has a type called <code class="inline">S3Backend</code>. It is a <strong>local-directory simulation</strong>. It maps an S3-style key layout onto a local path and writes with a temporary file and a rename. It contains no network client. The file is <code class="inline">engine/crates/xerj-storage/src/backend.rs</code>.</p>
-  <p>The config check knows this. If you set <code class="inline">storage.backend = "s3"</code>, the server does not start. It prints that the S3 storage backend is not implemented in this build and that only <code class="inline">"local"</code> is supported. That check is in <code class="inline">engine/crates/xerj-common/src/config.rs</code>, and its comment explains the reason: an operator who sets that value believes their data lands in S3, and it does not.</p>
-  <p>So S3 as an index store is not supported, and the refusal is deliberate. Index data lives on the local filesystem under the data directory — including when the documents came from a bucket, in which case the mirrored object bytes are on local disk too, under the state directory.</p>
+  <p><strong>Storing the index in a bucket works, since v1.0.0-rc.77</strong> (<a href="https://github.com/xerj-org/xerj/pull/1008">#1008</a>, closing <a href="https://github.com/xerj-org/xerj/issues/965">#965</a>). Set <code class="inline">storage.backend = "s3"</code> with an existing <code class="inline">storage.s3_bucket</code>, and:</p>
+  <ul>
+    <li>the segment path packs each segment family into <strong>one immutable ZBM1 bundle object</strong> — not one PUT per file (the layout it replaced would have issued ~104 PUTs per segment);</li>
+    <li>a per-index <code class="inline">snapshot.json</code> catalogue is the publication point: merges publish their outputs before retiring their inputs, and a fresh node adopts the bucket by reading it;</li>
+    <li>the client is a real S3-compatible client over <code class="inline">aws-sdk-s3</code> — Cloudflare R2, MinIO and AWS S3 — in <code class="inline">engine/crates/xerj-storage/src/s3.rs</code>. The local-directory simulation survives only as a test double;</li>
+    <li>the read-through segment cache, per-request cost accounting by billing class, and the budget that stops rather than warns landed in v1.0.0-rc.75;</li>
+    <li>the WAL stays local. <a href="https://github.com/xerj-org/xerj/blob/main/docs/OBJECT_STORAGE.md"><code class="inline">docs/OBJECT_STORAGE.md</code></a> is the full design page.</li>
+  </ul>
+  <p>One refusal remains, and it is the loud kind: with <code class="inline">storage.backend = "s3"</code> and no <code class="inline">storage.s3_bucket</code>, the server does not start. It prints that <code class="inline">storage.backend = "s3"</code> requires <code class="inline">storage.s3_bucket</code> to name an existing bucket — XERJ never creates one. That check is in <code class="inline">engine/crates/xerj-common/src/config.rs</code>.</p>
   <h2>Alerting: there is none</h2>
   <p>XERJ has no alerting. Two surfaces make it look otherwise.</p>
   <p>The first is <code class="inline">_watcher</code>. <code class="inline">PUT /_watcher/watch/{id}</code> is accepted. The handler puts the body into an in-memory map and replies that the condition was met, whatever condition you sent. <code class="inline">GET</code> and <code class="inline">DELETE</code> work on the same map. There is no scheduler, and no code ever evaluates a stored watch. This one is an accepted-and-ignored input, and the roadmap says it must either run watches or refuse them.</p>
@@ -294,7 +299,7 @@
   <table>
     <thead><tr><th>You wanted</th><th>What works now</th></tr></thead>
     <tbody>
-      <tr><td>index data in S3</td><td>local disk only; the S3 storage backend is not implemented and the server refuses the setting</td></tr>
+      <tr><td>index data in S3</td><td>works since v1.0.0-rc.77: <code class="inline">storage.backend = "s3"</code> plus an existing <code class="inline">storage.s3_bucket</code> — segment bundles and <code class="inline">snapshot.json</code> live in the bucket, the WAL stays local</td></tr>
       <tr><td>search documents that live in S3</td><td>works: <code class="inline">xerj autoindex s3://bucket/prefix</code> mirrors the changed objects to local disk and indexes them</td></tr>
       <tr><td>an alert when a document matches</td><td>there is no alerting; run a <code class="inline">percolate</code> or an ordinary search on your own schedule and act on the result yourself</td></tr>
       <tr><td>a custom transform at ingest</td><td>one of the built-in transforms, or transform the document before you send it</td></tr>
@@ -302,20 +307,20 @@
     </tbody>
   </table>
   <h2>What this page does not claim</h2>
-  <p>It does not claim a date for any of these. The roadmap lists them as planned, which means no code exists yet.</p>
+  <p>It does not claim a date for the two that remain — alerting and user-supplied plugins are planned, which means no code exists yet. S3 as an index home shipped in v1.0.0-rc.77; before that release the same setting refused to start, and this page said so.</p>
   <p>It does not claim the search side is limited in the same way. Full-text search, the <code class="inline">hybrid</code> query and vector search are shipping, and the default embedder is lexical feature hashing, not a neural model. The <a href="/answers/how-xerj-combines-search">hybrid retrieval page</a> covers that.</p>
   <p>XERJ is single-node. Everything on this page describes one process on one host.</p>
   <h2>FAQ</h2>
   <h3>Can XERJ store its index in S3, send alerts, or run my own ingest plugin?</h3>
-  <p>No to all three today. Each one is on the roadmap as planned work, and each has a surface in the code that looks closer to done than it is. This page says exactly what exists.</p>
+  <p>One of the three, since v1.0.0-rc.77: an index can live in an S3-compatible bucket (<code class="inline">storage.backend = "s3"</code>). Alerting and user-supplied plugins are still not implemented, and each has a surface in the code that looks closer to done than it is. This page says exactly what exists.</p>
   <h3>Does XERJ support S3 or object storage?</h3>
-  <p>Half of it, and the halves are worth separating. Reading documents out of a bucket works: <code class="inline">xerj autoindex s3://bucket/prefix</code>. Storing the INDEX in a bucket does not — the S3 storage backend is a local-directory simulation and <code class="inline">storage.backend = "s3"</code> stops the server at startup, on purpose.</p>
+  <p>Yes, in both directions. <code class="inline">xerj autoindex s3://bucket/prefix</code> reads documents OUT of a bucket as a source, and since v1.0.0-rc.77 <code class="inline">storage.backend = "s3"</code> stores the index itself in the bucket: one immutable ZBM1 bundle object per segment family plus a <code class="inline">snapshot.json</code> catalogue, written by a real S3-compatible client (Cloudflare R2, MinIO, AWS S3). Before rc.77 the index side refused to start on purpose — an earlier version of this page said it always would.</p>
   <h3>Does XERJ have alerting or a working watcher?</h3>
   <p>No. XERJ has no alerting. <code class="inline">_watcher</code> stores watches and no scheduler ever evaluates them, and the console alert-rule indices have schemas and no evaluator.</p>
   <h3>Can I write my own ingest plugin for XERJ?</h3>
   <p>Not yet. The ingest pipeline runs built-in native transforms only. The crate is named <code class="inline">xerj-wasm</code>, but the wasmtime backend is not in the tree.</p>
   <h3>Why does the server refuse to start when I set the storage backend to s3?</h3>
-  <p>Because accepting it would be worse. An operator who sets that value believes data lands in a bucket. The S3 backend is not implemented, so the config check fails loudly instead of writing to local disk in silence.</p>
+  <p>Only one case refuses now, and it is deliberate: <code class="inline">storage.s3_bucket</code> is empty or does not name an existing bucket. XERJ never creates a bucket, so the config check fails loudly instead of writing to local disk in silence. With a named, existing bucket the server starts and the index lives in it (since v1.0.0-rc.77).</p>
   <h3>Is there anything real to build a detection on today?</h3>
   <p>Yes, one piece. The <code class="inline">percolate</code> query is a dispatched query type and matches stored queries against a document you supply. The judging and alerting stages that would sit after it do not exist.</p>
   <h3>Can I download a pre-indexed corpus for XERJ?</h3>
@@ -324,9 +329,9 @@
   <p><code class="inline">ROADMAP.md</code> in the repository. If this page and the roadmap disagree, the roadmap wins, and the disagreement is a bug worth an issue.</p>
   <h2>Evidence</h2>
   <ul>
-    <li>S3Backend is a local-directory simulation: it maps an S3 key layout onto a local path and contains no network client. — <code>engine/crates/xerj-storage/src/backend.rs</code></li>
-    <li>Setting storage.backend to s3 refuses to start: the S3 storage backend is not implemented in this build; only local is supported. — <code>engine/crates/xerj-common/src/config.rs</code></li>
-    <li>The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror. It is the INDEX that cannot live in a bucket. — <code>docs/OBJECT_STORAGE.md:255</code></li>
+    <li>storage.backend = "s3" stores the index in the bucket: one immutable ZBM1 bundle object per segment family plus a per-index snapshot.json catalogue; merges publish before retiring inputs; a fresh node adopts the bucket. — <code>docs/OBJECT_STORAGE.md</code></li>
+    <li>The one remaining startup refusal is the loud kind: storage.backend = "s3" requires storage.s3_bucket to name an existing bucket — XERJ never creates one. — <code>engine/crates/xerj-common/src/config.rs</code></li>
+    <li>The source side is implemented: xerj autoindex s3://bucket/prefix lists a prefix and streams each changed object into a local mirror — the mirrored object bytes land on local disk under the state directory. — <code>docs/OBJECT_STORAGE.md</code></li>
     <li>PUT /_watcher/watch/{id} inserts the body into an in-memory map and answers condition met true; no code evaluates a stored watch. — <code>engine/crates/xerj-api/src/es_compat.rs</code></li>
     <li>The console's .xerj_alert_rules and .xerj_alert_fires indices have schemas and are created at bootstrap; no evaluator reads or writes them. — <code>engine/crates/xerj-console-api/src/indices.rs</code></li>
     <li>Ingest transforms are built-in native Rust plugins; xerj-wasm has no wasmtime dependency and no wasm feature. — <code>engine/crates/xerj-wasm/Cargo.toml</code></li>

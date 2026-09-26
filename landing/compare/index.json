@@ -35,7 +35,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-docfetcher",
       "markdown_url": "https://xerj.org/compare/xerj-vs-docfetcher.md",
       "cluster": "Comparison: desktop search",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "DocFetcher is a desktop search GUI with a portable index and Outlook PST support. XERJ is a search engine an agent calls. A capability comparison, with no benchmark."
     },
     {
@@ -44,7 +44,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-houdahspot",
       "markdown_url": "https://xerj.org/compare/xerj-vs-houdahspot.md",
       "cluster": "Comparison: desktop search",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "HoudahSpot is a power-user front end for Spotlight, with hundreds of attribute filters. XERJ is a folder index an agent calls. No Mac run stands behind this page."
     },
     {
@@ -53,8 +53,8 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-recoll",
       "markdown_url": "https://xerj.org/compare/xerj-vs-recoll.md",
       "cluster": "Comparison: desktop search",
-      "updated": "2026-08-23",
-      "summary": "Recoll is a desktop search application with a GUI, email indexing and OCR hooks. XERJ is a search engine an agent calls. A capability comparison, with no benchmark."
+      "updated": "2026-09-26",
+      "summary": "Recoll is a desktop search application with a GUI, OCR hooks and email indexing that still reaches PST and attachments. XERJ is a search engine an agent calls, with its own .eml and .mbox indexing. A capability comparison, with no benchmark."
     },
     {
       "title": "ripgrep-all compared with XERJ for PDFs and docs",
@@ -62,7 +62,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-ripgrep-all",
       "markdown_url": "https://xerj.org/compare/xerj-vs-ripgrep-all.md",
       "cluster": "Comparison: desktop search",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "ripgrep-all wraps ripgrep with adapters for PDF, Office files, archives and SQLite. XERJ indexes the same folder for an agent. A capability comparison, no benchmark."
     },
     {
@@ -71,7 +71,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-spotlight",
       "markdown_url": "https://xerj.org/compare/xerj-vs-spotlight.md",
       "cluster": "Comparison: desktop search",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "Spotlight is the Mac's system-wide index with zero setup and wide metadata. XERJ is a folder index an agent queries. A capability comparison, run on no Mac."
     },
     {
@@ -80,8 +80,8 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-localsynapse",
       "markdown_url": "https://xerj.org/compare/xerj-vs-localsynapse.md",
       "cluster": "Comparison: local MCP search",
-      "updated": "2026-08-23",
-      "summary": "Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API."
+      "updated": "2026-09-26",
+      "summary": "Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API."
     },
     {
       "title": "XERJ vs Elasticsearch run on one machine",
@@ -89,7 +89,7 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-elasticsearch-local",
       "markdown_url": "https://xerj.org/compare/xerj-vs-elasticsearch-local.md",
       "cluster": "Comparison: local search engines",
-      "updated": "2026-08-23",
+      "updated": "2026-09-26",
       "summary": "The published board is 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4. All 4 losses are read p99 under a write flood."
     },
     {

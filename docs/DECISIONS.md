@@ -148,7 +148,15 @@ confidence 0.8 at 0.979 accuracy); SMS spam 0.983 accuracy / 0.944 F1 under a
 millisecond on BM25 alone; both in
 [benchmarks/decisions-as-retrieval](../benchmarks/decisions-as-retrieval).
 The wire gate transcript is in
-[benchmarks/systemone-gate](../benchmarks/systemone-gate). Not claimed:
-anything about how a judge model scores on those datasets (no such numbers
-are published and we did not run one there), any zero-shot capability, and
-any judgement quality for histories unlike the ones measured.
+[benchmarks/systemone-gate](../benchmarks/systemone-gate). A third, smaller
+run measures `/_decide` itself on an email-labelling history — 4 labels,
+200 train / 60 held-out plus 8 hard boundary cases, seed-deterministic
+corpus — in
+[benchmarks/systemone-classify-email](../benchmarks/systemone-classify-email)
+([#1026](https://github.com/xerj-org/xerj/pull/1026), merged 2026-09-26,
+answering [discussion
+#1012](https://github.com/xerj-org/xerj/discussions/1012)); read its README
+for what those numbers do and do not license before quoting them. Not
+claimed: anything about how a judge model scores on those datasets (no such
+numbers are published and we did not run one there), any zero-shot
+capability, and any judgement quality for histories unlike the ones measured.

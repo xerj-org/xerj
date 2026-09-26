@@ -2,18 +2,18 @@
 ---
 title: "Search a Gmail Takeout mbox on your own machine"
 canonical: "https://xerj.org/answers/search-gmail-takeout-mbox-locally"
-updated: "2026-09-20"
+updated: "2026-09-26"
 source: "content/answers/search-gmail-takeout-mbox-locally.md"
 ---
 
 # I exported my Gmail with Google Takeout. How do I search that mbox file locally?
 
-**TL;DR** — Unzip the Takeout download, run `xerj autoindex` on the folder with its own `--prefix`, then search the mailbox over HTTP. The mbox is recognised by its content and streamed one message at a time. Attached PDFs become per-page documents linked to their message. Senders are filterable by bare address, and Gmail thread ids and reply headers become filters and graph edges. With the default embedder, which is lexical (feature hashing, not neural), no message text leaves your machine. The node's memory is the limit today: at a 16 GiB laptop's memory cap, a 300 MB mailbox already drove the node past that laptop's RAM in our runs.
+**TL;DR** — Unzip the Takeout download, run `xerj autoindex` on the folder with its own `--prefix`, then search the mailbox over HTTP. The mbox is recognised by its content and streamed one message at a time. Attached PDFs become per-page documents linked to their message. Senders are filterable by bare address, and Gmail thread ids and reply headers become filters and graph edges. With the default embedder, which is lexical (feature hashing, not neural), no message text leaves your machine. The node's ingest memory, which before #1002 (2026-09) pushed a 300 MB mailbox past a laptop's RAM, now finishes a 1 GB mailbox under the node's default 16 GiB cap in 407.7 s; the peak still crosses the cap (21,405.3 MiB on that run) because per-segment caches grow until a merge retires them, tracked as #1032.
 
 ## Agent prompt
 
 ```text
-Act as a coding agent. Read https://xerj.org/llms.txt. The user has a Google Takeout download, which is private mail. Unzip it first (autoindex does not open archives), start a node with `xerj --insecure --data-dir ~/xerj-data` on the user's own machine, run `xerj autoindex <unzipped folder> --url http://127.0.0.1:9200 --prefix mail --progress plain`, and relay the xerj-bar line while it runs. Before indexing, tell the user the node's memory limit (#948): at a 16 GiB laptop's cap, a 300 MB mailbox drove the node to 18-20 GiB. Answer questions with term filters on email_from_address / email_thread_id (hex) / attachment_name and match or match_phrase on body, which also holds the subject. Cite ax_locator and email_subject for every hit. If you file a field report, pass --pointed-at "a private mailbox" so the folder path is not published.
+Act as a coding agent. Read https://xerj.org/llms.txt. The user has a Google Takeout download, which is private mail. Unzip it first (autoindex does not open archives), start a node with `xerj --insecure --data-dir ~/xerj-data` on the user's own machine, run `xerj autoindex <unzipped folder> --url http://127.0.0.1:9200 --prefix mail --progress plain`, and relay the xerj-bar line while it runs. Before indexing, tell the user the measured memory picture: since #1002 (v1.0.0-rc.76) a 1 GB mailbox completes under the node's default 16 GiB cap in 407.7 s and a 300 MB mailbox fits a laptop's 8 GiB cap (7,963.6 MiB peak), but the 1 GB run still peaked at 21,405.3 MiB, 1.3x that cap (per-segment caches, open as #1032), so warn about headroom on a multi-GB export. Answer questions with term filters on email_from_address / email_thread_id (hex) / attachment_name and match or match_phrase on body, which also holds the subject. Cite ax_locator and email_subject for every hit. If you file a field report, pass --pointed-at "a private mailbox" so the folder path is not published.
 ```
 
 ## Commands
@@ -128,19 +128,19 @@ The mailbox splitter and the message extractor were tested against a generated m
 
 The Takeout layout rules have only seen that synthetic tree. They are not verified on a real Takeout export. Outlook PST/OST and Maildir have no extractor: convert them to mbox with a tool of your choice first. We have not tested any converter, so we do not recommend one. Undeclared Cyrillic or CJK legacy encodings are not detected.
 
-**Server memory is the limit today.** On the 1 GB synthetic mailbox, `xerj autoindex` itself peaked at 296 MiB and finished in 279 s. All 2,530 planted needles were found in the right message. The node needed **66.9 GiB** of peak memory to get there, with its process cap lifted.
+**Server memory was the limit before #1002 (2026-09).** On the 1 GB synthetic mailbox, `xerj autoindex` itself peaked at 296 MiB and finished in 279 s. All 2,530 planted needles were found in the right message. The node needed **66.9 GiB** of peak memory to get there, with its process cap lifted.
 
 Under the default cap on the same machine (16 GiB), the server sat at its memory watermark from 87 % of the mailbox on. The run aborted after ten minutes of waiting, with 82,422 of 106,581 documents indexed.
 
-A 16 GiB laptop's default cap is 8 GiB. A 300 MB synthetic mailbox run at that cap on the same large machine completed twice, and every needle was found. But the server's peak memory was **18.2 GiB and 19.9 GiB**, which is more than that laptop has.
+A 16 GiB laptop's default cap is 8 GiB. A 300 MB synthetic mailbox run at that cap on the same large machine completed twice, and every needle was found. But the server's peak memory was **18.2 GiB and 19.9 GiB**, which is more than that laptop has. That runaway was [#948](https://github.com/xerj-org/xerj/issues/948), closed 2026-09-21 by [#1002](https://github.com/xerj-org/xerj/pull/1002) in v1.0.0-rc.76.
 
-The breaker stops accepting new work at the cap, but work already accepted keeps growing. We have not run it on a 16 GiB machine. This is the engine's memory while it indexes, filed as [#948](https://github.com/xerj-org/xerj/issues/948).
+Since #1002, the same 1 GB mailbox completes under the node's default 16 GiB cap in **407.7 s**, with every needle and every edge verified, and the 300 MB mailbox fits the 8 GiB cap at a peak of **7,963.6 MiB**.
 
-Until it is fixed, do not count on a 16 GiB laptop for more than a small mailbox. We have not measured where that limit is, only that 300 MB is past it on our machine.
+What is left is [#1032](https://github.com/xerj-org/xerj/issues/1032) (filed 2026-09-26): three per-segment caches — `stored_value_cache`, `dv_cache` and `id_pos_cache` — stay unbounded until a merge retires their segment. The fixed 1 GB run still peaked at **21,405.3 MiB**, 1.3× that run's cap. We have not run it on a 16 GiB machine, so leave headroom for a multi-GB export.
 
 **Searching after a restart is uneven.** We reopened the same 1 GB index on a fresh node under the default cap. Most first-time questions took under 50 ms, and others took several seconds. In two measurements, 16 and 17 of 40 queries took over a second, and the slowest took 16.6 s.
 
-With the cap lifted, 4 of 40 did. Every answer was correct. The machine was shared during those runs, so treat the seconds as upper bounds. This is reported on #948 as well.
+With the cap lifted, 4 of 40 did. Every answer was correct. The machine was shared during those runs, so treat the seconds as upper bounds. These restart numbers were measured on the index built before #1002.
 
 Wall time, throughput, memory and index size are in the repository's `benchmarks/mbox-ingest/README.md`, with the machine and the exact commands.
 
@@ -156,7 +156,7 @@ Unzip the download, start a local XERJ node, and run `xerj autoindex <folder> --
 
 ### The mbox is 8 GB. Does it get loaded into memory?
 
-Not by autoindex. The splitter streams the file, and the client peaked at 296 MiB on a 1 GB mailbox. The node is the limit today. On that 1 GB mailbox the server needed 66.9 GiB with its cap lifted and did not finish under its default 16 GiB cap. At a 16 GiB laptop's 8 GiB cap, a 300 MB mailbox completed, but the server peaked at 18–20 GiB. That is filed as #948. Do not expect a multi-GB export to finish on a laptop until it is fixed.
+Not by autoindex. The splitter streams the file, and the client peaked at 296 MiB on a 1 GB mailbox. The node was the limit before #1002 (v1.0.0-rc.76, 2026-09): a 1 GB mailbox needed 66.9 GiB with its cap lifted and aborted under the default 16 GiB cap, and a 300 MB mailbox peaked at 18–20 GiB against a laptop's 8 GiB cap. Since #1002 closed #948, the 1 GB mailbox completes under the default 16 GiB cap in 407.7 s, and the 300 MB mailbox fits the 8 GiB cap at 7,963.6 MiB. The peak still crosses the cap — 21,405.3 MiB on the fixed 1 GB run — because per-segment caches grow until a merge retires their segment; that is open as #1032.
 
 ### Can it search inside the PDFs people attached?
 
@@ -191,8 +191,11 @@ No. The mbox splitter and the message extractor are tested against a generated m
 - The Takeout layout rules and every number in this article come from a synthetic mailbox written by scripts/synthetic-takeout.py — it plants quoted and unquoted From lines, 8-bit bodies, a truncated multipart, a 300 KB line and a duplicated Message-ID; none of it is verified on a real Takeout export. — `scripts/synthetic-takeout.py`
 - A per-item HTTP 429 from the server's memory circuit breaker is re-offered for up to 600 seconds instead of aborting the run; per-item 5xx and write blocks are not waited on. — `engine/crates/xerj-autoindex/src/esclient.rs`
 - On the 1 GB synthetic mailbox the client peaked at 296 MiB and finished in 279 s; all 2,530 planted needles were found in the right message, 2,529 as exactly one document and one as two overlapping sections of its message. — `benchmarks/mbox-ingest/results/after-mixed-1G-runC-verify-every-needle.json`
-- That complete run needed the node's cap lifted and a server peak of 66.9 GiB; under the default 16 GiB cap the server sat at its watermark from 87 % of the mailbox on and the run aborted after ten minutes with 82,422 of 106,581 documents indexed. — `benchmarks/mbox-ingest/README.md`
-- A 300 MB synthetic mailbox against a node capped at 8 GiB, the default on a 16 GiB machine, completed twice with every needle found, and the server's peak resident memory was 18.2 GiB and 19.9 GiB. — `benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run2.json`
+- Before #1002, the complete run needed the node's cap lifted and a server peak of 66.9 GiB; under the default 16 GiB cap the server sat at its watermark from 87 % of the mailbox on and the run aborted after ten minutes with 82,422 of 106,581 documents indexed. — `benchmarks/mbox-ingest/README.md`
+- Before #1002, a 300 MB synthetic mailbox against a node capped at 8 GiB, the default on a 16 GiB machine, completed twice with every needle found, and the server's peak resident memory was 18.2 GiB and 19.9 GiB. — `benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run2.json`
+- After #1002, the 1 GB synthetic mailbox completes under the default 16 GiB cap in 407.7 s, with all 2,530 needles and every edge verified; its peak is still 21,405.3 MiB, 1.3× that cap. — `benchmarks/mbox-ingest/results/fix-mixed-1G-capped16g-fixed.json`
+- After #1002, the 300 MB mailbox at a laptop's 8 GiB cap peaks at 7,963.6 MiB, under the cap. — `benchmarks/mbox-ingest/README.md`
+- Three per-segment caches (stored_value_cache, dv_cache, id_pos_cache) stay unbounded until a merge retires their segment; filed 2026-09-26 as the remaining reason an ingest peak crosses its cap. — [https://github.com/xerj-org/xerj/issues/1032](https://github.com/xerj-org/xerj/issues/1032)
 - The 1 GB index reopened under the default cap answered 16 and 17 of 40 first-time single-term queries in over a second (slowest 8.7 s and 16.6 s in two measurements); with the cap lifted, 4 of 40. — `benchmarks/mbox-ingest/results/after-mixed-1G-runC-restart-query-latency.txt`
 - xerj feedback auto-fills 'Pointed at' from the running node's catalog, which names the indexed folder, unless --pointed-at is given; --no-autofill skips the probe and --dry-run prints the report without publishing it. — `engine/crates/xerj-autoindex/src/feedback.rs`
 

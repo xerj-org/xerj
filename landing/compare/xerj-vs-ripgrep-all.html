@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>HOW DO I GREP PDFS AND WORD DOCS FROM THE COMMAND LINE?</div>
   <div class="kicker"><span>COMPARE · COMPARISON: DESKTOP SEARCH</span></div>
   <h1>How do I grep PDFs and Word docs from the command line?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — ripgrep-all is the better choice for one question, today. It converts PDFs and Office files as it goes, walks into archives, and wants no daemon and no index. XERJ indexes the same folder once for an agent to query many times. No head-to-head benchmark was run.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -314,7 +314,7 @@
       <tr><td>repeat questions on the same folder</td><td>converts once, then reads its cache</td><td>reads the index</td></tr>
       <tr><td>archives, and archives inside archives</td><td>yes, zip, tar and compressed files</td><td>no archive handler</td></tr>
       <tr><td>a single gzipped file</td><td>yes, the decompress adapter</td><td>yes, gzip is transparent on every parsed family</td></tr>
-      <tr><td>email files</td><td>opt-in mail adapter</td><td>no email handler</td></tr>
+      <tr><td>email files</td><td>opt-in mail adapter, mbox mbx and eml</td><td>mbox and eml, detected by content; mbx unhandled</td></tr>
       <tr><td>OCR for image-only PDFs</td><td>not shipped, custom adapter only</td><td>none</td></tr>
       <tr><td>helper programs on the host</td><td>pandoc, poppler-utils, ffmpeg</td><td>none</td></tr>
       <tr><td>ranking of results</td><td>none, matches in file order</td><td>BM25 over the extracted text</td></tr>
@@ -330,7 +330,7 @@
   <p>Choose ripgrep-all when the pattern is a real regular expression. An analyzed index matches whole terms. A run of characters inside a word has nothing to match. ripgrep reads bytes and ignores where a word starts.</p>
   <p>Choose ripgrep-all when the documents sit inside archives. It walks into zip, tar and compressed files, and into an archive inside an archive. XERJ has no archive handler, so a zip or a tar never reaches a XERJ index.</p>
   <p>A single gzipped file is the one exception on the XERJ side. <code class="inline">xerj autoindex</code> detects gzip by content and decompresses it during indexing, on every parsed family. A <code class="inline">.jsonl.gz</code> log therefore lands beside the plain file next to it.</p>
-  <p>Choose ripgrep-all when the folder holds mail files. The opt-in mail adapter reads mbox, mbx and eml. XERJ has no email handler.</p>
+  <p>Choose ripgrep-all when the mail goes beyond a plain mailbox. XERJ reads .mbox and .eml — the mbox is detected by content and streamed since v1.0.0-rc.75 (<a href="https://github.com/xerj-org/xerj/pull/949">#949</a>). The opt-in mail adapter keeps mbx, and rga reads mail nested inside an archive, which XERJ never opens.</p>
   <p>Choose ripgrep-all when you must add a converter of your own. Custom subprocess adapters are configuration, so an OCR program can sit in front of the search. XERJ has no OCR and no adapter interface.</p>
   <p>Choose ripgrep-all when the files change under you. It converts the file it is looking at, and XERJ answers from the last <code class="inline">xerj autoindex</code> run.</p>
   <h2>When to choose grep or ripgrep instead</h2>
@@ -346,7 +346,7 @@
   <p>Choose XERJ when a refused file must be explainable. Files that XERJ does not parse land in <code class="inline">autoindex-catalog</code> with a reason string, rather than passing in silence.</p>
   <h2>What XERJ does not have</h2>
   <p>XERJ has no regular expression engine over raw bytes. The index matches analyzed terms and phrases.</p>
-  <p>XERJ has no archive handler, no email handler and no OCR. It has no adapter interface, so a format that the binary does not parse stays out of the index.</p>
+  <p>XERJ has no archive handler and no OCR. Its mail reading is mbox and eml only; mbx, PST, OST and Maildir stay out. It has no adapter interface, so a format that the binary does not parse stays out of the index.</p>
   <p>XERJ runs on one node. There is no failover. Plan for restore from a copy.</p>
   <h2>How to read this page</h2>
   <p>This is a capability comparison drawn from each tool's own documentation. It is not a benchmark, and it is not a claim about your files.</p>

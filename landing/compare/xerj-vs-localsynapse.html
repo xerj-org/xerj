@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ vs LocalSynapse for MCP local file search</title>
-<meta name="description" content="Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API.">
+<meta name="description" content="Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="XERJ vs LocalSynapse for MCP local file search">
-<meta property="og:description" content="Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API.">
+<meta property="og:description" content="Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API.">
 <meta property="og:url" content="https://xerj.org/compare/xerj-vs-localsynapse">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ vs LocalSynapse for MCP local file search">
-<meta name="twitter:description" content="Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API.">
+<meta name="twitter:description" content="Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,12 +60,12 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "XERJ vs LocalSynapse for MCP local file search",
-  "description": "Two local MCP search engines. LocalSynapse wins the desktop experience and formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch REST API.",
+  "description": "Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API.",
   "url": "https://xerj.org/compare/xerj-vs-localsynapse",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,8 +243,8 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>WHAT'S A LOCAL MCP SEARCH ENGINE FOR CLAUDE?</div>
   <div class="kicker"><span>COMPARE · COMPARISON: LOCAL MCP SEARCH</span></div>
   <h1>What's a local MCP search engine for Claude?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
-  <p><strong>TL;DR</strong> — LocalSynapse wins the desktop experience: a search window you double-click, whole-drive indexing, and mail and spreadsheet formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch query surface. No head-to-head was run for this page.</p>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
+  <p><strong>TL;DR</strong> — LocalSynapse wins the desktop experience: a search window you double-click, whole-drive indexing, and Excel workbooks — and mail shapes beyond mbox and eml — that XERJ has no extractor for. XERJ wins data files and the Elasticsearch query surface. No head-to-head was run for this page.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
     <code>Act as a coding agent. Read https://xerj.org/llms.txt, start a local node with `xerj --insecure --data-dir ./xerj-data`, run `xerj autoindex ./work --prefix work --state-dir ./state-work` on one chosen folder rather than a whole drive, attach it with `xerj mcp --url http://127.0.0.1:9200`, then answer the user question with an Elasticsearch DSL query and report every file the run refused together with the reason it gave.</code>
@@ -274,8 +274,8 @@
   <p>XERJ has none of that. There is no window, no installer with a tray icon, and no drive-wide default. You name a folder and run a command.</p>
   <h2>Concede the formats we do not have</h2>
   <p>LocalSynapse reads PDF, Word, PowerPoint, Hangul, CSV, Markdown and plain text. It also reads mail files as <code class="inline">.eml</code>, <code class="inline">.msg</code> and <code class="inline">.mbox</code>, and it reads Excel workbooks with cell coordinates and merged ranges up to 25 MB.</p>
-  <p>Two of those are real gaps on the XERJ side, and neither has a workaround worth publishing. XERJ has no mail extractor, so an mbox archive is not a family it recognizes. XERJ has no XLSX or PPTX extractor either, so a spreadsheet has to become CSV first.</p>
-  <p>If your corpus is mail and spreadsheets, stop here and use LocalSynapse. No measurement on this page would change that answer.</p>
+  <p>One of those is a real gap on the XERJ side, and it has no workaround worth publishing: there is no XLSX or PPTX extractor, so a spreadsheet has to become CSV first. Mail is no longer a flat gap — XERJ reads .mbox and .eml, detecting mbox by content rather than by extension (<a href="https://github.com/xerj-org/xerj/pull/949">#949</a>, shipped in v1.0.0-rc.75) — but PST, OST and Maildir are still unhandled, and LocalSynapse adds .msg.</p>
+  <p>If your corpus is spreadsheets, or mail in a shape XERJ does not parse, stop here and use LocalSynapse. No measurement on this page would change that answer.</p>
   <h2>What XERJ reads instead</h2>
   <p>Thirteen families are covered. The list holds JSON and JSONL, CSV with dialect detection, structured logs, SQL exports and SQLite. It also holds PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants.</p>
   <p>The data end of that list is where the two products part company. A SQLite database, a semicolon CSV with a decimal comma, and a multi-gigabyte SQL export are shapes a document-first indexer usually skips.</p>
@@ -298,7 +298,7 @@
   <p>XERJ does no optical character recognition. A page image with no text layer stays junk until a separate tool gives it a text layer.</p>
   <h2>When to choose LocalSynapse instead</h2>
   <p>Choose LocalSynapse when a person wants a search window on Windows or macOS. That is its job.</p>
-  <p>Choose LocalSynapse when the corpus is mail or Excel workbooks. XERJ has no extractor for either one.</p>
+  <p>Choose LocalSynapse when the corpus is Excel workbooks, or mail XERJ does not parse. XERJ reads .mbox and .eml; PST, OST and Maildir stay out, and there is no workbook extractor.</p>
   <p>Choose LocalSynapse when you want whole-drive coverage with no folder list to maintain. Its neural embedder is on by default.</p>
   <h2>When to choose XERJ instead</h2>
   <p>Choose XERJ when the corpus holds data rather than documents. SQLite, CSV dialects, SQL exports and source code are the reason.</p>
@@ -309,11 +309,11 @@
   <p>Every LocalSynapse fact above comes from its own site or repository. Read those before you decide, because a product that ships binaries moves faster than a page about it.</p>
   <h2>FAQ</h2>
   <h3>What does LocalSynapse do better?</h3>
-  <p>The desktop experience. It ships a search window, indexes whole drives automatically, and reads mail files and Excel workbooks that XERJ has no extractor for.</p>
+  <p>The desktop experience. It ships a search window, indexes whole drives automatically, and reads Excel workbooks that XERJ has no extractor for. On mail the two overlap — XERJ reads mbox and eml — while LocalSynapse also reads .msg.</p>
   <h3>LocalSynapse vs something that also indexes CSV and SQLite?</h3>
   <p>That is the split. XERJ takes the data files and the query surface: SQLite databases, hostile CSV dialects, SQL exports and code, answered over the Elasticsearch REST API.</p>
   <h3>Can XERJ read my mail archive?</h3>
-  <p>No. There is no mail extractor. Formats such as mbox and PST are not families XERJ recognizes, and LocalSynapse reads them.</p>
+  <p>Partly, since v1.0.0-rc.75. XERJ reads .mbox and .eml, detecting mbox by content — a From-separator plus RFC 5322 headers — so the extension is irrelevant. PST, OST and Maildir are still unhandled. LocalSynapse reads .eml, .msg and .mbox.</p>
   <h3>Can XERJ read a spreadsheet?</h3>
   <p>Not an Excel workbook. A CSV export is read with dialect detection, but there is no XLSX or PPTX extractor at all.</p>
   <h3>How many MCP tools does each side expose?</h3>

@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-09-26",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -192,7 +192,7 @@
     <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">49</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
     <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">50</span>How do I build RAG without a vector database?</a>
     <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">51</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a calibrated relevance judge?</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">52</span>How do I rerank search results with a relevance judge?</a>
     <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">53</span>What is Reciprocal Rank Fusion?</a>
     <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">54</span>How does XERJ combine BM25 and kNN?</a>
     <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">55</span>How do I search files that live in an S3 bucket?</a>
@@ -243,7 +243,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/compare/">COMPARISONS</a><span class="sep">·</span>WHAT'S A FREE DOCFETCHER ALTERNATIVE THAT AN AGENT CAN CALL?</div>
   <div class="kicker"><span>COMPARE · COMPARISON: DESKTOP SEARCH</span></div>
   <h1>What's a free DocFetcher alternative that an agent can call?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-09-26</div>
   <p><strong>TL;DR</strong> — DocFetcher is a mature desktop search GUI. It reads Outlook PST files and nested archives, and its portable version carries the index on a USB drive. XERJ is a search engine that a program calls over HTTP or MCP. No head-to-head benchmark was run.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -298,7 +298,7 @@
       <tr><td>human GUI with a preview pane</td><td>yes, with highlighted matches</td><td>none, HTTP and MCP only</td></tr>
       <tr><td>Windows desktop application</td><td>yes, Windows 7 SP1 or later</td><td>a server process, no window</td></tr>
       <tr><td>portable index on a USB drive</td><td>yes, the portable versions</td><td>data lives in the node data directory</td></tr>
-      <tr><td>Outlook PST email</td><td>yes</td><td>no email handler</td></tr>
+      <tr><td>Outlook PST email</td><td>yes</td><td>no PST reader; mbox and .eml only</td></tr>
       <tr><td>zip, 7z, rar and tar archives</td><td>yes, unlimited nesting</td><td>no archive handler</td></tr>
       <tr><td>OCR for image-only PDFs</td><td>none</td><td>none</td></tr>
       <tr><td>fuzzy and proximity operators</td><td>yes, in the query syntax</td><td>terms and phrases</td></tr>
@@ -315,7 +315,7 @@
   <p>Choose DocFetcher when a person does the searching. The GUI has been built and repaired for years. A result window with a preview pane beats an API for a human reader.</p>
   <p>Choose DocFetcher on a Windows workstation. It installs as a desktop application and wants no terminal, no node and no HTTP call.</p>
   <p>Choose DocFetcher when the index must travel. The portable version keeps the index in the application folder. The folder can then live on a USB drive, in an encrypted volume or on a cloud drive.</p>
-  <p>Choose DocFetcher for Outlook PST files. XERJ has no email handler, so those messages never reach a XERJ index.</p>
+  <p>Choose DocFetcher for Outlook PST files. XERJ reads mbox and .eml, but it has no reader for PST, OST or Maildir, so messages still in Outlook's own store never reach a XERJ index.</p>
   <p>Choose DocFetcher for archives. It walks zip, 7z, rar and tar files with unlimited nesting. XERJ has no archive handler.</p>
   <p>Choose DocFetcher when the query needs fuzzy or proximity operators. XERJ matches terms and phrases.</p>
   <h2>When to choose Recoll or ripgrep-all instead</h2>
@@ -330,7 +330,7 @@
   <p>Choose XERJ when the same node must also hold agent memory. <code class="inline">/_memory/{namespace}</code> puts durable agent memory beside the documents.</p>
   <h2>What XERJ does not have</h2>
   <p>XERJ has no GUI. There is no result window, no preview pane and no term highlighting.</p>
-  <p>XERJ has no OCR, no email handler and no archive handler. It has no role-based access control and no single sign-on.</p>
+  <p>XERJ has no OCR and no archive handler. Email reading covers mbox and .eml, not PST, OST or Maildir. It has no role-based access control and no single sign-on.</p>
   <p>XERJ runs on one node. There is no failover. Plan for restore from a copy.</p>
   <h2>How to read this page</h2>
   <p>This is a capability comparison drawn from each tool's own documentation. It is not a benchmark, and it is not a claim about your files.</p>

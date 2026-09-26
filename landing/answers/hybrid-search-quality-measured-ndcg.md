@@ -149,5 +149,5 @@ About 3 to 7 documents per second on CPU in this run. SciFact's 5,183 short abst
 
 - [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
-- [How do I rerank search results with a calibrated relevance judge?](/answers/rerank-search-results-calibrated-judge)
+- [How do I rerank search results with a relevance judge?](/answers/rerank-search-results-calibrated-judge)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)

@@ -2,7 +2,7 @@
 ---
 title: "Point a tool at a folder and ask about the files"
 canonical: "https://xerj.org/answers/how-xerj-autoindexes-a-folder"
-updated: "2026-08-21"
+updated: "2026-09-26"
 source: "content/answers/how-xerj-autoindexes-a-folder.md"
 ---
 
@@ -101,7 +101,7 @@ Index the folder locally and keep the web API for web pages. The [web agent sear
 
 ## What the run will not do for you
 
-`xerj autoindex` reads no image-only PDF, because XERJ has no OCR and a PDF with no text layer produces no text. It has no email handler, no mbox handler and no archive handler.
+`xerj autoindex` reads no image-only PDF, because XERJ has no OCR and a PDF with no text layer produces no text. It never opens archives either: a zip or tar of documents stays closed until you extract it. Mail is read rather than refused: `.eml` files and mbox mailboxes, a Google Takeout export included, are detected by content and shipped in v1.0.0-rc.75. PST, OST and Maildir stores are still not handled. The [Takeout mbox page](/answers/search-gmail-takeout-mbox-locally) shows what comes back from a mailbox.
 
 Hidden files such as `.env`, `.git/` and `.ssh` are skipped whatever the ignore configuration says, which is what keeps secrets out of the index. Everything else it refused is recorded in `autoindex-catalog` with a reason, so a missing file is explainable rather than silent.
 

@@ -229,31 +229,41 @@ bytes; the two are not mixed in one ratio.
   of 39,619 attachment records. No empty documents.
 - **Index on disk.** 760,436,960 bytes for the 1,073,777,879-byte mailbox
   (0.71×), once merges settled.
-- **Server memory — the limit you will hit.** That complete run needed the
+- **Server memory — the limit you would hit, fixed by PR #1002
+  (v1.0.0-rc.76).** Before #1002 (2026-09), that complete run needed the
   node's process cap lifted (`XERJ_MAX_PROCESS_MEMORY_MB=off`) and took the
   server to **66.9 GiB** of peak RSS (68,528 MiB). Under the default cap on
   the same 119 GiB machine (16 GiB), the server sat at its memory watermark
   from 87 % of the mailbox on and the run **aborted after ten minutes of
   waiting**, with 82,422 documents indexed and 25.9 GiB of peak RSS
-  (26,529 MiB). A 16 GiB laptop's default cap is 8 GiB. This is the engine's
-  ingest memory, not the extractor's; it is filed as
-  [#948](https://github.com/xerj-org/xerj/issues/948). Until it is fixed, do
-  not expect a multi-GB mailbox to finish on a laptop-class node; this recipe
-  says so rather than promising it.
-- **At a laptop's cap: 300 MB completes, but the node outgrows the laptop.**
-  A 300 MB synthetic mailbox (11,478 entries, 30,403 documents) against a
-  node capped at 8 GiB — the default on a 16 GiB machine — on the same
-  119 GiB box, twice: both runs completed (exit 3, 89–91 s), all 735
-  needles were found in the right message, and the edges equal the truth.
-  But the server's peak resident memory was **18.2 GiB and 19.9 GiB**, 2.3–2.5×
-  its own cap and more than a 16 GiB laptop has: the memory breaker stops
-  *admitting* work at the watermark, and work already admitted keeps growing.
-  On an actual 16 GiB laptop that means swapping or an out-of-memory kill; we
-  have not run it on one, and we have not measured where the laptop limit
-  is — only that 300 MB is past it here. Treat a multi-GB export as not yet
-  feasible on a laptop-class node
+  (26,529 MiB) — the engine's ingest memory, not the extractor's, filed as
+  [#948](https://github.com/xerj-org/xerj/issues/948) and closed by
+  [#1002](https://github.com/xerj-org/xerj/pull/1002). After #1002, a 1 GB
+  synthetic mailbox **completes in 407.7 s with the default 16 GiB cap in
+  force** — the abort above is gone, and every needle and edge was verified —
+  and at-rest retention after a 100k-doc ingest fell **~677 MB → ~108 MB**.
+  One caveat remains: the fixed 1 GB run's peak is still **21,405.3 MiB**,
+  1.3× that 16 GiB cap, because three per-segment caches
+  (`stored_value_cache`, `dv_cache`, `id_pos_cache`) stay unbounded until a
+  merge retires their segment; that is open issue
+  [#1032](https://github.com/xerj-org/xerj/issues/1032), filed 2026-09-26.
+- **At a laptop's cap: 300 MB now fits — before #1002 it did not.** Before
+  [PR #1002](https://github.com/xerj-org/xerj/pull/1002), a 300 MB synthetic
+  mailbox (11,478 entries, 30,403 documents) against a node capped at 8 GiB —
+  the default on a 16 GiB machine — on the same 119 GiB box, twice: both runs
+  completed (exit 3, 89–91 s), all 735 needles were found in the right
+  message, and the edges equal the truth. But the server's peak resident
+  memory was **18.2 GiB and 19.9 GiB**, 2.3–2.5× its own cap and more than a
+  16 GiB laptop has — on an actual laptop that meant swapping or an
+  out-of-memory kill: the memory breaker stops *admitting* work at the
+  watermark, and work already admitted keeps growing
   ([run 1](../../benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run1.json),
   [run 2](../../benchmarks/mbox-ingest/results/after-mixed-300M-cap8g-run2.json)).
+  After #1002, a 300 MB mailbox **fits an 8 GiB cap at 7,963.6 MiB**. What is
+  still not measured is the laptop itself: we have not run one, and the fixed
+  1 GB run's peak (21,405.3 MiB, above) is more than a 16 GiB machine has.
+  Treat a multi-GB export on a laptop-class node as unmeasured rather than
+  promised or ruled out.
 - **Searching after a restart — the second limit.** The correctness figures
   above come from a warm node. The same 1 GB index reopened by a fresh node
   answers a first-time question in either under 50 ms or **several seconds**.
@@ -266,7 +276,10 @@ bytes; the two are not mixed in one ratio.
   measurements), so the seconds are upper bounds; the two-speed shape is the
   finding. Raw lines and the script:
   [restart-query-latency](../../benchmarks/mbox-ingest/results/after-mixed-1G-runC-restart-query-latency.txt).
-  Engine-side, reported on #948; not profiled.
+  Engine-side; not profiled. It was reported on
+  [#948](https://github.com/xerj-org/xerj/issues/948), since closed by
+  [#1002](https://github.com/xerj-org/xerj/pull/1002); the memory work still
+  open is [#1032](https://github.com/xerj-org/xerj/issues/1032) (2026-09-26).
 
 ## Privacy: what leaves the machine
 

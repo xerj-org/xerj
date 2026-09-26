@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs LocalSynapse for MCP local file search"
 canonical: "https://xerj.org/compare/xerj-vs-localsynapse"
-updated: "2026-08-23"
+updated: "2026-09-26"
 source: "content/compare/xerj-vs-localsynapse.md"
 ---
 
 # What's a local MCP search engine for Claude?
 
-**TL;DR** — LocalSynapse wins the desktop experience: a search window you double-click, whole-drive indexing, and mail and spreadsheet formats XERJ has no extractor for. XERJ wins data files and the Elasticsearch query surface. No head-to-head was run for this page.
+**TL;DR** — LocalSynapse wins the desktop experience: a search window you double-click, whole-drive indexing, and Excel workbooks — and mail shapes beyond mbox and eml — that XERJ has no extractor for. XERJ wins data files and the Elasticsearch query surface. No head-to-head was run for this page.
 
 ## Agent prompt
 
@@ -54,9 +54,9 @@ XERJ has none of that. There is no window, no installer with a tray icon, and no
 
 LocalSynapse reads PDF, Word, PowerPoint, Hangul, CSV, Markdown and plain text. It also reads mail files as `.eml`, `.msg` and `.mbox`, and it reads Excel workbooks with cell coordinates and merged ranges up to 25 MB.
 
-Two of those are real gaps on the XERJ side, and neither has a workaround worth publishing. XERJ has no mail extractor, so an mbox archive is not a family it recognizes. XERJ has no XLSX or PPTX extractor either, so a spreadsheet has to become CSV first.
+One of those is a real gap on the XERJ side, and it has no workaround worth publishing: there is no XLSX or PPTX extractor, so a spreadsheet has to become CSV first. Mail is no longer a flat gap — XERJ reads .mbox and .eml, detecting mbox by content rather than by extension ([#949](https://github.com/xerj-org/xerj/pull/949), shipped in v1.0.0-rc.75) — but PST, OST and Maildir are still unhandled, and LocalSynapse adds .msg.
 
-If your corpus is mail and spreadsheets, stop here and use LocalSynapse. No measurement on this page would change that answer.
+If your corpus is spreadsheets, or mail in a shape XERJ does not parse, stop here and use LocalSynapse. No measurement on this page would change that answer.
 
 ## What XERJ reads instead
 
@@ -102,7 +102,7 @@ XERJ does no optical character recognition. A page image with no text layer stay
 
 Choose LocalSynapse when a person wants a search window on Windows or macOS. That is its job.
 
-Choose LocalSynapse when the corpus is mail or Excel workbooks. XERJ has no extractor for either one.
+Choose LocalSynapse when the corpus is Excel workbooks, or mail XERJ does not parse. XERJ reads .mbox and .eml; PST, OST and Maildir stay out, and there is no workbook extractor.
 
 Choose LocalSynapse when you want whole-drive coverage with no folder list to maintain. Its neural embedder is on by default.
 
@@ -124,7 +124,7 @@ Every LocalSynapse fact above comes from its own site or repository. Read those 
 
 ### What does LocalSynapse do better?
 
-The desktop experience. It ships a search window, indexes whole drives automatically, and reads mail files and Excel workbooks that XERJ has no extractor for.
+The desktop experience. It ships a search window, indexes whole drives automatically, and reads Excel workbooks that XERJ has no extractor for. On mail the two overlap — XERJ reads mbox and eml — while LocalSynapse also reads .msg.
 
 ### LocalSynapse vs something that also indexes CSV and SQLite?
 
@@ -132,7 +132,7 @@ That is the split. XERJ takes the data files and the query surface: SQLite datab
 
 ### Can XERJ read my mail archive?
 
-No. There is no mail extractor. Formats such as mbox and PST are not families XERJ recognizes, and LocalSynapse reads them.
+Partly, since v1.0.0-rc.75. XERJ reads .mbox and .eml, detecting mbox by content — a From-separator plus RFC 5322 headers — so the extension is irrelevant. PST, OST and Maildir are still unhandled. LocalSynapse reads .eml, .msg and .mbox.
 
 ### Can XERJ read a spreadsheet?
 

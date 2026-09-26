@@ -7,7 +7,7 @@ cluster: "Comparison: desktop search"
 question: "What is a free DocFetcher alternative that an agent can call?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -104,7 +104,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | human GUI with a preview pane | yes, with highlighted matches | none, HTTP and MCP only |
 | Windows desktop application | yes, Windows 7 SP1 or later | a server process, no window |
 | portable index on a USB drive | yes, the portable versions | data lives in the node data directory |
-| Outlook PST email | yes | no email handler |
+| Outlook PST email | yes | no PST reader; mbox and .eml only |
 | zip, 7z, rar and tar archives | yes, unlimited nesting | no archive handler |
 | OCR for image-only PDFs | none | none |
 | fuzzy and proximity operators | yes, in the query syntax | terms and phrases |
@@ -124,7 +124,7 @@ Choose DocFetcher on a Windows workstation. It installs as a desktop application
 
 Choose DocFetcher when the index must travel. The portable version keeps the index in the application folder. The folder can then live on a USB drive, in an encrypted volume or on a cloud drive.
 
-Choose DocFetcher for Outlook PST files. XERJ has no email handler, so those messages never reach a XERJ index.
+Choose DocFetcher for Outlook PST files. XERJ reads mbox and .eml, but it has no reader for PST, OST or Maildir, so messages still in Outlook's own store never reach a XERJ index.
 
 Choose DocFetcher for archives. It walks zip, 7z, rar and tar files with unlimited nesting. XERJ has no archive handler.
 
@@ -154,7 +154,7 @@ Choose XERJ when the same node must also hold agent memory. `/_memory/{namespace
 
 XERJ has no GUI. There is no result window, no preview pane and no term highlighting.
 
-XERJ has no OCR, no email handler and no archive handler. It has no role-based access control and no single sign-on.
+XERJ has no OCR and no archive handler. Email reading covers mbox and .eml, not PST, OST or Maildir. It has no role-based access control and no single sign-on.
 
 XERJ runs on one node. There is no failover. Plan for restore from a copy.
 

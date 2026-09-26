@@ -7,7 +7,7 @@ cluster: "Comparison: desktop search"
 question: "How do I grep PDFs and Word docs from the command line?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -118,7 +118,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | repeat questions on the same folder | converts once, then reads its cache | reads the index |
 | archives, and archives inside archives | yes, zip, tar and compressed files | no archive handler |
 | a single gzipped file | yes, the decompress adapter | yes, gzip is transparent on every parsed family |
-| email files | opt-in mail adapter | no email handler |
+| email files | opt-in mail adapter, mbox mbx and eml | mbox and eml, detected by content; mbx unhandled |
 | OCR for image-only PDFs | not shipped, custom adapter only | none |
 | helper programs on the host | pandoc, poppler-utils, ffmpeg | none |
 | ranking of results | none, matches in file order | BM25 over the extracted text |
@@ -138,7 +138,7 @@ Choose ripgrep-all when the documents sit inside archives. It walks into zip, ta
 
 A single gzipped file is the one exception on the XERJ side. `xerj autoindex` detects gzip by content and decompresses it during indexing, on every parsed family. A `.jsonl.gz` log therefore lands beside the plain file next to it.
 
-Choose ripgrep-all when the folder holds mail files. The opt-in mail adapter reads mbox, mbx and eml. XERJ has no email handler.
+Choose ripgrep-all when the mail goes beyond a plain mailbox. XERJ reads .mbox and .eml — the mbox is detected by content and streamed since v1.0.0-rc.75 ([#949](https://github.com/xerj-org/xerj/pull/949)). The opt-in mail adapter keeps mbx, and rga reads mail nested inside an archive, which XERJ never opens.
 
 Choose ripgrep-all when you must add a converter of your own. Custom subprocess adapters are configuration, so an OCR program can sit in front of the search. XERJ has no OCR and no adapter interface.
 
@@ -170,7 +170,7 @@ Choose XERJ when a refused file must be explainable. Files that XERJ does not pa
 
 XERJ has no regular expression engine over raw bytes. The index matches analyzed terms and phrases.
 
-XERJ has no archive handler, no email handler and no OCR. It has no adapter interface, so a format that the binary does not parse stays out of the index.
+XERJ has no archive handler and no OCR. Its mail reading is mbox and eml only; mbx, PST, OST and Maildir stay out. It has no adapter interface, so a format that the binary does not parse stays out of the index.
 
 XERJ runs on one node. There is no failover. Plan for restore from a copy.
 

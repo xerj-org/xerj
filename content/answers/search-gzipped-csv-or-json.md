@@ -7,7 +7,7 @@ cluster: "Files and formats"
 question: "How do I search gzipped CSV exports?"
 intent: "how-to"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-09-26"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -109,7 +109,7 @@ Provenance still names the compressed source. `ax_path` keeps the `.gz` file nam
 
 Choose `ripgrep-all` when the archive is **nested**. It wraps ripgrep with adapters for PDF, Office documents, zip, tar, compressed files and SQLite. It walks into them without building an index.
 
-XERJ has no archive handler. A `.tar.gz`, a `.zip` and a mail archive are not unpacked, so their contents are not searchable in XERJ at all. That is a real rga win and it is not worked around on this page.
+XERJ has no archive handler. A `.tar.gz` and a `.zip` are not unpacked, so their contents are not searchable in XERJ at all. That is a real rga win and it is not worked around on this page. A mail archive is the exception, because it needs no unpacking: since v1.0.0-rc.75 an `mbox` file is detected by content — a From-separator plus RFC 5322 headers, the extension is irrelevant — and streamed one message at a time ([#949](https://github.com/xerj-org/xerj/pull/949)), so its messages are searchable. PST, OST and Maildir are still unhandled.
 
 Choose `ripgrep-all` for one question asked once, too. There is no node to start and no index to build. For a single regex over a single compressed file, that is less work by every measure.
 

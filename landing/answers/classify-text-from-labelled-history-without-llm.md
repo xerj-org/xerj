@@ -137,5 +137,5 @@ No. XERJ did not run any judge model on these datasets and claims nothing about 
 
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg)
-- [How do I rerank search results with a calibrated relevance judge?](/answers/rerank-search-results-calibrated-judge)
+- [How do I rerank search results with a relevance judge?](/answers/rerank-search-results-calibrated-judge)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)

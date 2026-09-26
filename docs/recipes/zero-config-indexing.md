@@ -524,10 +524,16 @@ Every number in this recipe traces to a run:
   positional field names (`field`, `field_2`, …) while the *values* still
   type correctly.
 - **Big-ingest server caveat:** the client streams with flat memory and the
-  pipeline is resumable — multi-GB corpora are verified — but the current
-  *server* retains ~7–10 KB of heap per indexed doc, so multi-GB / >5M-doc
-  ingests can OOM the server until the ticketed cache-budget fix lands
-  (`demo/usecases/autoindex/scale/TICKET_server-unbounded-ingest-heap.md`).
+  pipeline is resumable — multi-GB corpora are verified. The server-side RSS
+  runaway that made >5M-doc ingests OOM ([#948](https://github.com/xerj-org/xerj/issues/948))
+  is fixed as of v1.0.0-rc.76 ([#1002](https://github.com/xerj-org/xerj/pull/1002)):
+  at-rest retention after a 100k-doc ingest fell ~677 → ~108 MB (~1.1 kB/doc).
+  The residual: three per-segment caches (`stored_value_cache`, `dv_cache`,
+  `id_pos_cache`) stay unbounded until a merge retires their segment — open
+  issue [#1032](https://github.com/xerj-org/xerj/issues/1032) (filed
+  2026-09-26), so corpora of many millions of documents can still OOM the
+  server. The pre-fix history lives in
+  `demo/usecases/autoindex/scale/TICKET_server-unbounded-ingest-heap.md`.
   Do not point it at TB-scale folders yet.
 - **At small local scale, grep is a worthy rival.** In a controlled exam on
   a 518 MB folder, an agent with raw file access and grep/python matched the

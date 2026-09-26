@@ -2,7 +2,7 @@
 ---
 title: "Spotlight compared with XERJ for folder content"
 canonical: "https://xerj.org/compare/xerj-vs-spotlight"
-updated: "2026-08-23"
+updated: "2026-09-26"
 source: "content/compare/xerj-vs-spotlight.md"
 ---
 
@@ -127,7 +127,7 @@ Choose XERJ when the same node must also hold **agent memory**, next to the docu
 
 No GUI. No result window, no preview pane, no Quick Look.
 
-No OCR, no email handler and no archive handler. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
+No OCR and no archive handler. Email reading is mbox and .eml only, not PST, OST or Maildir. No role-based access control and no single sign-on. XERJ never fetches a page from the web: the files must already be on disk.
 
 One node, no failover. Plan for restore from a copy.
 
