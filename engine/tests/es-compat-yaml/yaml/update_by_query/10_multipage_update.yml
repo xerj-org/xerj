@@ -1,0 +1,88 @@
+---
+"update_by_query pages through the whole index in batches":
+  # Seed 6 docs; scroll_size 2 forces 3 batches, so the run must advance a
+  # keyset cursor across pages instead of stopping at the first batch
+  # (#1022: the runner used to fire ONE size=10000 search and truncate, and
+  # hardcoded batches: 1). The script must reach every matched doc.
+  - do:
+      indices.create:
+        index: ubq_src
+        body:
+          mappings:
+            properties:
+              n: { type: long }
+              touched: { type: long }
+  - do:
+      index: { index: ubq_src, id: "1", body: { n: 1 } }
+  - do:
+      index: { index: ubq_src, id: "2", body: { n: 2 } }
+  - do:
+      index: { index: ubq_src, id: "3", body: { n: 3 } }
+  - do:
+      index: { index: ubq_src, id: "4", body: { n: 4 } }
+  - do:
+      index: { index: ubq_src, id: "5", body: { n: 5 } }
+  - do:
+      index: { index: ubq_src, id: "6", refresh: true, body: { n: 6 } }
+
+  - do:
+      update_by_query:
+        index: ubq_src
+        body:
+          query: { match_all: {} }
+          scroll_size: 2
+          script: { source: "ctx._source.touched = 1" }
+
+  # total is the exact match count (not the first page's length), every
+  # matched doc updated, batches the real page count.
+  - match: { total: 6 }
+  - match: { updated: 6 }
+  - match: { batches: 3 }
+  - match: { failures: [] }
+
+  # Every doc carries the scripted mutation — none skipped past page one.
+  - do:
+      count:
+        index: ubq_src
+        body:
+          query: { term: { touched: 1 } }
+  - match: { count: 6 }
+
+---
+"update_by_query honors max_docs":
+  - do:
+      indices.create:
+        index: ubq_max
+        body:
+          mappings:
+            properties:
+              n: { type: long }
+              touched: { type: long }
+  - do:
+      index: { index: ubq_max, id: "1", body: { n: 1 } }
+  - do:
+      index: { index: ubq_max, id: "2", body: { n: 2 } }
+  - do:
+      index: { index: ubq_max, id: "3", refresh: true, body: { n: 3 } }
+
+  # ES: max_docs <= scroll_size means a single batch, no scroll; total then
+  # reports the processed count.
+  - do:
+      update_by_query:
+        index: ubq_max
+        body:
+          query: { match_all: {} }
+          max_docs: 2
+          script: { source: "ctx._source.touched = 1" }
+
+  - match: { total: 2 }
+  - match: { updated: 2 }
+  - match: { batches: 1 }
+  - match: { failures: [] }
+
+  - do:
+      count:
+        index: ubq_max
+        body:
+          query: { term: { touched: 1 } }
+  - match: { count: 2 }

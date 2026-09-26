@@ -2684,6 +2684,174 @@ async fn test_delete_by_query_purges_past_ten_thousand() {
     assert_eq!(result.total.value, 0, "index must be empty after the purge");
 }
 
+/// #1023 (CI regression on PR #1023's branch): `matching_ids_sorted`
+/// enumerated only `store.snapshot().segments` with no `CollectionPublication`
+/// reader admission, so while another caller's flush held its drain→publish
+/// window open — the doc drained out of the memtable but not yet in a
+/// published segment — the id was invisible and the collector answered `[]`.
+/// Sixteen concurrent `_update_by_query` calls each flushed first; the one
+/// flush carrying the doc held the window, the other fifteen collected EMPTY
+/// match sets and silently no-opped (`total:0/updated:0/failures:[]`), so the
+/// final assertion read `n == 1` where 16 was expected. This is the
+/// engine-level shape of that race: every task flushes then collects over a
+/// one-doc index, and EVERY collector must see the doc — not just the task
+/// whose flush happened to carry it. Fails before the fix with the losers
+/// collecting `[]`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_matching_ids_sorted_linearized_against_concurrent_flush() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.create_index("match-race", Schema::empty()).unwrap();
+    let idx = engine.get_index("match-race").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+
+    const TASKS: usize = 8;
+    let start = std::sync::Arc::new(tokio::sync::Barrier::new(TASKS));
+    let mut tasks = Vec::new();
+    for _ in 0..TASKS {
+        let idx = std::sync::Arc::clone(&idx);
+        let start = std::sync::Arc::clone(&start);
+        tasks.push(tokio::spawn(async move {
+            start.wait().await;
+            // Same precondition the by-query runners establish: flush, then
+            // collect. The loser flushes race the winner's drain.
+            idx.flush().await.unwrap();
+            idx.matching_ids_sorted(&QueryNode::MatchAll).await
+        }));
+    }
+    for (i, task) in tasks.into_iter().enumerate() {
+        let ids = task.await.unwrap().expect("match_all is a supported shape");
+        assert_eq!(
+            ids,
+            vec!["counter".to_string()],
+            "collector {i} must see the pre-existing doc, not just the task \
+             whose flush carried it"
+        );
+    }
+}
+
+/// #1023 completeness twin (deterministic, no race): admission made every
+/// `matching_ids_sorted` capture CONSISTENT but left it INCOMPLETE — the
+/// segment id maps say nothing about a doc whose live copy is still
+/// memtable-only, so before the memtable leg the enumeration answered
+/// `Some([])` for a never-flushed doc: a perfectly consistent EMPTY match
+/// set that the by-query arms turn into a silent no-op
+/// (`total:0 / failures:[]`). This is the runner-only residual loss shape
+/// (CI lost 14 of 16 increments, `left:2`, after the admission fix alone);
+/// fails before the memtable leg with `ids == []`.
+#[tokio::test]
+async fn test_matching_ids_sorted_enumerates_memtable_only_documents() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine
+        .create_index("mis-memtable", Schema::empty())
+        .unwrap();
+    let idx = engine.get_index("mis-memtable").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+    // Deliberately NO flush: the doc's live copy is memtable-only and no
+    // segment id map mentions it.
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::MatchAll)
+        .await
+        .expect("match_all is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "a memtable-only doc is part of the live match set"
+    );
+
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::Ids {
+            values: vec!["counter".to_string()],
+        })
+        .await
+        .expect("ids is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "the ids selector resolves membership against the memtable leg too"
+    );
+
+    // And the same enumeration after a flush: the doc moves to the segment
+    // leg without ever being double-listed.
+    idx.flush().await.unwrap();
+    let ids = idx
+        .matching_ids_sorted(&QueryNode::MatchAll)
+        .await
+        .expect("match_all is a supported shape");
+    assert_eq!(
+        ids,
+        vec!["counter".to_string()],
+        "the flushed doc is enumerated exactly once from its segment"
+    );
+}
+
+/// #1023: the flush-vs-collector race above, answered through the engine's
+/// own `delete_by_query` (flush + collect + delete). Guards that the
+/// admission change cannot make a concurrent purge storm deadlock, error, or
+/// lose the document: no failures, the doc is purged, and at least one
+/// runner reports it. (The deterministic lost-work proof is the update
+/// twin — a runner that collects after another's delete legitimately reports
+/// `total:0`, ES's start-of-run collection semantics.)
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn test_concurrent_delete_by_query_purges_the_document() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.create_index("dbq-race", Schema::empty()).unwrap();
+    let idx = engine.get_index("dbq-race").unwrap();
+
+    idx.index_document(Some("counter".into()), json!({"n": 0}))
+        .await
+        .unwrap();
+
+    const TASKS: usize = 8;
+    let start = std::sync::Arc::new(tokio::sync::Barrier::new(TASKS));
+    let mut tasks = Vec::new();
+    for _ in 0..TASKS {
+        let idx = std::sync::Arc::clone(&idx);
+        let start = std::sync::Arc::clone(&start);
+        tasks.push(tokio::spawn(async move {
+            start.wait().await;
+            idx.delete_by_query(QueryNode::MatchAll).await
+        }));
+    }
+    let mut seen: u64 = 0;
+    let mut deleted_sum: u64 = 0;
+    for task in tasks {
+        let (total, deleted) = task.await.unwrap().unwrap();
+        // NOT `deleted == total`: a runner that collected the doc can still
+        // delete nothing when another runner's delete of the same id landed
+        // between its collection and its `delete_document` — the loser's
+        // delete is a clean no-op there, ES charges it to version
+        // conflicts, and no work is lost (the final get below proves the
+        // purge happened). `delete_by_query` itself already reports
+        // `total.max(deleted)`, so `total` is allowed to exceed `deleted`.
+        assert!(deleted <= total, "deleted cannot exceed the collected set");
+        seen += total;
+        deleted_sum += deleted;
+    }
+    assert!(seen >= 1, "at least one runner must have matched the doc");
+    assert!(
+        deleted_sum >= 1,
+        "at least one runner must have actually deleted the doc"
+    );
+
+    assert_eq!(
+        idx.get_document("counter").await.unwrap(),
+        None,
+        "the doc must actually be purged"
+    );
+}
+
 // ── 10. multi_match query ─────────────────────────────────────────────────────
 
 #[tokio::test]
