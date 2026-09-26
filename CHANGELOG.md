@@ -22,10 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reconcile) drops idle CPU to 0.15–0.18 % and wakeups from ~46/s to ~26/s on
   the same corpus, with the WAL walk moved to the blocking pool. A scrape is
   the only moment these gauges are observable, so nothing is lost between
-  scrapes. The fixture and its coarse CI gate (`idle-budget` job) keep the
-  whole budget honest: CPU < 0.5 % of one core, O(1) wakeups/s, ≤ 0.2 MB RSS
-  per idle index, boot-to-green with zero WAL replay on a cleanly-flushed
-  corpus. (PR [#1020](https://github.com/xerj-org/xerj/pull/1020).)
+  scrapes. The fixture and its coarse CI gate (`idle-budget` job, calibrated
+  to 256 kB/idx on the runner's host shape) keep the budget honest: CPU < 0.5 %
+  of one core, O(1) wakeups/s, boot-to-green with zero WAL replay on a
+  cleanly-flushed corpus. The 0.2 MB/index product line itself was still at or
+  above the line on 4-vCPU hosts at this point (204.9–209.9 kB measured,
+  N-slope 206.5 kB/idx) — that is
+  [#1024](https://github.com/xerj-org/xerj/issues/1024), met only after the
+  lazy seen-set work below (~63–69 kB, >3× margin). (PR
+  [#1020](https://github.com/xerj-org/xerj/pull/1020).)
 - **The flush publication bracket no longer spans the drain**
   ([#1015](https://github.com/xerj-org/xerj/issues/1015)): flush drains now
   freeze and the bracket wraps only the publish, so the ms-scale bracket
@@ -253,7 +258,8 @@ locally. Everything else in this cut is a fix with a reproduction behind it.
 - **Ingest memory: a 1 GB mailbox no longer aborts under the default 16 GiB
   cap, and at-rest settled memory halved**
   ([#948](https://github.com/xerj-org/xerj/issues/948), PR #1002). A 1 GB
-  mailbox peaked at 25.4 GiB VmHWM under the 16 GiB cap (aborted: 510/2,530
+  mailbox peaked at 25,356.9 MiB (24.8 GiB) VmHWM under the 16 GiB cap
+  (aborted: 510/2,530
   needles missing, 0 edges; 68.5 GiB uncapped). The ingest-memory ledger found
   four causes: `memtable_shards` retained one parsed `Arc<Value>` per
   explicit-id write forever (flush drained the FTS memtable, never the storage
@@ -268,7 +274,10 @@ locally. Everything else in this cut is a fix with a reproduction behind it.
   972.8 -> 481-488 MiB (variant A, 3 runs) and 883.0 -> 280.8 MiB (variant C,
   100k x 100 B; retention ~677 -> ~108 MB). Merge batching follows the
   quickwit/tantivy approach (streaming_writer.rs:378, log_merge_policy.rs:22 —
-  no code copied).
+  no code copied). Residual, separately tracked: three per-segment caches
+  (`stored_value_cache`, `dv_cache`, `id_pos_cache`) remain unbounded until a
+  merge retires their segment —
+  [#1032](https://github.com/xerj-org/xerj/issues/1032).
 - **scalar8 keeps its promise: 2.3x faster kNN, and `_score` no longer depends
   on the filter**
   ([#392](https://github.com/xerj-org/xerj/issues/392), PR #999). scalar8
