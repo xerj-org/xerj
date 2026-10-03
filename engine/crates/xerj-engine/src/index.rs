@@ -47883,8 +47883,26 @@ fn compute_sort_values(
             // `448.39999_f32 as f64` prints 448.3999938964844 on the wire.
             let wire: f64 = score.to_string().parse().unwrap_or(score as f64);
             Value::Number(serde_json::Number::from_f64(wire).unwrap_or(serde_json::Number::from(0)))
-        } else if sf.is_doc_order() || sf.field == "_id" {
-            // `_id` (and `_doc`) is doc metadata, NOT part of `_source`, so a
+        } else if sf.is_doc_order() {
+            // `_doc` is physical index order (arrival order), NOT the doc
+            // id: ES defines it as Lucene internal doc-id order. It used to
+            // share `_id`'s arm below and project the id STRING, so
+            // `sort:["_doc"]` ranked lexicographically by `_id` — matching
+            // neither ES nor xerj's own stored order. Project the doc's
+            // `seq_no` (arrival sequence, unique per live doc) as a Number
+            // instead: ordering is numeric arrival order, ties are
+            // impossible, and the emitted value pages as a `search_after`
+            // cursor through the existing numeric path unchanged. A doc
+            // unresolvable in the version map (concurrent tombstone between
+            // collect and key computation) yields Null so the request's
+            // `missing` policy governs it, the same convention
+            // `meta_sort_value` uses.
+            match idx.lookup_seq_no(id) {
+                Some(seq) => Value::Number(seq.into()),
+                None => Value::Null,
+            }
+        } else if sf.field == "_id" {
+            // `_id` is doc metadata, NOT part of `_source`, so a
             // plain `get_field_value` returns Null — which breaks `_id`-sorted
             // `search_after` cursors (the cursor `[id]` has nothing to compare
             // against). Project the doc id as the sort value so `sort: [_id]`
