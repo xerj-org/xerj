@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`sort: [{"_doc": ...}]` is arrival order, not `_id` order** — the `_doc`
+  sort key projected the document id string, so `_doc` pages ranked
+  lexicographically by `_id` (matching neither ES index order nor XERJ's own
+  stored order). The key is now the document's `seq_no`: numeric arrival
+  order, unique per live doc (no ties), and a working `search_after` cursor.
+  `_id` sort still echoes the id string.
+
 ## [1.0.0-rc.81] - 2026-10-03
 
 The agent-intake release — everything between rc.80 and this cut serves the
