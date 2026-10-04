@@ -16,10 +16,25 @@
 //! free-form notes — is indexed as a document instead: one line per row with
 //! cells joined by ` | `, so its text stays searchable.
 //!
+//! A cell merged DOWN over several rows (a pandas MultiIndex export, a
+//! category label beside its group of line items) stores its value only in
+//! the top row; every row it covers gets that value, so `region: East`
+//! matches all of East's rows and a `terms` aggregation counts them. Merges
+//! ACROSS columns are not expanded: a title merged over a table's width stays
+//! one cell rather than turning into a header-shaped row.
+//!
+//! A header two rows deep — group labels merged across the columns they
+//! cover, above the column names (pandas' MultiIndex columns: `Q1` over
+//! `Jan | Feb`) — names each column from both rows: `Q1_Jan`, `Q1_Feb`. See
+//! `group_prefixes` for when the upper row counts as group labels.
+//!
 //! Known limits: a sheet is one table (a second table lower on the same sheet
-//! becomes rows under the first header); merged cells are not expanded; values
-//! are the stored ones, not the displayed ones (a cell showing `21%` is
-//! `0.21`); chart sheets are skipped. Hidden sheets are indexed.
+//! becomes rows under the first header); a header three or more rows deep
+//! keeps only its two lowest rows; on a sheet over
+//! `MAX_SAMPLE_MERGE_SCAN_BYTES` decompressed, a two-row header keeps only
+//! its lower row; values are the stored ones, not the displayed ones (a
+//! cell showing `21%` is `0.21`); chart sheets are skipped. Hidden sheets are
+//! indexed.
 
 use super::opc::{attr, parse_rels, resolve_target, Budget};
 use super::{
@@ -46,6 +61,16 @@ const MAX_TOTAL_DECOMPRESSED_BYTES: u64 = 2 << 30;
 /// Text kept from one sheet indexed as a document.
 const MAX_DOC_SHEET_BYTES: usize = 16 << 20;
 
+/// Worksheet XML kept from the `<mergeCells>` tag on, for reading the merge
+/// list. One `<mergeCell ref="A1:B2"/>` is about 25 bytes, so this holds
+/// several hundred thousand merges; the rest of a longer list is not read.
+const MAX_MERGE_TAIL_BYTES: usize = 16 << 20;
+
+/// Largest sheet (decompressed) whose merges a SAMPLING run reads; above it
+/// the sample is taken without fill-down. 64 MB is about 0.35 s of scanning
+/// at the measured rate.
+const MAX_SAMPLE_MERGE_SCAN_BYTES: u64 = 64 << 20;
+
 /// Non-empty rows searched for a header before the sheet is treated as a
 /// document.
 const HEADER_SCAN_ROWS: usize = 20;
@@ -60,6 +85,8 @@ struct Limits {
     sheet: u64,
     total: u64,
     doc_sheet: usize,
+    merge_tail: usize,
+    sample_merge_scan: u64,
 }
 
 const LIMITS: Limits = Limits {
@@ -67,6 +94,8 @@ const LIMITS: Limits = Limits {
     sheet: MAX_SHEET_BYTES,
     total: MAX_TOTAL_DECOMPRESSED_BYTES,
     doc_sheet: MAX_DOC_SHEET_BYTES,
+    merge_tail: MAX_MERGE_TAIL_BYTES,
+    sample_merge_scan: MAX_SAMPLE_MERGE_SCAN_BYTES,
 };
 
 /// `name` is the file as the corpus names it, which under durable preparation
@@ -127,10 +156,34 @@ fn extract_bounded(
         .unwrap_or_else(|| "untitled".into());
     budget.part = limits.sheet;
     for (name, part) in sheets {
-        let mut sheet = SheetState::new(name, per_sheet_limit, limits.doc_sheet);
+        // The merge list follows the cell data, so it is read in a pass of
+        // its own before the rows are streamed. That pass reads the whole
+        // sheet (measured: ~10% of a full extraction), which a sampling run
+        // reading a few hundred rows must not pay on a large sheet; there the
+        // sample goes without fill-down.
+        let small = z
+            .by_name(&part)
+            .is_ok_and(|e| e.size() <= limits.sample_merge_scan);
+        let merges = if per_sheet_limit.is_none() || small {
+            budget
+                .stream(&mut z, &part, |r| scan_merges(r, limits.merge_tail))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let mut fill = FillDown::new(&merges);
+        // Merges also name header columns (`group_prefixes`). A field's name
+        // must not depend on which run read the sheet — the sample types the
+        // fields the full run indexes — so they do that only on a sheet both
+        // runs scan.
+        let header_merges = if small { merges } else { Vec::new() };
+        let mut sheet = SheetState::new(name, per_sheet_limit, limits.doc_sheet, header_merges);
         let flow = budget
             .stream(&mut z, &part, |r| {
-                read_rows(r, &ctx, &mut |row| sheet.push(row, sink, &mut stats))
+                read_rows(r, &ctx, &mut |mut row| {
+                    fill.apply(&mut row);
+                    sheet.push(row, sink, &mut stats)
+                })
             })
             .unwrap_or(Flow::Continue);
         if flow == Flow::Stop || !sheet.finish(&stem, sink, &mut stats) {
@@ -426,7 +479,7 @@ enum Kind {
     Date,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Cell {
     /// 1-based column (A = 1).
     col: u32,
@@ -670,6 +723,180 @@ fn read_rows(r: &mut dyn BufRead, ctx: &Ctx, on_row: &mut dyn FnMut(Row) -> Flow
     Flow::Continue
 }
 
+/// `(column, row)` of a cell reference (`AB12` → `(28, 12)`).
+fn cell_ref(r: &str) -> Option<(u32, u32)> {
+    let digits = r.find(|c: char| c.is_ascii_digit())?;
+    Some((column_of(r)?, r[digits..].parse().ok()?))
+}
+
+/// A merged range of more than one cell. Field order makes the derived
+/// ordering sort by first row, which `FillDown` relies on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Merge {
+    first_row: u32,
+    last_row: u32,
+    first_col: u32,
+    last_col: u32,
+}
+
+/// Read a worksheet's merged ranges, sorted by first row.
+///
+/// `<mergeCells>` follows `<sheetData>`, so this reads the whole part, but it
+/// does not parse the cells: it searches the bytes for the `<mergeCells` tag
+/// (unambiguous, since `<` cannot appear unescaped in XML text) and XML-parses
+/// only what follows it, up to `tail_cap` bytes. Parsing the tail as XML,
+/// rather than grepping it for `ref="`, keeps the `ref` of a `<hyperlink>`
+/// that follows the list from being taken for a merge.
+fn scan_merges(r: &mut dyn BufRead, tail_cap: usize) -> Vec<Merge> {
+    const TAG: &[u8] = b"mergeCells";
+    // Enough of the previous chunk to see `<` + a namespace prefix + TAG
+    // across a chunk boundary.
+    const KEEP: usize = 64;
+    let finder = memchr::memmem::Finder::new(TAG);
+    let mut window: Vec<u8> = Vec::new();
+    let mut tail: Option<Vec<u8>> = None;
+    loop {
+        let chunk = match r.fill_buf() {
+            Ok([]) | Err(_) => break,
+            Ok(c) => c,
+        };
+        let n = chunk.len();
+        if let Some(t) = tail.as_mut() {
+            t.extend_from_slice(&chunk[..n.min(tail_cap.saturating_sub(t.len()))]);
+            r.consume(n);
+            if t.len() >= tail_cap {
+                break;
+            }
+            continue;
+        }
+        window.extend_from_slice(chunk);
+        r.consume(n);
+        let start = finder
+            .find_iter(&window)
+            .find_map(|i| tag_start(&window, i));
+        match start {
+            Some(s) => {
+                let mut t = window.split_off(s);
+                t.truncate(tail_cap);
+                tail = Some(t);
+            }
+            None => {
+                let cut = window.len().saturating_sub(KEEP);
+                window.drain(..cut);
+            }
+        }
+    }
+    let Some(tail) = tail else {
+        return Vec::new();
+    };
+    let mut reader = Reader::from_reader(tail.as_slice());
+    reader.config_mut().check_end_names = false;
+    let mut buf = Vec::new();
+    let mut out = Vec::new();
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e))
+                if e.local_name().as_ref() == b"mergeCell" =>
+            {
+                let range = attr(&e, |k| k == b"ref").and_then(|r| {
+                    let (a, b) = r.split_once(':')?;
+                    Some((cell_ref(a)?, cell_ref(b)?))
+                });
+                if let Some(((first_col, first_row), (last_col, last_row))) = range {
+                    if last_row > first_row || last_col > first_col {
+                        out.push(Merge {
+                            first_row,
+                            last_row,
+                            first_col,
+                            last_col,
+                        });
+                    }
+                }
+            }
+            Ok(Event::End(e)) if e.local_name().as_ref() == b"mergeCells" => break,
+            Ok(Event::Eof) | Err(_) => break,
+            Ok(_) => {}
+        }
+        buf.clear();
+    }
+    out.sort_unstable();
+    out
+}
+
+/// Where the tag whose name starts at `i` opens: `i - 1` for `<mergeCells`,
+/// or the `<` before a namespace prefix for `<x:mergeCells`. `None` when the
+/// bytes at `i` are not a tag name.
+fn tag_start(buf: &[u8], i: usize) -> Option<usize> {
+    let before = &buf[..i];
+    match before.last()? {
+        b'<' => Some(i - 1),
+        b':' => {
+            let lt = before.iter().rposition(|&b| b == b'<')?;
+            let prefix = &before[lt + 1..before.len() - 1];
+            (!prefix.is_empty()
+                && prefix
+                    .iter()
+                    .all(|&b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.'))
+            .then_some(lt)
+        }
+        _ => None,
+    }
+}
+
+/// Gives each row the value of any vertical merge that covers it, as rows
+/// stream past in order. Merges one row tall — across columns only — are
+/// not expanded.
+struct FillDown {
+    /// `(first row, last row, column of the top-left cell)`, by first row.
+    merges: Vec<(u32, u32, u32)>,
+    next: usize,
+    /// column → (last row covered, the merge's value). Merges do not
+    /// overlap, so a column has at most one live merge.
+    live: HashMap<u32, (u32, Cell)>,
+}
+
+impl FillDown {
+    fn new(merges: &[Merge]) -> Self {
+        FillDown {
+            merges: merges
+                .iter()
+                .filter(|m| m.last_row > m.first_row)
+                .map(|m| (m.first_row, m.last_row, m.first_col))
+                .collect(),
+            next: 0,
+            live: HashMap::new(),
+        }
+    }
+
+    /// Fill `row`'s covered cells. Only rows that exist reach this: a row
+    /// whose only content would be the merged value is not invented.
+    fn apply(&mut self, row: &mut Row) {
+        if self.merges.is_empty() {
+            return;
+        }
+        self.live.retain(|_, (last, _)| *last >= row.num);
+        for (col, (_, cell)) in &self.live {
+            if !row.cells.iter().any(|c| c.col == *col) {
+                let at = row.cells.partition_point(|c| c.col < *col);
+                row.cells.insert(at, cell.clone());
+            }
+        }
+        while let Some(&(first, last, col)) = self.merges.get(self.next) {
+            if first > row.num {
+                break;
+            }
+            self.next += 1;
+            // A merge whose top row was empty (and so never arrived) has no
+            // value to give.
+            if first == row.num {
+                if let Some(c) = row.cells.iter().find(|c| c.col == col) {
+                    self.live.insert(col, (last, c.clone()));
+                }
+            }
+        }
+    }
+}
+
 /// Whether a row can be a header: two or more cells, some text, and no
 /// numbers or booleans. Date cells are allowed, for month-column headers.
 fn is_header_candidate(row: &Row) -> bool {
@@ -700,12 +927,73 @@ struct Table {
     emitted: u64,
 }
 
+/// Prefixes that the row above the header gives the header columns under it,
+/// when that row labels groups of columns — the layout pandas writes for
+/// MultiIndex columns, `Q1` merged over `Jan | Feb` — so the columns are
+/// named `Q1_Jan` and `Q1_Feb` instead of `Jan` and `Jan_2`.
+///
+/// The row qualifies only when it is directly above the header, holds only
+/// text, has a cell merged across two or more header columns, and has no
+/// merge spanning every header column: a title merged over the table's width
+/// labels the table, not a group. Each of its cells then prefixes the header
+/// columns it spans; an unmerged cell spans its own column, since pandas
+/// does not merge a one-column group. A cell whose merge runs down into the
+/// header row (`Region` in `A1:A2`) is part of the header and is skipped.
+fn group_prefixes(upper: &Row, header: &Row, merges: &[Merge]) -> HashMap<u32, String> {
+    let mut out = HashMap::new();
+    if upper.num.checked_add(1) != Some(header.num)
+        || upper.cells.iter().any(|c| c.kind != Kind::Text)
+    {
+        return out;
+    }
+    let starting: HashMap<u32, &Merge> = merges
+        .iter()
+        .filter(|m| m.first_row == upper.num)
+        .map(|m| (m.first_col, m))
+        .collect();
+    let cols: Vec<u32> = header.cells.iter().map(|c| c.col).collect();
+    let mut spans = Vec::new();
+    let mut grouped = false;
+    for c in &upper.cells {
+        let m = starting.get(&c.col);
+        if m.is_some_and(|m| m.last_row > upper.num) {
+            continue;
+        }
+        let last = m.map_or(c.col, |m| m.last_col);
+        let under = cols
+            .iter()
+            .filter(|&&h| (c.col..=last).contains(&h))
+            .count();
+        if under == cols.len() {
+            return out;
+        }
+        grouped |= under >= 2;
+        spans.push((c.col..=last, c.display()));
+    }
+    if grouped {
+        for (span, prefix) in spans {
+            for &h in cols.iter().filter(|h| span.contains(h)) {
+                out.insert(h, prefix.clone());
+            }
+        }
+    }
+    out
+}
+
 impl Table {
-    fn new(header: &Row) -> Self {
+    /// `upper` is the row read just before the header, if any.
+    fn new(header: &Row, upper: Option<&Row>, merges: &[Merge]) -> Self {
+        let prefixes = upper
+            .map(|u| group_prefixes(u, header, merges))
+            .unwrap_or_default();
         let mut seen = HashSet::new();
         let mut names = HashMap::new();
         for c in &header.cells {
-            let mut name = sanitize_field_name(&c.display());
+            let text = match prefixes.get(&c.col) {
+                Some(p) => format!("{p} {}", c.display()),
+                None => c.display(),
+            };
+            let mut name = sanitize_field_name(&text);
             while !seen.insert(name.clone()) {
                 name.push_str("_2");
             }
@@ -736,16 +1024,20 @@ struct SheetState {
     limit: Option<u64>,
     doc_cap: usize,
     truncated: bool,
+    /// The sheet's merged ranges, for naming the header; dropped once the
+    /// header is found.
+    merges: Vec<Merge>,
 }
 
 impl SheetState {
-    fn new(name: String, limit: Option<u64>, doc_cap: usize) -> Self {
+    fn new(name: String, limit: Option<u64>, doc_cap: usize, merges: Vec<Merge>) -> Self {
         SheetState {
             name,
             mode: Mode::Probe(Vec::new()),
             limit,
             doc_cap,
             truncated: false,
+            merges,
         }
     }
 
@@ -756,7 +1048,9 @@ impl SheetState {
                 if let Some(i) = find_header(rows) {
                     let mut rows = std::mem::take(rows);
                     let data = rows.split_off(i + 1);
-                    self.mode = Mode::Table(Table::new(&rows[i]));
+                    let merges = std::mem::take(&mut self.merges);
+                    let upper = i.checked_sub(1).map(|j| &rows[j]);
+                    self.mode = Mode::Table(Table::new(&rows[i], upper, &merges));
                     for r in data {
                         let flow = self.push(r, sink, stats);
                         if flow != Flow::Continue {
@@ -977,6 +1271,25 @@ mod tests {
         shared: &[String],
         date1904: bool,
     ) -> PathBuf {
+        let xml: Vec<(&str, String)> = sheets.iter().map(|(n, r)| (*n, sheet_xml(r))).collect();
+        book_xml(dir, &xml, shared, date1904)
+    }
+
+    /// A worksheet with the given rows and, after them, `tail` (the merge
+    /// list and whatever else follows `sheetData`).
+    fn sheet_with_tail(rows: &[String], tail: &str) -> String {
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet {NS}><sheetData>{}</sheetData>{tail}</worksheet>"#,
+            rows.concat()
+        )
+    }
+
+    fn book_xml(
+        dir: &tempfile::TempDir,
+        sheets: &[(&str, String)],
+        shared: &[String],
+        date1904: bool,
+    ) -> PathBuf {
         let path = dir.path().join("book.xlsx");
         let n = sheets.len();
         let ids: Vec<String> = (1..=n).map(|i| format!("rId{i}")).collect();
@@ -1011,8 +1324,8 @@ mod tests {
             ),
             ("xl/styles.xml", STYLES.into()),
         ];
-        for (name, (_, rows)) in part_names.iter().zip(sheets) {
-            parts.push((name.as_str(), sheet_xml(rows)));
+        for (name, (_, xml)) in part_names.iter().zip(sheets) {
+            parts.push((name.as_str(), xml.clone()));
         }
         write_zip(&path, &parts);
         path
@@ -1588,5 +1901,428 @@ mod tests {
         }
         assert_eq!(column_of("12"), None);
         assert_eq!(column_of("ABCD1"), None);
+    }
+
+    fn merges(tail: &str) -> String {
+        format!(r#"<mergeCells count="9">{tail}</mergeCells>"#)
+    }
+
+    fn mc(r: &str) -> String {
+        format!(r#"<mergeCell ref="{r}"/>"#)
+    }
+
+    /// The shape pandas writes for a MultiIndex: the outer level is stored
+    /// once, in the top cell of a vertical merge.
+    #[test]
+    fn a_vertical_merge_gives_its_value_to_every_row_it_covers() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared: Vec<String> = ["region", "product", "sales", "East", "West", "A", "B", "C"]
+            .iter()
+            .map(|x| t(x))
+            .collect();
+        let rows = vec![
+            row(1, &[s("A1", 0), s("B1", 1), s("C1", 2)]),
+            row(2, &[s("A2", 3), s("B2", 5), n("C2", "10")]),
+            row(3, &[s("B3", 6), n("C3", "20")]),
+            row(4, &[s("B4", 7), n("C4", "30")]),
+            row(5, &[s("A5", 4), s("B5", 5), n("C5", "40")]),
+            row(6, &[s("B6", 6), n("C6", "50")]),
+        ];
+        // Out of order, as pandas writes them, and followed by a hyperlink
+        // whose `ref` must not be read as a merge.
+        let tail = format!(
+            r#"{}<hyperlinks><hyperlink ref="B2:B3" r:id="rId9"/></hyperlinks>"#,
+            merges(&format!("{}{}", mc("A5:A6"), mc("A2:A4")))
+        );
+        let path = book_xml(
+            &dir,
+            &[("Sales", sheet_with_tail(&rows, &tail))],
+            &shared,
+            false,
+        );
+        let (_, recs) = run(&path);
+        let got: Vec<Value> = recs.iter().map(fields).collect();
+        assert_eq!(
+            got,
+            vec![
+                json!({"region": "East", "product": "A", "sales": 10}),
+                json!({"region": "East", "product": "B", "sales": 20}),
+                json!({"region": "East", "product": "C", "sales": 30}),
+                json!({"region": "West", "product": "A", "sales": 40}),
+                json!({"region": "West", "product": "B", "sales": 50}),
+            ]
+        );
+    }
+
+    #[test]
+    fn merges_across_columns_are_not_expanded() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared: Vec<String> = [
+            "Annual Report",
+            "Category",
+            "Item",
+            "Amount",
+            "Travel",
+            "Flights",
+            "Hotels",
+            "Note",
+        ]
+        .iter()
+        .map(|x| t(x))
+        .collect();
+        let rows = vec![
+            // A title merged over the table's width stays one cell, so it is
+            // still not mistaken for a header.
+            row(1, &[s("A1", 0)]),
+            row(2, &[s("A2", 1), s("B2", 2), s("C2", 3)]),
+            // A block merge (two columns, two rows) fills down its own
+            // column only.
+            row(3, &[s("A3", 4), s("C3", 7)]),
+            row(4, &[s("B4", 6), n("C4", "800")]),
+        ];
+        let tail = merges(&format!("{}{}", mc("A1:C1"), mc("A3:B4")));
+        let path = book_xml(
+            &dir,
+            &[("R", sheet_with_tail(&rows, &tail))],
+            &shared,
+            false,
+        );
+        let (_, recs) = run(&path);
+        let got: Vec<Value> = recs.iter().map(fields).collect();
+        assert_eq!(
+            got,
+            vec![
+                json!({"Category": "Travel", "Amount": "Note"}),
+                json!({"Category": "Travel", "Item": "Hotels", "Amount": 800}),
+            ]
+        );
+    }
+
+    #[test]
+    fn fill_down_invents_no_rows_and_overwrites_no_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared: Vec<String> = ["k", "v", "x", "own", "y"].iter().map(|x| t(x)).collect();
+        let rows = vec![
+            row(1, &[s("A1", 0), s("B1", 1)]),
+            row(2, &[s("A2", 2), n("B2", "1")]),
+            // Row 3 is absent: nothing is on it but the merged value.
+            // Row 4 holds a value inside the merge (a malformed file); it is
+            // kept.
+            row(4, &[s("A4", 3), n("B4", "4")]),
+            row(5, &[n("B5", "5")]),
+            // B6:B7's top cell is empty, so it has nothing to give.
+            row(7, &[s("A7", 4)]),
+        ];
+        let tail = merges(&format!("{}{}", mc("A2:A5"), mc("B6:B7")));
+        let path = book_xml(
+            &dir,
+            &[("S", sheet_with_tail(&rows, &tail))],
+            &shared,
+            false,
+        );
+        let (_, recs) = run(&path);
+        let got: Vec<(String, Value)> = recs
+            .iter()
+            .map(|r| (r.locator.clone(), fields(r)))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("S!r2".into(), json!({"k": "x", "v": 1})),
+                ("S!r4".into(), json!({"k": "own", "v": 4})),
+                ("S!r5".into(), json!({"k": "x", "v": 5})),
+                ("S!r7".into(), json!({"k": "y"})),
+            ]
+        );
+    }
+
+    /// `scan_merges` searches raw bytes, so the cases that could fool a byte
+    /// search are pinned here: a prefixed tag, a tag split across reads, the
+    /// tag's name in cell text, and the tail cap.
+    #[test]
+    fn the_merge_scan_finds_the_tag_and_only_the_tag() {
+        let scan = |xml: &str, cap: usize| {
+            let mut r = std::io::BufReader::with_capacity(7, xml.as_bytes());
+            scan_merges(&mut r, cap)
+        };
+        let body = r#"<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>mergeCells x:mergeCells</t></is></c></row></sheetData>"#;
+        assert_eq!(
+            scan(
+                &format!(
+                    r#"<worksheet>{body}<mergeCells><mergeCell ref="B2:B9"/><mergeCell ref="A1:C1"/></mergeCells></worksheet>"#
+                ),
+                1 << 20
+            ),
+            vec![
+                Merge {
+                    first_row: 1,
+                    last_row: 1,
+                    first_col: 1,
+                    last_col: 3
+                },
+                Merge {
+                    first_row: 2,
+                    last_row: 9,
+                    first_col: 2,
+                    last_col: 2
+                },
+            ]
+        );
+        assert_eq!(
+            scan(
+                &format!(
+                    r#"<x:worksheet>{body}<x:mergeCells count="1"><x:mergeCell ref="AA10:AB12"/></x:mergeCells></x:worksheet>"#
+                ),
+                1 << 20
+            ),
+            vec![Merge {
+                first_row: 10,
+                last_row: 12,
+                first_col: 27,
+                last_col: 28
+            }]
+        );
+        // A single cell "merged" with itself is no merge.
+        assert_eq!(
+            scan(
+                &format!(r#"<worksheet>{body}{}</worksheet>"#, merges(&mc("C3:C3"))),
+                1 << 20
+            ),
+            vec![]
+        );
+        assert_eq!(
+            scan(&format!("<worksheet>{body}</worksheet>"), 1 << 20),
+            vec![]
+        );
+        // A list longer than the cap keeps the merges read before it.
+        let many: String = (1..=100)
+            .map(|i| mc(&format!("A{}:A{}", i * 2, i * 2 + 1)))
+            .collect();
+        let got = scan(
+            &format!("<worksheet>{body}<mergeCells>{many}</mergeCells></worksheet>"),
+            200,
+        );
+        assert!(!got.is_empty() && got.len() < 100, "{}", got.len());
+    }
+
+    #[test]
+    fn cell_references_parse_to_column_and_row() {
+        assert_eq!(cell_ref("A1"), Some((1, 1)));
+        assert_eq!(cell_ref("AB12"), Some((28, 12)));
+        assert_eq!(cell_ref("A"), None);
+        assert_eq!(cell_ref("12"), None);
+    }
+
+    #[test]
+    fn a_sampling_run_skips_the_merge_scan_only_on_a_large_sheet() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared: Vec<String> = ["k", "v", "x"].iter().map(|x| t(x)).collect();
+        let rows = vec![
+            row(1, &[s("A1", 0), s("B1", 1)]),
+            row(2, &[s("A2", 2), n("B2", "1")]),
+            row(3, &[n("B3", "2")]),
+        ];
+        let tail = merges(&mc("A2:A3"));
+        let path = book_xml(
+            &dir,
+            &[("S", sheet_with_tail(&rows, &tail))],
+            &shared,
+            false,
+        );
+        let k = |recs: &[RawRecord]| {
+            recs.iter()
+                .map(|r| r.fields.get("k").cloned())
+                .collect::<Vec<_>>()
+        };
+        let filled = vec![Some(json!("x")), Some(json!("x"))];
+        let (_, recs) = run_limited(&path, Some(10), LIMITS);
+        assert_eq!(k(&recs), filled);
+        let small = Limits {
+            sample_merge_scan: 10,
+            ..LIMITS
+        };
+        let (_, recs) = run_limited(&path, Some(10), small);
+        assert_eq!(k(&recs), vec![Some(json!("x")), None]);
+        // A full run always reads the merges.
+        let (_, recs) = run_limited(&path, None, small);
+        assert_eq!(k(&recs), filled);
+    }
+
+    /// The sheet pandas writes for `df.to_excel` with MultiIndex columns:
+    /// the outer level merged across its inner columns, the index in column
+    /// A, and an empty index-name row (row 3) that is absent from the XML.
+    fn multiindex_columns(dir: &tempfile::TempDir, upper: Vec<String>, tail: &str) -> PathBuf {
+        let rows = vec![
+            row(1, &upper),
+            row(
+                2,
+                &[
+                    inl("B2", "Jan"),
+                    inl("C2", "Feb"),
+                    inl("D2", "Jan"),
+                    inl("E2", "Feb"),
+                ],
+            ),
+            row(
+                4,
+                &[
+                    inl("A4", "East"),
+                    n("B4", "1"),
+                    n("C4", "2"),
+                    n("D4", "3"),
+                    n("E4", "4"),
+                ],
+            ),
+        ];
+        book_xml(dir, &[("S", sheet_with_tail(&rows, tail))], &[], false)
+    }
+
+    #[test]
+    fn group_labels_merged_above_the_header_prefix_the_columns_they_span() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = multiindex_columns(
+            &dir,
+            vec![inl("B1", "Q1"), inl("D1", "Q2")],
+            &merges(&format!("{}{}", mc("B1:C1"), mc("D1:E1"))),
+        );
+        let (_, recs) = run(&path);
+        assert_eq!(recs.len(), 1);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"col_A": "East", "Q1_Jan": 1, "Q1_Feb": 2, "Q2_Jan": 3, "Q2_Feb": 4})
+        );
+        // The same sheet without its merge list: nothing says Q1 and Q2 are
+        // groups, so the lower row names the columns alone, as before.
+        let path = multiindex_columns(&dir, vec![inl("B1", "Q1"), inl("D1", "Q2")], "");
+        let (_, recs) = run(&path);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"col_A": "East", "Jan": 1, "Feb": 2, "Jan_2": 3, "Feb_2": 4})
+        );
+    }
+
+    /// pandas does not merge a group one column wide; once the row is known
+    /// to hold group labels, such a cell labels its own column.
+    #[test]
+    fn an_unmerged_label_in_a_group_row_prefixes_its_own_column() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = multiindex_columns(
+            &dir,
+            vec![inl("B1", "Q1"), inl("D1", "Q2"), inl("E1", "Q3")],
+            &merges(&mc("B1:C1")),
+        );
+        let (_, recs) = run(&path);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"col_A": "East", "Q1_Jan": 1, "Q1_Feb": 2, "Q2_Jan": 3, "Q3_Feb": 4})
+        );
+    }
+
+    #[test]
+    fn a_title_or_a_vertical_label_above_the_header_is_not_a_group() {
+        let dir = tempfile::tempdir().unwrap();
+        // A title merged over every header column labels the table.
+        let path = multiindex_columns(&dir, vec![inl("B1", "Sales")], &merges(&mc("B1:E1")));
+        let (_, recs) = run(&path);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"col_A": "East", "Jan": 1, "Feb": 2, "Jan_2": 3, "Feb_2": 4})
+        );
+        // `Region` merged down over both header rows is the index column's
+        // name, filled into the header; only Q1 and Q2 are groups.
+        let rows = vec![
+            row(1, &[inl("A1", "Region"), inl("B1", "Q1"), inl("D1", "Q2")]),
+            row(
+                2,
+                &[
+                    inl("B2", "Jan"),
+                    inl("C2", "Feb"),
+                    inl("D2", "Jan"),
+                    inl("E2", "Feb"),
+                ],
+            ),
+            row(
+                3,
+                &[
+                    inl("A3", "East"),
+                    n("B3", "1"),
+                    n("C3", "2"),
+                    n("D3", "3"),
+                    n("E3", "4"),
+                ],
+            ),
+        ];
+        let tail = merges(&format!("{}{}{}", mc("A1:A2"), mc("B1:C1"), mc("D1:E1")));
+        let path = book_xml(&dir, &[("S", sheet_with_tail(&rows, &tail))], &[], false);
+        let (_, recs) = run(&path);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"Region": "East", "Q1_Jan": 1, "Q1_Feb": 2, "Q2_Jan": 3, "Q2_Feb": 4})
+        );
+    }
+
+    #[test]
+    fn group_labels_must_sit_directly_above_the_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let rows = vec![
+            row(1, &[inl("B1", "Q1"), inl("D1", "Q2")]),
+            // Row 2 is blank: the labels are not part of the header.
+            row(
+                3,
+                &[
+                    inl("A3", "Region"),
+                    inl("B3", "Jan"),
+                    inl("C3", "Feb"),
+                    inl("D3", "Jan"),
+                    inl("E3", "Feb"),
+                ],
+            ),
+            row(
+                4,
+                &[
+                    inl("A4", "East"),
+                    n("B4", "1"),
+                    n("C4", "2"),
+                    n("D4", "3"),
+                    n("E4", "4"),
+                ],
+            ),
+        ];
+        let tail = merges(&format!("{}{}", mc("B1:C1"), mc("D1:E1")));
+        let path = book_xml(&dir, &[("S", sheet_with_tail(&rows, &tail))], &[], false);
+        let (_, recs) = run(&path);
+        assert_eq!(
+            fields(&recs[0]),
+            json!({"Region": "East", "Jan": 1, "Feb": 2, "Jan_2": 3, "Feb_2": 4})
+        );
+    }
+
+    /// The sample types the fields the full run indexes, so a column must get
+    /// the same name in both — including on a sheet too large for the
+    /// sampling run to read its merges.
+    #[test]
+    fn a_column_is_named_the_same_by_the_sampling_and_the_full_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = multiindex_columns(
+            &dir,
+            vec![inl("B1", "Q1"), inl("D1", "Q2")],
+            &merges(&format!("{}{}", mc("B1:C1"), mc("D1:E1"))),
+        );
+        let names = |limit, limits| {
+            let (_, recs) = run_limited(&path, limit, limits);
+            let mut k: Vec<String> = recs[0].fields.keys().cloned().collect();
+            k.sort();
+            k
+        };
+        let grouped = vec!["Q1_Feb", "Q1_Jan", "Q2_Feb", "Q2_Jan", "col_A"];
+        assert_eq!(names(Some(10), LIMITS), grouped);
+        assert_eq!(names(None, LIMITS), grouped);
+        let large = Limits {
+            sample_merge_scan: 10,
+            ..LIMITS
+        };
+        let plain = vec!["Feb", "Feb_2", "Jan", "Jan_2", "col_A"];
+        assert_eq!(names(Some(10), large), plain);
+        assert_eq!(names(None, large), plain);
     }
 }
