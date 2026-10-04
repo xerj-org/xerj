@@ -1141,9 +1141,9 @@ RULES = [
         "reason": "The THING coverage matrix is the publishing gate for the 'how do I scan X' "
                   "programme. 'Red rows must not be written until an extractor exists.'",
         "evidence": [RC + ":346", RC + ":374"],
-        "rewrite": "Pick a GREEN row instead, or file the extractor as an issue first. The four "
-                   "missing extractors with the clearest demand are XLSX/PPTX, mbox/email, "
-                   "OCR/images and EPUB.",
+        "rewrite": "Pick a GREEN row instead, or file the extractor as an issue first. Of the "
+                   "four missing extractors with the clearest demand (XLSX/PPTX, mbox/email, "
+                   "OCR/images, EPUB), OCR/images and EPUB are still missing.",
     },
     {
         "id": "FC-THING-AMBER",
@@ -1634,9 +1634,31 @@ THING_MATRIX = [
      "gate": "Paperless-ngx owns this.", "aliases": [r"\bocr\b", r"scanned docs?", r"screenshots?", r"scanned documents?"]},
     {"thing": "Ebooks (EPUB)", "status": RED, "mech": "no extractor", "cite": RC + ":377", "gate": "-",
      "aliases": [r"\bepub\b", r"\bebooks?\b"]},
-    {"thing": "Excel / PowerPoint", "status": RED, "mech": "no extractor", "cite": RC + ":378",
-     "gate": "Notable gap - DOCX is covered but XLSX/PPTX are not. Likely the highest-value missing extractor.",
-     "aliases": [r"\bxlsx?\b", r"\bexcel\b", r"\bpptx?\b", r"powerpoint", r"spreadsheets?"]},
+    # The research doc (RC:378) lists "Excel / PowerPoint" as ONE red row. #1117
+    # added extract/pptx.rs and #1124 added extract/xlsx.rs, so the row is split
+    # the way the mail row was: the two OOXML formats GREEN, and the neighbours
+    # that are still refused (legacy binary .xls/.ppt, .xlsb, OpenDocument) RED.
+    # `--check-matrix` reports drift against the research doc by design.
+    {"thing": "Excel workbooks (.xlsx)", "status": GREEN,
+     "mech": "xlsx.rs - one dataset per sheet, one record per row, typed fields",
+     "cite": "engine/crates/xerj-autoindex/src/extract/xlsx.rs:1",
+     "gate": ("Write, SCOPED TO .xlsx. Each sheet becomes a table under its detected header "
+              "row; a sheet with no header is indexed as one document. Say what it does not do: "
+              "one table per sheet, merged cells are not expanded, and a formula with no cached "
+              "value (files written by openpyxl or pandas) has no value to index. Not .xls, .xlsb "
+              "or .ods."),
+     "aliases": [r"\bxlsx\b", r"\bexcel\b", r"spreadsheets?", r"workbooks?"]},
+    {"thing": "PowerPoint decks (.pptx)", "status": GREEN,
+     "mech": "pptx.rs - one record per slide, slide title, tables, speaker notes",
+     "cite": "engine/crates/xerj-autoindex/src/extract/pptx.rs:1",
+     "gate": ("Write, SCOPED TO .pptx. Text only: one record per slide with its title, table rows "
+              "and speaker notes. No images, no OCR of slide pictures, not .ppt or .odp."),
+     "aliases": [r"\bpptx\b", r"powerpoint", r"slide decks?"]},
+    {"thing": "Legacy / other office formats (.xls, .ppt, .xlsb, OpenDocument)", "status": RED,
+     "mech": "no extractor - sniff.rs names .xlsb and OpenDocument with an export hint", "cite": RC + ":378",
+     "gate": "No extractor. Tell the reader to save as .xlsx / .pptx / .docx first; do not write a page.",
+     "aliases": [r"\bxls\b", r"\bppt\b", r"\bxlsb\b", r"\bods\b", r"\bodp\b", r"\bodt\b",
+                 r"opendocument"]},
     {"thing": "Parquet", "status": RED, "mech": "no extractor", "cite": RC + ":379", "gate": "-",
      "aliases": [r"parquet"]},
     {"thing": "Audio / video transcripts", "status": RED, "mech": "no extractor", "cite": RC + ":380", "gate": "-",

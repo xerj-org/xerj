@@ -80,8 +80,8 @@
       "canonical_url": "https://xerj.org/compare/xerj-vs-localsynapse",
       "markdown_url": "https://xerj.org/compare/xerj-vs-localsynapse.md",
       "cluster": "Comparison: local MCP search",
-      "updated": "2026-09-26",
-      "summary": "Two local MCP search engines. LocalSynapse wins the desktop experience, Excel workbooks and mail shapes beyond mbox and eml. XERJ wins data files and the Elasticsearch REST API."
+      "updated": "2026-10-03",
+      "summary": "Two local MCP search engines. LocalSynapse wins the desktop experience and mail shapes beyond mbox and eml. XERJ wins data files, Excel sheets read as typed tables, and the Elasticsearch REST API."
     },
     {
       "title": "XERJ vs Elasticsearch run on one machine",

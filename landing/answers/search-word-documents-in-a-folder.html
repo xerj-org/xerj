@@ -309,7 +309,7 @@
   <p>We publish this as a finding, not as a feature. The guard does the correct thing, and the message it leaves behind is too generic to diagnose from.</p>
   <h2>What the capture does not cover</h2>
   <p>The measurement is a single-node run of 2 small files on one host, so it shows behavior and not throughput. XERJ has no replication and no failover in this configuration.</p>
-  <p>The extractor reads the zipped OpenXML format that <code class="inline">.docx</code> uses. Convert a legacy <code class="inline">.doc</code> file to <code class="inline">.docx</code> first. XERJ has no extractor for <code class="inline">.xlsx</code>, <code class="inline">.pptx</code>, <code class="inline">.rtf</code> or <code class="inline">.odt</code>, and refuses a file in any of those formats rather than parsing part of it.</p>
+  <p>The extractor reads the zipped OpenXML format that <code class="inline">.docx</code> uses. Convert a legacy <code class="inline">.doc</code> file to <code class="inline">.docx</code> first. Excel workbooks (<code class="inline">.xlsx</code>) and PowerPoint decks (<code class="inline">.pptx</code>) have their own extractors, so they can sit in the same folder. XERJ has no extractor for <code class="inline">.rtf</code> or <code class="inline">.odt</code>, and refuses a file in either format rather than parsing part of it.</p>
   <p>Ranking is BM25 over the extracted paragraph text. The default embedder in XERJ is lexical feature hashing and cannot connect a query to a synonym; neural embeddings are opt-in through <code class="inline">--embed-mode neural</code>.</p>
   <h2>FAQ</h2>
   <h3>How do I search through a folder of contracts in .docx?</h3>

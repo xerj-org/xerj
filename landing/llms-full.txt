@@ -538,7 +538,10 @@ catalog → verify.
     trusted (a JSON file wearing a `.pdf` extension is indexed as JSON; verified).
     Streaming extractors cover: JSON/JSONL, CSV (dialect detection: comma/semicolon/
     tab, decimal comma, quoted multiline fields, BOM), structured logs, SQL dumps,
-    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, mail (`.eml` and mbox mailboxes —
+    SQLite, PDF, DOCX, PPTX (one record per slide, speaker notes included), XLSX (one
+    dataset per sheet, one record per row under the detected header row, cell types
+    kept; one table per sheet, merged cells not expanded), HTML, XML, YAML, plain
+    text, mail (`.eml` and mbox mailboxes —
     a Google Takeout `All mail Including Spam and Trash.mbox` is detected by content and
     streamed one message at a time; attachments become their own records, PDFs per
     page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`

@@ -112,6 +112,6 @@ We publish this as a finding, not as a feature. The guard does the correct thing
 
 The measurement is a single-node run of 2 small files on one host, so it shows behavior and not throughput. XERJ has no replication and no failover in this configuration.
 
-The extractor reads the zipped OpenXML format that `.docx` uses. Convert a legacy `.doc` file to `.docx` first. XERJ has no extractor for `.xlsx`, `.pptx`, `.rtf` or `.odt`, and refuses a file in any of those formats rather than parsing part of it.
+The extractor reads the zipped OpenXML format that `.docx` uses. Convert a legacy `.doc` file to `.docx` first. Excel workbooks (`.xlsx`) and PowerPoint decks (`.pptx`) have their own extractors, so they can sit in the same folder. XERJ has no extractor for `.rtf` or `.odt`, and refuses a file in either format rather than parsing part of it.
 
 Ranking is BM25 over the extracted paragraph text. The default embedder in XERJ is lexical feature hashing and cannot connect a query to a synonym; neural embeddings are opt-in through `--embed-mode neural`.
