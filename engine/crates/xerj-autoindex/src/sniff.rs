@@ -1130,7 +1130,7 @@ pub fn unsupported_document_advice(binary_kind: &str) -> Option<String> {
         "xlsb" => ("Excel binary workbook", "save it as .xlsx"),
         "odt" => ("OpenDocument text", "export it as DOCX or PDF"),
         "ods" => ("OpenDocument spreadsheet", "save it as .xlsx"),
-        "odp" => ("OpenDocument presentation", "export it as PDF"),
+        "odp" => ("OpenDocument presentation", "save it as .pptx"),
         "epub" => ("EPUB e-book", "convert it to PDF"),
         _ => return None,
     };
@@ -4120,6 +4120,15 @@ mod zip_container_sniff_tests {
         assert!(unsupported_document_advice("xlsb")
             .unwrap()
             .contains("Excel binary workbook"));
+        // The hint names the format autoindex extracts best for that kind of
+        // document: a presentation saved as .pptx keeps one record per slide,
+        // which a PDF export also gives but without the slide titles and notes.
+        assert!(unsupported_document_advice("ods")
+            .unwrap()
+            .contains(".xlsx"));
+        assert!(unsupported_document_advice("odp")
+            .unwrap()
+            .contains(".pptx"));
         for k in ["zip", "tar", "png", "docx", "pptx", "xlsx", "unknown", ""] {
             assert_eq!(unsupported_document_advice(k), None, "{k}");
         }
