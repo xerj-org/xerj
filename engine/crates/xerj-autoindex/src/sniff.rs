@@ -34,6 +34,9 @@ pub enum Family {
     /// Excel workbook: one dataset per worksheet, one record per row under
     /// the sheet's header row, typed from the stored cell values.
     Xlsx,
+    /// Man page (roff man(7) source, often gzipped): one record per `.SH`
+    /// section, titled from `.TH`. Detected by content, never extension.
+    Man,
     Sqlite,
     SqlDump,
     /// Source code — AST-parsed by the matching tree-sitter grammar.
@@ -74,6 +77,7 @@ impl Family {
             Family::Docx => "docx",
             Family::Pptx => "pptx",
             Family::Xlsx => "xlsx",
+            Family::Man => "man",
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
             Family::Code => "code",
@@ -91,6 +95,7 @@ impl Family {
             Family::Pdf
                 | Family::Docx
                 | Family::Pptx
+                | Family::Man
                 | Family::TxtProse
                 | Family::Eml
                 | Family::Mbox
@@ -352,6 +357,15 @@ fn sniff_bytes(
             && body.lines().any(|l| l.starts_with("guid:"))
         {
             let mut s = mk(Family::UnityMeta);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+        // A man(7) page: comments and a generator's roff preamble, then
+        // `.TH`. Checked before the text heuristics, which would otherwise
+        // see the page as txt-lines — or, for sqlite3(1)/psql(1), whose
+        // examples hold `CREATE TABLE …;`, as a SQL dump.
+        if crate::extract::man::looks_like_man(body) {
+            let mut s = mk(Family::Man);
             s.encoding = encoding;
             return Ok(s);
         }

@@ -121,6 +121,7 @@ pub fn exact_scan_bytes(
         | Family::Code
         | Family::Docx
         | Family::Pptx
+        | Family::Man
         | Family::Eml
         | Family::Pdf => Some(size),
         // Streaming, byte-capped and record-capped.
@@ -612,6 +613,7 @@ mod tests {
             Family::Code,
             Family::Docx,
             Family::Pptx,
+            Family::Man,
             Family::Pdf,
         ] {
             assert_eq!(exact_scan_bytes(family, false, 900, 500, 500), Some(900));
@@ -702,6 +704,7 @@ mod tests {
             Family::Mbox,
             Family::Docx,
             Family::Pptx,
+            Family::Man,
             Family::Xlsx,
             Family::Sqlite,
             Family::SqlDump,

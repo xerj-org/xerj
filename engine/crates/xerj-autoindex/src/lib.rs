@@ -2351,6 +2351,7 @@ fn scan_file(
             | Family::Pdf
             | Family::Docx
             | Family::Pptx
+            | Family::Man
     );
     if whole_file && size > max_file_gb * GB {
         out.junk = Some((

@@ -11,6 +11,7 @@ pub mod html;
 pub mod json;
 pub mod jsonl;
 pub mod logs;
+pub mod man;
 pub mod mbox;
 pub(crate) mod opc;
 pub mod pdf;
@@ -212,6 +213,12 @@ pub fn extract(
         Family::Mbox => mbox::extract(path, sn.gzip, limit_bytes, sink),
         Family::Docx => docx::extract(path, sink),
         Family::Pptx => pptx::extract(path, sn.logical_name.as_deref().unwrap_or(path), sink),
+        Family::Man => man::extract(
+            path,
+            sn.logical_name.as_deref().unwrap_or(path),
+            sn.gzip,
+            sink,
+        ),
         Family::Xlsx => xlsx::extract(
             path,
             sn.logical_name.as_deref().unwrap_or(path),
