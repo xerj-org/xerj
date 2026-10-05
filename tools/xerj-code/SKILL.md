@@ -101,6 +101,8 @@ project's domain, not by size:
 | internationalisation | `unicode-cldr` | CLDR locale data structure, calendar/number/date skeletons |
 | security review of Rust dependencies | `rustsec-advisories`, the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | one text record per advisory (1,963: RustSec + crates.io OSV, zero alias overlap): affected versions, fixed releases, affected-function symbol lists on 271; the pack stays the vehicle for patched-pair mining (#1111's defect-class study) |
 | security review of Python dependencies | `pysec` | PYSEC advisory records with affected and fixed versions, CVE/GHSA aliases |
+| cross-ecosystem dependency audit | `ghsa-db` | GitHub-reviewed advisories (36,263 text records): CVSS vectors, patched ranges, affected packages across npm/PyPI/Go/Rust/maven and the rest |
+| security review of Go modules | `go-vulndb` | Go-team-curated advisories (4,577): affected packages and symbols, fixed versions, GO ids with CVE aliases |
 | regex denial-of-service precedent | `redos-precedent` | 634 regex-specific ReDoS advisories (CWE-1337/185 class, not bare CWE-400): the pathological input, the affected function, the bounded rewrite |
 | crypto misuse precedent | `crypto-misuse-precedent` | 721 CWE-326/327/328/329/347-class advisories: weak ciphers, hardcoded keys, nonce reuse, signature-verification bypass, padding oracles, ECB |
 | vulnerability / weakness taxonomy | `mitre-cwe`, `mitre-capec` | CWE weakness definitions and CAPEC attack patterns, id-level |
