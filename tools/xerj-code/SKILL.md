@@ -92,13 +92,17 @@ project's domain, not by size:
 | secrets / config serving | `openbao` | KV store with seal/unseal, lease machinery |
 | API design review | `rust-api-guidelines`, `msft-api-guidelines`, `zalando-restful-api-guidelines`, `google-eng-practices` | naming, error shape, versioning; Zalando's is the most clause-complete REST policy set, google-eng-practices owns code-review doctrine |
 | protocol/spec conformance | `openapi-spec`, `graphql-spec`, `json-schema-spec`, `w3c-css`, `whatwg-specs`, `ecma262`, `nats-protocol`, `kafka-protocol` | the normative text an implementation is judged against — HTML/DOM/URL living standards, ECMAScript grammar, wire-protocol framing |
+| locating the right RFC before reading it | `ietf-rfc-abstracts` | one record per RFC (9,015): number, title, date, abstract — "which RFC actually covers X" without pulling full texts (TLP-5.0) |
 | production ops / SRE | `gitlab-runbooks`, `school-of-sre`, `tldr-pages`, `mozilla-ssl-configs`, `twelve-factor` | real incident playbooks, a full SRE course curriculum, command syntax by tool, deployed TLS configs, deployment doctrine |
 | administering Unix systems | `freebsd-handbook`, `openbsd-faq` | rc/ZFS/jail/networking procedures, OpenBSD's canonical FAQ positions |
 | documenting against a hosted API | `github-api-description` | the OpenAPI description of github.rest — field semantics, enum values, preview headers |
 | datastore operations docs | `valkey-docs`, `etcd-docs` | command semantics, config knobs, tuning guidance — the operational reference for each |
 | telemetry / observability wiring | the semconv half of `otel-proto` (candidate — G7 2/5, parked to the semantic lane) | OpenTelemetry semantic conventions for attribute names; lexical rounds could not bridge paraphrase-to-normative-prose |
 | internationalisation | `unicode-cldr` | CLDR locale data structure, calendar/number/date skeletons |
-| security review of dependencies | the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | real patched-vulna pairs, mined for #1111's defect-class study |
+| security review of Rust dependencies | `rustsec-advisories`, the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | one text record per advisory (1,963: RustSec + crates.io OSV, zero alias overlap): affected versions, fixed releases, affected-function symbol lists on 271; the pack stays the vehicle for patched-pair mining (#1111's defect-class study) |
+| security review of Python dependencies | `pysec` | PYSEC advisory records with affected and fixed versions, CVE/GHSA aliases |
+| regex denial-of-service precedent | `redos-precedent` | 634 regex-specific ReDoS advisories (CWE-1337/185 class, not bare CWE-400): the pathological input, the affected function, the bounded rewrite |
+| crypto misuse precedent | `crypto-misuse-precedent` | 721 CWE-326/327/328/329/347-class advisories: weak ciphers, hardcoded keys, nonce reuse, signature-verification bypass, padding oracles, ECB |
 | vulnerability / weakness taxonomy | `mitre-cwe`, `mitre-capec` | CWE weakness definitions and CAPEC attack patterns, id-level |
 | adversary techniques / detection engineering | `mitre-attck` | ATT&CK v19.2 per-technique records: technique ids, tactics, detection data sources, procedure examples (enterprise/mobile/ics; software and group objects out of scope) |
 | patch-priority triage | `cisa-kev` | the Known Exploited Vulnerabilities catalogue, one record per CVE — exploitation status in the wild, binding remediation dates |
