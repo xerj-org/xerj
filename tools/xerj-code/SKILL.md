@@ -124,6 +124,19 @@ project's domain, not by size:
 | EU digital regulation | `eurlex-core` | GDPR, AI Act, DSA, DMA, NIS2 per-article and per-recital from the EUR-Lex Cellar (annexes excluded by design) |
 | accessibility (built environment) | `ada-2010` | ADA 2010 Standards: reach ranges, clear floor space, slope ratios, per-section |
 
+**Inside the security block, pick twice — ecosystem first, defect class
+second.** Advisories about the same CVE exist in several databases; start
+with the corpus whose ecosystem matches the project (`rustsec-advisories`
+for Rust crates, `pysec` for PyPI, `go-vulndb` for Go modules,
+`ghsa-db` when the tree is mixed or the ecosystem is unclear — it is the
+superset, GitHub-reviewed). Then, when the review is about a *pattern you
+are looking at* rather than a package — a regex fed user input, a cipher
+or key-management call site — switch to the stratum corpus
+(`redos-precedent`, `crypto-misuse-precedent`): smaller, selected for
+exactly that defect class, so the mechanism (the pathological input, the
+weak primitive, the bounded rewrite that fixed it) ranks instead of
+thousands of generic advisories.
+
 Three rules that keep the choice honest:
 
 1. **A corpus only helps on code you have not memorised.** On popular
