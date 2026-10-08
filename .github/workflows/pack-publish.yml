@@ -1,12 +1,13 @@
-# Scheduled publish of the rust-vulns corpus pack (M6 of the corpus-builder
-# arc). A pack's freshness is whatever its last build fetched — that is an
-# operational promise this workflow keeps, not a README claim: the pack's own
-# 30-day staleness refusal applies to our published corpus exactly as it does
-# to a user's reference corpora, so a build that stops here shows up as a
-# stale badge, not a silently aging artifact.
+# Scheduled publish of the committed corpus packs (rust-vulns, M6 of the
+# corpus-builder arc; agent-session-trajectories, the first
+# external-contributor pack). A pack's freshness is whatever its last build
+# fetched — that is an operational promise this workflow keeps, not a README
+# claim: the pack's own 30-day staleness refusal applies to our published
+# corpus exactly as it does to a user's reference corpora, so a build that
+# stops here shows up as a stale badge, not a silently aging artifact.
 #
 # Chain of custody, in job order:
-#   build (recipe.toml, committed) → sign (PACK_SIGNING_SEED secret)
+#   build (recipe.toml, committed) → sign (per-pack PACK_SIGNING_SEED* secret)
 #   → verify against the COMMITTED public key → publish
 # The verify step is load-bearing: it proves the secret still matches
 # tools/packs/keys/rust-vulns.pub in the same run that publishes, so a
@@ -198,6 +199,151 @@ jobs:
           mapfile -t old < <(gh release list --repo "$GITHUB_REPOSITORY" \
             --limit 100 --json tagName,isDraft \
             --jq '[.[] | select(.tagName | startswith("pack-rust-vulns-"))
+                   | select(.isDraft | not) | .tagName]
+                  | sort | reverse | .[7:][]')
+          for tag in "${old[@]:-}"; do
+            [ -n "$tag" ] && gh release delete "$tag" \
+              --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          done
+
+  agent-session-trajectories:
+    name: build + sign + publish agent-session-trajectories
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+
+      - name: Build the xerj binary
+        working-directory: engine
+        run: cargo build --profile ci-test -p xerj-server
+
+      - name: Build the pack
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home
+        run: |
+          engine/target/ci-test/xerj corpus build agent-session-trajectories \
+            --recipe tools/packs/agent-session-trajectories/recipe.toml
+
+      - name: Sign the pack
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home
+          PACK_SIGNING_SEED_AST: ${{ secrets.PACK_SIGNING_SEED_AST }}
+        run: |
+          if [ -z "$PACK_SIGNING_SEED_AST" ]; then
+            echo "PACK_SIGNING_SEED_AST secret is not set. Generate a keypair:"
+            echo "  xerj corpus keygen --out tools/packs/keys/agent-session-trajectories"
+            echo "commit the .pub, set the secret to the .key's hex line, delete the .key"
+            exit 1
+          fi
+          printf '%s' "$PACK_SIGNING_SEED_AST" > "$RUNNER_TEMP/pack.key"
+          engine/target/ci-test/xerj corpus sign \
+            "$XERJ_CODE_HOME/builds/agent-session-trajectories/pack/agent-session-trajectories" \
+            --key "$RUNNER_TEMP/pack.key"
+          rm -f "$RUNNER_TEMP/pack.key"
+
+      - name: Verify + install the signed pack (consumer path)
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home-verify
+        run: |
+          engine/target/ci-test/xerj corpus add agent-session-trajectories \
+            --from "$GITHUB_WORKSPACE/.pack-home/builds/agent-session-trajectories/pack/agent-session-trajectories" \
+            --verify-sig tools/packs/keys/agent-session-trajectories.pub
+
+      - name: Pack release metadata (freshness.json)
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home
+        run: |
+          cd "$XERJ_CODE_HOME/builds/agent-session-trajectories/pack/agent-session-trajectories"
+          RECORDS=$(python3 -c "import json;print(json.load(open('manifest.json'))['counts']['records'])")
+          BUILT=$(python3 -c "import json;print(json.load(open('manifest.json'))['created_at'])")
+          GEN=$(python3 -c "import json;print(json.load(open('manifest.json'))['generation'])")
+          cat > "$RUNNER_TEMP/agent-session-trajectories-freshness.json" <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "agent-session-trajectories pack",
+            "message": "$RECORDS trajectories, built ${BUILT%%T*}, gen $GEN",
+            "color": "blue"
+          }
+          EOF
+
+      - name: Zip the pack
+        env:
+          XERJ_CODE_HOME: ${{ github.workspace }}/.pack-home
+        run: |
+          cd "$XERJ_CODE_HOME/builds/agent-session-trajectories/pack/agent-session-trajectories"
+          zip -qr "$RUNNER_TEMP/agent-session-trajectories-pack.zip" .
+          # the checksums and signature also ship as loose assets, so a
+          # consumer can audit a download without unpacking the zip first
+          cp SHA256SUMS "$RUNNER_TEMP/agent-session-trajectories-SHA256SUMS"
+          cp SHA256SUMS.sig "$RUNNER_TEMP/agent-session-trajectories-SHA256SUMS.sig"
+
+      # Same immutable-release protocol as the rust-vulns job above: each
+      # build is its own dated tag, uploaded to a draft, published last.
+      - name: Compute the daily tag
+        run: echo "PACK_TAG=pack-agent-session-trajectories-$(date -u +%F)" >> "$GITHUB_ENV"
+
+      - name: Drop today's release if this is a same-day re-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release delete "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
+          --cleanup-tag --yes || true
+
+      - name: Upload the assets to a draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.PACK_TAG }}
+          name: "agent-session-trajectories corpus pack (${{ env.PACK_TAG }})"
+          draft: true
+          prerelease: true
+          body: |
+            The `agent-session-trajectories` corpus pack — the first
+            external-contributor pack on the hub (chunxiaoxx / Nautilus,
+            #1255; demand anchored to #1138, wishlist slot #1210). 70
+            sanitized multi-session agent trajectories with failure turns
+            kept verbatim, built and signed by the `pack publish` workflow
+            from `tools/packs/agent-session-trajectories/recipe.toml`.
+
+            One release per build day; the newest is always at
+            https://github.com/xerj-org/xerj/releases?q=pack-agent-session-trajectories
+
+            Install (public key: `tools/packs/keys/agent-session-trajectories.pub` in the repo):
+
+                xerj corpus add agent-session-trajectories \
+                  --from agent-session-trajectories-pack.zip \
+                  --verify-sig agent-session-trajectories.pub
+                xerj corpus index agent-session-trajectories
+
+            `agent-session-trajectories-freshness.json` carries the build
+            date and record count; the same 30-day staleness refusal that
+            governs every reference corpus governs this one.
+          files: |
+            ${{ runner.temp }}/agent-session-trajectories-pack.zip
+            ${{ runner.temp }}/agent-session-trajectories-SHA256SUMS
+            ${{ runner.temp }}/agent-session-trajectories-SHA256SUMS.sig
+            ${{ runner.temp }}/agent-session-trajectories-freshness.json
+
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
+          --draft=false
+
+      - name: Retire pack releases beyond the newest 7
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mapfile -t old < <(gh release list --repo "$GITHUB_REPOSITORY" \
+            --limit 100 --json tagName,isDraft \
+            --jq '[.[] | select(.tagName | startswith("pack-agent-session-trajectories-"))
                    | select(.isDraft | not) | .tagName]
                   | sort | reverse | .[7:][]')
           for tag in "${old[@]:-}"; do
