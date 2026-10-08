@@ -9,7 +9,10 @@
    "q": "trace id all zeroes 16-byte array invalid spans from the same trace share the same trace id",
    "needle_file": "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto",
    "top5": ["docs/db/oracledb.md", "docs/db/sql-server.md", "docs/faas/aws-lambda.md", "docs/faas/aws-lambda.md", "docs/db/oracledb.md"],
-   "relevant": false
+   "relevant": false,
+   "needle_rank": 19,
+   "needle_score": 17.99,
+   "cutoff_score": 23.14
   },
   {
    "q": "exponential histogram zero threshold width of the zero region values rounded to zero",
@@ -36,6 +39,6 @@
    "relevant": false
   }
  ],
- "root_cause": "NOT a retrieval defect: the needle files are ABSENT from the index. The corpus walk indexed 3 datasets (json 2 records, opentelemetry-proto-docs 183, semantic-conventions-docs 2464 = 2,649 records from 329 walked files) while ALL 11 .proto files under opentelemetry/proto/ were silently UNASSIGNED — the terminal line says code_files=0 code_files_indexed=0, a wildcard ax_file=*trace.proto returns zero hits, and only 10 files were junk-marked. `.proto` is not in the tree-sitter code-extension registry, so the files fell out of the code family, and the dataset inference created only docs/json datasets — a file that lands in no dataset and no junk list is dropped with no record of the drop. Every top-5 hit is therefore a semantic-conventions .md file.",
- "next": "engine issue filed for the unassigned-file hole (autoindex silently drops files in no dataset); otel-proto stays candidate — flipping it live on markdown-only coverage would misrepresent the corpus, whose point is the protocol definitions. Re-run this suite unchanged after the engine fix + rebuild."
+ "root_cause": "CORRECTED 2026-10-08 (retraction recorded below): a RANKING failure, not absence. All 11 .proto files ARE in the index — 79 records in the opentelemetry-proto-docs dataset (metrics.proto 22, profiles.proto 21, trace.proto 11, logs.proto 7, common.proto 5, six service/context/resource files 2-3 each), assigned via the txt-lines family per the dry-run plan (family txt-lines, assignment opentelemetry-proto-docs). The needle text is retrievable: match_phrase on text for 'An ID with all zeroes OR' returns trace.proto and logs.proto at score 9.1. But txt-lines chunks a 368-line definition file into 11 records of ~2KB, so the BM25 mass of the query terms the file matches is split across fragments, while each semantic-conventions .md file competes as a whole document; a fragment carrying a subset of the terms cannot outscore long prose matching more of them. Measured on the re-run (unchanged suite, /tmp/xtarget-fam binary, :19295): query 1's needle chunk ranks 19th of 50 at 17.99 against a top-5 cutoff of 23.14. Every proto-needled query's top-5 is semconv .md prose (2,464 whole-document records vs 79 proto fragments). RETRACTED root cause (kept for the record): the first grading claimed the needle files were absent, on two probes — the terminal line's code_files=0 and a wildcard ax_file=*trace.proto returning zero. Both were misread: ax_file stores the content digest, not the filename (the trap documented in the #1183 era), so a filename wildcard answers zero by construction; the correct presence probe is ax_path, which returns 79 records. code_files=0 is a labeling gap (a definitions file is not a tree-sitter code file) and it fed the misdiagnosis.",
+ "next": "engine issue #1254 retitled to the real defect: definition-format files fall to txt-lines line-chunking and cannot compete with whole-document prose, and the terminal line reports code_files=0 for them. Fix direction: a code-family route for .proto (tree-sitter-proto exists on crates.io) or a whole-document text route for structured non-log text; then rebuild the corpus and re-run this suite unchanged. otel-proto stays candidate — flipping it live on markdown-only retrieval would misrepresent the corpus, whose point is the protocol definitions."
 }
