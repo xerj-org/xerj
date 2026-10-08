@@ -1,0 +1,17 @@
+{
+  "provenance": "measured",
+  "measured_at": "2026-10-08",
+  "pack": "agent-session-trajectories",
+  "recipe_sha256": "344fef9a89559b2c45bad8eaca8b21c11bd5c689f7f49822b01f7884d8da6f12",
+  "sources": {
+    "nautilus-ops": { "kind": "git", "envelopes": 70, "licence": "CC-BY-4.0" }
+  },
+  "envelopes": 70,
+  "records": 70,
+  "topics": { "eval-judging": 46, "infra-diagnosis": 13, "ledger-audit": 6, "ops-misc": 5 },
+  "records_bytes": 220857,
+  "notes": {
+    "identity": "70 envelopes to 70 records: single source, unique by id (nst-<session-key>) — no alias chains exist to close, the merged count is the envelope count exactly as the README predicts",
+    "acceptance": "first external-contributor pack (chunxiaoxx / Nautilus, demand anchored to #1138, wishlist slot #1210). Source verified live at review: runtime/xerj_pack/pr_ready/agent-session-trajectories.jsonl = 70 lines / 147,368 bytes; topic counts in the README match the data. Built from the merged recipe at fc8f86d82"
+  }
+}
