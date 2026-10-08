@@ -1023,21 +1023,21 @@
    "domain": "an agent wiring telemetry queries this for the exact semantic conventions and proto field semantics",
    "g7": {
     "corpus_unchanged": true,
-    "engine_fix": "#1142 fixed coverage: the semconv *-spans.md docs were sniffed as YAML/XML and never indexed; database-spans.md now ranks #1 (Q4 pass). Q1/Q3/Q5 remain misses on paraphrase ranking (conversational phrasing vs normative 'MUST/SHOULD' prose).",
-    "evidence": "backlog/g7-tonight-2026-10-03-graded.json",
-    "graded_at": "2026-10-04",
-    "next": "PARKED under the semantic/neural lane (issue #66) with irs-pubs and nist-sp800-sec. Corpus final: opentelemetry-proto + semantic-conventions docs @15f75ec3 (297 files, 4,938,096 B).",
-    "prediction": "3/5 — WRONG (round 4)",
-    "round": 4,
-    "score": "2/5 pass 2/5 relevant",
-    "verdict": "FAIL"
+    "engine_fix": "The single effective variable across the whole arc was the text recall-leg weight (#1254, PR #1258): the corpus-declared query.text_weight 1.0 rides in this pin, honored by every rc.92+ binary. Two earlier mechanisms were each retracted by measurement (absence: ax_file holds digests, not filenames, ax_path shows all 79 .proto records; txt-lines chunk-splitting: a simulated whole-doc route ranked the needle 25 vs the chunks' 19).",
+    "evidence": "backlog/g7-otel-proto-2026-10-08-graded.json",
+    "graded_at": "2026-10-08",
+    "next": "Residual honesty: the query block is inert on binaries without #1258 (pre-rc.92); the corpus.json carried hint is printed as a warning there, not applied. code_files=0 labeling gap on the index terminal line stays open under #1254.",
+    "prediction": "re-grade PASS after two retracted mechanisms (rounds 4->5)",
+    "round": 5,
+    "score": "5/5 pass 5/5 relevant",
+    "verdict": "PASS"
    },
    "lane": "A",
    "refresh": "pinned",
    "slug": "otel-proto",
    "sources": [
     {
-     "licence_hint": "RE-PINNED (scope fix) after G7 fail 2026-10-02: dropped open-telemetry/semantic-conventions from the corpus — its markdown docs diluted proto-field queries and its content duplicates opentelemetry-spec. Apache-2.0 (hand-verified). Corpus is now the proto repo alone; suite expect_files unchanged (they were proto files). ROUND 2 re-pinned 2026-10-05: the 2026-10-02 scope fix over-corrected — semconv docs are the only source for HTTP/database span conventions. Corpus = opentelemetry-proto @b3f75588 + semantic-conventions @60a64b66 (2,660 records). Remap g7-otel-round2-2026-10.json pre-registered before retrieval (all 5 clauses verified on disk); prediction 3-4/5 with engine #1137/#1139. ROUND 2 GRADED 2026-10-05: 1/5 — prediction 3-4/5 was WRONG. With both repos indexed (2,660 records) semconv prose (2,475 docs) dwarfs the 185 proto records: proto queries retrieve span-convention prose, and db/http queries get CHANGELOG and sibling chapter docs instead of the expected files. ROUND 3 fix (pre-registered, not yet run): scope the semantic-conventions clone to its docs/ subtree minus CHANGELOG (the model/ YAMLs, internal/, non-normative/ and the CHANGELOG are the measured diluters); prediction 3/5. G7 round-2 2026-10-05 graded 1/5 pass 1/5 relevant -> FAIL (graded against engine fix/xccode-g7-retrieval-1 commits 0ae1439bb+35903648c (#1137 per-file cap, #1139 txt-field search)): 1/5 round-2 — see round-3 note. ROUND 3 EXECUTED 2026-10-04 (mirror corpus-otel-semconv-docs @15f75ec3, docs/ minus non-normative, upstream 60a64b66c pinned): graded 1/5 — prediction 3/5 was WRONG. Root cause found post-grade: the two semconv expect files (docs/http/http-spans.md, docs/db/database-spans.md) are NOT IN THE INDEX — they open with a Hugo `<!---` comment, so the engine sniffs them XML (#1142, same defect class as nist-sp800-sec) and junks them. Scope change could not have fixed this. ROUND 4 PRE-REGISTERED before any re-retrieval: engine fix #1142 (markdown-signature guard + YAML parse tier), corpus UNCHANGED (corpus-otel-semconv-docs @15f75ec3), same round-2 suite, prediction 3/5 (Q2 passes today; Q3/Q4 expect files become indexable; Q1/Q5 are proto-vs-prose ranking and may still miss). ROUND 5 (2026-10-08, this flip): the 2026-10-08 suite re-run graded FAIL 1/5 under two WRONG mechanisms first (absence — retracted, ax_file holds digests not filenames, ax_path shows all 79 .proto records present; then txt-lines chunk-splitting — disproven by simulation, a whole-doc route ranked 25 vs the chunks' 19). The single effective variable is the text recall-leg weight: at text^1.0 on the byte-identical index all four proto needles rank 1. Engine #1254/PR #1258 adds corpus-declared query.text_weight (0.25..=4.0, loud fallback outside); this pin carries 1.0. Re-grade PASS 5/5 (backlog/g7-otel-proto-2026-10-08-graded.json); zero drift on no-hint corpora. Flipped live with the query block — needs an engine with #1258 (rc.92+ if it makes the window) for the block to be honored.",
+     "licence_hint": "RE-PINNED (scope fix) after G7 fail 2026-10-02: dropped open-telemetry/semantic-conventions from the corpus — its markdown docs diluted proto-field queries and its content duplicates opentelemetry-spec. Apache-2.0 (hand-verified). Corpus is now the proto repo alone; suite expect_files unchanged (they were proto files). ROUND 2 re-pinned 2026-10-05: the 2026-10-02 scope fix over-corrected — semconv docs are the only source for HTTP/database span conventions. Corpus = opentelemetry-proto @b3f75588 + semantic-conventions @60a64b66 (2,660 records). Remap g7-otel-round2-2026-10.json pre-registered before retrieval (all 5 clauses verified on disk); prediction 3-4/5 with engine #1137/#1139. ROUND 2 GRADED 2026-10-05: 1/5 — prediction 3-4/5 was WRONG. With both repos indexed (2,660 records) semconv prose (2,475 docs) dwarfs the 185 proto records: proto queries retrieve span-convention prose, and db/http queries get CHANGELOG and sibling chapter docs instead of the expected files. ROUND 3 fix (pre-registered, not yet run): scope the semantic-conventions clone to its docs/ subtree minus CHANGELOG (the model/ YAMLs, internal/, non-normative/ and the CHANGELOG are the measured diluters); prediction 3/5. G7 round-2 2026-10-05 graded 1/5 pass 1/5 relevant -> FAIL (graded against engine fix/xccode-g7-retrieval-1 commits 0ae1439bb+35903648c (#1137 per-file cap, #1139 txt-field search)): 1/5 round-2 — see round-3 note. ROUND 3 EXECUTED 2026-10-04 (mirror corpus-otel-semconv-docs @15f75ec3, docs/ minus non-normative, upstream 60a64b66c pinned): graded 1/5 — prediction 3/5 was WRONG. Root cause found post-grade: the two semconv expect files (docs/http/http-spans.md, docs/db/database-spans.md) are NOT IN THE INDEX — they open with a Hugo `<!---` comment, so the engine sniffs them XML (#1142, same defect class as nist-sp800-sec) and junks them. Scope change could not have fixed this. ROUND 4 PRE-REGISTERED before any re-retrieval: engine fix #1142 (markdown-signature guard + YAML parse tier), corpus UNCHANGED (corpus-otel-semconv-docs @15f75ec3), same round-2 suite, prediction 3/5 (Q2 passes today; Q3/Q4 expect files become indexable; Q1/Q5 are proto-vs-prose ranking and may still miss). ROUND 5 (2026-10-08, this flip): the 2026-10-08 suite re-run graded FAIL 1/5 under two WRONG mechanisms first (absence — retracted, ax_file holds digests not filenames, ax_path shows all 79 .proto records present; then txt-lines chunk-splitting — disproven by simulation, a whole-doc route ranked 25 vs the chunks' 19). The single effective variable is the text recall-leg weight: at text^1.0 on the byte-identical index all four proto needles rank 1. Engine #1254/PR #1258 adds corpus-declared query.text_weight (0.25..=4.0, loud fallback outside); this pin carries 1.0. Re-grade PASS 5/5 (backlog/g7-otel-proto-2026-10-08-graded.json); zero drift on no-hint corpora. Flipped live with the query block; #1258 merged before the v1.0.0-rc.92 tag, so every rc.92+ binary honors it.",
      "url": "https://github.com/open-telemetry/opentelemetry-proto"
     }
    ],
@@ -3450,7 +3450,16 @@
      "records"
     ]
    },
-   "note": "Cloned+reviewed 2026-10-07 (402,744 records, 3.4GB). Full build running on an isolated node with the #1224/#1225/#1227 pipeline fixes; hub manifest lands when the read-back verifies."
+   "note": "Cloned+reviewed 2026-10-07 (402,744 records, 3.4GB). Built 2026-10-08 on the isolated :19285 node with the #1228 pipeline fix: 402,695 files in 6h31m (17.1 files/s end-to-end vs the 1.18 items/s pre-fix apply ceiling, issue #1224 closed), 213,851 records searchable, autoindex exit 1 salvaged (state records it honestly). G7 graded 2026-10-08: FAIL 0/7, one mechanism (#1244), retrieval-side, not a data problem; the needle record is rank-1 on a direct descriptions-field match.",
+   "g7": {
+    "evidence": "backlog/g7-cve-records-2026-10-08-graded.json",
+    "suite": "backlog/g7-cve-records-2026-10-08.json",
+    "graded": "2026-10-08",
+    "verdict": "FAIL",
+    "pass": 0,
+    "relevant": 7,
+    "note": "pre-registered before retrieval; 0/7 with a single diagnosed cause (#1244: the retrieval never queries the corpus's text-typed prose fields); stays candidate until the fix lands and the suite re-runs"
+   }
   },
   {
    "slug": "exploitdb-src",
