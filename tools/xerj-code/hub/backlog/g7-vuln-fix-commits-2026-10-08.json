@@ -1,0 +1,42 @@
+{
+ "suite": "g7-vuln-fix-commits-2026-10-08",
+ "pre_registered": "2026-10-08 (before any retrieval against the built corpus; committed to corpus-hub first)",
+ "authoring": "BLIND from payload reads; needles chosen from the 29,240 payload files by era spread (2026 x3, 2020, 2019) and distinctive-function naming; every verbatim clause grep-verified in the payload file itself at authoring time; no retrieval was run against vuln-fix-commits before this file was committed",
+ "corpus_pin": {
+  "repo": "github.com/project-kb/vesper (project-kb fix-commit inventory, 1 repo = 29,240 payloads)",
+  "clone": "~/.xerj-code/corpora/vuln-fix-commits",
+  "payloads": "29,240 JSON files, 438MB, 24,025 distinct CVEs (8,849 from 2026, 1,723 pre-2016)"
+ },
+ "queries": [
+  {
+   "q": "chat template names written as jinja files path traversal outside the target directory",
+   "expect": "the huggingface/transformers fix for CVE-2026-9856 in top-5, template names like ../../foo flowing into os.path.join letting a saved repo write outside chat_template_dir",
+   "expect_file": "payloads/huggingface_transformers@eaaaf8494dd5386634ae37d1d122212fdc315be5.json",
+   "verbatim": "and lets a saved repo write a file outside the target"
+  },
+  {
+   "q": "SSRF external reference URL probe validate resolved IP address",
+   "expect": "the flowintel fix for CVE-2026-9813 in top-5, mitigating server-side request forgery in the external reference URL probe",
+   "expect_file": "payloads/flowintel_flowintel@68b523b47854c54bf36fd706c0fd5353063b5409.json",
+   "verbatim": "Mitigate SSRF in external reference URL probe"
+  },
+  {
+   "q": "notification bell XSS innerHTML replaced with textContent DOM methods",
+   "expect": "the MISP/cti-transmute fix for CVE-2026-9806 in top-5, rebuilding notification items via DOM methods instead of innerHTML to stop XSS from malicious convert names",
+   "expect_file": "payloads/MISP_cti-transmute@cf42409badc27b13d9bb644b9175aa7f27e11259.json",
+   "verbatim": "Rebuild notification items via DOM methods (textContent) instead of innerHTML"
+  },
+  {
+   "q": "MMU access rights check unaligned address range last page not checked",
+   "expect": "the OP-TEE fix for CVE-2019-1010293 in top-5, tee_mmu_check_access_rights missing the final page of a TA buffer when start and length are unaligned",
+   "expect_file": "payloads/OP-TEE_optee_os@95f36d661f2b75887772ea28baaad904bde96970.json",
+   "verbatim": "the last page in the range is sometimes not checked"
+  },
+  {
+   "q": "stack buffer overflow yaffs filesystem stat time string buffer too small",
+   "expect": "the sleuthkit fix for CVE-2020-10232 in top-5, growing the yaffsfs_istat time buffer to what tsk_fs_time_to_str requires",
+   "expect_file": "payloads/sleuthkit_sleuthkit@459ae818fc8dae717549810150de4d191ce158f1.json",
+   "verbatim": "increasing the buffer size to the size required by tsk_fs_time_to_str"
+  }
+ ]
+}

@@ -1,0 +1,38 @@
+{
+ "corpus": "otel-proto",
+ "cloned_at": "2026-10-04T17:22:01Z",
+ "repos": [
+  {
+   "repo": "opentelemetry-proto",
+   "url": "https://github.com/open-telemetry/opentelemetry-proto",
+   "licence": "Apache-2.0",
+   "sha": "b3f75588eb23c5fca62264edd05d382de49beb1a",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "xerj-org",
+    "at": "2026-10-08",
+    "note": "OpenTelemetry protocol definitions (.proto) at the pinned commit. Primary content rides the plain-text family: every .proto file is a txt-lines record, so the corpus declares query.text_weight 1.0 (#1254) — at the default 0.5 the definitions rank 19-39 behind semantic-conventions prose on the same index bytes."
+   }
+  },
+  {
+   "repo": "corpus-otel-semconv-docs",
+   "url": "https://github.com/xerj-org/corpus-otel-semconv-docs",
+   "licence": "Apache-2.0 (mirror repo) over CC-BY-4.0 content (upstream semantic-conventions docs)",
+   "sha": "15f75ec34e95c70235ce4fedbebee9021ada14d5",
+   "files": 297,
+   "bytes": 4938096,
+   "review": {
+    "spdx": "Apache-2.0 (mirror LICENSE) / CC-BY-4.0 (mirrored docs)",
+    "use": "adapt-with-attribution",
+    "by": "xerj-org",
+    "at": "2026-10-08",
+    "note": "semantic-conventions docs mirror (markdown, heading-sectioned), companion prose beside the definitions. The mirror repo's own LICENSE file is Apache-2.0, but the mirrored upstream files are open-telemetry/semantic-conventions docs, which are CC-BY-4.0 — attribution to upstream is required when adapting their text; the stricter of the two governs."
+   }
+  }
+ ],
+ "query": {
+  "text_weight": 1.0
+ },
+ "note": "Protocol definitions + their semantic-conventions prose. Flipped live on the PR #1253 re-grade (5/5); evidence: backlog/g7-otel-proto-2026-10-08-graded.json. The query block is the corpus-declared text-leg weight (engine #1254, PR #1258) — carried into the cloned corpus.json by `corpus add --from` so a re-clone keeps it."
+}

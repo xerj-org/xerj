@@ -1,0 +1,53 @@
+{
+ "suite": "g7-otel-proto-2026-10-08",
+ "graded": "2026-10-08 (re-graded same day; run 1 FAIL 1/5, run 2 PASS 5/5)",
+ "verdict": "PASS",
+ "rule": "median >= 3 of 5 queries with a relevant needle in top-5 (PROGRAM-100.md)",
+ "score": "5/5",
+ "methodology": "Run 2 was executed on the SAME index bytes as run 1 (no re-index, no rebuild): the only variable was the client's text recall-leg weight, 0.5 (the #1238 default) vs 1.0 (the corpus-declared query.text_weight, engine fix #1254 / PR #1258). The suite file itself is unchanged from its pre-registration.",
+ "results": [
+  {
+   "q": "trace id all zeroes 16-byte array invalid spans from the same trace share the same trace id",
+   "needle_file": "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto",
+   "run1": "needle_rank 19 (top-5 all semconv .md)",
+   "run2_top5": ["opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto", "opentelemetry-proto/opentelemetry/proto/logs/v1/logs.proto", "semantic-conventions/docs/db/oracledb.md", "semantic-conventions/docs/db/sql-server.md", "semantic-conventions/docs/faas/aws-lambda.md"],
+   "relevant": true
+  },
+  {
+   "q": "exponential histogram zero threshold width of the zero region values rounded to zero",
+   "needle_file": "opentelemetry-proto/opentelemetry/proto/metrics/v1/metrics.proto",
+   "run1": "needle absent from top-50",
+   "run2_top5": ["opentelemetry-proto/opentelemetry/proto/metrics/v1/metrics.proto", "opentelemetry-proto/opentelemetry/proto/metrics/v1/metrics.proto", "semantic-conventions/docs/system/k8s-metrics.md", "semantic-conventions/docs/system/k8s-metrics.md", "semantic-conventions/docs/registry/entities/service.md"],
+   "relevant": true
+  },
+  {
+   "q": "HTTP request method not known to instrumentation attribute value _OTHER",
+   "needle_file": "semantic-conventions/semantic-conventions/docs/http/http-metrics.md",
+   "run1": "relevant (top-5)",
+   "run2_top5": ["semantic-conventions/docs/http/http-metrics.md", "semantic-conventions/docs/http/http-metrics.md", "semantic-conventions/docs/http/http-spans.md", "semantic-conventions/docs/http/http-spans.md", "semantic-conventions/docs/registry/attributes/http.md"],
+   "relevant": true
+  },
+  {
+   "q": "severity number normalized log level original string representation as it is known at the source",
+   "needle_file": "opentelemetry-proto/opentelemetry/proto/logs/v1/logs.proto",
+   "run1": "needle_rank 39",
+   "run2_top5": ["opentelemetry-proto/opentelemetry/proto/logs/v1/logs.proto", "semantic-conventions/docs/http/http-exceptions.md", "semantic-conventions/docs/registry/attributes/aws.md", "semantic-conventions/docs/registry/attributes/code.md", "semantic-conventions/docs/exceptions/exceptions-spans.md"],
+   "relevant": true
+  },
+  {
+   "q": "span attributes dropped count keys too long too many attributes discarded",
+   "needle_file": "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto",
+   "run1": "needle_rank 23",
+   "run2_top5": ["opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto", "opentelemetry-proto/opentelemetry/proto/profiles/v1development/profiles.proto", "opentelemetry-proto/opentelemetry/proto/common/v1/common.proto", "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto", "opentelemetry-proto/opentelemetry/proto/profiles/v1development/profiles.proto"],
+   "relevant": true
+  }
+ ],
+ "diagnosis_arc": [
+  "Run 1 (FAIL 1/5) was first graded under an ABSENCE diagnosis: '11 .proto files silently unindexed'. That was wrong and is retracted — the probes used to claim it were misread. ax_file holds a content DIGEST, not a filename, so a filename wildcard answers zero by construction (the #1183-era trap); the correct presence probe is ax_path, which returns 79 .proto records. code_files=0 in the terminal line is a labeling gap, not absence.",
+  "The second diagnosis — txt-lines chunking splits BM25 mass so fragments cannot outscore whole-document prose — was ALSO wrong, disproven by simulation before any fix was built: a simulated whole-document .proto route ranked the run-1 needle 25th (WORSE than the real chunks' 19th; whole-document length dilution beats fragment mass concentration), and a simulated definition-sectioned route (message/enum/service boundaries) ranked 25/39/23/19 across the four proto queries.",
+  "The single variable that moves the needle is the text recall-leg weight. Re-simulated at text^1.0 on the byte-identical index: all four proto needles returned rank 1. Mechanism: the 0.5 default is the #1238 calibration for corpora where the text family carries mirror noise beside code-family body records (the exploit group); otel-proto's PRIMARY content is the text family, so the discount hides the corpus's point. The two corpus shapes are indistinguishable at query time, so the weight is corpus-author knowledge.",
+  "Fix: engine #1254 (PR #1258) — corpus.json gains an optional query.text_weight (bounds 0.25..=4.0, out-of-bounds warns loudly and falls back), hub pins carry it through corpus add --from, and the query path applies it to the text^ slot. Zero drift verified on no-hint corpora (cisa, exploit-pocs-2026: byte-identical output old vs new binary).",
+  "Run 2 (this grade): PASS 5/5 on the unchanged index with the corpus-declared weight. The corpus flips live carrying the query block in its hub pin."
+ ],
+ "residual_honesty": "The engine fix (PR #1258) must be merged and released before the hub-side query block has anything to honor on a stock binary; until then the pin's block is inert (older clients ignore it silently — the manifest reader keeps it raw). The code_files=0 labeling gap for definition formats remains open as a minor reporting issue on #1254."
+}

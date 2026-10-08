@@ -1,0 +1,43 @@
+{
+ "suite": "g7-otel-proto-2026-10-08",
+ "pre_registered": "2026-10-08 (before any retrieval against the rebuilt corpus; committed to corpus-hub first)",
+ "authoring": "BLIND from corpus file reads; needles chosen across both repos (opentelemetry-proto .proto definitions, semantic-conventions docs); every verbatim clause grep-verified in the needle file at authoring time; the corpus was rebuilt --fresh on :19295 this day after its previous generation (b1791140440, :9200) was found absent from every serving node",
+ "corpus_pin": {
+  "repos": "opentelemetry-proto + semantic-conventions (pinned in corpus.json)",
+  "clone": "~/.xerj-code/corpora/otel-proto",
+  "files": "410 files, 8.2MB",
+  "context": "the last ungraded row of the 58-corpus wave whose G7 deadline is 2026-10-09 (57/58 already live)"
+ },
+ "queries": [
+  {
+   "q": "trace id all zeroes 16-byte array invalid spans from the same trace share the same trace id",
+   "expect": "opentelemetry/proto/trace/v1/trace.proto Span.trace_id comment in top-5, the 16-byte array and all-zeroes invalidity rule",
+   "expect_file": "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto",
+   "verbatim": "An ID with all zeroes OR"
+  },
+  {
+   "q": "exponential histogram zero threshold width of the zero region values rounded to zero",
+   "expect": "opentelemetry/proto/metrics/v1/metrics.proto ExponentialHistogramDataPoint.zero_threshold comment in top-5, the closed interval [-ZeroThreshold, ZeroThreshold]",
+   "expect_file": "opentelemetry-proto/opentelemetry/proto/metrics/v1/metrics.proto",
+   "verbatim": "the zero region is defined as the closed interval"
+  },
+  {
+   "q": "HTTP request method not known to instrumentation attribute value _OTHER",
+   "expect": "semantic-conventions docs/http/http-metrics.md in top-5, the MUST-set-to-_OTHER rule for unknown HTTP methods",
+   "expect_file": "semantic-conventions/semantic-conventions/docs/http/http-metrics.md",
+   "verbatim": "MUST set the `http.request.method` attribute to `_OTHER`"
+  },
+  {
+   "q": "severity number normalized log level original string representation as it is known at the source",
+   "expect": "opentelemetry/proto/logs/v1/logs.proto LogRecord severity_number / severity_text comments in top-5",
+   "expect_file": "opentelemetry-proto/opentelemetry/proto/logs/v1/logs.proto",
+   "verbatim": "Numerical value of the severity, normalized to values described in Log Data Model"
+  },
+  {
+   "q": "span attributes dropped count keys too long too many attributes discarded",
+   "expect": "opentelemetry/proto/trace/v1/trace.proto Span.dropped_attributes_count comment in top-5, why attributes are discarded",
+   "expect_file": "opentelemetry-proto/opentelemetry/proto/trace/v1/trace.proto",
+   "verbatim": "can be discarded because their keys are too long"
+  }
+ ]
+}
