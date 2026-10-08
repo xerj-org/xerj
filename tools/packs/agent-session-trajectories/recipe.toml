@@ -1,0 +1,55 @@
+# agent-session-trajectories — a record pack from a production multi-agent
+# engineering org: 70 sanitized multi-session agent trajectories with failure
+# turns kept verbatim, topic-sliced (semantic, not time-window), each with the
+# final fix and an evidence hash. Demand-anchored to issue #1138; hub backlog
+# slot "agent-session-trajectories" (status planned, PR #1210).
+#
+# Source, and why exactly this one (measured 2026-10-08):
+#
+# - nautilus-compass (CC-BY-4.0, our own production ops records): 70 records
+#   assembled by tools/xerj_pack_extract.py from our watch-loop logs and
+#   session memory — no customer data, no third-party content. Sanitization:
+#   5-step pipeline (credential regex sweep incl. rotated secrets, PII
+#   role-ization, codename generalization, financial-value aggregation,
+#   dual rescan) + 10% human sample audit (7/7 pass, seeded). Final scan:
+#   0 credential/PII/schema failures across all files
+#   (tools/xerj_pack_scan.py, selftest 5/5, fails=0 warns=17 all /root/
+#   generic paths).
+#
+# Identity: records are unique by id (nst-<session-key>); no alias resolution
+# exists — one session = one record, 70 envelopes -> 70 records. Each record:
+# id, session_date, task_topic (semantic slice), context,
+# attempted[]/failed_attempts[] (verbatim diagnosis), final_fix (with
+# evidence_sha16), verdict (pass/fail/partial), sources, sanitized flag.
+
+[recipe]
+format = 1
+name = "agent-session-trajectories"
+description = "Sanitized multi-session agent trajectories from a production multi-agent org: failure turns kept verbatim, topic-sliced, with final fixes and evidence hashes"
+
+[[sources]]
+slug = "nautilus-ops"
+kind = "git"
+url = "https://github.com/chunxiaoxx/nautilus-compass"
+glob = "runtime/xerj_pack/pr_ready/agent-session-trajectories.jsonl"
+format = "flat"
+licence = "CC-BY-4.0"
+
+[envelope]
+id_from = ["id"]
+title_from = ["task_topic", "id"]
+body_join = ["context", "attempted", "final_fix"]
+defs_from = ["failed_attempts", "verdict", "session_date"]
+
+[identity]
+# id: one session = one record; single source, no cross-source aliases —
+# the merged count is exactly the envelope count (70 -> 70).
+edges = [{ field = "id" }]
+canonical_source_order = ["nautilus-ops"]
+
+[merge]
+# single source — nothing to merge; id uniqueness is the whole contract.
+precedence = ["nautilus-ops"]
+
+[emit]
+shards = 16
