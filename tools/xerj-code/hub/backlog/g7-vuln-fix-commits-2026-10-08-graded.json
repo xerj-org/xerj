@@ -1,0 +1,74 @@
+{
+ "graded_at": "2026-10-08",
+ "corpora": {
+  "vuln-fix-commits": {
+   "median": 4.0,
+   "graded_at": "2026-10-08",
+   "verdict": "pass",
+   "corpus_pin": "project-kb @3f7ce8ceb90e0f57d900edf5213b1bad5fc7f465, curated rebuild finished 2026-10-08: 328,891 searchable records, batched finalize-verify (#1259 lane) passed all 97 windows against the catalog",
+   "queries": [
+    {
+     "q": "chat template names written as jinja files path traversal outside the target directory",
+     "expect": "the huggingface/transformers fix for CVE-2026-9856 in top-5, template names like ../../foo flowing into os.path.join letting a saved repo write outside chat_template_dir",
+     "verdict": "pass",
+     "top5": [
+      "payloads/huggingface_transformers@eaaaf8494dd5386634ae37d1d122212fdc315be5.json",
+      "payloads/huggingface_transformers@eaaaf8494dd5386634ae37d1d122212fdc315be5.json",
+      "payloads/node-modules_compressing@8d16c196c7f1888fc1af957d9ff36117247cea6c.json",
+      "payloads/node-modules_compressing@ce1c0131c401c071c77d5a1425bf8c88cfc16361.json",
+      "payloads/crewAIInc_crewAI@713fa7d.json"
+     ]
+    },
+    {
+     "q": "SSRF external reference URL probe validate resolved IP address",
+     "expect": "the flowintel fix for CVE-2026-9813 in top-5, mitigating server-side request forgery in the external reference URL probe",
+     "verdict": "pass",
+     "top5": [
+      "payloads/agentfront_mcp-from-openapi@be3409cce6e97642696d4ee5a4e4e2712490b277.json",
+      "payloads/agentfront_frontmcp@96a78eaa5c6c4bc51cced557d83d1a03344cb03d.json",
+      "payloads/flowintel_flowintel@68b523b47854c54bf36fd706c0fd5353063b5409.json",
+      "payloads/agentfront_frontmcp@96a78eaa5c6c4bc51cced557d83d1a03344cb03d.json",
+      "payloads/Quenary_tugtainer@c0294d0ab64985b135d0c5b566ac30bf8371f9c3.json"
+     ]
+    },
+    {
+     "q": "notification bell XSS innerHTML replaced with textContent DOM methods",
+     "expect": "the MISP/cti-transmute fix for CVE-2026-9806 in top-5, rebuilding notification items via DOM methods instead of innerHTML to stop XSS from malicious convert names",
+     "verdict": "pass",
+     "top5": [
+      "payloads/MISP_cti-transmute@cf42409badc27b13d9bb644b9175aa7f27e11259.json",
+      "payloads/wekan_wekan@2d32e34621d340b00be4f66a6a2106ab4575cc70.json",
+      "payloads/agorafoundation_agora@b087490042cb131963b524d0f86511a63a7ff085.json",
+      "payloads/Lookyloo_lookyloo@8c3ab96de44c1ce15646d734aa06faf884329116.json",
+      "payloads/Lookyloo_lookyloo@8c3ab96de44c1ce15646d734aa06faf884329116.json"
+     ]
+    },
+    {
+     "q": "MMU access rights check unaligned address range last page not checked",
+     "expect": "the OP-TEE fix for CVE-2019-1010293 in top-5, tee_mmu_check_access_rights missing the final page of a TA buffer when start and length are unaligned",
+     "verdict": "pass",
+     "top5": [
+      "payloads/OP-TEE_optee_os@95f36d661f2b75887772ea28baaad904bde96970.json",
+      "payloads/freescout-helpdesk_freescout@33639a89554998dcac645613130a27ac7872605e.json",
+      "payloads/beaugunderson_ip-address@56368cb3d66c73ba0ee9b6b834fd31b22c2fd71e.json",
+      "payloads/beaugunderson_ip-address@469ead1231b4cc059f2150c626e1e0c2895c0134.json",
+      "payloads/beaugunderson_ip-address@8b34a21e0839b37c094066816fb2c2c48a2adcf5.json"
+     ]
+    },
+    {
+     "q": "stack buffer overflow yaffs filesystem stat time string buffer too small",
+     "expect": "the sleuthkit fix for CVE-2020-10232 in top-5, growing the yaffsfs_istat time buffer to what tsk_fs_time_to_str requires",
+     "verdict": "miss",
+     "top5": [
+      "payloads/bacnet-stack_bacnet-stack@4e1176394a5ae50d2fd0b5790d9bff806dc08465.json",
+      "payloads/pterodactyl_wings@d1c0ca526007113a0f74f56eba99511b4e989287.json",
+      "payloads/python_typed_ast@156afcb26c198e162504a57caddfe0acd9ed7dce.json",
+      "payloads/michaelrsweet_pdfio@4f10021e7ee527c1aa24853e2947e38e154d9ccb.json",
+      "payloads/Ysurac_openmptcprouter@09393d1c41a227bea7d5b85c0a06221b1302b25f.json"
+     ],
+     "note": "needle unranked in the returned set: the 2020-era sleuthkit yaffsfs_istat payload lost to newer buffer-overflow payloads on generic terms (buffer/string/small); the four 2026-era needles with distinctive function/verdict prose all ranked top-3."
+    }
+   ]
+  }
+ }
+}

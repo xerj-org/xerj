@@ -1,0 +1,22 @@
+{
+ "corpus": "vuln-fix-commits",
+ "cloned_at": "2026-10-07T14:58:25Z",
+ "repos": [
+  {
+   "repo": "project-kb",
+   "url": "https://github.com/SAP/project-kb",
+   "licence": "Apache-2.0",
+   "sha": "3f7ce8ceb90e0f57d900edf5213b1bad5fc7f465",
+   "files": 29272,
+   "bytes": 402299023,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "xerj-org",
+    "at": "2026-10-08",
+    "note": "Fix commits for 24,025 CVEs: 29,240 payload records (cve, repo, sha, full commit message, stats, per-file patches) fetched from the project-kb inventory at the pinned sha, beside the MSR2019 dataset (cve/repo/fixcommit + vulnerable version ranges) and the kaybee ground-truth records (buggy/fixed function bodies). Curated after the first G7 run answered every query from the HARVESTING TOOL's own source and its fetch inventory: prospector/kaybee tool code, evaluation artifacts, and inventory-cve.jsonl (27,682 passages duplicating payload cve/repo/sha with zero prose) moved out of the indexed tree (kept verbatim in a quarantine dir; corpus.json carries the exclusion list). Retrieval history: the pre-registered g7-vuln-fix-commits-2026-10-08 suite exposed that the payload family maps no standard content field (prose lives in 'message'), which both the #1246 quarter-union gate and the empty synthesized 'text' slot made unreachable - fixed client-side in #1251 (own-only index families join as ^0.5 recall legs), then the corpus rebuilt curated. Graded evidence: backlog/g7-vuln-fix-commits-2026-10-08-graded.json."
+   }
+  }
+ ],
+ "note": "Cyber-exploits group member: the fix-commit leg connecting CVE records to the patches that closed them. Era spread 2014-2026, 8,849 CVEs from 2026."
+}

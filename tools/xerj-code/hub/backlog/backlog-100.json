@@ -3603,7 +3603,7 @@
    "cat": "SEC",
    "lane": "A",
    "refresh": "weekly",
-   "status": "candidate",
+   "status": "live",
    "domain": "an agent confirming a vulnerability is actually fixed queries this for the fixing commit references (SAP project-kb cvefixcommit)",
    "sources": [
     {
@@ -3621,7 +3621,7 @@
      "fix-commits"
     ]
    },
-   "note": "Cloned+reviewed 2026-10-07 (275 files). Small; build queued with the group."
+   "note": "Cloned+reviewed 2026-10-07 (Apache-2.0, adapt-with-attribution). Curated rebuild live 2026-10-08: 328,891 searchable records; harvesting-tool source/evaluation artifacts quarantined out of the indexed tree after the blind first G7 answered from them. Graded g7-vuln-fix-commits-2026-10-08: 4/5 needles in top-5 (three at rank 1) = pass at the >=4 bar; the miss is a 2020-era needle losing on generic buffer-overflow terms."
   },
   {
    "cat": "DATA",
