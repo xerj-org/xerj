@@ -45122,8 +45122,9 @@ fn geo_coord(v: &Value) -> Option<f64> {
 /// that issue #230 names as the standing invariant; and the pre-flush answer
 /// was also the wrong one (ES's standard analyzer keeps `don't` whole).
 ///
-/// Callers pass field text that upstream has already lowercased; the
-/// pipeline's lowercase filter is idempotent, so that is harmless.
+/// `match` (both sides) and `match_phrase` (query side) tokenize with it too
+/// (#1280), so they pass raw text; some callers pass text that upstream has
+/// already lowercased, which the idempotent lowercase filter makes harmless.
 fn phrase_tokens(text: &str) -> Vec<String> {
     static STANDARD: std::sync::OnceLock<std::sync::Arc<xerj_fts::analyzer::AnalyzerPipeline>> =
         std::sync::OnceLock::new();
@@ -45856,9 +45857,14 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                 // `whitespace` analyzer splits only on ASCII whitespace.
                 query.split_whitespace().map(str::to_string).collect()
             } else {
-                query
-                    .to_lowercase()
-                    .split(|c: char| !c.is_alphanumeric())
+                // The standard analyzer, as on the segment side (#1280). A
+                // `!is_alphanumeric()` split is not UAX#29: it keeps a run of
+                // Han ideographs as ONE token where the analyzer emits one per
+                // character, so a CJK `match` scanned here matched nothing
+                // until `_refresh`; and it splits `foo_bar`, `don't` and
+                // `3.14`, so `foo` matched here and not after `_refresh`.
+                phrase_tokens(query)
+                    .into_iter()
                     .filter(|w| {
                         w.len() >= 2
                             || w.chars()
@@ -45866,7 +45872,6 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
                                 .map(|c| c.is_ascii_digit())
                                 .unwrap_or(false)
                     })
-                    .map(|w| w.to_string())
                     .collect()
             };
             if q_tokens.is_empty() {
@@ -45874,15 +45879,19 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
             }
 
             // Token-level match (ES standard-analyzer semantics): tokenize
-            // the field value on non-alphanumeric boundaries, then check
-            // token equality — NOT substring. Using substring would make
-            // `match(jump)` match "jumparound" which ES does not.
+            // the field value with the same analyzer as the query, then
+            // check token equality — NOT substring. Using substring would
+            // make `match(jump)` match "jumparound" which ES does not.
             let tokenize = |s: &str| -> Vec<String> {
-                fold(s)
-                    .split(|c: char| !c.is_alphanumeric())
-                    .filter(|t| !t.is_empty())
-                    .map(str::to_string)
-                    .collect()
+                if preserve_case {
+                    fold(s)
+                        .split(|c: char| !c.is_alphanumeric())
+                        .filter(|t| !t.is_empty())
+                        .map(str::to_string)
+                        .collect()
+                } else {
+                    phrase_tokens(s)
+                }
             };
             // How many of the query tokens must be present. `operator:and`
             // requires all; `operator:or` requires 1 by default, or
@@ -46132,12 +46141,10 @@ fn doc_matches_query_typed(q: &QueryNode, source: &Value, schema: &Schema) -> bo
         QueryNode::MatchPhrase {
             field, query, slop, ..
         } => {
-            let query_tokens: Vec<String> = query
-                .to_lowercase()
-                .split(|c: char| !c.is_alphanumeric())
-                .filter(|t| !t.is_empty())
-                .map(str::to_string)
-                .collect();
+            // The same analyzer as the field side below (#1280): a split here
+            // made `报表` one query term against the field's `报`,`表`, and
+            // `3.14` two terms against the field's one.
+            let query_tokens: Vec<String> = phrase_tokens(query);
             // Real ES tokenizes whatever the field holds — a
             // `boolean`/numeric field's value is just its string form
             // ("true"/"false", "42") for phrase-matching purposes. Pre-fix

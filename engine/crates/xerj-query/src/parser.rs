@@ -2169,6 +2169,10 @@ fn parse_qs_unary(
             let scoped = QsFields {
                 default_field: Some(&field),
                 fields: &[],
+                // Inherit the clause's leniency (#1284) into the scoped
+                // `field:( … )` group (#1298), as every other recursion
+                // site in this parser does.
+                lenient: ctx.lenient,
             };
             parse_qs_unary(toks, pos, scoped, default_op)
         }
