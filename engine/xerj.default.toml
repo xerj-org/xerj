@@ -539,7 +539,8 @@ turbo_fast_analyzer = false
 # [cluster]
 # enabled     = true
 # port        = 9300
-# peers       = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
+# peers       = ["10.0.0.2:9300=10.0.0.2:9300", "10.0.0.3:9300=10.0.0.3:9300"]
+#               # label must equal address, or the node refuses to start (#1171)
 # tick_ms     = 50
 # auth_secret = ""
 

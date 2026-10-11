@@ -666,7 +666,7 @@ inter-node consensus and search:
 [cluster]
 enabled     = true
 port        = 9300
-peers       = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
+peers       = ["10.0.0.2:9300=10.0.0.2:9300", "10.0.0.3:9300=10.0.0.3:9300"]  # label = address (#1171)
 tick_ms     = 50
 auth_secret = "…"   # or XERJ_CLUSTER_AUTH_SECRET; same value on every node
 ```

@@ -137,7 +137,7 @@ usage, an unreachable node, or the 30-day staleness refusal.
 `rrf=<0.1234>`), `@no q="<query>" why=no-match-in-corpus` for a miss, and
 `@mode <arms-ran note>` for the hybrid/semantic note line.
 
-Agents without a shell get the same pipeline as the eleventh MCP tool,
+Agents without a shell get the same pipeline as an MCP tool,
 `xerj_code_search` (`xerj mcp`) — byte-identical text, with refusals mapped to
 `isError: true`, a no-match mapped to `isError: false`, and an optional
 `licence_policy: "strict"` that strips passage text from restricted-licence

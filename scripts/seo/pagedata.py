@@ -357,7 +357,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "docs/env.html": dict(
         label="Environment variables", kind="techarticle",
-        description="XERJ reads only two environment variables — XERJ_CONFIG for the config path and XERJ_LOG for the tracing filter. Every other behaviour lives in the TOML.",
+        description="Every environment variable the xerj binary reads — config path, log filter, server overrides, secrets, client settings — and which one wins over the TOML.",
     ),
     "docs/api-native.html": dict(
         label="Native REST API", kind="techarticle",

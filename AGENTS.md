@@ -151,14 +151,17 @@ do not inherit a shell `PATH`. Add `"XERJ_AUTH": "ApiKey <key>"` when the node
 is not running `--insecure` — the key is `<data-dir>/admin.key`. `--url` and
 `--auth` flags override the two environment variables.
 
-Eleven tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
+Thirteen tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
 `xerj_hybrid_search`, `xerj_memory_store`, `xerj_memory_recall`,
 `xerj_brain_overview`, `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_unlink`,
-`xerj_code_search`. The first ten are each a *thin proxy*: they build exactly
-the request the ES-compatible surface already accepts and hand back whatever the
-engine returned, errors and refusals verbatim — no capability of their own, so
-anything you can do over MCP you can also do with `curl`, and vice versa. The
-eleventh, `xerj_code_search` (#977), is deliberately not a thin proxy: it runs
+`xerj_plan`, `xerj_map`, `xerj_code_search`. The first eleven are each a *thin
+proxy*: they build exactly the request the ES-compatible surface already accepts
+(`xerj_plan` is `POST /_ask`, the deterministic rule-based planner) and hand back
+whatever the engine returned, errors and refusals verbatim — no capability of
+their own, so anything you can do over MCP you can also do with `curl`, and vice
+versa. `xerj_map` (#1055) reads the autoindex catalog and returns its per-index
+field map, trimmed to a byte cap but otherwise verbatim. `xerj_code_search`
+(#977) is deliberately not a thin proxy: it runs
 the `xerj code` reference-coding pipeline ([`tools/xerj-code/`](tools/xerj-code/))
 — staleness refusal, licence warnings, no-match-as-guidance — and returns its
 rendered text rather than a raw response.
