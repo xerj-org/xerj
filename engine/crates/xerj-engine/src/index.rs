@@ -37123,10 +37123,28 @@ pub fn proxy_config(
         endpoint: cfg.default_endpoint.clone(),
         api_key: std::env::var("XERJ_EMBEDDING_API_KEY").ok(),
         model: cfg.default_model.clone(),
-        timeout_secs: cfg.timeout_ms / 1000,
+        timeout_ms: cfg.timeout_ms,
         max_concurrent: 4,
         max_retries: 3,
         batch_size: cfg.batch_size.max(1),
+    }
+}
+
+#[cfg(test)]
+mod proxy_config_tests {
+    /// `embedding.timeout_ms` reached the HTTP client as `timeout_ms / 1000`
+    /// whole seconds: 1500 ms became a 1 s timeout and 900 ms became 0 s, so
+    /// a provider answering in 1.2 s failed every request under a 1.5 s
+    /// setting (measured on rc.89 against a mock endpoint).
+    #[test]
+    fn embedding_timeout_reaches_the_proxy_in_milliseconds() {
+        for ms in [900, 1500, 5000] {
+            let cfg = xerj_common::config::EmbeddingConfig {
+                timeout_ms: ms,
+                ..Default::default()
+            };
+            assert_eq!(super::proxy_config(&cfg).timeout_ms, ms);
+        }
     }
 }
 

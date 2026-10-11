@@ -261,6 +261,12 @@ impl Config {
             return Err(XerjError::config("vector.max_dimensions must be > 0"));
         }
 
+        // A zero HTTP timeout fails every embedding request before it is sent
+        // (the `wal_tap.request_timeout_secs` rule).
+        if self.embedding.timeout_ms == 0 {
+            return Err(XerjError::config("embedding.timeout_ms must be at least 1"));
+        }
+
         if !(1..=i32::MAX as usize).contains(&self.limits.max_result_window) {
             return Err(XerjError::config(
                 "limits.max_result_window must be in 1..=2147483647",
@@ -2819,6 +2825,14 @@ mod tests {
         )
         .expect("tls disabled with no paths should be ok");
         assert!(!cfg.tls.enabled);
+    }
+
+    #[test]
+    fn embedding_timeout_must_be_at_least_one_ms() {
+        assert!(Config::from_toml_str("[embedding]\ntimeout_ms = 0\n").is_err());
+        let cfg = Config::from_toml_str("[embedding]\ntimeout_ms = 900\n")
+            .expect("a sub-second timeout is a valid timeout");
+        assert_eq!(cfg.embedding.timeout_ms, 900);
     }
 
     #[test]

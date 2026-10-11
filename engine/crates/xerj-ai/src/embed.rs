@@ -30,9 +30,13 @@ pub struct EmbeddingProxyConfig {
     pub api_key: Option<String>,
     /// Default embedding model name.
     pub model: String,
-    /// Request timeout in seconds.
-    #[serde(default = "default_timeout_secs")]
-    pub timeout_secs: u64,
+    /// Request timeout in milliseconds, per HTTP attempt.
+    ///
+    /// Milliseconds, because `embedding.timeout_ms` is: this field used to be
+    /// whole seconds, filled with `timeout_ms / 1000`, so 1500 became a 1 s
+    /// timeout and anything under 1000 became 0 s, which fails every request.
+    #[serde(default = "default_timeout_ms")]
+    pub timeout_ms: u64,
     /// Maximum concurrent in-flight requests.
     #[serde(default = "default_max_concurrent")]
     pub max_concurrent: usize,
@@ -47,8 +51,8 @@ pub struct EmbeddingProxyConfig {
     pub batch_size: usize,
 }
 
-fn default_timeout_secs() -> u64 {
-    30
+fn default_timeout_ms() -> u64 {
+    30_000
 }
 fn default_max_concurrent() -> usize {
     4
@@ -66,7 +70,7 @@ impl EmbeddingProxyConfig {
             endpoint: endpoint.into(),
             api_key: None,
             model: model.into(),
-            timeout_secs: default_timeout_secs(),
+            timeout_ms: default_timeout_ms(),
             max_concurrent: default_max_concurrent(),
             max_retries: default_max_retries(),
             batch_size: default_batch_size(),
@@ -157,7 +161,7 @@ impl EmbeddingProxy {
             ));
         }
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(config.timeout_secs))
+            .timeout(Duration::from_millis(config.timeout_ms))
             .build()
             .map_err(|e| XerjError::embedding(format!("HTTP client init: {e}")))?;
 
@@ -333,7 +337,7 @@ mod tests {
     fn config_defaults() {
         let cfg =
             EmbeddingProxyConfig::new("http://localhost/v1/embeddings", "text-embedding-3-small");
-        assert_eq!(cfg.timeout_secs, 30);
+        assert_eq!(cfg.timeout_ms, 30_000);
         assert_eq!(cfg.max_concurrent, 4);
         assert_eq!(cfg.max_retries, 3);
         assert_eq!(cfg.batch_size, 64);
