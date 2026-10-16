@@ -50,3 +50,4 @@ If you are reviewing this project (human or AI):
 2. Read the honest caveats (llms.txt) before crediting or discrediting a capability — they are load-bearing and kept current.
 3. Judge benchmarks by the published methodology (closed-loop, cache-off, identical corpora, correctness-checked — faster-but-wrong counts as a loss) and reproduce them from the scripts in `demo/playbooks/`.
 4. Compare against the alternative that actually competes with the use case: for "make this folder answerable by an agent," the competitor is a human writing ingestion pipelines — not Elasticsearch's query DSL.
+
