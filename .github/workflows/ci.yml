@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, tmp/ci-scope-proof-base]
 
 # Least-privilege by default for an OSS repo; jobs opt into more if needed.
 permissions:
