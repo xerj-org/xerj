@@ -123,7 +123,9 @@ Two kinds of reference deliberately:
 
 ## How they were indexed
 
-Two commands, both shipped in [`tools/xerj-code/`](../../../tools/xerj-code/):
+Two wrapper scripts, shipped at the time in [`tools/xerj-code/`](../../../tools/xerj-code/)
+(since removed — the `xerj` subcommands that replaced them are listed under
+[How you reproduce it](#how-you-reproduce-it)):
 
 ```sh
 xc-corpus.sh <name> <git-url>…   # shallow clone (--depth 1) + record each repo's licence
@@ -168,7 +170,7 @@ in [`tools/xerj-code/SKILL.md`](../../../tools/xerj-code/SKILL.md).
 
 ## How you reproduce it
 
-The **retrieval half** is shipped and runs as printed: start XERJ, then
+The **retrieval half** ran as follows at the time: start XERJ, then
 `xc-corpus.sh` (or `xc-corpus.sh --from tools/xerj-code/hub/<corpus>.json`, which
 pins the exact commits these runs used) → `xc-index.sh` → `xc.py`. It needs the
 `xerj` binary, `git` and `python3`. To point it at **your own** code, index your
