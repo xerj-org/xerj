@@ -74,6 +74,36 @@ const PREPARED_RECORDS_IDENTITY: &str = "prepared-records-v1";
 const DOCUMENT_IDS_IDENTITY: &str = "document-ids-v1";
 const DETECTOR_DISABLED_IDENTITY: &str = "disabled";
 
+/// Ingest throughput for the summary line and the run document.
+///
+/// The numerator is documents this run submitted, not the live catalog
+/// count. A no-op resume of tokio left 11246 documents live and submitted
+/// 0, and `live / wall` printed 66096.3 docs/sec for a run that sent
+/// nothing. `wall == 0` (a sub-millisecond no-op) stays 0 rather than `inf`.
+pub(crate) fn ingest_docs_per_sec(submitted_this_run: u64, wall_secs: f64) -> f64 {
+    if wall_secs > 0.0 && submitted_this_run > 0 {
+        submitted_this_run as f64 / wall_secs
+    } else {
+        0.0
+    }
+}
+
+/// The indexed-vs-submitted line (#195).
+///
+/// A no-op resume prints `submitted 0 source records from 0 files` next to
+/// a large live count, which reads as "nothing is indexed". When the corpus
+/// is already live and this run sent nothing, say so. A first run
+/// (`submitted > 0`) and an empty corpus (`live == 0`) keep the bare line.
+pub(crate) fn indexed_vs_submitted_line(live: u64, submitted: u64, files: u64) -> String {
+    let mut line = format!(
+        "indexed: {live} documents live; this run submitted {submitted} source records from {files} files"
+    );
+    if live > 0 && submitted == 0 && files == 0 {
+        line.push_str(" (already indexed; nothing new to send)");
+    }
+    line
+}
+
 /// Render the `next:` guidance printed after a successful index run.
 ///
 /// The run's own credential and URL are carried into the printed commands.
@@ -9054,14 +9084,12 @@ fn run_index_report_inner(
     let total_records: u64 = ds_counts.values().sum();
     // #904: ingest throughput, so the cost of a slow embedder (#366) is
     // visible in the summary itself rather than something an operator has
-    // to derive by hand from the elapsed line. `wall` can be 0.0 on a
-    // sub-millisecond run (e.g. an all-resume no-op); reporting 0 docs/sec
-    // there is more honest than a divide-by-zero `inf`.
-    let docs_per_sec = if wall > 0.0 {
-        total_records as f64 / wall
-    } else {
-        0.0
-    };
+    // to derive by hand from the elapsed line. The numerator is what THIS
+    // run submitted. Dividing the live catalog count by `wall` makes a
+    // no-op resume claim tens of thousands of docs/sec. `wall` can be 0.0
+    // on a sub-millisecond run; reporting 0 docs/sec there is more honest
+    // than a divide-by-zero `inf`.
+    let docs_per_sec = ingest_docs_per_sec(records_total.load(Ordering::Relaxed), wall);
     // Run-summary honesty (§6.6.4): what the detectors wrote AND what they
     // could not resolve — a dangling [[link]] is a fact about the corpus, not
     // something to swallow.
@@ -9300,10 +9328,12 @@ fn run_index_report_inner(
         // documents, but submitted records with ZERO live documents is
         // always a defect (and fails above, before this line prints).
         println!(
-            "indexed: {} documents live; this run submitted {} source records from {} files",
-            total_records,
-            records_total.load(Ordering::Relaxed),
-            files_done.load(Ordering::Relaxed),
+            "{}",
+            indexed_vs_submitted_line(
+                total_records,
+                records_total.load(Ordering::Relaxed),
+                files_done.load(Ordering::Relaxed),
+            )
         );
         if !unextracted_archives.is_empty() {
             println!("not indexed — archives are never opened; extract, then run this command on the extracted folder:");
@@ -11254,6 +11284,37 @@ mod generation_contract_identity_tests {
             "an auth-free server must get auth-free hints, got: {hint}"
         );
         assert!(hint.contains("xerj autoindex map --url http://localhost:9200"));
+    }
+
+    /// Resume of an already-indexed tokio tree printed
+    /// `submitted 0 source records from 0 files` beside 11246 live documents
+    /// and `(66096.3 docs/sec)`. The live count is the catalog; the rate is
+    /// this run's submissions.
+    #[test]
+    fn resume_that_sends_nothing_says_already_indexed_and_rates_zero() {
+        let line = indexed_vs_submitted_line(11246, 0, 0);
+        assert!(
+            line.contains("submitted 0 source records from 0 files"),
+            "{line}"
+        );
+        assert!(
+            line.contains("(already indexed; nothing new to send)"),
+            "{line}"
+        );
+        assert!(
+            !indexed_vs_submitted_line(11246, 11246, 861).contains("already indexed"),
+            "a first run that submitted records must keep the bare line"
+        );
+        assert!(
+            !indexed_vs_submitted_line(0, 0, 0).contains("already indexed"),
+            "an empty corpus is not already indexed"
+        );
+        assert_eq!(ingest_docs_per_sec(0, 0.2), 0.0);
+        assert_eq!(ingest_docs_per_sec(0, 0.0), 0.0);
+        assert_eq!(ingest_docs_per_sec(10, 2.0), 5.0);
+        // Live documents must not leak into the rate. The old formula was
+        // `11246 / 0.17 ≈ 66096`.
+        assert_eq!(ingest_docs_per_sec(0, 11246.0 / 66096.3), 0.0);
     }
 
     /// A blind onboarding run found `autoindex` discovering `./data/admin.key`
