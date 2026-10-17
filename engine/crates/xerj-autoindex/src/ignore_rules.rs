@@ -79,16 +79,21 @@ pub const GITIGNORE: &str = ".gitignore";
 pub const XERJIGNORE: &str = ".xerjignore";
 
 /// Build output that is junk in practice but is *not* reliably gitignored —
-/// `vendor/` is committed by Go projects, `dist/` and `build/` are gitignored
-/// in one repo and checked in the next, and a folder full of downloaded
-/// packages is very often not a git repository at all.
+/// `vendor/` is committed by Go projects, `third_party/` and `bower_components/`
+/// are committed dependency trees, `dist/` and `build/` are gitignored in one
+/// repo and checked in the next, and a folder full of downloaded packages is
+/// very often not a git repository at all.
 ///
 /// These are defaults, not law: `--no-default-ignores` turns them off, any
-/// ignore file in the tree outranks them, and `--dry-run` names them as the
-/// reason a directory disappeared.
+/// ignore file in the tree outranks them (`!third_party/` keeps a tree the
+/// operator wants searched), and `--dry-run` names them as the reason a
+/// directory disappeared.
 pub const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "node_modules/",
+    "bower_components/",
     "vendor/",
+    "third_party/",
+    "thirdparty/",
     "target/",
     "dist/",
     "build/",
@@ -1014,6 +1019,49 @@ mod tests {
         write(root, "vendor/lib/lib.go", "x");
         let (kept, _) = survivors(root, IgnoreOptions::default());
         assert_eq!(kept, vec!["vendor/lib/lib.go"], "{kept:?}");
+    }
+
+    /// `third_party/` and `bower_components/` are committed dependency trees.
+    /// They were only delayed to the end of the queue, so a monorepo still
+    /// walked and indexed them. A `!` line puts one back, same as `vendor/`.
+    #[test]
+    fn defaults_prune_committed_dependency_trees() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, "src/lib.rs", "fn main() {}");
+        write(root, "third_party/llvm/Support.cpp", "x");
+        write(root, "thirdparty/dep/dep.c", "x");
+        write(root, "bower_components/jquery/jquery.js", "x");
+        write(root, "kept/third_party_notes.md", "not a directory name");
+
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(
+            kept,
+            vec!["kept/third_party_notes.md", "src/lib.rs"],
+            "{kept:?}"
+        );
+        assert!(
+            report.by_rule.contains_key("<built-in>:third_party/"),
+            "{report:?}"
+        );
+        assert!(
+            report.by_rule.contains_key("<built-in>:bower_components/"),
+            "{report:?}"
+        );
+        assert_eq!(report.dirs_pruned, 3, "{report:?}");
+
+        write(root, ".xerjignore", "!third_party/\n");
+        let (reincluded, _) = survivors(root, IgnoreOptions::default());
+        assert!(
+            reincluded
+                .iter()
+                .any(|p| p == "third_party/llvm/Support.cpp"),
+            "a negation must put the tree back: {reincluded:?}"
+        );
+        assert!(
+            !reincluded.iter().any(|p| p.contains("bower_components")),
+            "the other trees stay pruned: {reincluded:?}"
+        );
     }
 
     #[test]
