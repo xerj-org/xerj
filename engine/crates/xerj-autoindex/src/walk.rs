@@ -485,6 +485,12 @@ fn walk_impl(
             continue;
         }
         if !entry.file_type().is_file() {
+            // Unfollowed symlinks are not files to walkdir. Skipping them
+            // with no report made a tree of links look empty: neither the
+            // file list nor the ignore summary mentioned them.
+            if !follow_symlinks && entry.path_is_symlink() {
+                stack.record_symlink_not_followed();
+            }
             continue;
         }
         if stack.skip_file(entry.path()).is_some() {
@@ -1171,5 +1177,67 @@ mod takeout_noise_tests {
                 "{kept}: {rels:?}"
             );
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod unfollowed_symlink_tests {
+    use super::walk_reporting;
+    use crate::ignore_rules::{IgnoreOptions, NOT_FOLLOWED_RULE};
+    use std::fs;
+    use std::os::unix::fs::symlink;
+
+    /// Default walk: links are omitted from the file list and named on the
+    /// report, once. `--follow-symlinks` indexes a target inside the folder
+    /// under the link's path and still refuses a target outside it.
+    #[test]
+    fn an_unfollowed_symlink_is_named_and_an_inside_target_is_indexed() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("proj");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+        symlink("src/lib.rs", root.join("link-inside.rs")).unwrap();
+        let outside = dir.path().join("secret.txt");
+        fs::write(&outside, "secret").unwrap();
+        symlink(&outside, root.join("link-out.txt")).unwrap();
+
+        let (files, report) = walk_reporting(&root, false, IgnoreOptions::default()).unwrap();
+        let rels: Vec<&str> = files.iter().map(|e| e.rel.as_str()).collect();
+        assert!(rels.contains(&"src/lib.rs"), "{rels:?}");
+        assert!(
+            !rels.iter().any(|r| r.starts_with("link-")),
+            "unfollowed links must not be indexed: {rels:?}"
+        );
+        assert_eq!(
+            report.by_rule.get(NOT_FOLLOWED_RULE).map(|c| c.files),
+            Some(2),
+            "{report:?}"
+        );
+        let lines = report.summary_lines().join("\n");
+        assert_eq!(lines.matches("--follow-symlinks").count(), 1, "{lines}");
+        assert!(lines.contains(NOT_FOLLOWED_RULE), "{lines}");
+
+        let (followed, followed_report) =
+            walk_reporting(&root, true, IgnoreOptions::default()).unwrap();
+        let frels: Vec<&str> = followed.iter().map(|e| e.rel.as_str()).collect();
+        assert!(
+            frels.contains(&"link-inside.rs"),
+            "an inside target is indexed under the link path: {frels:?}"
+        );
+        assert!(
+            !frels.contains(&"link-out.txt"),
+            "a target outside the folder stays refused: {frels:?}"
+        );
+        assert!(
+            !followed_report.by_rule.contains_key(NOT_FOLLOWED_RULE),
+            "{followed_report:?}"
+        );
+        assert!(
+            followed_report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("symlink:outside-root")),
+            "{followed_report:?}"
+        );
     }
 }

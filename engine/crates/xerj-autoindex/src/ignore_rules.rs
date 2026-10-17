@@ -137,6 +137,14 @@ pub const UNRESOLVED_LINK_RULE: &str = "symlink:unresolved";
 /// Both were tried; this names the two facts that are actually true.
 pub const HIDDEN_OUTSIDE_ROOT_RULE: &str = "symlink:outside-root+hidden";
 
+/// A symlink the walk did not follow. The default is not to follow links, and
+/// an unfollowed symlink is not a file to walkdir, so it used to be skipped
+/// with no line on the ignore report — a tree of links looked empty. One
+/// warning names `--follow-symlinks`; each link is counted under this rule.
+/// A target outside the folder stays refused even when the flag is on
+/// ([`ESCAPED_ROOT_RULE`]).
+pub const NOT_FOLLOWED_RULE: &str = "symlink:not-followed";
+
 const MAX_WARNINGS: usize = 20;
 /// Directory entries the `--dry-run` deep count may examine in total. A
 /// pathological `node_modules` is not allowed to turn "tell me the plan" into
@@ -740,6 +748,19 @@ impl IgnoreStack {
         } else {
             self.record_file(HIDDEN_OUTSIDE_ROOT_RULE);
         }
+    }
+
+    /// A symlink left unfollowed. See [`NOT_FOLLOWED_RULE`]. The warning is
+    /// once per walk: the rule count already says how many links.
+    pub fn record_symlink_not_followed(&mut self) {
+        if !self.report.by_rule.contains_key(NOT_FOLLOWED_RULE) {
+            self.warn(
+                "symlink: not followed (pass --follow-symlinks to index a target inside \
+                 this folder; a target outside it stays refused)"
+                    .into(),
+            );
+        }
+        self.record_file(NOT_FOLLOWED_RULE);
     }
 
     /// A followed entry that could not be resolved. See [`UNRESOLVED_LINK_RULE`].
