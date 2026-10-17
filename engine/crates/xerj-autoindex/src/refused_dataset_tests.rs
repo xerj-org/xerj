@@ -320,3 +320,25 @@ fn the_recorded_reason_is_bounded_and_cannot_forge_a_line() {
          {\"error\":{\"reason\":\"mapper [value] cannot be changed\"}}"
     );
 }
+
+/// A prefix that already maps `body` as `semantic_text` refuses a second
+/// folder that wants `text`. The raw 400 is the server's sentence; the line
+/// also has to say that retrying this prefix will not index the folder.
+#[test]
+fn a_mapping_type_clash_says_to_pick_a_new_prefix() {
+    let reason = "PUT /smoke-nb-docs/_mapping failed: 400 Bad Request \
+        mapper [body] cannot be changed from type [semantic_text] to [text]";
+    let line = refused_dataset_line("docs", 4, reason);
+    assert!(line.starts_with("REFUSED dataset docs (4 file(s) recorded as junk, not indexed): "));
+    assert!(
+        line.contains("new --prefix") && line.contains("new --state-dir"),
+        "{line}"
+    );
+    assert!(!line.contains('\n'), "{line}");
+
+    let other = refused_dataset_line("docs", 1, "mapper [value] of different type");
+    assert!(
+        !other.contains("new --prefix"),
+        "only the type-clash wording adds the prefix sentence: {other}"
+    );
+}

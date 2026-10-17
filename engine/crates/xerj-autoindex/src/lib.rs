@@ -1333,6 +1333,23 @@ fn generated_exit_code(summary: &Value) -> i32 {
     }
 }
 
+/// The human `REFUSED dataset` line.
+///
+/// A type clash (`cannot be changed from type`) means this prefix's index
+/// already exists with a different mapping. Retrying the same prefix records
+/// the files as junk again; a new `--prefix` and `--state-dir` is the way out.
+pub(crate) fn refused_dataset_line(dataset: &str, files: usize, reason: &str) -> String {
+    let mut line = format!(
+        "REFUSED dataset {dataset} ({files} file(s) recorded as junk, not indexed): {reason}"
+    );
+    if reason.contains("cannot be changed from type") {
+        line.push_str(
+            " The prefix's index already has a different field type. Index this folder with a new --prefix and a new --state-dir.",
+        );
+    }
+    line
+}
+
 /// Terminal progress line for a run that ends on the generated `--no-graph`
 /// path.
 ///
@@ -4993,8 +5010,8 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         // refused datasets again instead of only the run that met the refusal.
         for refusal in &committed_refusals {
             println!(
-                "REFUSED dataset {} ({} file(s) recorded as junk, not indexed): {}",
-                refusal.0, refusal.1, refusal.2
+                "{}",
+                refused_dataset_line(&refusal.0, refusal.1, &refusal.2)
             );
         }
         if !unextracted_archives.is_empty() {

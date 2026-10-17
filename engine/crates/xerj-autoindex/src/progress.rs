@@ -655,10 +655,7 @@ impl Progress {
                     doc.insert((*key).to_string(), (*value).into());
                 }
                 if ok && exit == 3 {
-                    doc.insert(
-                        "exit_meaning".into(),
-                        "success: junk was recorded, the run did not fail".into(),
-                    );
+                    doc.insert("exit_meaning".into(), Self::exit3_note(extra).into());
                 }
                 let line = serde_json::Value::Object(doc);
                 self.sink.write(format!("{line}\n").as_bytes());
@@ -681,12 +678,35 @@ impl Progress {
                 }
                 line.push('\n');
                 if ok && exit == 3 {
-                    line.push_str(
-                        "xerj-note exit=3 means success: junk was recorded, the run did not fail\n",
-                    );
+                    line.push_str(&format!(
+                        "xerj-note exit=3 means {}\n",
+                        Self::exit3_note(extra)
+                    ));
                 }
                 self.sink.write(line.as_bytes());
             }
+        }
+    }
+
+    /// What `exit=3` means on this run.
+    ///
+    /// Junk that was recorded beside a real corpus is success. A mapping
+    /// refusal that indexed nothing is not: `datasets_refused` with
+    /// `records=0` used to print the success sentence anyway.
+    fn exit3_note(extra: &[(&str, u64)]) -> &'static str {
+        let value = |key: &str| {
+            extra
+                .iter()
+                .find(|(k, _)| *k == key)
+                .map(|(_, n)| *n)
+                .unwrap_or(0)
+        };
+        if value("datasets_refused") > 0 && value("records") == 0 {
+            "not a searchable corpus: datasets_refused and records=0, so nothing was indexed. Read the REFUSED line; a mapping clash on an existing prefix needs a new --prefix and --state-dir"
+        } else if value("datasets_refused") > 0 {
+            "indexed the datasets the server accepted. Refused datasets are not searchable; read the REFUSED line"
+        } else {
+            "success: junk was recorded, the run did not fail"
         }
     }
 
@@ -2190,6 +2210,55 @@ mod tests {
                 "xerj-note exit=3 means success: junk was recorded, the run did not fail"
             ),
             "{text}"
+        );
+    }
+
+    /// Reusing a prefix whose index already has a different field type refuses
+    /// the dataset, records zero, and exits 3. That is not "junk was recorded,
+    /// the run did not fail". A refusal beside a real record count still
+    /// indexes the rest.
+    #[test]
+    fn a_total_mapping_refusal_is_not_described_as_success() {
+        let (progress, buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        progress.finish(
+            true,
+            3,
+            "completed-with-junk",
+            &[
+                ("files", 0),
+                ("records", 0),
+                ("datasets_refused", 1),
+                ("files_refused", 4),
+            ],
+        );
+        let text = captured(&buffer);
+        assert!(
+            text.contains("datasets_refused=1") && text.contains("records=0"),
+            "{text}"
+        );
+        assert!(
+            text.contains("not a searchable corpus") && text.contains("new --prefix"),
+            "{text}"
+        );
+        assert!(!text.contains("success: junk was recorded"), "{text}");
+
+        let (progress, buffer) = Progress::capture(Surface::Json, Duration::from_secs(3600));
+        progress.finish(
+            true,
+            3,
+            "completed-with-junk",
+            &[
+                ("records", 40),
+                ("datasets_refused", 1),
+                ("files_refused", 2),
+            ],
+        );
+        let text = captured(&buffer);
+        let last: serde_json::Value = serde_json::from_str(text.lines().last().unwrap()).unwrap();
+        let meaning = last["exit_meaning"].as_str().unwrap();
+        assert!(
+            meaning.contains("not searchable") && !meaning.contains("nothing was indexed"),
+            "{meaning}"
         );
     }
 
