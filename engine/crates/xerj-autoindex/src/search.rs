@@ -23,7 +23,8 @@ OPTIONS:
     --url <U>       node endpoint (default $XERJ_URL or http://localhost:9200)
     --prefix <P>    index prefix to search (default \"ax\" — what `xerj autoindex` writes)
     --api-key <K>   Authorization (or $XERJ_API_KEY; --insecure nodes need none)
-    -k <N>          number of passages to return (default 5)
+    -k <N>          number of passages to return (default 5). A non-number is a
+                    usage error, not a silent default
     --full <CHARS>  max characters of each passage to print (default 600)
     --json          print the raw response instead of formatted passages
 
@@ -486,40 +487,116 @@ fn catalog_run_prefixes(es: &Es) -> Option<Vec<String>> {
     Some(prefixes.into_iter().collect())
 }
 
-/// Entry point for the `search` subcommand. Returns a process exit code.
-pub fn run_search_cli() -> i32 {
-    let mut url = std::env::var("XERJ_URL")
-        .ok()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_default();
-    let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
+/// Default `--full` width, and the width suggested when the user asked for 0.
+const DEFAULT_FULL_CHARS: usize = 600;
+
+/// `-k` / `--full`. A value that does not parse used to be consumed and
+/// dropped, so `xerj search -k abc` kept the default of 5 and never said so.
+pub(crate) fn parse_count_arg(flag: &str, next: Option<String>) -> Result<usize, String> {
+    match next {
+        Some(v) => v
+            .parse::<usize>()
+            .map_err(|_| format!("{flag} must be a non-negative whole number, got '{v}'")),
+        None => Err(format!("{flag} needs a number")),
+    }
+}
+
+/// What `(--full N to see more)` should offer. `full * 2` when `full` is 0
+/// is 0, so the hint told the reader to pass the value that hid the passage.
+pub(crate) fn fuller_than(full: usize) -> usize {
+    if full == 0 {
+        DEFAULT_FULL_CHARS
+    } else {
+        full.saturating_mul(2)
+    }
+}
+
+#[derive(Debug)]
+struct ParsedSearch {
+    url: String,
+    api_key: Option<String>,
+    prefix: String,
+    k: usize,
+    full: usize,
+    as_json: bool,
+    query: Option<String>,
+}
+
+#[derive(Debug)]
+enum SearchCli {
+    Help,
+    Query(ParsedSearch),
+}
+
+fn parse_search_cli(
+    args: impl Iterator<Item = String>,
+    mut url: String,
+    mut api_key: Option<String>,
+) -> Result<SearchCli, String> {
     let mut prefix = "ax".to_string();
     let mut k: usize = 5;
-    let mut full: usize = 600;
+    let mut full: usize = DEFAULT_FULL_CHARS;
     let mut as_json = false;
     let mut query: Option<String> = None;
 
-    // Skip argv[0] (binary) + argv[1] ("search").
-    let mut it = xerj_common::argv::args_after_subcommand().into_iter();
+    let mut it = args;
     while let Some(a) = it.next() {
         match a.as_str() {
-            "-h" | "--help" => {
-                print!("{USAGE}");
-                return 0;
-            }
+            "-h" | "--help" => return Ok(SearchCli::Help),
             "--url" => url = it.next().unwrap_or_default(),
             "--prefix" => prefix = it.next().unwrap_or(prefix),
             "--api-key" => api_key = it.next(),
-            "-k" => k = it.next().and_then(|s| s.parse().ok()).unwrap_or(k),
-            "--full" => full = it.next().and_then(|s| s.parse().ok()).unwrap_or(full),
+            "-k" => k = parse_count_arg("-k", it.next())?,
+            "--full" => full = parse_count_arg("--full", it.next())?,
             "--json" => as_json = true,
             other if !other.starts_with('-') && query.is_none() => query = Some(other.to_string()),
-            other => {
-                eprintln!("xerj search: unexpected argument '{other}'\n\n{USAGE}");
-                return 2;
-            }
+            other => return Err(format!("unexpected argument '{other}'")),
         }
     }
+    Ok(SearchCli::Query(ParsedSearch {
+        url,
+        api_key,
+        prefix,
+        k,
+        full,
+        as_json,
+        query,
+    }))
+}
+
+/// Entry point for the `search` subcommand. Returns a process exit code.
+pub fn run_search_cli() -> i32 {
+    let url = std::env::var("XERJ_URL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_default();
+    let api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
+
+    // Arguments after the subcommand, including a flag that was written before it.
+    let parsed = match parse_search_cli(
+        xerj_common::argv::args_after_subcommand().into_iter(),
+        url,
+        api_key,
+    ) {
+        Ok(SearchCli::Help) => {
+            print!("{USAGE}");
+            return 0;
+        }
+        Ok(SearchCli::Query(parsed)) => parsed,
+        Err(e) => {
+            eprintln!("xerj search: {e}\n\n{USAGE}");
+            return 2;
+        }
+    };
+    let ParsedSearch {
+        mut url,
+        mut api_key,
+        prefix,
+        k,
+        full,
+        as_json,
+        query,
+    } = parsed;
 
     let query = match query {
         Some(q) if !q.trim().is_empty() => q,
@@ -650,7 +727,7 @@ pub fn run_search_cli() -> i32 {
                 println!("    {l}");
             }
             if text.chars().count() > full {
-                println!("    … (--full {} to see more)", full * 2);
+                println!("    … (--full {} to see more)", fuller_than(full));
             }
         }
     }
@@ -665,6 +742,46 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    fn words(args: &[&str]) -> Vec<String> {
+        args.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn a_non_numeric_k_is_a_usage_error() {
+        let err = parse_search_cli(
+            words(&["-k", "abc", "flush"]).into_iter(),
+            String::new(),
+            None,
+        )
+        .expect_err("-k abc must not be ignored");
+        assert!(err.contains("-k"), "{err}");
+        assert!(err.contains("abc"), "{err}");
+        assert!(parse_count_arg("--full", Some("nope".into()))
+            .unwrap_err()
+            .contains("nope"));
+        assert!(parse_count_arg("-k", None)
+            .unwrap_err()
+            .contains("needs a number"));
+    }
+
+    #[test]
+    fn a_zero_full_hint_offers_the_default_width() {
+        assert_eq!(fuller_than(0), DEFAULT_FULL_CHARS);
+        assert_ne!(fuller_than(0), 0);
+        assert_eq!(fuller_than(600), 1200);
+        let parsed = parse_search_cli(
+            words(&["--full", "0", "rotate keys"]).into_iter(),
+            String::new(),
+            None,
+        )
+        .unwrap();
+        let SearchCli::Query(parsed) = parsed else {
+            panic!("expected a query");
+        };
+        assert_eq!(parsed.full, 0);
+        assert_eq!(parsed.query.as_deref(), Some("rotate keys"));
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`

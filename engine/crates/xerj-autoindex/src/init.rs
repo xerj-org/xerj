@@ -47,6 +47,7 @@ config for each — with a .bak backup for any file it edits:
 
     .mcp.json                    register the `xerj mcp` server (Claude Code
                                  project scope; merged, other servers kept)
+    .cursor/mcp.json             the same registration for Cursor (if .cursor/)
     .claude/skills/xerj/SKILL.md teach `xerj search` / `xerj def` (10 lines)
 {hub_skill}    .cursor/rules/xerj.mdc       same teaching file for Cursor (if .cursor/)
 {hub_rule}    AGENTS.md                    a short XERJ section (appended if the file
@@ -246,7 +247,8 @@ fn mcp_registration(bin: &str, url: &str) -> String {
     format!(
         "MCP registration for other clients (restart the session after; success: `{MCP_SUCCESS_TOOL}` is in the tool list):\n\
          \x20 Claude Code, every project:  claude mcp add --scope user xerj{env} -- {} mcp\n\
-         \x20 Cursor, Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
+         \x20 Cursor:  `.cursor/mcp.json` when that directory exists (init writes it; root key \"mcpServers\")\n\
+         \x20 Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
          \x20 VS Code (.vscode/mcp.json):  root key \"servers\", not \"mcpServers\"; the entry needs \"type\": \"stdio\"",
         shell_quote(bin)
     )
@@ -363,22 +365,22 @@ fn write_teaching_file(path: &Path, content: &str, dry: bool) -> Result<String, 
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             write_file(path, &stamped(content), dry).map_err(|e| e.to_string())?;
-            return Ok(report("wrote", path));
+            return Ok(report("wrote", path, dry));
         }
         // Present but unreadable (not UTF-8, no permission): the user's.
-        Err(_) => return Ok(report("kept", path)),
+        Err(_) => return Ok(report("kept", path, dry)),
     };
     match read_stamp(&existing) {
         Stamp::Pristine(v) if v < INIT_FILES_VERSION => {
             backup(path, dry)?;
             write_file(path, &stamped(content), dry).map_err(|e| e.to_string())?;
-            Ok(report("upgraded", path))
+            Ok(report("upgraded", path, dry))
         }
         Stamp::Edited(v) if v < INIT_FILES_VERSION => Ok(format!(
             "{} (edited since xerj init wrote it; not upgraded to v{INIT_FILES_VERSION})",
-            report("kept", path)
+            report("kept", path, dry)
         )),
-        _ => Ok(report("kept", path)),
+        _ => Ok(report("kept", path, dry)),
     }
 }
 
@@ -450,8 +452,37 @@ fn merged_mcp_json(existing: Option<&str>, url: &str) -> Result<String, String> 
 }
 
 /// One detected surface, written. Returns the human line to print.
-fn report(action: &str, path: &Path) -> String {
+///
+/// A dry run used to say `wrote` for a file it did not create. The verb
+/// becomes `would write` / `would merge` / `would append` / `would upgrade`
+/// so the line matches `--dry-run`'s "write nothing".
+fn report(action: &str, path: &Path, dry: bool) -> String {
+    let action = match (dry, action) {
+        (true, "wrote") => "would write",
+        (true, "merged") => "would merge",
+        (true, "appended") => "would append",
+        (true, "upgraded") => "would upgrade",
+        _ => action,
+    };
     format!("  {action:<8} {}", path.display())
+}
+
+/// Merge the xerj server into one MCP config, or report `kept` when the
+/// file already names it. Shared by Claude Code's `.mcp.json` and Cursor's
+/// `.cursor/mcp.json` (same `mcpServers` shape).
+fn register_mcp(path: &Path, url: &str, dry: bool) -> Result<String, String> {
+    let existing = fs::read_to_string(path).ok();
+    let already = existing
+        .as_deref()
+        .map(|t| t.contains("\"xerj\""))
+        .unwrap_or(false);
+    if already {
+        return Ok(report("kept", path, dry));
+    }
+    let merged = merged_mcp_json(existing.as_deref(), url)?;
+    let had = backup(path, dry)?;
+    write_file(path, &merged, dry).map_err(|e| e.to_string())?;
+    Ok(report(if had { "merged" } else { "wrote" }, path, dry))
 }
 
 /// Entry point for the `init` subcommand. Returns a process exit code.
@@ -520,20 +551,12 @@ pub(crate) fn run_init_with(
     let mut out = Vec::new();
 
     // 1) MCP registration (.mcp.json, Claude Code project scope; other hosts
-    //    read the same shape). Merge, never clobber.
-    let mcp_path = cwd.join(".mcp.json");
-    let existing = fs::read_to_string(&mcp_path).ok();
-    let already = existing
-        .as_deref()
-        .map(|t| t.contains("\"xerj\""))
-        .unwrap_or(false);
-    if already {
-        out.push(report("kept", &mcp_path));
-    } else {
-        let merged = merged_mcp_json(existing.as_deref(), url)?;
-        let had = backup(&mcp_path, dry)?;
-        write_file(&mcp_path, &merged, dry).map_err(|e| e.to_string())?;
-        out.push(report(if had { "merged" } else { "wrote" }, &mcp_path));
+    //    read the same shape). Merge, never clobber. Cursor does not read
+    //    that file: when the project already has `.cursor/`, write the same
+    //    entry to `.cursor/mcp.json`.
+    out.push(register_mcp(&cwd.join(".mcp.json"), url, dry)?);
+    if cwd.join(".cursor").is_dir() {
+        out.push(register_mcp(&cwd.join(".cursor/mcp.json"), url, dry)?);
     }
 
     // 2) Claude Code skills — written whenever the project (or user) uses
@@ -580,13 +603,13 @@ pub(crate) fn run_init_with(
     let agents = cwd.join("AGENTS.md");
     match fs::read_to_string(&agents) {
         Ok(text) if text.contains("xerj search") || text.contains("xerj def") => {
-            out.push(report("kept", &agents));
+            out.push(report("kept", &agents, dry));
         }
         Ok(text) => {
             backup(&agents, dry)?;
             write_file(&agents, &format!("{text}{}", agents_md_section()), dry)
                 .map_err(|e| e.to_string())?;
-            out.push(report("appended", &agents));
+            out.push(report("appended", &agents, dry));
         }
         // Unreadable but present (not UTF-8, no permission): never replace it.
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
@@ -602,7 +625,7 @@ pub(crate) fn run_init_with(
                 dry,
             )
             .map_err(|e| e.to_string())?;
-            out.push(report("wrote", &agents));
+            out.push(report("wrote", &agents, dry));
         }
     }
 
@@ -753,9 +776,25 @@ mod tests {
     #[test]
     fn dry_run_writes_nothing() {
         let d = tmp();
-        run_init_in(d.path(), "http://x:1", true).unwrap();
+        let lines = run_init_in(d.path(), "http://x:1", true).unwrap();
         assert!(!d.path().join(".mcp.json").exists());
         assert!(!d.path().join("AGENTS.md").exists());
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("would write") && l.contains(".mcp.json")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("would write") && l.contains("AGENTS.md")),
+            "{lines:?}"
+        );
+        assert!(
+            !lines.iter().any(|l| l.contains("  wrote")),
+            "a dry run must not claim it wrote: {lines:?}"
+        );
     }
 
     #[test]
@@ -763,9 +802,21 @@ mod tests {
         let d = tmp();
         run_init_in(d.path(), "http://x:1", false).unwrap();
         assert!(!d.path().join(".cursor/rules/xerj.mdc").exists());
+        assert!(!d.path().join(".cursor/mcp.json").exists());
         fs::create_dir_all(d.path().join(".cursor")).unwrap();
-        run_init_in(d.path(), "http://x:1", false).unwrap();
+        let lines = run_init_in(d.path(), "http://x:1", false).unwrap();
         assert!(d.path().join(".cursor/rules/xerj.mdc").exists());
+        let cursor: Value =
+            serde_json::from_str(&fs::read_to_string(d.path().join(".cursor/mcp.json")).unwrap())
+                .unwrap();
+        assert!(cursor["mcpServers"]["xerj"]["args"][0] == "mcp");
+        assert!(
+            lines.iter().any(|l| {
+                let l = l.replace('\\', "/");
+                l.contains("wrote") && l.ends_with(".cursor/mcp.json")
+            }),
+            "{lines:?}"
+        );
     }
 
     // ── the hub skill (Corpus Hub v2, plan section 9) ───────────────────
@@ -840,8 +891,18 @@ mod tests {
         let lines = run_init_in(d.path(), "http://x:1", true).unwrap();
         assert!(!d.path().join(".claude/skills").exists());
         assert!(!d.path().join(".cursor/rules").exists());
-        assert!(has_report(&lines, "wrote", "skills/xerj-hub/SKILL.md"));
-        assert!(has_report(&lines, "wrote", "rules/xerj-hub.mdc"));
+        assert!(has_report(
+            &lines,
+            "would write",
+            "skills/xerj-hub/SKILL.md"
+        ));
+        assert!(has_report(&lines, "would write", "rules/xerj-hub.mdc"));
+        assert!(has_report(&lines, "would write", ".cursor/mcp.json"));
+        assert!(!d.path().join(".cursor/mcp.json").exists());
+        assert!(
+            !lines.iter().any(|l| l.contains("  wrote")),
+            "a dry run must not claim it wrote: {lines:?}"
+        );
     }
 
     /// The second run rewrites nothing: all four teaching files are `kept`.
@@ -863,6 +924,7 @@ mod tests {
         ] {
             assert!(has_report(&lines, "kept", tail), "{tail}: {lines:?}");
         }
+        assert!(has_report(&lines, "kept", ".cursor/mcp.json"), "{lines:?}");
     }
 
     /// The reason the file exists: the decision rule, the one line, `--def`,
@@ -1038,6 +1100,7 @@ mod tests {
         let with_hub = usage(true);
         for file in [
             ".mcp.json",
+            ".cursor/mcp.json",
             ".claude/skills/xerj/SKILL.md",
             ".claude/skills/xerj-hub/SKILL.md",
             ".cursor/rules/xerj.mdc",

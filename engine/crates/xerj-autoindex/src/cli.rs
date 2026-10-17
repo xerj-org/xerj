@@ -1668,7 +1668,15 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 exclude_rels: Vec::new(),
             })))
         }
-        _ => Ok(Cmd::Help),
+        // No folder and no subcommand. This used to print the full help and
+        // exit 0, so a bare `xerj autoindex` looked like a successful run.
+        // `--help` / `-h` still return [`Cmd::Help`] above.
+        _ => Err(
+            "a folder is required (`xerj autoindex <folder>`), or use \
+             `xerj autoindex map` / `xerj autoindex status`. \
+             `xerj autoindex --help` prints the full usage"
+                .into(),
+        ),
     }
 }
 
@@ -1676,6 +1684,23 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
 mod tests {
     use super::{parse, Approval, Cmd, Duration, ProgressMode, DEFAULT_MAX_MINUTES};
     use std::path::PathBuf;
+
+    #[test]
+    fn a_bare_autoindex_is_a_usage_error() {
+        let err = parse(Vec::new()).expect_err("bare autoindex must not succeed");
+        assert!(err.contains("a folder is required"), "{err}");
+        assert!(matches!(
+            parse(vec!["--help".into()]).expect("help still parses"),
+            Cmd::Help
+        ));
+        assert!(matches!(
+            parse(vec!["-h".into()]).expect("-h still parses"),
+            Cmd::Help
+        ));
+        let err = parse(vec!["--url".into(), "http://127.0.0.1:9200".into()])
+            .expect_err("flags without a folder are still usage");
+        assert!(err.contains("a folder is required"), "{err}");
+    }
 
     /// A flag that is accepted and silently does nothing is refused, because
     /// the operator who passed it believes the run did something it did not.

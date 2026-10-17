@@ -16,7 +16,8 @@ use std::collections::BTreeSet;
 use crate::esclient::Es;
 use crate::search::{
     corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location, is_identifier,
-    mapped_property_names, numeric_property_names, passage_text, weighted_query_fields,
+    mapped_property_names, numeric_property_names, parse_count_arg, passage_text,
+    weighted_query_fields,
 };
 use serde_json::{json, Value};
 
@@ -298,7 +299,15 @@ pub fn run_def_cli() -> i32 {
             "--url" => url = it.next().unwrap_or_default(),
             "--prefix" => prefix = it.next().unwrap_or(prefix),
             "--api-key" => api_key = it.next(),
-            "-k" => k = it.next().and_then(|s| s.parse().ok()).unwrap_or(k),
+            "-k" => {
+                k = match parse_count_arg("-k", it.next()) {
+                    Ok(n) => n,
+                    Err(e) => {
+                        eprintln!("xerj def: {e}\n\n{USAGE}");
+                        return 2;
+                    }
+                };
+            }
             "--kind" => kind = it.next(),
             "--lang" => lang = it.next(),
             "--json" => as_json = true,
