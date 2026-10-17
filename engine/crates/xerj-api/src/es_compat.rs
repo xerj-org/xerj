@@ -8603,11 +8603,23 @@ fn search_response_hint(index: &str, body: &EsSearchBody, hits: &[EsHit]) -> Opt
 /// that already enumerates valid field names for an unknown one. Prefers
 /// names that share a prefix with, or contain/are contained by, what the
 /// caller typed (the common case: a half-remembered or typo'd dataset
-/// slug); falls back to whatever indices exist at all so the hint is never
+/// slug); falls back to the user indices that exist so the hint is never
 /// empty just because nothing looked textually similar.
+///
+/// Dot-prefixed names (`.xerj_*`, `.xerj-memory-*`) sort first and used to
+/// win that fallback, so a typo suggested the console's own indices. They
+/// stay out of the pool unless the missing name itself is dot-prefixed.
 fn nearby_index_names(missing: &str, available: &[String], limit: usize) -> Vec<String> {
+    let pool: Vec<&String> = if missing.starts_with('.') {
+        available.iter().collect()
+    } else {
+        available
+            .iter()
+            .filter(|name| !name.starts_with('.'))
+            .collect()
+    };
     let missing_lower = missing.to_ascii_lowercase();
-    let mut scored: Vec<(usize, &String)> = available
+    let mut scored: Vec<(usize, &String)> = pool
         .iter()
         .map(|name| {
             let name_lower = name.to_ascii_lowercase();
@@ -8622,12 +8634,12 @@ fn nearby_index_names(missing: &str, available: &[String], limit: usize) -> Vec<
                 } else {
                     0
                 };
-            (common_prefix + substring_bonus, name)
+            (common_prefix + substring_bonus, *name)
         })
         .collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(b.1)));
     if scored.first().is_none_or(|(score, _)| *score == 0) {
-        let mut all: Vec<String> = available.to_vec();
+        let mut all: Vec<String> = pool.iter().map(|n| (*n).clone()).collect();
         all.sort();
         all.truncate(limit);
         return all;
@@ -8639,11 +8651,55 @@ fn nearby_index_names(missing: &str, available: &[String], limit: usize) -> Vec<
         .collect()
 }
 
+/// Where to point an agent after a missing index. `ax-*` is the default
+/// autoindex prefix, so it is the right guess on an empty cluster and on a
+/// cluster that actually has `ax-*` indices. It is the wrong guess when the
+/// node only has other prefixes — name those instead.
+fn index_not_found_guidance(available: &[String]) -> String {
+    let cat = "`GET /_cat/indices?v` lists every index that actually exists.";
+    let ax_sentence = "Data indexed by `xerj autoindex` lives under indices named `ax-*` — \
+         `GET /ax-*/_search` (or any `ax-*` pattern) searches all of it without needing \
+         the exact name, and `GET /_cat/indices?v` lists every index that actually exists.";
+    let user: Vec<&str> = available
+        .iter()
+        .map(String::as_str)
+        .filter(|name| !name.starts_with('.'))
+        .collect();
+    if user.is_empty() {
+        return ax_sentence.to_string();
+    }
+    let mut prefixes: Vec<String> = Vec::new();
+    for name in &user {
+        if let Some((pre, rest)) = name.split_once('-') {
+            if !pre.is_empty() && !rest.is_empty() {
+                let pattern = format!("{pre}-*");
+                if !prefixes.contains(&pattern) {
+                    prefixes.push(pattern);
+                }
+            }
+        }
+    }
+    prefixes.sort();
+    if prefixes.is_empty() {
+        return cat.to_string();
+    }
+    if prefixes.len() == 1 && prefixes[0] == "ax-*" {
+        return ax_sentence.to_string();
+    }
+    let listed = prefixes.join(", ");
+    let ax_note = if prefixes.iter().any(|p| p == "ax-*") {
+        " `GET /ax-*/_search` searches the autoindex prefix."
+    } else {
+        ""
+    };
+    format!("Indices on this node use these prefixes: {listed}.{ax_note} {cat}")
+}
+
 /// Build the additive `_xerj.hints` hint for a `404 index_not_found_exception`
 /// on `_search`. The ES-parity `reason` ("no such index [name]") is fixed
 /// byte-for-byte by conformance tests and untouched here — this only rides
 /// alongside it with something an agent can actually act on: nearby index
-/// names, and the `ax-*` wildcard `xerj autoindex` manages its data under.
+/// names, and the prefix those indices actually use.
 fn index_not_found_hint(missing: &str, available: &[String]) -> Value {
     let candidates = nearby_index_names(missing, available, 5);
     let candidates_line = if candidates.is_empty() {
@@ -8657,10 +8713,8 @@ fn index_not_found_hint(missing: &str, available: &[String]) -> Value {
     json!({
         "hints": [{
             "reason": format!(
-                "no index matches [{missing}]. {candidates_line}Data indexed by `xerj \
-                 autoindex` lives under indices named `ax-*` — `GET /ax-*/_search` (or any \
-                 `ax-*` pattern) searches all of it without needing the exact name, and \
-                 `GET /_cat/indices?v` lists every index that actually exists.",
+                "no index matches [{missing}]. {candidates_line}{}",
+                index_not_found_guidance(available),
             ),
             "candidates": candidates,
         }],
@@ -8919,6 +8973,48 @@ mod search_response_hint_tests {
             .expect("hints array present");
         assert_eq!(hints[0]["candidates"], json!([]));
         assert!(hints[0]["reason"].as_str().unwrap().contains("ax-*"));
+    }
+
+    /// Score-0 fallback used to sort every name and keep the first five.
+    /// `.` sorts before letters, so `.xerj_users` won over `logs-app` and the
+    /// reason still claimed the data lived under `ax-*`.
+    #[tokio::test]
+    async fn index_not_found_hint_skips_system_indices_and_names_the_real_prefix() {
+        let state = test_state();
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("content", FieldType::Text));
+        state
+            .engine
+            .create_index(".xerj_users", schema.clone())
+            .unwrap();
+        state.engine.create_index("logs-app", schema).unwrap();
+        let router = crate::router::build_es_compat_router(state);
+
+        let response = router
+            .oneshot(
+                Request::post("/qqqq/_search")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({"query": {"match_all": {}}}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json["error"]["type"], "index_not_found_exception");
+        assert_eq!(json["error"]["reason"], "no such index [qqqq]");
+        let hints = json["_xerj"]["hints"].as_array().expect("hints");
+        assert_eq!(hints[0]["candidates"], json!(["logs-app"]));
+        let reason = hints[0]["reason"].as_str().unwrap();
+        assert!(reason.contains("logs-*"), "{reason}");
+        assert!(reason.contains("_cat/indices"), "{reason}");
+        assert!(
+            !reason.contains("ax-*"),
+            "must not claim an ax-* corpus that is not on this node: {reason}"
+        );
     }
 }
 
