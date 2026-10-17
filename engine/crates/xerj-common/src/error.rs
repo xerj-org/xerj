@@ -22,6 +22,14 @@ pub enum XerjError {
     #[error("index already exists: {name}")]
     IndexAlreadyExists { name: String },
 
+    /// The caller asked to create or address an index whose name ES would
+    /// reject before any mapping is parsed. Display is the bare reason:
+    /// the HTTP mapper emits `invalid_index_name_exception` and must not
+    /// prefix it the way `InvalidMapping` used to (`invalid mapping:`),
+    /// which is what made `PUT /BadName` look like a mapping error.
+    #[error("{reason}")]
+    InvalidIndexName { index: String, reason: String },
+
     /// The index directory exists but could not be opened, so the index
     /// cannot serve. Deliberately distinct from [`XerjError::IndexNotFound`]:
     /// the name is real, the data is still on disk, and the operator's move is
@@ -159,6 +167,13 @@ impl XerjError {
         Self::IndexAlreadyExists { name: name.into() }
     }
 
+    pub fn invalid_index_name(index: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::InvalidIndexName {
+            index: index.into(),
+            reason: reason.into(),
+        }
+    }
+
     pub fn index_unavailable(index: impl Into<String>, reason: impl Into<String>) -> Self {
         Self::IndexUnavailable {
             index: index.into(),
@@ -293,7 +308,8 @@ impl XerjError {
         match self {
             Self::IndexNotFound { .. } | Self::DocumentNotFound { .. } => 404,
             Self::IndexAlreadyExists { .. } | Self::VersionConflict { .. } => 409,
-            Self::InvalidMapping { .. }
+            Self::InvalidIndexName { .. }
+            | Self::InvalidMapping { .. }
             | Self::InvalidQuery { .. }
             | Self::InvalidDocumentJson { .. }
             | Self::ConfigError { .. }

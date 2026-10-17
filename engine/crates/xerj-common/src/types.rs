@@ -98,8 +98,9 @@ impl IndexName {
     /// es_compat `create_index` surface, #80) can reject `..`/separators/NUL
     /// locally instead of relying solely on the deeper `IndexName::new` guard.
     pub fn validate(name: &str) -> Result<(), XerjError> {
+        let reject = |reason: String| XerjError::invalid_index_name(name, reason);
         if name.len() > 255 {
-            return Err(XerjError::invalid_mapping(format!(
+            return Err(reject(format!(
                 "index name too long: {} chars (max 255)",
                 name.len()
             )));
@@ -108,7 +109,7 @@ impl IndexName {
         // empty-name check into the extraction so the two facts can't
         // drift apart in a future refactor.
         let Some(first) = name.chars().next() else {
-            return Err(XerjError::invalid_mapping("index name cannot be empty"));
+            return Err(reject("index name cannot be empty".to_string()));
         };
         // Reject the literal names "." and ".." and any name containing a
         // path separator. Previously a leading '.' was carved out for system
@@ -116,18 +117,18 @@ impl IndexName {
         // which let `..` through — `IndexName::new("..")` succeeded and
         // `data_dir.join("..")` traversed out of the data directory.
         if name == "." || name == ".." {
-            return Err(XerjError::invalid_mapping(format!(
+            return Err(reject(format!(
                 "index name must not be '.' or '..' (got '{name}')"
             )));
         }
         if name.contains('/') || name.contains('\\') || name.contains('\0') {
-            return Err(XerjError::invalid_mapping(format!(
+            return Err(reject(format!(
                 "index name must not contain a path separator (got '{name}')"
             )));
         }
         // Allow leading '.' for system indices like .kibana, .security-* etc.
         if !first.is_ascii_lowercase() && first != '.' {
-            return Err(XerjError::invalid_mapping(format!(
+            return Err(reject(format!(
                 "index name must start with a lowercase letter or '.', got '{first}'"
             )));
         }
@@ -135,7 +136,7 @@ impl IndexName {
         let rest = if first == '.' { &name[1..] } else { name };
         for ch in rest.chars() {
             if !matches!(ch, 'a'..='z' | '0'..='9' | '-' | '_' | '.') {
-                return Err(XerjError::invalid_mapping(format!(
+                return Err(reject(format!(
                     "index name contains invalid character '{ch}' \
                      (only lowercase letters, digits, '-', '_', '.' allowed)"
                 )));
@@ -145,7 +146,7 @@ impl IndexName {
         // anywhere in the name is a path-traversal vector — reject it the
         // same way the /_memory/{ns} validator does.
         if name.contains("..") {
-            return Err(XerjError::invalid_mapping(format!(
+            return Err(reject(format!(
                 "index name must not contain '..' (got '{name}')"
             )));
         }

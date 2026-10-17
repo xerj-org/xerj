@@ -1059,9 +1059,10 @@ pub async fn create_index(
 
     // Leading dots are allowed for system indices like .kibana, .security-*.
     if index.starts_with('_') || index.starts_with('-') || index.starts_with('+') {
-        let e = xerj_common::XerjError::invalid_mapping(format!(
-            "Invalid index name [{index}]: must not start with '_', '-', or '+'"
-        ));
+        let e = xerj_common::XerjError::invalid_index_name(
+            index.clone(),
+            format!("Invalid index name [{index}]: must not start with '_', '-', or '+'"),
+        );
         return ApiError::new(e).into_response();
     }
 
@@ -1728,6 +1729,64 @@ mod runtime_field_type_tests {
             status.is_success(),
             "lookup is a legal ES runtime field type; got {status} {body}"
         );
+    }
+
+    async fn put_index(path: &str) -> (StatusCode, Value) {
+        let response = crate::router::build_es_compat_router(test_state())
+            .oneshot(
+                Request::put(path)
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+
+    /// `PUT /BadName` used to come back as `mapper_parsing_exception` because
+    /// every name rule was an `InvalidMapping`. ES answers a bad name with
+    /// `invalid_index_name_exception` before it looks at the mapping. A real
+    /// mapping error stays `mapper_parsing_exception` (the runtime-field test
+    /// above).
+    #[tokio::test]
+    async fn create_index_rejects_a_bad_name_as_invalid_index_name_exception() {
+        for (path, needle) in [
+            (
+                "/Bad",
+                "index name must start with a lowercase letter or '.', got 'B'",
+            ),
+            (
+                "/_secret",
+                "Invalid index name [_secret]: must not start with '_', '-', or '+'",
+            ),
+            ("/bad!name", "index name contains invalid character '!'"),
+        ] {
+            let (status, body) = put_index(path).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{path}: {body}");
+            assert_eq!(
+                body["error"]["type"], "invalid_index_name_exception",
+                "{path}: {body}"
+            );
+            assert_eq!(body["status"], 400, "{path}");
+            let reason = body["error"]["reason"].as_str().unwrap_or("");
+            assert!(reason.contains(needle), "{path}: {reason}");
+            assert_eq!(body["error"]["index_uuid"], "_na_", "{path}: {body}");
+            assert_eq!(
+                body["error"]["index"],
+                path.trim_start_matches('/'),
+                "{path}: {body}"
+            );
+            assert_eq!(
+                body["error"]["root_cause"][0]["type"], "invalid_index_name_exception",
+                "{path}"
+            );
+        }
     }
 }
 

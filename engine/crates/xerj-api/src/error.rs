@@ -219,23 +219,27 @@ impl ApiError {
         // index name — several other 404s reuse this variant to carry a
         // sentence (e.g. "index template [x] missing"), which must keep its
         // existing shape. (RC4 Wave-3 item 4f.)
-        let (res_type, res_id, res_uuid, top_index) =
-            if matches!(self.inner, XerjError::IndexNotFound { .. }) {
-                match index_name.as_deref() {
-                    Some(n) if is_plain_index_name(n) => {
-                        reason = format!("no such index [{n}]");
-                        (
-                            Some("index_or_alias".to_string()),
-                            Some(n.to_string()),
-                            Some("_na_".to_string()),
-                            Some(n.to_string()),
-                        )
-                    }
-                    _ => (None, None, None, None),
+        let (res_type, res_id, res_uuid, top_index) = match &self.inner {
+            XerjError::IndexNotFound { .. } => match index_name.as_deref() {
+                Some(n) if is_plain_index_name(n) => {
+                    reason = format!("no such index [{n}]");
+                    (
+                        Some("index_or_alias".to_string()),
+                        Some(n.to_string()),
+                        Some("_na_".to_string()),
+                        Some(n.to_string()),
+                    )
                 }
-            } else {
-                (None, None, None, None)
-            };
+                _ => (None, None, None, None),
+            },
+            // A rejected name is not a mapping problem. ES puts the attempted
+            // name and `index_uuid: "_na_"` on `invalid_index_name_exception`
+            // and leaves the reason as the name rule that failed.
+            XerjError::InvalidIndexName { index, .. } => {
+                (None, None, Some("_na_".to_string()), Some(index.clone()))
+            }
+            _ => (None, None, None, None),
+        };
 
         let http_status =
             StatusCode::from_u16(status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -290,6 +294,7 @@ impl IntoResponse for ApiError {
 /// |---|---|---|
 /// | `IndexNotFound` | `index_not_found_exception` | 404 |
 /// | `IndexAlreadyExists` | `resource_already_exists_exception` | 409 |
+/// | `InvalidIndexName` | `invalid_index_name_exception` | 400 |
 /// | `IndexUnavailable` | `no_shard_available_action_exception` | 503 |
 /// | `DocumentNotFound` | `document_missing_exception` | 404 |
 /// | `InvalidMapping` | `mapper_parsing_exception` | 400 |
@@ -311,6 +316,7 @@ fn xerj_error_type(e: &XerjError) -> String {
         // ── Index lifecycle ───────────────────────────────────────────────
         XerjError::IndexNotFound { .. } => "index_not_found_exception",
         XerjError::IndexAlreadyExists { .. } => "resource_already_exists_exception",
+        XerjError::InvalidIndexName { .. } => "invalid_index_name_exception",
         // The index exists; its only copy cannot be opened. ES reports an
         // existing-but-unallocated index this way, so dashboards that already
         // understand a red shard understand this too.
@@ -359,6 +365,7 @@ fn extract_index_name(e: &XerjError) -> Option<String> {
         XerjError::IndexNotFound { name } | XerjError::IndexAlreadyExists { name } => {
             Some(name.clone())
         }
+        XerjError::InvalidIndexName { index, .. } => Some(index.clone()),
         XerjError::DocumentNotFound { index, .. } => Some(index.clone()),
         XerjError::IndexBlocked { index, .. } | XerjError::IndexUnavailable { index, .. } => {
             Some(index.clone())
