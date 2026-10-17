@@ -5943,21 +5943,9 @@ fn run_index_report_inner(
     // #1102: ping's raw context is honest but teaches a first-time user
     // nothing — autoindex is the onboarding verb, so the no-node case here
     // gets the same recipe `xerj def` already prints: start one, or aim at
-    // an existing node.
+    // an existing node. `xerj autoindex map` uses the same wording.
     if let Err(e) = es.ping() {
-        if esclient::Es::ping_failure_is_auth(&e) {
-            anyhow::bail!(
-                "the node at {url} answered, but authentication failed.\n{e:#}",
-                url = cfg.url
-            );
-        }
-        anyhow::bail!(
-            "no XERJ node reachable at {url} ({e:#})\n\n\
-             Start one, then re-run this command:\n  \
-             xerj --insecure --data-dir ./.xerj-data &\n\n\
-             (or point at an existing node with --url / $XERJ_URL)",
-            url = cfg.url
-        );
+        anyhow::bail!("{}", node_ping_failure(&cfg.url, &e));
     }
 
     // `--label <question-set>` (#1062): every record's payload goes through
@@ -9477,12 +9465,66 @@ fn format_str(sn: Option<&Sniffed>) -> String {
 
 // ─── map subcommand ──────────────────────────────────────────────────────
 
+/// What autoindex and `xerj map` say when the node does not answer.
+///
+/// A connect error is the common first-run miss (`xerj map` with nothing
+/// listening). An auth failure is the opposite — the node is up — so it must
+/// not tell the reader to start one.
+fn node_ping_failure(url: &str, err: &anyhow::Error) -> String {
+    if esclient::Es::ping_failure_is_auth(err) {
+        format!("the node at {url} answered, but authentication failed.\n{err:#}")
+    } else {
+        format!(
+            "no XERJ node reachable at {url} ({err:#})\n\n\
+             Start one, then re-run this command:\n  \
+             xerj --insecure --data-dir ./.xerj-data &\n\n\
+             (or point at an existing node with --url / $XERJ_URL)"
+        )
+    }
+}
+
+#[cfg(test)]
+mod node_ping_failure_tests {
+    use super::node_ping_failure;
+
+    #[test]
+    fn an_unreachable_node_gets_the_start_recipe() {
+        let err = anyhow::anyhow!(
+            "endpoint unreachable: http://127.0.0.1:9: Connection refused (os error 111)"
+        );
+        let msg = node_ping_failure("http://127.0.0.1:9", &err);
+        assert!(
+            msg.contains("no XERJ node reachable at http://127.0.0.1:9"),
+            "{msg}"
+        );
+        assert!(
+            msg.contains("xerj --insecure --data-dir ./.xerj-data"),
+            "{msg}"
+        );
+        assert!(msg.contains("--url"), "{msg}");
+        assert!(!msg.contains("authentication failed"), "{msg}");
+    }
+
+    #[test]
+    fn an_auth_failure_does_not_say_the_node_is_down() {
+        let err = anyhow::anyhow!("GET / failed (HTTP 401)");
+        let msg = node_ping_failure("http://127.0.0.1:9200", &err);
+        assert!(msg.contains("authentication failed"), "{msg}");
+        assert!(!msg.contains("no XERJ node reachable"), "{msg}");
+        assert!(!msg.contains("xerj --insecure"), "{msg}");
+    }
+}
+
 fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(note) = &cfg.xerj_url_note {
         eprintln!("autoindex: {note}");
     }
     let es = Es::new(&cfg.url, cfg.api_key.clone())?;
-    es.ping()?;
+    // The same first-run miss as `xerj search`: nothing is listening, and a
+    // raw `endpoint unreachable` does not say how to start a node.
+    if let Err(e) = es.ping() {
+        anyhow::bail!("{}", node_ping_failure(&cfg.url, &e));
+    }
     let fetch = |query: Value, size: usize, sort: Option<Value>| -> Result<Vec<Value>> {
         let mut body = json!({"query": query, "size": size});
         if let Some(s) = sort {
