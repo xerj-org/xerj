@@ -48,7 +48,9 @@ config for each — with a .bak backup for any file it edits:
     .mcp.json                    register the `xerj mcp` server (Claude Code
                                  project scope; merged, other servers kept)
     .claude/skills/xerj/SKILL.md teach `xerj search` / `xerj def` (10 lines)
-{hub_skill}    .cursor/rules/xerj.mdc       same teaching file for Cursor (if .cursor/)
+{hub_skill}    .cursor/mcp.json             register `xerj mcp` for Cursor (if .cursor/;
+                                 merged, entry type is stdio)
+    .cursor/rules/xerj.mdc       same teaching file for Cursor (if .cursor/)
 {hub_rule}    AGENTS.md                    a short XERJ section (appended if the file
                                  exists, created otherwise)
 
@@ -203,9 +205,11 @@ shell PATH. `command -v xerj` prints it (PowerShell: `(Get-Command xerj).Source`
 
 - Claude Code: `claude mcp add --scope user xerj -- "$(command -v xerj)" mcp`
   (PowerShell or cmd: put the full path of `xerj.exe` in place of `"$(command -v xerj)"`)
-- `.mcp.json` (Claude Code, project scope; `xerj init` writes it), Cursor, Windsurf, Claude Desktop,
+- `.mcp.json` (Claude Code, project scope; `xerj init` writes it), Windsurf, Claude Desktop,
   Cline: root key `mcpServers`.
   `{"mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}`
+- Cursor (`.cursor/mcp.json`, when `.cursor/` exists; `xerj init` writes it): same `mcpServers`
+  root key, and the entry needs `"type": "stdio"`.
 - VS Code (`.vscode/mcp.json`): root key `servers`, not `mcpServers`. A block under the wrong key is
   silently ignored.
   `{"servers": {"xerj": {"type": "stdio", "command": "/abs/path/to/xerj", "args": ["mcp"]}}}`
@@ -246,7 +250,8 @@ fn mcp_registration(bin: &str, url: &str) -> String {
     format!(
         "MCP registration for other clients (restart the session after; success: `{MCP_SUCCESS_TOOL}` is in the tool list):\n\
          \x20 Claude Code, every project:  claude mcp add --scope user xerj{env} -- {} mcp\n\
-         \x20 Cursor, Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
+         \x20 Cursor (.cursor/mcp.json; xerj init writes it when .cursor/ exists): root key \"mcpServers\", and the entry needs \"type\": \"stdio\"\n\
+         \x20 Windsurf, Claude Desktop, Cline:  copy the \"xerj\" entry from .mcp.json; the root key is \"mcpServers\"\n\
          \x20 VS Code (.vscode/mcp.json):  root key \"servers\", not \"mcpServers\"; the entry needs \"type\": \"stdio\"",
         shell_quote(bin)
     )
@@ -283,7 +288,7 @@ fn self_bin() -> String {
 /// `skill_md()` or `HUB_SKILL_MD` changes, so a file an older init wrote (and
 /// the user never edited) is upgraded on the next run. A unit test pins the
 /// texts' hashes to this number, so a text change without a bump fails CI.
-const INIT_FILES_VERSION: u32 = 3;
+const INIT_FILES_VERSION: u32 = 4;
 
 /// The marker's prefix. The full line is
 /// `<!-- xerj-init-version: <N> sha256:<16 hex> -->`: the generation, and the
@@ -419,20 +424,38 @@ fn write_file(path: &Path, content: &str, dry: bool) -> std::io::Result<()> {
 /// Merge the xerj server into an `.mcp.json`, preserving everything else.
 /// Absolute binary path — an MCP host launched from a desktop icon does not
 /// inherit the shell PATH (same rule the `xerj mcp` help documents).
-fn merged_mcp_json(existing: Option<&str>, url: &str) -> Result<String, String> {
+fn merged_mcp_json(
+    existing: Option<&str>,
+    url: &str,
+    label: &str,
+    stdio_type: bool,
+) -> Result<String, String> {
     let bin = self_bin();
-    let entry = json!({
-        "command": bin,
-        "args": ["mcp"],
-        "env": { "XERJ_URL": url }
-    });
+    // Cursor's project file requires `type`. Claude Code's `.mcp.json` does
+    // not, and existing tests pin that file's shape, so the flag is per file.
+    let entry = if stdio_type {
+        json!({
+            "type": "stdio",
+            "command": bin,
+            "args": ["mcp"],
+            "env": { "XERJ_URL": url }
+        })
+    } else {
+        json!({
+            "command": bin,
+            "args": ["mcp"],
+            "env": { "XERJ_URL": url }
+        })
+    };
     let mut root: Value = match existing {
         Some(text) => serde_json::from_str(text)
-            .map_err(|e| format!("existing .mcp.json is not valid JSON ({e}); not touching it"))?,
+            .map_err(|e| format!("existing {label} is not valid JSON ({e}); not touching it"))?,
         None => json!({}),
     };
     if !root.is_object() {
-        return Err("existing .mcp.json is not a JSON object; not touching it".into());
+        return Err(format!(
+            "existing {label} is not a JSON object; not touching it"
+        ));
     }
     let servers = root
         .as_object_mut()
@@ -440,13 +463,38 @@ fn merged_mcp_json(existing: Option<&str>, url: &str) -> Result<String, String> 
         .entry("mcpServers")
         .or_insert_with(|| json!({}));
     if !servers.is_object() {
-        return Err("existing .mcp.json mcpServers is not an object; not touching it".into());
+        return Err(format!(
+            "existing {label} mcpServers is not an object; not touching it"
+        ));
     }
     servers
         .as_object_mut()
         .expect("checked object above")
         .insert("xerj".into(), entry);
     serde_json::to_string_pretty(&root).map_err(|e| e.to_string())
+}
+
+/// Merge `xerj` into one MCP json file. A file that already names `"xerj"`
+/// is kept: the same crude check `.mcp.json` has always used.
+fn write_mcp_registration(
+    path: &Path,
+    url: &str,
+    label: &str,
+    stdio_type: bool,
+    dry: bool,
+) -> Result<String, String> {
+    let existing = fs::read_to_string(path).ok();
+    let already = existing
+        .as_deref()
+        .map(|t| t.contains("\"xerj\""))
+        .unwrap_or(false);
+    if already {
+        return Ok(report("kept", path));
+    }
+    let merged = merged_mcp_json(existing.as_deref(), url, label, stdio_type)?;
+    let had = backup(path, dry)?;
+    write_file(path, &merged, dry).map_err(|e| e.to_string())?;
+    Ok(report(if had { "merged" } else { "wrote" }, path))
 }
 
 /// One detected surface, written. Returns the human line to print.
@@ -519,22 +567,16 @@ pub(crate) fn run_init_with(
 ) -> Result<Vec<String>, String> {
     let mut out = Vec::new();
 
-    // 1) MCP registration (.mcp.json, Claude Code project scope; other hosts
-    //    read the same shape). Merge, never clobber.
-    let mcp_path = cwd.join(".mcp.json");
-    let existing = fs::read_to_string(&mcp_path).ok();
-    let already = existing
-        .as_deref()
-        .map(|t| t.contains("\"xerj\""))
-        .unwrap_or(false);
-    if already {
-        out.push(report("kept", &mcp_path));
-    } else {
-        let merged = merged_mcp_json(existing.as_deref(), url)?;
-        let had = backup(&mcp_path, dry)?;
-        write_file(&mcp_path, &merged, dry).map_err(|e| e.to_string())?;
-        out.push(report(if had { "merged" } else { "wrote" }, &mcp_path));
-    }
+    // 1) MCP registration (.mcp.json, Claude Code project scope). Merge,
+    //    never clobber. Cursor does not read this file; it gets its own
+    //    below, and only when the project already has `.cursor/`.
+    out.push(write_mcp_registration(
+        &cwd.join(".mcp.json"),
+        url,
+        ".mcp.json",
+        false,
+        dry,
+    )?);
 
     // 2) Claude Code skills — written whenever the project (or user) uses
     //    Claude Code; the directory existing is the signal. Two files: the
@@ -558,9 +600,18 @@ pub(crate) fn run_init_with(
         }
     }
 
-    // 3) Cursor rules — only when the project already has a .cursor directory.
-    //    The same two teaching files, one rule each.
+    // 3) Cursor — only when the project already has a .cursor directory.
+    //    Project MCP is `.cursor/mcp.json` (`type` is required). Init does
+    //    not create `.cursor/`: a project that is not a Cursor project stays
+    //    one. The same two teaching files, one rule each.
     if cwd.join(".cursor").is_dir() {
+        out.push(write_mcp_registration(
+            &cwd.join(".cursor/mcp.json"),
+            url,
+            ".cursor/mcp.json",
+            true,
+            dry,
+        )?);
         out.push(write_teaching_file(
             &cwd.join(".cursor/rules/xerj.mdc"),
             &skill_md(),
@@ -694,6 +745,61 @@ mod tests {
         );
         let agents = fs::read_to_string(d.path().join("AGENTS.md")).unwrap();
         assert!(agents.contains("xerj def"));
+        assert!(
+            !d.path().join(".cursor").exists(),
+            "init must not create .cursor/"
+        );
+        assert!(mcp["mcpServers"]["xerj"].get("type").is_none());
+    }
+
+    /// Cursor reads `.cursor/mcp.json` and requires `type: stdio`. Claude
+    /// Code's `.mcp.json` stays without `type`. No `.cursor/` means no file.
+    #[test]
+    fn cursor_mcp_json_is_written_only_when_the_directory_exists() {
+        let bare = tmp();
+        run_init_in(bare.path(), "http://127.0.0.1:9200", false).unwrap();
+        assert!(!bare.path().join(".cursor/mcp.json").exists());
+
+        let d = tmp();
+        fs::create_dir(d.path().join(".cursor")).unwrap();
+        fs::write(
+            d.path().join(".cursor/mcp.json"),
+            r#"{"mcpServers":{"other":{"command":"other-bin"}}}"#,
+        )
+        .unwrap();
+        let lines = run_init_in(d.path(), "http://127.0.0.1:9200", false).unwrap();
+        assert!(
+            has_report(&lines, "merged", ".cursor/mcp.json"),
+            "{lines:?}"
+        );
+        let cursor: Value =
+            serde_json::from_str(&fs::read_to_string(d.path().join(".cursor/mcp.json")).unwrap())
+                .unwrap();
+        assert_eq!(cursor["mcpServers"]["other"]["command"], "other-bin");
+        assert_eq!(cursor["mcpServers"]["xerj"]["type"], "stdio");
+        assert_eq!(cursor["mcpServers"]["xerj"]["args"][0], "mcp");
+        assert_eq!(
+            cursor["mcpServers"]["xerj"]["env"]["XERJ_URL"],
+            "http://127.0.0.1:9200"
+        );
+        let claude: Value =
+            serde_json::from_str(&fs::read_to_string(d.path().join(".mcp.json")).unwrap()).unwrap();
+        assert!(claude["mcpServers"]["xerj"].get("type").is_none());
+
+        let again = run_init_in(d.path(), "http://127.0.0.1:9", false).unwrap();
+        assert!(has_report(&again, "kept", ".cursor/mcp.json"), "{again:?}");
+        let kept: Value =
+            serde_json::from_str(&fs::read_to_string(d.path().join(".cursor/mcp.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            kept["mcpServers"]["xerj"]["env"]["XERJ_URL"],
+            "http://127.0.0.1:9200"
+        );
+
+        let dry = tmp();
+        fs::create_dir(dry.path().join(".cursor")).unwrap();
+        run_init_in(dry.path(), "http://127.0.0.1:9200", true).unwrap();
+        assert!(!dry.path().join(".cursor/mcp.json").exists());
     }
 
     #[test]
@@ -860,6 +966,7 @@ mod tests {
             "skills/xerj-hub/SKILL.md",
             "rules/xerj.mdc",
             "rules/xerj-hub.mdc",
+            ".cursor/mcp.json",
         ] {
             assert!(has_report(&lines, "kept", tail), "{tail}: {lines:?}");
         }
@@ -1040,6 +1147,7 @@ mod tests {
             ".mcp.json",
             ".claude/skills/xerj/SKILL.md",
             ".claude/skills/xerj-hub/SKILL.md",
+            ".cursor/mcp.json",
             ".cursor/rules/xerj.mdc",
             ".cursor/rules/xerj-hub.mdc",
             "AGENTS.md",
@@ -1057,6 +1165,7 @@ mod tests {
         for file in [
             ".mcp.json",
             ".claude/skills/xerj/SKILL.md",
+            ".cursor/mcp.json",
             ".cursor/rules/xerj.mdc",
             "AGENTS.md",
         ] {
@@ -1239,7 +1348,7 @@ mod tests {
                 content_hash(&skill_md()).as_str(),
                 content_hash(HUB_SKILL_MD).as_str()
             ),
-            (3, "c59537bc1064a30f", "6040c97600edc004"),
+            (4, "c59537bc1064a30f", "74ceb89c4c1a46f1"),
             "a teaching text changed: bump INIT_FILES_VERSION and re-pin"
         );
     }
