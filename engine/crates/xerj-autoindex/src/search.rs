@@ -357,6 +357,83 @@ pub(crate) fn hit_location(hit: &Value) -> String {
     }
 }
 
+/// A line an agent can cite: `_source.line` / `start_line`, else a lexical
+/// passage ordinal. A `defs` / `title` / `name` passage has none.
+fn citable_line(hit: &Value) -> Option<u64> {
+    let src = hit.get("_source").unwrap_or(&Value::Null);
+    src.get("line")
+        .or_else(|| src.get("start_line"))
+        .and_then(Value::as_u64)
+        .or_else(|| passage_line(hit))
+}
+
+fn hit_path(hit: &Value) -> String {
+    hit.get("_source")
+        .and_then(|src| src.get("ax_path").or_else(|| src.get("path")))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+/// Move a no-line hit to just after the last lined hit on the same path.
+///
+/// A `defs` catalog for `src/lib.rs` can outscore `src/lib.rs:255` because the
+/// phrase boost is on the symbol list, not the declaration. An agent that
+/// cites the first header then cites a file with no line. Other paths keep
+/// their relative order, and a bare hit whose path has no lined sibling stays
+/// where the score put it. This does not demote `defs` hits as a class: that
+/// phrase clause is what ranks the defining file first.
+pub(crate) fn prefer_citable_line_on_the_same_path(hits: &mut [Value]) {
+    let mut last_lined: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (i, hit) in hits.iter().enumerate() {
+        let path = hit_path(hit);
+        if path.is_empty() {
+            continue;
+        }
+        if citable_line(hit).is_some() {
+            last_lined.insert(path, i);
+        }
+    }
+    if last_lined.is_empty() {
+        return;
+    }
+    let mut bare_of_mixed: std::collections::HashMap<String, Vec<usize>> =
+        std::collections::HashMap::new();
+    for (i, hit) in hits.iter().enumerate() {
+        let path = hit_path(hit);
+        if last_lined.contains_key(&path) && citable_line(hit).is_none() {
+            bare_of_mixed.entry(path).or_default().push(i);
+        }
+    }
+    if bare_of_mixed.is_empty() {
+        return;
+    }
+    let mut order = Vec::with_capacity(hits.len());
+    for (i, hit) in hits.iter().enumerate() {
+        let path = hit_path(hit);
+        if bare_of_mixed
+            .get(&path)
+            .is_some_and(|idxs| idxs.contains(&i))
+        {
+            continue;
+        }
+        order.push(i);
+        if last_lined.get(&path) == Some(&i) {
+            if let Some(bares) = bare_of_mixed.get(&path) {
+                order.extend(bares.iter().copied());
+            }
+        }
+    }
+    debug_assert_eq!(order.len(), hits.len());
+    if order.iter().enumerate().all(|(n, i)| n == *i) {
+        return;
+    }
+    let original = hits.to_vec();
+    for (dest, src) in order.into_iter().enumerate() {
+        hits[dest] = original[src].clone();
+    }
+}
+
 /// What the node held when a search or def returned no hits.
 ///
 /// `None` means that read failed. An empty `Some` is a real answer.
@@ -590,7 +667,7 @@ pub fn run_search_cli() -> i32 {
         .as_ref()
         .and(raw_mapping.as_ref().map(numeric_property_names));
     let body = search_query_body_for_mapping(&query, k, mapped.as_ref(), numeric.as_ref());
-    let resp = match es.search(&pattern, &body) {
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
             eprintln!(
@@ -601,6 +678,9 @@ pub fn run_search_cli() -> i32 {
             return 1;
         }
     };
+    if let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) {
+        prefer_citable_line_on_the_same_path(hits);
+    }
 
     if as_json {
         println!(
@@ -810,6 +890,72 @@ mod tests {
             hit_location(&synthetic_defs_hit),
             "crates/fjall/src/batch.rs"
         );
+    }
+
+    /// A defs catalog of `src/lib.rs` outscored `mod ensure;` at `src/lib.rs:255`
+    /// on an anyhow index. The line has to lead that path. A later file stays
+    /// after both, and a bare hit with no lined sibling is left alone.
+    #[test]
+    fn a_bare_defs_hit_does_not_outrank_a_lined_hit_on_the_same_path() {
+        let mut hits = vec![
+            json!({
+                "_score": 23.42,
+                "_source": { "ax_path": "src/lib.rs" },
+                "fields": { "_passage": [{
+                    "field": "defs",
+                    "ordinal": 0,
+                    "text": "module ensure"
+                }] }
+            }),
+            json!({
+                "_score": 15.53,
+                "_source": { "ax_path": "src/lib.rs", "line": 255, "kind": "module" },
+                "fields": { "_passage": [{
+                    "field": "code",
+                    "ordinal": 0,
+                    "text": "mod ensure;"
+                }] }
+            }),
+            json!({
+                "_score": 12.09,
+                "_source": { "ax_path": "tests/test_chain.rs" },
+                "fields": { "_passage": [{
+                    "field": "body",
+                    "ordinal": 0,
+                    "text": "ensure the chain"
+                }] }
+            }),
+        ];
+        prefer_citable_line_on_the_same_path(&mut hits);
+        assert_eq!(hit_location(&hits[0]), "src/lib.rs:255");
+        assert_eq!(hit_location(&hits[1]), "src/lib.rs");
+        assert_eq!(hit_location(&hits[2]), "tests/test_chain.rs:1");
+
+        let mut only_bare = vec![
+            json!({
+                "_source": { "ax_path": "only.rs" },
+                "fields": { "_passage": [{ "field": "defs", "ordinal": 0 }] }
+            }),
+            json!({ "_source": { "ax_path": "other.rs", "line": 4 } }),
+        ];
+        prefer_citable_line_on_the_same_path(&mut only_bare);
+        assert_eq!(hit_location(&only_bare[0]), "only.rs");
+        assert_eq!(hit_location(&only_bare[1]), "other.rs:4");
+
+        let mut sandwiched = vec![
+            json!({ "_source": { "ax_path": "src/lib.rs", "line": 10 } }),
+            json!({
+                "_source": { "ax_path": "src/lib.rs" },
+                "fields": { "_passage": [{ "field": "defs", "ordinal": 0 }] }
+            }),
+            json!({ "_source": { "ax_path": "src/lib.rs", "line": 20 } }),
+            json!({ "_source": { "ax_path": "other.rs", "line": 1 } }),
+        ];
+        prefer_citable_line_on_the_same_path(&mut sandwiched);
+        assert_eq!(hit_location(&sandwiched[0]), "src/lib.rs:10");
+        assert_eq!(hit_location(&sandwiched[1]), "src/lib.rs:20");
+        assert_eq!(hit_location(&sandwiched[2]), "src/lib.rs");
+        assert_eq!(hit_location(&sandwiched[3]), "other.rs:1");
     }
 
     fn index_mapping(fields: &[&str]) -> Value {
