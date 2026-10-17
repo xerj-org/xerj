@@ -4981,13 +4981,17 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         println!("{summary}");
     } else if !cfg.quiet {
         println!(
-            "generation {} committed — {} datasets, {} records live",
+            "generation {} committed — {}, {} live",
             generation,
-            dataset_count,
-            summary
-                .get("records_total")
-                .and_then(Value::as_u64)
-                .unwrap_or(0)
+            estimate::count_phrase(dataset_count as u64, "dataset", "datasets"),
+            estimate::count_phrase(
+                summary
+                    .get("records_total")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0),
+                "record",
+                "records",
+            ),
         );
         // #929: read from the committed manifest, so a no-op re-run names the
         // refused datasets again instead of only the run that met the refusal.
@@ -6841,10 +6845,9 @@ fn run_index_report_inner(
             &cfg,
         );
         pdf_spools = spools;
-        pr.note(&format!(
-            "phase A: {} datasets inferred, {} junk/skipped files",
-            plan.datasets.len(),
-            plan.junk_files.len()
+        pr.note(&estimate::phase_a_line(
+            plan.datasets.len() as u64,
+            plan.junk_files.len() as u64,
         ));
         clusters_rt = Some(clusters);
         plan
@@ -6962,21 +6965,21 @@ fn run_index_report_inner(
     pr.note(&format!("estimate: basis — {}", run_estimate.basis));
     for family in &run_estimate.families {
         pr.note(&format!(
-            "  estimate: {:<10} {:>5} files {:>9} at {}/s measured over {} file(s) / {} → {}",
+            "  estimate: {:<10} {} {:>9} at {}/s measured over {} / {} → {}",
             family.family,
-            family.planned_files,
+            estimate::count_files_column(family.planned_files),
             estimate::human_bytes(family.planned_bytes),
             estimate::human_bytes(family.bytes_per_sec as u64),
-            family.measured_files,
+            estimate::count_phrase(family.measured_files, "file", "files"),
             estimate::human_bytes(family.measured_bytes),
             estimate::human_secs(family.seconds_of_work),
         ));
     }
     for family in &run_estimate.unmeasured_families {
         pr.note(&format!(
-            "  estimate: {:<10} {:>5} files {:>9} NOT priced — {}",
+            "  estimate: {:<10} {} {:>9} NOT priced — {}",
             family.family,
-            family.planned_files,
+            estimate::count_files_column(family.planned_files),
             estimate::human_bytes(family.planned_bytes),
             family.reason,
         ));
@@ -6989,12 +6992,14 @@ fn run_index_report_inner(
          above it starts first regardless of band",
         bands
             .iter()
-            .map(|band| format!(
-                "{} ({} files, {})",
-                band.band,
-                band.files,
-                estimate::human_bytes(band.bytes)
-            ))
+            .map(|band| {
+                format!(
+                    "{} ({}, {})",
+                    band.band,
+                    estimate::count_phrase(band.files, "file", "files"),
+                    estimate::human_bytes(band.bytes)
+                )
+            })
             .collect::<Vec<_>>()
             .join(" → "),
         if cfg.workers == 1 {
@@ -9291,8 +9296,18 @@ fn run_index_report_inner(
     if cfg.json {
         println!("{run_doc}");
     } else if !cfg.quiet {
-        println!("\ndone in {wall:.1}s — {} datasets, {} records live, {} duplicate aliases, {} junk records, {} junk/skipped files ({docs_per_sec:.1} docs/sec)",
-            plan.datasets.len(), total_records, plan.duplicate_files.len(), junk_total_records, junk_file_count);
+        println!(
+            "\n{}",
+            estimate::done_summary_line(
+                wall,
+                plan.datasets.len() as u64,
+                total_records,
+                plan.duplicate_files.len() as u64,
+                junk_total_records,
+                junk_file_count as u64,
+                docs_per_sec,
+            )
+        );
         // Indexed-vs-submitted honesty line (#195): the live count against
         // what this run actually submitted, so a silent-rejection mismatch
         // is visible in the client output alone. Units differ on purpose: a
