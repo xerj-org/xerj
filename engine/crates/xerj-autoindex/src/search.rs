@@ -65,6 +65,109 @@ pub(crate) fn passage_text(hit: &Value) -> Option<String> {
     }
 }
 
+/// What `xerj search` prints for one passage under the `--full` budget.
+#[derive(Debug)]
+pub(crate) struct PrintedSnippet {
+    pub text: String,
+    /// More passage text exists outside this slice.
+    pub truncated: bool,
+    /// The slice does not start at the beginning of the passage.
+    pub slid: bool,
+}
+
+/// Terms worth keeping inside the printed window: the normalized query,
+/// lowercased, dropping tokens shorter than 3 characters (`--locked` keeps
+/// `locked`).
+fn snippet_terms(query: &str) -> Vec<String> {
+    let normalized = xerj_common::code_query::normalize_code_search_query(query);
+    let mut out = Vec::new();
+    for raw in normalized.split_whitespace() {
+        let clean = raw.trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
+        if clean.chars().count() < 3 {
+            continue;
+        }
+        let lower = clean.to_lowercase();
+        if !out.contains(&lower) {
+            out.push(lower);
+        }
+    }
+    out
+}
+
+/// Printed slice of a passage.
+///
+/// The head of the passage is used when it already contains a query term, or
+/// when the query has none. Otherwise the window starts on the line just
+/// before the earliest term, so a 600-character cut does not hide a literal
+/// that sits later in the same passage. On the tokio index, `xerj search
+/// "cargo install --locked cargo-fuzz"` returned a 2,027-character `lib.rs`
+/// passage with `cargo` at character 740; the default `--full 600` printed
+/// only the unstable-features list.
+///
+/// A truncated window that contains a newline drops a partial last line when
+/// that line is not the only place a query term appears, so the snippet does
+/// not end mid-token (`pub(crate) use histogram:`).
+pub(crate) fn snippet_for_print(text: &str, full: usize, query: &str) -> PrintedSnippet {
+    if full == 0 {
+        return PrintedSnippet {
+            text: String::new(),
+            truncated: !text.is_empty(),
+            slid: false,
+        };
+    }
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() <= full {
+        return PrintedSnippet {
+            text: text.to_string(),
+            truncated: false,
+            slid: false,
+        };
+    }
+    let terms = snippet_terms(query);
+    let lower: String = chars.iter().collect();
+    let lower = lower.to_lowercase();
+    let head: String = chars.iter().take(full).collect();
+    let mut start = 0usize;
+    if !terms.is_empty() && !terms.iter().any(|t| head.to_lowercase().contains(t)) {
+        if let Some(byte) = terms.iter().filter_map(|t| lower.find(t.as_str())).min() {
+            let char_at = lower[..byte].chars().count();
+            let lead = 80.min(full / 4);
+            let mut s = char_at.saturating_sub(lead);
+            if let Some(rel) = chars[s..char_at].iter().rposition(|c| *c == '\n') {
+                s += rel + 1;
+            }
+            if char_at >= s.saturating_add(full) {
+                s = char_at;
+            }
+            if s.saturating_add(full) > chars.len() {
+                s = chars.len() - full;
+            }
+            start = s;
+        }
+    }
+    let mut end = (start + full).min(chars.len());
+    if end < chars.len() {
+        if let Some(rel) = chars[start..end].iter().rposition(|c| *c == '\n') {
+            let cut = start + rel;
+            if cut > start {
+                let kept = chars[start..cut].iter().collect::<String>().to_lowercase();
+                let window = chars[start..end].iter().collect::<String>().to_lowercase();
+                let drops_only_term = terms
+                    .iter()
+                    .any(|t| window.contains(t) && !kept.contains(t));
+                if !drops_only_term {
+                    end = cut;
+                }
+            }
+        }
+    }
+    PrintedSnippet {
+        text: chars[start..end].iter().collect(),
+        truncated: start > 0 || end < chars.len(),
+        slid: start > 0,
+    }
+}
+
 /// True when the query looks like a single code identifier (`IOSIntfLine`,
 /// `euler_to_rotationmatrix`) rather than a plain-words phrase — the case
 /// where `xerj def` is the better tool.
@@ -645,12 +748,15 @@ pub fn run_search_cli() -> i32 {
             .as_deref()
             .or_else(|| src.get("code").and_then(Value::as_str));
         if let Some(text) = passage {
-            let snippet: String = text.chars().take(full).collect();
-            for l in snippet.lines() {
+            let snip = snippet_for_print(text, full, &query);
+            if snip.slid {
+                println!("    …");
+            }
+            for l in snip.text.lines() {
                 println!("    {l}");
             }
-            if text.chars().count() > full {
-                println!("    … (--full {} to see more)", full * 2);
+            if snip.truncated {
+                println!("    … (--full {} to see more)", full.saturating_mul(2));
             }
         }
     }
@@ -665,6 +771,49 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    /// Default `--full 600` used to keep the head of the passage. A literal
+    /// past that cut disappeared, and the cut could land mid-token.
+    #[test]
+    fn snippet_slides_to_a_later_term_and_does_not_end_mid_line() {
+        let chars = vec!['x'; 739];
+        let prefix: String = chars.iter().collect();
+        let text = format!("{prefix}cargo install --locked cargo-fuzz and more");
+        assert!(text.find("cargo").unwrap() > 600);
+        let snip = snippet_for_print(&text, 600, "cargo install --locked cargo-fuzz");
+        assert!(snip.slid, "window should leave the head");
+        assert!(snip.truncated);
+        assert!(
+            snip.text.to_lowercase().contains("cargo"),
+            "the literal must be in the printed slice: {}",
+            &snip.text[..snip.text.len().min(80)]
+        );
+
+        let lines = [
+            "pub fn shutdown() {",
+            "    // the peer observes the shutdown",
+            "    histogram:",
+        ];
+        let body = format!("{}\n{}", lines.join("\n"), "y".repeat(800));
+        let snip = snippet_for_print(&body, 70, "runtime shutdown");
+        assert!(snip.text.contains("shutdown"), "{snip:?}");
+        assert!(
+            !snip.text.contains("histogram"),
+            "partial last line must be dropped: {}",
+            snip.text
+        );
+        assert!(snip.text.contains("shutdown"), "{}", snip.text);
+
+        let short = snippet_for_print("pub fn ready()", 600, "ready");
+        assert!(!short.truncated);
+        assert!(!short.slid);
+        assert_eq!(short.text, "pub fn ready()");
+
+        let headed =
+            snippet_for_print(&format!("cargo is here\n{}", "z".repeat(800)), 600, "cargo");
+        assert!(!headed.slid, "a term already in the head stays put");
+        assert!(headed.text.starts_with("cargo"));
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`
