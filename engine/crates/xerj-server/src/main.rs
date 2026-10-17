@@ -482,13 +482,32 @@ fn ask_help_lines(hub: bool) -> &'static str {
          is the same\n"
     } else {
         "xerj ask \"<question>\"              Corpus Hub answers: not available in this\n\
-         build (no hub signing key; exits 5) - use\n\
-         xerj corpus + xerj code instead\n"
+         build (no hub signing key; exits 5).\n\
+         A folder you autoindexed: xerj search / xerj def.\n\
+         Public libraries: xerj corpus + xerj code\n"
     }
 }
 
 /// How many tools `xerj mcp` serves — the length of the same `tool_specs()`
 /// array its `tools/list` returns.
+#[cfg(test)]
+mod ask_help_tests {
+    use super::ask_help_lines;
+
+    #[test]
+    fn a_build_without_a_hub_key_does_not_send_ask_at_the_local_index() {
+        let lines = ask_help_lines(false);
+        assert!(lines.contains("exits 5"), "{lines}");
+        assert!(lines.contains("xerj search"), "{lines}");
+        assert!(lines.contains("xerj def"), "{lines}");
+        assert!(lines.contains("xerj corpus"), "{lines}");
+        assert!(
+            ask_help_lines(true).contains("xerj ask"),
+            "a build with a key still documents the command"
+        );
+    }
+}
+
 fn mcp_tool_count() -> usize {
     xerj_mcp::tool_specs().as_array().map_or(0, Vec::len)
 }
