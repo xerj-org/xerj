@@ -219,7 +219,7 @@
   <p>Five steps, all runnable, all on port <code class="inline">9200</code>: <strong>boot XERJ → check it is up → store a memory → recall it by meaning → run a semantic search.</strong> Every request and every response below is a real run against a freshly booted, empty XERJ — no seeding, no external embedding service, no API key. If you have <code class="inline">curl</code>, you have everything.</p>
 
   <h2>0 · Boot XERJ</h2>
-  <p>One binary. <code class="inline">--insecure</code> disables TLS and API-key auth so you can talk to it over plain HTTP on the default ES-compat port <code class="inline">9200</code> — perfect for a local agent loop. Install it first (<code class="inline">curl -fsSL https://xerj.org/get | sh</code>), which puts <code class="inline">xerj</code> in <code class="inline">~/.local/bin</code> by default and prints the exact path if that is not on your <code class="inline">PATH</code>.</p>
+  <p>One binary. <code class="inline">--insecure</code> disables TLS and API-key auth so you can talk to it over plain HTTP on the default ES-compat port <code class="inline">9200</code> — perfect for a local agent loop. Install it first (<code class="inline">curl -fsSL https://xerj.org/get | sh</code> on Linux and macOS, <code class="inline">irm https://xerj.org/get.ps1 | iex</code> on Windows). The Unix installer puts <code class="inline">xerj</code> in <code class="inline">~/.local/bin</code> and prints the exact path if that is not on your <code class="inline">PATH</code>. The Windows installer puts it in <code class="inline">%LOCALAPPDATA%\Programs\xerj</code>.</p>
 <pre class="code"># start it in the background — a foreground boot blocks the rest of this page
 $ xerj --insecure --data-dir /tmp/xerj-agent &amp;
 
