@@ -315,6 +315,38 @@ pub struct BandSummary {
     pub bytes: u64,
 }
 
+/// The `work order:` plan line.
+///
+/// An empty queue is a no-op resume: every file is already in the journal.
+/// The old line was `work order:  — biggest first ...`, which names a
+/// scheduling rule for work that does not exist.
+pub fn work_order_line(bands: &[BandSummary], workers: usize) -> String {
+    if bands.is_empty() {
+        return "work order: nothing to index".to_string();
+    }
+    let inside = if workers == 1 {
+        "smallest first"
+    } else {
+        "biggest first"
+    };
+    let listed = bands
+        .iter()
+        .map(|band| {
+            format!(
+                "{} ({} files, {})",
+                band.band,
+                band.files,
+                crate::estimate::human_bytes(band.bytes)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" → ");
+    format!(
+        "work order: {listed} — {inside} inside each band at {workers} worker(s); a file that \
+         outlasts everything above it starts first regardless of band"
+    )
+}
+
 pub fn summarize(items: &[Item]) -> Vec<BandSummary> {
     Band::ALL
         .iter()
@@ -341,6 +373,36 @@ mod tests {
 
     fn item(index: usize, band: Band, bytes: u64) -> Item {
         Item { index, band, bytes }
+    }
+
+    /// A no-op resume has no pending files. The plan line used to be
+    /// `work order:  — biggest first inside each band ...`.
+    #[test]
+    fn empty_work_order_does_not_announce_a_scheduling_rule() {
+        let line = work_order_line(&[], 4);
+        assert_eq!(line, "work order: nothing to index");
+        assert!(!line.contains("biggest first"), "{line}");
+        assert_eq!(
+            work_order_line(&[], 1),
+            "work order: nothing to index",
+            "one worker is still nothing to index"
+        );
+
+        let bands = [BandSummary {
+            band: "config",
+            why: Band::Config.why(),
+            files: 31,
+            bytes: 1021,
+        }];
+        let line = work_order_line(&bands, 4);
+        assert_eq!(
+            line,
+            "work order: config (31 files, 1021 B) — biggest first inside each band at 4 \
+             worker(s); a file that outlasts everything above it starts first regardless of band"
+        );
+        let single = work_order_line(&bands, 1);
+        assert!(single.contains("smallest first"), "{single}");
+        assert!(single.contains("config (31 files, 1021 B)"), "{single}");
     }
 
     #[test]

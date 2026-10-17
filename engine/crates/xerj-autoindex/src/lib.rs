@@ -6984,26 +6984,7 @@ fn run_index_report_inner(
     for exclude in &run_estimate.excludes {
         pr.note(&format!("  estimate excludes: {exclude}"));
     }
-    pr.note(&format!(
-        "work order: {} — {} inside each band at {} worker(s); a file that outlasts everything \
-         above it starts first regardless of band",
-        bands
-            .iter()
-            .map(|band| format!(
-                "{} ({} files, {})",
-                band.band,
-                band.files,
-                estimate::human_bytes(band.bytes)
-            ))
-            .collect::<Vec<_>>()
-            .join(" → "),
-        if cfg.workers == 1 {
-            "smallest first"
-        } else {
-            "biggest first"
-        },
-        cfg.workers,
-    ));
+    pr.note(&order::work_order_line(&bands, cfg.workers));
     for band in &bands {
         pr.note(&format!("  {:<16} {}", band.band, band.why));
     }
