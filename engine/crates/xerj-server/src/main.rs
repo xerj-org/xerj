@@ -1431,14 +1431,32 @@ async fn serve_on(
     // (Netty) sets this by default; without it small request/response
     // round-trips can stall on the delayed-ACK/Nagle interaction, which
     // shows up as a fixed per-request latency tax on trivial reads.
-    axum::serve(
+    //
+    // Bounded drain (#1635): `with_graceful_shutdown` stops accepting on
+    // signal but then waits forever for in-flight connections to drain.  A
+    // request parked on a wedged flush never drains, so SIGTERM would hang
+    // the process until SIGKILL.  Mirror the TLS path's 10 s grace: once the
+    // signal fires, give drainers 10 s, then force the listener down.
+    let (drain_tx, drain_rx) = tokio::sync::oneshot::channel::<()>();
+    let serve = axum::serve(
         listener,
         router.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .tcp_nodelay(true)
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .with_context(|| format!("{name} serve error"))?;
+    .with_graceful_shutdown(async move {
+        shutdown_signal().await;
+        let _ = drain_tx.send(());
+    });
+    tokio::pin!(serve);
+    tokio::select! {
+        r = &mut serve => r.with_context(|| format!("{name} serve error"))?,
+        _ = async {
+            let _ = drain_rx.await;
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        } => {
+            warn!("{name}: in-flight connections did not drain within 10s of signal; forcing shutdown");
+        }
+    }
 
     info!("{name} shut down cleanly");
     Ok(())
@@ -3410,8 +3428,16 @@ async fn async_main() -> Result<()> {
     if storage_available {
         info!("flushing in-memory state before exit…");
         let flush_started = std::time::Instant::now();
-        state.engine.flush_all_force().await;
-        info!("final flush complete in {:.0?}", flush_started.elapsed());
+        // Bounded (#1635): a wedged memtable flush must not re-hang shutdown
+        // after the listeners drained.  Docs live in the WAL and replay on the
+        // next boot, so a skipped final flush is non-destructive.
+        let flush_budget = std::time::Duration::from_secs(10);
+        match tokio::time::timeout(flush_budget, state.engine.flush_all_force()).await {
+            Ok(()) => info!("final flush complete in {:.0?}", flush_started.elapsed()),
+            Err(_) => warn!(
+                "final flush exceeded {flush_budget:?}; exiting anyway (WAL replays on next boot)"
+            ),
+        }
     }
 
     info!("xerj v{} stopped. Goodbye.", env!("CARGO_PKG_VERSION"));
