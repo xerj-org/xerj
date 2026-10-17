@@ -200,77 +200,132 @@ fn build_def_query(
     // A filter clause makes every `should` optional, so without this a
     // `--kind`/`--lang` filter alone matches: a name defined nowhere came
     // back as every definition of that kind instead of "no definition".
-    let bool_query = json!({
-        "bool": {
-            "should": should,
-            "filter": filter,
-            "minimum_should_match": 1
-        }
-    });
-    // Kind and `pub` weights sit on function_score, not on a bare `should`:
-    // a should clause would match every struct in the index. The negative
-    // boosting clause only multiplies hits that already matched.
-    let query = rank_adjusted_query(bool_query, mapped, numeric);
+    // Kind and `pub` weights are applied in [`rerank_def_hits`] on the
+    // returned page. They used to be a `function_score` filter. On the tokio
+    // index (12,107 docs) that wrapper took 422ms of engine time against 6ms
+    // for this bool; a `wildcard` on `ax_path` and a `match` on `code` inside
+    // the function are what made the scan leave the bounded top-k path.
     json!({
         "size": k,
-        "query": query,
+        "query": {
+            "bool": {
+                "should": should,
+                "filter": filter,
+                "minimum_should_match": 1
+            }
+        },
         "_source": ["ax_path", "path", "line", "start_line", "kind", "language", "name", "code"],
         "fields": ["_passage"]
     })
 }
 
-fn rank_adjusted_query(
-    bool_query: Value,
-    mapped: Option<&BTreeSet<String>>,
-    numeric: Option<&BTreeSet<String>>,
-) -> Value {
-    // `function_score` (boost_mode sum) adds weight only to hits the bool
-    // already matched. A `boosting` wrapper was tried first; this engine's
-    // planner rewrites it to a bool and every hit came back with `_score`
-    // 1.0, so the weights never moved the order.
-    let mut functions = Vec::new();
-    // A numeric `kind` or `code` cannot carry the ranking filter: the
-    // wildcard would fail on that index the same way a `term` on a numeric
-    // `name` does. Unreadable mappings (numeric = None) keep both weights.
-    if field_lookup_ok(mapped, numeric, "kind") {
-        let mut kind_filter = json!({
-            "bool": { "must": [ { "terms": { "kind": PREFERRED_KINDS } } ] }
-        });
-        // A preferred kind under tests/examples/fuzz/benches does not get
-        // the weight. `ax_path` is only named when the read mapping has it,
-        // so the historical query (mapped = None) stays free of that field.
-        if explicitly_mapped(mapped, "ax_path") {
-            let globs: Vec<Value> = DEMOTED_PATH_GLOBS
-                .iter()
-                .map(|glob| json!({ "wildcard": { "ax_path": glob } }))
-                .collect();
-            kind_filter["bool"]["must_not"] = json!([{
-                "bool": { "should": globs, "minimum_should_match": 1 }
-            }]);
+/// How many hits to fetch before the local rerank. The printed page is `k`.
+/// The extra window is what lets a `pub struct` just outside the top `k`
+/// outrank a higher-BM25 test double. Capped so `-k 1000` does not pull
+/// every match.
+pub(crate) fn def_collect_size(k: usize) -> usize {
+    const WINDOW: usize = 40;
+    const CAP: usize = 200;
+    k.saturating_add(WINDOW).min(k.max(CAP))
+}
+
+/// `*` is zero or more characters, including `/` — the same reading the
+/// engine's `wildcard` query uses for [`DEMOTED_PATH_GLOBS`].
+fn glob_match(pattern: &str, text: &str) -> bool {
+    fn rec(pattern: &[u8], text: &[u8]) -> bool {
+        let mut i = 0;
+        let mut j = 0;
+        while i < pattern.len() {
+            if pattern[i] == b'*' {
+                while i < pattern.len() && pattern[i] == b'*' {
+                    i += 1;
+                }
+                if i == pattern.len() {
+                    return true;
+                }
+                while j <= text.len() {
+                    if rec(&pattern[i..], &text[j..]) {
+                        return true;
+                    }
+                    if j == text.len() {
+                        return false;
+                    }
+                    j += 1;
+                }
+                return false;
+            }
+            if j >= text.len() || pattern[i] != text[j] {
+                return false;
+            }
+            i += 1;
+            j += 1;
         }
-        functions.push(json!({ "filter": kind_filter, "weight": 20.0 }));
+        j == text.len()
     }
-    if field_lookup_ok(mapped, numeric, "code") {
-        functions.push(json!({
-            "filter": { "bool": { "should": [
-                { "match": { "code": "pub" } },
-                { "match": { "code": "public" } },
-                { "match": { "code": "export" } }
-            ], "minimum_should_match": 1 } },
-            "weight": 5.0
-        }));
-    }
-    if functions.is_empty() {
-        return bool_query;
-    }
-    json!({
-        "function_score": {
-            "query": bool_query,
-            "functions": functions,
-            "score_mode": "sum",
-            "boost_mode": "sum"
+    rec(pattern.as_bytes(), text.as_bytes())
+}
+
+fn path_is_demoted(path: &str) -> bool {
+    DEMOTED_PATH_GLOBS.iter().any(|glob| glob_match(glob, path))
+}
+
+/// The old `function_score` filter matched the tokens `pub`, `public`, and
+/// `export` on `code`. Split on non-letters so `publication` does not count
+/// and `pub(crate)` does.
+fn declaration_is_public(code: &str) -> bool {
+    code.split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|word| matches!(word, "pub" | "public" | "export"))
+}
+
+/// Add the kind and visibility weights to hits the bool query already
+/// returned, then sort. A preferred kind scores +20 unless the path is a
+/// test, example, fuzz target, or bench. A public declaration scores +5.
+/// Ties keep the engine order.
+pub(crate) fn rerank_def_hits(hits: &mut [Value]) {
+    const KIND_WEIGHT: f64 = 20.0;
+    const PUB_WEIGHT: f64 = 5.0;
+    let adjusted: Vec<f64> = hits
+        .iter()
+        .map(|hit| {
+            let base = hit.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
+            let src = hit.get("_source").unwrap_or(&Value::Null);
+            let mut bonus = 0.0;
+            let kind = src.get("kind").and_then(Value::as_str).unwrap_or("");
+            if PREFERRED_KINDS.contains(&kind) {
+                let path = src
+                    .get("ax_path")
+                    .or_else(|| src.get("path"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if !path_is_demoted(path) {
+                    bonus += KIND_WEIGHT;
+                }
+            }
+            if src
+                .get("code")
+                .and_then(Value::as_str)
+                .is_some_and(declaration_is_public)
+            {
+                bonus += PUB_WEIGHT;
+            }
+            base + bonus
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..hits.len()).collect();
+    order.sort_by(|&a, &b| {
+        adjusted[b]
+            .partial_cmp(&adjusted[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
+    let original = hits.to_vec();
+    for (place, old) in order.into_iter().enumerate() {
+        let mut hit = original[old].clone();
+        if let Some(obj) = hit.as_object_mut() {
+            obj.insert("_score".into(), json!(adjusted[old]));
         }
-    })
+        hits[place] = hit;
+    }
 }
 
 /// Entry point for the `def` subcommand. Returns a process exit code.
@@ -366,7 +421,7 @@ pub fn run_def_cli() -> i32 {
             eprintln!("xerj def: --lang ignored; no index under this prefix maps `language`");
         }
     }
-    let body = def_query(
+    let mut body = def_query(
         &query,
         kind.as_deref(),
         lang.as_deref(),
@@ -374,7 +429,10 @@ pub fn run_def_cli() -> i32 {
         mapped.as_ref(),
         numeric.as_ref(),
     );
-    let resp = match es.search(&pattern, &body) {
+    // Fetch a window wider than `-k`, then rerank locally. The engine's
+    // function_score path scored every match (422ms vs 6ms on tokio).
+    body["size"] = json!(def_collect_size(k));
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
             eprintln!(
@@ -386,6 +444,17 @@ pub fn run_def_cli() -> i32 {
         }
     };
 
+    let mut hits = resp
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    rerank_def_hits(&mut hits);
+    hits.truncate(k);
+    if let Some(slot) = resp.pointer_mut("/hits/hits") {
+        *slot = Value::Array(hits.clone());
+    }
+
     if as_json {
         println!(
             "{}",
@@ -394,11 +463,6 @@ pub fn run_def_cli() -> i32 {
         return 0;
     }
 
-    let hits = resp
-        .pointer("/hits/hits")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
     if hits.is_empty() {
         let snap = corpus_snapshot(&es, &prefix);
         let (lines, exit) = empty_lookup_report("def", &prefix, &query, false, &snap);
@@ -457,12 +521,7 @@ mod tests {
             (None, None),
         ] {
             let body = def_query("zzqq_nonexistent", kind, lang, 5, None, None);
-            // Kind/pub weights wrap the bool; the filter still has to sit on
-            // that bool, not replace the name clauses.
-            let b = body
-                .pointer("/query/function_score/query/bool")
-                .or_else(|| body.pointer("/query/bool"))
-                .expect("bool query");
+            let b = body.pointer("/query/bool").expect("bool query");
             assert_eq!(b["minimum_should_match"], 1, "{body}");
             assert!(!b["should"].as_array().unwrap().is_empty());
             let filters = b["filter"].as_array().unwrap().len();
@@ -532,44 +591,80 @@ mod tests {
         );
     }
 
-    /// A struct/function outranks a type alias and a `mod` line of the same
-    /// name, and a `pub` declaration outranks a private one. The weight is a
-    /// function_score filter, not a `should`, so it cannot match every struct.
+    /// A struct/function outranks a type alias and a test double of the same
+    /// name, and a `pub` declaration outranks a private one. The weights are
+    /// applied to the hits already returned — not as a `function_score`,
+    /// which scored every match (422ms vs 6ms on the tokio index).
     #[test]
     fn preferred_kinds_and_pub_are_weighted_and_aliases_are_demoted() {
         let body = def_query("Db", None, None, 5, None, None);
         let rendered = body["query"].to_string();
-        assert!(rendered.contains("function_score"), "{body}");
         assert!(
-            rendered.contains("\"weight\":20.0") || rendered.contains("\"weight\":20"),
-            "{body}"
+            !rendered.contains("function_score"),
+            "the slow wrapper must stay out of the request: {body}"
         );
-        for kind in ["struct", "function", "enum", "trait"] {
-            assert!(
-                rendered.contains(&format!("\"{kind}\"")),
-                "{kind} missing: {body}"
-            );
-        }
-        // A type alias is not a preferred kind, so it does not receive the
-        // weight. Path globs are not part of the historical query.
-        let kinds = body.pointer("/query/function_score/functions/0/filter/bool/must/0/terms/kind");
         assert!(
-            kinds
-                .and_then(Value::as_array)
-                .unwrap()
-                .iter()
-                .all(|k| k.as_str() != Some("type") && k.as_str() != Some("module")),
-            "{kinds:?}"
+            !rendered.contains("ax_path"),
+            "path demotion is local, not a wildcard filter: {rendered}"
         );
-        assert!(!rendered.contains("ax_path"), "{body}");
-        let with_path = names_of(&["name", "defs", "code", "title", "kind", "ax_path"]);
-        let body = def_query("Db", None, None, 5, Some(&with_path), None);
-        let rendered = body["query"].to_string();
-        assert!(rendered.contains("*/tests/*"), "{body}");
-        assert!(rendered.contains("*/examples/*"), "{body}");
-        assert!(rendered.contains("*/fuzz/*"), "{body}");
-        assert!(rendered.contains("*/benches/*"), "{body}");
-        assert!(rendered.contains("must_not"), "{body}");
+        assert_eq!(def_collect_size(5), 45);
+        assert_eq!(def_collect_size(180), 200);
+        assert_eq!(def_collect_size(500), 500);
+
+        let test_struct = json!({
+            "_score": 172.15,
+            "_source": {
+                "ax_path": "tokio/src/runtime/tests/task.rs",
+                "name": "Runtime",
+                "kind": "struct",
+                "line": 384,
+                "code": "#[derive(Clone)]\nstruct Runtime"
+            }
+        });
+        let src_struct = json!({
+            "_score": 170.17,
+            "_source": {
+                "ax_path": "tokio/src/runtime/runtime.rs",
+                "name": "Runtime",
+                "kind": "struct",
+                "line": 97,
+                "code": "#[derive(Debug)]\npub struct Runtime"
+            }
+        });
+        let alias = json!({
+            "_score": 170.17,
+            "_source": {
+                "ax_path": "tokio/src/runtime/runtime.rs",
+                "name": "Runtime",
+                "kind": "type",
+                "line": 12,
+                "code": "pub type Runtime = Handle"
+            }
+        });
+        let mut hits = vec![test_struct, alias.clone(), src_struct];
+        rerank_def_hits(&mut hits);
+        assert_eq!(
+            hits[0]["_source"]["ax_path"],
+            "tokio/src/runtime/runtime.rs"
+        );
+        assert_eq!(hits[0]["_source"]["kind"], "struct");
+        assert_eq!(hits[1]["_source"]["kind"], "type");
+        assert!(
+            hits[0]["_score"].as_f64().unwrap() > hits[2]["_score"].as_f64().unwrap(),
+            "src struct must outrank the higher-BM25 test double: {hits:?}"
+        );
+        // The type alias shares the src path but is not a preferred kind.
+        // It still gets the pub weight, so it sorts above the private test
+        // struct and below the pub struct.
+        assert!(hits[1]["_score"].as_f64().unwrap() > hits[2]["_score"].as_f64().unwrap());
+
+        assert!(path_is_demoted("tokio/src/runtime/tests/task.rs"));
+        assert!(path_is_demoted("examples/dump.rs"));
+        assert!(path_is_demoted("fuzz/fuzz_targets/x.rs") || path_is_demoted("tokio/fuzz/a.rs"));
+        assert!(!path_is_demoted("tokio/src/runtime/runtime.rs"));
+        assert!(!declaration_is_public("struct Runtime"));
+        assert!(declaration_is_public("pub(crate) struct Runtime"));
+        assert!(!declaration_is_public("publication"));
     }
 
     /// "flush the tree to disk" has to search the symbol body. An identifier
@@ -578,7 +673,7 @@ mod tests {
     fn a_phrase_searches_impl_only_when_the_mapping_has_it() {
         let code = names_of(&["name", "defs", "code", "title", "impl", "kind"]);
         let phrase = def_query("flush the tree to disk", None, None, 5, Some(&code), None);
-        let fields = phrase["query"]["function_score"]["query"]["bool"]["should"]
+        let fields = phrase["query"]["bool"]["should"]
             .as_array()
             .unwrap()
             .iter()
@@ -650,11 +745,10 @@ mod tests {
         assert!(!query.contains("kind"), "{query}");
         assert!(query.contains("code"), "{query}");
         assert!(query.contains("title"), "{query}");
-        // `code` is still text, so the pub ranking weight wraps function_score.
-        // The numeric `kind` must not: that filter would name `kind`.
+        // `code` is still text. The numeric `kind` must not be named: that
+        // filter would 400 the wildcard. The pub weight is applied locally.
         let should = body
-            .pointer("/query/function_score/query/bool/should")
-            .or_else(|| body.pointer("/query/bool/should"))
+            .pointer("/query/bool/should")
             .and_then(Value::as_array)
             .expect("should clauses");
         let fields = should
