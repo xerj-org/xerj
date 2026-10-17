@@ -3659,6 +3659,9 @@ fn build_phase_a(
         }
     }
     let mut clusters = dataset::cluster(sketches, &rels, &scopes);
+    // `{prefix}-{slug}` must not stutter (`logs-logs-syslog`) when the slug's
+    // first segment is the prefix the operator already chose.
+    dataset::drop_repeated_prefix(&cfg.prefix, &mut clusters);
 
     // Demoted one-off config files (#173) were sampled as flattened records;
     // phase B will index them as documents. Re-sample them through the same
