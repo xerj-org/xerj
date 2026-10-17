@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 
 use crate::esclient::Es;
 use serde_json::{json, Value};
+use xerj_common::xccode::demote_catalog_noise;
 
 const USAGE: &str = "\
 xerj search — retrieve code from a running XERJ node (reference coding, no scripts)
@@ -590,7 +591,7 @@ pub fn run_search_cli() -> i32 {
         .as_ref()
         .and(raw_mapping.as_ref().map(numeric_property_names));
     let body = search_query_body_for_mapping(&query, k, mapped.as_ref(), numeric.as_ref());
-    let resp = match es.search(&pattern, &body) {
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
             eprintln!(
@@ -602,6 +603,15 @@ pub fn run_search_cli() -> i32 {
         }
     };
 
+    // Stubs and catalogs repeat the words of a question and outrank the
+    // implementation. Same partition `xerj code` applies (#1504, candle
+    // `.pyi` report). `--json` sees the same order as the text printer.
+    if let Some(arr) = resp.pointer("/hits/hits").and_then(Value::as_array) {
+        let ordered = demote_catalog_noise(arr.clone());
+        if let Some(slot) = resp.pointer_mut("/hits/hits") {
+            *slot = Value::Array(ordered);
+        }
+    }
     if as_json {
         println!(
             "{}",

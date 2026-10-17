@@ -699,7 +699,7 @@ pub(crate) fn diversity_fetch(k: usize) -> usize {
 /// Stable partition: hits whose path is a translation catalog or a minified
 /// bundle move behind every other hit, keeping their relative order. A page
 /// that is only catalogs is unchanged. Hits with no path stay where they are.
-pub(crate) fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
+pub fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
     let mut primary = Vec::with_capacity(hits.len());
     let mut catalogs = Vec::new();
     for hit in hits {
@@ -717,8 +717,14 @@ pub(crate) fn demote_catalog_noise(hits: Vec<Value>) -> Vec<Value> {
 /// ones a multilingual repo uses for key→string tables, not a general
 /// "prose file" filter: `lang/*.php`, `values*/strings.xml`, `*.lproj/*.strings`,
 /// `*.po` / `*.pot`, and `*.min.js` / `*.min.mjs` / `*.min.css`.
-pub(crate) fn is_catalog_noise(path: &str) -> bool {
+pub fn is_catalog_noise(path: &str) -> bool {
     let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    // Type stubs repeat the public signature and outrank the implementation
+    // on a natural-language query (candle field report 2026-10-17: `.pyi`
+    // files were the top hits). They stay searchable, behind source.
+    if name.ends_with(".pyi") {
+        return true;
+    }
     if name.ends_with(".min.js") || name.ends_with(".min.mjs") || name.ends_with(".min.css") {
         return true;
     }
@@ -1609,6 +1615,39 @@ mod tests {
         );
     }
 
+    /// Candle field report 2026-10-17: natural-language search put `.pyi`
+    /// stubs above the implementation. Stubs stay in the page, after source.
+    /// A page that is only stubs keeps its order.
+    #[test]
+    fn pyi_stubs_rank_behind_the_implementation() {
+        let hit = |path: &str, score: f64| {
+            serde_json::json!({
+                "_score": score,
+                "_source": { "ax_path": path }
+            })
+        };
+        let demoted = demote_catalog_noise(vec![
+            hit("candle/pyo3/quantized.pyi", 9.0),
+            hit("candle/quantized.py", 2.0),
+            hit("candle/pyo3/tensor.pyi", 8.0),
+        ]);
+        let paths: Vec<&str> = demoted
+            .iter()
+            .map(|h| h["_source"]["ax_path"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            paths,
+            [
+                "candle/quantized.py",
+                "candle/pyo3/quantized.pyi",
+                "candle/pyo3/tensor.pyi",
+            ]
+        );
+        let only = demote_catalog_noise(vec![hit("a.pyi", 3.0), hit("b.pyi", 1.0)]);
+        assert_eq!(only[0]["_source"]["ax_path"], "a.pyi");
+        assert_eq!(only[1]["_source"]["ax_path"], "b.pyi");
+    }
+
     /// #1504: lang catalogs, Android strings, Apple .strings, gettext, and
     /// minified bundles sort behind an implementing source file. A page that
     /// is only catalogs keeps its order. A PHP service file is not a catalog
@@ -1669,6 +1708,8 @@ mod tests {
         assert_eq!(only[0]["_source"]["ax_path"], "web/lang/hr.php");
         assert_eq!(only[1]["_source"]["ax_path"], "web/lang/en.php");
 
+        assert!(is_catalog_noise("candle/quantized.pyi"));
+        assert!(!is_catalog_noise("candle/quantized.py"));
         assert!(!is_catalog_noise("src/main.rs"));
         assert!(!is_catalog_noise("res/layout/activity.xml"));
         assert!(is_catalog_noise("web/lang/en.php"));
