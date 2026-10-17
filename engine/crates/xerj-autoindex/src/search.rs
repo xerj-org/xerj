@@ -65,6 +65,23 @@ pub(crate) fn passage_text(hit: &Value) -> Option<String> {
     }
 }
 
+/// `xerj search` has no mode flag. `--mode semantic` and `--mode hybrid`
+/// belong to `xerj code`. Saying "unexpected argument" and dumping USAGE
+/// hides that, and it hides that those modes still use lexical feature
+/// hashing unless the node was started with `--embed-mode neural`.
+pub(crate) fn search_mode_refusal(asked: &str) -> String {
+    let which = if asked.is_empty() {
+        String::new()
+    } else {
+        format!(" ({asked})")
+    };
+    format!(
+        "xerj search: no --mode{which}. This command always sends a lexical query. \
+         xerj code --mode semantic and xerj code --mode hybrid are the commands that take a mode; \
+         unless the node was started with --embed-mode neural they still embed with lexical feature hashing."
+    )
+}
+
 /// True when the query looks like a single code identifier (`IOSIntfLine`,
 /// `euler_to_rotationmatrix`) rather than a plain-words phrase — the case
 /// where `xerj def` is the better tool.
@@ -513,6 +530,11 @@ pub fn run_search_cli() -> i32 {
             "-k" => k = it.next().and_then(|s| s.parse().ok()).unwrap_or(k),
             "--full" => full = it.next().and_then(|s| s.parse().ok()).unwrap_or(full),
             "--json" => as_json = true,
+            "--mode" => {
+                let asked = it.next().unwrap_or_default();
+                eprintln!("{}", search_mode_refusal(&asked));
+                return 2;
+            }
             other if !other.starts_with('-') && query.is_none() => query = Some(other.to_string()),
             other => {
                 eprintln!("xerj search: unexpected argument '{other}'\n\n{USAGE}");
@@ -665,6 +687,22 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    #[test]
+    fn search_refuses_a_mode_flag_and_names_the_embedder() {
+        for asked in ["semantic", "hybrid", "bm25"] {
+            let line = search_mode_refusal(asked);
+            assert!(line.contains(&format!("({asked})")), "{line}");
+            assert!(line.contains("always sends a lexical query"), "{line}");
+            assert!(line.contains("xerj code --mode semantic"), "{line}");
+            assert!(line.contains("--embed-mode neural"), "{line}");
+            assert!(line.contains("lexical feature hashing"), "{line}");
+            assert!(!line.contains("POST"), "{line}");
+        }
+        let bare = search_mode_refusal("");
+        assert!(bare.contains("no --mode."));
+        assert!(!bare.contains("()"), "{bare}");
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`
