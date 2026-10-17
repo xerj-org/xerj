@@ -17,8 +17,12 @@
 //! is not the private half of [`xerj_common::hub::HUB_PUBKEY_HEX`] fails here
 //! instead of publishing a catalogue no client can load.
 //!
-//! `quality_grade` is left `None`: the plan sources it only from the graded G7
-//! files, and the field's contract is "never invent one".
+//! `quality_grade` comes only from the graded G7 suites in
+//! `<registry>/backlog/*graded*.json`, read exactly as the hub site generator
+//! reads them (`tools/corpus-hub-site/gen.py` `parse_graded_suites` and
+//! `g7_badge`), so the catalogue and the corpus page show the same grade. A
+//! corpus with no graded suite gets `None`: the field's contract is "never
+//! invent one" (see [`read_graded_suites`]).
 
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
@@ -62,7 +66,10 @@ them). One entry per live lane-A corpus in the backlog (default
                         tag (a -rN retag); default tag pack-<slug>-<pin8>
 
 Every pack is verified (sha256, signature against the hub key this build embeds,
-format, slug and pin) before it is listed; any failure aborts.";
+format, slug and pin) before it is listed; any failure aborts.
+
+quality_grade comes from the graded G7 suites in <registry>/backlog/*graded*.json
+(the files the hub site reads); a corpus with no graded suite has none.";
 
 /// Inputs to [`build`]. Paths as given on the command line.
 pub struct Options {
@@ -242,6 +249,7 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
         .and_then(Value::as_array)
         .ok_or_else(|| anyhow!("backlog {} has no corpora[]", opts.backlog.display()))?;
 
+    let grades = read_graded_suites(&opts.registry.join("backlog"))?;
     let mut inputs: Vec<CorpusBuildInput> = Vec::new();
     let mut without_pack: Vec<String> = Vec::new();
     let mut used: HashSet<String> = HashSet::new();
@@ -352,7 +360,7 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
             sig_url: format!("{pack_url}.sig"),
             pack_url,
             pack_sha256: pack.sha256,
-            quality_grade: None,
+            quality_grade: grades.get(slug).cloned(),
             terms,
             pin_sha,
             ask_for: backlog_domain.to_string(),
@@ -389,6 +397,118 @@ pub fn build(opts: &Options, seed_hex: &str, pubkey_hex: &str) -> Result<Built> 
         without_pack,
         unmatched,
     })
+}
+
+/// `slug -> "G7 <median>/5"` from every `*graded*.json` in `backlog_dir`, the
+/// files and rules of the site generator (`tools/corpus-hub-site/gen.py`):
+///
+/// - files in sorted name order; a later file's suite for a slug replaces an
+///   earlier one (`out[slug] = suite`);
+/// - the suites map is the first of `graded`, `suites`, `corpora` present; a
+///   file whose map is not an object (e.g. `"graded": "<date>"`) or that is
+///   not valid JSON is skipped;
+/// - only suites that carry `queries` count;
+/// - the suite's own `median` when it has one, else `suite_median`: per
+///   query `verdict` (falling back to `grade`), pass/relevant = 1,
+///   partial = 0.5, anything else 0, `*excluded*` left out of both sides,
+///   scaled to 5;
+/// - rendered `G7 {:.1}/5`, the site badge's text.
+///
+/// One deliberate difference: where the site would print `0.0/5` for a suite
+/// with no gradable query (or a `median` that is not a number), this returns
+/// no grade, because nothing was graded there.
+pub fn read_graded_suites(backlog_dir: &Path) -> Result<BTreeMap<String, String>> {
+    let mut files: Vec<PathBuf> = Vec::new();
+    match fs::read_dir(backlog_dir) {
+        Ok(rd) => {
+            for entry in rd {
+                let path = entry
+                    .with_context(|| format!("list {}", backlog_dir.display()))?
+                    .path();
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                if name.contains("graded") && name.ends_with(".json") && path.is_file() {
+                    files.push(path);
+                }
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(e) => return Err(e).with_context(|| format!("list {}", backlog_dir.display())),
+    }
+    files.sort();
+    let mut out = BTreeMap::new();
+    for path in files {
+        let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+        let Ok(data) = serde_json::from_str::<Value>(&text) else {
+            continue;
+        };
+        let Some(container) = ["graded", "suites", "corpora"]
+            .into_iter()
+            .find_map(|k| data.get(k))
+        else {
+            continue;
+        };
+        let Some(suites) = container.as_object() else {
+            continue;
+        };
+        for (slug, suite) in suites {
+            let Some(queries) = suite.get("queries") else {
+                continue;
+            };
+            let median = match suite.get("median") {
+                None | Some(Value::Null) => suite_median(queries),
+                Some(v) => v.as_f64(),
+            };
+            match median {
+                Some(m) => out.insert(slug.clone(), format!("G7 {m:.1}/5")),
+                None => out.remove(slug),
+            };
+        }
+    }
+    Ok(out)
+}
+
+/// gen.py `suite_median`: relevant-of-5 from the per-query verdicts, or
+/// `None` when no query carries a gradable verdict.
+fn suite_median(queries: &Value) -> Option<f64> {
+    let mut got: Vec<f64> = Vec::new();
+    for q in queries.as_array()? {
+        let verdict = ["verdict", "grade"]
+            .into_iter()
+            .filter_map(|k| q.get(k))
+            .find(|v| truthy(v));
+        let label = match verdict {
+            Some(Value::String(s)) => s.clone(),
+            Some(v) => v.to_string(),
+            None => String::new(),
+        };
+        if label.contains("excluded") {
+            continue;
+        }
+        got.push(match label.as_str() {
+            "pass" | "relevant" => 1.0,
+            "partial" => 0.5,
+            _ => 0.0,
+        });
+    }
+    if got.is_empty() {
+        return None;
+    }
+    Some(got.iter().sum::<f64>() / got.len() as f64 * 5.0)
+}
+
+/// Python truthiness for the `a or b` in gen.py.
+fn truthy(v: &Value) -> bool {
+    match v {
+        Value::Null => false,
+        Value::Bool(b) => *b,
+        Value::Number(n) => n.as_f64() != Some(0.0),
+        Value::String(s) => !s.is_empty(),
+        Value::Array(a) => !a.is_empty(),
+        Value::Object(o) => !o.is_empty(),
+    }
 }
 
 /// The members of a verified pack the catalogue needs.
@@ -623,6 +743,84 @@ mod tests {
         assert!(built.unmatched.is_empty());
         verify_bytes(&built.bytes, &built.sig_hex, &public).unwrap();
         assert_eq!(built.bytes, canonical_json(&built.catalogue).unwrap());
+    }
+
+    /// The shapes the real registry's graded files have (corpus-hub branch,
+    /// `tools/xerj-code/hub/backlog/*graded*.json`).
+    fn write_graded(backlog: &Path) {
+        // A suite with its own median, and one for a corpus that is not live.
+        fs::write(
+            backlog.join("g7-a-2026-10-graded.json"),
+            r#"{"graded_at":"2026-10-04","corpora":{
+              "lz4":{"median":3.0,"verdict":"PASS","queries":[{"verdict":"pass"}]},
+              "otel":{"pass":0,"verdict":"FAIL","queries":[
+                {"verdict":"miss"},{"verdict":"miss"},{"verdict":"miss"},{"verdict":"miss"},{"verdict":"miss"}]},
+              "nogrades":{"verdict":"PENDING","queries":[]}
+            }}"#,
+        )
+        .unwrap();
+        // Later in sort order: replaces lz4 (verdict falls back to grade,
+        // partial = 0.5, a suite defect is excluded from both sides).
+        fs::write(
+            backlog.join("g7-b-2026-10-graded.json"),
+            r#"{"suite":"x","graded":{
+              "lz4":{"graded_at":"2026-10-02","queries":[
+                {"grade":"relevant"},{"verdict":"","grade":"relevant"},{"grade":"miss"},
+                {"grade":"partial"},{"grade":"suite-defect (excluded)"}]}
+            }}"#,
+        )
+        .unwrap();
+        // A file whose `graded` is a date string, and one that is not JSON:
+        // both skipped, as the site skips them.
+        fs::write(
+            backlog.join("g7-c-2026-10-graded.json"),
+            r#"{"graded":"2026-10-08 (re-graded)","corpora":{"lz4":{"median":5,"queries":[]}}}"#,
+        )
+        .unwrap();
+        fs::write(backlog.join("g7-d-graded.json"), "{not json").unwrap();
+        // Not a graded file: never read.
+        fs::write(
+            backlog.join("g7-e-2026-10.json"),
+            r#"{"corpora":{"zstd":{"median":5,"queries":[]}}}"#,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn graded_suites_are_read_with_the_site_generators_rules() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_graded(tmp.path());
+        let grades = read_graded_suites(tmp.path()).unwrap();
+        // (1 + 1 + 0 + 0.5) / 4 * 5 = 3.125 -> "3.1"
+        assert_eq!(grades.get("lz4").map(String::as_str), Some("G7 3.1/5"));
+        assert_eq!(grades.get("otel").map(String::as_str), Some("G7 0.0/5"));
+        // Nothing gradable: no grade, never an invented 0.0.
+        assert_eq!(grades.get("nogrades"), None);
+        assert_eq!(grades.get("zstd"), None);
+        assert_eq!(grades.len(), 2);
+    }
+
+    #[test]
+    fn no_backlog_dir_means_no_grades() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(read_graded_suites(&tmp.path().join("absent"))
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn the_catalogue_entry_carries_the_graded_suites_grade() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (seed, public) = generate_keypair().unwrap();
+        let opts = fixture(tmp.path(), &seed);
+        write_graded(&opts.registry.join("backlog"));
+        let built = build(&opts, &seed, &public).unwrap();
+        assert_eq!(
+            built.catalogue.corpora[0].quality_grade.as_deref(),
+            Some("G7 3.1/5")
+        );
+        let json = String::from_utf8(built.bytes).unwrap();
+        assert!(json.contains(r#""quality_grade":"G7 3.1/5""#), "{json}");
     }
 
     #[test]
