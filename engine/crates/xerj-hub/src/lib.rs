@@ -25,6 +25,8 @@ pub mod pack;
 pub mod router;
 pub mod sketch;
 pub mod sync;
+#[cfg(test)]
+mod test_support;
 
 pub use xerj_common::hub::{
     render, Answer, AnswerMode, AnsweredFrom, Catalogue, CatalogueEntry, DefRecord, Hit,

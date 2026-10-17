@@ -1257,9 +1257,27 @@ fn timer_dirs_follow_xdg_config_home_and_ignore_a_relative_one() {
         TimerDirs::from_env(&env(&[("HOME", "/home/u"), ("XERJ_HUB_HOME", "/srv/hub")])).unwrap();
     assert_eq!(dirs.hub_home, PathBuf::from("/srv/hub"));
 
+    // HOME unset or empty falls back to USERPROFILE, the same rule as the hub
+    // home itself; both paths below come from the one variable.
+    for e in [
+        env(&[("USERPROFILE", "/Users/u")]),
+        env(&[("HOME", ""), ("USERPROFILE", "/Users/u")]),
+    ] {
+        let dirs = TimerDirs::from_env(&e).unwrap();
+        assert_eq!(
+            dirs.launch_agents,
+            PathBuf::from("/Users/u/Library/LaunchAgents")
+        );
+        assert_eq!(dirs.hub_home, PathBuf::from("/Users/u/.xerj/hub"));
+    }
+
     assert!(
         TimerDirs::from_env(&env(&[])).is_err(),
-        "no HOME, no user timer"
+        "no HOME and no USERPROFILE, no user timer"
+    );
+    assert!(
+        TimerDirs::from_env(&env(&[("HOME", ""), ("USERPROFILE", "")])).is_err(),
+        "empty values count as unset"
     );
 }
 

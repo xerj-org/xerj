@@ -1704,14 +1704,30 @@ mod tests {
         assert_eq!(run_hub_cli(&strs(&["config"])), 2);
     }
 
-    // NOTE: `hub_pubkey()` reads the process-global `XERJ_HUB_PUBKEY`, which the
-    // `catalogue` test module already mutates under its own `ENV_LOCK`. A unit
-    // test here that set/removed that var would race those tests (lib tests share
-    // one process and run in parallel, and the lock is private to that module).
-    // The no-key path (`XERJ_HUB_PUBKEY=none`) — its own exit code (5), no `.tmp` leaked
-    // and no node started — is covered end to end by the `nokey` scenario in
-    // `tests/pack_roundtrip.rs` instead. Everything below refuses BEFORE the key is
-    // looked at, so it needs no environment.
+    /// Restored from d26ecf43, which deleted it because it wrote
+    /// `XERJ_HUB_PUBKEY` without the `catalogue` tests' private lock. It now
+    /// holds the crate's one lock ([`crate::test_support::HubPubkeyEnv`]).
+    /// The no-key path end to end (exit 5, no `.tmp`, no node) stays covered
+    /// by the `nokey` scenario in `tests/pack_roundtrip.rs`.
+    #[test]
+    fn hub_pubkey_prefers_the_env_override_and_refuses_with_none() {
+        let env = crate::test_support::HubPubkeyEnv::lock();
+
+        env.set("abcd");
+        assert_eq!(hub_pubkey().unwrap(), "abcd");
+
+        env.set(xerj_common::hub::HUB_PUBKEY_NONE);
+        let msg = format!("{:#}", hub_pubkey().unwrap_err());
+        assert!(msg.contains("no hub public key"), "{msg}");
+        assert!(msg.contains("XERJ_HUB_PUBKEY=none"), "{msg}");
+
+        env.remove();
+        if xerj_common::hub::HUB_PUBKEY_HEX.is_empty() {
+            assert!(hub_pubkey().is_err(), "a build with no key refuses");
+        } else {
+            assert_eq!(hub_pubkey().unwrap(), xerj_common::hub::HUB_PUBKEY_HEX);
+        }
+    }
 
     // ── the pull policy lives in the pull ────────────────────────────────────
 
