@@ -4,7 +4,7 @@
 //! (The engine's dynamic mapping has NO date detection — verified — so
 //! autoindex is the date layer.)
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone, Utc};
 
 /// Epoch windows: 1990-01-01 .. 2100-01-01
 pub const EPOCH_MS_MIN: i64 = 631_152_000_000;
@@ -22,6 +22,10 @@ pub enum DateEnc {
     Rfc2822,      // Tue, 01 Jul 2025 10:00:00 +0000
     EpochMillis,  // numeric
     EpochSeconds, // numeric
+    /// RFC 3164 timestamp: `Oct 17 22:26:01` / `Oct  5 09:06:58`. No year and
+    /// no zone. Appended last so a tie still prefers every encoding above,
+    /// which all carry a year.
+    BsdSyslog,
 }
 
 impl DateEnc {
@@ -35,12 +39,25 @@ impl DateEnc {
             DateEnc::Rfc2822 => "rfc2822",
             DateEnc::EpochMillis => "epoch-millis",
             DateEnc::EpochSeconds => "epoch-seconds",
+            // The year is not in the stamp. It is the year of `now` unless
+            // that reading is more than 24h in the future, in which case it
+            // is the previous year (a December line read in January).
+            DateEnc::BsdSyslog => {
+                "bsd-syslog (year assumed: current UTC year, or the previous year when the stamp is more than 24h ahead)"
+            }
         }
     }
 }
 
-/// Try all string encodings in priority order.
+/// Try all string encodings in priority order. A year-less BSD syslog
+/// stamp takes its year from [`Utc::now`] — see [`DateEnc::BsdSyslog`].
 pub fn parse_date_str(s: &str) -> Option<(DateTime<Utc>, DateEnc)> {
+    parse_date_str_at(s, Utc::now())
+}
+
+/// [`parse_date_str`] with the clock the BSD-syslog year rule reads.
+/// Every other encoding ignores `now`.
+pub fn parse_date_str_at(s: &str, now: DateTime<Utc>) -> Option<(DateTime<Utc>, DateEnc)> {
     let t = s.trim();
     if t.len() < 8 || t.len() > 40 {
         return None;
@@ -88,8 +105,64 @@ pub fn parse_date_str(s: &str) -> Option<(DateTime<Utc>, DateEnc)> {
         if let Ok(dt) = DateTime::parse_from_rfc2822(t) {
             return Some((dt.with_timezone(&Utc), DateEnc::Rfc2822));
         }
+        if let Some(dt) = parse_bsd_syslog(t, now) {
+            return Some((dt, DateEnc::BsdSyslog));
+        }
     }
     None
+}
+
+/// English month abbreviations. Chrono's `%b` follows the process locale, so
+/// a stamp of `Oct` must not depend on `LC_TIME`.
+fn english_month(name: &str) -> Option<u32> {
+    Some(match name {
+        "Jan" => 1,
+        "Feb" => 2,
+        "Mar" => 3,
+        "Apr" => 4,
+        "May" => 5,
+        "Jun" => 6,
+        "Jul" => 7,
+        "Aug" => 8,
+        "Sep" => 9,
+        "Oct" => 10,
+        "Nov" => 11,
+        "Dec" => 12,
+        _ => return None,
+    })
+}
+
+/// `Mmm dd hh:mm:ss` (day space-padded), the whole string and nothing else.
+/// Year: `now`'s UTC year, unless that instant is more than 24 hours ahead
+/// of `now`, in which case the previous year. A Feb 29 that is not a real
+/// day in the chosen year does not parse — inventing a different day would
+/// put the line on the wrong date.
+fn parse_bsd_syslog(t: &str, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    let mut parts = t.split_whitespace();
+    let month = english_month(parts.next()?)?;
+    let day: u32 = parts.next()?.parse().ok()?;
+    let time = parts.next()?;
+    if parts.next().is_some() || !(1..=31).contains(&day) || time.len() != 8 {
+        return None;
+    }
+    let mut hm = time.split(':');
+    let hour: u32 = hm.next()?.parse().ok()?;
+    let minute: u32 = hm.next()?.parse().ok()?;
+    let second: u32 = hm.next()?.parse().ok()?;
+    if hm.next().is_some() {
+        return None;
+    }
+    let at = |year: i32| {
+        NaiveDate::from_ymd_opt(year, month, day)?
+            .and_hms_opt(hour, minute, second)
+            .map(|ndt| Utc.from_utc_datetime(&ndt))
+    };
+    let year = now.year();
+    let dt = at(year)?;
+    match now.checked_add_signed(chrono::Duration::hours(24)) {
+        Some(limit) if dt > limit => at(year - 1),
+        _ => Some(dt),
+    }
 }
 
 /// Interpret an integer as epoch millis/seconds if within the window.
@@ -180,5 +253,44 @@ mod tests {
     fn normalization() {
         let (dt, _) = parse_date_str("01/Mar/2026:00:00:03 +0000").unwrap();
         assert_eq!(to_rfc3339_millis(&dt), "2026-03-01T00:00:03.000Z");
+    }
+
+    fn at(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, mo, d, h, mi, s).unwrap()
+    }
+
+    /// RFC 3164 has no year. Leaving the stamp as keyword makes a time-range
+    /// filter miss every line. The year is the clock's year unless that
+    /// reading is more than a day ahead (a December line indexed in January).
+    #[test]
+    fn bsd_syslog_stamps_are_dates_with_an_assumed_year() {
+        let now = at(2026, 10, 17, 23, 0, 0);
+        let (dt, enc) = parse_date_str_at("Oct 17 22:26:01", now).unwrap();
+        assert_eq!(enc, DateEnc::BsdSyslog);
+        assert_eq!(to_rfc3339_millis(&dt), "2026-10-17T22:26:01.000Z");
+
+        let (padded, _) = parse_date_str_at("Oct  5 09:06:58", now).unwrap();
+        assert_eq!(to_rfc3339_millis(&padded), "2026-10-05T09:06:58.000Z");
+
+        // Read in January: December is more than 24h ahead if taken as
+        // this year, so the stamp is last year.
+        let jan = at(2026, 1, 2, 0, 0, 0);
+        let (rolled, _) = parse_date_str_at("Dec 31 23:59:59", jan).unwrap();
+        assert_eq!(to_rfc3339_millis(&rolled), "2025-12-31T23:59:59.000Z");
+
+        // A few minutes of clock skew stays in the current year.
+        let early = at(2026, 10, 17, 22, 0, 0);
+        let (skew, _) = parse_date_str_at("Oct 17 22:26:01", early).unwrap();
+        assert_eq!(to_rfc3339_millis(&skew), "2026-10-17T22:26:01.000Z");
+
+        assert!(parse_date_str_at("Not a date", now).is_none());
+        assert!(parse_date_str_at("Oct 17 22:26:01 trailing", now).is_none());
+        assert!(parse_date_str_at("Oct 32 00:00:00", now).is_none());
+        assert!(
+            parse_date_str_at("Tue, 01 Jul 2025 10:00:00 +0000", now)
+                .unwrap()
+                .1
+                != DateEnc::BsdSyslog
+        );
     }
 }

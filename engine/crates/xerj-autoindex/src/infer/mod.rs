@@ -885,6 +885,28 @@ mod tests {
         }
     }
 
+    /// RFC 3164 `ts` (`Oct 17 22:26:01`) has no year. Before it was recognized
+    /// the column missed the 95% date threshold and mapped `keyword`, so a
+    /// time-range filter matched nothing.
+    #[test]
+    fn a_bsd_syslog_timestamp_column_maps_as_date() {
+        let mut acc = FieldAcc::default();
+        for day in 1..=20 {
+            acc.add(&Value::String(format!("Oct {day} 09:06:58")));
+        }
+        assert_eq!(acc.date_hits.get(&DateEnc::BsdSyslog).copied(), Some(20));
+        let mut fields = HashMap::new();
+        fields.insert("ts".to_string(), acc);
+        let specs = infer_fields(&fields, 20, true);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].es_type, "date", "{specs:?}");
+        assert_eq!(
+            specs[0].date_enc.as_deref(),
+            Some(DateEnc::BsdSyslog.as_str())
+        );
+        assert!(specs[0].date_min.is_some() && specs[0].date_max.is_some());
+    }
+
     #[test]
     fn a_tied_entity_election_elects_the_most_specific_entity_every_run() {
         for _ in 0..500 {

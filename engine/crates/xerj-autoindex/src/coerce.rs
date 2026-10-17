@@ -26,6 +26,7 @@ pub fn enc_from_str(s: &str) -> Option<DateEnc> {
         DateEnc::Rfc2822,
         DateEnc::EpochMillis,
         DateEnc::EpochSeconds,
+        DateEnc::BsdSyslog,
     ]
     .into_iter()
     .find(|e| e.as_str() == s)
