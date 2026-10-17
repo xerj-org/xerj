@@ -117,7 +117,7 @@ Handshake:
 Auth:
   - A node started with `--insecure` requires no auth (that flag disables TLS AND auth).
   - Otherwise auth is ON by default: the node generates an admin API key on first run,
-    prints it, and writes it to `<data_dir>/admin.key` (0600, reused on later starts).
+    does not print it, and writes it to `<data_dir>/admin.key` (0600, reused on later starts).
     Send it as `Authorization: ApiKey <key>`. See https://xerj.org/docs/security
   - The `autoindex` CLI takes `--api-key <K>` or env `XERJ_API_KEY`.
 

@@ -226,7 +226,7 @@
 
   <h2 id="api-key">API-key auth</h2>
   <p>Every request is required to carry <code class="inline">Authorization: ApiKey &lt;key&gt;</code> when <code class="inline">[auth] enabled = true</code> — which is the default, so a node started without <code class="inline">--insecure</code> demands a key whether or not you wrote a config. <code class="inline">Bearer &lt;key&gt;</code> and <code class="inline">Basic base64(user:&lt;key&gt;)</code> are accepted too, but <code class="inline">ApiKey</code> is the scheme the engine documents and the one every XERJ client sends.</p>
-  <p>An admin key is auto-generated on first run if <code class="inline">admin_api_key</code> is blank — a 64-character hex string, printed in a startup banner and written to <code class="inline">&lt;data_dir&gt;/admin.key</code> with mode <code class="inline">0600</code>. It is <strong>not</strong> stored next to the config, and it is reused on restart rather than regenerated.</p>
+  <p>An admin key is auto-generated on first run if <code class="inline">admin_api_key</code> is blank — a 64-character hex string, written to <code class="inline">&lt;data_dir&gt;/admin.key</code> with mode <code class="inline">0600</code>. The startup banner names that file and does not print the key. It is <strong>not</strong> stored next to the config, and it is reused on restart rather than regenerated.</p>
 <pre class="code">$ cat /var/lib/xerj/admin.key
 4f2c9e17b83a0d5641fe72c8b90a3d5e17c46b8f92a0e35d7148bc6a03f9e2d1
 
