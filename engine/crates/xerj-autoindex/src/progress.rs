@@ -654,6 +654,12 @@ impl Progress {
                 for (key, value) in flags {
                     doc.insert((*key).to_string(), (*value).into());
                 }
+                if ok && exit == 3 {
+                    doc.insert(
+                        "exit_meaning".into(),
+                        "success: junk was recorded, the run did not fail".into(),
+                    );
+                }
                 let line = serde_json::Value::Object(doc);
                 self.sink.write(format!("{line}\n").as_bytes());
             }
@@ -674,6 +680,11 @@ impl Progress {
                     line.push_str(&format!(" {key}={value}"));
                 }
                 line.push('\n');
+                if ok && exit == 3 {
+                    line.push_str(
+                        "xerj-note exit=3 means success: junk was recorded, the run did not fail\n",
+                    );
+                }
                 self.sink.write(line.as_bytes());
             }
         }
@@ -2023,6 +2034,10 @@ mod tests {
         assert_eq!(last["exit"], 3);
         assert_eq!(last["reason"], "completed-with-junk");
         assert_eq!(last["files"], 1922);
+        assert_eq!(
+            last["exit_meaning"],
+            "success: junk was recorded, the run did not fail"
+        );
     }
 
     /// #279. `ignored_files_in_pruned_dirs` is budget-capped, so on its own it
@@ -2170,6 +2185,12 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("files=12 records=7"), "{text}");
+        assert!(
+            text.contains(
+                "xerj-note exit=3 means success: junk was recorded, the run did not fail"
+            ),
+            "{text}"
+        );
     }
 
     #[test]
