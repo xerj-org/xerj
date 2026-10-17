@@ -710,6 +710,143 @@ pub struct CatFormatParams {
     /// #1201: `bytes=b|k|kb|…` — re-render size columns in that unit.
     #[serde(default)]
     pub bytes: Option<String>,
+    /// ES `expand_wildcards`: `open` (default) omits `.xerj_*` console
+    /// indices, `hidden` lists only those, `open,hidden` and `all` list
+    /// both. `closed` is accepted and does not drop closed indices —
+    /// `_cat/indices` keeps a closed index visible (issue #463).
+    /// `.xerj-memory-*` brains stay in the default listing: they are the
+    /// caller's data, and insecure mode asserts they remain visible.
+    #[serde(default)]
+    pub expand_wildcards: Option<String>,
+    /// Xerj console escape hatch: `include_system=true` adds `.xerj_*`
+    /// indices without dropping the rows the other flags selected.
+    #[serde(default)]
+    pub include_system: Option<String>,
+}
+
+/// Which names `_cat/indices` may list when the request did not name them
+/// explicitly. A concrete path (`/_cat/indices/.xerj_users`) always returns
+/// that row; this only filters the unscoped listing and wildcard expansion.
+///
+/// "Hidden" here is a console system index (`.xerj_*`), not every
+/// dot-prefixed name. `.xerj-memory-*` is the caller's brain and stays in
+/// the default listing.
+struct CatVisibility {
+    include_visible: bool,
+    include_hidden: bool,
+}
+
+impl CatVisibility {
+    fn parse(params: &CatFormatParams) -> Result<Self, ApiError> {
+        let include_system = match params.include_system.as_deref().map(str::trim) {
+            None => false,
+            Some("" | "true" | "1" | "yes") => true,
+            Some("false" | "0" | "no") => false,
+            Some(other) => {
+                return Err(ApiError::new(xerj_common::XerjError::invalid_query(
+                    format!("unknown include_system value `{other}` (expected true or false)"),
+                )));
+            }
+        };
+        let raw = params.expand_wildcards.as_deref().unwrap_or("open");
+        let tokens: Vec<&str> = raw
+            .split(',')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .collect();
+        if tokens.is_empty() {
+            return Ok(Self {
+                include_visible: true,
+                include_hidden: include_system,
+            });
+        }
+        let mut open = false;
+        let mut closed = false;
+        let mut hidden = false;
+        let mut all = false;
+        let mut none = false;
+        for token in &tokens {
+            match *token {
+                "open" => open = true,
+                "closed" => closed = true,
+                "hidden" => hidden = true,
+                "all" => all = true,
+                "none" => none = true,
+                other => {
+                    return Err(ApiError::new(xerj_common::XerjError::invalid_query(
+                        format!(
+                            "unknown expand_wildcards value `{other}` \
+                             (expected open, closed, hidden, none, or all)"
+                        ),
+                    )));
+                }
+            }
+        }
+        if all {
+            open = true;
+            closed = true;
+            hidden = true;
+        }
+        // `none` alone matches nothing. Mixed with another state, the other
+        // state wins (ES unions the listed wildcard states).
+        if none && !open && !closed && !hidden {
+            return Ok(Self {
+                include_visible: false,
+                include_hidden: include_system,
+            });
+        }
+        // `open` and `closed` both keep non-hidden rows. Closed indices stay
+        // listed (issue #463); this parameter's load-bearing distinction here
+        // is hidden vs not.
+        Ok(Self {
+            include_visible: open || closed,
+            include_hidden: hidden || include_system,
+        })
+    }
+
+    /// Unscoped `GET /_cat/indices`, or one comma-separated pattern part.
+    fn keeps(&self, name: &str, part: Option<&str>) -> bool {
+        // `.xerj_*` is the console's own store (users, sessions, audit, …).
+        // `.xerj-memory-*` uses a hyphen and is not in this set.
+        let hidden_name = name.starts_with(".xerj_");
+        match part {
+            None => {
+                if hidden_name {
+                    self.include_hidden
+                } else {
+                    self.include_visible
+                }
+            }
+            Some(part) => {
+                let wildcard = part == "_all" || part == "*" || part.contains('*');
+                if !wildcard {
+                    return name == part;
+                }
+                let matches = part == "_all" || part == "*" || glob_match_simple(part, name);
+                if !matches {
+                    return false;
+                }
+                if hidden_name {
+                    // A pattern that itself starts with '.' opts hidden names
+                    // back in, the same rule wildcard ops already use.
+                    self.include_hidden || part.starts_with('.')
+                } else {
+                    self.include_visible
+                }
+            }
+        }
+    }
+
+    fn listed(&self, name: &str, pattern: Option<&str>) -> bool {
+        match pattern {
+            None => self.keeps(name, None),
+            Some(pat) => pat
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .any(|part| self.keeps(name, Some(part))),
+        }
+    }
 }
 
 impl CatFormatParams {
@@ -757,14 +894,26 @@ async fn cat_indices_inner(
     // operator can delete or retry, and omitting them is what made a failed
     // index invisible to every dashboard (issue #206).
     let failed = state.engine.list_failed_indices();
+    // `.xerj_*` console indices are hidden the way ES hides its system
+    // indices. Default `expand_wildcards=open` omits them; `hidden` / `all`
+    // / `open,hidden`, `include_system=true`, a concrete name, or a pattern
+    // that itself starts with '.' brings them back. `.xerj-memory-*` is not
+    // in that set.
+    let visibility = match CatVisibility::parse(&params) {
+        Ok(v) => v,
+        Err(e) => return e.into_response(),
+    };
 
     // Narrow to the path pattern when present (`/_cat/indices/{pattern}`):
     // a comma-separated list of concrete names and/or `*` globs. ES rules:
     //   • a CONCRETE name matching nothing → 404 index_not_found_exception
     //   • a WILDCARD matching nothing      → empty 200
-    // Absent pattern lists the whole cluster (unchanged behavior).
+    // Absent pattern lists non-hidden indices (hidden ones need an opt-in).
     let selected: Vec<&xerj_engine::engine::IndexInfo> = match pattern.as_deref() {
-        None => indices.iter().collect(),
+        None => indices
+            .iter()
+            .filter(|info| visibility.listed(&info.name, None))
+            .collect(),
         Some(pat) => {
             let parts: Vec<&str> = pat
                 .split(',')
@@ -783,14 +932,7 @@ async fn cat_indices_inner(
             }
             indices
                 .iter()
-                .filter(|info| {
-                    parts.iter().any(|&p| {
-                        p == "_all"
-                            || p == "*"
-                            || info.name == p
-                            || glob_match_simple(p, &info.name)
-                    })
-                })
+                .filter(|info| visibility.listed(&info.name, Some(pat)))
                 .collect()
         }
     };
@@ -823,20 +965,10 @@ async fn cat_indices_inner(
     // would be a claim we cannot back. Selected via the same pattern rules
     // as the healthy set above (issue #206: a failed index is still an
     // index the operator can see and delete, not silently omitted).
-    let selected_failed: Vec<&xerj_engine::engine::FailedIndex> = match pattern.as_deref() {
-        None => failed.iter().collect(),
-        Some(pat) => failed
-            .iter()
-            .filter(|f| {
-                pat.split(',')
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .any(|p| {
-                        p == "_all" || p == "*" || f.name == p || glob_match_simple(p, &f.name)
-                    })
-            })
-            .collect(),
-    };
+    let selected_failed: Vec<&xerj_engine::engine::FailedIndex> = failed
+        .iter()
+        .filter(|f| visibility.listed(&f.name, pattern.as_deref()))
+        .collect();
     let failed_rows: Vec<(String, String)> = selected_failed
         .iter()
         .map(|f| (f.name.clone(), stable_index_uuid(&f.name)))
@@ -1018,6 +1150,82 @@ mod cat_format_json_tests {
             text.headers().get("content-type").unwrap(),
             "text/plain; charset=utf-8"
         );
+    }
+
+    async fn put_index(app: &axum::Router, name: &str) {
+        let put = app
+            .clone()
+            .oneshot(
+                Request::put(format!("/{name}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(put.status(), StatusCode::OK, "create {name}");
+    }
+
+    fn index_names(body: &Value) -> Vec<&str> {
+        body.as_array()
+            .expect("json array")
+            .iter()
+            .filter_map(|row| row["index"].as_str())
+            .collect()
+    }
+
+    /// Field reports: a fresh node lists the fourteen `.xerj_*` console
+    /// indices beside the user's data. Those are the console's own store.
+    /// `.xerj-memory-*` brains stay listed — insecure mode relies on that.
+    #[tokio::test]
+    async fn cat_indices_hides_system_indices_unless_asked() {
+        let state = test_state();
+        let app = crate::router::build_es_compat_router(state);
+        put_index(&app, "logs").await;
+        put_index(&app, ".xerj_users").await;
+        put_index(&app, ".xerj-memory-x").await;
+
+        let (status, body) = get(&app, "/_cat/indices?format=json").await;
+        assert_eq!(status, StatusCode::OK);
+        let mut names = index_names(&body);
+        names.sort();
+        assert_eq!(names, vec![".xerj-memory-x", "logs"]);
+
+        let (status, body) = get(&app, "/_cat/indices?format=json&expand_wildcards=hidden").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(index_names(&body), vec![".xerj_users"]);
+
+        for query in [
+            "expand_wildcards=open,hidden",
+            "expand_wildcards=all",
+            "include_system=true",
+        ] {
+            let (status, body) = get(&app, &format!("/_cat/indices?format=json&{query}")).await;
+            assert_eq!(status, StatusCode::OK, "{query}");
+            let mut names = index_names(&body);
+            names.sort();
+            assert_eq!(
+                names,
+                vec![".xerj-memory-x", ".xerj_users", "logs"],
+                "{query}"
+            );
+        }
+
+        let (status, body) = get(&app, "/_cat/indices/.xerj_users?format=json").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(index_names(&body), vec![".xerj_users"]);
+
+        let (status, body) = get(&app, "/_cat/indices/.xerj*?format=json").await;
+        assert_eq!(status, StatusCode::OK);
+        let mut dotted = index_names(&body);
+        dotted.sort();
+        assert_eq!(dotted, vec![".xerj-memory-x", ".xerj_users"]);
+
+        let (status, body) = get(&app, "/_cat/indices/*?format=json").await;
+        assert_eq!(status, StatusCode::OK);
+        let mut starred = index_names(&body);
+        starred.sort();
+        assert_eq!(starred, vec![".xerj-memory-x", "logs"]);
     }
 }
 
