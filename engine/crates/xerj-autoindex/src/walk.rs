@@ -14,7 +14,8 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone)]
 pub struct FileEntry {
     pub path: PathBuf,
-    /// Root-relative path with forward slashes — the stable `ax_path` value.
+    /// Root-relative `ax_path`. On Windows `\` is the separator and is written
+    /// as `/`. On Unix `\` is a filename character and is kept.
     pub rel: String,
     /// Reversible platform-native identity; unlike `rel`, never lossy.
     pub rel_id: String,
@@ -507,11 +508,7 @@ fn walk_impl(
             Err(_) => continue,
         };
         let p = entry.path().to_path_buf();
-        let rel = p
-            .strip_prefix(&root_canon)
-            .unwrap_or(&p)
-            .to_string_lossy()
-            .replace('\\', "/");
+        let rel = portable_rel(p.strip_prefix(&root_canon).unwrap_or(&p));
         let rel_id = stable_path_id(p.strip_prefix(&root_canon).unwrap_or(&p));
         out.push(FileEntry {
             path: resolved.unwrap_or(p),
@@ -527,6 +524,21 @@ fn walk_impl(
     // Deterministic order for clustering / naming.
     out.sort_by(|a, b| a.rel.cmp(&b.rel));
     Ok((out, stack.report))
+}
+
+/// `ax_path` text for one root-relative path.
+///
+/// Windows uses `\` as a separator, so the stored path uses `/`. Everywhere
+/// else `\` is part of the name: rewriting it invents a directory
+/// (`src/utils/win\name.rs` became `src/utils/win/name.rs`, which is not on
+/// disk) and collides with a real `win/name.rs`.
+pub(crate) fn portable_rel(rel: &Path) -> String {
+    let text = rel.to_string_lossy();
+    if cfg!(windows) {
+        text.replace('\\', "/")
+    } else {
+        text.into_owned()
+    }
 }
 
 #[cfg(unix)]
@@ -1171,5 +1183,47 @@ mod takeout_noise_tests {
                 "{kept}: {rels:?}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod portable_rel_tests {
+    use super::{portable_rel, walk_reporting};
+    use crate::ignore_rules::IgnoreOptions;
+    use std::path::Path;
+
+    #[test]
+    fn portable_rel_keeps_a_unix_backslash_and_rewrites_windows_separators() {
+        #[cfg(not(windows))]
+        {
+            let rel = portable_rel(Path::new("src/utils/win\\name.rs"));
+            assert_eq!(rel, "src/utils/win\\name.rs");
+            assert!(!rel.contains("win/name.rs"), "{rel}");
+        }
+        #[cfg(windows)]
+        {
+            let rel = portable_rel(Path::new("src\\utils\\name.rs"));
+            assert_eq!(rel, "src/utils/name.rs");
+        }
+    }
+
+    /// The string helper is not the walk. A real file whose name contains
+    /// `\` must come back with that character still in `FileEntry.rel`.
+    #[cfg(not(windows))]
+    #[test]
+    fn a_walk_keeps_a_backslash_that_is_part_of_the_filename() {
+        let dir = tempfile::tempdir().unwrap();
+        let utils = dir.path().join("src").join("utils");
+        std::fs::create_dir_all(&utils).unwrap();
+        std::fs::write(utils.join("win\\name.rs"), "fn weird() {}\n").unwrap();
+        std::fs::write(utils.join("paths.rs"), "fn open_path() {}\n").unwrap();
+        let (files, _) = walk_reporting(dir.path(), false, IgnoreOptions::default()).unwrap();
+        let rels: Vec<&str> = files.iter().map(|f| f.rel.as_str()).collect();
+        assert!(rels.contains(&"src/utils/win\\name.rs"), "{rels:?}");
+        assert!(
+            rels.iter().all(|rel| !rel.contains("win/name.rs")),
+            "{rels:?}"
+        );
+        assert!(rels.contains(&"src/utils/paths.rs"), "{rels:?}");
     }
 }
