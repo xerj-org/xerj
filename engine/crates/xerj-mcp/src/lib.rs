@@ -1247,10 +1247,59 @@ type BuiltRequest = (Method, String, Option<Value>);
 // ── Argument helpers ────────────────────────────────────────────────────────
 
 fn req_str<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
-    args.get(key)
-        .and_then(Value::as_str)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| format!("missing or empty required string field `{key}`"))
+    match args.get(key) {
+        None | Some(Value::Null) => Err(missing_string(key, false)),
+        Some(Value::String(s)) if s.is_empty() => Err(missing_string(key, true)),
+        Some(Value::String(s)) => Ok(s.as_str()),
+        Some(other) => {
+            let got = match other {
+                Value::Number(_) => "a number",
+                Value::Bool(_) => "a boolean",
+                Value::Array(_) => "an array",
+                Value::Object(_) => "an object",
+                _ => "the wrong JSON type",
+            };
+            Err(format!(
+                "`{key}` must be a non-empty string, got {got}. {}",
+                string_field_hint(key)
+            ))
+        }
+    }
+}
+
+fn missing_string(key: &str, empty: bool) -> String {
+    let lead = if empty {
+        format!("`{key}` is empty")
+    } else {
+        format!("missing required string field `{key}`")
+    };
+    format!("{lead}. {}", string_field_hint(key))
+}
+
+/// What to pass next. The old error named the field and stopped, so the
+/// following call was a guess.
+fn string_field_hint(key: &str) -> &'static str {
+    match key {
+        "index" => "Pass the index or wildcard, for example {\"index\": \"ax-*\"}.",
+        "field" => "Pass the mapped field name, for example {\"field\": \"body\"}.",
+        "query" => "Pass the text to search for, for example {\"query\": \"rotate keys\"}.",
+        "namespace" => "Pass the memory namespace, for example {\"namespace\": \"agent\"}.",
+        "brain" => "Pass the brain name printed by `xerj brain <folder>`.",
+        "prompt" => "Pass the question, for example {\"prompt\": \"where is the parser?\"}.",
+        "node" => "Pass a document id, for example {\"node\": \"src/lib.rs\"}.",
+        "src" | "dst" => "Pass a document id from xerj_brain_ego.",
+        "type" => "Pass the edge type, for example {\"type\": \"calls\"}.",
+        "edge_id" => "Pass the edge id xerj_brain_ego returned.",
+        "corpus" => "Pass a corpus name from `xerj corpus list`.",
+        _ => "Pass a non-empty string.",
+    }
+}
+
+fn code_search_missing(which: &str) -> String {
+    format!(
+        "xerj_code_search: missing required string field `{which}`. {}",
+        string_field_hint(which)
+    )
 }
 
 /// Copy an optional field from `args` into `body` under the same key, if present.
@@ -1662,13 +1711,19 @@ fn build_memory_recall(args: &Value) -> Result<BuiltRequest, String> {
 fn build_plan(args: &Value) -> Result<BuiltRequest, String> {
     // Whitespace-only is refused here rather than shipped to the engine's
     // 400: the caller should hear it from the tool they called.
-    let prompt = args
-        .get("prompt")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "missing or empty required string field `prompt`".to_string())?
-        .to_string();
+    let prompt = match args.get("prompt") {
+        None | Some(Value::Null) => return Err(missing_string("prompt", false)),
+        Some(Value::String(s)) if s.trim().is_empty() => {
+            return Err(missing_string("prompt", true));
+        }
+        Some(Value::String(s)) => s.trim().to_string(),
+        Some(_) => {
+            return Err(format!(
+                "`prompt` must be a non-empty string. {}",
+                string_field_hint("prompt")
+            ));
+        }
+    };
     let index = args
         .get("index")
         .and_then(Value::as_str)
@@ -1865,11 +1920,11 @@ impl xerj_common::xccode::XcHttp for McpXc {
 async fn run_code_search(ctx: &Ctx, args: &Value) -> Value {
     let corpus = match args.get("corpus").and_then(Value::as_str) {
         Some(c) if !c.is_empty() => c.to_string(),
-        _ => return tool_text("xerj_code_search: `corpus` is required", true),
+        _ => return tool_text(code_search_missing("corpus"), true),
     };
     let query = match args.get("query").and_then(Value::as_str) {
         Some(q) if !q.is_empty() => q.to_string(),
-        _ => return tool_text("xerj_code_search: `query` is required", true),
+        _ => return tool_text(code_search_missing("query"), true),
     };
     // #1058: the budget is enforced on the RENDERED text (this tool's payload
     // is the shared renderer's output, not the engine JSON). Refused here so
@@ -2022,6 +2077,43 @@ mod tests {
     fn built(r: Result<BuiltRequest, String>) -> (Method, String, Value) {
         let (m, p, b) = r.unwrap();
         (m, p, b.expect("builder should carry a body"))
+    }
+
+    #[test]
+    fn required_string_errors_say_what_to_pass_next() {
+        let err = build_semantic(&json!({})).unwrap_err();
+        assert!(err.contains("`index`"), "{err}");
+        assert!(err.contains("ax-*"), "{err}");
+
+        let err = build_semantic(&json!({"index": 1})).unwrap_err();
+        assert!(
+            err.contains("must be a non-empty string") && err.contains("a number"),
+            "{err}"
+        );
+
+        let err = build_memory_store(&json!({"text": "hi"})).unwrap_err();
+        assert!(
+            err.contains("`namespace`") && err.contains("agent"),
+            "{err}"
+        );
+
+        let err = build_plan(&json!({})).unwrap_err();
+        assert!(
+            err.contains("`prompt`") && err.contains("where is the parser"),
+            "{err}"
+        );
+
+        let err = build_plan(&json!({"prompt": "   "})).unwrap_err();
+        assert!(err.contains("`prompt` is empty"), "{err}");
+    }
+
+    #[test]
+    fn code_search_missing_corpus_names_corpus_list() {
+        let msg = code_search_missing("corpus");
+        assert!(msg.contains("xerj corpus list"), "{msg}");
+        assert!(msg.contains("`corpus`"), "{msg}");
+        let query = code_search_missing("query");
+        assert!(query.contains("rotate keys"), "{query}");
     }
 
     #[test]
