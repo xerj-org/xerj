@@ -643,8 +643,14 @@ fn ensure_compatible(fields: &HashMap<String, FieldAcc>, dataset: &PlanDataset) 
             // over existing state dirs do not abort.
             let pre_1237_symbol_field = (name == "impl" || name == "end_line")
                 && (dataset.family == "docs" || dataset.family == "code");
+            // #1623 stamps `start_line` on prose sections and on the document
+            // render of a demoted config. A `docs` dataset frozen before that
+            // field existed has no spec for it. Tolerate the absence so a new
+            // file can still join, and a one-off config can still be demoted
+            // into, that dataset. Any other new scalar is still drift.
+            let prose_start_line = name == "start_line" && dataset.family == "docs";
             anyhow::ensure!(
-                acc.n == 0 || pre_1237_symbol_field,
+                acc.n == 0 || pre_1237_symbol_field || prose_start_line,
                 "field {name} is absent from frozen dataset {}",
                 dataset.slug
             );
@@ -1030,12 +1036,60 @@ mod tests {
             digests: vec!["digest-cfg".into()],
             duplicates: vec![],
         };
+        let sampled = document_sample(&cfg_path, false, 50);
+        assert!(
+            sampled.contains_key("start_line"),
+            "a demoted config is rendered as prose, so the sample carries start_line"
+        );
         let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50).unwrap();
         assert_eq!(plan.files["cfg"].assignments, vec![(None, "docs".into())]);
         assert!(
             plan.files["cfg"].as_document,
             "a demoted config re-samples as a document"
         );
+    }
+
+    /// A new prose file's own extractor also stamps `start_line`. Joining a
+    /// frozen `docs` dataset that predates the field must succeed; the field
+    /// is not a reason to demand a new prefix.
+    #[test]
+    fn start_line_does_not_block_joining_a_frozen_docs_dataset() {
+        let previous = Plan {
+            datasets: vec![PlanDataset {
+                family: "docs".into(),
+                ..dataset("docs", vec![spec("title", "text"), spec("body", "text")])
+            }],
+            ..Plan::default()
+        };
+        let fields = HashMap::from([
+            ("title".to_string(), acc(&[json!("Runbook")])),
+            ("body".to_string(), acc(&[json!("promote the standby")])),
+            ("start_line".to_string(), acc(&[json!(12)])),
+        ]);
+        let mut file_scan = scan(fields);
+        file_scan.sniffed.as_mut().unwrap().family = Family::TxtProse;
+
+        let plan = reconcile_plan(
+            &inventory("notes.txt", "unix:7e", "doc"),
+            &previous,
+            vec![file_scan],
+            50,
+        )
+        .unwrap();
+        assert_eq!(plan.files["doc"].assignments, vec![(None, "docs".into())]);
+    }
+
+    /// The exemption is the prose field on a docs dataset, not a general
+    /// permission to grow a data schema.
+    #[test]
+    fn start_line_on_a_data_dataset_is_still_schema_drift() {
+        let dataset = dataset("events", vec![spec("body", "text")]);
+        let fields = HashMap::from([
+            ("body".to_string(), acc(&[json!("ok")])),
+            ("start_line".to_string(), acc(&[json!(1)])),
+        ]);
+        let err = ensure_compatible(&fields, &dataset).unwrap_err();
+        assert!(err.to_string().contains("start_line"), "{err}");
     }
 
     /// #729: a code file emits a `symbols` sidecar (array-of-objects, #580)

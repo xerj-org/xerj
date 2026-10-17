@@ -847,6 +847,12 @@ pub(crate) fn emit_document_from(
 /// headers, an attachment's link-back fields, a note's labels) plus
 /// `title`/`body`/`section`. Locators are `{loc_prefix}-s{i}`.
 ///
+/// Does not stamp `start_line`. These bodies are not the source file: a
+/// spreadsheet sheet is a rendered grid, and a mail or note body is already
+/// offset from the file's first byte. A line number here would be a new
+/// scalar on every such record. Prose file lines are stamped by
+/// [`emit_document_from`].
+///
 /// Returns the sink's last answer: `false` = stop extracting.
 pub(crate) fn emit_document_with_fields(
     base_fields: &Map<String, Value>,
@@ -859,9 +865,9 @@ pub(crate) fn emit_document_with_fields(
     // Collect sections first so we know whether to stamp a `section` field.
     // One past the cap is collected so that "exactly at the cap" and "over the
     // cap" are distinguishable: only the latter dropped anything (#381).
-    let mut secs: Vec<(usize, String)> = Vec::new();
-    for_each_section_spans(body, &mut |at, s| {
-        secs.push((at, s));
+    let mut secs: Vec<String> = Vec::new();
+    for_each_section(body, &mut |s| {
+        secs.push(s);
         secs.len() <= MAX_RECORDS_PER_FILE
     });
     if secs.len() > MAX_RECORDS_PER_FILE {
@@ -869,17 +875,13 @@ pub(crate) fn emit_document_with_fields(
         stats.truncated = true;
     }
     if secs.is_empty() {
-        secs.push((0, String::new()));
+        secs.push(String::new());
     }
     let multi = secs.len() > 1;
-    for (i, (at, sec)) in secs.into_iter().enumerate() {
+    for (i, sec) in secs.into_iter().enumerate() {
         let mut fields = base_fields.clone();
         fields.insert("title".into(), Value::String(title.to_string()));
         fields.insert("body".into(), Value::String(sec));
-        fields.insert(
-            "start_line".into(),
-            Value::Number(line_number_at(body, at).into()),
-        );
         if multi {
             fields.insert("section".into(), Value::Number((i as u64).into()));
         }

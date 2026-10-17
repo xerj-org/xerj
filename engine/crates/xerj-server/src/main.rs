@@ -2067,8 +2067,9 @@ fn main() -> Result<()> {
     // `xerj --url URL corpus index name` used to die here as an unknown
     // server flag. Move those flags behind the subcommand before any
     // dispatch reads argv.
+    let argv: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     xerj_common::argv::install_hoist(xerj_common::argv::reorder_flags_before_command(
-        &std::env::args().skip(1).collect::<Vec<_>>(),
+        &argv,
         is_top_level_command,
     ));
 

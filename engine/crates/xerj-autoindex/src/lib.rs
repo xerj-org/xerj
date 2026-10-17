@@ -418,6 +418,16 @@ fn dataset_create_body(dataset: &PlanDataset) -> Value {
             props
                 .entry("end_line".to_string())
                 .or_insert_with(|| json!({"type": "long"}));
+            // #1623: prose and demoted-document records carry `start_line`.
+            // Declared here, beside `end_line`, and not in `build_mapping`,
+            // so a plan frozen before the field existed keeps its generation
+            // digest and a new docs index still maps the field as `long`
+            // instead of letting the first document dynamic-map it.
+            if dataset.family == "docs" {
+                props
+                    .entry("start_line".to_string())
+                    .or_insert_with(|| json!({"type": "long"}));
+            }
         }
     }
     if let Some(analyzer) = &dataset.text_analyzer {
@@ -11458,6 +11468,32 @@ mod stem_default_tests {
             .pointer("/settings/analysis")
             .is_none());
     }
+
+    /// `start_line` is declared on a docs index's create body as `long`, and
+    /// stays out of `build_mapping`, so a plan frozen before #1623 keeps its
+    /// generation digest.
+    #[test]
+    fn a_docs_index_declares_start_line_outside_the_frozen_mapping() {
+        let mut docs = dataset("docs", None);
+        docs.family = "docs".into();
+        let body = dataset_create_body(&docs);
+        assert_eq!(
+            body.pointer("/mappings/properties/start_line"),
+            Some(&json!({"type": "long"})),
+            "{body}"
+        );
+        assert!(build_mapping(&docs.specs)
+            .pointer("/mappings/properties/start_line")
+            .is_none());
+        let mut code = dataset("code", None);
+        code.family = "code".into();
+        assert!(
+            dataset_create_body(&code)
+                .pointer("/mappings/properties/start_line")
+                .is_none(),
+            "code symbol records cite `line`, not prose `start_line`"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -11500,18 +11536,28 @@ mod code_coverage_tests {
             done.contains("code_files=3 code_files_indexed=0 code_files_junked=3"),
             "{done}"
         );
+        let lines: Vec<&str> = text.lines().collect();
+        let warning_at = lines
+            .iter()
+            .position(|line| line.starts_with("warning:") && line.contains("NONE"))
+            .unwrap_or_else(|| {
+                panic!("a corpus that indexed no source code is warned about in words: {text}")
+            });
+        let done_at = lines
+            .iter()
+            .rposition(|line| line.starts_with("xerj-done "))
+            .unwrap_or_else(|| panic!("{text}"));
         assert!(
-            text.lines()
-                .any(|line| line.starts_with("warning:") && line.contains("NONE")),
-            "a corpus that indexed no source code is warned about in words: {text}"
+            warning_at < done_at,
+            "the warning precedes the terminal line: {text}"
         );
+        // Exit 3 appends one success note after `xerj-done` (#1643). Nothing
+        // else may follow, or an agent reading the stream loses the outcome.
         assert!(
-            text.trim_end()
-                .lines()
-                .next_back()
-                .unwrap()
-                .starts_with("xerj-done "),
-            "the terminal line stays terminal — the warning precedes it: {text}"
+            lines[done_at + 1..]
+                .iter()
+                .all(|line| line.starts_with("xerj-note ")),
+            "only the exit-3 note may follow xerj-done: {text}"
         );
     }
 
