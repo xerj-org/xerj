@@ -111,6 +111,7 @@ landing/resources/xerj-sales-kit.zip
 # ignore above does not swallow the standard public-repo files.
 !README.md
 !/README.zh-CN.md
+!/README.ja-JP.md
 !CLA.md
 !LICENSE
 !LICENSE.md
