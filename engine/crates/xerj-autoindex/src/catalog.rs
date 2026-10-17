@@ -605,15 +605,29 @@ pub fn render_map_page(
         } else {
             format!(", wall {wall}s")
         };
+        // `junk_records_total` is records that failed extraction. A run can
+        // list junk *files* (css, fonts, encrypted PDFs, "no records
+        // extracted") while that counter stays 0. The headline has to name
+        // the files the section below lists, and stay byte-identical when
+        // the list is empty.
+        let junk_records = g("junk_records_total");
+        let junk_clause = if junk_files.is_empty() {
+            format!("{junk_records} junk records")
+        } else {
+            format!(
+                "{junk_records} junk records, {} junk/skipped files",
+                junk_files.len()
+            )
+        };
         s.push_str(&format!(
-            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {} junk records{}\n\n",
+            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {}{}\n\n",
             g("run_id"),
             g("root"),
             g("files_total"),
             g("unique_content_files"),
             g("duplicate_files"),
             g("records_total"),
-            g("junk_records_total"),
+            junk_clause,
             wall_clause,
         ));
     }
@@ -1012,6 +1026,33 @@ mod duplicate_tests {
             rendered_legacy.contains("0 junk records, wall 1.4s\n\n"),
             "legacy wall_seconds must still render: {rendered_legacy}"
         );
+    }
+
+    /// The summary used to say "0 junk records" on a map whose later section
+    /// listed 17 skipped files. The file count belongs in the headline when
+    /// the list is non-empty, and only then.
+    #[test]
+    fn the_summary_names_junk_files_when_the_list_is_nonempty() {
+        let run = json!({
+            "doc_kind": "run",
+            "run_id": "nb",
+            "root": "/corpus",
+            "files_total": 36,
+            "unique_content_files": 36,
+            "duplicate_files": 0,
+            "records_total": 286,
+            "junk_records_total": 0
+        });
+        let junk = vec![
+            json!({"path": "style.css", "status": "skipped", "reason": "no records extracted"}),
+            json!({"path": "font.woff", "status": "skipped", "reason": "no records extracted"}),
+        ];
+        let rendered = render_map(Some(&run), &[], &[], &junk, &[], junk.len() as u64);
+        assert!(
+            rendered.contains("286 records indexed, 0 junk records, 2 junk/skipped files\n\n"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("## Junk / skipped (2 files recorded"));
     }
 
     #[test]
