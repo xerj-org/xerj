@@ -529,6 +529,17 @@ struct BoundAddrs {
     grpc: SocketAddr,
 }
 
+/// The auth-disabled posture line. On loopback the bind line says nothing
+/// off this host can reach the listeners, so this line must not then say
+/// the network can write.
+fn auth_disabled_line(loopback: bool) -> &'static str {
+    if loopback {
+        " │ ⚠  Auth:   DISABLED (--insecure) — every caller on this machine can write"
+    } else {
+        " │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write"
+    }
+}
+
 fn print_banner(cfg: &Config, bound: &BoundAddrs, startup_ms: u128) {
     let tls = if cfg.tls.enabled { "TLS " } else { "plain" };
     println!();
@@ -617,7 +628,10 @@ fn print_banner(cfg: &Config, bound: &BoundAddrs, startup_ms: u128) {
         }
     }
     if !cfg.auth.enabled {
-        println!(" │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write");
+        // The bind line above already said whether anything off this host can
+        // connect. Repeating "anyone on the network" on a loopback node
+        // contradicts that line.
+        println!("{}", auth_disabled_line(cfg.bind_address_is_loopback()));
     } else {
         println!(
             " │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)"
@@ -2187,7 +2201,28 @@ fn build_runtime(worker_threads: usize) -> Result<tokio::runtime::Runtime> {
 
 #[cfg(test)]
 mod help_text_tests {
-    use super::help_text;
+    use super::{auth_disabled_line, help_text};
+
+    /// A loopback `--insecure` boot says nothing off this host can connect,
+    /// then used to say anyone on the network can write. Those two lines
+    /// cannot both be true.
+    #[test]
+    fn insecure_loopback_does_not_say_the_network_can_write() {
+        let loopback = auth_disabled_line(true);
+        assert!(
+            loopback.contains("this machine"),
+            "loopback auth line must name this machine: {loopback}"
+        );
+        assert!(
+            !loopback.contains("network"),
+            "loopback auth line must not claim the network can write: {loopback}"
+        );
+        let exposed = auth_disabled_line(false);
+        assert!(
+            exposed.contains("anyone on the network can write"),
+            "a non-loopback bind is the network case: {exposed}"
+        );
+    }
 
     /// `--insecure` disables TLS **and** auth (see `apply_overrides`, which
     /// sets `cfg.tls.enabled = false; cfg.auth.enabled = false;`), but the
