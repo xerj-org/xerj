@@ -719,6 +719,75 @@ mod collection_publication_fail_closed_tests {
         assert_eq!(result.hits.first().map(|hit| hit.id.as_str()), Some("one"));
     }
 
+    /// A publication bracket held for the whole merge repoint used to pin
+    /// `_search` until the bracket dropped, and the deadline used to come
+    /// back as an error. A retrying client then spent the deadline again.
+    /// The page must stop at `timeout` and say it is partial.
+    #[tokio::test]
+    async fn search_waiting_on_a_publication_stops_at_its_deadline() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("epoch-deadline", text_schema())
+            .unwrap();
+        let idx = engine.get_index("epoch-deadline").unwrap();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        let mut publication = idx.collection_publication.begin().unwrap();
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}},
+            "size": 10,
+            "timeout": "200ms"
+        }))
+        .unwrap();
+        let started = std::time::Instant::now();
+        let result = idx
+            .search(&request)
+            .await
+            .expect("a missed deadline is a partial page, not an error");
+        let elapsed = started.elapsed();
+        publication.cancel();
+        drop(publication);
+        assert!(
+            result.timed_out,
+            "a bracket held past the deadline must set timed_out"
+        );
+        assert!(
+            result.hits.is_empty(),
+            "admission never captured a view: {:?}",
+            result.hits
+        );
+        assert!(
+            matches!(
+                result.total.relation,
+                xerj_query::executor::TotalHitsRelation::Gte
+            ),
+            "an uncaptured total is a lower bound, not zero"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(2),
+            "search must stop at its deadline, took {elapsed:?}"
+        );
+        // The bracket was cancelled, not dropped pending, so the index
+        // still answers once the publication is gone.
+        let again = idx
+            .search(
+                &xerj_query::parse_request(&json!({
+                    "query": {"match": {"body": "alpha"}},
+                    "size": 10
+                }))
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(!again.timed_out);
+        assert_eq!(again.hits.first().map(|hit| hit.id.as_str()), Some("one"));
+    }
+
     // #1013 fail-before. Sustained ingest takes a publication bracket per
     // doc write, so writer-free *instants* exist but writer-free *intervals*
     // long enough to cover a whole search do not. The churn thread here
@@ -19722,12 +19791,37 @@ impl Index {
         Ok(())
     }
 
+    /// A deadline that expired before any hit was captured. Counted as a
+    /// query (the wait was real work) and never cached: the caller is in
+    /// `search`, ahead of `search_at_generation`'s cache lookup.
+    fn deadline_exhausted_result(&self, started: std::time::Instant) -> SearchResult {
+        let took_ms = started.elapsed().as_millis() as u64;
+        self.metric_query_count.fetch_add(1, Ordering::Relaxed);
+        self.metric_query_total_ms
+            .fetch_add(took_ms, Ordering::Relaxed);
+        SearchResult {
+            hits: vec![],
+            total: xerj_query::executor::TotalHits {
+                value: 0,
+                relation: TotalHitsRelation::Gte,
+            },
+            took_ms,
+            aggs: None,
+            timed_out: true,
+            profile: None,
+            max_score: None,
+            script_failure: None,
+            savings: None,
+        }
+    }
+
     /// Execute a search request against this index.
     pub async fn search(&self, request: &SearchRequest) -> Result<SearchResult> {
         use crate::collection_publication::ReadAdmission;
 
-        let deadline = std::time::Instant::now()
-            + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        let started = std::time::Instant::now();
+        let deadline =
+            started + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
         loop {
             let token = loop {
                 let notified = self.collection_publication.notified();
@@ -19738,14 +19832,25 @@ impl Index {
                     ReadAdmission::Poisoned => {
                         return Err(collection_publication_interrupted());
                     }
+                    // A merge publication holds this bracket across the
+                    // version-map repoint. Waiting it out, then failing the
+                    // request, is what turned a 30s deadline into minutes:
+                    // the HTTP layer maps the error to 500 and a retrying
+                    // client spends another deadline on the same bracket.
+                    // Elasticsearch answers a missed deadline with HTTP 200
+                    // and `timed_out: true`. The hits are empty because
+                    // admission never captured a view — `total.relation`
+                    // is `gte`, so the page is a bound, not an empty corpus.
                     ReadAdmission::WriterActive => {
-                        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), notified)
-                            .await
-                            .map_err(|_| {
-                                EngineError::Fts(anyhow::anyhow!(
-                                    "search waited for a stable collection publication until its deadline"
-                                ))
-                            })?;
+                        if tokio::time::timeout_at(
+                            tokio::time::Instant::from_std(deadline),
+                            notified,
+                        )
+                        .await
+                        .is_err()
+                        {
+                            return Ok(self.deadline_exhausted_result(started));
+                        }
                     }
                 }
             };
@@ -19770,9 +19875,7 @@ impl Index {
                     if std::time::Instant::now() < deadline {
                         continue;
                     }
-                    return Err(EngineError::Fts(anyhow::anyhow!(
-                        "search could not capture a stable collection view before its deadline"
-                    )));
+                    return Ok(self.deadline_exhausted_result(started));
                 }
                 other => return other,
             }
