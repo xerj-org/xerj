@@ -445,8 +445,11 @@ pub struct EsBulkItemResult {
     pub index: String,
     #[serde(rename = "_id")]
     pub id: String,
-    #[serde(rename = "_version")]
-    pub version: u64,
+    /// Present on a successful item. Absent on a failure: a previous
+    /// document's version (or the default `1`) used to be written next to
+    /// `status: 400`, which reads as "this write landed".
+    #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+    pub version: Option<u64>,
     /// `"created"` / `"updated"` / `"deleted"` / `"noop"`, and ABSENT on an
     /// item that failed.
     ///
@@ -459,12 +462,13 @@ pub struct EsBulkItemResult {
     /// failed item; so do we.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<String>,
-    #[serde(rename = "_shards")]
-    pub shards: EsShards,
-    #[serde(rename = "_seq_no")]
-    pub seq_no: u64,
-    #[serde(rename = "_primary_term")]
-    pub primary_term: u64,
+    /// Absent on a failed item, same as `_version` / `_seq_no`.
+    #[serde(rename = "_shards", skip_serializing_if = "Option::is_none")]
+    pub shards: Option<EsShards>,
+    #[serde(rename = "_seq_no", skip_serializing_if = "Option::is_none")]
+    pub seq_no: Option<u64>,
+    #[serde(rename = "_primary_term", skip_serializing_if = "Option::is_none")]
+    pub primary_term: Option<u64>,
     pub status: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<BulkItemError>,

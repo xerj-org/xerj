@@ -17654,14 +17654,12 @@ async fn process_bulk_body(
         std::collections::BTreeSet::new();
     let mut items: Vec<EsBulkItem> = Vec::with_capacity(result.items.len());
     for item in result.items {
-        if item.error.is_some() || !(200..300).contains(&item.status) {
+        let failed = item.error.is_some() || !(200..300).contains(&item.status);
+        if failed {
             failed_items += 1;
         }
         audited_index_names.insert(item.index.clone());
-        if item.error.is_none()
-            && (200..300).contains(&item.status)
-            && matches!(item.action.as_str(), "index" | "create" | "update")
-        {
+        if !failed && matches!(item.action.as_str(), "index" | "create" | "update") {
             *docs_indexed_tally.entry(item.index.clone()).or_insert(0) += 1;
         }
         let get = item.get_source.clone().map(|s| {
@@ -17672,18 +17670,30 @@ async fn process_bulk_body(
         });
         // Real per-item `_seq_no` / `_version` — same resolvers `_mget` and
         // GET `_doc` use (were hardcoded `_version: 1` / a wall-clock
-        // timestamp masquerading as `_seq_no`).
-        let (version, seq_no) = state
-            .engine
-            .get_index(&item.index)
-            .ok()
-            .map(|idx| {
-                (
-                    idx.lookup_version(&item.id).unwrap_or(1),
-                    idx.lookup_seq_no(&item.id).unwrap_or(0),
-                )
-            })
-            .unwrap_or((1, 0));
+        // timestamp masquerading as `_seq_no`). A failed item omits them:
+        // looking up a previous document and printing its version next to
+        // `status: 400` reads as "this write landed".
+        let (version, seq_no, primary_term, shards) = if failed {
+            (None, None, None, None)
+        } else {
+            let (version, seq_no) = state
+                .engine
+                .get_index(&item.index)
+                .ok()
+                .map(|idx| {
+                    (
+                        idx.lookup_version(&item.id).unwrap_or(1),
+                        idx.lookup_seq_no(&item.id).unwrap_or(0),
+                    )
+                })
+                .unwrap_or((1, 0));
+            (
+                Some(version),
+                Some(seq_no),
+                Some(1),
+                Some(crate::responses::EsShards::single_success()),
+            )
+        };
         let item_result = EsBulkItemResult {
             index: item.index,
             id: item.id,
@@ -17691,14 +17701,14 @@ async fn process_bulk_body(
             // A successful action with no explicit result is a `delete`
             // (the only one that does not set one). A FAILED action has no
             // result at all — see `EsBulkItemResult::result`.
-            result: if item.error.is_some() {
+            result: if failed {
                 None
             } else {
                 Some(item.result.clone().unwrap_or_else(|| "deleted".to_string()))
             },
-            shards: crate::responses::EsShards::single_success(),
+            shards,
             seq_no,
-            primary_term: 1,
+            primary_term,
             status: item.status,
             get,
             error: item.error.map(|e| {
@@ -17925,9 +17935,24 @@ mod malformed_bulk_route_tests {
         assert_eq!(response["errors"], true);
         assert_eq!(response["items"][0]["index"]["status"], 201);
 
+        let ok_item = &response["items"][0]["index"];
+        assert!(
+            ok_item.get("_version").is_some()
+                && ok_item.get("_seq_no").is_some()
+                && ok_item.get("_primary_term").is_some()
+                && ok_item.get("_shards").is_some(),
+            "a successful bulk item keeps its versioning fields: {ok_item}"
+        );
+
         let failed = &response["items"][1]["index"];
         assert_eq!(failed["_id"], "broken-doc");
         assert_eq!(failed["status"], 400);
+        for absent in ["_version", "_seq_no", "_primary_term", "_shards", "result"] {
+            assert!(
+                failed.get(absent).is_none(),
+                "a failed bulk item must omit {absent}: {failed}"
+            );
+        }
         assert_eq!(
             failed["error"]["type"], "document_parsing_exception",
             "unexpected response: {response}"
