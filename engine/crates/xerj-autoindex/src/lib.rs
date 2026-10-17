@@ -144,6 +144,28 @@ pub(crate) fn code_search_hint(prefix: &str) -> String {
     )
 }
 
+/// What to print when a run indexed both code and prose.
+///
+/// The previous text pasted a `match` on `body` only. Line files (a
+/// changelog is `txt-lines`) are stored in `text`, so that fragment misses
+/// them and teaches a query that cannot see half the corpus. Name the
+/// `ax_format` values this run actually wrote, and say which field holds
+/// which side.
+pub(crate) fn mixed_corpus_hint(formats: &[&str]) -> String {
+    let listed = if formats.is_empty() {
+        "none recorded".to_string()
+    } else {
+        formats.join(", ")
+    };
+    format!(
+        "      this corpus mixes code and prose — code volume can swamp prose on\n\
+         \x20     shared words. Scope one side with a filter on `ax_format`\n\
+         \x20     (values in this run: {listed}).\n\
+         \x20     Prose sections are stored in `body`; line files such as changelogs\n\
+         \x20     are stored in `text`, so a match on `body` alone misses them."
+    )
+}
+
 fn prepared_records_identity(cfg: &IndexCfg) -> Result<String> {
     let mut value = json!({
         "contract": PREPARED_RECORDS_IDENTITY,
@@ -9371,20 +9393,10 @@ fn run_index_report_inner(
             .values()
             .any(|fa| fa.family.starts_with("txt") || fa.family == "html");
         if indexed_code && indexed_prose {
-            println!(
-                "      this corpus mixes code and prose — code volume can swamp prose on\n\
-                 \x20     shared words. Scope the side you want:\n\
-                 \x20       …,\"query\":{{\"bool\":{{\"must\":[{{\"match\":{{\"body\":\"<text>\"}}}}],\
-                 \"filter\":[{{\"term\":{{\"ax_format\":\"code\"}}}}]}}}}\n\
-                 \x20       (values for `ax_format` in this run: {})",
-                {
-                    let mut fams: Vec<&str> =
-                        plan.files.values().map(|fa| fa.family.as_str()).collect();
-                    fams.sort_unstable();
-                    fams.dedup();
-                    fams.join(", ")
-                }
-            );
+            let mut fams: Vec<&str> = plan.files.values().map(|fa| fa.family.as_str()).collect();
+            fams.sort_unstable();
+            fams.dedup();
+            println!("{}", mixed_corpus_hint(&fams));
         }
     }
     // Exit 3 means "completed, some input was unusable". Backend rejections
@@ -11254,6 +11266,36 @@ mod generation_contract_identity_tests {
             "an auth-free server must get auth-free hints, got: {hint}"
         );
         assert!(hint.contains("xerj autoindex map --url http://localhost:9200"));
+    }
+
+    /// A tokio index stored CHANGELOG.md as `txt-lines` in `text`. The done
+    /// banner pasted a `match` on `body` only, so following it cannot see
+    /// that file. The hint names `text` and the run's `ax_format` values.
+    #[test]
+    fn mixed_corpus_hint_names_text_and_does_not_match_body_only() {
+        let hint = mixed_corpus_hint(&["code", "json", "txt-lines", "txt-prose"]);
+        assert!(
+            hint.contains("values in this run: code, json, txt-lines, txt-prose"),
+            "{hint}"
+        );
+        assert!(hint.contains("`text`"), "{hint}");
+        assert!(hint.contains("`body`"), "{hint}");
+        assert!(
+            hint.contains("ax_format"),
+            "the scope field must still be named, got: {hint}"
+        );
+        assert!(
+            !hint.contains("\"match\""),
+            "must not teach a body-only JSON filter, got: {hint}"
+        );
+        assert!(
+            !hint.contains("<text>"),
+            "must not leave a JSON placeholder, got: {hint}"
+        );
+
+        let empty = mixed_corpus_hint(&[]);
+        assert!(empty.contains("none recorded"), "{empty}");
+        assert!(!empty.contains("\"match\""), "{empty}");
     }
 
     /// A blind onboarding run found `autoindex` discovering `./data/admin.key`
