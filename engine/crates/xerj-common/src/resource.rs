@@ -402,8 +402,9 @@ pub fn available_memory_bytes() -> Option<u64> {
     probe_available_memory()
 }
 
-/// Resident set size of this process, or `None` where this platform has no
-/// probe. `None` must disable an RSS-driven decision, never read as zero.
+/// Resident set size of this process (on macOS its physical footprint, see
+/// the macOS `probe_rss`), or `None` where this platform has no probe.
+/// `None` must disable an RSS-driven decision, never read as zero.
 pub fn current_rss_bytes() -> Option<u64> {
     probe_rss()
 }
@@ -459,26 +460,35 @@ fn probe_rss() -> Option<u64> {
     Some(pages.saturating_mul(page))
 }
 
+/// macOS: the process's physical footprint (`ri_phys_footprint`), not its
+/// resident size.
+///
+/// Resident size leaves out the pages the compressor has taken and the pages
+/// swapped out, which are still this process's memory, and it counts clean
+/// file-backed pages (mmapped segments) the kernel can drop at will. Under a
+/// 1 GiB cap a node read 0.8 GB resident while vmmap showed a 2.2 GB
+/// footprint, 1.3 GB of it compressed, so the breaker kept admitting writes;
+/// and its "released" edges followed the compressor, not a drain. The
+/// footprint is what `/usr/bin/time -l` reports as "peak memory footprint"
+/// and what the kernel's memory-pressure kills act on.
 #[cfg(target_os = "macos")]
 fn probe_rss() -> Option<u64> {
-    let mut info = std::mem::MaybeUninit::<libc::proc_taskinfo>::zeroed();
-    let size = std::mem::size_of::<libc::proc_taskinfo>() as libc::c_int;
-    // SAFETY: `proc_pidinfo` writes at most `size` bytes into `info` and
-    // reports how many it wrote; anything short is treated as a failure.
-    let written = unsafe {
-        libc::proc_pidinfo(
+    let mut info = std::mem::MaybeUninit::<libc::rusage_info_v2>::zeroed();
+    // SAFETY: with flavor RUSAGE_INFO_V2, `proc_pid_rusage` writes one
+    // `rusage_info_v2` into the buffer it is given and returns 0, or returns
+    // -1 and writes nothing usable.
+    let rc = unsafe {
+        libc::proc_pid_rusage(
             std::process::id() as libc::c_int,
-            libc::PROC_PIDTASKINFO,
-            0,
-            info.as_mut_ptr() as *mut libc::c_void,
-            size,
+            libc::RUSAGE_INFO_V2,
+            info.as_mut_ptr() as *mut libc::rusage_info_t,
         )
     };
-    if written != size {
+    if rc != 0 {
         return None;
     }
-    // SAFETY: proc_pidinfo filled the whole struct (checked above).
-    Some(unsafe { info.assume_init() }.pti_resident_size)
+    // SAFETY: proc_pid_rusage returned 0, so it filled the struct.
+    Some(unsafe { info.assume_init() }.ri_phys_footprint)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]

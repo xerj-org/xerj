@@ -1420,6 +1420,11 @@ impl FtsIndexWriter {
             .map(|(name, _stats, fd)| (name.as_str(), fd.config.analyzer.as_str()))
             .filter(|(_name, analyzer)| *analyzer != "standard")
             .collect();
+        // Every side-car of this segment is staged (temp file written and
+        // synced) and published together at the end: see `publish_staged`
+        // for why that is as durable as one durable write per file, and for
+        // the cost it removes (two device flushes per file on Apple targets).
+        let mut staged: Vec<xerj_common::fsio::StagedFile> = Vec::new();
         if !recorded.is_empty() {
             #[derive(serde::Serialize)]
             struct Marker<'a> {
@@ -1428,17 +1433,19 @@ impl FtsIndexWriter {
             let bytes = serde_json::to_vec(&Marker { fields: recorded })
                 .with_context(|| "encoding FTS analyzer marker")?;
             let path = segment_analyzer_marker_path(&segment_dir, &segment_id);
-            xerj_common::fsio::write_file_durable(&path, &bytes)
-                .with_context(|| format!("writing FTS analyzer marker {:?}", path))?;
+            staged.push(
+                xerj_common::fsio::stage_file(&path, &bytes)
+                    .with_context(|| format!("writing FTS analyzer marker {:?}", path))?,
+            );
         }
 
         // Parallel field writes.  `write_field_static` is a pure function
         // of its inputs and touches only files named after the field, so
         // there's no cross-thread contention.
-        let results: Vec<Result<(String, FieldStats)>> = fields
+        let results: Vec<Result<(String, FieldStats, Vec<xerj_common::fsio::StagedFile>)>> = fields
             .into_par_iter()
             .map(|(field_name, stats, field_data)| {
-                Self::write_field_static(
+                let files = Self::write_field_static(
                     &segment_dir,
                     &segment_id,
                     &field_name,
@@ -1446,16 +1453,20 @@ impl FtsIndexWriter {
                     zstd_level,
                 )
                 .with_context(|| format!("writing field '{}'", field_name))?;
-                Ok((field_name, stats))
+                Ok((field_name, stats, files))
             })
             .collect();
 
-        // Surface any error; otherwise build the stats map.
+        // Surface any error (dropping `staged` removes every temp file);
+        // otherwise build the stats map and publish the side-cars.
         let mut all_stats = HashMap::new();
         for r in results {
-            let (name, stats) = r?;
+            let (name, stats, files) = r?;
+            staged.extend(files);
             all_stats.insert(name, stats);
         }
+        xerj_common::fsio::publish_staged(&segment_dir, staged)
+            .with_context(|| format!("publishing FTS side-cars in {:?}", segment_dir))?;
 
         Ok(all_stats)
     }
@@ -1466,7 +1477,8 @@ impl FtsIndexWriter {
         field_name: &str,
         field_data: FieldData,
         zstd_level: i32,
-    ) -> Result<()> {
+    ) -> Result<Vec<xerj_common::fsio::StagedFile>> {
+        let mut staged = Vec::with_capacity(4);
         // NOTE: `PathBuf::with_extension` replaces the final `.ext` in the path,
         // so using `segment_dir.join("segment_id.field_name")` followed by
         // `with_extension("fst")` would strip `.field_name` and collapse every
@@ -1546,16 +1558,19 @@ impl FtsIndexWriter {
             out.extend_from_slice(&compressed);
             out
         };
-        // RC4 W1 #10 — every FTS side-car write below goes through durable
-        // temporary-file sync plus platform-appropriate publication: rename
-        // and parent-directory fsync on Unix, write-through replacement on
-        // Windows. These files are part of the segment publish chain: the WAL
-        // entries they cover are pruned ~1 s after the flush, so side-cars
-        // sitting only in the volatile page cache meant a power loss could
-        // leave a registered segment with missing/torn FTS data (silently
-        // wrong query results or unreadable fields) with no WAL to recover from.
-        xerj_common::fsio::write_file_durable(&post_path, &post_bytes_wrapped)
-            .with_context(|| format!("writing postings to {:?}", post_path))?;
+        // RC4 W1 #10 — every FTS side-car below is staged (synced temp file)
+        // and published durably by `finish` through `fsio::publish_staged`:
+        // rename and parent-directory fsync on Unix, write-through
+        // replacement on Windows. These files are part of the segment publish
+        // chain: the WAL entries they cover are pruned ~1 s after the flush,
+        // so side-cars sitting only in the volatile page cache meant a power
+        // loss could leave a registered segment with missing/torn FTS data
+        // (silently wrong query results or unreadable fields) with no WAL to
+        // recover from.
+        staged.push(
+            xerj_common::fsio::stage_file(&post_path, &post_bytes_wrapped)
+                .with_context(|| format!("writing postings to {:?}", post_path))?,
+        );
 
         // 3. Build and write FST (term → meta byte offset).
         //
@@ -1591,13 +1606,11 @@ impl FtsIndexWriter {
         }
         let mut fst_out = fst_builder.into_inner().with_context(|| "finishing FST")?;
         fst_out.flush().with_context(|| "flushing FST")?;
-        fst_out
-            .get_ref()
-            .sync_all()
-            .with_context(|| "fsyncing FST")?;
+        staged.push(
+            xerj_common::fsio::stage_written_file(&fst_tmp, &fst_path, fst_out.get_ref())
+                .with_context(|| "fsyncing FST")?,
+        );
         drop(fst_out);
-        xerj_common::fsio::replace_file_durable(&fst_tmp, &fst_path)
-            .with_context(|| format!("publishing FST {:?}", fst_path))?;
 
         // 4. Write meta in the ZFM5 format — columnar varint streams
         //    (df, ttf-delta, gaps, lengths) under the Zstd envelope;
@@ -1612,8 +1625,10 @@ impl FtsIndexWriter {
             &term_postings,
             zstd_level,
         )?;
-        xerj_common::fsio::write_file_durable(&meta_path, &meta_bytes)
-            .with_context(|| format!("writing meta to {:?}", meta_path))?;
+        staged.push(
+            xerj_common::fsio::stage_file(&meta_path, &meta_bytes)
+                .with_context(|| format!("writing meta to {:?}", meta_path))?,
+        );
 
         // 5. Write norms file — V4 M4.7 compact format.
         //
@@ -1658,10 +1673,12 @@ impl FtsIndexWriter {
         norms_bytes.extend_from_slice(&(dense_len as u32).to_le_bytes());
         norms_bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
         norms_bytes.extend_from_slice(payload);
-        xerj_common::fsio::write_file_durable(&norms_path, &norms_bytes)
-            .with_context(|| format!("writing norms to {:?}", norms_path))?;
+        staged.push(
+            xerj_common::fsio::stage_file(&norms_path, &norms_bytes)
+                .with_context(|| format!("writing norms to {:?}", norms_path))?,
+        );
 
-        Ok(())
+        Ok(staged)
     }
 }
 

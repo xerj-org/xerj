@@ -1004,7 +1004,7 @@ fn build(config: &Config) -> ResourceGovernor {
 
 /// Current resident set size of this process, in bytes, via
 /// [`xerj_common::resource::current_rss_bytes`] (`/proc/self/statm` on Linux,
-/// `proc_pidinfo(PROC_PIDTASKINFO)` on macOS). Returns 0 where the platform
+/// the physical footprint from `proc_pid_rusage` on macOS). Returns 0 where the platform
 /// exposes no probe — the RSS watermark then never trips, which is safe but
 /// means no admission control, so [`build`] says so out loud at startup.
 ///

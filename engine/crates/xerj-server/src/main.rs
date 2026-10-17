@@ -2126,7 +2126,33 @@ fn main() -> Result<()> {
         .filter(|&n| n > 0)
         .unwrap_or_else(|| (cores * 8).clamp(64, 512));
     let rt = build_runtime(worker_threads)?;
-    rt.block_on(async_main())
+    run_to_exit(rt, async_main())
+}
+
+/// How long exit waits for blocking jobs still running after `async_main`
+/// returns ("Goodbye" has been logged and the final flush is done).
+const RUNTIME_SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Drive the server future to completion, then tear the runtime down without
+/// waiting more than [`RUNTIME_SHUTDOWN_TIMEOUT`] for blocking jobs.
+///
+/// Dropping a `Runtime` joins its blocking pool with no time limit. After
+/// SIGTERM the one job left there is usually a background merge, detached by
+/// `spawn_blocking` and parked in the merge pool, which can spend minutes
+/// compressing a large column at zstd 19 on a low-priority thread. The
+/// process then outlived "Goodbye" by however long that merge had left
+/// (90 s+ measured on macOS), and a supervisor's stop timeout killed it.
+///
+/// Walking away from that merge is safe: a merge publishes atomically through
+/// `apply_merge`, and an unfinished batch leaves its input segments untouched
+/// (the LOSS FIREWALL notes in `xerj-engine`'s `index.rs`). The final
+/// `flush_all_force` has completed before `async_main` returns, and leaving a
+/// job unfinished here is no different from the SIGKILL or power loss the
+/// engine is already built to recover from.
+fn run_to_exit<F: std::future::Future>(rt: tokio::runtime::Runtime, fut: F) -> F::Output {
+    let out = rt.block_on(fut);
+    rt.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+    out
 }
 
 /// Explicit worker-thread stack size for the production Tokio runtime.
@@ -2537,9 +2563,87 @@ mod decide_flag_tests {
     }
 }
 
+/// Return every jemalloc arena's dirty pages to the OS (`arena.4096.purge`,
+/// 4096 being `MALLCTL_ARENAS_ALL`).
+///
+/// `arena.<i>.purge` is a void control: jemalloc rejects it with EPERM unless
+/// all four of `oldp`, `oldlenp`, `newp` and `newlen` are null/0
+/// (`NEITHER_READ_NOR_WRITE` in jemalloc's `ctl.c`). The earlier
+/// `tikv_jemalloc_ctl::raw::write(.., 0u64)` passed a value, so every purge
+/// failed and the error was discarded. On Linux `background_thread:true`
+/// hid it; on macOS there is no background thread, and the drain freed
+/// nothing back to the OS.
+#[cfg(not(target_env = "msvc"))]
+fn purge_all_jemalloc_arenas() -> Result<(), i32> {
+    // SAFETY: the name is a NUL-terminated literal naming a real ctl node,
+    // and a void control reads and writes nothing, so null pointers and a
+    // zero length are exactly what it requires.
+    let rc = unsafe {
+        tikv_jemalloc_sys::mallctl(
+            c"arena.4096.purge".as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(rc)
+    }
+}
+
+#[cfg(all(test, not(target_env = "msvc")))]
+mod allocator_purge_tests {
+    use super::purge_all_jemalloc_arenas;
+
+    /// The memory drain's purge must actually run. `arena.<i>.purge` is a
+    /// void control: jemalloc answers EPERM to any call that passes a new
+    /// value (`ctl.c`, `NEITHER_READ_NOR_WRITE`), so a "write 0" purge is a
+    /// silent no-op and the drain returns nothing to the OS.
+    #[test]
+    fn arena_purge_succeeds() {
+        // Dirty some pages first so the purge has work to do.
+        let blocks: Vec<Vec<u8>> = (0..64).map(|i| vec![i as u8; 256 * 1024]).collect();
+        drop(std::hint::black_box(blocks));
+        assert_eq!(
+            purge_all_jemalloc_arenas(),
+            Ok(()),
+            "arena.4096.purge must return 0"
+        );
+    }
+}
+
 #[cfg(test)]
 mod runtime_tests {
-    use super::build_runtime;
+    use super::{build_runtime, run_to_exit};
+
+    /// SIGTERM → "Goodbye" → exit must not wait on a blocking job that is
+    /// still running (in production: a background merge compressing a large
+    /// column on a low-priority thread). Dropping a Runtime joins its blocking
+    /// pool with no timeout, so the process outlived "Goodbye" by as long as
+    /// the job had left.
+    #[test]
+    fn exit_does_not_wait_for_a_running_blocking_job() {
+        let rt = build_runtime(2).expect("prod runtime builds");
+        let started = std::time::Instant::now();
+        run_to_exit(rt, async {
+            let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+            // Detached, like the merge task: nothing awaits it.
+            drop(tokio::task::spawn_blocking(move || {
+                let _ = tx.send(());
+                std::thread::sleep(std::time::Duration::from_secs(30));
+            }));
+            // Make sure the job is really running before the server returns.
+            rx.await.expect("blocking job started");
+        });
+        let waited = started.elapsed();
+        assert!(
+            waited < std::time::Duration::from_secs(10),
+            "exit waited {waited:?} for a detached blocking job"
+        );
+    }
 
     #[test]
     fn runtime_builds_and_boots() {
@@ -3332,11 +3436,14 @@ async fn async_main() -> Result<()> {
             // MALLCTL_ARENAS_ALL. Both are best-effort: a failing mallctl
             // must never propagate out of the drain path.
             let _ = tikv_jemalloc_ctl::epoch::advance();
-            // SAFETY: `arena.<i>.purge` with i = MALLCTL_ARENAS_ALL (4096)
-            // is a plain "purge every arena" action mallctl; the value is an
-            // unused unsigned scalar. The name is NUL-terminated and names a
-            // real jemalloc ctl node, so the write cannot read out of bounds.
-            let _ = unsafe { tikv_jemalloc_ctl::raw::write(b"arena.4096.purge\0", 0u64) };
+            // Best-effort as before, but no longer silent: a purge that
+            // fails is a drain that returns nothing to the OS. Warn once.
+            if let Err(rc) = purge_all_jemalloc_arenas() {
+                static WARNED: std::sync::Once = std::sync::Once::new();
+                WARNED.call_once(|| {
+                    warn!("jemalloc arena.4096.purge failed (mallctl returned {rc}); memory drains will not return pages to the OS");
+                });
+            }
         }));
         state.engine.spawn_resource_sampler();
     }

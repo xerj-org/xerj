@@ -7734,6 +7734,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tikv-jemalloc-ctl",
+ "tikv-jemalloc-sys",
  "tikv-jemallocator",
  "tokio",
  "tokio-stream",

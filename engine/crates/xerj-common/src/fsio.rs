@@ -9,7 +9,8 @@
 //! acked-data loss.
 //!
 //! Every side-car / manifest write on the publish chain must go through
-//! [`write_file_durable`] or [`replace_file_durable`]. Unix makes the rename
+//! [`write_file_durable`] or [`replace_file_durable`], or, for many files in
+//! one directory, [`stage_file`] plus one [`publish_staged`]. Unix makes the rename
 //! durable with parent-directory fsync; Windows uses a same-directory Win32
 //! write-through replacement because it has no equivalent directory-fsync
 //! contract.
@@ -27,7 +28,151 @@ use std::os::windows::ffi::OsStrExt as _;
 #[cfg(not(windows))]
 pub fn fsync_dir(dir: &Path) -> std::io::Result<()> {
     let d = std::fs::File::open(dir)?;
-    d.sync_all()
+    sync_file_full(&d)
+}
+
+/// How many full flushes ([`sync_file_full`]) this process has issued.
+static FULL_FLUSHES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Number of full flushes this process has issued through this module.
+///
+/// A full flush is `File::sync_all`, which on Apple targets is
+/// `fcntl(F_FULLFSYNC)`: it drains the whole device write cache and costs
+/// milliseconds each. Exposed so tests can bound how many a publish costs.
+#[doc(hidden)]
+pub fn full_flush_count() -> u64 {
+    FULL_FLUSHES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// `file.sync_all()`, counted (see [`full_flush_count`]).
+pub fn sync_file_full(file: &std::fs::File) -> std::io::Result<()> {
+    FULL_FLUSHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    file.sync_all()
+}
+
+/// Sync a staged file's bytes ahead of a later device flush.
+///
+/// On Apple targets this is plain `fsync(2)`: it hands the data to the
+/// device but leaves it in the device's write cache, which the one
+/// `F_FULLFSYNC` in [`publish_staged`] then drains for every staged file at
+/// once. Everywhere else it is the same full `sync_all` a durable write
+/// always used, because there `fsync` is already the per-file barrier and
+/// there is no cheaper device-wide one.
+fn sync_file_for_batch(file: &std::fs::File) -> std::io::Result<()> {
+    #[cfg(target_vendor = "apple")]
+    {
+        use std::os::fd::AsRawFd as _;
+        // SAFETY: `fsync` on a descriptor this `File` owns for the call.
+        if unsafe { libc::fsync(file.as_raw_fd()) } == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        sync_file_full(file)
+    }
+}
+
+/// A file written to a same-directory temp name and synced, waiting for
+/// [`publish_staged`] to move it into place. Dropping it unpublished removes
+/// the temp file.
+#[derive(Debug)]
+pub struct StagedFile {
+    tmp: std::path::PathBuf,
+    dest: std::path::PathBuf,
+    published: bool,
+}
+
+impl Drop for StagedFile {
+    fn drop(&mut self) {
+        if !self.published {
+            let _ = std::fs::remove_file(&self.tmp);
+        }
+    }
+}
+
+fn temp_sibling(path: &Path) -> std::path::PathBuf {
+    let nonce = format!("{:x}-{:?}", std::process::id(), std::thread::current().id());
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".to_string());
+    path.with_file_name(format!("{file_name}.tmp.{nonce}"))
+}
+
+/// Write `bytes` to a temp file beside `path` and sync it, for a later
+/// [`publish_staged`]. Nothing is visible at `path` until then.
+pub fn stage_file(path: &Path, bytes: &[u8]) -> std::io::Result<StagedFile> {
+    let tmp = temp_sibling(path);
+    require_same_directory(&tmp, path)?;
+    let staged = StagedFile {
+        tmp,
+        dest: path.to_path_buf(),
+        published: false,
+    };
+    let mut f = std::fs::File::create(&staged.tmp)?;
+    f.write_all(bytes)?;
+    sync_file_for_batch(&f)?;
+    Ok(staged)
+}
+
+/// Stage a temp file the caller wrote itself (streamed output). `file` is the
+/// open handle to `tmp`, fully written and flushed by the caller; this syncs
+/// it like [`stage_file`] does.
+pub fn stage_written_file(
+    tmp: &Path,
+    dest: &Path,
+    file: &std::fs::File,
+) -> std::io::Result<StagedFile> {
+    let staged = StagedFile {
+        tmp: tmp.to_path_buf(),
+        dest: dest.to_path_buf(),
+        published: false,
+    };
+    require_same_directory(&staged.tmp, &staged.dest)?;
+    sync_file_for_batch(file)?;
+    Ok(staged)
+}
+
+/// Move every staged file in `dir` into place, durably, with the same
+/// guarantee as one [`write_file_durable`] per file:
+///
+/// 1. every staged file's bytes reach stable storage before any rename (on
+///    Apple targets, one `F_FULLFSYNC`, which drains the device cache for
+///    every earlier `fsync`; elsewhere each file was already fully synced
+///    when it was staged);
+/// 2. each file replaces its target (rename on Unix, write-through
+///    `MoveFileExW` on Windows);
+/// 3. one parent-directory fsync makes every rename durable (Unix).
+///
+/// A crash at any point leaves each target either absent, old or complete,
+/// never torn, exactly as per-file durable writes did. What changes is the
+/// cost: two device flushes for the batch instead of two per file, which on
+/// Apple targets is the difference between ~250 cache drains per segment and
+/// two. If a rename fails, the files already moved stay moved and the rest are
+/// removed, which is also what a failure part-way through a loop of
+/// [`write_file_durable`] calls left behind.
+pub fn publish_staged(dir: &Path, files: Vec<StagedFile>) -> std::io::Result<()> {
+    if files.is_empty() {
+        return Ok(());
+    }
+    if let Some(stray) = files.iter().find(|f| f.dest.parent() != Some(dir)) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("staged file {:?} is not in {:?}", stray.dest, dir),
+        ));
+    }
+    #[cfg(target_vendor = "apple")]
+    sync_file_full(&std::fs::File::open(dir)?)?;
+    for mut file in files {
+        replace_file_for_durable_write(&file.tmp, &file.dest)?;
+        file.published = true;
+    }
+    #[cfg(not(windows))]
+    fsync_dir(dir)?;
+    Ok(())
 }
 
 /// Windows has no supported directory-flush primitive to call here:
@@ -214,7 +359,7 @@ pub fn write_file_durable_with_hook(
     {
         let mut f = std::fs::File::create(&tmp)?;
         f.write_all(bytes)?;
-        f.sync_all()?;
+        sync_file_full(&f)?;
     }
     if let Err(error) = hook(DurableWriteStage::BeforeRename) {
         let _ = std::fs::remove_file(&tmp);
@@ -288,6 +433,49 @@ mod tests {
         replace_file_durable(&source, &destination).unwrap();
         assert_eq!(std::fs::read(&destination).unwrap(), b"new");
         assert!(!source.exists());
+    }
+
+    #[test]
+    fn staged_batch_publishes_every_file_and_leaves_no_temp() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.post");
+        let b = dir.path().join("b.meta");
+        std::fs::write(&b, b"old").unwrap();
+        let staged = vec![
+            stage_file(&a, b"alpha").unwrap(),
+            stage_file(&b, b"beta").unwrap(),
+        ];
+        // Nothing is visible until the publish.
+        assert!(!a.exists());
+        assert_eq!(std::fs::read(&b).unwrap(), b"old");
+        publish_staged(dir.path(), staged).unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"alpha");
+        assert_eq!(std::fs::read(&b).unwrap(), b"beta");
+        assert!(std::fs::read_dir(dir.path()).unwrap().all(|e| !e
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .contains(".tmp.")));
+    }
+
+    #[test]
+    fn an_unpublished_stage_removes_its_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.post");
+        drop(stage_file(&a, b"alpha").unwrap());
+        assert!(!a.exists());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn publish_staged_rejects_a_file_outside_the_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        let staged = vec![stage_file(&other.path().join("x"), b"x").unwrap()];
+        let error = publish_staged(dir.path(), staged).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(!other.path().join("x").exists());
+        assert_eq!(std::fs::read_dir(other.path()).unwrap().count(), 0);
     }
 
     #[test]

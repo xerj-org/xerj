@@ -94,6 +94,11 @@ debug-profiling = [
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
+# `mallctl` itself, for the void `arena.<i>.purge` control that the ctl
+# crate's typed read/write helpers cannot call (see
+# `purge_all_jemalloc_arenas`). Already in the graph under
+# tikv-jemallocator and tikv-jemalloc-ctl, so this adds an edge, not a crate.
+tikv-jemalloc-sys = "0.6"
 libc = "0.2"
 
 [target.'cfg(all(target_os = "linux", not(target_env = "msvc")))'.dependencies]
