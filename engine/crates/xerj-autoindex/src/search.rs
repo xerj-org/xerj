@@ -486,6 +486,30 @@ fn catalog_run_prefixes(es: &Es) -> Option<Vec<String>> {
     Some(prefixes.into_iter().collect())
 }
 
+/// What `xerj search` / `xerj def` print when the query request itself fails.
+///
+/// A missing index (`index_not_found_exception`, or a body that says
+/// `no such index`) is the case the prefix sentence was written for. Every
+/// other failure — including HTTP 400 `For input string`, which is a numeric
+/// field being queried as text — must not tell the reader to change `--prefix`.
+pub(crate) fn query_failure_message(
+    command: &str,
+    url: &str,
+    pattern: &str,
+    err: impl std::fmt::Display,
+) -> String {
+    let err = err.to_string();
+    let mut msg = format!("xerj {command}: query failed against {url}/{pattern}: {err}");
+    let lower = err.to_ascii_lowercase();
+    if lower.contains("index_not_found") || lower.contains("no such index") {
+        msg.push_str(
+            "\n(is the prefix right? `xerj autoindex` writes 'ax' by default — \
+             pass --prefix if you indexed under another.)",
+        );
+    }
+    msg
+}
+
 /// Entry point for the `search` subcommand. Returns a process exit code.
 pub fn run_search_cli() -> i32 {
     let mut url = std::env::var("XERJ_URL")
@@ -593,11 +617,7 @@ pub fn run_search_cli() -> i32 {
     let resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!(
-                "xerj search: query failed against {url}/{pattern}: {e}\n\
-                 (is the prefix right? `xerj autoindex` writes 'ax' by default — \
-                 pass --prefix if you indexed under another.)"
-            );
+            eprintln!("{}", query_failure_message("search", &url, &pattern, e));
             return 1;
         }
     };
@@ -665,6 +685,52 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    /// HTTP 400 `For input string` is a numeric field, not a wrong prefix.
+    /// A missing index still gets the prefix sentence.
+    #[test]
+    fn query_failure_blames_the_prefix_only_when_the_index_is_missing() {
+        let numeric = query_failure_message(
+            "search",
+            "http://127.0.0.1:9200",
+            "ax-*",
+            "search /ax-* HTTP 400: {\"error\":{\"reason\":\"For input string: \\\"fingerprint dedupe comment\\\"\"}}",
+        );
+        assert!(numeric.contains("For input string"), "{numeric}");
+        assert!(
+            !numeric.contains("is the prefix right"),
+            "a parse failure must not blame --prefix, got: {numeric}"
+        );
+        assert!(
+            numeric.starts_with("xerj search: query failed against http://127.0.0.1:9200/ax-*: ")
+        );
+
+        let missing = query_failure_message(
+            "def",
+            "http://127.0.0.1:9200",
+            "nope-*",
+            "search /nope-* HTTP 404: {\"error\":{\"type\":\"index_not_found_exception\"}}",
+        );
+        assert!(missing.contains("index_not_found_exception"), "{missing}");
+        assert!(missing.contains("is the prefix right"), "{missing}");
+        assert!(missing.contains("xerj def:"), "{missing}");
+
+        let phrase = query_failure_message(
+            "search",
+            "http://localhost:9200",
+            "ax-*",
+            "no such index: ax-missing",
+        );
+        assert!(phrase.contains("is the prefix right"), "{phrase}");
+
+        let other = query_failure_message(
+            "search",
+            "http://localhost:9200",
+            "ax-*",
+            "search /ax-* HTTP 403: {\"error\":{\"type\":\"security_exception\"}}",
+        );
+        assert!(!other.contains("is the prefix right"), "{other}");
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`

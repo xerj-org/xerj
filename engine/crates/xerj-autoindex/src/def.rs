@@ -16,7 +16,8 @@ use std::collections::BTreeSet;
 use crate::esclient::Es;
 use crate::search::{
     corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location, is_identifier,
-    mapped_property_names, numeric_property_names, passage_text, weighted_query_fields,
+    mapped_property_names, numeric_property_names, passage_text, query_failure_message,
+    weighted_query_fields,
 };
 use serde_json::{json, Value};
 
@@ -377,11 +378,7 @@ pub fn run_def_cli() -> i32 {
     let resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!(
-                "xerj def: query failed against {url}/{pattern}: {e}\n\
-                 (is the prefix right? `xerj autoindex` writes 'ax' by default — \
-                 pass --prefix if you indexed under another.)"
-            );
+            eprintln!("{}", query_failure_message("def", &url, &pattern, e));
             return 1;
         }
     };
