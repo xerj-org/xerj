@@ -16,7 +16,8 @@ use std::collections::BTreeSet;
 use crate::esclient::Es;
 use crate::search::{
     corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location, is_identifier,
-    mapped_property_names, numeric_property_names, passage_text, weighted_query_fields,
+    lookup_symbol, mapped_property_names, numeric_property_names, passage_text,
+    weighted_query_fields,
 };
 use serde_json::{json, Value};
 
@@ -154,6 +155,7 @@ fn build_def_query(
     //     pre-#500 indexes that have no symbol docs, boost 8.
     //   - `multi_match`: recall floor so plain-words queries ("euler angles to
     //     rotation matrix") still surface the definer via `defs`/`code` text.
+    let query = lookup_symbol(query);
     let mut should = Vec::new();
     if field_lookup_ok(mapped, numeric, "name") {
         should.push(json!({ "term": { "name": { "value": query, "boost": 12 } } }));
@@ -529,6 +531,40 @@ mod tests {
         assert_eq!(
             def_query(query, None, None, 5, Some(&BTreeSet::new()), None),
             def_query(query, None, None, 5, None, None)
+        );
+    }
+
+    /// `xerj def Runtime::block_on` returned `on_thread_start`. The `name`
+    /// term has to be the last segment, or `on` outranks `block_on`.
+    #[test]
+    fn a_qualified_path_looks_up_its_last_segment() {
+        assert_eq!(lookup_symbol("Runtime::block_on"), "block_on");
+        assert_eq!(lookup_symbol("std::io::Error"), "Error");
+        assert_eq!(lookup_symbol("::block_on"), "block_on");
+        assert_eq!(lookup_symbol("block_on"), "block_on");
+        assert_eq!(lookup_symbol("Runtime::"), "Runtime::");
+        assert_eq!(lookup_symbol("flush the tree"), "flush the tree");
+        assert!(!is_identifier("Runtime::block_on"));
+
+        let body = def_query("Runtime::block_on", None, None, 5, None, None);
+        let term = body.pointer("/query/function_score/query/bool/should");
+        let should = term
+            .or_else(|| body.pointer("/query/bool/should"))
+            .and_then(Value::as_array)
+            .expect("should clauses");
+        let name = should
+            .iter()
+            .find_map(|c| c.pointer("/term/name/value"))
+            .and_then(Value::as_str);
+        assert_eq!(name, Some("block_on"));
+        let mm = should
+            .iter()
+            .find_map(|c| c.pointer("/multi_match/query"))
+            .and_then(Value::as_str);
+        assert_eq!(mm, Some("block_on"));
+        assert!(
+            !body.to_string().contains("Runtime::block_on"),
+            "the raw path must not be the query text: {body}"
         );
     }
 

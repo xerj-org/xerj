@@ -74,6 +74,35 @@ pub(crate) fn is_identifier(q: &str) -> bool {
         && q.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
+/// The symbol a definition lookup should name.
+///
+/// `xerj def Runtime::block_on` and `xerj search Runtime::block_on` used to
+/// send the raw string. The `name` term never matches `block_on`, and the
+/// text query splits on `::` into `Runtime`, `block`, and `on`, so
+/// `on_thread_start` outranks the function. A path of identifier segments
+/// looks up the last segment. A phrase, a filename, and `is_identifier`'s
+/// own predicate stay unchanged.
+pub(crate) fn lookup_symbol(query: &str) -> &str {
+    let query = query.trim();
+    if !query.contains("::") {
+        return query;
+    }
+    let mut segments = Vec::new();
+    for (i, seg) in query.split("::").enumerate() {
+        if seg.is_empty() {
+            if i == 0 {
+                continue;
+            }
+            return query;
+        }
+        if !is_identifier(seg) {
+            return query;
+        }
+        segments.push(seg);
+    }
+    segments.last().copied().unwrap_or(query)
+}
+
 /// `name` / `code` / `defs` are the code-shaped legs (#916). A corpus that
 /// maps none of them — markdown, logs, anything autoindex accepted that is
 /// not source — must not be queried with those legs: autoindex indices are
@@ -293,6 +322,7 @@ fn build_search_query(
     mapped: Option<&BTreeSet<String>>,
     numeric: Option<&BTreeSet<String>>,
 ) -> Value {
+    let query = lookup_symbol(query);
     let shaped = xerj_common::code_query::normalize_code_search_query(query);
     let mut should = Vec::new();
     let fields = weighted_query_fields(SEARCH_MM_FIELDS, PROSE_EXTRA_FIELDS, mapped, numeric);
@@ -665,6 +695,30 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    /// `xerj search Runtime::block_on` ranked blank `runtime.rs` hits. The
+    /// name term and the text query have to name `block_on`.
+    #[test]
+    fn a_qualified_path_searches_for_its_last_segment() {
+        let body = search_query_body("Runtime::block_on", 5);
+        let should = body
+            .pointer("/query/bool/should")
+            .and_then(Value::as_array)
+            .unwrap();
+        assert_eq!(should[0]["multi_match"]["query"], "block_on", "{body}");
+        let name = should
+            .iter()
+            .find_map(|c| c.pointer("/term/name/value"))
+            .and_then(Value::as_str);
+        assert_eq!(name, Some("block_on"));
+        assert!(!body.to_string().contains("Runtime::block_on"), "{body}");
+        // A leading dot is not a path segment and must still reach `name`.
+        let dotted = search_query_body(".mensaje_motor", 5);
+        assert_eq!(
+            dotted.pointer("/query/bool/should/2/term/name/value"),
+            Some(&json!(".mensaje_motor"))
+        );
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`
