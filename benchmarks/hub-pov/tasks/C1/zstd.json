@@ -1,0 +1,138 @@
+{
+ "corpus": "zstd",
+ "subject": "zstd",
+ "pin": "01b7154f11",
+ "generated": "2026-10-02",
+ "tasks": [
+  {
+   "id": "T1",
+   "class": "drift",
+   "name": "X86_FEATURE_BMI2",
+   "kind": "added",
+   "changed": "2026-09-14",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of X86_FEATURE_BMI2? Answer with the value only.",
+   "re": [
+    "0|0x0"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T2",
+   "class": "drift",
+   "name": "FRAME_V01_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V01_SIZE? Answer with the value only.",
+   "re": [
+    "0xbd|189"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T3",
+   "class": "drift",
+   "name": "FRAME_V02_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V02_SIZE? Answer with the value only.",
+   "re": [
+    "0xbb|187"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T4",
+   "class": "drift",
+   "name": "FRAME_V03_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V03_SIZE? Answer with the value only.",
+   "re": [
+    "0xbb|187"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T5",
+   "class": "drift",
+   "name": "FRAME_V04_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V04_SIZE? Answer with the value only.",
+   "re": [
+    "0xc6|198"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T6",
+   "class": "drift",
+   "name": "FRAME_V05_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V05_SIZE? Answer with the value only.",
+   "re": [
+    "0xb8|184"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T7",
+   "class": "drift",
+   "name": "FRAME_V06_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V06_SIZE? Answer with the value only.",
+   "re": [
+    "0xb2|178"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T8",
+   "class": "drift",
+   "name": "FRAME_V07_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V07_SIZE? Answer with the value only.",
+   "re": [
+    "0xb2|178"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T9",
+   "class": "drift",
+   "name": "FRAME_V08_SIZE",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of FRAME_V08_SIZE? Answer with the value only.",
+   "re": [
+    "0xb3|179"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T10",
+   "class": "drift",
+   "name": "OLDEST_STREAMABLE_VERSION",
+   "kind": "added",
+   "changed": "2026-09-11",
+   "olds": [],
+   "q": "In the current development source of zstd, what is the exact value of OLDEST_STREAMABLE_VERSION? Answer with the value only.",
+   "re": [
+    "0x4|4"
+   ],
+   "need": 1
+  }
+ ]
+}

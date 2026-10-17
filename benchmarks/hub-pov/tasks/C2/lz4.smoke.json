@@ -1,0 +1,32 @@
+{
+ "class": "C2",
+ "corpus": "lz4",
+ "subject": "lz4",
+ "pin": "0774d05537f9762f838f7ab541b7765f1a729cb5",
+ "pin_date": "2026-10-02",
+ "smoke_only": true,
+ "provenance": "SMOKE FIXTURE ONLY — NOT a pre-registered C2 task. Written by the harness agent on 2026-10-17 to exercise the C2 judge path end to end; PLAN.md §5 requires C2 tasks to be authored by a person from the pinned source and committed before the first C2 run, so this file must never be used in the full run (pov.py refuses smoke_only tasks unless --allow-smoke-fixtures is passed).",
+ "tasks": [
+  {
+   "id": "S1",
+   "q": "In the lz4 frame format, which integrity checks can a frame carry, which of them are optional, what does each one cover, and how is each computed? Answer concisely.",
+   "gold": "Three checks, all xxHash-32 with seed 0. (1) Header checksum: always present, one byte at the end of the frame descriptor = (xxh32(descriptor) >> 8) & 0xFF, i.e. the second byte of the xxh32 of the full frame descriptor including optional fields. (2) Block checksum: optional (FLG block-checksum flag, bit 4); 4 bytes little-endian after each data block, xxh32 of the raw (compressed/undecoded) block data. (3) Content checksum: optional (FLG content-checksum flag, bit 2); 4 bytes after the EndMark, xxh32 of the whole decompressed content.",
+   "rubric": [
+    "Names xxHash-32 (xxh32) as the checksum function for the checks",
+    "Header (descriptor) checksum: always present, one byte, derived from xxh32 of the frame descriptor (second byte / >>8)",
+    "Block checksum: optional, per data block, computed over the raw/compressed block data",
+    "Content checksum: optional, appended after the end mark, computed over the entire decompressed content"
+   ],
+   "pass_rule": "all",
+   "files": [
+    "doc/lz4_Frame_format.md:91-104 (Content Checksum)",
+    "doc/lz4_Frame_format.md:164-183 (block / content checksum flags)",
+    "doc/lz4_Frame_format.md:243-249 (Header Checksum)",
+    "doc/lz4_Frame_format.md:294-303 (Block checksum)",
+    "lib/lz4frame.c:351-355 (LZ4F_headerChecksum)",
+    "lib/lz4frame.c:918-923 (block checksum over compressed data)",
+    "lib/lz4frame.c:1116 (content checksum on compressEnd)"
+   ]
+  }
+ ]
+}

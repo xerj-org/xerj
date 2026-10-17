@@ -1,0 +1,127 @@
+{
+ "corpus": "snappy",
+ "subject": "snappy",
+ "pin": "9c28114a38",
+ "generated": "2026-10-02",
+ "tasks": [
+  {
+   "id": "T1",
+   "class": "drift",
+   "name": "SNAPPY_MIN_COMPRESSION_LEVEL",
+   "kind": "added",
+   "changed": "2026-09-09",
+   "olds": [],
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_MIN_COMPRESSION_LEVEL? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T2",
+   "class": "drift",
+   "name": "SNAPPY_MAX_COMPRESSION_LEVEL",
+   "kind": "added",
+   "changed": "2026-09-09",
+   "olds": [],
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_MAX_COMPRESSION_LEVEL? Answer with the value only.",
+   "re": [
+    "0x2|2"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T3",
+   "class": "drift",
+   "name": "SNAPPY_HAVE_RVV",
+   "kind": "changed",
+   "changed": "2026-05-09",
+   "olds": [
+    "0"
+   ],
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_HAVE_RVV? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T4",
+   "class": "drift",
+   "name": "kInputMarginBytes",
+   "kind": "added",
+   "changed": "2024-04-04",
+   "olds": [],
+   "q": "In the current development source of snappy, what is the exact value of kInputMarginBytes? Answer with the value only.",
+   "re": [
+    "0xf|15"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T5",
+   "class": "drift",
+   "name": "kMaxHashTableBits",
+   "kind": "changed",
+   "changed": "2024-04-04",
+   "olds": [
+    "14"
+   ],
+   "q": "In the current development source of snappy, what is the exact value of kMaxHashTableBits? Answer with the value only.",
+   "re": [
+    "0xf|15"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T6",
+   "class": "state",
+   "name": "SNAPPY_HAVE_VECTOR_BYTE_SHUFFLE",
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_HAVE_VECTOR_BYTE_SHUFFLE? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T7",
+   "class": "state",
+   "name": "SNAPPY_HAVE_NEON_CRC32",
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_HAVE_NEON_CRC32? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T8",
+   "class": "state",
+   "name": "SNAPPY_HAVE_X86_CRC32",
+   "q": "In the current development source of snappy, what is the exact value of SNAPPY_HAVE_X86_CRC32? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T9",
+   "class": "state",
+   "name": "kMinHashTableBits",
+   "q": "In the current development source of snappy, what is the exact value of kMinHashTableBits? Answer with the value only.",
+   "re": [
+    "0x8|8"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T10",
+   "class": "state",
+   "name": "kMaximumTagLength",
+   "q": "In the current development source of snappy, what is the exact value of kMaximumTagLength? Answer with the value only.",
+   "re": [
+    "0x5|5"
+   ],
+   "need": 1
+  }
+ ]
+}

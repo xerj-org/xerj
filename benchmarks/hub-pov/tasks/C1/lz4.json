@@ -1,0 +1,144 @@
+{
+ "corpus": "lz4",
+ "subject": "lz4",
+ "pin": "0774d05537",
+ "generated": "2026-10-02",
+ "tasks": [
+  {
+   "id": "T1",
+   "class": "drift",
+   "name": "LZ4F_ENDMARK_SIZE",
+   "kind": "added",
+   "changed": "2024-07-24",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of LZ4F_ENDMARK_SIZE? Answer with the value only.",
+   "re": [
+    "0x4|4"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T2",
+   "class": "drift",
+   "name": "LZ4_VERSION_MINOR",
+   "kind": "changed",
+   "changed": "2024-07-14",
+   "olds": [
+    "9"
+   ],
+   "q": "In the current development source of lz4, what is the exact value of LZ4_VERSION_MINOR? Answer with the value only.",
+   "re": [
+    "0xa|10"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T3",
+   "class": "drift",
+   "name": "LZ4_VERSION_RELEASE",
+   "kind": "changed",
+   "changed": "2024-07-14",
+   "olds": [
+    "5"
+   ],
+   "q": "In the current development source of lz4, what is the exact value of LZ4_VERSION_RELEASE? Answer with the value only.",
+   "re": [
+    "0|0x0"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T4",
+   "class": "drift",
+   "name": "ENV_CLEVEL",
+   "kind": "added",
+   "changed": "2024-07-08",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of ENV_CLEVEL? Answer with the value only.",
+   "re": [
+    "LZ4_CLEVEL"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T5",
+   "class": "drift",
+   "name": "ENV_NBTHREADS",
+   "kind": "added",
+   "changed": "2024-07-06",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of ENV_NBTHREADS? Answer with the value only.",
+   "re": [
+    "LZ4_NBWORKERS"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T6",
+   "class": "drift",
+   "name": "OUTBUFF_QUEUE",
+   "kind": "added",
+   "changed": "2024-07-05",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of OUTBUFF_QUEUE? Answer with the value only.",
+   "re": [
+    "0x1|1"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T7",
+   "class": "drift",
+   "name": "NB_BUFFSETS",
+   "kind": "added",
+   "changed": "2024-07-05",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of NB_BUFFSETS? Answer with the value only.",
+   "re": [
+    "0x4|4"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T8",
+   "class": "drift",
+   "name": "DISTRIB_SIZE_MAX",
+   "kind": "added",
+   "changed": "2024-02-20",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of DISTRIB_SIZE_MAX? Answer with the value only.",
+   "re": [
+    "0x28a|650"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T9",
+   "class": "drift",
+   "name": "LZ4MID_HASHSIZE",
+   "kind": "added",
+   "changed": "2024-02-07",
+   "olds": [],
+   "q": "In the current development source of lz4, what is the exact value of LZ4MID_HASHSIZE? Answer with the value only.",
+   "re": [
+    "0x8|8"
+   ],
+   "need": 1
+  },
+  {
+   "id": "T10",
+   "class": "drift",
+   "name": "LZ4HC_CLEVEL_MIN",
+   "kind": "changed",
+   "changed": "2024-02-07",
+   "olds": [
+    "3"
+   ],
+   "q": "In the current development source of lz4, what is the exact value of LZ4HC_CLEVEL_MIN? Answer with the value only.",
+   "re": [
+    "0x2|2"
+   ],
+   "need": 1
+  }
+ ]
+}
