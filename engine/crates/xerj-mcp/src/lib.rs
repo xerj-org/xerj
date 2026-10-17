@@ -1262,6 +1262,22 @@ fn copy_opt(args: &Value, body: &mut serde_json::Map<String, Value>, key: &str) 
     }
 }
 
+/// Optional non-negative integer. Absent is fine. Present-but-mistyped is an
+/// error that names the field: copying a string `"size"` through produced
+/// `invalid type: string "", expected usize at line 1 column 21`, which does
+/// not say which argument to fix or what to send instead.
+fn opt_u64(args: &Value, key: &str) -> Result<Option<u64>, String> {
+    match args.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| integer_arg_error(key)),
+        Some(_) => Err(integer_arg_error(key)),
+    }
+}
+
+fn integer_arg_error(key: &str) -> String {
+    format!("`{key}` must be a non-negative integer, for example {{\"{key}\": 10}}")
+}
+
 /// Percent-encode one path segment or query value (RFC 3986 unreserved set
 /// passes through; everything else, including `/`, is `%XX`-encoded). Node
 /// ids are arbitrary document ids, so this is not optional.
@@ -1493,7 +1509,13 @@ fn build_search(args: &Value) -> Result<BuiltRequest, String> {
             body.insert("query".into(), json!({ "match_all": {} }));
         }
     }
-    for k in ["size", "from", "sort", "_source"] {
+    if let Some(n) = opt_u64(args, "size")? {
+        body.insert("size".into(), json!(n));
+    }
+    if let Some(n) = opt_u64(args, "from")? {
+        body.insert("from".into(), json!(n));
+    }
+    for k in ["sort", "_source"] {
         copy_opt(args, &mut body, k);
     }
     let plain_query = match args.get("query") {
@@ -1533,7 +1555,7 @@ fn build_semantic(args: &Value) -> Result<BuiltRequest, String> {
     let index = req_str(args, "index")?;
     let field = req_str(args, "field")?;
     let query = req_str(args, "query")?;
-    let k = args.get("k").and_then(Value::as_u64).unwrap_or(10);
+    let k = opt_u64(args, "k")?.unwrap_or(10);
 
     let mut semantic = json!({ "field": field, "query": query, "k": k });
     if let Some(f) = args.get("filter") {
@@ -1553,13 +1575,13 @@ fn build_vector(args: &Value) -> Result<BuiltRequest, String> {
         .get("query_vector")
         .filter(|v| v.is_array())
         .ok_or_else(|| "missing required array field `query_vector`".to_string())?;
-    let k = args.get("k").and_then(Value::as_u64).unwrap_or(10);
+    let k = opt_u64(args, "k")?.unwrap_or(10);
 
     let mut knn = serde_json::Map::new();
     knn.insert("field".into(), json!(field));
     knn.insert("query_vector".into(), vector.clone());
     knn.insert("k".into(), json!(k));
-    if let Some(nc) = args.get("num_candidates").and_then(Value::as_u64) {
+    if let Some(nc) = opt_u64(args, "num_candidates")? {
         knn.insert("num_candidates".into(), json!(nc));
     }
     if let Some(f) = args.get("filter") {
@@ -1588,7 +1610,9 @@ fn build_hybrid(args: &Value) -> Result<BuiltRequest, String> {
     }
     let mut body = serde_json::Map::new();
     body.insert("query".into(), json!({ "hybrid": Value::Object(hybrid) }));
-    copy_opt(args, &mut body, "size");
+    if let Some(n) = opt_u64(args, "size")? {
+        body.insert("size".into(), json!(n));
+    }
     apply_rerank(args, &mut body, None, true)?;
     apply_judge(args, &mut body, None, true)?;
     Ok((
@@ -2041,6 +2065,68 @@ mod tests {
         })));
         assert_eq!(body["query"]["match"]["body"], "rust");
         assert_eq!(body["size"], 5);
+    }
+
+    /// A blank or string `size` used to be forwarded and come back as
+    /// `expected usize at line 1 column 21`, which does not name the field.
+    #[test]
+    fn search_rejects_a_mistyped_size_and_from_by_name() {
+        for (args, field) in [
+            (json!({"size": ""}), "size"),
+            (json!({"size": "10"}), "size"),
+            (json!({"from": true}), "from"),
+            (json!({"size": -1}), "size"),
+        ] {
+            let err = build_search(&args).unwrap_err();
+            assert!(
+                err.contains(&format!("`{field}`")) && err.contains("non-negative integer"),
+                "{args} -> {err}"
+            );
+            assert!(
+                err.contains(&format!("{{\"{field}\": 10}}")),
+                "the error must show what to send: {err}"
+            );
+            assert!(!err.contains("expected usize"), "{err}");
+        }
+        // A real integer still round-trips.
+        let (_, _, body) = built(build_search(&json!({"size": 0, "from": 2})));
+        assert_eq!(body["size"], 0);
+        assert_eq!(body["from"], 2);
+    }
+
+    #[test]
+    fn semantic_and_vector_reject_a_mistyped_k() {
+        let err = build_semantic(&json!({
+            "index": "docs",
+            "field": "body",
+            "query": "keys",
+            "k": "10"
+        }))
+        .unwrap_err();
+        assert!(err.contains("`k`") && err.contains("integer"), "{err}");
+
+        let err = build_vector(&json!({
+            "index": "docs",
+            "field": "embedding",
+            "query_vector": [0.1, 0.2],
+            "num_candidates": "100"
+        }))
+        .unwrap_err();
+        assert!(
+            err.contains("`num_candidates`") && err.contains("integer"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn hybrid_rejects_a_mistyped_size() {
+        let err = build_hybrid(&json!({
+            "index": "docs",
+            "queries": [{"match": {"body": "rust"}}],
+            "size": ""
+        }))
+        .unwrap_err();
+        assert!(err.contains("`size`") && err.contains("integer"), "{err}");
     }
 
     #[test]
