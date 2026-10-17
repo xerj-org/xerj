@@ -43,6 +43,38 @@ SEE ALSO:
     xerj search \"<plain words>\"    ranked passages when you don't know the name
 ";
 
+/// How much of a declaration `xerj def` prints. `xerj search --full`
+/// defaults to the same 600 characters. Two lines hid a constant that
+/// sat further down a real signature.
+const DECLARATION_PREVIEW_CHARS: usize = 600;
+
+/// The declaration an agent can act on: later short lines stay, and a
+/// passage longer than [`DECLARATION_PREVIEW_CHARS`] stops. The first
+/// line is always kept, cut with an ellipsis when that line alone is
+/// over the budget.
+pub(crate) fn declaration_preview(text: &str) -> String {
+    let mut out = String::new();
+    let mut chars = 0usize;
+    for (i, line) in text.lines().enumerate() {
+        let line_chars = line.chars().count();
+        let extra = line_chars + usize::from(i > 0);
+        if i > 0 && chars + extra > DECLARATION_PREVIEW_CHARS {
+            break;
+        }
+        if i > 0 {
+            out.push('\n');
+        }
+        if i == 0 && line_chars > DECLARATION_PREVIEW_CHARS {
+            out.extend(line.chars().take(DECLARATION_PREVIEW_CHARS));
+            out.push('…');
+            break;
+        }
+        out.push_str(line);
+        chars += extra;
+    }
+    out
+}
+
 /// Historical `xerj def` multi_match weights. Order is part of the
 /// code-corpus query.
 const DEF_MM_FIELDS: &[(&str, &str)] = &[
@@ -419,8 +451,9 @@ pub fn run_def_cli() -> i32 {
         };
         println!("\n─── {loc}{tag}");
         // The declaration, not the file: `code` on symbol docs is the
-        // signature block; `_passage` covers file-level hits. Two lines is
-        // enough to act on — `xerj search --full` exists for reading more.
+        // signature block; `_passage` covers file-level hits. The preview
+        // keeps later short lines up to 600 characters — `xerj search
+        // --full` exists for reading the whole file.
         let passage_owned = passage_text(h);
         let decl = src
             .get("code")
@@ -428,7 +461,7 @@ pub fn run_def_cli() -> i32 {
             .map(str::to_string)
             .or(passage_owned);
         if let Some(text) = decl {
-            for l in text.lines().take(2) {
+            for l in declaration_preview(&text).lines() {
                 println!("    {l}");
             }
         }
@@ -443,6 +476,26 @@ pub fn run_def_cli() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn declaration_preview_keeps_a_later_constant_and_caps_a_huge_line() {
+        let sig = "pub fn open(\n    path: &Path,\n    mode: u32,\n) -> Result<File> {\n    const MODE_MASK: u32 = 0o777;\n    let _ = path;\n";
+        let preview = declaration_preview(sig);
+        assert!(
+            preview.contains("const MODE_MASK: u32 = 0o777;"),
+            "a constant past line 2 is part of the signature block: {preview}"
+        );
+        assert!(preview.contains("pub fn open("), "{preview}");
+
+        let huge = format!("pub fn wide({})", "a: i32, ".repeat(200));
+        let capped = declaration_preview(&huge);
+        assert!(
+            capped.chars().count() <= DECLARATION_PREVIEW_CHARS + 1,
+            "{capped}"
+        );
+        assert!(capped.ends_with('…'), "{capped}");
+        assert!(capped.starts_with("pub fn wide("), "{capped}");
+    }
 
     /// ES `bool` semantics: once a `filter` clause is present, `should`
     /// clauses are optional unless `minimum_should_match` says otherwise. A
