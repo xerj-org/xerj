@@ -1081,6 +1081,9 @@ async fn create_share_inner(
 
     let mut out = record.public_json(now);
     out["share_id"] = json!(share_id);
+    // The claim body reads `id`. Returning only `share_id` made the obvious
+    // follow-up — post this object back — miss the share.
+    out["id"] = json!(share_id);
     out["url_path"] = json!(format!("/_xerj-console/share#{share_id}"));
     out["passcode"] = json!(passcode);
     out["claim_limiter"] = json!({
@@ -1215,14 +1218,25 @@ pub async fn claim_share(
     no_store(claim_share_inner(state, source, body).await)
 }
 
-/// The share id a claim body names. Anything that is not a string is the
-/// empty id, which no share has: a body without one is answered like any other
-/// unknown link — charged to the source window, audited, `404`.
+/// The share id a claim body names. The documented field is `id`. `share_id`
+/// is accepted too, because that is the field name `POST /_share` returns —
+/// posting the create response's own key back used to 404 as "unknown share
+/// link". A non-string is the empty id, which no share has: a body without
+/// one is answered like any other unknown link — charged to the source
+/// window, audited, `404`. When both fields are present, `id` wins.
 fn claim_id(body: Option<&Value>) -> String {
-    body.and_then(|b| b.get("id"))
-        .and_then(Value::as_str)
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default()
+    let Some(body) = body else {
+        return String::new();
+    };
+    for key in ["id", "share_id"] {
+        if let Some(s) = body.get(key).and_then(Value::as_str) {
+            let s = s.trim();
+            if !s.is_empty() {
+                return s.to_string();
+            }
+        }
+    }
+    String::new()
 }
 
 async fn claim_share_inner(state: AppState, source: String, body: Option<Json<Value>>) -> Response {
