@@ -1404,10 +1404,15 @@ impl WorkerGate {
     }
 
     fn acquire(&self) -> WorkerPermit<'_> {
-        let mut state = self.state.lock().expect("PDF worker gate poisoned");
-        while state.0 >= state.1 {
-            state = self.ready.wait(state).expect("PDF worker gate poisoned");
-        }
+        let mut state = super::wait_until_slot(
+            "pdf worker",
+            &self.state,
+            &self.ready,
+            super::SLOT_HEARTBEAT,
+            |state| state.0 >= state.1,
+            |state| (state.0, state.1),
+            |line| eprintln!("{line}"),
+        );
         state.0 += 1;
         WorkerPermit(self)
     }

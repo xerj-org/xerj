@@ -34,6 +34,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
+use std::sync::{Condvar, Mutex};
+use std::time::{Duration, Instant};
 
 /// Where a record's FIELD NAMES came from — the input to dataset clustering.
 ///
@@ -896,6 +898,57 @@ pub(crate) fn emit_document_with_fields(
     true
 }
 
+/// How often a full extract slot says it is still waiting. The wait is not
+/// failed: a legal PDF or mailbox parse can hold its slot for a long time.
+/// The line exists so a leaked permit is not a silent futex.
+pub(crate) const SLOT_HEARTBEAT: Duration = Duration::from_secs(15);
+
+pub(crate) fn slot_wait_line(kind: &str, in_use: usize, limit: usize, waited: Duration) -> String {
+    format!(
+        "autoindex: still waiting for a {kind} slot (in_use={in_use} limit={limit}) after {}s",
+        waited.as_secs()
+    )
+}
+
+/// Block until `full` is false. Each wait is sliced so a notify is rechecked
+/// and a stuck slot prints [`slot_wait_line`] on `heartbeat` cadence. The
+/// caller adds the permit after this returns; this function does not.
+pub(crate) fn wait_until_slot<'a, T>(
+    kind: &str,
+    lock: &'a Mutex<T>,
+    ready: &Condvar,
+    heartbeat: Duration,
+    full: impl Fn(&T) -> bool,
+    counts: impl Fn(&T) -> (usize, usize),
+    mut note: impl FnMut(&str),
+) -> std::sync::MutexGuard<'a, T> {
+    let heartbeat = heartbeat.max(Duration::from_millis(1));
+    let mut guard = lock.lock().expect("extract slot lock poisoned");
+    let started = Instant::now();
+    let mut next_note = started + heartbeat;
+    while full(&guard) {
+        let now = Instant::now();
+        if now >= next_note {
+            let (in_use, limit) = counts(&guard);
+            note(&slot_wait_line(
+                kind,
+                in_use,
+                limit,
+                now.duration_since(started),
+            ));
+            next_note = now + heartbeat;
+        }
+        let slice = next_note
+            .saturating_duration_since(Instant::now())
+            .min(Duration::from_secs(5));
+        let (next, _) = ready
+            .wait_timeout(guard, slice)
+            .expect("extract slot lock poisoned");
+        guard = next;
+    }
+    guard
+}
+
 #[cfg(test)]
 mod section_tests {
     use super::*;
@@ -1387,5 +1440,67 @@ mod section_tests {
         ));
         assert_eq!(over, total - 1, "N>cap must emit exactly the cap");
         assert!(stats2.truncated, "N>cap must set truncated");
+    }
+}
+
+#[cfg(test)]
+mod slot_tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn slot_wait_line_names_the_slot_and_how_long() {
+        let line = slot_wait_line("pdf worker", 4, 4, Duration::from_secs(45));
+        assert_eq!(
+            line,
+            "autoindex: still waiting for a pdf worker slot (in_use=4 limit=4) after 45s"
+        );
+    }
+
+    /// A full slot used to park on `Condvar::wait` with no timeout and no
+    /// line. The waiter must say so, then proceed when the holder releases.
+    #[test]
+    fn a_full_extract_slot_heartbeats_and_then_proceeds() {
+        let lock = Arc::new(Mutex::new((1usize, 1usize)));
+        let ready = Arc::new(Condvar::new());
+        let notes = Arc::new(Mutex::new(Vec::new()));
+        let lock2 = Arc::clone(&lock);
+        let ready2 = Arc::clone(&ready);
+        let notes2 = Arc::clone(&notes);
+        let waiter = thread::spawn(move || {
+            let guard = wait_until_slot(
+                "pdf worker",
+                &lock2,
+                &ready2,
+                Duration::from_millis(20),
+                |state| state.0 >= state.1,
+                |state| (state.0, state.1),
+                |line| notes2.lock().expect("notes").push(line.to_string()),
+            );
+            guard.0
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while notes.lock().expect("notes").is_empty() {
+            assert!(
+                Instant::now() < deadline,
+                "a full slot must heartbeat before the holder releases it"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        {
+            let mut guard = lock.lock().expect("lock");
+            guard.0 = 0;
+            ready.notify_all();
+        }
+        assert_eq!(waiter.join().expect("waiter"), 0);
+        let lines = notes.lock().expect("notes");
+        assert!(
+            lines[0].contains("pdf worker")
+                && lines[0].contains("in_use=1")
+                && lines[0].contains("limit=1"),
+            "{lines:?}"
+        );
     }
 }

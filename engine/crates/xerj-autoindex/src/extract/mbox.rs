@@ -525,10 +525,15 @@ impl Gate {
     }
 
     fn acquire(&self) -> GatePermit<'_> {
-        let mut state = self.state.lock().expect("mbox gate poisoned");
-        while state.0 >= state.1 {
-            state = self.ready.wait(state).expect("mbox gate poisoned");
-        }
+        let mut state = super::wait_until_slot(
+            "mbox parse",
+            &self.state,
+            &self.ready,
+            super::SLOT_HEARTBEAT,
+            |state| state.0 >= state.1,
+            |state| (state.0, state.1),
+            |line| eprintln!("{line}"),
+        );
         state.0 += 1;
         GatePermit(self)
     }
@@ -564,10 +569,15 @@ impl Budget {
     }
 
     fn acquire(&self, bytes: usize) {
-        let mut used = self.used.lock().expect("mbox budget poisoned");
-        while *used > 0 && used.saturating_add(bytes) > self.cap {
-            used = self.freed.wait(used).expect("mbox budget poisoned");
-        }
+        let mut used = super::wait_until_slot(
+            "mbox byte budget",
+            &self.used,
+            &self.freed,
+            super::SLOT_HEARTBEAT,
+            |used| *used > 0 && used.saturating_add(bytes) > self.cap,
+            |used| (*used, self.cap),
+            |line| eprintln!("{line}"),
+        );
         *used = used.saturating_add(bytes);
     }
 
