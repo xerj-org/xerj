@@ -1,5 +1,8 @@
 # XERJ — Full capability & API reference (machine-readable)
 
+Last updated: 2026-10-17. When this file and the binary disagree, the binary wins:
+`xerj --help` and `xerj <command> --help` outrank this file and every page it links.
+
 > XERJ is the unified search engine for AI, written in Rust: connect it, run
 > `xerj autoindex`, and it works. One command — `xerj autoindex <folder>` — turns a
 > folder of mixed-format files into typed, queryable, self-describing indices with
@@ -84,8 +87,8 @@ CONTENTS — search for a section number (e.g. "3.4", "10.") to jump
        `--max-minutes` / `--approve` gate, ask instead of deciding, the ignore rules,
        the progress stream, polling from outside, stopping safely, work order, exit
        codes, closing the loop
- 11. REFERENCE CORPORA ........ hub corpus or local corpus: which to use, the exact
-       commands for a hub corpus with what success looks like, the no-shell routes
+ 11. REFERENCE CORPORA ........ hub corpus or local corpus: which to use, the one-line
+       command for a hub corpus with what success looks like, the no-shell routes
 
 Canonical domain: xerj.org
 Source: https://github.com/xerj-org/xerj
@@ -1322,11 +1325,12 @@ autoindex, which is CLI-only):
   OpenAI .................. https://xerj.org/docs/agents/schemas/openai-tools.json
   Anthropic ............... https://xerj.org/docs/agents/schemas/anthropic-tools.json
 The OpenAI and Anthropic files carry the six HTTP operations above; the MCP file
-carries thirteen (those six plus xerj_brain_ego / _link / _unlink / _overview,
-xerj_map, xerj_code_search and xerj_plan) and is generated from a real
-tools/list of the server that serves them. The three are
-therefore NOT interchangeable, and they are not even the same shape: the MCP file
-is an object, so count `.tools` in it (`jq '.tools | length'` → 13) and the bare
+carries sixteen (those six plus xerj_brain_ego / _link / _unlink / _overview,
+xerj_map, xerj_code_search, xerj_plan and the hub tools xerj_hub_find /
+_def / _ask) and is generated from a real tools/list of the server that serves
+them. A binary with no hub key omits the three hub tools and serves thirteen.
+The three schema files are therefore NOT interchangeable, and they are not even the same shape: the MCP file
+is an object, so count `.tools` in it (`jq '.tools | length'` → 16) and the bare
 array in the other two (`jq 'length'` → 6). `jq 'length'` on the MCP file returns
 1, the object's key count — not a tool count.
 If you can run a process, `xerj mcp` is that stdio server, inside the same binary
@@ -1605,45 +1609,116 @@ WHICH ONE
   The catalogue, one line per corpus, is https://hub.xerj.org/llms.txt (browse:
   https://hub.xerj.org).
 - LOCAL CORPUS: the answer is in files only this machine has — the project you are
-  working in, private documents, exports. `xerj autoindex <folder>` indexes them and
-  `xerj search "<words>"` queries them (sections 3 and 10). Nothing is uploaded.
-- BOTH live on the same local node. Use each for its own questions.
+  working in, private documents, exports. `xerj autoindex <folder> --prefix <name>`
+  indexes them and `xerj search --prefix <name> "<words>"` queries them (sections 3
+  and 10). Without `--prefix` both use the default `ax` prefix. Nothing is uploaded.
 - NEITHER: a fact you can already state exactly. Retrieving memorised content only
   adds cost (measured in the reference-coding study, section 9).
 
-USE A HUB CORPUS (shell). A node must be running (section 1). If
-`curl -s localhost:9200/_cluster/health` already answers, use that node as it is.
-If you start one, keep its PID so you can stop exactly that one later:
-     nohup xerj --insecure --data-dir ~/xerj-data > ~/xerj-node.log 2>&1 &
-     echo $! > ~/xerj-node.pid
-     kill $(cat ~/xerj-node.pid)      # when you are done
-Never `pkill xerj` or `killall xerj`: other XERJ nodes may be running on the machine
-and you would stop them too. Each step below names what success looks like; all of
-it was run on v1.0.0-rc.95 from a clean install.
+WHAT YOU PROBABLY ASSUME, AND WHAT IS TRUE
+- You probably assume a hub corpus must be cloned and indexed before it can answer.
+- It does not. The corpus is built, signed and indexed ahead of time as a pack. XERJ
+  downloads the pack the first time you ask, checks its SHA-256 and its ed25519
+  signature, and only then restores it into a node. Nothing is cloned or indexed on
+  this machine, and the answer is computed on this machine.
+- Retrieval is lexical, not semantic. Ask with the words and identifiers the source
+  itself uses.
 
-  1. curl -fsSLO https://raw.githubusercontent.com/xerj-org/xerj/corpus-hub/tools/xerj-code/hub/<slug>.json
-     xerj corpus add --from ./<slug>.json
-     success: the last line is `next: xerj corpus index <slug>`
-     `--from` reads a local file. v1.0.0-rc.95 does not fetch a URL: passing one
-     answers `no such manifest … No such file or directory`.
-  2. xerj corpus index <slug>
-     success: `corpus '<slug>' searchable: <N> records`
-     (lz4, 138 files, indexed in under 10 seconds; time grows with size)
-  3. xerj code <slug> "<your question>"
-     success: passages headed by a file path and line. Cite them. A no-match means
-     the corpus does not hold the answer — say so rather than answering from memory.
+ASK A HUB CORPUS (shell). One line; no corpus name, no clone, no indexing.
+Check the build first: `xerj ask --help`; success: its first line is
+`usage: xerj ask "<question>" [options]`. Anything else means an older binary;
+reinstall with the installer in section 1. Each step below names what success
+looks like.
 
-  Clones live under ~/.xerj-code/corpora/. The index lives in the data directory of
-  the node you indexed into. `xerj corpus list` shows which corpora that node has.
-  An index older than 30 days is refused; re-run `xerj corpus index <slug>`.
+  1. xerj "<your question>"            (the same command: xerj ask "<your question>")
+     The bare form needs a space in the question; for one word write xerj ask "<word>".
+     XERJ picks the corpus: your project's dependency files first (Cargo.lock,
+     package.json, go.mod, requirements.txt, pyproject.toml), then the catalogue.
+     success: for each hit a header line and the passage, then one last line:
+         <corpus>  pin <date> (<N> days old)  <licence>  <file>:<line>
+         <the passage itself>
+         answered from: local pack
+     then any `warning:` lines. `pin` is the source revision the corpus was built
+     from. Tell the user the corpus, the pin date and the licence your answer rests
+     on. `approach-only licence (<spdx>): read, do not copy` under a hit means read
+     the source and write your own.
+  2. xerj ask --def <SYMBOL>           (an exact question: a value, a signature, a default)
+     success: the header line, the declaration and, for a constant or macro, a
+     `value: <literal>` line after it. No passages. Add
+     `--corpus <slug>` when more than one corpus defines the name.
+  3. xerj hub pull <slug>              (a large pack)
+     A pack above 50 MiB is not downloaded for you; the answer ends
+     `run: xerj hub pull <slug> (<MB> MB)`. Run that line, then ask again.
+     success: `pulled <slug> <pin8> <bytes> → <n> indices, <defs> definitions`
+     (a pack already on this machine answers `<slug>: already present`).
+
+EXIT CODES of `xerj ask`
+  0 answered · 1 no match, or nothing to answer from · 2 usage error or unknown corpus ·
+  3 a pack failed its checksum or signature check and was discarded · 4 more than one
+  corpus matches: the candidates print one per line, run again with `--corpus <slug>` ·
+  5 this build has no hub public key, so no pack can be verified and nothing was
+  downloaded (tell the user; a retry will not help).
+  `no hub corpus matches` followed by `closest corpora: <slug>, …` means routing
+  was not sure: ask again with `--corpus <slug>` for the one that fits. Without
+  that line the hub does not hold the answer. Say so; do not answer from memory.
+
+OTHER FLAGS: `--how` ranked passages · `--files` the relevant files with their
+licences · `--offline` cached catalogue and packs only · `--no-fetch` do not download
+a pack for next time · `--max-tokens N` · `--json` the answer as JSON · `--url <node>`.
+`xerj hub status` lists the cached packs, the node and the catalogue age.
+`xerj hub sync` refreshes the catalogue and brings every cached pack to its pin.
+
+THE NODE. XERJ uses the node at `--url`, `$XERJ_URL` or `localhost:9200` (the first
+one set) if it answers. If none does, it starts its own on a free loopback port from
+9300 and records the PID. Stop only a node you started: `xerj hub stop` stops XERJ's
+own (success: `stopped the hub node (pid <N>)`, or `no hub node was started by xerj;
+nothing to stop`); for a node you started by hand, save its PID
+(`echo $! > ~/xerj-node.pid`) and stop it with `kill $(cat ~/xerj-node.pid)`. Never
+`pkill xerj` or `killall xerj`: other XERJ nodes may be running on the machine and
+you would stop them too.
+If a pull fails with `not in limits.snapshot_repo_allowlist`, the node that
+answered cannot restore packs from ~/.xerj/hub/packs (a node you started yourself
+allows only its own data dir). Set `XERJ_URL=http://127.0.0.1:9399` (a loopback
+port nothing listens on) and ask again: XERJ starts its own node, which can.
+
+WHERE THE QUESTION GOES. Nowhere: the answer comes from a pack on this machine. What
+leaves the machine is the download of the signed catalogue and of the pack itself.
+
+LIMITS. A pack is fetched automatically only when it is at most 50 MiB and its
+licence class is not Excluded. Packs are kept under ~/.xerj/hub/packs/; past 4 GiB
+the least recently used are removed first.
 
 NO SHELL
-- MCP: once the corpus is indexed on the node, call `xerj_code_search` with
-  {"corpus": "<slug>", "query": "<your question>"}.
-- HTTP: POST /xc-<slug>-*/_search with
-  {"query":{"multi_match":{"query":"<words>","fields":["body","defs"]}}}
-- Adding and indexing a corpus is CLI-only. Ask the person operating the node.
+- MCP: call `xerj_hub_ask` with {"question": "<your question>"}; it returns the same
+  lines. Add "corpus": "<slug>" to name one, or "mode": "def" | "how" | "files".
+  `xerj_hub_def` takes {"slug": "<slug>", "symbol": "<SYMBOL>"} (the --def form) and
+  `xerj_hub_find` takes {"question": "<question>"} and names the corpora that match.
+  A hub tool reads only the catalogue and the packs already on this machine; it never
+  downloads. When a pack is missing the result is the `xerj hub pull <slug>` line, and
+  with no cached catalogue it says to run `xerj hub sync`: ask whoever has a shell to
+  run that line once, then call the tool again.
+  Register `xerj mcp` once, with the absolute path to the binary (an editor started
+  from a desktop icon does not inherit the shell PATH), then restart the session:
+    Claude Code: claude mcp add --scope user xerj -- "$(command -v xerj)" mcp
+      (`xerj init` prints this line with the path filled in; in PowerShell put the
+      full path of xerj.exe in place of "$(command -v xerj)")
+    .mcp.json (Claude Code project scope, written by `xerj init`),
+    Cursor (~/.cursor/mcp.json or .cursor/mcp.json),
+    Windsurf (~/.codeium/windsurf/mcp_config.json),
+    Claude Desktop (claude_desktop_config.json), Cline: root key "mcpServers"
+      {"mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+    VS Code (.vscode/mcp.json): root key "servers"; an "mcpServers" block is
+    silently ignored
+      {"servers": {"xerj": {"type": "stdio", "command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+  success: `xerj_hub_ask` is in the tool list. If `xerj_search` is listed and no
+  `xerj_hub_*` tool is, the binary has no hub key.
+- HTTP only: hub.xerj.org serves pages and the catalogue (hub.xerj.org/llms.txt),
+  not answers; there is no public question API. If a node you can reach already holds the pack (someone ran
+  `xerj hub pull <slug>` against it), query that node:
+    POST <node>/xc-<slug>-*/_search
+    {"query": {"multi_match": {"query": "<words>", "fields": ["body", "defs"]}}}
+  success: hits whose `_source.ax_path` names the file.
 
-IF INDEXING SITS AT 0%: check free disk space. A node whose disk is 95% full blocks
-writes (`read_only_allow_delete`), and the indexer retries for ten minutes before it
-gives up.
+IF INDEXING A LOCAL CORPUS SITS AT 0%: check free disk space. A node whose disk is
+95% full blocks writes (`read_only_allow_delete`), and the indexer retries for ten
+minutes before it gives up.
