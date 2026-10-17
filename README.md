@@ -44,13 +44,17 @@ Or run it yourself:
 
 ```sh
 curl -fsSL https://xerj.org/get | sh
-xerj --insecure --data-dir ./data &
+xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated
 ```
+
+Keep that data directory outside any folder you will autoindex. `data/` is not in the
+built-in ignore list, so `--data-dir ./data` inside a tree you then index makes the node
+index its own storage.
 
 Windows and a hand-verified install are under [Install by hand](#install-by-hand).
 
@@ -111,7 +115,7 @@ awkward CSVs into typed, queryable indices for search, RAG, security audits and 
 memory, with no schema to write and no pipeline to configure.
 
 ```sh
-xerj --insecure --data-dir ./data &      # start it
+xerj --insecure --data-dir ~/xerj-data &      # start it
 xerj autoindex ~/my-project              # point it at anything
 ```
 
@@ -191,7 +195,7 @@ and arm64. You can also [build from source](#build-from-source). It speaks the E
 API, so existing clients, dashboards and tooling work against it unchanged.
 
 First commands after install (the installer prints where `xerj` landed; add it to your PATH
-if needed): `xerj --insecure --data-dir ./data &`, wait until `http://localhost:9200`
+if needed): `xerj --insecure --data-dir ~/xerj-data &`, wait until `http://localhost:9200`
 responds, then `xerj autoindex ~/my-project`. See [Index a folder](#index-a-folder).
 
 For a host with no runtime internet access, follow the
@@ -204,7 +208,7 @@ semantic operation.
 Start the server, then point `autoindex` at anything:
 
 ```sh
-xerj --insecure --data-dir ./data &     # local dev: no TLS, no auth
+xerj --insecure --data-dir ~/xerj-data &     # local dev: no TLS, no auth
 xerj autoindex ~/my-project
 ```
 
@@ -218,8 +222,8 @@ key up from `xerj.toml`; pass `--api-key` or set `XERJ_API_KEY`, or every reques
 `401 Unauthorized`:
 
 ```sh
-xerj --data-dir ./data &                          # auth on: key minted on first boot
-export XERJ_API_KEY="$(cat ./data/admin.key)"     # <data_dir>/admin.key
+xerj --data-dir ~/xerj-data &                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # <data_dir>/admin.key
 xerj autoindex ~/my-project
 ```
 
@@ -298,7 +302,7 @@ tools through the Model Context Protocol, and the binary you just installed is t
 server. There is nothing else to download and nothing to compile:
 
 ```sh
-xerj --insecure --data-dir ./data &     # 1. the node the tools query
+xerj --insecure --data-dir ~/xerj-data &     # 1. the node the tools query
 xerj mcp                                # 2. MCP stdio server (your client runs this)
 ```
 
@@ -434,7 +438,7 @@ You need a stable Rust toolchain.
 git clone https://github.com/xerj-org/xerj
 cd xerj/engine
 cargo build --release -p xerj-server
-./target/release/xerj --insecure --data-dir ./data
+./target/release/xerj --insecure --data-dir ~/xerj-data
 ```
 
 To run the conformance suite against a running server:

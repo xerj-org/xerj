@@ -34,13 +34,15 @@ XERJ 是一款受到社区信赖的本地 AI 搜索引擎，能自动为任意�
 
 ```sh
 curl -fsSL https://xerj.org/get | sh
-xerj --insecure --data-dir ./data &
+xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated
 ```
+
+把数据目录放在你将要 autoindex 的文件夹之外。内置忽略列表不包含 `data/`，因此在即将索引的目录树里使用 `--data-dir ./data` 会让节点把自己的存储也索引进去。
 
 `xerj init` 一条命令即可把 XERJ 接入 Claude Code 或 Cursor（MCP 与技能）；`search` 返回排序后的代码片段及 `file:line`，`def` 定位符号定义并显示签名，`gain` 显示实际统计的使用收益。
 
@@ -75,7 +77,7 @@ XERJ 与 grep 组都完成了 16/16 个任务，输出 token 用量约为 grep �
 参考代码工作流建立在同一个基础能力上：`xerj autoindex <folder>` 把一批文件变成智能体可查询的语料。一条命令就能为代码、文档、日志、PDF、SQLite 和难处理的 CSV 建立带类型的索引，用于搜索、RAG、安全审计和智能体记忆，无须编写 schema 或配置数据管道。
 
 ```sh
-xerj --insecure --data-dir ./data &      # start it
+xerj --insecure --data-dir ~/xerj-data &      # start it
 xerj autoindex ~/my-project              # point it at anything
 ```
 
@@ -133,7 +135,7 @@ irm https://xerj.org/get.ps1 | iex
 
 单个静态二进制程序，无须 JVM 或其他依赖。提供 Linux、macOS 和 Windows 的 x86-64、arm64 预编译版本，也可以[从源码构建](#从源码构建)。XERJ 兼容 Elasticsearch API，已有的客户端、仪表盘和工具可以直接连接。
 
-安装器会输出 `xerj` 的安装位置，必要时将其加入 `PATH`。安装后先运行 `xerj --insecure --data-dir ./data &`，等待 `http://localhost:9200` 能响应，再执行 `xerj autoindex ~/my-project`。详见[索引文件夹](#索引文件夹)。
+安装器会输出 `xerj` 的安装位置，必要时将其加入 `PATH`。安装后先运行 `xerj --insecure --data-dir ~/xerj-data &`，等待 `http://localhost:9200` 能响应，再执行 `xerj autoindex ~/my-project`。详见[索引文件夹](#索引文件夹)。
 
 运行环境无法访问互联网时，请参考[离线部署指南](./docs/recipes/air-gapped-deployment.md)。默认词法嵌入器可离线运行；神经模式则需要在首次语义操作前，将三个模型文件准备在本地。
 
@@ -142,7 +144,7 @@ irm https://xerj.org/get.ps1 | iex
 启动服务，再将文件夹路径交给 `autoindex`：
 
 ```sh
-xerj --insecure --data-dir ./data &     # local dev: no TLS, no auth
+xerj --insecure --data-dir ~/xerj-data &     # local dev: no TLS, no auth
 xerj autoindex ~/my-project
 ```
 
@@ -151,8 +153,8 @@ xerj autoindex ~/my-project
 不带 `--insecure` 的启动默认开启认证，包括通过配置文件启动的情况。此时需要把同一把密钥交给 `autoindex`。它不会从 `xerj.toml` 中读取密钥，必须传入 `--api-key` 或设置 `XERJ_API_KEY`，否则每个请求都会返回 `401 Unauthorized`：
 
 ```sh
-xerj --data-dir ./data &                          # auth on: key minted on first boot
-export XERJ_API_KEY="$(cat ./data/admin.key)"     # <data_dir>/admin.key
+xerj --data-dir ~/xerj-data &                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # <data_dir>/admin.key
 xerj autoindex ~/my-project
 ```
 
@@ -203,7 +205,7 @@ curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
 有些智能体无法执行 shell 命令。桌面助手和支持函数调用的宿主可通过 Model Context Protocol（MCP）访问工具，安装得到的 XERJ 二进制程序本身就包含 MCP 服务，无须额外下载或编译：
 
 ```sh
-xerj --insecure --data-dir ./data &     # 1. the node the tools query
+xerj --insecure --data-dir ~/xerj-data &     # 1. the node the tools query
 xerj mcp                                # 2. MCP stdio server (your client runs this)
 ```
 
@@ -289,7 +291,7 @@ XERJ_EXTRACT_BENCH=/path/to/repo cargo test -p xerj-autoindex --release \
 git clone https://github.com/xerj-org/xerj
 cd xerj/engine
 cargo build --release -p xerj-server
-./target/release/xerj --insecure --data-dir ./data
+./target/release/xerj --insecure --data-dir ~/xerj-data
 ```
 
 对已运行的服务执行一致性测试：

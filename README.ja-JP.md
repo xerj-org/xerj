@@ -44,13 +44,15 @@ and search how they solved a problem before writing code.
 
 ```sh
 curl -fsSL https://xerj.org/get | sh
-xerj --insecure --data-dir ./data &
+xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
 xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated
 ```
+
+データディレクトリは、autoindex するフォルダの外に置いてください。組み込みの無視リストに `data/` は入っていないので、これから索引するツリーの中で `--data-dir ./data` とすると、ノードが自分のストレージまで索引します。
 
 Windows と、手作業で検証しながらインストールする方法は [手動インストール](#手動インストール) にあります。
 
@@ -111,7 +113,7 @@ grep を使うエージェントはファイル全体をコンテキストに取
 パイプラインを設定する必要もありません。
 
 ```sh
-xerj --insecure --data-dir ./data &      # start it
+xerj --insecure --data-dir ~/xerj-data &      # start it
 xerj autoindex ~/my-project              # point it at anything
 ```
 
@@ -191,7 +193,7 @@ irm https://xerj.org/get.ps1 | iex
 Elasticsearch API を話すため、既存のクライアント、ダッシュボード、ツールがそのまま動きます。
 
 インストール後の最初のコマンド（インストーラーが `xerj` の配置先を表示するので、必要なら PATH に
-追加してください）: `xerj --insecure --data-dir ./data &` を実行し、`http://localhost:9200` が応答する
+追加してください）: `xerj --insecure --data-dir ~/xerj-data &` を実行し、`http://localhost:9200` が応答する
 まで待ってから、`xerj autoindex ~/my-project` を実行します。[フォルダをインデックスする](#フォルダをインデックスする)
 を参照してください。
 
@@ -205,7 +207,7 @@ Elasticsearch API を話すため、既存のクライアント、ダッシュ�
 サーバーを起動し、`autoindex` を任意の対象に向けます:
 
 ```sh
-xerj --insecure --data-dir ./data &     # local dev: no TLS, no auth
+xerj --insecure --data-dir ~/xerj-data &     # local dev: no TLS, no auth
 xerj autoindex ~/my-project
 ```
 
@@ -218,8 +220,8 @@ xerj autoindex ~/my-project
 `--api-key` を渡すか `XERJ_API_KEY` を設定しないと、すべてのリクエストが `401 Unauthorized` になります:
 
 ```sh
-xerj --data-dir ./data &                          # auth on: key minted on first boot
-export XERJ_API_KEY="$(cat ./data/admin.key)"     # <data_dir>/admin.key
+xerj --data-dir ~/xerj-data &                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # <data_dir>/admin.key
 xerj autoindex ~/my-project
 ```
 
@@ -298,7 +300,7 @@ function calling のホストは Model Context Protocol を通じてツールに
 ありません:
 
 ```sh
-xerj --insecure --data-dir ./data &     # 1. the node the tools query
+xerj --insecure --data-dir ~/xerj-data &     # 1. the node the tools query
 xerj mcp                                # 2. MCP stdio server (your client runs this)
 ```
 
@@ -432,7 +434,7 @@ CI でよくあるケースで、通常は 95% 以上が未変更です。変更
 git clone https://github.com/xerj-org/xerj
 cd xerj/engine
 cargo build --release -p xerj-server
-./target/release/xerj --insecure --data-dir ./data
+./target/release/xerj --insecure --data-dir ~/xerj-data
 ```
 
 稼働中のサーバーに対して適合性テストスイートを実行するには:
