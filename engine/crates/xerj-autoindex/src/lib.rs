@@ -8607,10 +8607,22 @@ fn run_index_report_inner(
     pr.phase("finalize-count", plan.datasets.len() as u64, 0);
     let mut ds_counts: HashMap<String, u64> = HashMap::new();
     let mut ds_timerange: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
+    // A count that did not answer is not a zero. `unwrap_or(0)` used to
+    // turn a timeout, a 500, or a `timed_out` size:0 page into "0 live
+    // documents", and the gate below then aborted a run whose records
+    // were already journaled (#195's last resort, fired on the wrong
+    // input). Unknown counts skip the gate and are named in the summary.
+    let mut count_unknown: Vec<String> = Vec::new();
     for d in &plan.datasets {
         let _counted = pr.file(&d.index, 0);
-        let cnt = es.count(&d.index).unwrap_or(0);
-        ds_counts.insert(d.slug.clone(), cnt);
+        match es.count(&d.index) {
+            Ok(cnt) => {
+                ds_counts.insert(d.slug.clone(), cnt);
+            }
+            Err(error) => {
+                count_unknown.push(format!("{}: {error:#}", d.index));
+            }
+        }
         if let Some(t) = &d.time_field {
             let body = json!({"size":0,"aggs":{
                 "mn":{"min":{"field":t}},"mx":{"max":{"field":t}}}});
@@ -8650,7 +8662,15 @@ fn run_index_report_inner(
         )
     };
     let live_records: u64 = ds_counts.values().sum();
-    if journal_records > 0 && live_records == 0 {
+    if !count_unknown.is_empty() {
+        pr.warn(&format!(
+            "finalize-count: {} dataset index(es) did not answer a count, so the \
+             zero-live check was not applied. The journal records {journal_records} \
+             record(s). {}",
+            count_unknown.len(),
+            count_unknown.join(" | ")
+        ));
+    } else if journal_records > 0 && live_records == 0 {
         // Typed, not `bail!`: a caller that composes this pipeline can only
         // tell "the journal outlived its destination" from "the server
         // rejected our writes" if the condition carries a type. `xerj brain`
@@ -8866,6 +8886,12 @@ fn run_index_report_inner(
         formats.sort();
         formats.dedup();
         let (tmin, tmax) = ds_timerange.get(&d.slug).cloned().unwrap_or((None, None));
+        if !ds_counts.contains_key(&d.slug) {
+            notes.push(
+                "record_count unavailable: the node did not answer a count, so 0 here is not a measurement"
+                    .to_string(),
+            );
+        }
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
             prefix: &cfg.prefix,
             pd: d,

@@ -1961,15 +1961,13 @@ impl Es {
         match self.count_endpoint(index) {
             Count::Number(n) => Ok(n),
             Count::Zero => Ok(0),
-            Count::Unknown(_) => {
+            Count::Unknown(reason) => {
                 let v = self.search(
                     index,
                     &serde_json::json!({"size": 0, "track_total_hits": true}),
                 )?;
-                v.pointer("/hits/total/value")
-                    .and_then(|t| t.as_u64())
-                    .or_else(|| v.pointer("/hits/total").and_then(|t| t.as_u64()))
-                    .ok_or_else(|| anyhow!("no total in search response"))
+                search_hit_total(&v)
+                    .with_context(|| format!("count /{index}: _count did not answer ({reason})"))
             }
         }
     }
@@ -2083,6 +2081,25 @@ impl Es {
     }
 }
 
+/// The `hits.total` of a size:0 search used as a `_count` fallback.
+///
+/// A deadline answer is HTTP 200 with `timed_out: true` and `total.value: 0`
+/// (`relation: gte`). Reading that 0 as the live count is what made
+/// finalize abort a finished run: the journal had the records, the node
+/// had not finished counting, and the zero-live gate treated the partial
+/// page as an empty index.
+pub(crate) fn search_hit_total(v: &Value) -> Result<u64> {
+    if v.get("timed_out") == Some(&Value::Bool(true)) {
+        anyhow::bail!(
+            "search count fallback timed out; the total is partial and is not a live count"
+        );
+    }
+    v.pointer("/hits/total/value")
+        .and_then(|t| t.as_u64())
+        .or_else(|| v.pointer("/hits/total").and_then(|t| t.as_u64()))
+        .ok_or_else(|| anyhow!("no total in search response"))
+}
+
 /// The tri-state answer of [`Es::count_endpoint`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Count {
@@ -2106,6 +2123,23 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_timed_out_search_is_not_a_zero_count() {
+        let partial = serde_json::json!({
+            "timed_out": true,
+            "hits": {"total": {"value": 0, "relation": "gte"}, "hits": []}
+        });
+        let err = super::search_hit_total(&partial).unwrap_err();
+        assert!(
+            err.to_string().contains("timed out"),
+            "a partial total must not become 0: {err}"
+        );
+        let complete = serde_json::json!({"hits": {"total": {"value": 3, "relation": "eq"}}});
+        assert_eq!(super::search_hit_total(&complete).unwrap(), 3);
+        let bare = serde_json::json!({"hits": {"total": 4}});
+        assert_eq!(super::search_hit_total(&bare).unwrap(), 4);
+    }
 
     #[test]
     fn bulk_request_uses_custom_timeout_and_drops_timed_out_connection() {
