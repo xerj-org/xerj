@@ -22,6 +22,7 @@ use serde_json::{json, Value};
 
 const USAGE: &str = "\
 xerj def — find where a symbol is defined (go-to-definition, no scripts)
+Default ranking is lexical: it matches the words you typed, and it is not a neural reading of the code.
 
 USAGE:
     xerj def [OPTIONS] \"<symbol or capability>\"
@@ -443,6 +444,14 @@ pub fn run_def_cli() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn help_says_the_default_ranking_is_lexical() {
+        assert!(
+            USAGE.contains("Default ranking is lexical") && USAGE.contains("not a neural reading"),
+            "{USAGE}"
+        );
+    }
 
     /// ES `bool` semantics: once a `filter` clause is present, `should`
     /// clauses are optional unless `minimum_should_match` says otherwise. A

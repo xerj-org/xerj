@@ -119,6 +119,10 @@ const CODE_USAGE: &str =
 retrieval over a reference corpus (see `xerj corpus list`):
   -k N            passages to return (default 5)
   --mode MODE     bm25 (default, measured 12/12 top-3), semantic, or hybrid
+                  Default ranking is lexical: it matches the words you typed,
+                  and it is not a neural reading of the code. --mode semantic
+                  and --mode hybrid embed with lexical feature hashing unless
+                  the node was started with --embed-mode neural.
   --hybrid        shorthand for --mode hybrid
   --lang LG       filter to one language field (e.g. rust, go)
   --full N        max chars per passage (default 800; 0 = file head only)
@@ -2099,6 +2103,12 @@ mod tests {
             assert!(CODE_USAGE.contains(f), "{f} missing from usage");
         }
         assert!(CORPUS_USAGE.contains("--from"));
+        assert!(
+            CODE_USAGE.contains("Default ranking is lexical")
+                && CODE_USAGE.contains("not a neural reading")
+                && CODE_USAGE.contains("--embed-mode neural"),
+            "{CODE_USAGE}"
+        );
     }
 
     /// The `--from` name swap: explicit beats the manifest, the manifest

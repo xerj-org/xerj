@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 
 const USAGE: &str = "\
 xerj search — retrieve code from a running XERJ node (reference coding, no scripts)
+Default ranking is lexical: it matches the words you typed, and it is not a neural reading of the code.
 
 USAGE:
     xerj search [OPTIONS] \"<what you need, in plain words>\"
@@ -665,6 +666,14 @@ pub fn run_search_cli() -> i32 {
 mod tests {
     use super::*;
     use xerj_common::code_query::normalize_code_search_query;
+
+    #[test]
+    fn help_says_the_default_ranking_is_lexical() {
+        assert!(
+            USAGE.contains("Default ranking is lexical") && USAGE.contains("not a neural reading"),
+            "{USAGE}"
+        );
+    }
 
     /// #1364: multi-word natural-language queries strip repeated/glue particles
     /// (`de`, `la`, `por`, `en`, `the`, `of`) so a 2-letter function named `de`
