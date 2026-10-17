@@ -162,6 +162,8 @@ jobs:
         run: |
           bash -n tools/hub-packs/ed25519.sh
           bash -n tools/hub-packs/consumer_e2e.sh
+          bash -n tools/hub-packs/whole_hub_e2e.sh
+          python3 -I -m py_compile tools/hub-packs/e2e/static_hub.py
 
   # ── is there a key to sign with and verify against? ────────────────────────
   preflight:

@@ -1,0 +1,201 @@
+# Corpus Hub v2: the whole-hub end-to-end gate (docs/CORPUS_HUB_V2_IMPLEMENTATION.md
+# §12.4). Run by hand before tagging the release that advertises Hub v2.
+#
+#   the release-candidate binary + the hub (default https://hub.xerj.org)
+#     -> the signed catalogue loads and verifies against the key the binary embeds,
+#        and lists exactly the corpora that have a published pack release
+#     -> for EVERY catalogued corpus: `xerj hub pull` + one `--def` + one question,
+#        from an empty HOME (one backfill-report row per corpus)
+#     -> `xerj "<question>"` with no corpus named answers the lz4 benchmark questions
+#     -> hosted off / hub unreachable / an HTML 200 / --offline / over the size cap
+#        each print their message; a tampered pack and a tampered catalogue are
+#        refused with nothing extracted
+#
+# Everything is in tools/hub-packs/whole_hub_e2e.sh, which runs the same way on a
+# laptop; this file only fetches the binary, prepares the sandbox and keeps the
+# results. Each client phase runs in benchmarks/hub-pov/sandbox.sh (bubblewrap: own
+# PID namespace, read-only filesystem, a fresh HOME). If the runner cannot create
+# user namespaces the run falls back to --no-sandbox and says so in the summary.
+#
+# REHEARSAL: until a signed catalogue is deployed, `rehearse` takes a comma list of
+# published pack release tags. Their real signatures are checked against the
+# embedded key, then they are re-signed with a throwaway key and served from a
+# loopback catalogue (the real seed never leaves hub-packs.yml). A rehearsal proves
+# the script and the client; it is not the gate.
+#
+# Nothing here publishes, deploys or re-signs anything real. `commit_report` adds
+# this run's rows to benchmarks/hub-backfill/ on corpus-hub (the backfill report).
+
+name: hub e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      binary:
+        description: "Release tag of the candidate (e.g. v1.0.0-rc.97; its x86_64 linux-gnu asset), or 'build' to build this ref"
+        type: string
+        default: build
+      hub:
+        description: "The hub under test"
+        type: string
+        default: https://hub.xerj.org
+      rehearse:
+        description: "Rehearsal only: pack release tags (comma list) to serve from a local, throwaway-signed catalogue instead of the hub"
+        type: string
+        default: ""
+      only:
+        description: "Debug: only these corpora (a partial run never passes the gate)"
+        type: string
+        default: ""
+      commit_report:
+        description: "Commit this run's rows to the backfill report on corpus-hub"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hub-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: whole-hub end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write # only used when commit_report is set
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: ${{ inputs.commit_report }}
+
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+        if: ${{ inputs.binary == 'build' }}
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: ${{ inputs.binary == 'build' }}
+        with:
+          workspaces: engine
+
+      - name: Build the xerj binary (this ref)
+        if: ${{ inputs.binary == 'build' }}
+        working-directory: engine
+        run: |
+          cargo build --profile ci-test -p xerj-server
+          mkdir -p ../bin && cp target/ci-test/xerj ../bin/xerj
+
+      - name: Fetch the release-candidate binary
+        if: ${{ inputs.binary != 'build' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.binary }}
+        run: |
+          set -euo pipefail
+          VER=${TAG#v}
+          ASSET="xerj-$VER-x86_64-unknown-linux-gnu.tar.gz"
+          mkdir -p "$RUNNER_TEMP/rc" bin
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/rc" \
+            --pattern "$ASSET" --pattern "$ASSET.sha256"
+          (cd "$RUNNER_TEMP/rc" && sha256sum -c "$ASSET.sha256")
+          tar -xzf "$RUNNER_TEMP/rc/$ASSET" -C "$RUNNER_TEMP/rc"
+          cp "$RUNNER_TEMP/rc/xerj-$VER-x86_64-unknown-linux-gnu/xerj" bin/xerj
+          chmod +x bin/xerj
+          bin/xerj --version || true
+
+      - name: Tools and the sandbox
+        id: sandbox
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap zstd xxd >/dev/null
+          # Ubuntu 24.04 confines unprivileged user namespaces with AppArmor; bwrap needs them.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
+          if bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true; then
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=hub e2e::bubblewrap cannot run here; every phase runs with --no-sandbox (fresh HOME and cleared env only)"
+            echo "flag=--no-sandbox" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: The registry (rehearsal only)
+        if: ${{ inputs.rehearse != '' }}
+        run: |
+          set -euo pipefail
+          git fetch -q --depth=1 origin corpus-hub
+          mkdir -p "$RUNNER_TEMP/corpus-hub"
+          git archive FETCH_HEAD tools/xerj-code/hub | tar -x -C "$RUNNER_TEMP/corpus-hub"
+
+      - name: Run the gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HUB: ${{ inputs.hub }}
+          REHEARSE: ${{ inputs.rehearse }}
+          ONLY: ${{ inputs.only }}
+          SANDBOX_FLAG: ${{ steps.sandbox.outputs.flag }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/e2e"
+          args=(--bin bin/xerj --out "$OUT" --hub "$HUB" --repo "$GITHUB_REPOSITORY"
+                --run-id "e2e-$GITHUB_RUN_ID")
+          [ -n "$SANDBOX_FLAG" ] && args+=("$SANDBOX_FLAG")
+          [ -n "$ONLY" ] && args+=(--only "$ONLY")
+          if [ -n "$REHEARSE" ]; then
+            R="$RUNNER_TEMP/corpus-hub/tools/xerj-code/hub"
+            args+=(--rehearse "$REHEARSE" --registry "$R" --backlog "$R/backlog/backlog-100.json")
+          fi
+          rc=0
+          bash tools/hub-packs/whole_hub_e2e.sh "${args[@]}" || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          [ -f "$OUT/GATE.md" ] && cat "$OUT/GATE.md" >> "$GITHUB_STEP_SUMMARY"
+          [ -n "$SANDBOX_FLAG" ] && echo "> ran WITHOUT the bubblewrap sandbox (the runner refused user namespaces)" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hub-e2e-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/e2e/GATE.md
+            ${{ runner.temp }}/e2e/checks.jsonl
+            ${{ runner.temp }}/e2e/catalogue.json*
+            ${{ runner.temp }}/e2e/rows/
+            ${{ runner.temp }}/e2e/logs/
+            ${{ runner.temp }}/e2e/homes/*/result/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit the rows to the backfill report
+        if: ${{ inputs.commit_report && steps.gate.outputs.rc != '' }}
+        run: |
+          set -euo pipefail
+          URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          cp tools/hub-packs/hub_packs.py "$RUNNER_TEMP/hub_packs.py"
+          args=(report --rows-dir "$RUNNER_TEMP/e2e/rows" --run-id "e2e-$GITHUB_RUN_ID" --run-url "$URL")
+          git config user.name xerj-org
+          git config user.email git@xerj.org
+          for attempt in 1 2 3 4 5; do
+            git fetch -q --depth=1 origin corpus-hub || { sleep $((attempt * 5)); continue; }
+            git checkout -q -B corpus-hub origin/corpus-hub
+            python3 "$RUNNER_TEMP/hub_packs.py" "${args[@]}" --write > /dev/null
+            git add benchmarks/hub-backfill/REPORT.md benchmarks/hub-backfill/rows.jsonl
+            if git diff --cached --quiet; then echo "report unchanged"; exit 0; fi
+            git commit -q -m "hub e2e report: run $GITHUB_RUN_ID" -m "$URL"
+            if git push -q origin corpus-hub; then echo "rows committed to corpus-hub"; exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error title=hub e2e::could not push the rows to corpus-hub; they are in this run's artifact"
+          exit 1
+
+      - name: The verdict
+        env:
+          RC: ${{ steps.gate.outputs.rc }}
+        run: |
+          python3 tools/hub-packs/hub_packs.py report --rows-dir "$RUNNER_TEMP/e2e/rows" \
+            --run-id "e2e-$GITHUB_RUN_ID" --history /dev/null --report /dev/null || true
+          if [ "$RC" != "0" ]; then
+            echo "::error title=hub e2e::the whole-hub gate failed (see the job summary)"; exit 1
+          fi

@@ -750,9 +750,18 @@ def _cell(v) -> str:
     return s.replace("\\", "\\\\").replace("|", "\\|")
 
 
+# Results that count as "this corpus is fine": a published pack (hub-packs.yml), or a
+# whole-hub end-to-end pass (whole_hub_e2e.sh, spec §12.4; its rows carry kind "e2e").
+OK_RESULTS = ("published", "e2e passed")
+
+
+def _is_e2e(r: dict) -> bool:
+    return r.get("kind") == "e2e"
+
+
 def _row_table(rows: list[dict]) -> list[str]:
     out = ["| slug | pin8 | bytes | defs | result | error |", "|---|---|---:|---:|---|---|"]
-    for r in sorted(rows, key=lambda r: (r.get("result") == "published", r.get("slug", ""))):
+    for r in sorted(rows, key=lambda r: (r.get("result") in OK_RESULTS, r.get("slug", ""))):
         result = r.get("result", "")
         if r.get("tag"):
             result += f" `{r['tag']}`"
@@ -760,15 +769,19 @@ def _row_table(rows: list[dict]) -> list[str]:
             result += f" at `{r['stage']}`"
         out.append(
             f"| `{_cell(r.get('slug'))}` | `{_cell(r.get('pin8'))}` | {_cell(r.get('bytes'))} "
-            f"| {_cell(r.get('defs'))} | {_cell(result)} | {_cell(r.get('error'))} |"
+            f"| {_cell(r.get('defs'))} | {_cell(result)} | {_cell(r.get('error') or r.get('detail'))} |"
         )
     return out
 
 
 def render_report(history: list[dict], run_urls: Optional[dict] = None) -> str:
     """REPORT.md from every row so far: the corpora whose latest attempt did not
-    publish first, then each run's rows, newest run first."""
+    publish first, then each run's rows, newest run first. Whole-hub end-to-end
+    rows (kind "e2e") are kept apart: a passing e2e is not a publish, and an e2e
+    failure must not hide behind an older publish (or the reverse)."""
     run_urls = run_urls or {}
+    e2e = [r for r in history if _is_e2e(r)]
+    history = [r for r in history if not _is_e2e(r)]
     latest: dict[str, dict] = {}
     runs: dict[str, list[dict]] = {}
     order: list[str] = []
@@ -809,7 +822,40 @@ def render_report(history: list[dict], run_urls: Optional[dict] = None) -> str:
         out += [f"{title}, {date}: {n_ok} of {len(rows)} published", ""]
         out += _row_table(rows)
         out.append("")
+    if e2e:
+        out += _render_e2e(e2e, run_urls)
     return "\n".join(out)
+
+
+def _render_e2e(rows: list[dict], run_urls: dict) -> list[str]:
+    """The newest whole-hub end-to-end run in full, older ones as one line each."""
+    runs: dict[str, list[dict]] = {}
+    for r in rows:
+        runs.setdefault(r["run"], []).append(r)
+    order = list(runs)
+    newest = runs[order[-1]]
+    out = [
+        "## Whole-hub end-to-end (spec §12.4)",
+        "",
+        "Written by `tools/hub-packs/whole_hub_e2e.sh` (`.github/workflows/hub-e2e.yml`): for every",
+        "catalogued corpus, `xerj hub pull` + one `--def` + one question from an empty HOME. The",
+        "release gate is 100% of catalogued corpora.",
+        "",
+    ]
+    for run in reversed(order[-REPORT_RUNS_SHOWN:]):
+        rs = runs[run]
+        n_ok = sum(1 for r in rs if r.get("result") in OK_RESULTS)
+        url = run_urls.get(run) or rs[0].get("url", "")
+        title = f"[{run}]({url})" if url else run
+        line = f"{title}, {rs[0].get('date', '')}: {n_ok} of {len(rs)} corpora passed"
+        if rs is newest:
+            out += [f"### Run {line}", ""] + _row_table(rs) + [""]
+            if len(order) > 1:
+                out += ["### Earlier e2e runs", ""]
+        else:
+            out.append(f"- {line}")
+    out.append("")
+    return out
 
 
 def read_rows(path: pathlib.Path) -> list[dict]:
@@ -951,9 +997,10 @@ def cmd_report(a: argparse.Namespace) -> int:
         history_path.parent.mkdir(parents=True, exist_ok=True)
         history_path.write_text("".join(json.dumps(r, separators=(",", ":")) + "\n" for r in history))
         pathlib.Path(a.report).write_text(render_report(history))
-    bad = [r for r in rows if r.get("result") != "published"]
+    bad = [r for r in rows if r.get("result") not in OK_RESULTS]
+    verb = "passed end-to-end" if rows and all(_is_e2e(r) for r in rows) else "published"
     print(f"### backfill report: run {a.run_id}\n")
-    print(f"{len(rows) - len(bad)} of {len(rows)} corpora published in this run.\n")
+    print(f"{len(rows) - len(bad)} of {len(rows)} corpora {verb} in this run.\n")
     print("\n".join(_row_table(rows)))
     return 0
 

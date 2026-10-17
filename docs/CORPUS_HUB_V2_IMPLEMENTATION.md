@@ -720,6 +720,15 @@ production `hub.xerj.org`):
 - A tampered pack (one flipped byte) and a tampered catalogue are refused, with nothing
   extracted.
 
+Runnable as `tools/hub-packs/whole_hub_e2e.sh` (`.github/workflows/hub-e2e.yml`,
+`workflow_dispatch`: a release tag or `build`, and the hub URL). It covers every
+item above except the `curl …/api/v1/def/…` check (no public node) and the
+shell-less persona (the agent harness). Per-corpus results are backfill-report rows
+(`kind: "e2e"`); the gate-level checks go to `GATE.md` and the job summary. Until a
+signed catalogue is deployed, `--rehearse <pack tags>` runs the same checks against a
+loopback catalogue of published packs re-signed with a throwaway key; their real
+signatures are checked separately, and every check says which key it ran against.
+
 Only after 12.1–12.4 pass do the held agent-surface PRs merge and the release notes
 mention Hub v2. Step 10's measurement is separate and still governs any published
 performance claim.

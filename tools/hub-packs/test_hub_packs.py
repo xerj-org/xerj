@@ -732,6 +732,43 @@ class ReportTests(unittest.TestCase):
         self.assertIn("3 corpora attempted: 2 published at their latest attempt, 1 not.", md)
         self.assertIn("boom", md, "the old failing row stays in run 1's table")
 
+    def test_e2e_rows_get_their_own_section_and_never_count_as_published(self):
+        def r(run, slug, result, kind=None, error="", detail=""):
+            row = {"run": run, "date": "d", "slug": slug, "pin8": "aaaaaaaa", "bytes": None,
+                   "defs": None, "result": result, "tag": "", "stage": "", "error": error,
+                   "detail": detail}
+            if kind:
+                row["kind"] = kind
+            return row
+        history = [r("1", "a", "failed", error="boom"), r("1", "b", "published"),
+                   r("e2e-1", "a", "e2e passed", "e2e", detail="--def X -> x.c:1"),
+                   r("e2e-1", "b", "failed", "e2e", error="pull refused"),
+                   r("e2e-2", "b", "e2e passed", "e2e")]
+        md = hp.render_report(history)
+        # The publishing state ignores the e2e rows: `a` still has not published.
+        self.assertIn("2 corpora attempted: 1 published at their latest attempt, 1 not.", md)
+        e2e = md[md.index("## Whole-hub end-to-end"):]
+        self.assertIn("### Run e2e-2, d: 1 of 1 corpora passed", e2e)
+        self.assertIn("- e2e-1, d: 1 of 2 corpora passed", e2e)
+        self.assertNotIn("e2e-1", md[:md.index("## Whole-hub end-to-end")])
+        md = hp.render_report(history[:4])
+        self.assertIn("--def X -> x.c:1", md, "a passing e2e row shows its detail")
+        self.assertIn("pull refused", md)
+
+    def test_report_cli_says_passed_for_an_e2e_run(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = pathlib.Path(t)
+            rows = root / "rows"; rows.mkdir()
+            for slug, res in (("a", "e2e passed"), ("b", "failed")):
+                (rows / f"{slug}.json").write_text(json.dumps(
+                    {"slug": slug, "kind": "e2e", "pin8": "11111111", "result": res, "run": "x"}))
+            args = ["report", "--rows-dir", str(rows), "--run-id", "e2e-9",
+                    "--history", str(root / "rows.jsonl"), "--report", str(root / "R.md"), "--write"]
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(hp.main(args), 0)
+            self.assertIn("1 of 2 corpora passed end-to-end in this run.", out.getvalue())
+            self.assertIn("### Run e2e-9", (root / "R.md").read_text())
+
     def test_report_cli_appends_this_run_and_replaces_a_rerun_of_the_same_id(self):
         with tempfile.TemporaryDirectory() as t:
             root = pathlib.Path(t)

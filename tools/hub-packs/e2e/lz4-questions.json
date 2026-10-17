@@ -1,0 +1,87 @@
+{
+  "corpus": "lz4",
+  "pin": "0774d05537",
+  "source": "benchmarks/corpus-tasks/tasks/lz4.json on branch bench/corpus-tasks (generator-derived at the pin; the questions of the 2026-10-13 hub proof-of-value run)",
+  "tasks": [
+    {
+      "id": "T1",
+      "name": "LZ4F_ENDMARK_SIZE",
+      "q": "In the current development source of lz4, what is the exact value of LZ4F_ENDMARK_SIZE? Answer with the value only.",
+      "re": [
+        "0x4|4"
+      ]
+    },
+    {
+      "id": "T2",
+      "name": "LZ4_VERSION_MINOR",
+      "q": "In the current development source of lz4, what is the exact value of LZ4_VERSION_MINOR? Answer with the value only.",
+      "re": [
+        "0xa|10"
+      ]
+    },
+    {
+      "id": "T3",
+      "name": "LZ4_VERSION_RELEASE",
+      "q": "In the current development source of lz4, what is the exact value of LZ4_VERSION_RELEASE? Answer with the value only.",
+      "re": [
+        "0|0x0"
+      ]
+    },
+    {
+      "id": "T4",
+      "name": "ENV_CLEVEL",
+      "q": "In the current development source of lz4, what is the exact value of ENV_CLEVEL? Answer with the value only.",
+      "re": [
+        "LZ4_CLEVEL"
+      ]
+    },
+    {
+      "id": "T5",
+      "name": "ENV_NBTHREADS",
+      "q": "In the current development source of lz4, what is the exact value of ENV_NBTHREADS? Answer with the value only.",
+      "re": [
+        "LZ4_NBWORKERS"
+      ]
+    },
+    {
+      "id": "T6",
+      "name": "OUTBUFF_QUEUE",
+      "q": "In the current development source of lz4, what is the exact value of OUTBUFF_QUEUE? Answer with the value only.",
+      "re": [
+        "0x1|1"
+      ]
+    },
+    {
+      "id": "T7",
+      "name": "NB_BUFFSETS",
+      "q": "In the current development source of lz4, what is the exact value of NB_BUFFSETS? Answer with the value only.",
+      "re": [
+        "0x4|4"
+      ]
+    },
+    {
+      "id": "T8",
+      "name": "DISTRIB_SIZE_MAX",
+      "q": "In the current development source of lz4, what is the exact value of DISTRIB_SIZE_MAX? Answer with the value only.",
+      "re": [
+        "0x28a|650"
+      ]
+    },
+    {
+      "id": "T9",
+      "name": "LZ4MID_HASHSIZE",
+      "q": "In the current development source of lz4, what is the exact value of LZ4MID_HASHSIZE? Answer with the value only.",
+      "re": [
+        "0x8|8"
+      ]
+    },
+    {
+      "id": "T10",
+      "name": "LZ4HC_CLEVEL_MIN",
+      "q": "In the current development source of lz4, what is the exact value of LZ4HC_CLEVEL_MIN? Answer with the value only.",
+      "re": [
+        "0x2|2"
+      ]
+    }
+  ]
+}
