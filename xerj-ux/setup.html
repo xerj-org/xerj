@@ -154,7 +154,7 @@ const nextRoute = (() => {
   return '#/' + n.replace(/^[#/]+/, '');
 })();
 if (!token) {
-  showError('No magic-link token in URL. The link must include #token=…');
+  showError('No magic-link token in this URL. The node printed a one-time setup link when it started — open that URL (it contains #token=). A restart prints a new link while the owner account is still unclaimed. An existing owner signs in at /_xerj-console/login.');
   $btnEnrol.disabled = true;
 }
 
