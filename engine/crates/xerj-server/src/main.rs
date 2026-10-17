@@ -1273,9 +1273,27 @@ async fn serve(
 /// can never advertise a port another process owns — the failure mode that
 /// sent one user's contracts, invoices and bank export into a stranger's data
 /// directory under `ok=true exit=0` (issue #465).
+/// What a bare `xerj` prints when the default port is taken.
+///
+/// The old context was `ES-compat: bind 127.0.0.1:9200` plus the OS error.
+/// A bare `xerj` starts the server. When that port is taken, the error did
+/// not mention `--port`, `--auto-port`, or that `--help` lists subcommands.
+fn addr_in_use_message(name: &str, addr: SocketAddr) -> String {
+    format!(
+        "{name}: {addr} is already in use. Pass --port <PORT> to pick a different one, or \
+         --auto-port to take the next free port. If you did not mean to start a server, \
+         `xerj --help` lists the subcommands."
+    )
+}
+
 fn bind_listener(addr: SocketAddr, name: &str) -> Result<std::net::TcpListener> {
-    let listener =
-        std::net::TcpListener::bind(addr).with_context(|| format!("{name}: bind {addr}"))?;
+    let listener = match std::net::TcpListener::bind(addr) {
+        Ok(listener) => listener,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            anyhow::bail!("{}", addr_in_use_message(name, addr));
+        }
+        Err(e) => return Err(e).with_context(|| format!("{name}: bind {addr}")),
+    };
     // Both axum's accept loop and axum-server's rustls acceptor drive this
     // listener from the reactor; a blocking fd would stall the runtime thread
     // on the first accept.
@@ -1283,6 +1301,24 @@ fn bind_listener(addr: SocketAddr, name: &str) -> Result<std::net::TcpListener> 
         .set_nonblocking(true)
         .with_context(|| format!("{name}: set the listener on {addr} non-blocking"))?;
     Ok(listener)
+}
+
+#[cfg(test)]
+mod bind_listener_tests {
+    use super::{addr_in_use_message, bind_listener};
+
+    #[test]
+    fn a_taken_port_names_port_and_auto_port() {
+        let held = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a free port");
+        let addr = held.local_addr().expect("read the held address");
+        let err = bind_listener(addr, "ES-compat").expect_err("the port is held");
+        let msg = format!("{err:#}");
+        assert!(msg.contains("--port"), "{msg}");
+        assert!(msg.contains("--auto-port"), "{msg}");
+        assert!(msg.contains("xerj --help"), "{msg}");
+        assert!(msg.contains(&addr.to_string()), "{msg}");
+        assert_eq!(msg, addr_in_use_message("ES-compat", addr));
+    }
 }
 
 /// If `data_dir` is currently locked by another live process, find the first
