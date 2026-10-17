@@ -222,6 +222,17 @@ pub fn best_window(body: &str, query: &str, width: usize) -> (String, usize, usi
     (win, start2, total)
 }
 
+/// `path:line` when `path` has no colon. A Windows drive (`C:/src/main.rs`)
+/// or any other colon in the path makes the first colon the drive, not the
+/// line, so the line is written beside the path instead.
+pub fn cite_path_line(path: &str, line: u64) -> String {
+    if path.contains(':') {
+        format!("{path} (line {line})")
+    } else {
+        format!("{path}:{line}")
+    }
+}
+
 /// `file:line`, or the best locator the record actually carries. NEVER an
 /// invented line number — a fabricated citation is worse than none, because
 /// it survives review by looking checkable.
@@ -235,7 +246,7 @@ pub fn provenance(src: &Value) -> String {
         .find_map(|k| src.get(*k).and_then(Value::as_u64))
         .filter(|n| *n != 0);
     match line {
-        Some(n) => format!("{path}:{n}"),
+        Some(n) => cite_path_line(path, n),
         None => path.to_string(),
     }
 }
@@ -380,6 +391,12 @@ mod tests {
             "line 0 is absent, not a line"
         );
         assert_eq!(provenance(&json!({})), "?");
+        assert_eq!(
+            provenance(&json!({ "ax_path": "C:/src/main.rs", "line": 12 })),
+            "C:/src/main.rs (line 12)",
+            "the drive colon is not the line number"
+        );
+        assert_eq!(cite_path_line("src/lib.rs", 4), "src/lib.rs:4");
     }
 
     #[test]

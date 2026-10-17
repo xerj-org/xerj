@@ -352,7 +352,7 @@ pub(crate) fn hit_location(hit: &Value) -> String {
         .and_then(Value::as_u64)
         .or_else(|| passage_line(hit));
     match line {
-        Some(n) => format!("{path}:{n}"),
+        Some(n) => xerj_common::xccode::passage::cite_path_line(path, n),
         None => path.to_string(),
     }
 }
@@ -793,6 +793,15 @@ mod tests {
             }
         });
         assert_eq!(hit_location(&symbol_hit), "crates/fjall/src/batch.rs:108");
+
+        let windows_hit = json!({
+            "_source": { "ax_path": "C:/src/main.rs", "line": 12 }
+        });
+        assert_eq!(
+            hit_location(&windows_hit),
+            "C:/src/main.rs (line 12)",
+            "a drive letter must not be parsed as the line"
+        );
 
         let synthetic_defs_hit = json!({
             "_source": {
