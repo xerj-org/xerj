@@ -289,6 +289,12 @@ pub fn extract(
 
 pub const MAX_FIELDS_PER_RECORD: usize = 512;
 
+/// A nested object or array stored as one JSON string. Past this, the
+/// string is cut. A 12 MB nested value used to become one text field, and
+/// analysis of that field wedged ingest. The cap is the bytes kept before
+/// the truncation marker; the cut is on a char boundary.
+pub const NESTED_JSON_FIELD_MAX: usize = 64 * 1024;
+
 /// Flatten a JSON object into a flat field map: up to TWO levels of nesting
 /// become `a_b_c` keys; deeper structure and arrays-of-objects are stored as
 /// JSON strings; arrays of scalars stay as arrays. Fields named `ax_*` are
@@ -325,26 +331,42 @@ fn flatten_into(key: &str, v: Value, depth: usize, out: &mut Map<String, Value>)
                     flatten_into(&format!("{key}_{k}"), vv, depth + 1, out);
                 }
             } else {
-                out.insert(
-                    key.to_string(),
-                    Value::String(serde_json::to_string(&m).unwrap_or_default()),
-                );
+                out.insert(key.to_string(), Value::String(bounded_json(&m)));
             }
         }
         Value::Array(a) => {
             if a.iter().all(|e| !e.is_object() && !e.is_array()) {
                 out.insert(key.to_string(), Value::Array(a));
             } else {
-                out.insert(
-                    key.to_string(),
-                    Value::String(serde_json::to_string(&a).unwrap_or_default()),
-                );
+                out.insert(key.to_string(), Value::String(bounded_json(&a)));
             }
         }
         other => {
             out.insert(key.to_string(), other);
         }
     }
+}
+
+/// JSON for a nested value that will be stored as one string field.
+///
+/// `serde_json::to_string` of a value already in memory is cheap. What is
+/// not cheap is handing the whole string to analysis: a 12 MB nested
+/// document becomes one text field and ingest stops making progress.
+/// Values under the cap are unchanged, so a small nested object still
+/// round-trips.
+fn bounded_json(value: &impl serde::Serialize) -> String {
+    let full = serde_json::to_string(value).unwrap_or_default();
+    if full.len() <= NESTED_JSON_FIELD_MAX {
+        return full;
+    }
+    let mut end = NESTED_JSON_FIELD_MAX.min(full.len());
+    while end > 0 && !full.is_char_boundary(end) {
+        end -= 1;
+    }
+    let mut cut = String::with_capacity(end + 16);
+    cut.push_str(&full[..end]);
+    cut.push_str("…[truncated]");
+    cut
 }
 
 /// A string field counts as prose at this many characters …

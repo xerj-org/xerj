@@ -572,6 +572,40 @@ mod tests {
         assert_eq!((stats.records, stats.junk), (2, 1));
     }
 
+    /// A nested array of objects is stored as one JSON string. Past
+    /// [`NESTED_JSON_FIELD_MAX`] that string is cut, so a 12 MB nested
+    /// file cannot become one analyzed text field. A value under the cap
+    /// is stored whole.
+    #[test]
+    fn a_large_nested_value_is_cut_before_it_becomes_a_field() {
+        let cap = super::super::NESTED_JSON_FIELD_MAX;
+        let big = "x".repeat(cap + 1024);
+        let text = format!(r#"{{"id":"row","payload":[{{"blob":"{big}"}}]}}"#);
+        let (stats, recs) = run(&text);
+        assert_eq!(stats.records, 1);
+        let payload = recs[0].fields["payload"].as_str().unwrap();
+        assert!(
+            payload.ends_with("…[truncated]"),
+            "over-cap nested JSON must say it was cut: {} bytes",
+            payload.len()
+        );
+        assert!(
+            payload.len() <= cap + "…[truncated]".len(),
+            "field is {} bytes, cap is {cap}",
+            payload.len()
+        );
+        assert_eq!(recs[0].fields["id"], serde_json::json!("row"));
+
+        let (stats, recs) = run(r#"{"id":"row","payload":[{"n":1}]}"#);
+        assert_eq!(stats.records, 1);
+        let payload = recs[0].fields["payload"].as_str().unwrap();
+        assert!(
+            !payload.contains("truncated"),
+            "a small nested value is stored whole: {payload}"
+        );
+        assert!(payload.contains("\"n\":1"), "{payload}");
+    }
+
     #[test]
     fn an_empty_array_yields_nothing_at_all_without_being_junk() {
         let (stats, recs) = run("[]");
