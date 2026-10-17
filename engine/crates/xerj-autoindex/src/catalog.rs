@@ -725,10 +725,7 @@ pub fn render_map_page(
                         f.null_ratio * 100.0,
                         f.examples
                             .iter()
-                            .map(|e| {
-                                let short: String = clean(e).chars().take(40).collect();
-                                format!("`{}`", short.replace('|', "\\|").replace('`', "'"))
-                            })
+                            .map(|e| map_example_cell(e))
                             .collect::<Vec<_>>()
                             .join(", ")
                     ));
@@ -879,6 +876,22 @@ fn pretty_val(v: &Value) -> String {
     clean(&s)
 }
 
+/// One markdown table cell for a field example.
+///
+/// [`clean`] keeps newlines and tabs, and this cell is interpolated into a
+/// `| field | ... | examples |` row. A newline ends the row, so an example
+/// whose next line starts with `##` is rendered as a heading. Collapse
+/// whitespace onto one line, then cap the cell.
+fn map_example_cell(raw: &str) -> String {
+    let flat = clean(raw).split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut short: String = flat.chars().take(40).collect();
+    if flat.chars().count() > 40 {
+        short = flat.chars().take(39).collect();
+        short.push('…');
+    }
+    format!("`{}`", short.replace('|', "\\|").replace('`', "'"))
+}
+
 /// Strip control characters (raw data can contain NULs etc. — they would
 /// make the rendered map read as a binary file).
 fn clean(s: &str) -> String {
@@ -953,6 +966,62 @@ mod duplicate_tests {
         assert!(page.contains("### `ax-d09`"));
         assert!(!page.contains("### `ax-d10`"));
         assert!(page.contains("Field detail for datasets 9–10 of 20"));
+    }
+
+    fn one_field(name: &str, example: &str) -> crate::infer::FieldSpec {
+        crate::infer::FieldSpec {
+            name: name.into(),
+            es_type: "text".into(),
+            date_enc: None,
+            semantic: None,
+            cardinality_est: 1,
+            cardinality_overflow: false,
+            null_ratio: 0.0,
+            avg_len: 3.0,
+            coverage: 1.0,
+            examples: vec![example.into()],
+            notes: vec![],
+            date_min: None,
+            date_max: None,
+            date_evidence: vec![],
+            num_min: None,
+            num_max: None,
+        }
+    }
+
+    /// A newline in an example used to end the markdown row. The next line
+    /// (`## Branded types…`) was then a heading in the middle of the table.
+    #[test]
+    fn an_example_newline_stays_inside_its_table_row() {
+        let dataset = json!({
+            "index_name": "ax-branded",
+            "slug": "branded",
+            "record_count": 1,
+            "file_count": 1,
+            "formats": "json",
+            "fields_json": serde_json::to_string(&vec![
+                one_field("code", "code\n## Branded types for type guard"),
+                one_field("wide", &format!("alpha\tbeta {}", "n".repeat(40))),
+            ]).unwrap()
+        });
+        let rendered = render_map(None, &[dataset], &[], &[], &[], 0);
+        assert!(
+            !rendered.lines().any(|l| l.starts_with("## Branded")),
+            "a newline in an example forged a heading:\n{rendered}"
+        );
+        let row = rendered
+            .lines()
+            .find(|l| l.contains("code ## Branded"))
+            .expect("the example stays on the field row");
+        assert!(row.starts_with('|'), "{row}");
+        assert!(!row.contains('\n'));
+        let wide = rendered
+            .lines()
+            .find(|l| l.contains("alpha beta"))
+            .expect("a tab is a space");
+        assert!(wide.starts_with('|'), "{wide}");
+        assert!(wide.contains('…'), "a long example is capped: {wide}");
+        assert!(!wide.contains(&"n".repeat(40)), "{wide}");
     }
 
     #[test]
