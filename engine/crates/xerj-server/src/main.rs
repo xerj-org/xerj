@@ -319,7 +319,13 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Auth is ON by default, so without this flag every client\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(`xerj autoindex` and `xerj brain` included) must send the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20key this server writes to <data_dir>/admin.key on first\n\
-         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20start — export XERJ_API_KEY=$(cat ./data/admin.key)\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20start. The default data directory is ./data. Keep it outside any folder\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20you will autoindex — ./data inside that tree gets indexed, because data/\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is not in the built-in ignore list. Start it with xerj --data-dir ~/xerj-data\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(Windows: $HOME\\xerj-data), then:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20export XERJ_API_KEY=\"$(cat ~/xerj-data/admin.key)\"\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20On Windows PowerShell:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20$env:XERJ_API_KEY = Get-Content \"$env:USERPROFILE\\xerj-data\\admin.key\"\n\
          \x20\x20\x20\x20--embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto |\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20onnx-experimental\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20lexical  built-in feature-hash (default; offline, not neural)\n\
@@ -2188,6 +2194,31 @@ fn build_runtime(worker_threads: usize) -> Result<tokio::runtime::Runtime> {
 #[cfg(test)]
 mod help_text_tests {
     use super::help_text;
+
+    /// `--help` used to show `cat ./data/admin.key`. The default data dir is
+    /// `./data`, and llms.txt says that path inside a folder you autoindex
+    /// indexes the node's own storage. The installer starts with `~/xerj-data`.
+    /// Help outranks the website, so the example agents copy has to be that path.
+    #[test]
+    fn insecure_help_example_keeps_the_data_dir_outside_the_tree() {
+        let help = help_text(true);
+        assert!(
+            help.contains("~/xerj-data/admin.key"),
+            "the export example must be the outside-the-tree data dir:\n{help}"
+        );
+        assert!(
+            help.contains("USERPROFILE"),
+            "Windows must get a path too:\n{help}"
+        );
+        assert!(
+            !help.contains("cat ./data/admin.key"),
+            "the old in-tree example is what agents copy"
+        );
+        assert!(
+            help.contains("default data directory is ./data"),
+            "omitting --data-dir still writes ./data, and the help must say so"
+        );
+    }
 
     /// `--insecure` disables TLS **and** auth (see `apply_overrides`, which
     /// sets `cfg.tls.enabled = false; cfg.auth.enabled = false;`), but the
